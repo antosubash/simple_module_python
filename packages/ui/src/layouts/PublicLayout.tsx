@@ -1,12 +1,6 @@
 import React, { useState } from 'react';
 import { usePage, Link } from '@inertiajs/react';
-
-interface SharedProps {
-    auth: {
-        user: { name: string; email: string; roles: string[] } | null;
-        isAuthenticated: boolean;
-    };
-}
+import type { SharedProps } from '../types';
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
     const { auth } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
@@ -14,7 +8,6 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
-            {/* Nav */}
             <nav className="px-4 py-4 sm:px-8 sm:py-5">
                 <div className="flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-2">
@@ -24,7 +17,6 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                         <span className="text-xl font-bold">SimpleModule</span>
                     </Link>
 
-                    {/* Desktop nav */}
                     <div className="hidden sm:flex items-center gap-4">
                         {auth?.isAuthenticated ? (
                             <a href="/dashboard" className="btn-primary">
@@ -42,9 +34,8 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                         )}
                     </div>
 
-                    {/* Mobile hamburger */}
                     <button
-                        onClick={() => setMenuOpen(!menuOpen)}
+                        onClick={() => setMenuOpen(prev => !prev)}
                         className="sm:hidden p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
                     >
                         {menuOpen ? (
@@ -59,7 +50,6 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                     </button>
                 </div>
 
-                {/* Mobile menu */}
                 {menuOpen && (
                     <div className="sm:hidden mt-4 pt-4 border-t border-white/10 flex flex-col gap-3">
                         {auth?.isAuthenticated ? (
@@ -80,12 +70,10 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                 )}
             </nav>
 
-            {/* Content */}
             <main className="flex-1">
                 {children}
             </main>
 
-            {/* Footer */}
             <footer className="border-t border-gray-800 py-6 px-4 text-center text-sm text-gray-500 sm:py-8">
                 SimpleModule Framework — Built with FastAPI, Inertia.js, React, and Tailwind CSS
             </footer>

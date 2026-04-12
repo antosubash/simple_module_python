@@ -46,7 +46,6 @@ function Browse() {
                                 <tr key={product.id} className="hover:bg-gray-50/50 transition-colors">
                                     <td className="px-4 py-3 sm:px-6 sm:py-4">
                                         <span className="text-sm font-medium text-gray-900">{product.name}</span>
-                                        {/* Show status inline on mobile */}
                                         <span className={`inline-block mt-1 sm:hidden ${product.is_active ? 'badge-success' : 'badge-danger'}`}>
                                             {product.is_active ? 'Active' : 'Inactive'}
                                         </span>

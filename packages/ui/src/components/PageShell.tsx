@@ -19,7 +19,7 @@ export function PageShell({ title, description, children, actions }: PageShellPr
                 </div>
                 {actions && <div className="flex items-center gap-3">{actions}</div>}
             </div>
-            <div>{children}</div>
+            {children}
         </div>
     );
 }
