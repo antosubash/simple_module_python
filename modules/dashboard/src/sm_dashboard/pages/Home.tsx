@@ -1,6 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import { PageShell } from '@ui/components/PageShell';
-import { AppLayout } from '@ui/layouts/AppLayout';
+import { AuthenticatedLayout } from '@ui/layouts/AuthenticatedLayout';
 
 interface Props {
     welcome: string;
@@ -49,5 +49,5 @@ function StatCard({ title, value, color }: { title: string; value: string; color
     );
 }
 
-Home.layout = (page: React.ReactNode) => <AppLayout>{page}</AppLayout>;
+Home.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
 export default Home;

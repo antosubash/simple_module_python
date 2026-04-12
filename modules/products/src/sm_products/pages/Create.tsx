@@ -1,6 +1,6 @@
 import { useForm, Link } from '@inertiajs/react';
 import { PageShell } from '@ui/components/PageShell';
-import { AppLayout } from '@ui/layouts/AppLayout';
+import { AuthenticatedLayout } from '@ui/layouts/AuthenticatedLayout';
 
 function Create() {
     const { data, setData, post, processing, errors } = useForm({
@@ -80,5 +80,5 @@ function Create() {
     );
 }
 
-Create.layout = (page: React.ReactNode) => <AppLayout>{page}</AppLayout>;
+Create.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
 export default Create;
