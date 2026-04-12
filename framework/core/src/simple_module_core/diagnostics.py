@@ -1,0 +1,236 @@
+"""Module diagnostics — validates structure and patterns at startup or via CLI."""
+
+from __future__ import annotations
+
+import ast
+import logging
+from dataclasses import dataclass, field
+from enum import StrEnum
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from simple_module_core.module import ModuleBase
+
+logger = logging.getLogger(__name__)
+
+
+class DiagnosticLevel(StrEnum):
+    ERROR = "error"
+    WARNING = "warning"
+    INFO = "info"
+
+
+@dataclass
+class Diagnostic:
+    """A single diagnostic finding."""
+
+    level: DiagnosticLevel
+    code: str
+    message: str
+    module_name: str
+    file: str | None = None
+    suggestion: str | None = None
+
+    def __str__(self) -> str:
+        prefix = {"error": "\u2717", "warning": "\u26a0", "info": "\u2139"}[self.level]
+        parts = [f"{prefix} {self.code} [{self.level.upper()}] {self.module_name}: {self.message}"]
+        if self.file:
+            parts.append(f"  \u21b3 {self.file}")
+        if self.suggestion:
+            parts.append(f"  \u21b3 Suggestion: {self.suggestion}")
+        return "\n".join(parts)
+
+
+class ModuleDiagnostics:
+    """Validates module structure and configuration."""
+
+    def run(self, modules: list[ModuleBase]) -> list[Diagnostic]:
+        diagnostics: list[Diagnostic] = []
+        diagnostics.extend(self._check_duplicate_names(modules))
+        diagnostics.extend(self._check_schema_conflicts(modules))
+        diagnostics.extend(self._check_empty_modules(modules))
+        diagnostics.extend(self._check_missing_meta(modules))
+
+        # File-based checks (need to find module source directories)
+        for mod in modules:
+            src_dir = self._find_source_dir(mod)
+            if src_dir:
+                diagnostics.extend(self._check_orphan_pages(mod, src_dir))
+                diagnostics.extend(self._check_phantom_renders(mod, src_dir))
+
+        return diagnostics
+
+    def _check_duplicate_names(self, modules: list[ModuleBase]) -> list[Diagnostic]:
+        seen: dict[str, str] = {}
+        diags: list[Diagnostic] = []
+        for mod in modules:
+            name = mod.meta.name
+            cls_name = type(mod).__qualname__
+            if name in seen:
+                diags.append(Diagnostic(
+                    level=DiagnosticLevel.ERROR,
+                    code="SM008",
+                    message=f"Duplicate module name '{name}' (also in {seen[name]})",
+                    module_name=cls_name,
+                    suggestion="Each module must have a unique meta.name",
+                ))
+            seen[name] = cls_name
+        return diags
+
+    def _check_schema_conflicts(self, modules: list[ModuleBase]) -> list[Diagnostic]:
+        """Check for modules that would create conflicting DB schemas."""
+        prefixes: dict[str, str] = {}
+        diags: list[Diagnostic] = []
+        for mod in modules:
+            prefix = mod.meta.name.lower()
+            if prefix in prefixes:
+                diags.append(Diagnostic(
+                    level=DiagnosticLevel.ERROR,
+                    code="SM008",
+                    message=(
+                        f"Schema/table prefix '{prefix}' conflicts "
+                        f"with module '{prefixes[prefix]}'"
+                    ),
+                    module_name=mod.meta.name,
+                    suggestion="Use unique module names to avoid DB schema conflicts",
+                ))
+            prefixes[prefix] = mod.meta.name
+        return diags
+
+    def _check_empty_modules(self, modules: list[ModuleBase]) -> list[Diagnostic]:
+        diags: list[Diagnostic] = []
+        for mod in modules:
+            cls = type(mod)
+            overridden = [
+                name
+                for name in (
+                    "register_routes",
+                    "register_menu_items",
+                    "register_permissions",
+                    "register_feature_flags",
+                    "register_event_handlers",
+                )
+                if name in cls.__dict__
+            ]
+            if not overridden:
+                diags.append(Diagnostic(
+                    level=DiagnosticLevel.INFO,
+                    code="SM007",
+                    message="Module exists but overrides no registration methods",
+                    module_name=mod.meta.name,
+                    suggestion="Override register_routes() or other methods to add functionality",
+                ))
+        return diags
+
+    def _check_missing_meta(self, modules: list[ModuleBase]) -> list[Diagnostic]:
+        diags: list[Diagnostic] = []
+        for mod in modules:
+            if not hasattr(mod, "meta"):
+                diags.append(Diagnostic(
+                    level=DiagnosticLevel.ERROR,
+                    code="SM001",
+                    message="Module missing 'meta' class attribute",
+                    module_name=type(mod).__qualname__,
+                    suggestion="Add: meta = ModuleMeta(name='YourModule')",
+                ))
+        return diags
+
+    def _check_orphan_pages(self, mod: ModuleBase, src_dir: Path) -> list[Diagnostic]:
+        """Find .tsx pages that aren't referenced by any inertia.render() call."""
+        pages_dir = src_dir / "pages"
+        if not pages_dir.exists():
+            return []
+
+        tsx_pages = {f.stem for f in pages_dir.glob("*.tsx")}
+        rendered_pages = self._find_render_calls(mod, src_dir)
+        orphans = tsx_pages - rendered_pages
+
+        return [
+            Diagnostic(
+                level=DiagnosticLevel.WARNING,
+                code="SM003",
+                message=f"Page '{name}.tsx' exists but no matching inertia.render() found",
+                module_name=mod.meta.name,
+                file=str(pages_dir / f"{name}.tsx"),
+                suggestion=f'Add inertia.render("{mod.meta.name}/{name}", ...) in a view endpoint',
+            )
+            for name in orphans
+        ]
+
+    def _check_phantom_renders(self, mod: ModuleBase, src_dir: Path) -> list[Diagnostic]:
+        """Find inertia.render() calls that reference non-existent pages."""
+        pages_dir = src_dir / "pages"
+        tsx_pages = {f.stem for f in pages_dir.glob("*.tsx")} if pages_dir.exists() else set()
+        rendered_pages = self._find_render_calls(mod, src_dir)
+        phantoms = rendered_pages - tsx_pages
+
+        return [
+            Diagnostic(
+                level=DiagnosticLevel.WARNING,
+                code="SM004",
+                message=f'inertia.render("{mod.meta.name}/{name}") but no {name}.tsx exists',
+                module_name=mod.meta.name,
+                suggestion=f"Create {pages_dir / f'{name}.tsx'}",
+            )
+            for name in phantoms
+        ]
+
+    def _find_render_calls(self, mod: ModuleBase, src_dir: Path) -> set[str]:
+        """Parse Python source to find inertia.render("Module/Page") calls."""
+        rendered: set[str] = set()
+        prefix = f"{mod.meta.name}/"
+
+        for py_file in src_dir.rglob("*.py"):
+            try:
+                tree = ast.parse(py_file.read_text(), filename=str(py_file))
+            except SyntaxError:
+                continue
+
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                # Match: inertia.render("Products/Browse", ...)
+                # or: xxx.render("Products/Browse", ...)
+                if isinstance(node.func, ast.Attribute) and node.func.attr == "render":
+                    if node.args and isinstance(node.args[0], ast.Constant):
+                        component = node.args[0].value
+                        if isinstance(component, str) and component.startswith(prefix):
+                            page_name = component[len(prefix):]
+                            rendered.add(page_name)
+
+        return rendered
+
+    def _find_source_dir(self, mod: ModuleBase) -> Path | None:
+        """Locate the source directory for a module's package."""
+        import importlib.util
+
+        pkg_name = type(mod).__module__.rsplit(".", 1)[0]
+        spec = importlib.util.find_spec(pkg_name)
+        if spec and spec.submodule_search_locations:
+            locations = list(spec.submodule_search_locations)
+            if locations:
+                return Path(locations[0])
+        return None
+
+
+def run_diagnostics(modules: list[ModuleBase]) -> list[Diagnostic]:
+    """Convenience function to run all diagnostics."""
+    return ModuleDiagnostics().run(modules)
+
+
+def print_diagnostics(diagnostics: list[Diagnostic]) -> None:
+    """Pretty-print diagnostics to stderr."""
+    if not diagnostics:
+        logger.info("\u2713 No module diagnostics issues found")
+        return
+
+    errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]
+    warnings = [d for d in diagnostics if d.level == DiagnosticLevel.WARNING]
+    infos = [d for d in diagnostics if d.level == DiagnosticLevel.INFO]
+
+    for d in diagnostics:
+        print(str(d))
+        print()
+
+    print(f"Results: {len(errors)} error(s), {len(warnings)} warning(s), {len(infos)} info")

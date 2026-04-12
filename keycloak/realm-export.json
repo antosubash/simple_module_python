@@ -1,0 +1,50 @@
+{
+  "realm": "simple-module",
+  "enabled": true,
+  "registrationAllowed": true,
+  "roles": {
+    "realm": [
+      { "name": "admin", "composite": false },
+      { "name": "user", "composite": false }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "simple-module-app",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "simple-module-secret",
+      "redirectUris": ["http://localhost:8000/*"],
+      "postLogoutRedirectUris": ["http://localhost:8000/*"],
+      "webOrigins": ["http://localhost:8000"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "email": "admin@test.com",
+      "enabled": true,
+      "firstName": "Admin",
+      "lastName": "User",
+      "credentials": [
+        { "type": "password", "value": "admin", "temporary": false }
+      ],
+      "realmRoles": ["admin", "user"]
+    },
+    {
+      "username": "user",
+      "email": "user@test.com",
+      "enabled": true,
+      "firstName": "Regular",
+      "lastName": "User",
+      "credentials": [
+        { "type": "password", "value": "user", "temporary": false }
+      ],
+      "realmRoles": ["user"]
+    }
+  ]
+}
