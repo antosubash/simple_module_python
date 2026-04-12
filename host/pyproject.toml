@@ -1,0 +1,17 @@
+[project]
+name = "simple-module-host"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.14"
+dependencies = [
+    "simple-module-hosting",
+    "sm-auth",
+    "sm-dashboard",
+    "sm-products",
+]
+
+[tool.uv.sources]
+simple-module-hosting = { workspace = true }
+sm-auth = { workspace = true }
+sm-products = { workspace = true }
+sm-dashboard = { workspace = true }

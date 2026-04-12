@@ -1,0 +1,25 @@
+[project]
+name = "sm-products"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "Anto Subash", email = "antosubash@live.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "simple-module-core",
+    "simple-module-db",
+    "simple-module-hosting",
+]
+
+[project.entry-points.simple_module]
+products = "sm_products.module:ProductsModule"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+simple-module-core = { workspace = true }
+simple-module-db = { workspace = true }
+simple-module-hosting = { workspace = true }

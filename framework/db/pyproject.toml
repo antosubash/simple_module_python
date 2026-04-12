@@ -1,0 +1,22 @@
+[project]
+name = "simple-module-db"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "Anto Subash", email = "antosubash@live.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "aiosqlite>=0.20",
+    "alembic>=1.14",
+    "asyncpg>=0.30",
+    "simple-module-core",
+    "sqlalchemy[asyncio]>=2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+simple-module-core = { workspace = true }

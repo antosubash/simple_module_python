@@ -1,0 +1,36 @@
+[project]
+name = "simple-module-python"
+version = "0.1.0"
+description = "A modular monolith framework for Python using FastAPI, Inertia.js, and React"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv.workspace]
+members = [
+    "framework/*",
+    "modules/*",
+    "host",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "ruff>=0.8",
+    "playwright>=1.58.0",
+    "pytest-playwright>=0.7.2",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["framework/core/tests", "framework/db/tests", "framework/hosting/tests", "modules/auth/tests", "modules/products/tests"]
+markers = ["e2e: end-to-end tests requiring live services (Keycloak, browser)"]
+addopts = "-m 'not e2e'"
