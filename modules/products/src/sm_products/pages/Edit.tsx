@@ -1,6 +1,6 @@
 import { useForm, usePage, Link } from '@inertiajs/react';
 import { PageShell } from '@ui/components/PageShell';
-import { AppLayout } from '@ui/layouts/AppLayout';
+import { AuthenticatedLayout } from '@ui/layouts/AuthenticatedLayout';
 
 interface Product {
     id: number;
@@ -100,5 +100,5 @@ function Edit() {
     );
 }
 
-Edit.layout = (page: React.ReactNode) => <AppLayout>{page}</AppLayout>;
+Edit.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
 export default Edit;

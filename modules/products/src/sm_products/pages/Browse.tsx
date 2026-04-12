@@ -1,6 +1,6 @@
 import { usePage, Link } from '@inertiajs/react';
 import { PageShell } from '@ui/components/PageShell';
-import { AppLayout } from '@ui/layouts/AppLayout';
+import { AuthenticatedLayout } from '@ui/layouts/AuthenticatedLayout';
 
 interface Product {
     id: number;
@@ -87,5 +87,5 @@ function Browse() {
     );
 }
 
-Browse.layout = (page: React.ReactNode) => <AppLayout>{page}</AppLayout>;
+Browse.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
 export default Browse;

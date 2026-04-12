@@ -1,40 +1,15 @@
 import { usePage } from '@inertiajs/react';
+import { PublicLayout } from '@ui/layouts/PublicLayout';
 
 interface Props {
     isAuthenticated: boolean;
 }
 
-export default function Landing() {
+function Landing() {
     const { isAuthenticated } = usePage<{ props: Props }>().props as unknown as Props;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
-            {/* Nav */}
-            <nav className="flex items-center justify-between px-8 py-5">
-                <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-lg bg-primary-500 flex items-center justify-center">
-                        <span className="text-white font-bold text-sm">SM</span>
-                    </div>
-                    <span className="text-xl font-bold">SimpleModule</span>
-                </div>
-                <div className="flex items-center gap-4">
-                    {isAuthenticated ? (
-                        <a href="/dashboard" className="btn-primary">
-                            Go to Dashboard
-                        </a>
-                    ) : (
-                        <>
-                            <a href="/auth/login" className="btn-ghost text-gray-300 hover:text-white">
-                                Sign In
-                            </a>
-                            <a href="/auth/login" className="btn-primary">
-                                Get Started
-                            </a>
-                        </>
-                    )}
-                </div>
-            </nav>
-
+        <>
             {/* Hero */}
             <section className="max-w-5xl mx-auto px-8 pt-24 pb-20 text-center">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/10 border border-primary-500/20 text-primary-300 text-sm font-medium mb-8">
@@ -130,12 +105,7 @@ export default function Landing() {
                     />
                 </div>
             </section>
-
-            {/* Footer */}
-            <footer className="border-t border-gray-800 py-8 text-center text-sm text-gray-500">
-                SimpleModule Framework — Built with FastAPI, Inertia.js, React, and Tailwind CSS
-            </footer>
-        </div>
+        </>
     );
 }
 
@@ -150,3 +120,6 @@ function FeatureCard({ icon, title, description }: { icon: React.ReactNode; titl
         </div>
     );
 }
+
+Landing.layout = (page: React.ReactNode) => <PublicLayout>{page}</PublicLayout>;
+export default Landing;
