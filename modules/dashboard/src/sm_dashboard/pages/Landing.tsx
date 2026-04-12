@@ -11,13 +11,13 @@ function Landing() {
     return (
         <>
             {/* Hero */}
-            <section className="max-w-5xl mx-auto px-8 pt-24 pb-20 text-center">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/10 border border-primary-500/20 text-primary-300 text-sm font-medium mb-8">
+            <section className="max-w-5xl mx-auto px-4 pt-12 pb-12 text-center sm:px-8 sm:pt-24 sm:pb-20">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/10 border border-primary-500/20 text-primary-300 text-xs font-medium mb-6 sm:text-sm sm:mb-8">
                     <span className="w-2 h-2 rounded-full bg-primary-400 animate-pulse" />
                     Built with FastAPI + Inertia.js + React
                 </div>
 
-                <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight leading-tight">
+                <h1 className="text-3xl font-extrabold tracking-tight leading-tight sm:text-5xl lg:text-6xl">
                     Modular Monolith
                     <br />
                     <span className="bg-gradient-to-r from-primary-400 to-primary-200 bg-clip-text text-transparent">
@@ -25,18 +25,18 @@ function Landing() {
                     </span>
                 </h1>
 
-                <p className="mt-6 text-lg text-gray-400 max-w-2xl mx-auto leading-relaxed">
+                <p className="mt-4 text-base text-gray-400 max-w-2xl mx-auto leading-relaxed sm:mt-6 sm:text-lg">
                     Build scalable applications with independent modules, each with its own
                     database schema, API endpoints, and React pages — all in one deployable unit.
                 </p>
 
-                <div className="mt-10 flex items-center justify-center gap-4">
-                    <a href="/auth/login" className="btn-primary px-6 py-3 text-base">
+                <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-4 sm:mt-10">
+                    <a href="/auth/login" className="btn-primary px-6 py-3 text-base w-full sm:w-auto">
                         {isAuthenticated ? 'Open Dashboard' : 'Get Started'}
                     </a>
                     <a
                         href="https://github.com"
-                        className="btn-secondary px-6 py-3 text-base border-gray-600 text-gray-300 hover:text-white hover:border-gray-500"
+                        className="btn-secondary px-6 py-3 text-base border-gray-600 text-gray-300 hover:text-white hover:border-gray-500 w-full sm:w-auto"
                     >
                         Documentation
                     </a>
@@ -44,7 +44,7 @@ function Landing() {
             </section>
 
             {/* Features */}
-            <section className="max-w-6xl mx-auto px-8 pb-24">
+            <section className="max-w-6xl mx-auto px-4 pb-16 sm:px-8 sm:pb-24">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <FeatureCard
                         icon={
