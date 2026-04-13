@@ -19,8 +19,8 @@ from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagRegistry
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
-from simple_module_db.session import DatabaseState, init_db
 from simple_module_db.listeners import register_listeners
+from simple_module_db.session import init_db
 from starlette.middleware.sessions import SessionMiddleware
 
 from simple_module_hosting.health import router as health_router

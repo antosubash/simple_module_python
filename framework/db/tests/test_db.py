@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin, SoftDeleteMixin, VersionedMixin
 from simple_module_db.provider import DatabaseProvider, detect_provider
@@ -83,7 +82,7 @@ class TestMixins:
         assert hasattr(VersionedMixin, "version")
 
 
-# ── init_db / get_engine / get_session_factory ───────────────────────
+# ── init_db / DatabaseState ──────────────────────────────────────────
 
 
 class TestSessionManagement:
