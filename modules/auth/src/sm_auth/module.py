@@ -18,6 +18,11 @@ class AuthModule(ModuleBase):
         route_prefix="/auth",
     )
 
+    def register_settings(self, app: FastAPI) -> None:
+        from sm_auth.settings import AuthSettings
+
+        app.state.auth_settings = AuthSettings()
+
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from sm_auth.endpoints.api import router as api
 
@@ -27,7 +32,10 @@ class AuthModule(ModuleBase):
         from sm_auth.middleware import AuthMiddleware
         from sm_auth.oauth import configure_oauth
 
-        settings = app.state.settings
+        if not hasattr(app.state, "auth_settings"):
+            self.register_settings(app)
+
+        settings = app.state.auth_settings
         configure_oauth(
             keycloak_url=settings.keycloak_url,
             realm=settings.keycloak_realm,

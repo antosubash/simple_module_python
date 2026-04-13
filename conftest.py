@@ -21,10 +21,6 @@ def settings() -> Settings:
         database_url="sqlite+aiosqlite:///:memory:",
         environment="testing",
         secret_key="test-secret-key",
-        keycloak_url="http://localhost:8080",
-        keycloak_realm="test-realm",
-        keycloak_client_id="test-client",
-        keycloak_client_secret="test-secret",
     )
 
 
