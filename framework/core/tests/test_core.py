@@ -10,6 +10,7 @@ from simple_module_core.discovery import topological_sort
 from simple_module_core.events import Event, EventBus
 from simple_module_core.exceptions import CircularDependencyError
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
+from simple_module_core.health import HealthCheck, HealthCheckResult, HealthRegistry, HealthStatus
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
@@ -582,6 +583,68 @@ class TestModuleLifecycle:
         reg = FeatureFlagRegistry()
         mod.register_feature_flags(reg)
         assert len(reg.all_flags) == 0
+
+
+# ── HealthRegistry ─────────────────────────────────────────────────
+
+
+class TestHealthRegistry:
+    async def test_add_and_list(self):
+        reg = HealthRegistry()
+
+        async def check_db() -> HealthCheckResult:
+            return HealthCheckResult(status=HealthStatus.HEALTHY)
+
+        reg.add(HealthCheck(name="db", check=check_db))
+        assert len(reg.all_checks) == 1
+        assert reg.all_checks[0].name == "db"
+
+    async def test_empty_registry(self):
+        reg = HealthRegistry()
+        assert reg.all_checks == []
+
+    async def test_multiple_checks(self):
+        reg = HealthRegistry()
+
+        async def check_a() -> HealthCheckResult:
+            return HealthCheckResult(status=HealthStatus.HEALTHY)
+
+        async def check_b() -> HealthCheckResult:
+            return HealthCheckResult(status=HealthStatus.DEGRADED, detail="slow")
+
+        reg.add(HealthCheck(name="a", check=check_a))
+        reg.add(HealthCheck(name="b", check=check_b))
+        assert len(reg.all_checks) == 2
+
+    async def test_check_result_defaults(self):
+        result = HealthCheckResult(status=HealthStatus.HEALTHY)
+        assert result.detail is None
+
+    async def test_check_result_with_detail(self):
+        result = HealthCheckResult(status=HealthStatus.DEGRADED, detail="reindexing")
+        assert result.detail == "reindexing"
+
+    async def test_health_status_ordering(self):
+        """Verify enum values exist for aggregation logic."""
+        assert HealthStatus.HEALTHY == "healthy"
+        assert HealthStatus.DEGRADED == "degraded"
+        assert HealthStatus.UNHEALTHY == "unhealthy"
+
+
+class TestModuleNewHooks:
+    async def test_register_exception_handlers_default_noop(self):
+        mod = DummyModule()
+        mod.register_exception_handlers(None)  # type: ignore
+
+    async def test_register_health_checks_default_noop(self):
+        mod = DummyModule()
+        reg = HealthRegistry()
+        mod.register_health_checks(reg)
+        assert len(reg.all_checks) == 0
+
+    async def test_register_settings_default_noop(self):
+        mod = DummyModule()
+        mod.register_settings(None)  # type: ignore
 
 
 # ── MigrationDiagnostics ──────────────────────────────────────────

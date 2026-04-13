@@ -53,16 +53,16 @@ async def logout(request: Request):
     """Clear session and redirect to Keycloak logout."""
     import urllib.parse
 
-    settings = request.app.state.settings
+    auth_settings = request.app.state.auth_settings
     request.session.clear()
 
     params = {
-        "client_id": settings.keycloak_client_id,
+        "client_id": auth_settings.keycloak_client_id,
         "post_logout_redirect_uri": str(request.base_url),
     }
 
     end_session_url = (
-        f"{settings.keycloak_url}/realms/{settings.keycloak_realm}"
+        f"{auth_settings.keycloak_url}/realms/{auth_settings.keycloak_realm}"
         f"/protocol/openid-connect/logout?{urllib.parse.urlencode(params)}"
     )
     return RedirectResponse(end_session_url, status_code=302)

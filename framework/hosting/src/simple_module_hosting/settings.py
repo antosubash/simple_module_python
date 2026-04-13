@@ -14,12 +14,6 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "sqlite+aiosqlite:///./app.db"
 
-    # Keycloak
-    keycloak_url: str = "http://localhost:8080"
-    keycloak_realm: str = "simple-module"
-    keycloak_client_id: str = "simple-module-app"
-    keycloak_client_secret: str = ""
-
     # App
     environment: str = "development"
     secret_key: str = "change-me-in-production"
