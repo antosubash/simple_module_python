@@ -15,6 +15,7 @@ from simple_module_core.exceptions import (
     ValidationError,
 )
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
+from simple_module_core.health import HealthCheck, HealthCheckResult, HealthRegistry, HealthStatus
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
@@ -28,6 +29,10 @@ __all__ = [
     "PermissionRegistry",
     "FeatureFlagDefinition",
     "FeatureFlagRegistry",
+    "HealthCheck",
+    "HealthCheckResult",
+    "HealthRegistry",
+    "HealthStatus",
     "Event",
     "EventBus",
     "discover_modules",

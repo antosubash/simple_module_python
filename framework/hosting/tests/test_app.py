@@ -20,6 +20,7 @@ class TestCreateApp:
         assert hasattr(app.state, "perm_registry")
         assert hasattr(app.state, "ff_registry")
         assert hasattr(app.state, "event_bus")
+        assert hasattr(app.state, "health_registry")
         assert hasattr(app.state, "settings")
         assert hasattr(app.state, "db")
 
@@ -41,7 +42,9 @@ class TestHealthEndpoints:
     async def test_health_ready(self, client: httpx.AsyncClient):
         resp = await client.get("/health/ready")
         assert resp.status_code == 200
-        assert resp.json()["status"] == "ready"
+        data = resp.json()
+        assert data["status"] == "healthy"
+        assert "checks" in data
 
 
 # ── Route registration ───────────────────────────────────────────────
@@ -111,6 +114,73 @@ class TestSecurityHeaders:
         assert resp.headers["x-frame-options"] == "SAMEORIGIN"
         assert resp.headers["x-xss-protection"] == "1; mode=block"
         assert resp.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+
+
+class TestHealthReady:
+    async def test_ready_includes_module_checks(self, app: FastAPI, client: httpx.AsyncClient):
+        """If modules registered health checks, /health/ready should include them."""
+        from simple_module_core.health import (
+            HealthCheck,
+            HealthCheckResult,
+            HealthRegistry,
+            HealthStatus,
+        )
+
+        registry: HealthRegistry = app.state.health_registry
+
+        async def check_test_service() -> HealthCheckResult:
+            return HealthCheckResult(status=HealthStatus.HEALTHY)
+
+        registry.add(HealthCheck(name="test_service", check=check_test_service))
+
+        resp = await client.get("/health/ready")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "healthy"
+        assert "checks" in data
+        assert data["checks"]["test_service"]["status"] == "healthy"
+
+    async def test_ready_degraded_status(self, app: FastAPI, client: httpx.AsyncClient):
+        from simple_module_core.health import (
+            HealthCheck,
+            HealthCheckResult,
+            HealthRegistry,
+            HealthStatus,
+        )
+
+        registry: HealthRegistry = app.state.health_registry
+
+        async def check_degraded() -> HealthCheckResult:
+            return HealthCheckResult(status=HealthStatus.DEGRADED, detail="slow")
+
+        registry.add(HealthCheck(name="slow_service", check=check_degraded))
+
+        resp = await client.get("/health/ready")
+        data = resp.json()
+        assert data["status"] == "degraded"
+        assert data["checks"]["slow_service"]["detail"] == "slow"
+
+    async def test_ready_unhealthy_on_exception(self, app: FastAPI, client: httpx.AsyncClient):
+        from simple_module_core.health import HealthCheck, HealthRegistry
+
+        registry: HealthRegistry = app.state.health_registry
+
+        async def check_broken():
+            raise ConnectionError("connection refused")
+
+        registry.add(HealthCheck(name="broken_service", check=check_broken))
+
+        resp = await client.get("/health/ready")
+        data = resp.json()
+        assert data["status"] == "unhealthy"
+        assert data["checks"]["broken_service"]["status"] == "unhealthy"
+        assert "connection refused" in data["checks"]["broken_service"]["detail"]
+
+    async def test_ready_no_checks_is_healthy(self, client: httpx.AsyncClient):
+        resp = await client.get("/health/ready")
+        data = resp.json()
+        assert data["status"] == "healthy"
+        assert data["checks"] == {}
 
 
 # ── Migration check ─────────────────────────────────────────────────

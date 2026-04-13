@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 import logging
 from dataclasses import dataclass
 from enum import StrEnum
@@ -45,19 +46,24 @@ class Diagnostic:
 class ModuleDiagnostics:
     """Validates module structure and configuration."""
 
+    # Framework packages that must never import from plugin module packages.
+    FRAMEWORK_PACKAGES = ("simple_module_core", "simple_module_hosting", "simple_module_db")
+
     def run(self, modules: list[ModuleBase]) -> list[Diagnostic]:
         diagnostics: list[Diagnostic] = []
         diagnostics.extend(self._check_duplicate_names(modules))
         diagnostics.extend(self._check_schema_conflicts(modules))
         diagnostics.extend(self._check_empty_modules(modules))
         diagnostics.extend(self._check_missing_meta(modules))
+        diagnostics.extend(self._check_framework_module_coupling(modules))
 
         # File-based checks (need to find module source directories)
         for mod in modules:
             src_dir = self._find_source_dir(mod)
             if src_dir:
-                diagnostics.extend(self._check_orphan_pages(mod, src_dir))
-                diagnostics.extend(self._check_phantom_renders(mod, src_dir))
+                rendered_pages = self._find_render_calls(mod, src_dir)
+                diagnostics.extend(self._check_orphan_pages(mod, src_dir, rendered_pages))
+                diagnostics.extend(self._check_phantom_renders(mod, src_dir, rendered_pages))
 
         return diagnostics
 
@@ -114,6 +120,10 @@ class ModuleDiagnostics:
                     "register_permissions",
                     "register_feature_flags",
                     "register_event_handlers",
+                    "register_middleware",
+                    "register_health_checks",
+                    "register_exception_handlers",
+                    "register_settings",
                 )
                 if name in cls.__dict__
             ]
@@ -144,14 +154,88 @@ class ModuleDiagnostics:
                 )
         return diags
 
-    def _check_orphan_pages(self, mod: ModuleBase, src_dir: Path) -> list[Diagnostic]:
+    def _check_framework_module_coupling(self, modules: list[ModuleBase]) -> list[Diagnostic]:
+        """Detect framework packages that directly import from plugin module packages.
+
+        The framework (core, hosting, db) must never ``import`` from a
+        discovered module's package (e.g. ``sm_auth``, ``sm_products``).
+        All interaction should go through the ``ModuleBase`` lifecycle hooks.
+        """
+        # Collect top-level package names for every discovered module.
+        module_packages: dict[str, str] = {}  # package -> module name
+        for mod in modules:
+            top_pkg = type(mod).__module__.split(".")[0]
+            module_packages[top_pkg] = mod.meta.name
+
+        if not module_packages:
+            return []
+
+        # Locate framework package source directories.
+        framework_dirs: list[tuple[str, Path]] = []
+        for fw_pkg in self.FRAMEWORK_PACKAGES:
+            fw_dir = self._find_package_dir(fw_pkg)
+            if fw_dir:
+                framework_dirs.append((fw_pkg, fw_dir))
+
+        diags: list[Diagnostic] = []
+        for fw_pkg, fw_dir in framework_dirs:
+            for py_file in fw_dir.rglob("*.py"):
+                try:
+                    tree = ast.parse(py_file.read_text(), filename=str(py_file))
+                except SyntaxError:
+                    continue
+
+                for node in ast.walk(tree):
+                    imported_pkg: str | None = None
+                    if isinstance(node, ast.Import):
+                        for alias in node.names:
+                            top = alias.name.split(".")[0]
+                            if top in module_packages:
+                                imported_pkg = top
+                                break
+                    elif isinstance(node, ast.ImportFrom) and node.module:
+                        top = node.module.split(".")[0]
+                        if top in module_packages:
+                            imported_pkg = top
+
+                    if imported_pkg:
+                        diags.append(
+                            Diagnostic(
+                                level=DiagnosticLevel.ERROR,
+                                code="SM009",
+                                message=(
+                                    f"Framework package '{fw_pkg}' directly imports "
+                                    f"from module package '{imported_pkg}'"
+                                ),
+                                module_name=module_packages[imported_pkg],
+                                file=str(py_file),
+                                suggestion=(
+                                    "Use a ModuleBase lifecycle hook "
+                                    "(register_middleware, register_routes, etc.) "
+                                    "instead of importing module code from the framework"
+                                ),
+                            )
+                        )
+        return diags
+
+    def _find_package_dir(self, package_name: str) -> Path | None:
+        """Locate the source directory for a top-level package."""
+        spec = importlib.util.find_spec(package_name)
+        if spec and spec.submodule_search_locations:
+            locations = list(spec.submodule_search_locations)
+            if locations:
+                return Path(locations[0])
+        return None
+
+    def _check_orphan_pages(
+        self, mod: ModuleBase, src_dir: Path, rendered_pages: set[str],
+    ) -> list[Diagnostic]:
         """Find .tsx pages that aren't referenced by any inertia.render() call."""
         pages_dir = src_dir / "pages"
         if not pages_dir.exists():
             return []
 
         tsx_pages = {f.stem for f in pages_dir.glob("*.tsx")}
-        rendered_pages = self._find_render_calls(mod, src_dir)
         orphans = tsx_pages - rendered_pages
 
         return [
@@ -166,11 +250,12 @@ class ModuleDiagnostics:
             for name in orphans
         ]
 
-    def _check_phantom_renders(self, mod: ModuleBase, src_dir: Path) -> list[Diagnostic]:
+    def _check_phantom_renders(
+        self, mod: ModuleBase, src_dir: Path, rendered_pages: set[str],
+    ) -> list[Diagnostic]:
         """Find inertia.render() calls that reference non-existent pages."""
         pages_dir = src_dir / "pages"
         tsx_pages = {f.stem for f in pages_dir.glob("*.tsx")} if pages_dir.exists() else set()
-        rendered_pages = self._find_render_calls(mod, src_dir)
         phantoms = rendered_pages - tsx_pages
 
         return [
@@ -215,15 +300,8 @@ class ModuleDiagnostics:
 
     def _find_source_dir(self, mod: ModuleBase) -> Path | None:
         """Locate the source directory for a module's package."""
-        import importlib.util
-
         pkg_name = type(mod).__module__.rsplit(".", 1)[0]
-        spec = importlib.util.find_spec(pkg_name)
-        if spec and spec.submodule_search_locations:
-            locations = list(spec.submodule_search_locations)
-            if locations:
-                return Path(locations[0])
-        return None
+        return self._find_package_dir(pkg_name)
 
 
 class MigrationDiagnostics:
