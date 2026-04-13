@@ -17,6 +17,7 @@ from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, r
 from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagRegistry
+from simple_module_core.health import HealthRegistry
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_db.listeners import register_listeners
@@ -33,17 +34,20 @@ logger = logging.getLogger(__name__)
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Build and configure the full FastAPI application.
 
-    1. Load settings
-    2. Discover and sort modules
-    3. Collect registrations (menu, permissions, feature flags, events)
-    4. Initialize database
-    5. Set up middleware pipeline
-    6. Register module routes
-    7. Wire lifespan hooks
+    Boot sequence:
+      1. Load settings & discover modules
+      2. Run diagnostics (dev only)
+      3. Create FastAPI app & store framework state
+      4. Module settings (register_settings)
+      5. Module registrations (menu, permissions, flags, events, health)
+      6. Initialize database
+      7. Inertia setup & exception handlers (register_exception_handlers)
+      8. Middleware pipeline (register_middleware)
+      9. Routes (register_routes), health endpoints, static files
     """
     settings = settings or Settings()
 
-    # ── Discover modules ────────────────────────────────────
+    # ── Phase 1: Discover modules ──────────────────────────
     modules = discover_modules()
     modules = topological_sort(modules)
     logger.info(
@@ -52,7 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ", ".join(m.meta.name for m in modules),
     )
 
-    # ── Run diagnostics (dev only) ──────────────────────────
+    # ── Phase 2: Run diagnostics (dev only) ────────────────
     if settings.is_development:
         diagnostics = run_diagnostics(modules)
         errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]
@@ -61,30 +65,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if errors:
             raise SystemExit(f"Module diagnostics: {len(errors)} error(s). Fix before continuing.")
 
-    # ── Collect registrations ───────────────────────────────
+    # ── Phase 3: Create FastAPI app ────────────────────────
     menu_registry = MenuRegistry()
     perm_registry = PermissionRegistry()
     ff_registry = FeatureFlagRegistry()
     event_bus = EventBus()
+    health_registry = HealthRegistry()
 
-    for mod in modules:
-        mod.register_menu_items(menu_registry)
-        mod.register_permissions(perm_registry)
-        mod.register_feature_flags(ff_registry)
-        mod.register_event_handlers(event_bus)
-
-    logger.info(
-        "Registered %d menu items, %d permissions, %d feature flags",
-        len(menu_registry.all_items),
-        len(perm_registry.all_permissions),
-        len(ff_registry.all_flags),
-    )
-
-    # ── Initialize database ─────────────────────────────────
-    db_state = init_db(settings.database_url, echo=settings.debug)
-    register_listeners(db_state)
-
-    # ── Lifespan ────────────────────────────────────────────
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         for mod in modules:
@@ -94,7 +81,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             await mod.on_shutdown(app)
         await app.state.db.engine.dispose()
 
-    # ── Build FastAPI app ───────────────────────────────────
     app = FastAPI(
         title="SimpleModule",
         version="0.1.0",
@@ -103,24 +89,54 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Store registries on app state for access in dependencies
     app.state.menu_registry = menu_registry
     app.state.perm_registry = perm_registry
     app.state.ff_registry = ff_registry
     app.state.event_bus = event_bus
+    app.state.health_registry = health_registry
     app.state.settings = settings
+
+    # ── Phase 4: Module settings ───────────────────────────
+    for mod in modules:
+        mod.register_settings(app)
+
+    # SM010: warn if register_settings was overridden but added nothing
+    if settings.is_development:
+        _check_settings_registration(modules, app)
+
+    # ── Phase 5: Module registrations ──────────────────────
+    for mod in modules:
+        mod.register_menu_items(menu_registry)
+        mod.register_permissions(perm_registry)
+        mod.register_feature_flags(ff_registry)
+        mod.register_event_handlers(event_bus)
+        mod.register_health_checks(health_registry)
+
+    logger.info(
+        "Registered %d menu items, %d permissions, %d feature flags, %d health checks",
+        len(menu_registry.all_items),
+        len(perm_registry.all_permissions),
+        len(ff_registry.all_flags),
+        len(health_registry.all_checks),
+    )
+
+    # ── Phase 6: Initialize database ───────────────────────
+    db_state = init_db(settings.database_url, echo=settings.debug)
+    register_listeners(db_state)
     app.state.db = db_state
 
-    # ── Inertia.js setup ───────────────────────────────────
+    # ── Phase 7: Inertia + exception handlers ──────────────
     _setup_inertia(app, settings)
 
-    # ── Exception handlers ─────────────────────────────────
     app.add_exception_handler(
         InertiaVersionConflictException,
         inertia_version_conflict_exception_handler,  # ty: ignore[invalid-argument-type]
     )
+    for mod in modules:
+        mod.register_exception_handlers(app)
 
-    # ── Middleware pipeline (order matters: last added = first executed) ──
+    # ── Phase 8: Middleware pipeline ───────────────────────
+    # Order matters: last added = first executed
     # Execution order: SecurityHeaders → Session → [module middleware] → InertiaLayout
     app.add_middleware(
         InertiaLayoutDataMiddleware,
@@ -132,7 +148,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
     app.add_middleware(SecurityHeadersMiddleware)
 
-    # ── Register module routes ──────────────────────────────
+    # ── Phase 9: Routes, health, static files ──────────────
     for mod in modules:
         api_router = APIRouter(
             prefix=mod.meta.route_prefix,
@@ -146,11 +162,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.include_router(api_router)
         app.include_router(view_router)
 
-    # ── Health checks ───────────────────────────────────────
     app.include_router(health_router)
 
-    # ── Static files ────────────────────────────────────────
-    # Mount after routes so routes take precedence
     import os
 
     static_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "host", "static")
@@ -195,4 +208,35 @@ def _setup_inertia(app: FastAPI, settings: Settings) -> None:
     app.state.inertia_config = inertia_config
     app.state.inertia_dependency = inertia_dep
 
+
+def _check_settings_registration(modules: list, app: FastAPI) -> None:
+    """SM010: warn if a module overrides register_settings but added nothing to app.state."""
+    from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
+
+    framework_keys = {
+        "menu_registry", "perm_registry", "ff_registry",
+        "event_bus", "health_registry", "settings",
+    }
+    state_keys = {k for k in vars(app.state) if not k.startswith("_")}
+    module_added_keys = state_keys - framework_keys
+
+    for mod in modules:
+        cls = type(mod)
+        if "register_settings" not in cls.__dict__:
+            continue
+        mod_prefix = mod.meta.name.lower()
+        has_key = any(mod_prefix in k for k in module_added_keys)
+        if not has_key:
+            diag = Diagnostic(
+                level=DiagnosticLevel.WARNING,
+                code="SM010",
+                message="register_settings() was overridden but added nothing to app.state",
+                module_name=mod.meta.name,
+                suggestion=(
+                    f"Store your settings on app.state "
+                    f"(e.g., app.state.{mod_prefix}_settings = {mod.meta.name}Settings())"
+                ),
+            )
+            print(str(diag))
+            print()
 
