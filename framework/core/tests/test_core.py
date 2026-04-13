@@ -9,6 +9,7 @@ from simple_module_core.discovery import topological_sort
 from simple_module_core.events import Event, EventBus
 from simple_module_core.exceptions import CircularDependencyError
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
+from simple_module_core.health import HealthCheck, HealthCheckResult, HealthRegistry, HealthStatus
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
@@ -584,9 +585,6 @@ class TestModuleLifecycle:
 
 
 # ── HealthRegistry ─────────────────────────────────────────────────
-
-
-from simple_module_core.health import HealthCheck, HealthCheckResult, HealthRegistry, HealthStatus
 
 
 class TestHealthRegistry:
