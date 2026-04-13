@@ -8,12 +8,15 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
+from fastapi.exceptions import HTTPException
 from fastapi.staticfiles import StaticFiles
 from inertia import (
+    Inertia,
     InertiaConfig,
     InertiaVersionConflictException,
     inertia_version_conflict_exception_handler,
 )
+from simple_module_core.exceptions import NotFoundError
 from simple_module_core.diagnostics import (
     Diagnostic,
     DiagnosticLevel,
@@ -29,6 +32,8 @@ from simple_module_core.permissions import PermissionRegistry
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.middleware import InertiaLayoutDataMiddleware, SecurityHeadersMiddleware
@@ -193,6 +198,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         InertiaVersionConflictException,
         inertia_version_conflict_exception_handler,  # ty: ignore[invalid-argument-type]
     )
+    app.add_exception_handler(HTTPException, _http_exception_handler)  # ty: ignore[invalid-argument-type]
+    app.add_exception_handler(NotFoundError, _not_found_error_handler)  # ty: ignore[invalid-argument-type]
+    app.add_exception_handler(Exception, _unhandled_exception_handler)  # ty: ignore[invalid-argument-type]
     for mod in modules:
         mod.register_exception_handlers(app)
 
@@ -230,6 +238,46 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     return app
+
+
+async def _render_error_page(request: Request, status_code: int, message: str) -> Response:
+    """Render the Inertia error page for the given status code."""
+    config: InertiaConfig = request.app.state.inertia_config
+    try:
+        inertia = Inertia(request, config)
+    except InertiaVersionConflictException:
+        return await inertia_version_conflict_exception_handler(
+            request, InertiaVersionConflictException(url=str(request.url))
+        )
+
+    response = await inertia.render("Error", {"status": status_code, "message": message})
+    response.status_code = status_code
+    return response
+
+
+async def _http_exception_handler(request: Request, exc: HTTPException) -> Response:
+    """Handle HTTP exceptions (404, 403, etc.) with Inertia error pages."""
+    status_code = exc.status_code
+    if status_code in (403, 404, 500):
+        return await _render_error_page(request, status_code, exc.detail or "")
+    # For other HTTP errors, return a plain JSON response
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=status_code,
+        content={"detail": exc.detail},
+    )
+
+
+async def _not_found_error_handler(request: Request, exc: NotFoundError) -> Response:
+    """Handle framework NotFoundError with a 404 Inertia error page."""
+    return await _render_error_page(request, 404, str(exc))
+
+
+async def _unhandled_exception_handler(request: Request, exc: Exception) -> Response:
+    """Handle uncaught exceptions with a 500 Inertia error page."""
+    logger.exception("Unhandled exception: %s", exc)
+    return await _render_error_page(request, 500, "")
 
 
 def _setup_inertia(app: FastAPI, settings: Settings) -> None:
