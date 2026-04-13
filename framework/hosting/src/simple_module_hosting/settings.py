@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     vite_dev_url: str = "http://localhost:5173"
     debug: bool = False
 
+    # Logging
+    log_level: str = "INFO"
+    log_format: str = "json"  # "json" or "text"
+
     @property
     def is_development(self) -> bool:
         return self.environment == "development"
