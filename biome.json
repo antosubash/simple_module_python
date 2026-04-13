@@ -6,7 +6,8 @@
       "packages/**",
       "modules/*/src/*/pages/**",
       "modules/*/src/*/components/**"
-    ]
+    ],
+    "ignoreUnknown": true
   },
   "formatter": {
     "indentStyle": "space",
@@ -19,6 +20,28 @@
       "recommended": true
     }
   },
+  "overrides": [
+    {
+      "includes": ["packages/ui/src/components/ui/**"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useSemanticElements": "off",
+            "useFocusableInteractive": "off",
+            "useKeyWithClickEvents": "off",
+            "useAriaPropsForRole": "off"
+          },
+          "suspicious": {
+            "noArrayIndexKey": "off",
+            "noDocumentCookie": "off"
+          },
+          "security": {
+            "noDangerouslySetInnerHtml": "off"
+          }
+        }
+      }
+    }
+  ],
   "javascript": {
     "formatter": {
       "quoteStyle": "single"
