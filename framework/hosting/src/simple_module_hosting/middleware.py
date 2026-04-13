@@ -8,12 +8,12 @@ import time
 import uuid
 from typing import TYPE_CHECKING
 
-from simple_module_hosting.permissions import expand_permissions, resolve_permissions
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
 
 from simple_module_hosting.logging import correlation_id
+from simple_module_hosting.permissions import expand_permissions, resolve_permissions
 
 if TYPE_CHECKING:
     from simple_module_core.menu import MenuRegistry

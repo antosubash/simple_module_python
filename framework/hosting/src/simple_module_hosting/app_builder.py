@@ -10,7 +10,6 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.exceptions import HTTPException
 from fastapi.staticfiles import StaticFiles
-from starlette.responses import RedirectResponse
 from inertia import (
     InertiaConfig,
     InertiaVersionConflictException,
@@ -31,6 +30,7 @@ from simple_module_core.permissions import PermissionRegistry
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.responses import RedirectResponse
 
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.middleware import (
