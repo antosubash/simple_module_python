@@ -8,6 +8,7 @@ import time
 import uuid
 from typing import TYPE_CHECKING
 
+from simple_module_hosting.permissions import expand_permissions, resolve_permissions
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
@@ -124,7 +125,14 @@ class InertiaLayoutDataMiddleware(BaseHTTPMiddleware):
         is_authenticated = user is not None
         roles = getattr(user, "roles", []) if user else []
 
-        # Build shared data for Inertia
+        # Resolve permissions once and cache on request.state for RequiresPermission
+        resolved = resolve_permissions(roles) if is_authenticated else set()
+        request.state.resolved_permissions = resolved
+
+        # Expand wildcard to full list for frontend (no "*" leak)
+        all_perms = self.permission_registry.all_permissions
+        frontend_permissions = expand_permissions(resolved, all_perms) if is_authenticated else []
+
         shared: dict = {
             "auth": {
                 "user": (
@@ -138,12 +146,13 @@ class InertiaLayoutDataMiddleware(BaseHTTPMiddleware):
                     else None
                 ),
                 "isAuthenticated": is_authenticated,
+                "permissions": frontend_permissions,
             },
             "menus": self.menu_registry.get_for_user(
                 is_authenticated=is_authenticated,
                 roles=roles,
             ),
-            "csrf_token": secrets.token_urlsafe(32),
+            "csrf_token": secrets.token_urlsafe(32) if is_authenticated else "",
         }
         request.state.inertia_shared = shared
 

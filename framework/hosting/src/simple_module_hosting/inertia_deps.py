@@ -15,7 +15,13 @@ async def get_inertia(request: Request) -> Inertia:
     needing the Inertia config at import time.
     """
     inertia_dep = request.app.state.inertia_dependency
-    return inertia_dep(request, None)
+    inertia = inertia_dep(request, None)
+
+    shared = getattr(request.state, "inertia_shared", None)
+    if shared:
+        inertia.share(**shared)
+
+    return inertia
 
 
 InertiaDep = Annotated[Inertia, Depends(get_inertia)]
