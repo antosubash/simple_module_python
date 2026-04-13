@@ -6,12 +6,11 @@ from collections.abc import AsyncGenerator
 
 import httpx
 import pytest
+from simple_module_db.session import DatabaseState, init_db
 from simple_module_hosting.settings import Settings
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
 )
 
 
@@ -30,26 +29,28 @@ def settings() -> Settings:
 
 
 @pytest.fixture
-async def engine() -> AsyncGenerator[AsyncEngine, None]:
-    """Create a fresh in-memory async SQLite engine."""
-    eng = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-    )
-    yield eng
-    await eng.dispose()
+async def db_state() -> AsyncGenerator[DatabaseState, None]:
+    """Create a fresh in-memory DatabaseState."""
+    state = init_db("sqlite+aiosqlite:///:memory:")
+    yield state
+    await state.engine.dispose()
 
 
 @pytest.fixture
-async def db_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
+async def engine(db_state: DatabaseState) -> AsyncEngine:
+    """Return the engine from the test DatabaseState."""
+    return db_state.engine
+
+
+@pytest.fixture
+async def db_session(db_state: DatabaseState) -> AsyncGenerator[AsyncSession, None]:
     """Yield an async session backed by in-memory SQLite."""
     from sm_products.models import Base
 
-    async with engine.begin() as conn:
+    async with db_state.engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as session:
+    async with db_state.session_factory() as session:
         yield session
 
 
@@ -60,14 +61,14 @@ async def app(settings: Settings):
 
     application = create_app(settings)
 
-    from simple_module_db.session import get_engine
     from sm_products.models import Base as ProductsBase
 
-    engine = get_engine()
-    async with engine.begin() as conn:
+    async with application.state.db.engine.begin() as conn:
         await conn.run_sync(ProductsBase.metadata.create_all)
 
-    return application
+    yield application
+
+    await application.state.db.engine.dispose()
 
 
 @pytest.fixture

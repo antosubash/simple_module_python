@@ -1,4 +1,9 @@
-.PHONY: dev dev-api dev-ui build test lint doctor migrate docker-up docker-down kill
+.PHONY: install dev dev-api dev-ui build test lint doctor migrate docker-up docker-down kill
+
+# Install
+install:
+	uv sync --all-packages
+	npm install
 
 # Development
 dev: docker-up

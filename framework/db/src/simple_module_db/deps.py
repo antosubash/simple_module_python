@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 
+from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from simple_module_db.session import get_session_factory
 
-
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
+async def get_db(request: Request) -> AsyncGenerator[AsyncSession, None]:
     """Yield an async database session, auto-closing on exit.
 
     Usage in FastAPI endpoints::
@@ -18,7 +17,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         async def list_items(db: AsyncSession = Depends(get_db)):
             ...
     """
-    factory = get_session_factory()
+    factory = request.app.state.db.session_factory
     async with factory() as session:
         try:
             yield session

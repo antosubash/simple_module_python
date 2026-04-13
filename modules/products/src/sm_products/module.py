@@ -7,7 +7,6 @@ from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagR
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
-from simple_module_db.session import get_engine
 
 
 class ProductsModule(ModuleBase):
@@ -59,6 +58,6 @@ class ProductsModule(ModuleBase):
         """Ensure the products table exists (dev convenience)."""
         from sm_products.models import Base
 
-        engine = get_engine()
+        engine = app.state.db.engine
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)

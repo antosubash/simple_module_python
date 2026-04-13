@@ -19,8 +19,8 @@ from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagRegistry
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
-from simple_module_db import init_db
 from simple_module_db.listeners import register_listeners
+from simple_module_db.session import init_db
 from starlette.middleware.sessions import SessionMiddleware
 
 from simple_module_hosting.health import router as health_router
@@ -81,8 +81,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     # ── Initialize database ─────────────────────────────────
-    init_db(settings.database_url, echo=settings.debug)
-    register_listeners()
+    db_state = init_db(settings.database_url, echo=settings.debug)
+    register_listeners(db_state)
 
     # ── Lifespan ────────────────────────────────────────────
     @asynccontextmanager
@@ -92,6 +92,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
         for mod in reversed(modules):
             await mod.on_shutdown(app)
+        await app.state.db.engine.dispose()
 
     # ── Build FastAPI app ───────────────────────────────────
     app = FastAPI(
@@ -108,6 +109,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.ff_registry = ff_registry
     app.state.event_bus = event_bus
     app.state.settings = settings
+    app.state.db = db_state
 
     # ── Inertia.js setup ───────────────────────────────────
     _setup_inertia(app, settings)

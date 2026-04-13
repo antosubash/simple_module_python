@@ -2,16 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin, SoftDeleteMixin, VersionedMixin
 from simple_module_db.provider import DatabaseProvider, detect_provider
-from simple_module_db.session import get_engine, get_session_factory, init_db
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    AsyncSession,
-    async_sessionmaker,
-)
+from simple_module_db.session import DatabaseState, init_db
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # ── create_module_base ───────────────────────────────────────────────
 
@@ -83,83 +78,53 @@ class TestMixins:
         assert hasattr(VersionedMixin, "version")
 
 
-# ── init_db / get_engine / get_session_factory ───────────────────────
+# ── init_db / DatabaseState ──────────────────────────────────────────
 
 
 class TestSessionManagement:
-    async def test_init_db_and_get_engine(self):
-        """init_db should configure the engine and session factory."""
-        import simple_module_db.session as session_mod
-
-        # Save original state
-        orig_engine = session_mod._engine
-        orig_factory = session_mod._session_factory
-
+    async def test_init_db_returns_database_state(self):
+        """init_db should return a DatabaseState with engine and session factory."""
+        db_state = init_db("sqlite+aiosqlite:///:memory:")
         try:
-            session_mod._engine = None
-            session_mod._session_factory = None
-
-            init_db("sqlite+aiosqlite:///:memory:")
-            engine = get_engine()
-            assert engine is not None
-
-            factory = get_session_factory()
-            assert factory is not None
+            assert isinstance(db_state, DatabaseState)
+            assert db_state.engine is not None
+            assert db_state.session_factory is not None
         finally:
-            # Restore to avoid polluting other tests
-            if session_mod._engine and session_mod._engine is not orig_engine:
-                await session_mod._engine.dispose()
-            session_mod._engine = orig_engine
-            session_mod._session_factory = orig_factory
+            await db_state.engine.dispose()
 
-    async def test_get_engine_raises_without_init(self):
-        import simple_module_db.session as session_mod
-
-        orig_engine = session_mod._engine
+    async def test_separate_init_db_calls_are_independent(self):
+        """Two init_db calls should produce independent state."""
+        db1 = init_db("sqlite+aiosqlite:///:memory:")
+        db2 = init_db("sqlite+aiosqlite:///:memory:")
         try:
-            session_mod._engine = None
-            with pytest.raises(RuntimeError, match="Database not initialized"):
-                get_engine()
+            assert db1.engine is not db2.engine
+            assert db1.session_factory is not db2.session_factory
         finally:
-            session_mod._engine = orig_engine
-
-    async def test_get_session_factory_raises_without_init(self):
-        import simple_module_db.session as session_mod
-
-        orig_factory = session_mod._session_factory
-        try:
-            session_mod._session_factory = None
-            with pytest.raises(RuntimeError, match="Database not initialized"):
-                get_session_factory()
-        finally:
-            session_mod._session_factory = orig_factory
+            await db1.engine.dispose()
+            await db2.engine.dispose()
 
 
 # ── get_db dependency ────────────────────────────────────────────────
 
 
 class TestGetDbDependency:
-    async def test_get_db_yields_session(self, engine: AsyncEngine):
-        """get_db should yield an AsyncSession when init_db has been called."""
-        import simple_module_db.session as session_mod
+    async def test_get_db_yields_session(self):
+        """get_db should yield an AsyncSession from app.state.db."""
+        import contextlib
+        from unittest.mock import MagicMock
 
-        orig_engine = session_mod._engine
-        orig_factory = session_mod._session_factory
+        from simple_module_db.deps import get_db
 
+        db_state = init_db("sqlite+aiosqlite:///:memory:")
         try:
-            session_mod._engine = engine
-            session_mod._session_factory = async_sessionmaker(engine, expire_on_commit=False)
+            mock_request = MagicMock()
+            mock_request.app.state.db = db_state
 
-            from simple_module_db.deps import get_db
-
-            gen = get_db()
+            gen = get_db(mock_request)
             session = await gen.__anext__()
             assert isinstance(session, AsyncSession)
-            # Clean up
-            import contextlib
 
             with contextlib.suppress(StopAsyncIteration):
                 await gen.__anext__()
         finally:
-            session_mod._engine = orig_engine
-            session_mod._session_factory = orig_factory
+            await db_state.engine.dispose()
