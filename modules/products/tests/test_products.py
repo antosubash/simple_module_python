@@ -168,3 +168,23 @@ class TestProductsAPI:
             json={"name": "", "price": "0"},
         )
         assert resp.status_code == 422  # Validation error
+
+
+# ── Module lifecycle ────────────────────────────────────────────────
+
+
+class TestProductsModuleLifecycle:
+    async def test_on_startup_does_not_call_create_all(self):
+        """on_startup should not create tables — Alembic manages schema."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from sm_products.module import ProductsModule
+
+        mod = ProductsModule()
+        mock_app = MagicMock()
+        mock_app.state.db.engine = AsyncMock()
+
+        await mod.on_startup(mock_app)
+
+        # Engine should not have been used for DDL
+        mock_app.state.db.engine.begin.assert_not_called()
