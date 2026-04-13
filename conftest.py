@@ -60,14 +60,15 @@ async def app(settings: Settings):
 
     application = create_app(settings)
 
-    from simple_module_db.session import get_engine
     from sm_products.models import Base as ProductsBase
 
-    engine = get_engine()
+    engine = application.state.db.engine
     async with engine.begin() as conn:
         await conn.run_sync(ProductsBase.metadata.create_all)
 
-    return application
+    yield application
+
+    await application.state.db.engine.dispose()
 
 
 @pytest.fixture
