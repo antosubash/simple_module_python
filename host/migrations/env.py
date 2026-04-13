@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import importlib
 import logging
-from importlib.metadata import entry_points
 from logging.config import fileConfig
 
 from alembic import context
-from simple_module_core.discovery import ENTRY_POINT_GROUP, discover_modules
+from simple_module_core.discovery import discover_modules
 from simple_module_db.base import all_module_bases
 from simple_module_hosting.settings import Settings
 from sqlalchemy import MetaData, engine_from_config, pool
@@ -23,18 +22,16 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # ── Discover module models ──────────────────────────────────────────
-# discover_modules() loads module classes via entry points, but the
-# SQLAlchemy models live in each module's ``models`` submodule and are
-# imported lazily.  We must import them explicitly so that
-# create_module_base() is called and all_module_bases is populated.
-discover_modules()
-
-for _ep in entry_points(group=ENTRY_POINT_GROUP):
-    _pkg = _ep.value.split(".")[0]  # e.g. "sm_products"
+# discover_modules() loads module classes via entry points, but models
+# are imported lazily. We import each module's ``models`` submodule
+# explicitly so create_module_base() runs and all_module_bases populates.
+modules = discover_modules()
+for mod in modules:
+    pkg = type(mod).__module__.split(".")[0]
     try:
-        importlib.import_module(f"{_pkg}.models")
+        importlib.import_module(f"{pkg}.models")
     except ModuleNotFoundError:
-        logger.debug("No models submodule for entry point '%s'", _ep.name)
+        logger.debug("No models submodule for module '%s'", mod.meta.name)
 
 # Combine all module metadata into a single MetaData for autogenerate
 target_metadata = MetaData()

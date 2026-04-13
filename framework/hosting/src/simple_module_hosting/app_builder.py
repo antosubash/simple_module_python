@@ -6,9 +6,6 @@ import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from alembic.config import Config as AlembicConfig
-from alembic.runtime.migration import MigrationContext
-from alembic.script import ScriptDirectory
 from fastapi import APIRouter, FastAPI
 from fastapi.staticfiles import StaticFiles
 from inertia import (
@@ -38,8 +35,9 @@ async def _check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") 
 
     Returns a dict with migration status for storage on app.state.
     """
-    import os
-
+    from alembic.config import Config as AlembicConfig
+    from alembic.runtime.migration import MigrationContext
+    from alembic.script import ScriptDirectory
     from alembic.util.exc import CommandError
 
     _no_migrations = {
@@ -49,26 +47,16 @@ async def _check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") 
         "pending_count": 0,
     }
 
-    if not os.path.isfile(alembic_ini_path):
-        logger.debug("Alembic config not found at %s — skipping migration check", alembic_ini_path)
-        return _no_migrations
-
     try:
         alembic_cfg = AlembicConfig(alembic_ini_path)
         script = ScriptDirectory.from_config(alembic_cfg)
         head = script.get_current_head()
-    except CommandError as exc:
-        logger.debug("Alembic script directory not resolved: %s — skipping migration check", exc)
+    except (CommandError, FileNotFoundError) as exc:
+        logger.debug("Alembic not available: %s — skipping migration check", exc)
         return _no_migrations
 
-    # No migrations configured (e.g., test environments)
     if head is None:
-        return {
-            "current_revision": None,
-            "head_revision": None,
-            "is_current": True,
-            "pending_count": 0,
-        }
+        return _no_migrations
 
     async with engine.connect() as conn:
 
@@ -78,21 +66,18 @@ async def _check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") 
 
         current = await conn.run_sync(_get_current)
 
-    is_current = current == head
-    pending_count = 0
-    if not is_current:
-        revisions = list(script.iterate_revisions(head, current))
-        pending_count = len(revisions)
+    if current != head:
+        pending = list(script.iterate_revisions(head, current))
         raise RuntimeError(
-            f"Database is {pending_count} revision(s) behind "
+            f"Database is {len(pending)} revision(s) behind "
             f"(at {current!r}, head is {head!r}). Run: make migrate"
         )
 
     return {
         "current_revision": current,
         "head_revision": head,
-        "is_current": is_current,
-        "pending_count": pending_count,
+        "is_current": True,
+        "pending_count": 0,
     }
 
 
