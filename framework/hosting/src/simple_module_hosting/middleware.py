@@ -1,32 +1,48 @@
-"""Middleware for security headers and Inertia layout data."""
+"""Middleware for security headers and Inertia layout data.
+
+These use the raw ASGI middleware pattern instead of ``BaseHTTPMiddleware``
+to avoid its known issues with streaming responses, extra task creation,
+and ``ContextVar`` propagation.
+"""
 
 from __future__ import annotations
 
 import secrets
 from typing import TYPE_CHECKING
 
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.datastructures import MutableHeaders
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 if TYPE_CHECKING:
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.permissions import PermissionRegistry
 
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+class SecurityHeadersMiddleware:
     """Add security headers to every response."""
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        response = await call_next(request)
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "SAMEORIGIN"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        return response
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers["X-Content-Type-Options"] = "nosniff"
+                headers["X-Frame-Options"] = "SAMEORIGIN"
+                headers["X-XSS-Protection"] = "1; mode=block"
+                headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
 
 
-class InertiaLayoutDataMiddleware(BaseHTTPMiddleware):
+class InertiaLayoutDataMiddleware:
     """Inject shared data (auth, menus, CSRF) into every Inertia response.
 
     This middleware reads the user from ``request.state.user`` (set by auth middleware)
@@ -35,15 +51,20 @@ class InertiaLayoutDataMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
-        app: object,
+        app: ASGIApp,
         menu_registry: MenuRegistry,
         permission_registry: PermissionRegistry,
     ) -> None:
-        super().__init__(app)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        self.app = app
         self.menu_registry = menu_registry
         self.permission_registry = permission_registry
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope)
         user = getattr(request.state, "user", None)
         is_authenticated = user is not None
         roles = getattr(user, "roles", []) if user else []
@@ -71,4 +92,4 @@ class InertiaLayoutDataMiddleware(BaseHTTPMiddleware):
         }
         request.state.inertia_shared = shared
 
-        return await call_next(request)
+        await self.app(scope, receive, send)
