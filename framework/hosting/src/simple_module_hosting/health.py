@@ -21,8 +21,12 @@ _STATUS_SEVERITY = {
 
 
 @router.get("/health")
-async def health() -> dict:
-    return {"status": "healthy"}
+async def health(request: Request) -> dict:
+    migration = getattr(request.app.state, "migration", None)
+    return {
+        "status": "healthy",
+        "migration": migration,
+    }
 
 
 @router.get("/health/live")

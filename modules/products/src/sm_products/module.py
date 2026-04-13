@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
@@ -53,11 +53,3 @@ class ProductsModule(ModuleBase):
                 default_enabled=False,
             )
         )
-
-    async def on_startup(self, app: FastAPI) -> None:
-        """Ensure the products table exists (dev convenience)."""
-        from sm_products.models import Base
-
-        engine = app.state.db.engine
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)

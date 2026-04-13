@@ -52,7 +52,7 @@ async def db_session(db_state: DatabaseState) -> AsyncGenerator[AsyncSession, No
 
 @pytest.fixture
 async def app(settings: Settings):
-    """Create a FastAPI app with tables pre-created."""
+    """Create a FastAPI app with tables pre-created and lifespan triggered."""
     from simple_module_hosting.app_builder import create_app
 
     application = create_app(settings)
@@ -62,9 +62,14 @@ async def app(settings: Settings):
     async with application.state.db.engine.begin() as conn:
         await conn.run_sync(ProductsBase.metadata.create_all)
 
+    # Trigger lifespan startup so app.state.migration is populated
+    ctx = application.router.lifespan_context(application)
+    await ctx.__aenter__()
+
     yield application
 
-    await application.state.db.engine.dispose()
+    # Lifespan shutdown disposes the engine
+    await ctx.__aexit__(None, None, None)
 
 
 @pytest.fixture

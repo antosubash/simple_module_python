@@ -29,6 +29,9 @@ node_modules/
 # Vite
 host/static/dist/
 
+# Worktrees
+.worktrees/
+
 # OS
 .DS_Store
 Thumbs.db

@@ -1,5 +1,11 @@
 """SimpleModule Core - Module system, menu, permissions, events, and diagnostics."""
 
+from simple_module_core.diagnostics import (
+    DiagnosticLevel,
+    MigrationDiagnostics,
+    print_diagnostics,
+    run_diagnostics,
+)
 from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.events import Event, EventBus
 from simple_module_core.exceptions import (
@@ -35,4 +41,8 @@ __all__ = [
     "ModuleError",
     "NotFoundError",
     "ValidationError",
+    "DiagnosticLevel",
+    "MigrationDiagnostics",
+    "print_diagnostics",
+    "run_diagnostics",
 ]
