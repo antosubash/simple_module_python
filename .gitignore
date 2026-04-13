@@ -35,3 +35,7 @@ host/static/dist/
 # OS
 .DS_Store
 Thumbs.db
+
+.playwright-cli/*
+.playwright-mcp/*
+host/client_app/.playwright-cli/*

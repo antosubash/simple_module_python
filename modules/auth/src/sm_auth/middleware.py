@@ -26,30 +26,28 @@ class AuthMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        # Skip public paths
         path = request.url.path
-        if any(path.startswith(p) for p in PUBLIC_PATHS) or path in EXACT_PUBLIC_PATHS:
-            return await call_next(request)
+        is_public = any(path.startswith(p) for p in PUBLIC_PATHS) or path in EXACT_PUBLIC_PATHS
 
         # Check session for user info
         userinfo = request.session.get("userinfo")
-        if not userinfo:
-            # Store the original URL to redirect back after login
+
+        if not userinfo and not is_public:
+            # Protected path without session — redirect to login
             request.session["next"] = str(request.url)
             return RedirectResponse("/auth/login", status_code=302)
 
-        # TODO: Check access_token expiry and refresh if needed
-        # For now, trust the session is valid
+        if userinfo:
+            # Set user context on request state (for both public and protected paths)
+            user = UserContext.from_keycloak_userinfo(userinfo)
+            request.state.user = user
 
-        # Set user context on request state
-        user = UserContext.from_keycloak_userinfo(userinfo)
-        request.state.user = user
+            # Set context var for DB audit listeners
+            token = current_user_id.set(user.id)
+            try:
+                response = await call_next(request)
+            finally:
+                current_user_id.reset(token)
+            return response
 
-        # Set context var for DB audit listeners
-        token = current_user_id.set(user.id)
-        try:
-            response = await call_next(request)
-        finally:
-            current_user_id.reset(token)
-
-        return response
+        return await call_next(request)

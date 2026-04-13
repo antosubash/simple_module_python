@@ -15,7 +15,8 @@ router = APIRouter()
 async def list_products(
     service: ProductService = Depends(get_product_service),
 ) -> list[ProductOut]:
-    return await service.get_all()
+    products, _ = await service.get_all()
+    return products
 
 
 @router.get("/{product_id}", response_model=ProductOut)

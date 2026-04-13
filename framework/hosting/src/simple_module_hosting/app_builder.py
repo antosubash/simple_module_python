@@ -6,8 +6,10 @@ import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Request
+from fastapi.exceptions import HTTPException
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import RedirectResponse
 from inertia import (
     InertiaConfig,
     InertiaVersionConflictException,
@@ -173,6 +175,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         inertia_version_conflict_exception_handler,  # ty: ignore[invalid-argument-type]
     )
 
+    async def _handle_http_exception(request: Request, exc: HTTPException) -> RedirectResponse:  # type: ignore[type-arg]
+        """For Inertia requests, redirect on error instead of returning plain JSON."""
+        if "X-Inertia" in request.headers:
+            return RedirectResponse("/", status_code=303)
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)  # type: ignore[return-value]
+
+    app.add_exception_handler(HTTPException, _handle_http_exception)  # ty: ignore[invalid-argument-type]
+
     # ── Auth setup (configure OAuth + middleware) ─────────
     _setup_auth(app, settings)
 
@@ -244,6 +256,7 @@ def _setup_inertia(app: FastAPI, settings: Settings) -> None:
         root_template_filename="index.html",
         entrypoint_filename="main.tsx",
         root_directory=".",
+        use_flash_errors=True,
     )
 
     # Register the Inertia dependency globally

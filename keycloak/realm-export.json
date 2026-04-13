@@ -16,7 +16,6 @@
       "publicClient": false,
       "secret": "simple-module-secret",
       "redirectUris": ["http://localhost:8000/*"],
-      "postLogoutRedirectUris": ["http://localhost:8000/*"],
       "webOrigins": ["http://localhost:8000"],
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
