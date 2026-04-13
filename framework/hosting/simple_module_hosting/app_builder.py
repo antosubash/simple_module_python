@@ -225,7 +225,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health_router)
 
-    static_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "host", "static")
+    static_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "host", "static")
     if os.path.isdir(static_dir):
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
@@ -240,7 +240,7 @@ def _setup_inertia(app: FastAPI, settings: Settings) -> None:
 
     # Find the templates directory (relative to host/)
     templates_dir = os.path.join(
-        os.path.dirname(__file__), "..", "..", "..", "..", "host", "templates"
+        os.path.dirname(__file__), "..", "..", "..", "host", "templates"
     )
     templates_dir = os.path.abspath(templates_dir)
 
