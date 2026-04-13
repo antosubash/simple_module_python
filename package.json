@@ -8,9 +8,12 @@
   "scripts": {
     "dev": "npm run --workspace host/client_app dev",
     "build": "npm run --workspace host/client_app build",
-    "lint": "biome check ."
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit -p host/client_app/tsconfig.json"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.11",
     "@tailwindcss/vite": "^4.2.2"
   }
 }

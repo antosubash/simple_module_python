@@ -3,20 +3,15 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import String
+from simple_module_db.base import create_module_base
+from simple_module_db.mixins import AuditMixin, SoftDeleteMixin, VersionedMixin
+from simple_module_db.provider import DatabaseProvider, detect_provider
+from simple_module_db.session import get_engine, get_session_factory, init_db
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
-    create_async_engine,
 )
-from sqlalchemy.orm import Mapped, mapped_column
-
-from simple_module_db.base import _base_cache, create_module_base
-from simple_module_db.mixins import AuditMixin, SoftDeleteMixin, VersionedMixin
-from simple_module_db.provider import DatabaseProvider, detect_provider
-from simple_module_db.session import get_engine, get_session_factory, init_db
-
 
 # ── create_module_base ───────────────────────────────────────────────
 
@@ -26,7 +21,7 @@ class TestCreateModuleBase:
         base = create_module_base("test_mod_base", provider=DatabaseProvider.SQLITE)
         # It should be a class that can be used as a SQLAlchemy base
         assert hasattr(base, "metadata")
-        assert base.__abstract__ is True
+        assert base.__abstract__ is True  # ty: ignore[unresolved-attribute]
 
     async def test_caching_same_args(self):
         base1 = create_module_base("cache_test", provider=DatabaseProvider.SQLITE)
@@ -48,7 +43,7 @@ class TestCreateModuleBase:
 
     async def test_module_name_stored(self):
         base = create_module_base("named_mod", provider=DatabaseProvider.SQLITE)
-        assert base.__module_name__ == "named_mod"  # type: ignore[attr-defined]
+        assert base.__module_name__ == "named_mod"  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 
 # ── detect_provider ──────────────────────────────────────────────────
@@ -59,7 +54,10 @@ class TestDetectProvider:
         assert detect_provider("sqlite+aiosqlite:///:memory:") == DatabaseProvider.SQLITE
 
     async def test_postgresql(self):
-        assert detect_provider("postgresql+asyncpg://user:pass@localhost/db") == DatabaseProvider.POSTGRESQL
+        assert (
+            detect_provider("postgresql+asyncpg://user:pass@localhost/db")
+            == DatabaseProvider.POSTGRESQL
+        )
 
     async def test_postgres_prefix(self):
         assert detect_provider("postgres://user:pass@localhost/db") == DatabaseProvider.POSTGRESQL
@@ -158,10 +156,10 @@ class TestGetDbDependency:
             session = await gen.__anext__()
             assert isinstance(session, AsyncSession)
             # Clean up
-            try:
+            import contextlib
+
+            with contextlib.suppress(StopAsyncIteration):
                 await gen.__anext__()
-            except StopAsyncIteration:
-                pass
         finally:
             session_mod._engine = orig_engine
             session_mod._session_factory = orig_factory

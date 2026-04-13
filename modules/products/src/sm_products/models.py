@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from sqlalchemy import Numeric, String
-from sqlalchemy.orm import Mapped, mapped_column
-
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin
-from simple_module_db.provider import DatabaseProvider, detect_provider
+from simple_module_db.provider import DatabaseProvider
+from sqlalchemy import Numeric, String
+from sqlalchemy.orm import Mapped, mapped_column
 
 # Each module gets its own schema: "products" on PostgreSQL, "products_" prefix on SQLite
 # Provider is detected at import time; for runtime flexibility, call create_module_base
@@ -17,7 +16,7 @@ from simple_module_db.provider import DatabaseProvider, detect_provider
 Base = create_module_base("products", provider=DatabaseProvider.SQLITE)
 
 
-class Product(Base, AuditMixin):
+class Product(Base, AuditMixin):  # ty: ignore[unsupported-base]
     """A product in the catalog."""
 
     __tablename__ = "products_product"

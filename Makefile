@@ -20,8 +20,11 @@ test:
 	uv run pytest
 
 lint:
-	uv run ruff check .
 	uv run ruff format --check .
+	uv run ruff check .
+	uv run ty check
+	npx biome check .
+	npx tsc --noEmit -p host/client_app/tsconfig.json
 
 # Diagnostics
 doctor:

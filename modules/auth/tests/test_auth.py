@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
-
 from sm_auth.contracts.schemas import UserContext
-
 
 # ── UserContext ───────────────────────────────────────────────────────
 
@@ -62,7 +60,6 @@ class TestGetCurrentUser:
         from unittest.mock import MagicMock
 
         from fastapi import HTTPException
-
         from sm_auth.deps import get_current_user
 
         request = MagicMock()
@@ -93,7 +90,6 @@ class TestRequirePermission:
         from unittest.mock import MagicMock
 
         from fastapi import HTTPException
-
         from sm_auth.deps import require_permission
 
         # Get the inner check function from the Depends wrapper
@@ -273,7 +269,6 @@ class TestRequirePermissionAdvanced:
         from unittest.mock import MagicMock
 
         from fastapi import HTTPException
-
         from sm_auth.deps import require_permission
 
         dep = require_permission("products.delete")

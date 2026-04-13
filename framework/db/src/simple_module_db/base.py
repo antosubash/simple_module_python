@@ -7,7 +7,6 @@ from sqlalchemy.orm import DeclarativeBase
 
 from simple_module_db.provider import DatabaseProvider
 
-
 # Convention-based naming for constraints (helps Alembic)
 _naming_convention = {
     "ix": "ix_%(column_0_label)s",
@@ -47,7 +46,7 @@ def create_module_base(
         mod_metadata = MetaData(naming_convention=_naming_convention)
 
     # Use type() to create the class, avoiding class body scoping issues
-    ModuleBase = type(
+    ModuleBase = type(  # noqa: N806
         f"{module_name.title()}Base",
         (DeclarativeBase,),
         {
@@ -57,7 +56,7 @@ def create_module_base(
     )
 
     # Store module name for reference
-    ModuleBase.__module_name__ = schema_name  # type: ignore[attr-defined]
+    ModuleBase.__module_name__ = schema_name  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     _base_cache[cache_key] = ModuleBase
     all_module_bases.append(ModuleBase)

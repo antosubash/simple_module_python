@@ -63,10 +63,12 @@ class MenuRegistry:
                 continue
             if item.roles and not any(r in item.roles for r in roles):
                 continue
-            result[item.section.value].append({
-                "label": item.label,
-                "url": item.url,
-                "icon": item.icon,
-            })
+            result[item.section.value].append(
+                {
+                    "label": item.label,
+                    "url": item.url,
+                    "icon": item.icon,
+                }
+            )
 
         return result

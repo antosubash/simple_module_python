@@ -9,6 +9,7 @@
     "noEmit": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
+    "types": ["vite/client", "node"],
     "paths": {
       "@ui/*": ["../../packages/ui/src/*"],
       "@modules/*": ["../../modules/*"]
@@ -19,6 +20,7 @@
     "**/*.tsx",
     "../../modules/*/src/*/pages/**/*.tsx",
     "../../modules/*/src/*/components/**/*.tsx",
-    "../../packages/ui/src/**/*.tsx"
+    "../../packages/ui/src/**/*.tsx",
+    "../../packages/ui/src/**/*.ts"
   ]
 }

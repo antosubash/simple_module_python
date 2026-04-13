@@ -6,14 +6,13 @@ from collections.abc import AsyncGenerator
 
 import httpx
 import pytest
+from simple_module_hosting.settings import Settings
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
-
-from simple_module_hosting.settings import Settings
 
 
 @pytest.fixture

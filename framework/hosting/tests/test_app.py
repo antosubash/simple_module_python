@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 import httpx
-import pytest
 from fastapi import FastAPI
-
 from simple_module_hosting.app_builder import create_app
 from simple_module_hosting.settings import Settings
-
 
 # ── App creation ─────────────────────────────────────────────────────
 
@@ -79,7 +76,7 @@ class TestRouteRegistration:
         routes_by_path: dict[str, set[str]] = defaultdict(set)
         for route in app.routes:
             if hasattr(route, "path") and hasattr(route, "methods"):
-                routes_by_path[route.path].update(route.methods)
+                routes_by_path[route.path].update(route.methods)  # ty: ignore[invalid-argument-type]
 
         assert "GET" in routes_by_path.get("/api/products/", set())
         assert "POST" in routes_by_path.get("/api/products/", set())

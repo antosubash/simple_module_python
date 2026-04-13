@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from fastapi import Depends
+from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from simple_module_db.deps import get_db
 from sm_products.service import ProductService
 
 

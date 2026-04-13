@@ -5,12 +5,13 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from typing import Any, Callable, Coroutine
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-EventHandler = Callable[["Event"], Coroutine[Any, Any, None]]
+EventHandler = Callable[..., Coroutine[Any, Any, None]]
 
 
 @dataclass
@@ -39,7 +40,11 @@ class EventBus:
     def subscribe(self, event_type: type[Event], handler: EventHandler) -> None:
         """Register a handler for an event type."""
         self._handlers[event_type].append(handler)
-        logger.debug("Subscribed %s to %s", handler.__qualname__, event_type.__name__)
+        logger.debug(
+            "Subscribed %s to %s",
+            getattr(handler, "__qualname__", repr(handler)),
+            event_type.__name__,
+        )
 
     async def publish(self, event: Event) -> None:
         """Dispatch event to all registered handlers (awaited)."""
@@ -54,7 +59,7 @@ class EventBus:
             if isinstance(result, Exception):
                 logger.error(
                     "Event handler %s failed for %s: %s",
-                    handlers[i].__qualname__,
+                    getattr(handlers[i], "__qualname__", repr(handlers[i])),
                     type(event).__name__,
                     result,
                     exc_info=result,

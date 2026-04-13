@@ -1,11 +1,10 @@
-"""Tests for the framework core: module system, menu, permissions, feature flags, events, discovery."""
+"""Tests for the framework core: module system, menu, permissions, feature flags, events."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 import pytest
-
 from simple_module_core.discovery import topological_sort
 from simple_module_core.events import Event, EventBus
 from simple_module_core.exceptions import CircularDependencyError
@@ -13,7 +12,6 @@ from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagR
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
-
 
 # ── ModuleMeta ───────────────────────────────────────────────────────
 
@@ -42,7 +40,7 @@ class TestModuleMeta:
     async def test_frozen(self):
         meta = ModuleMeta(name="Frozen")
         with pytest.raises(AttributeError):
-            meta.name = "Changed"  # type: ignore[misc]
+            meta.name = "Changed"  # type: ignore[misc]  # ty: ignore[invalid-assignment]
 
 
 # ── ModuleBase ───────────────────────────────────────────────────────
@@ -88,10 +86,12 @@ class TestMenuRegistry:
 
     async def test_add_many(self):
         reg = MenuRegistry()
-        reg.add_many([
-            MenuItem(label="A", url="/a", order=1),
-            MenuItem(label="B", url="/b", order=2),
-        ])
+        reg.add_many(
+            [
+                MenuItem(label="A", url="/a", order=1),
+                MenuItem(label="B", url="/b", order=2),
+            ]
+        )
         assert len(reg.all_items) == 2
 
     async def test_sorted_by_order(self):
@@ -266,7 +266,7 @@ class TestEventBus:
         await bus.publish(OrderCreated(order_id=42))
 
         assert len(received) == 1
-        assert received[0].order_id == 42  # type: ignore[attr-defined]
+        assert received[0].order_id == 42  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     async def test_multiple_handlers(self):
         bus = EventBus()

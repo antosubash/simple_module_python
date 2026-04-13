@@ -3,26 +3,26 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import APIRouter, FastAPI
 from fastapi.staticfiles import StaticFiles
-from starlette.middleware.sessions import SessionMiddleware
-
-from inertia import InertiaConfig, InertiaVersionConflictException
-from inertia import inertia_version_conflict_exception_handler
-from jinja2 import Environment, FileSystemLoader
-
+from inertia import (
+    InertiaConfig,
+    InertiaVersionConflictException,
+    inertia_version_conflict_exception_handler,
+)
 from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
 from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagRegistry
 from simple_module_core.menu import MenuRegistry
-from simple_module_core.module import ModuleBase
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_db import init_db
 from simple_module_db.listeners import register_listeners
+from starlette.middleware.sessions import SessionMiddleware
+
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.middleware import InertiaLayoutDataMiddleware, SecurityHeadersMiddleware
 from simple_module_hosting.settings import Settings
@@ -115,7 +115,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # ── Exception handlers ─────────────────────────────────
     app.add_exception_handler(
         InertiaVersionConflictException,
-        inertia_version_conflict_exception_handler,
+        inertia_version_conflict_exception_handler,  # ty: ignore[invalid-argument-type]
     )
 
     # ── Auth setup (configure OAuth + middleware) ─────────
@@ -130,6 +130,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         permission_registry=perm_registry,
     )
     from sm_auth.middleware import AuthMiddleware
+
     app.add_middleware(AuthMiddleware)
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
     app.add_middleware(SecurityHeadersMiddleware)
@@ -165,6 +166,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 def _setup_inertia(app: FastAPI, settings: Settings) -> None:
     """Configure fastapi-inertia with the Jinja2 template."""
     import os
+
     from fastapi.templating import Jinja2Templates
 
     # Find the templates directory (relative to host/)
@@ -180,7 +182,7 @@ def _setup_inertia(app: FastAPI, settings: Settings) -> None:
     templates = Jinja2Templates(directory=templates_dir)
 
     inertia_config = InertiaConfig(
-        environment=settings.environment,
+        environment=settings.environment,  # ty: ignore[invalid-argument-type]
         version="1.0",
         dev_url=settings.vite_dev_url if settings.is_development else "",
         templates=templates,

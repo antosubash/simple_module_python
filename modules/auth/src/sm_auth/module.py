@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, FastAPI
-
+from fastapi import APIRouter
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 
@@ -20,10 +19,12 @@ class AuthModule(ModuleBase):
         api_router.include_router(api)
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
-        registry.add(MenuItem(
-            label="Logout",
-            url="/auth/logout",
-            icon="log-out",
-            order=999,
-            section=MenuSection.USER_DROPDOWN,
-        ))
+        registry.add(
+            MenuItem(
+                label="Logout",
+                url="/auth/logout",
+                icon="log-out",
+                order=999,
+                section=MenuSection.USER_DROPDOWN,
+            )
+        )

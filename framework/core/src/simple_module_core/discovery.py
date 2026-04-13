@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from importlib.metadata import entry_points
 
 from simple_module_core.exceptions import CircularDependencyError
@@ -40,7 +41,7 @@ def discover_modules() -> list[ModuleBase]:
     return modules
 
 
-def topological_sort(modules: list[ModuleBase]) -> list[ModuleBase]:
+def topological_sort(modules: Sequence[ModuleBase]) -> list[ModuleBase]:
     """Sort modules so dependencies come before dependents.
 
     Raises ``CircularDependencyError`` if a cycle is detected.

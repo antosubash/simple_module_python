@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, FastAPI
-from sqlalchemy import text
-
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
@@ -27,28 +25,35 @@ class ProductsModule(ModuleBase):
         view_router.include_router(views)
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
-        registry.add(MenuItem(
-            label="Products",
-            url="/products",
-            icon="package",
-            order=20,
-            section=MenuSection.SIDEBAR,
-        ))
+        registry.add(
+            MenuItem(
+                label="Products",
+                url="/products",
+                icon="package",
+                order=20,
+                section=MenuSection.SIDEBAR,
+            )
+        )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group("Products", [
-            "products.view",
-            "products.create",
-            "products.edit",
-            "products.delete",
-        ])
+        registry.add_group(
+            "Products",
+            [
+                "products.view",
+                "products.create",
+                "products.edit",
+                "products.delete",
+            ],
+        )
 
     def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
-        registry.add(FeatureFlagDefinition(
-            name="products.bulk_import",
-            description="Enable bulk product import from CSV",
-            default_enabled=False,
-        ))
+        registry.add(
+            FeatureFlagDefinition(
+                name="products.bulk_import",
+                description="Enable bulk product import from CSV",
+                default_enabled=False,
+            )
+        )
 
     async def on_startup(self, app: FastAPI) -> None:
         """Ensure the products table exists (dev convenience)."""

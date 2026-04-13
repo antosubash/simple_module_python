@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 from inertia import InertiaResponse
-
 from simple_module_hosting.inertia_deps import InertiaDep
+
 from sm_products.deps import get_product_service
 from sm_products.service import ProductService
 

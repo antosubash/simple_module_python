@@ -15,9 +15,7 @@ def configure_oauth(
     client_secret: str,
 ) -> None:
     """Register the Keycloak OIDC provider."""
-    server_metadata_url = (
-        f"{keycloak_url}/realms/{realm}/.well-known/openid-configuration"
-    )
+    server_metadata_url = f"{keycloak_url}/realms/{realm}/.well-known/openid-configuration"
     oauth.register(
         name="keycloak",
         client_id=client_id,

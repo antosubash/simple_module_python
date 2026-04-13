@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import logging
-import time
 
+from simple_module_db.listeners import current_user_id
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
 
-from simple_module_db.listeners import current_user_id
 from sm_auth.contracts.schemas import UserContext
 
 logger = logging.getLogger(__name__)

@@ -7,11 +7,9 @@ from decimal import Decimal
 import httpx
 import pytest
 from pydantic import ValidationError
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from sm_products.contracts.schemas import ProductCreate, ProductOut, ProductUpdate
+from sm_products.contracts.schemas import ProductCreate, ProductUpdate
 from sm_products.service import ProductService
-
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # ── Schema validation ────────────────────────────────────────────────
 

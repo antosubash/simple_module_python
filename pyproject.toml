@@ -20,6 +20,7 @@ dev-dependencies = [
     "ruff>=0.8",
     "playwright>=1.58.0",
     "pytest-playwright>=0.7.2",
+    "ty>=0.0.29",
 ]
 
 [tool.ruff]
@@ -28,6 +29,21 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "SIM"]
+ignore = [
+    "B008",   # Depends() in default args is idiomatic FastAPI
+    "B027",   # Empty methods in ABC without @abstractmethod — used for optional hooks
+]
+
+[tool.ty.environment]
+extra-paths = [
+    "framework/core/src",
+    "framework/db/src",
+    "framework/hosting/src",
+    "modules/auth/src",
+    "modules/dashboard/src",
+    "modules/products/src",
+    "host",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

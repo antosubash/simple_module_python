@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import ast
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
@@ -68,13 +68,15 @@ class ModuleDiagnostics:
             name = mod.meta.name
             cls_name = type(mod).__qualname__
             if name in seen:
-                diags.append(Diagnostic(
-                    level=DiagnosticLevel.ERROR,
-                    code="SM008",
-                    message=f"Duplicate module name '{name}' (also in {seen[name]})",
-                    module_name=cls_name,
-                    suggestion="Each module must have a unique meta.name",
-                ))
+                diags.append(
+                    Diagnostic(
+                        level=DiagnosticLevel.ERROR,
+                        code="SM008",
+                        message=f"Duplicate module name '{name}' (also in {seen[name]})",
+                        module_name=cls_name,
+                        suggestion="Each module must have a unique meta.name",
+                    )
+                )
             seen[name] = cls_name
         return diags
 
@@ -85,16 +87,18 @@ class ModuleDiagnostics:
         for mod in modules:
             prefix = mod.meta.name.lower()
             if prefix in prefixes:
-                diags.append(Diagnostic(
-                    level=DiagnosticLevel.ERROR,
-                    code="SM008",
-                    message=(
-                        f"Schema/table prefix '{prefix}' conflicts "
-                        f"with module '{prefixes[prefix]}'"
-                    ),
-                    module_name=mod.meta.name,
-                    suggestion="Use unique module names to avoid DB schema conflicts",
-                ))
+                diags.append(
+                    Diagnostic(
+                        level=DiagnosticLevel.ERROR,
+                        code="SM008",
+                        message=(
+                            f"Schema/table prefix '{prefix}' conflicts "
+                            f"with module '{prefixes[prefix]}'"
+                        ),
+                        module_name=mod.meta.name,
+                        suggestion="Use unique module names to avoid DB schema conflicts",
+                    )
+                )
             prefixes[prefix] = mod.meta.name
         return diags
 
@@ -114,26 +118,30 @@ class ModuleDiagnostics:
                 if name in cls.__dict__
             ]
             if not overridden:
-                diags.append(Diagnostic(
-                    level=DiagnosticLevel.INFO,
-                    code="SM007",
-                    message="Module exists but overrides no registration methods",
-                    module_name=mod.meta.name,
-                    suggestion="Override register_routes() or other methods to add functionality",
-                ))
+                diags.append(
+                    Diagnostic(
+                        level=DiagnosticLevel.INFO,
+                        code="SM007",
+                        message="Module exists but overrides no registration methods",
+                        module_name=mod.meta.name,
+                        suggestion="Override register_routes() or other methods to add functionality",  # noqa: E501
+                    )
+                )
         return diags
 
     def _check_missing_meta(self, modules: list[ModuleBase]) -> list[Diagnostic]:
         diags: list[Diagnostic] = []
         for mod in modules:
             if not hasattr(mod, "meta"):
-                diags.append(Diagnostic(
-                    level=DiagnosticLevel.ERROR,
-                    code="SM001",
-                    message="Module missing 'meta' class attribute",
-                    module_name=type(mod).__qualname__,
-                    suggestion="Add: meta = ModuleMeta(name='YourModule')",
-                ))
+                diags.append(
+                    Diagnostic(
+                        level=DiagnosticLevel.ERROR,
+                        code="SM001",
+                        message="Module missing 'meta' class attribute",
+                        module_name=type(mod).__qualname__,
+                        suggestion="Add: meta = ModuleMeta(name='YourModule')",
+                    )
+                )
         return diags
 
     def _check_orphan_pages(self, mod: ModuleBase, src_dir: Path) -> list[Diagnostic]:
@@ -192,12 +200,16 @@ class ModuleDiagnostics:
                     continue
                 # Match: inertia.render("Products/Browse", ...)
                 # or: xxx.render("Products/Browse", ...)
-                if isinstance(node.func, ast.Attribute) and node.func.attr == "render":
-                    if node.args and isinstance(node.args[0], ast.Constant):
-                        component = node.args[0].value
-                        if isinstance(component, str) and component.startswith(prefix):
-                            page_name = component[len(prefix):]
-                            rendered.add(page_name)
+                if (
+                    isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "render"
+                    and node.args
+                    and isinstance(node.args[0], ast.Constant)
+                ):
+                    component = node.args[0].value
+                    if isinstance(component, str) and component.startswith(prefix):
+                        page_name = component[len(prefix) :]
+                        rendered.add(page_name)
 
         return rendered
 

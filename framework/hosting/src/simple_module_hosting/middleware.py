@@ -39,7 +39,7 @@ class InertiaLayoutDataMiddleware(BaseHTTPMiddleware):
         menu_registry: MenuRegistry,
         permission_registry: PermissionRegistry,
     ) -> None:
-        super().__init__(app)  # type: ignore[arg-type]
+        super().__init__(app)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         self.menu_registry = menu_registry
         self.permission_registry = permission_registry
 

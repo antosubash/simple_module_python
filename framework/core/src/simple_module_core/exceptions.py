@@ -14,7 +14,7 @@ class CircularDependencyError(ModuleError):
         super().__init__(f"Circular dependency detected: {path}")
 
 
-class NotFoundException(Exception):
+class NotFoundError(Exception):
     """Raised when a requested resource is not found."""
 
     def __init__(self, resource: str, identifier: str | int) -> None:

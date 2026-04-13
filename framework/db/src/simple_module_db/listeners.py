@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import event
 from sqlalchemy.orm import Session
@@ -32,7 +32,7 @@ def _before_flush_listener(
     instances: object,
 ) -> None:
     user_id = current_user_id.get()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # New objects
     for obj in session.new:
