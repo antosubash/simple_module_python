@@ -1,6 +1,14 @@
 import { Link, useForm, usePage } from '@inertiajs/react';
 import { PageShell } from '@ui/components/PageShell';
+import { Button } from '@ui/components/ui/button';
+import { Card, CardContent } from '@ui/components/ui/card';
+import { Checkbox } from '@ui/components/ui/checkbox';
+import { Input } from '@ui/components/ui/input';
+import { Label } from '@ui/components/ui/label';
+import { Textarea } from '@ui/components/ui/textarea';
 import { AuthenticatedLayout } from '@ui/layouts/AuthenticatedLayout';
+import { toast } from 'sonner';
+import { validateProduct } from '../validation';
 
 interface Product {
   id: number;
@@ -17,7 +25,7 @@ interface Props {
 function Edit() {
   const { product } = usePage<{ props: Props }>().props as unknown as Props;
 
-  const { data, setData, put, processing, errors } = useForm({
+  const { data, setData, put, processing, errors, clearErrors } = useForm({
     name: product.name,
     description: product.description || '',
     price: product.price,
@@ -26,7 +34,20 @@ function Edit() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    put(`/api/products/${product.id}`);
+    const clientErrors = validateProduct(data);
+    if (Object.keys(clientErrors).length > 0) {
+      for (const msg of Object.values(clientErrors)) {
+        toast.error(msg);
+      }
+      return;
+    }
+    put(`/products/${product.id}`, {
+      onSuccess: () => toast.success('Product updated'),
+      onError: (errs) => {
+        const first = Object.values(errs)[0];
+        if (first) toast.error(first);
+      },
+    });
   }
 
   return (
@@ -34,78 +55,90 @@ function Edit() {
       title={`Edit: ${product.name}`}
       description="Update product details"
       actions={
-        <Link href="/products" className="btn-secondary">
-          Back to Products
-        </Link>
+        <Button asChild variant="outline">
+          <Link href="/products">Back to Products</Link>
+        </Button>
       }
     >
-      <div className="card max-w-xl">
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          <div>
-            <label htmlFor="name" className="label">
-              Name
-            </label>
-            <input
-              id="name"
-              type="text"
-              value={data.name}
-              onChange={(e) => setData('name', e.target.value)}
-              className="input"
-            />
-            {errors.name && <p className="text-sm text-red-600 mt-1.5">{errors.name}</p>}
-          </div>
-          <div>
-            <label htmlFor="description" className="label">
-              Description
-            </label>
-            <textarea
-              id="description"
-              value={data.description}
-              onChange={(e) => setData('description', e.target.value)}
-              className="input"
-              rows={4}
-            />
-          </div>
-          <div>
-            <label htmlFor="price" className="label">
-              Price
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-                $
-              </span>
-              <input
-                id="price"
-                type="number"
-                step="0.01"
-                value={data.price}
-                onChange={(e) => setData('price', e.target.value)}
-                className="input pl-7"
+      <Card className="max-w-xl">
+        <CardContent className="pt-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="name">
+                Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="name"
+                type="text"
+                value={data.name}
+                onChange={(e) => {
+                  setData('name', e.target.value);
+                  clearErrors('name');
+                }}
+                maxLength={200}
+                required
+              />
+              {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={data.description}
+                onChange={(e) => setData('description', e.target.value)}
+                rows={4}
+                maxLength={2000}
               />
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <input
-              id="is_active"
-              type="checkbox"
-              checked={data.is_active}
-              onChange={(e) => setData('is_active', e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            <label htmlFor="is_active" className="text-sm text-gray-700">
-              Active
-            </label>
-          </div>
-          <div className="pt-2 flex gap-3">
-            <button type="submit" disabled={processing} className="btn-primary">
-              {processing ? 'Saving...' : 'Save Changes'}
-            </button>
-            <Link href="/products" className="btn-secondary">
-              Cancel
-            </Link>
-          </div>
-        </form>
-      </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="price">
+                Price <span className="text-destructive">*</span>
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                  $
+                </span>
+                <Input
+                  id="price"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={data.price}
+                  onChange={(e) => {
+                    setData('price', e.target.value);
+                    clearErrors('price');
+                  }}
+                  className="pl-7"
+                  required
+                />
+              </div>
+              {errors.price && <p className="text-sm text-destructive">{errors.price}</p>}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Checkbox
+                id="is_active"
+                checked={data.is_active}
+                onCheckedChange={(checked) => setData('is_active', checked === true)}
+              />
+              <Label htmlFor="is_active" className="cursor-pointer">
+                Active
+              </Label>
+            </div>
+
+            <div className="pt-2 flex gap-3">
+              <Button type="submit" disabled={processing}>
+                {processing ? 'Saving...' : 'Save Changes'}
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/products">Cancel</Link>
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </PageShell>
   );
 }

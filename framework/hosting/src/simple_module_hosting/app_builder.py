@@ -306,6 +306,7 @@ def _setup_inertia(app: FastAPI, settings: Settings) -> None:
         root_template_filename="index.html",
         entrypoint_filename="main.tsx",
         root_directory=".",
+        use_flash_errors=True,
     )
 
     # Register the Inertia dependency globally

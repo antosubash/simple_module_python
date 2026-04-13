@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+from simple_module_hosting.permissions import RequiresPermission
 
 from sm_products.contracts.schemas import ProductCreate, ProductOut, ProductUpdate
 from sm_products.deps import get_product_service
@@ -15,7 +16,8 @@ router = APIRouter()
 async def list_products(
     service: ProductService = Depends(get_product_service),
 ) -> list[ProductOut]:
-    return await service.get_all()
+    products, _ = await service.get_all()
+    return products
 
 
 @router.get("/{product_id}", response_model=ProductOut)
@@ -29,7 +31,12 @@ async def get_product(
     return product
 
 
-@router.post("/", response_model=ProductOut, status_code=201)
+@router.post(
+    "/",
+    response_model=ProductOut,
+    status_code=201,
+    dependencies=[Depends(RequiresPermission("products.create"))],
+)
 async def create_product(
     data: ProductCreate,
     service: ProductService = Depends(get_product_service),
@@ -37,7 +44,11 @@ async def create_product(
     return await service.create(data)
 
 
-@router.put("/{product_id}", response_model=ProductOut)
+@router.put(
+    "/{product_id}",
+    response_model=ProductOut,
+    dependencies=[Depends(RequiresPermission("products.edit"))],
+)
 async def update_product(
     product_id: int,
     data: ProductUpdate,
@@ -49,7 +60,11 @@ async def update_product(
     return product
 
 
-@router.delete("/{product_id}", status_code=204)
+@router.delete(
+    "/{product_id}",
+    status_code=204,
+    dependencies=[Depends(RequiresPermission("products.delete"))],
+)
 async def delete_product(
     product_id: int,
     service: ProductService = Depends(get_product_service),
