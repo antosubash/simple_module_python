@@ -630,3 +630,19 @@ class TestHealthRegistry:
         assert HealthStatus.HEALTHY == "healthy"
         assert HealthStatus.DEGRADED == "degraded"
         assert HealthStatus.UNHEALTHY == "unhealthy"
+
+
+class TestModuleNewHooks:
+    async def test_register_exception_handlers_default_noop(self):
+        mod = DummyModule()
+        mod.register_exception_handlers(None)  # type: ignore
+
+    async def test_register_health_checks_default_noop(self):
+        mod = DummyModule()
+        reg = HealthRegistry()
+        mod.register_health_checks(reg)
+        assert len(reg.all_checks) == 0
+
+    async def test_register_settings_default_noop(self):
+        mod = DummyModule()
+        mod.register_settings(None)  # type: ignore
