@@ -1,13 +1,14 @@
-"""Async in-process event bus for inter-module communication."""
+"""Async in-process event bus backed by pyee for inter-module communication."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from collections import defaultdict
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from typing import Any
+
+from pyee.asyncio import AsyncIOEventEmitter
 
 logger = logging.getLogger(__name__)
 
@@ -28,18 +29,32 @@ class Event:
 
 
 class EventBus:
-    """Simple async event bus.
+    """Async event bus backed by pyee's ``AsyncIOEventEmitter``.
 
     Modules subscribe to event types in ``register_event_handlers``.
     Publishing dispatches to all subscribers concurrently.
+
+    * ``publish``      — awaits all handlers via ``asyncio.gather`` (error-isolated).
+    * ``publish_nowait`` — fire-and-forget via pyee's event-loop scheduling.
     """
 
     def __init__(self) -> None:
-        self._handlers: dict[type[Event], list[EventHandler]] = defaultdict(list)
+        self._emitter = AsyncIOEventEmitter()
+        self._emitter.on("error", self._on_emitter_error)
+
+    @staticmethod
+    def _on_emitter_error(error: Exception) -> None:
+        """Handle errors from fire-and-forget dispatch."""
+        logger.error("EventBus background handler error: %s", error, exc_info=error)
+
+    @staticmethod
+    def _event_key(event_type: type[Event]) -> str:
+        """Derive a unique string key from an event class for pyee registration."""
+        return f"{event_type.__module__}.{event_type.__qualname__}"
 
     def subscribe(self, event_type: type[Event], handler: EventHandler) -> None:
         """Register a handler for an event type."""
-        self._handlers[event_type].append(handler)
+        self._emitter.on(self._event_key(event_type), handler)
         logger.debug(
             "Subscribed %s to %s",
             getattr(handler, "__qualname__", repr(handler)),
@@ -47,8 +62,13 @@ class EventBus:
         )
 
     async def publish(self, event: Event) -> None:
-        """Dispatch event to all registered handlers (awaited)."""
-        handlers = self._handlers.get(type(event), [])
+        """Dispatch event to all registered handlers (awaited).
+
+        All handlers run concurrently via ``asyncio.gather``.
+        Individual handler failures are logged but do not propagate.
+        """
+        key = self._event_key(type(event))
+        handlers = self._emitter.listeners(key)
         if not handlers:
             return
         results = await asyncio.gather(
@@ -66,6 +86,9 @@ class EventBus:
                 )
 
     def publish_nowait(self, event: Event) -> None:
-        """Fire-and-forget: schedule event dispatch on the current event loop."""
-        loop = asyncio.get_event_loop()
-        loop.create_task(self.publish(event))
+        """Fire-and-forget: schedule event dispatch on the current event loop.
+
+        Uses pyee's ``AsyncIOEventEmitter.emit`` which schedules async
+        handlers as tasks on the running loop.
+        """
+        self._emitter.emit(self._event_key(type(event)), event)
