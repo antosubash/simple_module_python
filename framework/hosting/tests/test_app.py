@@ -111,3 +111,25 @@ class TestSecurityHeaders:
         assert resp.headers["x-frame-options"] == "SAMEORIGIN"
         assert resp.headers["x-xss-protection"] == "1; mode=block"
         assert resp.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+
+
+# ── Migration check ─────────────────────────────────────────────────
+
+
+class TestHealthMigrationStatus:
+    async def test_health_includes_migration(self, client: httpx.AsyncClient):
+        resp = await client.get("/health")
+        data = resp.json()
+        migration = data["migration"]
+        assert migration["is_current"] is True
+        assert migration["pending_count"] == 0
+
+
+class TestMigrationCheck:
+    async def test_app_state_has_migration_info(self, app: FastAPI):
+        """App state should include migration status after startup."""
+        migration = app.state.migration
+        assert migration["is_current"] is True
+        assert migration["pending_count"] == 0
+        assert "current_revision" in migration
+        assert "head_revision" in migration

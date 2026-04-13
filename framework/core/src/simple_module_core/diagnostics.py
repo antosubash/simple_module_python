@@ -226,9 +226,71 @@ class ModuleDiagnostics:
         return None
 
 
-def run_diagnostics(modules: list[ModuleBase]) -> list[Diagnostic]:
-    """Convenience function to run all diagnostics."""
-    return ModuleDiagnostics().run(modules)
+class MigrationDiagnostics:
+    """Validates database migration state."""
+
+    def check_revision_mismatch(
+        self,
+        current_revision: str | None,
+        head_revision: str | None,
+    ) -> list[Diagnostic]:
+        """SM009: Error if database is not at the migration head."""
+        if current_revision == head_revision:
+            return []
+        return [
+            Diagnostic(
+                level=DiagnosticLevel.ERROR,
+                code="SM009",
+                message=(f"Database at revision {current_revision!r}, expected {head_revision!r}"),
+                module_name="migrations",
+                suggestion="Run: make migrate",
+            )
+        ]
+
+    def check_table_coverage(
+        self,
+        module_tables: set[str],
+        migrated_tables: set[str],
+    ) -> list[Diagnostic]:
+        """SM010: Warning if module tables are missing from migration history."""
+        missing = module_tables - migrated_tables
+        return [
+            Diagnostic(
+                level=DiagnosticLevel.WARNING,
+                code="SM010",
+                message=f"Table '{table}' declared in models but not found in migration history",
+                module_name="migrations",
+                suggestion=f'Run: make migration msg="add {table}"',
+            )
+            for table in sorted(missing)
+        ]
+
+
+def run_diagnostics(
+    modules: list[ModuleBase],
+    *,
+    migration_state: dict | None = None,
+    module_tables: set[str] | None = None,
+    migrated_tables: set[str] | None = None,
+) -> list[Diagnostic]:
+    """Convenience function to run all diagnostics.
+
+    When ``migration_state`` is provided, also runs migration diagnostics.
+    """
+    diagnostics = ModuleDiagnostics().run(modules)
+
+    if migration_state is not None:
+        migration_diag = MigrationDiagnostics()
+        diagnostics.extend(
+            migration_diag.check_revision_mismatch(
+                current_revision=migration_state.get("current_revision"),
+                head_revision=migration_state.get("head_revision"),
+            )
+        )
+        if module_tables is not None and migrated_tables is not None:
+            diagnostics.extend(migration_diag.check_table_coverage(module_tables, migrated_tables))
+
+    return diagnostics
 
 
 def print_diagnostics(diagnostics: list[Diagnostic]) -> None:

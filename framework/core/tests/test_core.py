@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
+from simple_module_core.diagnostics import DiagnosticLevel, MigrationDiagnostics
 from simple_module_core.discovery import topological_sort
 from simple_module_core.events import Event, EventBus
 from simple_module_core.exceptions import CircularDependencyError
@@ -581,3 +582,49 @@ class TestModuleLifecycle:
         reg = FeatureFlagRegistry()
         mod.register_feature_flags(reg)
         assert len(reg.all_flags) == 0
+
+
+# ── MigrationDiagnostics ──────────────────────────────────────────
+
+
+class TestMigrationDiagnostics:
+    async def test_sm009_migration_mismatch(self):
+        """SM009 should fire when current revision != head."""
+        diag = MigrationDiagnostics()
+        results = diag.check_revision_mismatch(
+            current_revision="abc123",
+            head_revision="def456",
+        )
+        assert len(results) == 1
+        assert results[0].code == "SM009"
+        assert results[0].level == DiagnosticLevel.ERROR
+
+    async def test_sm009_no_error_when_current(self):
+        """SM009 should not fire when DB is at head."""
+        diag = MigrationDiagnostics()
+        results = diag.check_revision_mismatch(
+            current_revision="abc123",
+            head_revision="abc123",
+        )
+        assert len(results) == 0
+
+    async def test_sm010_missing_tables(self):
+        """SM010 should fire when module tables aren't in migration tables."""
+        diag = MigrationDiagnostics()
+        results = diag.check_table_coverage(
+            module_tables={"products_product", "products_category"},
+            migrated_tables={"products_product"},
+        )
+        assert len(results) == 1
+        assert results[0].code == "SM010"
+        assert results[0].level == DiagnosticLevel.WARNING
+        assert "products_category" in results[0].message
+
+    async def test_sm010_no_warning_when_covered(self):
+        """SM010 should not fire when all tables are covered."""
+        diag = MigrationDiagnostics()
+        results = diag.check_table_coverage(
+            module_tables={"products_product"},
+            migrated_tables={"products_product"},
+        )
+        assert len(results) == 0

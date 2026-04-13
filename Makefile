@@ -1,4 +1,4 @@
-.PHONY: install dev dev-api dev-ui build test lint doctor migrate docker-up docker-down kill
+.PHONY: install dev dev-api dev-ui build test lint doctor migrate migration downgrade migration-history docker-up docker-down kill
 
 # Install
 install:
@@ -35,12 +35,18 @@ lint:
 doctor:
 	uv run python -m simple_module_hosting.diagnostics
 
-# Database
-migrate:
-	uv run alembic upgrade head
+# Database migrations
+migrate:                    ## Run migrations to head
+	cd host && uv run alembic upgrade head
 
-migrate-create:
-	uv run alembic revision --autogenerate -m "$(MSG)"
+migration:                  ## Create new migration (usage: make migration msg="add foo")
+	cd host && uv run alembic revision --autogenerate -m "$(msg)"
+
+downgrade:                  ## Downgrade one revision
+	cd host && uv run alembic downgrade -1
+
+migration-history:          ## Show migration history
+	cd host && uv run alembic history --verbose
 
 # Kill dev servers
 kill:
