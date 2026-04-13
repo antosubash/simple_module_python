@@ -16,12 +16,7 @@ from inertia import (
     InertiaVersionConflictException,
     inertia_version_conflict_exception_handler,
 )
-from simple_module_core.diagnostics import (
-    DiagnosticLevel,
-    MigrationDiagnostics,
-    print_diagnostics,
-    run_diagnostics,
-)
+from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
 from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagRegistry
@@ -43,14 +38,28 @@ async def _check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") 
 
     Returns a dict with migration status for storage on app.state.
     """
+    import os
+
+    from alembic.util.exc import CommandError
+
+    _no_migrations = {
+        "current_revision": None,
+        "head_revision": None,
+        "is_current": True,
+        "pending_count": 0,
+    }
+
+    if not os.path.isfile(alembic_ini_path):
+        logger.debug("Alembic config not found at %s — skipping migration check", alembic_ini_path)
+        return _no_migrations
+
     try:
         alembic_cfg = AlembicConfig(alembic_ini_path)
         script = ScriptDirectory.from_config(alembic_cfg)
         head = script.get_current_head()
-    except Exception:
-        # Alembic not configured (e.g., test environments)
-        head = None
-        script = None
+    except CommandError as exc:
+        logger.debug("Alembic script directory not resolved: %s — skipping migration check", exc)
+        return _no_migrations
 
     # No migrations configured (e.g., test environments)
     if head is None:
@@ -145,20 +154,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.migration = await _check_migrations(app.state.db.engine)
-
-        if app.state.settings.is_development:
-            from simple_module_db.base import all_module_bases
-
-            module_tables = {
-                t.name for base in all_module_bases for t in base.metadata.tables.values()
-            }
-            mig_diag = MigrationDiagnostics()
-            mig_diagnostics = mig_diag.check_table_coverage(
-                module_tables=module_tables,
-                migrated_tables=module_tables,  # TODO: extract from migration scripts
-            )
-            if mig_diagnostics:
-                print_diagnostics(mig_diagnostics)
 
         for mod in modules:
             await mod.on_startup(app)

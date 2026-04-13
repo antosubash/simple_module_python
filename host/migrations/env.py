@@ -40,7 +40,7 @@ for _ep in entry_points(group=ENTRY_POINT_GROUP):
 target_metadata = MetaData()
 for base in all_module_bases:
     for table in base.metadata.tables.values():
-        table.tometadata(target_metadata)
+        table.to_metadata(target_metadata)
 
 # Allowlist: only manage tables declared by modules
 MODULE_TABLES = {t.name for t in target_metadata.tables.values()}
