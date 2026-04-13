@@ -1,10 +1,11 @@
-"""Middleware for security headers and Inertia layout data."""
+"""Middleware for security headers, tenant isolation, and Inertia layout data."""
 
 from __future__ import annotations
 
 import secrets
 from typing import TYPE_CHECKING
 
+from simple_module_db.listeners import current_tenant_id
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
@@ -24,6 +25,48 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         return response
+
+
+class TenantMiddleware(BaseHTTPMiddleware):
+    """Extract tenant context from authenticated user or request header.
+
+    Sets the ``current_tenant_id`` context var so that DB queries on
+    :class:`~simple_module_db.mixins.MultiTenantMixin` models are
+    automatically filtered, and new objects get ``tenant_id`` populated.
+
+    Also stores the resolved value on ``request.state.tenant_id``.
+
+    Tenant is resolved from (in priority order):
+
+    1. Authenticated user's ``tenant_id`` attribute (from auth token claims).
+    2. ``X-Tenant-ID`` request header — useful for API clients and testing.
+    """
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        tenant_id: str | None = None
+
+        # 1. Try to get tenant from authenticated user (set by auth middleware)
+        user = getattr(request.state, "user", None)
+        if user is not None:
+            tenant_id = getattr(user, "tenant_id", None)
+
+        # 2. Fall back to X-Tenant-ID header (only when token has no tenant)
+        if tenant_id is None:
+            header_value = request.headers.get("X-Tenant-ID")
+            if header_value:
+                tenant_id = header_value
+
+        request.state.tenant_id = tenant_id
+
+        if tenant_id is not None:
+            token = current_tenant_id.set(tenant_id)
+            try:
+                response = await call_next(request)
+            finally:
+                current_tenant_id.reset(token)
+            return response
+
+        return await call_next(request)
 
 
 class InertiaLayoutDataMiddleware(BaseHTTPMiddleware):

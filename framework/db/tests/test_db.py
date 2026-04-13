@@ -2,11 +2,24 @@
 
 from __future__ import annotations
 
+import pytest
 from simple_module_db.base import create_module_base
-from simple_module_db.mixins import AuditMixin, SoftDeleteMixin, VersionedMixin
+from simple_module_db.listeners import TenantIsolationError, current_tenant_id, register_listeners
+from simple_module_db.mixins import AuditMixin, MultiTenantMixin, SoftDeleteMixin, VersionedMixin
 from simple_module_db.provider import DatabaseProvider, detect_provider
 from simple_module_db.session import DatabaseState, init_db
+from sqlalchemy import String, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Mapped, mapped_column
+
+# ── Test model for multi-tenancy ────────────────────────────────────
+_TenantBase = create_module_base("mt_test", provider=DatabaseProvider.SQLITE)
+
+
+class _TenantItem(_TenantBase, MultiTenantMixin):  # type: ignore[misc]
+    __tablename__ = "mt_test_item"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(100))
 
 # ── create_module_base ───────────────────────────────────────────────
 
@@ -128,3 +141,142 @@ class TestGetDbDependency:
                 await gen.__anext__()
         finally:
             await db_state.engine.dispose()
+
+
+# ── Multi-tenancy ───────────────────────────────────────────────────
+
+
+class TestMultiTenancy:
+    """Automatic tenant isolation: auto-populate, query filtering, enforcement."""
+
+    @pytest.fixture
+    async def tenant_session(self) -> AsyncSession:
+        """Session backed by in-memory SQLite with tenant listeners registered."""
+        db_state = init_db("sqlite+aiosqlite:///:memory:")
+        register_listeners(db_state)
+
+        async with db_state.engine.begin() as conn:
+            await conn.run_sync(_TenantBase.metadata.create_all)
+
+        async with db_state.session_factory() as session:
+            yield session  # type: ignore[misc]
+
+        await db_state.engine.dispose()
+
+    # ── auto-populate ───────────────────────────────────────
+
+    async def test_auto_populate_tenant_id(self, tenant_session: AsyncSession):
+        """New objects should get tenant_id from the current context."""
+        token = current_tenant_id.set("tenant-a")
+        try:
+            item = _TenantItem(name="Widget")
+            tenant_session.add(item)
+            await tenant_session.flush()
+            assert item.tenant_id == "tenant-a"
+        finally:
+            current_tenant_id.reset(token)
+
+    async def test_explicit_tenant_id_preserved(self, tenant_session: AsyncSession):
+        """Explicitly set tenant_id matching the context should be kept."""
+        token = current_tenant_id.set("tenant-a")
+        try:
+            item = _TenantItem(name="Explicit", tenant_id="tenant-a")
+            tenant_session.add(item)
+            await tenant_session.flush()
+            assert item.tenant_id == "tenant-a"
+        finally:
+            current_tenant_id.reset(token)
+
+    # ── query filtering ─────────────────────────────────────
+
+    async def test_query_returns_only_current_tenant(self, tenant_session: AsyncSession):
+        """SELECT should be automatically filtered to the current tenant."""
+        # Seed two tenants
+        token_a = current_tenant_id.set("tenant-a")
+        try:
+            tenant_session.add_all([_TenantItem(name="A1"), _TenantItem(name="A2")])
+            await tenant_session.flush()
+        finally:
+            current_tenant_id.reset(token_a)
+
+        token_b = current_tenant_id.set("tenant-b")
+        try:
+            tenant_session.add(_TenantItem(name="B1"))
+            await tenant_session.flush()
+        finally:
+            current_tenant_id.reset(token_b)
+
+        # Query as tenant-a
+        token = current_tenant_id.set("tenant-a")
+        try:
+            result = await tenant_session.execute(select(_TenantItem))
+            items = result.scalars().all()
+            assert len(items) == 2
+            assert all(i.tenant_id == "tenant-a" for i in items)
+        finally:
+            current_tenant_id.reset(token)
+
+        # Query as tenant-b
+        token = current_tenant_id.set("tenant-b")
+        try:
+            result = await tenant_session.execute(select(_TenantItem))
+            items = result.scalars().all()
+            assert len(items) == 1
+            assert items[0].name == "B1"
+        finally:
+            current_tenant_id.reset(token)
+
+    async def test_no_filtering_without_tenant_context(self, tenant_session: AsyncSession):
+        """Without a tenant context, all rows should be visible (system query)."""
+        token_a = current_tenant_id.set("tenant-a")
+        try:
+            tenant_session.add(_TenantItem(name="A1"))
+            await tenant_session.flush()
+        finally:
+            current_tenant_id.reset(token_a)
+
+        token_b = current_tenant_id.set("tenant-b")
+        try:
+            tenant_session.add(_TenantItem(name="B1"))
+            await tenant_session.flush()
+        finally:
+            current_tenant_id.reset(token_b)
+
+        # No tenant context → see everything
+        result = await tenant_session.execute(select(_TenantItem))
+        items = result.scalars().all()
+        assert len(items) == 2
+
+    # ── isolation enforcement ───────────────────────────────
+
+    async def test_cross_tenant_creation_rejected(self, tenant_session: AsyncSession):
+        """Creating an object with a tenant_id that doesn't match the context should raise."""
+        token = current_tenant_id.set("tenant-a")
+        try:
+            item = _TenantItem(name="Imposter", tenant_id="tenant-b")
+            tenant_session.add(item)
+            with pytest.raises(TenantIsolationError, match="Cannot create object"):
+                await tenant_session.flush()
+        finally:
+            await tenant_session.rollback()
+            current_tenant_id.reset(token)
+
+    async def test_tenant_id_change_rejected(self, tenant_session: AsyncSession):
+        """Changing tenant_id on an existing object should raise."""
+        token = current_tenant_id.set("tenant-a")
+        try:
+            item = _TenantItem(name="Stable")
+            tenant_session.add(item)
+            await tenant_session.flush()
+
+            # Attempt to move to another tenant
+            item.tenant_id = "tenant-b"
+            with pytest.raises(TenantIsolationError, match="Cannot change tenant_id"):
+                await tenant_session.flush()
+        finally:
+            await tenant_session.rollback()
+            current_tenant_id.reset(token)
+
+    async def test_multi_tenant_mixin_fields(self):
+        """MultiTenantMixin should define tenant_id."""
+        assert hasattr(MultiTenantMixin, "tenant_id")

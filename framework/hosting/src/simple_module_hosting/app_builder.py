@@ -31,7 +31,11 @@ from simple_module_db.session import init_db
 from starlette.middleware.sessions import SessionMiddleware
 
 from simple_module_hosting.health import router as health_router
-from simple_module_hosting.middleware import InertiaLayoutDataMiddleware, SecurityHeadersMiddleware
+from simple_module_hosting.middleware import (
+    InertiaLayoutDataMiddleware,
+    SecurityHeadersMiddleware,
+    TenantMiddleware,
+)
 from simple_module_hosting.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -198,12 +202,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # ── Phase 8: Middleware pipeline ───────────────────────
     # Order matters: last added = first executed
-    # Execution order: SecurityHeaders → Session → [module middleware] → InertiaLayout
+    # Execution order: SecurityHeaders → Session → [module middleware] → Tenant → InertiaLayout
     app.add_middleware(
         InertiaLayoutDataMiddleware,
         menu_registry=menu_registry,
         permission_registry=perm_registry,
     )
+    app.add_middleware(TenantMiddleware)
     for mod in modules:
         mod.register_middleware(app)
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
