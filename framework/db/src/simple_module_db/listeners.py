@@ -28,7 +28,7 @@ def register_listeners(db_state: DatabaseState) -> None:
         logger.debug("Listeners already registered, skipping")
         return
 
-    event.listen(db_state.session_factory, "before_flush", _before_flush_listener)
+    event.listen(Session, "before_flush", _before_flush_listener)
     db_state._listeners_registered = True
     logger.info("Registered SQLAlchemy entity listeners")
 
