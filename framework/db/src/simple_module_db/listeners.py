@@ -28,7 +28,7 @@ def register_listeners(db_state: DatabaseState) -> None:
         logger.debug("Listeners already registered, skipping")
         return
 
-    event.listen(Session, "before_flush", _before_flush_listener)
+    event.listen(db_state.sync_session_class, "before_flush", _before_flush_listener)
     db_state._listeners_registered = True
     logger.info("Registered SQLAlchemy entity listeners")
 
@@ -41,7 +41,6 @@ def _before_flush_listener(
     user_id = current_user_id.get()
     now = datetime.now(UTC)
 
-    # New objects
     for obj in session.new:
         if isinstance(obj, AuditMixin):
             if obj.created_by is None:
@@ -49,7 +48,6 @@ def _before_flush_listener(
             if obj.updated_by is None:
                 obj.updated_by = user_id
 
-    # Modified objects
     for obj in session.dirty:
         if not session.is_modified(obj):
             continue

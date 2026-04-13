@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.orm import Session
 
 from simple_module_db.provider import DatabaseProvider, detect_provider
 
@@ -20,6 +21,7 @@ class DatabaseState:
 
     engine: AsyncEngine
     session_factory: async_sessionmaker[AsyncSession]
+    sync_session_class: type[Session] = field(repr=False, default=Session)
     _listeners_registered: bool = field(default=False, repr=False)
 
 
@@ -39,6 +41,14 @@ def init_db(database_url: str, *, echo: bool = False) -> DatabaseState:
         echo=echo,
         connect_args=connect_args,
     )
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    # Scoped Session subclass so event listeners only fire for this engine's sessions
+    scoped_session_class = type("ScopedSession", (Session,), {})
+    session_factory = async_sessionmaker(
+        engine, expire_on_commit=False, sync_session_class=scoped_session_class
+    )
 
-    return DatabaseState(engine=engine, session_factory=session_factory)
+    return DatabaseState(
+        engine=engine,
+        session_factory=session_factory,
+        sync_session_class=scoped_session_class,
+    )

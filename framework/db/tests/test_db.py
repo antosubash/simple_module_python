@@ -6,11 +6,7 @@ from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin, SoftDeleteMixin, VersionedMixin
 from simple_module_db.provider import DatabaseProvider, detect_provider
 from simple_module_db.session import DatabaseState, init_db
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    AsyncSession,
-    async_sessionmaker,
-)
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # ── create_module_base ───────────────────────────────────────────────
 
@@ -112,26 +108,23 @@ class TestSessionManagement:
 
 
 class TestGetDbDependency:
-    async def test_get_db_yields_session(self, engine: AsyncEngine):
+    async def test_get_db_yields_session(self):
         """get_db should yield an AsyncSession from app.state.db."""
+        import contextlib
         from unittest.mock import MagicMock
 
         from simple_module_db.deps import get_db
-        from simple_module_db.session import DatabaseState
 
-        db_state = DatabaseState(
-            engine=engine,
-            session_factory=async_sessionmaker(engine, expire_on_commit=False),
-        )
+        db_state = init_db("sqlite+aiosqlite:///:memory:")
+        try:
+            mock_request = MagicMock()
+            mock_request.app.state.db = db_state
 
-        # Mock a FastAPI request with app.state.db
-        mock_request = MagicMock()
-        mock_request.app.state.db = db_state
+            gen = get_db(mock_request)
+            session = await gen.__anext__()
+            assert isinstance(session, AsyncSession)
 
-        gen = get_db(mock_request)
-        session = await gen.__anext__()
-        assert isinstance(session, AsyncSession)
-        import contextlib
-
-        with contextlib.suppress(StopAsyncIteration):
-            await gen.__anext__()
+            with contextlib.suppress(StopAsyncIteration):
+                await gen.__anext__()
+        finally:
+            await db_state.engine.dispose()
