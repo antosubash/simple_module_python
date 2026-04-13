@@ -6,6 +6,9 @@ import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+from alembic.config import Config as AlembicConfig
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from fastapi import APIRouter, FastAPI
 from fastapi.staticfiles import StaticFiles
 from inertia import (
@@ -28,6 +31,53 @@ from simple_module_hosting.middleware import InertiaLayoutDataMiddleware, Securi
 from simple_module_hosting.settings import Settings
 
 logger = logging.getLogger(__name__)
+
+
+async def _check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") -> dict:
+    """Check database migration state. Raises RuntimeError if not at head.
+
+    Returns a dict with migration status for storage on app.state.
+    """
+    try:
+        alembic_cfg = AlembicConfig(alembic_ini_path)
+        script = ScriptDirectory.from_config(alembic_cfg)
+        head = script.get_current_head()
+    except Exception:
+        # Alembic not configured (e.g., test environments)
+        head = None
+        script = None
+
+    # No migrations configured (e.g., test environments)
+    if head is None:
+        return {
+            "current_revision": None,
+            "head_revision": None,
+            "is_current": True,
+            "pending_count": 0,
+        }
+
+    async with engine.connect() as conn:
+        def _get_current(sync_conn):
+            ctx = MigrationContext.configure(sync_conn)
+            return ctx.get_current_revision()
+        current = await conn.run_sync(_get_current)
+
+    is_current = current == head
+    pending_count = 0
+    if not is_current:
+        revisions = list(script.iterate_revisions(head, current))
+        pending_count = len(revisions)
+        raise RuntimeError(
+            f"Database is {pending_count} revision(s) behind "
+            f"(at {current!r}, head is {head!r}). Run: make migrate"
+        )
+
+    return {
+        "current_revision": current,
+        "head_revision": head,
+        "is_current": is_current,
+        "pending_count": pending_count,
+    }
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -87,6 +137,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # ── Lifespan ────────────────────────────────────────────
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+        app.state.migration = await _check_migrations(app.state.db.engine)
         for mod in modules:
             await mod.on_startup(app)
         yield

@@ -111,3 +111,17 @@ class TestSecurityHeaders:
         assert resp.headers["x-frame-options"] == "SAMEORIGIN"
         assert resp.headers["x-xss-protection"] == "1; mode=block"
         assert resp.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+
+
+# ── Migration check ─────────────────────────────────────────────────
+
+
+class TestMigrationCheck:
+    async def test_app_state_has_migration_info(self, app: FastAPI):
+        """App state should include migration status after startup."""
+        assert hasattr(app.state, "migration")
+        migration = app.state.migration
+        assert "current_revision" in migration
+        assert "head_revision" in migration
+        assert "is_current" in migration
+        assert "pending_count" in migration
