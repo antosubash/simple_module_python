@@ -38,34 +38,33 @@ class AuthMiddleware:
             await self.app(scope, receive, send)
             return
 
-        # Skip public paths
         path = scope["path"]
-        if any(path.startswith(p) for p in PUBLIC_PATHS) or path in EXACT_PUBLIC_PATHS:
-            await self.app(scope, receive, send)
-            return
+        is_public = any(path.startswith(p) for p in PUBLIC_PATHS) or path in EXACT_PUBLIC_PATHS
 
         # Check session for user info (set by SessionMiddleware)
         session = scope.get("session", {})
         userinfo = session.get("userinfo")
-        if not userinfo:
-            # Store the original URL to redirect back after login
+
+        if not userinfo and not is_public:
+            # Protected path without session — redirect to login
             request = Request(scope)
             session["next"] = str(request.url)
             response = RedirectResponse("/auth/login", status_code=302)
             await response(scope, receive, send)
             return
 
-        # TODO: Check access_token expiry and refresh if needed
-        # For now, trust the session is valid
+        if userinfo:
+            # Set user context on request state (for both public and protected paths)
+            user = UserContext.from_keycloak_userinfo(userinfo)
+            request = Request(scope)
+            request.state.user = user
 
-        # Set user context on request state
-        user = UserContext.from_keycloak_userinfo(userinfo)
-        request = Request(scope)
-        request.state.user = user
+            # Set context var for DB audit listeners
+            token = current_user_id.set(user.id)
+            try:
+                await self.app(scope, receive, send)
+            finally:
+                current_user_id.reset(token)
+            return
 
-        # Set context var for DB audit listeners
-        token = current_user_id.set(user.id)
-        try:
-            await self.app(scope, receive, send)
-        finally:
-            current_user_id.reset(token)
+        await self.app(scope, receive, send)

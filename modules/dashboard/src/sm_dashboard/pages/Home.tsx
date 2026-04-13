@@ -1,6 +1,9 @@
 import { usePage } from '@inertiajs/react';
 import { PageShell } from '@ui/components/PageShell';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/components/ui/card';
+import { Separator } from '@ui/components/ui/separator';
 import { AuthenticatedLayout } from '@ui/layouts/AuthenticatedLayout';
+import { Box, Package, Users } from 'lucide-react';
 
 interface Props {
   welcome: string;
@@ -11,41 +14,77 @@ function Home() {
 
   return (
     <PageShell title="Dashboard" description="Overview of your application">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <StatCard title="Products" value="-" color="primary" />
-        <StatCard title="Users" value="-" color="success" />
-        <StatCard title="Modules" value="3" color="purple" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+        <StatCard
+          title="Products"
+          value="-"
+          icon={<Package className="size-4" />}
+          accent="primary"
+        />
+        <StatCard title="Users" value="-" icon={<Users className="size-4" />} accent="emerald" />
+        <StatCard title="Modules" value="3" icon={<Box className="size-4" />} accent="violet" />
       </div>
 
-      <div className="card p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">Welcome</h2>
-        <p className="text-gray-600">{welcome}</p>
-        <p className="mt-4 text-sm text-gray-500">
-          This is a modular monolith built with FastAPI, Inertia.js, and React. Each module provides
-          its own pages, API endpoints, and database schema.
-        </p>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-[var(--font-display)]">Welcome</CardTitle>
+          <CardDescription>{welcome}</CardDescription>
+        </CardHeader>
+        <Separator />
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            This is a modular monolith built with FastAPI, Inertia.js, and React. Each module
+            provides its own pages, API endpoints, and database schema.
+          </p>
+        </CardContent>
+      </Card>
     </PageShell>
   );
 }
 
-function StatCard({ title, value, color }: { title: string; value: string; color: string }) {
-  const colorMap: Record<string, string> = {
-    primary: 'bg-primary-50 border-primary-200 text-primary-600',
-    success: 'bg-green-50 border-green-200 text-green-600',
-    purple: 'bg-purple-50 border-purple-200 text-purple-600',
-  };
-  const valueColorMap: Record<string, string> = {
-    primary: 'text-primary-900',
-    success: 'text-green-900',
-    purple: 'text-purple-900',
+function StatCard({
+  title,
+  value,
+  icon,
+  accent,
+}: {
+  title: string;
+  value: string;
+  icon: React.ReactNode;
+  accent: string;
+}) {
+  const styles: Record<string, { card: string; icon: string; value: string }> = {
+    primary: {
+      card: 'border-primary-200 bg-gradient-to-br from-primary-50 to-card',
+      icon: 'text-primary-500 bg-primary-100',
+      value: 'text-primary-900',
+    },
+    emerald: {
+      card: 'border-emerald-border bg-gradient-to-br from-emerald-bg to-card',
+      icon: 'text-emerald-icon-fg bg-emerald-icon-bg',
+      value: 'text-emerald-value',
+    },
+    violet: {
+      card: 'border-violet-border bg-gradient-to-br from-violet-bg to-card',
+      icon: 'text-violet-icon-fg bg-violet-icon-bg',
+      value: 'text-violet-value',
+    },
   };
 
+  const s = styles[accent] || styles.primary;
+
   return (
-    <div className={`rounded-xl border p-5 ${colorMap[color]}`}>
-      <h3 className="text-sm font-medium">{title}</h3>
-      <p className={`text-3xl font-bold mt-2 ${valueColorMap[color]}`}>{value}</p>
-    </div>
+    <Card className={s.card}>
+      <CardContent className="pt-5">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-medium text-muted-foreground">{title}</span>
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${s.icon}`}>
+            {icon}
+          </div>
+        </div>
+        <p className={`text-3xl font-bold font-[var(--font-display)] ${s.value}`}>{value}</p>
+      </CardContent>
+    </Card>
   );
 }
 

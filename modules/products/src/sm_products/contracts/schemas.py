@@ -25,15 +25,15 @@ class ProductOut(BaseModel):
 class ProductCreate(BaseModel):
     """Data required to create a new product."""
 
-    name: str = Field(min_length=1, max_length=200)
-    description: str | None = None
-    price: Decimal = Field(gt=0, decimal_places=2)
+    name: str = Field(min_length=1, max_length=200, description="Product name is required")
+    description: str | None = Field(default=None, max_length=2000)
+    price: Decimal = Field(gt=0, decimal_places=2, description="Price must be greater than 0")
 
 
 class ProductUpdate(BaseModel):
     """Data to update an existing product. All fields optional."""
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=2000)
     price: Decimal | None = Field(default=None, gt=0, decimal_places=2)
     is_active: bool | None = None
