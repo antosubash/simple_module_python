@@ -10,6 +10,7 @@ from sqlalchemy import event
 from sqlalchemy.orm import Session
 
 from simple_module_db.mixins import AuditMixin, SoftDeleteMixin, VersionedMixin
+from simple_module_db.session import DatabaseState
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +18,18 @@ logger = logging.getLogger(__name__)
 current_user_id: ContextVar[str | None] = ContextVar("current_user_id", default=None)
 
 
-def register_listeners() -> None:
+def register_listeners(db_state: DatabaseState) -> None:
     """Register SQLAlchemy event listeners for audit, soft delete, and versioning.
 
-    Call once at app startup after ``init_db()``.
+    Registers on the engine-scoped session events. Safe to call multiple times
+    — subsequent calls are no-ops.
     """
-    event.listen(Session, "before_flush", _before_flush_listener)
+    if db_state._listeners_registered:
+        logger.debug("Listeners already registered, skipping")
+        return
+
+    event.listen(db_state.session_factory, "before_flush", _before_flush_listener)
+    db_state._listeners_registered = True
     logger.info("Registered SQLAlchemy entity listeners")
 
 
