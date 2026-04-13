@@ -48,28 +48,20 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Log every request/response pair with timing and status information.
-
-    Emits two structured log entries per request:
-
-    * **request.started** — method, path, client IP
-    * **request.completed** — method, path, status code, duration in ms
-    """
+    """Log every request/response pair with timing and status information."""
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         path = request.url.path
 
-        # Skip noisy endpoints to keep logs actionable
         if any(path.startswith(p) for p in _QUIET_PREFIXES):
             return await call_next(request)
 
         method = request.method
         client_ip = request.client.host if request.client else "unknown"
-        user_id = getattr(getattr(request.state, "user", None), "id", None)
 
-        _request_logger.info(
+        _request_logger.debug(
             "request.started",
-            extra={"method": method, "path": path, "client_ip": client_ip, "user_id": user_id},
+            extra={"method": method, "path": path, "client_ip": client_ip},
         )
 
         start = time.perf_counter()
@@ -84,7 +76,6 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 "status_code": response.status_code,
                 "duration_ms": duration_ms,
                 "client_ip": client_ip,
-                "user_id": user_id,
             },
         )
 

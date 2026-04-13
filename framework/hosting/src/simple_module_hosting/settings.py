@@ -1,5 +1,7 @@
 """Application settings loaded from environment variables."""
 
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,7 +24,7 @@ class Settings(BaseSettings):
 
     # Logging
     log_level: str = "INFO"
-    log_format: str = "json"  # "json" or "text"
+    log_format: Literal["json", "text"] = "json"
 
     @property
     def is_development(self) -> bool:

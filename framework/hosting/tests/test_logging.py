@@ -186,7 +186,7 @@ class TestRequestLoggingMiddleware:
 
         assert isinstance(caplog, _pytest.logging.LogCaptureFixture)
 
-        with caplog.at_level(logging.INFO, logger="simple_module.request"):
+        with caplog.at_level(logging.DEBUG, logger="simple_module.request"):
             await client.get("/dashboard", follow_redirects=False)
 
         messages = [r.message for r in caplog.records if r.name == "simple_module.request"]

@@ -8,8 +8,6 @@ import sys
 from contextvars import ContextVar
 from datetime import UTC, datetime
 
-# ── Correlation ID ────────────────────────────────────────────────────
-# Set per-request by CorrelationIdMiddleware; available to all log records.
 correlation_id: ContextVar[str] = ContextVar("correlation_id", default="")
 
 
@@ -68,7 +66,6 @@ def setup_logging(*, level: str = "INFO", json_format: bool = True) -> None:
     root = logging.getLogger()
     root.setLevel(getattr(logging, level.upper(), logging.INFO))
 
-    # Replace any existing handlers
     root.handlers.clear()
 
     handler = logging.StreamHandler(sys.stdout)
@@ -78,7 +75,6 @@ def setup_logging(*, level: str = "INFO", json_format: bool = True) -> None:
     else:
         handler.setFormatter(logging.Formatter(_TEXT_FORMAT))
 
-    # Ensure correlation_id is always available on log records
     handler.addFilter(_CorrelationIdFilter())
 
     root.addHandler(handler)
