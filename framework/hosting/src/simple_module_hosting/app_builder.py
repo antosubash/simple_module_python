@@ -7,7 +7,8 @@ import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Request
+from fastapi.exceptions import HTTPException
 from fastapi.staticfiles import StaticFiles
 from inertia import (
     InertiaConfig,
@@ -29,6 +30,7 @@ from simple_module_core.permissions import PermissionRegistry
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.responses import RedirectResponse
 
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.middleware import InertiaLayoutDataMiddleware, SecurityHeadersMiddleware
@@ -196,6 +198,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     for mod in modules:
         mod.register_exception_handlers(app)
 
+    async def _handle_http_exception(request: Request, exc: HTTPException) -> RedirectResponse:  # type: ignore[type-arg]
+        """For Inertia requests, redirect on error instead of returning plain JSON."""
+        if "X-Inertia" in request.headers:
+            return RedirectResponse("/", status_code=303)
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)  # type: ignore[return-value]
+
+    app.add_exception_handler(HTTPException, _handle_http_exception)  # ty: ignore[invalid-argument-type]
+
     # ── Phase 8: Middleware pipeline ───────────────────────
     # Order matters: last added = first executed
     # Execution order: SecurityHeaders → Session → [module middleware] → InertiaLayout
@@ -258,6 +270,7 @@ def _setup_inertia(app: FastAPI, settings: Settings) -> None:
         root_template_filename="index.html",
         entrypoint_filename="main.tsx",
         root_directory=".",
+        use_flash_errors=True,
     )
 
     # Register the Inertia dependency globally
