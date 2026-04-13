@@ -116,6 +116,17 @@ class TestSecurityHeaders:
 # ── Migration check ─────────────────────────────────────────────────
 
 
+class TestHealthMigrationStatus:
+    async def test_health_includes_migration(self, client: httpx.AsyncClient):
+        resp = await client.get("/health")
+        data = resp.json()
+        assert "migration" in data
+        assert "current_revision" in data["migration"]
+        assert "head_revision" in data["migration"]
+        assert "is_current" in data["migration"]
+        assert "pending_count" in data["migration"]
+
+
 class TestMigrationCheck:
     async def test_app_state_has_migration_info(self, app: FastAPI):
         """App state should include migration status after startup."""
