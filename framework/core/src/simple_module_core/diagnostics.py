@@ -45,12 +45,16 @@ class Diagnostic:
 class ModuleDiagnostics:
     """Validates module structure and configuration."""
 
+    # Framework packages that must never import from plugin module packages.
+    FRAMEWORK_PACKAGES = ("simple_module_core", "simple_module_hosting", "simple_module_db")
+
     def run(self, modules: list[ModuleBase]) -> list[Diagnostic]:
         diagnostics: list[Diagnostic] = []
         diagnostics.extend(self._check_duplicate_names(modules))
         diagnostics.extend(self._check_schema_conflicts(modules))
         diagnostics.extend(self._check_empty_modules(modules))
         diagnostics.extend(self._check_missing_meta(modules))
+        diagnostics.extend(self._check_framework_module_coupling(modules))
 
         # File-based checks (need to find module source directories)
         for mod in modules:
@@ -114,6 +118,7 @@ class ModuleDiagnostics:
                     "register_permissions",
                     "register_feature_flags",
                     "register_event_handlers",
+                    "register_middleware",
                 )
                 if name in cls.__dict__
             ]
@@ -143,6 +148,81 @@ class ModuleDiagnostics:
                     )
                 )
         return diags
+
+    def _check_framework_module_coupling(self, modules: list[ModuleBase]) -> list[Diagnostic]:
+        """Detect framework packages that directly import from plugin module packages.
+
+        The framework (core, hosting, db) must never ``import`` from a
+        discovered module's package (e.g. ``sm_auth``, ``sm_products``).
+        All interaction should go through the ``ModuleBase`` lifecycle hooks.
+        """
+        # Collect top-level package names for every discovered module.
+        module_packages: dict[str, str] = {}  # package -> module name
+        for mod in modules:
+            top_pkg = type(mod).__module__.split(".")[0]
+            module_packages[top_pkg] = mod.meta.name
+
+        if not module_packages:
+            return []
+
+        # Locate framework package source directories.
+        framework_dirs: list[tuple[str, Path]] = []
+        for fw_pkg in self.FRAMEWORK_PACKAGES:
+            fw_dir = self._find_package_dir(fw_pkg)
+            if fw_dir:
+                framework_dirs.append((fw_pkg, fw_dir))
+
+        diags: list[Diagnostic] = []
+        for fw_pkg, fw_dir in framework_dirs:
+            for py_file in fw_dir.rglob("*.py"):
+                try:
+                    tree = ast.parse(py_file.read_text(), filename=str(py_file))
+                except SyntaxError:
+                    continue
+
+                for node in ast.walk(tree):
+                    imported_pkg: str | None = None
+                    if isinstance(node, ast.Import):
+                        for alias in node.names:
+                            top = alias.name.split(".")[0]
+                            if top in module_packages:
+                                imported_pkg = top
+                                break
+                    elif isinstance(node, ast.ImportFrom) and node.module:
+                        top = node.module.split(".")[0]
+                        if top in module_packages:
+                            imported_pkg = top
+
+                    if imported_pkg:
+                        diags.append(
+                            Diagnostic(
+                                level=DiagnosticLevel.ERROR,
+                                code="SM009",
+                                message=(
+                                    f"Framework package '{fw_pkg}' directly imports "
+                                    f"from module package '{imported_pkg}'"
+                                ),
+                                module_name=module_packages[imported_pkg],
+                                file=str(py_file),
+                                suggestion=(
+                                    "Use a ModuleBase lifecycle hook "
+                                    "(register_middleware, register_routes, etc.) "
+                                    "instead of importing module code from the framework"
+                                ),
+                            )
+                        )
+        return diags
+
+    def _find_package_dir(self, package_name: str) -> Path | None:
+        """Locate the source directory for a top-level package."""
+        import importlib.util
+
+        spec = importlib.util.find_spec(package_name)
+        if spec and spec.submodule_search_locations:
+            locations = list(spec.submodule_search_locations)
+            if locations:
+                return Path(locations[0])
+        return None
 
     def _check_orphan_pages(self, mod: ModuleBase, src_dir: Path) -> list[Diagnostic]:
         """Find .tsx pages that aren't referenced by any inertia.render() call."""

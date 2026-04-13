@@ -120,20 +120,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         inertia_version_conflict_exception_handler,  # ty: ignore[invalid-argument-type]
     )
 
-    # ── Auth setup (configure OAuth + middleware) ─────────
-    _setup_auth(app, settings)
-
     # ── Middleware pipeline (order matters: last added = first executed) ──
-    # Auth middleware must run AFTER session (session must exist first)
-    # Layout data must run AFTER auth (user must be set on request.state)
+    # Execution order: SecurityHeaders → Session → [module middleware] → InertiaLayout
     app.add_middleware(
         InertiaLayoutDataMiddleware,
         menu_registry=menu_registry,
         permission_registry=perm_registry,
     )
-    from sm_auth.middleware import AuthMiddleware
-
-    app.add_middleware(AuthMiddleware)
+    for mod in modules:
+        mod.register_middleware(app)
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
     app.add_middleware(SecurityHeadersMiddleware)
 
@@ -201,13 +196,3 @@ def _setup_inertia(app: FastAPI, settings: Settings) -> None:
     app.state.inertia_dependency = inertia_dep
 
 
-def _setup_auth(app: FastAPI, settings: Settings) -> None:
-    """Configure Keycloak OAuth provider."""
-    from sm_auth.oauth import configure_oauth
-
-    configure_oauth(
-        keycloak_url=settings.keycloak_url,
-        realm=settings.keycloak_realm,
-        client_id=settings.keycloak_client_id,
-        client_secret=settings.keycloak_client_secret,
-    )

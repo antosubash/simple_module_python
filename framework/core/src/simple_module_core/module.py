@@ -56,6 +56,14 @@ class ModuleBase(ABC):
     def register_event_handlers(self, bus: EventBus) -> None:
         """Subscribe to events published by other modules."""
 
+    def register_middleware(self, app: FastAPI) -> None:
+        """Add middleware to the application.
+
+        Called after core middleware (session, security headers) positioning
+        is established but before the app starts.  Modules that need to
+        inject middleware (e.g. auth) override this method.
+        """
+
     # ── Lifecycle ─────────────────────────────────────────────
 
     async def on_startup(self, app: FastAPI) -> None:
