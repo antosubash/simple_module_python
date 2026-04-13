@@ -1,6 +1,43 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { PageShell } from '@ui/components/PageShell';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@ui/components/ui/alert-dialog';
+import { Badge } from '@ui/components/ui/badge';
+import { Button } from '@ui/components/ui/button';
+import { Card } from '@ui/components/ui/card';
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@ui/components/ui/empty';
+import { Input } from '@ui/components/ui/input';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@ui/components/ui/pagination';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@ui/components/ui/table';
+import { usePermissions } from '@ui/hooks/use-permissions';
 import { AuthenticatedLayout } from '@ui/layouts/AuthenticatedLayout';
+import { Package, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 interface Product {
   id: number;
@@ -10,111 +47,262 @@ interface Product {
   is_active: boolean;
 }
 
+interface PaginationData {
+  page: number;
+  perPage: number;
+  total: number;
+}
+
 interface Props {
   products: Product[];
+  pagination: PaginationData;
+  search: string;
 }
 
 function Browse() {
-  const { products } = usePage<{ props: Props }>().props as unknown as Props;
+  const {
+    products,
+    pagination,
+    search: initialSearch,
+  } = usePage<{ props: Props }>().props as unknown as Props;
+  const { can } = usePermissions();
+  const canCreate = can('products.create');
+  const canEdit = can('products.edit');
+  const canDelete = can('products.delete');
+  const [search, setSearch] = useState(initialSearch || '');
+
+  const totalPages = useMemo(
+    () => Math.ceil(pagination.total / pagination.perPage),
+    [pagination.total, pagination.perPage],
+  );
+
+  function navigate(page: number, q?: string) {
+    const params: Record<string, string> = {};
+    const query = q ?? search;
+    if (query) params.q = query;
+    if (page > 1) params.page = String(page);
+    router.get('/products', params, { preserveState: true, preserveScroll: true });
+  }
+
+  // Debounced server-side search
+  useEffect(() => {
+    if (search === (initialSearch || '')) return;
+    const timeout = setTimeout(() => navigate(1, search), 300);
+    return () => clearTimeout(timeout);
+  }, [search, initialSearch]);
+
+  function handleDelete(product: Product) {
+    router.delete(`/products/${product.id}`, {
+      onSuccess: () => toast.success(`"${product.name}" deleted`),
+      onError: () => toast.error('Failed to delete product'),
+    });
+  }
 
   return (
     <PageShell
       title="Products"
       description="Manage your product catalog"
       actions={
-        <Link href="/products/create" className="btn-primary">
-          <svg
-            aria-hidden="true"
-            className="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          New Product
-        </Link>
+        canCreate ? (
+          <Button asChild>
+            <Link href="/products/create">
+              <Plus />
+              New Product
+            </Link>
+          </Button>
+        ) : undefined
       }
     >
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50/50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider sm:px-6 sm:py-3.5">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider sm:px-6 sm:py-3.5">
-                  Price
-                </th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider sm:table-cell sm:px-6 sm:py-3.5">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider sm:px-6 sm:py-3.5">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {products.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-4 py-3 sm:px-6 sm:py-4">
-                    <span className="text-sm font-medium text-gray-900">{product.name}</span>
-                    <span
-                      className={`inline-block mt-1 sm:hidden ${product.is_active ? 'badge-success' : 'badge-danger'}`}
-                    >
-                      {product.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 sm:px-6 sm:py-4">
-                    <span className="text-sm text-gray-600">${product.price}</span>
-                  </td>
-                  <td className="hidden px-4 py-3 sm:table-cell sm:px-6 sm:py-4">
-                    <span className={product.is_active ? 'badge-success' : 'badge-danger'}>
-                      {product.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right sm:px-6 sm:py-4">
-                    <Link href={`/products/${product.id}/edit`} className="btn-ghost text-xs">
-                      Edit
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-              {products.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-12 text-center sm:px-6 sm:py-16">
-                    <div className="flex flex-col items-center">
-                      <svg
-                        aria-hidden="true"
-                        className="w-12 h-12 text-gray-300 mb-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1}
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"
-                        />
-                      </svg>
-                      <p className="text-sm font-medium text-gray-900">No products yet</p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Get started by creating your first product.
-                      </p>
-                      <Link href="/products/create" className="btn-primary mt-4 text-xs">
-                        Create Product
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {/* Search bar */}
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Search products..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
         </div>
+        {pagination.total > 0 && (
+          <p className="text-sm text-muted-foreground whitespace-nowrap">
+            {pagination.total} product{pagination.total !== 1 ? 's' : ''}
+          </p>
+        )}
       </div>
+
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="sm:px-6">Name</TableHead>
+              <TableHead className="hidden md:table-cell sm:px-6">Description</TableHead>
+              <TableHead className="sm:px-6">Price</TableHead>
+              <TableHead className="hidden sm:table-cell sm:px-6">Status</TableHead>
+              {(canEdit || canDelete) && (
+                <TableHead className="text-right sm:px-6">Actions</TableHead>
+              )}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {products.map((product) => (
+              <TableRow key={product.id}>
+                <TableCell className="sm:px-6">
+                  <div>
+                    <span className="font-medium">{product.name}</span>
+                    <span className="inline-block mt-1 sm:hidden">
+                      <Badge variant={product.is_active ? 'secondary' : 'destructive'}>
+                        {product.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell className="hidden md:table-cell sm:px-6">
+                  <span className="text-muted-foreground text-sm line-clamp-1">
+                    {product.description || '—'}
+                  </span>
+                </TableCell>
+                <TableCell className="sm:px-6">
+                  <span className="tabular-nums text-muted-foreground">${product.price}</span>
+                </TableCell>
+                <TableCell className="hidden sm:table-cell sm:px-6">
+                  <Badge variant={product.is_active ? 'secondary' : 'destructive'}>
+                    {product.is_active ? 'Active' : 'Inactive'}
+                  </Badge>
+                </TableCell>
+                {(canEdit || canDelete) && (
+                  <TableCell className="text-right sm:px-6">
+                    <div className="flex items-center justify-end gap-1">
+                      {canEdit && (
+                        <Button asChild variant="ghost" size="icon-sm">
+                          <Link href={`/products/${product.id}/edit`}>
+                            <Pencil />
+                          </Link>
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete "{product.name}"?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the
+                                product from the catalog.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDelete(product)}
+                                className="bg-destructive text-white hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </div>
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+            {products.length === 0 && pagination.total === 0 && !search && (
+              <TableRow>
+                <TableCell colSpan={5} className="h-40">
+                  <Empty>
+                    <EmptyMedia variant="icon">
+                      <Package className="size-5 text-primary-300" />
+                    </EmptyMedia>
+                    <EmptyTitle>No products yet</EmptyTitle>
+                    <EmptyDescription>Get started by creating your first product.</EmptyDescription>
+                    <Button asChild size="sm" className="mt-2">
+                      <Link href="/products/create">Create Product</Link>
+                    </Button>
+                  </Empty>
+                </TableCell>
+              </TableRow>
+            )}
+            {products.length === 0 && search && (
+              <TableRow>
+                <TableCell colSpan={5} className="h-32">
+                  <Empty>
+                    <EmptyMedia variant="icon">
+                      <Search className="size-5" />
+                    </EmptyMedia>
+                    <EmptyDescription>No products match "{search}"</EmptyDescription>
+                  </Empty>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-4">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => navigate(pagination.page - 1)}
+                  className={
+                    pagination.page <= 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'
+                  }
+                />
+              </PaginationItem>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => {
+                  if (p === 1 || p === totalPages) return true;
+                  if (Math.abs(p - pagination.page) <= 1) return true;
+                  return false;
+                })
+                .reduce<(number | 'ellipsis')[]>((acc, p, i, arr) => {
+                  if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('ellipsis');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((item, i) =>
+                  item === 'ellipsis' ? (
+                    <PaginationItem key={`e${i}`}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  ) : (
+                    <PaginationItem key={item}>
+                      <PaginationLink
+                        isActive={item === pagination.page}
+                        onClick={() => navigate(item)}
+                        className="cursor-pointer"
+                      >
+                        {item}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ),
+                )}
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => navigate(pagination.page + 1)}
+                  className={
+                    pagination.page >= totalPages
+                      ? 'pointer-events-none opacity-50'
+                      : 'cursor-pointer'
+                  }
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
     </PageShell>
   );
 }

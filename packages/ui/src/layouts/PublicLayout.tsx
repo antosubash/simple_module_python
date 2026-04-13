@@ -1,36 +1,50 @@
 import { Link, usePage } from '@inertiajs/react';
+import { Button } from '@ui/components/ui/button';
 import type React from 'react';
 import { useState } from 'react';
 import type { SharedProps } from '../types';
+
+const NOISE_STYLE = {
+  backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+} as const;
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
   const { auth } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
-      <nav className="px-4 py-4 sm:px-8 sm:py-5">
-        <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-lg bg-primary-500 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">SM</span>
+    <div className="min-h-screen flex flex-col bg-landing-bg text-white">
+      {/* Subtle warm grain overlay */}
+      <div className="fixed inset-0 pointer-events-none opacity-[0.03]" style={NOISE_STYLE} />
+
+      <nav className="relative z-10 px-4 py-4 sm:px-8 sm:py-5">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center shadow-lg shadow-primary-500/20 transition-transform duration-200 group-hover:scale-105">
+              <span className="text-white font-bold text-sm font-[var(--font-display)]">SM</span>
             </div>
-            <span className="text-xl font-bold">SimpleModule</span>
+            <span className="text-xl font-bold font-[var(--font-display)] tracking-tight">
+              SimpleModule
+            </span>
           </Link>
 
-          <div className="hidden sm:flex items-center gap-4">
+          <div className="hidden sm:flex items-center gap-3">
             {auth?.isAuthenticated ? (
-              <a href="/dashboard" className="btn-primary">
-                Go to Dashboard
-              </a>
+              <Button asChild>
+                <a href="/dashboard">Go to Dashboard</a>
+              </Button>
             ) : (
               <>
-                <a href="/auth/login" className="btn-ghost text-gray-300 hover:text-white">
-                  Sign In
-                </a>
-                <a href="/auth/login" className="btn-primary">
-                  Get Started
-                </a>
+                <Button
+                  asChild
+                  variant="ghost"
+                  className="text-sidebar-icon hover:text-white hover:bg-white/10"
+                >
+                  <a href="/auth/login">Sign In</a>
+                </Button>
+                <Button asChild>
+                  <a href="/auth/login">Get Started</a>
+                </Button>
               </>
             )}
           </div>
@@ -38,7 +52,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={() => setMenuOpen((prev) => !prev)}
-            className="sm:hidden p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+            className="sm:hidden p-2 rounded-lg text-sidebar-icon hover:text-white hover:bg-white/10 transition-colors"
           >
             {menuOpen ? (
               <svg
@@ -71,32 +85,34 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         {menuOpen && (
-          <div className="sm:hidden mt-4 pt-4 border-t border-white/10 flex flex-col gap-3">
+          <div className="sm:hidden mt-4 pt-4 border-t border-white/10 flex flex-col gap-3 max-w-6xl mx-auto">
             {auth?.isAuthenticated ? (
-              <a href="/dashboard" className="btn-primary w-full text-center">
-                Go to Dashboard
-              </a>
+              <Button asChild className="w-full">
+                <a href="/dashboard">Go to Dashboard</a>
+              </Button>
             ) : (
               <>
-                <a href="/auth/login" className="btn-primary w-full text-center">
-                  Get Started
-                </a>
-                <a
-                  href="/auth/login"
-                  className="btn-ghost text-gray-300 hover:text-white w-full text-center"
+                <Button asChild className="w-full">
+                  <a href="/auth/login">Get Started</a>
+                </Button>
+                <Button
+                  asChild
+                  variant="ghost"
+                  className="w-full text-sidebar-icon hover:text-white"
                 >
-                  Sign In
-                </a>
+                  <a href="/auth/login">Sign In</a>
+                </Button>
               </>
             )}
           </div>
         )}
       </nav>
 
-      <main className="flex-1">{children}</main>
+      <main className="relative z-10 flex-1">{children}</main>
 
-      <footer className="border-t border-gray-800 py-6 px-4 text-center text-sm text-gray-500 sm:py-8">
-        SimpleModule Framework — Built with FastAPI, Inertia.js, React, and Tailwind CSS
+      <footer className="relative z-10 border-t border-white/[0.06] py-6 px-4 text-center text-sm text-dark-text-subtle sm:py-8">
+        <span className="font-[var(--font-display)]">SimpleModule</span> — Built with FastAPI,
+        Inertia.js, React & Tailwind CSS
       </footer>
     </div>
   );
