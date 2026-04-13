@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
 from fastapi.exceptions import HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from inertia import (
     Inertia,
@@ -240,42 +241,35 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     return app
 
 
+_INERTIA_ERROR_STATUSES = frozenset({403, 404, 500})
+
+
 async def _render_error_page(request: Request, status_code: int, message: str) -> Response:
-    """Render the Inertia error page for the given status code."""
     config: InertiaConfig = request.app.state.inertia_config
     try:
         inertia = Inertia(request, config)
-    except InertiaVersionConflictException:
-        return await inertia_version_conflict_exception_handler(
-            request, InertiaVersionConflictException(url=str(request.url))
-        )
-
-    response = await inertia.render("Error", {"status": status_code, "message": message})
-    response.status_code = status_code
-    return response
+        response = await inertia.render("Error", {"status": status_code, "message": message})
+        response.status_code = status_code
+        return response
+    except InertiaVersionConflictException as exc:
+        return await inertia_version_conflict_exception_handler(request, exc)
+    except Exception:
+        # Fallback if Inertia rendering itself fails (e.g. missing session)
+        return JSONResponse(status_code=status_code, content={"detail": message or "Internal Server Error"})
 
 
 async def _http_exception_handler(request: Request, exc: HTTPException) -> Response:
-    """Handle HTTP exceptions (404, 403, etc.) with Inertia error pages."""
-    status_code = exc.status_code
-    if status_code in (403, 404, 500):
-        return await _render_error_page(request, status_code, exc.detail or "")
-    # For other HTTP errors, return a plain JSON response
-    from fastapi.responses import JSONResponse
-
-    return JSONResponse(
-        status_code=status_code,
-        content={"detail": exc.detail},
-    )
+    if exc.status_code in _INERTIA_ERROR_STATUSES:
+        detail = str(exc.detail) if exc.detail else ""
+        return await _render_error_page(request, exc.status_code, detail)
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 async def _not_found_error_handler(request: Request, exc: NotFoundError) -> Response:
-    """Handle framework NotFoundError with a 404 Inertia error page."""
     return await _render_error_page(request, 404, str(exc))
 
 
 async def _unhandled_exception_handler(request: Request, exc: Exception) -> Response:
-    """Handle uncaught exceptions with a 500 Inertia error page."""
     logger.exception("Unhandled exception: %s", exc)
     return await _render_error_page(request, 500, "")
 

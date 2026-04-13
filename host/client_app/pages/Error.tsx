@@ -18,7 +18,7 @@ const descriptions: Record<number, string> = {
   500: 'Something went wrong on our end. Please try again later.',
 };
 
-function Error({ status, message }: Props) {
+function ErrorPage({ status, message }: Props) {
   const title = titles[status] || 'Error';
   const description = message || descriptions[status] || 'An unexpected error occurred.';
 
@@ -43,4 +43,4 @@ function Error({ status, message }: Props) {
   );
 }
 
-export default Error;
+export default ErrorPage;
