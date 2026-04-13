@@ -20,6 +20,7 @@ class TestCreateApp:
         assert hasattr(app.state, "perm_registry")
         assert hasattr(app.state, "ff_registry")
         assert hasattr(app.state, "event_bus")
+        assert hasattr(app.state, "health_registry")
         assert hasattr(app.state, "settings")
         assert hasattr(app.state, "db")
 
