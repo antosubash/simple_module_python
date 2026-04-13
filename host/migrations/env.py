@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+from importlib.metadata import entry_points
 from logging.config import fileConfig
 
 from alembic import context
@@ -11,7 +12,6 @@ from simple_module_core.discovery import ENTRY_POINT_GROUP, discover_modules
 from simple_module_db.base import all_module_bases
 from simple_module_hosting.settings import Settings
 from sqlalchemy import MetaData, engine_from_config, pool
-from importlib.metadata import entry_points
 
 logger = logging.getLogger("alembic.env")
 

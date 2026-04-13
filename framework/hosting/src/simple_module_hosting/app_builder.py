@@ -16,7 +16,12 @@ from inertia import (
     InertiaVersionConflictException,
     inertia_version_conflict_exception_handler,
 )
-from simple_module_core.diagnostics import DiagnosticLevel, MigrationDiagnostics, print_diagnostics, run_diagnostics
+from simple_module_core.diagnostics import (
+    DiagnosticLevel,
+    MigrationDiagnostics,
+    print_diagnostics,
+    run_diagnostics,
+)
 from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagRegistry
@@ -57,9 +62,11 @@ async def _check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") 
         }
 
     async with engine.connect() as conn:
+
         def _get_current(sync_conn):
             ctx = MigrationContext.configure(sync_conn)
             return ctx.get_current_revision()
+
         current = await conn.run_sync(_get_current)
 
     is_current = current == head

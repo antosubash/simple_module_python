@@ -241,10 +241,7 @@ class MigrationDiagnostics:
             Diagnostic(
                 level=DiagnosticLevel.ERROR,
                 code="SM009",
-                message=(
-                    f"Database at revision {current_revision!r}, "
-                    f"expected {head_revision!r}"
-                ),
+                message=(f"Database at revision {current_revision!r}, expected {head_revision!r}"),
                 module_name="migrations",
                 suggestion="Run: make migrate",
             )
@@ -291,9 +288,7 @@ def run_diagnostics(
             )
         )
         if module_tables is not None and migrated_tables is not None:
-            diagnostics.extend(
-                migration_diag.check_table_coverage(module_tables, migrated_tables)
-            )
+            diagnostics.extend(migration_diag.check_table_coverage(module_tables, migrated_tables))
 
     return diagnostics
 
