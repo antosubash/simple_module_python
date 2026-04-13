@@ -676,6 +676,18 @@ def scaffold_module(name: str) -> None:
     )
 
 
+def _insert_before_last(content: str, marker: str, insertion: str) -> str | None:
+    """Insert ``insertion`` after the last occurrence of ``marker`` in ``content``.
+
+    Returns the modified content, or None if the marker was not found.
+    """
+    idx = content.rfind(marker)
+    if idx == -1:
+        return None
+    end = idx + len(marker)
+    return content[:end] + insertion + content[end:]
+
+
 def update_host_pyproject(name: str) -> None:
     """Add the new module as a dependency in host/pyproject.toml."""
     host_toml = ROOT / "host" / "pyproject.toml"
@@ -686,17 +698,33 @@ def update_host_pyproject(name: str) -> None:
         print(f"  host/pyproject.toml already contains {pkg}, skipping")
         return
 
-    # Add to [project] dependencies
-    content = content.replace(
-        '    "sm-products",',
-        f'    "sm-products",\n    "{pkg}",',
-    )
+    original = content
 
-    # Add to [tool.uv.sources]
-    content = content.replace(
-        "sm-products = { workspace = true }",
-        f"sm-products = {{ workspace = true }}\n{pkg} = {{ workspace = true }}",
+    # Add to [project] dependencies — insert after last existing "sm-*" dep
+    result = _insert_before_last(content, ",\n]", f'\n    "{pkg}",\n]')
+    if result and result != content:
+        content = result.replace(",\n]\n]", ",\n]", 1)  # fix double bracket
+    # Fallback: try inserting after any quoted dependency line
+    if content == original:
+        result = _insert_before_last(content, '",\n', f'"\n    "{pkg}",\n')
+        if result:
+            content = result
+
+    # Add to [tool.uv.sources] — insert after last workspace source
+    result = _insert_before_last(
+        content,
+        "{ workspace = true }",
+        f"\n{pkg} = {{ workspace = true }}",
     )
+    if result:
+        content = result
+
+    if content == original:
+        print(
+            f"  warning: could not find insertion point in host/pyproject.toml for {pkg}",
+            file=sys.stderr,
+        )
+        return
 
     host_toml.write_text(content)
     print(f"  updated host/pyproject.toml (added {pkg})")
@@ -712,17 +740,32 @@ def update_root_pyproject(name: str) -> None:
         print(f"  root pyproject.toml already contains {src_path}, skipping")
         return
 
-    # Add to [tool.ty.environment] extra-paths
-    content = content.replace(
-        '    "modules/products/src",',
-        f'    "modules/products/src",\n    "{src_path}",',
-    )
+    original = content
 
-    # Add to [tool.pytest.ini_options] testpaths
-    content = content.replace(
-        '"modules/products/tests"',
-        f'"modules/products/tests", "modules/{name}/tests"',
+    # Add to [tool.ty.environment] extra-paths — insert after last modules/*/src entry
+    result = _insert_before_last(
+        content,
+        '/src",',
+        f'\n    "{src_path}",',
     )
+    if result:
+        content = result
+
+    # Add to [tool.pytest.ini_options] testpaths — insert after last modules/*/tests entry
+    result = _insert_before_last(
+        content,
+        '/tests"',
+        f', "modules/{name}/tests"',
+    )
+    if result:
+        content = result
+
+    if content == original:
+        print(
+            "  warning: could not find insertion point in pyproject.toml",
+            file=sys.stderr,
+        )
+        return
 
     root_toml.write_text(content)
     print("  updated pyproject.toml (added type-check path + test path)")

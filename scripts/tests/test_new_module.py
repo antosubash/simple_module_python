@@ -72,23 +72,25 @@ class TestToSingular:
         assert to_singular("blog_posts") == "blog_post"
 
 
+@pytest.fixture
+def module_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Provide a temp directory patched as the script's ROOT with modules/ pre-created."""
+    import new_module
+
+    monkeypatch.setattr(new_module, "ROOT", tmp_path)
+    (tmp_path / "modules").mkdir()
+    return tmp_path
+
+
 class TestScaffoldModule:
     """Integration tests that run the scaffolding and verify output files."""
 
-    def test_scaffold_creates_all_files(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-        import new_module
-
-        monkeypatch.setattr(new_module, "ROOT", tmp_path)
-
-        # Create the prerequisite directory structure
-        (tmp_path / "modules").mkdir()
-
+    def test_scaffold_creates_all_files(self, module_root: Path):
         scaffold_module("orders")
 
-        mod_dir = tmp_path / "modules" / "orders"
+        mod_dir = module_root / "modules" / "orders"
         src_dir = mod_dir / "src" / "sm_orders"
 
-        # Verify all expected files exist
         expected_files = [
             mod_dir / "pyproject.toml",
             src_dir / "__init__.py",
@@ -106,46 +108,29 @@ class TestScaffoldModule:
             mod_dir / "tests" / "test_orders.py",
         ]
         for f in expected_files:
-            assert f.exists(), f"Missing: {f.relative_to(tmp_path)}"
+            assert f.exists(), f"Missing: {f.relative_to(module_root)}"
 
-    def test_scaffold_pyproject_has_entry_point(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ):
-        import new_module
-
-        monkeypatch.setattr(new_module, "ROOT", tmp_path)
-        (tmp_path / "modules").mkdir()
-
+    def test_scaffold_pyproject_has_entry_point(self, module_root: Path):
         scaffold_module("orders")
 
-        content = (tmp_path / "modules" / "orders" / "pyproject.toml").read_text()
+        content = (module_root / "modules" / "orders" / "pyproject.toml").read_text()
         assert 'orders = "sm_orders.module:OrdersModule"' in content
 
-    def test_scaffold_module_class_name(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ):
-        import new_module
-
-        monkeypatch.setattr(new_module, "ROOT", tmp_path)
-        (tmp_path / "modules").mkdir()
-
+    def test_scaffold_module_class_name(self, module_root: Path):
         scaffold_module("orders")
 
-        content = (tmp_path / "modules" / "orders" / "src" / "sm_orders" / "module.py").read_text()
+        content = (
+            module_root / "modules" / "orders" / "src" / "sm_orders" / "module.py"
+        ).read_text()
         assert "class OrdersModule(ModuleBase):" in content
         assert 'name="Orders"' in content
 
-    def test_scaffold_model_is_singular(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ):
-        import new_module
-
-        monkeypatch.setattr(new_module, "ROOT", tmp_path)
-        (tmp_path / "modules").mkdir()
-
+    def test_scaffold_model_is_singular(self, module_root: Path):
         scaffold_module("orders")
 
-        content = (tmp_path / "modules" / "orders" / "src" / "sm_orders" / "models.py").read_text()
+        content = (
+            module_root / "modules" / "orders" / "src" / "sm_orders" / "models.py"
+        ).read_text()
         assert "class Order(Base, AuditMixin):" in content
 
     def test_scaffold_rejects_duplicate(
@@ -159,17 +144,10 @@ class TestScaffoldModule:
         with pytest.raises(SystemExit):
             scaffold_module("orders")
 
-    def test_scaffold_compound_name(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ):
-        import new_module
-
-        monkeypatch.setattr(new_module, "ROOT", tmp_path)
-        (tmp_path / "modules").mkdir()
-
+    def test_scaffold_compound_name(self, module_root: Path):
         scaffold_module("blog_posts")
 
-        src_dir = tmp_path / "modules" / "blog_posts" / "src" / "sm_blog_posts"
+        src_dir = module_root / "modules" / "blog_posts" / "src" / "sm_blog_posts"
         assert (src_dir / "module.py").exists()
 
         module_content = (src_dir / "module.py").read_text()
@@ -185,12 +163,8 @@ class TestScaffoldModule:
 
 
 class TestUpdateHostPyproject:
-    def test_adds_module_dependency(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-        import new_module
-
-        monkeypatch.setattr(new_module, "ROOT", tmp_path)
-
-        host_dir = tmp_path / "host"
+    def test_adds_module_dependency(self, module_root: Path):
+        host_dir = module_root / "host"
         host_dir.mkdir()
         (host_dir / "pyproject.toml").write_text(
             '[project]\nname = "simple-module-host"\ndependencies = [\n'
@@ -204,12 +178,8 @@ class TestUpdateHostPyproject:
         assert '"sm-orders"' in content
         assert "sm-orders = { workspace = true }" in content
 
-    def test_skips_if_already_present(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-        import new_module
-
-        monkeypatch.setattr(new_module, "ROOT", tmp_path)
-
-        host_dir = tmp_path / "host"
+    def test_skips_if_already_present(self, module_root: Path):
+        host_dir = module_root / "host"
         host_dir.mkdir()
         original = (
             '[project]\nname = "simple-module-host"\ndependencies = [\n'
@@ -224,11 +194,8 @@ class TestUpdateHostPyproject:
 
 
 class TestUpdateRootPyproject:
-    def test_adds_paths(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-        import new_module
-
-        monkeypatch.setattr(new_module, "ROOT", tmp_path)
-        (tmp_path / "pyproject.toml").write_text(
+    def test_adds_paths(self, module_root: Path):
+        (module_root / "pyproject.toml").write_text(
             "[tool.ty.environment]\nextra-paths = [\n"
             '    "modules/products/src",\n]\n\n'
             "[tool.pytest.ini_options]\n"
@@ -237,6 +204,6 @@ class TestUpdateRootPyproject:
 
         update_root_pyproject("orders")
 
-        content = (tmp_path / "pyproject.toml").read_text()
+        content = (module_root / "pyproject.toml").read_text()
         assert '"modules/orders/src"' in content
         assert '"modules/orders/tests"' in content
