@@ -7,7 +7,7 @@ from contextvars import ContextVar
 from datetime import UTC, datetime
 
 from sqlalchemy import event
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, ORMExecuteState, with_loader_criteria
 
 from simple_module_db.mixins import AuditMixin, SoftDeleteMixin, VersionedMixin
 from simple_module_db.session import DatabaseState
@@ -29,6 +29,7 @@ def register_listeners(db_state: DatabaseState) -> None:
         return
 
     event.listen(db_state.sync_session_class, "before_flush", _before_flush_listener)
+    event.listen(db_state.sync_session_class, "do_orm_execute", _soft_delete_filter)
     db_state._listeners_registered = True
     logger.info("Registered SQLAlchemy entity listeners")
 
@@ -69,3 +70,26 @@ def _before_flush_listener(
             obj.deleted_at = now
             obj.deleted_by = user_id
             session.add(obj)
+
+
+def _soft_delete_filter(execute_state: ORMExecuteState) -> None:
+    """Automatically exclude soft-deleted rows from SELECT queries.
+
+    Adds ``WHERE is_deleted = FALSE`` for every entity in the query that
+    inherits from :class:`SoftDeleteMixin`.
+
+    To bypass the filter (e.g. admin views), use::
+
+        session.execute(stmt.execution_options(include_deleted=True))
+    """
+    if (
+        execute_state.is_select
+        and not execute_state.execution_options.get("include_deleted", False)
+    ):
+        execute_state.statement = execute_state.statement.options(
+            with_loader_criteria(
+                SoftDeleteMixin,
+                lambda cls: cls.is_deleted.is_(False),
+                include_aliases=True,
+            )
+        )

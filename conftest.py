@@ -41,7 +41,10 @@ async def engine(db_state: DatabaseState) -> AsyncEngine:
 @pytest.fixture
 async def db_session(db_state: DatabaseState) -> AsyncGenerator[AsyncSession, None]:
     """Yield an async session backed by in-memory SQLite."""
+    from simple_module_db.listeners import register_listeners
     from sm_products.models import Base
+
+    register_listeners(db_state)
 
     async with db_state.engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
