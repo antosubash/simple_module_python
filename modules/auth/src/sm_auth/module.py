@@ -32,9 +32,6 @@ class AuthModule(ModuleBase):
         from sm_auth.middleware import AuthMiddleware
         from sm_auth.oauth import configure_oauth
 
-        if not hasattr(app.state, "auth_settings"):
-            self.register_settings(app)
-
         settings = app.state.auth_settings
         configure_oauth(
             keycloak_url=settings.keycloak_url,
