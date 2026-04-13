@@ -33,6 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from '@ui/components/ui/table';
+import { usePermissions } from '@ui/hooks/use-permissions';
 import { AuthenticatedLayout } from '@ui/layouts/AuthenticatedLayout';
 import { Package, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -59,13 +60,15 @@ interface Props {
 }
 
 function Browse() {
-  const pageProps = usePage<{ props: Props & { auth: { permissions: string[] } } }>()
-    .props as unknown as Props & { auth: { permissions: string[] } };
-  const { products, pagination, search: initialSearch } = pageProps;
-  const permissions = pageProps.auth?.permissions ?? [];
-  const canCreate = permissions.includes('*') || permissions.includes('products.create');
-  const canEdit = permissions.includes('*') || permissions.includes('products.edit');
-  const canDelete = permissions.includes('*') || permissions.includes('products.delete');
+  const {
+    products,
+    pagination,
+    search: initialSearch,
+  } = usePage<{ props: Props }>().props as unknown as Props;
+  const { can } = usePermissions();
+  const canCreate = can('products.create');
+  const canEdit = can('products.edit');
+  const canDelete = can('products.delete');
   const [search, setSearch] = useState(initialSearch || '');
 
   const totalPages = useMemo(

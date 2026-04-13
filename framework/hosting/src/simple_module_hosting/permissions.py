@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from fastapi import HTTPException, Request
 
-# Maps Keycloak roles to application permissions.
-# "*" is a wildcard granting all permissions (superuser).
-# Modules register which permissions exist via PermissionRegistry,
-# but this map controls which roles actually have them.
+WILDCARD = "*"
+
+# "*" grants all permissions (superuser).
 DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
-    "admin": ["*"],
+    "admin": [WILDCARD],
     "user": [
         "products.view",
         "dashboard.view",
@@ -17,7 +16,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
 }
 
 
-def _resolve_permissions(
+def resolve_permissions(
     roles: list[str],
     role_map: dict[str, list[str]] = DEFAULT_ROLE_PERMISSIONS,
 ) -> set[str]:
@@ -26,6 +25,16 @@ def _resolve_permissions(
     for role in roles:
         permissions.update(role_map.get(role, []))
     return permissions
+
+
+def expand_permissions(
+    resolved: set[str],
+    all_permissions: list[str],
+) -> list[str]:
+    """Expand wildcard to the full permission list for frontend consumption."""
+    if WILDCARD in resolved:
+        return sorted(set(all_permissions))
+    return sorted(resolved)
 
 
 class RequiresPermission:
@@ -46,9 +55,13 @@ class RequiresPermission:
         if user is None:
             raise HTTPException(status_code=401, detail="Authentication required")
 
-        permissions = _resolve_permissions(user.roles)
+        # Use cached permissions from middleware if available
+        permissions: set[str] = getattr(request.state, "resolved_permissions", None)  # type: ignore[assignment]
+        if permissions is None:
+            permissions = resolve_permissions(user.roles)
+            request.state.resolved_permissions = permissions
 
-        if "*" in permissions:
+        if WILDCARD in permissions:
             return
 
         if self.permission not in permissions:
