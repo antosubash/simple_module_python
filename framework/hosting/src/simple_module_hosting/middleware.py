@@ -5,6 +5,7 @@ from __future__ import annotations
 import secrets
 from typing import TYPE_CHECKING
 
+from simple_module_hosting.permissions import _resolve_permissions
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
@@ -62,6 +63,7 @@ class InertiaLayoutDataMiddleware(BaseHTTPMiddleware):
                     else None
                 ),
                 "isAuthenticated": is_authenticated,
+                "permissions": sorted(_resolve_permissions(roles)) if is_authenticated else [],
             },
             "menus": self.menu_registry.get_for_user(
                 is_authenticated=is_authenticated,

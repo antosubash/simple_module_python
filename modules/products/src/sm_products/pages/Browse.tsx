@@ -59,11 +59,13 @@ interface Props {
 }
 
 function Browse() {
-  const {
-    products,
-    pagination,
-    search: initialSearch,
-  } = usePage<{ props: Props }>().props as unknown as Props;
+  const pageProps = usePage<{ props: Props & { auth: { permissions: string[] } } }>()
+    .props as unknown as Props & { auth: { permissions: string[] } };
+  const { products, pagination, search: initialSearch } = pageProps;
+  const permissions = pageProps.auth?.permissions ?? [];
+  const canCreate = permissions.includes('*') || permissions.includes('products.create');
+  const canEdit = permissions.includes('*') || permissions.includes('products.edit');
+  const canDelete = permissions.includes('*') || permissions.includes('products.delete');
   const [search, setSearch] = useState(initialSearch || '');
 
   const totalPages = useMemo(
@@ -98,12 +100,14 @@ function Browse() {
       title="Products"
       description="Manage your product catalog"
       actions={
-        <Button asChild>
-          <Link href="/products/create">
-            <Plus />
-            New Product
-          </Link>
-        </Button>
+        canCreate ? (
+          <Button asChild>
+            <Link href="/products/create">
+              <Plus />
+              New Product
+            </Link>
+          </Button>
+        ) : undefined
       }
     >
       {/* Search bar */}
@@ -132,7 +136,9 @@ function Browse() {
               <TableHead className="hidden md:table-cell sm:px-6">Description</TableHead>
               <TableHead className="sm:px-6">Price</TableHead>
               <TableHead className="hidden sm:table-cell sm:px-6">Status</TableHead>
-              <TableHead className="text-right sm:px-6">Actions</TableHead>
+              {(canEdit || canDelete) && (
+                <TableHead className="text-right sm:px-6">Actions</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -161,44 +167,50 @@ function Browse() {
                     {product.is_active ? 'Active' : 'Inactive'}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right sm:px-6">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button asChild variant="ghost" size="icon-sm">
-                      <Link href={`/products/${product.id}/edit`}>
-                        <Pencil />
-                      </Link>
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 />
+                {(canEdit || canDelete) && (
+                  <TableCell className="text-right sm:px-6">
+                    <div className="flex items-center justify-end gap-1">
+                      {canEdit && (
+                        <Button asChild variant="ghost" size="icon-sm">
+                          <Link href={`/products/${product.id}/edit`}>
+                            <Pencil />
+                          </Link>
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete "{product.name}"?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the product
-                            from the catalog.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDelete(product)}
-                            className="bg-destructive text-white hover:bg-destructive/90"
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </TableCell>
+                      )}
+                      {canDelete && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete "{product.name}"?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the
+                                product from the catalog.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDelete(product)}
+                                className="bg-destructive text-white hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </div>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
             {products.length === 0 && pagination.total === 0 && !search && (

@@ -7,6 +7,7 @@ from inertia import InertiaResponse
 from pydantic import ValidationError
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.inertia_utils import redirect_back_with_errors, validation_errors_to_dict
+from simple_module_hosting.permissions import RequiresPermission
 from starlette.responses import RedirectResponse
 
 from sm_products.contracts.schemas import ProductCreate, ProductUpdate
@@ -47,7 +48,11 @@ async def browse(
     )
 
 
-@router.get("/create", response_model=None)
+@router.get(
+    "/create",
+    response_model=None,
+    dependencies=[Depends(RequiresPermission("products.create"))],
+)
 async def create_view(inertia: InertiaDep) -> InertiaResponse:
     return await inertia.render("Products/Create")
 
@@ -70,7 +75,11 @@ async def edit_view(
 # ── Form actions (POST/PUT/DELETE → redirect) ─────────────────
 
 
-@router.post("/", response_model=None)
+@router.post(
+    "/",
+    response_model=None,
+    dependencies=[Depends(RequiresPermission("products.create"))],
+)
 async def create_action(
     request: Request,
     service: ProductService = Depends(get_product_service),
@@ -84,7 +93,11 @@ async def create_action(
     return RedirectResponse("/products", status_code=303)
 
 
-@router.put("/{product_id}", response_model=None)
+@router.put(
+    "/{product_id}",
+    response_model=None,
+    dependencies=[Depends(RequiresPermission("products.edit"))],
+)
 async def update_action(
     product_id: int,
     request: Request,
@@ -99,7 +112,11 @@ async def update_action(
     return RedirectResponse("/products", status_code=303)
 
 
-@router.delete("/{product_id}", response_model=None)
+@router.delete(
+    "/{product_id}",
+    response_model=None,
+    dependencies=[Depends(RequiresPermission("products.delete"))],
+)
 async def delete_action(
     product_id: int,
     service: ProductService = Depends(get_product_service),
