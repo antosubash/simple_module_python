@@ -1,4 +1,4 @@
-.PHONY: install dev dev-api dev-ui build test lint doctor migrate migration downgrade migration-history docker-up docker-down kill
+.PHONY: install dev dev-api dev-ui build test lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module
 
 # Install
 install:
@@ -47,6 +47,12 @@ downgrade:                  ## Downgrade one revision
 
 migration-history:          ## Show migration history
 	cd host && uv run alembic history --verbose
+
+# Scaffolding
+new-module:                 ## Scaffold a new module (usage: make new-module name=orders)
+	@test -n "$(name)" || (echo "Error: Please provide a module name, e.g. make new-module name=orders" && exit 1)
+	uv run python scripts/new_module.py $(name)
+	uv sync --all-packages
 
 # Kill dev servers
 kill:

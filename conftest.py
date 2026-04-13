@@ -38,13 +38,30 @@ async def engine(db_state: DatabaseState) -> AsyncEngine:
     return db_state.engine
 
 
+def _collect_module_bases():
+    """Discover all module SQLAlchemy Base classes via entry points."""
+    import importlib
+
+    from importlib.metadata import entry_points
+
+    bases = []
+    for ep in entry_points(group="simple_module"):
+        pkg = ep.value.split(".")[0]  # e.g. "sm_products"
+        try:
+            mod = importlib.import_module(f"{pkg}.models")
+            if hasattr(mod, "Base"):
+                bases.append(mod.Base)
+        except (ImportError, ModuleNotFoundError):
+            pass
+    return bases
+
+
 @pytest.fixture
 async def db_session(db_state: DatabaseState) -> AsyncGenerator[AsyncSession, None]:
     """Yield an async session backed by in-memory SQLite."""
-    from sm_products.models import Base
-
     async with db_state.engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        for base in _collect_module_bases():
+            await conn.run_sync(base.metadata.create_all)
 
     async with db_state.session_factory() as session:
         yield session
@@ -57,10 +74,9 @@ async def app(settings: Settings):
 
     application = create_app(settings)
 
-    from sm_products.models import Base as ProductsBase
-
     async with application.state.db.engine.begin() as conn:
-        await conn.run_sync(ProductsBase.metadata.create_all)
+        for base in _collect_module_bases():
+            await conn.run_sync(base.metadata.create_all)
 
     # Trigger lifespan startup so app.state.migration is populated
     ctx = application.router.lifespan_context(application)
