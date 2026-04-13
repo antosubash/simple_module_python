@@ -5,7 +5,7 @@ from __future__ import annotations
 import secrets
 from typing import TYPE_CHECKING
 
-from simple_module_db.listeners import current_tenant_id
+from simple_module_db import current_tenant_id
 from simple_module_hosting.permissions import expand_permissions, resolve_permissions
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
@@ -28,6 +28,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+TENANT_HEADER = "X-Tenant-ID"
+
+
 class TenantMiddleware(BaseHTTPMiddleware):
     """Extract tenant context from authenticated user or request header.
 
@@ -46,14 +49,12 @@ class TenantMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         tenant_id: str | None = None
 
-        # 1. Try to get tenant from authenticated user (set by auth middleware)
         user = getattr(request.state, "user", None)
         if user is not None:
             tenant_id = getattr(user, "tenant_id", None)
 
-        # 2. Fall back to X-Tenant-ID header (only when token has no tenant)
         if tenant_id is None:
-            header_value = request.headers.get("X-Tenant-ID")
+            header_value = request.headers.get(TENANT_HEADER)
             if header_value:
                 tenant_id = header_value
 
