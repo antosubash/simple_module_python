@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 import logging
 from dataclasses import dataclass
 from enum import StrEnum
@@ -60,8 +61,9 @@ class ModuleDiagnostics:
         for mod in modules:
             src_dir = self._find_source_dir(mod)
             if src_dir:
-                diagnostics.extend(self._check_orphan_pages(mod, src_dir))
-                diagnostics.extend(self._check_phantom_renders(mod, src_dir))
+                rendered_pages = self._find_render_calls(mod, src_dir)
+                diagnostics.extend(self._check_orphan_pages(mod, src_dir, rendered_pages))
+                diagnostics.extend(self._check_phantom_renders(mod, src_dir, rendered_pages))
 
         return diagnostics
 
@@ -218,8 +220,6 @@ class ModuleDiagnostics:
 
     def _find_package_dir(self, package_name: str) -> Path | None:
         """Locate the source directory for a top-level package."""
-        import importlib.util
-
         spec = importlib.util.find_spec(package_name)
         if spec and spec.submodule_search_locations:
             locations = list(spec.submodule_search_locations)
@@ -227,14 +227,15 @@ class ModuleDiagnostics:
                 return Path(locations[0])
         return None
 
-    def _check_orphan_pages(self, mod: ModuleBase, src_dir: Path) -> list[Diagnostic]:
+    def _check_orphan_pages(
+        self, mod: ModuleBase, src_dir: Path, rendered_pages: set[str],
+    ) -> list[Diagnostic]:
         """Find .tsx pages that aren't referenced by any inertia.render() call."""
         pages_dir = src_dir / "pages"
         if not pages_dir.exists():
             return []
 
         tsx_pages = {f.stem for f in pages_dir.glob("*.tsx")}
-        rendered_pages = self._find_render_calls(mod, src_dir)
         orphans = tsx_pages - rendered_pages
 
         return [
@@ -249,11 +250,12 @@ class ModuleDiagnostics:
             for name in orphans
         ]
 
-    def _check_phantom_renders(self, mod: ModuleBase, src_dir: Path) -> list[Diagnostic]:
+    def _check_phantom_renders(
+        self, mod: ModuleBase, src_dir: Path, rendered_pages: set[str],
+    ) -> list[Diagnostic]:
         """Find inertia.render() calls that reference non-existent pages."""
         pages_dir = src_dir / "pages"
         tsx_pages = {f.stem for f in pages_dir.glob("*.tsx")} if pages_dir.exists() else set()
-        rendered_pages = self._find_render_calls(mod, src_dir)
         phantoms = rendered_pages - tsx_pages
 
         return [
@@ -298,15 +300,8 @@ class ModuleDiagnostics:
 
     def _find_source_dir(self, mod: ModuleBase) -> Path | None:
         """Locate the source directory for a module's package."""
-        import importlib.util
-
         pkg_name = type(mod).__module__.rsplit(".", 1)[0]
-        spec = importlib.util.find_spec(pkg_name)
-        if spec and spec.submodule_search_locations:
-            locations = list(spec.submodule_search_locations)
-            if locations:
-                return Path(locations[0])
-        return None
+        return self._find_package_dir(pkg_name)
 
 
 def run_diagnostics(modules: list[ModuleBase]) -> list[Diagnostic]:

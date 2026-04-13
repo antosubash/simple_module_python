@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -13,7 +14,12 @@ from inertia import (
     InertiaVersionConflictException,
     inertia_version_conflict_exception_handler,
 )
-from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
+from simple_module_core.diagnostics import (
+    Diagnostic,
+    DiagnosticLevel,
+    print_diagnostics,
+    run_diagnostics,
+)
 from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagRegistry
@@ -97,12 +103,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
 
     # ── Phase 4: Module settings ───────────────────────────
+    state_before = set(vars(app.state))
     for mod in modules:
         mod.register_settings(app)
 
     # SM010: warn if register_settings was overridden but added nothing
     if settings.is_development:
-        _check_settings_registration(modules, app)
+        state_after = set(vars(app.state))
+        _check_settings_registration(modules, state_after - state_before)
 
     # ── Phase 5: Module registrations ──────────────────────
     for mod in modules:
@@ -164,8 +172,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health_router)
 
-    import os
-
     static_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "host", "static")
     if os.path.isdir(static_dir):
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -209,23 +215,14 @@ def _setup_inertia(app: FastAPI, settings: Settings) -> None:
     app.state.inertia_dependency = inertia_dep
 
 
-def _check_settings_registration(modules: list, app: FastAPI) -> None:
+def _check_settings_registration(modules: list, added_keys: set[str]) -> None:
     """SM010: warn if a module overrides register_settings but added nothing to app.state."""
-    from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
-
-    framework_keys = {
-        "menu_registry", "perm_registry", "ff_registry",
-        "event_bus", "health_registry", "settings",
-    }
-    state_keys = {k for k in vars(app.state) if not k.startswith("_")}
-    module_added_keys = state_keys - framework_keys
-
     for mod in modules:
         cls = type(mod)
         if "register_settings" not in cls.__dict__:
             continue
         mod_prefix = mod.meta.name.lower()
-        has_key = any(mod_prefix in k for k in module_added_keys)
+        has_key = any(mod_prefix in k for k in added_keys)
         if not has_key:
             diag = Diagnostic(
                 level=DiagnosticLevel.WARNING,
@@ -237,6 +234,5 @@ def _check_settings_registration(modules: list, app: FastAPI) -> None:
                     f"(e.g., app.state.{mod_prefix}_settings = {mod.meta.name}Settings())"
                 ),
             )
-            print(str(diag))
-            print()
+            logger.warning("%s", diag)
 

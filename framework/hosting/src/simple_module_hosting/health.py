@@ -51,9 +51,7 @@ async def readiness(request: Request) -> dict:
     tasks = [_run_check(c.name, c.check) for c in checks]
     completed = await asyncio.gather(*tasks)
 
-    results: dict[str, HealthCheckResult] = {}
-    for name, result in completed:
-        results[name] = result
+    results: dict[str, HealthCheckResult] = dict(completed)
 
     # Aggregate: worst status wins
     worst = HealthStatus.HEALTHY
