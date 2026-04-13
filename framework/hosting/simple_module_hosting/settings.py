@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # App
     environment: str = "development"
     secret_key: str = "change-me-in-production"
-    vite_dev_url: str = "http://localhost:5173"
+    vite_dev_url: str = "http://localhost:5050"
     debug: bool = False
 
     @property

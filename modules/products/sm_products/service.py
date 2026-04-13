@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sm_products.contracts.schemas import ProductCreate, ProductOut, ProductUpdate
@@ -15,11 +15,30 @@ class ProductService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def get_all(self) -> list[ProductOut]:
-        result = await self.db.execute(
-            select(Product).where(Product.is_active.is_(True)).order_by(Product.id)
-        )
-        return [ProductOut.model_validate(p) for p in result.scalars()]
+    async def get_all(
+        self,
+        *,
+        page: int = 1,
+        per_page: int = 10,
+        search: str | None = None,
+    ) -> tuple[list[ProductOut], int]:
+        """Return paginated products and total count."""
+        query = select(Product).where(Product.is_active.is_(True))
+        count_query = select(func.count()).select_from(Product).where(Product.is_active.is_(True))
+
+        if search:
+            pattern = f"%{search}%"
+            search_filter = Product.name.ilike(pattern) | Product.description.ilike(pattern)
+            query = query.where(search_filter)
+            count_query = count_query.where(search_filter)
+
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        query = query.order_by(Product.id).offset((page - 1) * per_page).limit(per_page)
+        result = await self.db.execute(query)
+        products = [ProductOut.model_validate(p) for p in result.scalars()]
+
+        return products, total
 
     async def get_by_id(self, product_id: int) -> ProductOut | None:
         product = await self.db.get(Product, product_id)
@@ -49,4 +68,5 @@ class ProductService:
         if product is None:
             return False
         await self.db.delete(product)
+        await self.db.flush()
         return True

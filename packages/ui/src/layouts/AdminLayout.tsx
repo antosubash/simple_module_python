@@ -3,13 +3,14 @@ import type React from 'react';
 import { SidebarLayout } from './SidebarLayout';
 
 const THEME = {
-  sidebarBg: 'bg-gray-950',
-  accentColor: 'bg-red-600',
+  sidebarBg: 'bg-admin-bg',
+  accentColor: 'bg-gradient-to-br from-red-500 to-red-700',
   avatarBg: 'bg-red-700',
-  hoverBg: 'hover:bg-gray-800',
-  activeClass: 'bg-red-600/20 text-white',
-  inactiveClass: 'text-gray-400 hover:bg-gray-800 hover:text-white',
-  mutedTextClass: 'text-gray-500',
+  hoverBg: 'hover:bg-admin-hover',
+  activeClass: 'bg-red-600/15 text-red-300 border-l-2 border-red-400',
+  inactiveClass:
+    'text-admin-text hover:bg-admin-hover hover:text-white border-l-2 border-transparent',
+  mutedTextClass: 'text-admin-text-muted',
   mobileTitleLabel: 'Admin',
 } as const;
 
@@ -38,10 +39,10 @@ const adminBadge = (
 );
 
 const backToApp = (
-  <div className="pt-4 mt-4 border-t border-white/10">
+  <div className="pt-4 mt-4 border-t border-white/[0.06]">
     <Link
       href="/dashboard"
-      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-admin-text-subtle hover:bg-admin-hover hover:text-white transition-colors"
     >
       <svg
         aria-hidden="true"
