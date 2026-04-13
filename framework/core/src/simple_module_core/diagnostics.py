@@ -119,6 +119,9 @@ class ModuleDiagnostics:
                     "register_feature_flags",
                     "register_event_handlers",
                     "register_middleware",
+                    "register_health_checks",
+                    "register_exception_handlers",
+                    "register_settings",
                 )
                 if name in cls.__dict__
             ]
