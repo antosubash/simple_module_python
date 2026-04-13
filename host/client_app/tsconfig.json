@@ -18,9 +18,9 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    "../../modules/*/src/*/pages/**/*.tsx",
-    "../../modules/*/src/*/components/**/*.tsx",
-    "../../packages/ui/src/**/*.tsx",
-    "../../packages/ui/src/**/*.ts"
+    "../../modules/*/src/**/*.ts",
+    "../../modules/*/src/**/*.tsx",
+    "../../packages/*/src/**/*.ts",
+    "../../packages/*/src/**/*.tsx"
   ]
 }

@@ -24,8 +24,9 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
-    origin: 'http://localhost:5173',
+    port: 5050,
+    strictPort: true,
+    origin: 'http://localhost:5050',
     fs: {
       allow: [projectRoot],
     },
