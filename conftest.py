@@ -26,8 +26,11 @@ def settings() -> Settings:
 
 @pytest.fixture
 async def db_state() -> AsyncGenerator[DatabaseState, None]:
-    """Create a fresh in-memory DatabaseState."""
+    """Create a fresh in-memory DatabaseState with listeners registered."""
+    from simple_module_db.listeners import register_listeners
+
     state = init_db("sqlite+aiosqlite:///:memory:")
+    register_listeners(state)
     yield state
     await state.engine.dispose()
 

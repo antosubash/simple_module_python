@@ -13,9 +13,28 @@ from simple_module_db.mixins import AuditMixin, SoftDeleteMixin, VersionedMixin
 from simple_module_db.session import DatabaseState
 
 logger = logging.getLogger(__name__)
+_db_logger = logging.getLogger("simple_module.db")
 
 # Set by auth middleware on each request
 current_user_id: ContextVar[str | None] = ContextVar("current_user_id", default=None)
+
+
+def _entity_label(obj: object) -> str:
+    """Return 'ClassName' for a mapped entity instance."""
+    return type(obj).__name__
+
+
+def _entity_pk(obj: object) -> object:
+    """Return the primary key value(s) if available, else None."""
+    from sqlalchemy import inspect as sa_inspect
+
+    try:
+        identity = sa_inspect(obj).identity
+        if identity and len(identity) == 1:
+            return identity[0]
+        return identity
+    except Exception:
+        return None
 
 
 def register_listeners(db_state: DatabaseState) -> None:
@@ -48,6 +67,15 @@ def _before_flush_listener(
             if obj.updated_by is None:
                 obj.updated_by = user_id
 
+        _db_logger.info(
+            "db.entity.created",
+            extra={
+                "operation": "create",
+                "entity": _entity_label(obj),
+                "user_id": user_id,
+            },
+        )
+
     for obj in session.dirty:
         if not session.is_modified(obj):
             continue
@@ -59,6 +87,16 @@ def _before_flush_listener(
         if isinstance(obj, VersionedMixin):
             obj.version += 1
 
+        _db_logger.info(
+            "db.entity.updated",
+            extra={
+                "operation": "update",
+                "entity": _entity_label(obj),
+                "entity_id": _entity_pk(obj),
+                "user_id": user_id,
+            },
+        )
+
     # Deleted objects — convert to soft delete if applicable
     for obj in list(session.deleted):
         if isinstance(obj, SoftDeleteMixin):
@@ -69,3 +107,23 @@ def _before_flush_listener(
             obj.deleted_at = now
             obj.deleted_by = user_id
             session.add(obj)
+
+            _db_logger.info(
+                "db.entity.soft_deleted",
+                extra={
+                    "operation": "soft_delete",
+                    "entity": _entity_label(obj),
+                    "entity_id": _entity_pk(obj),
+                    "user_id": user_id,
+                },
+            )
+        else:
+            _db_logger.info(
+                "db.entity.deleted",
+                extra={
+                    "operation": "delete",
+                    "entity": _entity_label(obj),
+                    "entity_id": _entity_pk(obj),
+                    "user_id": user_id,
+                },
+            )

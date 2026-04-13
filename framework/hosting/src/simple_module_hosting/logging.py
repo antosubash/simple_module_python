@@ -27,7 +27,18 @@ class JsonFormatter(logging.Formatter):
     are included when present on the record.
     """
 
-    _EXTRA_KEYS = ("method", "path", "status_code", "duration_ms", "client_ip", "user_id")
+    _EXTRA_KEYS = (
+        "method",
+        "path",
+        "status_code",
+        "duration_ms",
+        "client_ip",
+        "user_id",
+        "operation",
+        "entity",
+        "entity_id",
+        "db_duration_ms",
+    )
 
     def format(self, record: logging.LogRecord) -> str:
         log_obj: dict[str, object] = {
