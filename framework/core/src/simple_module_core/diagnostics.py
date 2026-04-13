@@ -269,9 +269,33 @@ class MigrationDiagnostics:
         ]
 
 
-def run_diagnostics(modules: list[ModuleBase]) -> list[Diagnostic]:
-    """Convenience function to run all diagnostics."""
-    return ModuleDiagnostics().run(modules)
+def run_diagnostics(
+    modules: list[ModuleBase],
+    *,
+    migration_state: dict | None = None,
+    module_tables: set[str] | None = None,
+    migrated_tables: set[str] | None = None,
+) -> list[Diagnostic]:
+    """Convenience function to run all diagnostics.
+
+    When ``migration_state`` is provided, also runs migration diagnostics.
+    """
+    diagnostics = ModuleDiagnostics().run(modules)
+
+    if migration_state is not None:
+        migration_diag = MigrationDiagnostics()
+        diagnostics.extend(
+            migration_diag.check_revision_mismatch(
+                current_revision=migration_state.get("current_revision"),
+                head_revision=migration_state.get("head_revision"),
+            )
+        )
+        if module_tables is not None and migrated_tables is not None:
+            diagnostics.extend(
+                migration_diag.check_table_coverage(module_tables, migrated_tables)
+            )
+
+    return diagnostics
 
 
 def print_diagnostics(diagnostics: list[Diagnostic]) -> None:

@@ -16,7 +16,7 @@ from inertia import (
     InertiaVersionConflictException,
     inertia_version_conflict_exception_handler,
 )
-from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
+from simple_module_core.diagnostics import DiagnosticLevel, MigrationDiagnostics, print_diagnostics, run_diagnostics
 from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagRegistry
@@ -138,6 +138,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.migration = await _check_migrations(app.state.db.engine)
+
+        if app.state.settings.is_development:
+            from simple_module_db.base import all_module_bases
+
+            module_tables = {
+                t.name for base in all_module_bases for t in base.metadata.tables.values()
+            }
+            mig_diag = MigrationDiagnostics()
+            mig_diagnostics = mig_diag.check_table_coverage(
+                module_tables=module_tables,
+                migrated_tables=module_tables,  # TODO: extract from migration scripts
+            )
+            if mig_diagnostics:
+                print_diagnostics(mig_diagnostics)
+
         for mod in modules:
             await mod.on_startup(app)
         yield
