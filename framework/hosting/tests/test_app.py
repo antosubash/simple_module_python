@@ -21,6 +21,7 @@ class TestCreateApp:
         assert hasattr(app.state, "ff_registry")
         assert hasattr(app.state, "event_bus")
         assert hasattr(app.state, "settings")
+        assert hasattr(app.state, "db")
 
 
 # ── Health endpoints ─────────────────────────────────────────────────
