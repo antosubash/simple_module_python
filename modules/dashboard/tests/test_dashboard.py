@@ -60,7 +60,6 @@ class TestDashboardHandlers:
         """Returned dict should be a copy, not the internal store."""
         counts = get_product_event_counts()
         counts["created"] = 999
-        # Mutating returned dict should not affect internal state
         assert get_product_event_counts()["created"] == 0
 
     async def test_reset_clears_all_counts(self):
@@ -82,12 +81,10 @@ class TestDashboardModuleRegistration:
         assert "Products" in mod.meta.depends_on
 
     async def test_register_event_handlers_subscribes_to_all_product_events(self):
-        """DashboardModule should wire handlers for all three product events."""
         bus = EventBus()
         mod = DashboardModule()
         mod.register_event_handlers(bus)
 
-        # Publishing each event should update the counters via the subscribed handler.
         await bus.publish(ProductCreated(product_id=1, name="Widget"))
         await bus.publish(ProductUpdated(product_id=1, name="Widget v2"))
         await bus.publish(ProductDeleted(product_id=1))
@@ -131,8 +128,6 @@ class TestDashboardStatsEndpoint:
 
 
 class TestProductEventIntegration:
-    """Prove the modules actually communicate through the event bus."""
-
     async def test_create_product_increments_dashboard_counter(
         self, authenticated_client: httpx.AsyncClient
     ):
@@ -153,7 +148,7 @@ class TestProductEventIntegration:
             json={"name": "Original", "price": "1.00"},
         )
         product_id = create.json()["id"]
-        reset_product_event_counts()  # isolate the update count
+        reset_product_event_counts()
 
         resp = await authenticated_client.put(
             f"/api/products/{product_id}",
@@ -203,7 +198,6 @@ class TestProductEventIntegration:
         assert stats.json()["product_events"]["deleted"] == 0
 
     async def test_full_lifecycle_counters(self, authenticated_client: httpx.AsyncClient):
-        """Create → update → delete should all increment their respective counters."""
         create = await authenticated_client.post(
             "/api/products/",
             json={"name": "Lifecycle", "price": "1.00"},

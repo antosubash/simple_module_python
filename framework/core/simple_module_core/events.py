@@ -44,17 +44,11 @@ class EventBus:
 
     @staticmethod
     def _on_emitter_error(error: Exception) -> None:
-        """Handle errors from fire-and-forget dispatch."""
         logger.error("EventBus background handler error: %s", error, exc_info=error)
-
-    @staticmethod
-    def _event_key(event_type: type[Event]) -> str:
-        """Derive a unique string key from an event class for pyee registration."""
-        return f"{event_type.__module__}.{event_type.__qualname__}"
 
     def subscribe(self, event_type: type[Event], handler: EventHandler) -> None:
         """Register a handler for an event type."""
-        self._emitter.on(self._event_key(event_type), handler)
+        self._emitter.on(event_type, handler)
         logger.debug(
             "Subscribed %s to %s",
             getattr(handler, "__qualname__", repr(handler)),
@@ -67,8 +61,7 @@ class EventBus:
         All handlers run concurrently via ``asyncio.gather``.
         Individual handler failures are logged but do not propagate.
         """
-        key = self._event_key(type(event))
-        handlers = self._emitter.listeners(key)
+        handlers = self._emitter.listeners(type(event))
         if not handlers:
             return
         results = await asyncio.gather(
@@ -91,4 +84,4 @@ class EventBus:
         Uses pyee's ``AsyncIOEventEmitter.emit`` which schedules async
         handlers as tasks on the running loop.
         """
-        self._emitter.emit(self._event_key(type(event)), event)
+        self._emitter.emit(type(event), event)
