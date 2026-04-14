@@ -78,6 +78,23 @@ class TestCreateModuleBase:
         base = create_module_base("named_mod", provider=DatabaseProvider.SQLITE)
         assert base.__module_name__ == "named_mod"  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
+    async def test_all_module_bases_is_deduped(self):
+        """Re-creating the same module must not grow ``all_module_bases``."""
+        from simple_module_db import base as base_mod
+
+        # Prime both caches, then snapshot.
+        create_module_base("dedupe_test", provider=DatabaseProvider.SQLITE)
+        before = len(base_mod.all_module_bases)
+
+        # Second call returns cached base; list length must not change.
+        create_module_base("dedupe_test", provider=DatabaseProvider.SQLITE)
+        after = len(base_mod.all_module_bases)
+
+        assert after == before
+        assert create_module_base("dedupe_test", provider=DatabaseProvider.SQLITE) in (
+            base_mod.all_module_bases
+        )
+
 
 # ── detect_provider ──────────────────────────────────────────────────
 

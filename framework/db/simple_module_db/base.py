@@ -21,8 +21,21 @@ _naming_convention = {
 # Cache created bases to avoid recreating for the same module
 _base_cache: dict[str, type[DeclarativeBase]] = {}
 
-# Track all module bases for Alembic discovery
+# Track all module bases for Alembic discovery. Module-level *mutable* list
+# so callers that imported it before every module registered (e.g. conftest,
+# migrations/env.py) still observe new entries. Deduped at append time —
+# see ``_register_base`` below.
 all_module_bases: list[type[DeclarativeBase]] = []
+
+
+def _register_base(base: type[DeclarativeBase]) -> None:
+    """Append ``base`` to ``all_module_bases`` iff not already present.
+
+    Guards against the list growing under repeated imports (test suites,
+    reloaders, plugin discovery) without changing the public type.
+    """
+    if base not in all_module_bases:
+        all_module_bases.append(base)
 
 
 def _default_provider() -> DatabaseProvider:
@@ -79,5 +92,5 @@ def create_module_base(
     ModuleBase.__module_name__ = schema_name  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     _base_cache[cache_key] = ModuleBase
-    all_module_bases.append(ModuleBase)
+    _register_base(ModuleBase)
     return ModuleBase
