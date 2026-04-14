@@ -1,0 +1,102 @@
+"""Tests for MenuRegistry: adding items, sorting, filtering, sections."""
+
+from __future__ import annotations
+
+from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
+
+
+class TestMenuRegistry:
+    async def test_add_and_all_items(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Dashboard", url="/dashboard", order=1))
+        reg.add(MenuItem(label="Products", url="/products", order=2))
+        assert len(reg.all_items) == 2
+        assert reg.all_items[0].label == "Dashboard"
+
+    async def test_add_many(self):
+        reg = MenuRegistry()
+        reg.add_many(
+            [
+                MenuItem(label="A", url="/a", order=1),
+                MenuItem(label="B", url="/b", order=2),
+            ]
+        )
+        assert len(reg.all_items) == 2
+
+    async def test_sorted_by_order(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Z", url="/z", order=99))
+        reg.add(MenuItem(label="A", url="/a", order=1))
+        assert reg.all_items[0].label == "A"
+        assert reg.all_items[1].label == "Z"
+
+    async def test_filter_unauthenticated(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Public", url="/pub", requires_auth=False))
+        reg.add(MenuItem(label="Private", url="/priv", requires_auth=True))
+
+        result = reg.get_for_user(is_authenticated=False)
+        sidebar = result["sidebar"]
+        assert len(sidebar) == 1
+        assert sidebar[0]["label"] == "Public"
+
+    async def test_filter_authenticated_sees_all(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Public", url="/pub", requires_auth=False))
+        reg.add(MenuItem(label="Private", url="/priv", requires_auth=True))
+
+        result = reg.get_for_user(is_authenticated=True)
+        sidebar = result["sidebar"]
+        assert len(sidebar) == 2
+
+    async def test_filter_by_roles(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Admin Panel", url="/admin", roles=["admin"]))
+        reg.add(MenuItem(label="Dashboard", url="/dash"))
+
+        result = reg.get_for_user(is_authenticated=True, roles=["user"])
+        sidebar = result["sidebar"]
+        labels = [i["label"] for i in sidebar]
+        assert "Dashboard" in labels
+        assert "Admin Panel" not in labels
+
+        result = reg.get_for_user(is_authenticated=True, roles=["admin"])
+        sidebar = result["sidebar"]
+        labels = [i["label"] for i in sidebar]
+        assert "Admin Panel" in labels
+
+    async def test_sections(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Side", url="/s", section=MenuSection.SIDEBAR))
+        reg.add(MenuItem(label="Nav", url="/n", section=MenuSection.NAVBAR))
+        reg.add(MenuItem(label="Drop", url="/d", section=MenuSection.USER_DROPDOWN))
+
+        result = reg.get_for_user(is_authenticated=True)
+        assert len(result["sidebar"]) == 1
+        assert len(result["navbar"]) == 1
+        assert len(result["userDropdown"]) == 1
+
+
+class TestMenuRegistryAdvanced:
+    async def test_multiple_roles_any_match(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Editor", url="/edit", roles=["editor", "admin"]))
+        result = reg.get_for_user(is_authenticated=True, roles=["editor"])
+        assert len(result["sidebar"]) == 1
+
+    async def test_empty_registry(self):
+        reg = MenuRegistry()
+        result = reg.get_for_user(is_authenticated=True)
+        assert all(len(v) == 0 for v in result.values())
+
+    async def test_admin_sidebar_section(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Users", url="/admin/users", section=MenuSection.ADMIN_SIDEBAR))
+        result = reg.get_for_user(is_authenticated=True)
+        assert len(result["adminSidebar"]) == 1
+
+    async def test_icon_preserved(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Home", url="/", icon="home"))
+        result = reg.get_for_user(is_authenticated=True)
+        assert result["sidebar"][0]["icon"] == "home"

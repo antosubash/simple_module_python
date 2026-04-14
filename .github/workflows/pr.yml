@@ -93,6 +93,18 @@ jobs:
       - run: make gen-pages
       - run: make ci-js-typecheck
 
+  file-size-check:
+    name: File size (300-line cap)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
+      - run: make install-py
+      - run: make ci-check-file-size
+
   # Single required status check for branch protection.
   # Protect `main` with this one check and every leaf job is required transitively.
   pr-checks:
@@ -104,6 +116,7 @@ jobs:
       - python-tests
       - js-lint
       - js-typecheck
+      - file-size-check
     if: always()
     steps:
       - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')

@@ -9,11 +9,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
-from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from inertia import (
-    Inertia,
-    InertiaConfig,
     InertiaVersionConflictException,
     inertia_version_conflict_exception_handler,
 )
@@ -34,9 +31,14 @@ from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 from starlette.exceptions import HTTPException
 from starlette.middleware.sessions import SessionMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
 
+from simple_module_hosting._error_handlers import (
+    http_exception_handler,
+    not_found_error_handler,
+    unhandled_exception_handler,
+)
+from simple_module_hosting._inertia_setup import setup_inertia
+from simple_module_hosting._migrations import check_migrations
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.middleware import (
     CorrelationIdMiddleware,
@@ -83,57 +85,6 @@ def wire_module_routes(app: FastAPI, module) -> None:
     module.register_routes(api_router, view_router)
     app.include_router(api_router)
     app.include_router(view_router)
-
-
-async def _check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") -> dict:
-    """Check database migration state. Raises RuntimeError if not at head.
-
-    Returns a dict with migration status for storage on app.state.
-    """
-    from alembic.config import Config as AlembicConfig
-    from alembic.runtime.migration import MigrationContext
-    from alembic.script import ScriptDirectory
-    from alembic.util.exc import CommandError
-
-    _no_migrations = {
-        "current_revision": None,
-        "head_revision": None,
-        "is_current": True,
-        "pending_count": 0,
-    }
-
-    try:
-        alembic_cfg = AlembicConfig(alembic_ini_path)
-        script = ScriptDirectory.from_config(alembic_cfg)
-        head = script.get_current_head()
-    except (CommandError, FileNotFoundError) as exc:
-        logger.debug("Alembic not available: %s — skipping migration check", exc)
-        return _no_migrations
-
-    if head is None:
-        return _no_migrations
-
-    async with engine.connect() as conn:
-
-        def _get_current(sync_conn):
-            ctx = MigrationContext.configure(sync_conn)
-            return ctx.get_current_revision()
-
-        current = await conn.run_sync(_get_current)
-
-    if current != head:
-        pending = list(script.iterate_revisions(head, current))
-        raise RuntimeError(
-            f"Database is {len(pending)} revision(s) behind "
-            f"(at {current!r}, head is {head!r}). Run: make migrate"
-        )
-
-    return {
-        "current_revision": current,
-        "head_revision": head,
-        "is_current": True,
-        "pending_count": 0,
-    }
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -196,7 +147,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-        app.state.migration = await _check_migrations(app.state.db.engine)
+        app.state.migration = await check_migrations(app.state.db.engine)
 
         for mod in modules:
             await mod.on_startup(app)
@@ -252,15 +203,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.db = db_state
 
     # ── Phase 7: Inertia + exception handlers ──────────────
-    _setup_inertia(app, settings, modules)
+    setup_inertia(app, settings, modules, _PROJECT_ROOT)
 
     app.add_exception_handler(
         InertiaVersionConflictException,
         inertia_version_conflict_exception_handler,  # ty: ignore[invalid-argument-type]
     )
-    app.add_exception_handler(HTTPException, _http_exception_handler)  # ty: ignore[invalid-argument-type]
-    app.add_exception_handler(NotFoundError, _not_found_error_handler)  # ty: ignore[invalid-argument-type]
-    app.add_exception_handler(Exception, _unhandled_exception_handler)
+    app.add_exception_handler(HTTPException, http_exception_handler)  # ty: ignore[invalid-argument-type]
+    app.add_exception_handler(NotFoundError, not_found_error_handler)  # ty: ignore[invalid-argument-type]
+    app.add_exception_handler(Exception, unhandled_exception_handler)
     for mod in modules:
         mod.register_exception_handlers(app)
 
@@ -313,95 +264,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
 
     return app
-
-
-_INERTIA_ERROR_STATUSES = frozenset({403, 404, 500})
-
-
-async def _render_error_page(request: Request, status_code: int, message: str) -> Response:
-    config: InertiaConfig = request.app.state.inertia_config
-    try:
-        inertia = Inertia(request, config)
-        response = await inertia.render("Error", {"status": status_code, "message": message})
-        response.status_code = status_code
-        return response
-    except InertiaVersionConflictException as exc:
-        return await inertia_version_conflict_exception_handler(request, exc)
-    except Exception:
-        # Fallback if Inertia rendering itself fails (e.g. missing session)
-        logger.exception("Error page rendering failed, falling back to JSON")
-        return JSONResponse(
-            status_code=status_code, content={"detail": message or "Internal Server Error"}
-        )
-
-
-async def _http_exception_handler(request: Request, exc: HTTPException) -> Response:
-    if exc.status_code in _INERTIA_ERROR_STATUSES:
-        detail = str(exc.detail) if exc.detail else ""
-        return await _render_error_page(request, exc.status_code, detail)
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
-
-
-async def _not_found_error_handler(request: Request, exc: NotFoundError) -> Response:
-    return await _render_error_page(request, 404, str(exc))
-
-
-async def _unhandled_exception_handler(request: Request, exc: Exception) -> Response:
-    logger.exception("Unhandled exception: %s", exc)
-    return await _render_error_page(request, 500, "")
-
-
-def _setup_inertia(app: FastAPI, settings: Settings, modules: list) -> None:
-    """Configure fastapi-inertia with the Jinja2 template.
-
-    The host's own ``host/templates`` directory is first in the search path so
-    it can override module-contributed templates. Each installed module
-    contributes additional directories via ``ModuleBase.template_dirs()``.
-    """
-    from fastapi.templating import Jinja2Templates
-
-    host_templates = _PROJECT_ROOT / "host" / "templates"
-    directories: list[Path] = []
-
-    if host_templates.is_dir():
-        directories.append(host_templates)
-    else:
-        logger.warning("Host templates directory not found at %s", host_templates)
-
-    for mod in modules:
-        for path in mod.template_dirs():
-            if Path(path).is_dir():
-                directories.append(Path(path))
-            else:
-                logger.warning(
-                    "Module '%s' declared template dir %s but it does not exist",
-                    mod.meta.name,
-                    path,
-                )
-
-    if not directories:
-        logger.warning("No usable template directories — Inertia will fail to render views")
-        return
-
-    templates = Jinja2Templates(directory=directories)
-
-    inertia_config = InertiaConfig(
-        environment=settings.environment,  # ty: ignore[invalid-argument-type]
-        version="1.0",
-        dev_url=settings.vite_dev_url if settings.is_development else "",
-        templates=templates,
-        root_template_filename="index.html",
-        entrypoint_filename="main.tsx",
-        root_directory=".",
-        use_flash_errors=True,
-    )
-
-    # Register the Inertia dependency globally
-    from inertia import inertia_dependency_factory
-
-    inertia_dep = inertia_dependency_factory(inertia_config)
-    app.state.inertia_config = inertia_config
-    app.state.inertia_dependency = inertia_dep
 
 
 def _check_settings_registration(modules: list, added_keys: set[str]) -> None:
