@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: "24"
   # Hash all workspace pyproject.toml files so cache invalidates when any
   # member's deps change. uv.lock is gitignored, so this is the best key
   # available; commit uv.lock to get true lockfile-based caching.
