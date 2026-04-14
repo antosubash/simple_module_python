@@ -15,7 +15,7 @@ class DashboardModule(ModuleBase):
     meta = ModuleMeta(
         name="Dashboard",
         route_prefix="/api/dashboard",
-        view_prefix="/dashboard",
+        view_prefix="",
         depends_on=["Products"],
     )
 

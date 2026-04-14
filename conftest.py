@@ -21,19 +21,11 @@ from sqlalchemy.ext.asyncio import (
 
 @pytest.fixture
 def settings() -> Settings:
-    """Settings configured for testing with in-memory SQLite.
-
-    Multi-tenancy stays on so the existing ``TenantMiddleware`` tests
-    (and the ``X-Tenant-ID`` header paths they rely on) keep working.
-    Individual tests that want the tenant middleware absent construct
-    their own ``Settings(multi_tenant=False, ...)`` in the test body.
-    """
+    """Settings configured for testing with in-memory SQLite."""
     return Settings(
         database_url="sqlite+aiosqlite:///:memory:",
         environment="testing",
         secret_key="test-secret-key",
-        multi_tenant=True,
-        tenant_header="X-Tenant-ID",
     )
 
 

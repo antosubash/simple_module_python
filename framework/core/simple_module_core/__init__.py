@@ -10,7 +10,6 @@ from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.events import Event, EventBus
 from simple_module_core.exceptions import (
     CircularDependencyError,
-    InvalidModuleError,
     ModuleError,
     NotFoundError,
     ValidationError,
@@ -39,7 +38,6 @@ __all__ = [
     "discover_modules",
     "topological_sort",
     "CircularDependencyError",
-    "InvalidModuleError",
     "ModuleError",
     "NotFoundError",
     "ValidationError",

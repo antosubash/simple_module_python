@@ -6,13 +6,14 @@ from decimal import Decimal
 
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin, SoftDeleteMixin
+from simple_module_db.provider import DatabaseProvider
 from sqlalchemy import Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-# Provider is auto-detected from SM_DATABASE_URL (falls back to SQLite).
-# On PostgreSQL this gives the module its own `products` schema; on SQLite
-# all modules share one schema, so __tablename__ is prefixed for isolation.
-Base = create_module_base("products")
+# Each module gets its own schema: "products" on PostgreSQL, "products_" prefix on SQLite
+# Provider is detected at import time; for runtime flexibility, call create_module_base
+# again with the actual provider in on_startup if needed.
+Base = create_module_base("products", provider=DatabaseProvider.SQLITE)
 
 
 class Product(Base, AuditMixin, SoftDeleteMixin):  # ty: ignore[unsupported-base]

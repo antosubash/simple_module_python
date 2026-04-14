@@ -8,7 +8,7 @@ import { Label } from '@ui/components/ui/label';
 import { Textarea } from '@ui/components/ui/textarea';
 import { AuthenticatedLayout } from '@ui/layouts/AuthenticatedLayout';
 import { toast } from 'sonner';
-import { validateProduct } from './validation';
+import { validateProduct } from '../validation';
 
 interface Product {
   id: number;

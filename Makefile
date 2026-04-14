@@ -49,7 +49,7 @@ ci-js-typecheck:
 
 # Diagnostics
 doctor:
-	uv run python -m simple_module_core
+	uv run python -m simple_module_hosting.diagnostics
 
 # Database migrations
 migrate:                    ## Run migrations to head

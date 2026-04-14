@@ -27,12 +27,6 @@ class TenantIsolationError(Exception):
     """Raised when a multi-tenancy isolation constraint is violated."""
 
 
-# Key on ``Session.info`` stamped by the after_flush listener so
-# ``get_db`` can distinguish read-only requests from write requests after
-# flush has cleared ``session.new/.dirty/.deleted``.
-SESSION_HAS_WRITES_KEY = "has_writes"
-
-
 def _entity_label(obj: object) -> str:
     """Return 'ClassName' for a mapped entity instance."""
     return type(obj).__name__
@@ -52,17 +46,6 @@ def _entity_pk(obj: object) -> object:
         return None
 
 
-def _mark_session_written(session: Session, flush_context: object) -> None:
-    """Flag the session as having performed write work.
-
-    ``get_db`` reads this flag to decide between commit and rollback at
-    request end. Checking ``session.new/.dirty/.deleted`` directly after
-    a flush is useless — flush empties those sets — so we stash a tag on
-    ``session.info`` that survives the rest of the request.
-    """
-    session.info[SESSION_HAS_WRITES_KEY] = True
-
-
 def register_listeners(db_state: DatabaseState) -> None:
     """Register SQLAlchemy event listeners for audit, soft delete, versioning, and tenancy.
 
@@ -74,7 +57,6 @@ def register_listeners(db_state: DatabaseState) -> None:
         return
 
     event.listen(db_state.sync_session_class, "before_flush", _before_flush_listener)
-    event.listen(db_state.sync_session_class, "after_flush", _mark_session_written)
     event.listen(db_state.sync_session_class, "do_orm_execute", _soft_delete_filter)
     event.listen(db_state.sync_session_class, "do_orm_execute", _add_tenant_filter)
     db_state._listeners_registered = True

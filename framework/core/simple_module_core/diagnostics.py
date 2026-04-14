@@ -5,7 +5,6 @@ from __future__ import annotations
 import ast
 import importlib.util
 import logging
-import sys
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -319,13 +318,13 @@ class MigrationDiagnostics:
         current_revision: str | None,
         head_revision: str | None,
     ) -> list[Diagnostic]:
-        """SM010: Error if database is not at the migration head."""
+        """SM009: Error if database is not at the migration head."""
         if current_revision == head_revision:
             return []
         return [
             Diagnostic(
                 level=DiagnosticLevel.ERROR,
-                code="SM010",
+                code="SM009",
                 message=(f"Database at revision {current_revision!r}, expected {head_revision!r}"),
                 module_name="migrations",
                 suggestion="Run: make migrate",
@@ -337,12 +336,12 @@ class MigrationDiagnostics:
         module_tables: set[str],
         migrated_tables: set[str],
     ) -> list[Diagnostic]:
-        """SM011: Warning if module tables are missing from migration history."""
+        """SM010: Warning if module tables are missing from migration history."""
         missing = module_tables - migrated_tables
         return [
             Diagnostic(
                 level=DiagnosticLevel.WARNING,
-                code="SM011",
+                code="SM010",
                 message=f"Table '{table}' declared in models but not found in migration history",
                 module_name="migrations",
                 suggestion=f'Run: make migration msg="add {table}"',
@@ -389,10 +388,7 @@ def print_diagnostics(diagnostics: list[Diagnostic]) -> None:
     infos = [d for d in diagnostics if d.level == DiagnosticLevel.INFO]
 
     for d in diagnostics:
-        print(str(d), file=sys.stderr)
-        print(file=sys.stderr)
+        print(str(d))
+        print()
 
-    print(
-        f"Results: {len(errors)} error(s), {len(warnings)} warning(s), {len(infos)} info",
-        file=sys.stderr,
-    )
+    print(f"Results: {len(errors)} error(s), {len(warnings)} warning(s), {len(infos)} info")
