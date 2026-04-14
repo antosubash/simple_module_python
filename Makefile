@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck
+.PHONY: install install-py install-js dev dev-api dev-ui build test lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
 
 # Install
 install:
@@ -31,7 +31,7 @@ build:
 test:
 	uv run pytest
 
-lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck
+lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
 
 # Kept granular so pr.yml can run them in parallel.
 ci-python-lint:
@@ -46,6 +46,11 @@ ci-js-lint:
 
 ci-js-typecheck:
 	npx tsc --noEmit -p host/client_app/tsconfig.json
+
+# Enforce a max of 300 lines per .py/.ts/.tsx file.
+# Exempts vendored shadcn components under packages/ui/src/components/ui/**.
+ci-check-file-size:
+	uv run python scripts/check_file_size.py
 
 # Diagnostics
 doctor:
