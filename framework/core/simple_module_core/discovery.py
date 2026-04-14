@@ -14,13 +14,33 @@ logger = logging.getLogger(__name__)
 ENTRY_POINT_GROUP = "simple_module"
 
 
-def discover_modules() -> list[ModuleBase]:
+def get_module_package_name(module: ModuleBase) -> str:
+    """Return the top-level Python package a module instance belongs to.
+
+    Used by Alembic env.py, the frontend manifest generator, and diagnostics
+    to locate a module's files (models, pages, templates) on disk.
+    """
+    return type(module).__module__.split(".")[0]
+
+
+def discover_modules(enabled: Sequence[str] | None = None) -> list[ModuleBase]:
     """Discover all installed modules via ``[project.entry-points.simple_module]``.
 
-    Returns instantiated module objects (unsorted).
+    Returns instantiated module objects (unsorted). Raises
+    :class:`FrameworkVersionError` if any discovered module's
+    ``requires_framework`` spec rejects the current framework API version.
+
+    :param enabled: Optional allowlist of module names (case-insensitive matched against
+        ``ModuleMeta.name``). When ``None`` (default), every installed module is loaded.
+        When a list, only modules whose name appears in it are loaded. Names that don't
+        match any installed module log a warning. An empty list loads nothing.
     """
+    # Imported here to avoid a circular import at module load time.
+    from simple_module_core.versioning import check_framework_compatibility
+
     eps = entry_points(group=ENTRY_POINT_GROUP)
     modules: list[ModuleBase] = []
+    allowlist_lower = {name.lower() for name in enabled} if enabled is not None else None
 
     for ep in eps:
         try:
@@ -33,11 +53,28 @@ def discover_modules() -> list[ModuleBase]:
                     module_cls,
                 )
                 continue
+            if allowlist_lower is not None and instance.meta.name.lower() not in allowlist_lower:
+                logger.info(
+                    "Module '%s' is installed but not in modules_enabled — skipping",
+                    instance.meta.name,
+                )
+                continue
             modules.append(instance)
             logger.info("Discovered module: %s (v%s)", instance.meta.name, instance.meta.version)
         except Exception:
             logger.exception("Failed to load module entry point '%s'", ep.name)
 
+    # Warn about allowlist entries that didn't resolve to an installed module.
+    if allowlist_lower is not None:
+        loaded = {m.meta.name.lower() for m in modules}
+        missing = allowlist_lower - loaded
+        for name in missing:
+            logger.warning(
+                "modules_enabled references '%s' which is not installed — ignoring",
+                name,
+            )
+
+    check_framework_compatibility(modules)
     return modules
 
 

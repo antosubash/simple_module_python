@@ -1,16 +1,19 @@
-"""Alembic environment — discovers module models via entry points."""
+"""Alembic environment — discovers module models via entry points.
+
+This file is the canonical template used by the host scaffold. All the logic
+for discovering installed modules and aggregating their metadata lives in
+``simple_module_db.migrations`` so new hosts get the behaviour for free.
+"""
 
 from __future__ import annotations
 
-import importlib
 import logging
 from logging.config import fileConfig
 
 from alembic import context
-from simple_module_core.discovery import discover_modules
-from simple_module_db.base import all_module_bases
+from simple_module_db import build_module_metadata, make_include_object
 from simple_module_hosting.settings import Settings
-from sqlalchemy import MetaData, engine_from_config, pool
+from sqlalchemy import engine_from_config, pool
 
 logger = logging.getLogger("alembic.env")
 
@@ -21,35 +24,12 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# ── Discover module models ──────────────────────────────────────────
-# discover_modules() loads module classes via entry points, but models
-# are imported lazily. We import each module's ``models`` submodule
-# explicitly so create_module_base() runs and all_module_bases populates.
-modules = discover_modules()
-for mod in modules:
-    pkg = type(mod).__module__.split(".")[0]
-    try:
-        importlib.import_module(f"{pkg}.models")
-    except ModuleNotFoundError:
-        logger.debug("No models submodule for module '%s'", mod.meta.name)
+# Build target metadata by importing every installed module's models.
+target_metadata = build_module_metadata()
 
-# Combine all module metadata into a single MetaData for autogenerate
-target_metadata = MetaData()
-for base in all_module_bases:
-    for table in base.metadata.tables.values():
-        table.to_metadata(target_metadata)
-
-# Allowlist: only manage tables declared by modules
-MODULE_TABLES = {t.name for t in target_metadata.tables.values()}
-
-
-def include_object(object, name, type_, reflected, compare_to):
-    """Filter autogenerate to only module-declared tables."""
-    if type_ == "table":
-        return name in MODULE_TABLES
-    if hasattr(object, "table"):
-        return object.table.name in MODULE_TABLES
-    return True
+# Autogenerate must only diff tables owned by installed modules — never the
+# host's user-added tables or framework internals.
+include_object = make_include_object(target_metadata)
 
 
 def _get_url() -> str:

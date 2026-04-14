@@ -8,7 +8,10 @@ import pytest
 from simple_module_core.diagnostics import DiagnosticLevel, MigrationDiagnostics
 from simple_module_core.discovery import topological_sort
 from simple_module_core.events import Event, EventBus
-from simple_module_core.exceptions import CircularDependencyError
+from simple_module_core.exceptions import (
+    CircularDependencyError,
+    FrameworkVersionError,
+)
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from simple_module_core.health import HealthCheck, HealthCheckResult, HealthRegistry, HealthStatus
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
@@ -756,3 +759,187 @@ class TestMigrationDiagnostics:
             migrated_tables={"products_product"},
         )
         assert len(results) == 0
+
+
+# ── Framework API Version Compatibility (Gap 3) ─────────────────────
+
+
+class TestFrameworkVersion:
+    async def test_framework_exposes_api_version(self):
+        """`simple_module_core.FRAMEWORK_API_VERSION` must be importable and semver-shaped."""
+        # Must be a non-empty string that parses as PEP 440 version.
+        from packaging.version import Version
+        from simple_module_core import FRAMEWORK_API_VERSION
+
+        assert isinstance(FRAMEWORK_API_VERSION, str)
+        assert FRAMEWORK_API_VERSION != ""
+        Version(FRAMEWORK_API_VERSION)  # raises if malformed
+
+    async def test_module_meta_accepts_requires_framework(self):
+        """ModuleMeta should accept an optional requires_framework field."""
+        meta = ModuleMeta(name="X", requires_framework=">=1.0,<2.0")
+        assert meta.requires_framework == ">=1.0,<2.0"
+
+    async def test_module_meta_requires_framework_defaults_to_none(self):
+        """When not set, requires_framework is None (no compat check applied)."""
+        meta = ModuleMeta(name="X")
+        assert meta.requires_framework is None
+
+    async def test_check_compat_passes_when_version_matches(self):
+        """A module declaring a spec that matches the framework version passes."""
+        from simple_module_core import FRAMEWORK_API_VERSION
+        from simple_module_core.versioning import check_framework_compatibility
+
+        class ModGood(ModuleBase):
+            meta = ModuleMeta(
+                name="Good",
+                requires_framework=f"=={FRAMEWORK_API_VERSION}",
+            )
+
+        # Must not raise.
+        check_framework_compatibility([ModGood()])
+
+    async def test_check_compat_raises_on_mismatch(self):
+        """A module with an unsatisfiable spec raises FrameworkVersionError at boot."""
+        from simple_module_core.versioning import check_framework_compatibility
+
+        class ModStale(ModuleBase):
+            # Requires a version far in the future — guaranteed to fail.
+            meta = ModuleMeta(name="Stale", requires_framework=">=999.0")
+
+        with pytest.raises(FrameworkVersionError) as exc_info:
+            check_framework_compatibility([ModStale()])
+
+        # Error should name the offending module and the incompatible spec.
+        msg = str(exc_info.value)
+        assert "Stale" in msg
+        assert ">=999.0" in msg
+
+    async def test_check_compat_skips_modules_without_spec(self):
+        """Modules that don't declare requires_framework are not checked."""
+        from simple_module_core.versioning import check_framework_compatibility
+
+        class ModLegacy(ModuleBase):
+            meta = ModuleMeta(name="Legacy")  # no requires_framework
+
+        check_framework_compatibility([ModLegacy()])  # must not raise
+
+    async def test_check_compat_rejects_malformed_spec(self):
+        """A malformed version specifier raises FrameworkVersionError (not something cryptic)."""
+        from simple_module_core.versioning import check_framework_compatibility
+
+        class ModBadSpec(ModuleBase):
+            meta = ModuleMeta(name="BadSpec", requires_framework="not-a-spec")
+
+        with pytest.raises(FrameworkVersionError) as exc_info:
+            check_framework_compatibility([ModBadSpec()])
+        assert "BadSpec" in str(exc_info.value)
+
+    async def test_check_compat_reports_all_failures(self):
+        """When multiple modules are incompatible, the error mentions all of them."""
+        from simple_module_core.versioning import check_framework_compatibility
+
+        class ModBadA(ModuleBase):
+            meta = ModuleMeta(name="BadA", requires_framework=">=999.0")
+
+        class ModBadB(ModuleBase):
+            meta = ModuleMeta(name="BadB", requires_framework=">=999.0")
+
+        with pytest.raises(FrameworkVersionError) as exc_info:
+            check_framework_compatibility([ModBadA(), ModBadB()])
+
+        msg = str(exc_info.value)
+        assert "BadA" in msg
+        assert "BadB" in msg
+
+
+# ── Selective Module Loading (Gap 4) ────────────────────────────────
+
+
+class TestSelectiveModuleLoading:
+    async def test_discover_with_none_loads_all(self):
+        """Passing enabled=None keeps existing behaviour (load all installed modules)."""
+        from simple_module_core.discovery import discover_modules
+
+        all_mods = discover_modules(enabled=None)
+        names = {m.meta.name for m in all_mods}
+        assert {"Auth", "Products", "Dashboard"}.issubset(names)
+
+    async def test_discover_with_allowlist_filters(self):
+        """Passing enabled=['Auth'] loads only Auth, even if other modules are installed."""
+        from simple_module_core.discovery import discover_modules
+
+        filtered = discover_modules(enabled=["Auth"])
+        names = [m.meta.name for m in filtered]
+        assert names == ["Auth"]
+
+    async def test_discover_with_empty_list_loads_none(self):
+        """Passing enabled=[] loads no modules (explicit opt-out of everything)."""
+        from simple_module_core.discovery import discover_modules
+
+        assert discover_modules(enabled=[]) == []
+
+    async def test_discover_allowlist_case_insensitive(self):
+        """Allowlist matching ignores case so 'products' and 'Products' both work."""
+        from simple_module_core.discovery import discover_modules
+
+        names = [m.meta.name for m in discover_modules(enabled=["products"])]
+        assert names == ["Products"]
+
+    async def test_discover_unknown_name_logged_and_ignored(self, caplog):
+        """Names in enabled that don't match any installed module log a warning but don't raise."""
+        import logging
+
+        from simple_module_core.discovery import discover_modules
+
+        with caplog.at_level(logging.WARNING, logger="simple_module_core.discovery"):
+            result = discover_modules(enabled=["Auth", "Nonexistent"])
+
+        names = [m.meta.name for m in result]
+        assert names == ["Auth"]
+        assert any("nonexistent" in rec.message.lower() for rec in caplog.records)
+
+
+# ── Module Template & Static Contribution Hooks (Gap 5) ─────────────
+
+
+class TestModuleAssetHooks:
+    async def test_template_dirs_default_empty(self):
+        """ModuleBase.template_dirs() returns an empty list by default."""
+        mod = DummyModule()
+        assert mod.template_dirs() == []
+
+    async def test_static_mounts_default_empty(self):
+        """ModuleBase.static_mounts() returns an empty dict by default."""
+        mod = DummyModule()
+        assert mod.static_mounts() == {}
+
+    async def test_template_dirs_override(self, tmp_path):
+        """A module can return its own template directory."""
+        tpl_dir = tmp_path / "my_templates"
+        tpl_dir.mkdir()
+
+        class ModWithTpl(ModuleBase):
+            meta = ModuleMeta(name="WithTpl")
+
+            def template_dirs(self):
+                return [tpl_dir]
+
+        mod = ModWithTpl()
+        result = mod.template_dirs()
+        assert result == [tpl_dir]
+
+    async def test_static_mounts_override(self, tmp_path):
+        """A module can map URL prefixes to filesystem directories."""
+        assets = tmp_path / "assets"
+        assets.mkdir()
+
+        class ModWithStatic(ModuleBase):
+            meta = ModuleMeta(name="WithStatic")
+
+            def static_mounts(self):
+                return {"/modules/with-static": assets}
+
+        mod = ModWithStatic()
+        mounts = mod.static_mounts()
+        assert mounts == {"/modules/with-static": assets}

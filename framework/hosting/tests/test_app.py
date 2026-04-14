@@ -29,6 +29,391 @@ class TestCreateApp:
         assert hasattr(app.state, "settings")
         assert hasattr(app.state, "db")
 
+    async def test_modules_enabled_limits_loaded_modules(self, settings: Settings):
+        """Host respects settings.modules_enabled — only listed modules contribute routes."""
+        # Only Auth should be loaded; Products + Dashboard routes must be absent.
+        restricted = settings.model_copy(update={"modules_enabled": ["Auth"]})
+        app = create_app(restricted)
+        paths: set[str] = {str(r.path) for r in app.routes if hasattr(r, "path")}
+        assert "/auth/login" in paths
+        assert not any(p.startswith("/api/products") for p in paths)
+        assert "/dashboard" not in paths
+
+    async def test_module_static_mounts_become_app_routes(
+        self,
+        settings: Settings,
+        tmp_path,
+        monkeypatch,
+    ):
+        """Directories returned from ModuleBase.static_mounts() get mounted at boot."""
+        from simple_module_core import ModuleBase, ModuleMeta
+        from simple_module_hosting import app_builder
+
+        asset_dir = tmp_path / "module_assets"
+        asset_dir.mkdir()
+        (asset_dir / "probe.txt").write_text("hello", encoding="utf-8")
+
+        class FakeStaticMod(ModuleBase):
+            meta = ModuleMeta(name="FakeStatic")
+
+            def static_mounts(self):
+                return {"/modules/fakestatic/static": asset_dir}
+
+        # Monkey-patch discovery to return our fake module alongside the real ones.
+        real_discover = app_builder.discover_modules
+
+        def fake_discover(enabled=None):
+            return [*real_discover(enabled=enabled), FakeStaticMod()]
+
+        monkeypatch.setattr(app_builder, "discover_modules", fake_discover)
+
+        app = create_app(settings)
+        paths = {getattr(r, "path", None) for r in app.routes}
+        assert "/modules/fakestatic/static" in paths
+
+
+# ── Frontend module manifest (Gap 2a) ────────────────────────────────
+
+
+class TestModulePagesManifest:
+    async def test_compute_returns_existing_page_dirs(self):
+        """Returns {ModuleName: Path} for installed modules that ship a pages/ dir."""
+        from simple_module_core import discover_modules
+        from simple_module_hosting.scaffolding import compute_module_pages
+
+        modules = discover_modules()
+        result = compute_module_pages(modules)
+
+        # Products + Dashboard ship pages/; Auth is API-only (no frontend pages).
+        assert {"Products", "Dashboard"}.issubset(result.keys())
+        assert "Auth" not in result
+        for name, path in result.items():
+            assert path.is_dir(), f"{name} -> {path} should exist"
+            assert path.name == "pages"
+
+    async def test_compute_skips_modules_without_pages_dir(self, tmp_path, monkeypatch):
+        """A module whose package has no pages/ dir is omitted (not an error)."""
+        from simple_module_core import ModuleBase, ModuleMeta
+        from simple_module_hosting.scaffolding import compute_module_pages
+
+        class HeadlessMod(ModuleBase):
+            # Its __module__ is tests' package, which has no pages/ dir.
+            meta = ModuleMeta(name="Headless")
+
+        result = compute_module_pages([HeadlessMod()])
+        assert "Headless" not in result
+
+    async def test_write_manifest_emits_json_and_ts(self, tmp_path):
+        """write_module_pages_manifest emits both the JSON manifest and the TS glob file."""
+        import json
+
+        from simple_module_core import discover_modules
+        from simple_module_hosting.scaffolding import write_module_pages_manifest
+
+        modules = discover_modules()
+        written = write_module_pages_manifest(modules, tmp_path)
+
+        manifest = tmp_path / "modules.manifest.json"
+        generated = tmp_path / "modules.generated.ts"
+        assert manifest.is_file()
+        assert generated.is_file()
+        assert written == {"manifest": manifest, "generated": generated}
+
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        assert "Products" in data
+        assert data["Products"].endswith("pages") or data["Products"].endswith("pages/")
+
+        ts = generated.read_text(encoding="utf-8")
+        # Should contain an import.meta.glob call per discovered module with pages.
+        assert "import.meta.glob" in ts
+        assert "Products" in ts
+        # And a header marking it auto-generated so devs don't hand-edit.
+        assert "AUTO-GENERATED" in ts or "auto-generated" in ts.lower()
+
+
+# ── Host scaffold (Gap 6) ────────────────────────────────────────────
+
+
+class TestCreateHost:
+    async def test_creates_expected_backend_files(self, tmp_path):
+        """create_host writes the full backend + frontend scaffold."""
+        from simple_module_hosting.scaffolding import create_host
+
+        dest = tmp_path / "demo"
+        create_host(dest, name="demo-host", modules=["Products", "Auth"])
+
+        for relpath in [
+            # Backend
+            "pyproject.toml",
+            "main.py",
+            "alembic.ini",
+            "migrations/env.py",
+            "migrations/script.py.mako",
+            "migrations/versions/.gitkeep",
+            ".env.example",
+            ".gitignore",
+            "README.md",
+            "Makefile",
+            # Frontend
+            "client_app/package.json",
+            "client_app/tsconfig.json",
+            "client_app/vite.config.ts",
+            "client_app/main.tsx",
+            "client_app/app.tsx",
+            "client_app/pages.ts",
+            "client_app/styles.css",
+            "client_app/pages/Error.tsx",
+            "templates/index.html",
+        ]:
+            assert (dest / relpath).exists(), f"missing: {relpath}"
+
+    async def test_package_json_carries_host_name(self, tmp_path):
+        """client_app/package.json has its `name` prefixed with the host name."""
+        from simple_module_hosting.scaffolding import create_host
+
+        dest = tmp_path / "demo"
+        create_host(dest, name="my-host", modules=[])
+        pkg = (dest / "client_app" / "package.json").read_text(encoding="utf-8")
+        assert '"name": "my-host-client-app"' in pkg
+
+    async def test_substitutes_host_name_into_pyproject(self, tmp_path):
+        """The host name lands in pyproject.toml's [project].name field."""
+        from simple_module_hosting.scaffolding import create_host
+
+        dest = tmp_path / "demo"
+        create_host(dest, name="my-acme-app", modules=[])
+        pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
+        assert 'name = "my-acme-app"' in pyproject
+
+    async def test_declares_selected_module_deps(self, tmp_path):
+        """Each module from --with appears as a PyPI dep in pyproject.toml."""
+        from simple_module_hosting.scaffolding import create_host
+
+        dest = tmp_path / "demo"
+        create_host(dest, name="demo", modules=["Products", "Auth"])
+        pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
+        # Module names get converted to PyPI names: simple-module-<lower>.
+        assert "simple-module-products" in pyproject
+        assert "simple-module-auth" in pyproject
+
+    async def test_refuses_existing_non_empty_dir(self, tmp_path):
+        """create_host aborts if the destination exists and is non-empty — no clobbering."""
+        from simple_module_hosting.scaffolding import create_host
+
+        dest = tmp_path / "existing"
+        dest.mkdir()
+        (dest / "unrelated.txt").write_text("do not delete me", encoding="utf-8")
+
+        with pytest.raises(FileExistsError):
+            create_host(dest, name="demo", modules=[])
+
+    async def test_env_py_uses_shared_helper(self, tmp_path):
+        """Scaffolded migrations/env.py delegates to the shared helper, not inline logic."""
+        from simple_module_hosting.scaffolding import create_host
+
+        dest = tmp_path / "demo"
+        create_host(dest, name="demo", modules=[])
+        env_py = (dest / "migrations" / "env.py").read_text(encoding="utf-8")
+        assert "build_module_metadata" in env_py
+        assert "make_include_object" in env_py
+        # Must NOT embed the old inline loop — that's the refactor we locked in at Gap 1.
+        assert "for mod in modules:" not in env_py
+
+    async def test_cli_create_host_runs_end_to_end(self, tmp_path):
+        """The Click `sm create-host` command produces a working scaffold."""
+        from click.testing import CliRunner
+        from simple_module_hosting.cli import main
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            ["create-host", "smoke-host", "--dest", str(tmp_path / "out"), "--with", "Products"],
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "out" / "main.py").is_file()
+        assert (tmp_path / "out" / "pyproject.toml").is_file()
+        assert "simple-module-products" in (tmp_path / "out" / "pyproject.toml").read_text(
+            encoding="utf-8"
+        )
+
+
+class TestCreateModule:
+    async def test_creates_expected_module_files(self, tmp_path):
+        """create_module writes a PyPI-ready module package."""
+        from simple_module_hosting.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-my-feature"
+        create_module(dest, name="MyFeature")
+
+        for relpath in [
+            "pyproject.toml",
+            "my_feature/__init__.py",
+            "my_feature/module.py",
+            "my_feature/endpoints/__init__.py",
+            "my_feature/endpoints/api.py",
+            "tests/__init__.py",
+            "tests/test_module.py",
+            ".gitignore",
+            "README.md",
+        ]:
+            assert (dest / relpath).is_file(), f"missing: {relpath}"
+
+    async def test_pyproject_declares_entry_point_and_deps(self, tmp_path):
+        """pyproject.toml sets the entry_point and pins the framework API range."""
+        from simple_module_hosting.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-my-feature"
+        create_module(dest, name="MyFeature")
+        pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
+
+        assert 'name = "simple-module-my-feature"' in pyproject
+        assert "[project.entry-points.simple_module]" in pyproject
+        assert "my_feature = " in pyproject  # entry-point key
+        assert "simple-module-core" in pyproject
+
+    async def test_module_py_subclasses_module_base(self, tmp_path):
+        """The generated module.py has a ModuleBase subclass with the right Meta."""
+        from simple_module_hosting.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-my-feature"
+        create_module(dest, name="MyFeature")
+        module_py = (dest / "my_feature" / "module.py").read_text(encoding="utf-8")
+
+        assert "class MyFeatureModule(ModuleBase)" in module_py
+        assert 'name="MyFeature"' in module_py
+        assert "requires_framework=" in module_py
+
+    async def test_snake_case_derivation(self, tmp_path):
+        """Module names with dashes, spaces, or camel case convert to snake_case packages."""
+        from simple_module_hosting.scaffolding import create_module
+
+        # Caller supplies a PascalCase-ish name; package dir is snake_case.
+        dest = tmp_path / "simple-module-order-tracker"
+        create_module(dest, name="OrderTracker")
+        assert (dest / "order_tracker" / "module.py").is_file()
+
+    async def test_refuses_existing_non_empty_dir(self, tmp_path):
+        """create_module aborts rather than clobber an existing directory."""
+        from simple_module_hosting.scaffolding import create_module
+
+        dest = tmp_path / "existing"
+        dest.mkdir()
+        (dest / "sentinel").write_text("keep me", encoding="utf-8")
+        with pytest.raises(FileExistsError):
+            create_module(dest, name="MyFeature")
+
+    async def test_cli_create_module_runs_end_to_end(self, tmp_path):
+        """The Click `sm create-module` command produces a working scaffold."""
+        from click.testing import CliRunner
+        from simple_module_hosting.cli import main
+
+        runner = CliRunner()
+        dest = tmp_path / "simple-module-smoke"
+        result = runner.invoke(
+            main,
+            ["create-module", "Smoke", "--dest", str(dest)],
+        )
+        assert result.exit_code == 0, result.output
+        assert (dest / "smoke" / "module.py").is_file()
+        assert "class SmokeModule(ModuleBase)" in (dest / "smoke" / "module.py").read_text(
+            encoding="utf-8"
+        )
+
+    async def test_scaffold_ships_github_workflows(self, tmp_path):
+        """Gap 8: scaffolded modules include publish.yml + ci.yml."""
+        from simple_module_hosting.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-widget"
+        create_module(dest, name="Widget")
+
+        publish = dest / ".github" / "workflows" / "publish.yml"
+        ci = dest / ".github" / "workflows" / "ci.yml"
+        assert publish.is_file(), "publish.yml missing"
+        assert ci.is_file(), "ci.yml missing"
+
+    async def test_publish_workflow_uses_trusted_publishing(self, tmp_path):
+        """publish.yml must request OIDC token and use pypa/gh-action-pypi-publish."""
+        from simple_module_hosting.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-widget"
+        create_module(dest, name="Widget")
+        publish = (dest / ".github" / "workflows" / "publish.yml").read_text(encoding="utf-8")
+
+        # Trusted publishing requires these two knobs — without them the
+        # workflow falls back to API-token auth, which defeats the point.
+        assert "id-token: write" in publish
+        assert "pypa/gh-action-pypi-publish" in publish
+        # Should NOT pin a PyPI API token env var — that's the old way.
+        assert "PYPI_API_TOKEN" not in publish
+
+    async def test_publish_workflow_triggers_on_version_tag(self, tmp_path):
+        """publish.yml fires only on tag push, not every commit to main."""
+        from simple_module_hosting.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-widget"
+        create_module(dest, name="Widget")
+        publish = (dest / ".github" / "workflows" / "publish.yml").read_text(encoding="utf-8")
+        assert "tags:" in publish
+
+    async def test_workflows_parse_as_valid_yaml(self, tmp_path):
+        """Both workflow files must be parseable YAML — catches template substitution bugs."""
+        import yaml  # PyYAML ships transitively via uvicorn[standard]
+        from simple_module_hosting.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-widget"
+        create_module(dest, name="Widget")
+
+        for wf in ("publish.yml", "ci.yml"):
+            path = dest / ".github" / "workflows" / wf
+            parsed = yaml.safe_load(path.read_text(encoding="utf-8"))
+            assert isinstance(parsed, dict), f"{wf} did not parse to a mapping"
+            assert "jobs" in parsed, f"{wf} has no jobs: key"
+
+    async def test_scaffold_has_pages_dir(self, tmp_path):
+        """Gap 2b: modules intended to ship TSX pages get a pages/ dir from day one."""
+        from simple_module_hosting.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-widget"
+        create_module(dest, name="Widget")
+        pages_dir = dest / "widget" / "pages"
+        assert pages_dir.is_dir()
+        # A .gitkeep avoids an empty dir getting lost during git operations.
+        assert (pages_dir / ".gitkeep").is_file()
+
+    async def test_pyproject_force_includes_static_dist(self, tmp_path):
+        """Gap 2b: pyproject.toml must ship <pkg>/static/dist/ inside the wheel."""
+        from simple_module_hosting.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-widget"
+        create_module(dest, name="Widget")
+        pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
+
+        # The built JS is normally gitignored, but hatch needs an explicit
+        # directive to copy it into the wheel at build time.
+        assert "force-include" in pyproject
+        assert "widget/static/dist" in pyproject
+
+    async def test_module_py_mounts_static_dist_conditionally(self, tmp_path):
+        """Generated module.py exposes static_mounts() that tolerates a missing dist/."""
+        from simple_module_hosting.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-widget"
+        create_module(dest, name="Widget")
+        module_py = (dest / "widget" / "module.py").read_text(encoding="utf-8")
+
+        assert "static_mounts" in module_py
+        # The URL prefix must match the host's convention (Gap 5's docstring).
+        assert "/modules/widget/static" in module_py
+
+    async def test_gitignore_excludes_built_assets(self, tmp_path):
+        """Built JS lives in source control's blind spot; only wheels carry it."""
+        from simple_module_hosting.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-widget"
+        create_module(dest, name="Widget")
+        gitignore = (dest / ".gitignore").read_text(encoding="utf-8")
+        assert "static/dist" in gitignore
+
 
 # ── Health endpoints ─────────────────────────────────────────────────
 

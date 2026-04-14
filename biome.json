@@ -5,7 +5,9 @@
       "host/client_app/**",
       "packages/**",
       "modules/*/*/pages/**",
-      "modules/*/*/components/**"
+      "modules/*/*/components/**",
+      "!host/client_app/modules.generated.ts",
+      "!host/client_app/modules.manifest.json"
     ],
     "ignoreUnknown": true
   },

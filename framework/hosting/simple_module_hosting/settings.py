@@ -26,6 +26,17 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: Literal["json", "text"] = "json"
 
+    # Module loading
+    modules_enabled: list[str] | None = None
+    """Optional allowlist of module names to load.
+
+    When ``None`` (default), every installed module is loaded. When a list is
+    provided (e.g. ``SM_MODULES_ENABLED='["Auth","Products"]'`` in env), only
+    those modules are loaded — useful for staging rollouts, feature flags at
+    the module level, or debugging isolation. Names are matched case-insensitively
+    against ``ModuleMeta.name``.
+    """
+
     @property
     def is_development(self) -> bool:
         return self.environment == "development"

@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck
+.PHONY: install install-py install-js dev dev-api dev-ui build test lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck
 
 # Install
 install:
@@ -13,7 +13,7 @@ install-js:
 	npm ci
 
 # Development
-dev: docker-up
+dev: docker-up gen-pages
 	@echo "Starting API and UI dev servers..."
 	$(MAKE) -j2 dev-api dev-ui
 
@@ -22,6 +22,10 @@ dev-api:
 
 dev-ui:
 	npm run dev
+
+# Regenerate host/client_app/modules.{manifest.json,generated.ts} from installed modules.
+gen-pages:
+	uv run --project host sm gen-pages --host-dir=host/client_app
 
 # Build
 build:

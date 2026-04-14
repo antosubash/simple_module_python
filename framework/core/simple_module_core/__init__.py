@@ -6,10 +6,15 @@ from simple_module_core.diagnostics import (
     print_diagnostics,
     run_diagnostics,
 )
-from simple_module_core.discovery import discover_modules, topological_sort
+from simple_module_core.discovery import (
+    discover_modules,
+    get_module_package_name,
+    topological_sort,
+)
 from simple_module_core.events import Event, EventBus
 from simple_module_core.exceptions import (
     CircularDependencyError,
+    FrameworkVersionError,
     ModuleError,
     NotFoundError,
     ValidationError,
@@ -19,8 +24,11 @@ from simple_module_core.health import HealthCheck, HealthCheckResult, HealthRegi
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.versioning import FRAMEWORK_API_VERSION, check_framework_compatibility
 
 __all__ = [
+    "FRAMEWORK_API_VERSION",
+    "check_framework_compatibility",
     "ModuleBase",
     "ModuleMeta",
     "MenuItem",
@@ -36,8 +44,10 @@ __all__ = [
     "Event",
     "EventBus",
     "discover_modules",
+    "get_module_package_name",
     "topological_sort",
     "CircularDependencyError",
+    "FrameworkVersionError",
     "ModuleError",
     "NotFoundError",
     "ValidationError",

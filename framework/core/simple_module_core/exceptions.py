@@ -29,3 +29,19 @@ class ValidationError(Exception):
     def __init__(self, errors: dict[str, list[str]]) -> None:
         self.errors = errors
         super().__init__(f"Validation failed: {errors}")
+
+
+class FrameworkVersionError(ModuleError):
+    """Raised when installed modules are incompatible with the framework API version."""
+
+    def __init__(self, framework_version: str, failures: list[tuple[str, str, str]]) -> None:
+        # failures: list of (module_name, requires_framework, reason)
+        self.framework_version = framework_version
+        self.failures = failures
+        lines = [f"  - {name}: requires '{spec}' — {reason}" for name, spec, reason in failures]
+        super().__init__(
+            f"Installed module(s) incompatible with framework API version {framework_version}:\n"
+            + "\n".join(lines)
+            + "\n\nResolution: upgrade the module(s), upgrade simple-module-core, "
+            "or remove the incompatible module."
+        )

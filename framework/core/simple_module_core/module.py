@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from abc import ABC
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -25,6 +26,13 @@ class ModuleMeta:
     view_prefix: str = ""
     depends_on: list[str] = field(default_factory=list)
     version: str = "1.0.0"
+    requires_framework: str | None = None
+    """PEP 440 specifier for the framework API version this module supports.
+
+    Example: ``">=1.0,<2.0"``. When set, the module is rejected at boot if the
+    installed ``simple_module_core.FRAMEWORK_API_VERSION`` does not satisfy it.
+    When ``None``, no compatibility check is performed (legacy modules).
+    """
 
 
 class ModuleBase(ABC):
@@ -118,6 +126,31 @@ class ModuleBase(ABC):
 
         Called after framework exception handlers are set up.
         """
+
+    # ── Asset contribution (templates & static files) ─────────
+
+    def template_dirs(self) -> list[Path]:
+        """Return Jinja2 template directories this module contributes.
+
+        The host aggregates all modules' template dirs (plus its own) into the
+        Jinja2 loader, so templates in ``<module>/templates/`` become resolvable
+        from any module. Return an empty list (default) to contribute none.
+
+        Each path is typically computed via
+        ``importlib.resources.files(__package__) / "templates"`` so it resolves
+        correctly when the module is installed as a PyPI package.
+        """
+        return []
+
+    def static_mounts(self) -> dict[str, Path]:
+        """Return static file mounts this module contributes.
+
+        Mapping of URL prefix → filesystem directory. The host mounts each entry
+        via ``StaticFiles`` during app boot. Convention: prefix with
+        ``/modules/<name>/static`` to avoid collisions with the host's own
+        ``/static`` mount. Return an empty dict (default) to contribute none.
+        """
+        return {}
 
     # ── Lifecycle ─────────────────────────────────────────────
 
