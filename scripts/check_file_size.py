@@ -98,7 +98,8 @@ def _collect_candidates(root: Path, use_git: bool) -> list[Path]:
 
 
 def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    description = (__doc__ or "Enforce a maximum line count per source file.").splitlines()[0]
+    parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
         "--max",
         type=int,
