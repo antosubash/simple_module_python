@@ -255,6 +255,7 @@ async def _render_error_page(request: Request, status_code: int, message: str) -
         return await inertia_version_conflict_exception_handler(request, exc)
     except Exception:
         # Fallback if Inertia rendering itself fails (e.g. missing session)
+        logger.exception("Error page rendering failed, falling back to JSON")
         return JSONResponse(status_code=status_code, content={"detail": message or "Internal Server Error"})
 
 
