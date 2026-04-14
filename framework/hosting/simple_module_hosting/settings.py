@@ -1,5 +1,7 @@
 """Application settings loaded from environment variables."""
 
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,6 +21,10 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     vite_dev_url: str = "http://localhost:5050"
     debug: bool = False
+
+    # Logging
+    log_level: str = "INFO"
+    log_format: Literal["json", "text"] = "json"
 
     @property
     def is_development(self) -> bool:

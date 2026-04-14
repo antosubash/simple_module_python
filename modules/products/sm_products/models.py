@@ -5,7 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from simple_module_db.base import create_module_base
-from simple_module_db.mixins import AuditMixin
+from simple_module_db.mixins import AuditMixin, SoftDeleteMixin
 from simple_module_db.provider import DatabaseProvider
 from sqlalchemy import Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -16,7 +16,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 Base = create_module_base("products", provider=DatabaseProvider.SQLITE)
 
 
-class Product(Base, AuditMixin):  # ty: ignore[unsupported-base]
+class Product(Base, AuditMixin, SoftDeleteMixin):  # ty: ignore[unsupported-base]
     """A product in the catalog."""
 
     __tablename__ = "products_product"

@@ -100,6 +100,39 @@ class TestProductService:
         assert deleted is False
 
 
+    async def test_soft_deleted_excluded_from_get_all(self, db_session: AsyncSession):
+        svc = ProductService(db_session)
+        created = await svc.create(ProductCreate(name="Temp", price=Decimal("1.00")))
+        await svc.delete(created.id)
+        await db_session.flush()
+        products, total = await svc.get_all()
+        assert all(p.id != created.id for p in products)
+
+    async def test_soft_deleted_excluded_from_get_by_id(self, db_session: AsyncSession):
+        svc = ProductService(db_session)
+        created = await svc.create(ProductCreate(name="Ghost", price=Decimal("1.00")))
+        await svc.delete(created.id)
+        await db_session.flush()
+        found = await svc.get_by_id(created.id)
+        assert found is None
+
+    async def test_soft_deleted_cannot_be_updated(self, db_session: AsyncSession):
+        svc = ProductService(db_session)
+        created = await svc.create(ProductCreate(name="Old", price=Decimal("1.00")))
+        await svc.delete(created.id)
+        await db_session.flush()
+        result = await svc.update(created.id, ProductUpdate(name="New"))
+        assert result is None
+
+    async def test_soft_deleted_cannot_be_deleted_again(self, db_session: AsyncSession):
+        svc = ProductService(db_session)
+        created = await svc.create(ProductCreate(name="Once", price=Decimal("1.00")))
+        await svc.delete(created.id)
+        await db_session.flush()
+        deleted_again = await svc.delete(created.id)
+        assert deleted_again is False
+
+
 # ── Products API endpoints ───────────────────────────────────────────
 
 

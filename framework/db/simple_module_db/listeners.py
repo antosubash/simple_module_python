@@ -7,12 +7,13 @@ from contextvars import ContextVar
 from datetime import UTC, datetime
 
 from sqlalchemy import event, inspect as sa_inspect
-from sqlalchemy.orm import Session, with_loader_criteria
+from sqlalchemy.orm import ORMExecuteState, Session, with_loader_criteria
 
 from simple_module_db.mixins import AuditMixin, MultiTenantMixin, SoftDeleteMixin, VersionedMixin
 from simple_module_db.session import DatabaseState
 
 logger = logging.getLogger(__name__)
+_db_logger = logging.getLogger("simple_module.db")
 
 # Set by auth middleware on each request
 current_user_id: ContextVar[str | None] = ContextVar("current_user_id", default=None)
@@ -23,6 +24,22 @@ current_tenant_id: ContextVar[str | None] = ContextVar("current_tenant_id", defa
 
 class TenantIsolationError(Exception):
     """Raised when a multi-tenancy isolation constraint is violated."""
+
+
+def _entity_label(obj: object) -> str:
+    """Return 'ClassName' for a mapped entity instance."""
+    return type(obj).__name__
+
+
+def _entity_pk(obj: object) -> object:
+    """Return the primary key value(s) if available, else None."""
+    try:
+        identity = sa_inspect(obj).identity
+        if identity and len(identity) == 1:
+            return identity[0]
+        return identity
+    except Exception:
+        return None
 
 
 def register_listeners(db_state: DatabaseState) -> None:
@@ -36,6 +53,7 @@ def register_listeners(db_state: DatabaseState) -> None:
         return
 
     event.listen(db_state.sync_session_class, "before_flush", _before_flush_listener)
+    event.listen(db_state.sync_session_class, "do_orm_execute", _soft_delete_filter)
     event.listen(db_state.sync_session_class, "do_orm_execute", _add_tenant_filter)
     db_state._listeners_registered = True
     logger.info("Registered SQLAlchemy entity listeners")
@@ -67,6 +85,15 @@ def _before_flush_listener(
                     f"in context of tenant '{tenant_id}'"
                 )
 
+        _db_logger.info(
+            "db.entity.created",
+            extra={
+                "operation": "create",
+                "entity": _entity_label(obj),
+                "user_id": user_id,
+            },
+        )
+
     for obj in session.dirty:
         if not session.is_modified(obj):
             continue
@@ -84,6 +111,16 @@ def _before_flush_listener(
             if hist.has_changes():
                 raise TenantIsolationError("Cannot change tenant_id of an existing object")
 
+        _db_logger.info(
+            "db.entity.updated",
+            extra={
+                "operation": "update",
+                "entity": _entity_label(obj),
+                "entity_id": _entity_pk(obj),
+                "user_id": user_id,
+            },
+        )
+
     # Deleted objects — convert to soft delete if applicable
     for obj in list(session.deleted):
         if isinstance(obj, SoftDeleteMixin):
@@ -95,21 +132,64 @@ def _before_flush_listener(
             obj.deleted_by = user_id
             session.add(obj)
 
+            _db_logger.info(
+                "db.entity.soft_deleted",
+                extra={
+                    "operation": "soft_delete",
+                    "entity": _entity_label(obj),
+                    "entity_id": _entity_pk(obj),
+                    "user_id": user_id,
+                },
+            )
+        else:
+            _db_logger.info(
+                "db.entity.deleted",
+                extra={
+                    "operation": "delete",
+                    "entity": _entity_label(obj),
+                    "entity_id": _entity_pk(obj),
+                    "user_id": user_id,
+                },
+            )
 
-def _add_tenant_filter(orm_execute_state: object) -> None:
+
+def _soft_delete_filter(execute_state: ORMExecuteState) -> None:
+    """Automatically exclude soft-deleted rows from SELECT queries.
+
+    Adds ``WHERE is_deleted = FALSE`` for every entity in the query that
+    inherits from :class:`SoftDeleteMixin`.
+
+    To bypass the filter (e.g. admin views), use::
+
+        session.execute(stmt.execution_options(include_deleted=True))
+    """
+    if (
+        execute_state.is_select
+        and not execute_state.execution_options.get("include_deleted", False)
+    ):
+        execute_state.statement = execute_state.statement.options(
+            with_loader_criteria(
+                SoftDeleteMixin,
+                lambda cls: cls.is_deleted.is_(False),
+                include_aliases=True,
+            )
+        )
+
+
+def _add_tenant_filter(execute_state: ORMExecuteState) -> None:
     """Automatically filter SELECT queries on multi-tenant models by current tenant.
 
     Uses ``with_loader_criteria`` so the filter applies to ``session.execute()``,
     ``session.get()``, and relationship lazy-loading.
     """
-    if not orm_execute_state.is_select:  # type: ignore[union-attr]
+    if not execute_state.is_select:
         return
 
     tenant_id = current_tenant_id.get()
     if tenant_id is None:
         return
 
-    orm_execute_state.statement = orm_execute_state.statement.options(  # type: ignore[union-attr]
+    execute_state.statement = execute_state.statement.options(
         with_loader_criteria(
             MultiTenantMixin,
             lambda cls: cls.tenant_id == tenant_id,
