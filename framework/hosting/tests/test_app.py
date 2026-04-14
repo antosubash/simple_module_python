@@ -8,7 +8,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 from simple_module_db import current_tenant_id
-from simple_module_hosting.app_builder import create_app
+from simple_module_hosting.app_builder import _resolve_project_root, create_app
 from simple_module_hosting.middleware import TenantMiddleware
 from simple_module_hosting.settings import Settings
 
@@ -28,6 +28,29 @@ class TestCreateApp:
         assert hasattr(app.state, "health_registry")
         assert hasattr(app.state, "settings")
         assert hasattr(app.state, "db")
+
+
+# ── Project root resolution ─────────────────────────────────────────
+
+
+class TestResolveProjectRoot:
+    async def test_honours_env_override(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+        assert _resolve_project_root() == tmp_path
+
+    async def test_falls_back_to_workspace_layout(self, monkeypatch):
+        monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
+        # Fallback resolves relative to the hosting package location; assert
+        # it at least points at a directory that contains the ``host``
+        # directory (the marker we actually care about).
+        root = _resolve_project_root()
+        assert (root / "host").is_dir()
+
+    async def test_empty_env_var_uses_fallback(self, monkeypatch):
+        monkeypatch.setenv("SM_PROJECT_ROOT", "")
+        # Empty string is falsy — must fall through to the path walk.
+        root = _resolve_project_root()
+        assert (root / "host").is_dir()
 
 
 # ── Health endpoints ─────────────────────────────────────────────────

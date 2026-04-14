@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -48,8 +49,25 @@ from simple_module_hosting.settings import Settings
 
 logger = logging.getLogger(__name__)
 
-# Resolve once: simple_module_hosting/ -> hosting/ -> framework/ -> project root
-_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+def _resolve_project_root() -> Path:
+    """Return the project root directory.
+
+    Prefers the ``SM_PROJECT_ROOT`` environment variable (set by
+    ``host/main.py``) so the framework works even when installed from a
+    wheel into ``site-packages`` — in that layout the fallback walk-up
+    below would escape the package into ``site-packages/..`` and miss
+    ``host/static`` entirely.
+
+    Falls back to ``parents[3]`` for the workspace-install dev loop
+    (simple_module_hosting/ → hosting/ → framework/ → project root).
+    """
+    override = os.environ.get("SM_PROJECT_ROOT")
+    if override:
+        return Path(override)
+    return Path(__file__).resolve().parents[3]
+
+
+_PROJECT_ROOT = _resolve_project_root()
 
 
 async def _check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") -> dict:

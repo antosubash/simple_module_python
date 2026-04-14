@@ -1,7 +1,17 @@
 """SimpleModule Host — entry point."""
 
-from simple_module_hosting import Settings, create_app
-from simple_module_hosting.logging import setup_logging
+import os
+from pathlib import Path
+
+# Publish the project root so the hosting layer can find host/static and
+# host/templates whether we're running from the uv workspace or a wheel.
+os.environ.setdefault(
+    "SM_PROJECT_ROOT",
+    str(Path(__file__).resolve().parent.parent),
+)
+
+from simple_module_hosting import Settings, create_app  # noqa: E402
+from simple_module_hosting.logging import setup_logging  # noqa: E402
 
 settings = Settings()
 
