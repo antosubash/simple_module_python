@@ -35,7 +35,10 @@ def _entity_label(obj: object) -> str:
 def _entity_pk(obj: object) -> object:
     """Return the primary key value(s) if available, else None."""
     try:
-        identity = sa_inspect(obj).identity
+        inspector = sa_inspect(obj)
+        if inspector is None:
+            return None
+        identity = inspector.identity
         if identity and len(identity) == 1:
             return identity[0]
         return identity

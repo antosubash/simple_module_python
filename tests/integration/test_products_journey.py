@@ -46,9 +46,7 @@ class TestProductLifecycle:
         assert final.status_code == 200
         assert all(p["id"] != product_id for p in final.json())
 
-    async def test_multiple_products_listed_in_order(
-        self, authenticated_client: httpx.AsyncClient
-    ):
+    async def test_multiple_products_listed_in_order(self, authenticated_client: httpx.AsyncClient):
         names = ["Alpha", "Beta", "Gamma"]
         ids = []
         for name in names:

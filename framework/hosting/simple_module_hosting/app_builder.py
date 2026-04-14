@@ -210,7 +210,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.add_exception_handler(HTTPException, _http_exception_handler)  # ty: ignore[invalid-argument-type]
     app.add_exception_handler(NotFoundError, _not_found_error_handler)  # ty: ignore[invalid-argument-type]
-    app.add_exception_handler(Exception, _unhandled_exception_handler)  # ty: ignore[invalid-argument-type]
+    app.add_exception_handler(Exception, _unhandled_exception_handler)
     for mod in modules:
         mod.register_exception_handlers(app)
 

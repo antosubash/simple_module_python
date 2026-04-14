@@ -56,7 +56,7 @@ class RequiresPermission:
             raise HTTPException(status_code=401, detail="Authentication required")
 
         # Use cached permissions from middleware if available
-        permissions: set[str] = getattr(request.state, "resolved_permissions", None)  # type: ignore[assignment]
+        permissions: set[str] | None = getattr(request.state, "resolved_permissions", None)
         if permissions is None:
             permissions = resolve_permissions(user.roles)
             request.state.resolved_permissions = permissions
