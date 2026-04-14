@@ -18,8 +18,8 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    "../../modules/*/src/**/*.ts",
-    "../../modules/*/src/**/*.tsx",
+    "../../modules/*/**/*.ts",
+    "../../modules/*/**/*.tsx",
     "../../packages/*/src/**/*.ts",
     "../../packages/*/src/**/*.tsx"
   ]

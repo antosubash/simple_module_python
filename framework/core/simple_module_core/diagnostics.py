@@ -228,7 +228,10 @@ class ModuleDiagnostics:
         return None
 
     def _check_orphan_pages(
-        self, mod: ModuleBase, src_dir: Path, rendered_pages: set[str],
+        self,
+        mod: ModuleBase,
+        src_dir: Path,
+        rendered_pages: set[str],
     ) -> list[Diagnostic]:
         """Find .tsx pages that aren't referenced by any inertia.render() call."""
         pages_dir = src_dir / "pages"
@@ -251,7 +254,10 @@ class ModuleDiagnostics:
         ]
 
     def _check_phantom_renders(
-        self, mod: ModuleBase, src_dir: Path, rendered_pages: set[str],
+        self,
+        mod: ModuleBase,
+        src_dir: Path,
+        rendered_pages: set[str],
     ) -> list[Diagnostic]:
         """Find inertia.render() calls that reference non-existent pages."""
         pages_dir = src_dir / "pages"

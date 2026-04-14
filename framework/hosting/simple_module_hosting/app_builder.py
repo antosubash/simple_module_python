@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import logging
-import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.exceptions import HTTPException
 from fastapi.staticfiles import StaticFiles
-from starlette.responses import RedirectResponse
 from inertia import (
     InertiaConfig,
     InertiaVersionConflictException,
@@ -31,12 +30,21 @@ from simple_module_core.permissions import PermissionRegistry
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.responses import RedirectResponse
 
 from simple_module_hosting.health import router as health_router
-from simple_module_hosting.middleware import InertiaLayoutDataMiddleware, SecurityHeadersMiddleware
+from simple_module_hosting.middleware import (
+    CorrelationIdMiddleware,
+    InertiaLayoutDataMiddleware,
+    RequestLoggingMiddleware,
+    SecurityHeadersMiddleware,
+)
 from simple_module_hosting.settings import Settings
 
 logger = logging.getLogger(__name__)
+
+# Resolve once: simple_module_hosting/ -> hosting/ -> framework/ -> project root
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 async def _check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") -> dict:
@@ -210,7 +218,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # ── Phase 8: Middleware pipeline ───────────────────────
     # Order matters: last added = first executed
-    # Execution order: SecurityHeaders → Session → [module middleware] → InertiaLayout
+    # Execution: CorrelationId → RequestLogging → Security → Session → [module] → Inertia
     app.add_middleware(
         InertiaLayoutDataMiddleware,
         menu_registry=menu_registry,
@@ -220,6 +228,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         mod.register_middleware(app)
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
     app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RequestLoggingMiddleware)
+    app.add_middleware(CorrelationIdMiddleware)
 
     # ── Phase 9: Routes, health, static files ──────────────
     for mod in modules:
@@ -237,8 +247,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health_router)
 
-    static_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "host", "static")
-    if os.path.isdir(static_dir):
+    static_dir = _PROJECT_ROOT / "host" / "static"
+    if static_dir.is_dir():
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     return app
@@ -246,17 +256,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
 def _setup_inertia(app: FastAPI, settings: Settings) -> None:
     """Configure fastapi-inertia with the Jinja2 template."""
-    import os
-
     from fastapi.templating import Jinja2Templates
 
-    # Find the templates directory (relative to host/)
-    templates_dir = os.path.join(
-        os.path.dirname(__file__), "..", "..", "..", "..", "host", "templates"
-    )
-    templates_dir = os.path.abspath(templates_dir)
+    templates_dir = _PROJECT_ROOT / "host" / "templates"
 
-    if not os.path.isdir(templates_dir):
+    if not templates_dir.is_dir():
         logger.warning("Templates directory not found at %s", templates_dir)
         return
 
@@ -301,4 +305,3 @@ def _check_settings_registration(modules: list, added_keys: set[str]) -> None:
                 ),
             )
             logger.warning("%s", diag)
-
