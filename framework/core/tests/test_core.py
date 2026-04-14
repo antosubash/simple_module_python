@@ -479,6 +479,71 @@ class TestEventBusAdvanced:
         assert len(received) == 1
         assert received[0].order_id == 99
 
+    async def test_subclass_events_do_not_match_parent_subscription(self):
+        """Subscribing to a base Event class should not receive subclass events."""
+        bus = EventBus()
+
+        @dataclass
+        class Parent(Event):
+            pass
+
+        @dataclass
+        class Child(Parent):
+            pass
+
+        calls: list = []
+
+        async def parent_handler(e):
+            calls.append(("parent", e))
+
+        bus.subscribe(Parent, parent_handler)
+        await bus.publish(Child())
+
+        # Child events should not trigger Parent handlers — strict type match.
+        assert calls == []
+
+    async def test_publish_with_no_subscribers_returns_none(self):
+        """publish() should resolve to None when nothing is listening."""
+        bus = EventBus()
+
+        @dataclass
+        class Orphan(Event):
+            pass
+
+        result = await bus.publish(Orphan())
+        assert result is None
+
+    async def test_publish_nowait_with_no_subscribers_is_noop(self):
+        """publish_nowait() on an unheard event should not raise."""
+        bus = EventBus()
+
+        @dataclass
+        class Orphan(Event):
+            pass
+
+        bus.publish_nowait(Orphan())  # must not raise
+
+    async def test_handlers_dispatched_concurrently(self):
+        """All handlers for an event should run concurrently via gather."""
+        import asyncio
+
+        bus = EventBus()
+        order: list[str] = []
+
+        async def slow(e):
+            await asyncio.sleep(0.02)
+            order.append("slow")
+
+        async def fast(e):
+            order.append("fast")
+
+        bus.subscribe(OrderCreated, slow)
+        bus.subscribe(OrderCreated, fast)
+        await bus.publish(OrderCreated(order_id=1))
+
+        # "fast" should complete before "slow" because they run concurrently.
+        assert order == ["fast", "slow"]
+
 
 # ── MenuRegistry Advanced ───────────────────────────────────────────
 
