@@ -1,0 +1,102 @@
+"""Tests for ModuleMeta and ModuleBase lifecycle/hooks."""
+
+from __future__ import annotations
+
+import pytest
+from simple_module_core.events import EventBus
+from simple_module_core.feature_flags import FeatureFlagRegistry
+from simple_module_core.health import HealthRegistry
+from simple_module_core.menu import MenuRegistry
+from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.permissions import PermissionRegistry
+
+
+class TestModuleMeta:
+    async def test_defaults(self):
+        meta = ModuleMeta(name="TestModule")
+        assert meta.name == "TestModule"
+        assert meta.route_prefix == ""
+        assert meta.view_prefix == ""
+        assert meta.depends_on == []
+        assert meta.version == "1.0.0"
+
+    async def test_custom_fields(self):
+        meta = ModuleMeta(
+            name="Products",
+            route_prefix="/api/products",
+            view_prefix="/products",
+            depends_on=["Auth"],
+            version="2.0.0",
+        )
+        assert meta.route_prefix == "/api/products"
+        assert meta.depends_on == ["Auth"]
+        assert meta.version == "2.0.0"
+
+    async def test_frozen(self):
+        meta = ModuleMeta(name="Frozen")
+        with pytest.raises(AttributeError):
+            meta.name = "Changed"  # type: ignore[misc]  # ty: ignore[invalid-assignment]
+
+
+class DummyModule(ModuleBase):
+    meta = ModuleMeta(name="Dummy", route_prefix="/api/dummy")
+
+    def __init__(self):
+        self.routes_registered = False
+
+    def register_routes(self, api_router, view_router):
+        self.routes_registered = True
+
+
+class TestModuleBase:
+    async def test_subclass_has_meta(self):
+        mod = DummyModule()
+        assert mod.meta.name == "Dummy"
+
+    async def test_register_routes_override(self):
+        mod = DummyModule()
+        mod.register_routes(None, None)  # type: ignore[arg-type]
+        assert mod.routes_registered is True
+
+    async def test_default_noop_methods(self):
+        """Default implementations should not raise."""
+        mod = DummyModule()
+        mod.register_menu_items(MenuRegistry())
+        mod.register_permissions(PermissionRegistry())
+
+
+class TestModuleLifecycle:
+    async def test_on_startup_default_noop(self):
+        mod = DummyModule()
+        await mod.on_startup(None)  # type: ignore
+
+    async def test_on_shutdown_default_noop(self):
+        mod = DummyModule()
+        await mod.on_shutdown(None)  # type: ignore
+
+    async def test_register_event_handlers_default_noop(self):
+        mod = DummyModule()
+        bus = EventBus()
+        mod.register_event_handlers(bus)
+
+    async def test_register_feature_flags_default_noop(self):
+        mod = DummyModule()
+        reg = FeatureFlagRegistry()
+        mod.register_feature_flags(reg)
+        assert len(reg.all_flags) == 0
+
+
+class TestModuleNewHooks:
+    async def test_register_exception_handlers_default_noop(self):
+        mod = DummyModule()
+        mod.register_exception_handlers(None)  # type: ignore
+
+    async def test_register_health_checks_default_noop(self):
+        mod = DummyModule()
+        reg = HealthRegistry()
+        mod.register_health_checks(reg)
+        assert len(reg.all_checks) == 0
+
+    async def test_register_settings_default_noop(self):
+        mod = DummyModule()
+        mod.register_settings(None)  # type: ignore
