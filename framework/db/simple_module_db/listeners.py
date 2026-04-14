@@ -46,6 +46,17 @@ def _entity_pk(obj: object) -> object:
         return None
 
 
+def _mark_session_written(session: Session, flush_context: object) -> None:
+    """Flag the session as having performed write work.
+
+    ``get_db`` reads this flag to decide between commit and rollback at
+    request end. Checking ``session.new/.dirty/.deleted`` directly after
+    a flush is useless — flush empties those sets — so we stash a tag on
+    ``session.info`` that survives the rest of the request.
+    """
+    session.info["has_writes"] = True
+
+
 def register_listeners(db_state: DatabaseState) -> None:
     """Register SQLAlchemy event listeners for audit, soft delete, versioning, and tenancy.
 
@@ -57,6 +68,7 @@ def register_listeners(db_state: DatabaseState) -> None:
         return
 
     event.listen(db_state.sync_session_class, "before_flush", _before_flush_listener)
+    event.listen(db_state.sync_session_class, "after_flush", _mark_session_written)
     event.listen(db_state.sync_session_class, "do_orm_execute", _soft_delete_filter)
     event.listen(db_state.sync_session_class, "do_orm_execute", _add_tenant_filter)
     db_state._listeners_registered = True

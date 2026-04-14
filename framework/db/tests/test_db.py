@@ -483,8 +483,83 @@ class TestMultiTenancyEdgeCases:
 
 
 class TestGetDbLogging:
-    async def test_commit_logs_session_commit(self, caplog):
-        """get_db should log db.session.commit on successful exit."""
+    async def test_commit_logs_on_write(self, caplog):
+        """get_db should commit when the session holds unflushed inserts."""
+        import contextlib
+        import logging
+        from unittest.mock import MagicMock
+
+        from simple_module_db.deps import get_db
+
+        db_state = init_db("sqlite+aiosqlite:///:memory:")
+        async with db_state.engine.begin() as conn:
+            await conn.run_sync(_TenantBase.metadata.create_all)
+
+        try:
+            mock_request = MagicMock()
+            mock_request.app.state.db = db_state
+
+            with caplog.at_level(logging.INFO, logger="simple_module.db"):
+                gen = get_db(mock_request)
+                session = await gen.__anext__()
+                session.add(_TenantItem(name="w", tenant_id="t1"))
+                with contextlib.suppress(StopAsyncIteration):
+                    await gen.__anext__()
+
+            commit_msgs = [
+                r
+                for r in caplog.records
+                if r.name == "simple_module.db" and r.message == "db.session.commit"
+            ]
+            assert len(commit_msgs) == 1
+            assert commit_msgs[0].operation == "commit"  # type: ignore[attr-defined]
+            assert hasattr(commit_msgs[0], "db_duration_ms")
+        finally:
+            await db_state.engine.dispose()
+
+    async def test_commit_fires_even_after_explicit_flush(self, caplog):
+        """After a flush ``session.new`` is empty — the ``has_writes`` tag
+        set by the after_flush listener must still drive the commit path.
+        This guards the real-world pattern used by service.create().
+        """
+        import contextlib
+        import logging
+        from unittest.mock import MagicMock
+
+        from simple_module_db.deps import get_db
+        from simple_module_db.listeners import register_listeners
+
+        db_state = init_db("sqlite+aiosqlite:///:memory:")
+        register_listeners(db_state)
+        async with db_state.engine.begin() as conn:
+            await conn.run_sync(_TenantBase.metadata.create_all)
+
+        try:
+            mock_request = MagicMock()
+            mock_request.app.state.db = db_state
+
+            with caplog.at_level(logging.INFO, logger="simple_module.db"):
+                gen = get_db(mock_request)
+                session = await gen.__anext__()
+                session.add(_TenantItem(name="w", tenant_id="t1"))
+                await session.flush()
+                # After flush, session.new is empty — the commit decision
+                # must come from the ``has_writes`` flag set by the listener.
+                assert not session.new
+                with contextlib.suppress(StopAsyncIteration):
+                    await gen.__anext__()
+
+            commit_msgs = [
+                r
+                for r in caplog.records
+                if r.name == "simple_module.db" and r.message == "db.session.commit"
+            ]
+            assert len(commit_msgs) == 1
+        finally:
+            await db_state.engine.dispose()
+
+    async def test_read_only_skips_commit(self, caplog):
+        """A session with no pending writes rolls back instead of committing."""
         import contextlib
         import logging
         from unittest.mock import MagicMock
@@ -496,17 +571,19 @@ class TestGetDbLogging:
             mock_request = MagicMock()
             mock_request.app.state.db = db_state
 
-            with caplog.at_level(logging.INFO, logger="simple_module.db"):
+            with caplog.at_level(logging.DEBUG, logger="simple_module.db"):
                 gen = get_db(mock_request)
-                await gen.__anext__()
+                await gen.__anext__()  # yield session, don't touch it
                 with contextlib.suppress(StopAsyncIteration):
                     await gen.__anext__()
 
-            db_messages = [r for r in caplog.records if r.name == "simple_module.db"]
-            commit_msgs = [r for r in db_messages if r.message == "db.session.commit"]
-            assert len(commit_msgs) == 1
-            assert commit_msgs[0].operation == "commit"  # type: ignore[attr-defined]
-            assert hasattr(commit_msgs[0], "db_duration_ms")
+            records = [r for r in caplog.records if r.name == "simple_module.db"]
+            commits = [r for r in records if r.message == "db.session.commit"]
+            read_only = [r for r in records if r.message == "db.session.read_only"]
+
+            assert commits == []  # no commit for read-only session
+            assert len(read_only) == 1
+            assert read_only[0].operation == "read_only_rollback"  # type: ignore[attr-defined]
         finally:
             await db_state.engine.dispose()
 
