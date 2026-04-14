@@ -8,7 +8,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 from simple_module_db import current_tenant_id
-from simple_module_hosting.app_builder import create_app
+from simple_module_hosting.app_builder import _resolve_project_root, create_app
 from simple_module_hosting.middleware import TenantMiddleware
 from simple_module_hosting.settings import Settings
 
@@ -28,6 +28,25 @@ class TestCreateApp:
         assert hasattr(app.state, "health_registry")
         assert hasattr(app.state, "settings")
         assert hasattr(app.state, "db")
+
+
+# ── Project root resolution ─────────────────────────────────────────
+
+
+class TestResolveProjectRoot:
+    async def test_honours_env_override(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+        assert _resolve_project_root() == tmp_path
+
+    async def test_empty_env_var_uses_fallback(self, monkeypatch, tmp_path):
+        # Empty string is falsy — must fall through to the path walk.
+        # Use the override path to assert fallback runs, since an empty
+        # value falls through to the workspace-relative fallback.
+        monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+        monkeypatch.setenv("SM_PROJECT_ROOT", "")
+        # With empty override, _resolve_project_root should not return tmp_path;
+        # it returns the parents[3] fallback instead.
+        assert _resolve_project_root() != tmp_path
 
 
 # ── Health endpoints ─────────────────────────────────────────────────
@@ -75,8 +94,10 @@ class TestRouteRegistration:
         assert "/auth/logout" in route_paths
         assert "/auth/me" in route_paths
 
-        # Dashboard
-        assert "/dashboard" in route_paths
+        # Dashboard — mounted at the /dashboard view prefix; the public
+        # landing page at "/" is owned by the host and added in host/main.py,
+        # which the create_app fixture doesn't run.
+        assert "/dashboard/" in route_paths
 
     async def test_products_api_methods(self, app: FastAPI):
         """Products endpoints should support the correct HTTP methods."""
@@ -263,7 +284,19 @@ class TestTenantMiddleware:
         assert captured["state_tenant_id"] == "acme-corp"
 
     async def test_tenant_from_header_fallback(self):
-        """With no authenticated user, the X-Tenant-ID header should be used."""
+        """With no authenticated user, the configured header should be used."""
+        captured: dict = {}
+
+        async def inner_app(scope, receive, send):
+            captured["tenant_id"] = current_tenant_id.get()
+
+        scope = _http_scope(headers=[(b"x-tenant-id", b"header-tenant")])
+        await TenantMiddleware(inner_app, header="X-Tenant-ID")(scope, _noop_receive, _noop_send)
+
+        assert captured["tenant_id"] == "header-tenant"
+
+    async def test_header_ignored_when_header_is_none(self):
+        """``header=None`` disables the header source entirely."""
         captured: dict = {}
 
         async def inner_app(scope, receive, send):
@@ -272,7 +305,7 @@ class TestTenantMiddleware:
         scope = _http_scope(headers=[(b"x-tenant-id", b"header-tenant")])
         await TenantMiddleware(inner_app)(scope, _noop_receive, _noop_send)
 
-        assert captured["tenant_id"] == "header-tenant"
+        assert captured["tenant_id"] is None
 
     async def test_user_tenant_id_takes_precedence_over_header(self):
         """Authenticated user's tenant_id must win over the X-Tenant-ID header."""
@@ -284,7 +317,7 @@ class TestTenantMiddleware:
         scope = _http_scope(headers=[(b"x-tenant-id", b"header-tenant")])
         scope["state"]["user"] = SimpleNamespace(tenant_id="user-tenant")
 
-        await TenantMiddleware(inner_app)(scope, _noop_receive, _noop_send)
+        await TenantMiddleware(inner_app, header="X-Tenant-ID")(scope, _noop_receive, _noop_send)
 
         assert captured["tenant_id"] == "user-tenant"
 
@@ -325,13 +358,25 @@ class TestTenantMiddleware:
         scope = _http_scope(headers=[(b"x-tenant-id", b"from-header")])
         scope["state"]["user"] = SimpleNamespace(tenant_id=None)
 
-        await TenantMiddleware(inner_app)(scope, _noop_receive, _noop_send)
+        await TenantMiddleware(inner_app, header="X-Tenant-ID")(scope, _noop_receive, _noop_send)
 
         assert captured["tenant_id"] == "from-header"
 
 
 class TestTenantMiddlewareIntegration:
     async def test_app_pipeline_includes_tenant_middleware(self, app: FastAPI):
-        """TenantMiddleware should be registered on the FastAPI app's middleware stack."""
+        """TenantMiddleware should be registered when multi_tenant=True (fixture default)."""
         middleware_classes = [m.cls for m in app.user_middleware]
         assert TenantMiddleware in middleware_classes
+
+    async def test_tenant_middleware_absent_when_opted_out(self):
+        """With ``multi_tenant=False`` the middleware must not be installed."""
+        single_tenant_settings = Settings(
+            database_url="sqlite+aiosqlite:///:memory:",
+            environment="testing",
+            secret_key="test-secret-key",
+            multi_tenant=False,
+        )
+        app = create_app(single_tenant_settings)
+        middleware_classes = [m.cls for m in app.user_middleware]
+        assert TenantMiddleware not in middleware_classes

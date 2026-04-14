@@ -171,11 +171,13 @@ def scaffold_module(name: str) -> None:
 
         from simple_module_db.base import create_module_base
         from simple_module_db.mixins import AuditMixin
-        from simple_module_db.provider import DatabaseProvider
         from sqlalchemy import String
         from sqlalchemy.orm import Mapped, mapped_column
 
-        Base = create_module_base("{name}", provider=DatabaseProvider.SQLITE)
+        # Provider is auto-detected from SM_DATABASE_URL (falls back to SQLite).
+        # On PostgreSQL this gives the module its own `{name}` schema; on SQLite
+        # all modules share one schema, so __tablename__ is prefixed for isolation.
+        Base = create_module_base("{name}")
 
 
         class {singular_class}(Base, AuditMixin):  # ty: ignore[unsupported-base]
@@ -497,6 +499,124 @@ def scaffold_module(name: str) -> None:
                 "{class_name}/Edit",
                 {{"{singular}": item.model_dump(mode="json")}},
             )
+        """,
+    )
+
+    # ── pages/Browse.tsx ────────────────────────────────────────
+    create_file(
+        src_dir / "pages" / "Browse.tsx",
+        f"""\
+        type {singular_class} = {{
+          id: number;
+          name: string;
+          description: string | null;
+          is_active: boolean;
+        }};
+
+        type Props = {{ {name}: {singular_class}[] }};
+
+        export default function Browse({{ {name} }}: Props) {{
+          return (
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h1 className="text-2xl font-semibold">{class_name}</h1>
+                <a
+                  href="/{name}/create"
+                  className="rounded bg-primary px-3 py-1.5 text-primary-foreground"
+                >
+                  New {singular_class}
+                </a>
+              </div>
+              <ul className="divide-y">
+                {{{name}.map(({singular}) => (
+                  <li key={{{singular}.id}} className="py-2 flex justify-between">
+                    <span>{{{singular}.name}}</span>
+                    <a href={{`/{name}/${{{singular}.id}}/edit`}}>Edit</a>
+                  </li>
+                ))}}
+              </ul>
+            </div>
+          );
+        }}
+        """,
+    )
+
+    # ── pages/Create.tsx ────────────────────────────────────────
+    create_file(
+        src_dir / "pages" / "Create.tsx",
+        f"""\
+        export default function Create() {{
+          return (
+            <div className="p-6 max-w-xl">
+              <h1 className="text-2xl font-semibold mb-4">New {singular_class}</h1>
+              <form method="post" action="/{name}" className="space-y-3">
+                <label className="block">
+                  <span className="block text-sm">Name</span>
+                  <input name="name" required className="border rounded w-full p-2" />
+                </label>
+                <label className="block">
+                  <span className="block text-sm">Description</span>
+                  <textarea name="description" className="border rounded w-full p-2" />
+                </label>
+                <button
+                  type="submit"
+                  className="rounded bg-primary px-3 py-1.5 text-primary-foreground"
+                >
+                  Create
+                </button>
+              </form>
+            </div>
+          );
+        }}
+        """,
+    )
+
+    # ── pages/Edit.tsx ──────────────────────────────────────────
+    create_file(
+        src_dir / "pages" / "Edit.tsx",
+        f"""\
+        type {singular_class} = {{
+          id: number;
+          name: string;
+          description: string | null;
+          is_active: boolean;
+        }};
+
+        type Props = {{ {singular}: {singular_class} }};
+
+        export default function Edit({{ {singular} }}: Props) {{
+          return (
+            <div className="p-6 max-w-xl">
+              <h1 className="text-2xl font-semibold mb-4">Edit {singular_class}</h1>
+              <form method="post" action={{`/{name}/${{{singular}.id}}`}} className="space-y-3">
+                <input type="hidden" name="_method" value="put" />
+                <label className="block">
+                  <span className="block text-sm">Name</span>
+                  <input
+                    name="name"
+                    defaultValue={{{singular}.name}}
+                    required
+                    className="border rounded w-full p-2"
+                  />
+                </label>
+                <label className="block">
+                  <span className="block text-sm">Description</span>
+                  <textarea
+                    name="description"
+                    defaultValue={{{singular}.description ?? ""}}
+                    className="border rounded w-full p-2"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="rounded bg-primary px-3 py-1.5 text-primary-foreground"
+                >
+                  Save
+                </button>
+              </form>
+            </div>
+          );
+        }}
         """,
     )
 

@@ -11,6 +11,8 @@
  * HMR works instantly — just edit any .tsx file.
  */
 
+import { toPascalCase } from '@ui/lib/utils';
+
 type PageModule = { default: React.ComponentType<Record<string, unknown>> };
 type PageLoader = () => Promise<PageModule>;
 
@@ -25,7 +27,7 @@ for (const [filePath, loader] of Object.entries(modulePages)) {
   //   -> moduleName = "Products", pageName = "Browse"
   const match = filePath.match(/modules\/(\w+)\/\w+\/pages\/(\w+)\.tsx$/);
   if (match) {
-    const moduleName = match[1].charAt(0).toUpperCase() + match[1].slice(1);
+    const moduleName = toPascalCase(match[1]);
     const pageName = match[2];
     pages[`${moduleName}/${pageName}`] = loader;
   }
