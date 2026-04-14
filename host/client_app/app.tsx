@@ -1,4 +1,6 @@
-import { createInertiaApp } from '@inertiajs/react';
+import { createInertiaApp, router } from '@inertiajs/react';
+import { ErrorBoundary } from '@ui/components/ErrorBoundary';
+import { useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { resolvePage } from './pages';
 
@@ -8,7 +10,22 @@ createInertiaApp({
     return page;
   },
   setup({ el, App, props }) {
-    createRoot(el).render(<App {...props} />);
+    function Root() {
+      const boundaryRef = useRef<ErrorBoundary>(null);
+
+      useEffect(() => {
+        // Reset the boundary on navigation so the next page can render.
+        return router.on('navigate', () => boundaryRef.current?.reset());
+      }, []);
+
+      return (
+        <ErrorBoundary ref={boundaryRef}>
+          <App {...props} />
+        </ErrorBoundary>
+      );
+    }
+
+    createRoot(el).render(<Root />);
   },
   progress: {
     color: '#4B5563',

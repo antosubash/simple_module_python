@@ -1,4 +1,9 @@
-"""Middleware for security headers, tenant isolation, correlation IDs, request logging, and Inertia layout data."""
+"""Middleware for security headers, tenant isolation, correlation IDs, request logging, and Inertia layout data.
+
+All middleware classes use the raw ASGI pattern instead of ``BaseHTTPMiddleware``
+to avoid its known issues with streaming responses, extra task creation,
+and ``ContextVar`` propagation.
+"""
 
 from __future__ import annotations
 
@@ -9,9 +14,9 @@ import uuid
 from typing import TYPE_CHECKING
 
 from simple_module_db import current_tenant_id
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.datastructures import Headers, MutableHeaders
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from simple_module_hosting.logging import correlation_id
 from simple_module_hosting.permissions import expand_permissions, resolve_permissions
@@ -26,7 +31,7 @@ _request_logger = logging.getLogger("simple_module.request")
 _QUIET_PREFIXES = ("/health", "/static/")
 
 
-class CorrelationIdMiddleware(BaseHTTPMiddleware):
+class CorrelationIdMiddleware:
     """Generate or propagate a correlation ID for every request.
 
     Reads the incoming ``X-Correlation-ID`` header (or generates a UUID4) and
@@ -37,68 +42,107 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 
     HEADER = "X-Correlation-ID"
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        cid = request.headers.get(self.HEADER) or uuid.uuid4().hex
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        cid = Headers(scope=scope).get(self.HEADER) or uuid.uuid4().hex
+
+        async def send_with_header(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers[self.HEADER] = cid
+            await send(message)
+
         token = correlation_id.set(cid)
         try:
-            response = await call_next(request)
-            response.headers[self.HEADER] = cid
-            return response
+            await self.app(scope, receive, send_with_header)
         finally:
             correlation_id.reset(token)
 
 
-class RequestLoggingMiddleware(BaseHTTPMiddleware):
+class RequestLoggingMiddleware:
     """Log every request/response pair with timing and status information."""
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        path = request.url.path
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        path = scope["path"]
         if any(path.startswith(p) for p in _QUIET_PREFIXES):
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
-        method = request.method
-        client_ip = request.client.host if request.client else "unknown"
+        method = scope["method"]
+        client = scope.get("client")
+        client_ip = client[0] if client else "unknown"
 
         _request_logger.debug(
             "request.started",
             extra={"method": method, "path": path, "client_ip": client_ip},
         )
 
+        status_code: int | None = None
         start = time.perf_counter()
-        response = await call_next(request)
-        duration_ms = round((time.perf_counter() - start) * 1000, 2)
 
-        _request_logger.info(
-            "request.completed",
-            extra={
-                "method": method,
-                "path": path,
-                "status_code": response.status_code,
-                "duration_ms": duration_ms,
-                "client_ip": client_ip,
-            },
-        )
+        async def send_capture(message: Message) -> None:
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = message["status"]
+            await send(message)
 
-        return response
+        try:
+            await self.app(scope, receive, send_capture)
+        finally:
+            # Log completion even when the inner app raises, so 500s are observable.
+            duration_ms = round((time.perf_counter() - start) * 1000, 2)
+            _request_logger.info(
+                "request.completed",
+                extra={
+                    "method": method,
+                    "path": path,
+                    "status_code": status_code,
+                    "duration_ms": duration_ms,
+                    "client_ip": client_ip,
+                },
+            )
 
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+class SecurityHeadersMiddleware:
     """Add security headers to every response."""
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        response = await call_next(request)
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "SAMEORIGIN"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        return response
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers["X-Content-Type-Options"] = "nosniff"
+                headers["X-Frame-Options"] = "SAMEORIGIN"
+                headers["X-XSS-Protection"] = "1; mode=block"
+                headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
 
 
 TENANT_HEADER = "X-Tenant-ID"
 
 
-class TenantMiddleware(BaseHTTPMiddleware):
+class TenantMiddleware:
     """Extract tenant context from authenticated user or request header.
 
     Sets the ``current_tenant_id`` context var so that DB queries on
@@ -113,7 +157,15 @@ class TenantMiddleware(BaseHTTPMiddleware):
     2. ``X-Tenant-ID`` request header — useful for API clients and testing.
     """
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope)
         tenant_id: str | None = None
 
         user = getattr(request.state, "user", None)
@@ -121,7 +173,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
             tenant_id = getattr(user, "tenant_id", None)
 
         if tenant_id is None:
-            header_value = request.headers.get(TENANT_HEADER)
+            header_value = Headers(scope=scope).get(TENANT_HEADER)
             if header_value:
                 tenant_id = header_value
 
@@ -130,15 +182,15 @@ class TenantMiddleware(BaseHTTPMiddleware):
         if tenant_id is not None:
             token = current_tenant_id.set(tenant_id)
             try:
-                response = await call_next(request)
+                await self.app(scope, receive, send)
             finally:
                 current_tenant_id.reset(token)
-            return response
+            return
 
-        return await call_next(request)
+        await self.app(scope, receive, send)
 
 
-class InertiaLayoutDataMiddleware(BaseHTTPMiddleware):
+class InertiaLayoutDataMiddleware:
     """Inject shared data (auth, menus, CSRF) into every Inertia response.
 
     This middleware reads the user from ``request.state.user`` (set by auth middleware)
@@ -147,15 +199,20 @@ class InertiaLayoutDataMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
-        app: object,
+        app: ASGIApp,
         menu_registry: MenuRegistry,
         permission_registry: PermissionRegistry,
     ) -> None:
-        super().__init__(app)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        self.app = app
         self.menu_registry = menu_registry
         self.permission_registry = permission_registry
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope)
         user = getattr(request.state, "user", None)
         is_authenticated = user is not None
         roles = getattr(user, "roles", []) if user else []
@@ -191,4 +248,4 @@ class InertiaLayoutDataMiddleware(BaseHTTPMiddleware):
         }
         request.state.inertia_shared = shared
 
-        return await call_next(request)
+        await self.app(scope, receive, send)
