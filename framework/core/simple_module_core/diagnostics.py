@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import importlib.util
 import logging
+import sys
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -388,7 +389,10 @@ def print_diagnostics(diagnostics: list[Diagnostic]) -> None:
     infos = [d for d in diagnostics if d.level == DiagnosticLevel.INFO]
 
     for d in diagnostics:
-        print(str(d))
-        print()
+        print(str(d), file=sys.stderr)
+        print(file=sys.stderr)
 
-    print(f"Results: {len(errors)} error(s), {len(warnings)} warning(s), {len(infos)} info")
+    print(
+        f"Results: {len(errors)} error(s), {len(warnings)} warning(s), {len(infos)} info",
+        file=sys.stderr,
+    )

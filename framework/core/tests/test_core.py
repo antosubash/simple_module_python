@@ -5,7 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
-from simple_module_core.diagnostics import DiagnosticLevel, MigrationDiagnostics
+from simple_module_core.diagnostics import (
+    Diagnostic,
+    DiagnosticLevel,
+    MigrationDiagnostics,
+    print_diagnostics,
+)
 from simple_module_core.discovery import topological_sort
 from simple_module_core.events import Event, EventBus
 from simple_module_core.exceptions import CircularDependencyError
@@ -691,3 +696,27 @@ class TestMigrationDiagnostics:
             migrated_tables={"products_product"},
         )
         assert len(results) == 0
+
+
+# ── print_diagnostics ─────────────────────────────────────────────
+
+
+class TestPrintDiagnostics:
+    async def test_writes_to_stderr(self, capsys):
+        diag = Diagnostic(
+            level=DiagnosticLevel.ERROR,
+            code="SM001",
+            message="test error",
+            module_name="TestMod",
+        )
+        print_diagnostics([diag])
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "SM001" in captured.err
+        assert "Results: 1 error(s)" in captured.err
+
+    async def test_empty_is_quiet(self, capsys):
+        print_diagnostics([])
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err == ""
