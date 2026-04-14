@@ -29,6 +29,21 @@ class _TenantSoftItem(_TenantBase, MultiTenantMixin, SoftDeleteMixin):  # type: 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100))
 
+
+@pytest.fixture
+async def tenant_session() -> AsyncSession:
+    """Session backed by in-memory SQLite with tenant listeners registered."""
+    db_state = init_db("sqlite+aiosqlite:///:memory:")
+    try:
+        register_listeners(db_state)
+        async with db_state.engine.begin() as conn:
+            await conn.run_sync(_TenantBase.metadata.create_all)
+        async with db_state.session_factory() as session:
+            yield session  # type: ignore[misc]
+    finally:
+        await db_state.engine.dispose()
+
+
 # ── create_module_base ───────────────────────────────────────────────
 
 
@@ -157,20 +172,6 @@ class TestGetDbDependency:
 class TestMultiTenancy:
     """Automatic tenant isolation: auto-populate, query filtering, enforcement."""
 
-    @pytest.fixture
-    async def tenant_session(self) -> AsyncSession:
-        """Session backed by in-memory SQLite with tenant listeners registered."""
-        db_state = init_db("sqlite+aiosqlite:///:memory:")
-        register_listeners(db_state)
-
-        async with db_state.engine.begin() as conn:
-            await conn.run_sync(_TenantBase.metadata.create_all)
-
-        async with db_state.session_factory() as session:
-            yield session  # type: ignore[misc]
-
-        await db_state.engine.dispose()
-
     # ── auto-populate ───────────────────────────────────────
 
     async def test_auto_populate_tenant_id(self, tenant_session: AsyncSession):
@@ -296,20 +297,6 @@ class TestMultiTenancy:
 class TestMultiTenancyEdgeCases:
     """Edge cases: updates, session.get, filter composition, and error recovery."""
 
-    @pytest.fixture
-    async def tenant_session(self) -> AsyncSession:
-        """Session backed by in-memory SQLite with tenant listeners registered."""
-        db_state = init_db("sqlite+aiosqlite:///:memory:")
-        register_listeners(db_state)
-
-        async with db_state.engine.begin() as conn:
-            await conn.run_sync(_TenantBase.metadata.create_all)
-
-        async with db_state.session_factory() as session:
-            yield session  # type: ignore[misc]
-
-        await db_state.engine.dispose()
-
     async def test_update_within_same_tenant(self, tenant_session: AsyncSession):
         """Updating a non-tenant field on a same-tenant object should succeed."""
         token = current_tenant_id.set("tenant-a")
@@ -334,8 +321,8 @@ class TestMultiTenancyEdgeCases:
             tenant_session.add(item)
             await tenant_session.flush()
 
-            item.tenant_id = "tenant-a"  # same value — no real change
-            await tenant_session.flush()  # must not raise
+            item.tenant_id = "tenant-a"
+            await tenant_session.flush()
 
             assert item.tenant_id == "tenant-a"
         finally:
@@ -383,7 +370,6 @@ class TestMultiTenancyEdgeCases:
             tenant_session.add_all([alive, deleted])
             await tenant_session.flush()
 
-            # Convert to soft delete via session.delete (handled by listener)
             await tenant_session.delete(deleted)
             await tenant_session.flush()
         finally:
@@ -434,7 +420,6 @@ class TestMultiTenancyEdgeCases:
         """No tenant context and no explicit tenant_id → NOT NULL constraint fires."""
         from sqlalchemy.exc import IntegrityError
 
-        # No ContextVar set, no tenant_id on the object
         item = _TenantItem(name="Orphan")
         tenant_session.add(item)
         with pytest.raises(IntegrityError):
@@ -451,7 +436,6 @@ class TestMultiTenancyEdgeCases:
             finally:
                 current_tenant_id.reset(token)
 
-        # No tenant context → see everything
         result = await tenant_session.execute(select(_TenantItem))
         rows = result.scalars().all()
         tenants = {r.tenant_id for r in rows}
@@ -473,7 +457,6 @@ class TestMultiTenancyEdgeCases:
         finally:
             current_tenant_id.reset(token)
 
-        # Default again outside the with-block
         assert current_tenant_id.get() is None
         # The task saw the value that was current when it was created
         assert seen == ["tenant-a"]
