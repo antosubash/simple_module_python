@@ -6,9 +6,9 @@ from decimal import Decimal
 
 import httpx
 import pytest
+from products.contracts.schemas import ProductCreate, ProductUpdate
+from products.service import ProductService
 from pydantic import ValidationError
-from sm_products.contracts.schemas import ProductCreate, ProductUpdate
-from sm_products.service import ProductService
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # ── Schema validation ────────────────────────────────────────────────
@@ -211,7 +211,7 @@ class TestProductsModuleLifecycle:
         """on_startup should not create tables — Alembic manages schema."""
         from unittest.mock import AsyncMock, MagicMock
 
-        from sm_products.module import ProductsModule
+        from products.module import ProductsModule
 
         mod = ProductsModule()
         mock_app = MagicMock()

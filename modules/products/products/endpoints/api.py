@@ -5,9 +5,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from simple_module_hosting.permissions import RequiresPermission
 
-from sm_products.contracts.schemas import ProductCreate, ProductOut, ProductUpdate
-from sm_products.deps import get_product_service
-from sm_products.service import ProductService
+from products.contracts.schemas import ProductCreate, ProductOut, ProductUpdate
+from products.deps import get_product_service
+from products.service import ProductService
 
 router = APIRouter()
 

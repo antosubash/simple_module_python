@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from sm_products.contracts.schemas import ProductCreate, ProductOut, ProductUpdate
+from products.contracts.schemas import ProductCreate, ProductOut, ProductUpdate
 
 
 class IProductService(Protocol):

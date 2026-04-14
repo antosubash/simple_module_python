@@ -5,8 +5,8 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sm_products.contracts.schemas import ProductCreate, ProductOut, ProductUpdate
-from sm_products.models import Product
+from products.contracts.schemas import ProductCreate, ProductOut, ProductUpdate
+from products.models import Product
 
 
 class ProductService:

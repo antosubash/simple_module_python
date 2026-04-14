@@ -1,5 +1,5 @@
 [project]
-name = "sm-dashboard"
+name = "dashboard"
 version = "0.1.0"
 description = "Add your description here"
 authors = [
@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.entry-points.simple_module]
-dashboard = "sm_dashboard.module:DashboardModule"
+dashboard = "dashboard.module:DashboardModule"
 
 [build-system]
 requires = ["hatchling"]

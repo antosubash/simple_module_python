@@ -26,8 +26,8 @@ from new_module import (  # noqa: E402
 
 # ── Shared TOML fixtures used by multiple end-to-end tests ──────────
 MINIMAL_HOST_PYPROJECT = (
-    '[project]\ndependencies = [\n    "sm-products",\n]\n\n'
-    "[tool.uv.sources]\nsm-products = { workspace = true }\n"
+    '[project]\ndependencies = [\n    "products",\n]\n\n'
+    "[tool.uv.sources]\nproducts = { workspace = true }\n"
 )
 MINIMAL_ROOT_PYPROJECT = (
     '[tool.ty.environment]\nextra-paths = [\n    "modules/products",\n]\n\n'
@@ -54,9 +54,9 @@ def workspace(module_root: Path) -> Path:
 
 @pytest.fixture
 def scaffolded_orders(module_root: Path) -> Path:
-    """Run the scaffold once and return the sm_orders source directory."""
+    """Run the scaffold once and return the orders source directory."""
     scaffold_module("orders")
-    return module_root / "modules" / "orders" / "sm_orders"
+    return module_root / "modules" / "orders" / "orders"
 
 
 class TestValidateName:
@@ -139,7 +139,7 @@ class TestScaffoldModule:
 
     def test_scaffold_pyproject_has_entry_point(self, scaffolded_orders: Path):
         content = (scaffolded_orders.parent / "pyproject.toml").read_text()
-        assert 'orders = "sm_orders.module:OrdersModule"' in content
+        assert 'orders = "orders.module:OrdersModule"' in content
 
     def test_scaffold_module_class_name(self, scaffolded_orders: Path):
         content = (scaffolded_orders / "module.py").read_text()
@@ -159,7 +159,7 @@ class TestScaffoldModule:
     def test_scaffold_compound_name(self, module_root: Path):
         scaffold_module("blog_posts")
 
-        src_dir = module_root / "modules" / "blog_posts" / "sm_blog_posts"
+        src_dir = module_root / "modules" / "blog_posts" / "blog_posts"
         assert (src_dir / "module.py").exists()
 
         module_content = (src_dir / "module.py").read_text()
@@ -183,16 +183,16 @@ class TestUpdateHostPyproject:
         update_host_pyproject("orders")
 
         content = (host_dir / "pyproject.toml").read_text()
-        assert '"sm-orders"' in content
-        assert "sm-orders = { workspace = true }" in content
+        assert '"orders"' in content
+        assert "orders = { workspace = true }" in content
 
     def test_skips_if_already_present(self, module_root: Path):
         host_dir = module_root / "host"
         host_dir.mkdir()
         original = (
             '[project]\nname = "simple-module-host"\ndependencies = [\n'
-            '    "sm-products",\n    "sm-orders",\n]\n\n[tool.uv.sources]\n'
-            "sm-products = { workspace = true }\nsm-orders = { workspace = true }\n"
+            '    "products",\n    "orders",\n]\n\n[tool.uv.sources]\n'
+            "products = { workspace = true }\norders = { workspace = true }\n"
         )
         (host_dir / "pyproject.toml").write_text(original)
 
@@ -327,10 +327,10 @@ class TestGeneratedFilesSyntaxValidity:
     def test_pyproject_toml_parses(self, scaffolded_orders: Path):
         data = tomllib.loads((scaffolded_orders.parent / "pyproject.toml").read_text())
 
-        assert data["project"]["name"] == "sm-orders"
+        assert data["project"]["name"] == "orders"
         assert (
             data["project"]["entry-points"]["simple_module"]["orders"]
-            == "sm_orders.module:OrdersModule"
+            == "orders.module:OrdersModule"
         )
 
     def test_compound_name_pyproject_toml_parses(self, module_root: Path):
@@ -339,9 +339,9 @@ class TestGeneratedFilesSyntaxValidity:
         pyproject = module_root / "modules" / "blog_posts" / "pyproject.toml"
         data = tomllib.loads(pyproject.read_text())
 
-        assert data["project"]["name"] == "sm-blog-posts"
+        assert data["project"]["name"] == "blog-posts"
         ep = data["project"]["entry-points"]["simple_module"]
-        assert ep["blog_posts"] == "sm_blog_posts.module:BlogPostsModule"
+        assert ep["blog_posts"] == "blog_posts.module:BlogPostsModule"
 
 
 class TestGeneratedTemplateContent:
@@ -429,8 +429,8 @@ class TestMainCLI:
         main()
 
         assert (workspace / "modules" / "orders" / "pyproject.toml").exists()
-        assert (workspace / "modules" / "orders" / "sm_orders" / "module.py").exists()
-        assert '"sm-orders"' in (workspace / "host" / "pyproject.toml").read_text()
+        assert (workspace / "modules" / "orders" / "orders" / "module.py").exists()
+        assert '"orders"' in (workspace / "host" / "pyproject.toml").read_text()
         assert "Scaffolding module 'orders'" in capsys.readouterr().out
 
     def test_main_exits_on_invalid_name(self, monkeypatch: pytest.MonkeyPatch):

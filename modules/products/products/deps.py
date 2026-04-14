@@ -6,7 +6,7 @@ from fastapi import Depends
 from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sm_products.service import ProductService
+from products.service import ProductService
 
 
 async def get_product_service(

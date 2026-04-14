@@ -10,9 +10,9 @@ from simple_module_hosting.inertia_utils import redirect_back_with_errors, valid
 from simple_module_hosting.permissions import RequiresPermission
 from starlette.responses import RedirectResponse
 
-from sm_products.contracts.schemas import ProductCreate, ProductUpdate
-from sm_products.deps import get_product_service
-from sm_products.service import ProductService
+from products.contracts.schemas import ProductCreate, ProductUpdate
+from products.deps import get_product_service
+from products.service import ProductService
 
 router = APIRouter()
 

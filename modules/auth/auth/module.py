@@ -19,18 +19,18 @@ class AuthModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
-        from sm_auth.settings import AuthSettings
+        from auth.settings import AuthSettings
 
         app.state.auth_settings = AuthSettings()
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from sm_auth.endpoints.api import router as api
+        from auth.endpoints.api import router as api
 
         api_router.include_router(api)
 
     def register_middleware(self, app: FastAPI) -> None:
-        from sm_auth.middleware import AuthMiddleware
-        from sm_auth.oauth import configure_oauth
+        from auth.middleware import AuthMiddleware
+        from auth.oauth import configure_oauth
 
         settings = app.state.auth_settings
         configure_oauth(

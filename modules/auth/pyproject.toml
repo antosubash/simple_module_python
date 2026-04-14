@@ -1,5 +1,5 @@
 [project]
-name = "sm-auth"
+name = "auth"
 version = "0.1.0"
 description = "Add your description here"
 authors = [
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.entry-points.simple_module]
-auth = "sm_auth.module:AuthModule"
+auth = "auth.module:AuthModule"
 
 [build-system]
 requires = ["hatchling"]

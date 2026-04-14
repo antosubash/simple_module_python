@@ -17,8 +17,8 @@ class ProductsModule(ModuleBase):
     )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from sm_products.endpoints.api import router as api
-        from sm_products.endpoints.views import router as views
+        from products.endpoints.api import router as api
+        from products.endpoints.views import router as views
 
         api_router.include_router(api)
         view_router.include_router(views)
