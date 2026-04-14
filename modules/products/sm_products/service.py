@@ -41,7 +41,10 @@ class ProductService:
         return products, total
 
     async def get_by_id(self, product_id: int) -> ProductOut | None:
-        product = await self.db.get(Product, product_id)
+        result = await self.db.execute(
+            select(Product).where(Product.id == product_id)
+        )
+        product = result.scalar_one_or_none()
         if product is None:
             return None
         return ProductOut.model_validate(product)
@@ -54,7 +57,10 @@ class ProductService:
         return ProductOut.model_validate(product)
 
     async def update(self, product_id: int, data: ProductUpdate) -> ProductOut | None:
-        product = await self.db.get(Product, product_id)
+        result = await self.db.execute(
+            select(Product).where(Product.id == product_id)
+        )
+        product = result.scalar_one_or_none()
         if product is None:
             return None
         for field, value in data.model_dump(exclude_unset=True).items():
@@ -64,7 +70,10 @@ class ProductService:
         return ProductOut.model_validate(product)
 
     async def delete(self, product_id: int) -> bool:
-        product = await self.db.get(Product, product_id)
+        result = await self.db.execute(
+            select(Product).where(Product.id == product_id)
+        )
+        product = result.scalar_one_or_none()
         if product is None:
             return False
         await self.db.delete(product)
