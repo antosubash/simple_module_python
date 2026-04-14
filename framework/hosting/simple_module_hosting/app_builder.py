@@ -71,6 +71,20 @@ def _resolve_project_root() -> Path:
 _PROJECT_ROOT = _resolve_project_root()
 
 
+def wire_module_routes(app: FastAPI, module) -> None:
+    """Attach a module's API + view routers to ``app`` using its Meta prefixes.
+
+    The single canonical implementation so ``create_app`` and the test harness
+    in ``simple_module_testing`` stay in lockstep if ``ModuleBase`` ever gains
+    a new router type.
+    """
+    api_router = APIRouter(prefix=module.meta.route_prefix, tags=[module.meta.name])
+    view_router = APIRouter(prefix=module.meta.view_prefix, tags=[f"{module.meta.name} Views"])
+    module.register_routes(api_router, view_router)
+    app.include_router(api_router)
+    app.include_router(view_router)
+
+
 async def _check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") -> dict:
     """Check database migration state. Raises RuntimeError if not at head.
 
@@ -142,7 +156,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Production: any bad module (import error, missing meta, wrong base
     # class) fails the boot immediately with a clear message — better than
     # silently shipping a partial app. Dev keeps the lenient default.
-    modules = discover_modules(strict=not settings.is_development)
+    modules = discover_modules(
+        enabled=settings.modules_enabled,
+        strict=not settings.is_development,
+    )
     modules = topological_sort(modules)
     logger.info(
         "Loaded %d module(s): %s",
@@ -158,6 +175,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             print_diagnostics(diagnostics)
         if errors:
             raise SystemExit(f"Module diagnostics: {len(errors)} error(s). Fix before continuing.")
+
+        # Emit frontend module-pages manifest so Vite can find pages shipped
+        # inside pip-installed module wheels. See scaffolding.py.
+        try:
+            from simple_module_hosting.scaffolding import write_module_pages_manifest
+
+            client_app = _PROJECT_ROOT / "host" / "client_app"
+            if client_app.is_dir():
+                write_module_pages_manifest(modules, client_app)
+        except Exception:
+            logger.exception("Failed to write module pages manifest — frontend may miss pages")
 
     # ── Phase 3: Create FastAPI app ────────────────────────
     menu_registry = MenuRegistry()
@@ -224,7 +252,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.db = db_state
 
     # ── Phase 7: Inertia + exception handlers ──────────────
-    _setup_inertia(app, settings)
+    _setup_inertia(app, settings, modules)
 
     app.add_exception_handler(
         InertiaVersionConflictException,
@@ -256,23 +284,33 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # ── Phase 9: Routes, health, static files ──────────────
     for mod in modules:
-        api_router = APIRouter(
-            prefix=mod.meta.route_prefix,
-            tags=[mod.meta.name],
-        )
-        view_router = APIRouter(
-            prefix=mod.meta.view_prefix,
-            tags=[f"{mod.meta.name} Views"],
-        )
-        mod.register_routes(api_router, view_router)
-        app.include_router(api_router)
-        app.include_router(view_router)
+        wire_module_routes(app, mod)
 
     app.include_router(health_router)
 
     static_dir = _PROJECT_ROOT / "host" / "static"
     if static_dir.is_dir():
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+    # Each module may expose directories at its own URL prefix — typically
+    # /modules/<name>/static for pre-bundled frontend assets shipped inside
+    # the module wheel.
+    for mod in modules:
+        for url_prefix, directory in mod.static_mounts().items():
+            directory_path = Path(directory)
+            if not directory_path.is_dir():
+                logger.warning(
+                    "Module '%s' declared static mount %s -> %s but directory does not exist",
+                    mod.meta.name,
+                    url_prefix,
+                    directory_path,
+                )
+                continue
+            app.mount(
+                url_prefix,
+                StaticFiles(directory=directory_path),
+                name=f"static:{mod.meta.name}",
+            )
 
     return app
 
@@ -313,17 +351,39 @@ async def _unhandled_exception_handler(request: Request, exc: Exception) -> Resp
     return await _render_error_page(request, 500, "")
 
 
-def _setup_inertia(app: FastAPI, settings: Settings) -> None:
-    """Configure fastapi-inertia with the Jinja2 template."""
+def _setup_inertia(app: FastAPI, settings: Settings, modules: list) -> None:
+    """Configure fastapi-inertia with the Jinja2 template.
+
+    The host's own ``host/templates`` directory is first in the search path so
+    it can override module-contributed templates. Each installed module
+    contributes additional directories via ``ModuleBase.template_dirs()``.
+    """
     from fastapi.templating import Jinja2Templates
 
-    templates_dir = _PROJECT_ROOT / "host" / "templates"
+    host_templates = _PROJECT_ROOT / "host" / "templates"
+    directories: list[Path] = []
 
-    if not templates_dir.is_dir():
-        logger.warning("Templates directory not found at %s", templates_dir)
+    if host_templates.is_dir():
+        directories.append(host_templates)
+    else:
+        logger.warning("Host templates directory not found at %s", host_templates)
+
+    for mod in modules:
+        for path in mod.template_dirs():
+            if Path(path).is_dir():
+                directories.append(Path(path))
+            else:
+                logger.warning(
+                    "Module '%s' declared template dir %s but it does not exist",
+                    mod.meta.name,
+                    path,
+                )
+
+    if not directories:
+        logger.warning("No usable template directories — Inertia will fail to render views")
         return
 
-    templates = Jinja2Templates(directory=templates_dir)
+    templates = Jinja2Templates(directory=directories)
 
     inertia_config = InertiaConfig(
         environment=settings.environment,  # ty: ignore[invalid-argument-type]
