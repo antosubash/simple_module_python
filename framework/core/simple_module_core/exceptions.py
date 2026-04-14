@@ -5,6 +5,15 @@ class ModuleError(Exception):
     """Base exception for module-related errors."""
 
 
+class InvalidModuleError(ModuleError):
+    """Raised when a discovered module fails structural validation.
+
+    Used by strict discovery (production) to turn "missing ``meta``",
+    "not a ``ModuleBase``", and entry-point load failures into boot-time
+    errors rather than silently-skipped modules.
+    """
+
+
 class CircularDependencyError(ModuleError):
     """Raised when a circular dependency is detected between modules."""
 

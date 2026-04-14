@@ -78,6 +78,23 @@ class TestCreateModuleBase:
         base = create_module_base("named_mod", provider=DatabaseProvider.SQLITE)
         assert base.__module_name__ == "named_mod"  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
+    async def test_all_module_bases_is_deduped(self):
+        """Re-creating the same module must not grow ``all_module_bases``."""
+        from simple_module_db import base as base_mod
+
+        # Prime both caches, then snapshot.
+        create_module_base("dedupe_test", provider=DatabaseProvider.SQLITE)
+        before = len(base_mod.all_module_bases)
+
+        # Second call returns cached base; list length must not change.
+        create_module_base("dedupe_test", provider=DatabaseProvider.SQLITE)
+        after = len(base_mod.all_module_bases)
+
+        assert after == before
+        assert create_module_base("dedupe_test", provider=DatabaseProvider.SQLITE) in (
+            base_mod.all_module_bases
+        )
+
 
 # ── detect_provider ──────────────────────────────────────────────────
 
@@ -466,32 +483,86 @@ class TestMultiTenancyEdgeCases:
 
 
 class TestGetDbLogging:
-    async def test_commit_logs_session_commit(self, caplog):
-        """get_db should log db.session.commit on successful exit."""
+    """The ``db_state`` fixture handles engine setup/teardown; these tests
+    just need to create tables and drive ``get_db`` against a mock request.
+    """
+
+    @staticmethod
+    async def _drive_get_db(db_state, populate=None):
+        """Yield the session, let ``populate`` touch it, then let the
+        dependency close — this mirrors FastAPI's request lifecycle.
+        """
         import contextlib
-        import logging
         from unittest.mock import MagicMock
 
         from simple_module_db.deps import get_db
 
-        db_state = init_db("sqlite+aiosqlite:///:memory:")
-        try:
-            mock_request = MagicMock()
-            mock_request.app.state.db = db_state
+        mock_request = MagicMock()
+        mock_request.app.state.db = db_state
+        gen = get_db(mock_request)
+        session = await gen.__anext__()
+        if populate is not None:
+            await populate(session)
+        with contextlib.suppress(StopAsyncIteration):
+            await gen.__anext__()
 
-            with caplog.at_level(logging.INFO, logger="simple_module.db"):
-                gen = get_db(mock_request)
-                await gen.__anext__()
-                with contextlib.suppress(StopAsyncIteration):
-                    await gen.__anext__()
+    async def test_commit_logs_on_write(self, db_state, caplog):
+        import logging
 
-            db_messages = [r for r in caplog.records if r.name == "simple_module.db"]
-            commit_msgs = [r for r in db_messages if r.message == "db.session.commit"]
-            assert len(commit_msgs) == 1
-            assert commit_msgs[0].operation == "commit"  # type: ignore[attr-defined]
-            assert hasattr(commit_msgs[0], "db_duration_ms")
-        finally:
-            await db_state.engine.dispose()
+        async with db_state.engine.begin() as conn:
+            await conn.run_sync(_TenantBase.metadata.create_all)
+
+        async def add_one(session):
+            session.add(_TenantItem(name="w", tenant_id="t1"))
+
+        with caplog.at_level(logging.INFO, logger="simple_module.db"):
+            await self._drive_get_db(db_state, populate=add_one)
+
+        commits = [
+            r
+            for r in caplog.records
+            if r.name == "simple_module.db" and r.message == "db.session.commit"
+        ]
+        assert len(commits) == 1
+        assert commits[0].operation == "commit"  # type: ignore[attr-defined]
+        assert hasattr(commits[0], "db_duration_ms")
+
+    async def test_commit_fires_even_after_explicit_flush(self, db_state, caplog):
+        """After flush clears ``session.new`` the ``has_writes`` tag from
+        the after_flush listener must still drive the commit path. This
+        guards the real-world pattern used by service.create().
+        """
+        import logging
+
+        async with db_state.engine.begin() as conn:
+            await conn.run_sync(_TenantBase.metadata.create_all)
+
+        async def add_and_flush(session):
+            session.add(_TenantItem(name="w", tenant_id="t1"))
+            await session.flush()
+            assert not session.new  # flush emptied the live collection
+
+        with caplog.at_level(logging.INFO, logger="simple_module.db"):
+            await self._drive_get_db(db_state, populate=add_and_flush)
+
+        commits = [
+            r
+            for r in caplog.records
+            if r.name == "simple_module.db" and r.message == "db.session.commit"
+        ]
+        assert len(commits) == 1
+
+    async def test_read_only_skips_commit(self, db_state, caplog):
+        import logging
+
+        with caplog.at_level(logging.DEBUG, logger="simple_module.db"):
+            await self._drive_get_db(db_state)
+
+        records = [r for r in caplog.records if r.name == "simple_module.db"]
+        assert [r for r in records if r.message == "db.session.commit"] == []
+        read_only = [r for r in records if r.message == "db.session.read_only"]
+        assert len(read_only) == 1
+        assert read_only[0].operation == "read_only_rollback"  # type: ignore[attr-defined]
 
 
 class TestEntityListenerLogging:
@@ -596,4 +667,10 @@ class TestMigrationsHelper:
         assert include(some_known_table, some_known_table.name, "table", False, None) is True
 
         # A stranger table (e.g., a host-owned user-auth table) is excluded.
-        assert include(None, "unrelated_host_table", "table", False, None) is False
+        # Alembic passes the candidate Table as the first argument for type_=="table".
+        from sqlalchemy import Column, Integer, MetaData, Table
+
+        stranger = Table(
+            "unrelated_host_table", MetaData(), Column("id", Integer, primary_key=True)
+        )
+        assert include(stranger, "unrelated_host_table", "table", False, None) is False

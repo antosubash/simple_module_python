@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -48,8 +49,26 @@ from simple_module_hosting.settings import Settings
 
 logger = logging.getLogger(__name__)
 
-# Resolve once: simple_module_hosting/ -> hosting/ -> framework/ -> project root
-_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+def _resolve_project_root() -> Path:
+    """Return the project root directory.
+
+    Prefers the ``SM_PROJECT_ROOT`` environment variable (set by
+    ``host/main.py``) so the framework works even when installed from a
+    wheel into ``site-packages`` — in that layout the fallback walk-up
+    below would escape the package into ``site-packages/..`` and miss
+    ``host/static`` entirely.
+
+    Falls back to ``parents[3]`` for the workspace-install dev loop
+    (simple_module_hosting/ → hosting/ → framework/ → project root).
+    """
+    override = os.environ.get("SM_PROJECT_ROOT")
+    if override:
+        return Path(override)
+    return Path(__file__).resolve().parents[3]
+
+
+_PROJECT_ROOT = _resolve_project_root()
 
 
 def wire_module_routes(app: FastAPI, module) -> None:
@@ -134,7 +153,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
 
     # ── Phase 1: Discover modules ──────────────────────────
-    modules = discover_modules(enabled=settings.modules_enabled)
+    # Production: any bad module (import error, missing meta, wrong base
+    # class) fails the boot immediately with a clear message — better than
+    # silently shipping a partial app. Dev keeps the lenient default.
+    modules = discover_modules(
+        enabled=settings.modules_enabled,
+        strict=not settings.is_development,
+    )
     modules = topological_sort(modules)
     logger.info(
         "Loaded %d module(s): %s",
@@ -200,7 +225,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     for mod in modules:
         mod.register_settings(app)
 
-    # SM010: warn if register_settings was overridden but added nothing
+    # SM012: warn if register_settings was overridden but added nothing
     if settings.is_development:
         state_after = set(vars(app.state))
         _check_settings_registration(modules, state_after - state_before)
@@ -240,14 +265,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         mod.register_exception_handlers(app)
 
     # ── Phase 8: Middleware pipeline ───────────────────────
-    # Order matters: last added = first executed
-    # Execution: CorrelationId → RequestLogging → Security → Session → [module] → Tenant → Inertia
+    # Order matters: last added = first executed.
+    # Execution: CorrelationId → RequestLogging → Security → Session
+    #          → [module] → (Tenant, if multi_tenant) → Inertia
     app.add_middleware(
         InertiaLayoutDataMiddleware,
         menu_registry=menu_registry,
         permission_registry=perm_registry,
     )
-    app.add_middleware(TenantMiddleware)
+    if settings.multi_tenant:
+        app.add_middleware(TenantMiddleware, header=settings.tenant_header or None)
     for mod in modules:
         mod.register_middleware(app)
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
@@ -378,22 +405,27 @@ def _setup_inertia(app: FastAPI, settings: Settings, modules: list) -> None:
 
 
 def _check_settings_registration(modules: list, added_keys: set[str]) -> None:
-    """SM010: warn if a module overrides register_settings but added nothing to app.state."""
+    """SM012: warn if a module overrides register_settings but added nothing to app.state.
+
+    Matches the convention key ``<module_prefix>_settings`` exactly so a
+    module named ``cart`` doesn't shadow a module named ``cart_sales``.
+    """
     for mod in modules:
         cls = type(mod)
         if "register_settings" not in cls.__dict__:
             continue
         mod_prefix = mod.meta.name.lower()
-        has_key = any(mod_prefix in k for k in added_keys)
-        if not has_key:
-            diag = Diagnostic(
-                level=DiagnosticLevel.WARNING,
-                code="SM010",
-                message="register_settings() was overridden but added nothing to app.state",
-                module_name=mod.meta.name,
-                suggestion=(
-                    f"Store your settings on app.state "
-                    f"(e.g., app.state.{mod_prefix}_settings = {mod.meta.name}Settings())"
-                ),
-            )
-            logger.warning("%s", diag)
+        expected_key = f"{mod_prefix}_settings"
+        if expected_key in added_keys:
+            continue
+        diag = Diagnostic(
+            level=DiagnosticLevel.WARNING,
+            code="SM012",
+            message="register_settings() was overridden but added nothing to app.state",
+            module_name=mod.meta.name,
+            suggestion=(
+                f"Store your settings on app.state "
+                f"(e.g., app.state.{expected_key} = {mod.meta.name}Settings())"
+            ),
+        )
+        logger.warning("%s", diag)

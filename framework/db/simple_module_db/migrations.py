@@ -17,7 +17,7 @@ from __future__ import annotations
 import importlib
 import logging
 from collections.abc import Callable, Sequence
-from typing import Any
+from typing import Literal
 
 from simple_module_core import ModuleBase
 from simple_module_core.discovery import discover_modules, get_module_package_name
@@ -28,7 +28,12 @@ from simple_module_db.base import all_module_bases
 
 logger = logging.getLogger(__name__)
 
-IncludeObjectFn = Callable[[Any, str, str, bool, Any], bool]
+# Matches alembic.context.configure's include_object signature exactly so
+# type-checkers accept the returned filter without casts or ignores.
+_SchemaItemType = Literal[
+    "schema", "table", "column", "index", "unique_constraint", "foreign_key_constraint"
+]
+IncludeObjectFn = Callable[[SchemaItem, str | None, _SchemaItemType, bool, SchemaItem | None], bool]
 
 
 def build_module_metadata(modules: Sequence[ModuleBase] | None = None) -> MetaData:
@@ -72,11 +77,11 @@ def make_include_object(metadata: MetaData) -> IncludeObjectFn:
     allowlist = {t.name for t in metadata.tables.values()}
 
     def include_object(
-        object: SchemaItem | None,
-        name: str,
-        type_: str,
+        object: SchemaItem,
+        name: str | None,
+        type_: _SchemaItemType,
         reflected: bool,
-        compare_to: Any,
+        compare_to: SchemaItem | None,
     ) -> bool:
         if type_ == "table":
             return name in allowlist

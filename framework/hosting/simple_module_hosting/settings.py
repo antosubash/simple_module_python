@@ -37,6 +37,17 @@ class Settings(BaseSettings):
     against ``ModuleMeta.name``.
     """
 
+    # Multi-tenancy — opt-in. When ``False`` the tenant middleware is not
+    # installed, so MultiTenantMixin queries are not auto-filtered. Turn
+    # it on only for deployments that actually partition data by tenant.
+    multi_tenant: bool = False
+
+    # Header used to resolve the active tenant when there's no
+    # authenticated user. Empty string disables the header source
+    # entirely — useful in production to force tenant resolution through
+    # the auth token only.
+    tenant_header: str = ""
+
     @property
     def is_development(self) -> bool:
         return self.environment == "development"

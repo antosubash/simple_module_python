@@ -5,12 +5,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
-from simple_module_core.diagnostics import DiagnosticLevel, MigrationDiagnostics
-from simple_module_core.discovery import topological_sort
+from simple_module_core.diagnostics import (
+    Diagnostic,
+    DiagnosticLevel,
+    MigrationDiagnostics,
+    print_diagnostics,
+)
+from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.events import Event, EventBus
 from simple_module_core.exceptions import (
     CircularDependencyError,
     FrameworkVersionError,
+    InvalidModuleError,
 )
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from simple_module_core.health import HealthCheck, HealthCheckResult, HealthRegistry, HealthStatus
@@ -629,6 +635,92 @@ class TestDiscoverModulesAdvanced:
             assert mod.meta.name != ""
 
 
+# ── discover_modules validation & strict mode ──────────────────────
+
+
+class _FakeEntryPoint:
+    """Minimal EntryPoint shim for testing the validation path.
+
+    Pass a class to return on ``load()``, or a zero-arg callable to
+    raise/return something custom (for load-failure cases).
+    """
+
+    def __init__(self, name: str, target):
+        self.name = name
+        self._target = target
+
+    def load(self):
+        return (
+            self._target()
+            if callable(self._target) and not isinstance(self._target, type)
+            else self._target
+        )
+
+
+def _patch_entry_points(monkeypatch, eps):
+    import simple_module_core.discovery as discovery_mod
+
+    monkeypatch.setattr(discovery_mod, "entry_points", lambda group: eps)
+
+
+def _boom_loader():
+    raise ImportError("boom")
+
+
+class TestDiscoverModulesValidation:
+    async def test_missing_meta_strict_raises(self, monkeypatch):
+        class NoMeta(ModuleBase):  # intentionally no meta
+            pass
+
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("nometa", NoMeta)])
+
+        with pytest.raises(InvalidModuleError, match="missing 'meta"):
+            discover_modules(strict=True)
+
+    async def test_missing_meta_non_strict_skips(self, monkeypatch):
+        class NoMeta(ModuleBase):
+            pass
+
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("nometa", NoMeta)])
+
+        assert discover_modules(strict=False) == []
+
+    async def test_non_modulebase_strict_raises(self, monkeypatch):
+        class NotAModule:
+            pass
+
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("notmod", NotAModule)])
+
+        with pytest.raises(InvalidModuleError, match="not a ModuleBase"):
+            discover_modules(strict=True)
+
+    async def test_load_failure_strict_raises(self, monkeypatch):
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("broken", _boom_loader)])
+
+        with pytest.raises(InvalidModuleError, match="Failed to load"):
+            discover_modules(strict=True)
+
+    async def test_load_failure_non_strict_logs_and_skips(self, monkeypatch, caplog):
+        import logging
+
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("broken", _boom_loader)])
+
+        with caplog.at_level(logging.ERROR, logger="simple_module_core.discovery"):
+            modules = discover_modules(strict=False)
+
+        assert modules == []
+        assert any("Failed to load" in r.message for r in caplog.records)
+
+    async def test_meta_must_be_modulemeta_instance(self, monkeypatch):
+        class BadMeta(ModuleBase):
+            meta = "not a ModuleMeta"  # type: ignore[assignment]
+
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("bad", BadMeta)])
+
+        with pytest.raises(InvalidModuleError, match="missing 'meta"):
+            discover_modules(strict=True)
+
+
 # ── ModuleBase Lifecycle ────────────────────────────────────────────
 
 
@@ -719,19 +811,19 @@ class TestModuleNewHooks:
 
 
 class TestMigrationDiagnostics:
-    async def test_sm009_migration_mismatch(self):
-        """SM009 should fire when current revision != head."""
+    async def test_sm010_migration_mismatch(self):
+        """SM010 should fire when current revision != head."""
         diag = MigrationDiagnostics()
         results = diag.check_revision_mismatch(
             current_revision="abc123",
             head_revision="def456",
         )
         assert len(results) == 1
-        assert results[0].code == "SM009"
+        assert results[0].code == "SM010"
         assert results[0].level == DiagnosticLevel.ERROR
 
-    async def test_sm009_no_error_when_current(self):
-        """SM009 should not fire when DB is at head."""
+    async def test_sm010_no_error_when_current(self):
+        """SM010 should not fire when DB is at head."""
         diag = MigrationDiagnostics()
         results = diag.check_revision_mismatch(
             current_revision="abc123",
@@ -739,20 +831,20 @@ class TestMigrationDiagnostics:
         )
         assert len(results) == 0
 
-    async def test_sm010_missing_tables(self):
-        """SM010 should fire when module tables aren't in migration tables."""
+    async def test_sm011_missing_tables(self):
+        """SM011 should fire when module tables aren't in migration tables."""
         diag = MigrationDiagnostics()
         results = diag.check_table_coverage(
             module_tables={"products_product", "products_category"},
             migrated_tables={"products_product"},
         )
         assert len(results) == 1
-        assert results[0].code == "SM010"
+        assert results[0].code == "SM011"
         assert results[0].level == DiagnosticLevel.WARNING
         assert "products_category" in results[0].message
 
-    async def test_sm010_no_warning_when_covered(self):
-        """SM010 should not fire when all tables are covered."""
+    async def test_sm011_no_warning_when_covered(self):
+        """SM011 should not fire when all tables are covered."""
         diag = MigrationDiagnostics()
         results = diag.check_table_coverage(
             module_tables={"products_product"},
@@ -943,3 +1035,27 @@ class TestModuleAssetHooks:
         mod = ModWithStatic()
         mounts = mod.static_mounts()
         assert mounts == {"/modules/with-static": assets}
+
+
+# ── print_diagnostics ─────────────────────────────────────────────
+
+
+class TestPrintDiagnostics:
+    async def test_writes_to_stderr(self, capsys):
+        diag = Diagnostic(
+            level=DiagnosticLevel.ERROR,
+            code="SM001",
+            message="test error",
+            module_name="TestMod",
+        )
+        print_diagnostics([diag])
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "SM001" in captured.err
+        assert "Results: 1 error(s)" in captured.err
+
+    async def test_empty_is_quiet(self, capsys):
+        print_diagnostics([])
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err == ""

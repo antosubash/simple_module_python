@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import os
+
 from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase
 
-from simple_module_db.provider import DatabaseProvider
+from simple_module_db.provider import DatabaseProvider, detect_provider
 
 # Convention-based naming for constraints (helps Alembic)
 _naming_convention = {
@@ -19,21 +21,52 @@ _naming_convention = {
 # Cache created bases to avoid recreating for the same module
 _base_cache: dict[str, type[DeclarativeBase]] = {}
 
-# Track all module bases for Alembic discovery
+# Track all module bases for Alembic discovery. Module-level *mutable* list
+# so callers that imported it before every module registered (e.g. conftest,
+# migrations/env.py) still observe new entries. Deduped at append time —
+# see ``_register_base`` below.
 all_module_bases: list[type[DeclarativeBase]] = []
+
+
+def _register_base(base: type[DeclarativeBase]) -> None:
+    """Append ``base`` to ``all_module_bases`` iff not already present.
+
+    Guards against the list growing under repeated imports (test suites,
+    reloaders, plugin discovery) without changing the public type.
+    """
+    if base not in all_module_bases:
+        all_module_bases.append(base)
+
+
+def _default_provider() -> DatabaseProvider:
+    """Resolve the active provider from ``SM_DATABASE_URL`` at import time.
+
+    Falls back to SQLite when the variable is unset, keeping the common
+    dev-loop happy without requiring callers to plumb the provider through.
+    """
+    url = os.environ.get("SM_DATABASE_URL", "")
+    return detect_provider(url) if url else DatabaseProvider.SQLITE
 
 
 def create_module_base(
     module_name: str,
-    provider: DatabaseProvider = DatabaseProvider.SQLITE,
+    provider: DatabaseProvider | None = None,
 ) -> type[DeclarativeBase]:
     """Create a SQLAlchemy DeclarativeBase with schema isolation for a module.
 
     - PostgreSQL: uses a dedicated schema (e.g., ``products``)
-    - SQLite: prefixes table names (e.g., ``products_product``)
+    - SQLite: single schema; modules are expected to prefix ``__tablename__``
+      with the module name to avoid collisions (e.g., ``products_product``)
+
+    The provider defaults to whatever ``SM_DATABASE_URL`` indicates, so
+    module models work in both dev (SQLite) and prod (PostgreSQL) without
+    code changes. Pass ``provider=`` explicitly in tests that need to pin it.
 
     Returns a cached base if already created for this module+provider.
     """
+    if provider is None:
+        provider = _default_provider()
+
     cache_key = f"{module_name}:{provider}"
     if cache_key in _base_cache:
         return _base_cache[cache_key]
@@ -59,5 +92,5 @@ def create_module_base(
     ModuleBase.__module_name__ = schema_name  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     _base_cache[cache_key] = ModuleBase
-    all_module_bases.append(ModuleBase)
+    _register_base(ModuleBase)
     return ModuleBase

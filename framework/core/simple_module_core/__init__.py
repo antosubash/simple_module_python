@@ -15,6 +15,7 @@ from simple_module_core.events import Event, EventBus
 from simple_module_core.exceptions import (
     CircularDependencyError,
     FrameworkVersionError,
+    InvalidModuleError,
     ModuleError,
     NotFoundError,
     ValidationError,
@@ -48,6 +49,7 @@ __all__ = [
     "topological_sort",
     "CircularDependencyError",
     "FrameworkVersionError",
+    "InvalidModuleError",
     "ModuleError",
     "NotFoundError",
     "ValidationError",

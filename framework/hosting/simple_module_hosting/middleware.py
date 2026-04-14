@@ -154,11 +154,15 @@ class TenantMiddleware:
     Tenant is resolved from (in priority order):
 
     1. Authenticated user's ``tenant_id`` attribute (from auth token claims).
-    2. ``X-Tenant-ID`` request header — useful for API clients and testing.
+    2. The configured request header, if any — useful for API clients
+       and tests. Pass ``header=None`` (the default) to disable the
+       header source and force tenant resolution through the auth token
+       only. Pass the header name (e.g. ``"X-Tenant-ID"``) to enable.
     """
 
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, *, header: str | None = None) -> None:
         self.app = app
+        self.header = header
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -172,8 +176,8 @@ class TenantMiddleware:
         if user is not None:
             tenant_id = getattr(user, "tenant_id", None)
 
-        if tenant_id is None:
-            header_value = Headers(scope=scope).get(TENANT_HEADER)
+        if tenant_id is None and self.header:
+            header_value = Headers(scope=scope).get(self.header)
             if header_value:
                 tenant_id = header_value
 

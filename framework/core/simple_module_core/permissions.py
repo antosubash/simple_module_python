@@ -47,7 +47,7 @@ class PermissionRegistry:
         return list(self._groups.values())
 
     def has(self, permission: str) -> bool:
-        return permission in self.all_permissions
+        return any(permission in g.permissions for g in self._groups.values())
 
     def get_permissions_for_roles(
         self,

@@ -6,8 +6,8 @@ import logging
 from collections.abc import Sequence
 from importlib.metadata import entry_points
 
-from simple_module_core.exceptions import CircularDependencyError
-from simple_module_core.module import ModuleBase
+from simple_module_core.exceptions import CircularDependencyError, InvalidModuleError
+from simple_module_core.module import ModuleBase, ModuleMeta
 
 logger = logging.getLogger(__name__)
 
@@ -23,20 +23,45 @@ def get_module_package_name(module: ModuleBase) -> str:
     return type(module).__module__.split(".")[0]
 
 
-def discover_modules(enabled: Sequence[str] | None = None) -> list[ModuleBase]:
+def discover_modules(
+    enabled: Sequence[str] | None = None,
+    *,
+    strict: bool = False,
+) -> list[ModuleBase]:
     """Discover all installed modules via ``[project.entry-points.simple_module]``.
 
     Returns instantiated module objects (unsorted). Raises
     :class:`FrameworkVersionError` if any discovered module's
     ``requires_framework`` spec rejects the current framework API version.
 
-    :param enabled: Optional allowlist of module names (case-insensitive matched against
-        ``ModuleMeta.name``). When ``None`` (default), every installed module is loaded.
-        When a list, only modules whose name appears in it are loaded. Names that don't
-        match any installed module log a warning. An empty list loads nothing.
+    Parameters
+    ----------
+    enabled:
+        Optional allowlist of module names (case-insensitive matched against
+        ``ModuleMeta.name``). When ``None`` (default), every installed module
+        is loaded. When a list, only modules whose name appears in it are
+        loaded. Names that don't match any installed module log a warning.
+        An empty list loads nothing.
+    strict:
+        When ``True``, any invalid module (failed to load, not a
+        ``ModuleBase`` subclass, missing/invalid ``meta``) raises
+        :class:`InvalidModuleError` immediately. Callers in production
+        should pass ``strict=True`` so a broken deployment fails loudly
+        at boot rather than silently losing a feature.
+
+        When ``False`` (the default — preserves dev ergonomics), invalid
+        modules are logged and skipped.
     """
     # Imported here to avoid a circular import at module load time.
     from simple_module_core.versioning import check_framework_compatibility
+
+    def fail(msg: str, exc: BaseException | None = None) -> None:
+        if strict:
+            raise InvalidModuleError(msg) from exc
+        if exc is not None:
+            logger.exception("%s — skipping", msg)
+        else:
+            logger.error("%s — skipping", msg)
 
     eps = entry_points(group=ENTRY_POINT_GROUP)
     modules: list[ModuleBase] = []
@@ -45,24 +70,42 @@ def discover_modules(enabled: Sequence[str] | None = None) -> list[ModuleBase]:
     for ep in eps:
         try:
             module_cls = ep.load()
+        except Exception as exc:
+            fail(f"Failed to load module entry point '{ep.name}': {exc}", exc)
+            continue
+
+        try:
             instance = module_cls()
-            if not isinstance(instance, ModuleBase):
-                logger.warning(
-                    "Entry point '%s' loaded %s which is not a ModuleBase subclass — skipping",
-                    ep.name,
-                    module_cls,
-                )
-                continue
-            if allowlist_lower is not None and instance.meta.name.lower() not in allowlist_lower:
-                logger.info(
-                    "Module '%s' is installed but not in modules_enabled — skipping",
-                    instance.meta.name,
-                )
-                continue
-            modules.append(instance)
-            logger.info("Discovered module: %s (v%s)", instance.meta.name, instance.meta.version)
-        except Exception:
-            logger.exception("Failed to load module entry point '%s'", ep.name)
+        except Exception as exc:
+            fail(
+                f"Failed to instantiate module '{ep.name}' ({module_cls!r}): {exc}",
+                exc,
+            )
+            continue
+
+        if not isinstance(instance, ModuleBase):
+            fail(
+                f"Entry point '{ep.name}' loaded {module_cls!r} which is not a ModuleBase subclass"
+            )
+            continue
+
+        meta = getattr(instance, "meta", None)
+        if not isinstance(meta, ModuleMeta):
+            fail(
+                f"Module {module_cls.__qualname__!r} (entry point '{ep.name}') "
+                "is missing 'meta = ModuleMeta(...)'"
+            )
+            continue
+
+        if allowlist_lower is not None and meta.name.lower() not in allowlist_lower:
+            logger.info(
+                "Module '%s' is installed but not in modules_enabled — skipping",
+                meta.name,
+            )
+            continue
+
+        modules.append(instance)
+        logger.info("Discovered module: %s (v%s)", meta.name, meta.version)
 
     # Warn about allowlist entries that didn't resolve to an installed module.
     if allowlist_lower is not None:
