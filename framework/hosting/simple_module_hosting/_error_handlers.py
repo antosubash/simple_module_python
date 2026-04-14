@@ -18,7 +18,7 @@ from starlette.responses import Response
 
 logger = logging.getLogger(__name__)
 
-INERTIA_ERROR_STATUSES = frozenset({403, 404, 500})
+_INERTIA_ERROR_STATUSES = frozenset({403, 404, 500})
 
 
 async def render_error_page(request: Request, status_code: int, message: str) -> Response:
@@ -39,7 +39,7 @@ async def render_error_page(request: Request, status_code: int, message: str) ->
 
 
 async def http_exception_handler(request: Request, exc: HTTPException) -> Response:
-    if exc.status_code in INERTIA_ERROR_STATUSES:
+    if exc.status_code in _INERTIA_ERROR_STATUSES:
         detail = str(exc.detail) if exc.detail else ""
         return await render_error_page(request, exc.status_code, detail)
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})

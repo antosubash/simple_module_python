@@ -7,6 +7,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@ui/components/ui/pagination';
+import { useMemo } from 'react';
 
 interface Props {
   page: number;
@@ -15,15 +16,19 @@ interface Props {
 }
 
 export function ProductsPagination({ page, totalPages, onNavigate }: Props) {
-  if (totalPages <= 1) return null;
+  const items = useMemo(
+    () =>
+      Array.from({ length: totalPages }, (_, i) => i + 1)
+        .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+        .reduce<(number | 'ellipsis')[]>((acc, p, i, arr) => {
+          if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('ellipsis');
+          acc.push(p);
+          return acc;
+        }, []),
+    [page, totalPages],
+  );
 
-  const items = Array.from({ length: totalPages }, (_, i) => i + 1)
-    .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
-    .reduce<(number | 'ellipsis')[]>((acc, p, i, arr) => {
-      if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('ellipsis');
-      acc.push(p);
-      return acc;
-    }, []);
+  if (totalPages <= 1) return null;
 
   return (
     <div className="mt-4">
@@ -37,7 +42,7 @@ export function ProductsPagination({ page, totalPages, onNavigate }: Props) {
           </PaginationItem>
           {items.map((item, i) =>
             item === 'ellipsis' ? (
-              <PaginationItem key={`e${i}`}>
+              <PaginationItem key={`ellipsis-after-${items[i - 1]}`}>
                 <PaginationEllipsis />
               </PaginationItem>
             ) : (

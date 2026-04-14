@@ -25,8 +25,11 @@ DEFAULT_EXEMPT_GLOBS: tuple[str, ...] = ("packages/ui/src/components/ui/**",)
 
 
 def count_lines(path: Path) -> int:
-    """Return the number of physical lines in ``path``."""
-    text = path.read_text(encoding="utf-8", errors="replace")
+    """Return the number of physical lines in ``path``, or 0 if unreadable."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return 0
     return len(text.splitlines())
 
 
@@ -57,7 +60,7 @@ def find_violations(
     exempt_tuple = tuple(exemptions)
     violations: list[tuple[Path, int]] = []
     for path in paths:
-        if not is_covered(path) or not path.is_file():
+        if not is_covered(path):
             continue
         match_target = _relative_for_match(path, root)
         if is_exempt(match_target, exempt_tuple):
