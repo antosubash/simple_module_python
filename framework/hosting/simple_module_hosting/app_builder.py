@@ -175,7 +175,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     for mod in modules:
         mod.register_settings(app)
 
-    # SM010: warn if register_settings was overridden but added nothing
+    # SM012: warn if register_settings was overridden but added nothing
     if settings.is_development:
         state_after = set(vars(app.state))
         _check_settings_registration(modules, state_after - state_before)
@@ -321,22 +321,27 @@ def _setup_inertia(app: FastAPI, settings: Settings) -> None:
 
 
 def _check_settings_registration(modules: list, added_keys: set[str]) -> None:
-    """SM010: warn if a module overrides register_settings but added nothing to app.state."""
+    """SM012: warn if a module overrides register_settings but added nothing to app.state.
+
+    Matches the convention key ``<module_prefix>_settings`` exactly so a
+    module named ``cart`` doesn't shadow a module named ``cart_sales``.
+    """
     for mod in modules:
         cls = type(mod)
         if "register_settings" not in cls.__dict__:
             continue
         mod_prefix = mod.meta.name.lower()
-        has_key = any(mod_prefix in k for k in added_keys)
-        if not has_key:
-            diag = Diagnostic(
-                level=DiagnosticLevel.WARNING,
-                code="SM010",
-                message="register_settings() was overridden but added nothing to app.state",
-                module_name=mod.meta.name,
-                suggestion=(
-                    f"Store your settings on app.state "
-                    f"(e.g., app.state.{mod_prefix}_settings = {mod.meta.name}Settings())"
-                ),
-            )
-            logger.warning("%s", diag)
+        expected_key = f"{mod_prefix}_settings"
+        if expected_key in added_keys:
+            continue
+        diag = Diagnostic(
+            level=DiagnosticLevel.WARNING,
+            code="SM012",
+            message="register_settings() was overridden but added nothing to app.state",
+            module_name=mod.meta.name,
+            suggestion=(
+                f"Store your settings on app.state "
+                f"(e.g., app.state.{expected_key} = {mod.meta.name}Settings())"
+            ),
+        )
+        logger.warning("%s", diag)

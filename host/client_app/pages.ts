@@ -19,13 +19,23 @@ const hostPages = import.meta.glob<PageModule>('./pages/*.tsx');
 
 const pages: Record<string, PageLoader> = {};
 
+// Convert snake_case directory name to PascalCase Inertia component name,
+// matching `to_class_name()` in scripts/new_module.py so "blog_posts" ->
+// "BlogPosts" aligns with the module's ModuleMeta.name.
+const toPascalCase = (name: string): string =>
+  name
+    .split('_')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join('');
+
 for (const [filePath, loader] of Object.entries(modulePages)) {
   // Extract module name and page name from file path
   // e.g., "../../modules/products/products/pages/Browse.tsx"
   //   -> moduleName = "Products", pageName = "Browse"
   const match = filePath.match(/modules\/(\w+)\/\w+\/pages\/(\w+)\.tsx$/);
   if (match) {
-    const moduleName = match[1].charAt(0).toUpperCase() + match[1].slice(1);
+    const moduleName = toPascalCase(match[1]);
     const pageName = match[2];
     pages[`${moduleName}/${pageName}`] = loader;
   }

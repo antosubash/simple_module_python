@@ -6,21 +6,22 @@ from fastapi import HTTPException, Request
 
 WILDCARD = "*"
 
-# "*" grants all permissions (superuser).
+# "*" grants all permissions (superuser). The framework only ships the
+# ``admin`` wildcard mapping — additional role→permission mappings belong
+# in the host (or in a host-owned module) so the framework doesn't need to
+# know the names of plugin permissions.
 DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
     "admin": [WILDCARD],
-    "user": [
-        "products.view",
-        "dashboard.view",
-    ],
 }
 
 
 def resolve_permissions(
     roles: list[str],
-    role_map: dict[str, list[str]] = DEFAULT_ROLE_PERMISSIONS,
+    role_map: dict[str, list[str]] | None = None,
 ) -> set[str]:
     """Resolve a set of roles into a flat set of permission strings."""
+    if role_map is None:
+        role_map = DEFAULT_ROLE_PERMISSIONS
     permissions: set[str] = set()
     for role in roles:
         permissions.update(role_map.get(role, []))

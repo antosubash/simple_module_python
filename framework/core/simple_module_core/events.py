@@ -47,8 +47,17 @@ class EventBus:
         )
 
     async def publish(self, event: Event) -> None:
-        """Dispatch event to all registered handlers (awaited)."""
-        handlers = self._handlers.get(type(event), [])
+        """Dispatch event to all registered handlers (awaited).
+
+        Handlers subscribed to any class in the event's MRO (up to ``Event``)
+        are invoked, so subscribing to a base class delivers subclass events.
+        """
+        handlers: list[EventHandler] = []
+        for cls in type(event).__mro__:
+            if not isinstance(cls, type) or not issubclass(cls, Event):
+                continue
+            handlers.extend(self._handlers.get(cls, []))
+
         if not handlers:
             return
         results = await asyncio.gather(
@@ -66,6 +75,10 @@ class EventBus:
                 )
 
     def publish_nowait(self, event: Event) -> None:
-        """Fire-and-forget: schedule event dispatch on the current event loop."""
-        loop = asyncio.get_event_loop()
+        """Fire-and-forget: schedule event dispatch on the running event loop.
+
+        Must be called from inside a running asyncio loop (e.g. request
+        handlers, startup/shutdown hooks). Raises ``RuntimeError`` otherwise.
+        """
+        loop = asyncio.get_running_loop()
         loop.create_task(self.publish(event))

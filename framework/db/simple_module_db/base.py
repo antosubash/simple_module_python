@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import os
+
 from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase
 
-from simple_module_db.provider import DatabaseProvider
+from simple_module_db.provider import DatabaseProvider, detect_provider
 
 # Convention-based naming for constraints (helps Alembic)
 _naming_convention = {
@@ -23,17 +25,35 @@ _base_cache: dict[str, type[DeclarativeBase]] = {}
 all_module_bases: list[type[DeclarativeBase]] = []
 
 
+def _default_provider() -> DatabaseProvider:
+    """Resolve the active provider from ``SM_DATABASE_URL`` at import time.
+
+    Falls back to SQLite when the variable is unset, keeping the common
+    dev-loop happy without requiring callers to plumb the provider through.
+    """
+    url = os.environ.get("SM_DATABASE_URL", "")
+    return detect_provider(url) if url else DatabaseProvider.SQLITE
+
+
 def create_module_base(
     module_name: str,
-    provider: DatabaseProvider = DatabaseProvider.SQLITE,
+    provider: DatabaseProvider | None = None,
 ) -> type[DeclarativeBase]:
     """Create a SQLAlchemy DeclarativeBase with schema isolation for a module.
 
     - PostgreSQL: uses a dedicated schema (e.g., ``products``)
-    - SQLite: prefixes table names (e.g., ``products_product``)
+    - SQLite: single schema; modules are expected to prefix ``__tablename__``
+      with the module name to avoid collisions (e.g., ``products_product``)
+
+    The provider defaults to whatever ``SM_DATABASE_URL`` indicates, so
+    module models work in both dev (SQLite) and prod (PostgreSQL) without
+    code changes. Pass ``provider=`` explicitly in tests that need to pin it.
 
     Returns a cached base if already created for this module+provider.
     """
+    if provider is None:
+        provider = _default_provider()
+
     cache_key = f"{module_name}:{provider}"
     if cache_key in _base_cache:
         return _base_cache[cache_key]
