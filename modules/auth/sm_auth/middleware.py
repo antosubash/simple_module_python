@@ -41,8 +41,10 @@ class AuthMiddleware:
         path = scope["path"]
         is_public = any(path.startswith(p) for p in PUBLIC_PATHS) or path in EXACT_PUBLIC_PATHS
 
-        # Check session for user info (set by SessionMiddleware)
-        session = scope.get("session", {})
+        # SessionMiddleware must be installed upstream; accessing scope["session"]
+        # directly ensures misconfiguration raises loudly instead of silently
+        # discarding the "next" URL on the redirect branch below.
+        session = scope["session"]
         userinfo = session.get("userinfo")
 
         if not userinfo and not is_public:

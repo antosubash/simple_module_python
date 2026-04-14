@@ -13,7 +13,7 @@ import time
 import uuid
 from typing import TYPE_CHECKING
 
-from starlette.datastructures import MutableHeaders
+from starlette.datastructures import Headers, MutableHeaders
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -49,15 +49,7 @@ class CorrelationIdMiddleware:
             await self.app(scope, receive, send)
             return
 
-        # Read the incoming header (case-insensitive); fall back to a new UUID.
-        cid = ""
-        header_key = self.HEADER.lower().encode("latin-1")
-        for name, value in scope.get("headers", []):
-            if name.lower() == header_key:
-                cid = value.decode("latin-1")
-                break
-        if not cid:
-            cid = uuid.uuid4().hex
+        cid = Headers(scope=scope).get(self.HEADER) or uuid.uuid4().hex
 
         async def send_with_header(message: Message) -> None:
             if message["type"] == "http.response.start":
@@ -106,19 +98,21 @@ class RequestLoggingMiddleware:
                 status_code = message["status"]
             await send(message)
 
-        await self.app(scope, receive, send_capture)
-        duration_ms = round((time.perf_counter() - start) * 1000, 2)
-
-        _request_logger.info(
-            "request.completed",
-            extra={
-                "method": method,
-                "path": path,
-                "status_code": status_code,
-                "duration_ms": duration_ms,
-                "client_ip": client_ip,
-            },
-        )
+        try:
+            await self.app(scope, receive, send_capture)
+        finally:
+            # Log completion even when the inner app raises, so 500s are observable.
+            duration_ms = round((time.perf_counter() - start) * 1000, 2)
+            _request_logger.info(
+                "request.completed",
+                extra={
+                    "method": method,
+                    "path": path,
+                    "status_code": status_code,
+                    "duration_ms": duration_ms,
+                    "client_ip": client_ip,
+                },
+            )
 
 
 class SecurityHeadersMiddleware:
