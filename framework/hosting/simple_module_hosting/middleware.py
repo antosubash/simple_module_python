@@ -1,4 +1,4 @@
-"""Middleware for security headers, correlation IDs, request logging, and Inertia layout data.
+"""Middleware for security headers, tenant isolation, correlation IDs, request logging, and Inertia layout data.
 
 All middleware classes use the raw ASGI pattern instead of ``BaseHTTPMiddleware``
 to avoid its known issues with streaming responses, extra task creation,
@@ -13,6 +13,7 @@ import time
 import uuid
 from typing import TYPE_CHECKING
 
+from simple_module_db import current_tenant_id
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -136,6 +137,57 @@ class SecurityHeadersMiddleware:
             await send(message)
 
         await self.app(scope, receive, send_with_headers)
+
+
+TENANT_HEADER = "X-Tenant-ID"
+
+
+class TenantMiddleware:
+    """Extract tenant context from authenticated user or request header.
+
+    Sets the ``current_tenant_id`` context var so that DB queries on
+    :class:`~simple_module_db.mixins.MultiTenantMixin` models are
+    automatically filtered, and new objects get ``tenant_id`` populated.
+
+    Also stores the resolved value on ``request.state.tenant_id``.
+
+    Tenant is resolved from (in priority order):
+
+    1. Authenticated user's ``tenant_id`` attribute (from auth token claims).
+    2. ``X-Tenant-ID`` request header — useful for API clients and testing.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope)
+        tenant_id: str | None = None
+
+        user = getattr(request.state, "user", None)
+        if user is not None:
+            tenant_id = getattr(user, "tenant_id", None)
+
+        if tenant_id is None:
+            header_value = Headers(scope=scope).get(TENANT_HEADER)
+            if header_value:
+                tenant_id = header_value
+
+        request.state.tenant_id = tenant_id
+
+        if tenant_id is not None:
+            token = current_tenant_id.set(tenant_id)
+            try:
+                await self.app(scope, receive, send)
+            finally:
+                current_tenant_id.reset(token)
+            return
+
+        await self.app(scope, receive, send)
 
 
 class InertiaLayoutDataMiddleware:

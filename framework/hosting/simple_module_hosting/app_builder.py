@@ -42,6 +42,7 @@ from simple_module_hosting.middleware import (
     InertiaLayoutDataMiddleware,
     RequestLoggingMiddleware,
     SecurityHeadersMiddleware,
+    TenantMiddleware,
 )
 from simple_module_hosting.settings import Settings
 
@@ -215,12 +216,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # ── Phase 8: Middleware pipeline ───────────────────────
     # Order matters: last added = first executed
-    # Execution: CorrelationId → RequestLogging → Security → Session → [module] → Inertia
+    # Execution: CorrelationId → RequestLogging → Security → Session → [module] → Tenant → Inertia
     app.add_middleware(
         InertiaLayoutDataMiddleware,
         menu_registry=menu_registry,
         permission_registry=perm_registry,
     )
+    app.add_middleware(TenantMiddleware)
     for mod in modules:
         mod.register_middleware(app)
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
