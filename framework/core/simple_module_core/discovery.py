@@ -6,16 +6,28 @@ import logging
 from collections.abc import Sequence
 from importlib.metadata import entry_points
 
-from simple_module_core.exceptions import CircularDependencyError
-from simple_module_core.module import ModuleBase
+from simple_module_core.exceptions import CircularDependencyError, InvalidModuleError
+from simple_module_core.module import ModuleBase, ModuleMeta
 
 logger = logging.getLogger(__name__)
 
 ENTRY_POINT_GROUP = "simple_module"
 
 
-def discover_modules() -> list[ModuleBase]:
+def discover_modules(*, strict: bool = False) -> list[ModuleBase]:
     """Discover all installed modules via ``[project.entry-points.simple_module]``.
+
+    Parameters
+    ----------
+    strict:
+        When ``True``, any invalid module (failed to load, not a
+        ``ModuleBase`` subclass, missing/invalid ``meta``) raises
+        :class:`InvalidModuleError` immediately. Callers in production
+        should pass ``strict=True`` so a broken deployment fails loudly
+        at boot rather than silently losing a feature.
+
+        When ``False`` (the default — preserves dev ergonomics), invalid
+        modules are logged and skipped.
 
     Returns instantiated module objects (unsorted).
     """
@@ -25,18 +37,45 @@ def discover_modules() -> list[ModuleBase]:
     for ep in eps:
         try:
             module_cls = ep.load()
+        except Exception as exc:
+            msg = f"Failed to load module entry point '{ep.name}': {exc}"
+            if strict:
+                raise InvalidModuleError(msg) from exc
+            logger.exception("%s", msg)
+            continue
+
+        try:
             instance = module_cls()
-            if not isinstance(instance, ModuleBase):
-                logger.warning(
-                    "Entry point '%s' loaded %s which is not a ModuleBase subclass — skipping",
-                    ep.name,
-                    module_cls,
-                )
-                continue
-            modules.append(instance)
-            logger.info("Discovered module: %s (v%s)", instance.meta.name, instance.meta.version)
-        except Exception:
-            logger.exception("Failed to load module entry point '%s'", ep.name)
+        except Exception as exc:
+            msg = f"Failed to instantiate module '{ep.name}' ({module_cls!r}): {exc}"
+            if strict:
+                raise InvalidModuleError(msg) from exc
+            logger.exception("%s", msg)
+            continue
+
+        if not isinstance(instance, ModuleBase):
+            msg = (
+                f"Entry point '{ep.name}' loaded {module_cls!r} which is not a "
+                "ModuleBase subclass"
+            )
+            if strict:
+                raise InvalidModuleError(msg)
+            logger.warning("%s — skipping", msg)
+            continue
+
+        meta = getattr(instance, "meta", None)
+        if not isinstance(meta, ModuleMeta):
+            msg = (
+                f"Module {module_cls.__qualname__!r} (entry point '{ep.name}') "
+                "is missing 'meta = ModuleMeta(...)'"
+            )
+            if strict:
+                raise InvalidModuleError(msg)
+            logger.error("%s — skipping", msg)
+            continue
+
+        modules.append(instance)
+        logger.info("Discovered module: %s (v%s)", meta.name, meta.version)
 
     return modules
 

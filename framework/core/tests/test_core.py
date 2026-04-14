@@ -566,6 +566,104 @@ class TestDiscoverModulesAdvanced:
             assert mod.meta.name != ""
 
 
+# ── discover_modules validation & strict mode ──────────────────────
+
+
+class _FakeEntryPoint:
+    """Minimal EntryPoint shim for testing the validation path."""
+
+    def __init__(self, name: str, loader):
+        self.name = name
+        self._loader = loader
+
+    def load(self):
+        return self._loader()
+
+
+def _patch_entry_points(monkeypatch, eps):
+    import simple_module_core.discovery as discovery_mod
+
+    monkeypatch.setattr(discovery_mod, "entry_points", lambda group: eps)
+
+
+class TestDiscoverModulesValidation:
+    async def test_missing_meta_strict_raises(self, monkeypatch):
+        from simple_module_core.discovery import discover_modules
+        from simple_module_core.exceptions import InvalidModuleError
+
+        class NoMeta(ModuleBase):  # intentionally no meta
+            pass
+
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("nometa", lambda: NoMeta)])
+
+        with pytest.raises(InvalidModuleError, match="missing 'meta"):
+            discover_modules(strict=True)
+
+    async def test_missing_meta_non_strict_skips(self, monkeypatch):
+        from simple_module_core.discovery import discover_modules
+
+        class NoMeta(ModuleBase):
+            pass
+
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("nometa", lambda: NoMeta)])
+
+        modules = discover_modules(strict=False)
+        assert modules == []
+
+    async def test_non_modulebase_strict_raises(self, monkeypatch):
+        from simple_module_core.discovery import discover_modules
+        from simple_module_core.exceptions import InvalidModuleError
+
+        class NotAModule:
+            def __init__(self):
+                pass
+
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("notmod", lambda: NotAModule)])
+
+        with pytest.raises(InvalidModuleError, match="not a ModuleBase"):
+            discover_modules(strict=True)
+
+    async def test_load_failure_strict_raises(self, monkeypatch):
+        from simple_module_core.discovery import discover_modules
+        from simple_module_core.exceptions import InvalidModuleError
+
+        def broken_loader():
+            raise ImportError("boom")
+
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("broken", broken_loader)])
+
+        with pytest.raises(InvalidModuleError, match="Failed to load"):
+            discover_modules(strict=True)
+
+    async def test_load_failure_non_strict_logs_and_skips(self, monkeypatch, caplog):
+        import logging
+
+        from simple_module_core.discovery import discover_modules
+
+        def broken_loader():
+            raise ImportError("boom")
+
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("broken", broken_loader)])
+
+        with caplog.at_level(logging.ERROR, logger="simple_module_core.discovery"):
+            modules = discover_modules(strict=False)
+
+        assert modules == []
+        assert any("Failed to load" in r.message for r in caplog.records)
+
+    async def test_meta_must_be_modulemeta_instance(self, monkeypatch):
+        from simple_module_core.discovery import discover_modules
+        from simple_module_core.exceptions import InvalidModuleError
+
+        class BadMeta(ModuleBase):
+            meta = "not a ModuleMeta"  # type: ignore[assignment]
+
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("bad", lambda: BadMeta)])
+
+        with pytest.raises(InvalidModuleError, match="missing 'meta"):
+            discover_modules(strict=True)
+
+
 # ── ModuleBase Lifecycle ────────────────────────────────────────────
 
 

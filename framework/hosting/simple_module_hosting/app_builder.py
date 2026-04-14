@@ -138,7 +138,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
 
     # ── Phase 1: Discover modules ──────────────────────────
-    modules = discover_modules()
+    # Production: any bad module (import error, missing meta, wrong base
+    # class) fails the boot immediately with a clear message — better than
+    # silently shipping a partial app. Dev keeps the lenient default.
+    modules = discover_modules(strict=not settings.is_development)
     modules = topological_sort(modules)
     logger.info(
         "Loaded %d module(s): %s",
