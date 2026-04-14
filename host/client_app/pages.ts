@@ -11,6 +11,8 @@
  * HMR works instantly — just edit any .tsx file.
  */
 
+import { toPascalCase } from '@ui/lib/utils';
+
 type PageModule = { default: React.ComponentType<Record<string, unknown>> };
 type PageLoader = () => Promise<PageModule>;
 
@@ -18,16 +20,6 @@ const modulePages = import.meta.glob<PageModule>('../../modules/*/*/pages/*.tsx'
 const hostPages = import.meta.glob<PageModule>('./pages/*.tsx');
 
 const pages: Record<string, PageLoader> = {};
-
-// Convert snake_case directory name to PascalCase Inertia component name,
-// matching `to_class_name()` in scripts/new_module.py so "blog_posts" ->
-// "BlogPosts" aligns with the module's ModuleMeta.name.
-const toPascalCase = (name: string): string =>
-  name
-    .split('_')
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join('');
 
 for (const [filePath, loader] of Object.entries(modulePages)) {
   // Extract module name and page name from file path

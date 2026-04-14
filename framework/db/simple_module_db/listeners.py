@@ -27,6 +27,12 @@ class TenantIsolationError(Exception):
     """Raised when a multi-tenancy isolation constraint is violated."""
 
 
+# Key on ``Session.info`` stamped by the after_flush listener so
+# ``get_db`` can distinguish read-only requests from write requests after
+# flush has cleared ``session.new/.dirty/.deleted``.
+SESSION_HAS_WRITES_KEY = "has_writes"
+
+
 def _entity_label(obj: object) -> str:
     """Return 'ClassName' for a mapped entity instance."""
     return type(obj).__name__
@@ -54,7 +60,7 @@ def _mark_session_written(session: Session, flush_context: object) -> None:
     a flush is useless — flush empties those sets — so we stash a tag on
     ``session.info`` that survives the rest of the request.
     """
-    session.info["has_writes"] = True
+    session.info[SESSION_HAS_WRITES_KEY] = True
 
 
 def register_listeners(db_state: DatabaseState) -> None:

@@ -31,6 +31,15 @@ def discover_modules(*, strict: bool = False) -> list[ModuleBase]:
 
     Returns instantiated module objects (unsorted).
     """
+
+    def fail(msg: str, exc: BaseException | None = None) -> None:
+        if strict:
+            raise InvalidModuleError(msg) from exc
+        if exc is not None:
+            logger.exception("%s — skipping", msg)
+        else:
+            logger.error("%s — skipping", msg)
+
     eps = entry_points(group=ENTRY_POINT_GROUP)
     modules: list[ModuleBase] = []
 
@@ -38,39 +47,30 @@ def discover_modules(*, strict: bool = False) -> list[ModuleBase]:
         try:
             module_cls = ep.load()
         except Exception as exc:
-            msg = f"Failed to load module entry point '{ep.name}': {exc}"
-            if strict:
-                raise InvalidModuleError(msg) from exc
-            logger.exception("%s", msg)
+            fail(f"Failed to load module entry point '{ep.name}': {exc}", exc)
             continue
 
         try:
             instance = module_cls()
         except Exception as exc:
-            msg = f"Failed to instantiate module '{ep.name}' ({module_cls!r}): {exc}"
-            if strict:
-                raise InvalidModuleError(msg) from exc
-            logger.exception("%s", msg)
+            fail(
+                f"Failed to instantiate module '{ep.name}' ({module_cls!r}): {exc}",
+                exc,
+            )
             continue
 
         if not isinstance(instance, ModuleBase):
-            msg = (
+            fail(
                 f"Entry point '{ep.name}' loaded {module_cls!r} which is not a ModuleBase subclass"
             )
-            if strict:
-                raise InvalidModuleError(msg)
-            logger.warning("%s — skipping", msg)
             continue
 
         meta = getattr(instance, "meta", None)
         if not isinstance(meta, ModuleMeta):
-            msg = (
+            fail(
                 f"Module {module_cls.__qualname__!r} (entry point '{ep.name}') "
                 "is missing 'meta = ModuleMeta(...)'"
             )
-            if strict:
-                raise InvalidModuleError(msg)
-            logger.error("%s — skipping", msg)
             continue
 
         modules.append(instance)

@@ -11,9 +11,9 @@ from simple_module_core.diagnostics import (
     MigrationDiagnostics,
     print_diagnostics,
 )
-from simple_module_core.discovery import topological_sort
+from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.events import Event, EventBus
-from simple_module_core.exceptions import CircularDependencyError
+from simple_module_core.exceptions import CircularDependencyError, InvalidModuleError
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from simple_module_core.health import HealthCheck, HealthCheckResult, HealthRegistry, HealthStatus
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
@@ -570,14 +570,22 @@ class TestDiscoverModulesAdvanced:
 
 
 class _FakeEntryPoint:
-    """Minimal EntryPoint shim for testing the validation path."""
+    """Minimal EntryPoint shim for testing the validation path.
 
-    def __init__(self, name: str, loader):
+    Pass a class to return on ``load()``, or a zero-arg callable to
+    raise/return something custom (for load-failure cases).
+    """
+
+    def __init__(self, name: str, target):
         self.name = name
-        self._loader = loader
+        self._target = target
 
     def load(self):
-        return self._loader()
+        return (
+            self._target()
+            if callable(self._target) and not isinstance(self._target, type)
+            else self._target
+        )
 
 
 def _patch_entry_points(monkeypatch, eps):
@@ -586,51 +594,39 @@ def _patch_entry_points(monkeypatch, eps):
     monkeypatch.setattr(discovery_mod, "entry_points", lambda group: eps)
 
 
+def _boom_loader():
+    raise ImportError("boom")
+
+
 class TestDiscoverModulesValidation:
     async def test_missing_meta_strict_raises(self, monkeypatch):
-        from simple_module_core.discovery import discover_modules
-        from simple_module_core.exceptions import InvalidModuleError
-
         class NoMeta(ModuleBase):  # intentionally no meta
             pass
 
-        _patch_entry_points(monkeypatch, [_FakeEntryPoint("nometa", lambda: NoMeta)])
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("nometa", NoMeta)])
 
         with pytest.raises(InvalidModuleError, match="missing 'meta"):
             discover_modules(strict=True)
 
     async def test_missing_meta_non_strict_skips(self, monkeypatch):
-        from simple_module_core.discovery import discover_modules
-
         class NoMeta(ModuleBase):
             pass
 
-        _patch_entry_points(monkeypatch, [_FakeEntryPoint("nometa", lambda: NoMeta)])
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("nometa", NoMeta)])
 
-        modules = discover_modules(strict=False)
-        assert modules == []
+        assert discover_modules(strict=False) == []
 
     async def test_non_modulebase_strict_raises(self, monkeypatch):
-        from simple_module_core.discovery import discover_modules
-        from simple_module_core.exceptions import InvalidModuleError
-
         class NotAModule:
-            def __init__(self):
-                pass
+            pass
 
-        _patch_entry_points(monkeypatch, [_FakeEntryPoint("notmod", lambda: NotAModule)])
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("notmod", NotAModule)])
 
         with pytest.raises(InvalidModuleError, match="not a ModuleBase"):
             discover_modules(strict=True)
 
     async def test_load_failure_strict_raises(self, monkeypatch):
-        from simple_module_core.discovery import discover_modules
-        from simple_module_core.exceptions import InvalidModuleError
-
-        def broken_loader():
-            raise ImportError("boom")
-
-        _patch_entry_points(monkeypatch, [_FakeEntryPoint("broken", broken_loader)])
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("broken", _boom_loader)])
 
         with pytest.raises(InvalidModuleError, match="Failed to load"):
             discover_modules(strict=True)
@@ -638,12 +634,7 @@ class TestDiscoverModulesValidation:
     async def test_load_failure_non_strict_logs_and_skips(self, monkeypatch, caplog):
         import logging
 
-        from simple_module_core.discovery import discover_modules
-
-        def broken_loader():
-            raise ImportError("boom")
-
-        _patch_entry_points(monkeypatch, [_FakeEntryPoint("broken", broken_loader)])
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("broken", _boom_loader)])
 
         with caplog.at_level(logging.ERROR, logger="simple_module_core.discovery"):
             modules = discover_modules(strict=False)
@@ -652,13 +643,10 @@ class TestDiscoverModulesValidation:
         assert any("Failed to load" in r.message for r in caplog.records)
 
     async def test_meta_must_be_modulemeta_instance(self, monkeypatch):
-        from simple_module_core.discovery import discover_modules
-        from simple_module_core.exceptions import InvalidModuleError
-
         class BadMeta(ModuleBase):
             meta = "not a ModuleMeta"  # type: ignore[assignment]
 
-        _patch_entry_points(monkeypatch, [_FakeEntryPoint("bad", lambda: BadMeta)])
+        _patch_entry_points(monkeypatch, [_FakeEntryPoint("bad", BadMeta)])
 
         with pytest.raises(InvalidModuleError, match="missing 'meta"):
             discover_modules(strict=True)
