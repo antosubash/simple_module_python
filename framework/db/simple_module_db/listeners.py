@@ -6,7 +6,8 @@ import logging
 from contextvars import ContextVar
 from datetime import UTC, datetime
 
-from sqlalchemy import event, inspect as sa_inspect
+from sqlalchemy import event
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import ORMExecuteState, Session, with_loader_criteria
 
 from simple_module_db.mixins import AuditMixin, MultiTenantMixin, SoftDeleteMixin, VersionedMixin
@@ -163,9 +164,8 @@ def _soft_delete_filter(execute_state: ORMExecuteState) -> None:
 
         session.execute(stmt.execution_options(include_deleted=True))
     """
-    if (
-        execute_state.is_select
-        and not execute_state.execution_options.get("include_deleted", False)
+    if execute_state.is_select and not execute_state.execution_options.get(
+        "include_deleted", False
     ):
         execute_state.statement = execute_state.statement.options(
             with_loader_criteria(

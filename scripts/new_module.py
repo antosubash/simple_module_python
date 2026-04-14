@@ -73,7 +73,7 @@ def scaffold_module(name: str) -> None:
         module_dir / "pyproject.toml",
         f"""\
         [project]
-        name = "{pkg.replace('_', '-')}"
+        name = "{pkg.replace("_", "-")}"
         version = "0.1.0"
         description = "The {class_name} module"
         authors = []
@@ -794,7 +794,7 @@ def main() -> None:
     print("  1. Run 'uv sync --all-packages' to install the new module")
     print(f"  2. Edit modules/{name}/{name}/models.py to define your domain model")
     print("  3. Update schemas, service, and endpoints to match your model")
-    print(f'  4. Run \'make migration msg="add {name} tables"\' to create a migration')
+    print(f"  4. Run 'make migration msg=\"add {name} tables\"' to create a migration")
     print("  5. Run 'make test' to verify everything works")
 
 

@@ -223,7 +223,7 @@ class TestUpdateRootPyproject:
             '    "modules/products",\n'
             '    "host",\n]\n\n'
             "[tool.pytest.ini_options]\n"
-            'testpaths = ['
+            "testpaths = ["
             '"framework/core/tests", '
             '"modules/auth/tests", '
             '"modules/products/tests"]\n'
@@ -249,9 +249,7 @@ class TestUpdateRootPyproject:
 
         assert (module_root / "pyproject.toml").read_text() == original
 
-    def test_warns_when_no_insertion_point(
-        self, module_root: Path, capsys: pytest.CaptureFixture
-    ):
+    def test_warns_when_no_insertion_point(self, module_root: Path, capsys: pytest.CaptureFixture):
         (module_root / "pyproject.toml").write_text(
             '[tool.ty.environment]\nextra-paths = ["host"]\n'
             "[tool.pytest.ini_options]\ntestpaths = []\n"
@@ -265,9 +263,7 @@ class TestUpdateRootPyproject:
 class TestInsertAfterLastMatch:
     def test_inserts_after_last_matching_line(self):
         content = 'dependencies = [\n    "foo",\n    "bar",\n    "baz",\n]\n'
-        result = _insert_after_last_match(
-            content, r'^    "[\w]+",\s*$', '    "qux",\n'
-        )
+        result = _insert_after_last_match(content, r'^    "[\w]+",\s*$', '    "qux",\n')
         assert result is not None
         assert '"baz",\n    "qux",\n]' in result
 
@@ -278,9 +274,7 @@ class TestInsertAfterLastMatch:
     def test_respects_last_of_many(self):
         # `other = x` between matches must not divert insertion to before it
         content = "sm-a = 1\nsm-b = 2\nother = x\nsm-c = 3\n"
-        result = _insert_after_last_match(
-            content, r"^sm-\w+ = \d+$", "sm-d = 4\n"
-        )
+        result = _insert_after_last_match(content, r"^sm-\w+ = \d+$", "sm-d = 4\n")
         assert result is not None
         assert result.endswith("sm-c = 3\nsm-d = 4\n")
 
@@ -410,9 +404,7 @@ class TestGeneratedTemplateContent:
         assert '__tablename__ = "orders_order"' in model
 
     def test_test_file_has_test_classes(self, scaffolded_orders: Path):
-        test_file = (
-            scaffolded_orders.parent / "tests" / "test_orders.py"
-        ).read_text()
+        test_file = (scaffolded_orders.parent / "tests" / "test_orders.py").read_text()
         assert "class TestOrderSchemas:" in test_file
         assert "class TestOrderService:" in test_file
         assert "class TestOrdersAPI:" in test_file

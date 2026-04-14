@@ -99,7 +99,6 @@ class TestProductService:
         deleted = await svc.delete(999)
         assert deleted is False
 
-
     async def test_soft_deleted_excluded_from_get_all(self, db_session: AsyncSession):
         svc = ProductService(db_session)
         created = await svc.create(ProductCreate(name="Temp", price=Decimal("1.00")))

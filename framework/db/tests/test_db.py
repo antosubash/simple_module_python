@@ -393,9 +393,7 @@ class TestMultiTenancyEdgeCases:
         finally:
             current_tenant_id.reset(token)
 
-    async def test_cross_tenant_violation_does_not_leak_state(
-        self, tenant_session: AsyncSession
-    ):
+    async def test_cross_tenant_violation_does_not_leak_state(self, tenant_session: AsyncSession):
         """After a raised TenantIsolationError and rollback, the session is usable."""
         token = current_tenant_id.set("tenant-a")
         try:
