@@ -1,5 +1,10 @@
 """Products contracts — public interface for other modules."""
 
+from products.contracts.events import (
+    ProductCreated,
+    ProductDeleted,
+    ProductUpdated,
+)
 from products.contracts.schemas import (
     ProductCreate,
     ProductOut,
@@ -7,4 +12,12 @@ from products.contracts.schemas import (
 )
 from products.contracts.service import IProductService
 
-__all__ = ["ProductCreate", "ProductOut", "ProductUpdate", "IProductService"]
+__all__ = [
+    "ProductCreate",
+    "ProductCreated",
+    "ProductDeleted",
+    "ProductOut",
+    "ProductUpdate",
+    "ProductUpdated",
+    "IProductService",
+]
