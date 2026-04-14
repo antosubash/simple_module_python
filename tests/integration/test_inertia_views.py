@@ -10,12 +10,6 @@ from __future__ import annotations
 import httpx
 
 
-async def _seed_via_api(admin: httpx.AsyncClient, name: str, price: str = "1.00") -> int:
-    resp = await admin.post("/api/products/", json={"name": name, "price": price})
-    assert resp.status_code == 201, resp.text
-    return resp.json()["id"]
-
-
 class TestBrowseView:
     async def test_returns_inertia_page(self, inertia_client: httpx.AsyncClient):
         resp = await inertia_client.get("/products/")
@@ -29,12 +23,12 @@ class TestBrowseView:
 
     async def test_pagination_second_page(
         self,
-        authenticated_client: httpx.AsyncClient,
+        create_product,
         inertia_client: httpx.AsyncClient,
     ):
         # Seed 11 products so page 2 has exactly one product.
         for i in range(1, 12):
-            await _seed_via_api(authenticated_client, name=f"P{i:02d}")
+            await create_product(name=f"P{i:02d}")
 
         first = await inertia_client.get("/products/?page=1")
         assert first.status_code == 200
@@ -50,11 +44,11 @@ class TestBrowseView:
 
     async def test_search_filter(
         self,
-        authenticated_client: httpx.AsyncClient,
+        create_product,
         inertia_client: httpx.AsyncClient,
     ):
-        await _seed_via_api(authenticated_client, name="Alpha")
-        await _seed_via_api(authenticated_client, name="Beta")
+        await create_product(name="Alpha")
+        await create_product(name="Beta")
 
         resp = await inertia_client.get("/products/?q=Alph")
         assert resp.status_code == 200
@@ -73,10 +67,10 @@ class TestCreateView:
 class TestEditView:
     async def test_renders_for_existing_product(
         self,
-        authenticated_client: httpx.AsyncClient,
+        create_product,
         inertia_client: httpx.AsyncClient,
     ):
-        product_id = await _seed_via_api(authenticated_client, name="Editable")
+        product_id = await create_product(name="Editable")
 
         resp = await inertia_client.get(f"/products/{product_id}/edit")
         assert resp.status_code == 200
@@ -119,7 +113,6 @@ class TestCreateAction:
             headers={"referer": "/products/create"},
             follow_redirects=False,
         )
-        # redirect_back_with_errors sends 303 to the referer.
         assert resp.status_code == 303
         assert resp.headers["location"] == "/products/create"
 
@@ -127,9 +120,10 @@ class TestCreateAction:
 class TestUpdateAction:
     async def test_valid_update_redirects(
         self,
+        create_product,
         authenticated_client: httpx.AsyncClient,
     ):
-        product_id = await _seed_via_api(authenticated_client, name="Before")
+        product_id = await create_product(name="Before")
 
         resp = await authenticated_client.put(
             f"/products/{product_id}",
@@ -147,9 +141,10 @@ class TestUpdateAction:
 class TestDeleteAction:
     async def test_delete_redirects_and_removes_product(
         self,
+        create_product,
         authenticated_client: httpx.AsyncClient,
     ):
-        product_id = await _seed_via_api(authenticated_client, name="Doomed")
+        product_id = await create_product(name="Doomed")
 
         resp = await authenticated_client.delete(
             f"/products/{product_id}", follow_redirects=False

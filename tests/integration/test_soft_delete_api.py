@@ -10,17 +10,11 @@ from __future__ import annotations
 import httpx
 
 
-async def _create(client: httpx.AsyncClient, name: str = "Target", price: str = "1.00") -> int:
-    resp = await client.post("/api/products/", json={"name": name, "price": price})
-    assert resp.status_code == 201, resp.text
-    return resp.json()["id"]
-
-
 class TestSoftDeleteOverHTTP:
     async def test_deleted_product_excluded_from_list(
-        self, authenticated_client: httpx.AsyncClient
+        self, create_product, authenticated_client: httpx.AsyncClient
     ):
-        product_id = await _create(authenticated_client)
+        product_id = await create_product()
 
         deleted = await authenticated_client.delete(f"/api/products/{product_id}")
         assert deleted.status_code == 204
@@ -30,18 +24,18 @@ class TestSoftDeleteOverHTTP:
         assert all(p["id"] != product_id for p in listing.json())
 
     async def test_deleted_product_returns_404_on_get(
-        self, authenticated_client: httpx.AsyncClient
+        self, create_product, authenticated_client: httpx.AsyncClient
     ):
-        product_id = await _create(authenticated_client)
+        product_id = await create_product()
         await authenticated_client.delete(f"/api/products/{product_id}")
 
         resp = await authenticated_client.get(f"/api/products/{product_id}")
         assert resp.status_code == 404
 
     async def test_deleted_product_returns_404_on_update(
-        self, authenticated_client: httpx.AsyncClient
+        self, create_product, authenticated_client: httpx.AsyncClient
     ):
-        product_id = await _create(authenticated_client)
+        product_id = await create_product()
         await authenticated_client.delete(f"/api/products/{product_id}")
 
         resp = await authenticated_client.put(
@@ -50,8 +44,10 @@ class TestSoftDeleteOverHTTP:
         )
         assert resp.status_code == 404
 
-    async def test_second_delete_returns_404(self, authenticated_client: httpx.AsyncClient):
-        product_id = await _create(authenticated_client)
+    async def test_second_delete_returns_404(
+        self, create_product, authenticated_client: httpx.AsyncClient
+    ):
+        product_id = await create_product()
 
         first = await authenticated_client.delete(f"/api/products/{product_id}")
         assert first.status_code == 204
@@ -60,9 +56,9 @@ class TestSoftDeleteOverHTTP:
         assert second.status_code == 404
 
     async def test_list_stays_empty_when_only_product_deleted(
-        self, authenticated_client: httpx.AsyncClient
+        self, create_product, authenticated_client: httpx.AsyncClient
     ):
-        product_id = await _create(authenticated_client, name="Only")
+        product_id = await create_product(name="Only")
         await authenticated_client.delete(f"/api/products/{product_id}")
 
         listing = await authenticated_client.get("/api/products/")

@@ -11,19 +11,13 @@ from __future__ import annotations
 import httpx
 
 
-async def _seed_product(admin: httpx.AsyncClient, name: str = "Seed", price: str = "1.00") -> int:
-    resp = await admin.post("/api/products/", json={"name": name, "price": price})
-    assert resp.status_code == 201, resp.text
-    return resp.json()["id"]
-
-
 class TestViewerPermissions:
     async def test_viewer_can_list_products(
         self,
-        authenticated_client: httpx.AsyncClient,
+        create_product,
         viewer_client: httpx.AsyncClient,
     ):
-        await _seed_product(authenticated_client, name="Visible")
+        await create_product(name="Visible")
 
         resp = await viewer_client.get("/api/products/")
         assert resp.status_code == 200
@@ -38,10 +32,10 @@ class TestViewerPermissions:
 
     async def test_viewer_cannot_update_product(
         self,
-        authenticated_client: httpx.AsyncClient,
+        create_product,
         viewer_client: httpx.AsyncClient,
     ):
-        product_id = await _seed_product(authenticated_client)
+        product_id = await create_product()
 
         resp = await viewer_client.put(
             f"/api/products/{product_id}",
@@ -51,10 +45,10 @@ class TestViewerPermissions:
 
     async def test_viewer_cannot_delete_product(
         self,
-        authenticated_client: httpx.AsyncClient,
+        create_product,
         viewer_client: httpx.AsyncClient,
     ):
-        product_id = await _seed_product(authenticated_client)
+        product_id = await create_product()
 
         resp = await viewer_client.delete(f"/api/products/{product_id}")
         assert resp.status_code == 403

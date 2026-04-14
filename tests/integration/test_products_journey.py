@@ -12,7 +12,6 @@ import httpx
 
 class TestProductLifecycle:
     async def test_full_product_lifecycle(self, authenticated_client: httpx.AsyncClient):
-        """Create → list contains it → get matches → update → delete → 404 and list empty."""
         create = await authenticated_client.post(
             "/api/products/",
             json={"name": "Widget", "description": "useful", "price": "19.99"},
@@ -50,7 +49,6 @@ class TestProductLifecycle:
     async def test_multiple_products_listed_in_order(
         self, authenticated_client: httpx.AsyncClient
     ):
-        """Products are returned ordered by id (service.py orders by Product.id)."""
         names = ["Alpha", "Beta", "Gamma"]
         ids = []
         for name in names:
@@ -71,7 +69,6 @@ class TestSessionDuringJourney:
     async def test_session_user_visible_before_and_after_crud(
         self, authenticated_client: httpx.AsyncClient
     ):
-        """/auth/me stays consistent while the user performs CRUD operations."""
         before = await authenticated_client.get("/auth/me")
         assert before.status_code == 200
         assert before.json() == {
