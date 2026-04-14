@@ -128,3 +128,83 @@ class TestGetDbDependency:
                 await gen.__anext__()
         finally:
             await db_state.engine.dispose()
+
+
+# ── DB logging ──────────────────────────────────────────────────────
+
+
+class TestGetDbLogging:
+    async def test_commit_logs_session_commit(self, caplog):
+        """get_db should log db.session.commit on successful exit."""
+        import contextlib
+        import logging
+        from unittest.mock import MagicMock
+
+        from simple_module_db.deps import get_db
+
+        db_state = init_db("sqlite+aiosqlite:///:memory:")
+        try:
+            mock_request = MagicMock()
+            mock_request.app.state.db = db_state
+
+            with caplog.at_level(logging.INFO, logger="simple_module.db"):
+                gen = get_db(mock_request)
+                await gen.__anext__()
+                with contextlib.suppress(StopAsyncIteration):
+                    await gen.__anext__()
+
+            db_messages = [r for r in caplog.records if r.name == "simple_module.db"]
+            commit_msgs = [r for r in db_messages if r.message == "db.session.commit"]
+            assert len(commit_msgs) == 1
+            assert commit_msgs[0].operation == "commit"  # type: ignore[attr-defined]
+            assert hasattr(commit_msgs[0], "db_duration_ms")
+        finally:
+            await db_state.engine.dispose()
+
+
+class TestEntityListenerLogging:
+    async def test_create_logs_entity_created(self, db_session: AsyncSession, caplog):
+        """Inserting a new entity should log db.entity.created."""
+        import logging
+
+        from sm_products.models import Product
+
+        with caplog.at_level(logging.INFO, logger="simple_module.db"):
+            product = Product(name="Widget", price=9.99)
+            db_session.add(product)
+            await db_session.flush()
+
+        created_msgs = [
+            r
+            for r in caplog.records
+            if r.name == "simple_module.db" and r.message == "db.entity.created"
+        ]
+        assert len(created_msgs) == 1
+        assert created_msgs[0].entity == "Product"  # type: ignore[attr-defined]
+        assert created_msgs[0].operation == "create"  # type: ignore[attr-defined]
+
+    async def test_update_logs_entity_updated(self, db_session: AsyncSession, caplog):
+        """Modifying an entity should log db.entity.updated."""
+        import logging
+
+        from sm_products.models import Product
+
+        product = Product(name="Widget", price=9.99)
+        db_session.add(product)
+        await db_session.flush()
+
+        caplog.clear()
+
+        product.name = "Updated Widget"
+        with caplog.at_level(logging.INFO, logger="simple_module.db"):
+            await db_session.flush()
+
+        updated_msgs = [
+            r
+            for r in caplog.records
+            if r.name == "simple_module.db" and r.message == "db.entity.updated"
+        ]
+        assert len(updated_msgs) == 1
+        assert updated_msgs[0].entity == "Product"  # type: ignore[attr-defined]
+        assert updated_msgs[0].operation == "update"  # type: ignore[attr-defined]
+        assert updated_msgs[0].entity_id is not None  # type: ignore[attr-defined]
