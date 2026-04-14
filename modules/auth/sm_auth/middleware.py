@@ -1,13 +1,18 @@
-"""Auth middleware — redirects unauthenticated requests, refreshes tokens."""
+"""Auth middleware — redirects unauthenticated requests, refreshes tokens.
+
+Uses the raw ASGI middleware pattern instead of ``BaseHTTPMiddleware``
+to avoid its known issues with streaming responses, extra task creation,
+and ``ContextVar`` propagation.
+"""
 
 from __future__ import annotations
 
 import logging
 
 from simple_module_db.listeners import current_user_id
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
-from starlette.responses import RedirectResponse, Response
+from starlette.responses import RedirectResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from sm_auth.contracts.schemas import UserContext
 
@@ -18,36 +23,50 @@ PUBLIC_PATHS = ("/auth/", "/health", "/static/", "/api/docs", "/api/redoc", "/op
 EXACT_PUBLIC_PATHS = ("/",)
 
 
-class AuthMiddleware(BaseHTTPMiddleware):
+class AuthMiddleware:
     """Redirect unauthenticated users to Keycloak login.
 
     Sets ``request.state.user`` for downstream handlers.
     Also sets the ``current_user_id`` context var for DB audit listeners.
     """
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        path = request.url.path
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        path = scope["path"]
         is_public = any(path.startswith(p) for p in PUBLIC_PATHS) or path in EXACT_PUBLIC_PATHS
 
-        # Check session for user info
-        userinfo = request.session.get("userinfo")
+        # SessionMiddleware must be installed upstream; accessing scope["session"]
+        # directly ensures misconfiguration raises loudly instead of silently
+        # discarding the "next" URL on the redirect branch below.
+        session = scope["session"]
+        userinfo = session.get("userinfo")
 
         if not userinfo and not is_public:
             # Protected path without session — redirect to login
-            request.session["next"] = str(request.url)
-            return RedirectResponse("/auth/login", status_code=302)
+            request = Request(scope)
+            session["next"] = str(request.url)
+            response = RedirectResponse("/auth/login", status_code=302)
+            await response(scope, receive, send)
+            return
 
         if userinfo:
             # Set user context on request state (for both public and protected paths)
             user = UserContext.from_keycloak_userinfo(userinfo)
+            request = Request(scope)
             request.state.user = user
 
             # Set context var for DB audit listeners
             token = current_user_id.set(user.id)
             try:
-                response = await call_next(request)
+                await self.app(scope, receive, send)
             finally:
                 current_user_id.reset(token)
-            return response
+            return
 
-        return await call_next(request)
+        await self.app(scope, receive, send)
