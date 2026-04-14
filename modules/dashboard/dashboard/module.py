@@ -10,7 +10,7 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 class DashboardModule(ModuleBase):
     meta = ModuleMeta(
         name="Dashboard",
-        view_prefix="",
+        view_prefix="/dashboard",
     )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:

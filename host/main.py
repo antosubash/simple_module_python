@@ -13,6 +13,8 @@ os.environ.setdefault(
 from simple_module_hosting import Settings, create_app  # noqa: E402
 from simple_module_hosting.logging import setup_logging  # noqa: E402
 
+from host.routes import router as host_router  # noqa: E402
+
 settings = Settings()
 
 setup_logging(
@@ -21,6 +23,7 @@ setup_logging(
 )
 
 app = create_app(settings)
+app.include_router(host_router)
 
 if __name__ == "__main__":
     import uvicorn
