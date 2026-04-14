@@ -1,47 +1,16 @@
-"""Module diagnostics — validates structure and patterns at startup or via CLI."""
+"""Structural diagnostics that validate discovered modules against invariants."""
 
 from __future__ import annotations
 
 import ast
 import importlib.util
-import logging
-import sys
-from dataclasses import dataclass
-from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
+
 if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
-
-logger = logging.getLogger(__name__)
-
-
-class DiagnosticLevel(StrEnum):
-    ERROR = "error"
-    WARNING = "warning"
-    INFO = "info"
-
-
-@dataclass
-class Diagnostic:
-    """A single diagnostic finding."""
-
-    level: DiagnosticLevel
-    code: str
-    message: str
-    module_name: str
-    file: str | None = None
-    suggestion: str | None = None
-
-    def __str__(self) -> str:
-        prefix = {"error": "\u2717", "warning": "\u26a0", "info": "\u2139"}[self.level]
-        parts = [f"{prefix} {self.code} [{self.level.upper()}] {self.module_name}: {self.message}"]
-        if self.file:
-            parts.append(f"  \u21b3 {self.file}")
-        if self.suggestion:
-            parts.append(f"  \u21b3 Suggestion: {self.suggestion}")
-        return "\n".join(parts)
 
 
 class ModuleDiagnostics:
@@ -162,7 +131,6 @@ class ModuleDiagnostics:
         discovered module's package (e.g. ``auth``, ``products``).
         All interaction should go through the ``ModuleBase`` lifecycle hooks.
         """
-        # Collect top-level package names for every discovered module.
         module_packages: dict[str, str] = {}  # package -> module name
         for mod in modules:
             top_pkg = type(mod).__module__.split(".")[0]
@@ -171,7 +139,6 @@ class ModuleDiagnostics:
         if not module_packages:
             return []
 
-        # Locate framework package source directories.
         framework_dirs: list[tuple[str, Path]] = []
         for fw_pkg in self.FRAMEWORK_PACKAGES:
             fw_dir = self._find_package_dir(fw_pkg)
@@ -309,90 +276,3 @@ class ModuleDiagnostics:
         """Locate the source directory for a module's package."""
         pkg_name = type(mod).__module__.rsplit(".", 1)[0]
         return self._find_package_dir(pkg_name)
-
-
-class MigrationDiagnostics:
-    """Validates database migration state."""
-
-    def check_revision_mismatch(
-        self,
-        current_revision: str | None,
-        head_revision: str | None,
-    ) -> list[Diagnostic]:
-        """SM010: Error if database is not at the migration head."""
-        if current_revision == head_revision:
-            return []
-        return [
-            Diagnostic(
-                level=DiagnosticLevel.ERROR,
-                code="SM010",
-                message=(f"Database at revision {current_revision!r}, expected {head_revision!r}"),
-                module_name="migrations",
-                suggestion="Run: make migrate",
-            )
-        ]
-
-    def check_table_coverage(
-        self,
-        module_tables: set[str],
-        migrated_tables: set[str],
-    ) -> list[Diagnostic]:
-        """SM011: Warning if module tables are missing from migration history."""
-        missing = module_tables - migrated_tables
-        return [
-            Diagnostic(
-                level=DiagnosticLevel.WARNING,
-                code="SM011",
-                message=f"Table '{table}' declared in models but not found in migration history",
-                module_name="migrations",
-                suggestion=f'Run: make migration msg="add {table}"',
-            )
-            for table in sorted(missing)
-        ]
-
-
-def run_diagnostics(
-    modules: list[ModuleBase],
-    *,
-    migration_state: dict | None = None,
-    module_tables: set[str] | None = None,
-    migrated_tables: set[str] | None = None,
-) -> list[Diagnostic]:
-    """Convenience function to run all diagnostics.
-
-    When ``migration_state`` is provided, also runs migration diagnostics.
-    """
-    diagnostics = ModuleDiagnostics().run(modules)
-
-    if migration_state is not None:
-        migration_diag = MigrationDiagnostics()
-        diagnostics.extend(
-            migration_diag.check_revision_mismatch(
-                current_revision=migration_state.get("current_revision"),
-                head_revision=migration_state.get("head_revision"),
-            )
-        )
-        if module_tables is not None and migrated_tables is not None:
-            diagnostics.extend(migration_diag.check_table_coverage(module_tables, migrated_tables))
-
-    return diagnostics
-
-
-def print_diagnostics(diagnostics: list[Diagnostic]) -> None:
-    """Pretty-print diagnostics to stderr."""
-    if not diagnostics:
-        logger.info("\u2713 No module diagnostics issues found")
-        return
-
-    errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]
-    warnings = [d for d in diagnostics if d.level == DiagnosticLevel.WARNING]
-    infos = [d for d in diagnostics if d.level == DiagnosticLevel.INFO]
-
-    for d in diagnostics:
-        print(str(d), file=sys.stderr)
-        print(file=sys.stderr)
-
-    print(
-        f"Results: {len(errors)} error(s), {len(warnings)} warning(s), {len(infos)} info",
-        file=sys.stderr,
-    )
