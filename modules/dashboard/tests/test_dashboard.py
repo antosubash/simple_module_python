@@ -105,9 +105,7 @@ class TestDashboardStatsEndpoint:
         body = resp.json()
         assert body == {"product_events": {"created": 0, "updated": 0, "deleted": 0}}
 
-    async def test_stats_reflects_handler_activity(
-        self, authenticated_client: httpx.AsyncClient
-    ):
+    async def test_stats_reflects_handler_activity(self, authenticated_client: httpx.AsyncClient):
         await on_product_created(ProductCreated(product_id=1, name="X"))
         await on_product_updated(ProductUpdated(product_id=1, name="X"))
 
@@ -175,9 +173,7 @@ class TestProductEventIntegration:
         stats = await authenticated_client.get("/api/dashboard/stats")
         assert stats.json()["product_events"]["deleted"] == 1
 
-    async def test_failed_update_does_not_emit_event(
-        self, authenticated_client: httpx.AsyncClient
-    ):
+    async def test_failed_update_does_not_emit_event(self, authenticated_client: httpx.AsyncClient):
         """404s should not publish ProductUpdated — handler logic must be after the lookup."""
         resp = await authenticated_client.put(
             "/api/products/999999",
@@ -188,9 +184,7 @@ class TestProductEventIntegration:
         stats = await authenticated_client.get("/api/dashboard/stats")
         assert stats.json()["product_events"]["updated"] == 0
 
-    async def test_failed_delete_does_not_emit_event(
-        self, authenticated_client: httpx.AsyncClient
-    ):
+    async def test_failed_delete_does_not_emit_event(self, authenticated_client: httpx.AsyncClient):
         resp = await authenticated_client.delete("/api/products/999999")
         assert resp.status_code == 404
 
