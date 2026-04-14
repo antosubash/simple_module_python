@@ -1,4 +1,4 @@
-"""Middleware: security headers, tenants, correlation IDs, request logging, and Inertia layout.
+"""Middleware: security headers, tenant isolation, correlation IDs, request logging, layout data.
 
 All middleware classes use the raw ASGI pattern instead of ``BaseHTTPMiddleware``
 to avoid its known issues with streaming responses, extra task creation,
