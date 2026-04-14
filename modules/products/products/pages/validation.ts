@@ -1,10 +1,7 @@
 import { z } from 'zod';
 
 export const productSchema = z.object({
-  name: z
-    .string()
-    .min(1, 'Name is required')
-    .max(200, 'Name must be under 200 characters'),
+  name: z.string().min(1, 'Name is required').max(200, 'Name must be under 200 characters'),
   description: z.string().max(2000).optional().default(''),
   price: z
     .string()
@@ -15,10 +12,7 @@ export const productSchema = z.object({
 
 export type ProductFormData = z.infer<typeof productSchema>;
 
-export function validateProduct(data: {
-  name: string;
-  price: string;
-}): Record<string, string> {
+export function validateProduct(data: { name: string; price: string }): Record<string, string> {
   const result = productSchema.safeParse(data);
   if (result.success) return {};
   const errors: Record<string, string> = {};
