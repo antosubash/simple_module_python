@@ -214,3 +214,35 @@ class TestDiscoverModulesValidation:
 
         with pytest.raises(InvalidModuleError, match="missing 'meta"):
             discover_modules(strict=True)
+
+
+class TestSelectiveModuleLoading:
+    async def test_discover_with_none_loads_all(self):
+        """Passing enabled=None keeps existing behaviour (load all installed modules)."""
+        all_mods = discover_modules(enabled=None)
+        names = {m.meta.name for m in all_mods}
+        assert {"Auth", "Products", "Dashboard"}.issubset(names)
+
+    async def test_discover_with_allowlist_filters(self):
+        """Passing enabled=['Auth'] loads only Auth, even if other modules are installed."""
+        filtered = discover_modules(enabled=["Auth"])
+        names = [m.meta.name for m in filtered]
+        assert names == ["Auth"]
+
+    async def test_discover_with_empty_list_loads_none(self):
+        """Passing enabled=[] loads no modules (explicit opt-out of everything)."""
+        assert discover_modules(enabled=[]) == []
+
+    async def test_discover_allowlist_case_insensitive(self):
+        """Allowlist matching ignores case so 'products' and 'Products' both work."""
+        names = [m.meta.name for m in discover_modules(enabled=["products"])]
+        assert names == ["Products"]
+
+    async def test_discover_unknown_name_logged_and_ignored(self, caplog):
+        """Names in enabled that don't match any installed module log a warning but don't raise."""
+        with caplog.at_level(logging.WARNING, logger="simple_module_core.discovery"):
+            result = discover_modules(enabled=["Auth", "Nonexistent"])
+
+        names = [m.meta.name for m in result]
+        assert names == ["Auth"]
+        assert any("nonexistent" in rec.message.lower() for rec in caplog.records)

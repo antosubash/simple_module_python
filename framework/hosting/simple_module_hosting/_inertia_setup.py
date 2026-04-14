@@ -13,17 +13,44 @@ from simple_module_hosting.settings import Settings
 logger = logging.getLogger(__name__)
 
 
-def setup_inertia(app: FastAPI, settings: Settings, project_root: Path) -> None:
-    """Configure fastapi-inertia and attach the dependency factory to app.state."""
+def setup_inertia(
+    app: FastAPI,
+    settings: Settings,
+    modules: list,
+    project_root: Path,
+) -> None:
+    """Configure fastapi-inertia and attach the dependency factory to app.state.
+
+    The host's own ``host/templates`` directory is first in the search path so
+    it can override module-contributed templates. Each installed module
+    contributes additional directories via ``ModuleBase.template_dirs()``.
+    """
     from fastapi.templating import Jinja2Templates
 
-    templates_dir = project_root / "host" / "templates"
+    host_templates = project_root / "host" / "templates"
+    directories: list[Path] = []
 
-    if not templates_dir.is_dir():
-        logger.warning("Templates directory not found at %s", templates_dir)
+    if host_templates.is_dir():
+        directories.append(host_templates)
+    else:
+        logger.warning("Host templates directory not found at %s", host_templates)
+
+    for mod in modules:
+        for path in mod.template_dirs():
+            if Path(path).is_dir():
+                directories.append(Path(path))
+            else:
+                logger.warning(
+                    "Module '%s' declared template dir %s but it does not exist",
+                    mod.meta.name,
+                    path,
+                )
+
+    if not directories:
+        logger.warning("No usable template directories — Inertia will fail to render views")
         return
 
-    templates = Jinja2Templates(directory=templates_dir)
+    templates = Jinja2Templates(directory=directories)
 
     inertia_config = InertiaConfig(
         environment=settings.environment,  # ty: ignore[invalid-argument-type]

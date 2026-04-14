@@ -24,6 +24,47 @@ class TestCreateApp:
         assert hasattr(app.state, "settings")
         assert hasattr(app.state, "db")
 
+    async def test_modules_enabled_limits_loaded_modules(self, settings: Settings):
+        """Host respects settings.modules_enabled — only listed modules contribute routes."""
+        # Only Auth should be loaded; Products + Dashboard routes must be absent.
+        restricted = settings.model_copy(update={"modules_enabled": ["Auth"]})
+        app = create_app(restricted)
+        paths: set[str] = {str(r.path) for r in app.routes if hasattr(r, "path")}
+        assert "/auth/login" in paths
+        assert not any(p.startswith("/api/products") for p in paths)
+        assert "/dashboard" not in paths
+
+    async def test_module_static_mounts_become_app_routes(
+        self,
+        settings: Settings,
+        tmp_path,
+        monkeypatch,
+    ):
+        """Directories returned from ModuleBase.static_mounts() get mounted at boot."""
+        from simple_module_core import ModuleBase, ModuleMeta
+        from simple_module_hosting import app_builder
+
+        asset_dir = tmp_path / "module_assets"
+        asset_dir.mkdir()
+        (asset_dir / "probe.txt").write_text("hello", encoding="utf-8")
+
+        class FakeStaticMod(ModuleBase):
+            meta = ModuleMeta(name="FakeStatic")
+
+            def static_mounts(self):
+                return {"/modules/fakestatic/static": asset_dir}
+
+        real_discover = app_builder.discover_modules
+
+        def fake_discover(enabled=None, *, strict=False):
+            return [*real_discover(enabled=enabled, strict=strict), FakeStaticMod()]
+
+        monkeypatch.setattr(app_builder, "discover_modules", fake_discover)
+
+        app = create_app(settings)
+        paths = {getattr(r, "path", None) for r in app.routes}
+        assert "/modules/fakestatic/static" in paths
+
 
 class TestResolveProjectRoot:
     async def test_honours_env_override(self, monkeypatch, tmp_path):

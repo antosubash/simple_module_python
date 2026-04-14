@@ -100,3 +100,45 @@ class TestModuleNewHooks:
     async def test_register_settings_default_noop(self):
         mod = DummyModule()
         mod.register_settings(None)  # type: ignore
+
+
+class TestModuleAssetHooks:
+    async def test_template_dirs_default_empty(self):
+        """ModuleBase.template_dirs() returns an empty list by default."""
+        mod = DummyModule()
+        assert mod.template_dirs() == []
+
+    async def test_static_mounts_default_empty(self):
+        """ModuleBase.static_mounts() returns an empty dict by default."""
+        mod = DummyModule()
+        assert mod.static_mounts() == {}
+
+    async def test_template_dirs_override(self, tmp_path):
+        """A module can return its own template directory."""
+        tpl_dir = tmp_path / "my_templates"
+        tpl_dir.mkdir()
+
+        class ModWithTpl(ModuleBase):
+            meta = ModuleMeta(name="WithTpl")
+
+            def template_dirs(self):
+                return [tpl_dir]
+
+        mod = ModWithTpl()
+        result = mod.template_dirs()
+        assert result == [tpl_dir]
+
+    async def test_static_mounts_override(self, tmp_path):
+        """A module can map URL prefixes to filesystem directories."""
+        assets = tmp_path / "assets"
+        assets.mkdir()
+
+        class ModWithStatic(ModuleBase):
+            meta = ModuleMeta(name="WithStatic")
+
+            def static_mounts(self):
+                return {"/modules/with-static": assets}
+
+        mod = ModWithStatic()
+        mounts = mod.static_mounts()
+        assert mounts == {"/modules/with-static": assets}

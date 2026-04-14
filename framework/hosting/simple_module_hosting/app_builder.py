@@ -73,6 +73,20 @@ def _resolve_project_root() -> Path:
 _PROJECT_ROOT = _resolve_project_root()
 
 
+def wire_module_routes(app: FastAPI, module) -> None:
+    """Attach a module's API + view routers to ``app`` using its Meta prefixes.
+
+    The single canonical implementation so ``create_app`` and the test harness
+    in ``simple_module_testing`` stay in lockstep if ``ModuleBase`` ever gains
+    a new router type.
+    """
+    api_router = APIRouter(prefix=module.meta.route_prefix, tags=[module.meta.name])
+    view_router = APIRouter(prefix=module.meta.view_prefix, tags=[f"{module.meta.name} Views"])
+    module.register_routes(api_router, view_router)
+    app.include_router(api_router)
+    app.include_router(view_router)
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Build and configure the full FastAPI application.
 
@@ -93,7 +107,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Production: any bad module (import error, missing meta, wrong base
     # class) fails the boot immediately with a clear message — better than
     # silently shipping a partial app. Dev keeps the lenient default.
-    modules = discover_modules(strict=not settings.is_development)
+    modules = discover_modules(
+        enabled=settings.modules_enabled,
+        strict=not settings.is_development,
+    )
     modules = topological_sort(modules)
     logger.info(
         "Loaded %d module(s): %s",
@@ -109,6 +126,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             print_diagnostics(diagnostics)
         if errors:
             raise SystemExit(f"Module diagnostics: {len(errors)} error(s). Fix before continuing.")
+
+        # Emit frontend module-pages manifest so Vite can find pages shipped
+        # inside pip-installed module wheels. See scaffolding.py.
+        try:
+            from simple_module_hosting.scaffolding import write_module_pages_manifest
+
+            client_app = _PROJECT_ROOT / "host" / "client_app"
+            if client_app.is_dir():
+                write_module_pages_manifest(modules, client_app)
+        except Exception:
+            logger.exception("Failed to write module pages manifest — frontend may miss pages")
 
     # ── Phase 3: Create FastAPI app ────────────────────────
     menu_registry = MenuRegistry()
@@ -175,7 +203,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.db = db_state
 
     # ── Phase 7: Inertia + exception handlers ──────────────
-    setup_inertia(app, settings, _PROJECT_ROOT)
+    setup_inertia(app, settings, modules, _PROJECT_ROOT)
 
     app.add_exception_handler(
         InertiaVersionConflictException,
@@ -207,23 +235,33 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # ── Phase 9: Routes, health, static files ──────────────
     for mod in modules:
-        api_router = APIRouter(
-            prefix=mod.meta.route_prefix,
-            tags=[mod.meta.name],
-        )
-        view_router = APIRouter(
-            prefix=mod.meta.view_prefix,
-            tags=[f"{mod.meta.name} Views"],
-        )
-        mod.register_routes(api_router, view_router)
-        app.include_router(api_router)
-        app.include_router(view_router)
+        wire_module_routes(app, mod)
 
     app.include_router(health_router)
 
     static_dir = _PROJECT_ROOT / "host" / "static"
     if static_dir.is_dir():
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+    # Each module may expose directories at its own URL prefix — typically
+    # /modules/<name>/static for pre-bundled frontend assets shipped inside
+    # the module wheel.
+    for mod in modules:
+        for url_prefix, directory in mod.static_mounts().items():
+            directory_path = Path(directory)
+            if not directory_path.is_dir():
+                logger.warning(
+                    "Module '%s' declared static mount %s -> %s but directory does not exist",
+                    mod.meta.name,
+                    url_prefix,
+                    directory_path,
+                )
+                continue
+            app.mount(
+                url_prefix,
+                StaticFiles(directory=directory_path),
+                name=f"static:{mod.meta.name}",
+            )
 
     return app
 
