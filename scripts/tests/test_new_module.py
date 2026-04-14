@@ -89,7 +89,7 @@ class TestScaffoldModule:
         scaffold_module("orders")
 
         mod_dir = module_root / "modules" / "orders"
-        src_dir = mod_dir / "src" / "sm_orders"
+        src_dir = mod_dir / "sm_orders"
 
         expected_files = [
             mod_dir / "pyproject.toml",
@@ -120,7 +120,7 @@ class TestScaffoldModule:
         scaffold_module("orders")
 
         content = (
-            module_root / "modules" / "orders" / "src" / "sm_orders" / "module.py"
+            module_root / "modules" / "orders" / "sm_orders" / "module.py"
         ).read_text()
         assert "class OrdersModule(ModuleBase):" in content
         assert 'name="Orders"' in content
@@ -129,7 +129,7 @@ class TestScaffoldModule:
         scaffold_module("orders")
 
         content = (
-            module_root / "modules" / "orders" / "src" / "sm_orders" / "models.py"
+            module_root / "modules" / "orders" / "sm_orders" / "models.py"
         ).read_text()
         assert "class Order(Base, AuditMixin):" in content
 
@@ -147,7 +147,7 @@ class TestScaffoldModule:
     def test_scaffold_compound_name(self, module_root: Path):
         scaffold_module("blog_posts")
 
-        src_dir = module_root / "modules" / "blog_posts" / "src" / "sm_blog_posts"
+        src_dir = module_root / "modules" / "blog_posts" / "sm_blog_posts"
         assert (src_dir / "module.py").exists()
 
         module_content = (src_dir / "module.py").read_text()
@@ -197,7 +197,7 @@ class TestUpdateRootPyproject:
     def test_adds_paths(self, module_root: Path):
         (module_root / "pyproject.toml").write_text(
             "[tool.ty.environment]\nextra-paths = [\n"
-            '    "modules/products/src",\n]\n\n'
+            '    "modules/products",\n]\n\n'
             "[tool.pytest.ini_options]\n"
             'testpaths = ["modules/products/tests"]\n'
         )
@@ -205,5 +205,5 @@ class TestUpdateRootPyproject:
         update_root_pyproject("orders")
 
         content = (module_root / "pyproject.toml").read_text()
-        assert '"modules/orders/src"' in content
+        assert '"modules/orders"' in content
         assert '"modules/orders/tests"' in content

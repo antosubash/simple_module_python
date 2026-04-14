@@ -64,7 +64,7 @@ def scaffold_module(name: str) -> None:
     singular = to_singular(name)
     singular_class = to_class_name(singular)
     pkg = f"sm_{name}"
-    src_dir = module_dir / "src" / pkg
+    src_dir = module_dir / pkg
 
     print(f"Scaffolding module '{name}'...")
 
@@ -676,16 +676,19 @@ def scaffold_module(name: str) -> None:
     )
 
 
-def _insert_before_last(content: str, marker: str, insertion: str) -> str | None:
-    """Insert ``insertion`` after the last occurrence of ``marker`` in ``content``.
+def _insert_after_last_match(content: str, pattern: str, line_to_insert: str) -> str | None:
+    """Insert ``line_to_insert`` on a new line after the last line matching ``pattern``.
 
-    Returns the modified content, or None if the marker was not found.
+    Returns the modified content, or None if no line matched.
     """
-    idx = content.rfind(marker)
-    if idx == -1:
+    matches = list(re.finditer(pattern, content, re.MULTILINE))
+    if not matches:
         return None
-    end = idx + len(marker)
-    return content[:end] + insertion + content[end:]
+    last = matches[-1]
+    end_of_line = content.find("\n", last.end())
+    if end_of_line == -1:
+        end_of_line = len(content)
+    return content[: end_of_line + 1] + line_to_insert + content[end_of_line + 1 :]
 
 
 def update_host_pyproject(name: str) -> None:
@@ -700,21 +703,20 @@ def update_host_pyproject(name: str) -> None:
 
     original = content
 
-    # Add to [project] dependencies — insert after last existing "sm-*" dep
-    result = _insert_before_last(content, ",\n]", f'\n    "{pkg}",\n]')
-    if result and result != content:
-        content = result.replace(",\n]\n]", ",\n]", 1)  # fix double bracket
-    # Fallback: try inserting after any quoted dependency line
-    if content == original:
-        result = _insert_before_last(content, '",\n', f'"\n    "{pkg}",\n')
-        if result:
-            content = result
-
-    # Add to [tool.uv.sources] — insert after last workspace source
-    result = _insert_before_last(
+    # Add to [project] dependencies — insert after last "sm-*" dep line
+    result = _insert_after_last_match(
         content,
-        "{ workspace = true }",
-        f"\n{pkg} = {{ workspace = true }}",
+        r'^    "sm-[\w-]+",\s*$',
+        f'    "{pkg}",\n',
+    )
+    if result:
+        content = result
+
+    # Add to [tool.uv.sources] — insert after last workspace source line
+    result = _insert_after_last_match(
+        content,
+        r"^sm-[\w-]+ = \{ workspace = true \}\s*$",
+        f"{pkg} = {{ workspace = true }}\n",
     )
     if result:
         content = result
@@ -734,31 +736,29 @@ def update_root_pyproject(name: str) -> None:
     """Add the module to type-checking paths and test paths in root pyproject.toml."""
     root_toml = ROOT / "pyproject.toml"
     content = root_toml.read_text()
-    src_path = f"modules/{name}/src"
+    src_path = f"modules/{name}"
+    test_path = f"modules/{name}/tests"
 
-    if src_path in content:
-        print(f"  root pyproject.toml already contains {src_path}, skipping")
+    if f'"{src_path}",' in content and f'"{test_path}"' in content:
+        print(f"  root pyproject.toml already contains modules/{name}, skipping")
         return
 
     original = content
 
-    # Add to [tool.ty.environment] extra-paths — insert after last modules/*/src entry
-    result = _insert_before_last(
+    # Add to [tool.ty.environment] extra-paths — insert after last "modules/*" entry
+    result = _insert_after_last_match(
         content,
-        '/src",',
-        f'\n    "{src_path}",',
+        r'^    "modules/[\w/]+",\s*$',
+        f'    "{src_path}",\n',
     )
     if result:
         content = result
 
-    # Add to [tool.pytest.ini_options] testpaths — insert after last modules/*/tests entry
-    result = _insert_before_last(
-        content,
-        '/tests"',
-        f', "modules/{name}/tests"',
-    )
-    if result:
-        content = result
+    # Append after the last "modules/*/tests" entry, before the closing ]
+    testpath_matches = list(re.finditer(r'"modules/[\w/]+/tests"', content))
+    if testpath_matches and f'"{test_path}"' not in content:
+        last = testpath_matches[-1]
+        content = content[: last.end()] + f', "{test_path}"' + content[last.end() :]
 
     if content == original:
         print(
@@ -792,7 +792,7 @@ def main() -> None:
     print()
     print("Next steps:")
     print("  1. Run 'uv sync --all-packages' to install the new module")
-    print(f"  2. Edit modules/{name}/src/sm_{name}/models.py to define your domain model")
+    print(f"  2. Edit modules/{name}/sm_{name}/models.py to define your domain model")
     print("  3. Update schemas, service, and endpoints to match your model")
     print(f'  4. Run \'make migration msg="add {name} tables"\' to create a migration')
     print("  5. Run 'make test' to verify everything works")
