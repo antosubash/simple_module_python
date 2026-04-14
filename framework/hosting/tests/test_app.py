@@ -288,7 +288,21 @@ class TestTenantMiddleware:
         assert captured["state_tenant_id"] == "acme-corp"
 
     async def test_tenant_from_header_fallback(self):
-        """With no authenticated user, the X-Tenant-ID header should be used."""
+        """With no authenticated user, the configured header should be used."""
+        captured: dict = {}
+
+        async def inner_app(scope, receive, send):
+            captured["tenant_id"] = current_tenant_id.get()
+
+        scope = _http_scope(headers=[(b"x-tenant-id", b"header-tenant")])
+        await TenantMiddleware(inner_app, header="X-Tenant-ID")(
+            scope, _noop_receive, _noop_send
+        )
+
+        assert captured["tenant_id"] == "header-tenant"
+
+    async def test_header_ignored_when_header_is_none(self):
+        """``header=None`` disables the header source entirely."""
         captured: dict = {}
 
         async def inner_app(scope, receive, send):
@@ -297,7 +311,7 @@ class TestTenantMiddleware:
         scope = _http_scope(headers=[(b"x-tenant-id", b"header-tenant")])
         await TenantMiddleware(inner_app)(scope, _noop_receive, _noop_send)
 
-        assert captured["tenant_id"] == "header-tenant"
+        assert captured["tenant_id"] is None
 
     async def test_user_tenant_id_takes_precedence_over_header(self):
         """Authenticated user's tenant_id must win over the X-Tenant-ID header."""
@@ -309,7 +323,9 @@ class TestTenantMiddleware:
         scope = _http_scope(headers=[(b"x-tenant-id", b"header-tenant")])
         scope["state"]["user"] = SimpleNamespace(tenant_id="user-tenant")
 
-        await TenantMiddleware(inner_app)(scope, _noop_receive, _noop_send)
+        await TenantMiddleware(inner_app, header="X-Tenant-ID")(
+            scope, _noop_receive, _noop_send
+        )
 
         assert captured["tenant_id"] == "user-tenant"
 
@@ -350,13 +366,27 @@ class TestTenantMiddleware:
         scope = _http_scope(headers=[(b"x-tenant-id", b"from-header")])
         scope["state"]["user"] = SimpleNamespace(tenant_id=None)
 
-        await TenantMiddleware(inner_app)(scope, _noop_receive, _noop_send)
+        await TenantMiddleware(inner_app, header="X-Tenant-ID")(
+            scope, _noop_receive, _noop_send
+        )
 
         assert captured["tenant_id"] == "from-header"
 
 
 class TestTenantMiddlewareIntegration:
     async def test_app_pipeline_includes_tenant_middleware(self, app: FastAPI):
-        """TenantMiddleware should be registered on the FastAPI app's middleware stack."""
+        """TenantMiddleware should be registered when multi_tenant=True (fixture default)."""
         middleware_classes = [m.cls for m in app.user_middleware]
         assert TenantMiddleware in middleware_classes
+
+    async def test_tenant_middleware_absent_when_opted_out(self):
+        """With ``multi_tenant=False`` the middleware must not be installed."""
+        single_tenant_settings = Settings(
+            database_url="sqlite+aiosqlite:///:memory:",
+            environment="testing",
+            secret_key="test-secret-key",
+            multi_tenant=False,
+        )
+        app = create_app(single_tenant_settings)
+        middleware_classes = [m.cls for m in app.user_middleware]
+        assert TenantMiddleware not in middleware_classes

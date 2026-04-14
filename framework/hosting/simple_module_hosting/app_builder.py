@@ -236,14 +236,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         mod.register_exception_handlers(app)
 
     # ── Phase 8: Middleware pipeline ───────────────────────
-    # Order matters: last added = first executed
-    # Execution: CorrelationId → RequestLogging → Security → Session → [module] → Tenant → Inertia
+    # Order matters: last added = first executed.
+    # Execution: CorrelationId → RequestLogging → Security → Session
+    #          → [module] → (Tenant, if multi_tenant) → Inertia
     app.add_middleware(
         InertiaLayoutDataMiddleware,
         menu_registry=menu_registry,
         permission_registry=perm_registry,
     )
-    app.add_middleware(TenantMiddleware)
+    if settings.multi_tenant:
+        app.add_middleware(TenantMiddleware, header=settings.tenant_header or None)
     for mod in modules:
         mod.register_middleware(app)
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
