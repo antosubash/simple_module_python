@@ -49,6 +49,7 @@ from simple_module_hosting.settings import Settings
 
 logger = logging.getLogger(__name__)
 
+
 def _resolve_project_root() -> Path:
     """Return the project root directory.
 

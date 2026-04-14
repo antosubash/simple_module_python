@@ -38,10 +38,7 @@ async def get_db(request: Request) -> AsyncGenerator[AsyncSession, None]:
             # live collections in case a caller adds objects after their
             # final flush (no further flush would fire the listener).
             has_pending = bool(
-                session.info.get("has_writes")
-                or session.new
-                or session.dirty
-                or session.deleted
+                session.info.get("has_writes") or session.new or session.dirty or session.deleted
             )
             if has_pending:
                 await session.commit()

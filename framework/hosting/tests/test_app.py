@@ -295,9 +295,7 @@ class TestTenantMiddleware:
             captured["tenant_id"] = current_tenant_id.get()
 
         scope = _http_scope(headers=[(b"x-tenant-id", b"header-tenant")])
-        await TenantMiddleware(inner_app, header="X-Tenant-ID")(
-            scope, _noop_receive, _noop_send
-        )
+        await TenantMiddleware(inner_app, header="X-Tenant-ID")(scope, _noop_receive, _noop_send)
 
         assert captured["tenant_id"] == "header-tenant"
 
@@ -323,9 +321,7 @@ class TestTenantMiddleware:
         scope = _http_scope(headers=[(b"x-tenant-id", b"header-tenant")])
         scope["state"]["user"] = SimpleNamespace(tenant_id="user-tenant")
 
-        await TenantMiddleware(inner_app, header="X-Tenant-ID")(
-            scope, _noop_receive, _noop_send
-        )
+        await TenantMiddleware(inner_app, header="X-Tenant-ID")(scope, _noop_receive, _noop_send)
 
         assert captured["tenant_id"] == "user-tenant"
 
@@ -366,9 +362,7 @@ class TestTenantMiddleware:
         scope = _http_scope(headers=[(b"x-tenant-id", b"from-header")])
         scope["state"]["user"] = SimpleNamespace(tenant_id=None)
 
-        await TenantMiddleware(inner_app, header="X-Tenant-ID")(
-            scope, _noop_receive, _noop_send
-        )
+        await TenantMiddleware(inner_app, header="X-Tenant-ID")(scope, _noop_receive, _noop_send)
 
         assert captured["tenant_id"] == "from-header"
 

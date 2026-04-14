@@ -55,8 +55,7 @@ def discover_modules(*, strict: bool = False) -> list[ModuleBase]:
 
         if not isinstance(instance, ModuleBase):
             msg = (
-                f"Entry point '{ep.name}' loaded {module_cls!r} which is not a "
-                "ModuleBase subclass"
+                f"Entry point '{ep.name}' loaded {module_cls!r} which is not a ModuleBase subclass"
             )
             if strict:
                 raise InvalidModuleError(msg)
