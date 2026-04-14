@@ -104,9 +104,7 @@ class TestCreateAction:
         listing = await authenticated_client.get("/api/products/")
         assert [p["name"] for p in listing.json()] == ["Formed"]
 
-    async def test_invalid_submission_redirects_back(
-        self, authenticated_client: httpx.AsyncClient
-    ):
+    async def test_invalid_submission_redirects_back(self, authenticated_client: httpx.AsyncClient):
         resp = await authenticated_client.post(
             "/products/",
             json={"name": "", "price": "0"},
@@ -146,9 +144,7 @@ class TestDeleteAction:
     ):
         product_id = await create_product(name="Doomed")
 
-        resp = await authenticated_client.delete(
-            f"/products/{product_id}", follow_redirects=False
-        )
+        resp = await authenticated_client.delete(f"/products/{product_id}", follow_redirects=False)
         assert resp.status_code == 303
         assert resp.headers["location"] == "/products"
 

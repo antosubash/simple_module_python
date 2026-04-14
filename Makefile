@@ -1,9 +1,16 @@
-.PHONY: install dev dev-api dev-ui build test lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module
+.PHONY: install install-py install-js dev dev-api dev-ui build test lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck
 
 # Install
 install:
 	uv sync --all-packages
 	npm install
+
+# Install (granular — used by CI so Python jobs don't pull npm and vice versa)
+install-py:
+	uv sync --all-packages
+
+install-js:
+	npm ci
 
 # Development
 dev: docker-up
@@ -24,11 +31,20 @@ build:
 test:
 	uv run pytest
 
-lint:
+lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck
+
+# Kept granular so pr.yml can run them in parallel.
+ci-python-lint:
 	uv run ruff format --check .
 	uv run ruff check .
+
+ci-python-typecheck:
 	uv run ty check
-	npx biome check .
+
+ci-js-lint:
+	npx biome ci .
+
+ci-js-typecheck:
 	npx tsc --noEmit -p host/client_app/tsconfig.json
 
 # Diagnostics
