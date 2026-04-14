@@ -63,7 +63,7 @@ def scaffold_module(name: str) -> None:
     class_name = to_class_name(name)
     singular = to_singular(name)
     singular_class = to_class_name(singular)
-    pkg = f"sm_{name}"
+    pkg = name
     src_dir = module_dir / pkg
 
     print(f"Scaffolding module '{name}'...")
@@ -73,7 +73,7 @@ def scaffold_module(name: str) -> None:
         module_dir / "pyproject.toml",
         f"""\
         [project]
-        name = "{pkg.replace('_', '-')}"
+        name = "{pkg.replace("_", "-")}"
         version = "0.1.0"
         description = "The {class_name} module"
         authors = []
@@ -695,18 +695,18 @@ def update_host_pyproject(name: str) -> None:
     """Add the new module as a dependency in host/pyproject.toml."""
     host_toml = ROOT / "host" / "pyproject.toml"
     content = host_toml.read_text()
-    pkg = f"sm-{name.replace('_', '-')}"
+    pkg = name.replace("_", "-")
 
-    if pkg in content:
+    if f'"{pkg}"' in content:
         print(f"  host/pyproject.toml already contains {pkg}, skipping")
         return
 
     original = content
 
-    # Add to [project] dependencies — insert after last "sm-*" dep line
+    # Add to [project] dependencies — insert after last module dep line
     result = _insert_after_last_match(
         content,
-        r'^    "sm-[\w-]+",\s*$',
+        r'^    "[\w-]+",\s*$',
         f'    "{pkg}",\n',
     )
     if result:
@@ -715,7 +715,7 @@ def update_host_pyproject(name: str) -> None:
     # Add to [tool.uv.sources] — insert after last workspace source line
     result = _insert_after_last_match(
         content,
-        r"^sm-[\w-]+ = \{ workspace = true \}\s*$",
+        r"^[\w-]+ = \{ workspace = true \}\s*$",
         f"{pkg} = {{ workspace = true }}\n",
     )
     if result:
@@ -792,9 +792,9 @@ def main() -> None:
     print()
     print("Next steps:")
     print("  1. Run 'uv sync --all-packages' to install the new module")
-    print(f"  2. Edit modules/{name}/sm_{name}/models.py to define your domain model")
+    print(f"  2. Edit modules/{name}/{name}/models.py to define your domain model")
     print("  3. Update schemas, service, and endpoints to match your model")
-    print(f'  4. Run \'make migration msg="add {name} tables"\' to create a migration')
+    print(f"  4. Run 'make migration msg=\"add {name} tables\"' to create a migration")
     print("  5. Run 'make test' to verify everything works")
 
 

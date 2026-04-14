@@ -14,7 +14,7 @@ class DashboardModule(ModuleBase):
     )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from sm_dashboard.endpoints.views import router as views
+        from dashboard.endpoints.views import router as views
 
         view_router.include_router(views)
 

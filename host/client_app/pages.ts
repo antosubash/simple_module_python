@@ -1,7 +1,7 @@
 /**
  * Auto-discover all module pages via Vite's import.meta.glob.
  *
- * Convention: modules/{name}/sm_{name}/pages/{PageName}.tsx
+ * Convention: modules/{name}/{name}/pages/{PageName}.tsx
  * Inertia component name: "{ModuleName}/{PageName}"
  *
  * Host-level pages live in host/client_app/pages/{PageName}.tsx
@@ -21,7 +21,7 @@ const pages: Record<string, PageLoader> = {};
 
 for (const [filePath, loader] of Object.entries(modulePages)) {
   // Extract module name and page name from file path
-  // e.g., "../../modules/products/sm_products/pages/Browse.tsx"
+  // e.g., "../../modules/products/products/pages/Browse.tsx"
   //   -> moduleName = "Products", pageName = "Browse"
   const match = filePath.match(/modules\/(\w+)\/\w+\/pages\/(\w+)\.tsx$/);
   if (match) {

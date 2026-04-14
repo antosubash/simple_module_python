@@ -5,8 +5,8 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sm_products.contracts.schemas import ProductCreate, ProductOut, ProductUpdate
-from sm_products.models import Product
+from products.contracts.schemas import ProductCreate, ProductOut, ProductUpdate
+from products.models import Product
 
 
 class ProductService:
@@ -41,9 +41,7 @@ class ProductService:
         return products, total
 
     async def get_by_id(self, product_id: int) -> ProductOut | None:
-        result = await self.db.execute(
-            select(Product).where(Product.id == product_id)
-        )
+        result = await self.db.execute(select(Product).where(Product.id == product_id))
         product = result.scalar_one_or_none()
         if product is None:
             return None
@@ -57,9 +55,7 @@ class ProductService:
         return ProductOut.model_validate(product)
 
     async def update(self, product_id: int, data: ProductUpdate) -> ProductOut | None:
-        result = await self.db.execute(
-            select(Product).where(Product.id == product_id)
-        )
+        result = await self.db.execute(select(Product).where(Product.id == product_id))
         product = result.scalar_one_or_none()
         if product is None:
             return None
@@ -70,9 +66,7 @@ class ProductService:
         return ProductOut.model_validate(product)
 
     async def delete(self, product_id: int) -> bool:
-        result = await self.db.execute(
-            select(Product).where(Product.id == product_id)
-        )
+        result = await self.db.execute(select(Product).where(Product.id == product_id))
         product = result.scalar_one_or_none()
         if product is None:
             return False

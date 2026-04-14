@@ -158,7 +158,7 @@ class ModuleDiagnostics:
         """Detect framework packages that directly import from plugin module packages.
 
         The framework (core, hosting, db) must never ``import`` from a
-        discovered module's package (e.g. ``sm_auth``, ``sm_products``).
+        discovered module's package (e.g. ``auth``, ``products``).
         All interaction should go through the ``ModuleBase`` lifecycle hooks.
         """
         # Collect top-level package names for every discovered module.

@@ -6,9 +6,9 @@ from decimal import Decimal
 
 import httpx
 import pytest
+from products.contracts.schemas import ProductCreate, ProductUpdate
+from products.service import ProductService
 from pydantic import ValidationError
-from sm_products.contracts.schemas import ProductCreate, ProductUpdate
-from sm_products.service import ProductService
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # ── Schema validation ────────────────────────────────────────────────
@@ -98,7 +98,6 @@ class TestProductService:
         svc = ProductService(db_session)
         deleted = await svc.delete(999)
         assert deleted is False
-
 
     async def test_soft_deleted_excluded_from_get_all(self, db_session: AsyncSession):
         svc = ProductService(db_session)
@@ -211,7 +210,7 @@ class TestProductsModuleLifecycle:
         """on_startup should not create tables — Alembic manages schema."""
         from unittest.mock import AsyncMock, MagicMock
 
-        from sm_products.module import ProductsModule
+        from products.module import ProductsModule
 
         mod = ProductsModule()
         mock_app = MagicMock()

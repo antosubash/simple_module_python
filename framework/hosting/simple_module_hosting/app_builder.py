@@ -10,14 +10,12 @@ from pathlib import Path
 from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.exceptions import HTTPException
 from inertia import (
     Inertia,
     InertiaConfig,
     InertiaVersionConflictException,
     inertia_version_conflict_exception_handler,
 )
-from simple_module_core.exceptions import NotFoundError
 from simple_module_core.diagnostics import (
     Diagnostic,
     DiagnosticLevel,
@@ -26,12 +24,14 @@ from simple_module_core.diagnostics import (
 )
 from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.events import EventBus
+from simple_module_core.exceptions import NotFoundError
 from simple_module_core.feature_flags import FeatureFlagRegistry
 from simple_module_core.health import HealthRegistry
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
+from starlette.exceptions import HTTPException
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -268,7 +268,9 @@ async def _render_error_page(request: Request, status_code: int, message: str) -
     except Exception:
         # Fallback if Inertia rendering itself fails (e.g. missing session)
         logger.exception("Error page rendering failed, falling back to JSON")
-        return JSONResponse(status_code=status_code, content={"detail": message or "Internal Server Error"})
+        return JSONResponse(
+            status_code=status_code, content={"detail": message or "Internal Server Error"}
+        )
 
 
 async def _http_exception_handler(request: Request, exc: HTTPException) -> Response:

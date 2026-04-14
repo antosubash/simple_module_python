@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request
 
-from sm_auth.contracts.schemas import UserContext
+from auth.contracts.schemas import UserContext
 
 
 async def get_current_user(request: Request) -> UserContext:

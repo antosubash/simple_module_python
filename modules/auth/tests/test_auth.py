@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from sm_auth.contracts.schemas import UserContext
+from auth.contracts.schemas import UserContext
 
 # ── UserContext ───────────────────────────────────────────────────────
 
@@ -121,8 +121,8 @@ class TestGetCurrentUser:
         """get_current_user raises 401 when request.state has no user."""
         from unittest.mock import MagicMock
 
+        from auth.deps import get_current_user
         from fastapi import HTTPException
-        from sm_auth.deps import get_current_user
 
         request = MagicMock()
         # Simulate no user on request.state
@@ -136,7 +136,7 @@ class TestGetCurrentUser:
         """get_current_user returns the user from request.state."""
         from unittest.mock import MagicMock
 
-        from sm_auth.deps import get_current_user
+        from auth.deps import get_current_user
 
         user = UserContext(id="u1", email="u@test.com", name="User", roles=["user"])
         request = MagicMock()
@@ -151,8 +151,8 @@ class TestRequirePermission:
         """The require_permission check function raises 403 when user lacks permissions."""
         from unittest.mock import MagicMock
 
+        from auth.deps import require_permission
         from fastapi import HTTPException
-        from sm_auth.deps import require_permission
 
         # Get the inner check function from the Depends wrapper
         dep = require_permission("products.delete")
@@ -173,7 +173,7 @@ class TestRequirePermission:
         """The require_permission check allows admin users through."""
         from unittest.mock import MagicMock
 
-        from sm_auth.deps import require_permission
+        from auth.deps import require_permission
 
         dep = require_permission("products.delete")
         check_fn = dep.dependency
@@ -315,7 +315,7 @@ class TestRequirePermissionAdvanced:
         """User with any of the required permissions should pass."""
         from unittest.mock import MagicMock
 
-        from sm_auth.deps import require_permission
+        from auth.deps import require_permission
 
         dep = require_permission("products.view", "products.edit")
         check_fn = dep.dependency
@@ -330,8 +330,8 @@ class TestRequirePermissionAdvanced:
     async def test_non_admin_without_permission_fails(self, app):
         from unittest.mock import MagicMock
 
+        from auth.deps import require_permission
         from fastapi import HTTPException
-        from sm_auth.deps import require_permission
 
         dep = require_permission("products.delete")
         check_fn = dep.dependency
@@ -351,14 +351,14 @@ class TestRequirePermissionAdvanced:
 
 class TestAuthModuleRegistration:
     async def test_auth_module_has_correct_meta(self):
-        from sm_auth.module import AuthModule
+        from auth.module import AuthModule
 
         mod = AuthModule()
         assert mod.meta.name == "Auth"
         assert mod.meta.route_prefix == "/auth"
 
     async def test_auth_module_registers_menu_items(self):
-        from sm_auth.module import AuthModule
+        from auth.module import AuthModule
 
         mod = AuthModule()
         from simple_module_core.menu import MenuRegistry

@@ -14,7 +14,7 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from sm_auth.contracts.schemas import UserContext
+from auth.contracts.schemas import UserContext
 
 logger = logging.getLogger(__name__)
 

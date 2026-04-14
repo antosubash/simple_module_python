@@ -393,9 +393,7 @@ class TestMultiTenancyEdgeCases:
         finally:
             current_tenant_id.reset(token)
 
-    async def test_cross_tenant_violation_does_not_leak_state(
-        self, tenant_session: AsyncSession
-    ):
+    async def test_cross_tenant_violation_does_not_leak_state(self, tenant_session: AsyncSession):
         """After a raised TenantIsolationError and rollback, the session is usable."""
         token = current_tenant_id.set("tenant-a")
         try:
@@ -499,7 +497,7 @@ class TestEntityListenerLogging:
         """Inserting a new entity should log db.entity.created."""
         import logging
 
-        from sm_products.models import Product
+        from products.models import Product
 
         with caplog.at_level(logging.INFO, logger="simple_module.db"):
             product = Product(name="Widget", price=9.99)
@@ -519,7 +517,7 @@ class TestEntityListenerLogging:
         """Modifying an entity should log db.entity.updated."""
         import logging
 
-        from sm_products.models import Product
+        from products.models import Product
 
         product = Product(name="Widget", price=9.99)
         db_session.add(product)

@@ -60,9 +60,11 @@ async def _create_all_tables(engine) -> None:
     """Create all module tables in a single connection."""
     bases = _ensure_models_imported()
     async with engine.begin() as conn:
+
         def _sync_create_all(sync_conn):
             for base in bases:
                 base.metadata.create_all(sync_conn)
+
         await conn.run_sync(_sync_create_all)
 
 
