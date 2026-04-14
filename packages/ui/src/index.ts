@@ -1,4 +1,5 @@
 export { ErrorBoundary } from './components/ErrorBoundary';
+export { ErrorScreen } from './components/ErrorScreen';
 export { NavIcon } from './components/NavIcon';
 export { PageShell } from './components/PageShell';
 export { AdminLayout } from './layouts/AdminLayout';

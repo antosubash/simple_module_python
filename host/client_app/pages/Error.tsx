@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import { ErrorScreen } from '@ui/components/ErrorScreen';
 import { Button } from '@ui/components/ui/button';
 
 interface Props {
@@ -23,23 +24,14 @@ function ErrorPage({ status, message }: Props) {
   const description = message || descriptions[status] || 'An unexpected error occurred.';
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="text-center max-w-md">
-        <p className="text-8xl font-extrabold font-[var(--font-display)] text-primary">{status}</p>
-        <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground font-[var(--font-display)] sm:text-4xl">
-          {title}
-        </h1>
-        <p className="mt-3 text-base text-muted-foreground leading-relaxed">{description}</p>
-        <div className="mt-8 flex items-center justify-center gap-4">
-          <Button asChild>
-            <Link href="/">Go Home</Link>
-          </Button>
-          <Button variant="outline" onClick={() => window.history.back()}>
-            Go Back
-          </Button>
-        </div>
-      </div>
-    </div>
+    <ErrorScreen hero={status} title={title} description={description}>
+      <Button asChild>
+        <Link href="/">Go Home</Link>
+      </Button>
+      <Button variant="outline" onClick={() => window.history.back()}>
+        Go Back
+      </Button>
+    </ErrorScreen>
   );
 }
 
