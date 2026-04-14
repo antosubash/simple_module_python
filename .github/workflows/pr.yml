@@ -13,6 +13,17 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  NODE_VERSION: "20"
+  # Hash all workspace pyproject.toml files so cache invalidates when any
+  # member's deps change. uv.lock is gitignored, so this is the best key
+  # available; commit uv.lock to get true lockfile-based caching.
+  UV_CACHE_GLOB: |
+    pyproject.toml
+    framework/*/pyproject.toml
+    modules/*/pyproject.toml
+    host/pyproject.toml
+
 jobs:
   python-lint:
     name: Python lint & format
@@ -22,8 +33,7 @@ jobs:
       - uses: astral-sh/setup-uv@v8
         with:
           enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
-          python-version: "3.12"
+          cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
       - run: make install-py
       - run: make ci-python-lint
 
@@ -35,8 +45,7 @@ jobs:
       - uses: astral-sh/setup-uv@v8
         with:
           enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
-          python-version: "3.12"
+          cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
       - run: make install-py
       - run: make ci-python-typecheck
 
@@ -48,8 +57,7 @@ jobs:
       - uses: astral-sh/setup-uv@v8
         with:
           enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
-          python-version: "3.12"
+          cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
       - run: make install-py
       - run: make test
 
@@ -60,7 +68,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
       - run: make install-js
       - run: make ci-js-lint
@@ -72,7 +80,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
       - run: make install-js
       - run: make ci-js-typecheck
@@ -90,7 +98,5 @@ jobs:
       - js-typecheck
     if: always()
     steps:
-      - name: Fail if any dependency failed
-        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: exit 1
-      - run: echo "All PR checks passed."

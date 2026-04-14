@@ -33,7 +33,7 @@ test:
 
 lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck
 
-# CI targets — kept granular so .github/workflows/pr.yml can run them in parallel.
+# Kept granular so pr.yml can run them in parallel.
 ci-python-lint:
 	uv run ruff format --check .
 	uv run ruff check .
