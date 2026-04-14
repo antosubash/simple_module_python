@@ -17,15 +17,6 @@ import { Card } from '@ui/components/ui/card';
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@ui/components/ui/empty';
 import { Input } from '@ui/components/ui/input';
 import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@ui/components/ui/pagination';
-import {
   Table,
   TableBody,
   TableCell,
@@ -38,6 +29,7 @@ import { AuthenticatedLayout } from '@ui/layouts/AuthenticatedLayout';
 import { Package, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { ProductsPagination } from './components/ProductsPagination';
 
 interface Product {
   id: number;
@@ -248,61 +240,11 @@ function Browse() {
         </Table>
       </Card>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="mt-4">
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => navigate(pagination.page - 1)}
-                  className={
-                    pagination.page <= 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'
-                  }
-                />
-              </PaginationItem>
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((p) => {
-                  if (p === 1 || p === totalPages) return true;
-                  if (Math.abs(p - pagination.page) <= 1) return true;
-                  return false;
-                })
-                .reduce<(number | 'ellipsis')[]>((acc, p, i, arr) => {
-                  if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('ellipsis');
-                  acc.push(p);
-                  return acc;
-                }, [])
-                .map((item, i) =>
-                  item === 'ellipsis' ? (
-                    <PaginationItem key={`e${i}`}>
-                      <PaginationEllipsis />
-                    </PaginationItem>
-                  ) : (
-                    <PaginationItem key={item}>
-                      <PaginationLink
-                        isActive={item === pagination.page}
-                        onClick={() => navigate(item)}
-                        className="cursor-pointer"
-                      >
-                        {item}
-                      </PaginationLink>
-                    </PaginationItem>
-                  ),
-                )}
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => navigate(pagination.page + 1)}
-                  className={
-                    pagination.page >= totalPages
-                      ? 'pointer-events-none opacity-50'
-                      : 'cursor-pointer'
-                  }
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        </div>
-      )}
+      <ProductsPagination
+        page={pagination.page}
+        totalPages={totalPages}
+        onNavigate={(p) => navigate(p)}
+      />
     </PageShell>
   );
 }
