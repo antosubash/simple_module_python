@@ -5,13 +5,13 @@ description = "Add your description here"
 requires-python = ">=3.12"
 dependencies = [
     "simple-module-hosting",
-    "sm-auth",
-    "sm-dashboard",
-    "sm-products",
+    "auth",
+    "dashboard",
+    "products",
 ]
 
 [tool.uv.sources]
 simple-module-hosting = { workspace = true }
-sm-auth = { workspace = true }
-sm-products = { workspace = true }
-sm-dashboard = { workspace = true }
+auth = { workspace = true }
+products = { workspace = true }
+dashboard = { workspace = true }

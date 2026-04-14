@@ -4,8 +4,8 @@
     "includes": [
       "host/client_app/**",
       "packages/**",
-      "modules/*/src/*/pages/**",
-      "modules/*/src/*/components/**"
+      "modules/*/*/pages/**",
+      "modules/*/*/components/**"
     ],
     "ignoreUnknown": true
   },

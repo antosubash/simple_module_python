@@ -36,17 +36,17 @@ ignore = [
 
 [tool.ty.environment]
 extra-paths = [
-    "framework/core/src",
-    "framework/db/src",
-    "framework/hosting/src",
-    "modules/auth/src",
-    "modules/dashboard/src",
-    "modules/products/src",
+    "framework/core",
+    "framework/db",
+    "framework/hosting",
+    "modules/auth",
+    "modules/dashboard",
+    "modules/products",
     "host",
 ]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["framework/core/tests", "framework/db/tests", "framework/hosting/tests", "modules/auth/tests", "modules/dashboard/tests", "modules/products/tests"]
+testpaths = ["framework/core/tests", "framework/db/tests", "framework/hosting/tests", "modules/auth/tests", "modules/dashboard/tests", "modules/products/tests", "tests/integration"]
 markers = ["e2e: end-to-end tests requiring live services (Keycloak, browser)"]
 addopts = "-m 'not e2e'"

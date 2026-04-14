@@ -1,5 +1,5 @@
 [project]
-name = "sm-products"
+name = "products"
 version = "0.1.0"
 description = "Add your description here"
 authors = [
@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.entry-points.simple_module]
-products = "sm_products.module:ProductsModule"
+products = "products.module:ProductsModule"
 
 [build-system]
 requires = ["hatchling"]

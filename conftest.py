@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import contextlib
+import importlib
 from collections.abc import AsyncGenerator
+from functools import lru_cache
 
 import httpx
 import pytest
+from simple_module_core.discovery import discover_modules
+from simple_module_db.base import all_module_bases
 from simple_module_db.session import DatabaseState, init_db
 from simple_module_hosting.settings import Settings
 from sqlalchemy.ext.asyncio import (
@@ -26,8 +31,11 @@ def settings() -> Settings:
 
 @pytest.fixture
 async def db_state() -> AsyncGenerator[DatabaseState, None]:
-    """Create a fresh in-memory DatabaseState."""
+    """Create a fresh in-memory DatabaseState with listeners registered."""
+    from simple_module_db.listeners import register_listeners
+
     state = init_db("sqlite+aiosqlite:///:memory:")
+    register_listeners(state)
     yield state
     await state.engine.dispose()
 
@@ -38,13 +46,32 @@ async def engine(db_state: DatabaseState) -> AsyncEngine:
     return db_state.engine
 
 
+@lru_cache(maxsize=1)
+def _ensure_models_imported() -> list:
+    """Import all module models so all_module_bases is populated (cached)."""
+    for mod in discover_modules():
+        pkg = type(mod).__module__.split(".")[0]
+        with contextlib.suppress(ModuleNotFoundError):
+            importlib.import_module(f"{pkg}.models")
+    return list(all_module_bases)
+
+
+async def _create_all_tables(engine) -> None:
+    """Create all module tables in a single connection."""
+    bases = _ensure_models_imported()
+    async with engine.begin() as conn:
+
+        def _sync_create_all(sync_conn):
+            for base in bases:
+                base.metadata.create_all(sync_conn)
+
+        await conn.run_sync(_sync_create_all)
+
+
 @pytest.fixture
 async def db_session(db_state: DatabaseState) -> AsyncGenerator[AsyncSession, None]:
     """Yield an async session backed by in-memory SQLite."""
-    from sm_products.models import Base
-
-    async with db_state.engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    await _create_all_tables(db_state.engine)
 
     async with db_state.session_factory() as session:
         yield session
@@ -57,10 +84,7 @@ async def app(settings: Settings):
 
     application = create_app(settings)
 
-    from sm_products.models import Base as ProductsBase
-
-    async with application.state.db.engine.begin() as conn:
-        await conn.run_sync(ProductsBase.metadata.create_all)
+    await _create_all_tables(application.state.db.engine)
 
     # Trigger lifespan startup so app.state.migration is populated
     ctx = application.router.lifespan_context(application)

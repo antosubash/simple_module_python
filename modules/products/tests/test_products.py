@@ -6,9 +6,9 @@ from decimal import Decimal
 
 import httpx
 import pytest
+from products.contracts.schemas import ProductCreate, ProductUpdate
+from products.service import ProductService
 from pydantic import ValidationError
-from sm_products.contracts.schemas import ProductCreate, ProductUpdate
-from sm_products.service import ProductService
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # ── Schema validation ────────────────────────────────────────────────
@@ -99,6 +99,38 @@ class TestProductService:
         deleted = await svc.delete(999)
         assert deleted is False
 
+    async def test_soft_deleted_excluded_from_get_all(self, db_session: AsyncSession):
+        svc = ProductService(db_session)
+        created = await svc.create(ProductCreate(name="Temp", price=Decimal("1.00")))
+        await svc.delete(created.id)
+        await db_session.flush()
+        products, total = await svc.get_all()
+        assert all(p.id != created.id for p in products)
+
+    async def test_soft_deleted_excluded_from_get_by_id(self, db_session: AsyncSession):
+        svc = ProductService(db_session)
+        created = await svc.create(ProductCreate(name="Ghost", price=Decimal("1.00")))
+        await svc.delete(created.id)
+        await db_session.flush()
+        found = await svc.get_by_id(created.id)
+        assert found is None
+
+    async def test_soft_deleted_cannot_be_updated(self, db_session: AsyncSession):
+        svc = ProductService(db_session)
+        created = await svc.create(ProductCreate(name="Old", price=Decimal("1.00")))
+        await svc.delete(created.id)
+        await db_session.flush()
+        result = await svc.update(created.id, ProductUpdate(name="New"))
+        assert result is None
+
+    async def test_soft_deleted_cannot_be_deleted_again(self, db_session: AsyncSession):
+        svc = ProductService(db_session)
+        created = await svc.create(ProductCreate(name="Once", price=Decimal("1.00")))
+        await svc.delete(created.id)
+        await db_session.flush()
+        deleted_again = await svc.delete(created.id)
+        assert deleted_again is False
+
 
 # ── Products API endpoints ───────────────────────────────────────────
 
@@ -178,7 +210,7 @@ class TestProductsModuleLifecycle:
         """on_startup should not create tables — Alembic manages schema."""
         from unittest.mock import AsyncMock, MagicMock
 
-        from sm_products.module import ProductsModule
+        from products.module import ProductsModule
 
         mod = ProductsModule()
         mock_app = MagicMock()

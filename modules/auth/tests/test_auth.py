@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from sm_auth.contracts.schemas import UserContext
+from auth.contracts.schemas import UserContext
 
 # ── UserContext ───────────────────────────────────────────────────────
 
@@ -51,6 +51,68 @@ class TestUserContext:
         assert ctx.has_any_role(["admin", "superadmin"]) is False
 
 
+# ── UserContext tenant_id ─────────────────────────────────────────────
+
+
+class TestUserContextTenantId:
+    async def test_tenant_id_from_custom_claim(self):
+        """UserContext should read a custom ``tenant_id`` claim from userinfo."""
+        userinfo = {
+            "sub": "user-123",
+            "tenant_id": "acme-corp",
+        }
+        ctx = UserContext.from_keycloak_userinfo(userinfo)
+        assert ctx.tenant_id == "acme-corp"
+
+    async def test_tenant_id_from_organization_claim(self):
+        """UserContext should fall back to Keycloak's organization.id claim."""
+        userinfo = {
+            "sub": "user-123",
+            "organization": {"id": "org-42", "name": "Acme"},
+        }
+        ctx = UserContext.from_keycloak_userinfo(userinfo)
+        assert ctx.tenant_id == "org-42"
+
+    async def test_tenant_id_custom_claim_takes_precedence(self):
+        """Custom tenant_id claim should take precedence over organization.id."""
+        userinfo = {
+            "sub": "user-123",
+            "tenant_id": "custom-tenant",
+            "organization": {"id": "org-42"},
+        }
+        ctx = UserContext.from_keycloak_userinfo(userinfo)
+        assert ctx.tenant_id == "custom-tenant"
+
+    async def test_tenant_id_missing_is_none(self):
+        """When no tenant claim is present, tenant_id should be None."""
+        userinfo = {"sub": "user-123"}
+        ctx = UserContext.from_keycloak_userinfo(userinfo)
+        assert ctx.tenant_id is None
+
+    async def test_tenant_id_organization_without_id_is_none(self):
+        """An organization claim without an id should leave tenant_id as None."""
+        userinfo = {
+            "sub": "user-123",
+            "organization": {"name": "no-id"},
+        }
+        ctx = UserContext.from_keycloak_userinfo(userinfo)
+        assert ctx.tenant_id is None
+
+    async def test_tenant_id_organization_as_non_dict_is_ignored(self):
+        """A non-dict organization claim should not crash; tenant_id stays None."""
+        userinfo = {
+            "sub": "user-123",
+            "organization": "not-a-dict",
+        }
+        ctx = UserContext.from_keycloak_userinfo(userinfo)
+        assert ctx.tenant_id is None
+
+    async def test_tenant_id_default_is_none(self):
+        """Direct construction without tenant_id should default to None."""
+        ctx = UserContext(id="1", email="a@b.com", name="A")
+        assert ctx.tenant_id is None
+
+
 # ── Auth dependencies (unit tests) ──────────────────────────────────
 
 
@@ -59,8 +121,8 @@ class TestGetCurrentUser:
         """get_current_user raises 401 when request.state has no user."""
         from unittest.mock import MagicMock
 
+        from auth.deps import get_current_user
         from fastapi import HTTPException
-        from sm_auth.deps import get_current_user
 
         request = MagicMock()
         # Simulate no user on request.state
@@ -74,7 +136,7 @@ class TestGetCurrentUser:
         """get_current_user returns the user from request.state."""
         from unittest.mock import MagicMock
 
-        from sm_auth.deps import get_current_user
+        from auth.deps import get_current_user
 
         user = UserContext(id="u1", email="u@test.com", name="User", roles=["user"])
         request = MagicMock()
@@ -89,8 +151,8 @@ class TestRequirePermission:
         """The require_permission check function raises 403 when user lacks permissions."""
         from unittest.mock import MagicMock
 
+        from auth.deps import require_permission
         from fastapi import HTTPException
-        from sm_auth.deps import require_permission
 
         # Get the inner check function from the Depends wrapper
         dep = require_permission("products.delete")
@@ -111,7 +173,7 @@ class TestRequirePermission:
         """The require_permission check allows admin users through."""
         from unittest.mock import MagicMock
 
-        from sm_auth.deps import require_permission
+        from auth.deps import require_permission
 
         dep = require_permission("products.delete")
         check_fn = dep.dependency
@@ -253,7 +315,7 @@ class TestRequirePermissionAdvanced:
         """User with any of the required permissions should pass."""
         from unittest.mock import MagicMock
 
-        from sm_auth.deps import require_permission
+        from auth.deps import require_permission
 
         dep = require_permission("products.view", "products.edit")
         check_fn = dep.dependency
@@ -268,8 +330,8 @@ class TestRequirePermissionAdvanced:
     async def test_non_admin_without_permission_fails(self, app):
         from unittest.mock import MagicMock
 
+        from auth.deps import require_permission
         from fastapi import HTTPException
-        from sm_auth.deps import require_permission
 
         dep = require_permission("products.delete")
         check_fn = dep.dependency
@@ -289,14 +351,14 @@ class TestRequirePermissionAdvanced:
 
 class TestAuthModuleRegistration:
     async def test_auth_module_has_correct_meta(self):
-        from sm_auth.module import AuthModule
+        from auth.module import AuthModule
 
         mod = AuthModule()
         assert mod.meta.name == "Auth"
         assert mod.meta.route_prefix == "/auth"
 
     async def test_auth_module_registers_menu_items(self):
-        from sm_auth.module import AuthModule
+        from auth.module import AuthModule
 
         mod = AuthModule()
         from simple_module_core.menu import MenuRegistry

@@ -5,16 +5,16 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from simple_module_core.events import EventBus
-from sm_dashboard.handlers import (
+from dashboard.handlers import (
     get_product_event_counts,
     on_product_created,
     on_product_deleted,
     on_product_updated,
     reset_product_event_counts,
 )
-from sm_dashboard.module import DashboardModule
-from sm_products.contracts.events import ProductCreated, ProductDeleted, ProductUpdated
+from dashboard.module import DashboardModule
+from products.contracts.events import ProductCreated, ProductDeleted, ProductUpdated
+from simple_module_core.events import EventBus
 
 
 @pytest.fixture(autouse=True)

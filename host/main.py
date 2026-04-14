@@ -1,15 +1,15 @@
 """SimpleModule Host — entry point."""
 
-import logging
-
 from simple_module_hosting import Settings, create_app
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
-)
+from simple_module_hosting.logging import setup_logging
 
 settings = Settings()
+
+setup_logging(
+    level=settings.log_level,
+    json_format=settings.log_format == "json",
+)
+
 app = create_app(settings)
 
 if __name__ == "__main__":
