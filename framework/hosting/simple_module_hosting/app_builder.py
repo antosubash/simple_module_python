@@ -298,4 +298,3 @@ def _check_settings_registration(modules: list, added_keys: set[str]) -> None:
                 ),
             )
             logger.warning("%s", diag)
-
