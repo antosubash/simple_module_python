@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
 
 # Install
 install:
@@ -37,8 +37,13 @@ build:
 	npm run build
 
 # Testing
-test:
+test: test-py test-js
+
+test-py:
 	uv run pytest
+
+test-js:
+	npm test
 
 lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
 
