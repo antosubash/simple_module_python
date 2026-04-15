@@ -93,7 +93,7 @@ SM_DEBUG, SM_LOG_LEVEL, SM_LOG_FORMAT, SM_MULTI_TENANT, SM_TENANT_HEADER
 ```
 
 Module settings should:
-- Use a per-module prefix: `SM_<MODULE>_*` (e.g. `SM_AUTH_KEYCLOAK_URL`).
+- Use a per-module prefix: `SM_<MODULE>_*` (e.g. `SM_USERS_ALLOW_SIGNUP`).
 - Be stored on `app.state.<module>_settings` during `register_settings(app)`.
 - `SM012` diagnostic fires if `register_settings` is overridden but no `app.state.<module>_settings` is added.
 

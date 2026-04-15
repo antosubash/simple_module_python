@@ -1,5 +1,9 @@
 # Alembic Database Migrations — Design Document
 
+> **Note (2026-04-15):** Keycloak integration was removed; see plan
+> `cryptic-juggling-lightning`. References to "Keycloak" below are
+> historical context from the original design — the patterns still apply.
+
 **Goal:** Replace the `create_all` approach in module `on_startup` hooks with Alembic-managed schema versioning, adding migration diagnostics to the existing framework.
 
 **Tech Stack:** Python 3.12, SQLAlchemy async, Alembic, FastAPI, UV workspace

@@ -1,5 +1,9 @@
 # Module Lifecycle Hooks: Exception Handlers, Health Checks, Module Settings
 
+> **Note (2026-04-15):** Keycloak integration was removed; see plan
+> `cryptic-juggling-lightning`. References to "Keycloak" below are
+> historical context from the original design — the patterns still apply.
+
 **Date**: 2026-04-13
 **Status**: Draft
 **Scope**: Add three new lifecycle hooks to `ModuleBase` and restructure `create_app()` sequencing
