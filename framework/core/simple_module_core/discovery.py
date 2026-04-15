@@ -129,7 +129,7 @@ def topological_sort(modules: Sequence[ModuleBase]) -> list[ModuleBase]:
     by_name: dict[str, ModuleBase] = {m.meta.name: m for m in modules}
 
     # Kahn's algorithm
-    in_degree: dict[str, int] = {name: 0 for name in by_name}
+    in_degree: dict[str, int] = dict.fromkeys(by_name, 0)
     dependents: dict[str, list[str]] = {name: [] for name in by_name}
 
     for mod in modules:
@@ -174,7 +174,7 @@ def _find_cycle(nodes: set[str], deps: dict[str, list[str]]) -> list[str]:
     def dfs(node: str) -> list[str] | None:
         if node in visited:
             idx = path.index(node) if node in path else 0
-            return path[idx:] + [node]
+            return [*path[idx:], node]
         visited.add(node)
         path.append(node)
         for dep in deps.get(node, []):

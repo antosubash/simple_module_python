@@ -11,6 +11,6 @@ class DatabaseProvider(StrEnum):
 def detect_provider(database_url: str) -> DatabaseProvider:
     """Detect the database provider from a connection URL."""
     url_lower = database_url.lower()
-    if url_lower.startswith("postgresql") or url_lower.startswith("postgres"):
+    if url_lower.startswith(("postgresql", "postgres")):
         return DatabaseProvider.POSTGRESQL
     return DatabaseProvider.SQLITE

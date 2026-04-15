@@ -104,7 +104,7 @@ class TestProductService:
         created = await svc.create(ProductCreate(name="Temp", price=Decimal("1.00")))
         await svc.delete(created.id)
         await db_session.flush()
-        products, total = await svc.get_all()
+        products, _total = await svc.get_all()
         assert all(p.id != created.id for p in products)
 
     async def test_soft_deleted_excluded_from_get_by_id(self, db_session: AsyncSession):

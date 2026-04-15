@@ -13,11 +13,11 @@ from products.contracts.schemas import (
 from products.contracts.service import IProductService
 
 __all__ = [
+    "IProductService",
     "ProductCreate",
     "ProductCreated",
     "ProductDeleted",
     "ProductOut",
     "ProductUpdate",
     "ProductUpdated",
-    "IProductService",
 ]

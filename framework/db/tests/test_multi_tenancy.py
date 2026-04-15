@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from conftest import _TenantItem, _TenantSoftItem  # noqa: E402  # ty: ignore[unresolved-import]
+from conftest import _TenantItem, _TenantSoftItem  # ty: ignore[unresolved-import]
 
 
 class TestMultiTenancy:
