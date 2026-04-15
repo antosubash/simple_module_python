@@ -19,7 +19,18 @@ from auth.contracts.schemas import UserContext
 logger = logging.getLogger(__name__)
 
 # Paths that don't require authentication
-PUBLIC_PATHS = ("/auth/", "/health", "/static/", "/api/docs", "/api/redoc", "/openapi.json")
+PUBLIC_PATHS = (
+    "/auth/",
+    "/health",
+    "/static/",
+    "/api/docs",
+    "/api/redoc",
+    "/openapi.json",
+    # users module — all API routes let through so RequiresPermission handles
+    # auth enforcement (returns 401/403) rather than a page redirect (302).
+    # View routes (/users/*) remain protected by this middleware until Task 8.
+    "/api/users/",
+)
 EXACT_PUBLIC_PATHS = ("/",)
 
 

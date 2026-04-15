@@ -1,1 +1,5 @@
-"""Placeholder — implemented in a later task."""
+"""Inertia view routes for users — filled in with full pages in Task 7."""
+
+from fastapi import APIRouter
+
+router = APIRouter()

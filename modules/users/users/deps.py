@@ -12,7 +12,11 @@ from __future__ import annotations
 
 import uuid
 
+from fastapi import Depends, Request
 from fastapi_users import FastAPIUsers
+from simple_module_core.events import EventBus
+from simple_module_db.deps import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from users.backend import build_auth_backend, build_cookie_transport
 from users.db_adapter import (
@@ -38,6 +42,25 @@ current_active_user = fastapi_users.current_user(active=True)
 current_superuser = fastapi_users.current_user(active=True, superuser=True)
 
 
+def get_mailer(request: Request):
+    """Return the mailer from app.state (built in UsersModule.on_startup)."""
+    return request.app.state.mailer
+
+
+def get_event_bus(request: Request) -> EventBus:
+    """Return the event bus from app.state."""
+    return request.app.state.event_bus
+
+
+async def get_user_service(
+    db: AsyncSession = Depends(get_db),
+    user_manager: UserManager = Depends(get_user_manager),
+) -> UserService:  # noqa: F821
+    from users.service import UserService
+
+    return UserService(db, user_manager)
+
+
 __all__ = [
     "UserDatabaseWithRoles",
     "UserManager",
@@ -46,6 +69,9 @@ __all__ = [
     "current_superuser",
     "fastapi_users",
     "get_access_token_db",
+    "get_event_bus",
+    "get_mailer",
     "get_user_db",
     "get_user_manager",
+    "get_user_service",
 ]
