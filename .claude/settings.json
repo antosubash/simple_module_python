@@ -1,4 +1,4 @@
-﻿{
+{
   "attribution": {
     "commit": "",
     "pr": ""
@@ -13,7 +13,22 @@
       "Grep",
       "Task",
       "WebFetch",
-      "WebSearch"
+      "WebSearch",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "Skill(playwright-cli)",
+      "mcp__plugin_context7_context7__query-docs",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "mcp__Claude_in_Chrome__navigate",
+      "mcp__Claude_in_Chrome__computer",
+      "mcp__Claude_in_Chrome__read_console_messages",
+      "mcp__Claude_in_Chrome__find",
+      "mcp__Claude_in_Chrome__form_input",
+      "mcp__Claude_in_Chrome__javascript_tool",
+      "mcp__MCP_DOCKER__browser_close",
+      "mcp__MCP_DOCKER__browser_navigate"
     ]
   },
   "enabledPlugins": {

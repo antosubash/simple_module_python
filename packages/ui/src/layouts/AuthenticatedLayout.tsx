@@ -1,4 +1,4 @@
-import { Toaster } from '@ui/components/ui/sonner';
+import { Toaster } from '@simple-module/ui/components/ui/sonner';
 import type React from 'react';
 import { SidebarLayout } from './SidebarLayout';
 

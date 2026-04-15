@@ -33,11 +33,17 @@ class AuthModule(ModuleBase):
         from auth.oauth import configure_oauth
 
         settings = app.state.auth_settings
+        # Allow plain-HTTP OAuth callbacks in development. Keycloak typically
+        # runs on http://localhost:8080 in dev — without this, authlib rejects
+        # the callback with `invalid_request: HTTPS required`.
+        host_settings = getattr(app.state, "settings", None)
+        is_dev = bool(host_settings and host_settings.is_development)
         configure_oauth(
             keycloak_url=settings.keycloak_url,
             realm=settings.keycloak_realm,
             client_id=settings.keycloak_client_id,
             client_secret=settings.keycloak_client_secret,
+            insecure_transport=is_dev,
         )
         app.add_middleware(AuthMiddleware)
 

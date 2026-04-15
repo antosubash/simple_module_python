@@ -33,7 +33,7 @@ class TestModulePagesManifest:
         assert "Headless" not in result
 
     async def test_write_manifest_emits_json_and_ts(self, tmp_path):
-        """write_module_pages_manifest emits both the JSON manifest and the TS glob file."""
+        """write_module_pages_manifest emits the JSON manifest, TS glob, and Tailwind CSS files."""
         import json
 
         from simple_module_core import discover_modules
@@ -44,9 +44,11 @@ class TestModulePagesManifest:
 
         manifest = tmp_path / "modules.manifest.json"
         generated = tmp_path / "modules.generated.ts"
+        css = tmp_path / "modules.generated.css"
         assert manifest.is_file()
         assert generated.is_file()
-        assert written == {"manifest": manifest, "generated": generated}
+        assert css.is_file()
+        assert written == {"manifest": manifest, "generated": generated, "css": css}
 
         data = json.loads(manifest.read_text(encoding="utf-8"))
         assert "Products" in data
@@ -56,6 +58,9 @@ class TestModulePagesManifest:
         assert "import.meta.glob" in ts
         assert "Products" in ts
         assert "AUTO-GENERATED" in ts or "auto-generated" in ts.lower()
+
+        css_text = css.read_text(encoding="utf-8")
+        assert "AUTO-GENERATED" in css_text or "auto-generated" in css_text.lower()
 
 
 class TestCreateHost:

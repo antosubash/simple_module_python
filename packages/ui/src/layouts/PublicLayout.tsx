@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { Button } from '@ui/components/ui/button';
+import { Button } from '@simple-module/ui/components/ui/button';
 import type React from 'react';
 import { useState } from 'react';
 import type { SharedProps } from '../types';

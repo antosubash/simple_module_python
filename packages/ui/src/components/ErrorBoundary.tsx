@@ -1,5 +1,5 @@
-import { ErrorScreen } from '@ui/components/ErrorScreen';
-import { Button } from '@ui/components/ui/button';
+import { ErrorScreen } from '@simple-module/ui/components/ErrorScreen';
+import { Button } from '@simple-module/ui/components/ui/button';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
 interface Props {

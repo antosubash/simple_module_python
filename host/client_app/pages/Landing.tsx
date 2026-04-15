@@ -1,9 +1,9 @@
 import { usePage } from '@inertiajs/react';
-import { Badge } from '@ui/components/ui/badge';
-import { Button } from '@ui/components/ui/button';
-import { Card, CardContent } from '@ui/components/ui/card';
-import { Separator } from '@ui/components/ui/separator';
-import { PublicLayout } from '@ui/layouts/PublicLayout';
+import { Badge } from '@simple-module/ui/components/ui/badge';
+import { Button } from '@simple-module/ui/components/ui/button';
+import { Card, CardContent } from '@simple-module/ui/components/ui/card';
+import { Separator } from '@simple-module/ui/components/ui/separator';
+import { PublicLayout } from '@simple-module/ui/layouts/PublicLayout';
 
 interface Props {
   isAuthenticated: boolean;

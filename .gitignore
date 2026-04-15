@@ -33,6 +33,7 @@ host/static/dist/
 # or via `make gen-pages`).
 host/client_app/modules.manifest.json
 host/client_app/modules.generated.ts
+host/client_app/modules.generated.css
 
 # Worktrees
 .worktrees/

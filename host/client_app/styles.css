@@ -1,1 +1,7 @@
 @import "../../packages/ui/src/styles/globals.css";
+@import "./modules.generated.css";
+
+/* App-level source scanning — host code + in-repo module pages.
+ * Wheel-installed modules are covered by modules.generated.css. */
+@source "./**/*.{ts,tsx}";
+@source "../../modules/*/*/pages/**/*.{ts,tsx}";

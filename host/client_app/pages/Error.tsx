@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
-import { ErrorScreen } from '@ui/components/ErrorScreen';
-import { Button } from '@ui/components/ui/button';
+import { ErrorScreen } from '@simple-module/ui/components/ErrorScreen';
+import { Button } from '@simple-module/ui/components/ui/button';
 
 interface Props {
   status: number;

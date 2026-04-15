@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+import urllib.parse
 
 from fastapi import APIRouter, Request
+from jose import jwt
 from starlette.responses import RedirectResponse
 
 from auth.oauth import oauth
@@ -34,13 +36,23 @@ async def callback(request: Request):
 
     # Only store minimal data in session cookie (browsers limit to ~4KB)
     userinfo = dict(token.get("userinfo", {}))
+    # Keycloak puts realm_access into the access_token by default — not into
+    # userinfo / id_token. Decode (without verification — already validated by
+    # authlib) to pick up the user's realm roles.
+    realm_access = userinfo.get("realm_access") or {}
+    if not realm_access and (access_token := token.get("access_token")):
+        try:
+            claims = jwt.get_unverified_claims(access_token)
+            realm_access = claims.get("realm_access") or {}
+        except Exception as e:
+            logger.warning("Could not decode access_token claims: %s", e)
     # Keep only essential fields to stay under cookie size limit
     request.session["userinfo"] = {
         "sub": userinfo.get("sub"),
         "name": userinfo.get("name"),
         "email": userinfo.get("email"),
         "preferred_username": userinfo.get("preferred_username"),
-        "realm_access": userinfo.get("realm_access", {}),
+        "realm_access": realm_access,
     }
 
     # Redirect to the original URL (or dashboard)
@@ -51,8 +63,6 @@ async def callback(request: Request):
 @router.get("/logout")
 async def logout(request: Request):
     """Clear session and redirect to Keycloak logout."""
-    import urllib.parse
-
     auth_settings = request.app.state.auth_settings
     request.session.clear()
 

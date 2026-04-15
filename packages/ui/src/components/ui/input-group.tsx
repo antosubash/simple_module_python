@@ -1,7 +1,7 @@
-import { Button } from '@ui/components/ui/button';
-import { Input } from '@ui/components/ui/input';
-import { Textarea } from '@ui/components/ui/textarea';
-import { cn } from '@ui/lib/utils';
+import { Button } from '@simple-module/ui/components/ui/button';
+import { Input } from '@simple-module/ui/components/ui/input';
+import { Textarea } from '@simple-module/ui/components/ui/textarea';
+import { cn } from '@simple-module/ui/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 import type * as React from 'react';
 

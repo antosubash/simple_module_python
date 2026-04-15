@@ -1,22 +1,22 @@
-import { Button } from '@ui/components/ui/button';
-import { Input } from '@ui/components/ui/input';
-import { Separator } from '@ui/components/ui/separator';
+import { Button } from '@simple-module/ui/components/ui/button';
+import { Input } from '@simple-module/ui/components/ui/input';
+import { Separator } from '@simple-module/ui/components/ui/separator';
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from '@ui/components/ui/sheet';
-import { Skeleton } from '@ui/components/ui/skeleton';
+} from '@simple-module/ui/components/ui/sheet';
+import { Skeleton } from '@simple-module/ui/components/ui/skeleton';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@ui/components/ui/tooltip';
-import { useIsMobile } from '@ui/hooks/use-mobile';
-import { cn } from '@ui/lib/utils';
+} from '@simple-module/ui/components/ui/tooltip';
+import { useIsMobile } from '@simple-module/ui/hooks/use-mobile';
+import { cn } from '@simple-module/ui/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { PanelLeftIcon } from 'lucide-react';
 import { Slot } from 'radix-ui';

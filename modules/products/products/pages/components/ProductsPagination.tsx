@@ -6,7 +6,7 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from '@ui/components/ui/pagination';
+} from '@simple-module/ui/components/ui/pagination';
 import { useMemo } from 'react';
 
 interface Props {
