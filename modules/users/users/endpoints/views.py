@@ -25,8 +25,34 @@ router = APIRouter()
 
 @router.get("/login", response_model=None)
 async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
-    allow_signup = request.app.state.users_settings.allow_signup
-    return await inertia.render("Users/Login", {"allow_signup": allow_signup})
+    users_settings = request.app.state.users_settings
+    allow_signup = users_settings.allow_signup
+    dev_accounts: list[dict[str, str]] = []
+    # Only expose seeded credentials in dev, and only when the env vars that
+    # actually seeded them are still set (so production configs that happen to
+    # boot with SM_ENVIRONMENT=development never leak real passwords).
+    host_settings = getattr(request.app.state, "settings", None)
+    if host_settings is not None and host_settings.is_development:
+        if users_settings.bootstrap_email and users_settings.bootstrap_password:
+            dev_accounts.append(
+                {
+                    "label": "Admin",
+                    "email": users_settings.bootstrap_email,
+                    "password": users_settings.bootstrap_password,
+                }
+            )
+        if users_settings.bootstrap_user_email and users_settings.bootstrap_user_password:
+            dev_accounts.append(
+                {
+                    "label": "User",
+                    "email": users_settings.bootstrap_user_email,
+                    "password": users_settings.bootstrap_user_password,
+                }
+            )
+    return await inertia.render(
+        "Users/Login",
+        {"allow_signup": allow_signup, "dev_accounts": dev_accounts},
+    )
 
 
 @router.get("/logout", response_model=None)

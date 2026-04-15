@@ -43,6 +43,10 @@ class UsersSettings(BaseSettings):
     login_rate_limit_window_seconds: int = 300
     login_rate_limit_cooldown_seconds: int = 900
 
-    # Bootstrap (env-var auto-create admin)
+    # Bootstrap (env-var auto-create users on first boot)
     bootstrap_email: str = ""
     bootstrap_password: str = ""
+    # Optional second seed user with the "user" role — handy in dev for
+    # testing non-admin flows without logging out/in repeatedly.
+    bootstrap_user_email: str = ""
+    bootstrap_user_password: str = ""

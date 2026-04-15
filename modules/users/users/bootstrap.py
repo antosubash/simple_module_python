@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from users.constants import ADMIN_ROLE_ID
+from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
 from users.models import Role, User, UserRole
 from users.settings import UsersSettings
 
@@ -111,6 +111,55 @@ async def create_admin(
     return CreateAdminResult(user=existing, created=False)
 
 
+async def create_standard_user(
+    db: AsyncSession,
+    *,
+    email: str,
+    password: str,
+    full_name: str | None = None,
+) -> CreateAdminResult:
+    """Create a non-admin user with the 'user' role. Idempotent (noop if exists).
+
+    Unlike ``create_admin`` this is not meant to be called from the CLI — it's
+    used by the env-var bootstrap to seed a second account for dev/testing.
+    """
+    from fastapi_users.password import PasswordHelper
+
+    existing = (
+        await db.execute(select(User).where(func.lower(User.email) == email.lower()))
+    ).scalar_one_or_none()
+    if existing is not None:
+        logger.info("users.bootstrap.user_noop", extra={"email": email, "id": str(existing.id)})
+        return CreateAdminResult(user=existing, created=False)
+
+    user_role = (await db.execute(select(Role).where(Role.name == "user"))).scalar_one_or_none()
+    if user_role is None:
+        user_role = (
+            await db.execute(select(Role).where(Role.id == USER_ROLE_ID))
+        ).scalar_one_or_none()
+    if user_role is None:
+        # Safety net — the seed migration normally inserts this row.
+        user_role = Role(id=USER_ROLE_ID, name="user", description="Standard user")
+        db.add(user_role)
+        await db.flush()
+
+    user = User(
+        email=email,
+        hashed_password=PasswordHelper().hash(password),
+        is_active=True,
+        is_verified=True,
+        is_superuser=False,
+        full_name=full_name,
+    )
+    db.add(user)
+    await db.flush()
+    db.add(UserRole(user_id=user.id, role_id=user_role.id))
+    await db.commit()
+    await db.refresh(user)
+    logger.info("users.bootstrap.user_created", extra={"email": email, "id": str(user.id)})
+    return CreateAdminResult(user=user, created=True)
+
+
 async def _user_table_is_empty(db: AsyncSession) -> bool:
     count = (await db.execute(select(func.count()).select_from(User))).scalar_one()
     return count == 0
@@ -122,6 +171,10 @@ async def bootstrap_admin_from_env(app: FastAPI) -> None:
     Reads ``SM_USERS_BOOTSTRAP_EMAIL`` + ``SM_USERS_BOOTSTRAP_PASSWORD`` via
     `UsersSettings`. If either is blank, returns silently. If the table
     already has users, returns silently (so restarts don't try to re-bootstrap).
+
+    Optionally also creates a non-admin user from
+    ``SM_USERS_BOOTSTRAP_USER_EMAIL`` + ``SM_USERS_BOOTSTRAP_USER_PASSWORD`` —
+    useful in dev for testing non-admin flows alongside the admin account.
     """
     settings: UsersSettings = app.state.users_settings
     if not settings.bootstrap_email or not settings.bootstrap_password:
@@ -139,6 +192,12 @@ async def bootstrap_admin_from_env(app: FastAPI) -> None:
                 email=settings.bootstrap_email,
                 password=settings.bootstrap_password,
             )
+            if settings.bootstrap_user_email and settings.bootstrap_user_password:
+                await create_standard_user(
+                    session,
+                    email=settings.bootstrap_user_email,
+                    password=settings.bootstrap_user_password,
+                )
         except Exception:
             logger.exception("users.bootstrap.failed")
             raise
