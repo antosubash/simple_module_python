@@ -1,0 +1,26 @@
+"""FastAPI dependency for request-scoped Translator resolution."""
+
+from __future__ import annotations
+
+from typing import Annotated
+
+from fastapi import Depends, Request
+from simple_module_core.i18n import Translator
+
+
+async def get_translator(request: Request) -> Translator:
+    """Resolve a Translator bound to ``request.state.locale``.
+
+    Reads the registry from ``request.app.state.i18n_registry`` and the
+    default locale from ``request.app.state.settings_default_locale``
+    (populated by create_app).
+
+    ``request.state.locale`` is populated by LocaleMiddleware.
+    """
+    registry = request.app.state.i18n_registry
+    default_locale = request.app.state.settings_default_locale
+    locale = getattr(request.state, "locale", default_locale)
+    return Translator(registry, locale=locale, default_locale=default_locale)
+
+
+TranslatorDep = Annotated[Translator, Depends(get_translator)]

@@ -25,6 +25,7 @@ from simple_module_core.events import EventBus
 from simple_module_core.exceptions import NotFoundError
 from simple_module_core.feature_flags import FeatureFlagRegistry
 from simple_module_core.health import HealthRegistry
+from simple_module_core.i18n import I18nRegistry
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_db.listeners import register_listeners
@@ -40,6 +41,7 @@ from simple_module_hosting._error_handlers import (
 from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._migrations import check_migrations
 from simple_module_hosting.health import router as health_router
+from simple_module_hosting.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.middleware import (
     CorrelationIdMiddleware,
     InertiaLayoutDataMiddleware,
@@ -145,6 +147,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     event_bus = EventBus()
     health_registry = HealthRegistry()
 
+    i18n_registry = I18nRegistry(
+        default_locale=settings.i18n_default_locale,
+        supported_locales=settings.i18n_supported_locales,
+    )
+    for mod in modules:
+        for namespace, locale_dir in mod.locale_dirs().items():
+            i18n_registry.add_source(namespace, locale_dir)
+    # Host-level locales live at <project_root>/host/locales/.
+    host_locales = _PROJECT_ROOT / "host" / "locales"
+    if host_locales.is_dir():
+        i18n_registry.add_source("host", host_locales)
+    # Shared UI package locales.
+    ui_locales = _PROJECT_ROOT / "packages" / "ui" / "locales"
+    if ui_locales.is_dir():
+        i18n_registry.add_source("ui", ui_locales)
+    i18n_registry.load()
+
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.migration = await check_migrations(app.state.db.engine)
@@ -170,6 +189,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.event_bus = event_bus
     app.state.health_registry = health_registry
     app.state.settings = settings
+    app.state.i18n_registry = i18n_registry
+    app.state.settings_default_locale = settings.i18n_default_locale
+    app.state.settings_supported_locales = settings.i18n_supported_locales
+    app.state.settings_cookie_name = settings.i18n_cookie_name
 
     # ── Phase 4: Module settings ───────────────────────────
     state_before = set(vars(app.state))
@@ -223,6 +246,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         InertiaLayoutDataMiddleware,
         menu_registry=menu_registry,
         permission_registry=perm_registry,
+    )
+    app.add_middleware(
+        LocaleMiddleware,
+        supported_locales=settings.i18n_supported_locales,
+        default_locale=settings.i18n_default_locale,
+        cookie_name=settings.i18n_cookie_name,
     )
     if settings.multi_tenant:
         app.add_middleware(TenantMiddleware, header=settings.tenant_header or None)

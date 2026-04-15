@@ -229,6 +229,21 @@ class InertiaLayoutDataMiddleware:
         all_perms = self.permission_registry.all_permissions
         frontend_permissions = expand_permissions(resolved, all_perms) if is_authenticated else []
 
+        registry = getattr(request.app.state, "i18n_registry", None)
+        locale = getattr(request.state, "locale", None)
+        if registry is not None and locale is not None:
+            i18n_block = {
+                "locale": locale,
+                "supportedLocales": registry.supported_locales,
+                "messages": registry.messages(locale),
+            }
+        else:
+            i18n_block = {
+                "locale": "en",
+                "supportedLocales": ["en"],
+                "messages": {},
+            }
+
         shared: dict = {
             "auth": {
                 "user": (
@@ -249,6 +264,7 @@ class InertiaLayoutDataMiddleware:
                 roles=roles,
             ),
             "csrf_token": secrets.token_urlsafe(32) if is_authenticated else "",
+            "i18n": i18n_block,
         }
         request.state.inertia_shared = shared
 
