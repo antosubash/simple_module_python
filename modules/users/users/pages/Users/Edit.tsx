@@ -68,7 +68,7 @@ function Edit() {
     fetch(`/api/users/admin/${user.id}/roles`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ roles: selectedRoles }),
+      body: JSON.stringify({ role_names: selectedRoles }),
     })
       .then(async (res) => {
         if (res.ok) {

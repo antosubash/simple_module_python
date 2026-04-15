@@ -12,6 +12,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from fastapi_users_db_sqlalchemy.generics import GUID
 
 revision: str = "e3ce9754e6dc"
 down_revision: str | None = "8c12be982a27"
@@ -28,9 +29,12 @@ USER_ROLE_ID = uuid.UUID("00000000-0000-0000-0000-000000000002")
 
 
 def upgrade() -> None:
+    # Use GUID — same type used by the schema migration — so the stored
+    # representation matches on all backends (especially SQLite, where
+    # sa.Uuid() serializes without dashes but GUID keeps them, breaking JOINs).
     roles_table = sa.table(
         "users_role",
-        sa.column("id", sa.Uuid()),
+        sa.column("id", GUID()),
         sa.column("name", sa.String()),
         sa.column("description", sa.String()),
     )

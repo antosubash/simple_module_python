@@ -212,6 +212,57 @@ async def test_user_access_token_insert(db_session):
 
 
 # ---------------------------------------------------------------------------
+# Seed-migration <-> ORM storage-format invariant
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_seed_inserted_role_joins_orm_user_role(db_session):
+    """Role rows inserted the way the seed migration does them must JOIN with
+    ORM-inserted UserRole links.
+
+    Regression: the seed migration used ``sa.Uuid()`` which on SQLite stores
+    UUIDs as 32-char hex without dashes, while the schema column (``GUID`` from
+    fastapi_users_db_sqlalchemy) keeps dashes — so ORM-linked UserRole rows
+    failed to JOIN the seeded Role rows and admins silently lost their role.
+    """
+    import sqlalchemy as sa
+    from fastapi_users_db_sqlalchemy.generics import GUID
+    from sqlalchemy.orm import selectinload
+    from users.models import User, UserRole
+
+    role_id = uuid.UUID("00000000-0000-0000-0000-0000000000aa")
+
+    # Mirror the seed migration: raw insert via sa.table(...) with GUID column.
+    roles_table = sa.table(
+        "users_role",
+        sa.column("id", GUID()),
+        sa.column("name", sa.String()),
+    )
+    await db_session.execute(sa.insert(roles_table).values(id=role_id, name="seed_admin"))
+
+    user = User(
+        id=uuid.uuid4(),
+        email="seed@example.com",
+        hashed_password="hashed",
+        is_active=True,
+        is_superuser=False,
+        is_verified=True,
+    )
+    db_session.add(user)
+    await db_session.flush()
+    db_session.add(UserRole(user_id=user.id, role_id=role_id))
+    await db_session.commit()
+
+    loaded = (
+        await db_session.execute(
+            select(User).where(User.id == user.id).options(selectinload(User.roles))
+        )
+    ).scalar_one()
+    assert [r.name for r in loaded.roles] == ["seed_admin"]
+
+
+# ---------------------------------------------------------------------------
 # Stable UUID constants tests
 # ---------------------------------------------------------------------------
 

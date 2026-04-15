@@ -40,7 +40,7 @@ function Invite() {
     fetch('/api/users/admin/invite', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, full_name: fullName || null, roles: selectedRoles }),
+      body: JSON.stringify({ email, full_name: fullName || null, role_names: selectedRoles }),
     })
       .then(async (res) => {
         if (res.ok) {
