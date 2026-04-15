@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib.resources
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
@@ -57,3 +59,6 @@ class AuthModule(ModuleBase):
                 section=MenuSection.USER_DROPDOWN,
             )
         )
+
+    def locale_dirs(self) -> dict[str, Path]:
+        return {"auth": Path(str(importlib.resources.files(__package__) / "locales"))}

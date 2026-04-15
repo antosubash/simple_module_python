@@ -2,12 +2,28 @@
 
 from __future__ import annotations
 
+import importlib.resources
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 from auth.contracts.schemas import UserContext
 from auth.deps import get_current_user, require_permission
 from fastapi import HTTPException
+from simple_module_core.i18n import I18nRegistry, Translator
+
+
+def _translator() -> Translator:
+    """Build a Translator loaded with the auth module's ``en.json`` locale.
+
+    This exercises the real message templates so assertions on rendered
+    detail strings remain meaningful.
+    """
+    locales = Path(str(importlib.resources.files("auth") / "locales"))
+    registry = I18nRegistry(default_locale="en", supported_locales=["en"])
+    registry.add_source("auth", locales)
+    registry.load()
+    return Translator(registry, locale="en", default_locale="en")
 
 
 class TestGetCurrentUser:
@@ -17,7 +33,7 @@ class TestGetCurrentUser:
         del request.state.user
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user(request)
+            await get_current_user(request, _translator())
         assert exc_info.value.status_code == 401
 
     async def test_returns_user_when_present(self):
@@ -26,7 +42,7 @@ class TestGetCurrentUser:
         request = MagicMock()
         request.state.user = user
 
-        result = await get_current_user(request)
+        result = await get_current_user(request, _translator())
         assert result.id == "u1"
 
 
@@ -42,7 +58,7 @@ class TestRequirePermission:
         user = UserContext(id="u1", email="u@test.com", name="User", roles=["viewer"])
 
         with pytest.raises(HTTPException) as exc_info:
-            await check_fn(request, user)
+            await check_fn(request, _translator(), user)
         assert exc_info.value.status_code == 403
 
     async def test_admin_bypasses_permission_check(self, app):
@@ -54,7 +70,7 @@ class TestRequirePermission:
         request.app.state.perm_registry = app.state.perm_registry
 
         admin_user = UserContext(id="a1", email="admin@test.com", name="Admin", roles=["admin"])
-        await check_fn(request, admin_user)
+        await check_fn(request, _translator(), admin_user)
 
 
 class TestRequirePermissionAdvanced:
@@ -67,7 +83,7 @@ class TestRequirePermissionAdvanced:
         request.app.state.perm_registry = app.state.perm_registry
 
         admin = UserContext(id="a1", email="a@t.com", name="Admin", roles=["admin"])
-        await check_fn(request, admin)
+        await check_fn(request, _translator(), admin)
 
     async def test_non_admin_without_permission_fails(self, app):
         dep = require_permission("products.delete")
@@ -78,6 +94,6 @@ class TestRequirePermissionAdvanced:
 
         user = UserContext(id="u1", email="u@t.com", name="User", roles=["user"])
         with pytest.raises(HTTPException) as exc_info:
-            await check_fn(request, user)
+            await check_fn(request, _translator(), user)
         assert exc_info.value.status_code == 403
         assert "products.delete" in str(exc_info.value.detail)

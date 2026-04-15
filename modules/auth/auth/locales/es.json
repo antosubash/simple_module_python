@@ -1,0 +1,6 @@
+{
+  "errors": {
+    "not_authenticated": "No autenticado",
+    "missing_permission": "Falta el permiso requerido: {permissions}"
+  }
+}
