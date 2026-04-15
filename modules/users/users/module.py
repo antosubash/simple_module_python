@@ -49,6 +49,7 @@ class UsersModule(ModuleBase):
 
     async def on_startup(self, app: FastAPI) -> None:
         """Build the mailer once app settings are committed."""
+        from users.bootstrap import bootstrap_admin_from_env
         from users.mailer import build_mailer
 
         app.state.mailer = build_mailer(app.state.users_settings)
@@ -63,3 +64,7 @@ class UsersModule(ModuleBase):
         transport.cookie_max_age = s.cookie_max_age_seconds
         transport.cookie_secure = s.cookie_secure
         transport.cookie_samesite = s.cookie_samesite
+
+        # Auto-create admin iff users table empty and both env vars set.
+        # Runs LAST so the mailer + cookie state are already built.
+        await bootstrap_admin_from_env(app)
