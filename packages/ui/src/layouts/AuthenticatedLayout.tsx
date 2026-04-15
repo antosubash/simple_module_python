@@ -1,5 +1,6 @@
 import { Toaster } from '@simple-module/ui/components/ui/sonner';
 import type React from 'react';
+import { LocaleSwitcher } from '../components/LocaleSwitcher';
 import { SidebarLayout } from './SidebarLayout';
 
 const THEME = {
@@ -16,7 +17,15 @@ const THEME = {
 
 export function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
-    <SidebarLayout menuKey="sidebar" theme={THEME}>
+    <SidebarLayout
+      menuKey="sidebar"
+      theme={THEME}
+      headerSlot={
+        <div className="flex justify-end px-3 py-2 border-b border-white/[0.06]">
+          <LocaleSwitcher />
+        </div>
+      }
+    >
       {children}
       <Toaster richColors position="top-right" />
     </SidebarLayout>
