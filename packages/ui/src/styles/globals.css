@@ -224,47 +224,6 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* ── Animations ────────────────────────────────────────────── */
-@keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slide-in-left {
-  from {
-    opacity: 0;
-    transform: translateX(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
 /* ── Base Styles ────────────────────────────────────────────── */
 @layer base {
   html {
@@ -286,18 +245,4 @@
   h6 {
     font-family: var(--font-display);
   }
-}
-
-/* ── Custom Utilities (Tailwind v4) ─────────────────────────── */
-
-@utility animate-fade-in-up {
-  animation: fade-in-up 0.3s ease-out both;
-}
-
-@utility animate-fade-in {
-  animation: fade-in 0.4s ease-out both;
-}
-
-@utility animate-slide-in-left {
-  animation: slide-in-left 0.4s ease-out both;
 }

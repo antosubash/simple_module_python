@@ -141,17 +141,15 @@ function Landing() {
     <>
       {/* Hero */}
       <section className="max-w-5xl mx-auto px-4 pt-12 pb-12 text-center sm:px-8 sm:pt-24 sm:pb-20">
-        <div className="animate-fade-in-up">
-          <Badge
-            variant="outline"
-            className="border-primary-400/20 bg-primary-400/10 text-primary-300 mb-6 sm:mb-8 gap-2"
-          >
-            <span className="w-2 h-2 rounded-full bg-primary-400" />
-            {t(keys.host.landing.badge)}
-          </Badge>
-        </div>
+        <Badge
+          variant="outline"
+          className="border-primary-400/20 bg-primary-400/10 text-primary-300 mb-6 sm:mb-8 gap-2"
+        >
+          <span className="w-2 h-2 rounded-full bg-primary-400" />
+          {t(keys.host.landing.badge)}
+        </Badge>
 
-        <h1 className="text-3xl font-extrabold tracking-tight leading-tight font-[var(--font-display)] sm:text-5xl lg:text-6xl animate-fade-in-up">
+        <h1 className="text-3xl font-extrabold tracking-tight leading-tight font-[var(--font-display)] sm:text-5xl lg:text-6xl">
           {t(keys.host.landing.hero_title_line1)}
           <br />
           <span className="bg-gradient-to-r from-primary-300 via-primary-400 to-primary-200 bg-clip-text text-transparent">
@@ -159,11 +157,11 @@ function Landing() {
           </span>
         </h1>
 
-        <p className="mt-4 text-base text-dark-text-muted max-w-2xl mx-auto leading-relaxed sm:mt-6 sm:text-lg animate-fade-in-up">
+        <p className="mt-4 text-base text-dark-text-muted max-w-2xl mx-auto leading-relaxed sm:mt-6 sm:text-lg">
           {t(keys.host.landing.hero_subtitle)}
         </p>
 
-        <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-4 sm:mt-10 animate-fade-in-up">
+        <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-4 sm:mt-10">
           <Button asChild size="lg" className="w-full sm:w-auto">
             <a href="/users/login">
               {isAuthenticated
@@ -190,7 +188,7 @@ function Landing() {
           {features.map((feature) => (
             <Card
               key={feature.title}
-              className="group border-white/[0.06] bg-white/[0.03] backdrop-blur-sm hover:border-primary-400/20 hover:bg-white/[0.06] transition-colors duration-200 animate-fade-in-up"
+              className="group border-white/[0.06] bg-white/[0.03] backdrop-blur-sm hover:border-primary-400/20 hover:bg-white/[0.06] transition-colors duration-200"
             >
               <CardContent className="pt-6">
                 <div className="w-10 h-10 rounded-lg bg-primary-400/10 flex items-center justify-center text-primary-400 mb-4 transition-colors duration-200 group-hover:bg-primary-400/15">
