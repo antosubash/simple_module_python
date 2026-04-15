@@ -14,17 +14,22 @@ const projectRoot = path.resolve(__dirname, '../..');
 const manifestPath = path.resolve(__dirname, 'modules.manifest.json');
 const moduleFsAllow: string[] = [];
 const moduleTsconfigs: string[] = [];
-if (fs.existsSync(manifestPath)) {
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as Record<string, string>;
-  for (const pagesDir of Object.values(manifest)) {
-    // Pages live at <moduleRoot>/<pkg>/pages/*.tsx — climb two levels to the
-    // module root where its tsconfig.json and package.json live.
-    const moduleRoot = path.dirname(path.dirname(pagesDir));
-    moduleFsAllow.push(path.dirname(pagesDir));
-    const moduleTsconfig = path.join(moduleRoot, 'tsconfig.json');
-    if (fs.existsSync(moduleTsconfig)) {
-      moduleTsconfigs.push(moduleTsconfig);
-    }
+let manifest: Record<string, string> = {};
+try {
+  manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+} catch {
+  // Manifest absent (sm gen-pages hasn't run yet) — proceed with empty set.
+}
+for (const pagesDir of Object.values(manifest)) {
+  // Pages live at <moduleRoot>/<pkg>/pages/*.tsx — climb two levels to the
+  // module root where its tsconfig.json and package.json live.
+  const moduleRoot = path.dirname(path.dirname(pagesDir));
+  moduleFsAllow.push(path.dirname(pagesDir));
+  try {
+    fs.statSync(path.join(moduleRoot, 'tsconfig.json'));
+    moduleTsconfigs.push(path.join(moduleRoot, 'tsconfig.json'));
+  } catch {
+    // Module has no tsconfig (e.g. backend-only) — skip.
   }
 }
 

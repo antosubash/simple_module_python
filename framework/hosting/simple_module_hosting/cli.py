@@ -18,6 +18,17 @@ from pathlib import Path
 
 import click
 
+from simple_module_core import discover_modules
+
+from simple_module_hosting.scaffolding import (
+    _to_kebab_case,
+    collect_module_js_deps,
+    create_host as _create_host,
+    create_module,
+    repo_root_from_client_app,
+    write_module_pages_manifest,
+)
+
 
 @click.group()
 def main() -> None:
@@ -40,8 +51,6 @@ def main() -> None:
 )
 def create_host(name: str, dest: Path | None, modules: str) -> None:
     """Scaffold a new SimpleModule host project at ./<NAME>."""
-    from simple_module_hosting.scaffolding import create_host as _create_host
-
     target = dest or Path.cwd() / name
     selected = [m.strip() for m in modules.split(",") if m.strip()]
 
@@ -73,8 +82,6 @@ def create_host(name: str, dest: Path | None, modules: str) -> None:
 )
 def create_module_cmd(name: str, dest: Path | None) -> None:
     """Scaffold a publishable SimpleModule module package."""
-    from simple_module_hosting.scaffolding import _to_kebab_case, create_module
-
     slug = _to_kebab_case(name)
     target = dest or Path.cwd() / f"simple-module-{slug}"
 
@@ -100,10 +107,6 @@ def create_module_cmd(name: str, dest: Path | None) -> None:
 )
 def gen_pages(host_dir: Path | None) -> None:
     """Regenerate client_app/modules.{manifest.json,generated.ts,generated.css}."""
-    from simple_module_core import discover_modules
-
-    from simple_module_hosting.scaffolding import write_module_pages_manifest
-
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     output = host_dir or Path.cwd() / "client_app"
     if not output.is_dir():
@@ -139,10 +142,6 @@ def sync_js_deps(host_client_app: Path | None, dry_run: bool) -> None:
     this after ``pip install``-ing a module wheel that declares JS deps;
     in-repo modules already flow through npm workspaces and need nothing.
     """
-    from simple_module_core import discover_modules
-
-    from simple_module_hosting.scaffolding import collect_module_js_deps
-
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
     output = host_client_app or Path.cwd() / "client_app"
@@ -175,7 +174,7 @@ def sync_js_deps(host_client_app: Path | None, dry_run: bool) -> None:
         sys.exit(1)
 
     # Workspace path is relative to the repo root — derive it from output.
-    repo_root = output.resolve().parent.parent
+    repo_root = repo_root_from_client_app(output)
     try:
         workspace = str(output.resolve().relative_to(repo_root))
     except ValueError:

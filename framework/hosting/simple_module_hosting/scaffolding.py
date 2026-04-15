@@ -107,6 +107,16 @@ _GENERATED_CSS_HEADER = """\
 """
 
 
+def repo_root_from_client_app(client_app_dir: Path) -> Path:
+    """Repo root is two levels above ``host/client_app/``.
+
+    Both ``write_module_pages_manifest`` and the ``sync-js-deps`` CLI need
+    to derive the workspace root from the host's client_app directory.
+    Centralized here so the heuristic lives in exactly one place.
+    """
+    return client_app_dir.resolve().parent.parent
+
+
 def _is_in_repo_module(pages_dir: Path, repo_root: Path | None) -> bool:
     """True if ``pages_dir`` lives under the working tree's ``modules/`` dir.
 
@@ -147,7 +157,7 @@ def write_module_pages_manifest(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     if repo_root is None:
-        repo_root = output_dir.resolve().parent.parent
+        repo_root = repo_root_from_client_app(output_dir)
 
     pages_map = compute_module_pages(modules)
 
@@ -189,19 +199,17 @@ def write_module_pages_manifest(
     generated_text = "\n".join(lines)
 
     # Tailwind @source entries for wheel-installed module pages. In-repo
-    # modules are covered by the static glob and intentionally skipped.
+    # modules are covered by the static glob in styles.css and intentionally
+    # skipped here. pages_map is keyed by module name, so each pages_dir is
+    # already unique — no further dedup needed.
     css_path = output_dir / "modules.generated.css"
     css_lines: list[str] = [_GENERATED_CSS_HEADER]
-    seen: set[str] = set()
     for name in sorted(pages_map):
         pages_dir = pages_map[name]
         if _is_in_repo_module(pages_dir, repo_root):
             continue
-        abs_path = str(pages_dir).replace("\\", "/")
-        if abs_path in seen:
-            continue
-        seen.add(abs_path)
-        css_lines.append(f'@source "{abs_path}";')
+        posix_path = pages_dir.as_posix()
+        css_lines.append(f'@source "{posix_path}";')
     css_lines.append("")
     css_text = "\n".join(css_lines)
 
