@@ -142,3 +142,24 @@ class TestModuleAssetHooks:
         mod = ModWithStatic()
         mounts = mod.static_mounts()
         assert mounts == {"/modules/with-static": assets}
+
+
+def test_module_base_locale_dirs_defaults_empty() -> None:
+    from simple_module_core import ModuleBase, ModuleMeta
+
+    class _M(ModuleBase):
+        meta = ModuleMeta(name="X")
+
+    assert _M().locale_dirs() == {}
+
+
+def test_module_base_locale_dirs_can_be_overridden(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from simple_module_core import ModuleBase, ModuleMeta
+
+    class _M(ModuleBase):
+        meta = ModuleMeta(name="X")
+
+        def locale_dirs(self):  # type: ignore[no-untyped-def]
+            return {"x": tmp_path}
+
+    assert _M().locale_dirs() == {"x": tmp_path}
