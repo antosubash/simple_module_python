@@ -82,7 +82,9 @@ class UsersModule(ModuleBase):
 
     async def on_startup(self, app: FastAPI) -> None:
         """Build the mailer, rate limiter, and apply production cookie params."""
+        from users.backend import reconfigure_cookie_transport
         from users.bootstrap import bootstrap_admin_from_env
+        from users.deps import auth_backend
         from users.mailer import build_mailer
         from users.rate_limit import LoginRateLimiter
 
@@ -93,16 +95,7 @@ class UsersModule(ModuleBase):
             window_seconds=s.login_rate_limit_window_seconds,
             cooldown_seconds=s.login_rate_limit_cooldown_seconds,
         )
-
-        # Patch cookie transport params from real settings (dev-safe singleton
-        # in deps.py is constructed with defaults at import time).
-        from users.deps import auth_backend
-
-        transport = auth_backend.transport
-        transport.cookie_name = s.cookie_name
-        transport.cookie_max_age = s.cookie_max_age_seconds
-        transport.cookie_secure = s.cookie_secure
-        transport.cookie_samesite = s.cookie_samesite
+        reconfigure_cookie_transport(auth_backend, s)
 
         # Auto-create admin iff users table empty and both env vars set.
         # Runs LAST so the mailer + cookie state are already built.

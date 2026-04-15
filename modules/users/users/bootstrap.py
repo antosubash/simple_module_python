@@ -57,6 +57,11 @@ async def create_admin(
             await db.execute(select(Role).where(Role.id == ADMIN_ROLE_ID))
         ).scalar_one_or_none()
     if admin_role is None:
+        # The seed migration (e3ce9754e6dc) inserts this row, so in a real
+        # deployment we should never hit this branch. Kept as a safety net for
+        # tests (where `create_all` runs without data migrations) and for
+        # scenarios where someone ran `alembic downgrade` past the seed
+        # revision but not past the schema revision.
         admin_role = Role(id=ADMIN_ROLE_ID, name="admin", description="Administrator")
         db.add(admin_role)
         await db.flush()

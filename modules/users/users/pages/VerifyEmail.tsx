@@ -1,6 +1,7 @@
 import { usePage } from '@inertiajs/react';
 import { Button } from '@simple-module/ui/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@simple-module/ui/components/ui/card';
+import { AuthCardShell } from '@simple-module/ui/layouts/AuthCardShell';
 import { useEffect, useState } from 'react';
 
 interface Props {
@@ -86,7 +87,7 @@ function VerifyEmail() {
   }[status];
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted p-4">
+    <AuthCardShell>
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>{content.title}</CardTitle>
@@ -94,7 +95,7 @@ function VerifyEmail() {
         </CardHeader>
         {content.body && <CardContent>{content.body}</CardContent>}
       </Card>
-    </div>
+    </AuthCardShell>
   );
 }
 

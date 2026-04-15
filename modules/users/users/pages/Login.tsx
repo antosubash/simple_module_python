@@ -3,6 +3,7 @@ import { Button } from '@simple-module/ui/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@simple-module/ui/components/ui/card';
 import { Input } from '@simple-module/ui/components/ui/input';
 import { Label } from '@simple-module/ui/components/ui/label';
+import { AuthCardShell } from '@simple-module/ui/layouts/AuthCardShell';
 import { useState } from 'react';
 
 interface Props {
@@ -64,7 +65,7 @@ function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted p-4">
+    <AuthCardShell>
       <Card className="w-full max-w-sm">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Sign in</CardTitle>
@@ -131,7 +132,7 @@ function Login() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </AuthCardShell>
   );
 }
 

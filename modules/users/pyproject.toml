@@ -11,7 +11,10 @@ dependencies = [
     "simple-module-db",
     "simple-module-hosting",
     "auth",                           # workspace module — contracts
-    "fastapi-users[sqlalchemy]>=13",
+    # Pinned to a narrow range: `deps.py` relies on mutating CookieTransport
+    # fields after construction (see reconfigure_cookie_transport in backend.py).
+    # Bumping the major version requires re-checking those field names.
+    "fastapi-users[sqlalchemy]>=15,<16",
     "aiosmtplib>=3.0",
     "cachetools>=5.3",
     "typer>=0.12",

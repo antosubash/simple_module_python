@@ -79,14 +79,25 @@ async def _setup_app_db(application) -> None:
             )
 
 
-@pytest.fixture
-async def users_app(monkeypatch):
-    """Full FastAPI app with in-memory DB, seeded roles, users module active."""
+async def _seed_roles(application) -> None:
+    """Insert admin/user Role rows with deterministic UUIDs if missing."""
+    from sqlalchemy import select
+    from users.models import Role
+
+    async with application.state.db.session_factory() as session:
+        existing = set((await session.execute(select(Role.name))).scalars().all())
+        if "admin" not in existing:
+            session.add(Role(id=ADMIN_ROLE_ID, name="admin", description="Administrator"))
+        if "user" not in existing:
+            session.add(Role(id=USER_ROLE_ID, name="user", description="Standard user"))
+        await session.commit()
+
+
+async def _build_users_app(monkeypatch, *, allow_signup: bool):
+    """Build a test FastAPI app with env patched, DB created, lifespan started."""
     from simple_module_hosting.app_builder import create_app
 
-    # Patch env for UsersSettings before importing
-    env = _users_env(allow_signup=False)
-    for k, v in env.items():
+    for k, v in _users_env(allow_signup=allow_signup).items():
         monkeypatch.setenv(k, v)
 
     settings = Settings(
@@ -95,68 +106,28 @@ async def users_app(monkeypatch):
         secret_key="test-secret-key",
         multi_tenant=False,
     )
-
     application = create_app(settings)
-
-    # Create all tables + stamp alembic version
     await _setup_app_db(application)
 
-    # Trigger lifespan startup
     ctx = application.router.lifespan_context(application)
     await ctx.__aenter__()
+    await _seed_roles(application)
+    return application, ctx
 
-    # Seed roles
-    async with application.state.db.session_factory() as session:
-        from sqlalchemy import select
-        from users.models import Role
 
-        existing = (await session.execute(select(Role.name))).scalars().all()
-        if "admin" not in existing:
-            session.add(Role(id=ADMIN_ROLE_ID, name="admin", description="Administrator"))
-        if "user" not in existing:
-            session.add(Role(id=USER_ROLE_ID, name="user", description="Standard user"))
-        await session.commit()
-
+@pytest.fixture
+async def users_app(monkeypatch):
+    """Full FastAPI app with in-memory DB, seeded roles, users module active."""
+    application, ctx = await _build_users_app(monkeypatch, allow_signup=False)
     yield application
-
     await ctx.__aexit__(None, None, None)
 
 
 @pytest.fixture
 async def users_app_signup(monkeypatch):
     """Like users_app but with allow_signup=True."""
-    from simple_module_hosting.app_builder import create_app
-
-    env = _users_env(allow_signup=True)
-    for k, v in env.items():
-        monkeypatch.setenv(k, v)
-
-    settings = Settings(
-        database_url="sqlite+aiosqlite:///:memory:",
-        environment="testing",
-        secret_key="test-secret-key",
-        multi_tenant=False,
-    )
-    application = create_app(settings)
-
-    await _setup_app_db(application)
-
-    ctx = application.router.lifespan_context(application)
-    await ctx.__aenter__()
-
-    async with application.state.db.session_factory() as session:
-        from sqlalchemy import select
-        from users.models import Role
-
-        existing = (await session.execute(select(Role.name))).scalars().all()
-        if "admin" not in existing:
-            session.add(Role(id=ADMIN_ROLE_ID, name="admin", description="Administrator"))
-        if "user" not in existing:
-            session.add(Role(id=USER_ROLE_ID, name="user", description="Standard user"))
-        await session.commit()
-
+    application, ctx = await _build_users_app(monkeypatch, allow_signup=True)
     yield application
-
     await ctx.__aexit__(None, None, None)
 
 
@@ -183,32 +154,16 @@ async def anon_client_signup(users_app_signup) -> AsyncGenerator[httpx.AsyncClie
 
 async def _make_admin_user(app) -> object:
     """Seed an admin User + Role into app's DB and return the User row."""
-    from sqlalchemy import select
-    from users.models import Role, User, UserRole
+    from users.bootstrap import create_admin
 
     async with app.state.db.session_factory() as session:
-        admin_role = (
-            await session.execute(select(Role).where(Role.id == ADMIN_ROLE_ID))
-        ).scalar_one_or_none()
-        if admin_role is None:
-            admin_role = Role(id=ADMIN_ROLE_ID, name="admin", description="Administrator")
-            session.add(admin_role)
-            await session.flush()
-
-        user = User(
-            id=uuid.uuid4(),
+        result = await create_admin(
+            session,
             email="admin@example.com",
-            hashed_password=PasswordHelper().hash("AdminPass1!"),
-            is_active=True,
-            is_superuser=True,
-            is_verified=True,
+            password="AdminPass1!",
             full_name="Test Admin",
         )
-        session.add(user)
-        await session.flush()
-        session.add(UserRole(user_id=user.id, role_id=admin_role.id))
-        await session.commit()
-    return user
+    return result.user
 
 
 def _sign_session(session_data: dict, secret_key: str) -> str:
