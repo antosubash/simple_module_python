@@ -106,6 +106,45 @@ class TestUserContextTenantId:
         assert ctx.tenant_id is None
 
 
+class TestUserContextFromUser:
+    async def test_from_user_basic(self):
+        """from_user correctly maps id, email, name, roles, and tenant_id."""
+        import uuid
+        from types import SimpleNamespace
+
+        role_a = SimpleNamespace(name="admin")
+        role_b = SimpleNamespace(name="editor")
+        fake_user = SimpleNamespace(
+            id=uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            email="charlie@example.com",
+            full_name="Charlie Brown",
+            roles=[role_a, role_b],
+            tenant_id="tenant-42",
+        )
+        ctx = UserContext.from_user(fake_user)
+        assert ctx.id == "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        assert ctx.email == "charlie@example.com"
+        assert ctx.name == "Charlie Brown"
+        assert ctx.roles == ["admin", "editor"]
+        assert ctx.tenant_id == "tenant-42"
+
+    async def test_from_user_name_fallback_to_email(self):
+        """When full_name is None, ctx.name falls back to the user's email."""
+        import uuid
+        from types import SimpleNamespace
+
+        fake_user = SimpleNamespace(
+            id=uuid.uuid4(),
+            email="dana@example.com",
+            full_name=None,
+            roles=[],
+            tenant_id=None,
+        )
+        ctx = UserContext.from_user(fake_user)
+        assert ctx.name == "dana@example.com"
+        assert ctx.tenant_id is None
+
+
 class TestUserContextAdvanced:
     async def test_from_keycloak_with_realm_access_roles(self):
         userinfo = {
