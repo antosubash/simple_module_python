@@ -48,6 +48,19 @@ class Settings(BaseSettings):
     # the auth token only.
     tenant_header: str = ""
 
+    # Internationalization
+    i18n_default_locale: str = "en"
+    """Locale used when no cookie, Accept-Language, or supported locale match."""
+
+    i18n_supported_locales: list[str] = ["en"]
+    """Locales the host will serve. Must include i18n_default_locale.
+
+    Set via env as JSON-style list, e.g. ``SM_I18N_SUPPORTED_LOCALES='["en","es"]'``.
+    """
+
+    i18n_cookie_name: str = "locale"
+    """Name of the cookie that overrides browser Accept-Language."""
+
     @property
     def is_development(self) -> bool:
         return self.environment == "development"
