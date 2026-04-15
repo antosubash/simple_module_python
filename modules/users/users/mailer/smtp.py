@@ -18,14 +18,9 @@ def _load_template_env() -> jinja2.Environment:
     )
 
 
-_template_env: jinja2.Environment | None = None
-
-
-def _get_template_env() -> jinja2.Environment:
-    global _template_env
-    if _template_env is None:
-        _template_env = _load_template_env()
-    return _template_env
+# Resolve the template directory at import time — deterministic, async-safe,
+# and the filesystem path is known by then anyway.
+_template_env: jinja2.Environment = _load_template_env()
 
 
 class SmtpMailer:
@@ -49,19 +44,19 @@ class SmtpMailer:
 
     async def send_verification(self, email: str, token: str) -> None:
         link = f"{self._base}/users/verify?token={token}"
-        template = _get_template_env().get_template("verify_email.txt")
+        template = _template_env.get_template("verify_email.txt")
         body = template.render(link=link)
         await self._send(email, "Verify your email address", body)
 
     async def send_password_reset(self, email: str, token: str) -> None:
         link = f"{self._base}/users/reset-password?token={token}"
-        template = _get_template_env().get_template("reset_password.txt")
+        template = _template_env.get_template("reset_password.txt")
         body = template.render(link=link)
         await self._send(email, "Reset your password", body)
 
     async def send_invite(self, email: str, token: str, invited_by_name: str) -> None:
         link = f"{self._base}/users/invite/accept?token={token}"
-        template = _get_template_env().get_template("invite.txt")
+        template = _template_env.get_template("invite.txt")
         body = template.render(link=link, invited_by_name=invited_by_name)
         await self._send(email, f"You've been invited by {invited_by_name}", body)
 

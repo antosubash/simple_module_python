@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from users.settings import UsersSettings
 
 
+@runtime_checkable
 class Mailer(Protocol):
     async def send_verification(self, email: str, token: str) -> None: ...
     async def send_password_reset(self, email: str, token: str) -> None: ...
