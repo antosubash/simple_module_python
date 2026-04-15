@@ -13,6 +13,7 @@ that must be resolvable at import time for route-handler signatures.
 from __future__ import annotations
 
 import uuid
+from typing import TYPE_CHECKING
 
 from fastapi import Depends, Request
 from fastapi_users import FastAPIUsers
@@ -28,6 +29,9 @@ from users.db_adapter import (
 )
 from users.manager import UserManager, get_user_manager
 from users.models import User
+
+if TYPE_CHECKING:
+    from users.service import UserService
 
 # Dev-safe singleton — UsersModule patches cookie params at startup.
 _cookie_transport = build_cookie_transport(
@@ -57,7 +61,7 @@ def get_event_bus(request: Request) -> EventBus:
 async def get_user_service(
     db: AsyncSession = Depends(get_db),
     user_manager: UserManager = Depends(get_user_manager),
-) -> UserService:  # noqa: F821
+) -> UserService:
     from users.service import UserService
 
     return UserService(db, user_manager)

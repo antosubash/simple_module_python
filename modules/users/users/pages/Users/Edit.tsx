@@ -124,7 +124,9 @@ function Edit() {
               {user.is_verified ? (
                 <Badge variant="outline">Verified</Badge>
               ) : (
-                <Badge variant="outline" className="text-amber-600 border-amber-300">Unverified</Badge>
+                <Badge variant="outline" className="text-amber-600 border-amber-300">
+                  Unverified
+                </Badge>
               )}
             </div>
             <div className="flex flex-wrap gap-2">
@@ -134,11 +136,7 @@ function Edit() {
                 onClick={handleToggleActive}
                 disabled={savingStatus}
               >
-                {savingStatus
-                  ? 'Saving…'
-                  : isActive
-                  ? 'Disable account'
-                  : 'Enable account'}
+                {savingStatus ? 'Saving…' : isActive ? 'Disable account' : 'Enable account'}
               </Button>
               <Button variant="outline" size="sm" onClick={handleCopyResetLink}>
                 Copy reset-password link

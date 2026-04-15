@@ -152,9 +152,10 @@ async def anon_client_signup(users_app_signup) -> AsyncGenerator[httpx.AsyncClie
         yield c
 
 
-async def _make_admin_user(app) -> object:
+async def _make_admin_user(app):
     """Seed an admin User + Role into app's DB and return the User row."""
     from users.bootstrap import create_admin
+    from users.models import User
 
     async with app.state.db.session_factory() as session:
         result = await create_admin(
@@ -163,7 +164,8 @@ async def _make_admin_user(app) -> object:
             password="AdminPass1!",
             full_name="Test Admin",
         )
-    return result.user
+    user: User = result.user
+    return user
 
 
 def _sign_session(session_data: dict, secret_key: str) -> str:
@@ -272,3 +274,8 @@ async def create_unverified_user(
     await session.commit()
     await session.refresh(user)
     return user
+
+
+# Fixtures consumed by the users.middleware unit tests live in
+# _middleware_support.py (imported as a pytest plugin below).
+pytest_plugins = ["_middleware_support"]

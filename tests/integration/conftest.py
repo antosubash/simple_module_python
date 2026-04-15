@@ -30,7 +30,7 @@ def _sign_session(session_data: dict, secret: str) -> str:
     return TimestampSigner(secret).sign(data).decode("utf-8")
 
 
-async def _seed_user_with_roles(app, email: str, role_names: list[str]) -> object:
+async def _seed_user_with_roles(app, email: str, role_names: list[str]):
     """Seed a User + roles into app's DB and return the User.
 
     If a named role doesn't exist yet, creates it with a deterministic UUID.

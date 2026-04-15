@@ -40,7 +40,7 @@ def build_cookie_transport(
         cookie_max_age=cookie_max_age_seconds,
         cookie_secure=cookie_secure,
         cookie_httponly=True,
-        cookie_samesite=cookie_samesite,  # type: ignore[arg-type]
+        cookie_samesite=cookie_samesite,  # type: ignore[arg-type] # ty: ignore[invalid-argument-type]
     )
 
 
@@ -79,4 +79,4 @@ def reconfigure_cookie_transport(
     transport.cookie_name = settings.cookie_name
     transport.cookie_max_age = settings.cookie_max_age_seconds
     transport.cookie_secure = settings.cookie_secure
-    transport.cookie_samesite = settings.cookie_samesite  # type: ignore[assignment]
+    transport.cookie_samesite = settings.cookie_samesite  # type: ignore[assignment] # ty: ignore[invalid-assignment]

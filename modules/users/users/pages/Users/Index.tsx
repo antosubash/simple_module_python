@@ -40,7 +40,11 @@ interface Props {
 }
 
 function Index() {
-  const { users, pagination, query: initialQuery } = usePage<{ props: Props }>().props as unknown as Props;
+  const {
+    users,
+    pagination,
+    query: initialQuery,
+  } = usePage<{ props: Props }>().props as unknown as Props;
 
   const [search, setSearch] = useState(initialQuery ?? '');
 
@@ -112,7 +116,9 @@ function Index() {
                   <div>
                     <span className="font-medium">{user.email}</span>
                     {!user.is_verified && (
-                      <Badge variant="outline" className="ml-2 text-xs">unverified</Badge>
+                      <Badge variant="outline" className="ml-2 text-xs">
+                        unverified
+                      </Badge>
                     )}
                   </div>
                 </TableCell>
@@ -121,10 +127,15 @@ function Index() {
                 </TableCell>
                 <TableCell className="hidden sm:table-cell">
                   <div className="flex flex-wrap gap-1">
-                    {user.roles.length > 0
-                      ? user.roles.map((r) => <Badge key={r} variant="secondary">{r}</Badge>)
-                      : <span className="text-muted-foreground text-sm">—</span>
-                    }
+                    {user.roles.length > 0 ? (
+                      user.roles.map((r) => (
+                        <Badge key={r} variant="secondary">
+                          {r}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-muted-foreground text-sm">—</span>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell className="hidden sm:table-cell">

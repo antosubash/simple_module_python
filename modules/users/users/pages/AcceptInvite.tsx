@@ -1,6 +1,12 @@
 import { router, usePage } from '@inertiajs/react';
 import { Button } from '@simple-module/ui/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@simple-module/ui/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@simple-module/ui/components/ui/card';
 import { Input } from '@simple-module/ui/components/ui/input';
 import { Label } from '@simple-module/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module/ui/layouts/AuthCardShell';
@@ -14,7 +20,7 @@ function AcceptInvite() {
   const { token: initialToken } = usePage<{ props: Props }>().props as unknown as Props;
   const urlToken =
     typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('token') ?? ''
+      ? (new URLSearchParams(window.location.search).get('token') ?? '')
       : '';
   const token = urlToken || initialToken;
 

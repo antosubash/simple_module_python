@@ -10,8 +10,6 @@ import type React from 'react';
  */
 export function AuthCardShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted p-4">
-      {children}
-    </div>
+    <div className="min-h-screen flex items-center justify-center bg-muted p-4">{children}</div>
   );
 }

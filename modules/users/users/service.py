@@ -129,7 +129,9 @@ class UserService:
         user.is_active = False
         await self._db.commit()
         self._db.expire_all()
-        return await self._get_user_with_roles(user_id)
+        refreshed = await self._get_user_with_roles(user_id)
+        assert refreshed is not None  # we just committed a change to this user
+        return refreshed
 
     async def enable(self, user_id: uuid.UUID) -> User:
         user = await self._get_user_with_roles(user_id)
@@ -141,7 +143,9 @@ class UserService:
         user.is_active = True
         await self._db.commit()
         self._db.expire_all()
-        return await self._get_user_with_roles(user_id)
+        refreshed = await self._get_user_with_roles(user_id)
+        assert refreshed is not None  # we just committed a change to this user
+        return refreshed
 
     async def set_roles(
         self,
@@ -175,7 +179,9 @@ class UserService:
         self._db.expire_all()
 
         # Re-fetch with roles loaded
-        return await self._get_user_with_roles(user_id)
+        refreshed = await self._get_user_with_roles(user_id)
+        assert refreshed is not None  # we just committed role changes to this user
+        return refreshed
 
     async def generate_reset_link(self, user_id: uuid.UUID, base_url: str) -> str:
         """Build an admin-copyable password-reset URL. No email side-effect."""

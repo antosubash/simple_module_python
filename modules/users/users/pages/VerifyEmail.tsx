@@ -1,6 +1,12 @@
 import { usePage } from '@inertiajs/react';
 import { Button } from '@simple-module/ui/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@simple-module/ui/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@simple-module/ui/components/ui/card';
 import { AuthCardShell } from '@simple-module/ui/layouts/AuthCardShell';
 import { useEffect, useState } from 'react';
 
@@ -14,7 +20,7 @@ function VerifyEmail() {
   const { token: initialToken } = usePage<{ props: Props }>().props as unknown as Props;
   const urlToken =
     typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('token') ?? ''
+      ? (new URLSearchParams(window.location.search).get('token') ?? '')
       : '';
   const token = urlToken || initialToken;
 
@@ -32,23 +38,25 @@ function VerifyEmail() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),
-    }).then(async (res) => {
-      if (res.status === 200 || res.status === 204) {
-        setStatus('success');
-      } else {
-        const data = await res.json().catch(() => ({}));
-        const detail = typeof data?.detail === 'string' ? data.detail : '';
-        if (detail === 'VERIFY_USER_ALREADY_VERIFIED') {
-          setStatus('already_verified');
+    })
+      .then(async (res) => {
+        if (res.status === 200 || res.status === 204) {
+          setStatus('success');
         } else {
-          setStatus('error');
-          setErrorMsg('Verification link expired or invalid. Please request a new one.');
+          const data = await res.json().catch(() => ({}));
+          const detail = typeof data?.detail === 'string' ? data.detail : '';
+          if (detail === 'VERIFY_USER_ALREADY_VERIFIED') {
+            setStatus('already_verified');
+          } else {
+            setStatus('error');
+            setErrorMsg('Verification link expired or invalid. Please request a new one.');
+          }
         }
-      }
-    }).catch(() => {
-      setStatus('error');
-      setErrorMsg('An error occurred. Please try again.');
-    });
+      })
+      .catch(() => {
+        setStatus('error');
+        setErrorMsg('An error occurred. Please try again.');
+      });
   }, [token]);
 
   const content = {

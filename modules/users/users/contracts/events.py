@@ -5,26 +5,28 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 
+from simple_module_core.events import Event
 
-@dataclass(frozen=True)
-class UserRegistered:
+
+@dataclass
+class UserRegistered(Event):
     user_id: uuid.UUID
     email: str
 
 
-@dataclass(frozen=True)
-class UserInvited:
+@dataclass
+class UserInvited(Event):
     user_id: uuid.UUID
     email: str
     invited_by: str | None
 
 
-@dataclass(frozen=True)
-class UserDisabled:
+@dataclass
+class UserDisabled(Event):
     user_id: uuid.UUID
 
 
-@dataclass(frozen=True)
-class RoleAssigned:
+@dataclass
+class RoleAssigned(Event):
     user_id: uuid.UUID
     role_name: str

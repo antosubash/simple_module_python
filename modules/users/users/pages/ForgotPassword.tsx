@@ -1,5 +1,11 @@
 import { Button } from '@simple-module/ui/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@simple-module/ui/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@simple-module/ui/components/ui/card';
 import { Input } from '@simple-module/ui/components/ui/input';
 import { Label } from '@simple-module/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module/ui/layouts/AuthCardShell';
@@ -17,13 +23,12 @@ function ForgotPassword() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
-    })
-      .finally(() => {
-        // Always show the same message regardless of whether the email exists
-        // (anti-enumeration: fastapi-users returns 202 regardless)
-        setLoading(false);
-        setSubmitted(true);
-      });
+    }).finally(() => {
+      // Always show the same message regardless of whether the email exists
+      // (anti-enumeration: fastapi-users returns 202 regardless)
+      setLoading(false);
+      setSubmitted(true);
+    });
   };
 
   if (submitted) {

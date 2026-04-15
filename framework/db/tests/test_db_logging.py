@@ -6,7 +6,7 @@ import contextlib
 import logging
 from unittest.mock import MagicMock
 
-from _models import _TenantBase, _TenantItem  # ty: ignore[unresolved-import]
+from _models import _TenantBase, _TenantItem
 from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 

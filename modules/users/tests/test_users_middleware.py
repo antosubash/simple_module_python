@@ -4,125 +4,22 @@ The middleware is tested in isolation — a minimal FastAPI app is constructed
 per test with AuthMiddleware and SessionMiddleware installed.  The full
 UsersModule stack is NOT used; this keeps the tests independent of route
 registration and module startup hooks.
+
+Shared helpers + fixtures live in ``_middleware_support`` so these tests
+can be read as a flat list of scenarios. Public-path scenarios live in
+``test_users_middleware_public_paths`` for the same reason.
 """
 
 from __future__ import annotations
 
-import json
 import uuid
-from base64 import b64encode
-from typing import Any
 
 import httpx
 import pytest
-from fastapi import FastAPI, Request
-from itsdangerous import TimestampSigner
+from _middleware_support import _build_app, _session_cookie
+from fastapi import Request
 from simple_module_db.listeners import current_user_id
-from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import JSONResponse
-from users.middleware import AuthMiddleware
-
-# ---------------------------------------------------------------------------
-# Constants / helpers
-# ---------------------------------------------------------------------------
-
-SECRET_KEY = "test-secret-key-for-session-middleware"
-
-
-def _sign_session(data: dict[str, Any], secret: str = SECRET_KEY) -> str:
-    """Encode and sign a session dict exactly as Starlette's SessionMiddleware does."""
-    raw = b64encode(json.dumps(data).encode()).decode()
-    return TimestampSigner(secret).sign(raw).decode("utf-8")
-
-
-def _session_cookie(data: dict[str, Any]) -> dict[str, str]:
-    return {"session": _sign_session(data)}
-
-
-# ---------------------------------------------------------------------------
-# Mini-app factory
-# ---------------------------------------------------------------------------
-
-
-async def _build_app(db_state, inner_handler=None):
-    """Build a minimal ASGI app with AuthMiddleware + SessionMiddleware."""
-
-    async def _default_handler(request: Request):
-        user = getattr(request.state, "user", None)
-        return JSONResponse(
-            {
-                "path": request.url.path,
-                "user": (
-                    {
-                        "id": user.id,
-                        "email": user.email,
-                        "name": user.name,
-                        "roles": user.roles,
-                        "tenant_id": user.tenant_id,
-                    }
-                    if user is not None
-                    else None
-                ),
-            }
-        )
-
-    handler = inner_handler or _default_handler
-
-    app = FastAPI()
-    app.state.db = db_state
-
-    @app.get("/{path:path}")
-    async def _catch_all(request: Request, path: str = ""):
-        return await handler(request)
-
-    # Middleware is applied in reverse order: SessionMiddleware outermost.
-    app.add_middleware(AuthMiddleware)
-    app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
-    return app
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-async def _seed_roles(db_session):
-    """Insert the standard admin/user roles."""
-    from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
-    from users.models import Role
-
-    db_session.add_all(
-        [
-            Role(id=ADMIN_ROLE_ID, name="admin", description="Administrator"),
-            Role(id=USER_ROLE_ID, name="user", description="Standard user"),
-        ]
-    )
-    await db_session.commit()
-
-
-@pytest.fixture
-async def active_user(db_session, _seed_roles):
-    """Active user with the 'admin' role, eagerly committed."""
-    from users.constants import ADMIN_ROLE_ID
-    from users.models import User, UserRole
-
-    user_id = uuid.uuid4()
-    user = User(
-        id=user_id,
-        email="middleware-test@example.com",
-        hashed_password="hashed",
-        is_active=True,
-        is_superuser=False,
-        is_verified=True,
-        full_name="Middleware Tester",
-        tenant_id="acme",
-    )
-    link = UserRole(user_id=user_id, role_id=ADMIN_ROLE_ID)
-    db_session.add_all([user, link])
-    await db_session.commit()
-    return user
-
 
 # ---------------------------------------------------------------------------
 # 1. Unauthenticated request to protected path → redirect
@@ -168,10 +65,10 @@ async def test_unauthenticated_protected_path_sets_next_in_session(db_state):
 
 
 @pytest.mark.anyio
-async def test_authenticated_request_sets_user_context(db_state, active_user):
+async def test_authenticated_request_sets_user_context(db_state, mw_active_user):
     app = await _build_app(db_state)
     transport = httpx.ASGITransport(app=app)
-    cookies = _session_cookie({"user_id": str(active_user.id)})
+    cookies = _session_cookie({"user_id": str(mw_active_user.id)})
     async with httpx.AsyncClient(
         transport=transport, base_url="http://testserver", cookies=cookies
     ) as client:
@@ -180,7 +77,7 @@ async def test_authenticated_request_sets_user_context(db_state, active_user):
     assert resp.status_code == 200
     data = resp.json()
     assert data["user"] is not None
-    assert data["user"]["id"] == str(active_user.id)
+    assert data["user"]["id"] == str(mw_active_user.id)
     assert data["user"]["email"] == "middleware-test@example.com"
     assert data["user"]["name"] == "Middleware Tester"
     assert data["user"]["roles"] == ["admin"]
@@ -232,7 +129,7 @@ async def test_nonexistent_user_id_redirects(db_state):
 
 
 @pytest.mark.anyio
-async def test_inactive_user_redirects(db_state, db_session, _seed_roles):
+async def test_inactive_user_redirects(db_state, db_session, _mw_seed_roles):
     from users.models import User
 
     user_id = uuid.uuid4()
@@ -265,7 +162,7 @@ async def test_inactive_user_redirects(db_state, db_session, _seed_roles):
 
 
 @pytest.mark.anyio
-async def test_disabled_at_user_redirects(db_state, db_session, _seed_roles):
+async def test_disabled_at_user_redirects(db_state, db_session, _mw_seed_roles):
     from datetime import UTC, datetime
 
     from users.models import User
@@ -296,68 +193,12 @@ async def test_disabled_at_user_redirects(db_state, db_session, _seed_roles):
 
 
 # ---------------------------------------------------------------------------
-# 7. Public path without session → passes through (no redirect)
+# 7. current_user_id ContextVar is set during request / reset after
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.anyio
-async def test_public_path_unauthenticated_passes_through(db_state):
-    app = await _build_app(db_state)
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        resp = await client.get("/users/login", follow_redirects=False)
-
-    assert resp.status_code == 200
-
-
-@pytest.mark.anyio
-async def test_api_users_auth_prefix_is_public(db_state):
-    app = await _build_app(db_state)
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        resp = await client.get("/api/users/auth/login", follow_redirects=False)
-
-    assert resp.status_code == 200
-
-
-@pytest.mark.anyio
-async def test_health_path_is_public(db_state):
-    app = await _build_app(db_state)
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        resp = await client.get("/health", follow_redirects=False)
-
-    assert resp.status_code == 200
-
-
-# ---------------------------------------------------------------------------
-# 8. Public root path (/) with valid user_id → sets user, no redirect
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.anyio
-async def test_root_path_with_valid_user_sets_context(db_state, active_user):
-    app = await _build_app(db_state)
-    transport = httpx.ASGITransport(app=app)
-    cookies = _session_cookie({"user_id": str(active_user.id)})
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://testserver", cookies=cookies
-    ) as client:
-        resp = await client.get("/", follow_redirects=False)
-
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["user"] is not None
-    assert data["user"]["email"] == "middleware-test@example.com"
-
-
-# ---------------------------------------------------------------------------
-# 9. current_user_id ContextVar is set during request / reset after
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.anyio
-async def test_current_user_id_contextvar_set_during_request(db_state, active_user):
+async def test_current_user_id_contextvar_set_during_request(db_state, mw_active_user):
     captured: dict = {}
 
     async def _capture_contextvar(request: Request):
@@ -366,13 +207,13 @@ async def test_current_user_id_contextvar_set_during_request(db_state, active_us
 
     app = await _build_app(db_state, _capture_contextvar)
     transport = httpx.ASGITransport(app=app)
-    cookies = _session_cookie({"user_id": str(active_user.id)})
+    cookies = _session_cookie({"user_id": str(mw_active_user.id)})
     async with httpx.AsyncClient(
         transport=transport, base_url="http://testserver", cookies=cookies
     ) as client:
         await client.get("/dashboard")
 
-    assert captured["user_id"] == str(active_user.id)
+    assert captured["user_id"] == str(mw_active_user.id)
     # After the request completes, the ContextVar should be reset to its
     # default (no value set in this outer scope).
     assert current_user_id.get(None) is None

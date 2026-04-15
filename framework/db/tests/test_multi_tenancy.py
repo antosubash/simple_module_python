@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-from _models import _TenantItem, _TenantSoftItem  # ty: ignore[unresolved-import]
+from _models import _TenantItem, _TenantSoftItem
 from simple_module_db.listeners import TenantIsolationError, current_tenant_id
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError

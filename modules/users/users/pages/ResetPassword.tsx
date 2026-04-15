@@ -1,6 +1,12 @@
 import { router, usePage } from '@inertiajs/react';
 import { Button } from '@simple-module/ui/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@simple-module/ui/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@simple-module/ui/components/ui/card';
 import { Input } from '@simple-module/ui/components/ui/input';
 import { Label } from '@simple-module/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module/ui/layouts/AuthCardShell';
@@ -16,7 +22,7 @@ function ResetPassword() {
   // Prefer the token from the URL query string (deeplink); fall back to Inertia prop.
   const urlToken =
     typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('token') ?? ''
+      ? (new URLSearchParams(window.location.search).get('token') ?? '')
       : '';
   const token = urlToken || initialToken;
 
@@ -43,7 +49,10 @@ function ResetPassword() {
           router.visit('/users/login');
         } else {
           const data = await res.json().catch(() => ({}));
-          const detail = typeof data?.detail === 'string' ? data.detail : 'Reset failed. The link may have expired.';
+          const detail =
+            typeof data?.detail === 'string'
+              ? data.detail
+              : 'Reset failed. The link may have expired.';
           setError(detail);
         }
       })
