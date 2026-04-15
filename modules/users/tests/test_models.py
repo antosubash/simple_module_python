@@ -28,11 +28,24 @@ def column_names(table) -> set[str]:
 # ---------------------------------------------------------------------------
 
 
+def _has_index_on(model, column_name: str) -> bool:
+    """Check that the model's table has an index covering the given column."""
+    table = model.__table__
+    return any(column_name in {c.name for c in idx.columns} for idx in table.indexes)
+
+
 class TestUserTableShape:
     def test_tablename(self):
         from users.models import User
 
         assert User.__tablename__ == "users_user"
+
+    def test_last_login_at_is_indexed(self):
+        from users.models import User
+
+        assert _has_index_on(User, "last_login_at"), (
+            "User.last_login_at must be indexed (used by dashboard active-users query)"
+        )
 
     def test_required_columns(self):
         from users.models import User

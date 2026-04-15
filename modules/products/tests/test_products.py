@@ -11,6 +11,23 @@ from products.service import ProductService
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+# ── Model index guards ───────────────────────────────────────────────
+
+
+class TestProductModelIndexes:
+    def test_is_active_is_indexed(self):
+        from products.models import Product
+
+        table = Product.__table__
+        indexed = any(
+            "is_active" in {c.name for c in idx.columns}
+            for idx in table.indexes
+        )
+        assert indexed, (
+            "Product.is_active must be indexed (used by dashboard product count query)"
+        )
+
+
 # ── Schema validation ────────────────────────────────────────────────
 
 

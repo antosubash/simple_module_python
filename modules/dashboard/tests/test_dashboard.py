@@ -16,36 +16,6 @@ def _clear_stats_cache():
     invalidate_stats_cache()
 
 
-# ── Index guard tests ────────────────────────────────────────────────
-
-
-def _has_index_on(model, column_name: str) -> bool:
-    """Check that the model's table has an index covering the given column."""
-    table = model.__table__
-    return any(
-        column_name in {c.name for c in idx.columns}
-        for idx in table.indexes
-    )
-
-
-class TestDashboardQueryIndexes:
-    """Ensure indexes required by dashboard queries are present on the models."""
-
-    def test_user_last_login_at_is_indexed(self):
-        from users.models import User
-
-        assert _has_index_on(User, "last_login_at"), (
-            "User.last_login_at must be indexed for the active-users-7d query"
-        )
-
-    def test_product_is_active_is_indexed(self):
-        from products.models import Product
-
-        assert _has_index_on(Product, "is_active"), (
-            "Product.is_active must be indexed for the product count query"
-        )
-
-
 # ── Module registration tests ────────────────────────────────────────
 
 
