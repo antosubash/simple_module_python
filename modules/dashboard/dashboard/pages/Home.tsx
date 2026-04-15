@@ -4,20 +4,45 @@ import { PageShell } from '@simple-module/ui/components/PageShell';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@simple-module/ui/components/ui/card';
-import { Separator } from '@simple-module/ui/components/ui/separator';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableRow,
+} from '@simple-module/ui/components/ui/table';
 import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
-import { Box, Package, Users } from 'lucide-react';
+import { Activity, Box, Heart, Package, Server, Users } from 'lucide-react';
+
+interface SystemModule {
+  name: string;
+  status: string;
+}
+
+interface HealthCheck {
+  name: string;
+  status: string;
+}
+
+interface SystemInfo {
+  modules: SystemModule[];
+  python_version: string;
+  health_checks: HealthCheck[];
+}
 
 interface Props {
   welcome: string;
+  total_users: number;
+  active_users_7d: number;
+  total_products: number;
+  module_count: number;
+  system_info: SystemInfo;
 }
 
 function Home() {
-  const { welcome } = usePage<{ props: Props }>().props as unknown as Props;
+  const props = usePage<{ props: Props }>().props as unknown as Props;
   const { t } = useT();
 
   return (
@@ -25,37 +50,94 @@ function Home() {
       title={t(keys.dashboard.home.title)}
       description={t(keys.dashboard.home.description)}
     >
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 mb-8">
         <StatCard
-          title={t(keys.dashboard.home.stats.products)}
-          value="-"
-          icon={<Package className="size-4" />}
-          accent="primary"
-        />
-        <StatCard
-          title={t(keys.dashboard.home.stats.users)}
-          value="-"
+          title={t(keys.dashboard.home.stats.total_users)}
+          value={String(props.total_users)}
           icon={<Users className="size-4" />}
           accent="emerald"
         />
         <StatCard
+          title={t(keys.dashboard.home.stats.active_users)}
+          value={String(props.active_users_7d)}
+          icon={<Activity className="size-4" />}
+          accent="amber"
+        />
+        <StatCard
+          title={t(keys.dashboard.home.stats.products)}
+          value={String(props.total_products)}
+          icon={<Package className="size-4" />}
+          accent="primary"
+        />
+        <StatCard
           title={t(keys.dashboard.home.stats.modules)}
-          value="3"
+          value={String(props.module_count)}
           icon={<Box className="size-4" />}
           accent="violet"
         />
       </div>
 
+      {/* System Info */}
       <Card>
         <CardHeader>
-          <CardTitle className="font-[var(--font-display)]">
-            {t(keys.dashboard.home.welcome_card_title)}
+          <CardTitle className="flex items-center gap-2 font-[var(--font-display)]">
+            <Server className="size-4" />
+            {t(keys.dashboard.home.system_info_title)}
           </CardTitle>
-          <CardDescription>{welcome}</CardDescription>
         </CardHeader>
-        <Separator />
-        <CardContent>
-          <p className="text-sm text-muted-foreground">{t(keys.dashboard.home.description_body)}</p>
+        <CardContent className="space-y-6">
+          {/* Modules */}
+          <div>
+            <h4 className="text-sm font-medium text-muted-foreground mb-2">
+              {t(keys.dashboard.home.system_info.modules)}
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {props.system_info.modules.map((mod) => (
+                <span
+                  key={mod.name}
+                  className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium"
+                >
+                  <span className="size-1.5 rounded-full bg-emerald-500" />
+                  {mod.name}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Python Version + Health Checks */}
+          <Table>
+            <TableBody>
+              <TableRow>
+                <TableCell className="font-medium text-muted-foreground">
+                  {t(keys.dashboard.home.system_info.python_version)}
+                </TableCell>
+                <TableCell>{props.system_info.python_version}</TableCell>
+              </TableRow>
+              {props.system_info.health_checks.map((check) => (
+                <TableRow key={check.name}>
+                  <TableCell className="font-medium text-muted-foreground flex items-center gap-2">
+                    <Heart className="size-3" />
+                    {check.name}
+                  </TableCell>
+                  <TableCell>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span
+                        className={`size-2 rounded-full ${
+                          check.status === 'healthy'
+                            ? 'bg-emerald-500'
+                            : check.status === 'degraded'
+                              ? 'bg-amber-500'
+                              : 'bg-red-500'
+                        }`}
+                      />
+                      {check.status}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </PageShell>
@@ -88,6 +170,11 @@ function StatCard({
       card: 'border-violet-border bg-gradient-to-br from-violet-bg to-card',
       icon: 'text-violet-icon-fg bg-violet-icon-bg',
       value: 'text-violet-value',
+    },
+    amber: {
+      card: 'border-amber-200 bg-gradient-to-br from-amber-50 to-card',
+      icon: 'text-amber-600 bg-amber-100',
+      value: 'text-amber-900',
     },
   };
 
