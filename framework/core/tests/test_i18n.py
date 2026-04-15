@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from simple_module_core.i18n import I18nRegistry, flatten_messages
+from simple_module_core.i18n import I18nRegistry, Translator, flatten_messages
 
 
 class TestFlattenMessages:
@@ -93,3 +93,42 @@ class TestI18nRegistry:
         reg.add_source("host", tmp_path / "h")
         reg.load()
         assert reg.messages("fr") == {}
+
+
+class TestTranslator:
+    def _registry_with(self, locale_data: dict[str, dict[str, str]]) -> I18nRegistry:
+        """Build a registry directly from in-memory data (bypasses filesystem)."""
+        reg = I18nRegistry(default_locale="en", supported_locales=list(locale_data.keys()))
+        reg._messages = locale_data  # noqa: SLF001 — test-only shortcut
+        return reg
+
+    def test_returns_string_for_known_key(self) -> None:
+        reg = self._registry_with({"en": {"hello": "Hello"}})
+        t = Translator(reg, locale="en", default_locale="en")
+        assert t.t("hello") == "Hello"
+
+    def test_interpolates_named_placeholders(self) -> None:
+        reg = self._registry_with({"en": {"greeting": "Hello, {name}"}})
+        t = Translator(reg, locale="en", default_locale="en")
+        assert t.t("greeting", name="Ana") == "Hello, Ana"
+
+    def test_missing_placeholder_keeps_brace_form(self) -> None:
+        reg = self._registry_with({"en": {"greeting": "Hello, {name}"}})
+        t = Translator(reg, locale="en", default_locale="en")
+        # Param not supplied — value is the raw placeholder, not an exception.
+        assert t.t("greeting") == "Hello, {name}"
+
+    def test_falls_back_to_default_locale(self) -> None:
+        reg = self._registry_with({"en": {"hello": "Hello"}, "es": {}})
+        t = Translator(reg, locale="es", default_locale="en")
+        assert t.t("hello") == "Hello"
+
+    def test_unknown_key_returns_key(self) -> None:
+        reg = self._registry_with({"en": {}})
+        t = Translator(reg, locale="en", default_locale="en")
+        assert t.t("missing.key") == "missing.key"
+
+    def test_prefers_requested_locale_over_default(self) -> None:
+        reg = self._registry_with({"en": {"hello": "Hello"}, "es": {"hello": "Hola"}})
+        t = Translator(reg, locale="es", default_locale="en")
+        assert t.t("hello") == "Hola"

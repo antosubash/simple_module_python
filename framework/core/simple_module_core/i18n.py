@@ -91,3 +91,54 @@ class I18nRegistry:
     def messages(self, locale: str) -> dict[str, str]:
         """Flat dotted-key map for the given locale. Empty dict if unknown."""
         return dict(self._messages.get(locale, {}))
+
+
+class _SafeFormatDict(dict):
+    """Dict that returns ``{key}`` for missing keys so str.format_map doesn't raise."""
+
+    def __missing__(self, key: str) -> str:
+        return "{" + key + "}"
+
+
+class Translator:
+    """Request-scoped translator bound to a specific locale.
+
+    Construct via::
+
+        Translator(registry, locale=request.state.locale, default_locale="en")
+
+    Resolution order for :meth:`t`:
+
+    1. Look up key in ``locale``; if missing, fall back to ``default_locale``.
+    2. If still missing, return the key itself (with a debug log).
+    3. Interpolate ``{name}``-style placeholders using supplied kwargs.
+       Missing placeholders are left as ``{name}`` (not raised).
+    """
+
+    def __init__(
+        self,
+        registry: I18nRegistry,
+        locale: str,
+        default_locale: str,
+    ) -> None:
+        self._registry = registry
+        self.locale = locale
+        self.default_locale = default_locale
+
+    def t(self, key: str, **params: Any) -> str:
+        """Translate ``key`` with optional interpolation."""
+        template = self._lookup(key)
+        if template is None:
+            logger.debug("i18n: missing key '%s' in locale '%s'", key, self.locale)
+            return key
+        return template.format_map(_SafeFormatDict(params))
+
+    def _lookup(self, key: str) -> str | None:
+        msgs = self._registry.messages(self.locale)
+        if key in msgs:
+            return msgs[key]
+        if self.locale != self.default_locale:
+            default = self._registry.messages(self.default_locale)
+            if key in default:
+                return default[key]
+        return None
