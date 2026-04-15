@@ -31,7 +31,21 @@ target-version = "py312"
 extend-exclude = ["framework/hosting/simple_module_hosting/templates"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "UP", "B", "SIM"]
+select = [
+    "E",      # pycodestyle errors (PEP 8)
+    "W",      # pycodestyle warnings (PEP 8)
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # PEP 8 naming
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "SIM",    # flake8-simplify
+    "C4",     # flake8-comprehensions
+    "RET",    # flake8-return
+    "PTH",    # flake8-use-pathlib
+    "PIE",    # flake8-pie
+    "RUF",    # ruff-specific rules
+]
 ignore = [
     "B008",   # Depends() in default args is idiomatic FastAPI
     "B027",   # Empty methods in ABC without @abstractmethod — used for optional hooks

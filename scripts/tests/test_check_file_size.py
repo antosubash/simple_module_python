@@ -9,8 +9,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import check_file_size  # noqa: E402
-from check_file_size import (  # noqa: E402
+import check_file_size
+from check_file_size import (
     COVERED_SUFFIXES,
     DEFAULT_EXEMPT_GLOBS,
     DEFAULT_MAX_LINES,

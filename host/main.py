@@ -10,10 +10,10 @@ os.environ.setdefault(
     str(Path(__file__).resolve().parent.parent),
 )
 
-from simple_module_hosting import Settings, create_app  # noqa: E402
-from simple_module_hosting.logging import setup_logging  # noqa: E402
+from simple_module_hosting import Settings, create_app
+from simple_module_hosting.logging import setup_logging
 
-from host.routes import router as host_router  # noqa: E402
+from host.routes import router as host_router
 
 settings = Settings()
 

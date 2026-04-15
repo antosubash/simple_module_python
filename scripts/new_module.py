@@ -22,9 +22,9 @@ from pathlib import Path
 # Make sibling template modules importable when this file is run as a script.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _templates_contracts import contracts_init, contracts_service, schemas_py  # noqa: E402
-from _templates_endpoints import api_py, views_py  # noqa: E402
-from _templates_py import (  # noqa: E402
+from _templates_contracts import contracts_init, contracts_service, schemas_py
+from _templates_endpoints import api_py, views_py
+from _templates_py import (
     ScaffoldContext,
     deps_py,
     models_py,
@@ -33,8 +33,8 @@ from _templates_py import (  # noqa: E402
     pyproject_toml,
     service_py,
 )
-from _templates_tests import test_module_py  # noqa: E402
-from _templates_tsx import browse_tsx, create_tsx, edit_tsx  # noqa: E402
+from _templates_tests import test_module_py
+from _templates_tsx import browse_tsx, create_tsx, edit_tsx
 
 ROOT = Path(__file__).resolve().parent.parent
 

@@ -9,8 +9,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import new_module  # noqa: E402
-from new_module import scaffold_module  # noqa: E402
+import new_module
+from new_module import scaffold_module
 
 MINIMAL_HOST_PYPROJECT = (
     '[project]\ndependencies = [\n    "products",\n]\n\n'
