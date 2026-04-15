@@ -1,0 +1,68 @@
+{
+  "browse": {
+    "title": "Productos",
+    "description": "Administra tu catálogo de productos",
+    "new_button": "Nuevo producto",
+    "search_placeholder": "Buscar productos...",
+    "count_one": "{count} producto",
+    "count_other": "{count} productos",
+    "empty_title": "Aún no hay productos",
+    "empty_description": "Comienza creando tu primer producto.",
+    "create_button": "Crear producto",
+    "no_match": "Ningún producto coincide con \"{query}\"",
+    "em_dash": "—"
+  },
+  "table": {
+    "name": "Nombre",
+    "description": "Descripción",
+    "price": "Precio",
+    "status": "Estado",
+    "actions": "Acciones",
+    "active": "Activo",
+    "inactive": "Inactivo"
+  },
+  "delete_dialog": {
+    "title": "¿Eliminar \"{name}\"?",
+    "description": "Esta acción no se puede deshacer. Esto eliminará permanentemente el producto del catálogo.",
+    "cancel": "Cancelar",
+    "confirm": "Eliminar"
+  },
+  "toasts": {
+    "deleted": "\"{name}\" eliminado",
+    "delete_failed": "No se pudo eliminar el producto",
+    "created": "Producto creado",
+    "updated": "Producto actualizado"
+  },
+  "form": {
+    "name_label": "Nombre",
+    "name_placeholder": "Ingresa el nombre del producto",
+    "description_label": "Descripción",
+    "description_placeholder": "Descripción opcional",
+    "price_label": "Precio",
+    "price_placeholder": "0.00",
+    "active_label": "Activo",
+    "cancel_button": "Cancelar"
+  },
+  "create": {
+    "title": "Crear producto",
+    "description": "Agrega un nuevo producto al catálogo",
+    "submit_button": "Crear producto",
+    "submitting_button": "Creando..."
+  },
+  "edit": {
+    "title": "Editar: {name}",
+    "description": "Actualiza los detalles del producto",
+    "back_button": "Volver a productos",
+    "submit_button": "Guardar cambios",
+    "submitting_button": "Guardando..."
+  },
+  "validation": {
+    "name_required": "El nombre es obligatorio",
+    "name_too_long": "El nombre debe tener menos de 200 caracteres",
+    "price_required": "El precio es obligatorio",
+    "price_positive": "El precio debe ser mayor que 0"
+  },
+  "errors": {
+    "not_found": "Producto no encontrado"
+  }
+}
