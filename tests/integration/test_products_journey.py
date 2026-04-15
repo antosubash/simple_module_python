@@ -64,28 +64,20 @@ class TestProductLifecycle:
 
 
 class TestSessionDuringJourney:
-    async def test_session_user_visible_before_and_after_crud(
+    async def test_session_persists_before_and_after_crud(
         self, authenticated_client: httpx.AsyncClient
     ):
-        before = await authenticated_client.get("/auth/me")
+        """Session cookie remains valid before and after a CRUD operation."""
+        # Confirm session is active — a protected endpoint returns 200.
+        before = await authenticated_client.get("/api/products/")
         assert before.status_code == 200
-        assert before.json() == {
-            "authenticated": True,
-            "user": {
-                "sub": "test-user-id",
-                "email": "test@example.com",
-                "name": "Test User",
-                "preferred_username": "testuser",
-                "realm_access": {"roles": ["admin"]},
-            },
-        }
 
         create = await authenticated_client.post(
             "/api/products/", json={"name": "Journey", "price": "5.00"}
         )
         assert create.status_code == 201
 
-        after = await authenticated_client.get("/auth/me")
+        # Session must still be valid after the write.
+        after = await authenticated_client.get("/api/products/")
         assert after.status_code == 200
-        assert after.json()["authenticated"] is True
-        assert after.json()["user"]["sub"] == "test-user-id"
+        assert any(p["name"] == "Journey" for p in after.json())

@@ -145,22 +145,24 @@ async def client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
 
 @pytest.fixture
 async def authenticated_client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Authenticated async HTTP client (admin user via signed session cookie)."""
+    """HTTPX client with a signed session cookie carrying a seeded admin user's id."""
     import json
     from base64 import b64encode
 
     from itsdangerous import TimestampSigner
+    from users.bootstrap import create_admin
 
-    userinfo = {
-        "sub": "test-user-id",
-        "email": "test@example.com",
-        "name": "Test User",
-        "preferred_username": "testuser",
-        "realm_access": {"roles": ["admin"]},
-    }
-    session_data = {"userinfo": userinfo}
+    async with app.state.db.session_factory() as session:
+        result = await create_admin(
+            session,
+            email="admin@test",
+            password="test-password",
+            full_name="Test Admin",
+        )
+        user_id = str(result.user.id)
+
+    session_data = {"user_id": user_id}
     data = b64encode(json.dumps(session_data).encode())
-
     signer = TimestampSigner(str(app.state.settings.secret_key))
     signed = signer.sign(data).decode("utf-8")
 

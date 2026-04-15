@@ -17,15 +17,7 @@ const THEME = {
 
 export function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
-    <SidebarLayout
-      menuKey="sidebar"
-      theme={THEME}
-      headerSlot={
-        <div className="flex justify-end px-3 py-2 border-b border-white/[0.06]">
-          <LocaleSwitcher />
-        </div>
-      }
-    >
+    <SidebarLayout menuKey="sidebar" theme={THEME} headerSlot={<LocaleSwitcher />}>
       {children}
       <Toaster richColors position="top-right" />
     </SidebarLayout>

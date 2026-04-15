@@ -4,6 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+WILDCARD = "*"
+
+# Default role→permission mapping. Admin gets all permissions via the wildcard.
+# Additional mappings are added at registration time via PermissionRegistry.map_role.
+DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
+    "admin": [WILDCARD],
+}
+
 
 @dataclass
 class PermissionGroup:
@@ -14,10 +22,23 @@ class PermissionGroup:
 
 
 class PermissionRegistry:
-    """Central registry of all permissions across all modules."""
+    """Central registry of all permissions across all modules.
+
+    Effectively immutable after module-registration (boot phase). The computed
+    views ``all_permissions`` and ``role_map`` are read on every authenticated
+    request by ``InertiaLayoutDataMiddleware`` — cache them and invalidate on
+    every mutation.
+    """
 
     def __init__(self) -> None:
         self._groups: dict[str, PermissionGroup] = {}
+        self._role_map: dict[str, set[str]] = {}
+        self._all_permissions_cache: list[str] | None = None
+        self._role_map_cache: dict[str, list[str]] | None = None
+
+    def _invalidate(self) -> None:
+        self._all_permissions_cache = None
+        self._role_map_cache = None
 
     def add_group(self, name: str, permissions: list[str]) -> None:
         """Register a group of related permissions."""
@@ -25,6 +46,7 @@ class PermissionRegistry:
             self._groups[name].permissions.extend(permissions)
         else:
             self._groups[name] = PermissionGroup(name=name, permissions=list(permissions))
+        self._invalidate()
 
     def add(self, permission: str) -> None:
         """Register a single permission (auto-grouped by prefix before '.')."""
@@ -33,14 +55,17 @@ class PermissionRegistry:
             self._groups[group_name] = PermissionGroup(name=group_name)
         if permission not in self._groups[group_name].permissions:
             self._groups[group_name].permissions.append(permission)
+        self._invalidate()
 
     @property
     def all_permissions(self) -> list[str]:
         """All registered permission strings, sorted."""
-        perms: list[str] = []
-        for group in self._groups.values():
-            perms.extend(group.permissions)
-        return sorted(set(perms))
+        if self._all_permissions_cache is None:
+            perms: set[str] = set()
+            for group in self._groups.values():
+                perms.update(group.permissions)
+            self._all_permissions_cache = sorted(perms)
+        return self._all_permissions_cache
 
     @property
     def groups(self) -> list[PermissionGroup]:
@@ -48,6 +73,32 @@ class PermissionRegistry:
 
     def has(self, permission: str) -> bool:
         return any(permission in g.permissions for g in self._groups.values())
+
+    def map_role(self, role: str, permissions: list[str]) -> None:
+        """Register a role→permission mapping.
+
+        Merges *permissions* into the existing set for *role* so that multiple
+        calls from different modules accumulate rather than overwrite.
+        """
+        if role not in self._role_map:
+            self._role_map[role] = set()
+        self._role_map[role].update(permissions)
+        self._invalidate()
+
+    @property
+    def role_map(self) -> dict[str, list[str]]:
+        """Merged role→permission mapping (``DEFAULT_ROLE_PERMISSIONS`` + module maps)."""
+        if self._role_map_cache is None:
+            merged: dict[str, list[str]] = {
+                role: list(perms) for role, perms in DEFAULT_ROLE_PERMISSIONS.items()
+            }
+            for role, perms in self._role_map.items():
+                if role in merged:
+                    merged[role] = list(set(merged[role]) | perms)
+                else:
+                    merged[role] = list(perms)
+            self._role_map_cache = merged
+        return self._role_map_cache
 
     def get_permissions_for_roles(
         self,

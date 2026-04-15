@@ -53,7 +53,7 @@ export function LocaleSwitcher() {
   };
 
   return (
-    <>
+    <div className="flex justify-end px-3 py-2 border-b border-white/[0.06]">
       <form ref={formRef} method="POST" action="/i18n/set-locale" style={{ display: 'none' }}>
         <input type="hidden" name="locale" value="" readOnly />
       </form>
@@ -76,6 +76,6 @@ export function LocaleSwitcher() {
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-    </>
+    </div>
   );
 }

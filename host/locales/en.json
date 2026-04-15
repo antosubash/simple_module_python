@@ -10,8 +10,8 @@
     "features": {
       "module_system_title": "Module System",
       "module_system_description": "Each module is a self-contained package with its own models, services, API endpoints, and React pages. Discovered automatically via Python entry_points.",
-      "auth_title": "Keycloak Auth",
-      "auth_description": "Cookie-based OIDC authentication with Keycloak. Server-side sessions, permission-based access control, and role-filtered menus.",
+      "auth_title": "Local Auth",
+      "auth_description": "Cookie-based email+password authentication with local user management. Server-side sessions, permission-based access control, and role-filtered menus.",
       "schema_title": "Schema Isolation",
       "schema_description": "Each module gets its own database schema on PostgreSQL or table prefix on SQLite. Full audit trails, soft deletes, and multi-tenancy built in.",
       "inertia_title": "Inertia.js + React",

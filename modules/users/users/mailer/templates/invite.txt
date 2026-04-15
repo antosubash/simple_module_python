@@ -1,0 +1,1 @@
+{{ invited_by_name }} invited you. Accept: {{ link }}

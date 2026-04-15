@@ -1,5 +1,9 @@
 # Module Lifecycle Hooks Implementation Plan
 
+> **Note (2026-04-15):** Keycloak integration was removed; see plan
+> `cryptic-juggling-lightning`. References to "Keycloak" below are
+> historical context from the original design — the patterns still apply.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add three new ModuleBase lifecycle hooks (register_exception_handlers, register_health_checks, register_settings), restructure the app boot sequence, add SM010 diagnostic, and migrate auth settings out of the framework.

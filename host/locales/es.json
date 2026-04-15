@@ -10,8 +10,8 @@
     "features": {
       "module_system_title": "Sistema de módulos",
       "module_system_description": "Cada módulo es un paquete autocontenido con sus propios modelos, servicios, endpoints de API y páginas de React. Descubierto automáticamente vía entry_points de Python.",
-      "auth_title": "Autenticación Keycloak",
-      "auth_description": "Autenticación OIDC basada en cookies con Keycloak. Sesiones del lado del servidor, control de acceso por permisos y menús filtrados por rol.",
+      "auth_title": "Autenticación local",
+      "auth_description": "Autenticación por correo y contraseña basada en cookies con gestión local de usuarios. Sesiones del lado del servidor, control de acceso por permisos y menús filtrados por rol.",
       "schema_title": "Aislamiento de esquema",
       "schema_description": "Cada módulo obtiene su propio esquema de base de datos en PostgreSQL o prefijo de tabla en SQLite. Auditoría completa, borrado lógico y multi-tenancy incorporados.",
       "inertia_title": "Inertia.js + React",

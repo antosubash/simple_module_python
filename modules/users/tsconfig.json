@@ -1,0 +1,11 @@
+{
+  "extends": "@simple-module/tsconfig/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./users/*"],
+      "@simple-module/ui/*": ["../../packages/ui/src/*"]
+    }
+  },
+  "include": ["users/**/*.ts", "users/**/*.tsx"]
+}

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.permissions import WILDCARD, PermissionRegistry
 
 
 class TestPermissionRegistry:
@@ -86,3 +86,30 @@ class TestPermissionRegistryAdvanced:
         reg.add("z.last")
         reg.add("a.first")
         assert reg.all_permissions == ["a.first", "z.last"]
+
+
+class TestPermissionRegistryMapRole:
+    async def test_map_role_adds_entries(self):
+        reg = PermissionRegistry()
+        reg.map_role("user", ["users.self.profile"])
+        assert "users.self.profile" in reg.role_map["user"]
+
+    async def test_map_role_merges_into_existing_role(self):
+        reg = PermissionRegistry()
+        reg.map_role("user", ["users.self.profile"])
+        reg.map_role("user", ["users.self.settings"])
+        assert "users.self.profile" in reg.role_map["user"]
+        assert "users.self.settings" in reg.role_map["user"]
+
+    async def test_role_map_includes_default_admin_wildcard(self):
+        reg = PermissionRegistry()
+        assert WILDCARD in reg.role_map["admin"]
+
+    async def test_role_map_returns_plain_dict_of_lists(self):
+        reg = PermissionRegistry()
+        reg.map_role("editor", ["products.edit"])
+        result = reg.role_map
+        assert isinstance(result, dict)
+        for key, val in result.items():
+            assert isinstance(key, str)
+            assert isinstance(val, list)

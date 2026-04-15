@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    # Runtime import would be circular: auth -> users -> auth.
+    # Only imported for type-hints, never at runtime.
+    from users.models import User
 
 
 @dataclass
 class UserContext:
-    """Authenticated user information extracted from Keycloak token."""
+    """Authenticated user information for downstream handlers."""
 
     id: str
     email: str
@@ -16,25 +22,19 @@ class UserContext:
     tenant_id: str | None = None
 
     @classmethod
-    def from_keycloak_userinfo(cls, userinfo: dict) -> UserContext:
-        """Create from Keycloak's userinfo dict (stored in session).
+    def from_user(cls, user: User | Any) -> UserContext:
+        """Build a UserContext from a users.models.User with eagerly-loaded roles.
 
-        Tenant is resolved from the ``tenant_id`` claim (custom Keycloak
-        protocol mapper) or from the Keycloak organization payload.
+        Duck-typed to avoid importing users.models at runtime — any object
+        exposing .id, .email, .full_name, .roles[*].name, .tenant_id works.
+        The caller is responsible for eager-loading roles (selectinload).
         """
-        tenant_id = userinfo.get("tenant_id")
-        if tenant_id is None:
-            # Fall back to Keycloak organization claim (Keycloak 25+)
-            org = userinfo.get("organization")
-            if isinstance(org, dict):
-                tenant_id = org.get("id")
-
         return cls(
-            id=userinfo.get("sub", ""),
-            email=userinfo.get("email", ""),
-            name=userinfo.get("name", userinfo.get("preferred_username", "")),
-            roles=userinfo.get("realm_access", {}).get("roles", []),
-            tenant_id=tenant_id,
+            id=str(user.id),
+            email=user.email,
+            name=user.full_name or user.email,
+            roles=[r.name for r in user.roles],
+            tenant_id=user.tenant_id,
         )
 
     def has_role(self, role: str) -> bool:

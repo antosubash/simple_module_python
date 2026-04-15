@@ -223,7 +223,11 @@ class InertiaLayoutDataMiddleware:
         roles = getattr(user, "roles", []) if user else []
 
         # Resolve permissions once and cache on request.state for RequiresPermission
-        resolved = resolve_permissions(roles) if is_authenticated else set()
+        resolved = (
+            resolve_permissions(roles, role_map=self.permission_registry.role_map)
+            if is_authenticated
+            else set()
+        )
         request.state.resolved_permissions = resolved
 
         # Expand wildcard to full list for frontend (no "*" leak)
