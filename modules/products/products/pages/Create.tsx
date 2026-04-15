@@ -1,5 +1,5 @@
 import { Link, useForm } from '@inertiajs/react';
-import { useT } from '@simple-module/i18n';
+import { keys, useT } from '@simple-module/i18n';
 import { PageShell } from '@simple-module/ui/components/PageShell';
 import { Button } from '@simple-module/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module/ui/components/ui/card';
@@ -29,7 +29,7 @@ function Create() {
       return;
     }
     post('/products', {
-      onSuccess: () => toast.success(t('products.toasts.created')),
+      onSuccess: () => toast.success(t(keys.products.toasts.created)),
       onError: (errs) => {
         const first = Object.values(errs)[0];
         if (first) toast.error(first);
@@ -39,11 +39,11 @@ function Create() {
 
   return (
     <PageShell
-      title={t('products.create.title')}
-      description={t('products.create.description')}
+      title={t(keys.products.create.title)}
+      description={t(keys.products.create.description)}
       actions={
         <Button asChild variant="outline">
-          <Link href="/products">{t('products.form.cancel_button')}</Link>
+          <Link href="/products">{t(keys.products.form.cancel_button)}</Link>
         </Button>
       }
     >
@@ -52,7 +52,7 @@ function Create() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="name">
-                {t('products.form.name_label')} <span className="text-destructive">*</span>
+                {t(keys.products.form.name_label)} <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="name"
@@ -62,7 +62,7 @@ function Create() {
                   setData('name', e.target.value);
                   clearErrors('name');
                 }}
-                placeholder={t('products.form.name_placeholder')}
+                placeholder={t(keys.products.form.name_placeholder)}
                 maxLength={200}
                 required
               />
@@ -70,20 +70,20 @@ function Create() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">{t('products.form.description_label')}</Label>
+              <Label htmlFor="description">{t(keys.products.form.description_label)}</Label>
               <Textarea
                 id="description"
                 value={data.description}
                 onChange={(e) => setData('description', e.target.value)}
                 rows={4}
-                placeholder={t('products.form.description_placeholder')}
+                placeholder={t(keys.products.form.description_placeholder)}
                 maxLength={2000}
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="price">
-                {t('products.form.price_label')} <span className="text-destructive">*</span>
+                {t(keys.products.form.price_label)} <span className="text-destructive">*</span>
               </Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
@@ -100,7 +100,7 @@ function Create() {
                     clearErrors('price');
                   }}
                   className="pl-7"
-                  placeholder={t('products.form.price_placeholder')}
+                  placeholder={t(keys.products.form.price_placeholder)}
                   required
                 />
               </div>
@@ -110,11 +110,11 @@ function Create() {
             <div className="pt-2 flex gap-3">
               <Button type="submit" disabled={processing}>
                 {processing
-                  ? t('products.create.submitting_button')
-                  : t('products.create.submit_button')}
+                  ? t(keys.products.create.submitting_button)
+                  : t(keys.products.create.submit_button)}
               </Button>
               <Button asChild variant="outline">
-                <Link href="/products">{t('products.form.cancel_button')}</Link>
+                <Link href="/products">{t(keys.products.form.cancel_button)}</Link>
               </Button>
             </div>
           </form>

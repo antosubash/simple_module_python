@@ -19,6 +19,13 @@ vi.mock('@simple-module/i18n', () => ({
   useT: () => ({
     t: (key: string) => (key === 'ui.switcher.label' ? 'Change language' : key),
   }),
+  keys: {
+    ui: {
+      switcher: {
+        label: 'ui.switcher.label',
+      },
+    },
+  },
 }));
 
 import { LocaleSwitcher } from './LocaleSwitcher';

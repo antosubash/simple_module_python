@@ -1,4 +1,4 @@
-import { useT } from '@simple-module/i18n';
+import { keys, useT } from '@simple-module/i18n';
 import { ErrorScreen } from '@simple-module/ui/components/ErrorScreen';
 import { Button } from '@simple-module/ui/components/ui/button';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
@@ -51,19 +51,19 @@ function DefaultFallback({ error }: { error: Error }) {
   return (
     <ErrorScreen
       hero="!"
-      title={t('ui.errors.generic_title')}
-      description={t('ui.errors.generic_description')}
+      title={t(keys.ui.errors.generic_title)}
+      description={t(keys.ui.errors.generic_description)}
       details={details}
     >
       {/* Full reload — React tree is broken, Inertia navigation won't recover. */}
-      <Button onClick={() => window.location.reload()}>{t('ui.errors.reload_button')}</Button>
+      <Button onClick={() => window.location.reload()}>{t(keys.ui.errors.reload_button)}</Button>
       <Button
         variant="outline"
         onClick={() => {
           window.location.href = '/';
         }}
       >
-        {t('ui.errors.go_home_button')}
+        {t(keys.ui.errors.go_home_button)}
       </Button>
     </ErrorScreen>
   );

@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { useT } from '@simple-module/i18n';
+import { keys, useT } from '@simple-module/i18n';
 import { PageShell } from '@simple-module/ui/components/PageShell';
 import {
   AlertDialog,
@@ -95,21 +95,21 @@ function Browse() {
 
   function handleDelete(product: Product) {
     router.delete(`/products/${product.id}`, {
-      onSuccess: () => toast.success(t('products.toasts.deleted', { name: product.name })),
-      onError: () => toast.error(t('products.toasts.delete_failed')),
+      onSuccess: () => toast.success(t(keys.products.toasts.deleted, { name: product.name })),
+      onError: () => toast.error(t(keys.products.toasts.delete_failed)),
     });
   }
 
   return (
     <PageShell
-      title={t('products.browse.title')}
-      description={t('products.browse.description')}
+      title={t(keys.products.browse.title)}
+      description={t(keys.products.browse.description)}
       actions={
         canCreate ? (
           <Button asChild>
             <Link href="/products/create">
               <Plus />
-              {t('products.browse.new_button')}
+              {t(keys.products.browse.new_button)}
             </Link>
           </Button>
         ) : undefined
@@ -120,7 +120,7 @@ function Browse() {
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
-            placeholder={t('products.browse.search_placeholder')}
+            placeholder={t(keys.products.browse.search_placeholder)}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -128,7 +128,7 @@ function Browse() {
         </div>
         {pagination.total > 0 && (
           <p className="text-sm text-muted-foreground whitespace-nowrap">
-            {t('products.browse.count', { count: pagination.total })}
+            {t(keys.products.browse.count, { count: pagination.total })}
           </p>
         )}
       </div>
@@ -137,16 +137,16 @@ function Browse() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="sm:px-6">{t('products.table.name')}</TableHead>
+              <TableHead className="sm:px-6">{t(keys.products.table.name)}</TableHead>
               <TableHead className="hidden md:table-cell sm:px-6">
-                {t('products.table.description')}
+                {t(keys.products.table.description)}
               </TableHead>
-              <TableHead className="sm:px-6">{t('products.table.price')}</TableHead>
+              <TableHead className="sm:px-6">{t(keys.products.table.price)}</TableHead>
               <TableHead className="hidden sm:table-cell sm:px-6">
-                {t('products.table.status')}
+                {t(keys.products.table.status)}
               </TableHead>
               {(canEdit || canDelete) && (
-                <TableHead className="text-right sm:px-6">{t('products.table.actions')}</TableHead>
+                <TableHead className="text-right sm:px-6">{t(keys.products.table.actions)}</TableHead>
               )}
             </TableRow>
           </TableHeader>
@@ -159,8 +159,8 @@ function Browse() {
                     <span className="inline-block mt-1 sm:hidden">
                       <Badge variant={product.is_active ? 'secondary' : 'destructive'}>
                         {product.is_active
-                          ? t('products.table.active')
-                          : t('products.table.inactive')}
+                          ? t(keys.products.table.active)
+                          : t(keys.products.table.inactive)}
                       </Badge>
                     </span>
                   </div>
@@ -175,7 +175,7 @@ function Browse() {
                 </TableCell>
                 <TableCell className="hidden sm:table-cell sm:px-6">
                   <Badge variant={product.is_active ? 'secondary' : 'destructive'}>
-                    {product.is_active ? t('products.table.active') : t('products.table.inactive')}
+                    {product.is_active ? t(keys.products.table.active) : t(keys.products.table.inactive)}
                   </Badge>
                 </TableCell>
                 {(canEdit || canDelete) && (
@@ -202,21 +202,21 @@ function Browse() {
                           <AlertDialogContent>
                             <AlertDialogHeader>
                               <AlertDialogTitle>
-                                {t('products.delete_dialog.title', { name: product.name })}
+                                {t(keys.products.delete_dialog.title, { name: product.name })}
                               </AlertDialogTitle>
                               <AlertDialogDescription>
-                                {t('products.delete_dialog.description')}
+                                {t(keys.products.delete_dialog.description)}
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>
-                                {t('products.delete_dialog.cancel')}
+                                {t(keys.products.delete_dialog.cancel)}
                               </AlertDialogCancel>
                               <AlertDialogAction
                                 onClick={() => handleDelete(product)}
                                 className="bg-destructive text-white hover:bg-destructive/90"
                               >
-                                {t('products.delete_dialog.confirm')}
+                                {t(keys.products.delete_dialog.confirm)}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
@@ -234,10 +234,10 @@ function Browse() {
                     <EmptyMedia variant="icon">
                       <Package className="size-5 text-primary-300" />
                     </EmptyMedia>
-                    <EmptyTitle>{t('products.browse.empty_title')}</EmptyTitle>
-                    <EmptyDescription>{t('products.browse.empty_description')}</EmptyDescription>
+                    <EmptyTitle>{t(keys.products.browse.empty_title)}</EmptyTitle>
+                    <EmptyDescription>{t(keys.products.browse.empty_description)}</EmptyDescription>
                     <Button asChild size="sm" className="mt-2">
-                      <Link href="/products/create">{t('products.browse.create_button')}</Link>
+                      <Link href="/products/create">{t(keys.products.browse.create_button)}</Link>
                     </Button>
                   </Empty>
                 </TableCell>
@@ -251,7 +251,7 @@ function Browse() {
                       <Search className="size-5" />
                     </EmptyMedia>
                     <EmptyDescription>
-                      {t('products.browse.no_match', { query: search })}
+                      {t(keys.products.browse.no_match, { query: search })}
                     </EmptyDescription>
                   </Empty>
                 </TableCell>

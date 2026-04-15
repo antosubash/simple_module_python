@@ -64,3 +64,7 @@ export function updateI18n(opts: ConfigureOptions): void {
 
 export { t } from 'i18next';
 export { useTranslation as useT } from 'react-i18next';
+// Generated nested-constant tree of translation keys. Use like
+// ``t(keys.products.browse.title)`` — typos become property-access
+// errors instead of string-literal mistakes. Regenerated at host boot.
+export { keys } from './keys.generated';

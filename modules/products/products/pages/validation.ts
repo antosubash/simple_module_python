@@ -1,4 +1,4 @@
-import { useT } from '@simple-module/i18n';
+import { keys, useT } from '@simple-module/i18n';
 import { z } from 'zod';
 
 /**
@@ -10,13 +10,13 @@ export function useProductSchema() {
   return z.object({
     name: z
       .string()
-      .min(1, t('products.validation.name_required'))
-      .max(200, t('products.validation.name_too_long')),
+      .min(1, t(keys.products.validation.name_required))
+      .max(200, t(keys.products.validation.name_too_long)),
     description: z.string().max(2000).optional().default(''),
     price: z
       .string()
-      .min(1, t('products.validation.price_required'))
-      .refine((v) => Number(v) > 0, t('products.validation.price_positive')),
+      .min(1, t(keys.products.validation.price_required))
+      .refine((v) => Number(v) > 0, t(keys.products.validation.price_positive)),
     is_active: z.boolean().optional(),
   });
 }

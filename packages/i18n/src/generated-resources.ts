@@ -2,7 +2,9 @@
 // Regenerate by booting the host in development mode.
 //
 // Shape of the default locale's keys. Values are empty strings; only the
-// key set is consumed by TypeScript via i18n-types.ts module augmentation.
+// key set is consumed by TypeScript via the i18next module augmentation
+// in packages/i18n/src/types.ts.
+
 
 export default {
   translation: {
@@ -49,7 +51,6 @@ export default {
     'products.browse.count_other': '',
     'products.browse.create_button': '',
     'products.browse.description': '',
-    'products.browse.em_dash': '',
     'products.browse.empty_description': '',
     'products.browse.empty_title': '',
     'products.browse.new_button': '',

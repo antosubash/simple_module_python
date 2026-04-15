@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { useT } from '@simple-module/i18n';
+import { keys, useT } from '@simple-module/i18n';
 import { PageShell } from '@simple-module/ui/components/PageShell';
 import {
   Card,
@@ -21,22 +21,22 @@ function Home() {
   const { t } = useT();
 
   return (
-    <PageShell title={t('dashboard.home.title')} description={t('dashboard.home.description')}>
+    <PageShell title={t(keys.dashboard.home.title)} description={t(keys.dashboard.home.description)}>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
         <StatCard
-          title={t('dashboard.home.stats.products')}
+          title={t(keys.dashboard.home.stats.products)}
           value="-"
           icon={<Package className="size-4" />}
           accent="primary"
         />
         <StatCard
-          title={t('dashboard.home.stats.users')}
+          title={t(keys.dashboard.home.stats.users)}
           value="-"
           icon={<Users className="size-4" />}
           accent="emerald"
         />
         <StatCard
-          title={t('dashboard.home.stats.modules')}
+          title={t(keys.dashboard.home.stats.modules)}
           value="3"
           icon={<Box className="size-4" />}
           accent="violet"
@@ -46,13 +46,13 @@ function Home() {
       <Card>
         <CardHeader>
           <CardTitle className="font-[var(--font-display)]">
-            {t('dashboard.home.welcome_card_title')}
+            {t(keys.dashboard.home.welcome_card_title)}
           </CardTitle>
           <CardDescription>{welcome}</CardDescription>
         </CardHeader>
         <Separator />
         <CardContent>
-          <p className="text-sm text-muted-foreground">{t('dashboard.home.description_body')}</p>
+          <p className="text-sm text-muted-foreground">{t(keys.dashboard.home.description_body)}</p>
         </CardContent>
       </Card>
     </PageShell>

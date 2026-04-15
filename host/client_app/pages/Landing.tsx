@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { useT } from '@simple-module/i18n';
+import { keys, useT } from '@simple-module/i18n';
 import { Badge } from '@simple-module/ui/components/ui/badge';
 import { Button } from '@simple-module/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module/ui/components/ui/card';
@@ -32,8 +32,8 @@ function Landing() {
           />
         </svg>
       ),
-      title: t('host.landing.features.module_system_title'),
-      description: t('host.landing.features.module_system_description'),
+      title: t(keys.host.landing.features.module_system_title),
+      description: t(keys.host.landing.features.module_system_description),
     },
     {
       icon: (
@@ -52,8 +52,8 @@ function Landing() {
           />
         </svg>
       ),
-      title: t('host.landing.features.auth_title'),
-      description: t('host.landing.features.auth_description'),
+      title: t(keys.host.landing.features.auth_title),
+      description: t(keys.host.landing.features.auth_description),
     },
     {
       icon: (
@@ -72,8 +72,8 @@ function Landing() {
           />
         </svg>
       ),
-      title: t('host.landing.features.schema_title'),
-      description: t('host.landing.features.schema_description'),
+      title: t(keys.host.landing.features.schema_title),
+      description: t(keys.host.landing.features.schema_description),
     },
     {
       icon: (
@@ -92,8 +92,8 @@ function Landing() {
           />
         </svg>
       ),
-      title: t('host.landing.features.inertia_title'),
-      description: t('host.landing.features.inertia_description'),
+      title: t(keys.host.landing.features.inertia_title),
+      description: t(keys.host.landing.features.inertia_description),
     },
     {
       icon: (
@@ -112,8 +112,8 @@ function Landing() {
           />
         </svg>
       ),
-      title: t('host.landing.features.diagnostics_title'),
-      description: t('host.landing.features.diagnostics_description'),
+      title: t(keys.host.landing.features.diagnostics_title),
+      description: t(keys.host.landing.features.diagnostics_description),
     },
     {
       icon: (
@@ -132,8 +132,8 @@ function Landing() {
           />
         </svg>
       ),
-      title: t('host.landing.features.devtools_title'),
-      description: t('host.landing.features.devtools_description'),
+      title: t(keys.host.landing.features.devtools_title),
+      description: t(keys.host.landing.features.devtools_description),
     },
   ];
 
@@ -147,7 +147,7 @@ function Landing() {
             className="border-primary-400/20 bg-primary-400/10 text-primary-300 mb-6 sm:mb-8 gap-2"
           >
             <span className="w-2 h-2 rounded-full bg-primary-400 animate-pulse" />
-            {t('host.landing.badge')}
+            {t(keys.host.landing.badge)}
           </Badge>
         </div>
 
@@ -155,10 +155,10 @@ function Landing() {
           className="text-3xl font-extrabold tracking-tight leading-tight font-[var(--font-display)] sm:text-5xl lg:text-6xl animate-fade-in-up"
           style={{ animationDelay: '100ms' }}
         >
-          {t('host.landing.hero_title_line1')}
+          {t(keys.host.landing.hero_title_line1)}
           <br />
           <span className="bg-gradient-to-r from-primary-300 via-primary-400 to-primary-200 bg-clip-text text-transparent">
-            {t('host.landing.hero_title_line2')}
+            {t(keys.host.landing.hero_title_line2)}
           </span>
         </h1>
 
@@ -166,7 +166,7 @@ function Landing() {
           className="mt-4 text-base text-dark-text-muted max-w-2xl mx-auto leading-relaxed sm:mt-6 sm:text-lg animate-fade-in-up"
           style={{ animationDelay: '200ms' }}
         >
-          {t('host.landing.hero_subtitle')}
+          {t(keys.host.landing.hero_subtitle)}
         </p>
 
         <div
@@ -176,8 +176,8 @@ function Landing() {
           <Button asChild size="lg" className="w-full sm:w-auto">
             <a href="/auth/login">
               {isAuthenticated
-                ? t('host.landing.cta_dashboard')
-                : t('host.landing.cta_get_started')}
+                ? t(keys.host.landing.cta_dashboard)
+                : t(keys.host.landing.cta_get_started)}
             </a>
           </Button>
           <Button
@@ -186,7 +186,7 @@ function Landing() {
             size="lg"
             className="w-full sm:w-auto bg-transparent border-dark-border text-white hover:text-white hover:border-dark-border-hover hover:bg-white/10"
           >
-            <a href="https://github.com">{t('host.landing.cta_docs')}</a>
+            <a href="https://github.com">{t(keys.host.landing.cta_docs)}</a>
           </Button>
         </div>
       </section>

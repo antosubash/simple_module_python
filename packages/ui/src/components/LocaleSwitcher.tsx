@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { useT } from '@simple-module/i18n';
+import { keys, useT } from '@simple-module/i18n';
 import { Button } from '@simple-module/ui/components/ui/button';
 import {
   DropdownMenu,
@@ -59,7 +59,7 @@ export function LocaleSwitcher() {
       </form>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label={t('ui.switcher.label')}>
+          <Button variant="ghost" size="icon-sm" aria-label={t(keys.ui.switcher.label)}>
             <Globe />
           </Button>
         </DropdownMenuTrigger>
