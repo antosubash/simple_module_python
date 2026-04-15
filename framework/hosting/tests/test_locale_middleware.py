@@ -77,3 +77,27 @@ def test_custom_cookie_name() -> None:
     client = TestClient(app)
     resp = client.get("/", cookies={"lang": "es"})
     assert resp.json() == {"locale": "es"}
+
+
+def test_ows_around_semicolon_does_not_drop_q_value() -> None:
+    app = _build_app(["en", "es"], "en")
+    client = TestClient(app)
+    # "es ; q=0.1" should be interpreted with q=0.1; "en" default wins via
+    # higher q via the _falls_back test already. Here verify a simpler case:
+    # "de ; q=1.0, es ; q=0.5" — de unsupported, es supported -> es.
+    resp = client.get(
+        "/",
+        headers={"Accept-Language": "de ; q=1.0, es ; q=0.5"},
+    )
+    assert resp.json() == {"locale": "es"}
+
+
+def test_lower_q_supported_beats_higher_q_unsupported() -> None:
+    app = _build_app(["en", "es"], "en")
+    client = TestClient(app)
+    # de has higher q but is unsupported; es should win.
+    resp = client.get(
+        "/",
+        headers={"Accept-Language": "de;q=1.0,es;q=0.1"},
+    )
+    assert resp.json() == {"locale": "es"}

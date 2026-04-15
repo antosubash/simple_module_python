@@ -65,13 +65,17 @@ class LocaleMiddleware:
 
         Matches either exact tag or primary prefix (``es-MX`` -> ``es``).
         """
+        # Hard cap to blunt adversarial Accept-Language: a,a,a,... spam.
+        # Real browsers send <10 tags; 20 is comfortably above that.
+        parts = accept_language.split(",", 20)
         candidates: list[tuple[float, str]] = []
-        for part in accept_language.split(","):
+        for part in parts[:20]:
             part = part.strip()
             if not part:
                 continue
             tag, _, q_part = part.partition(";")
             tag = tag.strip().lower()
+            q_part = q_part.strip().lower()
             try:
                 q = float(q_part.split("=", 1)[1]) if q_part.startswith("q=") else 1.0
             except ValueError:
