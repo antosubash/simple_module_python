@@ -54,8 +54,7 @@ async def fetch_dashboard_stats(db: AsyncSession, app: FastAPI) -> dict:
             "system_info": {
                 "modules": modules_list,
                 "python_version": (
-                    f"{sys.version_info.major}.{sys.version_info.minor}"
-                    f".{sys.version_info.micro}"
+                    f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
                 ),
                 "health_checks": health_checks,
             },
