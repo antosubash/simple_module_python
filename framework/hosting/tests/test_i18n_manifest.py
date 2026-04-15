@@ -43,3 +43,74 @@ def test_only_writes_when_changed(tmp_path: Path) -> None:
     # Second call with identical content should not re-touch the file.
     write_generated_resources(reg, tmp_path)
     assert out.stat().st_mtime_ns == first_mtime
+
+
+def test_keys_file_is_emitted_alongside_resources(tmp_path: Path) -> None:
+    reg = I18nRegistry(default_locale="en", supported_locales=["en"])
+    reg._messages = {"en": {"products.browse.title": "Products"}}
+    write_generated_resources(reg, tmp_path)
+    keys_file = tmp_path / "keys.generated.ts"
+    assert keys_file.is_file()
+    text = keys_file.read_text()
+    assert "export const keys" in text
+    assert "as const" in text
+
+
+def test_keys_tree_is_nested(tmp_path: Path) -> None:
+    reg = I18nRegistry(default_locale="en", supported_locales=["en"])
+    reg._messages = {
+        "en": {
+            "products.browse.title": "Products",
+            "products.browse.description": "Manage",
+            "auth.errors.not_authenticated": "No",
+        }
+    }
+    write_generated_resources(reg, tmp_path)
+    text = (tmp_path / "keys.generated.ts").read_text()
+    # Nested structure: keys = { auth: { errors: { not_authenticated: ... } }, products: { ... } }
+    assert "auth:" in text
+    assert "errors:" in text
+    assert 'not_authenticated: "auth.errors.not_authenticated"' in text
+    assert 'title: "products.browse.title"' in text
+
+
+def test_keys_tree_adds_plural_stems(tmp_path: Path) -> None:
+    """Plural variants get a virtual stem so t(keys.foo.count, {count}) works."""
+    reg = I18nRegistry(default_locale="en", supported_locales=["en"])
+    reg._messages = {
+        "en": {
+            "products.browse.count_one": "{count} product",
+            "products.browse.count_other": "{count} products",
+        }
+    }
+    write_generated_resources(reg, tmp_path)
+    text = (tmp_path / "keys.generated.ts").read_text()
+    # Both the concrete variants AND the virtual stem must be emitted.
+    assert 'count_one: "products.browse.count_one"' in text
+    assert 'count_other: "products.browse.count_other"' in text
+    assert 'count: "products.browse.count"' in text
+
+
+def test_keys_tree_quotes_non_identifier_segments(tmp_path: Path) -> None:
+    """Segments that aren't valid JS identifiers are quoted as string keys."""
+    reg = I18nRegistry(default_locale="en", supported_locales=["en"])
+    reg._messages = {"en": {"ui.switcher.a-b": "X"}}  # hyphen in leaf
+    write_generated_resources(reg, tmp_path)
+    text = (tmp_path / "keys.generated.ts").read_text()
+    assert '"a-b":' in text
+
+
+def test_keys_tree_does_not_overwrite_real_key_with_stem(tmp_path: Path) -> None:
+    """If a real key already matches a plural stem, the real value wins."""
+    reg = I18nRegistry(default_locale="en", supported_locales=["en"])
+    reg._messages = {
+        "en": {
+            "products.browse.count": "Special",  # real key named 'count'
+            "products.browse.count_one": "one",
+            "products.browse.count_other": "other",
+        }
+    }
+    write_generated_resources(reg, tmp_path)
+    text = (tmp_path / "keys.generated.ts").read_text()
+    # The real key retains its value; the virtual stem is skipped.
+    assert 'count: "products.browse.count"' in text

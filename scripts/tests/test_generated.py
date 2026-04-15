@@ -139,10 +139,12 @@ class TestGeneratedTemplateContent:
         assert "description_label" in data["form"]
 
     def test_pages_use_use_t_hook(self, scaffolded_orders: Path):
-        """Scaffolded Browse/Create/Edit pages must import and call useT."""
+        """Scaffolded Browse/Create/Edit pages must import keys + useT and use typed keys."""
         for page in ("Browse.tsx", "Create.tsx", "Edit.tsx"):
             content = (scaffolded_orders / "pages" / page).read_text()
             assert "from '@simple-module/i18n'" in content, f"{page} missing i18n import"
-            assert "useT" in content, f"{page} does not import useT"
+            assert "keys" in content and "useT" in content, f"{page} missing keys/useT import"
             assert "const { t } = useT();" in content, f"{page} does not call useT()"
-            assert "t('orders." in content, f"{page} does not invoke t() with an orders.* key"
+            # Typed-key calls use property access, not string literals.
+            assert "t(keys.orders." in content, f"{page} does not invoke t(keys.orders.*)"
+            assert "t('orders." not in content, f"{page} still uses string-literal t('orders.*')"
