@@ -1,9 +1,10 @@
-"""Dashboard statistics queries."""
+"""Dashboard statistics queries with TTL-based caching."""
 
 from __future__ import annotations
 
 import asyncio
 import sys
+import time
 from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI
@@ -13,16 +14,26 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from users.models import User
 
+_CACHE_TTL_SECONDS = 30
+_cache: dict | None = None
+_cache_ts: float = 0.0
+
 
 async def fetch_dashboard_stats(db: AsyncSession, app: FastAPI) -> dict:
-    """Gather all dashboard statistics in a single call."""
+    """Gather all dashboard statistics, cached for 30 seconds."""
+    global _cache, _cache_ts
+
+    now = time.monotonic()
+    if _cache is not None and (now - _cache_ts) < _CACHE_TTL_SECONDS:
+        return _cache
+
     total_users = await _count_users(db)
     active_users_7d = await _count_active_users(db, days=7)
     total_products = await _count_products(db)
     modules_list = _get_module_info(app)
     health_checks = await _run_health_checks(app)
 
-    return {
+    result = {
         "total_users": total_users,
         "active_users_7d": active_users_7d,
         "total_products": total_products,
@@ -36,6 +47,17 @@ async def fetch_dashboard_stats(db: AsyncSession, app: FastAPI) -> dict:
             "health_checks": health_checks,
         },
     }
+
+    _cache = result
+    _cache_ts = now
+    return result
+
+
+def invalidate_stats_cache() -> None:
+    """Clear the stats cache — useful for testing or after data mutations."""
+    global _cache, _cache_ts
+    _cache = None
+    _cache_ts = 0.0
 
 
 async def _count_users(db: AsyncSession) -> int:

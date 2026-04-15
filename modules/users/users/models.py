@@ -33,7 +33,9 @@ class User(SQLAlchemyBaseUserTableUUID, Base, AuditMixin):  # ty: ignore[unsuppo
     full_name: Mapped[str | None] = mapped_column(String(255), default=None)
     tenant_id: Mapped[str | None] = mapped_column(String(50), index=True, default=None)
     disabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
-    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True, default=None
+    )
 
     roles: Mapped[list[Role]] = relationship(
         secondary="users_user_role",

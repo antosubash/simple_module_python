@@ -5,6 +5,16 @@ from __future__ import annotations
 import httpx
 import pytest
 from dashboard.module import DashboardModule
+from dashboard.stats import invalidate_stats_cache
+
+
+@pytest.fixture(autouse=True)
+def _clear_stats_cache():
+    """Ensure each test gets fresh stats, not a cached result."""
+    invalidate_stats_cache()
+    yield
+    invalidate_stats_cache()
+
 
 # ── Module registration tests ────────────────────────────────────────
 
