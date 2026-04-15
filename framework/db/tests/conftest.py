@@ -5,11 +5,10 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 import pytest
+from _models import _TenantBase
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from _models import _TenantBase
 
 
 @pytest.fixture
