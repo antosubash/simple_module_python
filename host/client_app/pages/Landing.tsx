@@ -146,15 +146,12 @@ function Landing() {
             variant="outline"
             className="border-primary-400/20 bg-primary-400/10 text-primary-300 mb-6 sm:mb-8 gap-2"
           >
-            <span className="w-2 h-2 rounded-full bg-primary-400 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-primary-400" />
             {t(keys.host.landing.badge)}
           </Badge>
         </div>
 
-        <h1
-          className="text-3xl font-extrabold tracking-tight leading-tight font-[var(--font-display)] sm:text-5xl lg:text-6xl animate-fade-in-up"
-          style={{ animationDelay: '100ms' }}
-        >
+        <h1 className="text-3xl font-extrabold tracking-tight leading-tight font-[var(--font-display)] sm:text-5xl lg:text-6xl animate-fade-in-up">
           {t(keys.host.landing.hero_title_line1)}
           <br />
           <span className="bg-gradient-to-r from-primary-300 via-primary-400 to-primary-200 bg-clip-text text-transparent">
@@ -162,17 +159,11 @@ function Landing() {
           </span>
         </h1>
 
-        <p
-          className="mt-4 text-base text-dark-text-muted max-w-2xl mx-auto leading-relaxed sm:mt-6 sm:text-lg animate-fade-in-up"
-          style={{ animationDelay: '200ms' }}
-        >
+        <p className="mt-4 text-base text-dark-text-muted max-w-2xl mx-auto leading-relaxed sm:mt-6 sm:text-lg animate-fade-in-up">
           {t(keys.host.landing.hero_subtitle)}
         </p>
 
-        <div
-          className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-4 sm:mt-10 animate-fade-in-up"
-          style={{ animationDelay: '300ms' }}
-        >
+        <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-4 sm:mt-10 animate-fade-in-up">
           <Button asChild size="lg" className="w-full sm:w-auto">
             <a href="/users/login">
               {isAuthenticated
@@ -196,14 +187,13 @@ function Landing() {
       {/* Features */}
       <section className="max-w-6xl mx-auto px-4 py-16 sm:px-8 sm:py-24">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {features.map((feature, index) => (
+          {features.map((feature) => (
             <Card
               key={feature.title}
-              className="group border-white/[0.06] bg-white/[0.03] backdrop-blur-sm hover:border-primary-400/20 hover:bg-white/[0.06] transition-all duration-300 animate-fade-in-up"
-              style={{ animationDelay: `${400 + index * 80}ms` }}
+              className="group border-white/[0.06] bg-white/[0.03] backdrop-blur-sm hover:border-primary-400/20 hover:bg-white/[0.06] transition-colors duration-200 animate-fade-in-up"
             >
               <CardContent className="pt-6">
-                <div className="w-10 h-10 rounded-lg bg-primary-400/10 flex items-center justify-center text-primary-400 mb-4 transition-colors duration-300 group-hover:bg-primary-400/15">
+                <div className="w-10 h-10 rounded-lg bg-primary-400/10 flex items-center justify-center text-primary-400 mb-4 transition-colors duration-200 group-hover:bg-primary-400/15">
                   {feature.icon}
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2 font-[var(--font-display)]">
