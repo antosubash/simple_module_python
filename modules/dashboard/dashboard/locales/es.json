@@ -1,0 +1,14 @@
+{
+  "home": {
+    "title": "Panel",
+    "description": "Resumen de tu aplicación",
+    "stats": {
+      "products": "Productos",
+      "users": "Usuarios",
+      "modules": "Módulos"
+    },
+    "welcome_card_title": "Bienvenido",
+    "welcome_message": "Bienvenido a SimpleModule",
+    "description_body": "Este es un monolito modular construido con FastAPI, Inertia.js y React. Cada módulo proporciona sus propias páginas, endpoints de API y esquema de base de datos."
+  }
+}

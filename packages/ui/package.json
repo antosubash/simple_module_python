@@ -5,6 +5,7 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "dependencies": {
+    "@simple-module/i18n": "*",
     "react": "^19.0.0"
   },
   "devDependencies": {

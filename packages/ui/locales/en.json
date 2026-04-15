@@ -1,0 +1,11 @@
+{
+  "errors": {
+    "generic_title": "Something went wrong",
+    "generic_description": "The page encountered an unexpected error. Try reloading, or return home.",
+    "reload_button": "Reload Page",
+    "go_home_button": "Go Home"
+  },
+  "switcher": {
+    "label": "Change language"
+  }
+}

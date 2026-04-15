@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import importlib.resources
+from pathlib import Path
+
 from fastapi import APIRouter
 from products.contracts.events import ProductCreated, ProductDeleted, ProductUpdated
 from simple_module_core.events import EventBus
@@ -41,3 +44,6 @@ class DashboardModule(ModuleBase):
         bus.subscribe(ProductCreated, on_product_created)
         bus.subscribe(ProductUpdated, on_product_updated)
         bus.subscribe(ProductDeleted, on_product_deleted)
+
+    def locale_dirs(self) -> dict[str, Path]:
+        return {"dashboard": Path(str(importlib.resources.files(__package__) / "locales"))}

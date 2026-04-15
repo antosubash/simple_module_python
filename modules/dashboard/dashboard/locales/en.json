@@ -1,0 +1,14 @@
+{
+  "home": {
+    "title": "Dashboard",
+    "description": "Overview of your application",
+    "stats": {
+      "products": "Products",
+      "users": "Users",
+      "modules": "Modules"
+    },
+    "welcome_card_title": "Welcome",
+    "welcome_message": "Welcome to SimpleModule",
+    "description_body": "This is a modular monolith built with FastAPI, Inertia.js, and React. Each module provides its own pages, API endpoints, and database schema."
+  }
+}

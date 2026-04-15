@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query, Request
 from inertia import InertiaResponse
 from pydantic import ValidationError
+from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.inertia_utils import redirect_back_with_errors, validation_errors_to_dict
 from simple_module_hosting.permissions import RequiresPermission
@@ -61,11 +62,12 @@ async def create_view(inertia: InertiaDep) -> InertiaResponse:
 async def edit_view(
     product_id: int,
     inertia: InertiaDep,
+    t: TranslatorDep,
     service: ProductService = Depends(get_product_service),
 ) -> InertiaResponse:
     product = await service.get_by_id(product_id)
     if product is None:
-        return await inertia.render("Products/Browse", {"error": "Product not found"})
+        return await inertia.render("Products/Browse", {"error": t.t("products.errors.not_found")})
     return await inertia.render(
         "Products/Edit",
         {"product": product.model_dump(mode="json")},

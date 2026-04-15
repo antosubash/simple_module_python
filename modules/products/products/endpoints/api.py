@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 from simple_module_core.events import EventBus
+from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import RequiresPermission
 
 from products.contracts.events import ProductCreated, ProductDeleted, ProductUpdated
@@ -25,11 +26,12 @@ async def list_products(
 @router.get("/{product_id}", response_model=ProductOut)
 async def get_product(
     product_id: int,
+    t: TranslatorDep,
     service: ProductService = Depends(get_product_service),
 ) -> ProductOut:
     product = await service.get_by_id(product_id)
     if product is None:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail=t.t("products.errors.not_found"))
     return product
 
 
@@ -57,12 +59,13 @@ async def create_product(
 async def update_product(
     product_id: int,
     data: ProductUpdate,
+    t: TranslatorDep,
     service: ProductService = Depends(get_product_service),
     bus: EventBus = Depends(get_event_bus),
 ) -> ProductOut:
     product = await service.update(product_id, data)
     if product is None:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail=t.t("products.errors.not_found"))
     await bus.publish(ProductUpdated(product_id=product.id, name=product.name))
     return product
 
@@ -74,10 +77,11 @@ async def update_product(
 )
 async def delete_product(
     product_id: int,
+    t: TranslatorDep,
     service: ProductService = Depends(get_product_service),
     bus: EventBus = Depends(get_event_bus),
 ) -> None:
     deleted = await service.delete(product_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail=t.t("products.errors.not_found"))
     await bus.publish(ProductDeleted(product_id=product_id))

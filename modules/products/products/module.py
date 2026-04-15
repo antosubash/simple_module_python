@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import importlib.resources
+from pathlib import Path
+
 from fastapi import APIRouter
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
@@ -53,3 +56,6 @@ class ProductsModule(ModuleBase):
                 default_enabled=False,
             )
         )
+
+    def locale_dirs(self) -> dict[str, Path]:
+        return {"products": Path(str(importlib.resources.files(__package__) / "locales"))}

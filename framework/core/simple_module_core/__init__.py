@@ -22,6 +22,7 @@ from simple_module_core.exceptions import (
 )
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from simple_module_core.health import HealthCheck, HealthCheckResult, HealthRegistry, HealthStatus
+from simple_module_core.i18n import I18nRegistry, Translator
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
@@ -40,6 +41,7 @@ __all__ = [
     "HealthCheckResult",
     "HealthRegistry",
     "HealthStatus",
+    "I18nRegistry",
     "InvalidModuleError",
     "MenuItem",
     "MenuRegistry",
@@ -50,6 +52,7 @@ __all__ = [
     "ModuleMeta",
     "NotFoundError",
     "PermissionRegistry",
+    "Translator",
     "ValidationError",
     "check_framework_compatibility",
     "discover_modules",
