@@ -25,6 +25,7 @@ def column_names(table) -> set[str]:
 
 # ── Model structure tests ─────────────────────────────────────────────
 
+
 class TestUserTableShape:
     def test_tablename(self):
         from users.models import User
