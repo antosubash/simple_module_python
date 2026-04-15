@@ -3,9 +3,16 @@
     "title": "Panel",
     "description": "Resumen de tu aplicación",
     "stats": {
+      "total_users": "Usuarios Totales",
+      "active_users": "Usuarios Activos (7d)",
       "products": "Productos",
-      "users": "Usuarios",
       "modules": "Módulos"
+    },
+    "system_info_title": "Sistema",
+    "system_info": {
+      "modules": "Módulos",
+      "python_version": "Versión de Python",
+      "health_checks": "Verificaciones de Salud"
     },
     "welcome_card_title": "Bienvenido",
     "welcome_message": "Bienvenido a SimpleModule",
