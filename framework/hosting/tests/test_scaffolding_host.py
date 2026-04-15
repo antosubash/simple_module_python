@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 
@@ -58,6 +60,13 @@ class TestModulePagesManifest:
         assert "import.meta.glob" in ts
         assert "Products" in ts
         assert "AUTO-GENERATED" in ts or "auto-generated" in ts.lower()
+        # Glob patterns must be relative to output_dir — Vite treats
+        # leading-slash paths as project-root-relative and silently matches
+        # nothing for FS-absolute paths.
+        for match in re.findall(r'import\.meta\.glob<PageModule>\("([^"]+)"\)', ts):
+            assert match.startswith(("./", "../")), (
+                f"glob pattern {match!r} must be relative, not absolute"
+            )
 
         css_text = css.read_text(encoding="utf-8")
         assert "AUTO-GENERATED" in css_text or "auto-generated" in css_text.lower()

@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
 
 # Install
 install:
@@ -45,6 +45,9 @@ test-py:
 test-js:
 	npm test
 
+test-e2e:                   ## Run end-to-end browser smoke tests (requires `make docker-up` + `make dev` and `uv run playwright install chromium`)
+	uv run pytest -m e2e tests/e2e
+
 lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
 
 # Kept granular so pr.yml can run them in parallel.
@@ -76,17 +79,19 @@ doctor:
 	uv run python -m simple_module_core
 
 # Database migrations
+# All targets run from the repo root so alembic and `make dev-api` share the
+# same cwd (and therefore the same .env, SM_DATABASE_URL, and SQLite path).
 migrate:                    ## Run migrations to head
-	cd host && uv run alembic upgrade head
+	uv run --project host alembic -c host/alembic.ini upgrade head
 
 migration:                  ## Create new migration (usage: make migration msg="add foo")
-	cd host && uv run alembic revision --autogenerate -m "$(msg)"
+	uv run --project host alembic -c host/alembic.ini revision --autogenerate -m "$(msg)"
 
 downgrade:                  ## Downgrade one revision
-	cd host && uv run alembic downgrade -1
+	uv run --project host alembic -c host/alembic.ini downgrade -1
 
 migration-history:          ## Show migration history
-	cd host && uv run alembic history --verbose
+	uv run --project host alembic -c host/alembic.ini history --verbose
 
 # Scaffolding
 new-module:                 ## Scaffold a new module (usage: make new-module name=orders)

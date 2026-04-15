@@ -64,9 +64,27 @@ def _ensure_models_imported() -> list:
     return list(all_module_bases)
 
 
+@lru_cache(maxsize=1)
+def _alembic_head() -> str | None:
+    """Cached head revision — cannot change within a pytest run."""
+    from simple_module_hosting._migrations import resolve_head_revision
+
+    return resolve_head_revision()
+
+
 async def _create_all_tables(engine) -> None:
-    """Create all module tables in a single connection."""
+    """Create all module tables in a single connection.
+
+    Also stamps the alembic_version table at head so the app's startup
+    migration check (``check_migrations``) treats the test DB as current.
+    Without the stamp the check would raise because ``create_all`` doesn't
+    touch alembic_version.
+    """
+    from sqlalchemy import text
+
     bases = _ensure_models_imported()
+    head = _alembic_head()
+
     async with engine.begin() as conn:
 
         def _sync_create_all(sync_conn):
@@ -74,6 +92,19 @@ async def _create_all_tables(engine) -> None:
                 base.metadata.create_all(sync_conn)
 
         await conn.run_sync(_sync_create_all)
+
+        if head:
+            await conn.execute(
+                text(
+                    "CREATE TABLE IF NOT EXISTS alembic_version "
+                    "(version_num VARCHAR(32) NOT NULL PRIMARY KEY)"
+                )
+            )
+            await conn.execute(text("DELETE FROM alembic_version"))
+            await conn.execute(
+                text("INSERT INTO alembic_version (version_num) VALUES (:v)"),
+                {"v": head},
+            )
 
 
 @pytest.fixture
