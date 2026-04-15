@@ -14,7 +14,12 @@ import {
 import { Badge } from '@simple-module/ui/components/ui/badge';
 import { Button } from '@simple-module/ui/components/ui/button';
 import { Card } from '@simple-module/ui/components/ui/card';
-import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@simple-module/ui/components/ui/empty';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyMedia,
+  EmptyTitle,
+} from '@simple-module/ui/components/ui/empty';
 import { Input } from '@simple-module/ui/components/ui/input';
 import {
   Table,
@@ -27,7 +32,7 @@ import {
 import { usePermissions } from '@simple-module/ui/hooks/use-permissions';
 import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
 import { Package, Pencil, Plus, Search, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ProductsPagination } from './components/ProductsPagination';
 
@@ -68,20 +73,23 @@ function Browse() {
     [pagination.total, pagination.perPage],
   );
 
-  function navigate(page: number, q?: string) {
-    const params: Record<string, string> = {};
-    const query = q ?? search;
-    if (query) params.q = query;
-    if (page > 1) params.page = String(page);
-    router.get('/products', params, { preserveState: true, preserveScroll: true });
-  }
+  const navigate = useCallback(
+    (page: number, q?: string) => {
+      const params: Record<string, string> = {};
+      const query = q ?? search;
+      if (query) params.q = query;
+      if (page > 1) params.page = String(page);
+      router.get('/products', params, { preserveState: true, preserveScroll: true });
+    },
+    [search],
+  );
 
   // Debounced server-side search
   useEffect(() => {
     if (search === (initialSearch || '')) return;
     const timeout = setTimeout(() => navigate(1, search), 300);
     return () => clearTimeout(timeout);
-  }, [search, initialSearch]);
+  }, [search, initialSearch, navigate]);
 
   function handleDelete(product: Product) {
     router.delete(`/products/${product.id}`, {

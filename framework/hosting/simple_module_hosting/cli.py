@@ -17,16 +17,17 @@ import sys
 from pathlib import Path
 
 import click
-
 from simple_module_core import discover_modules
 
 from simple_module_hosting.scaffolding import (
     _to_kebab_case,
     collect_module_js_deps,
-    create_host as _create_host,
     create_module,
     repo_root_from_client_app,
     write_module_pages_manifest,
+)
+from simple_module_hosting.scaffolding import (
+    create_host as _create_host,
 )
 
 

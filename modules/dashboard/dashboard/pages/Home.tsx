@@ -1,6 +1,12 @@
 import { usePage } from '@inertiajs/react';
 import { PageShell } from '@simple-module/ui/components/PageShell';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@simple-module/ui/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@simple-module/ui/components/ui/card';
 import { Separator } from '@simple-module/ui/components/ui/separator';
 import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
 import { Box, Package, Users } from 'lucide-react';
