@@ -168,14 +168,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         i18n_registry.add_source("ui", ui_locales)
     i18n_registry.load()
 
-    # Emit frontend TS augmentation file if client_app/ is on disk (dev loop).
+    # Emit frontend TS augmentation file into the @simple-module/i18n package
+    # so every React consumer picks up the typed-key augmentation automatically
+    # (each module compiles against its own tsconfig, so the augmentation must
+    # live next to the shared package, not in host/client_app/).
     if settings.is_development:
         try:
             from simple_module_hosting.i18n_manifest import write_generated_resources
 
-            client_app_dir = _PROJECT_ROOT / "host" / "client_app"
-            if client_app_dir.is_dir():
-                write_generated_resources(i18n_registry, client_app_dir)
+            i18n_pkg_src = _PROJECT_ROOT / "packages" / "i18n" / "src"
+            if i18n_pkg_src.is_dir():
+                write_generated_resources(i18n_registry, i18n_pkg_src)
         except Exception:
             logger.exception(
                 "Failed to write generated-resources.ts — frontend types will be stale"

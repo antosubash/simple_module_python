@@ -60,6 +60,11 @@ ci-js-lint:
 
 ci-js-typecheck:
 	npx tsc --noEmit -p host/client_app/tsconfig.json
+	@for cfg in modules/*/tsconfig.json packages/*/tsconfig.json; do \
+		[ -f "$$cfg" ] || continue; \
+		echo "tsc -p $$cfg"; \
+		npx tsc --noEmit -p "$$cfg" || exit 1; \
+	done
 
 # Enforce a max of 300 lines per .py/.ts/.tsx file.
 # Exempts vendored shadcn components under packages/ui/src/components/ui/**.

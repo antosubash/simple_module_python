@@ -10,6 +10,9 @@
 
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
+// Side-effect import: activates `i18next` module augmentation so every
+// consumer of this package gets typed `t()` automatically.
+import './types';
 
 type Messages = Record<string, string>;
 
@@ -31,6 +34,11 @@ export function configureI18n(opts: ConfigureOptions): void {
     resources: {
       [opts.locale]: { translation: opts.messages },
     },
+    // Our keys are flat strings-with-dots (e.g. "products.browse.title"),
+    // not nested objects. Disable separator processing so i18next looks
+    // up the entire key verbatim rather than trying to traverse by dots.
+    keySeparator: false,
+    nsSeparator: false,
     interpolation: {
       escapeValue: false, // React already escapes
       prefix: '{',
