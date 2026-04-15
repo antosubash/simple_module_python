@@ -27,8 +27,8 @@ async def _make_user(session, email, password="SecurePass1!", verified=True, rol
 
     if role_names:
         roles = (
-            await session.execute(select(Role).where(Role.name.in_(role_names)))
-        ).scalars().all()
+            (await session.execute(select(Role).where(Role.name.in_(role_names)))).scalars().all()
+        )
         for role in roles:
             session.add(UserRole(user_id=user.id, role_id=role.id))
 
@@ -46,8 +46,11 @@ class TestAdminList:
     @pytest.mark.anyio
     async def test_list_without_auth_is_rejected(self, anon_client):
         resp = await anon_client.get("/api/users/admin", follow_redirects=False)
-        # AuthMiddleware redirects unauthenticated non-public API paths (302).
-        assert resp.status_code in (302, 401)
+        # AuthMiddleware redirects unauthenticated non-public API paths to
+        # /users/login. Preserving the 302 here so a regression to 401 or
+        # pass-through is caught.
+        assert resp.status_code == 302
+        assert resp.headers["location"].endswith("/users/login")
 
     @pytest.mark.anyio
     async def test_list_as_admin_returns_200(self, admin_client, users_db):
@@ -125,8 +128,8 @@ class TestAdminInvite:
             json={"email": "hacker@example.com"},
             follow_redirects=False,
         )
-        # AuthMiddleware redirects unauthenticated non-public API paths (302).
-        assert resp.status_code in (302, 401)
+        assert resp.status_code == 302
+        assert resp.headers["location"].endswith("/users/login")
 
 
 # ---------------------------------------------------------------------------
@@ -170,9 +173,7 @@ class TestAdminDisableEnable:
 class TestAdminSetRoles:
     @pytest.mark.anyio
     async def test_set_roles_replaces_roles(self, admin_client, users_db):
-        user = await _make_user(
-            users_db, email="roletest@example.com", role_names=["admin"]
-        )
+        user = await _make_user(users_db, email="roletest@example.com", role_names=["admin"])
         resp = await admin_client.put(
             f"/api/users/admin/{user.id}/roles",
             json={"role_names": ["user"]},
@@ -183,9 +184,7 @@ class TestAdminSetRoles:
 
     @pytest.mark.anyio
     async def test_set_empty_roles_clears_roles(self, admin_client, users_db):
-        user = await _make_user(
-            users_db, email="clearroles@example.com", role_names=["admin"]
-        )
+        user = await _make_user(users_db, email="clearroles@example.com", role_names=["admin"])
         resp = await admin_client.put(
             f"/api/users/admin/{user.id}/roles",
             json={"role_names": []},
@@ -201,5 +200,5 @@ class TestAdminSetRoles:
             json={"role_names": ["admin"]},
             follow_redirects=False,
         )
-        # AuthMiddleware redirects unauthenticated non-public API paths (302).
-        assert resp.status_code in (302, 401)
+        assert resp.status_code == 302
+        assert resp.headers["location"].endswith("/users/login")

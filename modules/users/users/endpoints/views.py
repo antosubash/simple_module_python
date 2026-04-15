@@ -22,6 +22,7 @@ router = APIRouter()
 
 # ── Public auth pages ───────────────────────────────────────────
 
+
 @router.get("/login", response_model=None)
 async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
     allow_signup = request.app.state.users_settings.allow_signup
@@ -67,12 +68,14 @@ async def accept_invite_page(inertia: InertiaDep, token: str = "") -> InertiaRes
 
 # ── Authenticated pages ─────────────────────────────────────────
 
+
 @router.get("/me", response_model=None)
 async def profile_page(inertia: InertiaDep) -> InertiaResponse:
     return await inertia.render("Users/Profile", {})
 
 
 # ── Admin pages ─────────────────────────────────────────────────
+
 
 @router.get(
     "/admin",

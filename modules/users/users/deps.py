@@ -1,11 +1,13 @@
 """Public dependencies and the FastAPIUsers instance.
 
 Cookie transport and auth backend are constructed at import time with
-dev-safe defaults (cookie_secure=False, dev cookie name). UsersModule
-(Task 5/6 of plan cryptic-juggling-lightning) will override the cookie
-params in register_middleware/register_routes using the real UsersSettings
-from app.state.users_settings.  CookieTransport's cookie params are mutable
-attributes on the instance, so the host can patch them after construction.
+dev-safe defaults (cookie_secure=False, dev cookie name). UsersModule.on_startup
+overrides the cookie params from the real UsersSettings once app.state is
+populated — CookieTransport's cookie fields are mutable on the instance.
+
+The singleton is here rather than in register_routes because
+``current_active_user`` and ``current_superuser`` are decorator-factories
+that must be resolvable at import time for route-handler signatures.
 """
 
 from __future__ import annotations

@@ -51,9 +51,7 @@ async def create_admin(
 
     # Look up by name first (works on both Postgres and SQLite regardless of UUID
     # storage format), then fall back to id-based lookup in case name was changed.
-    admin_role = (
-        await db.execute(select(Role).where(Role.name == "admin"))
-    ).scalar_one_or_none()
+    admin_role = (await db.execute(select(Role).where(Role.name == "admin"))).scalar_one_or_none()
     if admin_role is None:
         admin_role = (
             await db.execute(select(Role).where(Role.id == ADMIN_ROLE_ID))

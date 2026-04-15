@@ -70,7 +70,9 @@ def test_create_admin_success(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_engine_instance.dispose = AsyncMock()
         mock_engine.return_value = mock_engine_instance
 
-        mock_settings_cls.return_value = SimpleNamespace(database_url="sqlite+aiosqlite:///:memory:")
+        mock_settings_cls.return_value = SimpleNamespace(
+            database_url="sqlite+aiosqlite:///:memory:"
+        )
 
         result = runner.invoke(
             app,
@@ -103,7 +105,9 @@ def test_create_admin_already_exists_no_force(monkeypatch: pytest.MonkeyPatch) -
         mock_engine_instance.dispose = AsyncMock()
         mock_engine.return_value = mock_engine_instance
 
-        mock_settings_cls.return_value = SimpleNamespace(database_url="sqlite+aiosqlite:///:memory:")
+        mock_settings_cls.return_value = SimpleNamespace(
+            database_url="sqlite+aiosqlite:///:memory:"
+        )
 
         result = runner.invoke(
             app,
@@ -137,7 +141,9 @@ def test_create_admin_force_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_engine_instance.dispose = AsyncMock()
         mock_engine.return_value = mock_engine_instance
 
-        mock_settings_cls.return_value = SimpleNamespace(database_url="sqlite+aiosqlite:///:memory:")
+        mock_settings_cls.return_value = SimpleNamespace(
+            database_url="sqlite+aiosqlite:///:memory:"
+        )
 
         result = runner.invoke(
             app,

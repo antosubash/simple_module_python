@@ -116,18 +116,14 @@ class TestOnAfterForgotPassword:
     @pytest.mark.anyio
     async def test_calls_mailer_send_password_reset(self, manager, fake_mailer, fake_user):
         await manager.on_after_forgot_password(fake_user, "reset-token")
-        fake_mailer.send_password_reset.assert_awaited_once_with(
-            fake_user.email, "reset-token"
-        )
+        fake_mailer.send_password_reset.assert_awaited_once_with(fake_user.email, "reset-token")
 
 
 class TestOnAfterRequestVerify:
     @pytest.mark.anyio
     async def test_calls_mailer_send_verification(self, manager, fake_mailer, fake_user):
         await manager.on_after_request_verify(fake_user, "verify-token")
-        fake_mailer.send_verification.assert_awaited_once_with(
-            fake_user.email, "verify-token"
-        )
+        fake_mailer.send_verification.assert_awaited_once_with(fake_user.email, "verify-token")
 
 
 class TestOnAfterLogin:

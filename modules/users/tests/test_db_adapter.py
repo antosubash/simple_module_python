@@ -16,13 +16,9 @@ async def _seed_roles(db_session):
 
     existing = (await db_session.execute(select(Role.name))).scalars().all()
     if "admin" not in existing:
-        db_session.add(
-            Role(id=ADMIN_ROLE_ID, name="admin", description="Administrator")
-        )
+        db_session.add(Role(id=ADMIN_ROLE_ID, name="admin", description="Administrator"))
     if "user" not in existing:
-        db_session.add(
-            Role(id=USER_ROLE_ID, name="user", description="Standard user")
-        )
+        db_session.add(Role(id=USER_ROLE_ID, name="user", description="Standard user"))
     await db_session.commit()
 
 

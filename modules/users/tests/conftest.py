@@ -58,9 +58,11 @@ async def _setup_app_db(application) -> None:
     head = resolve_head_revision()
 
     async with application.state.db.engine.begin() as conn:
+
         def _create(sync_conn):
             for base in all_module_bases:
                 base.metadata.create_all(sync_conn)
+
         await conn.run_sync(_create)
 
         if head:
@@ -167,9 +169,7 @@ async def users_app_signup(monkeypatch):
 async def anon_client(users_app) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Unauthenticated client against users_app."""
     transport = httpx.ASGITransport(app=users_app)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://testserver"
-    ) as c:
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
         yield c
 
 
@@ -177,9 +177,7 @@ async def anon_client(users_app) -> AsyncGenerator[httpx.AsyncClient, None]:
 async def anon_client_signup(users_app_signup) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Unauthenticated client against users_app_signup (signup enabled)."""
     transport = httpx.ASGITransport(app=users_app_signup)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://testserver"
-    ) as c:
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
         yield c
 
 
@@ -290,8 +288,8 @@ async def create_verified_user(
         from sqlalchemy import select
 
         roles = (
-            await session.execute(select(Role).where(Role.name.in_(role_names)))
-        ).scalars().all()
+            (await session.execute(select(Role).where(Role.name.in_(role_names)))).scalars().all()
+        )
         for role in roles:
             session.add(UserRole(user_id=user.id, role_id=role.id))
 

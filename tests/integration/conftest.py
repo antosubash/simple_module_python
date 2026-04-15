@@ -68,8 +68,10 @@ async def _seed_user_with_roles(app, email: str, role_names: list[str]) -> objec
 
         if role_names:
             roles = (
-                await session.execute(select(Role).where(Role.name.in_(role_names)))
-            ).scalars().all()
+                (await session.execute(select(Role).where(Role.name.in_(role_names))))
+                .scalars()
+                .all()
+            )
             for role in roles:
                 session.add(UserRole(user_id=user.id, role_id=role.id))
 
@@ -104,9 +106,7 @@ async def inertia_client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
         app,
         # Use the same admin user seeded by authenticated_client (fixture ordering
         # means it may or may not exist). Simpler: seed a fresh admin-role user.
-        str(
-            (await _seed_user_with_roles(app, "inertia-admin@example.com", ["admin"])).id
-        ),
+        str((await _seed_user_with_roles(app, "inertia-admin@example.com", ["admin"])).id),
         extra_headers={"X-Inertia": "true"},
     ) as c:
         yield c

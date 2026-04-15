@@ -31,9 +31,7 @@ class TestInviteFlow:
         assert body["is_verified"] is False
 
         # Step 2: Extract token from ConsoleMailer log record
-        invite_records = [
-            r for r in caplog.records if r.getMessage() == "users.invite.email"
-        ]
+        invite_records = [r for r in caplog.records if r.getMessage() == "users.invite.email"]
         assert len(invite_records) == 1, (
             f"Expected 1 invite log record, got {len(invite_records)}: {caplog.records}"
         )
@@ -69,9 +67,7 @@ class TestInviteFlow:
         assert resp.json()["detail"] == "INVITE_BAD_TOKEN"
 
     @pytest.mark.anyio
-    async def test_accept_invite_weak_password_fails(
-        self, admin_client, anon_client, caplog
-    ):
+    async def test_accept_invite_weak_password_fails(self, admin_client, anon_client, caplog):
         """Weak password during accept-invite should return 400."""
         with caplog.at_level(logging.INFO, logger="users.mailer"):
             await admin_client.post(
@@ -79,9 +75,7 @@ class TestInviteFlow:
                 json={"email": "weakpw@example.com"},
             )
 
-        invite_records = [
-            r for r in caplog.records if r.getMessage() == "users.invite.email"
-        ]
+        invite_records = [r for r in caplog.records if r.getMessage() == "users.invite.email"]
         token = invite_records[0].link.split("token=", 1)[1]  # type: ignore[attr-defined]
 
         resp = await anon_client.post(
@@ -93,9 +87,7 @@ class TestInviteFlow:
         assert "INVALID_PASSWORD" in detail or "password" in detail.lower()
 
     @pytest.mark.anyio
-    async def test_invited_user_cannot_login_before_accepting(
-        self, admin_client, anon_client
-    ):
+    async def test_invited_user_cannot_login_before_accepting(self, admin_client, anon_client):
         """Unverified invited user cannot log in before accepting invite."""
         await admin_client.post(
             "/api/users/admin/invite",

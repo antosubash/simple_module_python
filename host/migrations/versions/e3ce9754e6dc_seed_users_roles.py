@@ -44,6 +44,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute(
-        f"DELETE FROM users_role WHERE id IN ('{ADMIN_ROLE_ID}', '{USER_ROLE_ID}')"
-    )
+    op.execute(f"DELETE FROM users_role WHERE id IN ('{ADMIN_ROLE_ID}', '{USER_ROLE_ID}')")

@@ -90,9 +90,7 @@ class TestLogin:
 
         from itsdangerous import TimestampSigner
 
-        user = await _make_user(
-            users_db, email="session@example.com", password="SecurePass1!"
-        )
+        user = await _make_user(users_db, email="session@example.com", password="SecurePass1!")
         resp = await anon_client.post(
             "/api/users/auth/login",
             data={"username": "session@example.com", "password": "SecurePass1!"},

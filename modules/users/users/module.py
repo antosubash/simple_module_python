@@ -81,17 +81,23 @@ class UsersModule(ModuleBase):
         app.add_middleware(AuthMiddleware)
 
     async def on_startup(self, app: FastAPI) -> None:
-        """Build the mailer once app settings are committed."""
+        """Build the mailer, rate limiter, and apply production cookie params."""
         from users.bootstrap import bootstrap_admin_from_env
         from users.mailer import build_mailer
+        from users.rate_limit import LoginRateLimiter
 
-        app.state.mailer = build_mailer(app.state.users_settings)
+        s = app.state.users_settings
+        app.state.mailer = build_mailer(s)
+        app.state.rate_limiter = LoginRateLimiter(
+            max_failures=s.login_rate_limit_failures,
+            window_seconds=s.login_rate_limit_window_seconds,
+            cooldown_seconds=s.login_rate_limit_cooldown_seconds,
+        )
 
         # Patch cookie transport params from real settings (dev-safe singleton
         # in deps.py is constructed with defaults at import time).
         from users.deps import auth_backend
 
-        s = app.state.users_settings
         transport = auth_backend.transport
         transport.cookie_name = s.cookie_name
         transport.cookie_max_age = s.cookie_max_age_seconds

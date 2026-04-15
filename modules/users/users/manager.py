@@ -33,12 +33,8 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         self.mailer = mailer
         self.reset_password_token_secret = settings.reset_password_token_secret
         self.verification_token_secret = settings.verification_token_secret
-        self.reset_password_token_lifetime_seconds = (
-            settings.reset_password_token_lifetime_seconds
-        )
-        self.verification_token_lifetime_seconds = (
-            settings.verification_token_lifetime_seconds
-        )
+        self.reset_password_token_lifetime_seconds = settings.reset_password_token_lifetime_seconds
+        self.verification_token_lifetime_seconds = settings.verification_token_lifetime_seconds
 
     # ── Password policy ──────────────────────────────────────
 
@@ -48,13 +44,9 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
                 reason="Password must be at least 8 characters"
             )
         if password.lower() in user.email.lower():
-            raise exceptions.InvalidPasswordException(
-                reason="Password cannot contain your email"
-            )
+            raise exceptions.InvalidPasswordException(reason="Password cannot contain your email")
         if password.isdigit():
-            raise exceptions.InvalidPasswordException(
-                reason="Password cannot be all numbers"
-            )
+            raise exceptions.InvalidPasswordException(reason="Password cannot be all numbers")
 
     # ── Lifecycle hooks ──────────────────────────────────────
 
@@ -79,18 +71,14 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         user.last_login_at = datetime.now(UTC)
         await self.user_db.update(user, {"last_login_at": user.last_login_at})
 
-    # ── Invite token helper (no email side-effect) ──────────
+    # ── Token helpers (no email side-effect) ─────────────────
 
     async def generate_verification_token(self, user: User) -> str:
         """Mint a verify-audience JWT without firing on_after_request_verify.
 
-        Used by the admin-invite endpoint — it must produce the exact token
-        shape fastapi-users' POST /verify expects, but send a different email
-        template (invite instead of verify). The public request_verify()
-        couples token generation with email send; we decouple them here.
-
-        Verified: BaseUserManager.verification_token_audience == "fastapi-users:verify"
-        Verified: generate_jwt(data, secret, lifetime_seconds, algorithm)
+        Used by the admin-invite flow: the verify-token primitive is reused
+        for invites, but the email template differs. request_verify() couples
+        token generation with email send — this decouples them.
         """
         token_data = {
             "sub": str(user.id),
@@ -101,6 +89,26 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             token_data,
             self.verification_token_secret,
             self.verification_token_lifetime_seconds,
+        )
+
+    def generate_reset_password_token(self, user: User) -> str:
+        """Mint a reset-audience JWT without firing on_after_forgot_password.
+
+        Shape matches ``BaseUserManager.forgot_password``: the payload includes
+        ``password_fgpt`` (a hash of the current hashed_password) so the token
+        invalidates when the password changes. Used by the admin
+        reset-password-link endpoint, where the admin copies the link instead
+        of triggering an email.
+        """
+        token_data = {
+            "sub": str(user.id),
+            "password_fgpt": self.password_helper.hash(user.hashed_password),
+            "aud": self.reset_password_token_audience,
+        }
+        return generate_jwt(
+            token_data,
+            self.reset_password_token_secret,
+            self.reset_password_token_lifetime_seconds,
         )
 
 

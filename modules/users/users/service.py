@@ -30,12 +30,11 @@ class UserService:
         """Return Role ORM objects matching the given names."""
         if not role_names:
             return []
-        result = await self._db.execute(
-            select(Role).where(Role.name.in_(role_names))
-        )
+        result = await self._db.execute(select(Role).where(Role.name.in_(role_names)))
         return list(result.scalars().all())
 
-    async def _to_list_item(self, user: User) -> UserListItem:
+    async def to_list_item(self, user: User) -> UserListItem:
+        """Build the DTO from a User with roles already eager-loaded."""
         return UserListItem(
             id=user.id,
             email=user.email,
@@ -49,9 +48,7 @@ class UserService:
 
     async def _get_user_with_roles(self, user_id: uuid.UUID) -> User | None:
         result = await self._db.execute(
-            select(User)
-            .where(User.id == user_id)
-            .options(selectinload(User.roles))
+            select(User).where(User.id == user_id).options(selectinload(User.roles))
         )
         return result.scalar_one_or_none()
 
@@ -82,19 +79,7 @@ class UserService:
         stmt = stmt.order_by(User.email).offset((page - 1) * per_page).limit(per_page)
         rows = (await self._db.execute(stmt)).scalars().all()
 
-        items = [
-            UserListItem(
-                id=u.id,
-                email=u.email,
-                full_name=u.full_name,
-                is_active=u.is_active,
-                is_verified=u.is_verified,
-                disabled_at=u.disabled_at,
-                last_login_at=u.last_login_at,
-                roles=[r.name for r in u.roles],
-            )
-            for u in rows
-        ]
+        items = [await self.to_list_item(u) for u in rows]
         return items, total
 
     async def invite(
@@ -121,11 +106,13 @@ class UserService:
         roles = await self._resolve_roles(role_names)
         invited_by_str = str(invited_by.id) if invited_by else None
         for role in roles:
-            self._db.add(UserRole(
-                user_id=user.id,
-                role_id=role.id,
-                assigned_by=invited_by_str,
-            ))
+            self._db.add(
+                UserRole(
+                    user_id=user.id,
+                    role_id=role.id,
+                    assigned_by=invited_by_str,
+                )
+            )
         if roles:
             await self._db.commit()
 
@@ -136,6 +123,7 @@ class UserService:
         user = await self._get_user_with_roles(user_id)
         if user is None:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=404, detail="User not found")
         user.disabled_at = datetime.now(UTC)
         user.is_active = False
@@ -147,6 +135,7 @@ class UserService:
         user = await self._get_user_with_roles(user_id)
         if user is None:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=404, detail="User not found")
         user.disabled_at = None
         user.is_active = True
@@ -164,21 +153,22 @@ class UserService:
         user = await self._get_user_with_roles(user_id)
         if user is None:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=404, detail="User not found")
 
         # Delete all existing role assignments for this user
-        await self._db.execute(
-            delete(UserRole).where(UserRole.user_id == user_id)
-        )
+        await self._db.execute(delete(UserRole).where(UserRole.user_id == user_id))
 
         # Insert new role assignments
         roles = await self._resolve_roles(role_names)
         for role in roles:
-            self._db.add(UserRole(
-                user_id=user_id,
-                role_id=role.id,
-                assigned_by=assigned_by,
-            ))
+            self._db.add(
+                UserRole(
+                    user_id=user_id,
+                    role_id=role.id,
+                    assigned_by=assigned_by,
+                )
+            )
 
         await self._db.commit()
         # Expire the session so the next query sees DB-committed data.
@@ -188,25 +178,14 @@ class UserService:
         return await self._get_user_with_roles(user_id)
 
     async def generate_reset_link(self, user_id: uuid.UUID, base_url: str) -> str:
+        """Build an admin-copyable password-reset URL. No email side-effect."""
         user = await self._get_user_with_roles(user_id)
         if user is None:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=404, detail="User not found")
 
-        # Use fastapi-users' JWT primitive to build a reset token directly
-        # without sending an email (admin copies the link themselves).
-        from fastapi_users.jwt import generate_jwt
-
-        token_data = {
-            "sub": str(user.id),
-            "password_fgpt": self._manager.password_helper.hash(user.hashed_password),
-            "aud": "fastapi-users:reset",
-        }
-        token = generate_jwt(
-            token_data,
-            self._manager.reset_password_token_secret,
-            self._manager.reset_password_token_lifetime_seconds,
-        )
+        token = self._manager.generate_reset_password_token(user)
         return f"{base_url.rstrip('/')}/users/reset-password?token={token}"
 
     async def get_with_roles(self, user_id: uuid.UUID) -> User | None:
@@ -216,5 +195,6 @@ class UserService:
         user = await self._get_user_with_roles(user_id)
         if user is None:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=404, detail="User not found")
-        return await self._to_list_item(user)
+        return await self.to_list_item(user)

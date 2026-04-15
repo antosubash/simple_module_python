@@ -133,9 +133,7 @@ async def active_user(db_session, _seed_roles):
 async def test_unauthenticated_protected_path_redirects(db_state):
     app = await _build_app(db_state)
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://testserver"
-    ) as client:
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         resp = await client.get("/dashboard", follow_redirects=False)
 
     assert resp.status_code == 302
@@ -153,9 +151,7 @@ async def test_unauthenticated_protected_path_sets_next_in_session(db_state):
 
     app = await _build_app(db_state, _capture_session)
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://testserver"
-    ) as client:
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         resp = await client.get("/dashboard", follow_redirects=False)
 
     assert resp.status_code == 302
@@ -308,9 +304,7 @@ async def test_disabled_at_user_redirects(db_state, db_session, _seed_roles):
 async def test_public_path_unauthenticated_passes_through(db_state):
     app = await _build_app(db_state)
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://testserver"
-    ) as client:
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         resp = await client.get("/users/login", follow_redirects=False)
 
     assert resp.status_code == 200
@@ -320,9 +314,7 @@ async def test_public_path_unauthenticated_passes_through(db_state):
 async def test_api_users_auth_prefix_is_public(db_state):
     app = await _build_app(db_state)
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://testserver"
-    ) as client:
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         resp = await client.get("/api/users/auth/login", follow_redirects=False)
 
     assert resp.status_code == 200
@@ -332,9 +324,7 @@ async def test_api_users_auth_prefix_is_public(db_state):
 async def test_health_path_is_public(db_state):
     app = await _build_app(db_state)
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://testserver"
-    ) as client:
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         resp = await client.get("/health", follow_redirects=False)
 
     assert resp.status_code == 200

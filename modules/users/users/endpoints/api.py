@@ -47,24 +47,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-# ── Rate limit (module-level — shared across requests) ──────────────────────
-
-_rate_limiter: LoginRateLimiter | None = None
+# ── Rate limit ───────────────────────────────────────────────────────────────
 
 
 def get_rate_limiter(request: Request) -> LoginRateLimiter:
-    global _rate_limiter
-    if _rate_limiter is None:
-        s = request.app.state.users_settings
-        _rate_limiter = LoginRateLimiter(
-            max_failures=s.login_rate_limit_failures,
-            window_seconds=s.login_rate_limit_window_seconds,
-            cooldown_seconds=s.login_rate_limit_cooldown_seconds,
-        )
-    return _rate_limiter
+    """Return the per-app LoginRateLimiter built in UsersModule.on_startup."""
+    return request.app.state.rate_limiter
 
 
 # ── Wrapper login ────────────────────────────────────────────────────────────
+
 
 @router.post("/auth/login", status_code=204)
 async def login(
@@ -76,10 +68,7 @@ async def login(
     limiter: LoginRateLimiter = Depends(get_rate_limiter),
 ):
     """Rate-limited login wrapper. Sets sm_auth cookie + session user_id."""
-    key = (
-        f"{credentials.username.lower()}::"
-        f"{request.client.host if request.client else 'unknown'}"
-    )
+    key = f"{credentials.username.lower()}::{request.client.host if request.client else 'unknown'}"
     if limiter.is_locked(key):
         raise HTTPException(status_code=429, detail="Too many attempts — try again later")
 
@@ -138,6 +127,7 @@ def register_auth_routes(api_router: APIRouter, settings) -> None:
 
 # ── Accept-invite (verify + set password + login, one shot) ─────────────────
 
+
 @router.post("/auth/accept-invite", status_code=204)
 async def accept_invite(
     body: AcceptInviteRequest,
@@ -159,9 +149,7 @@ async def accept_invite(
             request=request,
         )
     except fu_exceptions.InvalidPasswordException as e:
-        raise HTTPException(
-            status_code=400, detail=f"INVALID_PASSWORD: {e.reason}"
-        ) from e
+        raise HTTPException(status_code=400, detail=f"INVALID_PASSWORD: {e.reason}") from e
 
     await user_manager.on_after_login(user, request, response)
     login_response = await auth_backend.login(strategy, user)
@@ -170,6 +158,7 @@ async def accept_invite(
 
 
 # ── Self profile ─────────────────────────────────────────────────────────────
+
 
 @router.get("/me", response_model=UserRead)
 async def read_me(user=Depends(fastapi_users.current_user(active=True))):
@@ -193,6 +182,7 @@ async def update_me(
 
 
 # ── Admin REST ───────────────────────────────────────────────────────────────
+
 
 @router.get(
     "/admin",
@@ -227,15 +217,17 @@ async def admin_invite_user(
     invited_by = getattr(request.state, "user", None)
     invited_by_name = invited_by.name if invited_by else "Administrator"
     user, token = await service.invite(
-        data.email, data.full_name, data.role_names, invited_by=None
+        data.email, data.full_name, data.role_names, invited_by=invited_by
     )
     await mailer.send_invite(user.email, token, invited_by_name)
-    await bus.publish(UserInvited(
-        user_id=user.id,
-        email=user.email,
-        invited_by=(str(invited_by.id) if invited_by else None),
-    ))
-    return await service.get_list_item(user.id)
+    await bus.publish(
+        UserInvited(
+            user_id=user.id,
+            email=user.email,
+            invited_by=(str(invited_by.id) if invited_by else None),
+        )
+    )
+    return await service.to_list_item(user)
 
 
 @router.patch(
@@ -251,7 +243,7 @@ async def admin_disable_user(
     """Disable a user account (sets is_active=False and disabled_at)."""
     user = await service.disable(user_id)
     await bus.publish(UserDisabled(user_id=user.id))
-    return await service.get_list_item(user.id)
+    return await service.to_list_item(user)
 
 
 @router.patch(
@@ -265,7 +257,7 @@ async def admin_enable_user(
 ):
     """Re-enable a previously disabled user account."""
     user = await service.enable(user_id)
-    return await service.get_list_item(user.id)
+    return await service.to_list_item(user)
 
 
 @router.put(
@@ -289,7 +281,7 @@ async def admin_set_roles(
     )
     for role in data.role_names:
         await bus.publish(RoleAssigned(user_id=user.id, role_name=role))
-    return await service.get_list_item(user.id)
+    return await service.to_list_item(user)
 
 
 @router.post(

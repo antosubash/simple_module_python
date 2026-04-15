@@ -36,8 +36,8 @@ async def _make_verified_user(
 
     if role_names:
         roles = (
-            await session.execute(select(Role).where(Role.name.in_(role_names)))
-        ).scalars().all()
+            (await session.execute(select(Role).where(Role.name.in_(role_names)))).scalars().all()
+        )
         for role in roles:
             session.add(UserRole(user_id=user.id, role_id=role.id))
 
@@ -122,11 +122,10 @@ class TestOtherPublicPages:
 class TestAdminIndexPage:
     @pytest.mark.anyio
     async def test_admin_without_auth_is_redirected(self, anon_client):
-        """Unauthenticated access to admin page is redirected to login by auth middleware."""
-        resp = await anon_client.get("/users/admin")
-        # The AuthMiddleware redirects (302) to /users/login before
-        # RequiresPermission can return 401.
-        assert resp.status_code in (302, 401)
+        """Unauthenticated access to the admin page redirects to /users/login."""
+        resp = await anon_client.get("/users/admin", follow_redirects=False)
+        assert resp.status_code == 302
+        assert resp.headers["location"].endswith("/users/login")
 
     @pytest.mark.anyio
     async def test_admin_with_admin_session_returns_200(self, admin_client):
