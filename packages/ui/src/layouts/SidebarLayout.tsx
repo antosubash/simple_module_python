@@ -171,51 +171,75 @@ export function SidebarLayout({
           </nav>
 
           {/* User section — avatar row opens a dropdown with Profile / Logout / etc. */}
-          {auth?.user && (
-            <div className="px-3 py-3 border-t border-white/[0.06]">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className={`flex w-full items-center gap-3 px-2 py-2 rounded-lg text-left ${theme.hoverBg} transition-colors`}
-                  >
-                    <Avatar className="ring-2 ring-primary-500/20">
-                      <AvatarFallback className={`${theme.avatarBg} text-white text-xs`}>
-                        {auth.user.name?.charAt(0)?.toUpperCase() || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{auth.user.name}</p>
-                      <p className={`text-xs truncate ${theme.mutedTextClass}`}>
-                        {auth.user.email}
-                      </p>
-                    </div>
-                    <ChevronsUpDown
-                      className={`w-4 h-4 shrink-0 ${theme.mutedTextClass}`}
-                      aria-hidden="true"
-                    />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="top" align="start" className="w-56">
-                  <DropdownMenuLabel className="font-normal">
-                    <p className="text-sm font-medium truncate">{auth.user.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{auth.user.email}</p>
-                  </DropdownMenuLabel>
-                  {menus?.userDropdown && menus.userDropdown.length > 0 && (
-                    <DropdownMenuSeparator />
-                  )}
-                  {menus?.userDropdown?.map((item) => (
-                    <DropdownMenuItem key={item.url} asChild onSelect={closeSidebar}>
-                      <a href={item.url} className="flex items-center gap-2">
-                        <NavIcon name={item.icon} />
-                        {item.label}
-                      </a>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
+          {auth?.user &&
+            (() => {
+              // UserContext.from_user defaults ``name`` to ``email`` when no
+              // full_name is set, so guard against rendering the email twice.
+              const hasDistinctName = auth.user.name && auth.user.name !== auth.user.email;
+              return (
+                <div className="px-3 py-3 border-t border-white/[0.06]">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className={`flex w-full items-center gap-3 px-2 py-2 rounded-lg text-left ${theme.hoverBg} transition-colors`}
+                      >
+                        <Avatar className="ring-2 ring-primary-500/20">
+                          <AvatarFallback className={`${theme.avatarBg} text-white text-xs`}>
+                            {(auth.user.name || auth.user.email)?.charAt(0)?.toUpperCase() || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          {hasDistinctName ? (
+                            <>
+                              <p className="text-sm font-medium text-white truncate">
+                                {auth.user.name}
+                              </p>
+                              <p className={`text-xs truncate ${theme.mutedTextClass}`}>
+                                {auth.user.email}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-sm font-medium text-white truncate">
+                              {auth.user.email}
+                            </p>
+                          )}
+                        </div>
+                        <ChevronsUpDown
+                          className={`w-4 h-4 shrink-0 ${theme.mutedTextClass}`}
+                          aria-hidden="true"
+                        />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="top" align="start" className="w-56">
+                      <DropdownMenuLabel className="font-normal">
+                        {hasDistinctName ? (
+                          <>
+                            <p className="text-sm font-medium truncate">{auth.user.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {auth.user.email}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-sm font-medium truncate">{auth.user.email}</p>
+                        )}
+                      </DropdownMenuLabel>
+                      {menus?.userDropdown && menus.userDropdown.length > 0 && (
+                        <DropdownMenuSeparator />
+                      )}
+                      {menus?.userDropdown?.map((item) => (
+                        <DropdownMenuItem key={item.url} asChild onSelect={closeSidebar}>
+                          <a href={item.url} className="flex items-center gap-2">
+                            <NavIcon name={item.icon} />
+                            {item.label}
+                          </a>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              );
+            })()}
         </aside>
 
         {/* Main content */}
