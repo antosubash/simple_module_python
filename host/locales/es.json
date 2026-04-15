@@ -1,0 +1,37 @@
+{
+  "landing": {
+    "badge": "Hecho con FastAPI + Inertia.js + React",
+    "hero_title_line1": "Monolito modular",
+    "hero_title_line2": "Framework para Python",
+    "hero_subtitle": "Construye aplicaciones escalables con módulos independientes, cada uno con su propio esquema de base de datos, endpoints de API y páginas de React — todo en una sola unidad desplegable.",
+    "cta_dashboard": "Abrir panel",
+    "cta_get_started": "Comenzar",
+    "cta_docs": "Documentación",
+    "features": {
+      "module_system_title": "Sistema de módulos",
+      "module_system_description": "Cada módulo es un paquete autocontenido con sus propios modelos, servicios, endpoints de API y páginas de React. Descubierto automáticamente vía entry_points de Python.",
+      "auth_title": "Autenticación local",
+      "auth_description": "Autenticación por correo y contraseña basada en cookies con gestión local de usuarios. Sesiones del lado del servidor, control de acceso por permisos y menús filtrados por rol.",
+      "schema_title": "Aislamiento de esquema",
+      "schema_description": "Cada módulo obtiene su propio esquema de base de datos en PostgreSQL o prefijo de tabla en SQLite. Auditoría completa, borrado lógico y multi-tenancy incorporados.",
+      "inertia_title": "Inertia.js + React",
+      "inertia_description": "SPA dirigida por el servidor — FastAPI renderiza props, React renderiza la UI. Sin cliente API separado, sin duplicación de estado, seguridad de tipos de punta a punta.",
+      "diagnostics_title": "Diagnósticos",
+      "diagnostics_description": "El validador de módulos incorporado detecta páginas huérfanas, renders fantasma, endpoints sin protección y dependencias circulares al inicio.",
+      "devtools_title": "Herramientas de desarrollo",
+      "devtools_description": "Workspaces de uv, Tailwind CSS 4, Vite HMR, páginas auto-descubiertas, 97 pruebas en 0.4s y una herramienta CLI de andamiaje."
+    }
+  },
+  "error": {
+    "generic_title": "Error",
+    "generic_description": "Ocurrió un error inesperado.",
+    "forbidden_title": "Prohibido",
+    "forbidden_description": "No tienes permiso para acceder a esta página.",
+    "not_found_title": "Página no encontrada",
+    "not_found_description": "La página que buscas no existe o ha sido movida.",
+    "server_error_title": "Error del servidor",
+    "server_error_description": "Algo salió mal de nuestro lado. Por favor, inténtalo de nuevo más tarde.",
+    "go_home": "Ir al inicio",
+    "go_back": "Volver"
+  }
+}

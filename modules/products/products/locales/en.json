@@ -1,0 +1,67 @@
+{
+  "browse": {
+    "title": "Products",
+    "description": "Manage your product catalog",
+    "new_button": "New Product",
+    "search_placeholder": "Search products...",
+    "count_one": "{count} product",
+    "count_other": "{count} products",
+    "empty_title": "No products yet",
+    "empty_description": "Get started by creating your first product.",
+    "create_button": "Create Product",
+    "no_match": "No products match \"{query}\""
+  },
+  "table": {
+    "name": "Name",
+    "description": "Description",
+    "price": "Price",
+    "status": "Status",
+    "actions": "Actions",
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "delete_dialog": {
+    "title": "Delete \"{name}\"?",
+    "description": "This action cannot be undone. This will permanently delete the product from the catalog.",
+    "cancel": "Cancel",
+    "confirm": "Delete"
+  },
+  "toasts": {
+    "deleted": "\"{name}\" deleted",
+    "delete_failed": "Failed to delete product",
+    "created": "Product created",
+    "updated": "Product updated"
+  },
+  "form": {
+    "name_label": "Name",
+    "name_placeholder": "Enter product name",
+    "description_label": "Description",
+    "description_placeholder": "Optional description",
+    "price_label": "Price",
+    "price_placeholder": "0.00",
+    "active_label": "Active",
+    "cancel_button": "Cancel"
+  },
+  "create": {
+    "title": "Create Product",
+    "description": "Add a new product to the catalog",
+    "submit_button": "Create Product",
+    "submitting_button": "Creating..."
+  },
+  "edit": {
+    "title": "Edit: {name}",
+    "description": "Update product details",
+    "back_button": "Back to Products",
+    "submit_button": "Save Changes",
+    "submitting_button": "Saving..."
+  },
+  "validation": {
+    "name_required": "Name is required",
+    "name_too_long": "Name must be under 200 characters",
+    "price_required": "Price is required",
+    "price_positive": "Price must be greater than 0"
+  },
+  "errors": {
+    "not_found": "Product not found"
+  }
+}

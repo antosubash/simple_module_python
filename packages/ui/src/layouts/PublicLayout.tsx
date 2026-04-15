@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { Button } from '@simple-module/ui/components/ui/button';
 import type React from 'react';
 import { useState } from 'react';
+import { LocaleSwitcher } from '../components/LocaleSwitcher';
 import type { SharedProps } from '../types';
 
 const NOISE_STYLE = {
@@ -29,6 +30,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
           </Link>
 
           <div className="hidden sm:flex items-center gap-3">
+            <LocaleSwitcher />
             {auth?.isAuthenticated ? (
               <Button asChild>
                 <a href="/dashboard">Go to Dashboard</a>

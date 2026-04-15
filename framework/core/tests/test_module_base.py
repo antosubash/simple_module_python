@@ -142,3 +142,23 @@ class TestModuleAssetHooks:
         mod = ModWithStatic()
         mounts = mod.static_mounts()
         assert mounts == {"/modules/with-static": assets}
+
+    async def test_locale_dirs_default_empty(self):
+        """ModuleBase.locale_dirs() returns an empty dict by default."""
+        mod = DummyModule()
+        assert mod.locale_dirs() == {}
+
+    async def test_locale_dirs_override(self, tmp_path):
+        """A module can map namespaces to locale directories."""
+        locales = tmp_path / "locales"
+        locales.mkdir()
+
+        class ModWithLocales(ModuleBase):
+            meta = ModuleMeta(name="WithLocales")
+
+            def locale_dirs(self):
+                return {"with_locales": locales}
+
+        mod = ModWithLocales()
+        dirs = mod.locale_dirs()
+        assert dirs == {"with_locales": locales}

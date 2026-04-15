@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import { keys, useT } from '@simple-module/i18n';
 import { ErrorScreen } from '@simple-module/ui/components/ErrorScreen';
 import { Button } from '@simple-module/ui/components/ui/button';
 
@@ -7,29 +8,31 @@ interface Props {
   message: string;
 }
 
-const titles: Record<number, string> = {
-  403: 'Forbidden',
-  404: 'Page Not Found',
-  500: 'Server Error',
-};
-
-const descriptions: Record<number, string> = {
-  403: "You don't have permission to access this page.",
-  404: "The page you're looking for doesn't exist or has been moved.",
-  500: 'Something went wrong on our end. Please try again later.',
-};
-
 function ErrorPage({ status, message }: Props) {
-  const title = titles[status] || 'Error';
-  const description = message || descriptions[status] || 'An unexpected error occurred.';
+  const { t } = useT();
+
+  const titles: Record<number, string> = {
+    403: t(keys.host.error.forbidden_title),
+    404: t(keys.host.error.not_found_title),
+    500: t(keys.host.error.server_error_title),
+  };
+
+  const descriptions: Record<number, string> = {
+    403: t(keys.host.error.forbidden_description),
+    404: t(keys.host.error.not_found_description),
+    500: t(keys.host.error.server_error_description),
+  };
+
+  const title = titles[status] || t(keys.host.error.generic_title);
+  const description = message || descriptions[status] || t(keys.host.error.generic_description);
 
   return (
     <ErrorScreen hero={status} title={title} description={description}>
       <Button asChild>
-        <Link href="/">Go Home</Link>
+        <Link href="/">{t(keys.host.error.go_home)}</Link>
       </Button>
       <Button variant="outline" onClick={() => window.history.back()}>
-        Go Back
+        {t(keys.host.error.go_back)}
       </Button>
     </ErrorScreen>
   );

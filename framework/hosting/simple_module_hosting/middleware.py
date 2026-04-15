@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from simple_module_core.permissions import PermissionRegistry
 
 _request_logger = logging.getLogger("simple_module.request")
+logger = logging.getLogger(__name__)
 
 # Paths that produce noisy, low-value log entries
 _QUIET_PREFIXES = ("/health", "/static/")
@@ -233,6 +234,30 @@ class InertiaLayoutDataMiddleware:
         all_perms = self.permission_registry.all_permissions
         frontend_permissions = expand_permissions(resolved, all_perms) if is_authenticated else []
 
+        registry = getattr(request.app.state, "i18n_registry", None)
+        locale = getattr(request.state, "locale", None)
+        if registry is not None and locale is not None:
+            # Use available_locales() (locales with actual loaded messages) —
+            # NOT the configured supported_locales list. Offering a locale that
+            # has no JSON files would render a mostly-empty UI when selected.
+            i18n_block = {
+                "locale": locale,
+                "supportedLocales": registry.available_locales(),
+                "messages": registry.messages(locale),
+            }
+        else:
+            logger.warning(
+                "InertiaLayoutDataMiddleware: i18n not fully wired "
+                "(registry_present=%s, locale_present=%s); serving empty messages",
+                registry is not None,
+                locale is not None,
+            )
+            i18n_block = {
+                "locale": "en",
+                "supportedLocales": ["en"],
+                "messages": {},
+            }
+
         shared: dict = {
             "auth": {
                 "user": (
@@ -253,6 +278,7 @@ class InertiaLayoutDataMiddleware:
                 roles=roles,
             ),
             "csrf_token": secrets.token_urlsafe(32) if is_authenticated else "",
+            "i18n": i18n_block,
         }
         request.state.inertia_shared = shared
 

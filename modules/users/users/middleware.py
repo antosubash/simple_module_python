@@ -40,6 +40,7 @@ PUBLIC_PATHS = (
     "/api/docs",
     "/api/redoc",
     "/openapi.json",
+    "/i18n/",
 )
 EXACT_PUBLIC_PATHS = ("/",)
 

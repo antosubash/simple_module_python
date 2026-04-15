@@ -1,4 +1,5 @@
 import { Link, useForm, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module/i18n';
 import { PageShell } from '@simple-module/ui/components/PageShell';
 import { Button } from '@simple-module/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module/ui/components/ui/card';
@@ -8,7 +9,7 @@ import { Label } from '@simple-module/ui/components/ui/label';
 import { Textarea } from '@simple-module/ui/components/ui/textarea';
 import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
 import { toast } from 'sonner';
-import { validateProduct } from './validation';
+import { useValidateProduct } from './validation';
 
 interface Product {
   id: number;
@@ -24,6 +25,8 @@ interface Props {
 
 function Edit() {
   const { product } = usePage<{ props: Props }>().props as unknown as Props;
+  const { t } = useT();
+  const validateProduct = useValidateProduct();
 
   const { data, setData, put, processing, errors, clearErrors } = useForm({
     name: product.name,
@@ -42,7 +45,7 @@ function Edit() {
       return;
     }
     put(`/products/${product.id}`, {
-      onSuccess: () => toast.success('Product updated'),
+      onSuccess: () => toast.success(t(keys.products.toasts.updated)),
       onError: (errs) => {
         const first = Object.values(errs)[0];
         if (first) toast.error(first);
@@ -52,11 +55,11 @@ function Edit() {
 
   return (
     <PageShell
-      title={`Edit: ${product.name}`}
-      description="Update product details"
+      title={t(keys.products.edit.title, { name: product.name })}
+      description={t(keys.products.edit.description)}
       actions={
         <Button asChild variant="outline">
-          <Link href="/products">Back to Products</Link>
+          <Link href="/products">{t(keys.products.edit.back_button)}</Link>
         </Button>
       }
     >
@@ -65,7 +68,7 @@ function Edit() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="name">
-                Name <span className="text-destructive">*</span>
+                {t(keys.products.form.name_label)} <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="name"
@@ -82,7 +85,7 @@ function Edit() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">{t(keys.products.form.description_label)}</Label>
               <Textarea
                 id="description"
                 value={data.description}
@@ -94,7 +97,7 @@ function Edit() {
 
             <div className="space-y-2">
               <Label htmlFor="price">
-                Price <span className="text-destructive">*</span>
+                {t(keys.products.form.price_label)} <span className="text-destructive">*</span>
               </Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
@@ -124,16 +127,18 @@ function Edit() {
                 onCheckedChange={(checked) => setData('is_active', checked === true)}
               />
               <Label htmlFor="is_active" className="cursor-pointer">
-                Active
+                {t(keys.products.form.active_label)}
               </Label>
             </div>
 
             <div className="pt-2 flex gap-3">
               <Button type="submit" disabled={processing}>
-                {processing ? 'Saving...' : 'Save Changes'}
+                {processing
+                  ? t(keys.products.edit.submitting_button)
+                  : t(keys.products.edit.submit_button)}
               </Button>
               <Button asChild variant="outline">
-                <Link href="/products">Cancel</Link>
+                <Link href="/products">{t(keys.products.form.cancel_button)}</Link>
               </Button>
             </div>
           </form>

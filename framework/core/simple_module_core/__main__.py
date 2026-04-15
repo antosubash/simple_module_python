@@ -6,11 +6,18 @@ Usage::
     make doctor                         # same thing, wrapped
 
 Exits with status 1 if any ERROR-level diagnostics are reported.
+
+i18n checks are included when ``SM_I18N_SUPPORTED_LOCALES`` is set in env
+(or ``.env``). Host-level ``host/locales/`` and shared ``packages/ui/locales/``
+are picked up relative to ``SM_PROJECT_ROOT`` (or the current working dir).
 """
 
 from __future__ import annotations
 
+import json
+import os
 import sys
+from pathlib import Path
 
 from simple_module_core.diagnostics import (
     DiagnosticLevel,
@@ -18,6 +25,55 @@ from simple_module_core.diagnostics import (
     run_diagnostics,
 )
 from simple_module_core.discovery import discover_modules, topological_sort
+
+
+def _load_i18n_settings_from_env() -> tuple[list[str], str] | tuple[None, None]:
+    """Return ``(supported_locales, default_locale)`` or ``(None, None)`` if unset.
+
+    Reads env vars directly to avoid a dependency on ``simple_module_hosting``.
+    Honors ``.env`` by reading it line-by-line if present in the cwd or
+    ``SM_PROJECT_ROOT`` (pydantic-settings isn't imported here).
+    """
+    root = Path(os.environ.get("SM_PROJECT_ROOT") or Path.cwd())
+    dotenv = root / ".env"
+    if dotenv.is_file():
+        for raw in dotenv.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            os.environ.setdefault(key, value)
+
+    supported_raw = os.environ.get("SM_I18N_SUPPORTED_LOCALES")
+    if not supported_raw:
+        return None, None
+
+    try:
+        supported = json.loads(supported_raw)
+    except json.JSONDecodeError:
+        # Also accept comma-separated (e.g. "en,es,de").
+        supported = [s.strip() for s in supported_raw.split(",") if s.strip()]
+
+    if not isinstance(supported, list) or not supported:
+        return None, None
+
+    default = os.environ.get("SM_I18N_DEFAULT_LOCALE", "en")
+    return supported, default
+
+
+def _discover_extra_locale_sources() -> list[tuple[str, str, Path]]:
+    """Return ``[(reporter, namespace, path), ...]`` for host + ui locale dirs."""
+    root = Path(os.environ.get("SM_PROJECT_ROOT") or Path.cwd())
+    out: list[tuple[str, str, Path]] = []
+    host_locales = root / "host" / "locales"
+    if host_locales.is_dir():
+        out.append(("host", "host", host_locales))
+    ui_locales = root / "packages" / "ui" / "locales"
+    if ui_locales.is_dir():
+        out.append(("packages/ui", "ui", ui_locales))
+    return out
 
 
 def main() -> int:
@@ -29,7 +85,15 @@ def main() -> int:
     # Topological sort surfaces CircularDependencyError early.
     modules = topological_sort(modules)
 
-    diagnostics = run_diagnostics(modules)
+    supported, default = _load_i18n_settings_from_env()
+    extra = _discover_extra_locale_sources()
+
+    diagnostics = run_diagnostics(
+        modules,
+        i18n_supported_locales=supported,
+        i18n_default_locale=default,
+        i18n_extra_sources=extra,
+    )
     print_diagnostics(diagnostics)
 
     errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]

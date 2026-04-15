@@ -152,6 +152,24 @@ class ModuleBase(ABC):
         """
         return {}
 
+    def locale_dirs(self) -> dict[str, Path]:
+        """Return ``{namespace: directory}`` mapping for locale JSON files.
+
+        Default returns an empty dict. Override to contribute a module's
+        locales::
+
+            return {
+                "products": importlib.resources.files(__package__) / "locales"
+            }
+
+        The namespace becomes the key prefix in the merged i18n registry.
+        A file ``locales/en.json`` containing ``{"browse": {"title": "X"}}``
+        becomes the key ``products.browse.title`` at runtime.
+
+        Convention: use the module's lowercase name as the namespace.
+        """
+        return {}
+
     # ── Lifecycle ─────────────────────────────────────────────
 
     async def on_startup(self, app: FastAPI) -> None:

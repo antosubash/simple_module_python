@@ -22,6 +22,9 @@ def _http_scope(
         "path": "/",
         "headers": headers or [],
         "state": {},
+        # InertiaLayoutDataMiddleware reads request.app.state.i18n_registry; a
+        # stub app with an empty state is enough for the lookup to return None.
+        "app": SimpleNamespace(state=SimpleNamespace()),
     }
     if roles is not None:
         scope["state"]["user"] = SimpleNamespace(

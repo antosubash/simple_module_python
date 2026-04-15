@@ -1,0 +1,37 @@
+{
+  "landing": {
+    "badge": "Built with FastAPI + Inertia.js + React",
+    "hero_title_line1": "Modular Monolith",
+    "hero_title_line2": "Framework for Python",
+    "hero_subtitle": "Build scalable applications with independent modules, each with its own database schema, API endpoints, and React pages — all in one deployable unit.",
+    "cta_dashboard": "Open Dashboard",
+    "cta_get_started": "Get Started",
+    "cta_docs": "Documentation",
+    "features": {
+      "module_system_title": "Module System",
+      "module_system_description": "Each module is a self-contained package with its own models, services, API endpoints, and React pages. Discovered automatically via Python entry_points.",
+      "auth_title": "Local Auth",
+      "auth_description": "Cookie-based email+password authentication with local user management. Server-side sessions, permission-based access control, and role-filtered menus.",
+      "schema_title": "Schema Isolation",
+      "schema_description": "Each module gets its own database schema on PostgreSQL or table prefix on SQLite. Full audit trails, soft deletes, and multi-tenancy built in.",
+      "inertia_title": "Inertia.js + React",
+      "inertia_description": "Server-driven SPA — FastAPI renders props, React renders the UI. No separate API client, no state duplication, full-stack type safety.",
+      "diagnostics_title": "Diagnostics",
+      "diagnostics_description": "Built-in module validator catches orphan pages, phantom renders, unguarded endpoints, and circular dependencies at startup.",
+      "devtools_title": "Developer Tools",
+      "devtools_description": "uv workspaces, Tailwind CSS 4, Vite HMR, auto-discovered pages, 97 tests in 0.4s, and a CLI scaffolding tool."
+    }
+  },
+  "error": {
+    "generic_title": "Error",
+    "generic_description": "An unexpected error occurred.",
+    "forbidden_title": "Forbidden",
+    "forbidden_description": "You don't have permission to access this page.",
+    "not_found_title": "Page Not Found",
+    "not_found_description": "The page you're looking for doesn't exist or has been moved.",
+    "server_error_title": "Server Error",
+    "server_error_description": "Something went wrong on our end. Please try again later.",
+    "go_home": "Go Home",
+    "go_back": "Go Back"
+  }
+}

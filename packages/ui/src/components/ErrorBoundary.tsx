@@ -1,3 +1,4 @@
+import { keys, useT } from '@simple-module/i18n';
 import { ErrorScreen } from '@simple-module/ui/components/ErrorScreen';
 import { Button } from '@simple-module/ui/components/ui/button';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
@@ -40,6 +41,7 @@ export class ErrorBoundary extends Component<Props, State> {
 }
 
 function DefaultFallback({ error }: { error: Error }) {
+  const { t } = useT();
   const details = import.meta.env.DEV ? (
     <pre className="mt-4 text-left text-xs bg-muted p-3 rounded overflow-auto max-h-48 text-destructive">
       {[error.message, error.stack].filter(Boolean).join('\n\n')}
@@ -49,19 +51,19 @@ function DefaultFallback({ error }: { error: Error }) {
   return (
     <ErrorScreen
       hero="!"
-      title="Something went wrong"
-      description="The page encountered an unexpected error. Try reloading, or return home."
+      title={t(keys.ui.errors.generic_title)}
+      description={t(keys.ui.errors.generic_description)}
       details={details}
     >
       {/* Full reload — React tree is broken, Inertia navigation won't recover. */}
-      <Button onClick={() => window.location.reload()}>Reload Page</Button>
+      <Button onClick={() => window.location.reload()}>{t(keys.ui.errors.reload_button)}</Button>
       <Button
         variant="outline"
         onClick={() => {
           window.location.href = '/';
         }}
       >
-        Go Home
+        {t(keys.ui.errors.go_home_button)}
       </Button>
     </ErrorScreen>
   );

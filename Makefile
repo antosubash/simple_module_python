@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-e2e lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
 
 # Install
 install:
@@ -37,8 +37,13 @@ build:
 	npm run build
 
 # Testing
-test:
+test: test-py test-js
+
+test-py:
 	uv run pytest
+
+test-js:
+	npm test
 
 test-e2e:                   ## Run end-to-end browser smoke tests (requires `make docker-up` + `make dev` and `uv run playwright install chromium`)
 	uv run pytest -m e2e tests/e2e
@@ -58,6 +63,11 @@ ci-js-lint:
 
 ci-js-typecheck:
 	npx tsc --noEmit -p host/client_app/tsconfig.json
+	@for cfg in modules/*/tsconfig.json packages/*/tsconfig.json; do \
+		[ -f "$$cfg" ] || continue; \
+		echo "tsc -p $$cfg"; \
+		npx tsc --noEmit -p "$$cfg" || exit 1; \
+	done
 
 # Enforce a max of 300 lines per .py/.ts/.tsx file.
 # Exempts vendored shadcn components under packages/ui/src/components/ui/**.

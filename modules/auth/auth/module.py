@@ -10,6 +10,9 @@ users module.
 
 from __future__ import annotations
 
+import importlib.resources
+from pathlib import Path
+
 from simple_module_core.module import ModuleBase, ModuleMeta
 
 
@@ -18,3 +21,6 @@ class AuthModule(ModuleBase):
         name="Auth",
         route_prefix="/auth",
     )
+
+    def locale_dirs(self) -> dict[str, Path]:
+        return {"auth": Path(str(importlib.resources.files(__package__) / "locales"))}

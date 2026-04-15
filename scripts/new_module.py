@@ -27,6 +27,7 @@ from _templates_endpoints import api_py, views_py
 from _templates_py import (
     ScaffoldContext,
     deps_py,
+    locales_en_json,
     models_py,
     module_py,
     package_init,
@@ -109,6 +110,7 @@ def scaffold_module(name: str) -> None:
     create_file(src_dir / "pages" / "Browse.tsx", browse_tsx(ctx))
     create_file(src_dir / "pages" / "Create.tsx", create_tsx(ctx))
     create_file(src_dir / "pages" / "Edit.tsx", edit_tsx(ctx))
+    create_file(src_dir / "locales" / "en.json", locales_en_json(ctx))
     create_file(module_dir / "tests" / f"test_{name}.py", test_module_py(ctx))
 
 

@@ -61,6 +61,9 @@ def module_py(ctx: ScaffoldContext) -> str:
 
         from __future__ import annotations
 
+        import importlib.resources
+        from pathlib import Path
+
         from fastapi import APIRouter
         from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
         from simple_module_core.module import ModuleBase, ModuleMeta
@@ -102,7 +105,43 @@ def module_py(ctx: ScaffoldContext) -> str:
                         "{ctx.name}.delete",
                     ],
                 )
+
+            def locale_dirs(self) -> dict[str, Path]:
+                base = Path(str(importlib.resources.files(__package__) / "locales"))
+                return {{"{ctx.pkg}": base}}
         '''
+
+
+def locales_en_json(ctx: ScaffoldContext) -> str:
+    """Default English locale file for a scaffolded module.
+
+    Keys here must stay in sync with the strings emitted by
+    :func:`_templates_tsx.browse_tsx` / ``create_tsx`` / ``edit_tsx``.
+    """
+    return (
+        "{\n"
+        '  "browse": {\n'
+        f'    "title": "{ctx.class_name}",\n'
+        f'    "description": "Manage your {ctx.name}",\n'
+        f'    "new_button": "New {ctx.singular_class}",\n'
+        f'    "empty_title": "No {ctx.name} yet",\n'
+        f'    "empty_description": "Get started by creating your first {ctx.singular}.",\n'
+        '    "edit_link": "Edit"\n'
+        "  },\n"
+        '  "form": {\n'
+        '    "name_label": "Name",\n'
+        '    "description_label": "Description"\n'
+        "  },\n"
+        '  "create": {\n'
+        f'    "title": "New {ctx.singular_class}",\n'
+        f'    "submit_button": "Create"\n'
+        "  },\n"
+        '  "edit": {\n'
+        f'    "title": "Edit {ctx.singular_class}",\n'
+        '    "submit_button": "Save"\n'
+        "  }\n"
+        "}\n"
+    )
 
 
 def models_py(ctx: ScaffoldContext) -> str:

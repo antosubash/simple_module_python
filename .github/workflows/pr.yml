@@ -59,7 +59,19 @@ jobs:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
       - run: make install-py
-      - run: make test
+      - run: make test-py
+
+  js-tests:
+    name: JS tests (Vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - run: make install-js
+      - run: make test-js
 
   js-lint:
     name: JS lint & format
@@ -116,6 +128,7 @@ jobs:
       - python-tests
       - js-lint
       - js-typecheck
+      - js-tests
       - file-size-check
     if: always()
     steps:
