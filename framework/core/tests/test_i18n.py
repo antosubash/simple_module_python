@@ -132,3 +132,62 @@ class TestTranslator:
         reg = self._registry_with({"en": {"hello": "Hello"}, "es": {"hello": "Hola"}})
         t = Translator(reg, locale="es", default_locale="en")
         assert t.t("hello") == "Hola"
+
+
+class TestTranslatorPlurals:
+    def test_english_one(self) -> None:
+        reg = Translator.__new__(Translator)  # bypass init for brevity
+        # Proper setup via factory:
+        registry = I18nRegistry(default_locale="en", supported_locales=["en"])
+        registry._messages = {  # noqa: SLF001
+            "en": {
+                "items_one": "{count} item",
+                "items_other": "{count} items",
+            }
+        }
+        t = Translator(registry, locale="en", default_locale="en")
+        assert t.t("items", count=1) == "1 item"
+
+    def test_english_other(self) -> None:
+        registry = I18nRegistry(default_locale="en", supported_locales=["en"])
+        registry._messages = {  # noqa: SLF001
+            "en": {"items_one": "{count} item", "items_other": "{count} items"}
+        }
+        t = Translator(registry, locale="en", default_locale="en")
+        assert t.t("items", count=5) == "5 items"
+
+    def test_russian_few_many(self) -> None:
+        registry = I18nRegistry(default_locale="en", supported_locales=["en", "ru"])
+        registry._messages = {  # noqa: SLF001
+            "ru": {
+                "items_one": "{count} предмет",
+                "items_few": "{count} предмета",
+                "items_many": "{count} предметов",
+                "items_other": "{count} предмета",
+            }
+        }
+        t = Translator(registry, locale="ru", default_locale="en")
+        # Russian: 1 -> one, 2 -> few, 5 -> many
+        assert t.t("items", count=1) == "1 предмет"
+        assert t.t("items", count=2) == "2 предмета"
+        assert t.t("items", count=5) == "5 предметов"
+
+    def test_no_count_no_plural_resolution(self) -> None:
+        registry = I18nRegistry(default_locale="en", supported_locales=["en"])
+        registry._messages = {"en": {"items": "Items"}}  # noqa: SLF001
+        t = Translator(registry, locale="en", default_locale="en")
+        # No 'count' param -> plain lookup.
+        assert t.t("items") == "Items"
+
+    def test_falls_back_to_other_if_form_missing(self) -> None:
+        registry = I18nRegistry(default_locale="en", supported_locales=["en"])
+        # Only _other defined; 1 should still resolve via _other.
+        registry._messages = {"en": {"items_other": "{count} items"}}  # noqa: SLF001
+        t = Translator(registry, locale="en", default_locale="en")
+        assert t.t("items", count=1) == "1 items"
+
+    def test_unknown_plural_key_returns_key(self) -> None:
+        registry = I18nRegistry(default_locale="en", supported_locales=["en"])
+        registry._messages = {"en": {}}  # noqa: SLF001
+        t = Translator(registry, locale="en", default_locale="en")
+        assert t.t("missing", count=1) == "missing"
