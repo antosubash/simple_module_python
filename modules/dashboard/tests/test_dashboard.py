@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import httpx
+import pytest
 from dashboard.module import DashboardModule
 
 # ── Module registration tests ────────────────────────────────────────
@@ -21,73 +22,49 @@ class TestDashboardModuleRegistration:
 
 
 class TestFetchDashboardStats:
-    async def test_returns_expected_keys(self, app):
+    @pytest.fixture
+    async def stats(self, app):
         from dashboard.stats import fetch_dashboard_stats
 
         async with app.state.db.session_factory() as db:
-            stats = await fetch_dashboard_stats(db, app)
+            return await fetch_dashboard_stats(db, app)
 
+    async def test_returns_expected_keys(self, stats):
         assert "total_users" in stats
         assert "active_users_7d" in stats
         assert "total_products" in stats
         assert "module_count" in stats
         assert "system_info" in stats
 
-    async def test_total_users_counts_seeded_users(self, app):
-        from dashboard.stats import fetch_dashboard_stats
-
-        async with app.state.db.session_factory() as db:
-            stats = await fetch_dashboard_stats(db, app)
-
+    async def test_total_users_is_non_negative_int(self, stats):
         assert isinstance(stats["total_users"], int)
         assert stats["total_users"] >= 0
 
-    async def test_module_count_is_positive(self, app):
-        from dashboard.stats import fetch_dashboard_stats
-
-        async with app.state.db.session_factory() as db:
-            stats = await fetch_dashboard_stats(db, app)
-
+    async def test_module_count_is_positive(self, stats):
         assert stats["module_count"] >= 1
 
-    async def test_system_info_contains_modules_list(self, app):
-        from dashboard.stats import fetch_dashboard_stats
-
-        async with app.state.db.session_factory() as db:
-            stats = await fetch_dashboard_stats(db, app)
-
+    async def test_system_info_contains_modules_list(self, stats):
         sys_info = stats["system_info"]
-        assert "modules" in sys_info
         assert isinstance(sys_info["modules"], list)
         assert len(sys_info["modules"]) >= 1
         assert "name" in sys_info["modules"][0]
         assert "status" in sys_info["modules"][0]
 
-    async def test_system_info_contains_python_version(self, app):
-        from dashboard.stats import fetch_dashboard_stats
-
-        async with app.state.db.session_factory() as db:
-            stats = await fetch_dashboard_stats(db, app)
-
-        assert "python_version" in stats["system_info"]
+    async def test_system_info_contains_python_version(self, stats):
         assert "." in stats["system_info"]["python_version"]
 
-    async def test_system_info_contains_health_checks(self, app):
-        from dashboard.stats import fetch_dashboard_stats
-
-        async with app.state.db.session_factory() as db:
-            stats = await fetch_dashboard_stats(db, app)
-
-        assert "health_checks" in stats["system_info"]
+    async def test_system_info_contains_health_checks(self, stats):
         assert isinstance(stats["system_info"]["health_checks"], list)
 
 
 # ── Stats API endpoint ──────────────────────────────────────────────
 
+_STATS_URL = "/api/dashboard/stats"
+
 
 class TestDashboardStatsEndpoint:
     async def test_stats_returns_all_fields(self, authenticated_client: httpx.AsyncClient):
-        resp = await authenticated_client.get("/api/dashboard/stats")
+        resp = await authenticated_client.get(_STATS_URL)
         assert resp.status_code == 200
         body = resp.json()
         assert "total_users" in body
@@ -99,13 +76,12 @@ class TestDashboardStatsEndpoint:
     async def test_stats_total_users_includes_seeded_admin(
         self, authenticated_client: httpx.AsyncClient
     ):
-        resp = await authenticated_client.get("/api/dashboard/stats")
+        resp = await authenticated_client.get(_STATS_URL)
         body = resp.json()
-        # authenticated_client fixture seeds one admin user
         assert body["total_users"] >= 1
 
     async def test_stats_system_info_has_modules(self, authenticated_client: httpx.AsyncClient):
-        resp = await authenticated_client.get("/api/dashboard/stats")
+        resp = await authenticated_client.get(_STATS_URL)
         body = resp.json()
         modules = body["system_info"]["modules"]
         assert len(modules) >= 1
@@ -113,5 +89,5 @@ class TestDashboardStatsEndpoint:
         assert "Dashboard" in names
 
     async def test_stats_requires_authentication(self, client: httpx.AsyncClient):
-        resp = await client.get("/api/dashboard/stats", follow_redirects=False)
+        resp = await client.get(_STATS_URL, follow_redirects=False)
         assert resp.status_code in (302, 401, 403)

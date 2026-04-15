@@ -16,14 +16,22 @@ import {
 import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
 import { Activity, Box, Heart, Package, Server, Users } from 'lucide-react';
 
+type Accent = 'primary' | 'emerald' | 'violet' | 'amber';
+
+const HEALTH_STATUS_COLOR: Record<string, string> = {
+  healthy: 'bg-emerald-500',
+  degraded: 'bg-amber-500',
+  unhealthy: 'bg-red-500',
+};
+
 interface SystemModule {
   name: string;
-  status: string;
+  status: 'loaded';
 }
 
 interface HealthCheck {
   name: string;
-  status: string;
+  status: 'healthy' | 'degraded' | 'unhealthy';
 }
 
 interface SystemInfo {
@@ -123,13 +131,7 @@ function Home() {
                   <TableCell>
                     <span className="inline-flex items-center gap-1.5">
                       <span
-                        className={`size-2 rounded-full ${
-                          check.status === 'healthy'
-                            ? 'bg-emerald-500'
-                            : check.status === 'degraded'
-                              ? 'bg-amber-500'
-                              : 'bg-red-500'
-                        }`}
+                        className={`size-2 rounded-full ${HEALTH_STATUS_COLOR[check.status] ?? 'bg-red-500'}`}
                       />
                       {check.status}
                     </span>
@@ -153,9 +155,9 @@ function StatCard({
   title: string;
   value: string;
   icon: React.ReactNode;
-  accent: string;
+  accent: Accent;
 }) {
-  const styles: Record<string, { card: string; icon: string; value: string }> = {
+  const styles: Record<Accent, { card: string; icon: string; value: string }> = {
     primary: {
       card: 'border-primary-200 bg-gradient-to-br from-primary-50 to-card',
       icon: 'text-primary-500 bg-primary-100',
@@ -178,7 +180,7 @@ function StatCard({
     },
   };
 
-  const s = styles[accent] || styles.primary;
+  const s = styles[accent];
 
   return (
     <Card className={s.card}>

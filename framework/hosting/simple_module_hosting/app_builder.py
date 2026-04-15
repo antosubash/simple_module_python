@@ -158,6 +158,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
 
+    app.state.modules = modules
     app.state.menu_registry = menu_registry
     app.state.perm_registry = perm_registry
     app.state.ff_registry = ff_registry
