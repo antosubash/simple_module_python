@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
+from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 
@@ -31,6 +32,38 @@ class UsersModule(ModuleBase):
             ["users.manage", "users.self.profile"],
         )
         registry.map_role("user", ["users.self.profile"])
+
+    def register_menu_items(self, registry: MenuRegistry) -> None:
+        # Admin-only user management
+        registry.add(
+            MenuItem(
+                label="Users",
+                url="/users/admin",
+                icon="users",
+                order=30,
+                section=MenuSection.SIDEBAR,
+                roles=["admin"],
+            )
+        )
+        # Self-service: profile + logout live in the user dropdown.
+        registry.add(
+            MenuItem(
+                label="Profile",
+                url="/users/me",
+                icon="user",
+                order=990,
+                section=MenuSection.USER_DROPDOWN,
+            )
+        )
+        registry.add(
+            MenuItem(
+                label="Logout",
+                url="/users/logout",
+                icon="log-out",
+                order=999,
+                section=MenuSection.USER_DROPDOWN,
+            )
+        )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from users.endpoints.api import register_auth_routes

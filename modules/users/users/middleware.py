@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 # Paths that don't require authentication.
 PUBLIC_PATHS = (
     "/users/login",
+    "/users/logout",
     "/users/register",
     "/users/forgot-password",
     "/users/reset-password",

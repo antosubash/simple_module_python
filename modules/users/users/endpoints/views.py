@@ -11,6 +11,7 @@ from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.responses import RedirectResponse
 
 from users.deps import get_user_service
 from users.models import Role
@@ -25,6 +26,16 @@ router = APIRouter()
 async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
     allow_signup = request.app.state.users_settings.allow_signup
     return await inertia.render("Users/Login", {"allow_signup": allow_signup})
+
+
+@router.get("/logout", response_model=None)
+async def logout(request: Request) -> RedirectResponse:
+    """GET-able logout for menu links — clears the session + auth cookie."""
+    request.session.clear()
+    cookie_name = request.app.state.users_settings.cookie_name
+    response = RedirectResponse("/", status_code=302)
+    response.delete_cookie(cookie_name, path="/")
+    return response
 
 
 @router.get("/register", response_model=None)
