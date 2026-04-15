@@ -26,7 +26,7 @@ def _plural_form(locale: str, count: float) -> str:
     """
     try:
         rule = _plural_rule(locale)
-    except Exception:  # noqa: BLE001
+    except Exception:
         return "other"
     return rule(count)
 

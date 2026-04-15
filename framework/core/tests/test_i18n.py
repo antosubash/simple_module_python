@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from simple_module_core.i18n import I18nRegistry, Translator, flatten_messages
 
 
@@ -99,7 +98,7 @@ class TestTranslator:
     def _registry_with(self, locale_data: dict[str, dict[str, str]]) -> I18nRegistry:
         """Build a registry directly from in-memory data (bypasses filesystem)."""
         reg = I18nRegistry(default_locale="en", supported_locales=list(locale_data.keys()))
-        reg._messages = locale_data  # noqa: SLF001 — test-only shortcut
+        reg._messages = locale_data
         return reg
 
     def test_returns_string_for_known_key(self) -> None:
@@ -136,10 +135,8 @@ class TestTranslator:
 
 class TestTranslatorPlurals:
     def test_english_one(self) -> None:
-        reg = Translator.__new__(Translator)  # bypass init for brevity
-        # Proper setup via factory:
         registry = I18nRegistry(default_locale="en", supported_locales=["en"])
-        registry._messages = {  # noqa: SLF001
+        registry._messages = {
             "en": {
                 "items_one": "{count} item",
                 "items_other": "{count} items",
@@ -150,7 +147,7 @@ class TestTranslatorPlurals:
 
     def test_english_other(self) -> None:
         registry = I18nRegistry(default_locale="en", supported_locales=["en"])
-        registry._messages = {  # noqa: SLF001
+        registry._messages = {
             "en": {"items_one": "{count} item", "items_other": "{count} items"}
         }
         t = Translator(registry, locale="en", default_locale="en")
@@ -158,7 +155,7 @@ class TestTranslatorPlurals:
 
     def test_russian_few_many(self) -> None:
         registry = I18nRegistry(default_locale="en", supported_locales=["en", "ru"])
-        registry._messages = {  # noqa: SLF001
+        registry._messages = {
             "ru": {
                 "items_one": "{count} предмет",
                 "items_few": "{count} предмета",
@@ -174,7 +171,7 @@ class TestTranslatorPlurals:
 
     def test_no_count_no_plural_resolution(self) -> None:
         registry = I18nRegistry(default_locale="en", supported_locales=["en"])
-        registry._messages = {"en": {"items": "Items"}}  # noqa: SLF001
+        registry._messages = {"en": {"items": "Items"}}
         t = Translator(registry, locale="en", default_locale="en")
         # No 'count' param -> plain lookup.
         assert t.t("items") == "Items"
@@ -182,12 +179,12 @@ class TestTranslatorPlurals:
     def test_falls_back_to_other_if_form_missing(self) -> None:
         registry = I18nRegistry(default_locale="en", supported_locales=["en"])
         # Only _other defined; 1 should still resolve via _other.
-        registry._messages = {"en": {"items_other": "{count} items"}}  # noqa: SLF001
+        registry._messages = {"en": {"items_other": "{count} items"}}
         t = Translator(registry, locale="en", default_locale="en")
         assert t.t("items", count=1) == "1 items"
 
     def test_unknown_plural_key_returns_key(self) -> None:
         registry = I18nRegistry(default_locale="en", supported_locales=["en"])
-        registry._messages = {"en": {}}  # noqa: SLF001
+        registry._messages = {"en": {}}
         t = Translator(registry, locale="en", default_locale="en")
         assert t.t("missing", count=1) == "missing"
