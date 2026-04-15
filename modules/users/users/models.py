@@ -92,7 +92,7 @@ class UserAccessToken(SQLAlchemyBaseAccessTokenTable[uuid.UUID], Base):  # ty: i
     # The base class uses @declared_attr, so we also use @declared_attr to
     # override it correctly.
     @declared_attr  # type: ignore[override]
-    def user_id(self) -> Mapped[GUID]:
+    def user_id(self) -> Mapped[uuid.UUID]:
         return mapped_column(
             GUID,
             ForeignKey("users_user.id", ondelete="CASCADE"),
