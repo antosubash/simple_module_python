@@ -194,11 +194,11 @@ def _glob_pattern_for(pages_dir: Path, output_dir: Path) -> str:
         rel = Path(os.path.relpath(pages_dir, output_dir.resolve()))
     except ValueError:
         # Different drive on Windows — fall back to absolute (rare).
-        return pages_dir.as_posix() + "/*.tsx"
+        return pages_dir.as_posix() + "/**/*.tsx"
     rel_str = rel.as_posix()
     if not rel_str.startswith(("./", "../")):
         rel_str = "./" + rel_str
-    return rel_str + "/*.tsx"
+    return rel_str + "/**/*.tsx"
 
 
 def read_module_package_json(mod: ModuleBase) -> dict | None:

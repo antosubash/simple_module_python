@@ -24,7 +24,7 @@ const pages: Record<string, PageLoader> = {};
 for (const [moduleName, globEntries] of Object.entries(moduleGlobs)) {
   for (const [filePath, loader] of Object.entries(globEntries)) {
     // e.g., "/.../products/pages/Browse.tsx" -> pageName = "Browse"
-    const match = filePath.match(/\/pages\/(\w+)\.tsx$/);
+    const match = filePath.match(/\/pages\/(.+)\.tsx$/);
     if (match) {
       pages[`${moduleName}/${match[1]}`] = loader;
     }

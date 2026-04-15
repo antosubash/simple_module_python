@@ -28,8 +28,16 @@ PUBLIC_PATHS = (
     "/openapi.json",
     # users module — all API routes let through so RequiresPermission handles
     # auth enforcement (returns 401/403) rather than a page redirect (302).
-    # View routes (/users/*) remain protected by this middleware until Task 8.
     "/api/users/",
+    # Users module public view routes (Task 7). These render the login /
+    # register / password-reset / verify pages; they must be reachable
+    # before the user has a session.
+    "/users/login",
+    "/users/register",
+    "/users/forgot-password",
+    "/users/reset-password",
+    "/users/verify",
+    "/users/invite/accept",
 )
 EXACT_PUBLIC_PATHS = ("/",)
 
