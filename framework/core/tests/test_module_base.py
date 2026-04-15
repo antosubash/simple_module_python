@@ -143,23 +143,22 @@ class TestModuleAssetHooks:
         mounts = mod.static_mounts()
         assert mounts == {"/modules/with-static": assets}
 
+    async def test_locale_dirs_default_empty(self):
+        """ModuleBase.locale_dirs() returns an empty dict by default."""
+        mod = DummyModule()
+        assert mod.locale_dirs() == {}
 
-def test_module_base_locale_dirs_defaults_empty() -> None:
-    from simple_module_core import ModuleBase, ModuleMeta
+    async def test_locale_dirs_override(self, tmp_path):
+        """A module can map namespaces to locale directories."""
+        locales = tmp_path / "locales"
+        locales.mkdir()
 
-    class _M(ModuleBase):
-        meta = ModuleMeta(name="X")
+        class ModWithLocales(ModuleBase):
+            meta = ModuleMeta(name="WithLocales")
 
-    assert _M().locale_dirs() == {}
+            def locale_dirs(self):
+                return {"with_locales": locales}
 
-
-def test_module_base_locale_dirs_can_be_overridden(tmp_path) -> None:  # type: ignore[no-untyped-def]
-    from simple_module_core import ModuleBase, ModuleMeta
-
-    class _M(ModuleBase):
-        meta = ModuleMeta(name="X")
-
-        def locale_dirs(self):  # type: ignore[no-untyped-def]
-            return {"x": tmp_path}
-
-    assert _M().locale_dirs() == {"x": tmp_path}
+        mod = ModWithLocales()
+        dirs = mod.locale_dirs()
+        assert dirs == {"with_locales": locales}
