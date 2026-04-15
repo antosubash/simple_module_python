@@ -213,5 +213,110 @@ Dispatch walks the event's MRO, so subscribing to a base class delivers subclass
 | SM010 | ERROR | DB revision behind migration head |
 | SM011 | WARNING | Module table not in migration history |
 | SM012 | WARNING | `register_settings` overridden but nothing added to `app.state` |
+| SM013 | WARNING | Locale file missing for a supported locale |
+| SM014 | WARNING | Non-default locale missing keys present in the default |
+| SM015 | WARNING | Non-default locale has keys not in the default |
+| SM016 | ERROR | Locale JSON invalid or contains non-string leaves |
 
 Run diagnostics manually: `make doctor`.
+
+## Internationalization
+
+Modules ship translations as JSON under `<package>/locales/<lang>.json` and declare them via `ModuleBase.locale_dirs()`:
+
+```python
+import importlib.resources
+from pathlib import Path
+
+class OrdersModule(ModuleBase):
+    def locale_dirs(self) -> dict[str, Path]:
+        return {"orders": Path(str(importlib.resources.files(__package__) / "locales"))}
+```
+
+`make new-module` scaffolds this method and a matching `locales/en.json` automatically.
+
+### Key naming
+
+Keys are namespaced by the module and hierarchical by area. Convention: `<namespace>.<area>.<string>` — e.g. `orders.browse.title`. Use `snake_case` for leaves. Nested JSON objects are flattened at boot — `{"browse": {"title": "X"}}` under namespace `orders` becomes `orders.browse.title` at runtime.
+
+### Interpolation
+
+Placeholders use `{name}` syntax, consistent between frontend and backend:
+
+```json
+{ "greeting": "Hello, {name}" }
+```
+
+```tsx
+t('orders.greeting', { name: user.name })       // frontend
+```
+
+```python
+t.t("orders.greeting", name=user.name)           # backend
+```
+
+Missing placeholders are left verbatim (`"Hello, {name}"`) rather than raising.
+
+### Pluralization
+
+Suffix keys with CLDR categories (`_zero`, `_one`, `_two`, `_few`, `_many`, `_other`); only `_other` is required. Pass `count` as a param:
+
+```json
+{
+  "items_one": "{count} item",
+  "items_other": "{count} items"
+}
+```
+
+```tsx
+t('orders.items', { count: items.length })
+```
+
+Backend uses Babel's CLDR plural rules; frontend uses i18next's `Intl.PluralRules`. Both follow the same CLDR categories, so behavior matches across the stack.
+
+### Validation messages
+
+Zod schemas with translated messages must be constructed **inside** a hook so they resolve against the active locale:
+
+```ts
+export function useProductSchema() {
+  const { t } = useT();
+  return z.object({
+    name: z.string().min(1, t('products.validation.name_required')),
+  });
+}
+```
+
+Do NOT declare `const schema = z.object({ ... t('...') })` at module scope — it will resolve against whatever locale was active at first render, forever.
+
+### Host and shared-package strings
+
+- Host strings (landing page, error page) live in `host/locales/` and are namespaced `host.*`.
+- Shared UI strings (`packages/ui/`) live in `packages/ui/locales/`, namespaced `ui.*`.
+- Both are auto-discovered at boot alongside module contributions.
+
+### Supported locales
+
+Configure via env:
+
+```
+SM_I18N_DEFAULT_LOCALE=en
+SM_I18N_SUPPORTED_LOCALES=en,es,de
+SM_I18N_COOKIE_NAME=locale
+```
+
+The default locale must be in the supported list (enforced by a pydantic validator).
+
+### Locale resolution order
+
+Per request, `LocaleMiddleware` picks the active locale in this order:
+
+1. Cookie named by `SM_I18N_COOKIE_NAME` (default `locale`), validated against `SM_I18N_SUPPORTED_LOCALES`.
+2. `Accept-Language` header, with q-value parsing and longest-prefix match (`es-MX` → `es`).
+3. `SM_I18N_DEFAULT_LOCALE`.
+
+The active locale lands on `request.state.locale`. The `<LocaleSwitcher />` component POSTs to `/i18n/set-locale`, which sets a 1-year cookie and redirects back.
+
+### Diagnostics
+
+`make doctor` (and app boot) run `I18nDiagnostics` against every module's declared locale dirs. See codes `SM013`–`SM016` in the table above. Warnings are printed in dev; errors fail the boot in production.
