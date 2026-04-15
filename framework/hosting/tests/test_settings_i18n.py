@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from simple_module_hosting.settings import Settings
 
@@ -16,9 +18,14 @@ def test_default_locale_in_supported_list_passes() -> None:
     assert s.i18n_default_locale == "es"
 
 
-def test_default_settings_are_valid() -> None:
-    # Built-in defaults must pass the validator (en in [en]).
-    # Pass _env_file=None so this test doesn't pick up a local .env override.
-    s = Settings(_env_file=None)
+def test_default_settings_are_valid(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    # Built-in defaults must pass the validator (en in [en]). Isolate from any
+    # local .env and SM_* env vars so the test reflects pure built-in defaults.
+    monkeypatch.chdir(tmp_path)
+    import os
+
+    for var in [k for k in os.environ if k.startswith("SM_I18N_")]:
+        monkeypatch.delenv(var, raising=False)
+    s = Settings()
     assert s.i18n_default_locale == "en"
     assert s.i18n_supported_locales == ["en"]

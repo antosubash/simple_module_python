@@ -67,9 +67,7 @@ async def edit_view(
 ) -> InertiaResponse:
     product = await service.get_by_id(product_id)
     if product is None:
-        return await inertia.render(
-            "Products/Browse", {"error": t.t("products.errors.not_found")}
-        )
+        return await inertia.render("Products/Browse", {"error": t.t("products.errors.not_found")})
     return await inertia.render(
         "Products/Edit",
         {"product": product.model_dump(mode="json")},

@@ -21,7 +21,10 @@ function Home() {
   const { t } = useT();
 
   return (
-    <PageShell title={t(keys.dashboard.home.title)} description={t(keys.dashboard.home.description)}>
+    <PageShell
+      title={t(keys.dashboard.home.title)}
+      description={t(keys.dashboard.home.description)}
+    >
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
         <StatCard
           title={t(keys.dashboard.home.stats.products)}

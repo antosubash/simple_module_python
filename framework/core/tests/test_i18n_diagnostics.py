@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core.diagnostics._i18n import I18nDiagnostics
 
 
-class _FakeModule:
+class _FakeModule(ModuleBase):
     def __init__(self, name: str, dirs: dict[str, Path]) -> None:
-        self.meta = type("Meta", (), {"name": name})()
+        self.meta = ModuleMeta(name=name)
         self._dirs = dirs
 
     def locale_dirs(self) -> dict[str, Path]:

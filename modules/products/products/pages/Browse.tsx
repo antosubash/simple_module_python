@@ -146,7 +146,9 @@ function Browse() {
                 {t(keys.products.table.status)}
               </TableHead>
               {(canEdit || canDelete) && (
-                <TableHead className="text-right sm:px-6">{t(keys.products.table.actions)}</TableHead>
+                <TableHead className="text-right sm:px-6">
+                  {t(keys.products.table.actions)}
+                </TableHead>
               )}
             </TableRow>
           </TableHeader>
@@ -175,7 +177,9 @@ function Browse() {
                 </TableCell>
                 <TableCell className="hidden sm:table-cell sm:px-6">
                   <Badge variant={product.is_active ? 'secondary' : 'destructive'}>
-                    {product.is_active ? t(keys.products.table.active) : t(keys.products.table.inactive)}
+                    {product.is_active
+                      ? t(keys.products.table.active)
+                      : t(keys.products.table.inactive)}
                   </Badge>
                 </TableCell>
                 {(canEdit || canDelete) && (

@@ -63,9 +63,7 @@ class I18nDiagnostics:
                     Diagnostic(
                         level=DiagnosticLevel.WARNING,
                         code="SM013",
-                        message=(
-                            f"Missing locale file {locale}.json for namespace '{namespace}'"
-                        ),
+                        message=(f"Missing locale file {locale}.json for namespace '{namespace}'"),
                         module_name=module_name,
                         file=str(path),
                         suggestion=f"Create {path} (even if empty: '{{}}')",

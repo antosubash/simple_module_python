@@ -10,45 +10,26 @@ from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
 from fastapi.staticfiles import StaticFiles
-from inertia import (
-    InertiaVersionConflictException,
-    inertia_version_conflict_exception_handler,
-)
-from simple_module_core.diagnostics import (
-    Diagnostic,
-    DiagnosticLevel,
-    print_diagnostics,
-    run_diagnostics,
-)
+from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
 from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.events import EventBus
-from simple_module_core.exceptions import NotFoundError
 from simple_module_core.feature_flags import FeatureFlagRegistry
 from simple_module_core.health import HealthRegistry
-from simple_module_core.i18n import I18nRegistry
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
-from starlette.exceptions import HTTPException
-from starlette.middleware.sessions import SessionMiddleware
 
-from simple_module_hosting._error_handlers import (
-    http_exception_handler,
-    not_found_error_handler,
-    unhandled_exception_handler,
-)
 from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._migrations import check_migrations
-from simple_module_hosting.health import router as health_router
-from simple_module_hosting.i18n_middleware import LocaleMiddleware
-from simple_module_hosting.middleware import (
-    CorrelationIdMiddleware,
-    InertiaLayoutDataMiddleware,
-    RequestLoggingMiddleware,
-    SecurityHeadersMiddleware,
-    TenantMiddleware,
+from simple_module_hosting._phase_helpers import (
+    check_settings_registration,
+    install_middleware,
+    mount_module_static_dirs,
+    register_exception_handlers,
 )
+from simple_module_hosting.health import router as health_router
+from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types
 from simple_module_hosting.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -120,15 +101,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ", ".join(m.meta.name for m in modules),
     )
 
+    # Build the i18n registry up front so diagnostics can validate key parity
+    # against host/ui locales, not just module-contributed ones.
+    i18n_registry, i18n_extra = build_i18n_registry(settings, modules, _PROJECT_ROOT)
+
     # ── Phase 2: Run diagnostics (dev only) ────────────────
     if settings.is_development:
-        i18n_extra: list[tuple[str, str, Path]] = []
-        host_locales_early = _PROJECT_ROOT / "host" / "locales"
-        if host_locales_early.is_dir():
-            i18n_extra.append(("host", "host", host_locales_early))
-        ui_locales_early = _PROJECT_ROOT / "packages" / "ui" / "locales"
-        if ui_locales_early.is_dir():
-            i18n_extra.append(("packages/ui", "ui", ui_locales_early))
         diagnostics = run_diagnostics(
             modules,
             i18n_supported_locales=settings.i18n_supported_locales,
@@ -152,45 +130,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except Exception:
             logger.exception("Failed to write module pages manifest — frontend may miss pages")
 
+        emit_frontend_types(i18n_registry, _PROJECT_ROOT)
+
     # ── Phase 3: Create FastAPI app ────────────────────────
     menu_registry = MenuRegistry()
     perm_registry = PermissionRegistry()
     ff_registry = FeatureFlagRegistry()
     event_bus = EventBus()
     health_registry = HealthRegistry()
-
-    i18n_registry = I18nRegistry(
-        default_locale=settings.i18n_default_locale,
-        supported_locales=settings.i18n_supported_locales,
-    )
-    for mod in modules:
-        for namespace, locale_dir in mod.locale_dirs().items():
-            i18n_registry.add_source(namespace, locale_dir)
-    # Host-level locales live at <project_root>/host/locales/.
-    host_locales = _PROJECT_ROOT / "host" / "locales"
-    if host_locales.is_dir():
-        i18n_registry.add_source("host", host_locales)
-    # Shared UI package locales.
-    ui_locales = _PROJECT_ROOT / "packages" / "ui" / "locales"
-    if ui_locales.is_dir():
-        i18n_registry.add_source("ui", ui_locales)
-    i18n_registry.load()
-
-    # Emit frontend TS augmentation file into the @simple-module/i18n package
-    # so every React consumer picks up the typed-key augmentation automatically
-    # (each module compiles against its own tsconfig, so the augmentation must
-    # live next to the shared package, not in host/client_app/).
-    if settings.is_development:
-        try:
-            from simple_module_hosting.i18n_manifest import write_generated_resources
-
-            i18n_pkg_src = _PROJECT_ROOT / "packages" / "i18n" / "src"
-            if i18n_pkg_src.is_dir():
-                write_generated_resources(i18n_registry, i18n_pkg_src)
-        except Exception:
-            logger.exception(
-                "Failed to write generated-resources.ts — frontend types will be stale"
-            )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -230,7 +177,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # SM012: warn if register_settings was overridden but added nothing
     if settings.is_development:
         state_after = set(vars(app.state))
-        _check_settings_registration(modules, state_after - state_before)
+        check_settings_registration(modules, state_after - state_before)
 
     # ── Phase 5: Module registrations ──────────────────────
     for mod in modules:
@@ -255,40 +202,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # ── Phase 7: Inertia + exception handlers ──────────────
     setup_inertia(app, settings, modules, _PROJECT_ROOT)
-
-    app.add_exception_handler(
-        InertiaVersionConflictException,
-        inertia_version_conflict_exception_handler,  # ty: ignore[invalid-argument-type]
-    )
-    app.add_exception_handler(HTTPException, http_exception_handler)  # ty: ignore[invalid-argument-type]
-    app.add_exception_handler(NotFoundError, not_found_error_handler)  # ty: ignore[invalid-argument-type]
-    app.add_exception_handler(Exception, unhandled_exception_handler)
-    for mod in modules:
-        mod.register_exception_handlers(app)
+    register_exception_handlers(app, modules)
 
     # ── Phase 8: Middleware pipeline ───────────────────────
-    # Order matters: last added = first executed.
-    # Execution: CorrelationId → RequestLogging → Security → Session
-    #          → [module] → (Tenant, if multi_tenant) → Inertia
-    app.add_middleware(
-        InertiaLayoutDataMiddleware,
-        menu_registry=menu_registry,
-        permission_registry=perm_registry,
-    )
-    app.add_middleware(
-        LocaleMiddleware,
-        supported_locales=settings.i18n_supported_locales,
-        default_locale=settings.i18n_default_locale,
-        cookie_name=settings.i18n_cookie_name,
-    )
-    if settings.multi_tenant:
-        app.add_middleware(TenantMiddleware, header=settings.tenant_header or None)
-    for mod in modules:
-        mod.register_middleware(app)
-    app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
-    app.add_middleware(SecurityHeadersMiddleware)
-    app.add_middleware(RequestLoggingMiddleware)
-    app.add_middleware(CorrelationIdMiddleware)
+    install_middleware(app, settings, modules, menu_registry, perm_registry)
 
     # ── Phase 9: Routes, health, static files ──────────────
     for mod in modules:
@@ -300,51 +217,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if static_dir.is_dir():
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-    # Each module may expose directories at its own URL prefix — typically
-    # /modules/<name>/static for pre-bundled frontend assets shipped inside
-    # the module wheel.
-    for mod in modules:
-        for url_prefix, directory in mod.static_mounts().items():
-            directory_path = Path(directory)
-            if not directory_path.is_dir():
-                logger.warning(
-                    "Module '%s' declared static mount %s -> %s but directory does not exist",
-                    mod.meta.name,
-                    url_prefix,
-                    directory_path,
-                )
-                continue
-            app.mount(
-                url_prefix,
-                StaticFiles(directory=directory_path),
-                name=f"static:{mod.meta.name}",
-            )
+    mount_module_static_dirs(app, modules)
 
     return app
-
-
-def _check_settings_registration(modules: list, added_keys: set[str]) -> None:
-    """SM012: warn if a module overrides register_settings but added nothing to app.state.
-
-    Matches the convention key ``<module_prefix>_settings`` exactly so a
-    module named ``cart`` doesn't shadow a module named ``cart_sales``.
-    """
-    for mod in modules:
-        cls = type(mod)
-        if "register_settings" not in cls.__dict__:
-            continue
-        mod_prefix = mod.meta.name.lower()
-        expected_key = f"{mod_prefix}_settings"
-        if expected_key in added_keys:
-            continue
-        diag = Diagnostic(
-            level=DiagnosticLevel.WARNING,
-            code="SM012",
-            message="register_settings() was overridden but added nothing to app.state",
-            module_name=mod.meta.name,
-            suggestion=(
-                f"Store your settings on app.state "
-                f"(e.g., app.state.{expected_key} = {mod.meta.name}Settings())"
-            ),
-        )
-        logger.warning("%s", diag)

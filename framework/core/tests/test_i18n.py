@@ -147,9 +147,7 @@ class TestTranslatorPlurals:
 
     def test_english_other(self) -> None:
         registry = I18nRegistry(default_locale="en", supported_locales=["en"])
-        registry._messages = {
-            "en": {"items_one": "{count} item", "items_other": "{count} items"}
-        }
+        registry._messages = {"en": {"items_one": "{count} item", "items_other": "{count} items"}}
         t = Translator(registry, locale="en", default_locale="en")
         assert t.t("items", count=5) == "5 items"
 
