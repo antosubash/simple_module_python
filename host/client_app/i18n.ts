@@ -6,8 +6,8 @@
  * the active locale changed and updates the i18next resources.
  */
 
-import { router } from '@inertiajs/react';
 import type { PageProps } from '@inertiajs/core';
+import { router } from '@inertiajs/react';
 import { configureI18n, updateI18n } from '@simple-module/i18n';
 
 interface I18nSharedProps {

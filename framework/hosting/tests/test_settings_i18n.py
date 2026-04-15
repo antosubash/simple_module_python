@@ -17,7 +17,8 @@ def test_default_locale_in_supported_list_passes() -> None:
 
 
 def test_default_settings_are_valid() -> None:
-    # Defaults: i18n_default_locale="en", i18n_supported_locales=["en"] — must pass.
-    s = Settings()
+    # Built-in defaults must pass the validator (en in [en]).
+    # Pass _env_file=None so this test doesn't pick up a local .env override.
+    s = Settings(_env_file=None)
     assert s.i18n_default_locale == "en"
     assert s.i18n_supported_locales == ["en"]

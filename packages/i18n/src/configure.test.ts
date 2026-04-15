@@ -6,10 +6,10 @@ describe('configureI18n', () => {
     configureI18n({
       locale: 'en',
       messages: {
-        'hello': 'Hello',
-        'greeting': 'Hello, {name}',
-        'items_one': '{count} item',
-        'items_other': '{count} items',
+        hello: 'Hello',
+        greeting: 'Hello, {name}',
+        items_one: '{count} item',
+        items_other: '{count} items',
       },
     });
   });

@@ -9,7 +9,7 @@
  */
 
 import i18next from 'i18next';
-import { initReactI18next, useTranslation } from 'react-i18next';
+import { initReactI18next } from 'react-i18next';
 
 type Messages = Record<string, string>;
 
@@ -54,5 +54,5 @@ export function updateI18n(opts: ConfigureOptions): void {
   }
 }
 
-export { useTranslation as useT } from 'react-i18next';
 export { t } from 'i18next';
+export { useTranslation as useT } from 'react-i18next';
