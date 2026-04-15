@@ -12,6 +12,11 @@ from babel import Locale
 
 logger = logging.getLogger(__name__)
 
+#: CLDR plural categories, in spec order. Used both for runtime resolution and
+#: as the exhaustive suffix set when tools (e.g. the frontend-types emitter)
+#: need to detect plural-variant keys.
+PLURAL_CATEGORIES: tuple[str, ...] = ("zero", "one", "two", "few", "many", "other")
+
 
 @lru_cache(maxsize=64)
 def _plural_rule(locale: str):  # type: ignore[no-untyped-def]
