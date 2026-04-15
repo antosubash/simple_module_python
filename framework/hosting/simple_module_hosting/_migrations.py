@@ -7,6 +7,20 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def resolve_head_revision(alembic_ini_path: str = "host/alembic.ini") -> str | None:
+    """Return the current head revision string, or ``None`` if alembic
+    isn't configured at ``alembic_ini_path`` or has no revisions."""
+    from alembic.config import Config as AlembicConfig
+    from alembic.script import ScriptDirectory
+    from alembic.util.exc import CommandError
+
+    try:
+        return ScriptDirectory.from_config(AlembicConfig(alembic_ini_path)).get_current_head()
+    except (CommandError, FileNotFoundError) as exc:
+        logger.debug("Alembic not available: %s", exc)
+        return None
+
+
 async def check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") -> dict:
     """Check database migration state. Raises RuntimeError if not at head.
 
@@ -15,7 +29,6 @@ async def check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") -
     from alembic.config import Config as AlembicConfig
     from alembic.runtime.migration import MigrationContext
     from alembic.script import ScriptDirectory
-    from alembic.util.exc import CommandError
 
     _no_migrations = {
         "current_revision": None,
@@ -24,16 +37,10 @@ async def check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") -
         "pending_count": 0,
     }
 
-    try:
-        alembic_cfg = AlembicConfig(alembic_ini_path)
-        script = ScriptDirectory.from_config(alembic_cfg)
-        head = script.get_current_head()
-    except (CommandError, FileNotFoundError) as exc:
-        logger.debug("Alembic not available: %s — skipping migration check", exc)
-        return _no_migrations
-
+    head = resolve_head_revision(alembic_ini_path)
     if head is None:
         return _no_migrations
+    script = ScriptDirectory.from_config(AlembicConfig(alembic_ini_path))
 
     async with engine.connect() as conn:
 

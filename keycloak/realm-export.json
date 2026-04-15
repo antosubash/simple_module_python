@@ -20,7 +20,22 @@
       "webOrigins": ["http://localhost:8000"],
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
-      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+      "defaultClientScopes": ["openid", "profile", "email", "roles"],
+      "protocolMappers": [
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "users": [
