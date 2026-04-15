@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from simple_module_core.permissions import PermissionRegistry
 
 _request_logger = logging.getLogger("simple_module.request")
+logger = logging.getLogger(__name__)
 
 # Paths that produce noisy, low-value log entries
 _QUIET_PREFIXES = ("/health", "/static/")
@@ -238,6 +239,12 @@ class InertiaLayoutDataMiddleware:
                 "messages": registry.messages(locale),
             }
         else:
+            logger.warning(
+                "InertiaLayoutDataMiddleware: i18n not fully wired "
+                "(registry_present=%s, locale_present=%s); serving empty messages",
+                registry is not None,
+                locale is not None,
+            )
             i18n_block = {
                 "locale": "en",
                 "supportedLocales": ["en"],
