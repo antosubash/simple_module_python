@@ -164,6 +164,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         i18n_registry.add_source("ui", ui_locales)
     i18n_registry.load()
 
+    # Emit frontend TS augmentation file if client_app/ is on disk (dev loop).
+    if settings.is_development:
+        try:
+            from simple_module_hosting.i18n_manifest import write_generated_resources
+
+            client_app_dir = _PROJECT_ROOT / "host" / "client_app"
+            if client_app_dir.is_dir():
+                write_generated_resources(i18n_registry, client_app_dir)
+        except Exception:
+            logger.exception(
+                "Failed to write generated-resources.ts — frontend types will be stale"
+            )
+
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.migration = await check_migrations(app.state.db.engine)
