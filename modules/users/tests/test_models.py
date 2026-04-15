@@ -23,9 +23,7 @@ def column_names(table) -> set[str]:
     return {c.key for c in inspect(table).mapper.column_attrs}
 
 
-# ---------------------------------------------------------------------------
-# Model structure tests
-# ---------------------------------------------------------------------------
+# ── Model structure tests ─────────────────────────────────────────────
 
 
 class TestUserTableShape:
@@ -33,6 +31,13 @@ class TestUserTableShape:
         from users.models import User
 
         assert User.__tablename__ == "users_user"
+
+    def test_last_login_at_is_indexed(self):
+        from users.models import User
+
+        assert any(
+            "last_login_at" in {c.name for c in i.columns} for i in User.__table__.indexes
+        ), "User.last_login_at must be indexed"
 
     def test_required_columns(self):
         from users.models import User

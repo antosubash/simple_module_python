@@ -13,10 +13,17 @@ export const keys = {
       description: 'dashboard.home.description',
       description_body: 'dashboard.home.description_body',
       stats: {
+        active_users: 'dashboard.home.stats.active_users',
         modules: 'dashboard.home.stats.modules',
         products: 'dashboard.home.stats.products',
-        users: 'dashboard.home.stats.users',
+        total_users: 'dashboard.home.stats.total_users',
       },
+      system_info: {
+        health_checks: 'dashboard.home.system_info.health_checks',
+        modules: 'dashboard.home.system_info.modules',
+        python_version: 'dashboard.home.system_info.python_version',
+      },
+      system_info_title: 'dashboard.home.system_info_title',
       title: 'dashboard.home.title',
       welcome_card_title: 'dashboard.home.welcome_card_title',
       welcome_message: 'dashboard.home.welcome_message',

@@ -24,4 +24,4 @@ class Product(Base, AuditMixin, SoftDeleteMixin):  # ty: ignore[unsupported-base
     name: Mapped[str] = mapped_column(String(200))
     description: Mapped[str | None] = mapped_column(String(2000), default=None)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
-    is_active: Mapped[bool] = mapped_column(default=True)
+    is_active: Mapped[bool] = mapped_column(default=True, index=True)

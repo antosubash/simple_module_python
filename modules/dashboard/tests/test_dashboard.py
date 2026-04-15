@@ -1,73 +1,19 @@
-"""Tests for the Dashboard module: event handlers, stats endpoint, and
-end-to-end event-bus wiring between Products and Dashboard."""
+"""Tests for the Dashboard module: stats endpoint and module registration."""
 
 from __future__ import annotations
 
 import httpx
 import pytest
-from dashboard.handlers import (
-    get_product_event_counts,
-    on_product_created,
-    on_product_deleted,
-    on_product_updated,
-    reset_product_event_counts,
-)
 from dashboard.module import DashboardModule
-from products.contracts.events import ProductCreated, ProductDeleted, ProductUpdated
-from simple_module_core.events import EventBus
+from dashboard.stats import invalidate_stats_cache
 
 
 @pytest.fixture(autouse=True)
-def _reset_counts():
-    """Ensure every test starts with zeroed product event counters."""
-    reset_product_event_counts()
+def _clear_stats_cache():
+    """Ensure each test gets fresh stats, not a cached result."""
+    invalidate_stats_cache()
     yield
-    reset_product_event_counts()
-
-
-# ── Handler unit tests ───────────────────────────────────────────────
-
-
-class TestDashboardHandlers:
-    async def test_on_product_created_increments_counter(self):
-        await on_product_created(ProductCreated(product_id=1, name="Widget"))
-        counts = get_product_event_counts()
-        assert counts["created"] == 1
-        assert counts["updated"] == 0
-        assert counts["deleted"] == 0
-
-    async def test_on_product_updated_increments_counter(self):
-        await on_product_updated(ProductUpdated(product_id=1, name="Widget"))
-        counts = get_product_event_counts()
-        assert counts["updated"] == 1
-        assert counts["created"] == 0
-
-    async def test_on_product_deleted_increments_counter(self):
-        await on_product_deleted(ProductDeleted(product_id=1))
-        counts = get_product_event_counts()
-        assert counts["deleted"] == 1
-
-    async def test_multiple_events_accumulate(self):
-        await on_product_created(ProductCreated(product_id=1, name="A"))
-        await on_product_created(ProductCreated(product_id=2, name="B"))
-        await on_product_updated(ProductUpdated(product_id=1, name="A2"))
-        counts = get_product_event_counts()
-        assert counts["created"] == 2
-        assert counts["updated"] == 1
-        assert counts["deleted"] == 0
-
-    async def test_get_product_event_counts_returns_snapshot(self):
-        """Returned dict should be a copy, not the internal store."""
-        counts = get_product_event_counts()
-        counts["created"] = 999
-        assert get_product_event_counts()["created"] == 0
-
-    async def test_reset_clears_all_counts(self):
-        await on_product_created(ProductCreated(product_id=1, name="X"))
-        await on_product_deleted(ProductDeleted(product_id=1))
-        reset_product_event_counts()
-        counts = get_product_event_counts()
-        assert counts == {"created": 0, "updated": 0, "deleted": 0}
+    invalidate_stats_cache()
 
 
 # ── Module registration tests ────────────────────────────────────────
@@ -79,127 +25,79 @@ class TestDashboardModuleRegistration:
         assert mod.meta.name == "Dashboard"
         assert mod.meta.route_prefix == "/api/dashboard"
         assert "Products" in mod.meta.depends_on
+        assert "Users" in mod.meta.depends_on
 
-    async def test_register_event_handlers_subscribes_to_all_product_events(self):
-        bus = EventBus()
-        mod = DashboardModule()
-        mod.register_event_handlers(bus)
 
-        await bus.publish(ProductCreated(product_id=1, name="Widget"))
-        await bus.publish(ProductUpdated(product_id=1, name="Widget v2"))
-        await bus.publish(ProductDeleted(product_id=1))
+# ── Stats function unit tests ────────────────────────────────────────
 
-        counts = get_product_event_counts()
-        assert counts == {"created": 1, "updated": 1, "deleted": 1}
+
+class TestFetchDashboardStats:
+    @pytest.fixture
+    async def stats(self, app):
+        from dashboard.stats import fetch_dashboard_stats
+
+        async with app.state.db.session_factory() as db:
+            return await fetch_dashboard_stats(db, app)
+
+    async def test_returns_expected_keys(self, stats):
+        assert "total_users" in stats
+        assert "active_users_7d" in stats
+        assert "total_products" in stats
+        assert "module_count" in stats
+        assert "system_info" in stats
+
+    async def test_total_users_is_non_negative_int(self, stats):
+        assert isinstance(stats["total_users"], int)
+        assert stats["total_users"] >= 0
+
+    async def test_module_count_is_positive(self, stats):
+        assert stats["module_count"] >= 1
+
+    async def test_system_info_contains_modules_list(self, stats):
+        sys_info = stats["system_info"]
+        assert isinstance(sys_info["modules"], list)
+        assert len(sys_info["modules"]) >= 1
+        assert "name" in sys_info["modules"][0]
+        assert "status" in sys_info["modules"][0]
+
+    async def test_system_info_contains_python_version(self, stats):
+        assert "." in stats["system_info"]["python_version"]
+
+    async def test_system_info_contains_health_checks(self, stats):
+        assert isinstance(stats["system_info"]["health_checks"], list)
 
 
 # ── Stats API endpoint ──────────────────────────────────────────────
 
+_STATS_URL = "/api/dashboard/stats"
+
 
 class TestDashboardStatsEndpoint:
-    async def test_stats_returns_zero_counts_initially(
+    async def test_stats_returns_all_fields(self, authenticated_client: httpx.AsyncClient):
+        resp = await authenticated_client.get(_STATS_URL)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "total_users" in body
+        assert "active_users_7d" in body
+        assert "total_products" in body
+        assert "module_count" in body
+        assert "system_info" in body
+
+    async def test_stats_total_users_includes_seeded_admin(
         self, authenticated_client: httpx.AsyncClient
     ):
-        resp = await authenticated_client.get("/api/dashboard/stats")
-        assert resp.status_code == 200
+        resp = await authenticated_client.get(_STATS_URL)
         body = resp.json()
-        assert body == {"product_events": {"created": 0, "updated": 0, "deleted": 0}}
+        assert body["total_users"] >= 1
 
-    async def test_stats_reflects_handler_activity(self, authenticated_client: httpx.AsyncClient):
-        await on_product_created(ProductCreated(product_id=1, name="X"))
-        await on_product_updated(ProductUpdated(product_id=1, name="X"))
-
-        resp = await authenticated_client.get("/api/dashboard/stats")
-        assert resp.status_code == 200
+    async def test_stats_system_info_has_modules(self, authenticated_client: httpx.AsyncClient):
+        resp = await authenticated_client.get(_STATS_URL)
         body = resp.json()
-        assert body["product_events"]["created"] == 1
-        assert body["product_events"]["updated"] == 1
-        assert body["product_events"]["deleted"] == 0
+        modules = body["system_info"]["modules"]
+        assert len(modules) >= 1
+        names = [m["name"] for m in modules]
+        assert "Dashboard" in names
 
     async def test_stats_requires_authentication(self, client: httpx.AsyncClient):
-        """Unauthenticated requests should be redirected by AuthMiddleware."""
-        resp = await client.get("/api/dashboard/stats", follow_redirects=False)
+        resp = await client.get(_STATS_URL, follow_redirects=False)
         assert resp.status_code in (302, 401, 403)
-
-
-# ── End-to-end: Product API → EventBus → Dashboard handler ──────────
-
-
-class TestProductEventIntegration:
-    async def test_create_product_increments_dashboard_counter(
-        self, authenticated_client: httpx.AsyncClient
-    ):
-        resp = await authenticated_client.post(
-            "/api/products/",
-            json={"name": "EventTestWidget", "price": "12.34"},
-        )
-        assert resp.status_code == 201
-
-        stats = await authenticated_client.get("/api/dashboard/stats")
-        assert stats.json()["product_events"]["created"] == 1
-
-    async def test_update_product_increments_dashboard_counter(
-        self, authenticated_client: httpx.AsyncClient
-    ):
-        create = await authenticated_client.post(
-            "/api/products/",
-            json={"name": "Original", "price": "1.00"},
-        )
-        product_id = create.json()["id"]
-        reset_product_event_counts()
-
-        resp = await authenticated_client.put(
-            f"/api/products/{product_id}",
-            json={"name": "Updated"},
-        )
-        assert resp.status_code == 200
-
-        stats = await authenticated_client.get("/api/dashboard/stats")
-        assert stats.json()["product_events"]["updated"] == 1
-
-    async def test_delete_product_increments_dashboard_counter(
-        self, authenticated_client: httpx.AsyncClient
-    ):
-        create = await authenticated_client.post(
-            "/api/products/",
-            json={"name": "Doomed", "price": "1.00"},
-        )
-        product_id = create.json()["id"]
-        reset_product_event_counts()
-
-        resp = await authenticated_client.delete(f"/api/products/{product_id}")
-        assert resp.status_code == 204
-
-        stats = await authenticated_client.get("/api/dashboard/stats")
-        assert stats.json()["product_events"]["deleted"] == 1
-
-    async def test_failed_update_does_not_emit_event(self, authenticated_client: httpx.AsyncClient):
-        """404s should not publish ProductUpdated — handler logic must be after the lookup."""
-        resp = await authenticated_client.put(
-            "/api/products/999999",
-            json={"name": "ghost"},
-        )
-        assert resp.status_code == 404
-
-        stats = await authenticated_client.get("/api/dashboard/stats")
-        assert stats.json()["product_events"]["updated"] == 0
-
-    async def test_failed_delete_does_not_emit_event(self, authenticated_client: httpx.AsyncClient):
-        resp = await authenticated_client.delete("/api/products/999999")
-        assert resp.status_code == 404
-
-        stats = await authenticated_client.get("/api/dashboard/stats")
-        assert stats.json()["product_events"]["deleted"] == 0
-
-    async def test_full_lifecycle_counters(self, authenticated_client: httpx.AsyncClient):
-        create = await authenticated_client.post(
-            "/api/products/",
-            json={"name": "Lifecycle", "price": "1.00"},
-        )
-        pid = create.json()["id"]
-        await authenticated_client.put(f"/api/products/{pid}", json={"name": "L2"})
-        await authenticated_client.delete(f"/api/products/{pid}")
-
-        stats = await authenticated_client.get("/api/dashboard/stats")
-        counts = stats.json()["product_events"]
-        assert counts == {"created": 1, "updated": 1, "deleted": 1}

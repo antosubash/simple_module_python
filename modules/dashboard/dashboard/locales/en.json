@@ -3,9 +3,16 @@
     "title": "Dashboard",
     "description": "Overview of your application",
     "stats": {
+      "total_users": "Total Users",
+      "active_users": "Active Users (7d)",
       "products": "Products",
-      "users": "Users",
       "modules": "Modules"
+    },
+    "system_info_title": "System",
+    "system_info": {
+      "modules": "Modules",
+      "python_version": "Python Version",
+      "health_checks": "Health Checks"
     },
     "welcome_card_title": "Welcome",
     "welcome_message": "Welcome to SimpleModule",
