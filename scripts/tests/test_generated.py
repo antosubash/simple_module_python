@@ -114,3 +114,35 @@ class TestGeneratedTemplateContent:
         assert "class TestOrderService:" in test_file
         assert "class TestOrdersAPI:" in test_file
         assert "class TestOrdersModuleLifecycle:" in test_file
+
+    def test_module_py_registers_locale_dirs(self, scaffolded_orders: Path):
+        """Scaffolded module.py must expose locale_dirs() pointing at locales/."""
+        module_py = (scaffolded_orders / "module.py").read_text()
+        assert "import importlib.resources" in module_py
+        assert "def locale_dirs(self)" in module_py
+        assert '"orders"' in module_py
+        assert '"locales"' in module_py
+
+    def test_locales_en_json_exists_and_parses(self, scaffolded_orders: Path):
+        """Scaffolded modules ship a starter en.json with valid JSON."""
+        import json
+
+        locale_file = scaffolded_orders / "locales" / "en.json"
+        assert locale_file.exists()
+        data = json.loads(locale_file.read_text())
+        # Keys must match what the scaffolded pages call t() with.
+        assert data["browse"]["title"] == "Orders"
+        assert data["browse"]["new_button"] == "New Order"
+        assert data["create"]["submit_button"] == "Create"
+        assert data["edit"]["submit_button"] == "Save"
+        assert "name_label" in data["form"]
+        assert "description_label" in data["form"]
+
+    def test_pages_use_use_t_hook(self, scaffolded_orders: Path):
+        """Scaffolded Browse/Create/Edit pages must import and call useT."""
+        for page in ("Browse.tsx", "Create.tsx", "Edit.tsx"):
+            content = (scaffolded_orders / "pages" / page).read_text()
+            assert "from '@simple-module/i18n'" in content, f"{page} missing i18n import"
+            assert "useT" in content, f"{page} does not import useT"
+            assert "const { t } = useT();" in content, f"{page} does not call useT()"
+            assert "t('orders." in content, f"{page} does not invoke t() with an orders.* key"
