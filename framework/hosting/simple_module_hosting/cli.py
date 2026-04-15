@@ -3,12 +3,16 @@
 Currently exposes:
 
 * ``sm create-host <name>`` — scaffold a new host directory.
-* ``sm gen-pages`` — regenerate the frontend pages manifest.
+* ``sm create-module <name>`` — scaffold a new module package.
+* ``sm gen-pages`` — regenerate the frontend pages manifest + Tailwind CSS.
+* ``sm sync-js-deps`` — install JS deps declared by installed modules.
 """
 
 from __future__ import annotations
 
 import logging
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -95,7 +99,7 @@ def create_module_cmd(name: str, dest: Path | None) -> None:
     help="Path to the host's client_app directory. Defaults to ./client_app.",
 )
 def gen_pages(host_dir: Path | None) -> None:
-    """Regenerate client_app/modules.{manifest.json,generated.ts}."""
+    """Regenerate client_app/modules.{manifest.json,generated.ts,generated.css}."""
     from simple_module_core import discover_modules
 
     from simple_module_hosting.scaffolding import write_module_pages_manifest
@@ -108,7 +112,93 @@ def gen_pages(host_dir: Path | None) -> None:
 
     modules = discover_modules()
     written = write_module_pages_manifest(modules, output)
-    click.echo(f"Wrote {written['manifest'].name} and {written['generated'].name} to {output}")
+    click.echo(
+        f"Wrote {written['manifest'].name}, {written['generated'].name}, "
+        f"{written['css'].name} to {output}"
+    )
+
+
+@main.command("sync-js-deps")
+@click.option(
+    "--host-client-app",
+    type=click.Path(file_okay=False, exists=True, path_type=Path),
+    default=None,
+    help="Path to host/client_app. Defaults to ./client_app.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Print the npm install command without running it.",
+)
+def sync_js_deps(host_client_app: Path | None, dry_run: bool) -> None:
+    """Install JS deps declared by installed modules into host's node_modules.
+
+    Walks every discovered module, reads its package.json, and runs a single
+    ``npm install --workspace host/client_app --save=false <specs>``. Use
+    this after ``pip install``-ing a module wheel that declares JS deps;
+    in-repo modules already flow through npm workspaces and need nothing.
+    """
+    from simple_module_core import discover_modules
+
+    from simple_module_hosting.scaffolding import collect_module_js_deps
+
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
+    output = host_client_app or Path.cwd() / "client_app"
+    if not output.is_dir():
+        click.echo(f"ERROR: client_app directory not found at {output}", err=True)
+        sys.exit(1)
+
+    modules = discover_modules()
+    by_module = collect_module_js_deps(modules)
+    if not by_module:
+        click.echo("No module JS dependencies declared.")
+        return
+
+    # Flatten into a single spec list. npm's own resolver handles conflicts.
+    specs: list[str] = []
+    for mod_name in sorted(by_module):
+        for dep, rng in sorted(by_module[mod_name].items()):
+            specs.append(f"{dep}@{rng}")
+    # Dedupe while preserving first-seen order.
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for spec in specs:
+        if spec not in seen:
+            seen.add(spec)
+            deduped.append(spec)
+
+    npm = shutil.which("npm")
+    if npm is None:
+        click.echo("ERROR: npm not found on PATH.", err=True)
+        sys.exit(1)
+
+    # Workspace path is relative to the repo root — derive it from output.
+    repo_root = output.resolve().parent.parent
+    try:
+        workspace = str(output.resolve().relative_to(repo_root))
+    except ValueError:
+        workspace = str(output.resolve())
+
+    cmd = [
+        npm,
+        "install",
+        "--workspace",
+        workspace,
+        "--save=false",
+        "--no-audit",
+        "--no-fund",
+        *deduped,
+    ]
+    click.echo("Installing module JS deps:")
+    for spec in deduped:
+        click.echo(f"  {spec}")
+    if dry_run:
+        click.echo("(dry-run) " + " ".join(cmd))
+        return
+    result = subprocess.run(cmd, cwd=repo_root, check=False)
+    sys.exit(result.returncode)
 
 
 if __name__ == "__main__":

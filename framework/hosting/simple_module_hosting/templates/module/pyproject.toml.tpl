@@ -29,9 +29,12 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["{{PACKAGE_NAME}}"]
 
-# Gap 2b: ship the built frontend bundle inside the wheel. Source TSX files
-# under pages/ are always included; the pre-built JS under static/dist/ is
-# gitignored so force-include is needed to pick it up from the working tree
-# during `uv build`. Run your bundler (vite/esbuild/etc.) before building.
+# Gap 2b: ship the built frontend bundle + per-module JS dep manifest inside the
+# wheel. Source TSX files under pages/ are always included; the pre-built JS
+# under static/dist/ is gitignored so force-include is needed to pick it up from
+# the working tree during `uv build`. Run your bundler (vite/esbuild/etc.) before
+# building. The package.json lives at the module root so npm workspaces see it;
+# copying it into <pkg>/ lets the host discover JS deps via importlib.resources.
 [tool.hatch.build.targets.wheel.force-include]
 "{{PACKAGE_NAME}}/static/dist" = "{{PACKAGE_NAME}}/static/dist"
+"package.json" = "{{PACKAGE_NAME}}/package.json"

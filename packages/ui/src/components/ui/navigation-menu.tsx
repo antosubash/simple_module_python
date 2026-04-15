@@ -1,4 +1,4 @@
-import { cn } from '@ui/lib/utils';
+import { cn } from '@simple-module/ui/lib/utils';
 import { cva } from 'class-variance-authority';
 import { ChevronDownIcon } from 'lucide-react';
 import { NavigationMenu as NavigationMenuPrimitive } from 'radix-ui';

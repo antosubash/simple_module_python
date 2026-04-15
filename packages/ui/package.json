@@ -6,5 +6,8 @@
   "types": "src/index.ts",
   "dependencies": {
     "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@simple-module/tsconfig": "*"
   }
 }

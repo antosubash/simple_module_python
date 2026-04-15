@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
+.PHONY: install install-py install-js dev dev-api dev-ui build test lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
 
 # Install
 install:
@@ -23,9 +23,14 @@ dev-api:
 dev-ui:
 	npm run dev
 
-# Regenerate host/client_app/modules.{manifest.json,generated.ts} from installed modules.
+# Regenerate host/client_app/modules.{manifest.json,generated.ts,generated.css} from installed modules.
 gen-pages:
 	uv run --project host sm gen-pages --host-dir=host/client_app
+
+# Install JS deps declared by installed modules into host/client_app/node_modules.
+# Wheel-installed modules need this; in-repo workspace modules do not.
+sync-module-deps:
+	uv run --project host sm sync-js-deps --host-client-app=host/client_app
 
 # Build
 build:

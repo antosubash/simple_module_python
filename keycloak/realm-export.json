@@ -1,6 +1,7 @@
 {
   "realm": "simple-module",
   "enabled": true,
+  "sslRequired": "none",
   "registrationAllowed": true,
   "roles": {
     "realm": [

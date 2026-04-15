@@ -1,5 +1,5 @@
 import { createInertiaApp, router } from '@inertiajs/react';
-import { ErrorBoundary } from '@ui/components/ErrorBoundary';
+import { ErrorBoundary } from '@simple-module/ui/components/ErrorBoundary';
 import { useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { resolvePage } from './pages';

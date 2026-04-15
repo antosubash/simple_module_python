@@ -2,13 +2,8 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Tell Tailwind to scan all tsx/ts files across the monorepo */
-@source "../../../../modules/*/src/**/*.tsx";
-@source "../../../../modules/*/src/**/*.ts";
-@source "../../**/*.tsx";
-@source "../../**/*.ts";
-@source "../../../../host/client_app/**/*.tsx";
-@source "../../../../host/client_app/**/*.ts";
+/* Self-scan — app-level @source lines live in host/client_app/styles.css. */
+@source "../../**/*.{ts,tsx}";
 
 /* ── Design System Theme ── Cool Teal ──────────────────────── */
 @theme {
