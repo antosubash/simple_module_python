@@ -180,7 +180,7 @@ export function SidebarLayout({
                   key={item.url}
                   href={item.url}
                   onClick={closeSidebar}
-                  className={`flex items-center gap-3 px-3 py-2 mt-1 rounded-lg text-sm ${theme.mutedTextClass} hover:text-white ${theme.hoverBg} transition-colors`}
+                  className={`flex items-center gap-3 px-3 py-2 mt-1 rounded-lg text-sm font-medium ${theme.inactiveClass} transition-colors`}
                 >
                   <NavIcon name={item.icon} />
                   {item.label}
