@@ -4,6 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+WILDCARD = "*"
+
+# Default role→permission mapping. Admin gets all permissions via the wildcard.
+# Additional mappings are added at registration time via PermissionRegistry.map_role.
+DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
+    "admin": [WILDCARD],
+}
+
 
 @dataclass
 class PermissionGroup:
@@ -18,6 +26,7 @@ class PermissionRegistry:
 
     def __init__(self) -> None:
         self._groups: dict[str, PermissionGroup] = {}
+        self._role_map: dict[str, set[str]] = {}
 
     def add_group(self, name: str, permissions: list[str]) -> None:
         """Register a group of related permissions."""
@@ -48,6 +57,33 @@ class PermissionRegistry:
 
     def has(self, permission: str) -> bool:
         return any(permission in g.permissions for g in self._groups.values())
+
+    def map_role(self, role: str, permissions: list[str]) -> None:
+        """Register a role→permission mapping.
+
+        Merges *permissions* into the existing set for *role* so that multiple
+        calls from different modules accumulate rather than overwrite.
+        """
+        if role not in self._role_map:
+            self._role_map[role] = set()
+        self._role_map[role].update(permissions)
+
+    @property
+    def role_map(self) -> dict[str, list[str]]:
+        """Return the merged role→permission mapping.
+
+        Starts from ``DEFAULT_ROLE_PERMISSIONS`` and merges in any
+        module-registered mappings added via :meth:`map_role`.
+        """
+        merged: dict[str, list[str]] = {
+            role: list(perms) for role, perms in DEFAULT_ROLE_PERMISSIONS.items()
+        }
+        for role, perms in self._role_map.items():
+            if role in merged:
+                merged[role] = list(set(merged[role]) | perms)
+            else:
+                merged[role] = list(perms)
+        return merged
 
     def get_permissions_for_roles(
         self,

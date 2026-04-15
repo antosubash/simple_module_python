@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 from fastapi import HTTPException, Request
+from simple_module_core.permissions import DEFAULT_ROLE_PERMISSIONS, WILDCARD
 
-WILDCARD = "*"
-
-# "*" grants all permissions (superuser). The framework only ships the
-# ``admin`` wildcard mapping — additional role→permission mappings belong
-# in the host (or in a host-owned module) so the framework doesn't need to
-# know the names of plugin permissions.
-DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
-    "admin": [WILDCARD],
-}
+__all__ = [
+    "DEFAULT_ROLE_PERMISSIONS",
+    "WILDCARD",
+    "RequiresPermission",
+    "expand_permissions",
+    "resolve_permissions",
+]
 
 
 def resolve_permissions(
@@ -59,7 +58,10 @@ class RequiresPermission:
         # Use cached permissions from middleware if available
         permissions: set[str] | None = getattr(request.state, "resolved_permissions", None)
         if permissions is None:
-            permissions = resolve_permissions(user.roles)
+            # Fallback: middleware did not run — consult registry role_map if available
+            perm_registry = getattr(getattr(request.app, "state", None), "perm_registry", None)
+            role_map = perm_registry.role_map if perm_registry is not None else None
+            permissions = resolve_permissions(user.roles, role_map=role_map)
             request.state.resolved_permissions = permissions
 
         if WILDCARD in permissions:
