@@ -145,22 +145,43 @@ async def client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
 
 @pytest.fixture
 async def authenticated_client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Authenticated async HTTP client (admin user via signed session cookie)."""
+    """HTTPX client with a signed session cookie carrying a seeded admin user's id."""
     import json
+    import uuid as _uuid
     from base64 import b64encode
 
+    from fastapi_users.password import PasswordHelper
     from itsdangerous import TimestampSigner
+    from sqlalchemy import select
+    from users.constants import ADMIN_ROLE_ID
+    from users.models import Role, User, UserRole
 
-    userinfo = {
-        "sub": "test-user-id",
-        "email": "test@example.com",
-        "name": "Test User",
-        "preferred_username": "testuser",
-        "realm_access": {"roles": ["admin"]},
-    }
-    session_data = {"userinfo": userinfo}
+    # Seed admin role + user into the app's own DB.
+    async with app.state.db.session_factory() as session:
+        admin_role = (
+            await session.execute(select(Role).where(Role.id == ADMIN_ROLE_ID))
+        ).scalar_one_or_none()
+        if admin_role is None:
+            admin_role = Role(id=ADMIN_ROLE_ID, name="admin", description="Administrator")
+            session.add(admin_role)
+            await session.flush()
+
+        user = User(
+            id=_uuid.uuid4(),
+            email="admin@test",
+            hashed_password=PasswordHelper().hash("test-password"),
+            is_active=True,
+            is_verified=True,
+            is_superuser=True,
+            full_name="Test Admin",
+        )
+        session.add(user)
+        await session.flush()
+        session.add(UserRole(user_id=user.id, role_id=admin_role.id))
+        await session.commit()
+
+    session_data = {"user_id": str(user.id)}
     data = b64encode(json.dumps(session_data).encode())
-
     signer = TimestampSigner(str(app.state.settings.secret_key))
     signed = signer.sign(data).decode("utf-8")
 

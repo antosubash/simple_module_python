@@ -50,7 +50,7 @@ function Landing() {
           style={{ animationDelay: '300ms' }}
         >
           <Button asChild size="lg" className="w-full sm:w-auto">
-            <a href="/auth/login">{isAuthenticated ? 'Open Dashboard' : 'Get Started'}</a>
+            <a href="/users/login">{isAuthenticated ? 'Open Dashboard' : 'Get Started'}</a>
           </Button>
           <Button
             asChild
@@ -132,9 +132,9 @@ const features = [
         />
       </svg>
     ),
-    title: 'Keycloak Auth',
+    title: 'Local Auth',
     description:
-      'Cookie-based OIDC authentication with Keycloak. Server-side sessions, permission-based access control, and role-filtered menus.',
+      'Cookie-based email+password authentication with local user management. Server-side sessions, permission-based access control, and role-filtered menus.',
   },
   {
     icon: (

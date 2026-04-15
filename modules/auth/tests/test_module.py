@@ -1,8 +1,7 @@
-"""Tests for AuthModule registration (metadata, menu, logout endpoint)."""
+"""Tests for AuthModule: meta-only after Keycloak removal."""
 
 from __future__ import annotations
 
-import httpx
 from auth.module import AuthModule
 from simple_module_core.menu import MenuRegistry
 
@@ -13,15 +12,20 @@ class TestAuthModuleRegistration:
         assert mod.meta.name == "Auth"
         assert mod.meta.route_prefix == "/auth"
 
-    async def test_auth_module_registers_menu_items(self):
+    async def test_auth_module_registers_no_menu_items(self):
+        """AuthModule is now meta-only — it registers no menu items."""
         mod = AuthModule()
         reg = MenuRegistry()
         mod.register_menu_items(reg)
-        assert len(reg.all_items) == 1
-        assert reg.all_items[0].label == "Logout"
-        assert reg.all_items[0].url == "/auth/logout"
+        assert len(reg.all_items) == 0
 
-    async def test_auth_logout_endpoint_exists(self, client: httpx.AsyncClient):
-        """The /auth/logout endpoint should exist (even if it redirects)."""
-        resp = await client.get("/auth/logout", follow_redirects=False)
-        assert resp.status_code == 302
+    async def test_auth_module_has_no_routes(self):
+        """AuthModule no longer registers any routes — it's contracts-only."""
+        from fastapi import APIRouter
+
+        mod = AuthModule()
+        api_router = APIRouter()
+        view_router = APIRouter()
+        mod.register_routes(api_router, view_router)
+        assert len(api_router.routes) == 0
+        assert len(view_router.routes) == 0

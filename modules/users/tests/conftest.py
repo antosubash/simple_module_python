@@ -1,13 +1,12 @@
 """Shared fixtures for users module API tests.
 
-The ``app_with_users`` fixture builds a full FastAPI app via ``create_app`` but
+The ``users_app`` fixture builds a full FastAPI app via ``create_app`` but
 with an in-memory SQLite database, seeded roles, and test-friendly settings
 (ConsoleMailer, signup disabled by default, short secrets).
 
-The ``unauthenticated_client`` gives a plain httpx client.
-The ``admin_client`` gives a client with the existing Keycloak-shaped session
-cookie (admin role) — used for admin endpoint tests until Task 8 swaps
-middleware.
+The ``anon_client`` gives a plain httpx client.
+The ``admin_client`` gives a client with a signed local-user session cookie
+carrying a real admin User row (written into the in-memory DB).
 """
 
 from __future__ import annotations
@@ -184,16 +183,38 @@ async def anon_client_signup(users_app_signup) -> AsyncGenerator[httpx.AsyncClie
         yield c
 
 
-def _make_admin_session_cookie(secret_key: str) -> str:
-    """Build a Starlette session cookie with Keycloak-shaped admin userinfo."""
-    userinfo = {
-        "sub": "test-admin-id",
-        "email": "admin@example.com",
-        "name": "Test Admin",
-        "preferred_username": "testadmin",
-        "realm_access": {"roles": ["admin"]},
-    }
-    session_data = {"userinfo": userinfo}
+async def _make_admin_user(app) -> object:
+    """Seed an admin User + Role into app's DB and return the User row."""
+    from sqlalchemy import select
+    from users.models import Role, User, UserRole
+
+    async with app.state.db.session_factory() as session:
+        admin_role = (
+            await session.execute(select(Role).where(Role.id == ADMIN_ROLE_ID))
+        ).scalar_one_or_none()
+        if admin_role is None:
+            admin_role = Role(id=ADMIN_ROLE_ID, name="admin", description="Administrator")
+            session.add(admin_role)
+            await session.flush()
+
+        user = User(
+            id=uuid.uuid4(),
+            email="admin@example.com",
+            hashed_password=PasswordHelper().hash("AdminPass1!"),
+            is_active=True,
+            is_superuser=True,
+            is_verified=True,
+            full_name="Test Admin",
+        )
+        session.add(user)
+        await session.flush()
+        session.add(UserRole(user_id=user.id, role_id=admin_role.id))
+        await session.commit()
+    return user
+
+
+def _sign_session(session_data: dict, secret_key: str) -> str:
+    """Encode and sign a session dict exactly as Starlette's SessionMiddleware does."""
     data = b64encode(json.dumps(session_data).encode())
     signer = TimestampSigner(secret_key)
     return signer.sign(data).decode("utf-8")
@@ -201,8 +222,12 @@ def _make_admin_session_cookie(secret_key: str) -> str:
 
 @pytest.fixture
 async def admin_client(users_app) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Client with admin Keycloak-shaped session cookie."""
-    cookie = _make_admin_session_cookie(str(users_app.state.settings.secret_key))
+    """Client with a signed local-user session cookie (admin role)."""
+    user = await _make_admin_user(users_app)
+    cookie = _sign_session(
+        {"user_id": str(user.id)},
+        str(users_app.state.settings.secret_key),
+    )
     transport = httpx.ASGITransport(app=users_app)
     async with httpx.AsyncClient(
         transport=transport,

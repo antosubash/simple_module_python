@@ -72,5 +72,5 @@ exclude = ["framework/hosting/simple_module_hosting/templates/**"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["framework/core/tests", "framework/db/tests", "framework/hosting/tests", "framework/testing/tests", "modules/auth/tests", "modules/dashboard/tests", "modules/products/tests", "modules/users/tests", "tests/integration", "tests/e2e"]
-markers = ["e2e: end-to-end tests requiring live services (Keycloak, browser)"]
+markers = ["e2e: end-to-end tests requiring a live browser"]
 addopts = "-m 'not e2e'"

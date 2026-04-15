@@ -58,7 +58,7 @@ class TestUnauthenticatedAccess:
     async def test_unauthenticated_api_redirects_to_login(self, client: httpx.AsyncClient):
         resp = await client.get("/api/products/", follow_redirects=False)
         assert resp.status_code == 302
-        assert "/auth/login" in resp.headers["location"]
+        assert "/users/login" in resp.headers["location"]
 
     async def test_unauthenticated_write_redirects_to_login(self, client: httpx.AsyncClient):
         resp = await client.post(
@@ -67,4 +67,4 @@ class TestUnauthenticatedAccess:
             follow_redirects=False,
         )
         assert resp.status_code == 302
-        assert "/auth/login" in resp.headers["location"]
+        assert "/users/login" in resp.headers["location"]

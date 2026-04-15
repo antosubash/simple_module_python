@@ -2,14 +2,13 @@
 
 Two browser-driven happy-path tests, both gated by the ``e2e`` marker:
 
-* :func:`test_login_and_browse_smoke` — landing → Keycloak login →
+* :func:`test_login_and_browse_smoke` — landing → local login form →
   dashboard → products browse → logout. Minimal regression guard that
   proves auth and page rendering work end to end.
 
 * :func:`test_products_crud_smoke` — builds on the browse smoke with
-  the full create → edit → delete loop. Requires the Keycloak client
-  to emit ``realm_access.roles`` in userinfo so ``RequiresPermission``
-  lets the admin user through.
+  the full create → edit → delete loop. Requires the admin user to have
+  the ``admin`` role so ``RequiresPermission`` lets the admin user through.
 
 Requires a live stack. See docs/e2e-testing.md for setup.
 """
@@ -28,12 +27,12 @@ pytestmark = pytest.mark.e2e
 
 
 def _login(page: Page, username: str, password: str) -> None:
-    """From landing, click Get Started and complete the Keycloak form."""
+    """From landing, click Get Started and complete the local login form."""
     # Landing renders a nav "Get Started" and a hero "Get Started"; either works.
     page.get_by_role("link", name="Get Started").first.click()
-    page.locator("#username").fill(username)
+    page.locator("#email").fill(username)
     page.locator("#password").fill(password)
-    page.locator("#kc-login").click()
+    page.get_by_role("button", name="Login").click()
 
 
 def _login_and_land_on_dashboard(page: Page, username: str, password: str) -> None:
@@ -58,7 +57,7 @@ def test_login_and_browse_smoke(
     page.goto("/products")
     expect(page.get_by_role("heading", name="Products")).to_be_visible()
 
-    page.goto("/auth/logout")
+    page.goto("/users/logout")
     page.goto("/")
     expect(page.get_by_role("heading", name="Modular Monolith")).to_be_visible()
 
@@ -70,8 +69,7 @@ def test_products_crud_smoke(
 ) -> None:
     """Full create → edit → delete loop against the live Products module.
 
-    Requires the admin user's session to carry ``realm_access.roles``
-    (set via the realm-export.json protocol mapper) so the
+    Requires the admin user's session to carry the ``admin`` role so the
     ``products.create`` / ``.edit`` / ``.delete`` permission gates allow
     the calls.
     """

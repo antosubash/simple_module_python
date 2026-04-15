@@ -4,8 +4,7 @@ Reads ``session["user_id"]``, loads the User row with eagerly-loaded roles,
 builds a UserContext, and sets ``request.state.user`` + the
 ``current_user_id`` ContextVar consumed by DB audit listeners.
 
-Not yet wired into UsersModule.register_middleware — Task 8 swaps it in
-when the Keycloak AuthModule is removed.
+Registered via ``UsersModule.register_middleware``.
 """
 
 from __future__ import annotations
@@ -25,8 +24,7 @@ from users.models import User
 
 logger = logging.getLogger(__name__)
 
-# Paths that don't require authentication. Mirrors the Keycloak middleware's
-# list but retargets the auth endpoints at /users/... and /api/users/auth/...
+# Paths that don't require authentication.
 PUBLIC_PATHS = (
     "/users/login",
     "/users/register",

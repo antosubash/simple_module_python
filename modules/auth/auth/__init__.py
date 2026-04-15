@@ -1,1 +1,1 @@
-"""Auth module — Keycloak OIDC integration."""
+"""Auth module — shared contracts (UserContext, deps)."""

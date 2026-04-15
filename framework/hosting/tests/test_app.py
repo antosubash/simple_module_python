@@ -30,7 +30,7 @@ class TestCreateApp:
         restricted = settings.model_copy(update={"modules_enabled": ["Auth"]})
         app = create_app(restricted)
         paths: set[str] = {str(r.path) for r in app.routes if hasattr(r, "path")}
-        assert "/auth/login" in paths
+        # Auth is now contracts-only, so it has no routes — only health remains.
         assert not any(p.startswith("/api/products") for p in paths)
         assert "/dashboard" not in paths
 
@@ -90,10 +90,8 @@ class TestRouteRegistration:
         assert "/api/products/" in route_paths
         assert "/api/products/{product_id}" in route_paths
 
-        assert "/auth/login" in route_paths
-        assert "/auth/callback" in route_paths
-        assert "/auth/logout" in route_paths
-        assert "/auth/me" in route_paths
+        # Users module owns login, register, etc. Auth module is contracts-only.
+        assert "/users/login" in route_paths
 
         # Dashboard — mounted at the /dashboard view prefix; the public
         # landing page at "/" is owned by the host and added in host/main.py,
@@ -118,12 +116,12 @@ class TestProtectedPages:
     async def test_dashboard_redirects_unauthenticated(self, client: httpx.AsyncClient):
         resp = await client.get("/dashboard", follow_redirects=False)
         assert resp.status_code == 302
-        assert "/auth/login" in resp.headers["location"]
+        assert "/users/login" in resp.headers["location"]
 
     async def test_products_page_redirects_unauthenticated(self, client: httpx.AsyncClient):
         resp = await client.get("/products/", follow_redirects=False)
         assert resp.status_code == 302
-        assert "/auth/login" in resp.headers["location"]
+        assert "/users/login" in resp.headers["location"]
 
 
 class TestSecurityHeaders:

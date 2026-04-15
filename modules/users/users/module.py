@@ -42,6 +42,11 @@ class UsersModule(ModuleBase):
         register_auth_routes(api_router, UsersSettings())
         view_router.include_router(views)
 
+    def register_middleware(self, app: FastAPI) -> None:
+        from users.middleware import AuthMiddleware
+
+        app.add_middleware(AuthMiddleware)
+
     async def on_startup(self, app: FastAPI) -> None:
         """Build the mailer once app settings are committed."""
         from users.mailer import build_mailer

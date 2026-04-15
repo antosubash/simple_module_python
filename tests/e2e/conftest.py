@@ -6,8 +6,8 @@ These tests drive a real Chromium browser against a running stack
 
 Env vars:
     E2E_BASE_URL  — where the FastAPI host is listening (default: http://localhost:8000)
-    E2E_USERNAME  — Keycloak username (default: admin — seeded in keycloak/realm-export.json)
-    E2E_PASSWORD  — Keycloak password (default: admin)
+    E2E_USERNAME  — admin email address (default: admin@example.com)
+    E2E_PASSWORD  — admin password (default: admin)
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ def base_url() -> str:
 
 @pytest.fixture(scope="session")
 def e2e_username() -> str:
-    return os.environ.get("E2E_USERNAME", "admin")
+    return os.environ.get("E2E_USERNAME", "admin@example.com")
 
 
 @pytest.fixture(scope="session")

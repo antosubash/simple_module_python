@@ -124,8 +124,8 @@ class TestAdminIndexPage:
     async def test_admin_without_auth_is_redirected(self, anon_client):
         """Unauthenticated access to admin page is redirected to login by auth middleware."""
         resp = await anon_client.get("/users/admin")
-        # The Keycloak auth middleware redirects (302) before RequiresPermission
-        # can return 401. Task 8 swaps in the users-native middleware.
+        # The AuthMiddleware redirects (302) to /users/login before
+        # RequiresPermission can return 401.
         assert resp.status_code in (302, 401)
 
     @pytest.mark.anyio
