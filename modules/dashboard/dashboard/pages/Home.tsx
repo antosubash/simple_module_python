@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { useT } from '@simple-module/i18n';
 import { PageShell } from '@simple-module/ui/components/PageShell';
 import {
   Card,
@@ -17,31 +18,41 @@ interface Props {
 
 function Home() {
   const { welcome } = usePage<{ props: Props }>().props as unknown as Props;
+  const { t } = useT();
 
   return (
-    <PageShell title="Dashboard" description="Overview of your application">
+    <PageShell title={t('dashboard.home.title')} description={t('dashboard.home.description')}>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
         <StatCard
-          title="Products"
+          title={t('dashboard.home.stats.products')}
           value="-"
           icon={<Package className="size-4" />}
           accent="primary"
         />
-        <StatCard title="Users" value="-" icon={<Users className="size-4" />} accent="emerald" />
-        <StatCard title="Modules" value="3" icon={<Box className="size-4" />} accent="violet" />
+        <StatCard
+          title={t('dashboard.home.stats.users')}
+          value="-"
+          icon={<Users className="size-4" />}
+          accent="emerald"
+        />
+        <StatCard
+          title={t('dashboard.home.stats.modules')}
+          value="3"
+          icon={<Box className="size-4" />}
+          accent="violet"
+        />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-[var(--font-display)]">Welcome</CardTitle>
+          <CardTitle className="font-[var(--font-display)]">
+            {t('dashboard.home.welcome_card_title')}
+          </CardTitle>
           <CardDescription>{welcome}</CardDescription>
         </CardHeader>
         <Separator />
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            This is a modular monolith built with FastAPI, Inertia.js, and React. Each module
-            provides its own pages, API endpoints, and database schema.
-          </p>
+          <p className="text-sm text-muted-foreground">{t('dashboard.home.description_body')}</p>
         </CardContent>
       </Card>
     </PageShell>
