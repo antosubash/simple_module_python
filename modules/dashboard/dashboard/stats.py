@@ -17,40 +17,53 @@ from users.models import User
 _CACHE_TTL_SECONDS = 30
 _cache: dict | None = None
 _cache_ts: float = 0.0
+_cache_lock = asyncio.Lock()
+
+
+def _cache_hit() -> dict | None:
+    if _cache is not None and (time.monotonic() - _cache_ts) < _CACHE_TTL_SECONDS:
+        return _cache.copy()
+    return None
 
 
 async def fetch_dashboard_stats(db: AsyncSession, app: FastAPI) -> dict:
     """Gather all dashboard statistics, cached for 30 seconds."""
     global _cache, _cache_ts
 
-    now = time.monotonic()
-    if _cache is not None and (now - _cache_ts) < _CACHE_TTL_SECONDS:
-        return _cache
+    hit = _cache_hit()
+    if hit is not None:
+        return hit
 
-    total_users = await _count_users(db)
-    active_users_7d = await _count_active_users(db, days=7)
-    total_products = await _count_products(db)
-    modules_list = _get_module_info(app)
-    health_checks = await _run_health_checks(app)
+    async with _cache_lock:
+        # Re-check after acquiring lock — another coroutine may have refreshed.
+        hit = _cache_hit()
+        if hit is not None:
+            return hit
 
-    result = {
-        "total_users": total_users,
-        "active_users_7d": active_users_7d,
-        "total_products": total_products,
-        "module_count": len(modules_list),
-        "system_info": {
-            "modules": modules_list,
-            "python_version": (
-                f"{sys.version_info.major}.{sys.version_info.minor}"
-                f".{sys.version_info.micro}"
-            ),
-            "health_checks": health_checks,
-        },
-    }
+        total_users = await _count_users(db)
+        active_users_7d = await _count_active_users(db, days=7)
+        total_products = await _count_products(db)
+        modules_list = _get_module_info(app)
+        health_checks = await _run_health_checks(app)
 
-    _cache = result
-    _cache_ts = now
-    return result
+        result = {
+            "total_users": total_users,
+            "active_users_7d": active_users_7d,
+            "total_products": total_products,
+            "module_count": len(modules_list),
+            "system_info": {
+                "modules": modules_list,
+                "python_version": (
+                    f"{sys.version_info.major}.{sys.version_info.minor}"
+                    f".{sys.version_info.micro}"
+                ),
+                "health_checks": health_checks,
+            },
+        }
+
+        _cache = result
+        _cache_ts = time.monotonic()
+        return result.copy()
 
 
 def invalidate_stats_cache() -> None:

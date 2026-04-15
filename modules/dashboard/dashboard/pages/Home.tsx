@@ -41,7 +41,6 @@ interface SystemInfo {
 }
 
 interface Props {
-  welcome: string;
   total_users: number;
   active_users_7d: number;
   total_products: number;
@@ -58,7 +57,6 @@ function Home() {
       title={t(keys.dashboard.home.title)}
       description={t(keys.dashboard.home.description)}
     >
-      {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 mb-8">
         <StatCard
           title={t(keys.dashboard.home.stats.total_users)}
@@ -86,7 +84,6 @@ function Home() {
         />
       </div>
 
-      {/* System Info */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 font-[var(--font-display)]">
@@ -95,7 +92,6 @@ function Home() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Modules */}
           <div>
             <h4 className="text-sm font-medium text-muted-foreground mb-2">
               {t(keys.dashboard.home.system_info.modules)}
@@ -113,7 +109,6 @@ function Home() {
             </div>
           </div>
 
-          {/* Python Version + Health Checks */}
           <Table>
             <TableBody>
               <TableRow>
