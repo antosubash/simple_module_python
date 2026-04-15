@@ -14,6 +14,7 @@ from simple_module_hosting import Settings, create_app
 from simple_module_hosting.logging import setup_logging
 
 from host.routes import router as host_router
+from host.routes_i18n import router as i18n_router
 
 settings = Settings()
 
@@ -24,6 +25,7 @@ setup_logging(
 
 app = create_app(settings)
 app.include_router(host_router)
+app.include_router(i18n_router)
 
 if __name__ == "__main__":
     import uvicorn
