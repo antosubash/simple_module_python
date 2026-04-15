@@ -122,10 +122,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # ── Phase 2: Run diagnostics (dev only) ────────────────
     if settings.is_development:
+        i18n_extra: list[tuple[str, str, Path]] = []
+        host_locales_early = _PROJECT_ROOT / "host" / "locales"
+        if host_locales_early.is_dir():
+            i18n_extra.append(("host", "host", host_locales_early))
+        ui_locales_early = _PROJECT_ROOT / "packages" / "ui" / "locales"
+        if ui_locales_early.is_dir():
+            i18n_extra.append(("packages/ui", "ui", ui_locales_early))
         diagnostics = run_diagnostics(
             modules,
             i18n_supported_locales=settings.i18n_supported_locales,
             i18n_default_locale=settings.i18n_default_locale,
+            i18n_extra_sources=i18n_extra,
         )
         errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]
         if diagnostics:

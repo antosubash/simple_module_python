@@ -9,8 +9,7 @@
     "empty_title": "No products yet",
     "empty_description": "Get started by creating your first product.",
     "create_button": "Create Product",
-    "no_match": "No products match \"{query}\"",
-    "em_dash": "—"
+    "no_match": "No products match \"{query}\""
   },
   "table": {
     "name": "Name",

@@ -40,3 +40,52 @@ def test_redirects_to_root_when_no_referer() -> None:
     resp = client.post("/i18n/set-locale", data={"locale": "es"})
     assert resp.status_code == 303
     assert resp.headers["location"] == "/"
+
+
+def test_rejects_off_origin_referer() -> None:
+    """Attacker-controlled Referer must not become an open redirect."""
+    client = TestClient(_build_app(["en", "es"]), follow_redirects=False)
+    resp = client.post(
+        "/i18n/set-locale",
+        data={"locale": "es"},
+        headers={"Referer": "https://evil.example/steal"},
+    )
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/"
+
+
+def test_rejects_protocol_relative_referer() -> None:
+    """Protocol-relative Referer (``//evil.example``) must not escape origin."""
+    client = TestClient(_build_app(["en", "es"]), follow_redirects=False)
+    resp = client.post(
+        "/i18n/set-locale",
+        data={"locale": "es"},
+        headers={"Referer": "//evil.example/path"},
+    )
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/"
+
+
+def test_accepts_same_origin_absolute_referer() -> None:
+    """Absolute Referer matching the request's origin is preserved."""
+    client = TestClient(_build_app(["en", "es"]), follow_redirects=False)
+    # TestClient's default base is http://testserver/ — match that.
+    resp = client.post(
+        "/i18n/set-locale",
+        data={"locale": "es"},
+        headers={"Referer": "http://testserver/products?q=pen"},
+    )
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/products?q=pen"
+
+
+def test_rejects_relative_referer_without_leading_slash() -> None:
+    """Malformed relative Referer without leading slash falls back to ``/``."""
+    client = TestClient(_build_app(["en", "es"]), follow_redirects=False)
+    resp = client.post(
+        "/i18n/set-locale",
+        data={"locale": "es"},
+        headers={"Referer": "not-a-path"},
+    )
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/"

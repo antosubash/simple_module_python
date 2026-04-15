@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from simple_module_core.diagnostics._migration import MigrationDiagnostics
@@ -24,12 +25,14 @@ def run_diagnostics(
     migrated_tables: set[str] | None = None,
     i18n_supported_locales: list[str] | None = None,
     i18n_default_locale: str | None = None,
+    i18n_extra_sources: list[tuple[str, str, Path]] | None = None,
 ) -> list[Diagnostic]:
     """Convenience function to run all diagnostics.
 
     When ``migration_state`` is provided, also runs migration diagnostics.
     When ``i18n_supported_locales`` and ``i18n_default_locale`` are provided,
-    also runs i18n locale coverage diagnostics.
+    also runs i18n locale coverage diagnostics. ``i18n_extra_sources`` lets
+    callers include host/ui locale dirs that aren't owned by a ``ModuleBase``.
     """
     diagnostics = ModuleDiagnostics().run(modules)
 
@@ -40,6 +43,7 @@ def run_diagnostics(
             I18nDiagnostics(
                 supported_locales=i18n_supported_locales,
                 default_locale=i18n_default_locale,
+                extra_sources=i18n_extra_sources,
             ).run(modules)
         )
 

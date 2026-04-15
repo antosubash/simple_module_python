@@ -71,3 +71,30 @@ def test_module_without_locales_is_silently_skipped(tmp_path: Path) -> None:
     mod = _FakeModule("P", {})
     findings = I18nDiagnostics(supported_locales=["en", "es"], default_locale="en").run([mod])
     assert findings == []
+
+
+def test_extra_sources_are_checked(tmp_path: Path) -> None:
+    """host/ui locale dirs (not owned by any ModuleBase) get the same checks."""
+    _write(tmp_path / "host_locales", "en", {"a": "1"})
+    # Missing es.json in host_locales -> should produce SM013
+    findings = I18nDiagnostics(
+        supported_locales=["en", "es"],
+        default_locale="en",
+        extra_sources=[("host", "host", tmp_path / "host_locales")],
+    ).run([])
+    codes = {f.code for f in findings}
+    assert "SM013" in codes
+    assert any(f.module_name == "host" for f in findings)
+
+
+def test_extra_sources_detect_key_drift(tmp_path: Path) -> None:
+    """Key-parity checks apply to extra sources just like modules."""
+    _write(tmp_path / "ui_locales", "en", {"a": "1", "b": "2"})
+    _write(tmp_path / "ui_locales", "es", {"a": "1"})  # missing 'b'
+    findings = I18nDiagnostics(
+        supported_locales=["en", "es"],
+        default_locale="en",
+        extra_sources=[("packages/ui", "ui", tmp_path / "ui_locales")],
+    ).run([])
+    codes = {f.code for f in findings}
+    assert "SM014" in codes

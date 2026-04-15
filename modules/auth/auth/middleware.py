@@ -19,7 +19,15 @@ from auth.contracts.schemas import UserContext
 logger = logging.getLogger(__name__)
 
 # Paths that don't require authentication
-PUBLIC_PATHS = ("/auth/", "/health", "/static/", "/api/docs", "/api/redoc", "/openapi.json")
+PUBLIC_PATHS = (
+    "/auth/",
+    "/health",
+    "/static/",
+    "/api/docs",
+    "/api/redoc",
+    "/openapi.json",
+    "/i18n/",  # locale switcher — must work for anonymous users
+)
 EXACT_PUBLIC_PATHS = ("/",)
 
 

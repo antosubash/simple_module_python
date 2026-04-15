@@ -23,15 +23,31 @@ class I18nDiagnostics:
     - SM016: locale JSON fails to parse or has non-string leaves.
     """
 
-    def __init__(self, supported_locales: list[str], default_locale: str) -> None:
+    def __init__(
+        self,
+        supported_locales: list[str],
+        default_locale: str,
+        extra_sources: list[tuple[str, str, Path]] | None = None,
+    ) -> None:
+        """Build the diagnostic.
+
+        ``extra_sources`` is an optional list of ``(reporter_name, namespace,
+        locale_dir)`` triples for locale directories that aren't owned by any
+        ``ModuleBase`` instance — notably the host's ``host/locales/`` and
+        the shared ``packages/ui/locales/``. ``reporter_name`` is used as the
+        ``module_name`` field on findings for display purposes.
+        """
         self.supported_locales = list(supported_locales)
         self.default_locale = default_locale
+        self.extra_sources = list(extra_sources or [])
 
     def run(self, modules: list[ModuleBase]) -> list[Diagnostic]:
         findings: list[Diagnostic] = []
         for mod in modules:
             for namespace, locale_dir in mod.locale_dirs().items():
                 findings.extend(self._check_namespace(mod.meta.name, namespace, Path(locale_dir)))
+        for reporter_name, namespace, locale_dir in self.extra_sources:
+            findings.extend(self._check_namespace(reporter_name, namespace, Path(locale_dir)))
         return findings
 
     def _check_namespace(

@@ -233,9 +233,12 @@ class InertiaLayoutDataMiddleware:
         registry = getattr(request.app.state, "i18n_registry", None)
         locale = getattr(request.state, "locale", None)
         if registry is not None and locale is not None:
+            # Use available_locales() (locales with actual loaded messages) —
+            # NOT the configured supported_locales list. Offering a locale that
+            # has no JSON files would render a mostly-empty UI when selected.
             i18n_block = {
                 "locale": locale,
-                "supportedLocales": registry.supported_locales,
+                "supportedLocales": registry.available_locales(),
                 "messages": registry.messages(locale),
             }
         else:
