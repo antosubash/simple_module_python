@@ -14,6 +14,13 @@ vi.mock('@inertiajs/react', () => ({
   }),
 }));
 
+// Mock @simple-module/i18n so useT resolves known keys without a real i18next instance.
+vi.mock('@simple-module/i18n', () => ({
+  useT: () => ({
+    t: (key: string) => (key === 'ui.switcher.label' ? 'Change language' : key),
+  }),
+}));
+
 import { LocaleSwitcher } from './LocaleSwitcher';
 
 describe('LocaleSwitcher', () => {

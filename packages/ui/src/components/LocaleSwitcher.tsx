@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { useT } from '@simple-module/i18n';
 import { Button } from '@simple-module/ui/components/ui/button';
 import {
   DropdownMenu,
@@ -35,6 +36,7 @@ export function LocaleSwitcher() {
   const page = usePage<{ i18n?: I18nSharedProps }>();
   const i18n = page.props.i18n;
   const formRef = useRef<HTMLFormElement>(null);
+  const { t } = useT();
 
   if (!i18n || i18n.supportedLocales.length <= 1) {
     return null;
@@ -57,7 +59,7 @@ export function LocaleSwitcher() {
       </form>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="Change language">
+          <Button variant="ghost" size="icon-sm" aria-label={t('ui.switcher.label')}>
             <Globe />
           </Button>
         </DropdownMenuTrigger>

@@ -1,0 +1,11 @@
+{
+  "errors": {
+    "generic_title": "Algo salió mal",
+    "generic_description": "La página encontró un error inesperado. Intenta recargar o volver al inicio.",
+    "reload_button": "Recargar página",
+    "go_home_button": "Ir al inicio"
+  },
+  "switcher": {
+    "label": "Cambiar idioma"
+  }
+}
