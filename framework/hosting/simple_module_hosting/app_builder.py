@@ -122,7 +122,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # ── Phase 2: Run diagnostics (dev only) ────────────────
     if settings.is_development:
-        diagnostics = run_diagnostics(modules)
+        diagnostics = run_diagnostics(
+            modules,
+            i18n_supported_locales=settings.i18n_supported_locales,
+            i18n_default_locale=settings.i18n_default_locale,
+        )
         errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]
         if diagnostics:
             print_diagnostics(diagnostics)

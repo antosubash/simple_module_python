@@ -22,12 +22,26 @@ def run_diagnostics(
     migration_state: dict | None = None,
     module_tables: set[str] | None = None,
     migrated_tables: set[str] | None = None,
+    i18n_supported_locales: list[str] | None = None,
+    i18n_default_locale: str | None = None,
 ) -> list[Diagnostic]:
     """Convenience function to run all diagnostics.
 
     When ``migration_state`` is provided, also runs migration diagnostics.
+    When ``i18n_supported_locales`` and ``i18n_default_locale`` are provided,
+    also runs i18n locale coverage diagnostics.
     """
     diagnostics = ModuleDiagnostics().run(modules)
+
+    if i18n_supported_locales and i18n_default_locale:
+        from simple_module_core.diagnostics._i18n import I18nDiagnostics
+
+        diagnostics.extend(
+            I18nDiagnostics(
+                supported_locales=i18n_supported_locales,
+                default_locale=i18n_default_locale,
+            ).run(modules)
+        )
 
     if migration_state is not None:
         migration_diag = MigrationDiagnostics()
