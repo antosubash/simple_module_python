@@ -179,28 +179,34 @@ def _soft_delete_filter(execute_state: ORMExecuteState) -> None:
     """Automatically exclude soft-deleted rows from SELECT queries.
 
     Adds ``WHERE is_deleted = FALSE`` for every entity in the query that
-    inherits from :class:`SoftDeleteMixin`.
+    inherits from :class:`SoftDeleteMixin`. The criteria is attached per
+    concrete mapper rather than via the mixin class because SQLModel
+    mixins expose Pydantic ``FieldInfo`` (not SQLAlchemy
+    ``InstrumentedAttribute``) at the mixin-class level, which breaks
+    the lambda form of ``with_loader_criteria``.
 
     To bypass the filter (e.g. admin views), use::
 
         session.execute(stmt.execution_options(include_deleted=True))
     """
-    if execute_state.is_select and not execute_state.execution_options.get(
-        "include_deleted", False
-    ):
-        execute_state.statement = execute_state.statement.options(
-            with_loader_criteria(
-                SoftDeleteMixin,
-                lambda cls: cls.is_deleted.is_(False),
-                include_aliases=True,
+    if not execute_state.is_select:
+        return
+    if execute_state.execution_options.get("include_deleted", False):
+        return
+
+    for mapper in execute_state.all_mappers:
+        cls = mapper.class_
+        if issubclass(cls, SoftDeleteMixin):
+            execute_state.statement = execute_state.statement.options(
+                with_loader_criteria(cls, cls.is_deleted.is_(False), include_aliases=True)
             )
-        )
 
 
 def _add_tenant_filter(execute_state: ORMExecuteState) -> None:
     """Automatically filter SELECT queries on multi-tenant models by current tenant.
 
-    Uses ``with_loader_criteria`` so the filter applies to ``session.execute()``,
+    Applies per concrete mapper for the same reason as
+    :func:`_soft_delete_filter`. The filter covers ``session.execute()``,
     ``session.get()``, and relationship lazy-loading.
     """
     if not execute_state.is_select:
@@ -210,10 +216,9 @@ def _add_tenant_filter(execute_state: ORMExecuteState) -> None:
     if tenant_id is None:
         return
 
-    execute_state.statement = execute_state.statement.options(
-        with_loader_criteria(
-            MultiTenantMixin,
-            lambda cls: cls.tenant_id == tenant_id,
-            include_aliases=True,
-        )
-    )
+    for mapper in execute_state.all_mappers:
+        cls = mapper.class_
+        if issubclass(cls, MultiTenantMixin):
+            execute_state.statement = execute_state.statement.options(
+                with_loader_criteria(cls, cls.tenant_id == tenant_id, include_aliases=True)
+            )

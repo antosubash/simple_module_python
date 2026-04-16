@@ -70,17 +70,19 @@ class TestMixins:
         """AuditMixin should define created_at, updated_at, created_by, updated_by."""
         fields = ["created_at", "updated_at", "created_by", "updated_by"]
         for field_name in fields:
-            assert hasattr(AuditMixin, field_name), f"AuditMixin missing {field_name}"
+            assert field_name in AuditMixin.model_fields, f"AuditMixin missing {field_name}"
 
     async def test_soft_delete_mixin_fields(self):
         """SoftDeleteMixin should define is_deleted, deleted_at, deleted_by."""
         fields = ["is_deleted", "deleted_at", "deleted_by"]
         for field_name in fields:
-            assert hasattr(SoftDeleteMixin, field_name), f"SoftDeleteMixin missing {field_name}"
+            assert field_name in SoftDeleteMixin.model_fields, (
+                f"SoftDeleteMixin missing {field_name}"
+            )
 
     async def test_versioned_mixin_fields(self):
-        assert hasattr(VersionedMixin, "version")
+        assert "version" in VersionedMixin.model_fields
 
     async def test_multi_tenant_mixin_fields(self):
         """MultiTenantMixin should define tenant_id."""
-        assert hasattr(MultiTenantMixin, "tenant_id")
+        assert "tenant_id" in MultiTenantMixin.model_fields

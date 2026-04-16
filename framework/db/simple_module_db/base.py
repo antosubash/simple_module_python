@@ -1,11 +1,11 @@
-"""Per-module declarative base with schema isolation."""
+"""Per-module SQLModel base with schema isolation."""
 
 from __future__ import annotations
 
 import os
 
 from sqlalchemy import MetaData
-from sqlalchemy.orm import DeclarativeBase
+from sqlmodel import SQLModel
 
 from simple_module_db.provider import DatabaseProvider, detect_provider
 
@@ -19,16 +19,16 @@ _naming_convention = {
 }
 
 # Cache created bases to avoid recreating for the same module
-_base_cache: dict[str, type[DeclarativeBase]] = {}
+_base_cache: dict[str, type[SQLModel]] = {}
 
 # Track all module bases for Alembic discovery. Module-level *mutable* list
 # so callers that imported it before every module registered (e.g. conftest,
 # migrations/env.py) still observe new entries. Deduped at append time —
 # see ``_register_base`` below.
-all_module_bases: list[type[DeclarativeBase]] = []
+all_module_bases: list[type[SQLModel]] = []
 
 
-def _register_base(base: type[DeclarativeBase]) -> None:
+def _register_base(base: type[SQLModel]) -> None:
     """Append ``base`` to ``all_module_bases`` iff not already present.
 
     Guards against the list growing under repeated imports (test suites,
@@ -51,8 +51,8 @@ def _default_provider() -> DatabaseProvider:
 def create_module_base(
     module_name: str,
     provider: DatabaseProvider | None = None,
-) -> type[DeclarativeBase]:
-    """Create a SQLAlchemy DeclarativeBase with schema isolation for a module.
+) -> type[SQLModel]:
+    """Create a SQLModel abstract base with schema isolation for a module.
 
     - PostgreSQL: uses a dedicated schema (e.g., ``products``)
     - SQLite: single schema; modules are expected to prefix ``__tablename__``
@@ -62,7 +62,9 @@ def create_module_base(
     module models work in both dev (SQLite) and prod (PostgreSQL) without
     code changes. Pass ``provider=`` explicitly in tests that need to pin it.
 
-    Returns a cached base if already created for this module+provider.
+    Returns a cached base if already created for this module+provider. The
+    returned class is a ``SQLModel`` subclass with a per-module ``MetaData``;
+    concrete table classes declare ``table=True`` and inherit from it.
     """
     if provider is None:
         provider = _default_provider()
@@ -81,7 +83,7 @@ def create_module_base(
     # Use type() to create the class, avoiding class body scoping issues
     ModuleBase = type(  # noqa: N806
         f"{module_name.title()}Base",
-        (DeclarativeBase,),
+        (SQLModel,),
         {
             "__abstract__": True,
             "metadata": mod_metadata,

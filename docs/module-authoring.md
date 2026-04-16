@@ -13,7 +13,7 @@ my-module/
 ├── my_module/
 │   ├── __init__.py
 │   ├── module.py                   # ModuleBase subclass
-│   ├── models.py                   # SQLAlchemy models (optional)
+│   ├── models.py                   # SQLModel tables (optional)
 │   ├── endpoints/                  # FastAPI routes
 │   ├── pages/                      # Inertia TSX pages (optional)
 │   ├── templates/                  # Jinja2 templates (optional)
@@ -92,7 +92,7 @@ installed modules.
 ## Migrations workflow
 
 Migrations live **in the host scaffold** (`<host>/migrations/versions/`),
-not inside the module package. The module ships its SQLAlchemy models only;
+not inside the module package. The module ships its SQLModel tables only;
 the host developer generates a migration each time a new module is
 installed or a module's models change:
 

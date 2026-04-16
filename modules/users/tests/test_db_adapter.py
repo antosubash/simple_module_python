@@ -14,7 +14,7 @@ async def _seed_roles(db_session):
     """Insert admin and user roles into the test DB."""
     from users.models import Role
 
-    existing = (await db_session.execute(select(Role.name))).scalars().all()
+    existing = (await db_session.execute(select(Role.name))).scalars().all()  # ty:ignore[no-matching-overload]
     if "admin" not in existing:
         db_session.add(Role(id=ADMIN_ROLE_ID, name="admin", description="Administrator"))
     if "user" not in existing:

@@ -30,7 +30,7 @@ class UserService:
         """Return Role ORM objects matching the given names."""
         if not role_names:
             return []
-        result = await self._db.execute(select(Role).where(Role.name.in_(role_names)))
+        result = await self._db.execute(select(Role).where(Role.name.in_(role_names)))  # ty:ignore[unresolved-attribute]
         return list(result.scalars().all())
 
     async def to_list_item(self, user: User) -> UserListItem:
@@ -48,7 +48,7 @@ class UserService:
 
     async def _get_user_with_roles(self, user_id: uuid.UUID) -> User | None:
         result = await self._db.execute(
-            select(User).where(User.id == user_id).options(selectinload(User.roles))
+            select(User).where(User.id == user_id).options(selectinload(User.roles))  # ty:ignore[invalid-argument-type]
         )
         return result.scalar_one_or_none()
 
@@ -62,14 +62,14 @@ class UserService:
         search: str | None = None,
     ) -> tuple[list[UserListItem], int]:
         """Returns (items, total_count). Filters on email/full_name LIKE search."""
-        stmt = select(User).options(selectinload(User.roles))
+        stmt = select(User).options(selectinload(User.roles))  # ty:ignore[invalid-argument-type]
         count_stmt = select(func.count()).select_from(User)
 
         if search:
             pattern = f"%{search}%"
             condition = or_(
-                User.email.ilike(pattern),
-                User.full_name.ilike(pattern),
+                User.email.ilike(pattern),  # ty:ignore[unresolved-attribute]
+                User.full_name.ilike(pattern),  # ty:ignore[unresolved-attribute]
             )
             stmt = stmt.where(condition)
             count_stmt = count_stmt.where(condition)
@@ -100,7 +100,7 @@ class UserService:
             is_active=True,
             is_verified=False,
         )
-        user = await self._manager.create(user_create, safe=False)
+        user = await self._manager.create(user_create, safe=False)  # ty:ignore[invalid-argument-type]
 
         # Assign roles
         roles = await self._resolve_roles(role_names)
@@ -161,7 +161,7 @@ class UserService:
             raise HTTPException(status_code=404, detail="User not found")
 
         # Delete all existing role assignments for this user
-        await self._db.execute(delete(UserRole).where(UserRole.user_id == user_id))
+        await self._db.execute(delete(UserRole).where(UserRole.user_id == user_id))  # ty:ignore[invalid-argument-type]
 
         # Insert new role assignments
         roles = await self._resolve_roles(role_names)

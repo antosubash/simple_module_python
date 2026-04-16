@@ -23,25 +23,25 @@ class ProductService:
         search: str | None = None,
     ) -> tuple[list[ProductOut], int]:
         """Return paginated products and total count."""
-        query = select(Product).where(Product.is_active.is_(True))
-        count_query = select(func.count()).select_from(Product).where(Product.is_active.is_(True))
+        query = select(Product).where(Product.is_active.is_(True))  # ty:ignore[unresolved-attribute]
+        count_query = select(func.count()).select_from(Product).where(Product.is_active.is_(True))  # ty:ignore[unresolved-attribute]
 
         if search:
             pattern = f"%{search}%"
-            search_filter = Product.name.ilike(pattern) | Product.description.ilike(pattern)
+            search_filter = Product.name.ilike(pattern) | Product.description.ilike(pattern)  # ty:ignore[unresolved-attribute]
             query = query.where(search_filter)
             count_query = count_query.where(search_filter)
 
         total = (await self.db.execute(count_query)).scalar() or 0
 
-        query = query.order_by(Product.id).offset((page - 1) * per_page).limit(per_page)
+        query = query.order_by(Product.id).offset((page - 1) * per_page).limit(per_page)  # ty:ignore[invalid-argument-type]
         result = await self.db.execute(query)
         products = [ProductOut.model_validate(p) for p in result.scalars()]
 
         return products, total
 
     async def get_by_id(self, product_id: int) -> ProductOut | None:
-        result = await self.db.execute(select(Product).where(Product.id == product_id))
+        result = await self.db.execute(select(Product).where(Product.id == product_id))  # ty:ignore[invalid-argument-type]
         product = result.scalar_one_or_none()
         if product is None:
             return None
@@ -55,7 +55,7 @@ class ProductService:
         return ProductOut.model_validate(product)
 
     async def update(self, product_id: int, data: ProductUpdate) -> ProductOut | None:
-        result = await self.db.execute(select(Product).where(Product.id == product_id))
+        result = await self.db.execute(select(Product).where(Product.id == product_id))  # ty:ignore[invalid-argument-type]
         product = result.scalar_one_or_none()
         if product is None:
             return None
@@ -66,7 +66,7 @@ class ProductService:
         return ProductOut.model_validate(product)
 
     async def delete(self, product_id: int) -> bool:
-        result = await self.db.execute(select(Product).where(Product.id == product_id))
+        result = await self.db.execute(select(Product).where(Product.id == product_id))  # ty:ignore[invalid-argument-type]
         product = result.scalar_one_or_none()
         if product is None:
             return False

@@ -1,14 +1,21 @@
-"""Pydantic DTOs for the Products module."""
+"""SQLModel DTOs for the Products module.
+
+These are non-table SQLModel classes (no ``table=True``) — they are Pydantic
+models with SQLModel's ``Field`` for validation, usable as FastAPI request
+and response bodies. ``model_config = ConfigDict(from_attributes=True)``
+enables ``ProductOut.model_validate(orm_row)`` against ORM instances.
+"""
 
 from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict
+from sqlmodel import Field, SQLModel
 
 
-class ProductOut(BaseModel):
+class ProductOut(SQLModel):
     """Product data returned by the API."""
 
     model_config = ConfigDict(from_attributes=True)
@@ -22,7 +29,7 @@ class ProductOut(BaseModel):
     updated_at: datetime | None = None
 
 
-class ProductCreate(BaseModel):
+class ProductCreate(SQLModel):
     """Data required to create a new product."""
 
     name: str = Field(min_length=1, max_length=200, description="Product name is required")
@@ -30,7 +37,7 @@ class ProductCreate(BaseModel):
     price: Decimal = Field(gt=0, decimal_places=2, description="Price must be greater than 0")
 
 
-class ProductUpdate(BaseModel):
+class ProductUpdate(SQLModel):
     """Data to update an existing product. All fields optional."""
 
     name: str | None = Field(default=None, min_length=1, max_length=200)

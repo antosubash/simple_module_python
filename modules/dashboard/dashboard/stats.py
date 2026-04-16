@@ -80,14 +80,14 @@ async def _count_users(db: AsyncSession) -> int:
 async def _count_active_users(db: AsyncSession, *, days: int) -> int:
     cutoff = datetime.now(UTC) - timedelta(days=days)
     result = await db.execute(
-        select(func.count()).select_from(User).where(User.last_login_at >= cutoff)
+        select(func.count()).select_from(User).where(User.last_login_at >= cutoff)  # ty:ignore[unsupported-operator]
     )
     return result.scalar_one()
 
 
 async def _count_products(db: AsyncSession) -> int:
     result = await db.execute(
-        select(func.count()).select_from(Product).where(Product.is_active.is_(True))
+        select(func.count()).select_from(Product).where(Product.is_active.is_(True))  # ty:ignore[unresolved-attribute]
     )
     return result.scalar_one()
 

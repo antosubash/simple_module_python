@@ -1,43 +1,70 @@
-"""Entity mixins for cross-cutting concerns (audit, soft delete, tenancy, versioning)."""
+"""Entity mixins for cross-cutting concerns (audit, soft delete, tenancy, versioning).
+
+Mixins are SQLModel subclasses: concrete ``table=True`` models multi-inherit
+from them, and SQLModel's metaclass registers each mixin's fields as columns
+on the concrete table. ``isinstance(obj, AuditMixin)`` still drives the event
+listeners in :mod:`simple_module_db.listeners`.
+
+We use ``sa_type`` + ``sa_column_kwargs`` (not ``sa_column=Column(...)``) so
+SQLModel constructs a fresh ``Column`` per concrete subclass; sharing a single
+``Column`` across mixin subclasses raises
+``ArgumentError: Column already assigned to Table``.
+"""
 
 from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import DateTime, func
+from sqlmodel import Field, SQLModel
 
 
-class AuditMixin:
+class AuditMixin(SQLModel):
     """Adds created_at, updated_at, created_by, updated_by fields.
 
-    Auto-populated by the audit event listener in ``listeners.py``.
+    ``created_at`` gets a server-side default; ``updated_at`` is populated by
+    the audit listener in :mod:`simple_module_db.listeners`.
     """
 
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime | None] = mapped_column(onupdate=func.now(), default=None)
-    created_by: Mapped[str | None] = mapped_column(String(255), default=None)
-    updated_by: Mapped[str | None] = mapped_column(String(255), default=None)
+    created_at: datetime = Field(
+        sa_type=DateTime(timezone=True),  # ty:ignore[invalid-argument-type]
+        sa_column_kwargs={"server_default": func.now()},
+        nullable=False,
+    )
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # ty:ignore[invalid-argument-type]
+        sa_column_kwargs={"onupdate": func.now()},
+        nullable=True,
+    )
+    created_by: str | None = Field(default=None, max_length=255)
+    updated_by: str | None = Field(default=None, max_length=255)
 
 
-class SoftDeleteMixin:
+class SoftDeleteMixin(SQLModel):
     """Marks records as deleted instead of removing them.
 
-    Query filters should exclude ``is_deleted=True`` by default.
+    Query filters installed by :func:`register_listeners` exclude
+    ``is_deleted=True`` rows by default. Use
+    ``stmt.execution_options(include_deleted=True)`` to bypass.
     """
 
-    is_deleted: Mapped[bool] = mapped_column(default=False)
-    deleted_at: Mapped[datetime | None] = mapped_column(default=None)
-    deleted_by: Mapped[str | None] = mapped_column(String(255), default=None)
+    is_deleted: bool = Field(default=False)
+    deleted_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # ty:ignore[invalid-argument-type]
+        nullable=True,
+    )
+    deleted_by: str | None = Field(default=None, max_length=255)
 
 
-class MultiTenantMixin:
+class MultiTenantMixin(SQLModel):
     """Adds a tenant_id column for data isolation in multi-tenant apps."""
 
-    tenant_id: Mapped[str] = mapped_column(String(50), index=True)
+    tenant_id: str = Field(max_length=50, index=True)
 
 
-class VersionedMixin:
+class VersionedMixin(SQLModel):
     """Optimistic concurrency via an auto-incrementing version field."""
 
-    version: Mapped[int] = mapped_column(default=1)
+    version: int = Field(default=1)

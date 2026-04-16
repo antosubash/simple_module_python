@@ -146,14 +146,13 @@ def locales_en_json(ctx: ScaffoldContext) -> str:
 
 def models_py(ctx: ScaffoldContext) -> str:
     return f'''\
-        """SQLAlchemy models for the {ctx.class_name} module."""
+        """SQLModel tables for the {ctx.class_name} module."""
 
         from __future__ import annotations
 
         from simple_module_db.base import create_module_base
         from simple_module_db.mixins import AuditMixin
-        from sqlalchemy import String
-        from sqlalchemy.orm import Mapped, mapped_column
+        from sqlmodel import Field
 
         # Provider is auto-detected from SM_DATABASE_URL (falls back to SQLite).
         # On PostgreSQL this gives the module its own `{ctx.name}` schema; on SQLite
@@ -161,15 +160,15 @@ def models_py(ctx: ScaffoldContext) -> str:
         Base = create_module_base("{ctx.name}")
 
 
-        class {ctx.singular_class}(Base, AuditMixin):  # ty: ignore[unsupported-base]
+        class {ctx.singular_class}(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
             """A {ctx.singular} entity."""
 
             __tablename__ = "{ctx.name}_{ctx.singular}"
 
-            id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-            name: Mapped[str] = mapped_column(String(200))
-            description: Mapped[str | None] = mapped_column(String(2000), default=None)
-            is_active: Mapped[bool] = mapped_column(default=True)
+            id: int | None = Field(default=None, primary_key=True)
+            name: str = Field(max_length=200)
+            description: str | None = Field(default=None, max_length=2000)
+            is_active: bool = Field(default=True)
         '''
 
 

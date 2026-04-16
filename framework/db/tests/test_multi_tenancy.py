@@ -30,7 +30,7 @@ class TestMultiTenancy:
         """Explicitly set tenant_id matching the context should be kept."""
         token = current_tenant_id.set("tenant-a")
         try:
-            item = _TenantItem(name="Explicit", tenant_id="tenant-a")
+            item = _TenantItem(name="Explicit", tenant_id="tenant-a")  # ty:ignore[unknown-argument]
             tenant_session.add(item)
             await tenant_session.flush()
             assert item.tenant_id == "tenant-a"
@@ -95,7 +95,7 @@ class TestMultiTenancy:
         """Creating an object with a tenant_id that doesn't match the context should raise."""
         token = current_tenant_id.set("tenant-a")
         try:
-            item = _TenantItem(name="Imposter", tenant_id="tenant-b")
+            item = _TenantItem(name="Imposter", tenant_id="tenant-b")  # ty:ignore[unknown-argument]
             tenant_session.add(item)
             with pytest.raises(TenantIsolationError, match="Cannot create object"):
                 await tenant_session.flush()
@@ -217,7 +217,7 @@ class TestMultiTenancyEdgeCases:
         """After a raised TenantIsolationError and rollback, the session is usable."""
         token = current_tenant_id.set("tenant-a")
         try:
-            bad = _TenantItem(name="bad", tenant_id="tenant-b")
+            bad = _TenantItem(name="bad", tenant_id="tenant-b")  # ty:ignore[unknown-argument]
             tenant_session.add(bad)
             with pytest.raises(TenantIsolationError):
                 await tenant_session.flush()
