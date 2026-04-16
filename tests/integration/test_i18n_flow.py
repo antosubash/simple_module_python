@@ -93,7 +93,9 @@ async def test_switcher_sets_cookie_and_subsequent_requests_use_new_locale(
     # Landing page is a non-Inertia request; we can't assert content easily
     # without building an Inertia response — instead, probe the registry
     # state through a follow-up request and assert the cookie "sticks".
-    resp = await host_client.get("/", cookies={"locale": "es"})
+    # httpx persists the set-cookie from the switcher call on this client,
+    # so no explicit cookie argument is needed.
+    resp = await host_client.get("/")
     assert resp.status_code == 200
 
 
@@ -102,11 +104,12 @@ async def test_inertia_shared_props_include_active_locale_messages(
     authenticated_client: httpx.AsyncClient,
 ) -> None:
     """An Inertia request honors the locale cookie in shared props."""
-    # Hit an Inertia view endpoint (dashboard) with the es cookie.
+    # Set the locale cookie on the client jar (per-request cookies= is
+    # deprecated in httpx because persistence semantics are ambiguous).
+    authenticated_client.cookies.set("locale", "es")
     resp = await authenticated_client.get(
         "/dashboard/",
         headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
-        cookies={"locale": "es"},
     )
     assert resp.status_code == 200
     body = resp.json()

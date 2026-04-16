@@ -94,6 +94,11 @@ class ModuleDiagnostics:
                     "register_health_checks",
                     "register_exception_handlers",
                     "register_settings",
+                    "template_dirs",
+                    "static_mounts",
+                    "locale_dirs",
+                    "on_startup",
+                    "on_shutdown",
                 )
                 if name in cls.__dict__
             ]
@@ -195,6 +200,25 @@ class ModuleDiagnostics:
                 return Path(locations[0])
         return None
 
+    def _collect_tsx_pages(self, pages_dir: Path) -> set[str]:
+        """Collect .tsx page identifiers relative to pages_dir, without extension.
+
+        Nested files are represented with forward slashes so the set compares
+        directly against inertia.render("Module/Sub/Page") keys. Subdirectories
+        whose names start with a lowercase letter (e.g. ``components/``,
+        ``hooks/``) are treated as helper folders — not Inertia page roots —
+        and skipped, matching the PascalCase convention Inertia uses.
+        """
+        if not pages_dir.exists():
+            return set()
+        pages: set[str] = set()
+        for f in pages_dir.rglob("*.tsx"):
+            rel = f.relative_to(pages_dir)
+            if any(part[:1].islower() for part in rel.parts[:-1]):
+                continue
+            pages.add(rel.with_suffix("").as_posix())
+        return pages
+
     def _check_orphan_pages(
         self,
         mod: ModuleBase,
@@ -203,10 +227,7 @@ class ModuleDiagnostics:
     ) -> list[Diagnostic]:
         """Find .tsx pages that aren't referenced by any inertia.render() call."""
         pages_dir = src_dir / "pages"
-        if not pages_dir.exists():
-            return []
-
-        tsx_pages = {f.stem for f in pages_dir.glob("*.tsx")}
+        tsx_pages = self._collect_tsx_pages(pages_dir)
         orphans = tsx_pages - rendered_pages
 
         return [
@@ -229,7 +250,7 @@ class ModuleDiagnostics:
     ) -> list[Diagnostic]:
         """Find inertia.render() calls that reference non-existent pages."""
         pages_dir = src_dir / "pages"
-        tsx_pages = {f.stem for f in pages_dir.glob("*.tsx")} if pages_dir.exists() else set()
+        tsx_pages = self._collect_tsx_pages(pages_dir)
         phantoms = rendered_pages - tsx_pages
 
         return [

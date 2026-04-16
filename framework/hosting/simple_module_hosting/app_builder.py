@@ -171,13 +171,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings_cookie_name = settings.i18n_cookie_name
 
     # ── Phase 4: Module settings ───────────────────────────
-    state_before = set(vars(app.state))
+    # Starlette's State stores attributes in `_state`, so we snapshot that
+    # dict's keys (vars(app.state) only exposes `{'_state'}` itself).
+    state_before = set(app.state._state)
     for mod in modules:
         mod.register_settings(app)
 
     # SM012: warn if register_settings was overridden but added nothing
     if settings.is_development:
-        state_after = set(vars(app.state))
+        state_after = set(app.state._state)
         check_settings_registration(modules, state_after - state_before)
 
     # ── Phase 5: Module registrations ──────────────────────

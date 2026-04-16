@@ -13,12 +13,19 @@ import { AuthCardShell } from '@simple-module/ui/layouts/AuthCardShell';
 import { fetchWithCsrf } from '@simple-module/ui/lib/csrf';
 import { useState } from 'react';
 
+interface DevAccount {
+  label: string;
+  email: string;
+  password: string;
+}
+
 interface Props {
   allow_signup: boolean;
+  dev_accounts: DevAccount[];
 }
 
 function Login() {
-  const { allow_signup } = usePage<{ props: Props }>().props as unknown as Props;
+  const { allow_signup, dev_accounts } = usePage<{ props: Props }>().props as unknown as Props;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -141,6 +148,30 @@ function Login() {
                 Create account
               </a>
             </p>
+          )}
+
+          {dev_accounts && dev_accounts.length > 0 && (
+            <div className="mt-6 border-t pt-4">
+              <p className="mb-2 text-center text-xs text-muted-foreground">Dev quick-login</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {dev_accounts.map((acct) => (
+                  <Button
+                    key={acct.email}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={loading}
+                    onClick={() => {
+                      setEmail(acct.email);
+                      setPassword(acct.password);
+                      submitLogin(acct.email, acct.password);
+                    }}
+                  >
+                    {acct.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
