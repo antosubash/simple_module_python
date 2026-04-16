@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -91,18 +92,25 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             self.verification_token_lifetime_seconds,
         )
 
-    def generate_reset_password_token(self, user: User) -> str:
+    async def generate_reset_password_token(self, user: User) -> str:
         """Mint a reset-audience JWT without firing on_after_forgot_password.
 
         Shape matches ``BaseUserManager.forgot_password``: the payload includes
-        ``password_fgpt`` (a hash of the current hashed_password) so the token
+        ``password_fgpt`` (a bcrypt of the current hashed_password) so the token
         invalidates when the password changes. Used by the admin
         reset-password-link endpoint, where the admin copies the link instead
         of triggering an email.
+
+        The fingerprint must be bcrypt-style because the stock
+        ``reset_password`` path in fastapi-users verifies it with
+        ``password_helper.verify_and_update``. Bcrypt is CPU-bound (~100ms at
+        default rounds) so we offload it to a worker thread — otherwise a
+        single admin action would stall the event loop for other requests.
         """
+        fingerprint = await asyncio.to_thread(self.password_helper.hash, user.hashed_password)
         token_data = {
             "sub": str(user.id),
-            "password_fgpt": self.password_helper.hash(user.hashed_password),
+            "password_fgpt": fingerprint,
             "aud": self.reset_password_token_audience,
         }
         return generate_jwt(

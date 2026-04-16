@@ -19,9 +19,11 @@ for their definitions.
 
 from simple_module_testing.app_factory import build_test_app
 from simple_module_testing.fake_events import FakeEventBus, RecordedEvent
+from simple_module_testing.session_cookie import forge_session_cookie
 
 __all__ = [
     "FakeEventBus",
     "RecordedEvent",
     "build_test_app",
+    "forge_session_cookie",
 ]

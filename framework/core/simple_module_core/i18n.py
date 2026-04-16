@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from babel import Locale
@@ -78,6 +80,13 @@ class I18nRegistry:
         self.supported_locales = list(supported_locales)
         self._sources: list[tuple[str, Path]] = []
         self._messages: dict[str, dict[str, str]] = {}
+        # Immutable views into ``_messages`` — handed out by ``messages()`` to
+        # avoid a per-call dict copy. Rebuilt whenever ``load()`` runs.
+        self._message_views: dict[str, MappingProxyType[str, str]] = {}
+        self._available_locales: tuple[str, ...] = ()
+        self._available_locales_list: list[str] = []
+        self._empty_view: MappingProxyType[str, str] = MappingProxyType({})
+        self._loaded = False
 
     def add_source(self, namespace: str, locale_dir: Path) -> None:
         """Queue a module's locale directory for loading under a namespace."""
@@ -110,13 +119,43 @@ class I18nRegistry:
                 flat = flatten_messages(raw, prefix=namespace)
                 self._messages[locale].update(flat)
 
+        # Cache the derived views now that loading is complete. Downstream
+        # (middleware, translator, switcher) reads these on every request.
+        self._message_views = {
+            locale: MappingProxyType(msgs) for locale, msgs in self._messages.items()
+        }
+        self._available_locales = tuple(locale for locale, msgs in self._messages.items() if msgs)
+        self._available_locales_list = list(self._available_locales)
+        self._loaded = True
+
     def available_locales(self) -> list[str]:
-        """Locales that have at least one loaded message."""
+        """Locales that have at least one loaded message.
+
+        The list is cached at ``load()`` time; if ``load()`` hasn't run but
+        tests populated ``_messages`` directly, a one-off scan returns the
+        derived list without caching it (the test is outside the normal flow).
+        """
+        if self._loaded:
+            return self._available_locales_list
         return [locale for locale, msgs in self._messages.items() if msgs]
 
-    def messages(self, locale: str) -> dict[str, str]:
-        """Flat dotted-key map for the given locale. Empty dict if unknown."""
-        return dict(self._messages.get(locale, {}))
+    def messages(self, locale: str) -> Mapping[str, str]:
+        """Flat dotted-key map for the given locale. Empty mapping if unknown.
+
+        Returns an immutable view (``MappingProxyType``) into the cached
+        message dict — zero-copy. Callers that JSON-serialize the result
+        (e.g. Inertia shared props) should wrap with ``dict(...)`` at the
+        boundary.
+        """
+        view = self._message_views.get(locale)
+        if view is not None:
+            return view
+        # Fallback: ``load()`` wasn't called (tests may populate _messages
+        # directly). Expose the raw dict as a proxy so Translator still works.
+        raw = self._messages.get(locale)
+        if raw is None:
+            return self._empty_view
+        return MappingProxyType(raw)
 
 
 class _SafeFormatDict(dict):

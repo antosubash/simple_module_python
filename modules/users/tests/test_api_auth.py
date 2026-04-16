@@ -185,3 +185,36 @@ class TestRegisterGating:
         body = resp.json()
         assert body["email"] == "newuser@example.com"
         assert body["is_verified"] is False
+
+
+# ---------------------------------------------------------------------------
+# Throughput limit on shared auth side-effect endpoints
+# ---------------------------------------------------------------------------
+
+
+class TestAuthThroughputLimit:
+    @pytest.mark.anyio
+    async def test_forgot_password_rate_limited_after_threshold(
+        self, anon_client, users_app, users_db
+    ):
+        """After the configured attempt budget, /forgot-password returns 429."""
+        from users.rate_limit import ThroughputLimiter
+
+        # Tighten the limit for the test so we don't need to hit 10 real endpoints
+        users_app.state.auth_throughput_limiter = ThroughputLimiter(
+            max_attempts=2, window_seconds=60
+        )
+
+        # Use a real email so the first few attempts exercise the real code path
+        await _make_user(users_db, email="throttle@example.com", password="SecurePass1!")
+
+        payload = {"email": "throttle@example.com"}
+        # 2 within budget
+        r1 = await anon_client.post("/api/users/auth/forgot-password", json=payload)
+        r2 = await anon_client.post("/api/users/auth/forgot-password", json=payload)
+        assert r1.status_code in (200, 202)
+        assert r2.status_code in (200, 202)
+
+        # 3rd is throttled
+        r3 = await anon_client.post("/api/users/auth/forgot-password", json=payload)
+        assert r3.status_code == 429

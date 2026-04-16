@@ -1,9 +1,9 @@
-"""Tests for LoginRateLimiter."""
+"""Tests for LoginRateLimiter and ThroughputLimiter."""
 
 from __future__ import annotations
 
 import pytest
-from users.rate_limit import LoginRateLimiter
+from users.rate_limit import LoginRateLimiter, ThroughputLimiter
 
 
 @pytest.fixture
@@ -107,3 +107,26 @@ class TestPerKeyIsolation:
             limiter.record_failure(key1)
         assert limiter.is_locked(key1) is True
         assert limiter.is_locked(key2) is False
+
+
+class TestThroughputLimiter:
+    def test_under_budget_passes(self):
+        limiter = ThroughputLimiter(max_attempts=3, window_seconds=60)
+        assert limiter.check_and_record("k") is True
+        assert limiter.check_and_record("k") is True
+        assert limiter.check_and_record("k") is True
+
+    def test_over_budget_rejected(self):
+        limiter = ThroughputLimiter(max_attempts=3, window_seconds=60)
+        for _ in range(3):
+            limiter.check_and_record("k")
+        assert limiter.check_and_record("k") is False
+        # Still rejected after further attempts within window
+        assert limiter.check_and_record("k") is False
+
+    def test_keys_isolated(self):
+        limiter = ThroughputLimiter(max_attempts=2, window_seconds=60)
+        limiter.check_and_record("a")
+        limiter.check_and_record("a")
+        assert limiter.check_and_record("a") is False
+        assert limiter.check_and_record("b") is True

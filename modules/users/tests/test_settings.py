@@ -95,3 +95,47 @@ class TestUsersSettingsValidation:
 
         s = UsersSettings(mailer="smtp")
         assert s.mailer == "smtp"
+
+
+class TestTokenSecretProductionGuard:
+    def test_placeholder_secrets_ok_in_development(self, monkeypatch):
+        monkeypatch.setenv("SM_ENVIRONMENT", "development")
+        from users.settings import UsersSettings
+
+        UsersSettings()  # must not raise
+
+    def test_placeholder_secrets_ok_in_testing(self, monkeypatch):
+        monkeypatch.setenv("SM_ENVIRONMENT", "testing")
+        from users.settings import UsersSettings
+
+        UsersSettings()  # must not raise
+
+    def test_placeholder_reset_secret_rejected_in_production(self, monkeypatch):
+        monkeypatch.setenv("SM_ENVIRONMENT", "production")
+        monkeypatch.setenv(
+            "SM_USERS_VERIFICATION_TOKEN_SECRET", "not-a-placeholder-value-just-for-test"
+        )
+        from users.settings import UsersSettings
+
+        with pytest.raises(ValidationError, match="RESET_PASSWORD_TOKEN_SECRET"):
+            UsersSettings()
+
+    def test_placeholder_verify_secret_rejected_in_production(self, monkeypatch):
+        monkeypatch.setenv("SM_ENVIRONMENT", "production")
+        monkeypatch.setenv(
+            "SM_USERS_RESET_PASSWORD_TOKEN_SECRET", "not-a-placeholder-value-just-for-test"
+        )
+        from users.settings import UsersSettings
+
+        with pytest.raises(ValidationError, match="VERIFICATION_TOKEN_SECRET"):
+            UsersSettings()
+
+    def test_real_secrets_accepted_in_production(self, monkeypatch):
+        monkeypatch.setenv("SM_ENVIRONMENT", "production")
+        monkeypatch.setenv("SM_USERS_RESET_PASSWORD_TOKEN_SECRET", "real-reset-secret")
+        monkeypatch.setenv("SM_USERS_VERIFICATION_TOKEN_SECRET", "real-verify-secret")
+        from users.settings import UsersSettings
+
+        s = UsersSettings()
+        assert s.reset_password_token_secret == "real-reset-secret"
+        assert s.verification_token_secret == "real-verify-secret"

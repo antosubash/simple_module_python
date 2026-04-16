@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@simple-module/ui/comp
 import { Checkbox } from '@simple-module/ui/components/ui/checkbox';
 import { Label } from '@simple-module/ui/components/ui/label';
 import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
+import { fetchWithCsrf } from '@simple-module/ui/lib/csrf';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -48,7 +49,7 @@ function Edit() {
     const endpoint = isActive
       ? `/api/users/admin/${user.id}/disable`
       : `/api/users/admin/${user.id}/enable`;
-    fetch(endpoint, { method: 'PATCH' })
+    fetchWithCsrf(endpoint, { method: 'PATCH' })
       .then(async (res) => {
         if (res.ok) {
           const newActive = !isActive;
@@ -65,7 +66,7 @@ function Edit() {
 
   const handleSaveRoles = () => {
     setSavingRoles(true);
-    fetch(`/api/users/admin/${user.id}/roles`, {
+    fetchWithCsrf(`/api/users/admin/${user.id}/roles`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role_names: selectedRoles }),
@@ -83,7 +84,7 @@ function Edit() {
   };
 
   const handleCopyResetLink = () => {
-    fetch(`/api/users/admin/${user.id}/reset-password-link`, { method: 'POST' })
+    fetchWithCsrf(`/api/users/admin/${user.id}/reset-password-link`, { method: 'POST' })
       .then(async (res) => {
         if (res.ok) {
           const data = await res.json();

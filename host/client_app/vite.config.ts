@@ -2,10 +2,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react-swc';
+import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
 const projectRoot = path.resolve(__dirname, '../..');
+
+// ANALYZE=1 npm run build emits host/static/dist/stats.html — a sunburst of
+// every chunk and its constituent modules. Open it to chase bundle bloat.
+const analyzeBundle = process.env.ANALYZE === '1';
 
 // Load the module pages manifest written by the Python host at boot.
 // Each entry points at an absolute pages/ directory — typically inside a
@@ -48,6 +53,16 @@ export default defineConfig({
     }),
     react(),
     tailwindcss(),
+    ...(analyzeBundle
+      ? [
+          visualizer({
+            filename: path.resolve(__dirname, '../static/dist/stats.html'),
+            template: 'sunburst',
+            gzipSize: true,
+            brotliSize: true,
+          }),
+        ]
+      : []),
   ],
   root: __dirname,
   build: {

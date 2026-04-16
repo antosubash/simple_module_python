@@ -2,6 +2,7 @@ export interface MenuItem {
   label: string;
   url: string;
   icon: string;
+  method?: 'get' | 'post';
 }
 
 export interface SharedProps {
@@ -16,4 +17,5 @@ export interface SharedProps {
     navbar: MenuItem[];
     userDropdown: MenuItem[];
   };
+  csrf_token?: string;
 }

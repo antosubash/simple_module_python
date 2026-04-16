@@ -10,21 +10,15 @@ import {
 import { Input } from '@simple-module/ui/components/ui/input';
 import { Label } from '@simple-module/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module/ui/layouts/AuthCardShell';
+import { fetchWithCsrf } from '@simple-module/ui/lib/csrf';
 import { useState } from 'react';
-
-interface DevAccount {
-  label: string;
-  email: string;
-  password: string;
-}
 
 interface Props {
   allow_signup: boolean;
-  dev_accounts: DevAccount[];
 }
 
 function Login() {
-  const { allow_signup, dev_accounts } = usePage<{ props: Props }>().props as unknown as Props;
+  const { allow_signup } = usePage<{ props: Props }>().props as unknown as Props;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,7 +36,7 @@ function Login() {
     setNeedsVerification(false);
     setLoading(true);
     const body = new URLSearchParams({ username, password: pwd });
-    fetch('/api/users/auth/login', {
+    fetchWithCsrf('/api/users/auth/login', {
       method: 'POST',
       body,
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -71,14 +65,8 @@ function Login() {
     submitLogin(email, password);
   };
 
-  const handleDevLogin = (account: DevAccount) => {
-    setEmail(account.email);
-    setPassword(account.password);
-    submitLogin(account.email, account.password);
-  };
-
   const handleResendVerification = () => {
-    fetch('/api/users/auth/request-verify-token', {
+    fetchWithCsrf('/api/users/auth/request-verify-token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
@@ -145,27 +133,6 @@ function Login() {
               {loading ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>
-
-          {dev_accounts && dev_accounts.length > 0 && (
-            <div className="mt-6 rounded-md border border-dashed border-amber-300 bg-amber-50 p-3">
-              <p className="mb-2 text-xs font-medium text-amber-900">Dev: log in as seeded user</p>
-              <div className="flex gap-2">
-                {dev_accounts.map((account) => (
-                  <Button
-                    key={account.email}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    disabled={loading}
-                    onClick={() => handleDevLogin(account)}
-                  >
-                    {account.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
 
           {allow_signup && (
             <p className="mt-4 text-center text-sm text-muted-foreground">

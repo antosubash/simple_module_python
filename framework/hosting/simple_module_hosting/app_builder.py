@@ -197,7 +197,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     # ── Phase 6: Initialize database ───────────────────────
-    db_state = init_db(settings.database_url, echo=settings.debug)
+    db_state = init_db(
+        settings.database_url,
+        echo=settings.debug,
+        pool_size=settings.db_pool_size,
+        max_overflow=settings.db_max_overflow,
+        pool_pre_ping=settings.db_pool_pre_ping,
+        pool_recycle=settings.db_pool_recycle,
+    )
     register_listeners(db_state)
     app.state.db = db_state
 
