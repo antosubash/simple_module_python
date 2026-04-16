@@ -25,8 +25,7 @@ interface Props {
 }
 
 function Login() {
-  const { allow_signup, dev_accounts } = usePage<{ props: Props }>()
-    .props as unknown as Props;
+  const { allow_signup, dev_accounts } = usePage<{ props: Props }>().props as unknown as Props;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -153,9 +152,7 @@ function Login() {
 
           {dev_accounts && dev_accounts.length > 0 && (
             <div className="mt-6 border-t pt-4">
-              <p className="mb-2 text-center text-xs text-muted-foreground">
-                Dev quick-login
-              </p>
+              <p className="mb-2 text-center text-xs text-muted-foreground">Dev quick-login</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {dev_accounts.map((acct) => (
                   <Button

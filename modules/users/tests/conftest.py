@@ -12,11 +12,15 @@ carrying a real admin User row (written into the in-memory DB).
 from __future__ import annotations
 
 import os
-import uuid
 from collections.abc import AsyncGenerator
 
 import httpx
 import pytest
+from simple_module_hosting.csrf import SESSION_CSRF_TOKEN_KEY
+from simple_module_hosting.settings import Settings
+from simple_module_testing import forge_session_cookie
+from sqlalchemy.ext.asyncio import AsyncSession
+from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
 
 
 @pytest.fixture(autouse=True)
@@ -37,12 +41,7 @@ def _isolate_users_env(monkeypatch):
     for key in list(os.environ):
         if key.startswith("SM_USERS_"):
             monkeypatch.delenv(key, raising=False)
-from fastapi_users.password import PasswordHelper
-from simple_module_hosting.csrf import SESSION_CSRF_TOKEN_KEY
-from simple_module_hosting.settings import Settings
-from simple_module_testing import forge_session_cookie
-from sqlalchemy.ext.asyncio import AsyncSession
-from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
+
 
 # ---------------------------------------------------------------------------
 # Settings helpers
@@ -242,78 +241,6 @@ async def users_db(users_app) -> AsyncGenerator[AsyncSession, None]:
     """Session against the users_app in-memory DB."""
     async with users_app.state.db.session_factory() as session:
         yield session
-
-
-# ---------------------------------------------------------------------------
-# Password helper
-# ---------------------------------------------------------------------------
-
-_pw_helper = PasswordHelper()
-
-
-def hash_password(plain: str) -> str:
-    return _pw_helper.hash(plain)
-
-
-# ---------------------------------------------------------------------------
-# User creation helpers
-# ---------------------------------------------------------------------------
-
-
-async def create_verified_user(
-    session: AsyncSession,
-    email: str = "user@example.com",
-    password: str = "SecurePass1!",
-    full_name: str | None = "Test User",
-    role_names: list[str] | None = None,
-) -> object:
-    from users.models import Role, User, UserRole
-
-    user = User(
-        id=uuid.uuid4(),
-        email=email,
-        hashed_password=hash_password(password),
-        is_active=True,
-        is_superuser=False,
-        is_verified=True,
-        full_name=full_name,
-    )
-    session.add(user)
-    await session.flush()
-
-    if role_names:
-        from sqlalchemy import select
-
-        roles = (
-            (await session.execute(select(Role).where(Role.name.in_(role_names)))).scalars().all()
-        )
-        for role in roles:
-            session.add(UserRole(user_id=user.id, role_id=role.id))
-
-    await session.commit()
-    await session.refresh(user)
-    return user
-
-
-async def create_unverified_user(
-    session: AsyncSession,
-    email: str = "unverified@example.com",
-    password: str = "SecurePass1!",
-) -> object:
-    from users.models import User
-
-    user = User(
-        id=uuid.uuid4(),
-        email=email,
-        hashed_password=hash_password(password),
-        is_active=True,
-        is_superuser=False,
-        is_verified=False,
-    )
-    session.add(user)
-    await session.commit()
-    await session.refresh(user)
-    return user
 
 
 # Fixtures consumed by the users.middleware unit tests live in
