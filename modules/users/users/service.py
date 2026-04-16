@@ -191,7 +191,7 @@ class UserService:
 
             raise HTTPException(status_code=404, detail="User not found")
 
-        token = self._manager.generate_reset_password_token(user)
+        token = await self._manager.generate_reset_password_token(user)
         return f"{base_url.rstrip('/')}/users/reset-password?token={token}"
 
     async def get_with_roles(self, user_id: uuid.UUID) -> User | None:

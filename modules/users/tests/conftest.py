@@ -11,18 +11,37 @@ carrying a real admin User row (written into the in-memory DB).
 
 from __future__ import annotations
 
-import json
-import uuid
-from base64 import b64encode
+import os
 from collections.abc import AsyncGenerator
 
 import httpx
 import pytest
-from fastapi_users.password import PasswordHelper
-from itsdangerous import TimestampSigner
+from simple_module_hosting.csrf import SESSION_CSRF_TOKEN_KEY
 from simple_module_hosting.settings import Settings
+from simple_module_testing import forge_session_cookie
 from sqlalchemy.ext.asyncio import AsyncSession
 from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
+
+
+@pytest.fixture(autouse=True)
+def _isolate_users_env(monkeypatch):
+    """Insulate every users-module test from the repo's real ``.env``.
+
+    Local development sets ``SM_USERS_BOOTSTRAP_EMAIL`` (and similar) in
+    ``.env`` so the dev login page can offer quick-login buttons. When
+    pytest runs in that checkout, pydantic-settings loads those values and
+    they leak into tests asserting defaults or empty-table behavior. We
+    turn off the dotenv load and scrub any leftover ``SM_USERS_*`` from
+    ``os.environ``; fixtures that need specific values then set them
+    explicitly via ``monkeypatch.setenv``.
+    """
+    from users.settings import UsersSettings
+
+    monkeypatch.setitem(UsersSettings.model_config, "env_file", None)
+    for key in list(os.environ):
+        if key.startswith("SM_USERS_"):
+            monkeypatch.delenv(key, raising=False)
+
 
 # ---------------------------------------------------------------------------
 # Settings helpers
@@ -35,8 +54,9 @@ def _users_env(allow_signup: bool = False) -> dict:
         "SM_USERS_MAILER": "console",
         "SM_USERS_BASE_URL": "http://testserver",
         "SM_USERS_COOKIE_SECURE": "false",
-        "SM_USERS_RESET_PASSWORD_TOKEN_SECRET": "test-reset-secret-32-bytes-xxxx",
-        "SM_USERS_VERIFICATION_TOKEN_SECRET": "test-verify-secret-32-bytes-xxxx",
+        # 32+ bytes to clear pyjwt's InsecureKeyLengthWarning for HMAC-SHA256.
+        "SM_USERS_RESET_PASSWORD_TOKEN_SECRET": "test-reset-secret-32-bytes-xxxxx",
+        "SM_USERS_VERIFICATION_TOKEN_SECRET": "test-verify-secret-32-bytes-xxxxx",
         "SM_USERS_LOGIN_RATE_LIMIT_FAILURES": "5",
         "SM_USERS_LOGIN_RATE_LIMIT_WINDOW_SECONDS": "300",
         "SM_USERS_LOGIN_RATE_LIMIT_COOLDOWN_SECONDS": "900",
@@ -136,19 +156,44 @@ async def users_app_signup(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+_TEST_CSRF_TOKEN = "test-csrf-token"
+
+
 @pytest.fixture
 async def anon_client(users_app) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Unauthenticated client against users_app."""
+    """Unauthenticated client against users_app.
+
+    Pre-seeded with a signed anonymous session that carries a CSRF token and a
+    matching ``X-CSRF-Token`` header, so POST flows (login, accept-invite, etc.)
+    pass validation without first making a GET to mint a token."""
+    cookie = forge_session_cookie(
+        str(users_app.state.settings.secret_key),
+        {SESSION_CSRF_TOKEN_KEY: _TEST_CSRF_TOKEN},
+    )
     transport = httpx.ASGITransport(app=users_app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+        cookies={"session": cookie},
+        headers={"X-CSRF-Token": _TEST_CSRF_TOKEN},
+    ) as c:
         yield c
 
 
 @pytest.fixture
 async def anon_client_signup(users_app_signup) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Unauthenticated client against users_app_signup (signup enabled)."""
+    cookie = forge_session_cookie(
+        str(users_app_signup.state.settings.secret_key),
+        {SESSION_CSRF_TOKEN_KEY: _TEST_CSRF_TOKEN},
+    )
     transport = httpx.ASGITransport(app=users_app_signup)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+        cookies={"session": cookie},
+        headers={"X-CSRF-Token": _TEST_CSRF_TOKEN},
+    ) as c:
         yield c
 
 
@@ -168,26 +213,20 @@ async def _make_admin_user(app):
     return user
 
 
-def _sign_session(session_data: dict, secret_key: str) -> str:
-    """Encode and sign a session dict exactly as Starlette's SessionMiddleware does."""
-    data = b64encode(json.dumps(session_data).encode())
-    signer = TimestampSigner(secret_key)
-    return signer.sign(data).decode("utf-8")
-
-
 @pytest.fixture
 async def admin_client(users_app) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Client with a signed local-user session cookie (admin role)."""
+    """Client with a signed local-user session cookie (admin role) and CSRF token."""
     user = await _make_admin_user(users_app)
-    cookie = _sign_session(
-        {"user_id": str(user.id)},
+    cookie = forge_session_cookie(
         str(users_app.state.settings.secret_key),
+        {"user_id": str(user.id), SESSION_CSRF_TOKEN_KEY: _TEST_CSRF_TOKEN},
     )
     transport = httpx.ASGITransport(app=users_app)
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://testserver",
         cookies={"session": cookie},
+        headers={"X-CSRF-Token": _TEST_CSRF_TOKEN},
     ) as c:
         yield c
 
@@ -202,78 +241,6 @@ async def users_db(users_app) -> AsyncGenerator[AsyncSession, None]:
     """Session against the users_app in-memory DB."""
     async with users_app.state.db.session_factory() as session:
         yield session
-
-
-# ---------------------------------------------------------------------------
-# Password helper
-# ---------------------------------------------------------------------------
-
-_pw_helper = PasswordHelper()
-
-
-def hash_password(plain: str) -> str:
-    return _pw_helper.hash(plain)
-
-
-# ---------------------------------------------------------------------------
-# User creation helpers
-# ---------------------------------------------------------------------------
-
-
-async def create_verified_user(
-    session: AsyncSession,
-    email: str = "user@example.com",
-    password: str = "SecurePass1!",
-    full_name: str | None = "Test User",
-    role_names: list[str] | None = None,
-) -> object:
-    from users.models import Role, User, UserRole
-
-    user = User(
-        id=uuid.uuid4(),
-        email=email,
-        hashed_password=hash_password(password),
-        is_active=True,
-        is_superuser=False,
-        is_verified=True,
-        full_name=full_name,
-    )
-    session.add(user)
-    await session.flush()
-
-    if role_names:
-        from sqlalchemy import select
-
-        roles = (
-            (await session.execute(select(Role).where(Role.name.in_(role_names)))).scalars().all()  # ty:ignore[unresolved-attribute]
-        )
-        for role in roles:
-            session.add(UserRole(user_id=user.id, role_id=role.id))
-
-    await session.commit()
-    await session.refresh(user)
-    return user
-
-
-async def create_unverified_user(
-    session: AsyncSession,
-    email: str = "unverified@example.com",
-    password: str = "SecurePass1!",
-) -> object:
-    from users.models import User
-
-    user = User(
-        id=uuid.uuid4(),
-        email=email,
-        hashed_password=hash_password(password),
-        is_active=True,
-        is_superuser=False,
-        is_verified=False,
-    )
-    session.add(user)
-    await session.commit()
-    await session.refresh(user)
-    return user
 
 
 # Fixtures consumed by the users.middleware unit tests live in

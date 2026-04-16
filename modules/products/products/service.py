@@ -22,9 +22,15 @@ class ProductService:
         per_page: int = 10,
         search: str | None = None,
     ) -> tuple[list[ProductOut], int]:
-        """Return paginated products and total count."""
-        query = select(Product).where(Product.is_active.is_(True))  # ty:ignore[unresolved-attribute]
-        count_query = select(func.count()).select_from(Product).where(Product.is_active.is_(True))  # ty:ignore[unresolved-attribute]
+        """Return paginated products and total count.
+
+        Excludes soft-deleted rows. Without the ``is_deleted`` filter, a
+        product deleted while still flagged ``is_active=True`` would leak into
+        public listings.
+        """
+        base_filter = Product.is_active.is_(True) & Product.is_deleted.is_(False)  # ty:ignore[unresolved-attribute]
+        query = select(Product).where(base_filter)
+        count_query = select(func.count()).select_from(Product).where(base_filter)
 
         if search:
             pattern = f"%{search}%"

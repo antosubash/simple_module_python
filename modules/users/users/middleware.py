@@ -4,6 +4,13 @@ Reads ``session["user_id"]``, loads the User row with eagerly-loaded roles,
 builds a UserContext, and sets ``request.state.user`` + the
 ``current_user_id`` ContextVar consumed by DB audit listeners.
 
+The resolved ``UserContext`` is cached in the signed session cookie under
+``session["user_ctx"]`` so subsequent requests skip the DB lookup. The cache
+is refreshed when the session is cleared (logout / rotation) or when the
+cached payload is missing/invalid. Trade-off: admin-side changes (role
+assignment, disable/enable) do not take effect until the affected user's
+session is recreated (re-login or session expiry); acceptable for this app.
+
 Registered via ``UsersModule.register_middleware``.
 """
 
@@ -24,10 +31,11 @@ from users.models import User
 
 logger = logging.getLogger(__name__)
 
+SESSION_USER_CTX_KEY = "user_ctx"
+
 # Paths that don't require authentication.
 PUBLIC_PATHS = (
     "/users/login",
-    "/users/logout",
     "/users/register",
     "/users/forgot-password",
     "/users/reset-password",
@@ -48,9 +56,9 @@ EXACT_PUBLIC_PATHS = ("/",)
 class AuthMiddleware:
     """Redirect unauthenticated users to /users/login.
 
-    Loads the authenticated user from DB on every request. Sets
-    ``request.state.user`` and the ``current_user_id`` ContextVar so audit
-    listeners stamp created_by / updated_by correctly.
+    On cache hit (``session["user_ctx"]`` present), skips the DB entirely.
+    On cache miss, loads the user with roles, validates active/enabled, and
+    writes the resolved context back to the session.
     """
 
     def __init__(self, app: ASGIApp) -> None:
@@ -69,16 +77,25 @@ class AuthMiddleware:
 
         user_ctx: UserContext | None = None
         if raw_user_id:
-            try:
-                user_uuid = uuid.UUID(raw_user_id)
-            except (ValueError, TypeError):
-                logger.warning("Invalid user_id in session: %r", raw_user_id)
-                session.pop("user_id", None)
-            else:
-                user_ctx = await self._load_user(scope, user_uuid)
-                if user_ctx is None:
-                    # User was deleted / disabled since session creation.
+            user_id_str = str(raw_user_id)
+            # Fast path — rebuild from the signed session cookie.
+            user_ctx = UserContext.from_session_dict(session.get(SESSION_USER_CTX_KEY))
+            if user_ctx is None or user_ctx.id != user_id_str:
+                try:
+                    user_uuid = uuid.UUID(user_id_str)
+                except (ValueError, TypeError):
+                    logger.warning("Invalid user_id in session: %r", raw_user_id)
                     session.pop("user_id", None)
+                    session.pop(SESSION_USER_CTX_KEY, None)
+                    user_ctx = None
+                else:
+                    user_ctx = await self._load_user(scope, user_uuid)
+                    if user_ctx is None:
+                        # User was deleted / disabled since session creation.
+                        session.pop("user_id", None)
+                        session.pop(SESSION_USER_CTX_KEY, None)
+                    else:
+                        session[SESSION_USER_CTX_KEY] = user_ctx.to_session_dict()
 
         if user_ctx is None and not is_public:
             request = Request(scope)

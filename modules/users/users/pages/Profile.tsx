@@ -6,6 +6,7 @@ import { Card, CardContent } from '@simple-module/ui/components/ui/card';
 import { Input } from '@simple-module/ui/components/ui/input';
 import { Label } from '@simple-module/ui/components/ui/label';
 import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
+import { fetchWithCsrf } from '@simple-module/ui/lib/csrf';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -33,7 +34,7 @@ function Profile() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    fetch('/api/users/me', {
+    fetchWithCsrf('/api/users/me', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ full_name: fullName }),

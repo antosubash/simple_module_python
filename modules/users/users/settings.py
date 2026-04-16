@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
-from pydantic import Field
+import os
+
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from simple_module_core.environments import NON_PROD_ENVIRONMENTS
+
+_PLACEHOLDER_RESET_SECRET = "dev-reset-token-secret-change-me"
+_PLACEHOLDER_VERIFY_SECRET = "dev-verify-token-secret-change-me"
 
 
 class UsersSettings(BaseSettings):
@@ -38,10 +44,15 @@ class UsersSettings(BaseSettings):
     smtp_from: str = "no-reply@localhost"
     smtp_tls: bool = True
 
-    # Rate limit (login)
+    # Rate limit (login — failure-based lockout)
     login_rate_limit_failures: int = 5
     login_rate_limit_window_seconds: int = 300
     login_rate_limit_cooldown_seconds: int = 900
+
+    # Rate limit (auth side-effects: forgot-password, register, accept-invite,
+    # request-verify-token). Counts every attempt per IP per window.
+    auth_rate_limit_attempts: int = 10
+    auth_rate_limit_window_seconds: int = 300
 
     # Bootstrap (env-var auto-create users on first boot)
     bootstrap_email: str = ""
@@ -50,3 +61,29 @@ class UsersSettings(BaseSettings):
     # testing non-admin flows without logging out/in repeatedly.
     bootstrap_user_email: str = ""
     bootstrap_user_password: str = ""
+
+    @model_validator(mode="after")
+    def _forbid_placeholder_token_secrets_in_production(self) -> UsersSettings:
+        """Fail boot if the reset/verify token secrets are still placeholders.
+
+        Both are HMAC keys for fastapi-users JWTs. A well-known default lets
+        an attacker mint password-reset or email-verification tokens for any
+        user. The environment is read from ``SM_ENVIRONMENT`` (host setting)
+        so this check has no runtime coupling to the hosting package.
+        """
+        env = os.environ.get("SM_ENVIRONMENT", "development")
+        if env in NON_PROD_ENVIRONMENTS:
+            return self
+        bad = []
+        if self.reset_password_token_secret == _PLACEHOLDER_RESET_SECRET:
+            bad.append("SM_USERS_RESET_PASSWORD_TOKEN_SECRET")
+        if self.verification_token_secret == _PLACEHOLDER_VERIFY_SECRET:
+            bad.append("SM_USERS_VERIFICATION_TOKEN_SECRET")
+        if bad:
+            names = ", ".join(bad)
+            raise ValueError(
+                f"{names} must be set to non-default value(s) when "
+                f"SM_ENVIRONMENT={env!r}. Generate with "
+                "`python -c 'import secrets; print(secrets.token_urlsafe(48))'`."
+            )
+        return self

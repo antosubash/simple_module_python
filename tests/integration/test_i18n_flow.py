@@ -49,9 +49,26 @@ async def app_with_host_routes(app):  # type: ignore[no-untyped-def]
 
 @pytest.fixture
 async def host_client(app_with_host_routes) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Unauthenticated client against the host-routes-enabled app."""
+    """Unauthenticated client against the host-routes-enabled app.
+
+    Pre-seeded with a signed anonymous session carrying a CSRF token so
+    POST flows (e.g. /i18n/set-locale) clear CSRFMiddleware.
+    """
+    from simple_module_hosting.csrf import SESSION_CSRF_TOKEN_KEY
+    from simple_module_testing import forge_session_cookie
+
+    csrf = "test-csrf-token"
+    signed = forge_session_cookie(
+        str(app_with_host_routes.state.settings.secret_key),
+        {SESSION_CSRF_TOKEN_KEY: csrf},
+    )
     transport = httpx.ASGITransport(app=app_with_host_routes)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+        cookies={"session": signed},
+        headers={"X-CSRF-Token": csrf},
+    ) as c:
         yield c
 
 
@@ -76,7 +93,9 @@ async def test_switcher_sets_cookie_and_subsequent_requests_use_new_locale(
     # Landing page is a non-Inertia request; we can't assert content easily
     # without building an Inertia response — instead, probe the registry
     # state through a follow-up request and assert the cookie "sticks".
-    resp = await host_client.get("/", cookies={"locale": "es"})
+    # httpx persists the set-cookie from the switcher call on this client,
+    # so no explicit cookie argument is needed.
+    resp = await host_client.get("/")
     assert resp.status_code == 200
 
 
@@ -85,11 +104,12 @@ async def test_inertia_shared_props_include_active_locale_messages(
     authenticated_client: httpx.AsyncClient,
 ) -> None:
     """An Inertia request honors the locale cookie in shared props."""
-    # Hit an Inertia view endpoint (dashboard) with the es cookie.
+    # Set the locale cookie on the client jar (per-request cookies= is
+    # deprecated in httpx because persistence semantics are ambiguous).
+    authenticated_client.cookies.set("locale", "es")
     resp = await authenticated_client.get(
         "/dashboard/",
         headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
-        cookies={"locale": "es"},
     )
     assert resp.status_code == 200
     body = resp.json()

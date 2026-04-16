@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Literal
+
+MenuItemMethod = Literal["get", "post"]
 
 
 class MenuSection(StrEnum):
@@ -27,6 +30,9 @@ class MenuItem:
     requires_auth: bool = True
     roles: list[str] = field(default_factory=list)
     """Empty list = visible to all authenticated users."""
+    method: MenuItemMethod = "get"
+    """HTTP method used when the item is activated. ``"post"`` renders as an
+    Inertia form submission so the target endpoint can be POST-only (e.g. logout)."""
 
 
 class MenuRegistry:
@@ -34,16 +40,24 @@ class MenuRegistry:
 
     def __init__(self) -> None:
         self._items: list[MenuItem] = []
+        self._sorted: list[MenuItem] | None = None
+
+    def _invalidate(self) -> None:
+        self._sorted = None
 
     def add(self, item: MenuItem) -> None:
         self._items.append(item)
+        self._invalidate()
 
     def add_many(self, items: list[MenuItem]) -> None:
         self._items.extend(items)
+        self._invalidate()
 
     @property
     def all_items(self) -> list[MenuItem]:
-        return sorted(self._items, key=lambda i: i.order)
+        if self._sorted is None:
+            self._sorted = sorted(self._items, key=lambda i: i.order)
+        return self._sorted
 
     def get_for_user(
         self,
@@ -68,6 +82,7 @@ class MenuRegistry:
                     "label": item.label,
                     "url": item.url,
                     "icon": item.icon,
+                    "method": item.method,
                 }
             )
 

@@ -33,8 +33,8 @@ def _build_app() -> FastAPI:
 
 
 def test_translator_dep_uses_request_locale() -> None:
-    client = TestClient(_build_app())
-    resp = client.get("/hi?name=Ana", cookies={"locale": "es"})
+    client = TestClient(_build_app(), cookies={"locale": "es"})
+    resp = client.get("/hi?name=Ana")
     assert resp.json() == {"greeting": "Hola, Ana", "locale": "es"}
 
 

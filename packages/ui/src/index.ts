@@ -7,4 +7,5 @@ export { AppLayout } from './layouts/AppLayout';
 export { AuthenticatedLayout } from './layouts/AuthenticatedLayout';
 export { PublicLayout } from './layouts/PublicLayout';
 export { SidebarLayout } from './layouts/SidebarLayout';
+export { fetchWithCsrf, getCsrfToken, setCsrfToken } from './lib/csrf';
 export type { MenuItem, SharedProps } from './types';

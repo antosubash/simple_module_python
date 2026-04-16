@@ -6,6 +6,7 @@ import { Checkbox } from '@simple-module/ui/components/ui/checkbox';
 import { Input } from '@simple-module/ui/components/ui/input';
 import { Label } from '@simple-module/ui/components/ui/label';
 import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
+import { fetchWithCsrf } from '@simple-module/ui/lib/csrf';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -37,7 +38,7 @@ function Invite() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    fetch('/api/users/admin/invite', {
+    fetchWithCsrf('/api/users/admin/invite', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, full_name: fullName || null, role_names: selectedRoles }),

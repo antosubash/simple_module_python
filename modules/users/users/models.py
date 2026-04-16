@@ -12,7 +12,7 @@ from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyAccessTokenDataba
 from fastapi_users_db_sqlalchemy.generics import GUID, TIMESTAMPAware, now_utc
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin
-from sqlalchemy import DateTime
+from sqlalchemy import DateTime, Index, text
 from sqlmodel import Field, Relationship
 
 Base = create_module_base("users")
@@ -40,6 +40,11 @@ class UserRole(Base, table=True):  # ty: ignore[unsupported-base]
         sa_type=DateTime(timezone=True),  # ty:ignore[invalid-argument-type]
     )
     assigned_by: str | None = Field(default=None, max_length=255)
+
+    # The composite PK covers ``user_id``-first lookups; add a standalone
+    # index on ``role_id`` for reverse lookups — PostgreSQL does not
+    # auto-index FKs.
+    __table_args__ = (Index("ix_users_user_role_role_id", "role_id"),)
 
 
 class User(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
@@ -75,6 +80,10 @@ class User(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
         back_populates="users",
         sa_relationship_kwargs={"lazy": "noload"},
     )
+
+    # Functional index so the ``lower(email)`` predicate used by
+    # ``UserDatabaseWithRoles.get_by_email`` can be served from an index.
+    __table_args__ = (Index("ix_users_user_email_lower", text("lower(email)")),)
 
 
 class Role(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
@@ -115,6 +124,7 @@ class UserAccessToken(Base, table=True):  # ty: ignore[unsupported-base]
         sa_type=GUID,
         foreign_key="users_user.id",
         ondelete="CASCADE",
+        index=True,  # PostgreSQL does not auto-index FKs
     )
 
 

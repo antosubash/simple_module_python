@@ -12,22 +12,17 @@ The root ``conftest.py`` already exposes ``app``, ``client`` and
 
 from __future__ import annotations
 
-import json
 import uuid as _uuid
-from base64 import b64encode
 from collections.abc import AsyncGenerator
 
 import httpx
 import pytest
 from fastapi_users.password import PasswordHelper
-from itsdangerous import TimestampSigner
+from simple_module_hosting.csrf import SESSION_CSRF_TOKEN_KEY
+from simple_module_testing import forge_session_cookie
 from sqlalchemy import select
 
-
-def _sign_session(session_data: dict, secret: str) -> str:
-    """Build a signed ``session`` cookie value matching SessionMiddleware."""
-    data = b64encode(json.dumps(session_data).encode())
-    return TimestampSigner(secret).sign(data).decode("utf-8")
+_TEST_CSRF_TOKEN = "test-csrf-token"
 
 
 async def _seed_user_with_roles(app, email: str, role_names: list[str]):
@@ -82,12 +77,16 @@ async def _seed_user_with_roles(app, email: str, role_names: list[str]):
 def _make_client(
     app, user_id: str, *, extra_headers: dict[str, str] | None = None
 ) -> httpx.AsyncClient:
-    cookie = _sign_session({"user_id": user_id}, str(app.state.settings.secret_key))
+    cookie = forge_session_cookie(
+        str(app.state.settings.secret_key),
+        {"user_id": user_id, SESSION_CSRF_TOKEN_KEY: _TEST_CSRF_TOKEN},
+    )
+    headers = {"X-CSRF-Token": _TEST_CSRF_TOKEN, **(extra_headers or {})}
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://testserver",
         cookies={"session": cookie},
-        headers=extra_headers or {},
+        headers=headers,
     )
 
 
