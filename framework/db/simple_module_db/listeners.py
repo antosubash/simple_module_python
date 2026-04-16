@@ -75,8 +75,7 @@ def register_listeners(db_state: DatabaseState) -> None:
 
     event.listen(db_state.sync_session_class, "before_flush", _before_flush_listener)
     event.listen(db_state.sync_session_class, "after_flush", _mark_session_written)
-    event.listen(db_state.sync_session_class, "do_orm_execute", _soft_delete_filter)
-    event.listen(db_state.sync_session_class, "do_orm_execute", _add_tenant_filter)
+    event.listen(db_state.sync_session_class, "do_orm_execute", _filter_select_statements)
     db_state._listeners_registered = True
     logger.info("Registered SQLAlchemy entity listeners")
 
@@ -175,50 +174,45 @@ def _before_flush_listener(
             )
 
 
-def _soft_delete_filter(execute_state: ORMExecuteState) -> None:
-    """Automatically exclude soft-deleted rows from SELECT queries.
+# Cache ``(is_soft_delete, is_multi_tenant)`` flags per mapper class so the
+# ``do_orm_execute`` hot path skips redundant ``issubclass`` work on every query.
+_mixin_flags_cache: dict[type, tuple[bool, bool]] = {}
 
-    Adds ``WHERE is_deleted = FALSE`` for every entity in the query that
-    inherits from :class:`SoftDeleteMixin`. The criteria is attached per
-    concrete mapper rather than via the mixin class because SQLModel
-    mixins expose Pydantic ``FieldInfo`` (not SQLAlchemy
-    ``InstrumentedAttribute``) at the mixin-class level, which breaks
-    the lambda form of ``with_loader_criteria``.
 
-    To bypass the filter (e.g. admin views), use::
+def _filter_select_statements(execute_state: ORMExecuteState) -> None:
+    """Attach per-mapper ``with_loader_criteria`` for soft-delete and tenant isolation.
 
-        session.execute(stmt.execution_options(include_deleted=True))
+    The criteria are attached per concrete mapper because SQLModel mixins
+    expose Pydantic ``FieldInfo`` (not SQLAlchemy ``InstrumentedAttribute``)
+    at the mixin-class level, which breaks the lambda form of
+    ``with_loader_criteria`` that was used before the SQLModel migration.
+
+    Soft-delete bypass: ``stmt.execution_options(include_deleted=True)``.
     """
     if not execute_state.is_select:
         return
-    if execute_state.execution_options.get("include_deleted", False):
+
+    skip_soft_delete = execute_state.execution_options.get("include_deleted", False)
+    tenant_id = current_tenant_id.get()
+    if skip_soft_delete and tenant_id is None:
         return
 
+    options = []
     for mapper in execute_state.all_mappers:
         cls = mapper.class_
-        if issubclass(cls, SoftDeleteMixin):
-            execute_state.statement = execute_state.statement.options(
+        flags = _mixin_flags_cache.get(cls)
+        if flags is None:
+            flags = (issubclass(cls, SoftDeleteMixin), issubclass(cls, MultiTenantMixin))
+            _mixin_flags_cache[cls] = flags
+        is_soft_delete, is_multi_tenant = flags
+        if is_soft_delete and not skip_soft_delete:
+            options.append(
                 with_loader_criteria(cls, cls.is_deleted.is_(False), include_aliases=True)
             )
-
-
-def _add_tenant_filter(execute_state: ORMExecuteState) -> None:
-    """Automatically filter SELECT queries on multi-tenant models by current tenant.
-
-    Applies per concrete mapper for the same reason as
-    :func:`_soft_delete_filter`. The filter covers ``session.execute()``,
-    ``session.get()``, and relationship lazy-loading.
-    """
-    if not execute_state.is_select:
-        return
-
-    tenant_id = current_tenant_id.get()
-    if tenant_id is None:
-        return
-
-    for mapper in execute_state.all_mappers:
-        cls = mapper.class_
-        if issubclass(cls, MultiTenantMixin):
-            execute_state.statement = execute_state.statement.options(
+        if is_multi_tenant and tenant_id is not None:
+            options.append(
                 with_loader_criteria(cls, cls.tenant_id == tenant_id, include_aliases=True)
             )
+
+    if options:
+        execute_state.statement = execute_state.statement.options(*options)

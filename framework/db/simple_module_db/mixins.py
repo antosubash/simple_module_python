@@ -1,10 +1,5 @@
 """Entity mixins for cross-cutting concerns (audit, soft delete, tenancy, versioning).
 
-Mixins are SQLModel subclasses: concrete ``table=True`` models multi-inherit
-from them, and SQLModel's metaclass registers each mixin's fields as columns
-on the concrete table. ``isinstance(obj, AuditMixin)`` still drives the event
-listeners in :mod:`simple_module_db.listeners`.
-
 We use ``sa_type`` + ``sa_column_kwargs`` (not ``sa_column=Column(...)``) so
 SQLModel constructs a fresh ``Column`` per concrete subclass; sharing a single
 ``Column`` across mixin subclasses raises
@@ -29,13 +24,11 @@ class AuditMixin(SQLModel):
     created_at: datetime = Field(
         sa_type=DateTime(timezone=True),  # ty:ignore[invalid-argument-type]
         sa_column_kwargs={"server_default": func.now()},
-        nullable=False,
     )
     updated_at: datetime | None = Field(
         default=None,
         sa_type=DateTime(timezone=True),  # ty:ignore[invalid-argument-type]
         sa_column_kwargs={"onupdate": func.now()},
-        nullable=True,
     )
     created_by: str | None = Field(default=None, max_length=255)
     updated_by: str | None = Field(default=None, max_length=255)
@@ -53,7 +46,6 @@ class SoftDeleteMixin(SQLModel):
     deleted_at: datetime | None = Field(
         default=None,
         sa_type=DateTime(timezone=True),  # ty:ignore[invalid-argument-type]
-        nullable=True,
     )
     deleted_by: str | None = Field(default=None, max_length=255)
 

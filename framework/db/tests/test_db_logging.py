@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+from decimal import Decimal
 from unittest.mock import MagicMock
 
 from _models import _TenantBase, _TenantItem
@@ -89,7 +90,7 @@ class TestEntityListenerLogging:
         from products.models import Product
 
         with caplog.at_level(logging.INFO, logger="simple_module.db"):
-            product = Product(name="Widget", price=9.99)  # ty:ignore[invalid-argument-type]
+            product = Product(name="Widget", price=Decimal("9.99"))
             db_session.add(product)
             await db_session.flush()
 
@@ -106,7 +107,7 @@ class TestEntityListenerLogging:
         """Modifying an entity should log db.entity.updated."""
         from products.models import Product
 
-        product = Product(name="Widget", price=9.99)  # ty:ignore[invalid-argument-type]
+        product = Product(name="Widget", price=Decimal("9.99"))
         db_session.add(product)
         await db_session.flush()
 

@@ -1,38 +1,16 @@
-"""Public request/response schemas for the users module.
-
-All DTOs are non-table SQLModel classes (SQLModel is the standard across the
-project for every model, table or not). The user Read/Create/Update variants
-re-implement the field surface fastapi-users expects on its router schemas
-(via :class:`fastapi_users.schemas.BaseUser` et al.) plus the
-``create_update_dict`` / ``create_update_dict_superuser`` methods its
-user-manager calls at runtime.
-"""
+"""Public request/response schemas for the users module."""
 
 from __future__ import annotations
 
 import uuid
 from datetime import datetime
 
+from fastapi_users.schemas import CreateUpdateDictModel
 from pydantic import ConfigDict, EmailStr
 from sqlmodel import SQLModel
 
 
-class _CreateUpdateDictSQLModel(SQLModel):
-    """SQLModel mixin providing fastapi-users' ``create_update_dict`` helpers."""
-
-    def create_update_dict(self) -> dict:
-        return self.model_dump(
-            exclude_unset=True,
-            exclude={"id", "is_superuser", "is_active", "is_verified", "oauth_accounts"},
-        )
-
-    def create_update_dict_superuser(self) -> dict:
-        return self.model_dump(exclude_unset=True, exclude={"id"})
-
-
-class UserRead(_CreateUpdateDictSQLModel):
-    """User fields returned by fastapi-users' user router."""
-
+class UserRead(CreateUpdateDictModel, SQLModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
@@ -46,9 +24,7 @@ class UserRead(_CreateUpdateDictSQLModel):
     last_login_at: datetime | None = None
 
 
-class UserCreate(_CreateUpdateDictSQLModel):
-    """Fields accepted by fastapi-users' ``/register`` endpoint."""
-
+class UserCreate(CreateUpdateDictModel, SQLModel):
     email: EmailStr
     password: str
     is_active: bool | None = True
@@ -57,9 +33,7 @@ class UserCreate(_CreateUpdateDictSQLModel):
     full_name: str | None = None
 
 
-class UserUpdate(_CreateUpdateDictSQLModel):
-    """Fields accepted by fastapi-users' self-update and admin-update endpoints."""
-
+class UserUpdate(CreateUpdateDictModel, SQLModel):
     password: str | None = None
     email: EmailStr | None = None
     is_active: bool | None = None
