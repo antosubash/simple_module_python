@@ -62,6 +62,7 @@ class UsersModule(ModuleBase):
                 icon="log-out",
                 order=999,
                 section=MenuSection.USER_DROPDOWN,
+                method="post",
             )
         )
 
@@ -82,11 +83,14 @@ class UsersModule(ModuleBase):
 
     async def on_startup(self, app: FastAPI) -> None:
         """Build the mailer, rate limiter, and apply production cookie params."""
+        import asyncio
+
         from users.backend import reconfigure_cookie_transport
         from users.bootstrap import bootstrap_admin_from_env
         from users.deps import auth_backend
         from users.mailer import build_mailer
-        from users.rate_limit import LoginRateLimiter
+        from users.rate_limit import LoginRateLimiter, ThroughputLimiter
+        from users.roles_cache import refresh_roles_cache
 
         s = app.state.users_settings
         app.state.mailer = build_mailer(s)
@@ -95,8 +99,16 @@ class UsersModule(ModuleBase):
             window_seconds=s.login_rate_limit_window_seconds,
             cooldown_seconds=s.login_rate_limit_cooldown_seconds,
         )
+        app.state.auth_throughput_limiter = ThroughputLimiter(
+            max_attempts=s.auth_rate_limit_attempts,
+            window_seconds=s.auth_rate_limit_window_seconds,
+        )
         reconfigure_cookie_transport(auth_backend, s)
 
-        # Auto-create admin iff users table empty and both env vars set.
-        # Runs LAST so the mailer + cookie state are already built.
-        await bootstrap_admin_from_env(app)
+        # Bootstrap + roles-cache hit different tables and have no data
+        # dependency on each other — run them concurrently to shave a DB
+        # round-trip off startup.
+        await asyncio.gather(
+            bootstrap_admin_from_env(app),
+            refresh_roles_cache(app),
+        )

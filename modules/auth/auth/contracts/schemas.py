@@ -37,6 +37,37 @@ class UserContext:
             tenant_id=user.tenant_id,
         )
 
+    def to_session_dict(self) -> dict[str, Any]:
+        """Serialize to a JSON-safe dict for the signed session cookie.
+
+        The inverse of :meth:`from_session_dict`. Adding a new field to
+        ``UserContext`` requires updating both methods here — not the
+        AuthMiddleware cache helper, which stays schema-agnostic."""
+        return {
+            "id": self.id,
+            "email": self.email,
+            "name": self.name,
+            "roles": list(self.roles),
+            "tenant_id": self.tenant_id,
+        }
+
+    @classmethod
+    def from_session_dict(cls, payload: Any) -> UserContext | None:
+        """Rebuild from :meth:`to_session_dict` output. Returns ``None`` on any
+        shape mismatch so callers can fall through to a fresh DB load."""
+        if not isinstance(payload, dict):
+            return None
+        try:
+            return cls(
+                id=str(payload["id"]),
+                email=str(payload["email"]),
+                name=str(payload["name"]),
+                roles=list(payload.get("roles") or []),
+                tenant_id=payload.get("tenant_id"),
+            )
+        except (KeyError, TypeError, ValueError):
+            return None
+
     def has_role(self, role: str) -> bool:
         return role in self.roles
 

@@ -32,6 +32,20 @@ class TestSessionManagement:
             await db1.engine.dispose()
             await db2.engine.dispose()
 
+    async def test_sqlite_ignores_pool_kwargs(self):
+        """SQLite must not receive pool_size/max_overflow — they would raise TypeError."""
+        db_state = init_db(
+            "sqlite+aiosqlite:///:memory:",
+            pool_size=50,
+            max_overflow=100,
+            pool_pre_ping=True,
+            pool_recycle=60,
+        )
+        try:
+            assert db_state.engine is not None
+        finally:
+            await db_state.engine.dispose()
+
 
 class TestGetDbDependency:
     async def test_get_db_yields_session(self):

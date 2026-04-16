@@ -11,16 +11,15 @@ carrying a real admin User row (written into the in-memory DB).
 
 from __future__ import annotations
 
-import json
 import uuid
-from base64 import b64encode
 from collections.abc import AsyncGenerator
 
 import httpx
 import pytest
 from fastapi_users.password import PasswordHelper
-from itsdangerous import TimestampSigner
+from simple_module_hosting.csrf import SESSION_CSRF_TOKEN_KEY
 from simple_module_hosting.settings import Settings
+from simple_module_testing import forge_session_cookie
 from sqlalchemy.ext.asyncio import AsyncSession
 from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
 
@@ -136,19 +135,44 @@ async def users_app_signup(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+_TEST_CSRF_TOKEN = "test-csrf-token"
+
+
 @pytest.fixture
 async def anon_client(users_app) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Unauthenticated client against users_app."""
+    """Unauthenticated client against users_app.
+
+    Pre-seeded with a signed anonymous session that carries a CSRF token and a
+    matching ``X-CSRF-Token`` header, so POST flows (login, accept-invite, etc.)
+    pass validation without first making a GET to mint a token."""
+    cookie = forge_session_cookie(
+        str(users_app.state.settings.secret_key),
+        {SESSION_CSRF_TOKEN_KEY: _TEST_CSRF_TOKEN},
+    )
     transport = httpx.ASGITransport(app=users_app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+        cookies={"session": cookie},
+        headers={"X-CSRF-Token": _TEST_CSRF_TOKEN},
+    ) as c:
         yield c
 
 
 @pytest.fixture
 async def anon_client_signup(users_app_signup) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Unauthenticated client against users_app_signup (signup enabled)."""
+    cookie = forge_session_cookie(
+        str(users_app_signup.state.settings.secret_key),
+        {SESSION_CSRF_TOKEN_KEY: _TEST_CSRF_TOKEN},
+    )
     transport = httpx.ASGITransport(app=users_app_signup)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+        cookies={"session": cookie},
+        headers={"X-CSRF-Token": _TEST_CSRF_TOKEN},
+    ) as c:
         yield c
 
 
@@ -168,26 +192,20 @@ async def _make_admin_user(app):
     return user
 
 
-def _sign_session(session_data: dict, secret_key: str) -> str:
-    """Encode and sign a session dict exactly as Starlette's SessionMiddleware does."""
-    data = b64encode(json.dumps(session_data).encode())
-    signer = TimestampSigner(secret_key)
-    return signer.sign(data).decode("utf-8")
-
-
 @pytest.fixture
 async def admin_client(users_app) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Client with a signed local-user session cookie (admin role)."""
+    """Client with a signed local-user session cookie (admin role) and CSRF token."""
     user = await _make_admin_user(users_app)
-    cookie = _sign_session(
-        {"user_id": str(user.id)},
+    cookie = forge_session_cookie(
         str(users_app.state.settings.secret_key),
+        {"user_id": str(user.id), SESSION_CSRF_TOKEN_KEY: _TEST_CSRF_TOKEN},
     )
     transport = httpx.ASGITransport(app=users_app)
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://testserver",
         cookies={"session": cookie},
+        headers={"X-CSRF-Token": _TEST_CSRF_TOKEN},
     ) as c:
         yield c
 

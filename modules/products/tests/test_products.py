@@ -21,11 +21,23 @@ def _has_index_on(model, column_name: str) -> bool:
 
 
 class TestProductModelIndexes:
-    def test_is_active_is_indexed(self):
+    def test_is_deleted_is_indexed(self):
         from products.models import Product
 
-        assert _has_index_on(Product, "is_active"), (
-            "Product.is_active must be indexed (used by dashboard product count query)"
+        assert _has_index_on(Product, "is_deleted"), (
+            "Product.is_deleted must be indexed — it's the primary filter on the "
+            "public listing query and the planner can use the index to skip "
+            "tombstoned rows cheaply."
+        )
+
+    def test_is_active_is_not_indexed(self):
+        """``is_active`` is intentionally un-indexed — a plain B-tree over a
+        2-value boolean is rarely preferred by the planner and wastes writes."""
+        from products.models import Product
+
+        assert not _has_index_on(Product, "is_active"), (
+            "Product.is_active should not be indexed — drop the index if you "
+            "reintroduce it by mistake."
         )
 
 

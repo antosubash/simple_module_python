@@ -16,7 +16,7 @@ from fastapi_users_db_sqlalchemy.access_token import (
 from fastapi_users_db_sqlalchemy.generics import GUID
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import DateTime, ForeignKey, Index, String, func, text
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
 Base = create_module_base("users")
@@ -42,6 +42,10 @@ class User(SQLAlchemyBaseUserTableUUID, Base, AuditMixin):  # ty: ignore[unsuppo
         lazy="noload",
         back_populates="users",
     )
+
+    # Functional index so the ``lower(email)`` predicate used by
+    # ``UserDatabaseWithRoles.get_by_email`` can be served from an index.
+    __table_args__ = (Index("ix_users_user_email_lower", text("lower(email)")),)
 
 
 class Role(Base, AuditMixin):  # ty: ignore[unsupported-base]
@@ -80,6 +84,11 @@ class UserRole(Base):  # ty: ignore[unsupported-base]
     )
     assigned_by: Mapped[str | None] = mapped_column(String(255), default=None)
 
+    # The composite PK covers ``user_id``-first lookups; add a standalone
+    # index on ``role_id`` for reverse lookups — PostgreSQL does not
+    # auto-index FKs.
+    __table_args__ = (Index("ix_users_user_role_role_id", "role_id"),)
+
 
 class UserAccessToken(SQLAlchemyBaseAccessTokenTable[uuid.UUID], Base):  # ty: ignore[unsupported-base]
     """fastapi-users DatabaseStrategy-backed access tokens."""
@@ -99,6 +108,7 @@ class UserAccessToken(SQLAlchemyBaseAccessTokenTable[uuid.UUID], Base):  # ty: i
             GUID,
             ForeignKey("users_user.id", ondelete="CASCADE"),
             nullable=False,
+            index=True,  # PostgreSQL does not auto-index FKs
         )
 
 

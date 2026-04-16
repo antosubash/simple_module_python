@@ -40,7 +40,7 @@ from users.deps import (
     get_user_service,
 )
 from users.manager import UserManager
-from users.rate_limit import LoginRateLimiter
+from users.rate_limit import LoginRateLimiter, ThroughputLimiter
 from users.service import UserService
 
 logger = logging.getLogger(__name__)
@@ -53,6 +53,26 @@ router = APIRouter()
 def get_rate_limiter(request: Request) -> LoginRateLimiter:
     """Return the per-app LoginRateLimiter built in UsersModule.on_startup."""
     return request.app.state.rate_limiter
+
+
+def _client_ip(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
+async def enforce_auth_throughput_limit(request: Request) -> None:
+    """FastAPI dependency that rejects the request with 429 when this IP has
+    exhausted its attempts budget on shared auth side-effect endpoints.
+
+    Applied to forgot-password / register / accept-invite / request-verify-token,
+    which otherwise allow unlimited email or account-creation spam.
+    """
+    limiter: ThroughputLimiter = request.app.state.auth_throughput_limiter
+    key = f"{request.url.path}::{_client_ip(request)}"
+    if not limiter.check_and_record(key):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many attempts — try again later",
+        )
 
 
 # ── Wrapper login ────────────────────────────────────────────────────────────
@@ -105,30 +125,45 @@ router.include_router(auth_inner, prefix="/auth-inner")
 
 
 def register_auth_routes(api_router: APIRouter, settings) -> None:
-    """Mount all auth routes, conditionally adding register if allowed."""
+    """Mount all auth routes, conditionally adding register if allowed.
+
+    The stock fastapi-users routers (reset/verify/register) ship POST endpoints
+    that trigger email side-effects or account creation. We wrap them with the
+    throughput limiter so an attacker can't spam password-reset emails or mint
+    accounts indefinitely. ``router`` itself is left unwrapped because its
+    rate-limited endpoints apply the dep themselves (login via LoginRateLimiter,
+    accept-invite via ``enforce_auth_throughput_limit``).
+    """
     api_router.include_router(router)
     api_router.include_router(
         fastapi_users.get_reset_password_router(),
         prefix="/auth",
         tags=["users-auth"],
+        dependencies=[Depends(enforce_auth_throughput_limit)],
     )
     api_router.include_router(
         fastapi_users.get_verify_router(UserRead),
         prefix="/auth",
         tags=["users-auth"],
+        dependencies=[Depends(enforce_auth_throughput_limit)],
     )
     if settings.allow_signup:
         api_router.include_router(
             fastapi_users.get_register_router(UserRead, UserCreate),
             prefix="/auth",
             tags=["users-auth"],
+            dependencies=[Depends(enforce_auth_throughput_limit)],
         )
 
 
 # ── Accept-invite (verify + set password + login, one shot) ─────────────────
 
 
-@router.post("/auth/accept-invite", status_code=204)
+@router.post(
+    "/auth/accept-invite",
+    status_code=204,
+    dependencies=[Depends(enforce_auth_throughput_limit)],
+)
 async def accept_invite(
     body: AcceptInviteRequest,
     request: Request,

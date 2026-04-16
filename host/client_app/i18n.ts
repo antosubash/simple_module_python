@@ -13,7 +13,9 @@ import { configureI18n, updateI18n } from '@simple-module/i18n';
 interface I18nSharedProps {
   locale: string;
   supportedLocales: string[];
-  messages: Record<string, string>;
+  // ``null`` on Inertia XHR visits where the backend skipped the messages
+  // payload because the client already has them from the initial page load.
+  messages: Record<string, string> | null;
 }
 
 export function bootI18nFromInitialPage(props: PageProps): void {
@@ -22,7 +24,8 @@ export function bootI18nFromInitialPage(props: PageProps): void {
     configureI18n({ locale: 'en', messages: {} });
     return;
   }
-  configureI18n({ locale: i18n.locale, messages: i18n.messages });
+  configureI18n({ locale: i18n.locale, messages: i18n.messages ?? {} });
+  activeLocale = i18n.locale;
 }
 
 let activeLocale: string | null = null;
@@ -31,7 +34,7 @@ export function subscribeI18nToNavigation(): () => void {
   return router.on('success', (event) => {
     const i18n = (event.detail.page.props as unknown as { i18n?: I18nSharedProps }).i18n;
     if (!i18n) return;
-    if (i18n.locale !== activeLocale) {
+    if (i18n.locale !== activeLocale && i18n.messages) {
       updateI18n({ locale: i18n.locale, messages: i18n.messages });
       activeLocale = i18n.locale;
     }

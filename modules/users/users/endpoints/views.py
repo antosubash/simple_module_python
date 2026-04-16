@@ -6,15 +6,12 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from inertia import InertiaResponse
-from simple_module_db.deps import get_db
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
 from users.deps import get_user_service
-from users.models import Role
+from users.roles_cache import get_roles_cache
 from users.service import UserService
 
 router = APIRouter()
@@ -26,41 +23,21 @@ router = APIRouter()
 @router.get("/login", response_model=None)
 async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
     users_settings = request.app.state.users_settings
-    allow_signup = users_settings.allow_signup
-    dev_accounts: list[dict[str, str]] = []
-    # Only expose seeded credentials in dev, and only when the env vars that
-    # actually seeded them are still set (so production configs that happen to
-    # boot with SM_ENVIRONMENT=development never leak real passwords).
-    host_settings = getattr(request.app.state, "settings", None)
-    if host_settings is not None and host_settings.is_development:
-        if users_settings.bootstrap_email and users_settings.bootstrap_password:
-            dev_accounts.append(
-                {
-                    "label": "Admin",
-                    "email": users_settings.bootstrap_email,
-                    "password": users_settings.bootstrap_password,
-                }
-            )
-        if users_settings.bootstrap_user_email and users_settings.bootstrap_user_password:
-            dev_accounts.append(
-                {
-                    "label": "User",
-                    "email": users_settings.bootstrap_user_email,
-                    "password": users_settings.bootstrap_user_password,
-                }
-            )
     return await inertia.render(
         "Users/Login",
-        {"allow_signup": allow_signup, "dev_accounts": dev_accounts},
+        {"allow_signup": users_settings.allow_signup},
     )
 
 
-@router.get("/logout", response_model=None)
+@router.post("/logout", response_model=None)
 async def logout(request: Request) -> RedirectResponse:
-    """GET-able logout for menu links — clears the session + auth cookie."""
+    """Clear the session + auth cookie. POST-only to resist cross-site `<img>`
+    logout attacks — the menu's logout link submits this as an Inertia form."""
     request.session.clear()
     cookie_name = request.app.state.users_settings.cookie_name
-    response = RedirectResponse("/", status_code=302)
+    # 303 forces the follow-up to GET — Inertia treats the redirect as a full
+    # navigation rather than replaying the POST.
+    response = RedirectResponse("/", status_code=303)
     response.delete_cookie(cookie_name, path="/")
     return response
 
@@ -109,22 +86,21 @@ async def profile_page(inertia: InertiaDep) -> InertiaResponse:
     dependencies=[Depends(RequiresPermission("users.manage"))],
 )
 async def admin_index(
+    request: Request,
     inertia: InertiaDep,
     service: UserService = Depends(get_user_service),
     page: int = 1,
     per_page: int = 20,
     q: str | None = None,
-    db: AsyncSession = Depends(get_db),
 ) -> InertiaResponse:
     users, total = await service.list_users(page=page, per_page=per_page, search=q)
-    roles_list = (await db.execute(select(Role).order_by(Role.name))).scalars().all()
     return await inertia.render(
         "Users/Users/Index",
         {
             "users": [u.model_dump(mode="json") for u in users],
             "pagination": {"page": page, "per_page": per_page, "total": total},
             "query": q or "",
-            "roles": [{"id": str(r.id), "name": r.name} for r in roles_list],
+            "roles": [{"id": r.id, "name": r.name} for r in await get_roles_cache(request.app)],
         },
     )
 
@@ -135,14 +111,13 @@ async def admin_index(
     dependencies=[Depends(RequiresPermission("users.manage"))],
 )
 async def admin_invite_page(
+    request: Request,
     inertia: InertiaDep,
-    db: AsyncSession = Depends(get_db),
 ) -> InertiaResponse:
-    roles_list = (await db.execute(select(Role).order_by(Role.name))).scalars().all()
     return await inertia.render(
         "Users/Users/Invite",
         {
-            "roles": [{"id": str(r.id), "name": r.name} for r in roles_list],
+            "roles": [{"id": r.id, "name": r.name} for r in await get_roles_cache(request.app)],
         },
     )
 
@@ -154,9 +129,9 @@ async def admin_invite_page(
 )
 async def admin_edit_page(
     user_id: str,
+    request: Request,
     inertia: InertiaDep,
     service: UserService = Depends(get_user_service),
-    db: AsyncSession = Depends(get_db),
 ) -> InertiaResponse:
     try:
         uid = uuid.UUID(user_id)
@@ -165,11 +140,10 @@ async def admin_edit_page(
     user_item = await service.get_list_item(uid)
     if user_item is None:
         raise HTTPException(status_code=404)
-    roles_list = (await db.execute(select(Role).order_by(Role.name))).scalars().all()
     return await inertia.render(
         "Users/Users/Edit",
         {
             "user": user_item.model_dump(mode="json"),
-            "roles": [{"id": str(r.id), "name": r.name} for r in roles_list],
+            "roles": [{"id": r.id, "name": r.name} for r in await get_roles_cache(request.app)],
         },
     )

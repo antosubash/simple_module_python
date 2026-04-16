@@ -229,10 +229,15 @@ export function SidebarLayout({
                       )}
                       {menus?.userDropdown?.map((item) => (
                         <DropdownMenuItem key={item.url} asChild onSelect={closeSidebar}>
-                          <a href={item.url} className="flex items-center gap-2">
+                          <Link
+                            href={item.url}
+                            method={item.method === 'post' ? 'post' : 'get'}
+                            as={item.method === 'post' ? 'button' : 'a'}
+                            className="flex w-full items-center gap-2"
+                          >
                             <NavIcon name={item.icon} />
                             {item.label}
-                          </a>
+                          </Link>
                         </DropdownMenuItem>
                       ))}
                     </DropdownMenuContent>
