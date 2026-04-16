@@ -26,15 +26,15 @@ def _build_app(supported: list[str], default: str, cookie_name: str = "locale") 
 
 def test_uses_cookie_when_present_and_supported() -> None:
     app = _build_app(["en", "es"], "en")
-    client = TestClient(app)
-    resp = client.get("/", cookies={"locale": "es"})
+    client = TestClient(app, cookies={"locale": "es"})
+    resp = client.get("/")
     assert resp.json() == {"locale": "es"}
 
 
 def test_ignores_cookie_when_locale_not_supported() -> None:
     app = _build_app(["en", "es"], "en")
-    client = TestClient(app)
-    resp = client.get("/", cookies={"locale": "de"})
+    client = TestClient(app, cookies={"locale": "de"})
+    resp = client.get("/")
     # Falls through to Accept-Language, then to default (en).
     assert resp.json() == {"locale": "en"}
 
@@ -63,19 +63,15 @@ def test_falls_back_to_default_when_nothing_matches() -> None:
 
 def test_cookie_takes_precedence_over_accept_language() -> None:
     app = _build_app(["en", "es"], "en")
-    client = TestClient(app)
-    resp = client.get(
-        "/",
-        cookies={"locale": "es"},
-        headers={"Accept-Language": "de"},
-    )
+    client = TestClient(app, cookies={"locale": "es"})
+    resp = client.get("/", headers={"Accept-Language": "de"})
     assert resp.json() == {"locale": "es"}
 
 
 def test_custom_cookie_name() -> None:
     app = _build_app(["en", "es"], "en", cookie_name="lang")
-    client = TestClient(app)
-    resp = client.get("/", cookies={"lang": "es"})
+    client = TestClient(app, cookies={"lang": "es"})
+    resp = client.get("/")
     assert resp.json() == {"locale": "es"}
 
 

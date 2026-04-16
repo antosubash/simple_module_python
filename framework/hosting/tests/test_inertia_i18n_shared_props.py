@@ -55,8 +55,8 @@ def test_inertia_shared_props_include_i18n_block_for_default_locale() -> None:
 
 
 def test_inertia_shared_props_reflect_cookie_locale() -> None:
-    client = TestClient(_build_app())
-    resp = client.get("/shared", cookies={"locale": "es"})
+    client = TestClient(_build_app(), cookies={"locale": "es"})
+    resp = client.get("/shared")
     body = resp.json()
     assert body["i18n"]["locale"] == "es"
     assert body["i18n"]["messages"] == {"hello": "Hola"}

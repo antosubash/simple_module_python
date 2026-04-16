@@ -58,6 +58,7 @@ class SecurityHeadersMiddleware:
         # Production builds compile to hashed bundles, so this can be
         # tightened with a nonce once Vite's preamble is removed in prod.
         "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "script-src-elem 'self' 'unsafe-inline'; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "img-src 'self' data: blob:; "
         "font-src 'self' https://fonts.gstatic.com data:; "
@@ -67,6 +68,30 @@ class SecurityHeadersMiddleware:
         "form-action 'self'"
     )
     _DEFAULT_HSTS = "max-age=31536000; includeSubDomains"
+
+    @staticmethod
+    def dev_csp(vite_dev_url: str) -> str:
+        """Build a dev CSP that whitelists the Vite dev server.
+
+        In development the browser fetches ``@vite/client``, ``main.tsx``, and
+        React Refresh from the Vite origin (default ``http://localhost:5050``),
+        and opens a WebSocket there for HMR. Those fail under the prod CSP,
+        so we widen ``script-src*``/``connect-src``/``style-src`` for that
+        origin only (including the ``ws://`` equivalent for HMR).
+        """
+        ws_url = vite_dev_url.replace("http://", "ws://").replace("https://", "wss://")
+        return (
+            "default-src 'self'; "
+            f"script-src 'self' 'unsafe-inline' 'unsafe-eval' {vite_dev_url}; "
+            f"script-src-elem 'self' 'unsafe-inline' {vite_dev_url}; "
+            f"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com {vite_dev_url}; "
+            "img-src 'self' data: blob:; "
+            "font-src 'self' https://fonts.gstatic.com data:; "
+            f"connect-src 'self' {vite_dev_url} {ws_url}; "
+            "frame-ancestors 'self'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
+        )
 
     def __init__(
         self,

@@ -1,10 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
-import react from '@vitejs/plugin-react-swc';
+import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
-import tsconfigPaths from 'vite-tsconfig-paths';
 
 const projectRoot = path.resolve(__dirname, '../..');
 
@@ -18,7 +17,6 @@ const analyzeBundle = process.env.ANALYZE === '1';
 // dev server can read files outside the workspace root.
 const manifestPath = path.resolve(__dirname, 'modules.manifest.json');
 const moduleFsAllow: string[] = [];
-const moduleTsconfigs: string[] = [];
 let manifest: Record<string, string> = {};
 try {
   manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
@@ -26,31 +24,11 @@ try {
   // Manifest absent (sm gen-pages hasn't run yet) — proceed with empty set.
 }
 for (const pagesDir of Object.values(manifest)) {
-  // Pages live at <moduleRoot>/<pkg>/pages/*.tsx — climb two levels to the
-  // module root where its tsconfig.json and package.json live.
-  const moduleRoot = path.dirname(path.dirname(pagesDir));
   moduleFsAllow.push(path.dirname(pagesDir));
-  try {
-    fs.statSync(path.join(moduleRoot, 'tsconfig.json'));
-    moduleTsconfigs.push(path.join(moduleRoot, 'tsconfig.json'));
-  } catch {
-    // Module has no tsconfig (e.g. backend-only) — skip.
-  }
 }
 
 export default defineConfig({
-  // `tsconfigPaths` makes Vite honor each package's tsconfig `paths` at
-  // import-resolution time. Each package's `@/*` maps to its own local root,
-  // so there's no global `@` alias here — the plugin picks the right tsconfig
-  // per importing file.
   plugins: [
-    tsconfigPaths({
-      projects: [
-        path.resolve(__dirname, 'tsconfig.json'),
-        path.resolve(projectRoot, 'packages/ui/tsconfig.json'),
-        ...moduleTsconfigs,
-      ],
-    }),
     react(),
     tailwindcss(),
     ...(analyzeBundle
@@ -64,6 +42,14 @@ export default defineConfig({
         ]
       : []),
   ],
+  // Vite 8 resolves tsconfig `paths` natively from this app's tsconfig.json.
+  // The only live alias in the repo is `@simple-module/ui/*`, which the host
+  // tsconfig maps to `../../packages/ui/src/*` — that resolves identically
+  // regardless of which file does the importing, so we no longer need to
+  // feed Vite the per-module tsconfigs.
+  resolve: {
+    tsconfigPaths: true,
+  },
   root: __dirname,
   build: {
     outDir: '../static/dist',

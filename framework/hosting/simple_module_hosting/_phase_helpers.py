@@ -90,7 +90,17 @@ def install_middleware(
     # scope["session"] is populated by the time we validate the token.
     app.add_middleware(CSRFMiddleware)
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
-    app.add_middleware(SecurityHeadersMiddleware)
+    # In dev, relax CSP so the browser can fetch @vite/client, main.tsx, and
+    # the HMR WebSocket from the Vite origin. HSTS is also suppressed because
+    # dev runs over plain HTTP on loopback.
+    if settings.is_development:
+        app.add_middleware(
+            SecurityHeadersMiddleware,
+            content_security_policy=SecurityHeadersMiddleware.dev_csp(settings.vite_dev_url),
+            strict_transport_security=None,
+        )
+    else:
+        app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
 

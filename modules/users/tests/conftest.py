@@ -11,11 +11,32 @@ carrying a real admin User row (written into the in-memory DB).
 
 from __future__ import annotations
 
+import os
 import uuid
 from collections.abc import AsyncGenerator
 
 import httpx
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _isolate_users_env(monkeypatch):
+    """Insulate every users-module test from the repo's real ``.env``.
+
+    Local development sets ``SM_USERS_BOOTSTRAP_EMAIL`` (and similar) in
+    ``.env`` so the dev login page can offer quick-login buttons. When
+    pytest runs in that checkout, pydantic-settings loads those values and
+    they leak into tests asserting defaults or empty-table behavior. We
+    turn off the dotenv load and scrub any leftover ``SM_USERS_*`` from
+    ``os.environ``; fixtures that need specific values then set them
+    explicitly via ``monkeypatch.setenv``.
+    """
+    from users.settings import UsersSettings
+
+    monkeypatch.setitem(UsersSettings.model_config, "env_file", None)
+    for key in list(os.environ):
+        if key.startswith("SM_USERS_"):
+            monkeypatch.delenv(key, raising=False)
 from fastapi_users.password import PasswordHelper
 from simple_module_hosting.csrf import SESSION_CSRF_TOKEN_KEY
 from simple_module_hosting.settings import Settings
@@ -34,8 +55,9 @@ def _users_env(allow_signup: bool = False) -> dict:
         "SM_USERS_MAILER": "console",
         "SM_USERS_BASE_URL": "http://testserver",
         "SM_USERS_COOKIE_SECURE": "false",
-        "SM_USERS_RESET_PASSWORD_TOKEN_SECRET": "test-reset-secret-32-bytes-xxxx",
-        "SM_USERS_VERIFICATION_TOKEN_SECRET": "test-verify-secret-32-bytes-xxxx",
+        # 32+ bytes to clear pyjwt's InsecureKeyLengthWarning for HMAC-SHA256.
+        "SM_USERS_RESET_PASSWORD_TOKEN_SECRET": "test-reset-secret-32-bytes-xxxxx",
+        "SM_USERS_VERIFICATION_TOKEN_SECRET": "test-verify-secret-32-bytes-xxxxx",
         "SM_USERS_LOGIN_RATE_LIMIT_FAILURES": "5",
         "SM_USERS_LOGIN_RATE_LIMIT_WINDOW_SECONDS": "300",
         "SM_USERS_LOGIN_RATE_LIMIT_COOLDOWN_SECONDS": "900",
