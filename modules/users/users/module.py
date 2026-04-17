@@ -9,8 +9,22 @@ from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 
+from users.constants import ADMIN_ROLE_NAME, PERM_USERS_MANAGE, PERM_USERS_SELF_PROFILE, USER_ROLE_NAME
+
 if TYPE_CHECKING:
     from fastapi import FastAPI
+
+_MODULE_DEPENDENCY_AUTH = "Auth"
+
+# Menu URLs
+_URL_USERS_ADMIN = "/users/admin"
+_URL_USERS_ME = "/users/me"
+_URL_USERS_LOGOUT = "/users/logout"
+
+# Menu icons
+_ICON_USERS = "users"
+_ICON_USER = "user"
+_ICON_LOG_OUT = "log-out"
 
 
 class UsersModule(ModuleBase):
@@ -18,7 +32,7 @@ class UsersModule(ModuleBase):
         name="Users",
         route_prefix="/api/users",
         view_prefix="/users",
-        depends_on=["Auth"],
+        depends_on=[_MODULE_DEPENDENCY_AUTH],
     )
 
     def register_settings(self, app: FastAPI) -> None:
@@ -31,28 +45,28 @@ class UsersModule(ModuleBase):
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
             "Users",
-            ["users.manage", "users.self.profile"],
+            [PERM_USERS_MANAGE, PERM_USERS_SELF_PROFILE],
         )
-        registry.map_role("user", ["users.self.profile"])
+        registry.map_role(USER_ROLE_NAME, [PERM_USERS_SELF_PROFILE])
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         # Admin-only user management
         registry.add(
             MenuItem(
                 label="Users",
-                url="/users/admin",
-                icon="users",
+                url=_URL_USERS_ADMIN,
+                icon=_ICON_USERS,
                 order=30,
                 section=MenuSection.SIDEBAR,
-                roles=["admin"],
+                roles=[ADMIN_ROLE_NAME],
             )
         )
         # Self-service: profile + logout live in the user dropdown.
         registry.add(
             MenuItem(
                 label="Profile",
-                url="/users/me",
-                icon="user",
+                url=_URL_USERS_ME,
+                icon=_ICON_USER,
                 order=990,
                 section=MenuSection.USER_DROPDOWN,
             )
@@ -60,8 +74,8 @@ class UsersModule(ModuleBase):
         registry.add(
             MenuItem(
                 label="Logout",
-                url="/users/logout",
-                icon="log-out",
+                url=_URL_USERS_LOGOUT,
+                icon=_ICON_LOG_OUT,
                 order=999,
                 section=MenuSection.USER_DROPDOWN,
                 method="post",

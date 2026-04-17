@@ -19,12 +19,13 @@ from users.contracts.schemas import (
     UserInvite,
     UserListItem,
 )
+from users.constants import PERM_USERS_MANAGE
 from users.deps import get_event_bus, get_mailer, get_user_service
 from users.service import UserService
 
 admin_router = APIRouter(
     prefix="/admin",
-    dependencies=[Depends(RequiresPermission("users.manage"))],
+    dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
     tags=["users-admin"],
 )
 

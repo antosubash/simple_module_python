@@ -77,7 +77,7 @@ loadtest:                   ## Run locust against a server already on $(LOCUST_H
 loadtest-memray:            ## Start uvicorn under memray, load-test, emit flamegraph
 	scripts/loadtest_memray.sh $(LOCUST_ARGS)
 
-lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
+lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings
 
 # Kept granular so pr.yml can run them in parallel.
 ci-python-lint:
@@ -102,6 +102,11 @@ ci-js-typecheck:
 # Exempts vendored shadcn components under packages/ui/src/components/ui/**.
 ci-check-file-size:
 	uv run python scripts/check_file_size.py
+
+# Enforce that permissions, role names, Inertia page ids, and module dependency
+# names are declared as named constants rather than hardcoded string literals.
+ci-check-hardcoded-strings:
+	uv run python scripts/check_hardcoded_strings.py
 
 # Diagnostics
 doctor:
