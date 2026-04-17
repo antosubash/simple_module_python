@@ -116,10 +116,10 @@ Module settings should:
 ```python
 class UsersModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
-        from users.services import UsersServices
         from users.settings import UsersSettings
+        from users.state import UsersState
 
-        app.state.users = UsersServices(settings=UsersSettings())
+        app.state.users = UsersState(settings=UsersSettings())
 ```
 
 ## Database
