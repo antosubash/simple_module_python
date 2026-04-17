@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import uuid
 from base64 import b64encode
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -60,7 +61,7 @@ async def _build_app(db_state, inner_handler=None):
     handler = inner_handler or _default_handler
 
     app = FastAPI()
-    app.state.db = db_state
+    app.state.sm = SimpleNamespace(db=db_state)
 
     @app.get("/{path:path}")
     async def _catch_all(request: Request, path: str = ""):

@@ -43,7 +43,7 @@ def require_permission(*permissions: str):
             return
 
         # Get permission registry from app state
-        perm_registry = request.app.state.perm_registry
+        perm_registry = request.app.state.sm.permissions
         user_perms = perm_registry.get_permissions_for_roles(user.roles)
 
         if not any(p in user_perms for p in permissions):

@@ -27,7 +27,7 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
     # buttons so manual QA doesn't need to retype them. Never exposed in
     # production, regardless of whether the vars are set.
     dev_accounts: list[dict[str, str]] = []
-    if request.app.state.settings.is_development:
+    if request.app.state.sm.settings.is_development:
         if users_settings.bootstrap_email and users_settings.bootstrap_password:
             dev_accounts.append(
                 {
