@@ -27,7 +27,6 @@ class UsersModule(ModuleBase):
 
         services = UsersServices(settings=UsersSettings())
         app.state.users = services
-        app.state.users_settings = services.settings  # deprecated loose alias, removed Phase 4
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
@@ -107,10 +106,6 @@ class UsersModule(ModuleBase):
             max_attempts=s.auth_rate_limit_attempts,
             window_seconds=s.auth_rate_limit_window_seconds,
         )
-        # Deprecated loose aliases — removed Phase 4.
-        app.state.mailer = services.mailer
-        app.state.rate_limiter = services.rate_limiter
-        app.state.auth_throughput_limiter = services.auth_throughput_limiter
 
         reconfigure_cookie_transport(auth_backend, s)
 

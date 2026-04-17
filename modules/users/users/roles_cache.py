@@ -27,8 +27,6 @@ from users.models import Role
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-_ROLES_CACHE_KEY = "users_roles_cache"
-
 
 @dataclass(frozen=True, slots=True)
 class RoleSummary:
@@ -44,8 +42,6 @@ async def refresh_roles_cache(app: FastAPI) -> list[RoleSummary]:
         result = await db.execute(select(Role).order_by(Role.name))
         cached = [RoleSummary(id=str(r.id), name=r.name) for r in result.scalars().all()]
     app.state.users.roles_cache = cached
-    # Deprecated loose alias — removed Phase 4.
-    setattr(app.state, _ROLES_CACHE_KEY, cached)
     return cached
 
 

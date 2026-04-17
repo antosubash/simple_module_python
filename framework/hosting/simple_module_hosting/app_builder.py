@@ -159,14 +159,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
 
-    app.state.modules = modules
-    app.state.menu_registry = menu_registry
-    app.state.perm_registry = perm_registry
-    app.state.ff_registry = ff_registry
-    app.state.event_bus = event_bus
-    app.state.health_registry = health_registry
-    app.state.settings = settings
-    app.state.i18n_registry = i18n_registry
     app.state.settings_default_locale = settings.i18n_default_locale
     app.state.settings_supported_locales = settings.i18n_supported_locales
     app.state.settings_cookie_name = settings.i18n_cookie_name
@@ -209,7 +201,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         pool_recycle=settings.db_pool_recycle,
     )
     register_listeners(db_state)
-    app.state.db = db_state
 
     # ── Phase 7: Inertia + exception handlers ──────────────
     setup_inertia(app, settings, modules, _PROJECT_ROOT)
