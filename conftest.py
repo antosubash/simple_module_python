@@ -69,7 +69,7 @@ def _ensure_models_imported() -> list:
 @lru_cache(maxsize=1)
 def _alembic_head() -> str | None:
     """Cached head revision — cannot change within a pytest run."""
-    from simple_module_hosting._migrations import resolve_head_revision
+    from simple_module_hosting.migrations import resolve_head_revision
 
     return resolve_head_revision()
 

@@ -72,7 +72,7 @@ async def _setup_app_db(application) -> None:
     """Create all tables and stamp alembic version so migration check passes."""
 
     from simple_module_db.base import all_module_bases
-    from simple_module_hosting._migrations import resolve_head_revision
+    from simple_module_hosting.migrations import resolve_head_revision
     from sqlalchemy import text
 
     head = resolve_head_revision()
