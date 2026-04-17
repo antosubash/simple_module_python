@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass
 
 from fastapi import FastAPI
+from fastapi_users.password import PasswordHelper
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,10 +42,6 @@ async def create_admin(
     - If the user exists and force=False: return created=False without
       changing the password.
     """
-    # Use a lazy import so this module has no import-time dependency on
-    # fastapi-users (which lets tooling introspect it even in minimal envs).
-    from fastapi_users.password import PasswordHelper
-
     existing = (
         await db.execute(select(User).where(func.lower(User.email) == email.lower()))
     ).scalar_one_or_none()
@@ -123,8 +120,6 @@ async def create_standard_user(
     Unlike ``create_admin`` this is not meant to be called from the CLI — it's
     used by the env-var bootstrap to seed a second account for dev/testing.
     """
-    from fastapi_users.password import PasswordHelper
-
     existing = (
         await db.execute(select(User).where(func.lower(User.email) == email.lower()))
     ).scalar_one_or_none()
