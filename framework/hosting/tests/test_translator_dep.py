@@ -17,8 +17,14 @@ def _build_app() -> FastAPI:
     }
 
     app = FastAPI()
-    app.state.i18n_registry = reg
-    app.state.settings_default_locale = "en"
+
+    # Create a mock services object with the needed attributes
+    class MockServices:
+        def __init__(self, registry, default_locale):
+            self.i18n_registry = registry
+            self.settings = type('Settings', (), {'i18n_default_locale': default_locale})()
+
+    app.state.sm = MockServices(reg, "en")
 
     @app.get("/hi")
     def hi(t: TranslatorDep, name: str = "friend") -> dict[str, str]:

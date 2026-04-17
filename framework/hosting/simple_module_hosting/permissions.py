@@ -59,7 +59,8 @@ class RequiresPermission:
         permissions: set[str] | None = getattr(request.state, "resolved_permissions", None)
         if permissions is None:
             # Fallback: middleware did not run — consult registry role_map if available
-            perm_registry = getattr(getattr(request.app, "state", None), "perm_registry", None)
+            sm = getattr(getattr(request.app, "state", None), "sm", None)
+            perm_registry = getattr(sm, "permissions", None) if sm is not None else None
             role_map = perm_registry.role_map if perm_registry is not None else None
             permissions = resolve_permissions(user.roles, role_map=role_map)
             request.state.resolved_permissions = permissions
