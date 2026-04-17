@@ -68,7 +68,7 @@ Standard mixins in `simple_module_db.mixins`: `AuditMixin`, `SoftDeleteMixin` (b
 
 - **SQLModel is the project-wide standard for every model** — both DB tables (`table=True`) and DTOs (plain `SQLModel` subclasses). Do not use Pydantic `BaseModel` or SQLAlchemy `DeclarativeBase` + `Mapped[...]` in module code.
 - **300-line cap** on `.py`/`.ts`/`.tsx` files, enforced by `scripts/check_file_size.py` in CI (exempts vendored shadcn components under `packages/ui/src/components/ui/**`). If you approach the cap, split by responsibility — don't rewrite to squeeze under.
-- **Per-module settings**: env-var prefix `SM_<MODULE>_*`, stored on `app.state.<module>_settings` inside `register_settings(app)`. `SM012` warns if `register_settings` is overridden without adding to `app.state`.
+- **Per-module settings**: env-var prefix `SM_<MODULE>_*`, stored on `app.state.<module_lower>` inside `register_settings(app)` as a module-owned dataclass. `SM012` warns if `register_settings` is overridden without adding `app.state.<module_lower>`.
 - **Framework vs plugin coupling**: `SM009` is an error if `framework/*` directly imports from a plugin module. Framework code must not reach into `modules/`.
 - **Zod schemas with translated messages** must be constructed inside a hook (`useT()`) — never at module scope, or they freeze against the first render's locale.
 - **Locales**: ship `<package>/locales/<lang>.json` and declare in `ModuleBase.locale_dirs()` with the module's lowercase name as the namespace. `{"browse": {"title": "X"}}` flattens to `<namespace>.browse.title`. Pluralize with CLDR suffixes (`_one`, `_other`, ...).
@@ -76,7 +76,7 @@ Standard mixins in `simple_module_db.mixins`: `AuditMixin`, `SoftDeleteMixin` (b
 
 ## Diagnostic codes
 
-Meaningful codes when reading `make doctor` output: `SM001` missing meta (error), `SM003` orphan page / `SM004` phantom render (warn), `SM008` duplicate name (error), `SM009` framework→plugin import (error), `SM010` DB revision behind head (error), `SM011` module table not in migration history (warn), `SM013`–`SM016` locale issues. In production, errors fail boot.
+Meaningful codes when reading `make doctor` output: `SM001` missing meta (error), `SM003` orphan page / `SM004` phantom render (warn), `SM007` module overrides no hooks (info), `SM008` duplicate name (error), `SM009` framework→plugin import (error), `SM010` DB revision behind head (error), `SM011` module table not in migration history (warn), `SM012` `register_settings` overridden but nothing on `app.state.<module>` (warn, fires at dev boot only), `SM013`–`SM016` locale issues. In production, errors fail boot.
 
 ## Tests & fixtures
 

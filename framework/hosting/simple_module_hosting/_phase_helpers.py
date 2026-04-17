@@ -129,12 +129,14 @@ def mount_module_static_dirs(app: FastAPI, modules: list) -> None:
             )
 
 
-def check_settings_registration(app: FastAPI, modules: list) -> None:
+def check_settings_registration(app: FastAPI, modules: list) -> list[Diagnostic]:
     """SM012: warn if a module overrides register_settings but added nothing to app.state.
 
-    New convention (2026-04-17): modules store their state at
-    ``app.state.<module_lower>`` as a module-owned dataclass.
+    Must run after Phase 4 (register_settings) and therefore can't join the
+    Phase 2 diagnostics pass; returning a list lets the caller route it through
+    the same ``print_diagnostics`` sink.
     """
+    diagnostics: list[Diagnostic] = []
     for mod in modules:
         cls = type(mod)
         if "register_settings" not in cls.__dict__:
@@ -142,14 +144,16 @@ def check_settings_registration(app: FastAPI, modules: list) -> None:
         mod_prefix = mod.meta.name.lower()
         if hasattr(app.state, mod_prefix):
             continue
-        diag = Diagnostic(
-            level=DiagnosticLevel.WARNING,
-            code="SM012",
-            message="register_settings() was overridden but added nothing to app.state",
-            module_name=mod.meta.name,
-            suggestion=(
-                f"Store your module state on app.state "
-                f"(e.g., app.state.{mod_prefix} = {mod.meta.name}Services(...))"
-            ),
+        diagnostics.append(
+            Diagnostic(
+                level=DiagnosticLevel.WARNING,
+                code="SM012",
+                message="register_settings() was overridden but added nothing to app.state",
+                module_name=mod.meta.name,
+                suggestion=(
+                    f"Store your module state on app.state "
+                    f"(e.g., app.state.{mod_prefix} = {mod.meta.name}Services(...))"
+                ),
+            )
         )
-        logger.warning("%s", diag)
+    return diagnostics

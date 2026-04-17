@@ -22,7 +22,6 @@ from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 
 from simple_module_hosting._inertia_setup import setup_inertia
-from simple_module_hosting._migrations import check_migrations
 from simple_module_hosting._phase_helpers import (
     check_settings_registration,
     install_middleware,
@@ -31,6 +30,7 @@ from simple_module_hosting._phase_helpers import (
 )
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types
+from simple_module_hosting.migrations import check_migrations
 from simple_module_hosting.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -164,7 +164,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         mod.register_settings(app)
 
     if settings.is_development:
-        check_settings_registration(app, modules)
+        settings_diagnostics = check_settings_registration(app, modules)
+        if settings_diagnostics:
+            print_diagnostics(settings_diagnostics)
 
     # ── Phase 5: Module registrations ──────────────────────
     for mod in modules:
