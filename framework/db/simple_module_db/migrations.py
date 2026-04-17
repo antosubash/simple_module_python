@@ -91,3 +91,22 @@ def make_include_object(metadata: MetaData) -> IncludeObjectFn:
         return True
 
     return include_object
+
+
+def render_item(type_, obj, autogen_context):
+    """Alembic ``render_item`` callback that collapses SQLModel's ``AutoString``.
+
+    Without this, autogenerate emits ``sqlmodel.sql.sqltypes.AutoString(...)``
+    in generated migrations but does not add the corresponding
+    ``import sqlmodel``, so the migration fails with ``NameError`` on apply.
+    ``AutoString`` is a thin wrapper over ``String``, so collapsing it here
+    keeps migrations self-contained without losing semantics.
+
+    Pass to :func:`alembic.context.configure` as ``render_item=render_item``.
+    """
+    if type_ == "type" and type(obj).__name__ == "AutoString":
+        length = getattr(obj, "length", None)
+        if length is not None:
+            return f"sa.String(length={length})"
+        return "sa.String()"
+    return False  # let alembic use its default rendering
