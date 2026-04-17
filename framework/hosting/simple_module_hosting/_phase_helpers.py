@@ -129,19 +129,18 @@ def mount_module_static_dirs(app: FastAPI, modules: list) -> None:
             )
 
 
-def check_settings_registration(modules: list, added_keys: set[str]) -> None:
+def check_settings_registration(app: FastAPI, modules: list) -> None:
     """SM012: warn if a module overrides register_settings but added nothing to app.state.
 
-    Matches the convention key ``<module_prefix>_settings`` exactly so a
-    module named ``cart`` doesn't shadow a module named ``cart_sales``.
+    New convention (2026-04-17): modules store their state at
+    ``app.state.<module_lower>`` as a module-owned dataclass.
     """
     for mod in modules:
         cls = type(mod)
         if "register_settings" not in cls.__dict__:
             continue
         mod_prefix = mod.meta.name.lower()
-        expected_key = f"{mod_prefix}_settings"
-        if expected_key in added_keys:
+        if hasattr(app.state, mod_prefix):
             continue
         diag = Diagnostic(
             level=DiagnosticLevel.WARNING,
@@ -149,8 +148,8 @@ def check_settings_registration(modules: list, added_keys: set[str]) -> None:
             message="register_settings() was overridden but added nothing to app.state",
             module_name=mod.meta.name,
             suggestion=(
-                f"Store your settings on app.state "
-                f"(e.g., app.state.{expected_key} = {mod.meta.name}Settings())"
+                f"Store your module state on app.state "
+                f"(e.g., app.state.{mod_prefix} = {mod.meta.name}Services(...))"
             ),
         )
         logger.warning("%s", diag)
