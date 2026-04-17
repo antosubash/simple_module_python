@@ -45,7 +45,7 @@ function AcceptInvite() {
     })
       .then(async (res) => {
         if (res.status === 204 || res.status === 200) {
-          router.visit('/dashboard');
+          router.visit('/dashboard/');
         } else {
           const data = await res.json().catch(() => ({}));
           const detail = typeof data?.detail === 'string' ? data.detail : '';

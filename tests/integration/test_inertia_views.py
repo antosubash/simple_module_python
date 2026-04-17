@@ -99,7 +99,7 @@ class TestCreateAction:
             follow_redirects=False,
         )
         assert resp.status_code == 303
-        assert resp.headers["location"] == "/products"
+        assert resp.headers["location"] == "/products/"
 
         listing = await authenticated_client.get("/api/products/")
         assert [p["name"] for p in listing.json()] == ["Formed"]
@@ -129,7 +129,7 @@ class TestUpdateAction:
             follow_redirects=False,
         )
         assert resp.status_code == 303
-        assert resp.headers["location"] == "/products"
+        assert resp.headers["location"] == "/products/"
 
         check = await authenticated_client.get(f"/api/products/{product_id}")
         assert check.status_code == 200
@@ -146,7 +146,7 @@ class TestDeleteAction:
 
         resp = await authenticated_client.delete(f"/products/{product_id}", follow_redirects=False)
         assert resp.status_code == 303
-        assert resp.headers["location"] == "/products"
+        assert resp.headers["location"] == "/products/"
 
         check = await authenticated_client.get(f"/api/products/{product_id}")
         assert check.status_code == 404

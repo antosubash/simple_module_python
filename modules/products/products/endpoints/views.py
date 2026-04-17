@@ -92,7 +92,7 @@ async def create_action(
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
     await service.create(data)
-    return RedirectResponse("/products", status_code=303)
+    return RedirectResponse("/products/", status_code=303)
 
 
 @router.put(
@@ -111,7 +111,7 @@ async def update_action(
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
     await service.update(product_id, data)
-    return RedirectResponse("/products", status_code=303)
+    return RedirectResponse("/products/", status_code=303)
 
 
 @router.delete(
@@ -124,4 +124,4 @@ async def delete_action(
     service: ProductService = Depends(get_product_service),
 ) -> RedirectResponse:
     await service.delete(product_id)
-    return RedirectResponse("/products", status_code=303)
+    return RedirectResponse("/products/", status_code=303)

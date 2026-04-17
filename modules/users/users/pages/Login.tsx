@@ -35,8 +35,8 @@ function Login() {
 
   const nextUrl =
     typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('next') || '/dashboard'
-      : '/dashboard';
+      ? new URLSearchParams(window.location.search).get('next') || '/dashboard/'
+      : '/dashboard/';
 
   const submitLogin = (username: string, pwd: string) => {
     setError(null);

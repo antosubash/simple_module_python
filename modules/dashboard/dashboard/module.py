@@ -29,7 +29,7 @@ class DashboardModule(ModuleBase):
         registry.add(
             MenuItem(
                 label="Dashboard",
-                url="/dashboard",
+                url="/dashboard/",
                 icon="home",
                 order=1,
                 section=MenuSection.SIDEBAR,

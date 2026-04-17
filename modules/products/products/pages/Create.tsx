@@ -28,7 +28,7 @@ function Create() {
       }
       return;
     }
-    post('/products', {
+    post('/products/', {
       onSuccess: () => toast.success(t(keys.products.toasts.created)),
       onError: (errs) => {
         const first = Object.values(errs)[0];
@@ -43,7 +43,7 @@ function Create() {
       description={t(keys.products.create.description)}
       actions={
         <Button asChild variant="outline">
-          <Link href="/products">{t(keys.products.form.cancel_button)}</Link>
+          <Link href="/products/">{t(keys.products.form.cancel_button)}</Link>
         </Button>
       }
     >
@@ -114,7 +114,7 @@ function Create() {
                   : t(keys.products.create.submit_button)}
               </Button>
               <Button asChild variant="outline">
-                <Link href="/products">{t(keys.products.form.cancel_button)}</Link>
+                <Link href="/products/">{t(keys.products.form.cancel_button)}</Link>
               </Button>
             </div>
           </form>

@@ -30,7 +30,7 @@ class ProductsModule(ModuleBase):
         registry.add(
             MenuItem(
                 label="Products",
-                url="/products",
+                url="/products/",
                 icon="package",
                 order=20,
                 section=MenuSection.SIDEBAR,

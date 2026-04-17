@@ -59,7 +59,7 @@ function Edit() {
       description={t(keys.products.edit.description)}
       actions={
         <Button asChild variant="outline">
-          <Link href="/products">{t(keys.products.edit.back_button)}</Link>
+          <Link href="/products/">{t(keys.products.edit.back_button)}</Link>
         </Button>
       }
     >
@@ -138,7 +138,7 @@ function Edit() {
                   : t(keys.products.edit.submit_button)}
               </Button>
               <Button asChild variant="outline">
-                <Link href="/products">{t(keys.products.form.cancel_button)}</Link>
+                <Link href="/products/">{t(keys.products.form.cancel_button)}</Link>
               </Button>
             </div>
           </form>
