@@ -33,6 +33,7 @@ from _templates_py import (
     package_init,
     pyproject_toml,
     service_py,
+    services_py,
 )
 from _templates_tests import test_module_py
 from _templates_tsx import browse_tsx, create_tsx, edit_tsx
@@ -98,6 +99,7 @@ def scaffold_module(name: str) -> None:
     create_file(src_dir / "__init__.py", package_init(ctx))
     create_file(src_dir / "py.typed", "")
     create_file(src_dir / "module.py", module_py(ctx))
+    create_file(src_dir / "services.py", services_py(ctx))
     create_file(src_dir / "models.py", models_py(ctx))
     create_file(src_dir / "contracts" / "__init__.py", contracts_init(ctx))
     create_file(src_dir / "contracts" / "schemas.py", schemas_py(ctx))

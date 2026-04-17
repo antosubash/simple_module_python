@@ -103,11 +103,11 @@ class TestAdminInvite:
     async def test_invite_calls_mailer(self, admin_client, users_app):
         from unittest.mock import AsyncMock
 
-        # Replace the mailer with a mock
-        original_mailer = users_app.state.mailer
+        # Replace the mailer with a mock (now lives at app.state.users.mailer)
+        original_mailer = users_app.state.users.mailer
         mock_mailer = AsyncMock()
         mock_mailer.send_invite = AsyncMock()
-        users_app.state.mailer = mock_mailer
+        users_app.state.users.mailer = mock_mailer
 
         try:
             resp = await admin_client.post(
@@ -119,7 +119,7 @@ class TestAdminInvite:
             call_args = mock_mailer.send_invite.call_args[0]
             assert call_args[0] == "mailertest@example.com"  # email
         finally:
-            users_app.state.mailer = original_mailer
+            users_app.state.users.mailer = original_mailer
 
     @pytest.mark.anyio
     async def test_invite_without_auth_is_rejected(self, anon_client):

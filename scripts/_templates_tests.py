@@ -173,9 +173,9 @@ def test_module_py(ctx: ScaffoldContext) -> str:
 
                 mod = {ctx.class_name}Module()
                 mock_app = MagicMock()
-                mock_app.state.db.engine = AsyncMock()
+                mock_app.state.sm.db.engine = AsyncMock()
 
                 await mod.on_startup(mock_app)
 
-                mock_app.state.db.engine.begin.assert_not_called()
+                mock_app.state.sm.db.engine.begin.assert_not_called()
         '''

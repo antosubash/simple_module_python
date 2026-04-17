@@ -24,13 +24,9 @@ async def set_locale(request: Request, locale: str = Form(...)) -> RedirectRespo
     with loaded messages) rather than the raw configured supported list, so
     the endpoint can't accept a locale that would render a blank UI.
     """
-    registry = getattr(request.app.state, "i18n_registry", None)
-    if registry is not None:
-        supported = registry.available_locales()
-    else:
-        # Fallback for tests that build a minimal app without the registry.
-        supported = request.app.state.settings_supported_locales
-    cookie_name: str = request.app.state.settings_cookie_name
+    sm = request.app.state.sm
+    supported = sm.i18n_registry.available_locales()
+    cookie_name: str = sm.settings.i18n_cookie_name
 
     if locale not in supported:
         raise HTTPException(

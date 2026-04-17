@@ -27,8 +27,6 @@ from users.models import Role
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-_ROLES_CACHE_KEY = "users_roles_cache"
-
 
 @dataclass(frozen=True, slots=True)
 class RoleSummary:
@@ -39,11 +37,11 @@ class RoleSummary:
 
 
 async def refresh_roles_cache(app: FastAPI) -> list[RoleSummary]:
-    """Reload the roles list from the DB into ``app.state.users_roles_cache``."""
-    async with app.state.db.session_factory() as db:
+    """Reload the roles list from the DB into ``app.state.users.roles_cache``."""
+    async with app.state.sm.db.session_factory() as db:
         result = await db.execute(select(Role).order_by(Role.name))
         cached = [RoleSummary(id=str(r.id), name=r.name) for r in result.scalars().all()]
-    setattr(app.state, _ROLES_CACHE_KEY, cached)
+    app.state.users.roles_cache = cached
     return cached
 
 
@@ -52,11 +50,9 @@ async def get_roles_cache(app: FastAPI) -> list[RoleSummary]:
 
     The cache is pre-warmed in ``UsersModule.on_startup``. The lazy fallback
     covers scenarios where startup ran before the ``users_role`` table had any
-    rows (e.g. tests that use ``metadata.create_all`` instead of running the
-    seed migration, or staged deployments that seed roles separately). Once
-    populated, subsequent calls are O(1) attribute reads.
+    rows. Once populated, subsequent calls are O(1) attribute reads.
     """
-    cached = getattr(app.state, _ROLES_CACHE_KEY, None)
+    cached = app.state.users.roles_cache
     if cached:
         return cached
     return await refresh_roles_cache(app)

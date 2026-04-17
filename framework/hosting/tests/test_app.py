@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 
 import httpx
+import pytest
 from fastapi import FastAPI
 from simple_module_hosting.app_builder import _resolve_project_root, create_app
 from simple_module_hosting.settings import Settings
@@ -16,13 +17,15 @@ class TestCreateApp:
         assert isinstance(app, FastAPI)
 
     async def test_app_state_has_registries(self, app: FastAPI):
-        assert hasattr(app.state, "menu_registry")
-        assert hasattr(app.state, "perm_registry")
-        assert hasattr(app.state, "ff_registry")
-        assert hasattr(app.state, "event_bus")
-        assert hasattr(app.state, "health_registry")
-        assert hasattr(app.state, "settings")
-        assert hasattr(app.state, "db")
+        assert hasattr(app.state, "sm")
+        sm = app.state.sm
+        assert sm.menu_registry is not None
+        assert sm.permissions is not None
+        assert sm.feature_flags is not None
+        assert sm.event_bus is not None
+        assert sm.health_registry is not None
+        assert sm.settings is not None
+        assert sm.db is not None
 
     async def test_modules_enabled_limits_loaded_modules(self, settings: Settings):
         """Host respects settings.modules_enabled — only listed modules contribute routes."""
@@ -64,6 +67,33 @@ class TestCreateApp:
         app = create_app(settings)
         paths = {getattr(r, "path", None) for r in app.routes}
         assert "/modules/fakestatic/static" in paths
+
+    async def test_app_state_has_sm_services(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """create_app populates app.state.sm with a Services instance."""
+        from simple_module_core.services import Services
+
+        monkeypatch.setenv("SM_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+        monkeypatch.setenv("SM_SECRET_KEY", "x" * 48)
+        monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+        (tmp_path / "host" / "templates").mkdir(parents=True)
+        (tmp_path / "host" / "templates" / "index.html").write_text("<html></html>")
+
+        app = create_app()
+
+        sm = app.state.sm
+        assert isinstance(sm, Services)
+        assert sm.settings is not None
+        assert sm.db is not None
+        assert sm.event_bus is not None
+        assert sm.menu_registry is not None
+        assert sm.permissions is not None
+        assert sm.feature_flags is not None
+        assert sm.health_registry is not None
+        assert sm.i18n_registry is not None
+        assert sm.inertia_config is not None
+        assert len(sm.modules) > 0
 
 
 class TestResolveProjectRoot:

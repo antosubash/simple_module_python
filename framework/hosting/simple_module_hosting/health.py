@@ -36,7 +36,7 @@ async def liveness() -> dict:
 
 @router.get("/health/ready")
 async def readiness(request: Request) -> dict:
-    registry: HealthRegistry = request.app.state.health_registry
+    registry: HealthRegistry = request.app.state.sm.health_registry
     checks = registry.all_checks
 
     if not checks:

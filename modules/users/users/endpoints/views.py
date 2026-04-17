@@ -22,12 +22,12 @@ router = APIRouter()
 
 @router.get("/login", response_model=None)
 async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
-    users_settings = request.app.state.users_settings
+    users_settings = request.app.state.users.settings
     # In development only, surface the bootstrap credentials as click-to-fill
     # buttons so manual QA doesn't need to retype them. Never exposed in
     # production, regardless of whether the vars are set.
     dev_accounts: list[dict[str, str]] = []
-    if request.app.state.settings.is_development:
+    if request.app.state.sm.settings.is_development:
         if users_settings.bootstrap_email and users_settings.bootstrap_password:
             dev_accounts.append(
                 {
@@ -55,7 +55,7 @@ async def logout(request: Request) -> RedirectResponse:
     """Clear the session + auth cookie. POST-only to resist cross-site `<img>`
     logout attacks — the menu's logout link submits this as an Inertia form."""
     request.session.clear()
-    cookie_name = request.app.state.users_settings.cookie_name
+    cookie_name = request.app.state.users.settings.cookie_name
     # 303 forces the follow-up to GET — Inertia treats the redirect as a full
     # navigation rather than replaying the POST.
     response = RedirectResponse("/", status_code=303)
@@ -65,7 +65,7 @@ async def logout(request: Request) -> RedirectResponse:
 
 @router.get("/register", response_model=None)
 async def register_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
-    if not request.app.state.users_settings.allow_signup:
+    if not request.app.state.users.settings.allow_signup:
         raise HTTPException(status_code=404)
     return await inertia.render("Users/Register", {})
 

@@ -21,8 +21,10 @@ def _build_app() -> FastAPI:
         "es": {"hello": "Hola"},
     }
 
+    from types import SimpleNamespace
+
     app = FastAPI()
-    app.state.i18n_registry = reg
+    app.state.sm = SimpleNamespace(i18n_registry=reg)
 
     @app.get("/shared")
     def shared(request: Request) -> JSONResponse:

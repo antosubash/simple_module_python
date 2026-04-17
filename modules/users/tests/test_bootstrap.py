@@ -35,10 +35,12 @@ def _make_fake_app(
     )
 
     db = SimpleNamespace(session_factory=session_factory)
+    users_state = SimpleNamespace(settings=settings)
+    sm_state = SimpleNamespace(db=db)
     return SimpleNamespace(
         state=SimpleNamespace(
-            users_settings=settings,
-            db=db,
+            users=users_state,
+            sm=sm_state,
         )
     )
 
@@ -180,7 +182,7 @@ async def test_bootstrap_from_env_noop_when_unset(users_app) -> None:
     from sqlalchemy import select
 
     fake_app = _make_fake_app(
-        users_app.state.db.session_factory,
+        users_app.state.sm.db.session_factory,
         bootstrap_email="",
         bootstrap_password="",
     )
@@ -188,7 +190,7 @@ async def test_bootstrap_from_env_noop_when_unset(users_app) -> None:
     await bootstrap_admin_from_env(fake_app)  # type: ignore[arg-type]
 
     # No users should have been created
-    async with users_app.state.db.session_factory() as s:
+    async with users_app.state.sm.db.session_factory() as s:
         count = (await s.execute(select(User))).scalars().all()
     assert len(count) == 0
 
@@ -199,7 +201,7 @@ async def test_bootstrap_from_env_noop_when_table_nonempty(users_app) -> None:
     from sqlalchemy import select
 
     # Seed a dummy user first
-    async with users_app.state.db.session_factory() as s:
+    async with users_app.state.sm.db.session_factory() as s:
         dummy = User(
             email="existing@test.example",
             hashed_password=PasswordHelper().hash("dummy"),
@@ -211,14 +213,14 @@ async def test_bootstrap_from_env_noop_when_table_nonempty(users_app) -> None:
         await s.commit()
 
     fake_app = _make_fake_app(
-        users_app.state.db.session_factory,
+        users_app.state.sm.db.session_factory,
         bootstrap_email="admin@test.example",
         bootstrap_password="AdminPass1!",
     )
     await bootstrap_admin_from_env(fake_app)  # type: ignore[arg-type]
 
     # Only the original dummy user should exist
-    async with users_app.state.db.session_factory() as s:
+    async with users_app.state.sm.db.session_factory() as s:
         users = (await s.execute(select(User))).scalars().all()
     assert len(users) == 1
     assert users[0].email == "existing@test.example"
@@ -230,13 +232,13 @@ async def test_bootstrap_from_env_creates_admin_when_empty_and_configured(users_
     from sqlalchemy import select
 
     fake_app = _make_fake_app(
-        users_app.state.db.session_factory,
+        users_app.state.sm.db.session_factory,
         bootstrap_email="bootstrap@test.example",
         bootstrap_password="BootPass1!",
     )
     await bootstrap_admin_from_env(fake_app)  # type: ignore[arg-type]
 
-    async with users_app.state.db.session_factory() as s:
+    async with users_app.state.sm.db.session_factory() as s:
         user = (
             await s.execute(select(User).where(User.email == "bootstrap@test.example"))
         ).scalar_one_or_none()

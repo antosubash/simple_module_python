@@ -49,11 +49,11 @@ class TestSessionManagement:
 
 class TestGetDbDependency:
     async def test_get_db_yields_session(self):
-        """get_db should yield an AsyncSession from app.state.db."""
+        """get_db should yield an AsyncSession from app.state.sm.db."""
         db_state = init_db("sqlite+aiosqlite:///:memory:")
         try:
             mock_request = MagicMock()
-            mock_request.app.state.db = db_state
+            mock_request.app.state.sm.db = db_state
 
             gen = get_db(mock_request)
             session = await gen.__anext__()

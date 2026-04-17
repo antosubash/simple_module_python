@@ -41,7 +41,7 @@ router = APIRouter()
 
 def get_rate_limiter(request: Request) -> LoginRateLimiter:
     """Return the per-app LoginRateLimiter built in UsersModule.on_startup."""
-    return request.app.state.rate_limiter
+    return request.app.state.users.rate_limiter
 
 
 def _client_ip(request: Request) -> str:
@@ -55,7 +55,7 @@ async def enforce_auth_throughput_limit(request: Request) -> None:
     Applied to forgot-password / register / accept-invite / request-verify-token,
     which otherwise allow unlimited email or account-creation spam.
     """
-    limiter: ThroughputLimiter = request.app.state.auth_throughput_limiter
+    limiter: ThroughputLimiter = request.app.state.users.auth_throughput_limiter
     key = f"{request.url.path}::{_client_ip(request)}"
     if not limiter.check_and_record(key):
         raise HTTPException(

@@ -9,9 +9,19 @@ from host.routes_i18n import router as i18n_router
 
 
 def _build_app(supported: list[str]) -> FastAPI:
+    from types import SimpleNamespace
+
+    from simple_module_core.i18n import I18nRegistry
+
     app = FastAPI()
-    app.state.settings_supported_locales = supported
-    app.state.settings_cookie_name = "locale"
+    registry = I18nRegistry(
+        default_locale=supported[0] if supported else "en", supported_locales=supported
+    )
+    # Populate _messages directly so available_locales() returns the supported list
+    # without needing locale JSON files on disk.
+    registry._messages = {locale: {"_fixture": "1"} for locale in supported}
+    settings = SimpleNamespace(i18n_cookie_name="locale")
+    app.state.sm = SimpleNamespace(i18n_registry=registry, settings=settings)
     app.include_router(i18n_router)
     return app
 

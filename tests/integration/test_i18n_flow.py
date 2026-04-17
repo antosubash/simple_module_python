@@ -59,7 +59,7 @@ async def host_client(app_with_host_routes) -> AsyncGenerator[httpx.AsyncClient,
 
     csrf = "test-csrf-token"
     signed = forge_session_cookie(
-        str(app_with_host_routes.state.settings.secret_key),
+        str(app_with_host_routes.state.sm.settings.secret_key),
         {SESSION_CSRF_TOKEN_KEY: csrf},
     )
     transport = httpx.ASGITransport(app=app_with_host_routes)

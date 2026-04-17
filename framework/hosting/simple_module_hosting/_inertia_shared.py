@@ -24,7 +24,10 @@ def build_i18n_block(scope: Scope, request: Request) -> dict:
       from what was last served on this session.
     * Full page loads and locale transitions ship the complete dict.
     """
-    registry = getattr(request.app.state, "i18n_registry", None)
+    # Test fixtures sometimes build a bare FastAPI with a partial app.state.sm
+    # stub (e.g. permissions-only, no i18n); guard both lookups to keep them usable.
+    sm = getattr(request.app.state, "sm", None)
+    registry = getattr(sm, "i18n_registry", None) if sm is not None else None
     locale = getattr(request.state, "locale", None)
     if registry is None or locale is None:
         logger.warning(

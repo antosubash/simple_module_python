@@ -125,7 +125,7 @@ async def app(settings: Settings):
 
     application = create_app(settings)
 
-    await _create_all_tables(application.state.db.engine)
+    await _create_all_tables(application.state.sm.db.engine)
 
     # Trigger lifespan startup so app.state.migration is populated
     ctx = application.router.lifespan_context(application)
@@ -146,7 +146,7 @@ async def client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
     requests from anonymous test flows (login, accept-invite, register) pass
     validation without first making a GET to mint a token."""
     signed = forge_session_cookie(
-        app.state.settings.secret_key, {SESSION_CSRF_TOKEN_KEY: _TEST_CSRF_TOKEN}
+        app.state.sm.settings.secret_key, {SESSION_CSRF_TOKEN_KEY: _TEST_CSRF_TOKEN}
     )
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
@@ -163,7 +163,7 @@ async def authenticated_client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
     """HTTPX client with a signed session cookie carrying a seeded admin user's id."""
     from users.bootstrap import create_admin
 
-    async with app.state.db.session_factory() as session:
+    async with app.state.sm.db.session_factory() as session:
         result = await create_admin(
             session,
             email="admin@test",
@@ -173,7 +173,7 @@ async def authenticated_client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
         user_id = str(result.user.id)
 
     signed = forge_session_cookie(
-        app.state.settings.secret_key,
+        app.state.sm.settings.secret_key,
         {"user_id": user_id, SESSION_CSRF_TOKEN_KEY: _TEST_CSRF_TOKEN},
     )
 

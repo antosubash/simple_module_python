@@ -17,6 +17,7 @@ from simple_module_core.feature_flags import FeatureFlagRegistry
 from simple_module_core.health import HealthRegistry
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.services import Services
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 
@@ -141,14 +142,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-        app.state.migration = await check_migrations(app.state.db.engine)
+        app.state.migration = await check_migrations(app.state.sm.db.engine)
 
         for mod in modules:
             await mod.on_startup(app)
         yield
         for mod in reversed(modules):
             await mod.on_shutdown(app)
-        await app.state.db.engine.dispose()
+        await app.state.sm.db.engine.dispose()
 
     app = FastAPI(
         title="SimpleModule",
@@ -158,29 +159,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
 
-    app.state.modules = modules
-    app.state.menu_registry = menu_registry
-    app.state.perm_registry = perm_registry
-    app.state.ff_registry = ff_registry
-    app.state.event_bus = event_bus
-    app.state.health_registry = health_registry
-    app.state.settings = settings
-    app.state.i18n_registry = i18n_registry
-    app.state.settings_default_locale = settings.i18n_default_locale
-    app.state.settings_supported_locales = settings.i18n_supported_locales
-    app.state.settings_cookie_name = settings.i18n_cookie_name
-
     # ── Phase 4: Module settings ───────────────────────────
-    # Starlette's State stores attributes in `_state`, so we snapshot that
-    # dict's keys (vars(app.state) only exposes `{'_state'}` itself).
-    state_before = set(app.state._state)
     for mod in modules:
         mod.register_settings(app)
 
-    # SM012: warn if register_settings was overridden but added nothing
     if settings.is_development:
-        state_after = set(app.state._state)
-        check_settings_registration(modules, state_after - state_before)
+        check_settings_registration(app, modules)
 
     # ── Phase 5: Module registrations ──────────────────────
     for mod in modules:
@@ -208,10 +192,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         pool_recycle=settings.db_pool_recycle,
     )
     register_listeners(db_state)
-    app.state.db = db_state
 
     # ── Phase 7: Inertia + exception handlers ──────────────
-    setup_inertia(app, settings, modules, _PROJECT_ROOT)
+    inertia_config = setup_inertia(app, settings, modules, _PROJECT_ROOT)
+    if inertia_config is None:
+        raise RuntimeError("Inertia not configured — no template directories available")
     register_exception_handlers(app, modules)
 
     # ── Phase 8: Middleware pipeline ───────────────────────
@@ -228,5 +213,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     mount_module_static_dirs(app, modules)
+
+    app.state.sm = Services(
+        settings=settings,
+        db=db_state,
+        event_bus=event_bus,
+        menu_registry=menu_registry,
+        permissions=perm_registry,
+        feature_flags=ff_registry,
+        health_registry=health_registry,
+        i18n_registry=i18n_registry,
+        inertia_config=inertia_config,
+        modules=tuple(modules),
+    )
 
     return app
