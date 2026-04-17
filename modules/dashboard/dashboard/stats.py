@@ -95,10 +95,7 @@ async def _count_products(db: AsyncSession) -> int:
 def _get_module_info(app: FastAPI) -> list[dict[str, str]]:
     # Reads from the module list discovered once at startup, avoiding
     # expensive entry-point rescans on every request.
-    modules = app.state.sm.modules if hasattr(app.state, "sm") else None
-    if modules is None:
-        return []
-    return [{"name": m.meta.name, "status": "loaded"} for m in modules]
+    return [{"name": m.meta.name, "status": "loaded"} for m in app.state.sm.modules]
 
 
 async def _run_health_checks(app: FastAPI) -> list[dict[str, str]]:

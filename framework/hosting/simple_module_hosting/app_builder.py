@@ -214,8 +214,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     mount_module_static_dirs(app, modules)
 
-    # Typed singleton container. Loose app.state.* keys remain for the
-    # duration of the staged migration; consumers read from app.state.sm.*.
     app.state.sm = Services(
         settings=settings,
         db=db_state,

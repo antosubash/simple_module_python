@@ -52,8 +52,7 @@ async def get_roles_cache(app: FastAPI) -> list[RoleSummary]:
     covers scenarios where startup ran before the ``users_role`` table had any
     rows. Once populated, subsequent calls are O(1) attribute reads.
     """
-    users = getattr(app.state, "users", None)
-    cached = users.roles_cache if users is not None else []
+    cached = app.state.users.roles_cache
     if cached:
         return cached
     return await refresh_roles_cache(app)

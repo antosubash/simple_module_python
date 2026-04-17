@@ -16,10 +16,10 @@ async def get_translator(request: Request) -> Translator:
 
     ``request.state.locale`` is populated by LocaleMiddleware.
     """
-    registry = request.app.state.sm.i18n_registry
-    default_locale = request.app.state.sm.settings.i18n_default_locale
+    sm = request.app.state.sm
+    default_locale = sm.settings.i18n_default_locale
     locale = getattr(request.state, "locale", default_locale)
-    return Translator(registry, locale=locale, default_locale=default_locale)
+    return Translator(sm.i18n_registry, locale=locale, default_locale=default_locale)
 
 
 TranslatorDep = Annotated[Translator, Depends(get_translator)]

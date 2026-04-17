@@ -17,7 +17,6 @@ class TestCreateApp:
         assert isinstance(app, FastAPI)
 
     async def test_app_state_has_registries(self, app: FastAPI):
-        # After Task 10, loose keys are removed. Access via app.state.sm.* instead.
         assert hasattr(app.state, "sm")
         sm = app.state.sm
         assert sm.menu_registry is not None
@@ -85,7 +84,6 @@ class TestCreateApp:
 
         sm = app.state.sm
         assert isinstance(sm, Services)
-        # All registries and state are accessed via app.state.sm.* after Task 10.
         assert sm.settings is not None
         assert sm.db is not None
         assert sm.event_bus is not None
