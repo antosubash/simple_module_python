@@ -38,7 +38,7 @@ async def _seed_user_with_roles(app, email: str, role_names: list[str]):
         "user": USER_ROLE_ID,
     }
 
-    async with app.state.db.session_factory() as session:
+    async with app.state.sm.db.session_factory() as session:
         # Ensure requested roles exist.
         for name in role_names:
             existing = (
@@ -78,7 +78,7 @@ def _make_client(
     app, user_id: str, *, extra_headers: dict[str, str] | None = None
 ) -> httpx.AsyncClient:
     cookie = forge_session_cookie(
-        str(app.state.settings.secret_key),
+        str(app.state.sm.settings.secret_key),
         {"user_id": user_id, SESSION_CSRF_TOKEN_KEY: _TEST_CSRF_TOKEN},
     )
     headers = {"X-CSRF-Token": _TEST_CSRF_TOKEN, **(extra_headers or {})}

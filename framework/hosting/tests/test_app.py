@@ -69,7 +69,9 @@ class TestCreateApp:
         paths = {getattr(r, "path", None) for r in app.routes}
         assert "/modules/fakestatic/static" in paths
 
-    async def test_app_state_has_sm_services(self, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    async def test_app_state_has_sm_services(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
         """create_app populates app.state.sm with a Services instance."""
         from simple_module_core.services import Services
 

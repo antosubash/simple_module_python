@@ -22,7 +22,7 @@ def _build_app() -> FastAPI:
     class MockServices:
         def __init__(self, registry, default_locale):
             self.i18n_registry = registry
-            self.settings = type('Settings', (), {'i18n_default_locale': default_locale})()
+            self.settings = type("Settings", (), {"i18n_default_locale": default_locale})()
 
     app.state.sm = MockServices(reg, "en")
 

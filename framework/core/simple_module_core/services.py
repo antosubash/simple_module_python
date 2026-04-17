@@ -17,6 +17,9 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from inertia import InertiaConfig
+    from simple_module_db.session import DatabaseState
+    from simple_module_hosting.settings import Settings
+
     from simple_module_core.events import EventBus
     from simple_module_core.feature_flags import FeatureFlagRegistry
     from simple_module_core.health import HealthRegistry
@@ -24,8 +27,6 @@ if TYPE_CHECKING:
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.module import ModuleBase
     from simple_module_core.permissions import PermissionRegistry
-    from simple_module_db.session import DatabaseState
-    from simple_module_hosting.settings import Settings
 
 
 @dataclass(frozen=True, slots=True)

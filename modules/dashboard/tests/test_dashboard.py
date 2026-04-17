@@ -36,7 +36,7 @@ class TestFetchDashboardStats:
     async def stats(self, app):
         from dashboard.stats import fetch_dashboard_stats
 
-        async with app.state.db.session_factory() as db:
+        async with app.state.sm.db.session_factory() as db:
             return await fetch_dashboard_stats(db, app)
 
     async def test_returns_expected_keys(self, stats):

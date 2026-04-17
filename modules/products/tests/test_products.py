@@ -244,9 +244,9 @@ class TestProductsModuleLifecycle:
 
         mod = ProductsModule()
         mock_app = MagicMock()
-        mock_app.state.db.engine = AsyncMock()
+        mock_app.state.sm.db.engine = AsyncMock()
 
         await mod.on_startup(mock_app)
 
         # Engine should not have been used for DDL
-        mock_app.state.db.engine.begin.assert_not_called()
+        mock_app.state.sm.db.engine.begin.assert_not_called()

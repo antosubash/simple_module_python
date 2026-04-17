@@ -14,7 +14,9 @@ def _build_app(supported: list[str]) -> FastAPI:
     from simple_module_core.i18n import I18nRegistry
 
     app = FastAPI()
-    registry = I18nRegistry(default_locale=supported[0] if supported else "en", supported_locales=supported)
+    registry = I18nRegistry(
+        default_locale=supported[0] if supported else "en", supported_locales=supported
+    )
     # Populate _messages directly so available_locales() returns the supported list
     # without needing locale JSON files on disk.
     registry._messages = {locale: {"_fixture": "1"} for locale in supported}
