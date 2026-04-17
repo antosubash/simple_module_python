@@ -22,7 +22,7 @@ _INERTIA_ERROR_STATUSES = frozenset({403, 404, 500})
 
 
 async def render_error_page(request: Request, status_code: int, message: str) -> Response:
-    config: InertiaConfig = request.app.state.inertia_config
+    config: InertiaConfig = request.app.state.sm.inertia_config
     try:
         inertia = Inertia(request, config)
         response = await inertia.render("Error", {"status": status_code, "message": message})

@@ -142,14 +142,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-        app.state.migration = await check_migrations(app.state.db.engine)
+        app.state.migration = await check_migrations(app.state.sm.db.engine)
 
         for mod in modules:
             await mod.on_startup(app)
         yield
         for mod in reversed(modules):
             await mod.on_shutdown(app)
-        await app.state.db.engine.dispose()
+        await app.state.sm.db.engine.dispose()
 
     app = FastAPI(
         title="SimpleModule",
