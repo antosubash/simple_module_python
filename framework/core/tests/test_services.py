@@ -7,33 +7,32 @@ import pytest
 from simple_module_core.services import Services
 
 
-def test_services_is_frozen() -> None:
-    """Mutation after construction must raise — singletons don't change at runtime."""
-    s = _make_services()
-    with pytest.raises((AttributeError, TypeError)):
-        s.settings = None  # type: ignore[misc]
+class TestServices:
+    async def test_services_is_frozen(self) -> None:
+        """Mutation after construction must raise — singletons don't change at runtime."""
+        s = _make_services()
+        with pytest.raises((AttributeError, TypeError)):
+            s.settings = None  # type: ignore[misc]
 
+    async def test_services_has_slots(self) -> None:
+        """Slotted dataclass prevents silent attribute additions (the original bloat pattern)."""
+        s = _make_services()
+        with pytest.raises((AttributeError, TypeError)):
+            s.rogue_new_attribute = 42  # type: ignore[attr-defined]
 
-def test_services_has_slots() -> None:
-    """Slotted dataclass prevents silent attribute additions (the original bloat pattern)."""
-    s = _make_services()
-    with pytest.raises((AttributeError, TypeError)):
-        s.rogue_new_attribute = 42  # type: ignore[attr-defined]
-
-
-def test_services_round_trip_field_access() -> None:
-    """Every declared field must be readable after construction."""
-    s = _make_services()
-    assert s.settings is _SENTINEL_SETTINGS
-    assert s.db is _SENTINEL_DB
-    assert s.event_bus is _SENTINEL_EVENT_BUS
-    assert s.menu_registry is _SENTINEL_MENU
-    assert s.permissions is _SENTINEL_PERMS
-    assert s.feature_flags is _SENTINEL_FLAGS
-    assert s.health_registry is _SENTINEL_HEALTH
-    assert s.i18n_registry is _SENTINEL_I18N
-    assert s.inertia_config is _SENTINEL_INERTIA
-    assert s.modules == ()
+    async def test_services_round_trip_field_access(self) -> None:
+        """Every declared field must be readable after construction."""
+        s = _make_services()
+        assert s.settings is _SENTINEL_SETTINGS
+        assert s.db is _SENTINEL_DB
+        assert s.event_bus is _SENTINEL_EVENT_BUS
+        assert s.menu_registry is _SENTINEL_MENU
+        assert s.permissions is _SENTINEL_PERMS
+        assert s.feature_flags is _SENTINEL_FLAGS
+        assert s.health_registry is _SENTINEL_HEALTH
+        assert s.i18n_registry is _SENTINEL_I18N
+        assert s.inertia_config is _SENTINEL_INERTIA
+        assert s.modules == ()
 
 
 _SENTINEL_SETTINGS = object()
@@ -48,8 +47,7 @@ _SENTINEL_INERTIA = object()
 
 
 def _make_services() -> Services:
-    # Fields are typed but at runtime we can pass sentinels; typing lives
-    # in production call-sites, not these structural tests.
+    """Construct a Services instance with sentinel values for structural tests."""
     return Services(
         settings=_SENTINEL_SETTINGS,  # type: ignore[arg-type]
         db=_SENTINEL_DB,  # type: ignore[arg-type]
