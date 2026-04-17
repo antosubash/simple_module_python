@@ -77,7 +77,7 @@ async def _setup_app_db(application) -> None:
 
     head = resolve_head_revision()
 
-    async with application.state.db.engine.begin() as conn:
+    async with application.state.sm.db.engine.begin() as conn:
 
         def _create(sync_conn):
             for base in all_module_bases:
@@ -104,7 +104,7 @@ async def _seed_roles(application) -> None:
     from sqlalchemy import select
     from users.models import Role
 
-    async with application.state.db.session_factory() as session:
+    async with application.state.sm.db.session_factory() as session:
         existing = set((await session.execute(select(Role.name))).scalars().all())
         if "admin" not in existing:
             session.add(Role(id=ADMIN_ROLE_ID, name="admin", description="Administrator"))

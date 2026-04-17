@@ -17,13 +17,16 @@ class TestCreateApp:
         assert isinstance(app, FastAPI)
 
     async def test_app_state_has_registries(self, app: FastAPI):
-        assert hasattr(app.state, "menu_registry")
-        assert hasattr(app.state, "perm_registry")
-        assert hasattr(app.state, "ff_registry")
-        assert hasattr(app.state, "event_bus")
-        assert hasattr(app.state, "health_registry")
-        assert hasattr(app.state, "settings")
-        assert hasattr(app.state, "db")
+        # After Task 10, loose keys are removed. Access via app.state.sm.* instead.
+        assert hasattr(app.state, "sm")
+        sm = app.state.sm
+        assert sm.menu_registry is not None
+        assert sm.permissions is not None
+        assert sm.feature_flags is not None
+        assert sm.event_bus is not None
+        assert sm.health_registry is not None
+        assert sm.settings is not None
+        assert sm.db is not None
 
     async def test_modules_enabled_limits_loaded_modules(self, settings: Settings):
         """Host respects settings.modules_enabled — only listed modules contribute routes."""
@@ -80,18 +83,17 @@ class TestCreateApp:
 
         sm = app.state.sm
         assert isinstance(sm, Services)
-        # Fields resolve to the same instances still on loose keys (both coexist
-        # during the staged rollout).
-        assert sm.settings is app.state.settings
-        assert sm.db is app.state.db
-        assert sm.event_bus is app.state.event_bus
-        assert sm.menu_registry is app.state.menu_registry
-        assert sm.permissions is app.state.perm_registry
-        assert sm.feature_flags is app.state.ff_registry
-        assert sm.health_registry is app.state.health_registry
-        assert sm.i18n_registry is app.state.i18n_registry
-        assert sm.inertia_config is app.state.inertia_config
-        assert sm.modules == tuple(app.state.modules)
+        # All registries and state are accessed via app.state.sm.* after Task 10.
+        assert sm.settings is not None
+        assert sm.db is not None
+        assert sm.event_bus is not None
+        assert sm.menu_registry is not None
+        assert sm.permissions is not None
+        assert sm.feature_flags is not None
+        assert sm.health_registry is not None
+        assert sm.i18n_registry is not None
+        assert sm.inertia_config is not None
+        assert len(sm.modules) > 0
 
 
 class TestResolveProjectRoot:

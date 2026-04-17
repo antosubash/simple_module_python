@@ -17,4 +17,4 @@ async def get_product_service(
 
 
 def get_event_bus(request: Request) -> EventBus:
-    return request.app.state.event_bus
+    return request.app.state.sm.event_bus

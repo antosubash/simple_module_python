@@ -29,7 +29,7 @@ async def get_db(request: Request) -> AsyncGenerator[AsyncSession, None]:
         async def list_items(db: AsyncSession = Depends(get_db)):
             ...
     """
-    factory = request.app.state.db.session_factory
+    factory = request.app.state.sm.db.session_factory
     start = time.perf_counter()
     async with factory() as session:
         try:
