@@ -17,6 +17,7 @@ from simple_module_core.feature_flags import FeatureFlagRegistry
 from simple_module_core.health import HealthRegistry
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.services import Services
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 
@@ -228,5 +229,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     mount_module_static_dirs(app, modules)
+
+    # Typed singleton container. Loose app.state.* keys remain for the
+    # duration of the staged migration; consumers read from app.state.sm.*.
+    app.state.sm = Services(
+        settings=settings,
+        db=db_state,
+        event_bus=event_bus,
+        menu_registry=menu_registry,
+        permissions=perm_registry,
+        feature_flags=ff_registry,
+        health_registry=health_registry,
+        i18n_registry=i18n_registry,
+        inertia_config=app.state.inertia_config,
+        modules=tuple(modules),
+    )
 
     return app

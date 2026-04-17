@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 
 import httpx
+import pytest
 from fastapi import FastAPI
 from simple_module_hosting.app_builder import _resolve_project_root, create_app
 from simple_module_hosting.settings import Settings
@@ -64,6 +65,33 @@ class TestCreateApp:
         app = create_app(settings)
         paths = {getattr(r, "path", None) for r in app.routes}
         assert "/modules/fakestatic/static" in paths
+
+    async def test_app_state_has_sm_services(self, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+        """create_app populates app.state.sm with a Services instance."""
+        from simple_module_core.services import Services
+
+        monkeypatch.setenv("SM_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+        monkeypatch.setenv("SM_SECRET_KEY", "x" * 48)
+        monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+        (tmp_path / "host" / "templates").mkdir(parents=True)
+        (tmp_path / "host" / "templates" / "index.html").write_text("<html></html>")
+
+        app = create_app()
+
+        sm = app.state.sm
+        assert isinstance(sm, Services)
+        # Fields resolve to the same instances still on loose keys (both coexist
+        # during the staged rollout).
+        assert sm.settings is app.state.settings
+        assert sm.db is app.state.db
+        assert sm.event_bus is app.state.event_bus
+        assert sm.menu_registry is app.state.menu_registry
+        assert sm.permissions is app.state.perm_registry
+        assert sm.feature_flags is app.state.ff_registry
+        assert sm.health_registry is app.state.health_registry
+        assert sm.i18n_registry is app.state.i18n_registry
+        assert sm.inertia_config is app.state.inertia_config
+        assert sm.modules == tuple(app.state.modules)
 
 
 class TestResolveProjectRoot:
