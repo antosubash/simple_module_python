@@ -83,9 +83,15 @@ class I18nRegistry:
         # Immutable views into ``_messages`` — handed out by ``messages()`` to
         # avoid a per-call dict copy. Rebuilt whenever ``load()`` runs.
         self._message_views: dict[str, MappingProxyType[str, str]] = {}
+        # Plain-dict snapshots for JSON-serializing callers (e.g. Inertia shared
+        # props). Built once per load; handing the same dict out on every request
+        # avoids per-request dict copies that used to dominate allocations on the
+        # Inertia render path.
+        self._message_snapshots: dict[str, dict[str, str]] = {}
         self._available_locales: tuple[str, ...] = ()
         self._available_locales_list: list[str] = []
         self._empty_view: MappingProxyType[str, str] = MappingProxyType({})
+        self._empty_snapshot: dict[str, str] = {}
         self._loaded = False
 
     def add_source(self, namespace: str, locale_dir: Path) -> None:
@@ -124,6 +130,9 @@ class I18nRegistry:
         self._message_views = {
             locale: MappingProxyType(msgs) for locale, msgs in self._messages.items()
         }
+        # Plain-dict snapshots for serialization callers. ``dict(msgs)`` runs
+        # once here rather than on every Inertia render.
+        self._message_snapshots = {locale: dict(msgs) for locale, msgs in self._messages.items()}
         self._available_locales = tuple(locale for locale, msgs in self._messages.items() if msgs)
         self._available_locales_list = list(self._available_locales)
         self._loaded = True
@@ -144,8 +153,7 @@ class I18nRegistry:
 
         Returns an immutable view (``MappingProxyType``) into the cached
         message dict — zero-copy. Callers that JSON-serialize the result
-        (e.g. Inertia shared props) should wrap with ``dict(...)`` at the
-        boundary.
+        should use :meth:`messages_snapshot` instead.
         """
         view = self._message_views.get(locale)
         if view is not None:
@@ -156,6 +164,25 @@ class I18nRegistry:
         if raw is None:
             return self._empty_view
         return MappingProxyType(raw)
+
+    def messages_snapshot(self, locale: str) -> dict[str, str]:
+        """Plain-dict snapshot for callers that JSON-serialize the result.
+
+        Built once at :meth:`load` time and handed out by reference on every
+        call. Callers must treat it as read-only — mutating the returned dict
+        corrupts subsequent responses. Used by the Inertia shared-props builder
+        where it sits on the request hot path; prior to this method,
+        ``dict(messages(locale))`` per request was the top own-code allocator.
+        """
+        snapshot = self._message_snapshots.get(locale)
+        if snapshot is not None:
+            return snapshot
+        # Fallback for tests that skip ``load()``: synthesize the snapshot on
+        # demand from whatever ``_messages`` holds.
+        raw = self._messages.get(locale)
+        if raw is None:
+            return self._empty_snapshot
+        return dict(raw)
 
 
 class _SafeFormatDict(dict):
