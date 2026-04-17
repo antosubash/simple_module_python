@@ -105,7 +105,7 @@ async def _seed_roles(application) -> None:
     from users.models import Role
 
     async with application.state.db.session_factory() as session:
-        existing = set((await session.execute(select(Role.name))).scalars().all())  # ty:ignore[no-matching-overload]
+        existing = set((await session.execute(select(Role.name))).scalars().all())
         if "admin" not in existing:
             session.add(Role(id=ADMIN_ROLE_ID, name="admin", description="Administrator"))
         if "user" not in existing:

@@ -126,7 +126,7 @@ class AuthMiddleware:
         try:
             session_factory = scope["app"].state.db.session_factory
             async with session_factory() as db_session:
-                stmt = select(User).where(User.id == user_id).options(selectinload(User.roles))  # ty:ignore[invalid-argument-type]
+                stmt = select(User).where(User.id == user_id).options(selectinload(User.roles))
                 user = (await db_session.execute(stmt)).scalar_one_or_none()
                 if user is None:
                     return None

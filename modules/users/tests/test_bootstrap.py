@@ -73,7 +73,7 @@ async def test_create_admin_on_empty_table(users_db: AsyncSession) -> None:
 
     # Verify the user is in the DB
     user_row = (
-        await users_db.execute(select(User).where(User.email == "admin@test.example"))  # ty:ignore[invalid-argument-type]
+        await users_db.execute(select(User).where(User.email == "admin@test.example"))
     ).scalar_one_or_none()
     assert user_row is not None
 
@@ -81,7 +81,7 @@ async def test_create_admin_on_empty_table(users_db: AsyncSession) -> None:
     link = (
         await users_db.execute(
             select(UserRole).where(
-                UserRole.user_id == result.user.id, UserRole.role_id == ADMIN_ROLE_ID  # ty:ignore[invalid-argument-type]
+                UserRole.user_id == result.user.id, UserRole.role_id == ADMIN_ROLE_ID
             )
         )
     ).scalar_one_or_none()
@@ -89,7 +89,7 @@ async def test_create_admin_on_empty_table(users_db: AsyncSession) -> None:
 
     # Verify the admin role exists
     role = (
-        await users_db.execute(select(Role).where(Role.id == ADMIN_ROLE_ID))  # ty:ignore[invalid-argument-type]
+        await users_db.execute(select(Role).where(Role.id == ADMIN_ROLE_ID))
     ).scalar_one_or_none()
     assert role is not None
     assert role.name == "admin"
@@ -136,7 +136,7 @@ async def test_create_admin_force_resets_password(users_db: AsyncSession) -> Non
     assert result.created is False
     # Retrieve fresh from DB to confirm the hash was persisted
     updated = (
-        await users_db.execute(select(User).where(User.email == "admin3@test.example"))  # ty:ignore[invalid-argument-type]
+        await users_db.execute(select(User).where(User.email == "admin3@test.example"))
     ).scalar_one()
     assert updated.hashed_password != original_hash
     # New password must verify
@@ -152,7 +152,7 @@ async def test_create_admin_creates_role_if_missing(users_db: AsyncSession) -> N
 
     # Wipe UserRole first (FK constraint), then Role
     await users_db.execute(delete(UserRole))
-    await users_db.execute(delete(Role).where(Role.id == ADMIN_ROLE_ID))  # ty:ignore[invalid-argument-type]
+    await users_db.execute(delete(Role).where(Role.id == ADMIN_ROLE_ID))
     await users_db.commit()
 
     result = await create_admin(
@@ -163,7 +163,7 @@ async def test_create_admin_creates_role_if_missing(users_db: AsyncSession) -> N
 
     assert result.created is True
     role = (
-        await users_db.execute(select(Role).where(Role.id == ADMIN_ROLE_ID))  # ty:ignore[invalid-argument-type]
+        await users_db.execute(select(Role).where(Role.id == ADMIN_ROLE_ID))
     ).scalar_one_or_none()
     assert role is not None
     assert role.id == ADMIN_ROLE_ID
@@ -185,7 +185,7 @@ async def test_bootstrap_from_env_noop_when_unset(users_app) -> None:
         bootstrap_password="",
     )
     # Patch fake_app.state onto a real app-like object
-    await bootstrap_admin_from_env(fake_app)  # type: ignore[arg-type] # ty: ignore[invalid-argument-type]
+    await bootstrap_admin_from_env(fake_app)  # type: ignore[arg-type]
 
     # No users should have been created
     async with users_app.state.db.session_factory() as s:
@@ -215,7 +215,7 @@ async def test_bootstrap_from_env_noop_when_table_nonempty(users_app) -> None:
         bootstrap_email="admin@test.example",
         bootstrap_password="AdminPass1!",
     )
-    await bootstrap_admin_from_env(fake_app)  # type: ignore[arg-type] # ty: ignore[invalid-argument-type]
+    await bootstrap_admin_from_env(fake_app)  # type: ignore[arg-type]
 
     # Only the original dummy user should exist
     async with users_app.state.db.session_factory() as s:
@@ -234,11 +234,11 @@ async def test_bootstrap_from_env_creates_admin_when_empty_and_configured(users_
         bootstrap_email="bootstrap@test.example",
         bootstrap_password="BootPass1!",
     )
-    await bootstrap_admin_from_env(fake_app)  # type: ignore[arg-type] # ty: ignore[invalid-argument-type]
+    await bootstrap_admin_from_env(fake_app)  # type: ignore[arg-type]
 
     async with users_app.state.db.session_factory() as s:
         user = (
-            await s.execute(select(User).where(User.email == "bootstrap@test.example"))  # ty:ignore[invalid-argument-type]
+            await s.execute(select(User).where(User.email == "bootstrap@test.example"))
         ).scalar_one_or_none()
 
     assert user is not None

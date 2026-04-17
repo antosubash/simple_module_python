@@ -147,8 +147,8 @@ async def test_user_role_composite_pk(db_session):
 
     result = await db_session.execute(
         select(UserRole).where(
-            UserRole.user_id == user_id,  # ty:ignore[invalid-argument-type]
-            UserRole.role_id == role_id,  # ty:ignore[invalid-argument-type]
+            UserRole.user_id == user_id,
+            UserRole.role_id == role_id,
         )
     )
     row = result.scalar_one()
@@ -184,7 +184,7 @@ async def test_fk_cascade_delete_user_removes_user_role(db_session):
     await db_session.delete(user)
     await db_session.commit()
 
-    result = await db_session.execute(select(UserRole).where(UserRole.user_id == user_id))  # ty:ignore[invalid-argument-type]
+    result = await db_session.execute(select(UserRole).where(UserRole.user_id == user_id))
     assert result.scalar_one_or_none() is None
 
 
@@ -210,7 +210,7 @@ async def test_user_access_token_insert(db_session):
     await db_session.commit()
 
     result = await db_session.execute(
-        select(UserAccessToken).where(UserAccessToken.token == "a" * 43)  # ty:ignore[invalid-argument-type]
+        select(UserAccessToken).where(UserAccessToken.token == "a" * 43)
     )
     row = result.scalar_one()
     assert row.user_id == user_id
@@ -261,7 +261,7 @@ async def test_seed_inserted_role_joins_orm_user_role(db_session):
 
     loaded = (
         await db_session.execute(
-            select(User).where(User.id == user.id).options(selectinload(User.roles))  # ty:ignore[invalid-argument-type]
+            select(User).where(User.id == user.id).options(selectinload(User.roles))
         )
     ).scalar_one()
     assert [r.name for r in loaded.roles] == ["seed_admin"]

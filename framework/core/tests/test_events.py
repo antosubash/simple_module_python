@@ -25,7 +25,7 @@ class TestEventBus:
         await bus.publish(OrderCreated(order_id=42))
 
         assert len(received) == 1
-        assert received[0].order_id == 42  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        assert received[0].order_id == 42  # type: ignore[attr-defined]
 
     async def test_multiple_handlers(self):
         bus = EventBus()

@@ -111,7 +111,7 @@ class TestCorrelationIdFilter:
             name="x", level=logging.INFO, pathname="", lineno=0, msg="", args=None, exc_info=None
         )
         filt.filter(record)
-        assert record.correlation_id == ""  # ty: ignore[unresolved-attribute]
+        assert record.correlation_id == ""
 
     def test_injects_current_correlation_id(self):
         token = correlation_id.set("req-42")
@@ -127,7 +127,7 @@ class TestCorrelationIdFilter:
                 exc_info=None,
             )
             filt.filter(record)
-            assert record.correlation_id == "req-42"  # ty: ignore[unresolved-attribute]
+            assert record.correlation_id == "req-42"
         finally:
             correlation_id.reset(token)
 
@@ -219,7 +219,7 @@ class TestRequestLoggingMiddleware:
         ]
         assert len(completed) == 1
         record = completed[0]
-        assert record.method == "GET"  # ty: ignore[unresolved-attribute]
-        assert record.path == "/dashboard"  # ty: ignore[unresolved-attribute]
+        assert record.method == "GET"
+        assert record.path == "/dashboard"
         assert hasattr(record, "status_code")
         assert hasattr(record, "duration_ms")

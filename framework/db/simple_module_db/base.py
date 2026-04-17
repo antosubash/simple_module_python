@@ -91,7 +91,7 @@ def create_module_base(
     )
 
     # Store module name for reference
-    ModuleBase.__module_name__ = schema_name  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    ModuleBase.__module_name__ = schema_name  # type: ignore[attr-defined]
 
     _base_cache[cache_key] = ModuleBase
     _register_base(ModuleBase)

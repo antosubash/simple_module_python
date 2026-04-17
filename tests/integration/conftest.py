@@ -42,11 +42,11 @@ async def _seed_user_with_roles(app, email: str, role_names: list[str]):
         # Ensure requested roles exist.
         for name in role_names:
             existing = (
-                await session.execute(select(Role).where(Role.name == name))  # ty:ignore[invalid-argument-type]
+                await session.execute(select(Role).where(Role.name == name))
             ).scalar_one_or_none()
             if existing is None:
                 role_id = _role_ids.get(name, _uuid.uuid4())
-                session.add(Role(id=role_id, name=name, description=name.title()))  # ty:ignore[invalid-argument-type]
+                session.add(Role(id=role_id, name=name, description=name.title()))
                 await session.flush()
 
         user = User(
@@ -63,7 +63,7 @@ async def _seed_user_with_roles(app, email: str, role_names: list[str]):
 
         if role_names:
             roles = (
-                (await session.execute(select(Role).where(Role.name.in_(role_names))))  # ty:ignore[unresolved-attribute]
+                (await session.execute(select(Role).where(Role.name.in_(role_names))))
                 .scalars()
                 .all()
             )

@@ -37,7 +37,7 @@ class UserRole(Base, table=True):  # ty: ignore[unsupported-base]
     )
     assigned_at: datetime = Field(
         default_factory=now_utc,
-        sa_type=DateTime(timezone=True),  # ty:ignore[invalid-argument-type]
+        sa_type=DateTime(timezone=True),
     )
     assigned_by: str | None = Field(default=None, max_length=255)
 
@@ -67,11 +67,11 @@ class User(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
     tenant_id: str | None = Field(default=None, max_length=50, index=True)
     disabled_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # ty:ignore[invalid-argument-type]
+        sa_type=DateTime(timezone=True),
     )
     last_login_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # ty:ignore[invalid-argument-type]
+        sa_type=DateTime(timezone=True),
         index=True,
     )
 
@@ -117,7 +117,7 @@ class UserAccessToken(Base, table=True):  # ty: ignore[unsupported-base]
     token: str = Field(max_length=43, primary_key=True)
     created_at: datetime = Field(
         default_factory=now_utc,
-        sa_type=TIMESTAMPAware(timezone=True),  # ty:ignore[invalid-argument-type]
+        sa_type=TIMESTAMPAware(timezone=True),
         index=True,
     )
     user_id: uuid.UUID = Field(

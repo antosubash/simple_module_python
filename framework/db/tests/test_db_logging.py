@@ -36,7 +36,7 @@ class TestGetDbLogging:
             await conn.run_sync(_TenantBase.metadata.create_all)
 
         async def add_one(session):
-            session.add(_TenantItem(name="w", tenant_id="t1"))  # ty:ignore[unknown-argument]
+            session.add(_TenantItem(name="w", tenant_id="t1"))
 
         with caplog.at_level(logging.INFO, logger="simple_module.db"):
             await _drive_get_db(db_state, populate=add_one)
@@ -59,7 +59,7 @@ class TestGetDbLogging:
             await conn.run_sync(_TenantBase.metadata.create_all)
 
         async def add_and_flush(session):
-            session.add(_TenantItem(name="w", tenant_id="t1"))  # ty:ignore[unknown-argument]
+            session.add(_TenantItem(name="w", tenant_id="t1"))
             await session.flush()
             assert not session.new
 

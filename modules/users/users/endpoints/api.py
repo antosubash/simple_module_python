@@ -131,14 +131,14 @@ def register_auth_routes(api_router: APIRouter, settings) -> None:
         dependencies=[Depends(enforce_auth_throughput_limit)],
     )
     api_router.include_router(
-        fastapi_users.get_verify_router(UserRead),  # ty:ignore[invalid-argument-type]
+        fastapi_users.get_verify_router(UserRead),
         prefix="/auth",
         tags=["users-auth"],
         dependencies=[Depends(enforce_auth_throughput_limit)],
     )
     if settings.allow_signup:
         api_router.include_router(
-            fastapi_users.get_register_router(UserRead, UserCreate),  # ty:ignore[invalid-argument-type]
+            fastapi_users.get_register_router(UserRead, UserCreate),
             prefix="/auth",
             tags=["users-auth"],
             dependencies=[Depends(enforce_auth_throughput_limit)],
@@ -168,7 +168,7 @@ async def accept_invite(
 
     try:
         await user_manager.update(
-            UserUpdate(password=body.password),  # ty:ignore[invalid-argument-type]
+            UserUpdate(password=body.password),
             user,
             request=request,
         )
@@ -199,7 +199,7 @@ async def update_me(
 ):
     """Update the currently authenticated user's profile."""
     return await user_manager.update(
-        UserUpdate(**data.model_dump(exclude_unset=True)),  # ty:ignore[invalid-argument-type]
+        UserUpdate(**data.model_dump(exclude_unset=True)),
         user,
         request=request,
     )

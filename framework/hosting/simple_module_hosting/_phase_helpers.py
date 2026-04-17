@@ -49,10 +49,10 @@ def register_exception_handlers(app: FastAPI, modules: list) -> None:
     """Install framework-level exception handlers, then per-module handlers."""
     app.add_exception_handler(
         InertiaVersionConflictException,
-        inertia_version_conflict_exception_handler,  # ty: ignore[invalid-argument-type]
+        inertia_version_conflict_exception_handler,
     )
-    app.add_exception_handler(HTTPException, http_exception_handler)  # ty: ignore[invalid-argument-type]
-    app.add_exception_handler(NotFoundError, not_found_error_handler)  # ty: ignore[invalid-argument-type]
+    app.add_exception_handler(HTTPException, http_exception_handler)
+    app.add_exception_handler(NotFoundError, not_found_error_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
     for mod in modules:
         mod.register_exception_handlers(app)

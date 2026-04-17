@@ -27,7 +27,7 @@ async def _make_user(session, email, password="SecurePass1!", verified=True, rol
 
     if role_names:
         roles = (
-            (await session.execute(select(Role).where(Role.name.in_(role_names)))).scalars().all()  # ty:ignore[unresolved-attribute]
+            (await session.execute(select(Role).where(Role.name.in_(role_names)))).scalars().all()
         )
         for role in roles:
             session.add(UserRole(user_id=user.id, role_id=role.id))

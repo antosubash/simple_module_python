@@ -22,12 +22,12 @@ class AuditMixin(SQLModel):
     """
 
     created_at: datetime = Field(
-        sa_type=DateTime(timezone=True),  # ty:ignore[invalid-argument-type]
+        sa_type=DateTime(timezone=True),
         sa_column_kwargs={"server_default": func.now()},
     )
     updated_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # ty:ignore[invalid-argument-type]
+        sa_type=DateTime(timezone=True),
         sa_column_kwargs={"onupdate": func.now()},
     )
     created_by: str | None = Field(default=None, max_length=255)
@@ -45,7 +45,7 @@ class SoftDeleteMixin(SQLModel):
     is_deleted: bool = Field(default=False)
     deleted_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # ty:ignore[invalid-argument-type]
+        sa_type=DateTime(timezone=True),
     )
     deleted_by: str | None = Field(default=None, max_length=255)
 

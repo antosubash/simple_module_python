@@ -11,7 +11,7 @@ class TestCreateModuleBase:
     async def test_returns_declarative_base(self):
         base = create_module_base("test_mod_base", provider=DatabaseProvider.SQLITE)
         assert hasattr(base, "metadata")
-        assert base.__abstract__ is True  # ty: ignore[unresolved-attribute]
+        assert base.__abstract__ is True
 
     async def test_caching_same_args(self):
         base1 = create_module_base("cache_test", provider=DatabaseProvider.SQLITE)
@@ -33,7 +33,7 @@ class TestCreateModuleBase:
 
     async def test_module_name_stored(self):
         base = create_module_base("named_mod", provider=DatabaseProvider.SQLITE)
-        assert base.__module_name__ == "named_mod"  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        assert base.__module_name__ == "named_mod"  # type: ignore[attr-defined]
 
     async def test_all_module_bases_is_deduped(self):
         """Re-creating the same module must not grow ``all_module_bases``."""
