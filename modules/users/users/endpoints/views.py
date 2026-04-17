@@ -11,6 +11,7 @@ from simple_module_hosting.permissions import RequiresPermission
 from starlette.responses import RedirectResponse
 
 from users.deps import get_user_service
+from users.exceptions import UserNotFoundError
 from users.roles_cache import get_roles_cache
 from users.service import UserService
 
@@ -163,9 +164,10 @@ async def admin_edit_page(
         uid = uuid.UUID(user_id)
     except ValueError as exc:
         raise HTTPException(status_code=404) from exc
-    user_item = await service.get_list_item(uid)
-    if user_item is None:
-        raise HTTPException(status_code=404)
+    try:
+        user_item = await service.get_list_item(uid)
+    except UserNotFoundError:
+        raise HTTPException(status_code=404) from None
     return await inertia.render(
         "Users/Users/Edit",
         {

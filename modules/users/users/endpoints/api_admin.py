@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from simple_module_core.events import EventBus
 from simple_module_hosting.permissions import RequiresPermission
 
@@ -20,6 +20,7 @@ from users.contracts.schemas import (
     UserListItem,
 )
 from users.deps import get_event_bus, get_mailer, get_user_service
+from users.exceptions import UserNotFoundError
 from users.service import UserService
 
 admin_router = APIRouter(
@@ -77,7 +78,10 @@ async def admin_disable_user(
     service: UserService = Depends(get_user_service),
 ):
     """Disable a user account (sets is_active=False and disabled_at)."""
-    user = await service.disable(user_id)
+    try:
+        user = await service.disable(user_id)
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found") from None
     await bus.publish(UserDisabled(user_id=user.id))
     return await service.to_list_item(user)
 
@@ -88,7 +92,10 @@ async def admin_enable_user(
     service: UserService = Depends(get_user_service),
 ):
     """Re-enable a previously disabled user account."""
-    user = await service.enable(user_id)
+    try:
+        user = await service.enable(user_id)
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found") from None
     return await service.to_list_item(user)
 
 
@@ -102,11 +109,14 @@ async def admin_set_roles(
 ):
     """Replace a user's role assignments."""
     assigned_by = getattr(request.state, "user", None)
-    user = await service.set_roles(
-        user_id,
-        data.role_names,
-        assigned_by=str(assigned_by.id) if assigned_by else None,
-    )
+    try:
+        user = await service.set_roles(
+            user_id,
+            data.role_names,
+            assigned_by=str(assigned_by.id) if assigned_by else None,
+        )
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found") from None
     for role in data.role_names:
         await bus.publish(RoleAssigned(user_id=user.id, role_name=role))
     return await service.to_list_item(user)
@@ -120,5 +130,8 @@ async def admin_reset_password_link(
 ):
     """Generate a password-reset link for the given user (admin copy)."""
     base_url = request.app.state.users.settings.base_url
-    link = await service.generate_reset_link(user_id, base_url)
+    try:
+        link = await service.generate_reset_link(user_id, base_url)
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found") from None
     return PasswordResetLink(link=link)

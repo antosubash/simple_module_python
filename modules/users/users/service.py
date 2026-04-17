@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from users.contracts.schemas import UserCreate, UserListItem
+from users.exceptions import UserNotFoundError
 from users.manager import UserManager
 from users.models import Role, User, UserRole
 
@@ -51,6 +52,13 @@ class UserService:
             select(User).where(User.id == user_id).options(selectinload(User.roles))
         )
         return result.scalar_one_or_none()
+
+    async def _require_user(self, user_id: uuid.UUID) -> User:
+        """Fetch a user with roles eager-loaded, or raise UserNotFoundError."""
+        user = await self._get_user_with_roles(user_id)
+        if user is None:
+            raise UserNotFoundError(user_id)
+        return user
 
     # ── Public API ───────────────────────────────────────────────
 
@@ -120,11 +128,7 @@ class UserService:
         return user, token
 
     async def disable(self, user_id: uuid.UUID) -> User:
-        user = await self._get_user_with_roles(user_id)
-        if user is None:
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=404, detail="User not found")
+        user = await self._require_user(user_id)
         user.disabled_at = datetime.now(UTC)
         user.is_active = False
         await self._db.commit()
@@ -134,11 +138,7 @@ class UserService:
         return refreshed
 
     async def enable(self, user_id: uuid.UUID) -> User:
-        user = await self._get_user_with_roles(user_id)
-        if user is None:
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=404, detail="User not found")
+        user = await self._require_user(user_id)
         user.disabled_at = None
         user.is_active = True
         await self._db.commit()
@@ -154,11 +154,7 @@ class UserService:
         *,
         assigned_by: str | None = None,
     ) -> User:
-        user = await self._get_user_with_roles(user_id)
-        if user is None:
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=404, detail="User not found")
+        await self._require_user(user_id)
 
         # Delete all existing role assignments for this user
         await self._db.execute(delete(UserRole).where(UserRole.user_id == user_id))
@@ -185,11 +181,7 @@ class UserService:
 
     async def generate_reset_link(self, user_id: uuid.UUID, base_url: str) -> str:
         """Build an admin-copyable password-reset URL. No email side-effect."""
-        user = await self._get_user_with_roles(user_id)
-        if user is None:
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=404, detail="User not found")
+        user = await self._require_user(user_id)
 
         token = await self._manager.generate_reset_password_token(user)
         return f"{base_url.rstrip('/')}/users/reset-password?token={token}"
@@ -198,9 +190,5 @@ class UserService:
         return await self._get_user_with_roles(user_id)
 
     async def get_list_item(self, user_id: uuid.UUID) -> UserListItem:
-        user = await self._get_user_with_roles(user_id)
-        if user is None:
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=404, detail="User not found")
+        user = await self._require_user(user_id)
         return await self.to_list_item(user)
