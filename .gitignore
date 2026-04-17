@@ -38,6 +38,10 @@ host/client_app/modules.generated.css
 # Worktrees
 .worktrees/
 
+# Performance profiles
+.memray/
+.benchmarks/
+
 # OS
 .DS_Store
 Thumbs.db

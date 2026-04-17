@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-memray lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
 
 # Install
 install:
@@ -47,6 +47,35 @@ test-js:
 
 test-e2e:                   ## Run end-to-end browser smoke tests (requires `make docker-up` + `make dev` and `uv run playwright install chromium`)
 	uv run pytest -m e2e tests/e2e
+
+# Performance
+bench:                      ## Run pytest-benchmark suite (tests/benchmarks). Override args with BENCH_ARGS=...
+	uv run pytest -m perf --benchmark-enable --benchmark-columns=min,mean,median,max,stddev,ops,rounds $(BENCH_ARGS) tests/benchmarks
+
+# Memory profiling with memray. Point TARGET at any runnable script/module.
+# Examples:
+#   make memray-run TARGET="-m pytest tests/benchmarks -m perf --benchmark-disable"
+#   make memray-run TARGET="scripts/new_module.py demo"
+MEMRAY_OUT ?= .memray/profile.bin
+TARGET ?= -m pytest tests/benchmarks -m perf --benchmark-disable
+memray-run:                 ## Record an allocation profile into $(MEMRAY_OUT)
+	@mkdir -p $(dir $(MEMRAY_OUT))
+	uv run memray run --force -o $(MEMRAY_OUT) $(TARGET)
+	@echo "Profile: $(MEMRAY_OUT) — render with 'make memray-flamegraph'"
+
+memray-flamegraph:          ## Render $(MEMRAY_OUT) as an HTML flamegraph
+	uv run memray flamegraph --force $(MEMRAY_OUT)
+
+# Load testing. `make loadtest` assumes `make dev` is running separately.
+# `make loadtest-memray` starts uvicorn under memray, runs locust headless,
+# shuts down, and emits a flamegraph. Override locust args via LOCUST_ARGS=...
+LOCUST_HOST ?= http://localhost:8000
+LOCUST_ARGS ?= -u 20 -r 5 -t 30s
+loadtest:                   ## Run locust against a server already on $(LOCUST_HOST)
+	uv run locust -f tests/loadtest/locustfile.py --host $(LOCUST_HOST) --headless $(LOCUST_ARGS)
+
+loadtest-memray:            ## Start uvicorn under memray, load-test, emit flamegraph
+	scripts/loadtest_memray.sh $(LOCUST_ARGS)
 
 lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
 

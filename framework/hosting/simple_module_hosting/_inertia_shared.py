@@ -55,7 +55,5 @@ def build_i18n_block(scope: Scope, request: Request) -> dict:
     return {
         "locale": locale,
         "supportedLocales": registry.available_locales(),
-        # Inertia's JSON encoder doesn't accept the MappingProxyType view
-        # returned by messages(); copy to a plain dict at the boundary.
-        "messages": dict(registry.messages(locale)) if send_messages else None,
+        "messages": registry.messages_snapshot(locale) if send_messages else None,
     }
