@@ -17,7 +17,7 @@ async def _drive_get_db(db_state, populate=None):
     close — this mirrors FastAPI's request lifecycle.
     """
     mock_request = MagicMock()
-    mock_request.app.state.db = db_state
+    mock_request.app.state.sm.db = db_state
     gen = get_db(mock_request)
     session = await gen.__anext__()
     if populate is not None:

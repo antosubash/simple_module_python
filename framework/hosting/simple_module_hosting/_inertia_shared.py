@@ -24,7 +24,8 @@ def build_i18n_block(scope: Scope, request: Request) -> dict:
       from what was last served on this session.
     * Full page loads and locale transitions ship the complete dict.
     """
-    registry = getattr(request.app.state, "i18n_registry", None)
+    sm = getattr(request.app.state, "sm", None)
+    registry = getattr(sm, "i18n_registry", None) if sm is not None else None
     locale = getattr(request.state, "locale", None)
     if registry is None or locale is None:
         logger.warning(

@@ -34,7 +34,7 @@ class TestHealthEndpoints:
 class TestHealthReady:
     async def test_ready_includes_module_checks(self, app: FastAPI, client: httpx.AsyncClient):
         """If modules registered health checks, /health/ready should include them."""
-        registry: HealthRegistry = app.state.health_registry
+        registry: HealthRegistry = app.state.sm.health_registry
 
         async def check_test_service() -> HealthCheckResult:
             return HealthCheckResult(status=HealthStatus.HEALTHY)
@@ -49,7 +49,7 @@ class TestHealthReady:
         assert data["checks"]["test_service"]["status"] == "healthy"
 
     async def test_ready_degraded_status(self, app: FastAPI, client: httpx.AsyncClient):
-        registry: HealthRegistry = app.state.health_registry
+        registry: HealthRegistry = app.state.sm.health_registry
 
         async def check_degraded() -> HealthCheckResult:
             return HealthCheckResult(status=HealthStatus.DEGRADED, detail="slow")
@@ -62,7 +62,7 @@ class TestHealthReady:
         assert data["checks"]["slow_service"]["detail"] == "slow"
 
     async def test_ready_unhealthy_on_exception(self, app: FastAPI, client: httpx.AsyncClient):
-        registry: HealthRegistry = app.state.health_registry
+        registry: HealthRegistry = app.state.sm.health_registry
 
         async def check_broken():
             raise ConnectionError("connection refused")

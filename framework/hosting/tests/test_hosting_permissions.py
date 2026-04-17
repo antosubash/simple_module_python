@@ -120,8 +120,10 @@ class TestRequiresPermissionWithRoleMap:
         """Build a minimal FastAPI app with the middleware and a protected route."""
         from simple_module_core.menu import MenuRegistry
 
+        from types import SimpleNamespace
+
         app = FastAPI()
-        app.state.perm_registry = reg
+        app.state.sm = SimpleNamespace(permissions=reg)
 
         menu_reg = MenuRegistry()
         app.add_middleware(
