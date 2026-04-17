@@ -99,7 +99,7 @@ async def login(
     await user_manager.on_after_login(user, request, response)
     # Set fastapi-users' cookie via auth_backend.login
     login_response = await auth_backend.login(strategy, user)
-    # Bridge the session cookie — AuthMiddleware (once wired in Task 8) reads this
+    # Bridge the session cookie — AuthMiddleware reads this
     request.session["user_id"] = str(user.id)
     return login_response
 

@@ -1,4 +1,4 @@
-"""Users module — local user management (replaces Keycloak)."""
+"""Users module — local-account authentication and user management."""
 
 from __future__ import annotations
 
