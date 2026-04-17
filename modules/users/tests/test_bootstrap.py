@@ -35,10 +35,12 @@ def _make_fake_app(
     )
 
     db = SimpleNamespace(session_factory=session_factory)
+    users_state = SimpleNamespace(settings=settings)
+    sm_state = SimpleNamespace(db=db)
     return SimpleNamespace(
         state=SimpleNamespace(
-            users_settings=settings,
-            db=db,
+            users=users_state,
+            sm=sm_state,
         )
     )
 

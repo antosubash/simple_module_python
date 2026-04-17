@@ -176,11 +176,11 @@ async def bootstrap_admin_from_env(app: FastAPI) -> None:
     ``SM_USERS_BOOTSTRAP_USER_EMAIL`` + ``SM_USERS_BOOTSTRAP_USER_PASSWORD`` —
     useful in dev for testing non-admin flows alongside the admin account.
     """
-    settings: UsersSettings = app.state.users_settings
+    settings: UsersSettings = app.state.users.settings
     if not settings.bootstrap_email or not settings.bootstrap_password:
         return
 
-    session_factory = app.state.db.session_factory
+    session_factory = app.state.sm.db.session_factory
     async with session_factory() as session:
         if not await _user_table_is_empty(session):
             logger.debug("users.bootstrap.skipped (users table non-empty)")
