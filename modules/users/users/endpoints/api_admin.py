@@ -119,6 +119,6 @@ async def admin_reset_password_link(
     service: UserService = Depends(get_user_service),
 ):
     """Generate a password-reset link for the given user (admin copy)."""
-    base_url = request.app.state.users_settings.base_url
+    base_url = request.app.state.users.settings.base_url
     link = await service.generate_reset_link(user_id, base_url)
     return PasswordResetLink(link=link)

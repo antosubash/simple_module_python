@@ -125,6 +125,7 @@ async def get_user_manager(
     user_db: UserDatabaseWithRoles = Depends(get_user_db),
 ):
     """FastAPI dependency — pulls mailer and settings off app.state."""
-    mailer = request.app.state.mailer
-    settings = request.app.state.users_settings
+    users = request.app.state.users
+    mailer = users.mailer
+    settings = users.settings
     yield UserManager(user_db, mailer, settings)

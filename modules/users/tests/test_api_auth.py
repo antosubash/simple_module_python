@@ -138,7 +138,7 @@ class TestAcceptInvite:
         )
 
         # Mint a verify token using the manager
-        settings = users_app.state.users_settings
+        settings = users_app.state.users.settings
         fake_mailer = MagicMock()
         fake_mailer.send_invite = AsyncMock()
         fake_mailer.send_verification = AsyncMock()
@@ -201,7 +201,7 @@ class TestAuthThroughputLimit:
         from users.rate_limit import ThroughputLimiter
 
         # Tighten the limit for the test so we don't need to hit 10 real endpoints
-        users_app.state.auth_throughput_limiter = ThroughputLimiter(
+        users_app.state.users.auth_throughput_limiter = ThroughputLimiter(
             max_attempts=2, window_seconds=60
         )
 
