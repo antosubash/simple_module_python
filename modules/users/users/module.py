@@ -22,11 +22,23 @@ class UsersModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
+        from auth.contracts.schemas import UserContext
+
         from users.services import UsersServices
         from users.settings import UsersSettings
 
         services = UsersServices(settings=UsersSettings())
         app.state.users = services
+
+        def serialize_principal(user: UserContext) -> dict:
+            return {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "roles": user.roles,
+            }
+
+        app.state.principal_serializer = serialize_principal
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
