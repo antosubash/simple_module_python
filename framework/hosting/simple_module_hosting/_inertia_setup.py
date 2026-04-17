@@ -53,7 +53,7 @@ def setup_inertia(
     templates = Jinja2Templates(directory=directories)
 
     inertia_config = InertiaConfig(
-        environment=settings.environment,  # ty: ignore[invalid-argument-type]
+        environment=settings.environment,
         version="1.0",
         dev_url=settings.vite_dev_url if settings.is_development else "",
         templates=templates,

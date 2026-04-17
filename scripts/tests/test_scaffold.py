@@ -54,7 +54,7 @@ class TestScaffoldModule:
 
     def test_scaffold_model_is_singular(self, scaffolded_orders: Path):
         content = (scaffolded_orders / "models.py").read_text()
-        assert "class Order(Base, AuditMixin):" in content
+        assert "class Order(Base, AuditMixin, table=True):" in content
 
     def test_scaffold_rejects_duplicate(self, module_root: Path):
         (module_root / "modules" / "orders").mkdir()
@@ -72,12 +72,12 @@ class TestScaffoldModule:
         assert "class BlogPostsModule(ModuleBase):" in module_content
 
         model_content = (src_dir / "models.py").read_text()
-        assert "class BlogPost(Base, AuditMixin):" in model_content
+        assert "class BlogPost(Base, AuditMixin, table=True):" in model_content
 
         schema_content = (src_dir / "contracts" / "schemas.py").read_text()
-        assert "class BlogPostOut(BaseModel):" in schema_content
-        assert "class BlogPostCreate(BaseModel):" in schema_content
-        assert "class BlogPostUpdate(BaseModel):" in schema_content
+        assert "class BlogPostOut(SQLModel):" in schema_content
+        assert "class BlogPostCreate(SQLModel):" in schema_content
+        assert "class BlogPostUpdate(SQLModel):" in schema_content
 
 
 class TestUpdateHostPyproject:

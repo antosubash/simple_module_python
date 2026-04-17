@@ -40,7 +40,7 @@ def build_cookie_transport(
         cookie_max_age=cookie_max_age_seconds,
         cookie_secure=cookie_secure,
         cookie_httponly=True,
-        cookie_samesite=cookie_samesite,  # type: ignore[arg-type] # ty: ignore[invalid-argument-type]
+        cookie_samesite=cookie_samesite,  # type: ignore[arg-type]
     )
 
 

@@ -5,34 +5,51 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from fastapi_users import schemas
-from pydantic import BaseModel, EmailStr
+from fastapi_users.schemas import CreateUpdateDictModel
+from pydantic import ConfigDict, EmailStr
+from sqlmodel import SQLModel
 
 
-# fastapi-users-provided base schemas
-class UserRead(schemas.BaseUser[uuid.UUID]):
+class UserRead(CreateUpdateDictModel, SQLModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    email: EmailStr
+    is_active: bool = True
+    is_superuser: bool = False
+    is_verified: bool = False
     full_name: str | None = None
     tenant_id: str | None = None
     disabled_at: datetime | None = None
     last_login_at: datetime | None = None
 
 
-class UserCreate(schemas.BaseUserCreate):
+class UserCreate(CreateUpdateDictModel, SQLModel):
+    email: EmailStr
+    password: str
+    is_active: bool | None = True
+    is_superuser: bool | None = False
+    is_verified: bool | None = False
     full_name: str | None = None
 
 
-class UserUpdate(schemas.BaseUserUpdate):
+class UserUpdate(CreateUpdateDictModel, SQLModel):
+    password: str | None = None
+    email: EmailStr | None = None
+    is_active: bool | None = None
+    is_superuser: bool | None = None
+    is_verified: bool | None = None
     full_name: str | None = None
 
 
 # Admin + invite + self profile
-class UserInvite(BaseModel):
+class UserInvite(SQLModel):
     email: EmailStr
     full_name: str | None = None
     role_names: list[str] = []
 
 
-class UserListItem(BaseModel):
+class UserListItem(SQLModel):
     id: uuid.UUID
     email: EmailStr
     full_name: str | None = None
@@ -43,18 +60,18 @@ class UserListItem(BaseModel):
     roles: list[str] = []
 
 
-class RoleAssignment(BaseModel):
+class RoleAssignment(SQLModel):
     role_names: list[str]
 
 
-class AcceptInviteRequest(BaseModel):
+class AcceptInviteRequest(SQLModel):
     token: str
     password: str
 
 
-class PasswordResetLink(BaseModel):
+class PasswordResetLink(SQLModel):
     link: str
 
 
-class SelfProfileUpdate(BaseModel):
+class SelfProfileUpdate(SQLModel):
     full_name: str | None = None

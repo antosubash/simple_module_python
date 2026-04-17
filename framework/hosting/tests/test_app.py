@@ -103,7 +103,7 @@ class TestRouteRegistration:
         routes_by_path: dict[str, set[str]] = defaultdict(set)
         for route in app.routes:
             if hasattr(route, "path") and hasattr(route, "methods"):
-                routes_by_path[route.path].update(route.methods)  # ty: ignore[invalid-argument-type]
+                routes_by_path[route.path].update(route.methods)
 
         assert "GET" in routes_by_path.get("/api/products/", set())
         assert "POST" in routes_by_path.get("/api/products/", set())

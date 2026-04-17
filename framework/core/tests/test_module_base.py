@@ -68,11 +68,11 @@ class TestModuleBase:
 class TestModuleLifecycle:
     async def test_on_startup_default_noop(self):
         mod = DummyModule()
-        await mod.on_startup(None)  # type: ignore
+        await mod.on_startup(None)
 
     async def test_on_shutdown_default_noop(self):
         mod = DummyModule()
-        await mod.on_shutdown(None)  # type: ignore
+        await mod.on_shutdown(None)
 
     async def test_register_event_handlers_default_noop(self):
         mod = DummyModule()
@@ -89,7 +89,7 @@ class TestModuleLifecycle:
 class TestModuleNewHooks:
     async def test_register_exception_handlers_default_noop(self):
         mod = DummyModule()
-        mod.register_exception_handlers(None)  # type: ignore
+        mod.register_exception_handlers(None)
 
     async def test_register_health_checks_default_noop(self):
         mod = DummyModule()
@@ -99,7 +99,7 @@ class TestModuleNewHooks:
 
     async def test_register_settings_default_noop(self):
         mod = DummyModule()
-        mod.register_settings(None)  # type: ignore
+        mod.register_settings(None)
 
 
 class TestModuleAssetHooks:

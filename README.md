@@ -1,10 +1,10 @@
 # simple_module_python
 
-A modular-monolith framework for Python. Each feature lives in its own self-contained module — its own SQLAlchemy models, schema, FastAPI endpoints, React pages — but everything ships as one FastAPI + Inertia.js + React app. No microservice tax, no API-client glue; just plugin modules that compose at boot.
+A modular-monolith framework for Python. Each feature lives in its own self-contained module — its own SQLModel tables, schema, FastAPI endpoints, React pages — but everything ships as one FastAPI + Inertia.js + React app. No microservice tax, no API-client glue; just plugin modules that compose at boot.
 
 ## Stack
 
-- **Backend:** Python 3.12, FastAPI, SQLAlchemy async, Alembic
+- **Backend:** Python 3.12, FastAPI, SQLModel (SQLAlchemy async + Pydantic), Alembic
 - **Frontend:** Inertia.js + React + Tailwind CSS 4, Vite HMR
 - **Auth:** Local user management (email+password, cookie-based sessions) via fastapi-users
 - **Tooling:** uv workspaces, Ruff, ty, Biome, pytest
@@ -36,7 +36,7 @@ Hit `http://localhost:8000` — you land on the public page. `/users/login` is t
 make new-module name=orders
 ```
 
-That scaffolds `modules/orders/` with a working CRUD module end-to-end — `ModuleMeta`, SQLAlchemy model with `AuditMixin`, Pydantic contracts, service layer, REST + Inertia view endpoints, `Browse/Create/Edit.tsx` pages, and tests. Next:
+That scaffolds `modules/orders/` with a working CRUD module end-to-end — `ModuleMeta`, SQLModel table with `AuditMixin`, SQLModel contracts, service layer, REST + Inertia view endpoints, `Browse/Create/Edit.tsx` pages, and tests. Next:
 
 ```bash
 # 1. Edit modules/orders/orders/models.py to your actual schema

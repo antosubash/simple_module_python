@@ -105,7 +105,7 @@ class TestGeneratedTemplateContent:
     def test_model_has_audit_mixin(self, scaffolded_orders: Path):
         model = (scaffolded_orders / "models.py").read_text()
         assert "from simple_module_db.mixins import AuditMixin" in model
-        assert "class Order(Base, AuditMixin):" in model
+        assert "class Order(Base, AuditMixin, table=True):" in model
         assert '__tablename__ = "orders_order"' in model
 
     def test_test_file_has_test_classes(self, scaffolded_orders: Path):

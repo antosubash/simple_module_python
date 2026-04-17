@@ -11,7 +11,7 @@ import logging
 from logging.config import fileConfig
 
 from alembic import context
-from simple_module_db import build_module_metadata, make_include_object
+from simple_module_db import build_module_metadata, make_include_object, render_item
 from simple_module_hosting.settings import Settings
 from sqlalchemy import engine_from_config, pool
 
@@ -47,6 +47,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         include_object=include_object,
+        render_item=render_item,
     )
 
     with context.begin_transaction():
@@ -69,6 +70,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             include_object=include_object,
+            render_item=render_item,
         )
 
         with context.begin_transaction():

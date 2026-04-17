@@ -10,10 +10,10 @@ modules/<name>/
 └── <name>/
     ├── __init__.py
     ├── module.py             # ModuleBase subclass with meta = ModuleMeta(...)
-    ├── models.py             # SQLAlchemy models (optional)
+    ├── models.py             # SQLModel tables (optional)
     ├── service.py            # business logic
     ├── deps.py               # FastAPI dependencies
-    ├── contracts/            # Pydantic DTOs + Protocol interfaces (public)
+    ├── contracts/            # SQLModel DTOs + Protocol interfaces (public)
     ├── endpoints/
     │   ├── api.py            # REST endpoints (JSON)
     │   └── views.py          # Inertia view endpoints
@@ -104,6 +104,36 @@ class AuthModule(ModuleBase):
 ```
 
 ## Database
+
+### Models
+
+**SQLModel is the project-wide standard for every model — both DB tables and DTOs.** Table classes declare `table=True` and inherit the per-module `Base`; DTOs are plain `SQLModel` subclasses. No Pydantic `BaseModel` and no SQLAlchemy `DeclarativeBase` + `Mapped[...]`/`mapped_column` in module code.
+
+```python
+# modules/orders/orders/models.py
+from simple_module_db.base import create_module_base
+from simple_module_db.mixins import AuditMixin
+from sqlmodel import Field
+
+Base = create_module_base("orders")
+
+class Order(Base, AuditMixin, table=True):
+    __tablename__ = "orders_order"
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(max_length=200)
+
+# modules/orders/orders/contracts/schemas.py
+from pydantic import ConfigDict
+from sqlmodel import Field, SQLModel
+
+class OrderOut(SQLModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+
+class OrderCreate(SQLModel):
+    name: str = Field(min_length=1, max_length=200)
+```
 
 ### Per-module Base
 
