@@ -22,9 +22,12 @@ class UsersModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
+        from users.services import UsersServices
         from users.settings import UsersSettings
 
-        app.state.users_settings = UsersSettings()
+        services = UsersServices(settings=UsersSettings())
+        app.state.users = services
+        app.state.users_settings = services.settings  # deprecated loose alias, removed Phase 4
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
@@ -92,22 +95,25 @@ class UsersModule(ModuleBase):
         from users.rate_limit import LoginRateLimiter, ThroughputLimiter
         from users.roles_cache import refresh_roles_cache
 
-        s = app.state.users_settings
-        app.state.mailer = build_mailer(s)
-        app.state.rate_limiter = LoginRateLimiter(
+        services = app.state.users
+        s = services.settings
+        services.mailer = build_mailer(s)
+        services.rate_limiter = LoginRateLimiter(
             max_failures=s.login_rate_limit_failures,
             window_seconds=s.login_rate_limit_window_seconds,
             cooldown_seconds=s.login_rate_limit_cooldown_seconds,
         )
-        app.state.auth_throughput_limiter = ThroughputLimiter(
+        services.auth_throughput_limiter = ThroughputLimiter(
             max_attempts=s.auth_rate_limit_attempts,
             window_seconds=s.auth_rate_limit_window_seconds,
         )
+        # Deprecated loose aliases — removed Phase 4.
+        app.state.mailer = services.mailer
+        app.state.rate_limiter = services.rate_limiter
+        app.state.auth_throughput_limiter = services.auth_throughput_limiter
+
         reconfigure_cookie_transport(auth_backend, s)
 
-        # Bootstrap + roles-cache hit different tables and have no data
-        # dependency on each other — run them concurrently to shave a DB
-        # round-trip off startup.
         await asyncio.gather(
             bootstrap_admin_from_env(app),
             refresh_roles_cache(app),
