@@ -122,7 +122,8 @@ class UserService:
                 )
             )
         if roles:
-            await self._db.commit()
+            await self._db.flush()
+            await self._db.refresh(user, attribute_names=["roles"])
 
         token = await self._manager.generate_verification_token(user)
         return user, token
@@ -131,21 +132,15 @@ class UserService:
         user = await self._require_user(user_id)
         user.disabled_at = datetime.now(UTC)
         user.is_active = False
-        await self._db.commit()
-        self._db.expire_all()
-        refreshed = await self._get_user_with_roles(user_id)
-        assert refreshed is not None  # we just committed a change to this user
-        return refreshed
+        await self._db.flush()
+        return user
 
     async def enable(self, user_id: uuid.UUID) -> User:
         user = await self._require_user(user_id)
         user.disabled_at = None
         user.is_active = True
-        await self._db.commit()
-        self._db.expire_all()
-        refreshed = await self._get_user_with_roles(user_id)
-        assert refreshed is not None  # we just committed a change to this user
-        return refreshed
+        await self._db.flush()
+        return user
 
     async def set_roles(
         self,
@@ -154,7 +149,7 @@ class UserService:
         *,
         assigned_by: str | None = None,
     ) -> User:
-        await self._require_user(user_id)
+        user = await self._require_user(user_id)
 
         # Delete all existing role assignments for this user
         await self._db.execute(delete(UserRole).where(UserRole.user_id == user_id))
@@ -170,14 +165,9 @@ class UserService:
                 )
             )
 
-        await self._db.commit()
-        # Expire the session so the next query sees DB-committed data.
-        self._db.expire_all()
-
-        # Re-fetch with roles loaded
-        refreshed = await self._get_user_with_roles(user_id)
-        assert refreshed is not None  # we just committed role changes to this user
-        return refreshed
+        await self._db.flush()
+        await self._db.refresh(user, attribute_names=["roles"])
+        return user
 
     async def generate_reset_link(self, user_id: uuid.UUID, base_url: str) -> str:
         """Build an admin-copyable password-reset URL. No email side-effect."""
