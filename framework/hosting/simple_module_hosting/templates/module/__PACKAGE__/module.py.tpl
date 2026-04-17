@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib.resources
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, FastAPI
 from simple_module_core import ModuleBase, ModuleMeta
 
 
@@ -23,6 +23,12 @@ class {{MODULE_NAME}}Module(ModuleBase):
         from {{PACKAGE_NAME}}.endpoints.api import router as api
 
         api_router.include_router(api)
+
+    def register_settings(self, app: FastAPI) -> None:
+        from {{PACKAGE_NAME}}.services import {{MODULE_NAME}}Services
+        from {{PACKAGE_NAME}}.settings import {{MODULE_NAME}}Settings
+
+        app.state.{{PACKAGE_NAME}} = {{MODULE_NAME}}Services(settings={{MODULE_NAME}}Settings())
 
     def static_mounts(self) -> dict[str, Path]:
         """Expose pre-built frontend assets when they exist.

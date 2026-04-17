@@ -92,15 +92,34 @@ SM_DATABASE_URL, SM_ENVIRONMENT, SM_SECRET_KEY, SM_VITE_DEV_URL,
 SM_DEBUG, SM_LOG_LEVEL, SM_LOG_FORMAT, SM_MULTI_TENANT, SM_TENANT_HEADER
 ```
 
+### Framework state
+
+Framework singletons live on `app.state.sm`, a frozen `Services` dataclass populated
+once at boot. Consumers read `request.app.state.sm.<field>` — never raw `app.state`
+attributes for framework-owned state.
+
+Fields: `settings`, `db`, `event_bus`, `menu_registry`, `permissions`,
+`feature_flags`, `health_registry`, `i18n_registry`, `inertia_config`, `modules`.
+
+Two attributes are intentionally kept outside `Services`:
+
+- `app.state.inertia_dependency` — request-scoped `Depends` factory from fastapi-inertia.
+- `app.state.migration` — dev-only boot-time check result, set in lifespan.
+
+### Module settings
+
 Module settings should:
 - Use a per-module prefix: `SM_<MODULE>_*` (e.g. `SM_USERS_ALLOW_SIGNUP`).
-- Be stored on `app.state.<module>_settings` during `register_settings(app)`.
-- `SM012` diagnostic fires if `register_settings` is overridden but no `app.state.<module>_settings` is added.
+- Be stored inside a module-owned dataclass at `app.state.<module_lower>` during `register_settings(app)`.
+- `SM012` diagnostic fires if `register_settings` is overridden but no `app.state.<module_lower>` entry is added.
 
 ```python
-class AuthModule(ModuleBase):
+class UsersModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
-        app.state.auth_settings = AuthSettings()
+        from users.services import UsersServices
+        from users.settings import UsersSettings
+
+        app.state.users = UsersServices(settings=UsersSettings())
 ```
 
 ## Database

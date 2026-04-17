@@ -64,7 +64,7 @@ def module_py(ctx: ScaffoldContext) -> str:
         import importlib.resources
         from pathlib import Path
 
-        from fastapi import APIRouter
+        from fastapi import APIRouter, FastAPI
         from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
         from simple_module_core.module import ModuleBase, ModuleMeta
         from simple_module_core.permissions import PermissionRegistry
@@ -76,6 +76,12 @@ def module_py(ctx: ScaffoldContext) -> str:
                 route_prefix="/api/{ctx.name}",
                 view_prefix="/{ctx.name}",
             )
+
+            def register_settings(self, app: FastAPI) -> None:
+                from {ctx.pkg}.services import {ctx.class_name}Services
+                from {ctx.pkg}.settings import {ctx.class_name}Settings
+
+                app.state.{ctx.pkg} = {ctx.class_name}Services(settings={ctx.class_name}Settings())
 
             def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
                 from {ctx.pkg}.endpoints.api import router as api
@@ -109,6 +115,33 @@ def module_py(ctx: ScaffoldContext) -> str:
             def locale_dirs(self) -> dict[str, Path]:
                 base = Path(str(importlib.resources.files(__package__) / "locales"))
                 return {{"{ctx.pkg}": base}}
+        '''
+
+
+def services_py(ctx: ScaffoldContext) -> str:
+    return f'''\
+        """Module-scoped state container.
+
+        Stored as ``app.state.{ctx.pkg}`` by
+        :meth:`{ctx.class_name}Module.register_settings`.
+
+        Not frozen — ``on_startup`` may set fields that depend on the DB or
+        other framework services. Convention: set once during boot, treat as
+        read-only after.
+        """
+
+        from __future__ import annotations
+
+        from dataclasses import dataclass
+
+        from {ctx.pkg}.settings import {ctx.class_name}Settings
+
+
+        @dataclass
+        class {ctx.class_name}Services:
+            """{ctx.class_name} module singletons."""
+
+            settings: {ctx.class_name}Settings
         '''
 
 
