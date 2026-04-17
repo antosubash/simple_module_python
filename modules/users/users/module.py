@@ -24,11 +24,11 @@ class UsersModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
         from auth.contracts.schemas import UserContext
 
-        from users.services import UsersServices
         from users.settings import UsersSettings
+        from users.state import UsersState
 
-        services = UsersServices(settings=UsersSettings())
-        app.state.users = services
+        state = UsersState(settings=UsersSettings())
+        app.state.users = state
 
         def serialize_principal(user: UserContext) -> dict:
             return {
@@ -106,15 +106,15 @@ class UsersModule(ModuleBase):
         from users.rate_limit import LoginRateLimiter, ThroughputLimiter
         from users.roles_cache import refresh_roles_cache
 
-        services = app.state.users
-        s = services.settings
-        services.mailer = build_mailer(s)
-        services.rate_limiter = LoginRateLimiter(
+        state = app.state.users
+        s = state.settings
+        state.mailer = build_mailer(s)
+        state.rate_limiter = LoginRateLimiter(
             max_failures=s.login_rate_limit_failures,
             window_seconds=s.login_rate_limit_window_seconds,
             cooldown_seconds=s.login_rate_limit_cooldown_seconds,
         )
-        services.auth_throughput_limiter = ThroughputLimiter(
+        state.auth_throughput_limiter = ThroughputLimiter(
             max_attempts=s.auth_rate_limit_attempts,
             window_seconds=s.auth_rate_limit_window_seconds,
         )
