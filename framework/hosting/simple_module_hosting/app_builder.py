@@ -194,7 +194,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_listeners(db_state)
 
     # ── Phase 7: Inertia + exception handlers ──────────────
-    setup_inertia(app, settings, modules, _PROJECT_ROOT)
+    inertia_config = setup_inertia(app, settings, modules, _PROJECT_ROOT)
+    if inertia_config is None:
+        raise RuntimeError("Inertia not configured — no template directories available")
     register_exception_handlers(app, modules)
 
     # ── Phase 8: Middleware pipeline ───────────────────────
@@ -223,7 +225,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         feature_flags=ff_registry,
         health_registry=health_registry,
         i18n_registry=i18n_registry,
-        inertia_config=app.state.inertia_config,
+        inertia_config=inertia_config,
         modules=tuple(modules),
     )
 

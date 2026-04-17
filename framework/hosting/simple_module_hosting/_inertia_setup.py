@@ -18,7 +18,7 @@ def setup_inertia(
     settings: Settings,
     modules: list,
     project_root: Path,
-) -> None:
+) -> InertiaConfig | None:
     """Configure fastapi-inertia and attach the dependency factory to app.state.
 
     The host's own ``host/templates`` directory is first in the search path so
@@ -48,7 +48,7 @@ def setup_inertia(
 
     if not directories:
         logger.warning("No usable template directories — Inertia will fail to render views")
-        return
+        return None
 
     templates = Jinja2Templates(directory=directories)
 
@@ -64,5 +64,5 @@ def setup_inertia(
     )
 
     inertia_dep = inertia_dependency_factory(inertia_config)
-    app.state.inertia_config = inertia_config
     app.state.inertia_dependency = inertia_dep
+    return inertia_config
