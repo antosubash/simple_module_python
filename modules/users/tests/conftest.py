@@ -167,7 +167,7 @@ async def anon_client(users_app) -> AsyncGenerator[httpx.AsyncClient, None]:
     matching ``X-CSRF-Token`` header, so POST flows (login, accept-invite, etc.)
     pass validation without first making a GET to mint a token."""
     cookie = forge_session_cookie(
-        str(users_app.state.settings.secret_key),
+        str(users_app.state.sm.settings.secret_key),
         {SESSION_CSRF_TOKEN_KEY: _TEST_CSRF_TOKEN},
     )
     transport = httpx.ASGITransport(app=users_app)
@@ -184,7 +184,7 @@ async def anon_client(users_app) -> AsyncGenerator[httpx.AsyncClient, None]:
 async def anon_client_signup(users_app_signup) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Unauthenticated client against users_app_signup (signup enabled)."""
     cookie = forge_session_cookie(
-        str(users_app_signup.state.settings.secret_key),
+        str(users_app_signup.state.sm.settings.secret_key),
         {SESSION_CSRF_TOKEN_KEY: _TEST_CSRF_TOKEN},
     )
     transport = httpx.ASGITransport(app=users_app_signup)
@@ -202,7 +202,7 @@ async def _make_admin_user(app):
     from users.bootstrap import create_admin
     from users.models import User
 
-    async with app.state.db.session_factory() as session:
+    async with app.state.sm.db.session_factory() as session:
         result = await create_admin(
             session,
             email="admin@example.com",
@@ -218,7 +218,7 @@ async def admin_client(users_app) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Client with a signed local-user session cookie (admin role) and CSRF token."""
     user = await _make_admin_user(users_app)
     cookie = forge_session_cookie(
-        str(users_app.state.settings.secret_key),
+        str(users_app.state.sm.settings.secret_key),
         {"user_id": str(user.id), SESSION_CSRF_TOKEN_KEY: _TEST_CSRF_TOKEN},
     )
     transport = httpx.ASGITransport(app=users_app)
@@ -239,7 +239,7 @@ async def admin_client(users_app) -> AsyncGenerator[httpx.AsyncClient, None]:
 @pytest.fixture
 async def users_db(users_app) -> AsyncGenerator[AsyncSession, None]:
     """Session against the users_app in-memory DB."""
-    async with users_app.state.db.session_factory() as session:
+    async with users_app.state.sm.db.session_factory() as session:
         yield session
 
 

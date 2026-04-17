@@ -53,7 +53,7 @@ class TestRequirePermission:
         check_fn = dep.dependency
 
         request = MagicMock()
-        request.app.state.perm_registry = app.state.perm_registry
+        request.app.state.perm_registry = app.state.sm.permissions
 
         user = UserContext(id="u1", email="u@test.com", name="User", roles=["viewer"])
 
@@ -67,7 +67,7 @@ class TestRequirePermission:
         check_fn = dep.dependency
 
         request = MagicMock()
-        request.app.state.perm_registry = app.state.perm_registry
+        request.app.state.perm_registry = app.state.sm.permissions
 
         admin_user = UserContext(id="a1", email="admin@test.com", name="Admin", roles=["admin"])
         await check_fn(request, _translator(), admin_user)
@@ -80,7 +80,7 @@ class TestRequirePermissionAdvanced:
         check_fn = dep.dependency
 
         request = MagicMock()
-        request.app.state.perm_registry = app.state.perm_registry
+        request.app.state.perm_registry = app.state.sm.permissions
 
         admin = UserContext(id="a1", email="a@t.com", name="Admin", roles=["admin"])
         await check_fn(request, _translator(), admin)
@@ -90,7 +90,7 @@ class TestRequirePermissionAdvanced:
         check_fn = dep.dependency
 
         request = MagicMock()
-        request.app.state.perm_registry = app.state.perm_registry
+        request.app.state.perm_registry = app.state.sm.permissions
 
         user = UserContext(id="u1", email="u@t.com", name="User", roles=["user"])
         with pytest.raises(HTTPException) as exc_info:
