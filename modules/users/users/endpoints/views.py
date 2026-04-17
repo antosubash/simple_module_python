@@ -17,6 +17,11 @@ from users.service import UserService
 router = APIRouter()
 
 
+async def _roles_payload(app) -> list[dict[str, str]]:
+    """Shape roles-cache entries for Inertia props."""
+    return [{"id": r.id, "name": r.name} for r in await get_roles_cache(app)]
+
+
 # ── Public auth pages ───────────────────────────────────────────
 
 
@@ -121,7 +126,7 @@ async def admin_index(
             "users": [u.model_dump(mode="json") for u in users],
             "pagination": {"page": page, "per_page": per_page, "total": total},
             "query": q or "",
-            "roles": [{"id": r.id, "name": r.name} for r in await get_roles_cache(request.app)],
+            "roles": await _roles_payload(request.app),
         },
     )
 
@@ -138,7 +143,7 @@ async def admin_invite_page(
     return await inertia.render(
         "Users/Users/Invite",
         {
-            "roles": [{"id": r.id, "name": r.name} for r in await get_roles_cache(request.app)],
+            "roles": await _roles_payload(request.app),
         },
     )
 
@@ -165,6 +170,6 @@ async def admin_edit_page(
         "Users/Users/Edit",
         {
             "user": user_item.model_dump(mode="json"),
-            "roles": [{"id": r.id, "name": r.name} for r in await get_roles_cache(request.app)],
+            "roles": await _roles_payload(request.app),
         },
     )
