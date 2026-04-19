@@ -8,6 +8,7 @@ dependencies = [
     "auth",
     "dashboard",
     "products",
+    "settings",
     "python-multipart>=0.0.6",
 ]
 
@@ -16,3 +17,4 @@ simple-module-hosting = { workspace = true }
 auth = { workspace = true }
 products = { workspace = true }
 dashboard = { workspace = true }
+settings = { workspace = true }

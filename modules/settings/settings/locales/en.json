@@ -1,0 +1,22 @@
+{
+  "browse": {
+    "title": "Settings",
+    "description": "Manage your settings",
+    "new_button": "New Setting",
+    "empty_title": "No settings yet",
+    "empty_description": "Get started by creating your first setting.",
+    "edit_link": "Edit"
+  },
+  "form": {
+    "name_label": "Name",
+    "description_label": "Description"
+  },
+  "create": {
+    "title": "New Setting",
+    "submit_button": "Create"
+  },
+  "edit": {
+    "title": "Edit Setting",
+    "submit_button": "Save"
+  }
+}

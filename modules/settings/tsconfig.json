@@ -1,0 +1,11 @@
+{
+  "extends": "@simple-module/tsconfig/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./settings/*"],
+      "@simple-module/ui/*": ["../../packages/ui/src/*"]
+    }
+  },
+  "include": ["settings/**/*.ts", "settings/**/*.tsx"]
+}
