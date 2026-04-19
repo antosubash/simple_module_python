@@ -64,23 +64,23 @@ function Browse() {
   const { datasets } = usePage<{ props: Props }>().props as unknown as Props;
   const { t } = useT();
   const { can } = usePermissions();
-  const canUpload = can('gis_datasets.upload');
-  const canDelete = can('gis_datasets.delete');
+  const canUpload = can('datasets.upload');
+  const canDelete = can('datasets.delete');
 
   function handleDelete(dataset: Dataset) {
-    router.delete(`/api/gis_datasets/${dataset.id}`, { preserveScroll: true });
+    router.delete(`/api/datasets/${dataset.id}`, { preserveScroll: true });
   }
 
   return (
     <PageShell
-      title={t(keys.gis_datasets.browse.title)}
-      description={t(keys.gis_datasets.browse.description)}
+      title={t(keys.datasets.browse.title)}
+      description={t(keys.datasets.browse.description)}
       actions={
         canUpload ? (
           <Button asChild>
-            <Link href="/gis_datasets/create">
+            <Link href="/datasets/create">
               <Plus />
-              {t(keys.gis_datasets.browse.new_button)}
+              {t(keys.datasets.browse.new_button)}
             </Link>
           </Button>
         ) : undefined
@@ -90,28 +90,23 @@ function Browse() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="sm:px-6">{t(keys.gis_datasets.table.name)}</TableHead>
-              <TableHead className="sm:px-6">{t(keys.gis_datasets.table.kind)}</TableHead>
+              <TableHead className="sm:px-6">{t(keys.datasets.table.name)}</TableHead>
+              <TableHead className="sm:px-6">{t(keys.datasets.table.kind)}</TableHead>
               <TableHead className="hidden md:table-cell sm:px-6">
-                {t(keys.gis_datasets.table.crs)}
+                {t(keys.datasets.table.crs)}
               </TableHead>
               <TableHead className="hidden md:table-cell sm:px-6">
-                {t(keys.gis_datasets.table.bbox)}
+                {t(keys.datasets.table.bbox)}
               </TableHead>
-              <TableHead className="sm:px-6">{t(keys.gis_datasets.table.size)}</TableHead>
-              <TableHead className="text-right sm:px-6">
-                {t(keys.gis_datasets.table.actions)}
-              </TableHead>
+              <TableHead className="sm:px-6">{t(keys.datasets.table.size)}</TableHead>
+              <TableHead className="text-right sm:px-6">{t(keys.datasets.table.actions)}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {datasets.map((dataset) => (
               <TableRow key={dataset.id}>
                 <TableCell className="sm:px-6">
-                  <Link
-                    href={`/gis_datasets/${dataset.id}`}
-                    className="font-medium hover:underline"
-                  >
+                  <Link href={`/datasets/${dataset.id}`} className="font-medium hover:underline">
                     {dataset.name}
                   </Link>
                 </TableCell>
@@ -148,15 +143,11 @@ function Browse() {
                     <EmptyMedia variant="icon">
                       <Layers className="size-5 text-primary-300" />
                     </EmptyMedia>
-                    <EmptyTitle>{t(keys.gis_datasets.browse.empty_title)}</EmptyTitle>
-                    <EmptyDescription>
-                      {t(keys.gis_datasets.browse.empty_description)}
-                    </EmptyDescription>
+                    <EmptyTitle>{t(keys.datasets.browse.empty_title)}</EmptyTitle>
+                    <EmptyDescription>{t(keys.datasets.browse.empty_description)}</EmptyDescription>
                     {canUpload && (
                       <Button asChild size="sm" className="mt-2">
-                        <Link href="/gis_datasets/create">
-                          {t(keys.gis_datasets.browse.create_button)}
-                        </Link>
+                        <Link href="/datasets/create">{t(keys.datasets.browse.create_button)}</Link>
                       </Button>
                     )}
                   </Empty>

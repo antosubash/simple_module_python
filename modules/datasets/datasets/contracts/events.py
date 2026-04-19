@@ -1,4 +1,4 @@
-"""Domain events emitted by the GisDatasets module."""
+"""Domain events emitted by the Datasets module."""
 
 from __future__ import annotations
 

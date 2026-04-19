@@ -31,11 +31,11 @@ function Create() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!file) {
-      toast.error(t(keys.gis_datasets.validation.file_required));
+      toast.error(t(keys.datasets.validation.file_required));
       return;
     }
     if (!name.trim()) {
-      toast.error(t(keys.gis_datasets.validation.name_required));
+      toast.error(t(keys.datasets.validation.name_required));
       return;
     }
     const data = new FormData();
@@ -45,9 +45,9 @@ function Create() {
     data.append('file', file);
 
     setSubmitting(true);
-    router.post('/api/gis_datasets/', data, {
+    router.post('/api/datasets/', data, {
       forceFormData: true,
-      onSuccess: () => toast.success(t(keys.gis_datasets.toasts.created)),
+      onSuccess: () => toast.success(t(keys.datasets.toasts.created)),
       onError: (errs) => {
         const first = Object.values(errs)[0];
         if (first) toast.error(String(first));
@@ -58,11 +58,11 @@ function Create() {
 
   return (
     <PageShell
-      title={t(keys.gis_datasets.create.title)}
-      description={t(keys.gis_datasets.create.description)}
+      title={t(keys.datasets.create.title)}
+      description={t(keys.datasets.create.description)}
       actions={
         <Button asChild variant="outline">
-          <Link href="/gis_datasets">{t(keys.gis_datasets.form.cancel_button)}</Link>
+          <Link href="/datasets">{t(keys.datasets.form.cancel_button)}</Link>
         </Button>
       }
     >
@@ -71,20 +71,20 @@ function Create() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="name">
-                {t(keys.gis_datasets.form.name_label)} <span className="text-destructive">*</span>
+                {t(keys.datasets.form.name_label)} <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder={t(keys.gis_datasets.form.name_placeholder)}
+                placeholder={t(keys.datasets.form.name_placeholder)}
                 maxLength={200}
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="kind">{t(keys.gis_datasets.form.kind_label)}</Label>
+              <Label htmlFor="kind">{t(keys.datasets.form.kind_label)}</Label>
               <select
                 id="kind"
                 value={kind}
@@ -93,7 +93,7 @@ function Create() {
               >
                 {KINDS.map((k) => (
                   <option key={k || 'auto'} value={k}>
-                    {k || t(keys.gis_datasets.form.kind_auto)}
+                    {k || t(keys.datasets.form.kind_auto)}
                   </option>
                 ))}
               </select>
@@ -101,7 +101,7 @@ function Create() {
 
             <div className="space-y-2">
               <Label htmlFor="file">
-                {t(keys.gis_datasets.form.file_label)} <span className="text-destructive">*</span>
+                {t(keys.datasets.form.file_label)} <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="file"
@@ -112,13 +112,13 @@ function Create() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">{t(keys.gis_datasets.form.description_label)}</Label>
+              <Label htmlFor="description">{t(keys.datasets.form.description_label)}</Label>
               <Textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
-                placeholder={t(keys.gis_datasets.form.description_placeholder)}
+                placeholder={t(keys.datasets.form.description_placeholder)}
                 maxLength={2000}
               />
             </div>
@@ -126,11 +126,11 @@ function Create() {
             <div className="pt-2 flex gap-3">
               <Button type="submit" disabled={submitting}>
                 {submitting
-                  ? t(keys.gis_datasets.create.submitting_button)
-                  : t(keys.gis_datasets.create.submit_button)}
+                  ? t(keys.datasets.create.submitting_button)
+                  : t(keys.datasets.create.submit_button)}
               </Button>
               <Button asChild variant="outline">
-                <Link href="/gis_datasets">{t(keys.gis_datasets.form.cancel_button)}</Link>
+                <Link href="/datasets">{t(keys.datasets.form.cancel_button)}</Link>
               </Button>
             </div>
           </form>

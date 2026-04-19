@@ -1,4 +1,4 @@
-"""FastAPI dependencies for the GisDatasets module."""
+"""FastAPI dependencies for the Datasets module."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from simple_module_core.events import EventBus
 from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from gis_datasets.service import DatasetService
-from gis_datasets.storage import LocalDatasetStorage
+from datasets.service import DatasetService
+from datasets.storage import LocalDatasetStorage
 
 
 def get_storage(request: Request) -> LocalDatasetStorage:
-    return request.app.state.gis_datasets.storage
+    return request.app.state.datasets.storage
 
 
 async def get_dataset_service(
@@ -27,4 +27,4 @@ def get_event_bus(request: Request) -> EventBus:
 
 
 def get_max_upload_bytes(request: Request) -> int:
-    return request.app.state.gis_datasets.settings.max_upload_mb * 1024 * 1024
+    return request.app.state.datasets.settings.max_upload_mb * 1024 * 1024

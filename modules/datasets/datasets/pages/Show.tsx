@@ -61,16 +61,16 @@ function Show() {
       actions={
         <div className="flex gap-2">
           <Button asChild variant="outline">
-            <a href={`/api/gis_datasets/${dataset.id}/download`}>
+            <a href={`/api/datasets/${dataset.id}/download`}>
               <Download />
-              {t(keys.gis_datasets.show.download)}
+              {t(keys.datasets.show.download)}
             </a>
           </Button>
-          {can('gis_datasets.edit') && (
+          {can('datasets.edit') && (
             <Button asChild>
-              <Link href={`/gis_datasets/${dataset.id}/edit`}>
+              <Link href={`/datasets/${dataset.id}/edit`}>
                 <Pencil />
-                {t(keys.gis_datasets.show.edit)}
+                {t(keys.datasets.show.edit)}
               </Link>
             </Button>
           )}
@@ -80,25 +80,25 @@ function Show() {
       <Card className="max-w-3xl">
         <CardContent className="pt-6">
           <dl>
-            <Row label={t(keys.gis_datasets.show.kind)}>
+            <Row label={t(keys.datasets.show.kind)}>
               <Badge variant="secondary">{dataset.kind}</Badge>
             </Row>
-            <Row label={t(keys.gis_datasets.show.original_file)}>
+            <Row label={t(keys.datasets.show.original_file)}>
               <span className="font-mono text-xs">{dataset.original_filename}</span>
             </Row>
-            <Row label={t(keys.gis_datasets.show.size)}>{dataset.size_bytes} bytes</Row>
-            <Row label={t(keys.gis_datasets.show.mime_type)}>{dataset.mime_type ?? '—'}</Row>
-            <Row label={t(keys.gis_datasets.show.crs)}>{dataset.crs ?? '—'}</Row>
-            <Row label={t(keys.gis_datasets.show.bbox)}>
+            <Row label={t(keys.datasets.show.size)}>{dataset.size_bytes} bytes</Row>
+            <Row label={t(keys.datasets.show.mime_type)}>{dataset.mime_type ?? '—'}</Row>
+            <Row label={t(keys.datasets.show.crs)}>{dataset.crs ?? '—'}</Row>
+            <Row label={t(keys.datasets.show.bbox)}>
               {bbox ? <span className="font-mono text-xs">{bbox}</span> : '—'}
             </Row>
             {dataset.feature_count !== null && (
-              <Row label={t(keys.gis_datasets.show.features)}>{dataset.feature_count}</Row>
+              <Row label={t(keys.datasets.show.features)}>{dataset.feature_count}</Row>
             )}
             {dataset.band_count !== null && (
-              <Row label={t(keys.gis_datasets.show.bands)}>{dataset.band_count}</Row>
+              <Row label={t(keys.datasets.show.bands)}>{dataset.band_count}</Row>
             )}
-            <Row label={t(keys.gis_datasets.show.extraction_status)}>
+            <Row label={t(keys.datasets.show.extraction_status)}>
               <Badge>{dataset.extraction_status}</Badge>
             </Row>
           </dl>

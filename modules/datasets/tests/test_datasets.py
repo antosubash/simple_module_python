@@ -1,4 +1,4 @@
-"""Tests for the GisDatasets module."""
+"""Tests for the Datasets module."""
 
 from __future__ import annotations
 
@@ -7,10 +7,10 @@ from pathlib import Path
 
 import httpx
 import pytest
-from gis_datasets.contracts.schemas import DatasetUpdate
-from gis_datasets.extractors import extract_metadata, kind_for_filename
-from gis_datasets.service import DatasetService, UploadInput, slugify
-from gis_datasets.storage import LocalDatasetStorage, safe_filename
+from datasets.contracts.schemas import DatasetUpdate
+from datasets.extractors import extract_metadata, kind_for_filename
+from datasets.service import DatasetService, UploadInput, slugify
+from datasets.storage import LocalDatasetStorage, safe_filename
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -220,7 +220,7 @@ class TestDatasetService:
 
 class TestDatasetsAPI:
     async def test_list_empty(self, authenticated_client: httpx.AsyncClient):
-        resp = await authenticated_client.get("/api/gis_datasets/")
+        resp = await authenticated_client.get("/api/datasets/")
         assert resp.status_code == 200
         assert resp.json() == []
 
@@ -230,21 +230,21 @@ class TestDatasetsAPI:
         payload = json.dumps(GEOJSON_SAMPLE).encode()
         files = {"file": ("sample.geojson", payload, "application/geo+json")}
         data = {"name": "My GeoJSON"}
-        resp = await authenticated_client.post("/api/gis_datasets/", data=data, files=files)
+        resp = await authenticated_client.post("/api/datasets/", data=data, files=files)
         assert resp.status_code == 201, resp.text
         body = resp.json()
         assert body["kind"] == "vector_geojson"
         assert body["feature_count"] == 2
         assert body["extraction_status"] == "ok"
 
-        download = await authenticated_client.get(f"/api/gis_datasets/{body['id']}/download")
+        download = await authenticated_client.get(f"/api/datasets/{body['id']}/download")
         assert download.status_code == 200
         assert download.content == payload
 
     async def test_upload_unknown_kind_rejected(self, authenticated_client: httpx.AsyncClient):
         files = {"file": ("a.geojson", b"{}", "application/json")}
         resp = await authenticated_client.post(
-            "/api/gis_datasets/",
+            "/api/datasets/",
             data={"name": "x", "kind": "not_a_kind"},
             files=files,
         )
@@ -253,23 +253,23 @@ class TestDatasetsAPI:
     async def test_delete(self, authenticated_client: httpx.AsyncClient):
         files = {"file": ("doomed.geojson", b'{"type":"FeatureCollection","features":[]}', None)}
         resp = await authenticated_client.post(
-            "/api/gis_datasets/", data={"name": "Doomed"}, files=files
+            "/api/datasets/", data={"name": "Doomed"}, files=files
         )
         assert resp.status_code == 201
         item_id = resp.json()["id"]
-        delete = await authenticated_client.delete(f"/api/gis_datasets/{item_id}")
+        delete = await authenticated_client.delete(f"/api/datasets/{item_id}")
         assert delete.status_code == 204
-        gone = await authenticated_client.get(f"/api/gis_datasets/{item_id}")
+        gone = await authenticated_client.get(f"/api/datasets/{item_id}")
         assert gone.status_code == 404
 
     async def test_patch_metadata(self, authenticated_client: httpx.AsyncClient):
         files = {"file": ("a.geojson", b'{"type":"FeatureCollection","features":[]}', None)}
         create = await authenticated_client.post(
-            "/api/gis_datasets/", data={"name": "Original"}, files=files
+            "/api/datasets/", data={"name": "Original"}, files=files
         )
         item_id = create.json()["id"]
         patch = await authenticated_client.patch(
-            f"/api/gis_datasets/{item_id}",
+            f"/api/datasets/{item_id}",
             json={"name": "Renamed", "description": "Notes"},
         )
         assert patch.status_code == 200
@@ -280,11 +280,11 @@ class TestDatasetsAPI:
 # ── Module wiring ───────────────────────────────────────────────────
 
 
-class TestGisDatasetsModule:
+class TestDatasetsModule:
     def test_meta(self):
-        from gis_datasets.module import GisDatasetsModule
+        from datasets.module import DatasetsModule
 
-        mod = GisDatasetsModule()
-        assert mod.meta.name == "GisDatasets"
-        assert mod.meta.route_prefix == "/api/gis_datasets"
-        assert mod.meta.view_prefix == "/gis_datasets"
+        mod = DatasetsModule()
+        assert mod.meta.name == "Datasets"
+        assert mod.meta.route_prefix == "/api/datasets"
+        assert mod.meta.view_prefix == "/datasets"

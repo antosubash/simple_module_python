@@ -10,10 +10,10 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from gis_datasets.contracts.schemas import DatasetOut, DatasetUpdate
-from gis_datasets.extractors import extract_metadata, kind_for_filename
-from gis_datasets.models import Dataset
-from gis_datasets.storage import LocalDatasetStorage, safe_filename
+from datasets.contracts.schemas import DatasetOut, DatasetUpdate
+from datasets.extractors import extract_metadata, kind_for_filename
+from datasets.models import Dataset
+from datasets.storage import LocalDatasetStorage, safe_filename
 
 
 @dataclass

@@ -1,4 +1,4 @@
-"""SQLModel DTOs for the GisDatasets module."""
+"""SQLModel DTOs for the Datasets module."""
 
 from __future__ import annotations
 

@@ -44,12 +44,12 @@ function Edit() {
     e.preventDefault();
     setSubmitting(true);
     router.patch(
-      `/api/gis_datasets/${dataset.id}`,
+      `/api/datasets/${dataset.id}`,
       { name, description: description || null, kind, crs: crs || null },
       {
         onSuccess: () => {
-          toast.success(t(keys.gis_datasets.toasts.updated));
-          router.visit('/gis_datasets');
+          toast.success(t(keys.datasets.toasts.updated));
+          router.visit('/datasets');
         },
         onError: (errs) => {
           const first = Object.values(errs)[0];
@@ -62,11 +62,11 @@ function Edit() {
 
   return (
     <PageShell
-      title={t(keys.gis_datasets.edit.title, { name: dataset.name })}
-      description={t(keys.gis_datasets.edit.description)}
+      title={t(keys.datasets.edit.title, { name: dataset.name })}
+      description={t(keys.datasets.edit.description)}
       actions={
         <Button asChild variant="outline">
-          <Link href="/gis_datasets">{t(keys.gis_datasets.edit.back_button)}</Link>
+          <Link href="/datasets">{t(keys.datasets.edit.back_button)}</Link>
         </Button>
       }
     >
@@ -75,7 +75,7 @@ function Edit() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="name">
-                {t(keys.gis_datasets.form.name_label)} <span className="text-destructive">*</span>
+                {t(keys.datasets.form.name_label)} <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="name"
@@ -87,7 +87,7 @@ function Edit() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="kind">{t(keys.gis_datasets.form.kind_label)}</Label>
+              <Label htmlFor="kind">{t(keys.datasets.form.kind_label)}</Label>
               <select
                 id="kind"
                 value={kind}
@@ -103,7 +103,7 @@ function Edit() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="crs">{t(keys.gis_datasets.form.crs_label)}</Label>
+              <Label htmlFor="crs">{t(keys.datasets.form.crs_label)}</Label>
               <Input
                 id="crs"
                 value={crs}
@@ -114,7 +114,7 @@ function Edit() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">{t(keys.gis_datasets.form.description_label)}</Label>
+              <Label htmlFor="description">{t(keys.datasets.form.description_label)}</Label>
               <Textarea
                 id="description"
                 value={description}
@@ -127,11 +127,11 @@ function Edit() {
             <div className="pt-2 flex gap-3">
               <Button type="submit" disabled={submitting}>
                 {submitting
-                  ? t(keys.gis_datasets.edit.submitting_button)
-                  : t(keys.gis_datasets.edit.submit_button)}
+                  ? t(keys.datasets.edit.submitting_button)
+                  : t(keys.datasets.edit.submit_button)}
               </Button>
               <Button asChild variant="outline">
-                <Link href="/gis_datasets">{t(keys.gis_datasets.form.cancel_button)}</Link>
+                <Link href="/datasets">{t(keys.datasets.form.cancel_button)}</Link>
               </Button>
             </div>
           </form>

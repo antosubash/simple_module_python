@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from gis_datasets.contracts.schemas import DatasetOut, DatasetUpdate
+from datasets.contracts.schemas import DatasetOut, DatasetUpdate
 
 
 class IDatasetService(Protocol):

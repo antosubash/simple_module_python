@@ -1,4 +1,4 @@
-"""REST API endpoints for the GisDatasets module."""
+"""REST API endpoints for the Datasets module."""
 
 from __future__ import annotations
 
@@ -10,16 +10,16 @@ from fastapi.responses import FileResponse
 from simple_module_core.events import EventBus
 from simple_module_hosting.permissions import RequiresPermission
 
-from gis_datasets.contracts.events import DatasetDeleted, DatasetUploaded
-from gis_datasets.contracts.schemas import KIND_VALUES, DatasetOut, DatasetUpdate
-from gis_datasets.deps import (
+from datasets.contracts.events import DatasetDeleted, DatasetUploaded
+from datasets.contracts.schemas import KIND_VALUES, DatasetOut, DatasetUpdate
+from datasets.deps import (
     get_dataset_service,
     get_event_bus,
     get_max_upload_bytes,
     get_storage,
 )
-from gis_datasets.service import DatasetService, UploadInput
-from gis_datasets.storage import LocalDatasetStorage
+from datasets.service import DatasetService, UploadInput
+from datasets.storage import LocalDatasetStorage
 
 router = APIRouter()
 
@@ -66,7 +66,7 @@ async def download_dataset(
     "/",
     response_model=DatasetOut,
     status_code=201,
-    dependencies=[Depends(RequiresPermission("gis_datasets.upload"))],
+    dependencies=[Depends(RequiresPermission("datasets.upload"))],
 )
 async def upload_dataset(
     name: str = Form(..., min_length=1, max_length=200),
@@ -126,7 +126,7 @@ async def upload_dataset(
 @router.patch(
     "/{dataset_id}",
     response_model=DatasetOut,
-    dependencies=[Depends(RequiresPermission("gis_datasets.edit"))],
+    dependencies=[Depends(RequiresPermission("datasets.edit"))],
 )
 async def update_dataset(
     dataset_id: int,
@@ -142,7 +142,7 @@ async def update_dataset(
 @router.delete(
     "/{dataset_id}",
     status_code=204,
-    dependencies=[Depends(RequiresPermission("gis_datasets.delete"))],
+    dependencies=[Depends(RequiresPermission("datasets.delete"))],
 )
 async def delete_dataset(
     dataset_id: int,

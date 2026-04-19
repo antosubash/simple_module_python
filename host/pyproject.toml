@@ -8,7 +8,7 @@ dependencies = [
     "auth",
     "dashboard",
     "products",
-    "gis-datasets",
+    "datasets",
     "python-multipart>=0.0.6",
 ]
 
@@ -17,4 +17,4 @@ simple-module-hosting = { workspace = true }
 auth = { workspace = true }
 products = { workspace = true }
 dashboard = { workspace = true }
-gis-datasets = { workspace = true }
+datasets = { workspace = true }

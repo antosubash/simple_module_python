@@ -1,4 +1,4 @@
-"""Inertia view endpoints for the GisDatasets module."""
+"""Inertia view endpoints for the Datasets module."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from inertia import InertiaResponse
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
 
-from gis_datasets.deps import get_dataset_service
-from gis_datasets.service import DatasetService
+from datasets.deps import get_dataset_service
+from datasets.service import DatasetService
 
 router = APIRouter()
 
@@ -20,7 +20,7 @@ async def browse(
 ) -> InertiaResponse:
     items = await service.get_all()
     return await inertia.render(
-        "GisDatasets/Browse",
+        "Datasets/Browse",
         {"datasets": [item.model_dump(mode="json") for item in items]},
     )
 
@@ -28,10 +28,10 @@ async def browse(
 @router.get(
     "/create",
     response_model=None,
-    dependencies=[Depends(RequiresPermission("gis_datasets.upload"))],
+    dependencies=[Depends(RequiresPermission("datasets.upload"))],
 )
 async def create_view(inertia: InertiaDep) -> InertiaResponse:
-    return await inertia.render("GisDatasets/Create")
+    return await inertia.render("Datasets/Create")
 
 
 @router.get("/{dataset_id}", response_model=None)
@@ -43,16 +43,16 @@ async def show_view(
     item = await service.get_by_id(dataset_id)
     if item is None:
         return await inertia.render(
-            "GisDatasets/Browse",
+            "Datasets/Browse",
             {"datasets": [], "error": "Dataset not found"},
         )
-    return await inertia.render("GisDatasets/Show", {"dataset": item.model_dump(mode="json")})
+    return await inertia.render("Datasets/Show", {"dataset": item.model_dump(mode="json")})
 
 
 @router.get(
     "/{dataset_id}/edit",
     response_model=None,
-    dependencies=[Depends(RequiresPermission("gis_datasets.edit"))],
+    dependencies=[Depends(RequiresPermission("datasets.edit"))],
 )
 async def edit_view(
     dataset_id: int,
@@ -62,7 +62,7 @@ async def edit_view(
     item = await service.get_by_id(dataset_id)
     if item is None:
         return await inertia.render(
-            "GisDatasets/Browse",
+            "Datasets/Browse",
             {"datasets": [], "error": "Dataset not found"},
         )
-    return await inertia.render("GisDatasets/Edit", {"dataset": item.model_dump(mode="json")})
+    return await inertia.render("Datasets/Edit", {"dataset": item.model_dump(mode="json")})

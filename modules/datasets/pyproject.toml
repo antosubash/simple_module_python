@@ -1,7 +1,7 @@
 [project]
-name = "gis-datasets"
+name = "datasets"
 version = "0.1.0"
-description = "The GisDatasets module"
+description = "The Datasets module"
 authors = []
 requires-python = ">=3.12"
 dependencies = [
@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.entry-points.simple_module]
-gis_datasets = "gis_datasets.module:GisDatasetsModule"
+datasets = "datasets.module:DatasetsModule"
 
 [build-system]
 requires = ["hatchling"]

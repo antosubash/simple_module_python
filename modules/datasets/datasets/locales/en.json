@@ -1,6 +1,6 @@
 {
   "browse": {
-    "title": "GIS Datasets",
+    "title": "Datasets",
     "description": "Upload and manage geospatial datasets",
     "new_button": "Upload Dataset",
     "empty_title": "No datasets yet",
