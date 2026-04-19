@@ -39,7 +39,7 @@ This is a **modular-monolith framework**. There is no host–module API boundary
 modules/<name>/<name>/
 ├── module.py        # ModuleBase subclass with meta = ModuleMeta(...)
 ├── models.py        # SQLModel tables
-├── contracts/       # SQLModel DTOs + Protocol interfaces (public surface)
+├── contracts/       # SQLModel DTOs (public surface) — add a Protocol only for real extension points
 ├── service.py       # business logic
 ├── deps.py          # FastAPI dependencies
 ├── endpoints/api.py # REST (JSON)

@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
 
 from settings.constants import SYSTEM_SCOPE_ID
 from settings.contracts.registry import SettingsRegistry
@@ -33,7 +33,9 @@ from settings.contracts.schemas import (
     SettingUpsert,
     SettingValueType,
 )
-from settings.contracts.service import ISettingService
+
+if TYPE_CHECKING:
+    from settings.service import SettingService
 
 
 class _Unset:
@@ -82,7 +84,7 @@ _CASTERS: Final[dict[SettingValueType, Callable[[str, Any], Any]]] = {
 
 
 class SettingsAccessor:
-    """Request-scoped facade over ``ISettingService``.
+    """Request-scoped facade over ``SettingService``.
 
     Bound to an optional ``user_id`` + ``tenant_id`` so ``get`` and its
     typed variants resolve via USER > TENANT > SYSTEM automatically.
@@ -94,7 +96,7 @@ class SettingsAccessor:
 
     def __init__(
         self,
-        service: ISettingService,
+        service: SettingService,
         registry: SettingsRegistry | None = None,
         *,
         user_id: str | None = None,
@@ -106,7 +108,7 @@ class SettingsAccessor:
         self._tenant_id = tenant_id
 
     @property
-    def service(self) -> ISettingService:
+    def service(self) -> SettingService:
         return self._svc
 
     @property
