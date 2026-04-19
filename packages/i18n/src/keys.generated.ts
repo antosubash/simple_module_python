@@ -275,6 +275,56 @@ export const keys = {
       price_required: 'products.validation.price_required',
     },
   },
+  settings: {
+    browse: {
+      edit_link: 'settings.browse.edit_link',
+      empty_description: 'settings.browse.empty_description',
+      empty_title: 'settings.browse.empty_title',
+      new_button: 'settings.browse.new_button',
+      title: 'settings.browse.title',
+    },
+    create: {
+      submit_button: 'settings.create.submit_button',
+      title: 'settings.create.title',
+    },
+    edit: {
+      submit_button: 'settings.edit.submit_button',
+      title: 'settings.edit.title',
+    },
+    form: {
+      description_label: 'settings.form.description_label',
+      description_placeholder: 'settings.form.description_placeholder',
+      key_label: 'settings.form.key_label',
+      key_placeholder: 'settings.form.key_placeholder',
+      scope_id_label: 'settings.form.scope_id_label',
+      scope_id_placeholder: 'settings.form.scope_id_placeholder',
+      scope_label: 'settings.form.scope_label',
+      value_label: 'settings.form.value_label',
+      value_placeholder: 'settings.form.value_placeholder',
+      value_type_label: 'settings.form.value_type_label',
+    },
+    scopes: {
+      system: 'settings.scopes.system',
+      tenant: 'settings.scopes.tenant',
+      user: 'settings.scopes.user',
+    },
+    table: {
+      actions: 'settings.table.actions',
+      description: 'settings.table.description',
+      key: 'settings.table.key',
+      scope: 'settings.table.scope',
+      scope_id: 'settings.table.scope_id',
+      value: 'settings.table.value',
+      value_type: 'settings.table.value_type',
+    },
+    value_types: {
+      bool: 'settings.value_types.bool',
+      float: 'settings.value_types.float',
+      int: 'settings.value_types.int',
+      json: 'settings.value_types.json',
+      string: 'settings.value_types.string',
+    },
+  },
   ui: {
     errors: {
       generic_description: 'ui.errors.generic_description',
