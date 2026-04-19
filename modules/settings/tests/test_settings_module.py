@@ -1,13 +1,25 @@
-"""Tests for the Settings module: service CRUD, API endpoints, schema validation."""
+"""Tests for the Settings module: service CRUD/upsert, API endpoints, schemas."""
 
 from __future__ import annotations
 
 import httpx
 import pytest
 from pydantic import ValidationError
+from settings.constants import (
+    API_PREFIX,
+    PERM_CREATE,
+    PERM_DELETE,
+    PERM_EDIT,
+    PERM_VIEW,
+    STATUS_CONFLICT,
+    STATUS_CREATED,
+    STATUS_NO_CONTENT,
+    STATUS_NOT_FOUND,
+)
 from settings.contracts.schemas import (
     SettingCreate,
     SettingUpdate,
+    SettingUpsert,
 )
 from settings.service import SettingService
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,155 +29,226 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 class TestSettingSchemas:
     async def test_create_valid(self):
-        data = SettingCreate(name="Test Setting")
-        assert data.name == "Test Setting"
-        assert data.description is None
+        data = SettingCreate(key="feature.enabled", value="true")
+        assert data.key == "feature.enabled"
+        assert data.value == "true"
 
-    async def test_create_empty_name_rejected(self):
+    async def test_create_empty_key_rejected(self):
         with pytest.raises(ValidationError):
-            SettingCreate(name="")
+            SettingCreate(key="", value="true")
 
     async def test_update_all_optional(self):
         data = SettingUpdate()
-        assert data.name is None
-        assert data.is_active is None
+        assert data.value is None
+        assert data.description is None
+
+    async def test_upsert_requires_value(self):
+        with pytest.raises(ValidationError):
+            SettingUpsert()  # ty: ignore[missing-argument]
 
 
-# ── SettingService CRUD ──────────────────────────────────────────────
+# ── SettingService ──────────────────────────────────────────────────
 
 
 class TestSettingService:
     async def test_create(self, db_session: AsyncSession):
         svc = SettingService(db_session)
-        item = await svc.create(SettingCreate(name="Test"))
+        item = await svc.create(SettingCreate(key="k1", value="v1"))
         assert item.id is not None
-        assert item.name == "Test"
-        assert item.is_active is True
+        assert item.key == "k1"
+        assert item.value == "v1"
 
-    async def test_get_all(self, db_session: AsyncSession):
+    async def test_list_all_sorted_by_key(self, db_session: AsyncSession):
         svc = SettingService(db_session)
-        await svc.create(SettingCreate(name="A"))
-        await svc.create(SettingCreate(name="B"))
-        items = await svc.get_all()
-        assert len(items) == 2
+        await svc.create(SettingCreate(key="b.key", value="2"))
+        await svc.create(SettingCreate(key="a.key", value="1"))
+        items = await svc.list_all()
+        assert [i.key for i in items] == ["a.key", "b.key"]
 
     async def test_get_by_id(self, db_session: AsyncSession):
         svc = SettingService(db_session)
-        created = await svc.create(SettingCreate(name="X"))
+        created = await svc.create(SettingCreate(key="k", value="v"))
+        assert created.id is not None
         found = await svc.get_by_id(created.id)
         assert found is not None
-        assert found.name == "X"
+        assert found.key == "k"
 
     async def test_get_by_id_not_found(self, db_session: AsyncSession):
         svc = SettingService(db_session)
-        found = await svc.get_by_id(999)
-        assert found is None
+        assert await svc.get_by_id(999) is None
+
+    async def test_get_by_key(self, db_session: AsyncSession):
+        svc = SettingService(db_session)
+        await svc.create(SettingCreate(key="lookup.key", value="hello"))
+        found = await svc.get_by_key("lookup.key")
+        assert found is not None
+        assert found.value == "hello"
+
+    async def test_get_value(self, db_session: AsyncSession):
+        svc = SettingService(db_session)
+        await svc.create(SettingCreate(key="x.y", value="42"))
+        assert await svc.get_value("x.y") == "42"
+        assert await svc.get_value("missing", default="fallback") == "fallback"
+        assert await svc.get_value("missing") is None
 
     async def test_update(self, db_session: AsyncSession):
         svc = SettingService(db_session)
-        created = await svc.create(SettingCreate(name="Old"))
-        updated = await svc.update(created.id, SettingUpdate(name="New"))
+        created = await svc.create(SettingCreate(key="k", value="old"))
+        assert created.id is not None
+        updated = await svc.update(created.id, SettingUpdate(value="new"))
         assert updated is not None
-        assert updated.name == "New"
+        assert updated.value == "new"
+        assert updated.key == "k"
 
     async def test_update_not_found(self, db_session: AsyncSession):
         svc = SettingService(db_session)
-        result = await svc.update(999, SettingUpdate(name="Ghost"))
-        assert result is None
+        assert await svc.update(999, SettingUpdate(value="x")) is None
+
+    async def test_upsert_creates_when_missing(self, db_session: AsyncSession):
+        svc = SettingService(db_session)
+        result = await svc.upsert_by_key("new.key", SettingUpsert(value="v", description="d"))
+        assert result.key == "new.key"
+        assert result.value == "v"
+        assert result.description == "d"
+
+    async def test_upsert_updates_when_present(self, db_session: AsyncSession):
+        svc = SettingService(db_session)
+        await svc.create(SettingCreate(key="k", value="old"))
+        result = await svc.upsert_by_key("k", SettingUpsert(value="new"))
+        assert result.value == "new"
+        all_items = await svc.list_all()
+        assert len(all_items) == 1
 
     async def test_delete(self, db_session: AsyncSession):
         svc = SettingService(db_session)
-        created = await svc.create(SettingCreate(name="Doomed"))
-        deleted = await svc.delete(created.id)
-        assert deleted is True
+        created = await svc.create(SettingCreate(key="k", value="v"))
+        assert created.id is not None
+        assert await svc.delete(created.id) is True
+        assert await svc.get_by_id(created.id) is None
 
     async def test_delete_not_found(self, db_session: AsyncSession):
         svc = SettingService(db_session)
-        deleted = await svc.delete(999)
-        assert deleted is False
+        assert await svc.delete(999) is False
+
+    async def test_delete_by_key(self, db_session: AsyncSession):
+        svc = SettingService(db_session)
+        await svc.create(SettingCreate(key="k", value="v"))
+        assert await svc.delete_by_key("k") is True
+        assert await svc.get_by_key("k") is None
+
+    async def test_delete_by_key_not_found(self, db_session: AsyncSession):
+        svc = SettingService(db_session)
+        assert await svc.delete_by_key("missing") is False
 
 
-# ── API endpoints ───────────────────────────────────────────────
+# ── API endpoints ───────────────────────────────────────────────────
+
+
+def _url(path: str = "") -> str:
+    return f"{API_PREFIX}/{path.lstrip('/')}" if path else f"{API_PREFIX}/"
 
 
 class TestSettingsAPI:
     async def test_list_empty(self, authenticated_client: httpx.AsyncClient):
-        resp = await authenticated_client.get("/api/settings/")
+        resp = await authenticated_client.get(_url())
         assert resp.status_code == 200
         assert resp.json() == []
 
     async def test_create(self, authenticated_client: httpx.AsyncClient):
-        resp = await authenticated_client.post(
-            "/api/settings/",
-            json={"name": "Test Setting"},
-        )
-        assert resp.status_code == 201
+        resp = await authenticated_client.post(_url(), json={"key": "a.b", "value": "v"})
+        assert resp.status_code == STATUS_CREATED
         data = resp.json()
-        assert data["name"] == "Test Setting"
+        assert data["key"] == "a.b"
+        assert data["value"] == "v"
         assert data["id"] is not None
 
     async def test_get_by_id(self, authenticated_client: httpx.AsyncClient):
-        create_resp = await authenticated_client.post(
-            "/api/settings/",
-            json={"name": "Findable"},
-        )
-        item_id = create_resp.json()["id"]
-        resp = await authenticated_client.get(f"/api/settings/{item_id}")
+        created = await authenticated_client.post(_url(), json={"key": "k", "value": "v"})
+        item_id = created.json()["id"]
+        resp = await authenticated_client.get(_url(str(item_id)))
         assert resp.status_code == 200
-        assert resp.json()["name"] == "Findable"
+        assert resp.json()["key"] == "k"
 
     async def test_get_not_found(self, authenticated_client: httpx.AsyncClient):
-        resp = await authenticated_client.get("/api/settings/99999")
-        assert resp.status_code == 404
+        resp = await authenticated_client.get(_url("99999"))
+        assert resp.status_code == STATUS_NOT_FOUND
+
+    async def test_get_by_key(self, authenticated_client: httpx.AsyncClient):
+        await authenticated_client.post(_url(), json={"key": "lookup", "value": "hi"})
+        resp = await authenticated_client.get(_url("by-key/lookup"))
+        assert resp.status_code == 200
+        assert resp.json()["value"] == "hi"
+
+    async def test_get_by_key_not_found(self, authenticated_client: httpx.AsyncClient):
+        resp = await authenticated_client.get(_url("by-key/missing"))
+        assert resp.status_code == STATUS_NOT_FOUND
 
     async def test_update(self, authenticated_client: httpx.AsyncClient):
-        create_resp = await authenticated_client.post(
-            "/api/settings/",
-            json={"name": "Original"},
-        )
-        item_id = create_resp.json()["id"]
-        resp = await authenticated_client.put(
-            f"/api/settings/{item_id}",
-            json={"name": "Updated"},
-        )
+        created = await authenticated_client.post(_url(), json={"key": "k", "value": "old"})
+        item_id = created.json()["id"]
+        resp = await authenticated_client.put(_url(str(item_id)), json={"value": "new"})
         assert resp.status_code == 200
-        assert resp.json()["name"] == "Updated"
+        assert resp.json()["value"] == "new"
+
+    async def test_upsert_by_key_creates(self, authenticated_client: httpx.AsyncClient):
+        resp = await authenticated_client.put(_url("by-key/new.key"), json={"value": "v"})
+        assert resp.status_code == 200
+        assert resp.json()["key"] == "new.key"
+
+    async def test_upsert_by_key_updates(self, authenticated_client: httpx.AsyncClient):
+        await authenticated_client.post(_url(), json={"key": "k", "value": "old"})
+        resp = await authenticated_client.put(_url("by-key/k"), json={"value": "new"})
+        assert resp.status_code == 200
+        assert resp.json()["value"] == "new"
 
     async def test_delete(self, authenticated_client: httpx.AsyncClient):
-        create_resp = await authenticated_client.post(
-            "/api/settings/",
-            json={"name": "Deletable"},
-        )
-        item_id = create_resp.json()["id"]
-        resp = await authenticated_client.delete(f"/api/settings/{item_id}")
-        assert resp.status_code == 204
+        created = await authenticated_client.post(_url(), json={"key": "k", "value": "v"})
+        item_id = created.json()["id"]
+        resp = await authenticated_client.delete(_url(str(item_id)))
+        assert resp.status_code == STATUS_NO_CONTENT
 
     async def test_delete_not_found(self, authenticated_client: httpx.AsyncClient):
-        resp = await authenticated_client.delete("/api/settings/99999")
-        assert resp.status_code == 404
+        resp = await authenticated_client.delete(_url("99999"))
+        assert resp.status_code == STATUS_NOT_FOUND
 
-    async def test_create_invalid_data(self, authenticated_client: httpx.AsyncClient):
-        resp = await authenticated_client.post(
-            "/api/settings/",
-            json={"name": ""},
-        )
+    async def test_delete_by_key(self, authenticated_client: httpx.AsyncClient):
+        await authenticated_client.post(_url(), json={"key": "k", "value": "v"})
+        resp = await authenticated_client.delete(_url("by-key/k"))
+        assert resp.status_code == STATUS_NO_CONTENT
+
+    async def test_create_invalid_empty_key(self, authenticated_client: httpx.AsyncClient):
+        resp = await authenticated_client.post(_url(), json={"key": "", "value": "v"})
         assert resp.status_code == 422
 
 
-# ── Module lifecycle ────────────────────────────────────────────────
+# ── Module registration / constants ─────────────────────────────────
 
 
-class TestSettingsModuleLifecycle:
-    async def test_on_startup_does_not_call_create_all(self):
-        """on_startup should not create tables — Alembic manages schema."""
-        from unittest.mock import AsyncMock, MagicMock
+class TestSettingsModuleRegistration:
+    async def test_permissions_registered(self, app):
+        perms = set(app.state.sm.permissions.all_permissions)
+        for p in (PERM_VIEW, PERM_CREATE, PERM_EDIT, PERM_DELETE):
+            assert p in perms
 
-        from settings.module import SettingsModule
+    async def test_all_permissions_unique(self):
+        from settings.constants import ALL_PERMISSIONS
 
-        mod = SettingsModule()
-        mock_app = MagicMock()
-        mock_app.state.sm.db.engine = AsyncMock()
+        assert len(ALL_PERMISSIONS) == len(set(ALL_PERMISSIONS))
 
-        await mod.on_startup(mock_app)
+    async def test_status_constants(self):
+        assert STATUS_CREATED == 201
+        assert STATUS_NO_CONTENT == 204
+        assert STATUS_NOT_FOUND == 404
+        assert STATUS_CONFLICT == 409
 
-        mock_app.state.sm.db.engine.begin.assert_not_called()
+    async def test_view_page_literals_match_constants(self):
+        """Views use literal inertia.render(...) strings so SM003 can detect
+        them — this guards the literals against drifting from the constants."""
+        from pathlib import Path
+
+        from settings.constants import PAGE_BROWSE, PAGE_CREATE, PAGE_EDIT
+
+        views = (Path(__file__).parent.parent / "settings" / "endpoints" / "views.py").read_text()
+        assert f'"{PAGE_BROWSE}"' in views
+        assert f'"{PAGE_CREATE}"' in views
+        assert f'"{PAGE_EDIT}"' in views

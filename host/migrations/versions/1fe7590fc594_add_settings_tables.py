@@ -34,14 +34,21 @@ def upgrade() -> None:
         sa.Column("created_by", sa.String(length=255), nullable=True),
         sa.Column("updated_by", sa.String(length=255), nullable=True),
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("name", sa.String(length=200), nullable=False),
+        sa.Column("key", sa.String(length=200), nullable=False),
+        sa.Column("value", sa.String(length=4000), nullable=False),
         sa.Column("description", sa.String(length=2000), nullable=True),
-        sa.Column("is_active", sa.Boolean(), nullable=False),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_settings_setting")),
+    )
+    op.create_index(
+        op.f("ix_settings_setting_key"),
+        "settings_setting",
+        ["key"],
+        unique=True,
     )
 
 
 def downgrade() -> None:
+    op.drop_index(op.f("ix_settings_setting_key"), table_name="settings_setting")
     op.drop_table("settings_setting")
 
     # On PostgreSQL, drop the `settings` schema.

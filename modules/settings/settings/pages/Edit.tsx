@@ -1,10 +1,11 @@
 import { keys, useT } from '@simple-module/i18n';
+import { ROUTES } from './routes';
 
 type Setting = {
   id: number;
-  name: string;
+  key: string;
+  value: string;
   description: string | null;
-  is_active: boolean;
 };
 
 type Props = { setting: Setting };
@@ -14,13 +15,22 @@ export default function Edit({ setting }: Props) {
   return (
     <div className="p-6 max-w-xl">
       <h1 className="text-2xl font-semibold mb-4">{t(keys.settings.edit.title)}</h1>
-      <form method="post" action={`/settings/${setting.id}`} className="space-y-3">
+      <form method="post" action={ROUTES.byId(setting.id)} className="space-y-3">
         <input type="hidden" name="_method" value="put" />
         <label className="block">
-          <span className="block text-sm">{t(keys.settings.form.name_label)}</span>
+          <span className="block text-sm">{t(keys.settings.form.key_label)}</span>
           <input
-            name="name"
-            defaultValue={setting.name}
+            name="key"
+            defaultValue={setting.key}
+            disabled
+            className="border rounded w-full p-2 font-mono bg-muted"
+          />
+        </label>
+        <label className="block">
+          <span className="block text-sm">{t(keys.settings.form.value_label)}</span>
+          <input
+            name="value"
+            defaultValue={setting.value}
             required
             className="border rounded w-full p-2"
           />

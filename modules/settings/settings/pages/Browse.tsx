@@ -1,10 +1,11 @@
 import { keys, useT } from '@simple-module/i18n';
+import { ROUTES } from './routes';
 
 type Setting = {
   id: number;
-  name: string;
+  key: string;
+  value: string;
   description: string | null;
-  is_active: boolean;
 };
 
 type Props = { settings: Setting[] };
@@ -15,10 +16,7 @@ export default function Browse({ settings }: Props) {
     <div className="p-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-semibold">{t(keys.settings.browse.title)}</h1>
-        <a
-          href="/settings/create"
-          className="rounded bg-primary px-3 py-1.5 text-primary-foreground"
-        >
+        <a href={ROUTES.create} className="rounded bg-primary px-3 py-1.5 text-primary-foreground">
           {t(keys.settings.browse.new_button)}
         </a>
       </div>
@@ -30,14 +28,28 @@ export default function Browse({ settings }: Props) {
           </p>
         </div>
       ) : (
-        <ul className="divide-y">
-          {settings.map((setting) => (
-            <li key={setting.id} className="py-2 flex justify-between">
-              <span>{setting.name}</span>
-              <a href={`/settings/${setting.id}/edit`}>{t(keys.settings.browse.edit_link)}</a>
-            </li>
-          ))}
-        </ul>
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b">
+              <th className="py-2 pr-4">{t(keys.settings.table.key)}</th>
+              <th className="py-2 pr-4">{t(keys.settings.table.value)}</th>
+              <th className="py-2 pr-4">{t(keys.settings.table.description)}</th>
+              <th className="py-2">{t(keys.settings.table.actions)}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {settings.map((setting) => (
+              <tr key={setting.id} className="border-b">
+                <td className="py-2 pr-4 font-mono text-sm">{setting.key}</td>
+                <td className="py-2 pr-4">{setting.value}</td>
+                <td className="py-2 pr-4 text-muted-foreground">{setting.description ?? ''}</td>
+                <td className="py-2">
+                  <a href={ROUTES.edit(setting.id)}>{t(keys.settings.browse.edit_link)}</a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );

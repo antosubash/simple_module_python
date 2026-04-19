@@ -1,15 +1,27 @@
 {
   "browse": {
     "title": "Settings",
-    "description": "Manage your settings",
+    "description": "Manage application key/value settings",
     "new_button": "New Setting",
     "empty_title": "No settings yet",
     "empty_description": "Get started by creating your first setting.",
-    "edit_link": "Edit"
+    "edit_link": "Edit",
+    "delete_link": "Delete"
+  },
+  "table": {
+    "key": "Key",
+    "value": "Value",
+    "description": "Description",
+    "actions": "Actions"
   },
   "form": {
-    "name_label": "Name",
-    "description_label": "Description"
+    "key_label": "Key",
+    "key_placeholder": "e.g. feature.enabled",
+    "value_label": "Value",
+    "value_placeholder": "Enter a value",
+    "description_label": "Description",
+    "description_placeholder": "Optional description",
+    "cancel_button": "Cancel"
   },
   "create": {
     "title": "New Setting",
@@ -18,5 +30,8 @@
   "edit": {
     "title": "Edit Setting",
     "submit_button": "Save"
+  },
+  "errors": {
+    "not_found": "Setting not found"
   }
 }

@@ -136,6 +136,7 @@ export const keys = {
   },
   settings: {
     browse: {
+      delete_link: "settings.browse.delete_link",
       description: "settings.browse.description",
       edit_link: "settings.browse.edit_link",
       empty_description: "settings.browse.empty_description",
@@ -151,9 +152,23 @@ export const keys = {
       submit_button: "settings.edit.submit_button",
       title: "settings.edit.title",
     },
+    errors: {
+      not_found: "settings.errors.not_found",
+    },
     form: {
+      cancel_button: "settings.form.cancel_button",
       description_label: "settings.form.description_label",
-      name_label: "settings.form.name_label",
+      description_placeholder: "settings.form.description_placeholder",
+      key_label: "settings.form.key_label",
+      key_placeholder: "settings.form.key_placeholder",
+      value_label: "settings.form.value_label",
+      value_placeholder: "settings.form.value_placeholder",
+    },
+    table: {
+      actions: "settings.table.actions",
+      description: "settings.table.description",
+      key: "settings.table.key",
+      value: "settings.table.value",
     },
   },
   ui: {

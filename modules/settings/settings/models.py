@@ -6,18 +6,23 @@ from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin
 from sqlmodel import Field
 
-# Provider is auto-detected from SM_DATABASE_URL (falls back to SQLite).
-# On PostgreSQL this gives the module its own `settings` schema; on SQLite
-# all modules share one schema, so __tablename__ is prefixed for isolation.
-Base = create_module_base("settings")
+from settings.constants import (
+    DESCRIPTION_MAX_LENGTH,
+    KEY_MAX_LENGTH,
+    MODULE_PACKAGE,
+    TABLE_SETTING,
+    VALUE_MAX_LENGTH,
+)
+
+Base = create_module_base(MODULE_PACKAGE)
 
 
 class Setting(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
-    """A setting entity."""
+    """A key/value configuration entry."""
 
-    __tablename__ = "settings_setting"
+    __tablename__ = TABLE_SETTING
 
     id: int | None = Field(default=None, primary_key=True)
-    name: str = Field(max_length=200)
-    description: str | None = Field(default=None, max_length=2000)
-    is_active: bool = Field(default=True)
+    key: str = Field(max_length=KEY_MAX_LENGTH, unique=True, index=True)
+    value: str = Field(max_length=VALUE_MAX_LENGTH)
+    description: str | None = Field(default=None, max_length=DESCRIPTION_MAX_LENGTH)

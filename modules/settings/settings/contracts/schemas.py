@@ -7,30 +7,43 @@ from datetime import datetime
 from pydantic import ConfigDict
 from sqlmodel import Field, SQLModel
 
+from settings.constants import (
+    DESCRIPTION_MAX_LENGTH,
+    KEY_MAX_LENGTH,
+    VALUE_MAX_LENGTH,
+)
+
 
 class SettingOut(SQLModel):
-    """Setting data returned by the API."""
+    """A setting returned by the API."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    name: str
+    key: str
+    value: str
     description: str | None = None
-    is_active: bool
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
 
 class SettingCreate(SQLModel):
-    """Data required to create a new setting."""
+    """Payload to create a new setting."""
 
-    name: str = Field(min_length=1, max_length=200)
-    description: str | None = None
+    key: str = Field(min_length=1, max_length=KEY_MAX_LENGTH)
+    value: str = Field(max_length=VALUE_MAX_LENGTH)
+    description: str | None = Field(default=None, max_length=DESCRIPTION_MAX_LENGTH)
 
 
 class SettingUpdate(SQLModel):
-    """Data to update an existing setting. All fields optional."""
+    """Payload to update an existing setting. All fields optional."""
 
-    name: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
-    is_active: bool | None = None
+    value: str | None = Field(default=None, max_length=VALUE_MAX_LENGTH)
+    description: str | None = Field(default=None, max_length=DESCRIPTION_MAX_LENGTH)
+
+
+class SettingUpsert(SQLModel):
+    """Payload for upsert-by-key operations."""
+
+    value: str = Field(max_length=VALUE_MAX_LENGTH)
+    description: str | None = Field(default=None, max_length=DESCRIPTION_MAX_LENGTH)

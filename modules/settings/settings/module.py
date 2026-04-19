@@ -10,19 +10,33 @@ from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 
+from settings.constants import (
+    ALL_PERMISSIONS,
+    API_PREFIX,
+    LOCALE_NAMESPACE,
+    MENU_ICON,
+    MENU_LABEL,
+    MENU_ORDER,
+    MENU_URL,
+    MODULE_NAME,
+    MODULE_PACKAGE,
+    PERM_GROUP,
+    VIEW_PREFIX,
+)
+
 
 class SettingsModule(ModuleBase):
     meta = ModuleMeta(
-        name="Settings",
-        route_prefix="/api/settings",
-        view_prefix="/settings",
+        name=MODULE_NAME,
+        route_prefix=API_PREFIX,
+        view_prefix=VIEW_PREFIX,
     )
 
     def register_settings(self, app: FastAPI) -> None:
         from settings.services import SettingsServices
         from settings.settings import SettingsSettings
 
-        app.state.settings = SettingsServices(settings=SettingsSettings())
+        setattr(app.state, MODULE_PACKAGE, SettingsServices(settings=SettingsSettings()))
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from settings.endpoints.api import router as api
@@ -34,25 +48,17 @@ class SettingsModule(ModuleBase):
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
             MenuItem(
-                label="Settings",
-                url="/settings",
-                icon="box",
-                order=30,
+                label=MENU_LABEL,
+                url=MENU_URL,
+                icon=MENU_ICON,
+                order=MENU_ORDER,
                 section=MenuSection.SIDEBAR,
             )
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            "Settings",
-            [
-                "settings.view",
-                "settings.create",
-                "settings.edit",
-                "settings.delete",
-            ],
-        )
+        registry.add_group(PERM_GROUP, list(ALL_PERMISSIONS))
 
     def locale_dirs(self) -> dict[str, Path]:
         base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {"settings": base}
+        return {LOCALE_NAMESPACE: base}
