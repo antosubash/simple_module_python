@@ -9,11 +9,25 @@ from fastapi import FastAPI
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
+from users.constants import (
+    ADMIN_ROLE_DESCRIPTION,
+    ADMIN_ROLE_ID,
+    ADMIN_ROLE_NAME,
+    USER_ROLE_DESCRIPTION,
+    USER_ROLE_ID,
+    USER_ROLE_NAME,
+)
 from users.models import Role, User, UserRole
 from users.settings import UsersSettings
 
 logger = logging.getLogger("users.bootstrap")
+
+_EVT_CREATED = "users.bootstrap.created"
+_EVT_UPDATED = "users.bootstrap.updated"
+_EVT_NOOP = "users.bootstrap.noop"
+_EVT_USER_NOOP = "users.bootstrap.user_noop"
+_EVT_USER_CREATED = "users.bootstrap.user_created"
+_EVT_FAILED = "users.bootstrap.failed"
 
 
 @dataclass
@@ -51,7 +65,9 @@ async def create_admin(
 
     # Look up by name first (works on both Postgres and SQLite regardless of UUID
     # storage format), then fall back to id-based lookup in case name was changed.
-    admin_role = (await db.execute(select(Role).where(Role.name == "admin"))).scalar_one_or_none()
+    admin_role = (
+        await db.execute(select(Role).where(Role.name == ADMIN_ROLE_NAME))
+    ).scalar_one_or_none()
     if admin_role is None:
         admin_role = (
             await db.execute(select(Role).where(Role.id == ADMIN_ROLE_ID))
@@ -62,7 +78,9 @@ async def create_admin(
         # tests (where `create_all` runs without data migrations) and for
         # scenarios where someone ran `alembic downgrade` past the seed
         # revision but not past the schema revision.
-        admin_role = Role(id=ADMIN_ROLE_ID, name="admin", description="Administrator")
+        admin_role = Role(
+            id=ADMIN_ROLE_ID, name=ADMIN_ROLE_NAME, description=ADMIN_ROLE_DESCRIPTION
+        )
         db.add(admin_role)
         await db.flush()
 
@@ -81,7 +99,7 @@ async def create_admin(
         db.add(UserRole(user_id=user.id, role_id=admin_role.id))
         await db.commit()
         await db.refresh(user)
-        logger.info("users.bootstrap.created", extra={"email": email, "id": str(user.id)})
+        logger.info(_EVT_CREATED, extra={"email": email, "id": str(user.id)})
         return CreateAdminResult(user=user, created=True)
 
     if force:
@@ -101,13 +119,10 @@ async def create_admin(
         if existing_link is None:
             db.add(UserRole(user_id=existing.id, role_id=admin_role.id))
         await db.commit()
-        logger.info(
-            "users.bootstrap.updated",
-            extra={"email": email, "id": str(existing.id)},
-        )
+        logger.info(_EVT_UPDATED, extra={"email": email, "id": str(existing.id)})
         return CreateAdminResult(user=existing, created=False)
 
-    logger.info("users.bootstrap.noop", extra={"email": email, "id": str(existing.id)})
+    logger.info(_EVT_NOOP, extra={"email": email, "id": str(existing.id)})
     return CreateAdminResult(user=existing, created=False)
 
 
@@ -129,17 +144,19 @@ async def create_standard_user(
         await db.execute(select(User).where(func.lower(User.email) == email.lower()))
     ).scalar_one_or_none()
     if existing is not None:
-        logger.info("users.bootstrap.user_noop", extra={"email": email, "id": str(existing.id)})
+        logger.info(_EVT_USER_NOOP, extra={"email": email, "id": str(existing.id)})
         return CreateAdminResult(user=existing, created=False)
 
-    user_role = (await db.execute(select(Role).where(Role.name == "user"))).scalar_one_or_none()
+    user_role = (
+        await db.execute(select(Role).where(Role.name == USER_ROLE_NAME))
+    ).scalar_one_or_none()
     if user_role is None:
         user_role = (
             await db.execute(select(Role).where(Role.id == USER_ROLE_ID))
         ).scalar_one_or_none()
     if user_role is None:
         # Safety net — the seed migration normally inserts this row.
-        user_role = Role(id=USER_ROLE_ID, name="user", description="Standard user")
+        user_role = Role(id=USER_ROLE_ID, name=USER_ROLE_NAME, description=USER_ROLE_DESCRIPTION)
         db.add(user_role)
         await db.flush()
 
@@ -156,7 +173,7 @@ async def create_standard_user(
     db.add(UserRole(user_id=user.id, role_id=user_role.id))
     await db.commit()
     await db.refresh(user)
-    logger.info("users.bootstrap.user_created", extra={"email": email, "id": str(user.id)})
+    logger.info(_EVT_USER_CREATED, extra={"email": email, "id": str(user.id)})
     return CreateAdminResult(user=user, created=True)
 
 
@@ -199,5 +216,5 @@ async def bootstrap_admin_from_env(app: FastAPI) -> None:
                     password=settings.bootstrap_user_password,
                 )
         except Exception:
-            logger.exception("users.bootstrap.failed")
+            logger.exception(_EVT_FAILED)
             raise

@@ -30,6 +30,9 @@ node_modules/
 # default storage_dir for SM_DATASETS_STORAGE_DIR).
 var/
 
+# file_storage filesystem backend default root (override via SM_FILE_STORAGE_FS_ROOT_PATH).
+uploads/
+
 # Vite
 host/static/dist/
 

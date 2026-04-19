@@ -21,7 +21,13 @@ from pathlib import Path
 
 DEFAULT_MAX_LINES = 300
 COVERED_SUFFIXES = {".py", ".ts", ".tsx"}
-DEFAULT_EXEMPT_GLOBS: tuple[str, ...] = ("packages/ui/src/components/ui/**",)
+DEFAULT_EXEMPT_GLOBS: tuple[str, ...] = (
+    "packages/ui/src/components/ui/**",
+    # Aggregates every module's i18n keys; grows linearly with module count
+    # and is rewritten on every dev-mode boot. Hand-shrinking is futile.
+    "packages/i18n/src/*.generated.ts",
+    "packages/i18n/src/generated-resources.ts",
+)
 
 
 def count_lines(path: Path) -> int:

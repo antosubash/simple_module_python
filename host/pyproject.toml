@@ -9,6 +9,10 @@ dependencies = [
     "dashboard",
     "products",
     "datasets",
+    "permissions",
+    "background-tasks",
+    "file-storage",
+    "settings",
     "python-multipart>=0.0.6",
 ]
 
@@ -18,3 +22,7 @@ auth = { workspace = true }
 products = { workspace = true }
 dashboard = { workspace = true }
 datasets = { workspace = true }
+permissions = { workspace = true }
+background-tasks = { workspace = true }
+file-storage = { workspace = true }
+settings = { workspace = true }

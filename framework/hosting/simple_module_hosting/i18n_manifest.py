@@ -110,7 +110,7 @@ def write_generated_resources(registry: I18nRegistry, output_dir: Path) -> Path:
 
 
 def _render_resources(keys: list[str]) -> str:
-    lines = [_RESOURCES_HEADER, "", "export default {", "  translation: {"]
+    lines = [_RESOURCES_HEADER, "export default {", "  translation: {"]
     for key in keys:
         lines.append(f"    '{key}': '',")
     lines.append("  },")
@@ -177,28 +177,22 @@ def _insert(tree: dict[str, Any], path: list[str], value: str) -> None:
 def _serialize(node: Any, *, indent: int) -> str:
     """Emit a dict-of-dicts tree as pretty-printed TypeScript object literal.
 
-    Strings render with single quotes to match the project's biome config
-    (``javascript.formatter.quoteStyle = "single"``) so the generated file
-    is biome-clean without a follow-up format pass.
+    Strings are wrapped in single quotes to match the project's biome config
+    (``quoteStyle: "single"``); dotted i18n keys never contain single quotes,
+    so plain wrapping is safe.
     """
     if isinstance(node, str):
-        return _ts_string_literal(node)
+        return f"'{node}'"
     if not isinstance(node, dict) or not node:
         return "{}"
     pad = "  " * indent
     inner_pad = "  " * (indent + 1)
     lines = ["{"]
     for k in sorted(node.keys()):
-        key_repr = k if _is_valid_js_identifier(k) else _ts_string_literal(k)
+        key_repr = k if _is_valid_js_identifier(k) else f"'{k}'"
         lines.append(f"{inner_pad}{key_repr}: {_serialize(node[k], indent=indent + 1)},")
     lines.append(f"{pad}}}")
     return "\n".join(lines)
-
-
-def _ts_string_literal(value: str) -> str:
-    """Render ``value`` as a single-quoted TS string literal."""
-    escaped = value.replace("\\", "\\\\").replace("'", "\\'")
-    return f"'{escaped}'"
 
 
 def _is_valid_js_identifier(name: str) -> bool:

@@ -11,6 +11,17 @@ from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 
+from products.constants import (
+    FLAG_PRODUCTS_BULK_IMPORT,
+    PERM_PRODUCTS_CREATE,
+    PERM_PRODUCTS_DELETE,
+    PERM_PRODUCTS_EDIT,
+    PERM_PRODUCTS_VIEW,
+)
+
+_URL_PRODUCTS = "/products"
+_ICON_PRODUCTS = "package"
+
 
 class ProductsModule(ModuleBase):
     meta = ModuleMeta(
@@ -30,8 +41,8 @@ class ProductsModule(ModuleBase):
         registry.add(
             MenuItem(
                 label="Products",
-                url="/products",
-                icon="package",
+                url=_URL_PRODUCTS,
+                icon=_ICON_PRODUCTS,
                 order=20,
                 section=MenuSection.SIDEBAR,
             )
@@ -41,17 +52,17 @@ class ProductsModule(ModuleBase):
         registry.add_group(
             "Products",
             [
-                "products.view",
-                "products.create",
-                "products.edit",
-                "products.delete",
+                PERM_PRODUCTS_VIEW,
+                PERM_PRODUCTS_CREATE,
+                PERM_PRODUCTS_EDIT,
+                PERM_PRODUCTS_DELETE,
             ],
         )
 
     def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
         registry.add(
             FeatureFlagDefinition(
-                name="products.bulk_import",
+                name=FLAG_PRODUCTS_BULK_IMPORT,
                 description="Enable bulk product import from CSV",
                 default_enabled=False,
             )

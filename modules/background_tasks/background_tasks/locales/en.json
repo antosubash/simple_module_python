@@ -1,0 +1,57 @@
+{
+  "index": {
+    "title": "Background Tasks",
+    "description": "Monitor task executions and retry failed or stuck jobs.",
+    "search_placeholder": "Search by task name…",
+    "count_one": "{count} task",
+    "count_other": "{count} tasks",
+    "empty_title": "No task executions yet",
+    "empty_description": "Tasks appear here as soon as modules enqueue work.",
+    "no_match": "No tasks match \"{query}\""
+  },
+  "filters": {
+    "status_label": "Status",
+    "status_all": "All statuses"
+  },
+  "status": {
+    "pending": "Pending",
+    "running": "Running",
+    "success": "Success",
+    "failed": "Failed",
+    "stuck": "Stuck",
+    "revoked": "Revoked",
+    "retrying": "Retrying"
+  },
+  "table": {
+    "task": "Task",
+    "status": "Status",
+    "queue": "Queue",
+    "queued_at": "Queued",
+    "duration": "Duration",
+    "worker": "Worker",
+    "actions": "Actions",
+    "view": "View",
+    "retry": "Retry"
+  },
+  "detail": {
+    "title": "Task execution",
+    "back_button": "Back to tasks",
+    "args": "Arguments",
+    "kwargs": "Keyword arguments",
+    "result": "Result",
+    "traceback": "Traceback",
+    "meta": "Details",
+    "retried_from": "Retried from",
+    "no_traceback": "No traceback recorded."
+  },
+  "retry_dialog": {
+    "title": "Retry this task?",
+    "description": "A new task execution will be enqueued with the same arguments. The original row is kept for history.",
+    "cancel": "Cancel",
+    "confirm": "Retry task"
+  },
+  "toasts": {
+    "retried": "Task \"{name}\" re-enqueued",
+    "retry_failed": "Failed to retry task"
+  }
+}

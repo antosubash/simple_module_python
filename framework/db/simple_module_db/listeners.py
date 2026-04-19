@@ -32,6 +32,18 @@ class TenantIsolationError(Exception):
 # flush has cleared ``session.new/.dirty/.deleted``.
 SESSION_HAS_WRITES_KEY = "has_writes"
 
+# DB audit event names
+_EVENT_ENTITY_CREATED = "db.entity.created"
+_EVENT_ENTITY_UPDATED = "db.entity.updated"
+_EVENT_ENTITY_SOFT_DELETED = "db.entity.soft_deleted"
+_EVENT_ENTITY_DELETED = "db.entity.deleted"
+
+# DB operation strings used in log extra dicts
+_OP_CREATE = "create"
+_OP_UPDATE = "update"
+_OP_SOFT_DELETE = "soft_delete"
+_OP_DELETE = "delete"
+
 
 def _entity_label(obj: object) -> str:
     """Return 'ClassName' for a mapped entity instance."""
@@ -107,9 +119,9 @@ def _before_flush_listener(
                 )
 
         _db_logger.info(
-            "db.entity.created",
+            _EVENT_ENTITY_CREATED,
             extra={
-                "operation": "create",
+                "operation": _OP_CREATE,
                 "entity": _entity_label(obj),
                 "user_id": user_id,
             },
@@ -133,9 +145,9 @@ def _before_flush_listener(
                 raise TenantIsolationError("Cannot change tenant_id of an existing object")
 
         _db_logger.info(
-            "db.entity.updated",
+            _EVENT_ENTITY_UPDATED,
             extra={
-                "operation": "update",
+                "operation": _OP_UPDATE,
                 "entity": _entity_label(obj),
                 "entity_id": _entity_pk(obj),
                 "user_id": user_id,
@@ -154,9 +166,9 @@ def _before_flush_listener(
             session.add(obj)
 
             _db_logger.info(
-                "db.entity.soft_deleted",
+                _EVENT_ENTITY_SOFT_DELETED,
                 extra={
-                    "operation": "soft_delete",
+                    "operation": _OP_SOFT_DELETE,
                     "entity": _entity_label(obj),
                     "entity_id": _entity_pk(obj),
                     "user_id": user_id,
@@ -164,9 +176,9 @@ def _before_flush_listener(
             )
         else:
             _db_logger.info(
-                "db.entity.deleted",
+                _EVENT_ENTITY_DELETED,
                 extra={
-                    "operation": "delete",
+                    "operation": _OP_DELETE,
                     "entity": _entity_label(obj),
                     "entity_id": _entity_pk(obj),
                     "user_id": user_id,
