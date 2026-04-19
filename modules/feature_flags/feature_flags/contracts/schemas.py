@@ -38,8 +38,6 @@ class FeatureFlagView(SQLModel):
     default_enabled: bool
     enabled: bool
     overridden: bool
-    # Only populated when listing under a tenant scope; helps the UI render
-    # what would happen if the tenant override were cleared.
     system_enabled: bool | None = None
 
 

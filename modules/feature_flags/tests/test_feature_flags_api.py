@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import httpx
 
-# ── System scope ──────────────────────────────────────────────────
-
 
 class TestFeatureFlagsAPI:
     async def test_list_flags_returns_registered_flags(
@@ -58,9 +56,6 @@ class TestFeatureFlagsAPI:
         assert body["name"] == "products.bulk_import"
         assert "default_enabled" in body
         assert "overridden" in body
-
-
-# ── Tenant scope ──────────────────────────────────────────────────
 
 
 class TestFeatureFlagsTenantAPI:

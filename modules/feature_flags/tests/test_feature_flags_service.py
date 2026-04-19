@@ -15,9 +15,6 @@ def _registry_with(*flags: tuple[str, str, bool]) -> FeatureFlagRegistry:
     return reg
 
 
-# ── System scope ──────────────────────────────────────────────────
-
-
 class TestFeatureFlagServiceSystem:
     async def test_set_override_inserts_row_and_mirrors_to_registry(self, db_session: AsyncSession):
         svc = FeatureFlagService(db_session)
@@ -88,9 +85,6 @@ class TestFeatureFlagServiceSystem:
         views = await svc.list_flags(reg_new)
 
         assert [v.name for v in views] == ["current"]
-
-
-# ── Tenant scope ──────────────────────────────────────────────────
 
 
 class TestFeatureFlagServiceTenant:
@@ -178,9 +172,6 @@ class TestFeatureFlagServiceTenant:
         assert fresh.is_enabled("a", tenant_id="acme") is False  # tenant beats system
         assert fresh.is_enabled("a", tenant_id="other") is True  # falls back to system
         assert fresh.is_enabled("b") is False
-
-
-# ── Module lifecycle ───────────────────────────────────────────────
 
 
 class TestFeatureFlagsModuleLifecycle:

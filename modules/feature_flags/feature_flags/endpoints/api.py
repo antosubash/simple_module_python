@@ -1,10 +1,4 @@
-"""REST API endpoints for feature_flags management.
-
-Two scopes are exposed:
-
-* **system** — flat routes (``GET /``, ``PUT /{name}``, ``DELETE /{name}``)
-* **tenant** — routes under ``/tenant/{tenant_id}/...`` for per-tenant overrides
-"""
+"""REST API endpoints for feature_flags management."""
 
 from __future__ import annotations
 
@@ -24,13 +18,9 @@ router = APIRouter()
 
 
 def _ensure_registered(name: str, registry: FeatureFlagRegistry) -> None:
-    # Refuse overrides for names the registry doesn't know — a typo here would
-    # silently persist dead rows that list_flags() filters out later.
+    # A typo here would silently persist a dead row that ``list_flags`` filters out.
     if name not in {f.name for f in registry.all_flags}:
         raise HTTPException(status_code=404, detail="Feature flag not registered")
-
-
-# ── System scope ──────────────────────────────────────────────────
 
 
 @router.get(
@@ -55,10 +45,10 @@ async def get_flag(
     service: FeatureFlagServiceDep,
     registry: FeatureFlagRegistryDep,
 ) -> FeatureFlagView:
-    for flag in await service.list_flags(registry):
-        if flag.name == name:
-            return flag
-    raise HTTPException(status_code=404, detail="Feature flag not registered")
+    view = service.build_view(registry, name)
+    if view is None:
+        raise HTTPException(status_code=404, detail="Feature flag not registered")
+    return view
 
 
 @router.put(
@@ -74,10 +64,9 @@ async def set_override(
 ) -> FeatureFlagView:
     _ensure_registered(name, registry)
     await service.set_override(name, body.enabled, registry=registry)
-    for flag in await service.list_flags(registry):
-        if flag.name == name:
-            return flag
-    raise HTTPException(status_code=500, detail="Override applied but flag vanished")
+    view = service.build_view(registry, name)
+    assert view is not None  # _ensure_registered already proved it exists
+    return view
 
 
 @router.delete(
@@ -93,9 +82,6 @@ async def clear_override(
     cleared = await service.clear_override(name, registry=registry)
     if not cleared:
         raise HTTPException(status_code=404, detail="No override set for this flag")
-
-
-# ── Tenant scope ──────────────────────────────────────────────────
 
 
 @router.get(
@@ -127,10 +113,9 @@ async def set_tenant_override(
     await service.set_override(
         name, body.enabled, registry=registry, scope=SCOPE_TENANT, scope_id=tenant_id
     )
-    for flag in await service.list_flags(registry, tenant_id=tenant_id):
-        if flag.name == name:
-            return flag
-    raise HTTPException(status_code=500, detail="Override applied but flag vanished")
+    view = service.build_view(registry, name, tenant_id=tenant_id)
+    assert view is not None  # _ensure_registered already proved it exists
+    return view
 
 
 @router.delete(

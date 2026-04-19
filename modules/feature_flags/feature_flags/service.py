@@ -1,18 +1,13 @@
 """FeatureFlagService — manages persisted overrides and syncs them to the registry.
 
-Two scopes are supported:
-
-* **system** — applied to every request (mirrored to the registry's
-  system override map at write time)
-* **tenant** — applied only when ``is_enabled`` is called with a matching
-  ``tenant_id`` (mirrored to the per-tenant override map)
-
-Resolution at runtime: tenant override > system override > definition default.
+Resolution semantics (tenant > system > default) live in
+``simple_module_core.feature_flags``; this layer only persists overrides and
+mirrors mutations into the registry.
 """
 
 from __future__ import annotations
 
-from simple_module_core.feature_flags import FeatureFlagRegistry
+from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +19,23 @@ from feature_flags.models import FeatureFlagOverride
 def _registry_tenant_id(scope: str, scope_id: str) -> str | None:
     """Translate a (scope, scope_id) pair into the registry's tenant_id arg."""
     return scope_id if scope == SCOPE_TENANT else None
+
+
+def _build_view(
+    flag: FeatureFlagDefinition,
+    *,
+    enabled: bool,
+    overridden: bool,
+    system_enabled: bool | None = None,
+) -> FeatureFlagView:
+    return FeatureFlagView(
+        name=flag.name,
+        description=flag.description,
+        default_enabled=flag.default_enabled,
+        enabled=enabled,
+        overridden=overridden,
+        system_enabled=system_enabled,
+    )
 
 
 class FeatureFlagService:
@@ -38,8 +50,6 @@ class FeatureFlagService:
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
-
-    # ── Listing ─────────────────────────────────────────────────────
 
     async def list_overrides(self) -> list[FeatureFlagOverrideOut]:
         """Every persisted override across all scopes, ordered for stable display."""
@@ -75,55 +85,48 @@ class FeatureFlagService:
         has its own override, and ``system_enabled`` reports the value that
         would apply if the tenant override were cleared.
 
-        Definitions the registry doesn't know about are silently dropped —
-        an override whose flag was removed from code is stale and shouldn't
-        leak into the admin list as a ghost entry.
+        Reads override state from the in-memory registry (kept in sync by
+        every mutation and rehydrated at startup) rather than re-querying
+        the DB, so admin page loads don't pay an O(rows) scan per request.
         """
-        rows = await self.list_overrides()
-        system_overrides: dict[str, bool] = {
-            row.name: row.enabled
-            for row in rows
-            if row.scope == SCOPE_SYSTEM and row.scope_id == SYSTEM_SCOPE_ID
-        }
-        tenant_overrides: dict[str, bool] = (
-            {
-                row.name: row.enabled
-                for row in rows
-                if row.scope == SCOPE_TENANT and row.scope_id == tenant_id
-            }
-            if tenant_id is not None
-            else {}
-        )
-
         views: list[FeatureFlagView] = []
         for flag in sorted(registry.all_flags, key=lambda f: f.name):
-            system_enabled = system_overrides.get(flag.name, flag.default_enabled)
+            system_value = registry.system_override(flag.name)
+            system_enabled = system_value if system_value is not None else flag.default_enabled
             if tenant_id is None:
                 views.append(
-                    FeatureFlagView(
-                        name=flag.name,
-                        description=flag.description,
-                        default_enabled=flag.default_enabled,
-                        enabled=system_enabled,
-                        overridden=flag.name in system_overrides,
-                    )
+                    _build_view(flag, enabled=system_enabled, overridden=system_value is not None)
                 )
                 continue
-            has_tenant = flag.name in tenant_overrides
-            effective = tenant_overrides[flag.name] if has_tenant else system_enabled
+            tenant_value = registry.tenant_override(flag.name, tenant_id)
             views.append(
-                FeatureFlagView(
-                    name=flag.name,
-                    description=flag.description,
-                    default_enabled=flag.default_enabled,
-                    enabled=effective,
-                    overridden=has_tenant,
+                _build_view(
+                    flag,
+                    enabled=tenant_value if tenant_value is not None else system_enabled,
+                    overridden=tenant_value is not None,
                     system_enabled=system_enabled,
                 )
             )
         return views
 
-    # ── Internals ───────────────────────────────────────────────────
+    def build_view(
+        self, registry: FeatureFlagRegistry, name: str, tenant_id: str | None = None
+    ) -> FeatureFlagView | None:
+        """Single-flag variant of ``list_flags`` for write-path responses."""
+        flag = next((f for f in registry.all_flags if f.name == name), None)
+        if flag is None:
+            return None
+        system_value = registry.system_override(name)
+        system_enabled = system_value if system_value is not None else flag.default_enabled
+        if tenant_id is None:
+            return _build_view(flag, enabled=system_enabled, overridden=system_value is not None)
+        tenant_value = registry.tenant_override(name, tenant_id)
+        return _build_view(
+            flag,
+            enabled=tenant_value if tenant_value is not None else system_enabled,
+            overridden=tenant_value is not None,
+            system_enabled=system_enabled,
+        )
 
     async def _find(self, scope: str, scope_id: str, name: str) -> FeatureFlagOverride | None:
         result = await self.db.execute(
@@ -134,8 +137,6 @@ class FeatureFlagService:
             )
         )
         return result.scalar_one_or_none()
-
-    # ── Mutations ───────────────────────────────────────────────────
 
     async def set_override(
         self,
@@ -152,10 +153,10 @@ class FeatureFlagService:
                 scope=scope, scope_id=scope_id, name=name, enabled=enabled
             )
             self.db.add(existing)
-        else:
+            await self.db.flush()
+        elif existing.enabled != enabled:
             existing.enabled = enabled
-        await self.db.flush()
-        await self.db.refresh(existing)
+            await self.db.flush()
         if registry is not None:
             registry.set_override(name, enabled, tenant_id=_registry_tenant_id(scope, scope_id))
         return FeatureFlagOverrideOut.model_validate(existing)
