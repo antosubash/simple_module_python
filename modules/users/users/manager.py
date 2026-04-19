@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -11,12 +12,15 @@ from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
 from fastapi_users.jwt import generate_jwt
 
+from users.contracts.events import UserRegistered
 from users.db_adapter import UserDatabaseWithRoles, get_user_db
 from users.mailer import Mailer
 from users.models import User
 
 if TYPE_CHECKING:
     from users.settings import UsersSettings
+
+logger = logging.getLogger(__name__)
 
 
 class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
@@ -52,9 +56,25 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     # ── Lifecycle hooks ──────────────────────────────────────
 
     async def on_after_register(self, user: User, request: Request | None = None) -> None:
+        await self._publish_user_registered(user, request)
         if not user.is_verified:
             # Kicks off on_after_request_verify, which sends the email
             await self.request_verify(user, request)
+
+    async def _publish_user_registered(self, user: User, request: Request | None) -> None:
+        """Emit ``UserRegistered`` on the app-wide event bus.
+
+        The bus lives on ``request.app.state.sm`` — unavailable when the
+        manager is exercised without a request (e.g. CLI bootstrap), so
+        we skip publication in that case rather than invent a bus.
+        """
+        if request is None:
+            return
+        bus = getattr(getattr(request.app.state, "sm", None), "event_bus", None)
+        if bus is None:
+            logger.debug("Event bus missing from app.state.sm; skipping UserRegistered")
+            return
+        await bus.publish(UserRegistered(user_id=user.id, email=user.email))
 
     async def on_after_forgot_password(
         self, user: User, token: str, request: Request | None = None

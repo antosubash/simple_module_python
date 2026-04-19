@@ -112,6 +112,40 @@ class TestValidatePassword:
 # ---------------------------------------------------------------------------
 
 
+class TestOnAfterRegister:
+    @pytest.mark.anyio
+    async def test_publishes_user_registered(self, manager, fake_user):
+        from simple_module_core.events import EventBus
+        from users.contracts.events import UserRegistered
+
+        bus = EventBus()
+        received: list[UserRegistered] = []
+
+        async def _on_registered(event: UserRegistered) -> None:
+            received.append(event)
+
+        bus.subscribe(UserRegistered, _on_registered)
+
+        request = MagicMock()
+        request.app.state.sm.event_bus = bus
+
+        # Pre-verified so the manager doesn't try to send a verify email.
+        fake_user.is_verified = True
+
+        await manager.on_after_register(fake_user, request)
+
+        assert len(received) == 1
+        assert received[0].user_id == fake_user.id
+        assert received[0].email == fake_user.email
+
+    @pytest.mark.anyio
+    async def test_without_request_skips_publish(self, manager, fake_user):
+        """Bootstrap/CLI flows pass request=None — no bus means no publish,
+        and definitely no crash."""
+        fake_user.is_verified = True
+        await manager.on_after_register(fake_user, None)
+
+
 class TestOnAfterForgotPassword:
     @pytest.mark.anyio
     async def test_calls_mailer_send_password_reset(self, manager, fake_mailer, fake_user):

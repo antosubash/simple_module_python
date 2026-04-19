@@ -77,12 +77,19 @@ class BackgroundTasksModule(ModuleBase):
 
     async def on_startup(self, app: FastAPI) -> None:
         """Build the Celery app, install signal handlers, hand-off to worker."""
+        import asyncio
+
         from background_tasks.celery_app import build_celery
+        from background_tasks.signals import bind_event_bus
 
         services = app.state.background_tasks
         # build_celery imports `signals` for side effects and runs
         # `autodiscover_tasks` across every installed module.
         services.celery = build_celery(services.settings)
+        # Let signal handlers hop onto the API loop to publish events.
+        # In a standalone worker process this bind never runs, so signals
+        # stay a silent no-op — that's the documented cross-process limit.
+        bind_event_bus(app.state.sm.event_bus, asyncio.get_running_loop())
         logger.info(
             "BackgroundTasks: Celery app ready (broker=%s, queue=%s)",
             services.settings.broker_url,
@@ -90,9 +97,11 @@ class BackgroundTasksModule(ModuleBase):
         )
 
     async def on_shutdown(self, app: FastAPI) -> None:
+        from background_tasks.signals import unbind_event_bus
         from background_tasks.sync_db import dispose_sync_engine
 
         services = app.state.background_tasks
         if services.celery is not None:
             services.celery.close()
+        unbind_event_bus()
         dispose_sync_engine()

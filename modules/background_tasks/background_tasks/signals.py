@@ -8,15 +8,24 @@ of spawning a new row per signal.
 
 Signals are sync — see :mod:`.sync_db` for why we maintain a separate sync
 engine, and :mod:`._signal_support` for the shared helpers.
+
+``TaskFailed`` is also dispatched from :func:`on_task_failure` when an event
+bus has been bound via :func:`bind_event_bus` — typically from the web
+process's ``on_startup``. In a standalone Celery worker (separate process)
+no bus is bound and the publish becomes a no-op; subscribers that need
+cross-process notification should consume Celery events or poll the DB
+directly.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable
 from typing import Any
 
 from celery import signals
+from simple_module_core.events import EventBus
 
 from background_tasks._signal_support import (
     coerce_args_kwargs,
@@ -28,10 +37,45 @@ from background_tasks._signal_support import (
     upsert_by_celery_id,
 )
 from background_tasks.constants import DEFAULT_QUEUE, TaskStatus
+from background_tasks.contracts.events import TaskFailed
 from background_tasks.models import TaskExecution
 from background_tasks.sync_db import sync_session
 
 logger = logging.getLogger(__name__)
+
+
+_bus: EventBus | None = None
+_loop: asyncio.AbstractEventLoop | None = None
+
+
+def bind_event_bus(bus: EventBus, loop: asyncio.AbstractEventLoop) -> None:
+    """Bind an event bus + its running loop so signals can publish events.
+
+    Signals fire on the Celery sync thread; `run_coroutine_threadsafe`
+    bridges back to ``loop`` so handlers run on the API event loop
+    regardless of which thread triggered the signal.
+    """
+    global _bus, _loop
+    _bus = bus
+    _loop = loop
+
+
+def unbind_event_bus() -> None:
+    """Drop the bound bus — called from ``on_shutdown`` so tests stay isolated."""
+    global _bus, _loop
+    _bus = None
+    _loop = None
+
+
+def _publish_from_signal(event: Any) -> None:
+    """Dispatch ``event`` onto the bound bus without blocking the signal thread."""
+    if _bus is None or _loop is None:
+        return
+    try:
+        asyncio.run_coroutine_threadsafe(_bus.publish(event), _loop)
+    except RuntimeError:
+        # Loop has stopped (shutdown race). Swallow — the DB row is already written.
+        logger.debug("Event bus loop is not running; skipping %s", type(event).__name__)
 
 
 def _apply(
@@ -160,17 +204,35 @@ def on_task_failure(
     einfo: Any = None,
     **_k: Any,
 ) -> None:
+    task_name = task_name_of(sender)
+    exception_type = type(exception).__name__ if exception is not None else None
+
+    published_id: list[Any] = []
+
+    def _capture_id(row: TaskExecution) -> None:
+        published_id.append(row.id)
+
     _apply(
         "on_task_failure",
         celery_task_id=task_id,
         defaults={
-            "task_name": task_name_of(sender),
+            "task_name": task_name,
             "status": TaskStatus.FAILED,
             "traceback": render_traceback(einfo, exception),
-            "exception_type": type(exception).__name__ if exception is not None else None,
+            "exception_type": exception_type,
             "finished_at": now_utc(),
         },
+        after=_capture_id,
     )
+
+    if published_id:
+        _publish_from_signal(
+            TaskFailed(
+                task_execution_id=published_id[0],
+                task_name=task_name,
+                exception_type=exception_type,
+            )
+        )
 
 
 @signals.task_retry.connect
