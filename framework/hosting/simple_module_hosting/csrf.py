@@ -23,8 +23,11 @@ SESSION_CSRF_TOKEN_KEY = "csrf_token"
 """Session-dict key under which :class:`InertiaLayoutDataMiddleware` mints
 the per-session CSRF token that :class:`CSRFMiddleware` validates."""
 
+_SCOPE_HTTP = "http"
 _SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 _HEADER_NAMES = ("x-csrf-token", "x-xsrf-token")
+_EVENT_CSRF_REJECTED = "csrf.rejected"
+_CSRF_VALIDATION_FAILED_MSG = "CSRF validation failed"
 
 
 class CSRFMiddleware:
@@ -45,7 +48,7 @@ class CSRFMiddleware:
         self.exempt_path_prefixes = exempt_path_prefixes
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        if scope["type"] != _SCOPE_HTTP:
             await self.app(scope, receive, send)
             return
 
@@ -72,10 +75,10 @@ class CSRFMiddleware:
 
         if not expected or not provided or not secrets.compare_digest(str(expected), provided):
             logger.info(
-                "csrf.rejected",
+                _EVENT_CSRF_REJECTED,
                 extra={"method": method, "path": path, "has_token": bool(expected)},
             )
-            response = PlainTextResponse("CSRF validation failed", status_code=403)
+            response = PlainTextResponse(_CSRF_VALIDATION_FAILED_MSG, status_code=403)
             await response(scope, receive, send)
             return
 

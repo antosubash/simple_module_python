@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, Request, status
 from simple_module_core.events import EventBus
 from simple_module_hosting.permissions import RequiresPermission
 
+from users.constants import PERM_USERS_MANAGE
 from users.contracts.events import RoleAssigned, UserDisabled, UserInvited
 from users.contracts.schemas import (
     PasswordResetLink,
@@ -24,7 +25,7 @@ from users.service import UserService
 
 admin_router = APIRouter(
     prefix="/admin",
-    dependencies=[Depends(RequiresPermission("users.manage"))],
+    dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
     tags=["users-admin"],
 )
 
