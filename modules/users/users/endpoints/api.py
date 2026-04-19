@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import exceptions as fu_exceptions
 
+from users.constants import SESSION_USER_ID_KEY
 from users.contracts.schemas import (
     AcceptInviteRequest,
     SelfProfileUpdate,
@@ -23,7 +24,6 @@ from users.contracts.schemas import (
     UserRead,
     UserUpdate,
 )
-from users.constants import SESSION_USER_ID_KEY
 from users.deps import (
     auth_backend,
     fastapi_users,
