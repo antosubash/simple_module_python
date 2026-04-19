@@ -1,4 +1,4 @@
-"""PermissionService — reads the in-memory registry and persists role maps."""
+"""PermissionService — reads the in-memory registry and persists role/user maps."""
 
 from __future__ import annotations
 
@@ -7,40 +7,49 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from permissions.contracts.schemas import (
     PermissionGroupOut,
     RoleOut,
     RolePermissionsOut,
+    UserOut,
+    UserPermissionsOut,
 )
-from permissions.models import RolePermission
+from permissions.models import RolePermission, UserPermission
 
 if TYPE_CHECKING:
     from simple_module_core.permissions import PermissionRegistry
-    from users.models import Role
+    from users.models import Role, User
 
 
 class PermissionService:
     """Bridges the in-memory :class:`PermissionRegistry` and the DB.
 
     The registry is the source of truth for *which* permission keys exist
-    (declared at boot via each module's ``register_permissions`` hook). The
-    DB stores the mutable ``role -> [key, ...]`` mapping that admins edit at
-    runtime, keyed by role *name* so this module remains independent of
-    ``users``' schema.
+    (auto-discovered at boot from each module's ``register_permissions``
+    hook). The DB stores the mutable mapping of those keys onto:
+
+    * roles — applied to every user holding that role
+    * users — granted directly on top of (or independent of) roles
     """
 
     def __init__(self, db: AsyncSession, registry: PermissionRegistry) -> None:
         self.db = db
         self.registry = registry
 
-    # ── Read ───────────────────────────────────────────────────
+    # ── Registry read-outs ─────────────────────────────────────
 
     def list_registered_groups(self) -> list[PermissionGroupOut]:
         return [
             PermissionGroupOut(name=g.name, permissions=sorted(g.permissions))
             for g in self.registry.groups
         ]
+
+    def _registered_keys(self) -> set[str]:
+        return set(self.registry.all_permissions)
+
+    # ── Role helpers ───────────────────────────────────────────
 
     async def _load_roles(self) -> list[Role]:
         from users.models import Role
@@ -66,16 +75,14 @@ class PermissionService:
         role = await self.get_role(role_id)
         if role is None:
             return None
-        keys = await self._get_assigned_keys(role.name)
+        keys = await self._get_role_keys(role.name)
         return RolePermissionsOut(role=role, permissions=sorted(keys))
 
-    async def _get_assigned_keys(self, role_name: str) -> list[str]:
+    async def _get_role_keys(self, role_name: str) -> list[str]:
         result = await self.db.execute(
             select(RolePermission.permission_key).where(RolePermission.role_name == role_name)
         )
         return list(result.scalars().all())
-
-    # ── Write ──────────────────────────────────────────────────
 
     async def set_role_permissions(
         self,
@@ -87,11 +94,8 @@ class PermissionService:
         if role is None:
             return None
 
-        registered = set(self.registry.all_permissions)
-        wanted = {k for k in keys if k in registered}
-
-        existing = set(await self._get_assigned_keys(role.name))
-        to_add = wanted - existing
+        wanted = {k for k in keys if k in self._registered_keys()}
+        existing = set(await self._get_role_keys(role.name))
         to_remove = existing - wanted
 
         if to_remove:
@@ -101,7 +105,7 @@ class PermissionService:
                     RolePermission.permission_key.in_(to_remove),
                 )
             )
-        for key in to_add:
+        for key in wanted - existing:
             self.db.add(
                 RolePermission(
                     role_name=role.name,
@@ -112,17 +116,145 @@ class PermissionService:
         await self.db.flush()
 
         # Reflect the change in the live registry so authz takes effect
-        # immediately without requiring a restart. `map_role` is additive by
+        # immediately without requiring a restart. ``map_role`` is additive by
         # design — reset the entry first so a PUT really means "replace".
         self.registry._role_map.pop(role.name, None)
         self.registry.map_role(role.name, sorted(wanted))
 
         return RolePermissionsOut(role=role, permissions=sorted(wanted))
 
+    # ── User helpers ───────────────────────────────────────────
+
+    async def _get_user(self, user_id: uuid.UUID) -> User | None:
+        from users.models import User
+
+        result = await self.db.execute(
+            select(User).where(User.id == user_id).options(selectinload(User.roles))
+        )
+        return result.scalar_one_or_none()
+
+    async def _get_user_direct_keys(self, user_id: uuid.UUID) -> list[str]:
+        result = await self.db.execute(
+            select(UserPermission.permission_key).where(UserPermission.user_id == user_id)
+        )
+        return list(result.scalars().all())
+
+    async def get_user_direct_keys(self, user_id: uuid.UUID) -> list[str]:
+        """Public wrapper — keys granted directly to *user_id* (no roles)."""
+        return await self._get_user_direct_keys(user_id)
+
+    async def list_users_with_counts(
+        self,
+        *,
+        limit: int = 50,
+        search: str | None = None,
+    ) -> list[tuple[UserOut, int]]:
+        """Users who have at least one direct grant, plus an optional search."""
+        from users.models import User
+
+        stmt = select(User).limit(limit)
+        if search:
+            pattern = f"%{search}%"
+            stmt = stmt.where(User.email.ilike(pattern) | User.full_name.ilike(pattern))
+        stmt = stmt.order_by(User.email)
+
+        users_result = await self.db.execute(stmt)
+        users = list(users_result.scalars().all())
+
+        counts_result = await self.db.execute(
+            select(UserPermission.user_id, func.count()).group_by(UserPermission.user_id)
+        )
+        counts = dict(counts_result.all())
+        return [(UserOut.model_validate(u), counts.get(u.id, 0)) for u in users]
+
+    async def get_user_permissions(self, user_id: uuid.UUID) -> UserPermissionsOut | None:
+        user = await self._get_user(user_id)
+        if user is None:
+            return None
+        direct = set(await self._get_user_direct_keys(user.id))
+        role_names = [r.name for r in user.roles]
+        inherited = self._resolve_role_permissions(role_names) - direct
+        return UserPermissionsOut(
+            user=UserOut.model_validate(user),
+            roles=sorted(role_names),
+            direct=sorted(direct),
+            inherited=sorted(inherited),
+        )
+
+    async def set_user_permissions(
+        self,
+        user_id: uuid.UUID,
+        keys: list[str],
+        assigned_by: str | None = None,
+    ) -> UserPermissionsOut | None:
+        user = await self._get_user(user_id)
+        if user is None:
+            return None
+
+        wanted = {k for k in keys if k in self._registered_keys()}
+        existing = set(await self._get_user_direct_keys(user.id))
+        to_remove = existing - wanted
+
+        if to_remove:
+            await self.db.execute(
+                delete(UserPermission).where(
+                    UserPermission.user_id == user.id,
+                    UserPermission.permission_key.in_(to_remove),
+                )
+            )
+        for key in wanted - existing:
+            self.db.add(
+                UserPermission(
+                    user_id=user.id,
+                    permission_key=key,
+                    assigned_by=assigned_by,
+                )
+            )
+        await self.db.flush()
+
+        role_names = [r.name for r in user.roles]
+        inherited = self._resolve_role_permissions(role_names) - wanted
+        return UserPermissionsOut(
+            user=UserOut.model_validate(user),
+            roles=sorted(role_names),
+            direct=sorted(wanted),
+            inherited=sorted(inherited),
+        )
+
+    # ── Effective-permissions resolution ───────────────────────
+
+    def _resolve_role_permissions(self, role_names: list[str]) -> set[str]:
+        """Resolve role names to their permission keys via the registry."""
+        from simple_module_core.permissions import WILDCARD
+
+        role_map = self.registry.role_map
+        resolved: set[str] = set()
+        for name in role_names:
+            perms = role_map.get(name, [])
+            if WILDCARD in perms:
+                return set(self.registry.all_permissions)
+            resolved.update(perms)
+        return resolved
+
+    async def resolve_effective_permissions(self, user_id: uuid.UUID) -> set[str]:
+        """Return every permission key the user holds (role-inherited + direct)."""
+        user = await self._get_user(user_id)
+        if user is None:
+            return set()
+        direct = set(await self._get_user_direct_keys(user.id))
+        inherited = self._resolve_role_permissions([r.name for r in user.roles])
+        return direct | inherited
+
     # ── Startup sync ───────────────────────────────────────────
 
     async def load_all_into_registry(self) -> None:
-        """Apply every persisted role→permission row onto the registry."""
+        """Apply every persisted role→permission row onto the registry.
+
+        Runs on app startup so admin-assigned role permissions survive a
+        restart. Direct user grants are *not* replayed here because the
+        registry is role-scoped; user grants are resolved on every
+        request (see :meth:`resolve_effective_permissions`).
+        """
         result = await self.db.execute(
             select(RolePermission.role_name, RolePermission.permission_key)
         )

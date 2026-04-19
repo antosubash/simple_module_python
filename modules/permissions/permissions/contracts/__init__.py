@@ -5,6 +5,9 @@ from permissions.contracts.schemas import (
     RoleOut,
     RolePermissionsOut,
     RolePermissionsUpdate,
+    UserOut,
+    UserPermissionsOut,
+    UserPermissionsUpdate,
 )
 from permissions.contracts.service import IPermissionService
 
@@ -14,4 +17,7 @@ __all__ = [
     "RoleOut",
     "RolePermissionsOut",
     "RolePermissionsUpdate",
+    "UserOut",
+    "UserPermissionsOut",
+    "UserPermissionsUpdate",
 ]

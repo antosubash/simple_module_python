@@ -5,18 +5,24 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from simple_module_hosting.permissions import RequiresPermission
 
 from permissions.constants import PERM_MANAGE, PERM_VIEW
 from permissions.contracts.schemas import (
     PermissionGroupOut,
     RolePermissionsOut,
     RolePermissionsUpdate,
+    UserPermissionsOut,
+    UserPermissionsUpdate,
 )
-from permissions.deps import get_permission_service
+from permissions.deps import RequiresPermission, get_permission_service
 from permissions.service import PermissionService
 
 router = APIRouter()
+
+
+def _assigned_by(request: Request) -> str | None:
+    user = getattr(request.state, "user", None)
+    return str(user.id) if user is not None else None
 
 
 @router.get(
@@ -27,8 +33,11 @@ router = APIRouter()
 async def list_registered(
     service: PermissionService = Depends(get_permission_service),
 ) -> list[PermissionGroupOut]:
-    """All permission keys registered by installed modules, grouped."""
+    """All permission keys auto-discovered from installed modules, grouped."""
     return service.list_registered_groups()
+
+
+# ── Role-scoped endpoints ──────────────────────────────────────
 
 
 @router.get(
@@ -57,9 +66,42 @@ async def set_role_permissions(
     request: Request,
     service: PermissionService = Depends(get_permission_service),
 ) -> RolePermissionsOut:
-    user = getattr(request.state, "user", None)
-    assigned_by = str(user.id) if user is not None else None
-    result = await service.set_role_permissions(role_id, data.permissions, assigned_by)
+    result = await service.set_role_permissions(role_id, data.permissions, _assigned_by(request))
     if result is None:
         raise HTTPException(status_code=404, detail="Role not found")
+    return result
+
+
+# ── User-scoped endpoints ──────────────────────────────────────
+
+
+@router.get(
+    "/users/{user_id}",
+    response_model=UserPermissionsOut,
+    dependencies=[Depends(RequiresPermission(PERM_VIEW))],
+)
+async def get_user_permissions(
+    user_id: uuid.UUID,
+    service: PermissionService = Depends(get_permission_service),
+) -> UserPermissionsOut:
+    result = await service.get_user_permissions(user_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return result
+
+
+@router.put(
+    "/users/{user_id}",
+    response_model=UserPermissionsOut,
+    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
+)
+async def set_user_permissions(
+    user_id: uuid.UUID,
+    data: UserPermissionsUpdate,
+    request: Request,
+    service: PermissionService = Depends(get_permission_service),
+) -> UserPermissionsOut:
+    result = await service.set_user_permissions(user_id, data.permissions, _assigned_by(request))
+    if result is None:
+        raise HTTPException(status_code=404, detail="User not found")
     return result

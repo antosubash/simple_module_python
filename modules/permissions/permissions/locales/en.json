@@ -1,14 +1,21 @@
 {
   "browse": {
     "title": "Permissions",
-    "description": "Review the permissions registered by installed modules and assign them to roles.",
+    "description": "Permissions are auto-discovered from every installed module. Assign them to roles, or grant them directly to individual users.",
     "roles_heading": "Roles",
     "no_roles": "No roles exist yet.",
+    "users_heading": "Users with direct grants",
+    "no_users": "No users match.",
+    "search_placeholder": "Search users by email or name",
     "count_label": "{{count}} assigned",
     "count_label_one": "{{count}} assigned",
     "count_label_other": "{{count}} assigned",
+    "direct_count_label": "{{count}} direct",
+    "direct_count_label_one": "{{count}} direct",
+    "direct_count_label_other": "{{count}} direct",
     "edit_link": "Edit",
     "registry_heading": "Registered permissions",
+    "registry_hint": "Modules declare these via ModuleBase.register_permissions — this list is rebuilt from code at every boot.",
     "no_permissions": "No modules have registered any permissions."
   },
   "edit": {
@@ -17,7 +24,17 @@
     "submit_button": "Save",
     "cancel_link": "Cancel"
   },
+  "user_edit": {
+    "title": "Edit direct permissions for {{email}}",
+    "roles_label": "Roles:",
+    "empty": "No permissions have been registered by any installed module.",
+    "inherited_badge": "inherited",
+    "inherited_hint": "Already granted via a role the user holds.",
+    "submit_button": "Save",
+    "cancel_link": "Cancel"
+  },
   "errors": {
-    "role_not_found": "Role not found."
+    "role_not_found": "Role not found.",
+    "user_not_found": "User not found."
   }
 }
