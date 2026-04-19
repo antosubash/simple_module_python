@@ -43,9 +43,11 @@ class PermissionsModule(ModuleBase):
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
+        from permissions.constants import PERM_MANAGE, PERM_VIEW, PERMISSION_GROUP
+
         registry.add_group(
-            "Permissions",
-            ["permissions.view", "permissions.manage"],
+            PERMISSION_GROUP,
+            [PERM_VIEW, PERM_MANAGE],
         )
 
     def locale_dirs(self) -> dict[str, Path]:

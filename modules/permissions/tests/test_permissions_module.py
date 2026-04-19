@@ -7,6 +7,7 @@ import uuid
 import httpx
 import pytest
 from fastapi import FastAPI
+from permissions.constants import PERM_MANAGE, PERM_VIEW, PERMISSION_GROUP
 from permissions.module import PermissionsModule
 from permissions.service import PermissionService
 from simple_module_core.permissions import PermissionRegistry
@@ -19,8 +20,8 @@ class TestModuleHook:
     def test_declares_view_and_manage(self):
         reg = PermissionRegistry()
         PermissionsModule().register_permissions(reg)
-        assert "permissions.view" in reg.all_permissions
-        assert "permissions.manage" in reg.all_permissions
+        assert PERM_VIEW in reg.all_permissions
+        assert PERM_MANAGE in reg.all_permissions
 
 
 # ── PermissionService ──────────────────────────────────────────
@@ -30,7 +31,7 @@ class TestModuleHook:
 def registry() -> PermissionRegistry:
     reg = PermissionRegistry()
     reg.add_group("Products", ["products.view", "products.create"])
-    reg.add_group("Permissions", ["permissions.view", "permissions.manage"])
+    reg.add_group(PERMISSION_GROUP, [PERM_VIEW, PERM_MANAGE])
     return reg
 
 
@@ -148,7 +149,7 @@ class TestPermissionsAPI:
         resp = await authenticated_client.get("/api/permissions/")
         assert resp.status_code == 200
         groups = {g["name"] for g in resp.json()}
-        assert "Permissions" in groups
+        assert PERMISSION_GROUP in groups
 
     async def test_get_role_permissions_not_found(self, authenticated_client: httpx.AsyncClient):
         resp = await authenticated_client.get(f"/api/permissions/roles/{uuid.uuid4()}")
@@ -161,16 +162,16 @@ class TestPermissionsAPI:
 
         resp = await authenticated_client.put(
             f"/api/permissions/roles/{ADMIN_ROLE_ID}",
-            json={"permissions": ["permissions.view"]},
+            json={"permissions": [PERM_VIEW]},
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["permissions"] == ["permissions.view"]
+        assert data["permissions"] == [PERM_VIEW]
         assert data["role"]["name"] == "admin"
 
         fetch = await authenticated_client.get(f"/api/permissions/roles/{ADMIN_ROLE_ID}")
         assert fetch.status_code == 200
-        assert fetch.json()["permissions"] == ["permissions.view"]
+        assert fetch.json()["permissions"] == [PERM_VIEW]
 
     async def test_put_missing_role_returns_404(self, authenticated_client: httpx.AsyncClient):
         resp = await authenticated_client.put(

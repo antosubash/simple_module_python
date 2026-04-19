@@ -7,6 +7,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_hosting.permissions import RequiresPermission
 
+from permissions.constants import PERM_MANAGE, PERM_VIEW
 from permissions.contracts.schemas import (
     PermissionGroupOut,
     RolePermissionsOut,
@@ -21,7 +22,7 @@ router = APIRouter()
 @router.get(
     "/",
     response_model=list[PermissionGroupOut],
-    dependencies=[Depends(RequiresPermission("permissions.view"))],
+    dependencies=[Depends(RequiresPermission(PERM_VIEW))],
 )
 async def list_registered(
     service: PermissionService = Depends(get_permission_service),
@@ -33,7 +34,7 @@ async def list_registered(
 @router.get(
     "/roles/{role_id}",
     response_model=RolePermissionsOut,
-    dependencies=[Depends(RequiresPermission("permissions.view"))],
+    dependencies=[Depends(RequiresPermission(PERM_VIEW))],
 )
 async def get_role_permissions(
     role_id: uuid.UUID,
@@ -48,7 +49,7 @@ async def get_role_permissions(
 @router.put(
     "/roles/{role_id}",
     response_model=RolePermissionsOut,
-    dependencies=[Depends(RequiresPermission("permissions.manage"))],
+    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
 )
 async def set_role_permissions(
     role_id: uuid.UUID,

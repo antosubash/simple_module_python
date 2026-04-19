@@ -15,6 +15,7 @@ from simple_module_hosting.inertia_utils import (
 from simple_module_hosting.permissions import RequiresPermission
 from starlette.responses import RedirectResponse
 
+from permissions.constants import PERM_MANAGE, PERM_VIEW
 from permissions.contracts.schemas import RolePermissionsUpdate
 from permissions.deps import get_permission_service
 from permissions.service import PermissionService
@@ -25,7 +26,7 @@ router = APIRouter()
 @router.get(
     "/",
     response_model=None,
-    dependencies=[Depends(RequiresPermission("permissions.view"))],
+    dependencies=[Depends(RequiresPermission(PERM_VIEW))],
 )
 async def browse(
     inertia: InertiaDep,
@@ -47,7 +48,7 @@ async def browse(
 @router.get(
     "/roles/{role_id}/edit",
     response_model=None,
-    dependencies=[Depends(RequiresPermission("permissions.manage"))],
+    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
 )
 async def edit_role(
     role_id: uuid.UUID,
@@ -71,7 +72,7 @@ async def edit_role(
 @router.put(
     "/roles/{role_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission("permissions.manage"))],
+    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
 )
 async def update_role(
     role_id: uuid.UUID,
