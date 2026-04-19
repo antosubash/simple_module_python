@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import exceptions as fu_exceptions
 
+from users.constants import SESSION_USER_ID_KEY
 from users.contracts.schemas import (
     AcceptInviteRequest,
     SelfProfileUpdate,
@@ -99,8 +100,8 @@ async def login(
     await user_manager.on_after_login(user, request, response)
     # Set fastapi-users' cookie via auth_backend.login
     login_response = await auth_backend.login(strategy, user)
-    # Bridge the session cookie — AuthMiddleware (once wired in Task 8) reads this
-    request.session["user_id"] = str(user.id)
+    # Bridge the session cookie — AuthMiddleware reads this to identify the user
+    request.session[SESSION_USER_ID_KEY] = str(user.id)
     return login_response
 
 
@@ -177,7 +178,7 @@ async def accept_invite(
 
     await user_manager.on_after_login(user, request, response)
     login_response = await auth_backend.login(strategy, user)
-    request.session["user_id"] = str(user.id)
+    request.session[SESSION_USER_ID_KEY] = str(user.id)
     return login_response
 
 

@@ -27,11 +27,16 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from users.constants import SESSION_USER_ID_KEY
 from users.models import User
 
 logger = logging.getLogger(__name__)
 
 SESSION_USER_CTX_KEY = "user_ctx"
+_SESSION_USER_ID_KEY = SESSION_USER_ID_KEY
+_SESSION_NEXT_KEY = "next"
+_SCOPE_HTTP = "http"
+_LOGIN_REDIRECT = "/users/login"
 
 # Paths that don't require authentication.
 PUBLIC_PATHS = (
@@ -65,7 +70,7 @@ class AuthMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        if scope["type"] != _SCOPE_HTTP:
             await self.app(scope, receive, send)
             return
 
@@ -73,7 +78,7 @@ class AuthMiddleware:
         is_public = any(path.startswith(p) for p in PUBLIC_PATHS) or path in EXACT_PUBLIC_PATHS
 
         session = scope["session"]
-        raw_user_id = session.get("user_id")
+        raw_user_id = session.get(_SESSION_USER_ID_KEY)
 
         user_ctx: UserContext | None = None
         if raw_user_id:
@@ -85,22 +90,22 @@ class AuthMiddleware:
                     user_uuid = uuid.UUID(user_id_str)
                 except (ValueError, TypeError):
                     logger.warning("Invalid user_id in session: %r", raw_user_id)
-                    session.pop("user_id", None)
+                    session.pop(_SESSION_USER_ID_KEY, None)
                     session.pop(SESSION_USER_CTX_KEY, None)
                     user_ctx = None
                 else:
                     user_ctx = await self._load_user(scope, user_uuid)
                     if user_ctx is None:
                         # User was deleted / disabled since session creation.
-                        session.pop("user_id", None)
+                        session.pop(_SESSION_USER_ID_KEY, None)
                         session.pop(SESSION_USER_CTX_KEY, None)
                     else:
                         session[SESSION_USER_CTX_KEY] = user_ctx.to_session_dict()
 
         if user_ctx is None and not is_public:
             request = Request(scope)
-            session["next"] = str(request.url)
-            response = RedirectResponse("/users/login", status_code=302)
+            session[_SESSION_NEXT_KEY] = str(request.url)
+            response = RedirectResponse(_LOGIN_REDIRECT, status_code=302)
             await response(scope, receive, send)
             return
 
