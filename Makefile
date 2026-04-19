@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-memray lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-memray lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size worker beat worker-docker
 
 # Install
 install:
@@ -138,7 +138,18 @@ kill:
 
 # Docker
 docker-up:
-	docker compose up -d
+	docker compose up -d postgres redis
 
 docker-down:
 	docker compose down
+
+# Celery — local dev (fast reload, no container rebuild)
+worker:                     ## Run a Celery worker locally against $(SM_BG_TASKS_BROKER_URL)
+	uv run celery -A scripts.run_worker:celery worker -l info
+
+beat:                       ## Run the Celery beat scheduler locally
+	uv run celery -A scripts.run_worker:celery beat -l info
+
+# Celery — containerized (matches prod image)
+worker-docker:              ## Build + run the worker + beat services in docker
+	docker compose up --build worker beat
