@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from settings.contracts.accessor import SettingsAccessor
 from settings.contracts.registry import SettingDefinition, SettingsRegistry
-from settings.contracts.schemas import SettingScope, SettingUpsert
+from settings.contracts.schemas import SettingScope, SettingUpsert, SettingValueType
 from settings.service import SettingService
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -117,6 +117,11 @@ class TestAccessorWrites:
         assert out.scope is SettingScope.SYSTEM
         assert out.value == "v"
 
+    async def test_set_system_with_type(self, db_session: AsyncSession):
+        acc = _accessor(SettingService(db_session))
+        out = await acc.set_system("k", "42", value_type=SettingValueType.INT)
+        assert out.value_type is SettingValueType.INT
+
     async def test_set_tenant(self, db_session: AsyncSession):
         acc = _accessor(SettingService(db_session))
         out = await acc.set_tenant("acme", "k", "v")
@@ -128,6 +133,34 @@ class TestAccessorWrites:
         out = await acc.set_user("u1", "k", "v")
         assert out.scope is SettingScope.USER
         assert out.scope_id == "u1"
+
+
+class TestGetTyped:
+    async def test_casts_based_on_stored_type(self, db_session: AsyncSession):
+        acc = _accessor(SettingService(db_session))
+        await acc.set_system("n", "42", value_type=SettingValueType.INT)
+        await acc.set_system("flag", "true", value_type=SettingValueType.BOOL)
+        await acc.set_system("ratio", "3.14", value_type=SettingValueType.FLOAT)
+        await acc.set_system("cfg", '{"a":1}', value_type=SettingValueType.JSON)
+        await acc.set_system("label", "hi", value_type=SettingValueType.STRING)
+
+        assert await acc.get_typed("n") == 42
+        assert await acc.get_typed("flag") is True
+        assert await acc.get_typed("ratio") == 3.14
+        assert await acc.get_typed("cfg") == {"a": 1}
+        assert await acc.get_typed("label") == "hi"
+
+    async def test_missing_key_returns_default(self, db_session: AsyncSession):
+        acc = _accessor(SettingService(db_session))
+        assert await acc.get_typed("missing", default="fallback") == "fallback"
+
+    async def test_upsert_preserves_type_when_unspecified(self, db_session: AsyncSession):
+        svc = SettingService(db_session)
+        acc = _accessor(svc)
+        await acc.set_system("n", "42", value_type=SettingValueType.INT)
+        # Update without passing value_type — row's type must stay INT.
+        await svc.upsert_scoped(SettingScope.SYSTEM, "", "n", SettingUpsert(value="99"))
+        assert await acc.get_typed("n") == 99
 
 
 class TestAppWiredRegistry:

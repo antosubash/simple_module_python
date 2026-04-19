@@ -114,3 +114,27 @@ class TestScopedAPI:
     async def test_get_id_not_found(self, authenticated_client: httpx.AsyncClient):
         resp = await authenticated_client.get(_url("99999"))
         assert resp.status_code == STATUS_NOT_FOUND
+
+    async def test_upsert_with_value_type(self, authenticated_client: httpx.AsyncClient):
+        resp = await authenticated_client.put(
+            _url("system/rate.limit"),
+            json={"value": "42", "value_type": "int"},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["value_type"] == "int"
+        assert body["value"] == "42"
+
+    async def test_upsert_rejects_value_type_mismatch(
+        self, authenticated_client: httpx.AsyncClient
+    ):
+        resp = await authenticated_client.put(
+            _url("system/rate.limit"),
+            json={"value": "nope", "value_type": "int"},
+        )
+        assert resp.status_code == 422
+
+    async def test_default_value_type_is_string(self, authenticated_client: httpx.AsyncClient):
+        resp = await authenticated_client.put(_url("system/label"), json={"value": "hi"})
+        assert resp.status_code == 200
+        assert resp.json()["value_type"] == "string"

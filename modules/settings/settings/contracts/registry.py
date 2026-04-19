@@ -24,7 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from settings.constants import ERR_KEY_ALREADY_EXISTS
-from settings.contracts.schemas import SettingScope
+from settings.contracts.schemas import SettingScope, SettingValueType
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +35,7 @@ class SettingDefinition:
     default: str = ""
     description: str = ""
     scope: SettingScope = SettingScope.SYSTEM
+    value_type: SettingValueType = SettingValueType.STRING
 
 
 @dataclass(slots=True)

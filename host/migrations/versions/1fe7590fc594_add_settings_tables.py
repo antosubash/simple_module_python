@@ -48,6 +48,12 @@ def upgrade() -> None:
         ),
         sa.Column("key", sa.String(length=200), nullable=False),
         sa.Column("value", sa.String(length=4000), nullable=False),
+        sa.Column(
+            "value_type",
+            sa.String(length=10),
+            nullable=False,
+            server_default=sa.text("'string'"),
+        ),
         sa.Column("description", sa.String(length=2000), nullable=True),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_settings_setting")),
         sa.UniqueConstraint(

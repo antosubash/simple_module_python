@@ -1,4 +1,5 @@
 import { keys, useT } from '@simple-module/i18n';
+import ValueInput, { type ValueType } from './components/ValueInput';
 import { ROUTES } from './routes';
 
 type Scope = 'system' | 'tenant' | 'user';
@@ -9,6 +10,7 @@ type Setting = {
   scope_id: string;
   key: string;
   value: string;
+  value_type: ValueType;
   description: string | null;
 };
 
@@ -21,6 +23,7 @@ export default function Edit({ setting }: Props) {
       <h1 className="text-2xl font-semibold mb-4">{t(keys.settings.edit.title)}</h1>
       <form method="post" action={ROUTES.byId(setting.id)} className="space-y-3">
         <input type="hidden" name="_method" value="put" />
+        <input type="hidden" name="value_type" value={setting.value_type} />
         <label className="block">
           <span className="block text-sm">{t(keys.settings.form.scope_label)}</span>
           <input
@@ -47,14 +50,17 @@ export default function Edit({ setting }: Props) {
           />
         </label>
         <label className="block">
-          <span className="block text-sm">{t(keys.settings.form.value_label)}</span>
+          <span className="block text-sm">{t(keys.settings.form.value_type_label)}</span>
           <input
-            name="value"
-            defaultValue={setting.value}
-            required
-            className="border rounded w-full p-2"
+            value={t(keys.settings.value_types[setting.value_type])}
+            disabled
+            className="border rounded w-full p-2 bg-muted"
           />
         </label>
+        <div className="block">
+          <span className="block text-sm">{t(keys.settings.form.value_label)}</span>
+          <ValueInput valueType={setting.value_type} defaultValue={setting.value} required />
+        </div>
         <label className="block">
           <span className="block text-sm">{t(keys.settings.form.description_label)}</span>
           <textarea

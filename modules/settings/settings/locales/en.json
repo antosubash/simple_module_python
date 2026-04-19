@@ -13,6 +13,7 @@
     "scope_id": "Scope ID",
     "key": "Key",
     "value": "Value",
+    "value_type": "Type",
     "description": "Description",
     "actions": "Actions"
   },
@@ -21,12 +22,20 @@
     "tenant": "Tenant",
     "user": "User"
   },
+  "value_types": {
+    "string": "String",
+    "bool": "Boolean",
+    "int": "Integer",
+    "float": "Float",
+    "json": "JSON"
+  },
   "form": {
     "scope_label": "Scope",
     "scope_id_label": "Scope ID",
     "scope_id_placeholder": "Tenant or user id (empty for system)",
     "key_label": "Key",
     "key_placeholder": "e.g. feature.enabled",
+    "value_type_label": "Type",
     "value_label": "Value",
     "value_placeholder": "Enter a value",
     "description_label": "Description",

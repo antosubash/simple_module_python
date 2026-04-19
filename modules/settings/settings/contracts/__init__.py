@@ -8,6 +8,7 @@ from settings.contracts.schemas import (
     SettingScope,
     SettingUpdate,
     SettingUpsert,
+    SettingValueType,
 )
 from settings.contracts.service import ISettingService
 
@@ -19,6 +20,7 @@ __all__ = [
     "SettingScope",
     "SettingUpdate",
     "SettingUpsert",
+    "SettingValueType",
     "SettingsAccessor",
     "SettingsRegistry",
 ]

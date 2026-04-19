@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from settings.constants import SYSTEM_SCOPE_ID
+from settings.constants import SYSTEM_SCOPE_ID, VALUE_TYPE_STRING
 from settings.contracts.schemas import (
     SettingCreate,
     SettingOut,
@@ -117,11 +117,16 @@ class SettingService:
                 scope_id=scope_id,
                 key=key,
                 value=data.value,
+                value_type=(
+                    data.value_type.value if data.value_type is not None else VALUE_TYPE_STRING
+                ),
                 description=data.description,
             )
             self.db.add(entity)
         else:
             entity.value = data.value
+            if data.value_type is not None:
+                entity.value_type = data.value_type.value
             if data.description is not None:
                 entity.description = data.description
         await self.db.flush()

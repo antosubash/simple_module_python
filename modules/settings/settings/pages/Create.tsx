@@ -1,10 +1,13 @@
 import { keys, useT } from '@simple-module/i18n';
+import { useState } from 'react';
+import ValueInput, { VALUE_TYPES, type ValueType } from './components/ValueInput';
 import { ROUTES } from './routes';
 
 const SCOPES = ['system', 'tenant', 'user'] as const;
 
 export default function Create() {
   const { t } = useT();
+  const [valueType, setValueType] = useState<ValueType>('string');
   return (
     <div className="p-6 max-w-xl">
       <h1 className="text-2xl font-semibold mb-4">{t(keys.settings.create.title)}</h1>
@@ -37,14 +40,24 @@ export default function Create() {
           />
         </label>
         <label className="block">
-          <span className="block text-sm">{t(keys.settings.form.value_label)}</span>
-          <input
-            name="value"
-            required
-            placeholder={t(keys.settings.form.value_placeholder)}
+          <span className="block text-sm">{t(keys.settings.form.value_type_label)}</span>
+          <select
+            name="value_type"
+            value={valueType}
+            onChange={(e) => setValueType(e.target.value as ValueType)}
             className="border rounded w-full p-2"
-          />
+          >
+            {VALUE_TYPES.map((vt) => (
+              <option key={vt} value={vt}>
+                {t(keys.settings.value_types[vt])}
+              </option>
+            ))}
+          </select>
         </label>
+        <div className="block">
+          <span className="block text-sm">{t(keys.settings.form.value_label)}</span>
+          <ValueInput valueType={valueType} required />
+        </div>
         <label className="block">
           <span className="block text-sm">{t(keys.settings.form.description_label)}</span>
           <textarea

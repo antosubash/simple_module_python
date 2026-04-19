@@ -27,6 +27,7 @@ from settings.contracts.schemas import (
     SettingOut,
     SettingScope,
     SettingUpsert,
+    SettingValueType,
 )
 from settings.contracts.service import ISettingService
 
@@ -149,16 +150,45 @@ class SettingsAccessor:
         except (TypeError, ValueError):
             return default
 
+    async def get_typed(self, key: str, default: Any = None) -> Any:
+        """Resolve a key and cast based on the stored ``value_type``.
+
+        Picks ``get_bool`` / ``get_int`` / ``get_float`` / ``get_json`` by
+        the declared type of the row that wins resolution; falls back to
+        a plain string for ``STRING`` or when no row exists. Useful for
+        generic admin views that don't know each key's type at compile
+        time.
+        """
+        out = await self._svc.resolve(key, user_id=self._user_id, tenant_id=self._tenant_id)
+        if out is None:
+            return default
+        casters = {
+            SettingValueType.BOOL: self._cast_bool,
+            SettingValueType.INT: self._cast_int,
+            SettingValueType.FLOAT: self._cast_float,
+            SettingValueType.JSON: self._cast_json,
+        }
+        caster = casters.get(out.value_type)
+        if caster is None:
+            return out.value
+        return caster(out.value, default)
+
     # ── Writes ──────────────────────────────────────────────────────
 
-    async def set_system(self, key: str, value: str, description: str | None = None) -> SettingOut:
+    async def set_system(
+        self,
+        key: str,
+        value: str,
+        value_type: SettingValueType | None = None,
+        description: str | None = None,
+    ) -> SettingOut:
         from settings.constants import SYSTEM_SCOPE_ID
 
         return await self._svc.upsert_scoped(
             SettingScope.SYSTEM,
             SYSTEM_SCOPE_ID,
             key,
-            SettingUpsert(value=value, description=description),
+            SettingUpsert(value=value, value_type=value_type, description=description),
         )
 
     async def set_tenant(
@@ -166,13 +196,14 @@ class SettingsAccessor:
         tenant_id: str,
         key: str,
         value: str,
+        value_type: SettingValueType | None = None,
         description: str | None = None,
     ) -> SettingOut:
         return await self._svc.upsert_scoped(
             SettingScope.TENANT,
             tenant_id,
             key,
-            SettingUpsert(value=value, description=description),
+            SettingUpsert(value=value, value_type=value_type, description=description),
         )
 
     async def set_user(
@@ -180,11 +211,44 @@ class SettingsAccessor:
         user_id: str,
         key: str,
         value: str,
+        value_type: SettingValueType | None = None,
         description: str | None = None,
     ) -> SettingOut:
         return await self._svc.upsert_scoped(
             SettingScope.USER,
             user_id,
             key,
-            SettingUpsert(value=value, description=description),
+            SettingUpsert(value=value, value_type=value_type, description=description),
         )
+
+    # ── Cast helpers (shared by get_typed) ──────────────────────────
+
+    @staticmethod
+    def _cast_bool(raw: str, default: Any) -> Any:
+        lowered = raw.strip().lower()
+        if lowered in _TRUTHY:
+            return True
+        if lowered in _FALSY:
+            return False
+        return default
+
+    @staticmethod
+    def _cast_int(raw: str, default: Any) -> Any:
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _cast_float(raw: str, default: Any) -> Any:
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _cast_json(raw: str, default: Any) -> Any:
+        try:
+            return json.loads(raw)
+        except (TypeError, ValueError):
+            return default

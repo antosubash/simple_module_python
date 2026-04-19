@@ -166,6 +166,7 @@ export const keys = {
       scope_label: "settings.form.scope_label",
       value_label: "settings.form.value_label",
       value_placeholder: "settings.form.value_placeholder",
+      value_type_label: "settings.form.value_type_label",
     },
     scopes: {
       system: "settings.scopes.system",
@@ -179,6 +180,14 @@ export const keys = {
       scope: "settings.table.scope",
       scope_id: "settings.table.scope_id",
       value: "settings.table.value",
+      value_type: "settings.table.value_type",
+    },
+    value_types: {
+      bool: "settings.value_types.bool",
+      float: "settings.value_types.float",
+      int: "settings.value_types.int",
+      json: "settings.value_types.json",
+      string: "settings.value_types.string",
     },
   },
   ui: {

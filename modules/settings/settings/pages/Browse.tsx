@@ -1,4 +1,5 @@
 import { keys, useT } from '@simple-module/i18n';
+import type { ValueType } from './components/ValueInput';
 import { ROUTES } from './routes';
 
 type Scope = 'system' | 'tenant' | 'user';
@@ -9,6 +10,7 @@ type Setting = {
   scope_id: string;
   key: string;
   value: string;
+  value_type: ValueType;
   description: string | null;
 };
 
@@ -16,8 +18,6 @@ type Props = { settings: Setting[] };
 
 export default function Browse({ settings }: Props) {
   const { t } = useT();
-  const scopeLabel = (scope: Scope) => t(keys.settings.scopes[scope]);
-
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-4">
@@ -40,6 +40,7 @@ export default function Browse({ settings }: Props) {
               <th className="py-2 pr-4">{t(keys.settings.table.scope)}</th>
               <th className="py-2 pr-4">{t(keys.settings.table.scope_id)}</th>
               <th className="py-2 pr-4">{t(keys.settings.table.key)}</th>
+              <th className="py-2 pr-4">{t(keys.settings.table.value_type)}</th>
               <th className="py-2 pr-4">{t(keys.settings.table.value)}</th>
               <th className="py-2 pr-4">{t(keys.settings.table.description)}</th>
               <th className="py-2">{t(keys.settings.table.actions)}</th>
@@ -48,12 +49,15 @@ export default function Browse({ settings }: Props) {
           <tbody>
             {settings.map((setting) => (
               <tr key={setting.id} className="border-b">
-                <td className="py-2 pr-4">{scopeLabel(setting.scope)}</td>
+                <td className="py-2 pr-4">{t(keys.settings.scopes[setting.scope])}</td>
                 <td className="py-2 pr-4 font-mono text-sm text-muted-foreground">
                   {setting.scope_id || '—'}
                 </td>
                 <td className="py-2 pr-4 font-mono text-sm">{setting.key}</td>
-                <td className="py-2 pr-4">{setting.value}</td>
+                <td className="py-2 pr-4 text-xs uppercase text-muted-foreground">
+                  {t(keys.settings.value_types[setting.value_type])}
+                </td>
+                <td className="py-2 pr-4 font-mono text-sm">{setting.value}</td>
                 <td className="py-2 pr-4 text-muted-foreground">{setting.description ?? ''}</td>
                 <td className="py-2">
                   <a href={ROUTES.edit(setting.id)}>{t(keys.settings.browse.edit_link)}</a>

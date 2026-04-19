@@ -26,6 +26,22 @@ ALL_SCOPES: Final = (SCOPE_SYSTEM, SCOPE_TENANT, SCOPE_USER)
 # works uniformly on SQLite and PostgreSQL (NULL breaks uniqueness on PG).
 SYSTEM_SCOPE_ID: Final = ""
 
+# ── Value types ──────────────────────────────────────────────────────
+# Values are always stored as strings; ``value_type`` tells consumers how
+# to interpret the bytes and lets the UI pick the right input control.
+VALUE_TYPE_STRING: Final = "string"
+VALUE_TYPE_BOOL: Final = "bool"
+VALUE_TYPE_INT: Final = "int"
+VALUE_TYPE_FLOAT: Final = "float"
+VALUE_TYPE_JSON: Final = "json"
+ALL_VALUE_TYPES: Final = (
+    VALUE_TYPE_STRING,
+    VALUE_TYPE_BOOL,
+    VALUE_TYPE_INT,
+    VALUE_TYPE_FLOAT,
+    VALUE_TYPE_JSON,
+)
+
 # ── Routing ──────────────────────────────────────────────────────────
 API_PREFIX: Final = "/api/settings"
 VIEW_PREFIX: Final = "/settings"
@@ -63,6 +79,7 @@ VALUE_MAX_LENGTH: Final = 4000
 DESCRIPTION_MAX_LENGTH: Final = 2000
 SCOPE_MAX_LENGTH: Final = 10
 SCOPE_ID_MAX_LENGTH: Final = 255
+VALUE_TYPE_MAX_LENGTH: Final = 10
 
 # ── Inertia page component names ─────────────────────────────────────
 PAGE_BROWSE: Final = f"{MODULE_NAME}/Browse"
@@ -80,6 +97,7 @@ ERR_KEY_ALREADY_EXISTS: Final = "Setting key already exists"
 ERR_SYSTEM_SCOPE_NO_ID: Final = "system scope must not have a scope_id"
 ERR_SCOPED_REQUIRES_ID: Final = "tenant/user scope requires a scope_id"
 ERR_UNKNOWN_SCOPE: Final = "unknown scope"
+ERR_VALUE_MISMATCH: Final = "value does not parse as declared value_type"
 
 # ── HTTP ─────────────────────────────────────────────────────────────
 STATUS_CREATED: Final = 201
