@@ -105,19 +105,14 @@ class PermissionService:
                     RolePermission.permission_key.in_(to_remove),
                 )
             )
-        for key in wanted - existing:
-            self.db.add(
-                RolePermission(
-                    role_name=role.name,
-                    permission_key=key,
-                    assigned_by=assigned_by,
-                )
-            )
+        self.db.add_all(
+            RolePermission(role_name=role.name, permission_key=key, assigned_by=assigned_by)
+            for key in wanted - existing
+        )
         await self.db.flush()
 
-        # Reflect the change in the live registry so authz takes effect
-        # immediately without requiring a restart. ``map_role`` is additive by
-        # design — reset the entry first so a PUT really means "replace".
+        # `map_role` is additive — reset the role entry so removals take effect
+        # without a restart. No public replace API on PermissionRegistry yet.
         self.registry._role_map.pop(role.name, None)
         self.registry.map_role(role.name, sorted(wanted))
 
@@ -133,15 +128,12 @@ class PermissionService:
         )
         return result.scalar_one_or_none()
 
-    async def _get_user_direct_keys(self, user_id: uuid.UUID) -> list[str]:
+    async def get_user_direct_keys(self, user_id: uuid.UUID) -> list[str]:
+        """Keys granted directly to *user_id* (roles excluded)."""
         result = await self.db.execute(
             select(UserPermission.permission_key).where(UserPermission.user_id == user_id)
         )
         return list(result.scalars().all())
-
-    async def get_user_direct_keys(self, user_id: uuid.UUID) -> list[str]:
-        """Public wrapper — keys granted directly to *user_id* (no roles)."""
-        return await self._get_user_direct_keys(user_id)
 
     async def list_users_with_counts(
         self,
@@ -160,9 +152,14 @@ class PermissionService:
 
         users_result = await self.db.execute(stmt)
         users = list(users_result.scalars().all())
+        if not users:
+            return []
 
+        user_ids = [u.id for u in users]
         counts_result = await self.db.execute(
-            select(UserPermission.user_id, func.count()).group_by(UserPermission.user_id)
+            select(UserPermission.user_id, func.count())
+            .where(UserPermission.user_id.in_(user_ids))
+            .group_by(UserPermission.user_id)
         )
         counts = dict(counts_result.all())
         return [(UserOut.model_validate(u), counts.get(u.id, 0)) for u in users]
@@ -171,7 +168,7 @@ class PermissionService:
         user = await self._get_user(user_id)
         if user is None:
             return None
-        direct = set(await self._get_user_direct_keys(user.id))
+        direct = set(await self.get_user_direct_keys(user.id))
         role_names = [r.name for r in user.roles]
         inherited = self._resolve_role_permissions(role_names) - direct
         return UserPermissionsOut(
@@ -192,7 +189,7 @@ class PermissionService:
             return None
 
         wanted = {k for k in keys if k in self._registered_keys()}
-        existing = set(await self._get_user_direct_keys(user.id))
+        existing = set(await self.get_user_direct_keys(user.id))
         to_remove = existing - wanted
 
         if to_remove:
@@ -202,14 +199,10 @@ class PermissionService:
                     UserPermission.permission_key.in_(to_remove),
                 )
             )
-        for key in wanted - existing:
-            self.db.add(
-                UserPermission(
-                    user_id=user.id,
-                    permission_key=key,
-                    assigned_by=assigned_by,
-                )
-            )
+        self.db.add_all(
+            UserPermission(user_id=user.id, permission_key=key, assigned_by=assigned_by)
+            for key in wanted - existing
+        )
         await self.db.flush()
 
         role_names = [r.name for r in user.roles]
@@ -241,7 +234,7 @@ class PermissionService:
         user = await self._get_user(user_id)
         if user is None:
             return set()
-        direct = set(await self._get_user_direct_keys(user.id))
+        direct = set(await self.get_user_direct_keys(user.id))
         inherited = self._resolve_role_permissions([r.name for r in user.roles])
         return direct | inherited
 

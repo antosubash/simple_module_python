@@ -14,15 +14,10 @@ from permissions.contracts.schemas import (
     UserPermissionsOut,
     UserPermissionsUpdate,
 )
-from permissions.deps import RequiresPermission, get_permission_service
+from permissions.deps import RequiresPermission, assigned_by, get_permission_service
 from permissions.service import PermissionService
 
 router = APIRouter()
-
-
-def _assigned_by(request: Request) -> str | None:
-    user = getattr(request.state, "user", None)
-    return str(user.id) if user is not None else None
 
 
 @router.get(
@@ -66,7 +61,7 @@ async def set_role_permissions(
     request: Request,
     service: PermissionService = Depends(get_permission_service),
 ) -> RolePermissionsOut:
-    result = await service.set_role_permissions(role_id, data.permissions, _assigned_by(request))
+    result = await service.set_role_permissions(role_id, data.permissions, assigned_by(request))
     if result is None:
         raise HTTPException(status_code=404, detail="Role not found")
     return result
@@ -101,7 +96,7 @@ async def set_user_permissions(
     request: Request,
     service: PermissionService = Depends(get_permission_service),
 ) -> UserPermissionsOut:
-    result = await service.set_user_permissions(user_id, data.permissions, _assigned_by(request))
+    result = await service.set_user_permissions(user_id, data.permissions, assigned_by(request))
     if result is None:
         raise HTTPException(status_code=404, detail="User not found")
     return result

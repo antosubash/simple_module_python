@@ -11,15 +11,14 @@ top of their roles should depend on this version instead.
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi import Depends, HTTPException, Request
 from simple_module_core.permissions import WILDCARD, PermissionRegistry
 from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from permissions.service import PermissionService
-
-# Marker key under which per-request user-direct grants are cached.
-_USER_DIRECT_CACHE = "permissions_user_direct"
 
 
 def get_permission_registry(request: Request) -> PermissionRegistry:
@@ -33,22 +32,10 @@ async def get_permission_service(
     return PermissionService(db, registry)
 
 
-async def _get_user_direct_grants(
-    request: Request,
-    user_id: str,
-    service: PermissionService,
-) -> set[str]:
-    """Fetch direct grants for the user, caching on ``request.state``."""
-    cache: dict[str, set[str]] | None = getattr(request.state, _USER_DIRECT_CACHE, None)
-    if cache is None:
-        cache = {}
-        setattr(request.state, _USER_DIRECT_CACHE, cache)
-    if user_id not in cache:
-        import uuid
-
-        keys = await service.get_user_direct_keys(uuid.UUID(user_id))
-        cache[user_id] = set(keys)
-    return cache[user_id]
+def assigned_by(request: Request) -> str | None:
+    """Authenticated user id string, for audit columns."""
+    user = getattr(request.state, "user", None)
+    return str(user.id) if user is not None else None
 
 
 class RequiresPermission:
@@ -56,15 +43,7 @@ class RequiresPermission:
 
     Behaves like the framework's ``simple_module_hosting.RequiresPermission``
     but additionally consults the ``permissions_user_permission`` table, so
-    an admin who grants ``products.create`` directly to a specific user
-    takes immediate effect for that user alone.
-
-    Usage::
-
-        from permissions.deps import RequiresPermission
-
-        @router.post("/", dependencies=[Depends(RequiresPermission("products.create"))])
-        async def create_product(...): ...
+    a direct grant on a single user takes effect without inventing a role.
     """
 
     def __init__(self, permission: str) -> None:
@@ -83,7 +62,7 @@ class RequiresPermission:
         if WILDCARD in role_perms or self.permission in role_perms:
             return
 
-        direct = await _get_user_direct_grants(request, str(user.id), service)
+        direct = await service.get_user_direct_keys(uuid.UUID(str(user.id)))
         if self.permission in direct:
             return
 

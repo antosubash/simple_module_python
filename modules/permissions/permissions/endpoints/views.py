@@ -16,15 +16,10 @@ from starlette.responses import RedirectResponse
 
 from permissions.constants import PERM_MANAGE, PERM_VIEW
 from permissions.contracts.schemas import RolePermissionsUpdate, UserPermissionsUpdate
-from permissions.deps import RequiresPermission, get_permission_service
+from permissions.deps import RequiresPermission, assigned_by, get_permission_service
 from permissions.service import PermissionService
 
 router = APIRouter()
-
-
-def _assigned_by(request: Request) -> str | None:
-    user = getattr(request.state, "user", None)
-    return str(user.id) if user is not None else None
 
 
 @router.get(
@@ -97,7 +92,7 @@ async def update_role(
         data = RolePermissionsUpdate(**body)
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
-    await service.set_role_permissions(role_id, data.permissions, _assigned_by(request))
+    await service.set_role_permissions(role_id, data.permissions, assigned_by(request))
     return RedirectResponse("/permissions", status_code=303)
 
 
@@ -145,5 +140,5 @@ async def update_user(
         data = UserPermissionsUpdate(**body)
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
-    await service.set_user_permissions(user_id, data.permissions, _assigned_by(request))
+    await service.set_user_permissions(user_id, data.permissions, assigned_by(request))
     return RedirectResponse("/permissions", status_code=303)
