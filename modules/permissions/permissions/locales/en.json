@@ -1,0 +1,23 @@
+{
+  "browse": {
+    "title": "Permissions",
+    "description": "Review the permissions registered by installed modules and assign them to roles.",
+    "roles_heading": "Roles",
+    "no_roles": "No roles exist yet.",
+    "count_label": "{{count}} assigned",
+    "count_label_one": "{{count}} assigned",
+    "count_label_other": "{{count}} assigned",
+    "edit_link": "Edit",
+    "registry_heading": "Registered permissions",
+    "no_permissions": "No modules have registered any permissions."
+  },
+  "edit": {
+    "title": "Edit permissions for {{role}}",
+    "empty": "No permissions have been registered by any installed module.",
+    "submit_button": "Save",
+    "cancel_link": "Cancel"
+  },
+  "errors": {
+    "role_not_found": "Role not found."
+  }
+}
