@@ -29,7 +29,7 @@ from background_tasks.signals import (
     on_task_success,
     unbind_event_bus,
 )
-from simple_module_core.events import EventBus
+from simple_module_testing import FakeEventBus
 from sqlalchemy import select
 
 
@@ -199,15 +199,14 @@ class TestLifecycleSignals:
 class TestTaskFailedEvent:
     @pytest.mark.asyncio
     async def test_publishes_when_bus_bound(self, sync_sqlite: Path):
-        bus = EventBus()
-        received: list[TaskFailed] = []
+        bus = FakeEventBus()
+        dispatched = asyncio.Event()
 
-        async def _on_failed(event: TaskFailed) -> None:
-            received.append(event)
+        async def _mark(_event: TaskFailed) -> None:
+            dispatched.set()
 
-        bus.subscribe(TaskFailed, _on_failed)
-        loop = asyncio.get_running_loop()
-        bind_event_bus(bus, loop)
+        bus.subscribe(TaskFailed, _mark)
+        bind_event_bus(bus, asyncio.get_running_loop())
 
         try:
             task_id = str(uuid.uuid4())
@@ -227,14 +226,12 @@ class TestTaskFailedEvent:
                 sender=_Task, task_id=task_id, exception=ValueError("nope"), einfo=_Einfo()
             )
 
-            # run_coroutine_threadsafe schedules the publish on this loop;
-            # yield long enough for the scheduled coroutine to complete.
-            await asyncio.sleep(0.05)
+            await asyncio.wait_for(dispatched.wait(), timeout=1.0)
 
-            assert len(received) == 1
-            assert received[0].task_name == "demo.boom"
-            assert received[0].exception_type == "ValueError"
-            assert received[0].task_execution_id is not None
+            (event,) = bus.assert_published(TaskFailed)
+            assert event.task_name == "demo.boom"
+            assert event.exception_type == "ValueError"
+            assert event.task_execution_id is not None
         finally:
             unbind_event_bus()
 

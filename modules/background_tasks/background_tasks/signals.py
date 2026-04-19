@@ -72,10 +72,22 @@ def _publish_from_signal(event: Any) -> None:
     if _bus is None or _loop is None:
         return
     try:
-        asyncio.run_coroutine_threadsafe(_bus.publish(event), _loop)
+        future = asyncio.run_coroutine_threadsafe(_bus.publish(event), _loop)
     except RuntimeError:
-        # Loop has stopped (shutdown race). Swallow — the DB row is already written.
+        # Loop has stopped (shutdown race). The DB row is already written.
         logger.debug("Event bus loop is not running; skipping %s", type(event).__name__)
+        return
+    # Surface subscriber exceptions — run_coroutine_threadsafe otherwise only
+    # logs them when the Future is GC'd, which happens far from the failure.
+    future.add_done_callback(_log_publish_failure)
+
+
+def _log_publish_failure(future: asyncio.Future[Any]) -> None:
+    if future.cancelled():
+        return
+    exc = future.exception()
+    if exc is not None:
+        logger.error("Event publish raised: %s", exc, exc_info=exc)
 
 
 def _apply(
@@ -84,15 +96,21 @@ def _apply(
     celery_task_id: str | None,
     defaults: dict[str, Any],
     after: Callable[[TaskExecution], None] | None = None,
-) -> None:
-    """Open a sync session, upsert by celery_task_id, log on failure."""
+) -> TaskExecution | None:
+    """Open a sync session, upsert by celery_task_id, log on failure.
+
+    Returns the upserted row (or ``None`` if the session raised) so callers
+    can read DB-assigned fields like ``id`` without a second round trip.
+    """
     try:
         with sync_session() as session:
             row = upsert_by_celery_id(session, celery_task_id=celery_task_id, defaults=defaults)
             if after is not None:
                 after(row)
+            return row
     except Exception:
         logger.exception("%s failed for task_id=%s", handler, celery_task_id)
+        return None
 
 
 # ── Enqueue ─────────────────────────────────────────────────────
@@ -207,12 +225,7 @@ def on_task_failure(
     task_name = task_name_of(sender)
     exception_type = type(exception).__name__ if exception is not None else None
 
-    published_id: list[Any] = []
-
-    def _capture_id(row: TaskExecution) -> None:
-        published_id.append(row.id)
-
-    _apply(
+    row = _apply(
         "on_task_failure",
         celery_task_id=task_id,
         defaults={
@@ -222,13 +235,12 @@ def on_task_failure(
             "exception_type": exception_type,
             "finished_at": now_utc(),
         },
-        after=_capture_id,
     )
 
-    if published_id:
+    if row is not None:
         _publish_from_signal(
             TaskFailed(
-                task_execution_id=published_id[0],
+                task_execution_id=row.id,
                 task_name=task_name,
                 exception_type=exception_type,
             )
