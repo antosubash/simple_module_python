@@ -10,6 +10,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from datasets.contracts.files import DatasetFile
 from datasets.contracts.schemas import DatasetOut, DatasetUpdate
 from datasets.extractors import extract_metadata, kind_for_filename
 from datasets.models import Dataset
@@ -43,11 +44,18 @@ def slugify(value: str) -> str:
 
 
 class DatasetService:
-    """CRUD + upload orchestration for datasets."""
+    """CRUD + upload orchestration for datasets.
+
+    Downstream modules should depend on the ``IDatasetService`` Protocol
+    (see ``datasets.contracts.service``) rather than this concrete class,
+    and obtain an instance via ``datasets.deps.get_dataset_service``.
+    """
 
     def __init__(self, db: AsyncSession, storage: LocalDatasetStorage) -> None:
         self.db = db
         self.storage = storage
+
+    # ── Lookups ──────────────────────────────────────────────────────
 
     async def get_all(self) -> list[DatasetOut]:
         result = await self.db.execute(select(Dataset).order_by(Dataset.id.desc()))
@@ -59,12 +67,46 @@ class DatasetService:
             return None
         return DatasetOut.model_validate(entity)
 
+    async def get_by_slug(self, slug: str) -> DatasetOut | None:
+        result = await self.db.execute(select(Dataset).where(Dataset.slug == slug))
+        entity = result.scalar_one_or_none()
+        if entity is None:
+            return None
+        return DatasetOut.model_validate(entity)
+
+    async def list_by_kind(self, kind: str, *, limit: int | None = None) -> list[DatasetOut]:
+        stmt = select(Dataset).where(Dataset.kind == kind).order_by(Dataset.id.desc())
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        result = await self.db.execute(stmt)
+        return [DatasetOut.model_validate(row) for row in result.scalars()]
+
+    # ── File access ──────────────────────────────────────────────────
+
+    async def get_file(self, dataset_id: int) -> DatasetFile | None:
+        """Return a ``DatasetFile`` handle consumers can open() or pass to
+        a GIS library. ``None`` if the row is missing; still returns a
+        handle (with ``exists == False``) if the row exists but the file
+        is gone on disk — callers decide how to react."""
+        entity = await self.db.get(Dataset, dataset_id)
+        if entity is None:
+            return None
+        return DatasetFile(
+            metadata=DatasetOut.model_validate(entity),
+            path=self.storage.absolute(entity.storage_key),
+            original_filename=entity.original_filename,
+            mime_type=entity.mime_type,
+        )
+
+    # Kept for the download endpoint, which needs the raw tuple without
+    # constructing a DatasetOut just to throw it away.
     async def get_storage_key(self, dataset_id: int) -> tuple[str, str, str | None] | None:
-        """Return (storage_key, original_filename, mime_type) for a download."""
         entity = await self.db.get(Dataset, dataset_id)
         if entity is None:
             return None
         return entity.storage_key, entity.original_filename, entity.mime_type
+
+    # ── Upload ───────────────────────────────────────────────────────
 
     async def register_upload(self, payload: UploadInput) -> DatasetOut:
         """Persist a dataset row, extract metadata, then move the temp file
@@ -119,6 +161,8 @@ class DatasetService:
             shutil.copyfile(source, target)
             source.unlink(missing_ok=True)
 
+    # ── Mutations ────────────────────────────────────────────────────
+
     async def update(self, dataset_id: int, data: DatasetUpdate) -> DatasetOut | None:
         entity = await self.db.get(Dataset, dataset_id)
         if entity is None:
@@ -141,6 +185,8 @@ class DatasetService:
         if storage_key:
             self.storage.delete(storage_key)
         return True
+
+    # ── Internal ─────────────────────────────────────────────────────
 
     async def _unique_slug(self, base: str) -> str:
         candidate = base

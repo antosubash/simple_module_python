@@ -155,10 +155,10 @@ class TestDatasetService:
         assert out.slug == "my-dataset"
         # The temp file has been moved into final storage.
         assert not temp.exists()
-        info = await svc.get_storage_key(out.id)
-        assert info is not None
-        storage_key, _, _ = info
-        assert storage.absolute(storage_key).exists()
+        handle = await svc.get_file(out.id)
+        assert handle is not None
+        assert handle.exists
+        assert handle.path.is_file()
 
     async def test_unique_slug_collision(self, db_session: AsyncSession, tmp_path: Path):
         storage = LocalDatasetStorage(tmp_path / "store")

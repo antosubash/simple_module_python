@@ -46,19 +46,16 @@ async def get_dataset(
 async def download_dataset(
     dataset_id: int,
     service: DatasetService = Depends(get_dataset_service),
-    storage: LocalDatasetStorage = Depends(get_storage),
 ) -> FileResponse:
-    info = await service.get_storage_key(dataset_id)
-    if info is None:
+    handle = await service.get_file(dataset_id)
+    if handle is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    storage_key, original_filename, mime_type = info
-    path = storage.absolute(storage_key)
-    if not path.exists():
+    if not handle.exists:
         raise HTTPException(status_code=410, detail="Dataset file is missing on disk")
     return FileResponse(
-        path,
-        filename=original_filename,
-        media_type=mime_type or "application/octet-stream",
+        handle.path,
+        filename=handle.original_filename,
+        media_type=handle.mime_type or "application/octet-stream",
     )
 
 
@@ -119,7 +116,14 @@ async def upload_dataset(
         tmp_path.unlink(missing_ok=True)
         raise
 
-    await bus.publish(DatasetUploaded(dataset_id=dataset.id, name=dataset.name, kind=dataset.kind))
+    await bus.publish(
+        DatasetUploaded(
+            dataset_id=dataset.id,
+            name=dataset.name,
+            slug=dataset.slug,
+            kind=dataset.kind,
+        )
+    )
     return dataset
 
 
@@ -149,7 +153,10 @@ async def delete_dataset(
     service: DatasetService = Depends(get_dataset_service),
     bus: EventBus = Depends(get_event_bus),
 ) -> None:
-    deleted = await service.delete(dataset_id)
-    if not deleted:
+    # Capture the slug before deletion so subscribers can index by slug
+    # without a post-delete lookup (which would always miss).
+    existing = await service.get_by_id(dataset_id)
+    if existing is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    await bus.publish(DatasetDeleted(dataset_id=dataset_id))
+    await service.delete(dataset_id)
+    await bus.publish(DatasetDeleted(dataset_id=dataset_id, slug=existing.slug))
