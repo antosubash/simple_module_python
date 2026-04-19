@@ -34,10 +34,29 @@ def upgrade() -> None:
         sa.Column("created_by", sa.String(length=255), nullable=True),
         sa.Column("updated_by", sa.String(length=255), nullable=True),
         sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("scope", sa.String(length=10), nullable=False, server_default="system"),
+        sa.Column("scope_id", sa.String(length=64), nullable=False, server_default=""),
         sa.Column("name", sa.String(length=200), nullable=False),
         sa.Column("enabled", sa.Boolean(), nullable=False),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_feature_flags_override")),
-        sa.UniqueConstraint("name", name="uq_feature_flags_override_name"),
+        sa.UniqueConstraint(
+            "scope",
+            "scope_id",
+            "name",
+            name="uq_feature_flags_override_scope_scope_id_name",
+        ),
+    )
+    op.create_index(
+        op.f("ix_feature_flags_override_scope"),
+        "feature_flags_override",
+        ["scope"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_feature_flags_override_scope_id"),
+        "feature_flags_override",
+        ["scope_id"],
+        unique=False,
     )
     op.create_index(
         op.f("ix_feature_flags_override_name"),
@@ -50,6 +69,14 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index(
         op.f("ix_feature_flags_override_name"),
+        table_name="feature_flags_override",
+    )
+    op.drop_index(
+        op.f("ix_feature_flags_override_scope_id"),
+        table_name="feature_flags_override",
+    )
+    op.drop_index(
+        op.f("ix_feature_flags_override_scope"),
         table_name="feature_flags_override",
     )
     op.drop_table("feature_flags_override")
