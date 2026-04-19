@@ -1,0 +1,138 @@
+"""BackgroundTaskService — admin listing, detail, and retry."""
+
+from __future__ import annotations
+
+import uuid
+from typing import TYPE_CHECKING
+
+from fastapi import HTTPException, status
+from simple_module_core.events import EventBus
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from background_tasks.constants import RETRYABLE_STATUSES, TaskStatus
+from background_tasks.contracts.events import TaskRetried
+from background_tasks.contracts.schemas import (
+    TaskExecutionDetail,
+    TaskExecutionListItem,
+    TaskExecutionListResponse,
+)
+from background_tasks.models import TaskExecution
+
+if TYPE_CHECKING:
+    from celery import Celery
+
+
+class BackgroundTaskService:
+    """List, fetch, and retry task executions.
+
+    The service treats the DB as the system of record and the Celery app
+    as pure transport — ``retry`` loads the original row, enqueues a new
+    Celery task with the same args/kwargs, and inserts a fresh
+    ``TaskExecution`` linked to the original via ``retried_from_id``.
+    """
+
+    def __init__(
+        self,
+        db: AsyncSession,
+        celery: Celery,
+        event_bus: EventBus,
+    ) -> None:
+        self.db = db
+        self.celery = celery
+        self.event_bus = event_bus
+
+    async def list(
+        self,
+        *,
+        status: TaskStatus | None = None,
+        task_name: str | None = None,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> TaskExecutionListResponse:
+        """Return a paginated listing, newest-first, with optional filters."""
+        page = max(page, 1)
+        per_page = max(1, min(per_page, 200))
+
+        # A window-function total lets us fetch the page and the count in a
+        # single round trip. SQLAlchemy's ``AsyncSession`` serialises calls on
+        # one connection, so ``asyncio.gather`` wouldn't help here.
+        total_col = func.count().over().label("_total")
+        query = select(TaskExecution, total_col)
+        if status is not None:
+            query = query.where(TaskExecution.status == status)
+        if task_name:
+            query = query.where(TaskExecution.task_name.ilike(f"%{task_name}%"))
+        query = (
+            query.order_by(TaskExecution.queued_at.desc().nulls_last())
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+        )
+
+        result = (await self.db.execute(query)).all()
+        items = [TaskExecutionListItem.model_validate(row[0]) for row in result]
+        total = int(result[0][1]) if result else 0
+
+        return TaskExecutionListResponse(
+            items=items,
+            total=total,
+            page=page,
+            per_page=per_page,
+            status=status,
+            task_name=task_name,
+        )
+
+    async def get(self, execution_id: uuid.UUID) -> TaskExecutionDetail | None:
+        row = await self.db.get(TaskExecution, execution_id)
+        if row is None:
+            return None
+        return TaskExecutionDetail.model_validate(row)
+
+    async def retry(self, execution_id: uuid.UUID) -> TaskExecutionDetail:
+        """Re-enqueue a failed or stuck task.
+
+        The original row is immutable; we insert a new ``TaskExecution`` row
+        carrying ``retried_from_id`` so the detail page can show the chain.
+        """
+        row = await self.db.get(TaskExecution, execution_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail="Task execution not found")
+
+        if row.status not in RETRYABLE_STATUSES:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Task execution status is {str(row.status)!r}; "
+                    "only failed or stuck tasks can be retried."
+                ),
+            )
+
+        async_result = self.celery.send_task(
+            row.task_name,
+            args=list(row.args or []),
+            kwargs=dict(row.kwargs or {}),
+            queue=row.queue,
+        )
+
+        new_row = TaskExecution(
+            celery_task_id=async_result.id,
+            task_name=row.task_name,
+            status=TaskStatus.PENDING,
+            queue=row.queue,
+            args=list(row.args or []),
+            kwargs=dict(row.kwargs or {}),
+            retried_from_id=row.id,
+        )
+        self.db.add(new_row)
+        await self.db.flush()
+        await self.db.refresh(new_row)
+
+        await self.event_bus.publish(
+            TaskRetried(
+                original_id=row.id,
+                new_id=new_row.id,
+                task_name=row.task_name,
+            )
+        )
+
+        return TaskExecutionDetail.model_validate(new_row)
