@@ -1,12 +1,10 @@
 {
   "browse": {
     "title": "Settings",
-    "description": "Manage application key/value settings across system, tenant and user scopes",
     "new_button": "New Setting",
     "empty_title": "No settings yet",
     "empty_description": "Get started by creating your first setting.",
-    "edit_link": "Edit",
-    "delete_link": "Delete"
+    "edit_link": "Edit"
   },
   "table": {
     "scope": "Scope",
@@ -39,8 +37,7 @@
     "value_label": "Value",
     "value_placeholder": "Enter a value",
     "description_label": "Description",
-    "description_placeholder": "Optional description",
-    "cancel_button": "Cancel"
+    "description_placeholder": "Optional description"
   },
   "create": {
     "title": "New Setting",
@@ -49,8 +46,5 @@
   "edit": {
     "title": "Edit Setting",
     "submit_button": "Save"
-  },
-  "errors": {
-    "not_found": "Setting not found"
   }
 }

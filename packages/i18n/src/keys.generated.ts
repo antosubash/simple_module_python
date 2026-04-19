@@ -277,8 +277,6 @@ export const keys = {
   },
   settings: {
     browse: {
-      delete_link: 'settings.browse.delete_link',
-      description: 'settings.browse.description',
       edit_link: 'settings.browse.edit_link',
       empty_description: 'settings.browse.empty_description',
       empty_title: 'settings.browse.empty_title',
@@ -293,11 +291,7 @@ export const keys = {
       submit_button: 'settings.edit.submit_button',
       title: 'settings.edit.title',
     },
-    errors: {
-      not_found: 'settings.errors.not_found',
-    },
     form: {
-      cancel_button: 'settings.form.cancel_button',
       description_label: 'settings.form.description_label',
       description_placeholder: 'settings.form.description_placeholder',
       key_label: 'settings.form.key_label',
