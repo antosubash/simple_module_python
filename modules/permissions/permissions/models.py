@@ -47,6 +47,11 @@ class RolePermission(Base, AuditMixin, table=True):  # ty: ignore[unsupported-ba
     )
     assigned_by: str | None = Field(default=None, max_length=255)
 
+    # The composite PK covers role-first lookups; this index supports
+    # reverse lookups ("which roles hold permission X?") — PostgreSQL
+    # does not auto-index non-leading PK columns.
+    __table_args__ = (Index("ix_permissions_role_permission_key", "permission_key"),)
+
 
 class UserPermission(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
     """Direct assignment of a registered permission key to a single user."""
