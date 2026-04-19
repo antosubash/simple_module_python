@@ -70,8 +70,8 @@ def test_keys_tree_is_nested(tmp_path: Path) -> None:
     # Nested structure: keys = { auth: { errors: { not_authenticated: ... } }, products: { ... } }
     assert "auth:" in text
     assert "errors:" in text
-    assert 'not_authenticated: "auth.errors.not_authenticated"' in text
-    assert 'title: "products.browse.title"' in text
+    assert "not_authenticated: 'auth.errors.not_authenticated'" in text
+    assert "title: 'products.browse.title'" in text
 
 
 def test_keys_tree_adds_plural_stems(tmp_path: Path) -> None:
@@ -86,9 +86,9 @@ def test_keys_tree_adds_plural_stems(tmp_path: Path) -> None:
     write_generated_resources(reg, tmp_path)
     text = (tmp_path / "keys.generated.ts").read_text()
     # Both the concrete variants AND the virtual stem must be emitted.
-    assert 'count_one: "products.browse.count_one"' in text
-    assert 'count_other: "products.browse.count_other"' in text
-    assert 'count: "products.browse.count"' in text
+    assert "count_one: 'products.browse.count_one'" in text
+    assert "count_other: 'products.browse.count_other'" in text
+    assert "count: 'products.browse.count'" in text
 
 
 def test_keys_tree_quotes_non_identifier_segments(tmp_path: Path) -> None:
@@ -97,7 +97,7 @@ def test_keys_tree_quotes_non_identifier_segments(tmp_path: Path) -> None:
     reg._messages = {"en": {"ui.switcher.a-b": "X"}}  # hyphen in leaf
     write_generated_resources(reg, tmp_path)
     text = (tmp_path / "keys.generated.ts").read_text()
-    assert '"a-b":' in text
+    assert "'a-b':" in text
 
 
 def test_keys_tree_does_not_overwrite_real_key_with_stem(tmp_path: Path) -> None:
@@ -113,4 +113,4 @@ def test_keys_tree_does_not_overwrite_real_key_with_stem(tmp_path: Path) -> None
     write_generated_resources(reg, tmp_path)
     text = (tmp_path / "keys.generated.ts").read_text()
     # The real key retains its value; the virtual stem is skipped.
-    assert 'count: "products.browse.count"' in text
+    assert "count: 'products.browse.count'" in text

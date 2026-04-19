@@ -1,0 +1,42 @@
+{
+  "browse": {
+    "title": "Files",
+    "description": "Manage uploaded files.",
+    "upload_button": "Upload file",
+    "uploading": "Uploading...",
+    "empty_title": "No files yet",
+    "empty_description": "Upload your first file to get started.",
+    "count_one": "{count} file",
+    "count_other": "{count} files"
+  },
+  "table": {
+    "filename": "Name",
+    "size": "Size",
+    "type": "Type",
+    "uploaded_by": "Uploaded by",
+    "uploaded_at": "Uploaded",
+    "actions": "Actions"
+  },
+  "actions": {
+    "download": "Download",
+    "delete": "Delete"
+  },
+  "delete_dialog": {
+    "title": "Delete \"{name}\"?",
+    "description": "The file will be removed from storage. This cannot be undone.",
+    "cancel": "Cancel",
+    "confirm": "Delete"
+  },
+  "toasts": {
+    "uploaded": "\"{name}\" uploaded",
+    "upload_failed": "Upload failed",
+    "deleted": "\"{name}\" deleted",
+    "delete_failed": "Failed to delete file"
+  },
+  "errors": {
+    "not_found": "File not found",
+    "too_large": "File exceeds the maximum allowed size",
+    "bad_type": "This file type is not allowed",
+    "backend_error": "Storage backend error"
+  }
+}
