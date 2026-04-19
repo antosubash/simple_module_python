@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, Request, status
 from simple_module_core.events import EventBus
 from simple_module_hosting.permissions import RequiresPermission
 
+from users.constants import PERM_USERS_MANAGE
 from users.contracts.events import RoleAssigned, UserDisabled, UserInvited
 from users.contracts.schemas import (
     PasswordResetLink,
@@ -19,7 +20,6 @@ from users.contracts.schemas import (
     UserInvite,
     UserListItem,
 )
-from users.constants import PERM_USERS_MANAGE
 from users.deps import get_event_bus, get_mailer, get_user_service
 from users.service import UserService
 

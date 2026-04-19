@@ -103,7 +103,7 @@ def _list_git_tracked_files(root: Path) -> list[Path]:
 
 
 def _walk_filesystem(root: Path) -> list[Path]:
-    return [p for p in root.rglob("*.py")]
+    return list(root.rglob("*.py"))
 
 
 def _collect_candidates(root: Path, use_git: bool) -> list[Path]:
