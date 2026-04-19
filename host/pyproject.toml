@@ -12,6 +12,7 @@ dependencies = [
     "background-tasks",
     "file-storage",
     "settings",
+    "feature-flags",
     "python-multipart>=0.0.6",
 ]
 
@@ -24,3 +25,4 @@ permissions = { workspace = true }
 background-tasks = { workspace = true }
 file-storage = { workspace = true }
 settings = { workspace = true }
+feature-flags = { workspace = true }

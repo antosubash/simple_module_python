@@ -1,0 +1,11 @@
+{
+  "extends": "@simple-module/tsconfig/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./feature_flags/*"],
+      "@simple-module/ui/*": ["../../packages/ui/src/*"]
+    }
+  },
+  "include": ["feature_flags/**/*.ts", "feature_flags/**/*.tsx"]
+}

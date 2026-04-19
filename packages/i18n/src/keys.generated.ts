@@ -87,6 +87,35 @@ export const keys = {
       welcome_message: 'dashboard.home.welcome_message',
     },
   },
+  feature_flags: {
+    browse: {
+      count: 'feature_flags.browse.count',
+      count_one: 'feature_flags.browse.count_one',
+      count_other: 'feature_flags.browse.count_other',
+      description: 'feature_flags.browse.description',
+      empty_description: 'feature_flags.browse.empty_description',
+      empty_title: 'feature_flags.browse.empty_title',
+      title: 'feature_flags.browse.title',
+    },
+    table: {
+      actions: 'feature_flags.table.actions',
+      clear_override: 'feature_flags.table.clear_override',
+      default: 'feature_flags.table.default',
+      description: 'feature_flags.table.description',
+      disabled: 'feature_flags.table.disabled',
+      enabled: 'feature_flags.table.enabled',
+      following_default: 'feature_flags.table.following_default',
+      name: 'feature_flags.table.name',
+      overridden: 'feature_flags.table.overridden',
+      status: 'feature_flags.table.status',
+    },
+    toasts: {
+      cleared: 'feature_flags.toasts.cleared',
+      disabled: 'feature_flags.toasts.disabled',
+      enabled: 'feature_flags.toasts.enabled',
+      toggle_failed: 'feature_flags.toasts.toggle_failed',
+    },
+  },
   file_storage: {
     actions: {
       delete: 'file_storage.actions.delete',
