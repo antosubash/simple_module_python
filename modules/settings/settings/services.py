@@ -10,13 +10,21 @@ read-only after.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from settings.contracts.registry import SettingsRegistry
 from settings.settings import SettingsSettings
 
 
 @dataclass
 class SettingsServices:
-    """Settings module singletons."""
+    """Settings module singletons.
+
+    ``registry`` is shared across the whole app — consumer modules register
+    their setting keys here (typically from their own ``on_startup`` hook)
+    so admins can discover every knob and the accessor can fall back to
+    declared defaults.
+    """
 
     settings: SettingsSettings
+    registry: SettingsRegistry = field(default_factory=SettingsRegistry)
