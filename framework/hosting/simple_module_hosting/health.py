@@ -12,6 +12,13 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Health"])
 
+_KEY_STATUS = "status"
+_KEY_CHECKS = "checks"
+_KEY_MIGRATION = "migration"
+_KEY_DETAIL = "detail"
+_STATUS_HEALTHY = "healthy"
+_STATUS_ALIVE = "alive"
+
 # Severity ordering for aggregation: worst status wins
 _STATUS_SEVERITY = {
     HealthStatus.HEALTHY: 0,
@@ -24,14 +31,14 @@ _STATUS_SEVERITY = {
 async def health(request: Request) -> dict:
     migration = getattr(request.app.state, "migration", None)
     return {
-        "status": "healthy",
-        "migration": migration,
+        _KEY_STATUS: _STATUS_HEALTHY,
+        _KEY_MIGRATION: migration,
     }
 
 
 @router.get("/health/live")
 async def liveness() -> dict:
-    return {"status": "alive"}
+    return {_KEY_STATUS: _STATUS_ALIVE}
 
 
 @router.get("/health/ready")
@@ -40,7 +47,7 @@ async def readiness(request: Request) -> dict:
     checks = registry.all_checks
 
     if not checks:
-        return {"status": "healthy", "checks": {}}
+        return {_KEY_STATUS: _STATUS_HEALTHY, _KEY_CHECKS: {}}
 
     # Run all checks concurrently
     async def _run_check(name: str, check_fn):
@@ -64,9 +71,9 @@ async def readiness(request: Request) -> dict:
             worst = result.status
 
     return {
-        "status": worst.value,
-        "checks": {
-            name: {"status": r.status.value, **({"detail": r.detail} if r.detail else {})}
+        _KEY_STATUS: worst.value,
+        _KEY_CHECKS: {
+            name: {_KEY_STATUS: r.status.value, **({_KEY_DETAIL: r.detail} if r.detail else {})}
             for name, r in results.items()
         },
     }

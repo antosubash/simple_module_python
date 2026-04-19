@@ -9,6 +9,8 @@ from simple_module_hosting.i18n_deps import TranslatorDep
 
 from auth.contracts.schemas import UserContext
 
+_ADMIN_ROLE = "admin"
+
 
 async def get_current_user(request: Request, t: TranslatorDep) -> UserContext:
     """Extract the authenticated user from request state.
@@ -39,7 +41,7 @@ def require_permission(*permissions: str):
         user: UserContext = Depends(get_current_user),
     ):
         # Admin role bypasses permission checks
-        if "admin" in user.roles:
+        if _ADMIN_ROLE in user.roles:
             return
 
         # Get permission registry from app state

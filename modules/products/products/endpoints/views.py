@@ -11,6 +11,7 @@ from simple_module_hosting.inertia_utils import redirect_back_with_errors, valid
 from simple_module_hosting.permissions import RequiresPermission
 from starlette.responses import RedirectResponse
 
+from products.constants import PERM_PRODUCTS_CREATE, PERM_PRODUCTS_DELETE, PERM_PRODUCTS_EDIT
 from products.contracts.schemas import ProductCreate, ProductUpdate
 from products.deps import get_product_service
 from products.service import ProductService
@@ -18,6 +19,12 @@ from products.service import ProductService
 router = APIRouter()
 
 PER_PAGE = 10
+_REDIRECT_PRODUCTS = "/products"
+
+# Inertia page identifiers
+_PAGE_BROWSE = "Products/Browse"
+_PAGE_CREATE = "Products/Create"
+_PAGE_EDIT = "Products/Edit"
 
 
 # ── View routes (GET → Inertia pages) ─────────────────────────
@@ -36,7 +43,7 @@ async def browse(
         search=search or None,
     )
     return await inertia.render(
-        "Products/Browse",
+        _PAGE_BROWSE,
         {
             "products": [p.model_dump(mode="json") for p in products],
             "pagination": {
@@ -52,10 +59,10 @@ async def browse(
 @router.get(
     "/create",
     response_model=None,
-    dependencies=[Depends(RequiresPermission("products.create"))],
+    dependencies=[Depends(RequiresPermission(PERM_PRODUCTS_CREATE))],
 )
 async def create_view(inertia: InertiaDep) -> InertiaResponse:
-    return await inertia.render("Products/Create")
+    return await inertia.render(_PAGE_CREATE)
 
 
 @router.get("/{product_id}/edit", response_model=None)
@@ -67,9 +74,9 @@ async def edit_view(
 ) -> InertiaResponse:
     product = await service.get_by_id(product_id)
     if product is None:
-        return await inertia.render("Products/Browse", {"error": t.t("products.errors.not_found")})
+        return await inertia.render(_PAGE_BROWSE, {"error": t.t("products.errors.not_found")})
     return await inertia.render(
-        "Products/Edit",
+        _PAGE_EDIT,
         {"product": product.model_dump(mode="json")},
     )
 
@@ -80,7 +87,7 @@ async def edit_view(
 @router.post(
     "/",
     response_model=None,
-    dependencies=[Depends(RequiresPermission("products.create"))],
+    dependencies=[Depends(RequiresPermission(PERM_PRODUCTS_CREATE))],
 )
 async def create_action(
     request: Request,
@@ -92,13 +99,13 @@ async def create_action(
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
     await service.create(data)
-    return RedirectResponse("/products", status_code=303)
+    return RedirectResponse(_REDIRECT_PRODUCTS, status_code=303)
 
 
 @router.put(
     "/{product_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission("products.edit"))],
+    dependencies=[Depends(RequiresPermission(PERM_PRODUCTS_EDIT))],
 )
 async def update_action(
     product_id: int,
@@ -111,17 +118,17 @@ async def update_action(
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
     await service.update(product_id, data)
-    return RedirectResponse("/products", status_code=303)
+    return RedirectResponse(_REDIRECT_PRODUCTS, status_code=303)
 
 
 @router.delete(
     "/{product_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission("products.delete"))],
+    dependencies=[Depends(RequiresPermission(PERM_PRODUCTS_DELETE))],
 )
 async def delete_action(
     product_id: int,
     service: ProductService = Depends(get_product_service),
 ) -> RedirectResponse:
     await service.delete(product_id)
-    return RedirectResponse("/products", status_code=303)
+    return RedirectResponse(_REDIRECT_PRODUCTS, status_code=303)

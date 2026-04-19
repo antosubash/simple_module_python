@@ -12,6 +12,11 @@ from simple_module_hosting.settings import Settings
 
 logger = logging.getLogger(__name__)
 
+_INERTIA_VERSION = "1.0"
+_ROOT_TEMPLATE_FILENAME = "index.html"
+_ENTRYPOINT_FILENAME = "main.tsx"
+_ROOT_DIRECTORY = "."
+
 
 def setup_inertia(
     app: FastAPI,
@@ -54,12 +59,12 @@ def setup_inertia(
 
     inertia_config = InertiaConfig(
         environment=settings.environment,
-        version="1.0",
+        version=_INERTIA_VERSION,
         dev_url=settings.vite_dev_url if settings.is_development else "",
         templates=templates,
-        root_template_filename="index.html",
-        entrypoint_filename="main.tsx",
-        root_directory=".",
+        root_template_filename=_ROOT_TEMPLATE_FILENAME,
+        entrypoint_filename=_ENTRYPOINT_FILENAME,
+        root_directory=_ROOT_DIRECTORY,
         use_flash_errors=True,
     )
 
