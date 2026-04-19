@@ -1,12 +1,20 @@
-"""Dataset service: orchestrates DB rows, file storage, and metadata extraction."""
+"""Dataset service: orchestrates DB rows, backend IO, and metadata extraction.
+
+Bytes live in a ``file_storage.StorageBackend`` — the datasets module does
+not own any filesystem of its own. That hands S3 / GCS / Azure support to
+every consumer for free the moment the host swaps ``SM_FILE_STORAGE_BACKEND``.
+"""
 
 from __future__ import annotations
 
+import contextlib
 import re
-import shutil
+import uuid
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
 
+from file_storage.contracts.service import StorageBackend, StorageNotFoundError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,16 +22,15 @@ from datasets.contracts.files import DatasetFile
 from datasets.contracts.schemas import DatasetOut, DatasetUpdate
 from datasets.extractors import extract_metadata, kind_for_filename
 from datasets.models import Dataset
-from datasets.storage import LocalDatasetStorage, safe_filename
 
 
 @dataclass
 class UploadInput:
     """Inputs for ``DatasetService.register_upload``.
 
-    The endpoint streams the upload to ``temp_path`` first so this layer can
-    extract metadata and choose a final storage key without touching the
-    FastAPI ``UploadFile`` (which keeps the service trivially unit-testable).
+    The endpoint streams the upload to ``temp_path`` first so this layer
+    can extract metadata from a local file (fiona/rasterio need a path),
+    then upload the bytes to the storage backend and persist the row.
     """
 
     name: str
@@ -36,11 +43,40 @@ class UploadInput:
 
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
+_UNSAFE_NAME_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
 def slugify(value: str) -> str:
     slug = _SLUG_RE.sub("-", value.lower()).strip("-")
     return slug or "dataset"
+
+
+def safe_filename(name: str) -> str:
+    """Return a filename safe to log / surface in URLs."""
+    base = Path(name).name or "upload.bin"
+    cleaned = _UNSAFE_NAME_RE.sub("_", base).strip("._") or "upload.bin"
+    return cleaned[:200]
+
+
+def _storage_key(dataset_id: int, original_filename: str) -> str:
+    """Build a backend key scoped under ``datasets/``.
+
+    The ``datasets/`` prefix keeps dataset bytes discoverable alongside
+    other file_storage tenants (e.g. the generic StoredFile uploads)
+    without namespace collisions. A uuid suffix guarantees uniqueness
+    even when a dataset is re-uploaded under the same id.
+    """
+    suffix = Path(original_filename).suffix.lower()
+    return f"datasets/{dataset_id}/{uuid.uuid4().hex}{suffix}"
+
+
+async def _file_stream(path: Path, chunk_size: int = 1024 * 1024) -> AsyncIterator[bytes]:
+    with path.open("rb") as fp:
+        while True:
+            chunk = fp.read(chunk_size)
+            if not chunk:
+                break
+            yield chunk
 
 
 class DatasetService:
@@ -51,9 +87,9 @@ class DatasetService:
     and obtain an instance via ``datasets.deps.get_dataset_service``.
     """
 
-    def __init__(self, db: AsyncSession, storage: LocalDatasetStorage) -> None:
+    def __init__(self, db: AsyncSession, backend: StorageBackend) -> None:
         self.db = db
-        self.storage = storage
+        self.backend = backend
 
     # ── Lookups ──────────────────────────────────────────────────────
 
@@ -84,33 +120,22 @@ class DatasetService:
     # ── File access ──────────────────────────────────────────────────
 
     async def get_file(self, dataset_id: int) -> DatasetFile | None:
-        """Return a ``DatasetFile`` handle consumers can open() or pass to
-        a GIS library. ``None`` if the row is missing; still returns a
-        handle (with ``exists == False``) if the row exists but the file
-        is gone on disk — callers decide how to react."""
         entity = await self.db.get(Dataset, dataset_id)
         if entity is None:
             return None
         return DatasetFile(
             metadata=DatasetOut.model_validate(entity),
-            path=self.storage.absolute(entity.storage_key),
+            storage_key=entity.storage_key,
             original_filename=entity.original_filename,
             mime_type=entity.mime_type,
+            _backend=self.backend,
         )
-
-    # Kept for the download endpoint, which needs the raw tuple without
-    # constructing a DatasetOut just to throw it away.
-    async def get_storage_key(self, dataset_id: int) -> tuple[str, str, str | None] | None:
-        entity = await self.db.get(Dataset, dataset_id)
-        if entity is None:
-            return None
-        return entity.storage_key, entity.original_filename, entity.mime_type
 
     # ── Upload ───────────────────────────────────────────────────────
 
     async def register_upload(self, payload: UploadInput) -> DatasetOut:
-        """Persist a dataset row, extract metadata, then move the temp file
-        into the storage backend keyed by the new row's id."""
+        """Persist a dataset row, extract metadata, then upload the temp
+        file's bytes to the storage backend keyed by the new row's id."""
         kind = payload.kind or kind_for_filename(payload.original_filename)
         meta = extract_metadata(payload.temp_path, kind)
 
@@ -123,8 +148,7 @@ class DatasetService:
             original_filename=safe_filename(payload.original_filename),
             mime_type=payload.mime_type,
             size_bytes=payload.size_bytes,
-            # storage_key is filled in below once we have the row id.
-            storage_key="",
+            storage_key="",  # filled in once we have entity.id
             crs=meta.crs,
             bbox_min_x=meta.bbox_min_x,
             bbox_min_y=meta.bbox_min_y,
@@ -137,29 +161,23 @@ class DatasetService:
         self.db.add(entity)
         await self.db.flush()  # assigns entity.id
 
-        storage_key = self.storage.key_for(entity.id, payload.original_filename)
+        storage_key = _storage_key(entity.id, payload.original_filename)
         try:
-            self._move_into_storage(payload.temp_path, storage_key)
-        except OSError as exc:
+            await self.backend.put(
+                storage_key,
+                _file_stream(payload.temp_path),
+                content_type=payload.mime_type or "application/octet-stream",
+                size=payload.size_bytes,
+            )
+        except Exception:
             await self.db.delete(entity)
             await self.db.flush()
-            raise RuntimeError(f"Failed to store upload: {exc}") from exc
+            raise
 
         entity.storage_key = storage_key
         await self.db.flush()
         await self.db.refresh(entity)
         return DatasetOut.model_validate(entity)
-
-    def _move_into_storage(self, source: Path, key: str) -> None:
-        target = self.storage.absolute(key)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        # ``Path.replace`` fails across filesystems (tempdir vs storage_dir).
-        # Falling back to copy+unlink keeps the upload pipeline portable.
-        try:
-            source.replace(target)
-        except OSError:
-            shutil.copyfile(source, target)
-            source.unlink(missing_ok=True)
 
     # ── Mutations ────────────────────────────────────────────────────
 
@@ -180,10 +198,11 @@ class DatasetService:
         storage_key = entity.storage_key
         await self.db.delete(entity)
         await self.db.flush()
-        # Delete the file last so a DB rollback doesn't leave orphan rows
-        # pointing at an already-removed file.
+        # Delete the object last so a DB rollback can't orphan metadata
+        # pointing at already-removed bytes. Missing objects are fine.
         if storage_key:
-            self.storage.delete(storage_key)
+            with contextlib.suppress(StorageNotFoundError):
+                await self.backend.delete(storage_key)
         return True
 
     # ── Internal ─────────────────────────────────────────────────────
@@ -199,3 +218,6 @@ class DatasetService:
     async def _slug_exists(self, slug: str) -> bool:
         result = await self.db.execute(select(Dataset.id).where(Dataset.slug == slug))
         return result.scalar_one_or_none() is not None
+
+
+__all__ = ["DatasetService", "UploadInput", "safe_filename", "slugify"]

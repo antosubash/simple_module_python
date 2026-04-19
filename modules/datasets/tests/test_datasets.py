@@ -9,8 +9,8 @@ import httpx
 import pytest
 from datasets.contracts.schemas import DatasetUpdate
 from datasets.extractors import extract_metadata, kind_for_filename
-from datasets.service import DatasetService, UploadInput, slugify
-from datasets.storage import LocalDatasetStorage, safe_filename
+from datasets.service import DatasetService, UploadInput, safe_filename, slugify
+from file_storage.backends.filesystem import FilesystemBackend
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,6 +29,19 @@ GEOJSON_SAMPLE = {
         },
     ],
 }
+
+
+def _backend(tmp_path: Path) -> FilesystemBackend:
+    root = tmp_path / "store"
+    root.mkdir(parents=True, exist_ok=True)
+    return FilesystemBackend(root=root)
+
+
+def _make_temp_geojson(tmp_path: Path, name: str = "sample.geojson") -> tuple[Path, int]:
+    path = tmp_path / name
+    payload = json.dumps(GEOJSON_SAMPLE).encode()
+    path.write_bytes(payload)
+    return path, len(payload)
 
 
 # ── safe_filename ───────────────────────────────────────────────────
@@ -95,49 +108,14 @@ class TestExtractors:
         assert meta.status == "manual"
 
 
-# ── LocalDatasetStorage ─────────────────────────────────────────────
-
-
-class TestStorage:
-    def test_writable_after_ensure_root(self, tmp_path: Path):
-        storage = LocalDatasetStorage(tmp_path / "store")
-        storage.ensure_root()
-        assert storage.is_writable()
-
-    def test_unwritable_when_missing(self, tmp_path: Path):
-        storage = LocalDatasetStorage(tmp_path / "missing")
-        assert storage.is_writable() is False
-
-    def test_delete_removes_dataset_dir(self, tmp_path: Path):
-        storage = LocalDatasetStorage(tmp_path / "store")
-        storage.ensure_root()
-        key = storage.key_for(7, "data.geojson")
-        target = storage.absolute(key)
-        target.parent.mkdir(parents=True)
-        target.write_bytes(b"hello")
-        assert target.exists()
-        storage.delete(key)
-        assert not target.exists()
-        assert not target.parent.exists()
-
-
 # ── DatasetService ──────────────────────────────────────────────────
-
-
-def _make_temp_geojson(tmp_path: Path, name: str = "sample.geojson") -> tuple[Path, int]:
-    path = tmp_path / name
-    payload = json.dumps(GEOJSON_SAMPLE).encode()
-    path.write_bytes(payload)
-    return path, len(payload)
 
 
 class TestDatasetService:
     async def test_register_upload_extracts_metadata(
         self, db_session: AsyncSession, tmp_path: Path
     ):
-        storage = LocalDatasetStorage(tmp_path / "store")
-        storage.ensure_root()
-        svc = DatasetService(db_session, storage)
+        svc = DatasetService(db_session, _backend(tmp_path))
         temp, size = _make_temp_geojson(tmp_path)
         out = await svc.register_upload(
             UploadInput(
@@ -153,17 +131,16 @@ class TestDatasetService:
         assert out.feature_count == 2
         assert out.extraction_status == "ok"
         assert out.slug == "my-dataset"
-        # The temp file has been moved into final storage.
-        assert not temp.exists()
+
+        # Bytes landed in the backend and are readable.
         handle = await svc.get_file(out.id)
         assert handle is not None
-        assert handle.exists
-        assert handle.path.is_file()
+        assert await handle.exists()
+        body = await handle.read()
+        assert body == temp.read_bytes() if temp.exists() else body.startswith(b"{")
 
     async def test_unique_slug_collision(self, db_session: AsyncSession, tmp_path: Path):
-        storage = LocalDatasetStorage(tmp_path / "store")
-        storage.ensure_root()
-        svc = DatasetService(db_session, storage)
+        svc = DatasetService(db_session, _backend(tmp_path))
         a_path, a_size = _make_temp_geojson(tmp_path, "a.geojson")
         b_path, b_size = _make_temp_geojson(tmp_path, "b.geojson")
         first = await svc.register_upload(
@@ -187,10 +164,9 @@ class TestDatasetService:
         assert first.slug == "same-name"
         assert second.slug == "same-name-2"
 
-    async def test_delete_removes_file(self, db_session: AsyncSession, tmp_path: Path):
-        storage = LocalDatasetStorage(tmp_path / "store")
-        storage.ensure_root()
-        svc = DatasetService(db_session, storage)
+    async def test_delete_removes_file_from_backend(self, db_session: AsyncSession, tmp_path: Path):
+        backend = _backend(tmp_path)
+        svc = DatasetService(db_session, backend)
         path, size = _make_temp_geojson(tmp_path)
         out = await svc.register_upload(
             UploadInput(
@@ -201,13 +177,12 @@ class TestDatasetService:
                 mime_type=None,
             )
         )
-        info = await svc.get_storage_key(out.id)
-        assert info is not None
-        stored_path = storage.absolute(info[0])
-        assert stored_path.exists()
-        deleted = await svc.delete(out.id)
-        assert deleted is True
-        assert not stored_path.exists()
+        handle = await svc.get_file(out.id)
+        assert handle is not None
+        assert await backend.exists(handle.storage_key)
+
+        assert await svc.delete(out.id) is True
+        assert not await backend.exists(handle.storage_key)
 
     async def test_update_validation(self):
         # crs longer than 64 chars should be rejected.
@@ -224,9 +199,7 @@ class TestDatasetsAPI:
         assert resp.status_code == 200
         assert resp.json() == []
 
-    async def test_upload_and_download_geojson(
-        self, authenticated_client: httpx.AsyncClient, tmp_path: Path
-    ):
+    async def test_upload_and_download_geojson(self, authenticated_client: httpx.AsyncClient):
         payload = json.dumps(GEOJSON_SAMPLE).encode()
         files = {"file": ("sample.geojson", payload, "application/geo+json")}
         data = {"name": "My GeoJSON"}
@@ -288,3 +261,4 @@ class TestDatasetsModule:
         assert mod.meta.name == "Datasets"
         assert mod.meta.route_prefix == "/api/datasets"
         assert mod.meta.view_prefix == "/datasets"
+        assert "FileStorage" in mod.meta.depends_on

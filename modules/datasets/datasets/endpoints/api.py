@@ -6,7 +6,8 @@ import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
+from file_storage.contracts.service import NotSupportedError, StorageNotFoundError
 from simple_module_core.events import EventBus
 from simple_module_hosting.permissions import RequiresPermission
 
@@ -16,10 +17,8 @@ from datasets.deps import (
     get_dataset_service,
     get_event_bus,
     get_max_upload_bytes,
-    get_storage,
 )
 from datasets.service import DatasetService, UploadInput
-from datasets.storage import LocalDatasetStorage
 
 router = APIRouter()
 
@@ -42,20 +41,37 @@ async def get_dataset(
     return item
 
 
-@router.get("/{dataset_id}/download", response_class=FileResponse)
+@router.get("/{dataset_id}/download")
 async def download_dataset(
     dataset_id: int,
     service: DatasetService = Depends(get_dataset_service),
-) -> FileResponse:
+):
     handle = await service.get_file(dataset_id)
     if handle is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    if not handle.exists:
-        raise HTTPException(status_code=410, detail="Dataset file is missing on disk")
-    return FileResponse(
-        handle.path,
-        filename=handle.original_filename,
+
+    # Presigned URLs let the client bypass the app entirely for S3-like
+    # backends — avoids proxying multi-GB rasters through the worker.
+    if service.backend.supports_presigned_url:
+        try:
+            url = await service.backend.presigned_get_url(handle.storage_key, ttl_seconds=300)
+        except NotSupportedError:
+            url = None
+        if url is not None:
+            return RedirectResponse(url, status_code=302)
+
+    try:
+        stream = await handle.stream()
+    except StorageNotFoundError:
+        raise HTTPException(
+            status_code=410, detail="Dataset file is missing from storage"
+        ) from None
+
+    disposition = f'attachment; filename="{handle.original_filename}"'
+    return StreamingResponse(
+        stream,
         media_type=handle.mime_type or "application/octet-stream",
+        headers={"Content-Disposition": disposition},
     )
 
 
@@ -71,16 +87,17 @@ async def upload_dataset(
     kind: str | None = Form(default=None),
     file: UploadFile = File(...),
     service: DatasetService = Depends(get_dataset_service),
-    storage: LocalDatasetStorage = Depends(get_storage),
     bus: EventBus = Depends(get_event_bus),
     max_upload_bytes: int = Depends(get_max_upload_bytes),
 ) -> DatasetOut:
     if kind is not None and kind not in KIND_VALUES:
         raise HTTPException(status_code=422, detail=f"Unknown kind: {kind}")
 
-    storage.ensure_root()
     original_filename = file.filename or "upload.bin"
     bytes_written = 0
+    # Spool to a temp file first so the extractor (fiona / rasterio / stdlib
+    # json) can work against a path, and so the service can hand a complete
+    # stream to the storage backend.
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_path = Path(tmp.name)
         try:
@@ -112,9 +129,8 @@ async def upload_dataset(
                 kind=kind,
             )
         )
-    except Exception:
+    finally:
         tmp_path.unlink(missing_ok=True)
-        raise
 
     await bus.publish(
         DatasetUploaded(

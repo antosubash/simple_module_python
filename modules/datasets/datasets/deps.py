@@ -13,6 +13,10 @@ Downstream modules that depend on ``Datasets`` import
 Type-hint with ``IDatasetService`` (the Protocol) if you want to keep the
 dependency loosely coupled in your service layer; the DI seam here returns
 the concrete ``DatasetService`` but it implements the Protocol.
+
+The storage backend comes from the ``file_storage`` module's app-state
+slot. That seam is what lets datasets work on local FS today and S3
+tomorrow without touching this module.
 """
 
 from __future__ import annotations
@@ -20,23 +24,23 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends, Request
+from file_storage.contracts.service import StorageBackend
 from simple_module_core.events import EventBus
 from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from datasets.service import DatasetService
-from datasets.storage import LocalDatasetStorage
 
 
-def get_storage(request: Request) -> LocalDatasetStorage:
-    return request.app.state.datasets.storage
+def get_storage_backend(request: Request) -> StorageBackend:
+    return request.app.state.file_storage.backend
 
 
 async def get_dataset_service(
     db: AsyncSession = Depends(get_db),
-    storage: LocalDatasetStorage = Depends(get_storage),
+    backend: StorageBackend = Depends(get_storage_backend),
 ) -> DatasetService:
-    return DatasetService(db, storage)
+    return DatasetService(db, backend)
 
 
 def get_event_bus(request: Request) -> EventBus:

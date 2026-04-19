@@ -8,6 +8,7 @@ dependencies = [
     "simple-module-core",
     "simple-module-db",
     "simple-module-hosting",
+    "file-storage",
 ]
 
 [project.entry-points.simple_module]
@@ -26,3 +27,4 @@ build-backend = "hatchling.build"
 simple-module-core = { workspace = true }
 simple-module-db = { workspace = true }
 simple-module-hosting = { workspace = true }
+file-storage = { workspace = true }

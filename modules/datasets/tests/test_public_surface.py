@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 from datasets.service import DatasetService, UploadInput
-from datasets.storage import LocalDatasetStorage
+from file_storage.backends.filesystem import FilesystemBackend
 from sqlalchemy.ext.asyncio import AsyncSession
 
 GEOJSON_SAMPLE = {
@@ -29,6 +29,12 @@ GEOJSON_SAMPLE = {
         },
     ],
 }
+
+
+def _backend(tmp_path: Path) -> FilesystemBackend:
+    root = tmp_path / "store"
+    root.mkdir(parents=True, exist_ok=True)
+    return FilesystemBackend(root=root)
 
 
 def _make_temp_geojson(tmp_path: Path, name: str = "sample.geojson") -> tuple[Path, int]:
@@ -86,9 +92,7 @@ class TestEventShape:
 
 class TestLookupsForConsumers:
     async def test_get_by_slug(self, db_session: AsyncSession, tmp_path: Path):
-        storage = LocalDatasetStorage(tmp_path / "store")
-        storage.ensure_root()
-        svc = DatasetService(db_session, storage)
+        svc = DatasetService(db_session, _backend(tmp_path))
         path, size = _make_temp_geojson(tmp_path)
         created = await svc.register_upload(
             UploadInput(
@@ -105,9 +109,7 @@ class TestLookupsForConsumers:
         assert await svc.get_by_slug("no-such-slug") is None
 
     async def test_list_by_kind(self, db_session: AsyncSession, tmp_path: Path):
-        storage = LocalDatasetStorage(tmp_path / "store")
-        storage.ensure_root()
-        svc = DatasetService(db_session, storage)
+        svc = DatasetService(db_session, _backend(tmp_path))
         p1, s1 = _make_temp_geojson(tmp_path, "a.geojson")
         p2, s2 = _make_temp_geojson(tmp_path, "b.geojson")
         await svc.register_upload(
@@ -139,12 +141,12 @@ class TestLookupsForConsumers:
 
 
 class TestFileHandle:
-    async def test_get_file_returns_openable_handle(self, db_session: AsyncSession, tmp_path: Path):
+    async def test_get_file_returns_streamable_handle(
+        self, db_session: AsyncSession, tmp_path: Path
+    ):
         from datasets.contracts import DatasetFile
 
-        storage = LocalDatasetStorage(tmp_path / "store")
-        storage.ensure_root()
-        svc = DatasetService(db_session, storage)
+        svc = DatasetService(db_session, _backend(tmp_path))
         path, size = _make_temp_geojson(tmp_path)
         created = await svc.register_upload(
             UploadInput(
@@ -157,13 +159,37 @@ class TestFileHandle:
         )
         handle = await svc.get_file(created.id)
         assert isinstance(handle, DatasetFile)
-        assert handle.exists
+        assert await handle.exists()
         assert handle.metadata.id == created.id
-        with handle.open() as fp:
-            assert fp.read().startswith(b"{")
+        body = await handle.read()
+        assert body.startswith(b"{")
+        assert len(body) == size
+
+    async def test_materialize_to_tempfile_gives_local_path(
+        self, db_session: AsyncSession, tmp_path: Path
+    ):
+        svc = DatasetService(db_session, _backend(tmp_path))
+        path, size = _make_temp_geojson(tmp_path)
+        created = await svc.register_upload(
+            UploadInput(
+                name="LocalUsage",
+                original_filename="sample.geojson",
+                temp_path=path,
+                size_bytes=size,
+                mime_type=None,
+            )
+        )
+        handle = await svc.get_file(created.id)
+        assert handle is not None
+
+        local_path = await handle.materialize_to_tempfile()
+        try:
+            assert local_path.is_file()
+            assert local_path.suffix == ".geojson"
+            assert local_path.read_bytes().startswith(b"{")
+        finally:
+            local_path.unlink(missing_ok=True)
 
     async def test_get_file_missing_id(self, db_session: AsyncSession, tmp_path: Path):
-        storage = LocalDatasetStorage(tmp_path / "store")
-        storage.ensure_root()
-        svc = DatasetService(db_session, storage)
+        svc = DatasetService(db_session, _backend(tmp_path))
         assert await svc.get_file(9999) is None
