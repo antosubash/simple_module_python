@@ -28,6 +28,9 @@ from users.models import UserAccessToken
 if TYPE_CHECKING:
     from users.settings import UsersSettings
 
+_TOKEN_LIFETIME_SECONDS = 60 * 60 * 24 * 14  # 14 days
+_AUTH_BACKEND_NAME = "cookie"
+
 
 def build_cookie_transport(
     cookie_name: str,
@@ -46,7 +49,7 @@ def build_cookie_transport(
 
 def get_database_strategy(
     access_token_db: AccessTokenDatabase[UserAccessToken] = Depends(get_access_token_db),
-    lifetime_seconds: int = 60 * 60 * 24 * 14,
+    lifetime_seconds: int = _TOKEN_LIFETIME_SECONDS,
 ) -> DatabaseStrategy:
     return DatabaseStrategy(access_token_db, lifetime_seconds=lifetime_seconds)
 
@@ -55,7 +58,7 @@ def build_auth_backend(
     cookie_transport: CookieTransport,
 ) -> AuthenticationBackend:
     return AuthenticationBackend(
-        name="cookie",
+        name=_AUTH_BACKEND_NAME,
         transport=cookie_transport,
         get_strategy=get_database_strategy,
     )

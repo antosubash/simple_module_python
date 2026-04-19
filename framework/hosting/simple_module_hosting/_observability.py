@@ -11,7 +11,13 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from simple_module_hosting.logging import correlation_id
 
-_request_logger = logging.getLogger("simple_module.request")
+_LOGGER_NAME = "simple_module.request"
+_request_logger = logging.getLogger(_LOGGER_NAME)
+
+_SCOPE_HTTP = "http"
+_MSG_RESPONSE_START = "http.response.start"
+_EVENT_REQUEST_STARTED = "request.started"
+_EVENT_REQUEST_COMPLETED = "request.completed"
 
 # Paths that produce noisy, low-value log entries
 _QUIET_PREFIXES = ("/health", "/static/")
@@ -32,14 +38,14 @@ class CorrelationIdMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        if scope["type"] != _SCOPE_HTTP:
             await self.app(scope, receive, send)
             return
 
         cid = Headers(scope=scope).get(self.HEADER) or uuid.uuid4().hex
 
         async def send_with_header(message: Message) -> None:
-            if message["type"] == "http.response.start":
+            if message["type"] == _MSG_RESPONSE_START:
                 headers = MutableHeaders(scope=message)
                 headers[self.HEADER] = cid
             await send(message)
@@ -58,7 +64,7 @@ class RequestLoggingMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        if scope["type"] != _SCOPE_HTTP:
             await self.app(scope, receive, send)
             return
 
@@ -72,7 +78,7 @@ class RequestLoggingMiddleware:
         client_ip = client[0] if client else "unknown"
 
         _request_logger.debug(
-            "request.started",
+            _EVENT_REQUEST_STARTED,
             extra={"method": method, "path": path, "client_ip": client_ip},
         )
 
@@ -81,7 +87,7 @@ class RequestLoggingMiddleware:
 
         async def send_capture(message: Message) -> None:
             nonlocal status_code
-            if message["type"] == "http.response.start":
+            if message["type"] == _MSG_RESPONSE_START:
                 status_code = message["status"]
             await send(message)
 
@@ -91,7 +97,7 @@ class RequestLoggingMiddleware:
             # Log completion even when the inner app raises, so 500s are observable.
             duration_ms = round((time.perf_counter() - start) * 1000, 2)
             _request_logger.info(
-                "request.completed",
+                _EVENT_REQUEST_COMPLETED,
                 extra={
                     "method": method,
                     "path": path,

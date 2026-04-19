@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-memray lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-memray lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size worker beat worker-docker
 
 # Install
 install:
@@ -77,7 +77,7 @@ loadtest:                   ## Run locust against a server already on $(LOCUST_H
 loadtest-memray:            ## Start uvicorn under memray, load-test, emit flamegraph
 	scripts/loadtest_memray.sh $(LOCUST_ARGS)
 
-lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size
+lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings
 
 # Kept granular so pr.yml can run them in parallel.
 ci-python-lint:
@@ -102,6 +102,11 @@ ci-js-typecheck:
 # Exempts vendored shadcn components under packages/ui/src/components/ui/**.
 ci-check-file-size:
 	uv run python scripts/check_file_size.py
+
+# Enforce that permissions, role names, Inertia page ids, and module dependency
+# names are declared as named constants rather than hardcoded string literals.
+ci-check-hardcoded-strings:
+	uv run python scripts/check_hardcoded_strings.py
 
 # Diagnostics
 doctor:
@@ -138,7 +143,18 @@ kill:
 
 # Docker
 docker-up:
-	docker compose up -d
+	docker compose up -d postgres redis
 
 docker-down:
 	docker compose down
+
+# Celery — local dev (fast reload, no container rebuild)
+worker:                     ## Run a Celery worker locally against $(SM_BG_TASKS_BROKER_URL)
+	uv run celery -A scripts.run_worker:celery worker -l info
+
+beat:                       ## Run the Celery beat scheduler locally
+	uv run celery -A scripts.run_worker:celery beat -l info
+
+# Celery — containerized (matches prod image)
+worker-docker:              ## Build + run the worker + beat services in docker
+	docker compose up --build worker beat

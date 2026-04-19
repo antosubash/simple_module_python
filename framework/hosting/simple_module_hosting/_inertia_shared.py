@@ -11,6 +11,8 @@ from starlette.types import Scope
 logger = logging.getLogger(__name__)
 
 _I18N_SESSION_LOCALE_KEY = "__i18n_locale"
+_INERTIA_HEADER = "x-inertia"
+_INERTIA_HEADER_TRUE = "true"
 
 
 def build_i18n_block(scope: Scope, request: Request) -> dict:
@@ -38,7 +40,7 @@ def build_i18n_block(scope: Scope, request: Request) -> dict:
         )
         return {"locale": "en", "supportedLocales": ["en"], "messages": {}}
 
-    is_inertia = Headers(scope=scope).get("x-inertia") == "true"
+    is_inertia = Headers(scope=scope).get(_INERTIA_HEADER) == _INERTIA_HEADER_TRUE
     session_dict = scope.get("session")
     # When the session is absent (pre-session-middleware routes, WebSocket
     # upgrades), treat locale as "unchanged" so Inertia XHR requests still
