@@ -15,7 +15,7 @@ import os
 from datetime import UTC, datetime, timedelta
 
 from celery import shared_task
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, update
 
 from background_tasks.constants import (
     DEFAULT_RETENTION_DAYS,
@@ -78,25 +78,16 @@ def purge_old_executions() -> int:
     cutoff = datetime.now(UTC) - timedelta(days=retention_days)
 
     with sync_session() as session:
-        # Read first so the log line is accurate; the delete is one
-        # statement either way.
-        to_delete = (
-            session.execute(
-                select(TaskExecution.id)
-                .where(TaskExecution.status.in_(list(TERMINAL_STATUSES)))
-                .where(TaskExecution.finished_at < cutoff)
+        result = session.execute(
+            delete(TaskExecution)
+            .where(TaskExecution.status.in_(list(TERMINAL_STATUSES)))
+            .where(TaskExecution.finished_at < cutoff)
+        )
+        count = result.rowcount or 0
+        if count:
+            logger.info(
+                "purge_old_executions removed %d row(s) older than %d days",
+                count,
+                retention_days,
             )
-            .scalars()
-            .all()
-        )
-
-        if not to_delete:
-            return 0
-
-        session.execute(delete(TaskExecution).where(TaskExecution.id.in_(to_delete)))
-        logger.info(
-            "purge_old_executions removed %d row(s) older than %d days",
-            len(to_delete),
-            retention_days,
-        )
-        return len(to_delete)
+        return count

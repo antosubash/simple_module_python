@@ -20,12 +20,11 @@ import {
 } from '@simple-module/ui/components/ui/table';
 import { usePermissions } from '@simple-module/ui/hooks/use-permissions';
 import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
-import { fetchWithCsrf } from '@simple-module/ui/lib/csrf';
 import { Activity, Search } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
-import { type Execution, ExecutionRow, statusLabel } from './components/ExecutionRow';
-import { API_BASE, STATUS_ORDER, VIEW_BASE } from './constants';
+import { useEffect, useState } from 'react';
+import { ExecutionRow, statusLabel } from './components/ExecutionRow';
+import { STATUS_ORDER, VIEW_BASE } from './constants';
+import { type Execution, retryExecution } from './retry';
 
 interface Pagination {
   page: number;
@@ -33,18 +32,21 @@ interface Pagination {
   total: number;
 }
 
-interface Filters {
-  status: string;
-  task_name: string;
-}
-
 interface Props {
   executions: Execution[];
   pagination: Pagination;
-  filters: Filters;
+  filters: { status: string; task_name: string };
 }
 
 const STATUS_ALL = '__all__';
+
+function pushFilters(filters: { status: string; task_name: string }, page: number): void {
+  const params: Record<string, string> = {};
+  if (filters.task_name) params.q = filters.task_name;
+  if (filters.status && filters.status !== STATUS_ALL) params.status = filters.status;
+  if (page > 1) params.page = String(page);
+  router.get(VIEW_BASE, params, { preserveState: true, preserveScroll: true });
+}
 
 function Index() {
   const {
@@ -57,47 +59,23 @@ function Index() {
   const canRetry = can('background_tasks.manage');
 
   const [search, setSearch] = useState(initialFilters.task_name ?? '');
-  const [status, setStatus] = useState<string>(initialFilters.status || STATUS_ALL);
+  const totalPages = Math.ceil(pagination.total / pagination.per_page);
+  const statusValue = initialFilters.status || STATUS_ALL;
 
-  const totalPages = useMemo(
-    () => Math.ceil(pagination.total / pagination.per_page),
-    [pagination.total, pagination.per_page],
-  );
-
-  const navigate = useCallback(
-    (opts: { page?: number; q?: string; status?: string }) => {
-      const params: Record<string, string> = {};
-      const q = opts.q ?? search;
-      const s = opts.status ?? status;
-      const page = opts.page ?? 1;
-      if (q) params.q = q;
-      if (s && s !== STATUS_ALL) params.status = s;
-      if (page > 1) params.page = String(page);
-      router.get(VIEW_BASE, params, { preserveState: true, preserveScroll: true });
-    },
-    [search, status],
-  );
-
+  // Debounce search: any change from the server-provided value kicks off a
+  // page-1 navigation 300ms after the user stops typing.
   useEffect(() => {
     if (search === (initialFilters.task_name ?? '')) return;
-    const timeout = setTimeout(() => navigate({ q: search }), 300);
+    const timeout = setTimeout(
+      () => pushFilters({ status: statusValue, task_name: search }, 1),
+      300,
+    );
     return () => clearTimeout(timeout);
-  }, [search, initialFilters.task_name, navigate]);
+  }, [search, initialFilters.task_name, statusValue]);
 
   async function handleRetry(execution: Execution) {
-    try {
-      const res = await fetchWithCsrf(`${API_BASE}/executions/${execution.id}/retry`, {
-        method: 'POST',
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || `HTTP ${res.status}`);
-      }
-      toast.success(`Task "${execution.task_name}" re-enqueued`);
-      router.reload({ only: ['executions', 'pagination'] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to retry task');
-    }
+    const created = await retryExecution(execution);
+    if (created) router.reload({ only: ['executions', 'pagination'] });
   }
 
   return (
@@ -116,11 +94,8 @@ function Index() {
           />
         </div>
         <Select
-          value={status}
-          onValueChange={(v) => {
-            setStatus(v);
-            navigate({ status: v, page: 1 });
-          }}
+          value={statusValue}
+          onValueChange={(v) => pushFilters({ status: v, task_name: search }, 1)}
         >
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="Status" />
@@ -177,7 +152,9 @@ function Index() {
             variant="outline"
             size="sm"
             disabled={pagination.page <= 1}
-            onClick={() => navigate({ page: pagination.page - 1 })}
+            onClick={() =>
+              pushFilters({ status: statusValue, task_name: search }, pagination.page - 1)
+            }
           >
             Previous
           </Button>
@@ -188,7 +165,9 @@ function Index() {
             variant="outline"
             size="sm"
             disabled={pagination.page >= totalPages}
-            onClick={() => navigate({ page: pagination.page + 1 })}
+            onClick={() =>
+              pushFilters({ status: statusValue, task_name: search }, pagination.page + 1)
+            }
           >
             Next
           </Button>

@@ -10,10 +10,7 @@ from simple_module_core.events import EventBus
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from background_tasks.constants import (
-    RETRYABLE_STATUSES,
-    TaskStatus,
-)
+from background_tasks.constants import RETRYABLE_STATUSES, TaskStatus
 from background_tasks.contracts.events import TaskRetried
 from background_tasks.contracts.schemas import (
     TaskExecutionDetail,
@@ -38,7 +35,7 @@ class BackgroundTaskService:
     def __init__(
         self,
         db: AsyncSession,
-        celery: Celery | None,
+        celery: Celery,
         event_bus: EventBus,
     ) -> None:
         self.db = db
@@ -57,30 +54,27 @@ class BackgroundTaskService:
         page = max(page, 1)
         per_page = max(1, min(per_page, 200))
 
-        filters = []
+        # A window-function total lets us fetch the page and the count in a
+        # single round trip. SQLAlchemy's ``AsyncSession`` serialises calls on
+        # one connection, so ``asyncio.gather`` wouldn't help here.
+        total_col = func.count().over().label("_total")
+        query = select(TaskExecution, total_col)
         if status is not None:
-            filters.append(TaskExecution.status == status)
+            query = query.where(TaskExecution.status == status)
         if task_name:
-            filters.append(TaskExecution.task_name.ilike(f"%{task_name}%"))
-
-        base = select(TaskExecution)
-        for f in filters:
-            base = base.where(f)
-
-        count_query = select(func.count()).select_from(TaskExecution)
-        for f in filters:
-            count_query = count_query.where(f)
-        total = (await self.db.execute(count_query)).scalar() or 0
-
+            query = query.where(TaskExecution.task_name.ilike(f"%{task_name}%"))
         query = (
-            base.order_by(TaskExecution.queued_at.desc().nulls_last())
+            query.order_by(TaskExecution.queued_at.desc().nulls_last())
             .offset((page - 1) * per_page)
             .limit(per_page)
         )
-        rows = (await self.db.execute(query)).scalars().all()
+
+        result = (await self.db.execute(query)).all()
+        items = [TaskExecutionListItem.model_validate(row[0]) for row in result]
+        total = int(result[0][1]) if result else 0
 
         return TaskExecutionListResponse(
-            items=[TaskExecutionListItem.model_validate(r) for r in rows],
+            items=items,
             total=total,
             page=page,
             per_page=per_page,
@@ -104,9 +98,6 @@ class BackgroundTaskService:
         if row is None:
             raise HTTPException(status_code=404, detail="Task execution not found")
 
-        # ``row.status`` is a plain string when loaded from SQLite (the
-        # column is VARCHAR), a TaskStatus when set via the model. StrEnum
-        # compares equal to its string value either way.
         if row.status not in RETRYABLE_STATUSES:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -114,15 +105,6 @@ class BackgroundTaskService:
                     f"Task execution status is {str(row.status)!r}; "
                     "only failed or stuck tasks can be retried."
                 ),
-            )
-
-        if self.celery is None:
-            # Only happens if on_startup hasn't run — e.g. in a test that
-            # instantiates the service without wiring Celery. Fail loudly
-            # rather than silently swallowing the retry.
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Celery is not initialized; cannot enqueue retry.",
             )
 
         async_result = self.celery.send_task(

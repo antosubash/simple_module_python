@@ -198,8 +198,8 @@ class TestUpsertHelper:
             upsert_by_celery_id(
                 session,
                 celery_task_id=cid,
-                task_name="demo.upsert",
                 defaults={
+                    "task_name": "demo.upsert",
                     "status": TaskStatus.PENDING,
                     "args": [],
                     "kwargs": {},
@@ -210,7 +210,6 @@ class TestUpsertHelper:
             upsert_by_celery_id(
                 session,
                 celery_task_id=cid,
-                task_name="demo.upsert",
                 defaults={"status": TaskStatus.SUCCESS},
             )
             session.commit()

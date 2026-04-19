@@ -20,6 +20,7 @@ from importlib.metadata import entry_points
 
 from celery import Celery
 from celery.schedules import schedule
+from simple_module_core.discovery import ENTRY_POINT_GROUP
 
 from background_tasks.constants import (
     INTERNAL_TASK_PURGE_OLD,
@@ -30,8 +31,6 @@ from background_tasks.settings import BackgroundTasksSettings
 
 logger = logging.getLogger(__name__)
 
-_ENTRY_POINT_GROUP = "simple_module"
-
 
 def _discover_task_packages() -> list[str]:
     """Return the top-level package name of every installed simple_module.
@@ -41,9 +40,7 @@ def _discover_task_packages() -> list[str]:
     tasks without a per-module hook.
     """
     packages: set[str] = set()
-    for ep in entry_points(group=_ENTRY_POINT_GROUP):
-        # ep.value looks like "background_tasks.module:BackgroundTasksModule".
-        # We want just the top-level package name.
+    for ep in entry_points(group=ENTRY_POINT_GROUP):
         module_path = ep.value.split(":", 1)[0]
         top_level = module_path.split(".", 1)[0]
         packages.add(top_level)

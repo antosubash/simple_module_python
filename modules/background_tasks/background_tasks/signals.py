@@ -13,6 +13,7 @@ engine, and :mod:`._signal_support` for the shared helpers.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from celery import signals
@@ -22,13 +23,32 @@ from background_tasks._signal_support import (
     jsonable_result,
     now_utc,
     render_traceback,
+    task_id_from,
     task_name_of,
     upsert_by_celery_id,
 )
 from background_tasks.constants import DEFAULT_QUEUE, TaskStatus
+from background_tasks.models import TaskExecution
 from background_tasks.sync_db import sync_session
 
 logger = logging.getLogger(__name__)
+
+
+def _apply(
+    handler: str,
+    *,
+    celery_task_id: str | None,
+    defaults: dict[str, Any],
+    after: Callable[[TaskExecution], None] | None = None,
+) -> None:
+    """Open a sync session, upsert by celery_task_id, log on failure."""
+    try:
+        with sync_session() as session:
+            row = upsert_by_celery_id(session, celery_task_id=celery_task_id, defaults=defaults)
+            if after is not None:
+                after(row)
+    except Exception:
+        logger.exception("%s failed for task_id=%s", handler, celery_task_id)
 
 
 # ── Enqueue ─────────────────────────────────────────────────────
@@ -53,23 +73,18 @@ def on_task_publish(
         args_in, kwargs_in = body[0], body[1]
     args, kwargs = coerce_args_kwargs(args_in, kwargs_in)
 
-    try:
-        with sync_session() as session:
-            upsert_by_celery_id(
-                session,
-                celery_task_id=task_id,
-                task_name=task_name,
-                defaults={
-                    "task_name": task_name,
-                    "status": TaskStatus.PENDING,
-                    "queue": routing_key or DEFAULT_QUEUE,
-                    "args": args,
-                    "kwargs": kwargs,
-                    "queued_at": now_utc(),
-                },
-            )
-    except Exception:
-        logger.exception("on_task_publish failed for task_id=%s", task_id)
+    _apply(
+        "on_task_publish",
+        celery_task_id=task_id,
+        defaults={
+            "task_name": task_name,
+            "status": TaskStatus.PENDING,
+            "queue": routing_key or DEFAULT_QUEUE,
+            "args": args,
+            "kwargs": kwargs,
+            "queued_at": now_utc(),
+        },
+    )
 
 
 # ── Execution lifecycle ─────────────────────────────────────────
@@ -85,26 +100,20 @@ def on_task_prerun(
     **_k: Any,
 ) -> None:
     """Flip the row to ``running`` and start the heartbeat."""
-    task_name = task_name_of(sender, task)
     args_n, kwargs_n = coerce_args_kwargs(args, kwargs)
     now = now_utc()
-    try:
-        with sync_session() as session:
-            upsert_by_celery_id(
-                session,
-                celery_task_id=task_id,
-                task_name=task_name,
-                defaults={
-                    "task_name": task_name,
-                    "status": TaskStatus.RUNNING,
-                    "args": args_n,
-                    "kwargs": kwargs_n,
-                    "started_at": now,
-                    "heartbeat_at": now,
-                },
-            )
-    except Exception:
-        logger.exception("on_task_prerun failed for task_id=%s", task_id)
+    _apply(
+        "on_task_prerun",
+        celery_task_id=task_id,
+        defaults={
+            "task_name": task_name_of(sender, task),
+            "status": TaskStatus.RUNNING,
+            "args": args_n,
+            "kwargs": kwargs_n,
+            "started_at": now,
+            "heartbeat_at": now,
+        },
+    )
 
 
 @signals.task_postrun.connect
@@ -120,39 +129,27 @@ def on_task_postrun(
     ``task_retry`` which fire *before* postrun; postrun only refreshes the
     heartbeat so the sweep doesn't immediately flip a just-finished row.
     """
-    task_name = task_name_of(sender, task)
-    try:
-        with sync_session() as session:
-            upsert_by_celery_id(
-                session,
-                celery_task_id=task_id,
-                task_name=task_name,
-                defaults={"heartbeat_at": now_utc()},
-            )
-    except Exception:
-        logger.exception("on_task_postrun failed for task_id=%s", task_id)
+    _apply(
+        "on_task_postrun",
+        celery_task_id=task_id,
+        defaults={"task_name": task_name_of(sender, task), "heartbeat_at": now_utc()},
+    )
 
 
 @signals.task_success.connect
 def on_task_success(sender: Any = None, result: Any = None, **_k: Any) -> None:
-    task_id = getattr(sender.request, "id", None) if sender is not None else None
-    task_name = getattr(sender, "name", None) or "unknown"
-    try:
-        with sync_session() as session:
-            upsert_by_celery_id(
-                session,
-                celery_task_id=task_id,
-                task_name=task_name,
-                defaults={
-                    "status": TaskStatus.SUCCESS,
-                    "result": jsonable_result(result),
-                    "finished_at": now_utc(),
-                    "traceback": None,
-                    "exception_type": None,
-                },
-            )
-    except Exception:
-        logger.exception("on_task_success failed for task_id=%s", task_id)
+    _apply(
+        "on_task_success",
+        celery_task_id=task_id_from(sender=sender),
+        defaults={
+            "task_name": task_name_of(sender),
+            "status": TaskStatus.SUCCESS,
+            "result": jsonable_result(result),
+            "finished_at": now_utc(),
+            "traceback": None,
+            "exception_type": None,
+        },
+    )
 
 
 @signals.task_failure.connect
@@ -163,24 +160,17 @@ def on_task_failure(
     einfo: Any = None,
     **_k: Any,
 ) -> None:
-    task_name = getattr(sender, "name", None) or "unknown"
-    tb = render_traceback(einfo, exception)
-    exc_type = type(exception).__name__ if exception is not None else None
-    try:
-        with sync_session() as session:
-            upsert_by_celery_id(
-                session,
-                celery_task_id=task_id,
-                task_name=task_name,
-                defaults={
-                    "status": TaskStatus.FAILED,
-                    "traceback": tb,
-                    "exception_type": exc_type,
-                    "finished_at": now_utc(),
-                },
-            )
-    except Exception:
-        logger.exception("on_task_failure failed for task_id=%s", task_id)
+    _apply(
+        "on_task_failure",
+        celery_task_id=task_id,
+        defaults={
+            "task_name": task_name_of(sender),
+            "status": TaskStatus.FAILED,
+            "traceback": render_traceback(einfo, exception),
+            "exception_type": type(exception).__name__ if exception is not None else None,
+            "finished_at": now_utc(),
+        },
+    )
 
 
 @signals.task_retry.connect
@@ -190,43 +180,33 @@ def on_task_retry(
     reason: Any = None,
     **_k: Any,
 ) -> None:
-    task_id = getattr(request, "id", None) if request is not None else None
-    task_name = getattr(sender, "name", None) or "unknown"
-    retries = int(getattr(request, "retries", 0) or 0)
-    try:
-        with sync_session() as session:
-            row = upsert_by_celery_id(
-                session,
-                celery_task_id=task_id,
-                task_name=task_name,
-                defaults={
-                    "status": TaskStatus.RETRYING,
-                    "retries": retries,
-                    "heartbeat_at": now_utc(),
-                },
-            )
-            # Preserve the latest reason for the UI without nulling a
-            # previously-captured traceback.
-            if reason is not None:
-                row.traceback = f"retry: {reason!r}"
-    except Exception:
-        logger.exception("on_task_retry failed for task_id=%s", task_id)
+    def _stamp_reason(row: TaskExecution) -> None:
+        # Preserve the latest reason for the UI without nulling a
+        # previously-captured traceback.
+        if reason is not None:
+            row.traceback = f"retry: {reason!r}"
+
+    _apply(
+        "on_task_retry",
+        celery_task_id=task_id_from(request=request),
+        defaults={
+            "task_name": task_name_of(sender),
+            "status": TaskStatus.RETRYING,
+            "retries": int(getattr(request, "retries", 0) or 0),
+            "heartbeat_at": now_utc(),
+        },
+        after=_stamp_reason,
+    )
 
 
 @signals.task_revoked.connect
 def on_task_revoked(sender: Any = None, request: Any = None, **_k: Any) -> None:
-    task_id = getattr(request, "id", None) if request is not None else None
-    task_name = getattr(sender, "name", None) or "unknown"
-    try:
-        with sync_session() as session:
-            upsert_by_celery_id(
-                session,
-                celery_task_id=task_id,
-                task_name=task_name,
-                defaults={
-                    "status": TaskStatus.REVOKED,
-                    "finished_at": now_utc(),
-                },
-            )
-    except Exception:
-        logger.exception("on_task_revoked failed for task_id=%s", task_id)
+    _apply(
+        "on_task_revoked",
+        celery_task_id=task_id_from(request=request),
+        defaults={
+            "task_name": task_name_of(sender),
+            "status": TaskStatus.REVOKED,
+            "finished_at": now_utc(),
+        },
+    )

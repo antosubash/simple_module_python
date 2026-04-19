@@ -53,6 +53,20 @@ def get_sync_session_factory() -> sessionmaker[Session]:
     return _session_factory
 
 
+def dispose_sync_engine() -> None:
+    """Release pooled connections and drop the cached engine.
+
+    Called from :meth:`BackgroundTasksModule.on_shutdown` so lifespan
+    restarts within one process (test runners, uvicorn dev reload) don't
+    accumulate engines against the old DB URL.
+    """
+    global _engine, _session_factory
+    if _engine is not None:
+        _engine.dispose()
+    _engine = None
+    _session_factory = None
+
+
 @contextmanager
 def sync_session() -> Iterator[Session]:
     """Open a short-lived sync session; commit on success, rollback on error."""

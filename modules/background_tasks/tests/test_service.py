@@ -185,14 +185,3 @@ class TestRetry:
         with pytest.raises(HTTPException) as exc:
             await service.retry(uuid.uuid4())
         assert exc.value.status_code == 404
-
-    async def test_retry_without_celery_503s(self, db_session: AsyncSession, event_bus: EventBus):
-        service = BackgroundTaskService(db=db_session, celery=None, event_bus=event_bus)
-        row = _make_row(status=TaskStatus.FAILED)
-        db_session.add(row)
-        await db_session.flush()
-        await db_session.refresh(row)
-
-        with pytest.raises(HTTPException) as exc:
-            await service.retry(row.id)
-        assert exc.value.status_code == 503

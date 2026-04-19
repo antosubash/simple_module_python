@@ -90,7 +90,9 @@ class BackgroundTasksModule(ModuleBase):
         )
 
     async def on_shutdown(self, app: FastAPI) -> None:
-        services = getattr(app.state, "background_tasks", None)
-        celery = getattr(services, "celery", None) if services else None
-        if celery is not None:
-            celery.close()
+        from background_tasks.sync_db import dispose_sync_engine
+
+        services = app.state.background_tasks
+        if services.celery is not None:
+            services.celery.close()
+        dispose_sync_engine()

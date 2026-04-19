@@ -1,31 +1,15 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { PageShell } from '@simple-module/ui/components/PageShell';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@simple-module/ui/components/ui/alert-dialog';
 import { Badge } from '@simple-module/ui/components/ui/badge';
 import { Button } from '@simple-module/ui/components/ui/button';
 import { Card } from '@simple-module/ui/components/ui/card';
 import { usePermissions } from '@simple-module/ui/hooks/use-permissions';
 import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
-import { fetchWithCsrf } from '@simple-module/ui/lib/csrf';
 import { ArrowLeft, RefreshCcw } from 'lucide-react';
-import { toast } from 'sonner';
-import {
-  API_BASE,
-  RETRYABLE_STATUSES,
-  STATUS_BADGE_VARIANT,
-  type TaskStatus,
-  VIEW_BASE,
-} from './constants';
+import type { ReactNode } from 'react';
+import { RetryConfirmDialog } from './components/RetryConfirmDialog';
+import { RETRYABLE_STATUSES, STATUS_BADGE_VARIANT, type TaskStatus, VIEW_BASE } from './constants';
+import { retryExecution } from './retry';
 
 interface Execution {
   id: string;
@@ -47,10 +31,6 @@ interface Execution {
   heartbeat_at: string | null;
 }
 
-interface Props {
-  execution: Execution;
-}
-
 function statusLabel(status: TaskStatus): string {
   return status[0].toUpperCase() + status.slice(1);
 }
@@ -68,27 +48,42 @@ function formatTs(ts: string | null): string {
   return ts ? new Date(ts).toLocaleString() : '—';
 }
 
+function JsonCard({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <Card className="p-4">
+      <h3 className="font-semibold mb-2">{title}</h3>
+      {children}
+    </Card>
+  );
+}
+
+function JsonBlock({ value }: { value: unknown }) {
+  return (
+    <pre className="text-xs bg-muted rounded p-3 overflow-x-auto whitespace-pre-wrap">
+      {pretty(value)}
+    </pre>
+  );
+}
+
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className={mono ? 'font-mono text-xs break-all text-right' : 'text-right'}>{value}</dd>
+    </div>
+  );
+}
+
 function Detail() {
-  const { execution } = usePage<{ props: Props }>().props as unknown as Props;
+  const { execution } = usePage<{ props: { execution: Execution } }>().props as unknown as {
+    execution: Execution;
+  };
   const { can } = usePermissions();
-  const canRetry = can('background_tasks.manage');
-  const retryable = RETRYABLE_STATUSES.has(execution.status) && canRetry;
+  const retryable = RETRYABLE_STATUSES.has(execution.status) && can('background_tasks.manage');
 
   async function handleRetry() {
-    try {
-      const res = await fetchWithCsrf(`${API_BASE}/executions/${execution.id}/retry`, {
-        method: 'POST',
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || `HTTP ${res.status}`);
-      }
-      const created = (await res.json()) as Execution;
-      toast.success(`Task "${execution.task_name}" re-enqueued`);
-      router.visit(`${VIEW_BASE}/${created.id}`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to retry task');
-    }
+    const created = await retryExecution(execution);
+    if (created) router.visit(`${VIEW_BASE}/${created.id}`);
   }
 
   return (
@@ -104,26 +99,15 @@ function Detail() {
             </Link>
           </Button>
           {retryable && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <RetryConfirmDialog
+              trigger={
                 <Button size="sm">
                   <RefreshCcw />
                   Retry task
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Retry this task?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    A new task execution will be enqueued with the same arguments.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleRetry}>Retry task</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              }
+              onConfirm={handleRetry}
+            />
           )}
         </div>
       }
@@ -166,28 +150,18 @@ function Detail() {
         </Card>
 
         <div className="lg:col-span-2 flex flex-col gap-4">
-          <Card className="p-4">
-            <h3 className="font-semibold mb-2">Arguments</h3>
-            <pre className="text-xs bg-muted rounded p-3 overflow-x-auto whitespace-pre-wrap">
-              {pretty(execution.args)}
-            </pre>
-          </Card>
-          <Card className="p-4">
-            <h3 className="font-semibold mb-2">Keyword arguments</h3>
-            <pre className="text-xs bg-muted rounded p-3 overflow-x-auto whitespace-pre-wrap">
-              {pretty(execution.kwargs)}
-            </pre>
-          </Card>
+          <JsonCard title="Arguments">
+            <JsonBlock value={execution.args} />
+          </JsonCard>
+          <JsonCard title="Keyword arguments">
+            <JsonBlock value={execution.kwargs} />
+          </JsonCard>
           {execution.result !== null && (
-            <Card className="p-4">
-              <h3 className="font-semibold mb-2">Result</h3>
-              <pre className="text-xs bg-muted rounded p-3 overflow-x-auto whitespace-pre-wrap">
-                {pretty(execution.result)}
-              </pre>
-            </Card>
+            <JsonCard title="Result">
+              <JsonBlock value={execution.result} />
+            </JsonCard>
           )}
-          <Card className="p-4">
-            <h3 className="font-semibold mb-2">Traceback</h3>
+          <JsonCard title="Traceback">
             {execution.traceback ? (
               <pre className="text-xs bg-muted rounded p-3 overflow-x-auto whitespace-pre-wrap">
                 {execution.traceback}
@@ -195,19 +169,10 @@ function Detail() {
             ) : (
               <p className="text-sm text-muted-foreground">No traceback recorded.</p>
             )}
-          </Card>
+          </JsonCard>
         </div>
       </div>
     </PageShell>
-  );
-}
-
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="flex justify-between gap-3">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className={mono ? 'font-mono text-xs break-all text-right' : 'text-right'}>{value}</dd>
-    </div>
   );
 }
 

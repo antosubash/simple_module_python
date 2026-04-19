@@ -36,11 +36,11 @@ def upsert_by_celery_id(
     session: Session,
     *,
     celery_task_id: str | None,
-    task_name: str,
     defaults: dict[str, Any],
 ) -> TaskExecution:
-    """Fetch the row for ``celery_task_id``, or create it with ``defaults``.
+    """Fetch the row for ``celery_task_id``, or create it from ``defaults``.
 
+    ``defaults`` must include ``task_name`` (it's NOT NULL on the table).
     Handlers never race on the same row within a worker process — Celery
     serialises per-task signals — so this is upsert-by-read, no advisory
     locks needed.
@@ -50,10 +50,7 @@ def upsert_by_celery_id(
         stmt = select(TaskExecution).where(TaskExecution.celery_task_id == celery_task_id)
         row = session.execute(stmt).scalar_one_or_none()
     if row is None:
-        # Callers sometimes include ``task_name`` in defaults too — let their
-        # value win, but ensure a name is always set.
-        row_kwargs = {"task_name": task_name, **defaults}
-        row = TaskExecution(celery_task_id=celery_task_id, **row_kwargs)
+        row = TaskExecution(celery_task_id=celery_task_id, **defaults)
         session.add(row)
     else:
         for key, value in defaults.items():
@@ -61,7 +58,7 @@ def upsert_by_celery_id(
     return row
 
 
-def task_name_of(sender: Any, task: Any) -> str:
+def task_name_of(sender: Any, task: Any = None) -> str:
     """Best-effort resolution of a task's registered name from signal args."""
     return (
         (isinstance(sender, str) and sender)
@@ -69,6 +66,21 @@ def task_name_of(sender: Any, task: Any) -> str:
         or getattr(sender, "name", None)
         or "unknown"
     )
+
+
+def task_id_from(sender: Any = None, request: Any = None) -> str | None:
+    """Pull the Celery task UUID out of whichever signal-arg carries it.
+
+    Celery's signals pass the task id via three different shapes depending
+    on the signal: ``task_id=`` kwarg, ``request.id``, or ``sender.request.id``.
+    Centralising the probe keeps the per-handler code boring.
+    """
+    if request is not None:
+        tid = getattr(request, "id", None)
+        if tid:
+            return tid
+    sender_request = getattr(sender, "request", None)
+    return getattr(sender_request, "id", None) if sender_request is not None else None
 
 
 def jsonable_result(result: Any) -> dict[str, Any] | None:

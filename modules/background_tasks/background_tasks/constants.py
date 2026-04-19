@@ -56,9 +56,6 @@ RETRYABLE_STATUSES: frozenset[TaskStatus] = frozenset({TaskStatus.FAILED, TaskSt
 TERMINAL_STATUSES: frozenset[TaskStatus] = frozenset(
     {TaskStatus.SUCCESS, TaskStatus.FAILED, TaskStatus.STUCK, TaskStatus.REVOKED}
 )
-RUNNING_STATUSES: frozenset[TaskStatus] = frozenset(
-    {TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.RETRYING}
-)
 
 # ── Defaults ────────────────────────────────────────────────────
 DEFAULT_QUEUE = "default"
@@ -73,12 +70,3 @@ DEFAULT_MAX_RETRIES = 3
 # ── Internal task names ─────────────────────────────────────────
 INTERNAL_TASK_SWEEP_STUCK = "background_tasks.sweep_stuck_tasks"
 INTERNAL_TASK_PURGE_OLD = "background_tasks.purge_old_executions"
-
-# ── Celery signal knobs ─────────────────────────────────────────
-# Celery's built-in state strings don't line up 1:1 with TaskStatus, so we
-# map at the signal layer. These are the keys we read off Celery state.
-CELERY_STATE_STARTED = "STARTED"
-CELERY_STATE_SUCCESS = "SUCCESS"
-CELERY_STATE_FAILURE = "FAILURE"
-CELERY_STATE_RETRY = "RETRY"
-CELERY_STATE_REVOKED = "REVOKED"

@@ -1,41 +1,17 @@
 import { Link } from '@inertiajs/react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@simple-module/ui/components/ui/alert-dialog';
 import { Badge } from '@simple-module/ui/components/ui/badge';
 import { Button } from '@simple-module/ui/components/ui/button';
 import { TableCell, TableRow } from '@simple-module/ui/components/ui/table';
 import { RefreshCcw } from 'lucide-react';
-import { RETRYABLE_STATUSES, STATUS_BADGE_VARIANT, type TaskStatus, VIEW_BASE } from '../constants';
+import { RETRYABLE_STATUSES, STATUS_BADGE_VARIANT, VIEW_BASE } from '../constants';
+import type { Execution } from '../retry';
+import { RetryConfirmDialog } from './RetryConfirmDialog';
 
-export interface Execution {
-  id: string;
-  celery_task_id: string | null;
-  task_name: string;
-  status: TaskStatus;
-  queue: string;
-  retries: number;
-  worker: string | null;
-  queued_at: string | null;
-  started_at: string | null;
-  finished_at: string | null;
-  exception_type: string | null;
-  retried_from_id: string | null;
-}
-
-function statusLabel(status: TaskStatus): string {
+function statusLabel(status: string): string {
   return status[0].toUpperCase() + status.slice(1);
 }
 
-function durationMs(started: string | null, finished: string | null): string {
+function formatDuration(started: string | null, finished: string | null): string {
   if (!started) return '—';
   const end = finished ? new Date(finished) : new Date();
   const ms = end.getTime() - new Date(started).getTime();
@@ -77,33 +53,21 @@ export function ExecutionRow({ execution, canRetry, onRetry }: Props) {
         {execution.queued_at ? new Date(execution.queued_at).toLocaleString() : '—'}
       </TableCell>
       <TableCell className="hidden sm:table-cell text-sm tabular-nums">
-        {durationMs(execution.started_at, execution.finished_at)}
+        {formatDuration(execution.started_at, execution.finished_at)}
       </TableCell>
       <TableCell className="hidden xl:table-cell text-sm text-muted-foreground">
         {execution.worker || '—'}
       </TableCell>
       <TableCell className="text-right">
         {retryable ? (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+          <RetryConfirmDialog
+            trigger={
               <Button variant="ghost" size="icon-sm">
                 <RefreshCcw />
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Retry this task?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  A new task execution will be enqueued with the same arguments. The original row is
-                  kept for history.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => onRetry(execution)}>Retry task</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+            }
+            onConfirm={() => onRetry(execution)}
+          />
         ) : (
           <span className="text-sm text-muted-foreground">—</span>
         )}
