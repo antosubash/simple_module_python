@@ -64,6 +64,7 @@ extra-paths = [
     "modules/dashboard",
     "modules/products",
     "modules/users",
+    "modules/gis_datasets",
     "host",
 ]
 
@@ -95,7 +96,7 @@ invalid-argument-type = "ignore"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["framework/core/tests", "framework/db/tests", "framework/hosting/tests", "framework/testing/tests", "host/tests", "modules/auth/tests", "modules/dashboard/tests", "modules/products/tests", "modules/users/tests", "tests/integration", "tests/e2e", "tests/benchmarks"]
+testpaths = ["framework/core/tests", "framework/db/tests", "framework/hosting/tests", "framework/testing/tests", "host/tests", "modules/auth/tests", "modules/dashboard/tests", "modules/products/tests", "modules/users/tests", "modules/gis_datasets/tests", "tests/integration", "tests/e2e", "tests/benchmarks"]
 markers = [
     "e2e: end-to-end tests requiring a live browser",
     "perf: performance benchmarks (opt-in; run via `make bench`)",

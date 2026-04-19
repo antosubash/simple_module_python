@@ -1,0 +1,67 @@
+{
+  "browse": {
+    "title": "GIS Datasets",
+    "description": "Upload and manage geospatial datasets",
+    "new_button": "Upload Dataset",
+    "empty_title": "No datasets yet",
+    "empty_description": "Upload your first geospatial dataset to get started.",
+    "create_button": "Upload Dataset"
+  },
+  "table": {
+    "name": "Name",
+    "kind": "Kind",
+    "crs": "CRS",
+    "bbox": "Bounding Box",
+    "size": "Size",
+    "actions": "Actions"
+  },
+  "form": {
+    "name_label": "Name",
+    "name_placeholder": "Descriptive name for the dataset",
+    "description_label": "Description",
+    "description_placeholder": "Optional notes about the dataset",
+    "kind_label": "Kind",
+    "kind_auto": "Auto-detect from filename",
+    "file_label": "File",
+    "crs_label": "CRS",
+    "cancel_button": "Cancel"
+  },
+  "create": {
+    "title": "Upload Dataset",
+    "description": "Add a geospatial dataset to the catalog",
+    "submit_button": "Upload",
+    "submitting_button": "Uploading..."
+  },
+  "edit": {
+    "title": "Edit: {name}",
+    "description": "Update dataset metadata",
+    "back_button": "Back to Datasets",
+    "submit_button": "Save Changes",
+    "submitting_button": "Saving..."
+  },
+  "show": {
+    "download": "Download",
+    "edit": "Edit",
+    "kind": "Kind",
+    "original_file": "Original filename",
+    "size": "Size",
+    "mime_type": "MIME type",
+    "crs": "CRS",
+    "bbox": "Bounding box",
+    "features": "Feature count",
+    "bands": "Band count",
+    "extraction_status": "Extraction status"
+  },
+  "toasts": {
+    "created": "Dataset uploaded",
+    "updated": "Dataset updated",
+    "deleted": "Dataset deleted"
+  },
+  "validation": {
+    "name_required": "Name is required",
+    "file_required": "Please choose a file to upload"
+  },
+  "errors": {
+    "not_found": "Dataset not found"
+  }
+}

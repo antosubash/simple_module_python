@@ -76,7 +76,12 @@ class TestHealthReady:
         assert "connection refused" in data["checks"]["broken_service"]["detail"]
 
     async def test_ready_no_checks_is_healthy(self, client: httpx.AsyncClient):
+        # Modules may register their own health checks (e.g. gis_datasets
+        # probes its storage dir). Assert the aggregate is healthy and
+        # every reported check is healthy, rather than requiring zero
+        # checks — which would break whenever a new module joins boot.
         resp = await client.get("/health/ready")
         data = resp.json()
         assert data["status"] == "healthy"
-        assert data["checks"] == {}
+        for name, payload in data["checks"].items():
+            assert payload["status"] == "healthy", f"{name} not healthy: {payload}"
