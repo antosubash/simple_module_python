@@ -7,23 +7,29 @@ module-level engine cache is also reset so each test gets a fresh engine.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from background_tasks import signals as bg_signals
 from background_tasks import sync_db
 from background_tasks._signal_support import upsert_by_celery_id
 from background_tasks.constants import TaskStatus
+from background_tasks.contracts.events import TaskFailed
 from background_tasks.models import TaskExecution
 from background_tasks.signals import (
+    bind_event_bus,
     on_task_failure,
     on_task_prerun,
     on_task_publish,
     on_task_retry,
     on_task_revoked,
     on_task_success,
+    unbind_event_bus,
 )
+from simple_module_testing import FakeEventBus
 from sqlalchemy import select
 
 
@@ -188,6 +194,67 @@ class TestLifecycleSignals:
         assert row is not None
         assert row.status == TaskStatus.REVOKED
         assert row.finished_at is not None
+
+
+class TestTaskFailedEvent:
+    @pytest.mark.asyncio
+    async def test_publishes_when_bus_bound(self, sync_sqlite: Path):
+        bus = FakeEventBus()
+        dispatched = asyncio.Event()
+
+        async def _mark(_event: TaskFailed) -> None:
+            dispatched.set()
+
+        bus.subscribe(TaskFailed, _mark)
+        bind_event_bus(bus, asyncio.get_running_loop())
+
+        try:
+            task_id = str(uuid.uuid4())
+            on_task_publish(
+                sender="demo.boom",
+                headers={"id": task_id, "task": "demo.boom"},
+                body=([], {}, {}),
+            )
+
+            class _Task:
+                name = "demo.boom"
+
+            class _Einfo:
+                traceback = "Traceback"
+
+            on_task_failure(
+                sender=_Task, task_id=task_id, exception=ValueError("nope"), einfo=_Einfo()
+            )
+
+            await asyncio.wait_for(dispatched.wait(), timeout=1.0)
+
+            (event,) = bus.assert_published(TaskFailed)
+            assert event.task_name == "demo.boom"
+            assert event.exception_type == "ValueError"
+            assert event.task_execution_id is not None
+        finally:
+            unbind_event_bus()
+
+    def test_no_op_when_bus_unbound(self, sync_sqlite: Path):
+        """Without a bound bus (the standalone-worker case) the signal must
+        still record the failure row and not raise."""
+        assert bg_signals._bus is None
+        task_id = str(uuid.uuid4())
+        on_task_publish(
+            sender="demo.boom",
+            headers={"id": task_id, "task": "demo.boom"},
+            body=([], {}, {}),
+        )
+
+        class _Task:
+            name = "demo.boom"
+
+        on_task_failure(sender=_Task, task_id=task_id, exception=RuntimeError("x"), einfo=None)
+
+        factory = sync_db.get_sync_session_factory()
+        row = _first_row(factory)
+        assert row is not None
+        assert row.status == TaskStatus.FAILED
 
 
 class TestUpsertHelper:

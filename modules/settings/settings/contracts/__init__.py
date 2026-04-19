@@ -10,10 +10,8 @@ from settings.contracts.schemas import (
     SettingUpsert,
     SettingValueType,
 )
-from settings.contracts.service import ISettingService
 
 __all__ = [
-    "ISettingService",
     "SettingCreate",
     "SettingDefinition",
     "SettingOut",

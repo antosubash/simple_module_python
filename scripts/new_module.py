@@ -22,7 +22,7 @@ from pathlib import Path
 # Make sibling template modules importable when this file is run as a script.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _templates_contracts import contracts_init, contracts_service, schemas_py
+from _templates_contracts import contracts_init, schemas_py
 from _templates_endpoints import api_py, views_py
 from _templates_py import (
     ScaffoldContext,
@@ -103,7 +103,6 @@ def scaffold_module(name: str) -> None:
     create_file(src_dir / "models.py", models_py(ctx))
     create_file(src_dir / "contracts" / "__init__.py", contracts_init(ctx))
     create_file(src_dir / "contracts" / "schemas.py", schemas_py(ctx))
-    create_file(src_dir / "contracts" / "service.py", contracts_service(ctx))
     create_file(src_dir / "service.py", service_py(ctx))
     create_file(src_dir / "deps.py", deps_py(ctx))
     create_file(src_dir / "endpoints" / "__init__.py", "")
