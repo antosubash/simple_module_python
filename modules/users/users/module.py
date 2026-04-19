@@ -9,7 +9,12 @@ from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 
-from users.constants import ADMIN_ROLE_NAME, PERM_USERS_MANAGE, PERM_USERS_SELF_PROFILE, USER_ROLE_NAME
+from users.constants import (
+    ADMIN_ROLE_NAME,
+    PERM_USERS_MANAGE,
+    PERM_USERS_SELF_PROFILE,
+    USER_ROLE_NAME,
+)
 
 if TYPE_CHECKING:
     from fastapi import FastAPI

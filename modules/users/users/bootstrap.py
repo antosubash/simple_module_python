@@ -78,7 +78,9 @@ async def create_admin(
         # tests (where `create_all` runs without data migrations) and for
         # scenarios where someone ran `alembic downgrade` past the seed
         # revision but not past the schema revision.
-        admin_role = Role(id=ADMIN_ROLE_ID, name=ADMIN_ROLE_NAME, description=ADMIN_ROLE_DESCRIPTION)
+        admin_role = Role(
+            id=ADMIN_ROLE_ID, name=ADMIN_ROLE_NAME, description=ADMIN_ROLE_DESCRIPTION
+        )
         db.add(admin_role)
         await db.flush()
 
