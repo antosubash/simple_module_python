@@ -29,6 +29,49 @@ export const keys = {
       welcome_message: 'dashboard.home.welcome_message',
     },
   },
+  file_storage: {
+    actions: {
+      delete: 'file_storage.actions.delete',
+      download: 'file_storage.actions.download',
+    },
+    browse: {
+      count: 'file_storage.browse.count',
+      count_one: 'file_storage.browse.count_one',
+      count_other: 'file_storage.browse.count_other',
+      description: 'file_storage.browse.description',
+      empty_description: 'file_storage.browse.empty_description',
+      empty_title: 'file_storage.browse.empty_title',
+      title: 'file_storage.browse.title',
+      upload_button: 'file_storage.browse.upload_button',
+      uploading: 'file_storage.browse.uploading',
+    },
+    delete_dialog: {
+      cancel: 'file_storage.delete_dialog.cancel',
+      confirm: 'file_storage.delete_dialog.confirm',
+      description: 'file_storage.delete_dialog.description',
+      title: 'file_storage.delete_dialog.title',
+    },
+    errors: {
+      backend_error: 'file_storage.errors.backend_error',
+      bad_type: 'file_storage.errors.bad_type',
+      not_found: 'file_storage.errors.not_found',
+      too_large: 'file_storage.errors.too_large',
+    },
+    table: {
+      actions: 'file_storage.table.actions',
+      filename: 'file_storage.table.filename',
+      size: 'file_storage.table.size',
+      type: 'file_storage.table.type',
+      uploaded_at: 'file_storage.table.uploaded_at',
+      uploaded_by: 'file_storage.table.uploaded_by',
+    },
+    toasts: {
+      delete_failed: 'file_storage.toasts.delete_failed',
+      deleted: 'file_storage.toasts.deleted',
+      upload_failed: 'file_storage.toasts.upload_failed',
+      uploaded: 'file_storage.toasts.uploaded',
+    },
+  },
   host: {
     error: {
       forbidden_description: 'host.error.forbidden_description',
