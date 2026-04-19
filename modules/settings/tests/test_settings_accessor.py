@@ -18,21 +18,21 @@ class TestSettingsRegistry:
     def test_register_and_lookup(self):
         reg = SettingsRegistry()
         d = SettingDefinition(key="x.y", default="1", description="d")
-        reg.register(d)
+        reg.add(d)
         assert reg.get("x.y") is d
         assert "x.y" in reg
 
     def test_duplicate_key_rejected(self):
         reg = SettingsRegistry()
-        reg.register(SettingDefinition(key="x.y", default="1"))
+        reg.add(SettingDefinition(key="x.y", default="1"))
         with pytest.raises(ValueError):
-            reg.register(SettingDefinition(key="x.y", default="2"))
+            reg.add(SettingDefinition(key="x.y", default="2"))
 
     def test_all_lists_everything(self):
         reg = SettingsRegistry()
-        reg.register(SettingDefinition(key="a", default="1"))
-        reg.register(SettingDefinition(key="b", default="2"))
-        keys = sorted(d.key for d in reg.all())
+        reg.add(SettingDefinition(key="a", default="1"))
+        reg.add(SettingDefinition(key="b", default="2"))
+        keys = sorted(d.key for d in reg.all_definitions)
         assert keys == ["a", "b"]
 
 
@@ -98,14 +98,14 @@ class TestAccessorResolution:
 
     async def test_registry_default_when_no_row(self, db_session: AsyncSession):
         reg = SettingsRegistry()
-        reg.register(SettingDefinition(key="orders.hint", default="hello"))
+        reg.add(SettingDefinition(key="orders.hint", default="hello"))
         acc = SettingsAccessor(SettingService(db_session), reg)
         assert await acc.get("orders.hint") == "hello"
         assert await acc.get_str("orders.hint") == "hello"
 
     async def test_explicit_default_wins_over_registry(self, db_session: AsyncSession):
         reg = SettingsRegistry()
-        reg.register(SettingDefinition(key="k", default="registered"))
+        reg.add(SettingDefinition(key="k", default="registered"))
         acc = SettingsAccessor(SettingService(db_session), reg)
         assert await acc.get("k", default="explicit") == "explicit"
 
@@ -172,8 +172,8 @@ class TestAppWiredRegistry:
 
     async def test_consumer_can_register_defaults(self, app):
         registry: SettingsRegistry = app.state.settings.registry
-        registry.register(SettingDefinition(key="orders.bulk", default="false"))
+        registry.add(SettingDefinition(key="orders.bulk", default="false"))
         assert "orders.bulk" in registry
         # idempotency — second registration of same key is rejected
         with pytest.raises(ValueError):
-            registry.register(SettingDefinition(key="orders.bulk", default="true"))
+            registry.add(SettingDefinition(key="orders.bulk", default="true"))

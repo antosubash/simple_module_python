@@ -20,10 +20,14 @@ Example in another module's endpoint:
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from typing import Any, Final
 
+from settings.constants import SYSTEM_SCOPE_ID
 from settings.contracts.registry import SettingsRegistry
 from settings.contracts.schemas import (
+    BOOL_LITERALS_FALSE,
+    BOOL_LITERALS_TRUE,
     SettingOut,
     SettingScope,
     SettingUpsert,
@@ -31,9 +35,50 @@ from settings.contracts.schemas import (
 )
 from settings.contracts.service import ISettingService
 
-_TRUTHY = frozenset({"1", "true", "t", "yes", "y", "on"})
-_FALSY = frozenset({"0", "false", "f", "no", "n", "off"})
-_UNSET: Final[Any] = object()
+
+class _Unset:
+    """Typed sentinel for ``bind``'s "no override" marker."""
+
+
+_UNSET: Final = _Unset()
+
+
+def _cast_bool(raw: str, default: Any) -> Any:
+    lowered = raw.strip().lower()
+    if lowered in BOOL_LITERALS_TRUE:
+        return True
+    if lowered in BOOL_LITERALS_FALSE:
+        return False
+    return default
+
+
+def _cast_int(raw: str, default: Any) -> Any:
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+def _cast_float(raw: str, default: Any) -> Any:
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+def _cast_json(raw: str, default: Any) -> Any:
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+_CASTERS: Final[dict[SettingValueType, Callable[[str, Any], Any]]] = {
+    SettingValueType.BOOL: _cast_bool,
+    SettingValueType.INT: _cast_int,
+    SettingValueType.FLOAT: _cast_float,
+    SettingValueType.JSON: _cast_json,
+}
 
 
 class SettingsAccessor:
@@ -71,8 +116,8 @@ class SettingsAccessor:
     def bind(
         self,
         *,
-        user_id: str | None | Any = _UNSET,
-        tenant_id: str | None | Any = _UNSET,
+        user_id: str | None | _Unset = _UNSET,
+        tenant_id: str | None | _Unset = _UNSET,
     ) -> SettingsAccessor:
         """Return a new accessor with the given user/tenant overrides.
 
@@ -83,8 +128,8 @@ class SettingsAccessor:
         return SettingsAccessor(
             self._svc,
             self._registry,
-            user_id=self._user_id if user_id is _UNSET else user_id,
-            tenant_id=self._tenant_id if tenant_id is _UNSET else tenant_id,
+            user_id=self._user_id if isinstance(user_id, _Unset) else user_id,
+            tenant_id=self._tenant_id if isinstance(tenant_id, _Unset) else tenant_id,
         )
 
     # ── Typed reads ─────────────────────────────────────────────────
@@ -114,64 +159,33 @@ class SettingsAccessor:
 
     async def get_bool(self, key: str, default: bool = False) -> bool:
         raw = await self.get(key)
-        if raw is None:
-            return default
-        lowered = raw.strip().lower()
-        if lowered in _TRUTHY:
-            return True
-        if lowered in _FALSY:
-            return False
-        return default
+        return default if raw is None else _cast_bool(raw, default)
 
     async def get_int(self, key: str, default: int = 0) -> int:
         raw = await self.get(key)
-        if raw is None:
-            return default
-        try:
-            return int(raw)
-        except (TypeError, ValueError):
-            return default
+        return default if raw is None else _cast_int(raw, default)
 
     async def get_float(self, key: str, default: float = 0.0) -> float:
         raw = await self.get(key)
-        if raw is None:
-            return default
-        try:
-            return float(raw)
-        except (TypeError, ValueError):
-            return default
+        return default if raw is None else _cast_float(raw, default)
 
     async def get_json(self, key: str, default: Any = None) -> Any:
         raw = await self.get(key)
-        if raw is None:
-            return default
-        try:
-            return json.loads(raw)
-        except (TypeError, ValueError):
-            return default
+        return default if raw is None else _cast_json(raw, default)
 
     async def get_typed(self, key: str, default: Any = None) -> Any:
         """Resolve a key and cast based on the stored ``value_type``.
 
-        Picks ``get_bool`` / ``get_int`` / ``get_float`` / ``get_json`` by
-        the declared type of the row that wins resolution; falls back to
-        a plain string for ``STRING`` or when no row exists. Useful for
-        generic admin views that don't know each key's type at compile
-        time.
+        Dispatches by the declared type of the row that wins resolution;
+        falls back to the raw string for ``STRING`` or when no row exists.
+        Useful for generic admin views that don't know each key's type at
+        compile time.
         """
         out = await self._svc.resolve(key, user_id=self._user_id, tenant_id=self._tenant_id)
         if out is None:
             return default
-        casters = {
-            SettingValueType.BOOL: self._cast_bool,
-            SettingValueType.INT: self._cast_int,
-            SettingValueType.FLOAT: self._cast_float,
-            SettingValueType.JSON: self._cast_json,
-        }
-        caster = casters.get(out.value_type)
-        if caster is None:
-            return out.value
-        return caster(out.value, default)
+        caster = _CASTERS.get(out.value_type)
+        return out.value if caster is None else caster(out.value, default)
 
     # ── Writes ──────────────────────────────────────────────────────
 
@@ -182,8 +196,6 @@ class SettingsAccessor:
         value_type: SettingValueType | None = None,
         description: str | None = None,
     ) -> SettingOut:
-        from settings.constants import SYSTEM_SCOPE_ID
-
         return await self._svc.upsert_scoped(
             SettingScope.SYSTEM,
             SYSTEM_SCOPE_ID,
@@ -220,35 +232,3 @@ class SettingsAccessor:
             key,
             SettingUpsert(value=value, value_type=value_type, description=description),
         )
-
-    # ── Cast helpers (shared by get_typed) ──────────────────────────
-
-    @staticmethod
-    def _cast_bool(raw: str, default: Any) -> Any:
-        lowered = raw.strip().lower()
-        if lowered in _TRUTHY:
-            return True
-        if lowered in _FALSY:
-            return False
-        return default
-
-    @staticmethod
-    def _cast_int(raw: str, default: Any) -> Any:
-        try:
-            return int(raw)
-        except (TypeError, ValueError):
-            return default
-
-    @staticmethod
-    def _cast_float(raw: str, default: Any) -> Any:
-        try:
-            return float(raw)
-        except (TypeError, ValueError):
-            return default
-
-    @staticmethod
-    def _cast_json(raw: str, default: Any) -> Any:
-        try:
-            return json.loads(raw)
-        except (TypeError, ValueError):
-            return default

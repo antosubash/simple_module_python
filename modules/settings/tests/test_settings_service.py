@@ -71,6 +71,22 @@ class TestSettingServiceCRUD:
         assert updated is not None
         assert updated.value == "new"
 
+    async def test_upsert_clears_description_when_explicitly_none(self, db_session: AsyncSession):
+        svc = SettingService(db_session)
+        await svc.upsert_scoped(
+            SettingScope.SYSTEM,
+            SYSTEM_SCOPE_ID,
+            "k",
+            SettingUpsert(value="v", description="initial"),
+        )
+        updated = await svc.upsert_scoped(
+            SettingScope.SYSTEM,
+            SYSTEM_SCOPE_ID,
+            "k",
+            SettingUpsert(value="v", description=None),
+        )
+        assert updated.description is None
+
 
 # Resolution precedence: USER > TENANT > SYSTEM
 

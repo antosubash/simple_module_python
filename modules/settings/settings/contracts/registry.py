@@ -4,8 +4,7 @@ read so admins can see every knob (and its default) in one place.
 Usage from a consumer module's ``on_startup`` hook:
 
     def on_startup(self, app):
-        registry = app.state.settings.registry
-        registry.register(
+        app.state.settings.registry.add(
             SettingDefinition(
                 key="orders.checkout.require_terms",
                 default="true",
@@ -17,6 +16,11 @@ The registry doesn't write anything to the database — it only records
 intent. ``SettingsAccessor.get`` falls back to the registered default when
 no row exists at any scope. ``get_bool`` / ``get_int`` / ``get_json`` cast
 the stored string representation on the way out.
+
+API mirrors the other framework registries (MenuRegistry / PermissionRegistry
+/ FeatureFlagRegistry): ``add(definition)`` + ``all_definitions``. Unlike
+FeatureFlagRegistry, duplicate keys raise — settings carry defaults and a
+second registration almost always means two owners contended for the same key.
 """
 
 from __future__ import annotations
@@ -46,7 +50,7 @@ class SettingsRegistry:
 
     _defs: dict[str, SettingDefinition] = field(default_factory=dict)
 
-    def register(self, definition: SettingDefinition) -> None:
+    def add(self, definition: SettingDefinition) -> None:
         if definition.key in self._defs:
             raise ValueError(f"{ERR_KEY_ALREADY_EXISTS}: {definition.key!r}")
         self._defs[definition.key] = definition
@@ -54,7 +58,8 @@ class SettingsRegistry:
     def get(self, key: str) -> SettingDefinition | None:
         return self._defs.get(key)
 
-    def all(self) -> list[SettingDefinition]:
+    @property
+    def all_definitions(self) -> list[SettingDefinition]:
         return list(self._defs.values())
 
     def __contains__(self, key: str) -> bool:

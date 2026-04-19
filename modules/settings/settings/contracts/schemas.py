@@ -31,6 +31,8 @@ from settings.constants import (
 _BOOL_LITERALS = frozenset(
     {"true", "false", "1", "0", "t", "f", "yes", "no", "y", "n", "on", "off"}
 )
+BOOL_LITERALS_TRUE = frozenset({"1", "true", "t", "yes", "y", "on"})
+BOOL_LITERALS_FALSE = frozenset({"0", "false", "f", "no", "n", "off"})
 
 
 class SettingScope(StrEnum):

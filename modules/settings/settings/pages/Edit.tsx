@@ -43,7 +43,6 @@ export default function Edit({ setting }: Props) {
         <label className="block">
           <span className="block text-sm">{t(keys.settings.form.key_label)}</span>
           <input
-            name="key"
             defaultValue={setting.key}
             disabled
             className="border rounded w-full p-2 font-mono bg-muted"

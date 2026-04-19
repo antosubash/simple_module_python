@@ -127,7 +127,8 @@ class SettingService:
             entity.value = data.value
             if data.value_type is not None:
                 entity.value_type = data.value_type.value
-            if data.description is not None:
+            # Honor explicit description=None as "clear"; skip only when unset.
+            if "description" in data.model_fields_set:
                 entity.description = data.description
         await self.db.flush()
         await self.db.refresh(entity)
