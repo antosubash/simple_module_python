@@ -7,20 +7,44 @@ from typing import Protocol
 from settings.contracts.schemas import (
     SettingCreate,
     SettingOut,
+    SettingScope,
     SettingUpdate,
     SettingUpsert,
 )
 
 
 class ISettingService(Protocol):
-    """Interface for key/value setting operations."""
+    """Interface for scoped key/value settings.
+
+    Resolution precedence (high → low): USER > TENANT > SYSTEM.
+    """
 
     async def list_all(self) -> list[SettingOut]: ...
+    async def list_by_scope(self, scope: SettingScope, scope_id: str = "") -> list[SettingOut]: ...
+
     async def get_by_id(self, setting_id: int) -> SettingOut | None: ...
-    async def get_by_key(self, key: str) -> SettingOut | None: ...
-    async def get_value(self, key: str, default: str | None = None) -> str | None: ...
+    async def get_scoped(
+        self, scope: SettingScope, scope_id: str, key: str
+    ) -> SettingOut | None: ...
+    async def resolve(
+        self,
+        key: str,
+        user_id: str | None = None,
+        tenant_id: str | None = None,
+    ) -> SettingOut | None: ...
+    async def get_resolved_value(
+        self,
+        key: str,
+        user_id: str | None = None,
+        tenant_id: str | None = None,
+        default: str | None = None,
+    ) -> str | None: ...
+
     async def create(self, data: SettingCreate) -> SettingOut: ...
     async def update(self, setting_id: int, data: SettingUpdate) -> SettingOut | None: ...
-    async def upsert_by_key(self, key: str, data: SettingUpsert) -> SettingOut: ...
+    async def upsert_scoped(
+        self, scope: SettingScope, scope_id: str, key: str, data: SettingUpsert
+    ) -> SettingOut: ...
+
     async def delete(self, setting_id: int) -> bool: ...
-    async def delete_by_key(self, key: str) -> bool: ...
+    async def delete_scoped(self, scope: SettingScope, scope_id: str, key: str) -> bool: ...

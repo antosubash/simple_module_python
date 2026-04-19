@@ -1,8 +1,12 @@
 import { keys, useT } from '@simple-module/i18n';
 import { ROUTES } from './routes';
 
+type Scope = 'system' | 'tenant' | 'user';
+
 type Setting = {
   id: number;
+  scope: Scope;
+  scope_id: string;
   key: string;
   value: string;
   description: string | null;
@@ -17,6 +21,22 @@ export default function Edit({ setting }: Props) {
       <h1 className="text-2xl font-semibold mb-4">{t(keys.settings.edit.title)}</h1>
       <form method="post" action={ROUTES.byId(setting.id)} className="space-y-3">
         <input type="hidden" name="_method" value="put" />
+        <label className="block">
+          <span className="block text-sm">{t(keys.settings.form.scope_label)}</span>
+          <input
+            value={t(keys.settings.scopes[setting.scope])}
+            disabled
+            className="border rounded w-full p-2 bg-muted"
+          />
+        </label>
+        <label className="block">
+          <span className="block text-sm">{t(keys.settings.form.scope_id_label)}</span>
+          <input
+            value={setting.scope_id}
+            disabled
+            className="border rounded w-full p-2 font-mono bg-muted"
+          />
+        </label>
         <label className="block">
           <span className="block text-sm">{t(keys.settings.form.key_label)}</span>
           <input

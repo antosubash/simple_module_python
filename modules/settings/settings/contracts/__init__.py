@@ -3,6 +3,7 @@
 from settings.contracts.schemas import (
     SettingCreate,
     SettingOut,
+    SettingScope,
     SettingUpdate,
     SettingUpsert,
 )
@@ -12,6 +13,7 @@ __all__ = [
     "ISettingService",
     "SettingCreate",
     "SettingOut",
+    "SettingScope",
     "SettingUpdate",
     "SettingUpsert",
 ]

@@ -34,21 +34,40 @@ def upgrade() -> None:
         sa.Column("created_by", sa.String(length=255), nullable=True),
         sa.Column("updated_by", sa.String(length=255), nullable=True),
         sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column(
+            "scope",
+            sa.String(length=10),
+            nullable=False,
+            server_default=sa.text("'system'"),
+        ),
+        sa.Column(
+            "scope_id",
+            sa.String(length=255),
+            nullable=False,
+            server_default=sa.text("''"),
+        ),
         sa.Column("key", sa.String(length=200), nullable=False),
         sa.Column("value", sa.String(length=4000), nullable=False),
         sa.Column("description", sa.String(length=2000), nullable=True),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_settings_setting")),
+        sa.UniqueConstraint(
+            "scope", "scope_id", "key", name="uq_settings_setting_scope_scope_id_key"
+        ),
     )
+    op.create_index(op.f("ix_settings_setting_scope"), "settings_setting", ["scope"], unique=False)
     op.create_index(
-        op.f("ix_settings_setting_key"),
+        op.f("ix_settings_setting_scope_id"),
         "settings_setting",
-        ["key"],
-        unique=True,
+        ["scope_id"],
+        unique=False,
     )
+    op.create_index(op.f("ix_settings_setting_key"), "settings_setting", ["key"], unique=False)
 
 
 def downgrade() -> None:
     op.drop_index(op.f("ix_settings_setting_key"), table_name="settings_setting")
+    op.drop_index(op.f("ix_settings_setting_scope_id"), table_name="settings_setting")
+    op.drop_index(op.f("ix_settings_setting_scope"), table_name="settings_setting")
     op.drop_table("settings_setting")
 
     # On PostgreSQL, drop the `settings` schema.

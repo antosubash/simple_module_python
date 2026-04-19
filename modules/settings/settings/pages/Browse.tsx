@@ -1,8 +1,12 @@
 import { keys, useT } from '@simple-module/i18n';
 import { ROUTES } from './routes';
 
+type Scope = 'system' | 'tenant' | 'user';
+
 type Setting = {
   id: number;
+  scope: Scope;
+  scope_id: string;
   key: string;
   value: string;
   description: string | null;
@@ -12,6 +16,8 @@ type Props = { settings: Setting[] };
 
 export default function Browse({ settings }: Props) {
   const { t } = useT();
+  const scopeLabel = (scope: Scope) => t(keys.settings.scopes[scope]);
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-4">
@@ -31,6 +37,8 @@ export default function Browse({ settings }: Props) {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b">
+              <th className="py-2 pr-4">{t(keys.settings.table.scope)}</th>
+              <th className="py-2 pr-4">{t(keys.settings.table.scope_id)}</th>
               <th className="py-2 pr-4">{t(keys.settings.table.key)}</th>
               <th className="py-2 pr-4">{t(keys.settings.table.value)}</th>
               <th className="py-2 pr-4">{t(keys.settings.table.description)}</th>
@@ -40,6 +48,10 @@ export default function Browse({ settings }: Props) {
           <tbody>
             {settings.map((setting) => (
               <tr key={setting.id} className="border-b">
+                <td className="py-2 pr-4">{scopeLabel(setting.scope)}</td>
+                <td className="py-2 pr-4 font-mono text-sm text-muted-foreground">
+                  {setting.scope_id || '—'}
+                </td>
                 <td className="py-2 pr-4 font-mono text-sm">{setting.key}</td>
                 <td className="py-2 pr-4">{setting.value}</td>
                 <td className="py-2 pr-4 text-muted-foreground">{setting.description ?? ''}</td>
