@@ -18,11 +18,8 @@ from collections.abc import AsyncGenerator
 import httpx
 import pytest
 from fastapi_users.password import PasswordHelper
-from simple_module_hosting.csrf import SESSION_CSRF_TOKEN_KEY
 from simple_module_testing import forge_session_cookie
 from sqlalchemy import select
-
-_TEST_CSRF_TOKEN = "test-csrf-token"
 
 
 async def _seed_user_with_roles(app, email: str, role_names: list[str]):
@@ -79,14 +76,13 @@ def _make_client(
 ) -> httpx.AsyncClient:
     cookie = forge_session_cookie(
         str(app.state.sm.settings.secret_key),
-        {"user_id": user_id, SESSION_CSRF_TOKEN_KEY: _TEST_CSRF_TOKEN},
+        {"user_id": user_id},
     )
-    headers = {"X-CSRF-Token": _TEST_CSRF_TOKEN, **(extra_headers or {})}
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://testserver",
         cookies={"session": cookie},
-        headers=headers,
+        headers=extra_headers or {},
     )
 
 
