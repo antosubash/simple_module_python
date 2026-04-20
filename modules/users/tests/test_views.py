@@ -297,15 +297,26 @@ class TestHasPermissionsModuleFlag:
         assert props["has_permissions_module"] is True
 
     @pytest.mark.anyio
-    async def test_flag_false_when_not_installed(self, admin_client, users_db):
+    async def test_flag_false_when_not_installed(self, admin_client, users_app, users_db):
+        import dataclasses
+
         from test_api_admin import _make_user
 
         user = await _make_user(users_db, email="flagtest-false@example.com")
 
-        resp = await admin_client.get(
-            f"/users/admin/{user.id}",
-            headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
+        original_sm = users_app.state.sm
+        users_app.state.sm = dataclasses.replace(
+            original_sm,
+            modules=tuple(m for m in original_sm.modules if m.meta.name != "Permissions"),
         )
+        try:
+            resp = await admin_client.get(
+                f"/users/admin/{user.id}",
+                headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
+            )
+        finally:
+            users_app.state.sm = original_sm
+
         assert resp.status_code == 200
         props = resp.json()["props"]
         assert props["has_permissions_module"] is False
