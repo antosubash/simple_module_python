@@ -83,7 +83,7 @@ export function SidebarLayout({
               />
             </svg>
           </Button>
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link href="/dashboard/" className="flex items-center gap-2">
             <div
               className={`w-7 h-7 rounded-md ${theme.accentColor} flex items-center justify-center shadow-sm`}
             >
@@ -111,7 +111,7 @@ export function SidebarLayout({
         >
           {/* Logo */}
           <div className="h-14 lg:h-16 flex items-center justify-between px-4 lg:px-5 border-b border-white/[0.06]">
-            <Link href="/dashboard" className="flex items-center gap-2.5 group">
+            <Link href="/dashboard/" className="flex items-center gap-2.5 group">
               <div
                 className={`w-8 h-8 rounded-lg ${theme.accentColor} flex items-center justify-center shadow-lg shadow-primary-500/15 transition-transform duration-200 group-hover:scale-105`}
               >

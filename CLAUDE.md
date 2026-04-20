@@ -39,7 +39,7 @@ This is a **modular-monolith framework**. There is no host–module API boundary
 modules/<name>/<name>/
 ├── module.py        # ModuleBase subclass with meta = ModuleMeta(...)
 ├── models.py        # SQLModel tables
-├── contracts/       # SQLModel DTOs + Protocol interfaces (public surface)
+├── contracts/       # SQLModel DTOs (public surface) — add a Protocol only for real extension points
 ├── service.py       # business logic
 ├── deps.py          # FastAPI dependencies
 ├── endpoints/api.py # REST (JSON)
@@ -62,7 +62,9 @@ Standard mixins in `simple_module_db.mixins`: `AuditMixin`, `SoftDeleteMixin` (b
 
 **Migrations** live in `host/migrations/versions/` — not in module packages. `host/alembic/env.py` calls `build_module_metadata()` + `make_include_object()` so autogenerate covers every installed module and ignores host-owned tables. First migration of each module should set `branch_labels = ("<module_name>",)` to enable per-module `downgrade <module>@base`.
 
-**Inertia**. `inertia.render("<ModuleName>/<PageName>", ...)` maps to `modules/<name>/<name>/pages/<PageName>.tsx`, where `<ModuleName>` is the PascalCase of the module directory (`blog_posts` → `BlogPosts`). Host-level pages under `host/client_app/pages/` use a bare `<PageName>`. `InertiaLayoutDataMiddleware` populates shared props (`auth`, `menus`, `csrf_token`); use `InertiaDep` from `simple_module_hosting.inertia_deps`. Mismatched keys fire `SM003` (orphan page) / `SM004` (phantom render).
+**Inertia**. `inertia.render("<ModuleName>/<PageName>", ...)` maps to `modules/<name>/<name>/pages/<PageName>.tsx`, where `<ModuleName>` is the PascalCase of the module directory (`blog_posts` → `BlogPosts`). Host-level pages under `host/client_app/pages/` use a bare `<PageName>`. `InertiaLayoutDataMiddleware` populates shared props (`auth`, `menus`, `i18n`); use `InertiaDep` from `simple_module_hosting.inertia_deps`. Mismatched keys fire `SM003` (orphan page) / `SM004` (phantom render).
+
+**CSRF defence**. There is no explicit CSRF token middleware. Protection comes from `SameSite=Lax` on the session cookie (Starlette default): browsers don't attach the cookie to cross-site POST/PUT/DELETE, so a forged form-submit from another origin is unauthenticated. Raw `fetch()` calls in page code don't need a token header.
 
 ## Conventions to follow
 
@@ -76,7 +78,7 @@ Standard mixins in `simple_module_db.mixins`: `AuditMixin`, `SoftDeleteMixin` (b
 
 ## Diagnostic codes
 
-Meaningful codes when reading `make doctor` output: `SM001` missing meta (error), `SM003` orphan page / `SM004` phantom render (warn), `SM007` module overrides no hooks (info), `SM008` duplicate name (error), `SM009` framework→plugin import (error), `SM010` DB revision behind head (error), `SM011` module table not in migration history (warn), `SM012` `register_settings` overridden but nothing on `app.state.<module>` (warn, fires at dev boot only), `SM013`–`SM016` locale issues. In production, errors fail boot.
+Meaningful codes when reading `make doctor` output: `SM001` missing meta (error), `SM003` orphan page / `SM004` phantom render (warn), `SM007` module overrides no hooks (info), `SM008` duplicate name (error), `SM009` framework→plugin import (error), `SM010` DB revision behind head (error), `SM011` module table not in migration history (warn), `SM012` `register_settings` overridden but nothing on `app.state.<module>` (warn, fires at dev boot only), `SM013`–`SM016` locale issues, `SM017` module ships `.tsx` pages but is missing `package.json`/`tsconfig.json` (warn). In production, errors fail boot.
 
 ## Tests & fixtures
 
@@ -84,7 +86,7 @@ Root `conftest.py` provides app-level fixtures available to every test directory
 - `settings` — in-memory SQLite `Settings` with `multi_tenant=True`.
 - `db_state`, `engine`, `db_session` — fresh in-memory `DatabaseState` per test; `db_session` also creates all module tables and stamps `alembic_version` at head so the boot-time migration check passes.
 - `app` — `create_app(settings)` with lifespan started/stopped.
-- `client` / `authenticated_client` — `httpx.AsyncClient` with a forged session cookie; `authenticated_client` seeds an admin via `users.bootstrap.create_admin`. Both carry a pre-signed CSRF token so POST/PATCH/DELETE pass validation.
+- `client` / `authenticated_client` — `httpx.AsyncClient`; `authenticated_client` seeds an admin via `users.bootstrap.create_admin` and carries a forged session cookie.
 
 E2E tests live in `tests/e2e/` behind the `e2e` pytest marker and run against a live server — see [docs/e2e-testing.md](docs/e2e-testing.md).
 

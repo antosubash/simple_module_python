@@ -41,7 +41,7 @@ const adminBadge = (
 const backToApp = (
   <div className="pt-4 mt-4 border-t border-white/[0.06]">
     <Link
-      href="/dashboard"
+      href="/dashboard/"
       className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-admin-text-subtle hover:bg-admin-hover hover:text-white transition-colors"
     >
       <svg

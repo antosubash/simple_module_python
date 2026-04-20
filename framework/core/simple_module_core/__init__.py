@@ -20,7 +20,14 @@ from simple_module_core.exceptions import (
     NotFoundError,
     ValidationError,
 )
-from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
+from simple_module_core.feature_flags import (
+    FeatureFlagDefinition,
+    FeatureFlagRegistry,
+    feature_flag,
+    flag_enabled,
+    is_flag_enabled,
+    require_flag,
+)
 from simple_module_core.health import HealthCheck, HealthCheckResult, HealthRegistry, HealthStatus
 from simple_module_core.i18n import I18nRegistry, Translator
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
@@ -58,8 +65,12 @@ __all__ = [
     "ValidationError",
     "check_framework_compatibility",
     "discover_modules",
+    "feature_flag",
+    "flag_enabled",
     "get_module_package_name",
+    "is_flag_enabled",
     "print_diagnostics",
+    "require_flag",
     "run_diagnostics",
     "topological_sort",
 ]

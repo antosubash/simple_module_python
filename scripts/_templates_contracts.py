@@ -1,4 +1,11 @@
-"""Template generators for the contracts/ sub-package (schemas + service protocol)."""
+"""Template generators for the contracts/ sub-package (DTOs only).
+
+Modules do not ship a Protocol for their service by default. Consumers
+type-hint against the concrete service class exported from
+``<module>.service`` — add a Protocol only when you expect multiple
+implementations or an extension point (see ``file_storage.StorageBackend``
+for the pattern).
+"""
 
 from __future__ import annotations
 
@@ -14,13 +21,11 @@ def contracts_init(ctx: ScaffoldContext) -> str:
             {ctx.singular_class}Out,
             {ctx.singular_class}Update,
         )
-        from {ctx.pkg}.contracts.service import I{ctx.singular_class}Service
 
         __all__ = [
             "{ctx.singular_class}Create",
             "{ctx.singular_class}Out",
             "{ctx.singular_class}Update",
-            "I{ctx.singular_class}Service",
         ]
         '''
 
@@ -63,32 +68,4 @@ def schemas_py(ctx: ScaffoldContext) -> str:
             name: str | None = Field(default=None, min_length=1, max_length=200)
             description: str | None = None
             is_active: bool | None = None
-        '''
-
-
-def contracts_service(ctx: ScaffoldContext) -> str:
-    return f'''\
-        """{ctx.singular_class} service protocol — the public contract other modules depend on."""
-
-        from __future__ import annotations
-
-        from typing import Protocol
-
-        from {ctx.pkg}.contracts.schemas import (
-            {ctx.singular_class}Create,
-            {ctx.singular_class}Out,
-            {ctx.singular_class}Update,
-        )
-
-
-        class I{ctx.singular_class}Service(Protocol):
-            """Interface for {ctx.singular} operations."""
-
-            async def get_all(self) -> list[{ctx.singular_class}Out]: ...
-            async def get_by_id(self, {ctx.singular}_id: int) -> {ctx.singular_class}Out | None: ...
-            async def create(self, data: {ctx.singular_class}Create) -> {ctx.singular_class}Out: ...
-            async def update(
-                self, {ctx.singular}_id: int, data: {ctx.singular_class}Update
-            ) -> {ctx.singular_class}Out | None: ...
-            async def delete(self, {ctx.singular}_id: int) -> bool: ...
         '''

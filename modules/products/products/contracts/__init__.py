@@ -10,10 +10,8 @@ from products.contracts.schemas import (
     ProductOut,
     ProductUpdate,
 )
-from products.contracts.service import IProductService
 
 __all__ = [
-    "IProductService",
     "ProductCreate",
     "ProductCreated",
     "ProductDeleted",

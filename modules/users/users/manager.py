@@ -11,6 +11,7 @@ from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
 from fastapi_users.jwt import generate_jwt
 
+from users.contracts.events import UserRegistered
 from users.db_adapter import UserDatabaseWithRoles, get_user_db
 from users.mailer import Mailer
 from users.models import User
@@ -52,9 +53,23 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     # ── Lifecycle hooks ──────────────────────────────────────
 
     async def on_after_register(self, user: User, request: Request | None = None) -> None:
+        await self._publish_user_registered(user, request)
         if not user.is_verified:
             # Kicks off on_after_request_verify, which sends the email
             await self.request_verify(user, request)
+
+    async def _publish_user_registered(self, user: User, request: Request | None) -> None:
+        """Emit ``UserRegistered`` on the app-wide event bus.
+
+        CLI bootstrap and unit tests instantiate the manager without a
+        request, so there's no app context from which to reach the bus —
+        publication is best-effort in those cases.
+        """
+        if request is None:
+            return
+        await request.app.state.sm.event_bus.publish(
+            UserRegistered(user_id=user.id, email=user.email)
+        )
 
     async def on_after_forgot_password(
         self, user: User, token: str, request: Request | None = None

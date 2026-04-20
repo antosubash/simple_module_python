@@ -9,7 +9,6 @@ test and lets pytest-benchmark handle round/warmup selection.
 from __future__ import annotations
 
 import pytest
-from simple_module_hosting.csrf import SESSION_CSRF_TOKEN_KEY
 from simple_module_testing import forge_session_cookie
 
 pytestmark = pytest.mark.perf
@@ -18,7 +17,7 @@ pytestmark = pytest.mark.perf
 def test_forge_session_cookie(benchmark):
     """Signing a session cookie is on every authenticated request's hot path."""
     secret = "bench-secret-key"
-    payload = {"user_id": "00000000-0000-0000-0000-000000000001", SESSION_CSRF_TOKEN_KEY: "tok"}
+    payload = {"user_id": "00000000-0000-0000-0000-000000000001"}
 
     result = benchmark(forge_session_cookie, secret, payload)
 

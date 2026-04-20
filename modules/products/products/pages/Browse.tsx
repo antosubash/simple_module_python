@@ -81,7 +81,7 @@ function Browse() {
       const query = q ?? search;
       if (query) params.q = query;
       if (page > 1) params.page = String(page);
-      router.get('/products', params, { preserveState: true, preserveScroll: true });
+      router.get('/products/', params, { preserveState: true, preserveScroll: true });
     },
     [search],
   );

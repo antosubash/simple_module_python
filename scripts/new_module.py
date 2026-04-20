@@ -22,8 +22,9 @@ from pathlib import Path
 # Make sibling template modules importable when this file is run as a script.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _templates_contracts import contracts_init, contracts_service, schemas_py
+from _templates_contracts import contracts_init, schemas_py
 from _templates_endpoints import api_py, views_py
+from _templates_js import package_json, tsconfig_json
 from _templates_py import (
     ScaffoldContext,
     deps_py,
@@ -96,6 +97,8 @@ def scaffold_module(name: str) -> None:
     print(f"Scaffolding module '{name}'...")
 
     create_file(module_dir / "pyproject.toml", pyproject_toml(ctx))
+    create_file(module_dir / "package.json", package_json(ctx))
+    create_file(module_dir / "tsconfig.json", tsconfig_json(ctx))
     create_file(src_dir / "__init__.py", package_init(ctx))
     create_file(src_dir / "py.typed", "")
     create_file(src_dir / "module.py", module_py(ctx))
@@ -103,7 +106,6 @@ def scaffold_module(name: str) -> None:
     create_file(src_dir / "models.py", models_py(ctx))
     create_file(src_dir / "contracts" / "__init__.py", contracts_init(ctx))
     create_file(src_dir / "contracts" / "schemas.py", schemas_py(ctx))
-    create_file(src_dir / "contracts" / "service.py", contracts_service(ctx))
     create_file(src_dir / "service.py", service_py(ctx))
     create_file(src_dir / "deps.py", deps_py(ctx))
     create_file(src_dir / "endpoints" / "__init__.py", "")
@@ -231,7 +233,7 @@ def main() -> None:
     print(f"Module '{name}' scaffolded successfully!")
     print()
     print("Next steps:")
-    print("  1. Run 'uv sync --all-packages' to install the new module")
+    print("  1. Run 'uv sync --all-packages && npm install' to install the new module")
     print(f"  2. Edit modules/{name}/{name}/models.py to define your domain model")
     print("  3. Update schemas, service, and endpoints to match your model")
     print(f"  4. Run 'make migration msg=\"add {name} tables\"' to create a migration")

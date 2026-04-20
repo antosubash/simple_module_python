@@ -10,7 +10,6 @@ import {
 import { Input } from '@simple-module/ui/components/ui/input';
 import { Label } from '@simple-module/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module/ui/layouts/AuthCardShell';
-import { fetchWithCsrf } from '@simple-module/ui/lib/csrf';
 import { useState } from 'react';
 
 interface Props {
@@ -38,14 +37,14 @@ function AcceptInvite() {
       return;
     }
     setLoading(true);
-    fetchWithCsrf('/api/users/auth/accept-invite', {
+    fetch('/api/users/auth/accept-invite', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, password }),
     })
       .then(async (res) => {
         if (res.status === 204 || res.status === 200) {
-          router.visit('/dashboard');
+          router.visit('/dashboard/');
         } else {
           const data = await res.json().catch(() => ({}));
           const detail = typeof data?.detail === 'string' ? data.detail : '';

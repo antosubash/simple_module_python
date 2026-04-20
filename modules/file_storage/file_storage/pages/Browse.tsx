@@ -55,10 +55,6 @@ interface Props {
   pagination: Pagination;
 }
 
-interface SharedAuth {
-  csrf_token?: string;
-}
-
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
@@ -67,19 +63,15 @@ function formatBytes(n: number): string {
 }
 
 function Browse() {
-  const page = usePage<{ props: Props } & { csrf_token?: string }>();
+  const page = usePage<{ props: Props }>();
   const { files, pagination } = page.props as unknown as Props;
-  const csrf = ((page.props as unknown as SharedAuth).csrf_token ?? '') as string;
   const { t } = useT();
   const { can } = usePermissions();
   const canUpload = can(PERMISSIONS.UPLOAD);
   const canDelete = can(PERMISSIONS.DELETE);
 
   function handleDelete(file: StoredFile) {
-    fetch(ROUTES.apiFile(file.id), {
-      method: 'DELETE',
-      headers: { 'X-CSRF-Token': csrf },
-    })
+    fetch(ROUTES.apiFile(file.id), { method: 'DELETE' })
       .then((resp) => {
         if (!resp.ok) throw new Error('delete failed');
         toast.success(t(keys.file_storage.toasts.deleted, { name: file.filename }));
@@ -92,7 +84,7 @@ function Browse() {
     <PageShell
       title={t(keys.file_storage.browse.title)}
       description={t(keys.file_storage.browse.description)}
-      actions={canUpload ? <UploadDropzone csrfToken={csrf} /> : undefined}
+      actions={canUpload ? <UploadDropzone /> : undefined}
     >
       <Card>
         <Table>

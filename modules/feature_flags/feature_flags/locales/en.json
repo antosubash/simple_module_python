@@ -1,0 +1,40 @@
+{
+  "browse": {
+    "title": "Feature Flags",
+    "description": "Toggle features exposed by installed modules. Overrides persist across restarts.",
+    "empty_title": "No feature flags registered",
+    "empty_description": "Modules declare flags via register_feature_flags(); install one to see it here.",
+    "count_one": "{count} flag",
+    "count_other": "{count} flags",
+    "viewing_system": "Viewing system-level flags. Switch scope to override per tenant.",
+    "viewing_tenant": "Viewing overrides for tenant \"{tenant_id}\". Tenant overrides beat the system value.",
+    "tenant_id_label": "Tenant ID",
+    "tenant_id_placeholder": "e.g. acme",
+    "scope_label": "Scope",
+    "scope_system": "System (all tenants)",
+    "scope_tenant": "Specific tenant",
+    "go": "View",
+    "back_to_system": "Back to system view",
+    "tenants_with_overrides": "Tenants with overrides"
+  },
+  "table": {
+    "name": "Flag",
+    "description": "Description",
+    "default": "Default",
+    "status": "Status",
+    "actions": "Actions",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "overridden": "Override active",
+    "following_default": "Following default",
+    "following_system": "Following system",
+    "system_value": "System: {value}",
+    "clear_override": "Clear override"
+  },
+  "toasts": {
+    "enabled": "\"{name}\" enabled",
+    "disabled": "\"{name}\" disabled",
+    "cleared": "Override cleared for \"{name}\"",
+    "toggle_failed": "Failed to update flag"
+  }
+}

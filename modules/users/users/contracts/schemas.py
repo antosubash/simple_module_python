@@ -57,7 +57,15 @@ class UserListItem(SQLModel):
     is_verified: bool
     disabled_at: datetime | None = None
     last_login_at: datetime | None = None
+    created_at: datetime | None = None
     roles: list[str] = []
+
+
+class RoleListItem(SQLModel):
+    id: uuid.UUID
+    name: str
+    description: str | None = None
+    user_count: int = 0
 
 
 class RoleAssignment(SQLModel):

@@ -7,11 +7,7 @@ import { toast } from 'sonner';
 
 import { ROUTES } from '../constants';
 
-interface Props {
-  csrfToken: string;
-}
-
-export function UploadDropzone({ csrfToken }: Props) {
+export function UploadDropzone() {
   const { t } = useT();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -26,7 +22,6 @@ export function UploadDropzone({ csrfToken }: Props) {
         const resp = await fetch(ROUTES.API_UPLOAD, {
           method: 'POST',
           body: form,
-          headers: { 'X-CSRF-Token': csrfToken },
         });
         if (!resp.ok) {
           toast.error(t(keys.file_storage.toasts.upload_failed));

@@ -18,9 +18,23 @@ my-module/
 │   ├── pages/                      # Inertia TSX pages (optional)
 │   ├── templates/                  # Jinja2 templates (optional)
 │   ├── static/dist/                # pre-built frontend assets (optional)
+│   ├── contracts/schemas.py        # SQLModel DTOs — the public surface
 │   └── contracts/events.py         # domain events (optional)
 └── tests/
 ```
+
+### Service types: concrete class, not Protocol
+
+Export the concrete service class from `<module>.service` and have consumers
+type-hint against it. Do **not** ship a `contracts/service.py` with an
+`IFooService` Protocol by default — it's dead boilerplate when there's only
+one implementation.
+
+Add a Protocol only when the module is a real extension point with multiple
+interchangeable implementations that an operator can swap at runtime. The
+canonical example is `file_storage.StorageBackend`: it has a registry, two
+shipped implementations (`FilesystemBackend`, `S3Backend`), and tests that
+mock against the Protocol. If none of those apply to your module, skip it.
 
 ### Minimal `pyproject.toml`
 
@@ -79,6 +93,77 @@ version, raising `FrameworkVersionError` with the offending modules named.
 - Discovery internals beyond the `discover_modules()` signature
 - Inertia plumbing
 - Logging format
+
+## Feature flags
+
+Declare flags as module-level constants so every consumer imports the
+same object instead of retyping the string name, then register them in
+`register_feature_flags`. All the helpers are tenant-aware: they read
+`request.state.tenant_id` (populated by `TenantMiddleware`) and resolve
+tenant override > system override > definition default. They accept
+either a `FeatureFlagDefinition` (preferred) or the raw name.
+
+```python
+# my_module/constants.py
+from simple_module_core import FeatureFlagDefinition
+
+FLAG_BULK_IMPORT = FeatureFlagDefinition(
+    name="my_module.bulk_import",
+    description="Enable CSV bulk import",
+    default_enabled=False,
+)
+```
+
+```python
+# module.py
+from simple_module_core import FeatureFlagRegistry, ModuleBase
+
+from my_module.constants import FLAG_BULK_IMPORT
+
+class MyModule(ModuleBase):
+    def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
+        registry.add(FLAG_BULK_IMPORT)
+```
+
+```python
+# endpoints/api.py — four ways to consume, all accept the constant directly
+from typing import Annotated
+from fastapi import APIRouter, Depends, Request
+from simple_module_core import feature_flag, flag_enabled, is_flag_enabled, require_flag
+
+from my_module.constants import FLAG_BULK_IMPORT
+
+router = APIRouter()
+
+# 1. Attribute-style decorator — 404 when off
+@router.post("/bulk")
+@feature_flag(FLAG_BULK_IMPORT)
+async def bulk_import(request: Request, payload: BulkPayload): ...
+
+# 2. FastAPI dependency — 404 when off
+@router.post("/bulk-alt", dependencies=[Depends(require_flag(FLAG_BULK_IMPORT))])
+async def bulk_import_alt(...): ...
+
+# 3. Inject the value into your handler
+@router.get("/")
+async def list_items(
+    bulk_on: Annotated[bool, Depends(flag_enabled(FLAG_BULK_IMPORT))],
+):
+    if bulk_on: ...
+
+# 4. Check ad-hoc inside any handler that already has Request
+@router.get("/dashboard")
+async def dashboard(request: Request):
+    if is_flag_enabled(request, FLAG_BULK_IMPORT): ...
+```
+
+The `@feature_flag(...)` decorator requires the handler to declare a
+`request: Request` parameter (FastAPI injects it automatically) so the
+gate can read the tenant context; decorating a handler without one
+raises `TypeError` at import time.
+
+Outside of an HTTP request (background tasks, CLI), pass the registry and
+tenant explicitly: `registry.is_enabled(FLAG_BULK_IMPORT.name, tenant_id=tenant)`.
 
 ## Settings
 

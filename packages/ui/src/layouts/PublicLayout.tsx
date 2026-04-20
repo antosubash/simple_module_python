@@ -33,7 +33,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
             <LocaleSwitcher />
             {auth?.isAuthenticated ? (
               <Button asChild>
-                <a href="/dashboard">Go to Dashboard</a>
+                <a href="/dashboard/">Go to Dashboard</a>
               </Button>
             ) : (
               <>
@@ -90,7 +90,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
           <div className="sm:hidden mt-4 pt-4 border-t border-white/10 flex flex-col gap-3 max-w-6xl mx-auto">
             {auth?.isAuthenticated ? (
               <Button asChild className="w-full">
-                <a href="/dashboard">Go to Dashboard</a>
+                <a href="/dashboard/">Go to Dashboard</a>
               </Button>
             ) : (
               <>

@@ -225,17 +225,23 @@ class TestPermissionsAPI:
     async def test_put_and_get_role_permissions(
         self, authenticated_client: httpx.AsyncClient, app: FastAPI
     ):
-        from users.constants import ADMIN_ROLE_ID
+        from users.constants import USER_ROLE_ID, USER_ROLE_NAME
+        from users.models import Role
+
+        async with app.state.sm.db.session_factory() as db:
+            if await db.get(Role, USER_ROLE_ID) is None:
+                db.add(Role(id=USER_ROLE_ID, name=USER_ROLE_NAME, description="Standard user"))
+                await db.commit()
 
         resp = await authenticated_client.put(
-            f"/api/permissions/roles/{ADMIN_ROLE_ID}",
+            f"/api/permissions/roles/{USER_ROLE_ID}",
             json={"permissions": [PERM_VIEW]},
         )
         assert resp.status_code == 200
         assert resp.json()["permissions"] == [PERM_VIEW]
-        assert resp.json()["role"]["name"] == "admin"
+        assert resp.json()["role"]["name"] == "user"
 
-        fetch = await authenticated_client.get(f"/api/permissions/roles/{ADMIN_ROLE_ID}")
+        fetch = await authenticated_client.get(f"/api/permissions/roles/{USER_ROLE_ID}")
         assert fetch.status_code == 200
         assert fetch.json()["permissions"] == [PERM_VIEW]
 
@@ -259,7 +265,9 @@ class TestPermissionsAPI:
             from sqlalchemy import select
             from users.models import User
 
-            user_id = (await db.execute(select(User.id))).scalar_one()
+            user_id = (
+                await db.execute(select(User.id).where(User.email == "admin@test"))
+            ).scalar_one()
 
         resp = await authenticated_client.put(
             f"/api/permissions/users/{user_id}",

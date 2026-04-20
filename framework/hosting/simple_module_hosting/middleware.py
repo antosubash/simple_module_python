@@ -10,8 +10,8 @@ and ``ContextVar`` propagation.
 from __future__ import annotations
 
 import logging
-import secrets
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from simple_module_db import current_tenant_id
 from starlette.datastructures import Headers, MutableHeaders
@@ -23,7 +23,6 @@ from simple_module_hosting._observability import (
     CorrelationIdMiddleware,
     RequestLoggingMiddleware,
 )
-from simple_module_hosting.csrf import SESSION_CSRF_TOKEN_KEY
 from simple_module_hosting.permissions import expand_permissions, resolve_permissions
 
 if TYPE_CHECKING:
@@ -197,11 +196,22 @@ class TenantMiddleware:
         await self.app(scope, receive, send)
 
 
+PrincipalSerializer = Callable[[Any], dict[str, Any]]
+"""Module-owned projection from ``request.state.user`` to the ``auth.user``
+shared-prop dict. Framework never inspects user fields beyond ``roles``; a
+module (typically ``users``) registers a serializer on ``app.state`` so the
+user-schema stays out of the hosting layer."""
+
+
 class InertiaLayoutDataMiddleware:
-    """Inject shared data (auth, menus, CSRF) into every Inertia response.
+    """Inject shared data (auth, menus, i18n) into every Inertia response.
 
     This middleware reads the user from ``request.state.user`` (set by auth middleware)
     and populates ``request.state.inertia_shared`` for the Inertia render function.
+
+    The ``auth.user`` projection is produced by a module-registered serializer
+    looked up on ``request.app.state.principal_serializer``. Without one,
+    ``auth.user`` is ``None`` even when a user is authenticated.
     """
 
     def __init__(
@@ -238,30 +248,16 @@ class InertiaLayoutDataMiddleware:
 
         i18n_block = build_i18n_block(scope, request)
 
-        # Session-scoped CSRF token — minted once per session, reused until
-        # the session is cleared (logout, session-fixation rotate, etc.).
-        # Embedded in shared props so the frontend can echo it back in the
-        # ``X-CSRF-Token`` header on every unsafe request (see CSRFMiddleware).
-        session = scope.get("session")
-        csrf_token = ""
-        if session is not None:
-            csrf_token = session.get(SESSION_CSRF_TOKEN_KEY) or ""
-            if not csrf_token:
-                csrf_token = secrets.token_urlsafe(32)
-                session[SESSION_CSRF_TOKEN_KEY] = csrf_token
+        principal_serializer: PrincipalSerializer | None = getattr(
+            scope["app"].state, "principal_serializer", None
+        )
+        user_payload: dict[str, Any] | None = (
+            principal_serializer(user) if user is not None and principal_serializer else None
+        )
 
         shared: dict = {
             "auth": {
-                "user": (
-                    {
-                        "id": user.id,
-                        "name": user.name,
-                        "email": user.email,
-                        "roles": user.roles,
-                    }
-                    if user
-                    else None
-                ),
+                "user": user_payload,
                 "isAuthenticated": is_authenticated,
                 "permissions": frontend_permissions,
             },
@@ -269,7 +265,6 @@ class InertiaLayoutDataMiddleware:
                 is_authenticated=is_authenticated,
                 roles=roles,
             ),
-            SESSION_CSRF_TOKEN_KEY: csrf_token,
             "i18n": i18n_block,
         }
         request.state.inertia_shared = shared

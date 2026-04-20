@@ -10,7 +10,6 @@ import {
 import { Input } from '@simple-module/ui/components/ui/input';
 import { Label } from '@simple-module/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module/ui/layouts/AuthCardShell';
-import { fetchWithCsrf } from '@simple-module/ui/lib/csrf';
 import { useState } from 'react';
 
 interface DevAccount {
@@ -35,15 +34,15 @@ function Login() {
 
   const nextUrl =
     typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('next') || '/dashboard'
-      : '/dashboard';
+      ? new URLSearchParams(window.location.search).get('next') || '/dashboard/'
+      : '/dashboard/';
 
   const submitLogin = (username: string, pwd: string) => {
     setError(null);
     setNeedsVerification(false);
     setLoading(true);
     const body = new URLSearchParams({ username, password: pwd });
-    fetchWithCsrf('/api/users/auth/login', {
+    fetch('/api/users/auth/login', {
       method: 'POST',
       body,
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -73,7 +72,7 @@ function Login() {
   };
 
   const handleResendVerification = () => {
-    fetchWithCsrf('/api/users/auth/request-verify-token', {
+    fetch('/api/users/auth/request-verify-token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),

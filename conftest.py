@@ -12,7 +12,6 @@ import pytest
 from simple_module_core.discovery import discover_modules
 from simple_module_db.base import all_module_bases
 from simple_module_db.session import DatabaseState, init_db
-from simple_module_hosting.csrf import SESSION_CSRF_TOKEN_KEY
 from simple_module_hosting.settings import Settings
 from simple_module_testing import forge_session_cookie
 from sqlalchemy.ext.asyncio import (
@@ -137,23 +136,13 @@ async def app(settings: Settings):
     await ctx.__aexit__(None, None, None)
 
 
-_TEST_CSRF_TOKEN = "test-csrf-token"
-
-
 @pytest.fixture
 async def client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Unauthenticated async HTTP client — still CSRF-equipped so POST/PATCH/DELETE
-    requests from anonymous test flows (login, accept-invite, register) pass
-    validation without first making a GET to mint a token."""
-    signed = forge_session_cookie(
-        app.state.sm.settings.secret_key, {SESSION_CSRF_TOKEN_KEY: _TEST_CSRF_TOKEN}
-    )
+    """Unauthenticated async HTTP client."""
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://testserver",
-        cookies={"session": signed},
-        headers={"X-CSRF-Token": _TEST_CSRF_TOKEN},
     ) as c:
         yield c
 
@@ -174,7 +163,7 @@ async def authenticated_client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
 
     signed = forge_session_cookie(
         app.state.sm.settings.secret_key,
-        {"user_id": user_id, SESSION_CSRF_TOKEN_KEY: _TEST_CSRF_TOKEN},
+        {"user_id": user_id},
     )
 
     transport = httpx.ASGITransport(app=app)
@@ -182,6 +171,5 @@ async def authenticated_client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
         transport=transport,
         base_url="http://testserver",
         cookies={"session": signed},
-        headers={"X-CSRF-Token": _TEST_CSRF_TOKEN},
     ) as c:
         yield c
