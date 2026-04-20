@@ -1,4 +1,7 @@
+import { useForm } from '@inertiajs/react';
 import { keys, useT } from '@simple-module/i18n';
+import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
+import type React from 'react';
 import ValueInput, { type ValueType } from './components/ValueInput';
 import { ROUTES } from './routes';
 
@@ -16,14 +19,23 @@ type Setting = {
 
 type Props = { setting: Setting };
 
-export default function Edit({ setting }: Props) {
+function Edit({ setting }: Props) {
   const { t } = useT();
+  const { data, setData, put, processing, errors } = useForm({
+    value: setting.value,
+    value_type: setting.value_type,
+    description: setting.description ?? '',
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    put(ROUTES.byId(setting.id));
+  }
+
   return (
     <div className="p-6 max-w-xl">
       <h1 className="text-2xl font-semibold mb-4">{t(keys.settings.edit.title)}</h1>
-      <form method="post" action={ROUTES.byId(setting.id)} className="space-y-3">
-        <input type="hidden" name="_method" value="put" />
-        <input type="hidden" name="value_type" value={setting.value_type} />
+      <form onSubmit={handleSubmit} className="space-y-3">
         <label className="block">
           <span className="block text-sm">{t(keys.settings.form.scope_label)}</span>
           <input
@@ -58,20 +70,33 @@ export default function Edit({ setting }: Props) {
         </label>
         <div className="block">
           <span className="block text-sm">{t(keys.settings.form.value_label)}</span>
-          <ValueInput valueType={setting.value_type} defaultValue={setting.value} required />
+          <ValueInput
+            valueType={data.value_type}
+            value={data.value}
+            onValueChange={(v) => setData('value', v)}
+            required
+          />
+          {errors.value && <p className="text-sm text-destructive">{errors.value}</p>}
         </div>
         <label className="block">
           <span className="block text-sm">{t(keys.settings.form.description_label)}</span>
           <textarea
-            name="description"
-            defaultValue={setting.description ?? ''}
+            value={data.description}
+            onChange={(e) => setData('description', e.target.value)}
             className="border rounded w-full p-2"
           />
         </label>
-        <button type="submit" className="rounded bg-primary px-3 py-1.5 text-primary-foreground">
+        <button
+          type="submit"
+          disabled={processing}
+          className="rounded bg-primary px-3 py-1.5 text-primary-foreground disabled:opacity-50"
+        >
           {t(keys.settings.edit.submit_button)}
         </button>
       </form>
     </div>
   );
 }
+
+Edit.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+export default Edit;

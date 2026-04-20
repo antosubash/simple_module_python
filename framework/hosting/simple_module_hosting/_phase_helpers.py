@@ -141,9 +141,14 @@ def check_settings_registration(app: FastAPI, modules: list) -> list[Diagnostic]
         cls = type(mod)
         if "register_settings" not in cls.__dict__:
             continue
-        mod_prefix = mod.meta.name.lower()
-        if hasattr(app.state, mod_prefix):
+        # Match the convention actually used by modules: `app.state.<package>`
+        # (snake_case package name, e.g. `background_tasks`), which aligns
+        # with Settings-module autodiscovery in `settings._module_settings`.
+        package = cls.__module__.split(".", 1)[0]
+        candidates = (package, mod.meta.name.lower())
+        if any(hasattr(app.state, c) for c in candidates):
             continue
+        mod_prefix = package
         diagnostics.append(
             Diagnostic(
                 level=DiagnosticLevel.WARNING,
