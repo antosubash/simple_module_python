@@ -196,3 +196,59 @@ async def test_roles_payload_returns_id_name_dicts(users_app):
     names = [item["name"] for item in payload]
     assert "admin" in names
     assert "user" in names
+
+
+# ---------------------------------------------------------------------------
+# Admin index filter params
+# ---------------------------------------------------------------------------
+
+
+class TestAdminIndexFilters:
+    @pytest.mark.anyio
+    async def test_status_filter_in_view(self, admin_client, users_db):
+        from test_api_admin import _make_user
+
+        await _make_user(users_db, email="on-view@x.com")
+        u = await _make_user(users_db, email="off-view@x.com")
+        u.is_active = False
+        await users_db.commit()
+
+        resp = await admin_client.get(
+            "/users/admin?status=disabled",
+            headers={"X-Inertia": "true", "Accept": "application/json"},
+        )
+        assert resp.status_code == 200
+        props = resp.json()["props"]
+        emails = [u["email"] for u in props["users"]]
+        assert "off-view@x.com" in emails
+        assert "on-view@x.com" not in emails
+        assert props["filters"]["status"] == "disabled"
+        assert props["filters"]["sort"] == "email"
+        assert props["filters"]["order"] == "asc"
+
+    @pytest.mark.anyio
+    async def test_filters_defaults_in_props(self, admin_client):
+        resp = await admin_client.get(
+            "/users/admin",
+            headers={"X-Inertia": "true", "Accept": "application/json"},
+        )
+        assert resp.status_code == 200
+        props = resp.json()["props"]
+        assert "filters" in props
+        assert props["filters"]["status"] == "all"
+        assert props["filters"]["role"] == ""
+        assert props["filters"]["verified"] == "all"
+        assert props["filters"]["sort"] == "email"
+        assert props["filters"]["order"] == "asc"
+
+    @pytest.mark.anyio
+    async def test_invalid_filter_values_are_ignored(self, admin_client):
+        resp = await admin_client.get(
+            "/users/admin?status=bad&sort=invalid&order=sideways",
+            headers={"X-Inertia": "true", "Accept": "application/json"},
+        )
+        assert resp.status_code == 200
+        props = resp.json()["props"]
+        assert props["filters"]["status"] == "all"
+        assert props["filters"]["sort"] == "email"
+        assert props["filters"]["order"] == "asc"

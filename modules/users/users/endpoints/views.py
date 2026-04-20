@@ -12,6 +12,12 @@ from starlette.responses import RedirectResponse
 
 from users.constants import PERM_USERS_MANAGE
 from users.deps import get_user_service
+from users.endpoints.api_admin import (
+    _ALLOWED_ORDER,
+    _ALLOWED_SORT,
+    _ALLOWED_STATUS,
+    _ALLOWED_VERIFIED,
+)
 from users.exceptions import UserNotFoundError
 from users.roles_cache import get_roles_cache
 from users.service import UserService
@@ -132,8 +138,26 @@ async def admin_index(
     page: int = 1,
     per_page: int = 20,
     q: str | None = None,
+    status: str | None = None,
+    role: str | None = None,
+    verified: str | None = None,
+    sort: str = "email",
+    order: str = "asc",
 ) -> InertiaResponse:
-    users, total = await service.list_users(page=page, per_page=per_page, search=q)
+    clean_status = status if status in _ALLOWED_STATUS else None
+    clean_verified = verified if verified in _ALLOWED_VERIFIED else None
+    clean_sort = sort if sort in _ALLOWED_SORT else "email"
+    clean_order = order if order in _ALLOWED_ORDER else "asc"
+    users, total = await service.list_users(
+        page=page,
+        per_page=per_page,
+        search=q,
+        status=clean_status,
+        role_name=role or None,
+        verified=clean_verified,
+        sort=clean_sort,
+        order=clean_order,
+    )
     return await inertia.render(
         _PAGE_ADMIN_INDEX,
         {
@@ -141,6 +165,13 @@ async def admin_index(
             "pagination": {"page": page, "per_page": per_page, "total": total},
             "query": q or "",
             "roles": await _roles_payload(request.app),
+            "filters": {
+                "status": clean_status or "all",
+                "role": role or "",
+                "verified": clean_verified or "all",
+                "sort": clean_sort,
+                "order": clean_order,
+            },
         },
     )
 
