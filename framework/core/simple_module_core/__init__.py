@@ -23,6 +23,7 @@ from simple_module_core.exceptions import (
 from simple_module_core.feature_flags import (
     FeatureFlagDefinition,
     FeatureFlagRegistry,
+    feature_flag,
     flag_enabled,
     is_flag_enabled,
     require_flag,
@@ -64,6 +65,7 @@ __all__ = [
     "ValidationError",
     "check_framework_compatibility",
     "discover_modules",
+    "feature_flag",
     "flag_enabled",
     "get_module_package_name",
     "is_flag_enabled",

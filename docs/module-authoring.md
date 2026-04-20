@@ -96,51 +96,74 @@ version, raising `FrameworkVersionError` with the offending modules named.
 
 ## Feature flags
 
-Declare flags in `register_feature_flags` and gate behaviour with the
-helpers from `simple_module_core`. All three are tenant-aware: they read
+Declare flags as module-level constants so every consumer imports the
+same object instead of retyping the string name, then register them in
+`register_feature_flags`. All the helpers are tenant-aware: they read
 `request.state.tenant_id` (populated by `TenantMiddleware`) and resolve
-tenant override > system override > definition default.
+tenant override > system override > definition default. They accept
+either a `FeatureFlagDefinition` (preferred) or the raw name.
+
+```python
+# my_module/constants.py
+from simple_module_core import FeatureFlagDefinition
+
+FLAG_BULK_IMPORT = FeatureFlagDefinition(
+    name="my_module.bulk_import",
+    description="Enable CSV bulk import",
+    default_enabled=False,
+)
+```
 
 ```python
 # module.py
-from simple_module_core import FeatureFlagDefinition, FeatureFlagRegistry
+from simple_module_core import FeatureFlagRegistry, ModuleBase
+
+from my_module.constants import FLAG_BULK_IMPORT
 
 class MyModule(ModuleBase):
     def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
-        registry.add(FeatureFlagDefinition(
-            name="my_module.bulk_import",
-            description="Enable CSV bulk import",
-            default_enabled=False,
-        ))
+        registry.add(FLAG_BULK_IMPORT)
 ```
 
 ```python
-# endpoints/api.py — three ways to consume
+# endpoints/api.py — four ways to consume, all accept the constant directly
 from typing import Annotated
 from fastapi import APIRouter, Depends, Request
-from simple_module_core import flag_enabled, is_flag_enabled, require_flag
+from simple_module_core import feature_flag, flag_enabled, is_flag_enabled, require_flag
+
+from my_module.constants import FLAG_BULK_IMPORT
 
 router = APIRouter()
 
-# 1. Gate a whole endpoint — 404 when off
-@router.post("/bulk", dependencies=[Depends(require_flag("my_module.bulk_import"))])
-async def bulk_import(...): ...
+# 1. Attribute-style decorator — 404 when off
+@router.post("/bulk")
+@feature_flag(FLAG_BULK_IMPORT)
+async def bulk_import(request: Request, payload: BulkPayload): ...
 
-# 2. Inject the value into your handler
+# 2. FastAPI dependency — 404 when off
+@router.post("/bulk-alt", dependencies=[Depends(require_flag(FLAG_BULK_IMPORT))])
+async def bulk_import_alt(...): ...
+
+# 3. Inject the value into your handler
 @router.get("/")
 async def list_items(
-    bulk_on: Annotated[bool, Depends(flag_enabled("my_module.bulk_import"))],
+    bulk_on: Annotated[bool, Depends(flag_enabled(FLAG_BULK_IMPORT))],
 ):
     if bulk_on: ...
 
-# 3. Check ad-hoc inside any handler that already has Request
+# 4. Check ad-hoc inside any handler that already has Request
 @router.get("/dashboard")
 async def dashboard(request: Request):
-    if is_flag_enabled(request, "my_module.bulk_import"): ...
+    if is_flag_enabled(request, FLAG_BULK_IMPORT): ...
 ```
 
+The `@feature_flag(...)` decorator requires the handler to declare a
+`request: Request` parameter (FastAPI injects it automatically) so the
+gate can read the tenant context; decorating a handler without one
+raises `TypeError` at import time.
+
 Outside of an HTTP request (background tasks, CLI), pass the registry and
-tenant explicitly: `registry.is_enabled(name, tenant_id=tenant)`.
+tenant explicitly: `registry.is_enabled(FLAG_BULK_IMPORT.name, tenant_id=tenant)`.
 
 ## Settings
 
