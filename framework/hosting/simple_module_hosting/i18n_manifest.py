@@ -13,7 +13,6 @@ Both files are consumed by ``@simple-module/i18n``:
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -114,7 +113,7 @@ def write_generated_resources(registry: I18nRegistry, output_dir: Path) -> Path:
 
 
 def _render_resources(keys: list[str]) -> str:
-    lines = [_RESOURCES_HEADER, "", "export default {", "  translation: {"]
+    lines = [_RESOURCES_HEADER, "export default {", "  translation: {"]
     for key in keys:
         lines.append(f"    '{key}': '',")
     lines.append("  },")
@@ -179,16 +178,21 @@ def _insert(tree: dict[str, Any], path: list[str], value: str) -> None:
 
 
 def _serialize(node: Any, *, indent: int) -> str:
-    """Emit a dict-of-dicts tree as pretty-printed TypeScript object literal."""
+    """Emit a dict-of-dicts tree as pretty-printed TypeScript object literal.
+
+    Strings are wrapped in single quotes to match the project's biome config
+    (``quoteStyle: "single"``); dotted i18n keys never contain single quotes,
+    so plain wrapping is safe.
+    """
     if isinstance(node, str):
-        return json.dumps(node)
+        return f"'{node}'"
     if not isinstance(node, dict) or not node:
         return "{}"
     pad = "  " * indent
     inner_pad = "  " * (indent + 1)
     lines = ["{"]
     for k in sorted(node.keys()):
-        key_repr = k if _is_valid_js_identifier(k) else json.dumps(k)
+        key_repr = k if _is_valid_js_identifier(k) else f"'{k}'"
         lines.append(f"{inner_pad}{key_repr}: {_serialize(node[k], indent=indent + 1)},")
     lines.append(f"{pad}}}")
     return "\n".join(lines)

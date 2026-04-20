@@ -35,6 +35,14 @@ from simple_module_hosting.settings import Settings
 
 logger = logging.getLogger(__name__)
 
+_APP_TITLE = "SimpleModule"
+_APP_VERSION = "0.1.0"
+_DOCS_URL = "/api/docs"
+_REDOC_URL = "/api/redoc"
+_STATIC_MOUNT_PATH = "/static"
+_STATIC_DIR_NAME = "static"
+_ENV_PROJECT_ROOT = "SM_PROJECT_ROOT"
+
 
 def _resolve_project_root() -> Path:
     """Return the project root directory.
@@ -48,7 +56,7 @@ def _resolve_project_root() -> Path:
     Falls back to ``parents[3]`` for the workspace-install dev loop
     (simple_module_hosting/ → hosting/ → framework/ → project root).
     """
-    override = os.environ.get("SM_PROJECT_ROOT")
+    override = os.environ.get(_ENV_PROJECT_ROOT)
     if override:
         return Path(override)
     return Path(__file__).resolve().parents[3]
@@ -152,10 +160,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await app.state.sm.db.engine.dispose()
 
     app = FastAPI(
-        title="SimpleModule",
-        version="0.1.0",
-        docs_url="/api/docs" if settings.is_development else None,
-        redoc_url="/api/redoc" if settings.is_development else None,
+        title=_APP_TITLE,
+        version=_APP_VERSION,
+        docs_url=_DOCS_URL if settings.is_development else None,
+        redoc_url=_REDOC_URL if settings.is_development else None,
         lifespan=lifespan,
     )
 
@@ -210,9 +218,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health_router)
 
-    static_dir = _PROJECT_ROOT / "host" / "static"
+    static_dir = _PROJECT_ROOT / "host" / _STATIC_DIR_NAME
     if static_dir.is_dir():
-        app.mount("/static", StaticFiles(directory=static_dir), name="static")
+        app.mount(_STATIC_MOUNT_PATH, StaticFiles(directory=static_dir), name=_STATIC_DIR_NAME)
 
     mount_module_static_dirs(app, modules)
 

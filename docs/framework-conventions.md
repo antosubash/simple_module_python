@@ -13,7 +13,7 @@ modules/<name>/
     ├── models.py             # SQLModel tables (optional)
     ├── service.py            # business logic
     ├── deps.py               # FastAPI dependencies
-    ├── contracts/            # SQLModel DTOs + Protocol interfaces (public)
+    ├── contracts/            # SQLModel DTOs (public surface)
     ├── endpoints/
     │   ├── api.py            # REST endpoints (JSON)
     │   └── views.py          # Inertia view endpoints

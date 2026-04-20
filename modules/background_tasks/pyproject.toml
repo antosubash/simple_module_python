@@ -1,0 +1,25 @@
+[project]
+name = "background-tasks"
+version = "0.1.0"
+description = "Celery + Redis task queue with admin UI for monitoring and retrying failed/stuck tasks"
+authors = []
+requires-python = ">=3.12"
+dependencies = [
+    "simple-module-core",
+    "simple-module-db",
+    "simple-module-hosting",
+    "celery[redis]>=5.4",
+    "redis>=5",
+]
+
+[project.entry-points.simple_module]
+background_tasks = "background_tasks.module:BackgroundTasksModule"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+simple-module-core = { workspace = true }
+simple-module-db = { workspace = true }
+simple-module-hosting = { workspace = true }

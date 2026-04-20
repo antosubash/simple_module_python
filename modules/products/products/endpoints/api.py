@@ -7,6 +7,7 @@ from simple_module_core.events import EventBus
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import RequiresPermission
 
+from products.constants import PERM_PRODUCTS_CREATE, PERM_PRODUCTS_DELETE, PERM_PRODUCTS_EDIT
 from products.contracts.events import ProductCreated, ProductDeleted, ProductUpdated
 from products.contracts.schemas import ProductCreate, ProductOut, ProductUpdate
 from products.deps import get_event_bus, get_product_service
@@ -39,7 +40,7 @@ async def get_product(
     "/",
     response_model=ProductOut,
     status_code=201,
-    dependencies=[Depends(RequiresPermission("products.create"))],
+    dependencies=[Depends(RequiresPermission(PERM_PRODUCTS_CREATE))],
 )
 async def create_product(
     data: ProductCreate,
@@ -54,7 +55,7 @@ async def create_product(
 @router.put(
     "/{product_id}",
     response_model=ProductOut,
-    dependencies=[Depends(RequiresPermission("products.edit"))],
+    dependencies=[Depends(RequiresPermission(PERM_PRODUCTS_EDIT))],
 )
 async def update_product(
     product_id: int,
@@ -73,7 +74,7 @@ async def update_product(
 @router.delete(
     "/{product_id}",
     status_code=204,
-    dependencies=[Depends(RequiresPermission("products.delete"))],
+    dependencies=[Depends(RequiresPermission(PERM_PRODUCTS_DELETE))],
 )
 async def delete_product(
     product_id: int,

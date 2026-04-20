@@ -10,12 +10,25 @@ from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
 from starlette.responses import RedirectResponse
 
+from users.constants import PERM_USERS_MANAGE
 from users.deps import get_user_service
 from users.exceptions import UserNotFoundError
 from users.roles_cache import get_roles_cache
 from users.service import UserService
 
 router = APIRouter()
+
+# Inertia page identifiers
+_PAGE_LOGIN = "Users/Login"
+_PAGE_REGISTER = "Users/Register"
+_PAGE_FORGOT_PASSWORD = "Users/ForgotPassword"
+_PAGE_RESET_PASSWORD = "Users/ResetPassword"
+_PAGE_VERIFY_EMAIL = "Users/VerifyEmail"
+_PAGE_ACCEPT_INVITE = "Users/AcceptInvite"
+_PAGE_PROFILE = "Users/Profile"
+_PAGE_ADMIN_INDEX = "Users/Users/Index"
+_PAGE_ADMIN_INVITE = "Users/Users/Invite"
+_PAGE_ADMIN_EDIT = "Users/Users/Edit"
 
 
 async def _roles_payload(app) -> list[dict[str, str]]:
@@ -51,7 +64,7 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
                 }
             )
     return await inertia.render(
-        "Users/Login",
+        _PAGE_LOGIN,
         {"allow_signup": users_settings.allow_signup, "dev_accounts": dev_accounts},
     )
 
@@ -73,27 +86,27 @@ async def logout(request: Request) -> RedirectResponse:
 async def register_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
     if not request.app.state.users.settings.allow_signup:
         raise HTTPException(status_code=404)
-    return await inertia.render("Users/Register", {})
+    return await inertia.render(_PAGE_REGISTER, {})
 
 
 @router.get("/forgot-password", response_model=None)
 async def forgot_password_page(inertia: InertiaDep) -> InertiaResponse:
-    return await inertia.render("Users/ForgotPassword", {})
+    return await inertia.render(_PAGE_FORGOT_PASSWORD, {})
 
 
 @router.get("/reset-password", response_model=None)
 async def reset_password_page(inertia: InertiaDep, token: str = "") -> InertiaResponse:
-    return await inertia.render("Users/ResetPassword", {"token": token})
+    return await inertia.render(_PAGE_RESET_PASSWORD, {"token": token})
 
 
 @router.get("/verify", response_model=None)
 async def verify_page(inertia: InertiaDep, token: str = "") -> InertiaResponse:
-    return await inertia.render("Users/VerifyEmail", {"token": token})
+    return await inertia.render(_PAGE_VERIFY_EMAIL, {"token": token})
 
 
 @router.get("/invite/accept", response_model=None)
 async def accept_invite_page(inertia: InertiaDep, token: str = "") -> InertiaResponse:
-    return await inertia.render("Users/AcceptInvite", {"token": token})
+    return await inertia.render(_PAGE_ACCEPT_INVITE, {"token": token})
 
 
 # ── Authenticated pages ─────────────────────────────────────────
@@ -101,7 +114,7 @@ async def accept_invite_page(inertia: InertiaDep, token: str = "") -> InertiaRes
 
 @router.get("/me", response_model=None)
 async def profile_page(inertia: InertiaDep) -> InertiaResponse:
-    return await inertia.render("Users/Profile", {})
+    return await inertia.render(_PAGE_PROFILE, {})
 
 
 # ── Admin pages ─────────────────────────────────────────────────
@@ -110,7 +123,7 @@ async def profile_page(inertia: InertiaDep) -> InertiaResponse:
 @router.get(
     "/admin",
     response_model=None,
-    dependencies=[Depends(RequiresPermission("users.manage"))],
+    dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
 )
 async def admin_index(
     request: Request,
@@ -122,7 +135,7 @@ async def admin_index(
 ) -> InertiaResponse:
     users, total = await service.list_users(page=page, per_page=per_page, search=q)
     return await inertia.render(
-        "Users/Users/Index",
+        _PAGE_ADMIN_INDEX,
         {
             "users": [u.model_dump(mode="json") for u in users],
             "pagination": {"page": page, "per_page": per_page, "total": total},
@@ -135,14 +148,14 @@ async def admin_index(
 @router.get(
     "/admin/invite",
     response_model=None,
-    dependencies=[Depends(RequiresPermission("users.manage"))],
+    dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
 )
 async def admin_invite_page(
     request: Request,
     inertia: InertiaDep,
 ) -> InertiaResponse:
     return await inertia.render(
-        "Users/Users/Invite",
+        _PAGE_ADMIN_INVITE,
         {
             "roles": await _roles_payload(request.app),
         },
@@ -152,7 +165,7 @@ async def admin_invite_page(
 @router.get(
     "/admin/{user_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission("users.manage"))],
+    dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
 )
 async def admin_edit_page(
     user_id: str,
@@ -169,7 +182,7 @@ async def admin_edit_page(
     except UserNotFoundError:
         raise HTTPException(status_code=404) from None
     return await inertia.render(
-        "Users/Users/Edit",
+        _PAGE_ADMIN_EDIT,
         {
             "user": user_item.model_dump(mode="json"),
             "roles": await _roles_payload(request.app),

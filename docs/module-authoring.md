@@ -18,9 +18,23 @@ my-module/
 │   ├── pages/                      # Inertia TSX pages (optional)
 │   ├── templates/                  # Jinja2 templates (optional)
 │   ├── static/dist/                # pre-built frontend assets (optional)
+│   ├── contracts/schemas.py        # SQLModel DTOs — the public surface
 │   └── contracts/events.py         # domain events (optional)
 └── tests/
 ```
+
+### Service types: concrete class, not Protocol
+
+Export the concrete service class from `<module>.service` and have consumers
+type-hint against it. Do **not** ship a `contracts/service.py` with an
+`IFooService` Protocol by default — it's dead boilerplate when there's only
+one implementation.
+
+Add a Protocol only when the module is a real extension point with multiple
+interchangeable implementations that an operator can swap at runtime. The
+canonical example is `file_storage.StorageBackend`: it has a registry, two
+shipped implementations (`FilesystemBackend`, `S3Backend`), and tests that
+mock against the Protocol. If none of those apply to your module, skip it.
 
 ### Minimal `pyproject.toml`
 

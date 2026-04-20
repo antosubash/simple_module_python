@@ -33,6 +33,23 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_SCOPE_HTTP = "http"
+_MSG_RESPONSE_START = "http.response.start"
+
+# Security response header names
+_HEADER_X_CONTENT_TYPE_OPTIONS = "X-Content-Type-Options"
+_HEADER_X_FRAME_OPTIONS = "X-Frame-Options"
+_HEADER_X_XSS_PROTECTION = "X-XSS-Protection"
+_HEADER_REFERRER_POLICY = "Referrer-Policy"
+_HEADER_CSP = "Content-Security-Policy"
+_HEADER_HSTS = "Strict-Transport-Security"
+
+# Security response header values
+_XCTO_NOSNIFF = "nosniff"
+_XFO_SAMEORIGIN = "SAMEORIGIN"
+_XXSS_BLOCK = "1; mode=block"
+_REFERRER_STRICT_ORIGIN = "strict-origin-when-cross-origin"
+
 __all__ = [
     "TENANT_HEADER",
     "CorrelationIdMiddleware",
@@ -106,21 +123,21 @@ class SecurityHeadersMiddleware:
         self.hsts = strict_transport_security
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        if scope["type"] != _SCOPE_HTTP:
             await self.app(scope, receive, send)
             return
 
         async def send_with_headers(message: Message) -> None:
-            if message["type"] == "http.response.start":
+            if message["type"] == _MSG_RESPONSE_START:
                 headers = MutableHeaders(scope=message)
-                headers["X-Content-Type-Options"] = "nosniff"
-                headers["X-Frame-Options"] = "SAMEORIGIN"
-                headers["X-XSS-Protection"] = "1; mode=block"
-                headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+                headers[_HEADER_X_CONTENT_TYPE_OPTIONS] = _XCTO_NOSNIFF
+                headers[_HEADER_X_FRAME_OPTIONS] = _XFO_SAMEORIGIN
+                headers[_HEADER_X_XSS_PROTECTION] = _XXSS_BLOCK
+                headers[_HEADER_REFERRER_POLICY] = _REFERRER_STRICT_ORIGIN
                 if self.csp:
-                    headers["Content-Security-Policy"] = self.csp
+                    headers[_HEADER_CSP] = self.csp
                 if self.hsts:
-                    headers["Strict-Transport-Security"] = self.hsts
+                    headers[_HEADER_HSTS] = self.hsts
             await send(message)
 
         await self.app(scope, receive, send_with_headers)
@@ -152,7 +169,7 @@ class TenantMiddleware:
         self.header = header
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        if scope["type"] != _SCOPE_HTTP:
             await self.app(scope, receive, send)
             return
 
@@ -210,7 +227,7 @@ class InertiaLayoutDataMiddleware:
         self.permission_registry = permission_registry
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        if scope["type"] != _SCOPE_HTTP:
             await self.app(scope, receive, send)
             return
 

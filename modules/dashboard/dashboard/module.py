@@ -9,13 +9,18 @@ from fastapi import APIRouter
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 
+_MODULE_PRODUCTS = "Products"
+_MODULE_USERS = "Users"
+_URL_DASHBOARD = "/dashboard/"
+_ICON_DASHBOARD = "home"
+
 
 class DashboardModule(ModuleBase):
     meta = ModuleMeta(
         name="Dashboard",
         route_prefix="/api/dashboard",
         view_prefix="/dashboard",
-        depends_on=["Products", "Users"],
+        depends_on=[_MODULE_PRODUCTS, _MODULE_USERS],
     )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
@@ -29,8 +34,8 @@ class DashboardModule(ModuleBase):
         registry.add(
             MenuItem(
                 label="Dashboard",
-                url="/dashboard/",
-                icon="home",
+                url=_URL_DASHBOARD,
+                icon=_ICON_DASHBOARD,
                 order=1,
                 section=MenuSection.SIDEBAR,
             )
