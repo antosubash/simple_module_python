@@ -1,5 +1,16 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { PageShell } from '@simple-module/ui/components/PageShell';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@simple-module/ui/components/ui/alert-dialog';
 import { Badge } from '@simple-module/ui/components/ui/badge';
 import { Button } from '@simple-module/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@simple-module/ui/components/ui/card';
@@ -7,6 +18,7 @@ import { Checkbox } from '@simple-module/ui/components/ui/checkbox';
 import { Label } from '@simple-module/ui/components/ui/label';
 import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
 import { fetchWithCsrf } from '@simple-module/ui/lib/csrf';
+import { ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -16,7 +28,9 @@ interface UserListItem {
   full_name: string | null;
   is_active: boolean;
   is_verified: boolean;
+  disabled_at: string | null;
   last_login_at: string | null;
+  created_at: string | null;
   roles: string[];
 }
 
@@ -28,15 +42,24 @@ interface Role {
 interface Props {
   user: UserListItem;
   roles: Role[];
+  has_permissions_module: boolean;
+}
+
+function fmt(dt: string | null): string {
+  if (!dt) return '—';
+  return new Date(dt).toLocaleString();
 }
 
 function Edit() {
-  const { user, roles } = usePage<{ props: Props }>().props as unknown as Props;
+  const { user, roles, has_permissions_module } = usePage<{ props: Props }>()
+    .props as unknown as Props;
 
   const [isActive, setIsActive] = useState(user.is_active);
+  const [isVerified, setIsVerified] = useState(user.is_verified);
   const [selectedRoles, setSelectedRoles] = useState<string[]>(user.roles ?? []);
   const [savingStatus, setSavingStatus] = useState(false);
   const [savingRoles, setSavingRoles] = useState(false);
+  const [savingVerify, setSavingVerify] = useState(false);
 
   const toggleRole = (roleName: string) => {
     setSelectedRoles((prev) =>
@@ -44,20 +67,30 @@ function Edit() {
     );
   };
 
-  const handleToggleActive = () => {
+  const disableAccount = () => {
     setSavingStatus(true);
-    const endpoint = isActive
-      ? `/api/users/admin/${user.id}/disable`
-      : `/api/users/admin/${user.id}/enable`;
-    fetchWithCsrf(endpoint, { method: 'PATCH' })
+    fetchWithCsrf(`/api/users/admin/${user.id}/disable`, { method: 'PATCH' })
       .then(async (res) => {
         if (res.ok) {
-          const newActive = !isActive;
-          setIsActive(newActive);
-          toast.success(newActive ? 'User enabled' : 'User disabled');
+          setIsActive(false);
+          toast.success('User disabled');
         } else {
-          const data = await res.json().catch(() => ({}));
-          toast.error(typeof data?.detail === 'string' ? data.detail : 'Failed to update status');
+          toast.error('Failed to disable user');
+        }
+      })
+      .catch(() => toast.error('An error occurred'))
+      .finally(() => setSavingStatus(false));
+  };
+
+  const enableAccount = () => {
+    setSavingStatus(true);
+    fetchWithCsrf(`/api/users/admin/${user.id}/enable`, { method: 'PATCH' })
+      .then(async (res) => {
+        if (res.ok) {
+          setIsActive(true);
+          toast.success('User enabled');
+        } else {
+          toast.error('Failed to enable user');
         }
       })
       .catch(() => toast.error('An error occurred'))
@@ -75,15 +108,14 @@ function Edit() {
         if (res.ok) {
           toast.success('Roles updated');
         } else {
-          const data = await res.json().catch(() => ({}));
-          toast.error(typeof data?.detail === 'string' ? data.detail : 'Failed to update roles');
+          toast.error('Failed to update roles');
         }
       })
       .catch(() => toast.error('An error occurred'))
       .finally(() => setSavingRoles(false));
   };
 
-  const handleCopyResetLink = () => {
+  const copyResetLink = () => {
     fetchWithCsrf(`/api/users/admin/${user.id}/reset-password-link`, { method: 'POST' })
       .then(async (res) => {
         if (res.ok) {
@@ -95,6 +127,21 @@ function Edit() {
         }
       })
       .catch(() => toast.error('An error occurred'));
+  };
+
+  const markVerified = () => {
+    setSavingVerify(true);
+    fetchWithCsrf(`/api/users/admin/${user.id}/verify`, { method: 'PATCH' })
+      .then(async (res) => {
+        if (res.ok) {
+          setIsVerified(true);
+          toast.success('User marked verified');
+        } else {
+          toast.error('Failed to mark verified');
+        }
+      })
+      .catch(() => toast.error('An error occurred'))
+      .finally(() => setSavingVerify(false));
   };
 
   const handleReload = () => {
@@ -112,6 +159,34 @@ function Edit() {
       }
     >
       <div className="space-y-6 max-w-xl">
+        {/* Metadata card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Metadata</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+            <span className="text-muted-foreground">Created</span>
+            <span>{fmt(user.created_at)}</span>
+            <span className="text-muted-foreground">Last login</span>
+            <span>{user.last_login_at ? fmt(user.last_login_at) : 'Never'}</span>
+            <span className="text-muted-foreground">Disabled at</span>
+            <span>{fmt(user.disabled_at)}</span>
+            <span className="text-muted-foreground">Verified</span>
+            <span className="flex items-center gap-2">
+              {isVerified ? (
+                'Yes'
+              ) : (
+                <>
+                  No
+                  <Button size="sm" variant="outline" onClick={markVerified} disabled={savingVerify}>
+                    {savingVerify ? 'Saving…' : 'Mark verified'}
+                  </Button>
+                </>
+              )}
+            </span>
+          </CardContent>
+        </Card>
+
         {/* Status card */}
         <Card>
           <CardHeader>
@@ -122,26 +197,52 @@ function Edit() {
               <Badge variant={isActive ? 'secondary' : 'destructive'}>
                 {isActive ? 'Active' : 'Disabled'}
               </Badge>
-              {user.is_verified ? (
-                <Badge variant="outline">Verified</Badge>
-              ) : (
-                <Badge variant="outline" className="text-amber-600 border-amber-300">
-                  Unverified
-                </Badge>
-              )}
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button
-                variant={isActive ? 'destructive' : 'default'}
-                size="sm"
-                onClick={handleToggleActive}
-                disabled={savingStatus}
-              >
-                {savingStatus ? 'Saving…' : isActive ? 'Disable account' : 'Enable account'}
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleCopyResetLink}>
-                Copy reset-password link
-              </Button>
+              {isActive ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" disabled={savingStatus}>
+                      {savingStatus ? 'Saving…' : 'Disable account'}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Disable {user.email}?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        They won't be able to sign in until you re-enable the account.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={disableAccount}>Disable</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : (
+                <Button size="sm" onClick={enableAccount} disabled={savingStatus}>
+                  {savingStatus ? 'Saving…' : 'Enable account'}
+                </Button>
+              )}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    Copy reset-password link
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Generate reset link for {user.email}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      A one-time password-reset URL will be copied to your clipboard.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={copyResetLink}>Generate</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </CardContent>
         </Card>
@@ -176,6 +277,16 @@ function Edit() {
             </div>
           </CardContent>
         </Card>
+
+        {has_permissions_module && (
+          <Link
+            href={`/permissions/users/${user.id}`}
+            className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+          >
+            <ShieldCheck className="size-4" />
+            Manage permissions →
+          </Link>
+        )}
       </div>
     </PageShell>
   );
