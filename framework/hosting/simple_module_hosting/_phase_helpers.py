@@ -27,7 +27,6 @@ from simple_module_hosting._error_handlers import (
     not_found_error_handler,
     unhandled_exception_handler,
 )
-from simple_module_hosting.csrf import CSRFMiddleware
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.middleware import (
     CorrelationIdMiddleware,
@@ -68,7 +67,7 @@ def install_middleware(
     """Install the full middleware pipeline.
 
     Order matters: last added = first executed. Execution order:
-    CorrelationId → RequestLogging → Security → Session → CSRF
+    CorrelationId → RequestLogging → Security → Session
     → [module] → (Tenant, if multi_tenant) → Locale → Inertia.
     """
     app.add_middleware(
@@ -86,9 +85,6 @@ def install_middleware(
         app.add_middleware(TenantMiddleware, header=settings.tenant_header or None)
     for mod in modules:
         mod.register_middleware(app)
-    # CSRF runs immediately after SessionMiddleware loads the session so that
-    # scope["session"] is populated by the time we validate the token.
-    app.add_middleware(CSRFMiddleware)
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
     # In dev, relax CSP so the browser can fetch @vite/client, main.tsx, and
     # the HMR WebSocket from the Vite origin. HSTS is also suppressed because

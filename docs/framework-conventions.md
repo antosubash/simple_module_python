@@ -200,7 +200,7 @@ Service code should not call `session.commit()` directly. Flush for intermediate
 
 - `auth.user`, `auth.isAuthenticated`, `auth.permissions` (expanded from roles).
 - `menus` — grouped by `MenuSection` (sidebar, adminSidebar, navbar, userDropdown), role-filtered.
-- `csrf_token` (for authenticated users).
+- `i18n` — active locale and translation bundle.
 
 The framework does not know the shape of `auth.user`. A module (typically `users`) registers a `principal_serializer: Callable[[user], dict]` on `app.state` during `register_settings(app)`; the middleware calls it with `request.state.user` to build the `auth.user` payload. Without a registered serializer, `auth.user` is `None` even when a user is authenticated.
 

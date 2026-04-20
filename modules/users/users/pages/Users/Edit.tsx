@@ -17,7 +17,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@simple-module/ui/comp
 import { Checkbox } from '@simple-module/ui/components/ui/checkbox';
 import { Label } from '@simple-module/ui/components/ui/label';
 import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
-import { fetchWithCsrf } from '@simple-module/ui/lib/csrf';
 import { ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -69,7 +68,7 @@ function Edit() {
 
   const disableAccount = () => {
     setSavingStatus(true);
-    fetchWithCsrf(`/api/users/admin/${user.id}/disable`, { method: 'PATCH' })
+    fetch(`/api/users/admin/${user.id}/disable`, { method: 'PATCH' })
       .then(async (res) => {
         if (res.ok) {
           setIsActive(false);
@@ -84,7 +83,7 @@ function Edit() {
 
   const enableAccount = () => {
     setSavingStatus(true);
-    fetchWithCsrf(`/api/users/admin/${user.id}/enable`, { method: 'PATCH' })
+    fetch(`/api/users/admin/${user.id}/enable`, { method: 'PATCH' })
       .then(async (res) => {
         if (res.ok) {
           setIsActive(true);
@@ -99,7 +98,7 @@ function Edit() {
 
   const handleSaveRoles = () => {
     setSavingRoles(true);
-    fetchWithCsrf(`/api/users/admin/${user.id}/roles`, {
+    fetch(`/api/users/admin/${user.id}/roles`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role_names: selectedRoles }),
@@ -116,7 +115,7 @@ function Edit() {
   };
 
   const copyResetLink = () => {
-    fetchWithCsrf(`/api/users/admin/${user.id}/reset-password-link`, { method: 'POST' })
+    fetch(`/api/users/admin/${user.id}/reset-password-link`, { method: 'POST' })
       .then(async (res) => {
         if (res.ok) {
           const data = await res.json();
@@ -131,7 +130,7 @@ function Edit() {
 
   const markVerified = () => {
     setSavingVerify(true);
-    fetchWithCsrf(`/api/users/admin/${user.id}/verify`, { method: 'PATCH' })
+    fetch(`/api/users/admin/${user.id}/verify`, { method: 'PATCH' })
       .then(async (res) => {
         if (res.ok) {
           setIsVerified(true);

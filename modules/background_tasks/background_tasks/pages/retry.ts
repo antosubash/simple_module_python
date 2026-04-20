@@ -2,7 +2,6 @@
 // same endpoint; they differ only in what they do with the result (reload
 // the list vs. navigate to the new row), so the fetch + toast live here.
 
-import { fetchWithCsrf } from '@simple-module/ui/lib/csrf';
 import { toast } from 'sonner';
 import { API_BASE, type TaskStatus } from './constants';
 
@@ -26,7 +25,7 @@ export async function retryExecution(execution: {
   task_name: string;
 }): Promise<Execution | null> {
   try {
-    const res = await fetchWithCsrf(`${API_BASE}/executions/${execution.id}/retry`, {
+    const res = await fetch(`${API_BASE}/executions/${execution.id}/retry`, {
       method: 'POST',
     });
     if (!res.ok) {
