@@ -225,7 +225,13 @@ class TestPermissionsAPI:
     async def test_put_and_get_role_permissions(
         self, authenticated_client: httpx.AsyncClient, app: FastAPI
     ):
-        from users.constants import USER_ROLE_ID
+        from users.constants import USER_ROLE_ID, USER_ROLE_NAME
+        from users.models import Role
+
+        async with app.state.sm.db.session_factory() as db:
+            if await db.get(Role, USER_ROLE_ID) is None:
+                db.add(Role(id=USER_ROLE_ID, name=USER_ROLE_NAME, description="Standard user"))
+                await db.commit()
 
         resp = await authenticated_client.put(
             f"/api/permissions/roles/{USER_ROLE_ID}",
