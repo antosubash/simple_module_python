@@ -49,25 +49,11 @@ async def app_with_host_routes(app):  # type: ignore[no-untyped-def]
 
 @pytest.fixture
 async def host_client(app_with_host_routes) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Unauthenticated client against the host-routes-enabled app.
-
-    Pre-seeded with a signed anonymous session carrying a CSRF token so
-    POST flows (e.g. /i18n/set-locale) clear CSRFMiddleware.
-    """
-    from simple_module_hosting.csrf import SESSION_CSRF_TOKEN_KEY
-    from simple_module_testing import forge_session_cookie
-
-    csrf = "test-csrf-token"
-    signed = forge_session_cookie(
-        str(app_with_host_routes.state.sm.settings.secret_key),
-        {SESSION_CSRF_TOKEN_KEY: csrf},
-    )
+    """Unauthenticated client against the host-routes-enabled app."""
     transport = httpx.ASGITransport(app=app_with_host_routes)
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://testserver",
-        cookies={"session": signed},
-        headers={"X-CSRF-Token": csrf},
     ) as c:
         yield c
 

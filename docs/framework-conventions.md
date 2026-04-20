@@ -200,7 +200,7 @@ Service code should not call `session.commit()` directly. Flush for intermediate
 
 - `auth.user`, `auth.isAuthenticated`, `auth.permissions` (expanded from roles).
 - `menus` — grouped by `MenuSection` (sidebar, adminSidebar, navbar, userDropdown), role-filtered.
-- `csrf_token` (for authenticated users).
+- `i18n` — active locale and translation bundle.
 
 Use `InertiaDep` from `simple_module_hosting.inertia_deps` — it attaches the shared data automatically.
 

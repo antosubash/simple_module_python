@@ -10,7 +10,6 @@ and ``ContextVar`` propagation.
 from __future__ import annotations
 
 import logging
-import secrets
 from typing import TYPE_CHECKING
 
 from simple_module_db import current_tenant_id
@@ -23,7 +22,6 @@ from simple_module_hosting._observability import (
     CorrelationIdMiddleware,
     RequestLoggingMiddleware,
 )
-from simple_module_hosting.csrf import SESSION_CSRF_TOKEN_KEY
 from simple_module_hosting.permissions import expand_permissions, resolve_permissions
 
 if TYPE_CHECKING:
@@ -198,7 +196,7 @@ class TenantMiddleware:
 
 
 class InertiaLayoutDataMiddleware:
-    """Inject shared data (auth, menus, CSRF) into every Inertia response.
+    """Inject shared data (auth, menus, i18n) into every Inertia response.
 
     This middleware reads the user from ``request.state.user`` (set by auth middleware)
     and populates ``request.state.inertia_shared`` for the Inertia render function.
@@ -238,18 +236,6 @@ class InertiaLayoutDataMiddleware:
 
         i18n_block = build_i18n_block(scope, request)
 
-        # Session-scoped CSRF token — minted once per session, reused until
-        # the session is cleared (logout, session-fixation rotate, etc.).
-        # Embedded in shared props so the frontend can echo it back in the
-        # ``X-CSRF-Token`` header on every unsafe request (see CSRFMiddleware).
-        session = scope.get("session")
-        csrf_token = ""
-        if session is not None:
-            csrf_token = session.get(SESSION_CSRF_TOKEN_KEY) or ""
-            if not csrf_token:
-                csrf_token = secrets.token_urlsafe(32)
-                session[SESSION_CSRF_TOKEN_KEY] = csrf_token
-
         shared: dict = {
             "auth": {
                 "user": (
@@ -269,7 +255,6 @@ class InertiaLayoutDataMiddleware:
                 is_authenticated=is_authenticated,
                 roles=roles,
             ),
-            SESSION_CSRF_TOKEN_KEY: csrf_token,
             "i18n": i18n_block,
         }
         request.state.inertia_shared = shared

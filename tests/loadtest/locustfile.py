@@ -12,9 +12,9 @@ one:
   ``/users/login``. Useful for profiling middleware and the login page
   render. Always enabled.
 * :class:`AuthedUser` — seeded via ``scripts/loadtest_seed.py``. Only
-  activates when ``SM_LOADTEST_COOKIE`` and ``SM_LOADTEST_CSRF`` are
-  exported in the environment. Otherwise it disables itself so anonymous
-  runs still work. Drives real product-service code paths.
+  activates when ``SM_LOADTEST_COOKIE`` is exported in the environment.
+  Otherwise it disables itself so anonymous runs still work. Drives real
+  product-service code paths.
 """
 
 from __future__ import annotations
@@ -24,7 +24,6 @@ import os
 from locust import HttpUser, between, tag, task
 
 _COOKIE = os.environ.get("SM_LOADTEST_COOKIE")
-_CSRF = os.environ.get("SM_LOADTEST_CSRF")
 
 
 @tag("anon")
@@ -46,11 +45,10 @@ class AuthedUser(HttpUser):
 
     # ``abstract = True`` when credentials are missing so locust skips spawning
     # this class rather than sending anonymous traffic that redirects.
-    abstract = not (_COOKIE and _CSRF)
+    abstract = not _COOKIE
 
     def on_start(self) -> None:
         self.client.cookies.set("session", _COOKIE)
-        self.client.headers["X-CSRF-Token"] = _CSRF
 
     @task(5)
     def browse_products_page(self) -> None:

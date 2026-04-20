@@ -21,12 +21,12 @@ fi
 
 mkdir -p "$(dirname "$PROFILE")"
 
-# Seed the load-test admin and export the signed session cookie + CSRF token
-# so the locustfile's AuthedUser activates. Skip with SKIP_SEED=1.
+# Seed the load-test admin and export the signed session cookie so the
+# locustfile's AuthedUser activates. Skip with SKIP_SEED=1.
 if [ "${SKIP_SEED:-0}" != "1" ]; then
   echo "[loadtest-memray] seeding load-test user"
   eval "$(uv run python scripts/loadtest_seed.py)"
-  export SM_LOADTEST_COOKIE SM_LOADTEST_CSRF
+  export SM_LOADTEST_COOKIE
 fi
 
 echo "[loadtest-memray] starting uvicorn under memray → $PROFILE"

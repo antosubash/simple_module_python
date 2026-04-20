@@ -17,5 +17,4 @@ export interface SharedProps {
     navbar: MenuItem[];
     userDropdown: MenuItem[];
   };
-  csrf_token?: string;
 }
