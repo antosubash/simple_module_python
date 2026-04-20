@@ -33,7 +33,6 @@ def _build_service(session, users_app):
 async def test_list_users_status_disabled_filter(users_app):
     """list_users(status='disabled') returns only disabled users."""
     from fastapi_users.password import PasswordHelper
-
     from users.models import User
 
     async with users_app.state.sm.db.session_factory() as session:
@@ -70,7 +69,6 @@ async def test_list_users_status_disabled_filter(users_app):
 async def test_list_users_role_filter(users_app):
     """list_users(role_name='admin') returns only users with that role."""
     from fastapi_users.password import PasswordHelper
-
     from users.constants import ADMIN_ROLE_ID
     from users.models import User, UserRole
 
@@ -110,7 +108,6 @@ async def test_list_users_role_filter(users_app):
 async def test_list_users_verified_filter(users_app):
     """list_users(verified='no') returns only unverified users."""
     from fastapi_users.password import PasswordHelper
-
     from users.models import User
 
     async with users_app.state.sm.db.session_factory() as session:
@@ -146,7 +143,6 @@ async def test_list_users_verified_filter(users_app):
 async def test_list_users_sort_last_login_desc_nulls_last(users_app):
     """list_users(sort='last_login_at', order='desc') orders recent→old→never (NULLs last)."""
     from fastapi_users.password import PasswordHelper
-
     from users.models import User
 
     recent_ts = datetime(2024, 6, 1, tzinfo=UTC)
@@ -203,7 +199,6 @@ async def test_list_users_sort_last_login_desc_nulls_last(users_app):
 async def test_mark_verified_sets_flag_and_is_idempotent(users_app):
     """mark_verified sets is_verified=True and is idempotent."""
     from fastapi_users.password import PasswordHelper
-
     from users.models import User
 
     async with users_app.state.sm.db.session_factory() as session:

@@ -235,5 +235,3 @@ class TestAdminResetPasswordLink:
         assert resp.status_code == 200
         body = resp.json()
         assert body["link"].startswith("http://testserver/users/reset-password?token=")
-
-

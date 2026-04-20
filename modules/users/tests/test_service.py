@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 
 import pytest
 
@@ -78,7 +77,6 @@ async def test_get_list_item_unknown_user_raises_user_not_found(users_app):
 async def test_to_list_item_includes_created_at(users_app):
     """`UserListItem` carries `created_at` sourced from AuditMixin."""
     from fastapi_users.password import PasswordHelper
-
     from users.db_adapter import UserDatabaseWithRoles
     from users.manager import UserManager
     from users.models import User

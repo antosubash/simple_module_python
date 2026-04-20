@@ -212,9 +212,7 @@ async def admin_edit_page(
         user_item = await service.get_list_item(uid)
     except UserNotFoundError:
         raise HTTPException(status_code=404) from None
-    has_permissions = any(
-        m.meta.name == "Permissions" for m in request.app.state.sm.modules
-    )
+    has_permissions = any(m.meta.name == "Permissions" for m in request.app.state.sm.modules)
     return await inertia.render(
         _PAGE_ADMIN_EDIT,
         {

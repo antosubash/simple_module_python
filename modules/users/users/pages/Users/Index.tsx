@@ -15,9 +15,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@simple-module/ui/components/ui/tabs';
 import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
 import { ArrowDown, ArrowUp, Pencil, Plus, Search, ShieldCheck, Users } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import { type Filters, IndexFilters } from './IndexFilters';
-import { type RoleItem, RolesTab } from './RolesTab';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type Filters, IndexFilters } from '../../components/IndexFilters';
+import { type RoleItem, RolesTab } from '../../components/RolesTab';
 
 interface UserListItem {
   id: string;
@@ -70,7 +70,10 @@ function Index() {
     filters: serverFilters,
   } = usePage<{ props: Props }>().props as unknown as Props;
 
-  const filters: Filters = { ...DEFAULT_FILTERS, ...serverFilters };
+  const filters: Filters = useMemo(
+    () => ({ ...DEFAULT_FILTERS, ...serverFilters }),
+    [serverFilters],
+  );
   const [search, setSearch] = useState(initialQuery ?? '');
 
   const navigate = useCallback(
@@ -160,21 +163,36 @@ function Index() {
               <TableHeader>
                 <TableRow>
                   <TableHead>
-                    <button type="button" className="flex items-center gap-0.5 hover:text-foreground" onClick={() => toggleSort('email')}>
-                      Email<SortIcon col="email" filters={filters} />
+                    <button
+                      type="button"
+                      className="flex items-center gap-0.5 hover:text-foreground"
+                      onClick={() => toggleSort('email')}
+                    >
+                      Email
+                      <SortIcon col="email" filters={filters} />
                     </button>
                   </TableHead>
                   <TableHead className="hidden md:table-cell">Name</TableHead>
                   <TableHead className="hidden sm:table-cell">Roles</TableHead>
                   <TableHead className="hidden sm:table-cell">Status</TableHead>
                   <TableHead className="hidden lg:table-cell">
-                    <button type="button" className="flex items-center gap-0.5 hover:text-foreground" onClick={() => toggleSort('last_login_at')}>
-                      Last login<SortIcon col="last_login_at" filters={filters} />
+                    <button
+                      type="button"
+                      className="flex items-center gap-0.5 hover:text-foreground"
+                      onClick={() => toggleSort('last_login_at')}
+                    >
+                      Last login
+                      <SortIcon col="last_login_at" filters={filters} />
                     </button>
                   </TableHead>
                   <TableHead className="hidden lg:table-cell">
-                    <button type="button" className="flex items-center gap-0.5 hover:text-foreground" onClick={() => toggleSort('created_at')}>
-                      Created<SortIcon col="created_at" filters={filters} />
+                    <button
+                      type="button"
+                      className="flex items-center gap-0.5 hover:text-foreground"
+                      onClick={() => toggleSort('created_at')}
+                    >
+                      Created
+                      <SortIcon col="created_at" filters={filters} />
                     </button>
                   </TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -187,7 +205,9 @@ function Index() {
                       <div>
                         <span className="font-medium">{user.email}</span>
                         {!user.is_verified && (
-                          <Badge variant="outline" className="ml-2 text-xs">unverified</Badge>
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            unverified
+                          </Badge>
                         )}
                       </div>
                     </TableCell>
@@ -196,9 +216,15 @@ function Index() {
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
                       <div className="flex flex-wrap gap-1">
-                        {user.roles.length > 0
-                          ? user.roles.map((r) => <Badge key={r} variant="secondary">{r}</Badge>)
-                          : <span className="text-muted-foreground text-sm">—</span>}
+                        {user.roles.length > 0 ? (
+                          user.roles.map((r) => (
+                            <Badge key={r} variant="secondary">
+                              {r}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-muted-foreground text-sm">—</span>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
@@ -214,7 +240,9 @@ function Index() {
                     </TableCell>
                     <TableCell className="text-right">
                       <Button asChild variant="ghost" size="icon-sm">
-                        <Link href={`/users/admin/${user.id}`}><Pencil /></Link>
+                        <Link href={`/users/admin/${user.id}`}>
+                          <Pencil />
+                        </Link>
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -235,11 +263,23 @@ function Index() {
 
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-center gap-2">
-              <Button variant="outline" size="sm" disabled={pagination.page <= 1} onClick={() => navigate({ page: pagination.page - 1 })}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pagination.page <= 1}
+                onClick={() => navigate({ page: pagination.page - 1 })}
+              >
                 Previous
               </Button>
-              <span className="text-sm text-muted-foreground">Page {pagination.page} of {totalPages}</span>
-              <Button variant="outline" size="sm" disabled={pagination.page >= totalPages} onClick={() => navigate({ page: pagination.page + 1 })}>
+              <span className="text-sm text-muted-foreground">
+                Page {pagination.page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pagination.page >= totalPages}
+                onClick={() => navigate({ page: pagination.page + 1 })}
+              >
                 Next
               </Button>
             </div>

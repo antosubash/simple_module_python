@@ -196,4 +196,3 @@ async def test_roles_payload_returns_id_name_dicts(users_app):
     names = [item["name"] for item in payload]
     assert "admin" in names
     assert "user" in names
-

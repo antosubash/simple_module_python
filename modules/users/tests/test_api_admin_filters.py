@@ -5,9 +5,7 @@ from __future__ import annotations
 import uuid
 
 import pytest
-
 from test_api_admin import _make_user
-
 
 # ---------------------------------------------------------------------------
 # Admin list filters
@@ -50,9 +48,7 @@ class TestAdminListFilters:
         b.last_login_at = now
         await users_db.commit()
 
-        resp = await admin_client.get(
-            "/api/users/admin?sort=last_login_at&order=desc&per_page=50"
-        )
+        resp = await admin_client.get("/api/users/admin?sort=last_login_at&order=desc&per_page=50")
         assert resp.status_code == 200
         emails = [u["email"] for u in resp.json()]
         assert emails.index("beta@x.com") < emails.index("alpha@x.com")

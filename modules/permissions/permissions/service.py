@@ -273,9 +273,7 @@ class PermissionService:
         if not missing:
             return
         self.db.add_all(
-            RolePermission(
-                role_name=ADMIN_ROLE_NAME, permission_key=key, assigned_by=assigned_by
-            )
+            RolePermission(role_name=ADMIN_ROLE_NAME, permission_key=key, assigned_by=assigned_by)
             for key in missing
         )
         await self.db.flush()

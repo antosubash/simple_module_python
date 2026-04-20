@@ -1,4 +1,10 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@simple-module/ui/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@simple-module/ui/components/ui/select';
 
 export interface Filters {
   status: 'all' | 'active' | 'disabled';

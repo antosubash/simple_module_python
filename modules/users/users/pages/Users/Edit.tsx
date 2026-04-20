@@ -144,10 +144,6 @@ function Edit() {
       .finally(() => setSavingVerify(false));
   };
 
-  const handleReload = () => {
-    router.reload();
-  };
-
   return (
     <PageShell
       title={user.email}
@@ -178,7 +174,12 @@ function Edit() {
               ) : (
                 <>
                   No
-                  <Button size="sm" variant="outline" onClick={markVerified} disabled={savingVerify}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={markVerified}
+                    disabled={savingVerify}
+                  >
                     {savingVerify ? 'Saving…' : 'Mark verified'}
                   </Button>
                 </>
@@ -271,7 +272,7 @@ function Edit() {
               <Button size="sm" onClick={handleSaveRoles} disabled={savingRoles}>
                 {savingRoles ? 'Saving…' : 'Save roles'}
               </Button>
-              <Button size="sm" variant="ghost" onClick={handleReload}>
+              <Button size="sm" variant="ghost" onClick={() => router.reload()}>
                 Discard
               </Button>
             </div>
