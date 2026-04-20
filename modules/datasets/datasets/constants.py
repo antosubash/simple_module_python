@@ -64,6 +64,26 @@ MENU_ORDER: Final = 40
 # ── Celery tasks ─────────────────────────────────────────────────────
 TASK_EXTRACT_METADATA: Final = "datasets.extract_metadata"
 
+# ── Feature flags ────────────────────────────────────────────────────
+FLAG_AUTO_EXTRACT: Final = "datasets.auto_extract"
+FLAG_ALLOW_RASTER_UPLOADS: Final = "datasets.allow_raster_uploads"
+
+# ── Settings keys (registered with the settings module) ──────────────
+SETTING_MAX_UPLOAD_MB: Final = "datasets.max_upload_mb"
+SETTING_DEFAULT_KIND: Final = "datasets.default_kind"
+
+# ── Roles ────────────────────────────────────────────────────────────
+ROLE_USER: Final = "user"
+ROLE_ADMIN: Final = "admin"
+
+# Permissions granted to plain ``user`` role via ``map_role``. ``admin``
+# inherits everything through the framework's wildcard, so we don't list
+# it explicitly here.
+USER_ROLE_PERMISSIONS: Final = (
+    PERM_DATASETS_VIEW,
+    PERM_DATASETS_UPLOAD,
+)
+
 # ── Health check ─────────────────────────────────────────────────────
 HEALTH_CHECK_STORAGE: Final = "datasets.storage"
 

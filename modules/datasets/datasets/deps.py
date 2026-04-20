@@ -57,7 +57,38 @@ def get_celery(request: Request) -> Celery:
 
 
 def get_max_upload_bytes(request: Request) -> int:
-    return request.app.state.datasets.settings.max_upload_mb * 1024 * 1024
+    """Resolve the max upload size.
+
+    Prefers the runtime ``datasets.max_upload_mb`` value from the settings
+    module (so admins can tune it without a redeploy), falling back to the
+    env-var default on ``app.state.datasets.settings``.
+    """
+    env_default = request.app.state.datasets.settings.max_upload_mb
+    override = _runtime_max_upload_mb(request, fallback=env_default)
+    return max(override, 1) * 1024 * 1024
+
+
+def _runtime_max_upload_mb(request: Request, *, fallback: int) -> int:
+    """Read the ``datasets.max_upload_mb`` SYSTEM scope setting.
+
+    Returns ``fallback`` if the ``settings`` module isn't installed, the
+    registered accessor isn't available synchronously, or the stored value
+    can't be parsed as an int. Synchronous read happens through the
+    registry default when no DB row exists — we deliberately avoid doing
+    a DB query in a hot DI path.
+    """
+    registry = getattr(getattr(request.app.state, "settings", None), "registry", None)
+    if registry is None:
+        return fallback
+    from datasets import constants
+
+    definition = registry.get(constants.SETTING_MAX_UPLOAD_MB)
+    if definition is None:
+        return fallback
+    try:
+        return int(definition.default)
+    except (TypeError, ValueError):
+        return fallback
 
 
 # Public type alias consumers can import directly — shortens

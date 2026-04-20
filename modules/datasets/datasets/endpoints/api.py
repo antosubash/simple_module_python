@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import logging
 import tempfile
 from pathlib import Path
 
 from celery import Celery
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse, StreamingResponse
 from file_storage.contracts.service import NotSupportedError, StorageNotFoundError
 from simple_module_core.events import EventBus
+from simple_module_core.feature_flags import is_flag_enabled
 from simple_module_hosting.permissions import RequiresPermission
 
 from datasets import constants
@@ -23,7 +25,26 @@ from datasets.deps import (
 )
 from datasets.service import DatasetService, UploadInput
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+
+def _enqueue_extraction(celery: Celery, dataset_id: int) -> None:
+    """Enqueue the extraction task, absorbing broker failures.
+
+    A dead Redis shouldn't fail the upload — the Dataset row is already
+    persisted with ``extraction_status="pending"`` and can be re-extracted
+    later. We log the failure so the operator can see it and retry.
+    """
+    try:
+        celery.send_task(constants.TASK_EXTRACT_METADATA, args=[dataset_id])
+    except Exception:
+        logger.exception(
+            "Failed to enqueue %s for dataset %s — row will stay pending",
+            constants.TASK_EXTRACT_METADATA,
+            dataset_id,
+        )
 
 
 @router.get("/", response_model=list[DatasetOut])
@@ -87,6 +108,7 @@ async def download_dataset(
     dependencies=[Depends(RequiresPermission(constants.PERM_DATASETS_UPLOAD))],
 )
 async def upload_dataset(
+    request: Request,
     name: str = Form(..., min_length=1, max_length=200),
     description: str | None = Form(default=None, max_length=2000),
     kind: str | None = Form(default=None),
@@ -98,6 +120,13 @@ async def upload_dataset(
 ) -> DatasetOut:
     if kind is not None and kind not in constants.ALL_KINDS:
         raise HTTPException(status_code=422, detail=f"Unknown kind: {kind}")
+    if kind == constants.DatasetKind.RASTER_GEOTIFF and not is_flag_enabled(
+        request, constants.FLAG_ALLOW_RASTER_UPLOADS
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="Raster uploads are disabled on this instance.",
+        )
 
     original_filename = file.filename or constants.DEFAULT_FALLBACK_FILENAME
     bytes_written = 0
@@ -141,8 +170,11 @@ async def upload_dataset(
     # Hand metadata extraction off to a Celery worker. The Dataset row is
     # already ``extraction_status="pending"`` — the worker flips it to
     # ok / partial / failed once the parse completes. See
-    # ``datasets.tasks.extract_metadata_task``.
-    celery.send_task(constants.TASK_EXTRACT_METADATA, args=[dataset.id])
+    # ``datasets.tasks.extract_metadata_task``. Guarded by a feature
+    # flag so an admin can freeze auto-extraction during incidents
+    # without redeploying.
+    if is_flag_enabled(request, constants.FLAG_AUTO_EXTRACT):
+        _enqueue_extraction(celery, dataset.id)
 
     await bus.publish(
         DatasetUploaded(
