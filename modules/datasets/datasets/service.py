@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from datasets.contracts.files import DatasetFile
 from datasets.contracts.schemas import DatasetOut, DatasetUpdate
-from datasets.extractors import extract_metadata, kind_for_filename
+from datasets.extractors import kind_for_filename
 from datasets.models import Dataset
 
 
@@ -135,10 +135,13 @@ class DatasetService:
     # ── Upload ───────────────────────────────────────────────────────
 
     async def register_upload(self, payload: UploadInput) -> DatasetOut:
-        """Persist a dataset row, extract metadata, then upload the temp
-        file's bytes to the storage backend keyed by the new row's id."""
+        """Persist a dataset row and upload the bytes to the storage
+        backend. Metadata extraction is deferred — the row lands with
+        ``extraction_status="pending"`` and the caller is expected to
+        enqueue ``datasets.extract_metadata`` via Celery so the worker
+        runs the (potentially slow) fiona/rasterio parse off the
+        request path."""
         kind = payload.kind or kind_for_filename(payload.original_filename)
-        meta = extract_metadata(payload.temp_path, kind)
 
         slug = await self._unique_slug(slugify(payload.name))
         entity = Dataset(
@@ -150,14 +153,7 @@ class DatasetService:
             mime_type=payload.mime_type,
             size_bytes=payload.size_bytes,
             storage_key="",  # filled in once we have entity.id
-            crs=meta.crs,
-            bbox_min_x=meta.bbox_min_x,
-            bbox_min_y=meta.bbox_min_y,
-            bbox_max_x=meta.bbox_max_x,
-            bbox_max_y=meta.bbox_max_y,
-            feature_count=meta.feature_count,
-            band_count=meta.band_count,
-            extraction_status=meta.status,
+            extraction_status="pending",
         )
         self.db.add(entity)
         await self.db.flush()  # assigns entity.id

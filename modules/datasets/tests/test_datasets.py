@@ -112,9 +112,13 @@ class TestExtractors:
 
 
 class TestDatasetService:
-    async def test_register_upload_extracts_metadata(
+    async def test_register_upload_lands_bytes_and_marks_pending(
         self, db_session: AsyncSession, tmp_path: Path
     ):
+        """register_upload persists the row + bytes but does NOT extract
+        metadata — that's the Celery worker's job. The row lands with
+        ``extraction_status="pending"`` and no bbox/CRS/feature_count.
+        """
         svc = DatasetService(db_session, _backend(tmp_path))
         temp, size = _make_temp_geojson(tmp_path)
         out = await svc.register_upload(
@@ -128,16 +132,16 @@ class TestDatasetService:
         )
         assert out.id is not None
         assert out.kind == "vector_geojson"
-        assert out.feature_count == 2
-        assert out.extraction_status == "ok"
+        assert out.extraction_status == "pending"
+        assert out.feature_count is None
+        assert out.crs is None
+        assert out.bbox_min_x is None
         assert out.slug == "my-dataset"
 
         # Bytes landed in the backend and are readable.
         handle = await svc.get_file(out.id)
         assert handle is not None
         assert await handle.exists()
-        body = await handle.read()
-        assert body == temp.read_bytes() if temp.exists() else body.startswith(b"{")
 
     async def test_unique_slug_collision(self, db_session: AsyncSession, tmp_path: Path):
         svc = DatasetService(db_session, _backend(tmp_path))
@@ -199,17 +203,33 @@ class TestDatasetsAPI:
         assert resp.status_code == 200
         assert resp.json() == []
 
-    async def test_upload_and_download_geojson(self, authenticated_client: httpx.AsyncClient):
+    async def test_upload_returns_pending_and_enqueues_extraction(
+        self, app, authenticated_client: httpx.AsyncClient
+    ):
+        from datasets.tasks import EXTRACT_METADATA_TASK
+
         payload = json.dumps(GEOJSON_SAMPLE).encode()
         files = {"file": ("sample.geojson", payload, "application/geo+json")}
         data = {"name": "My GeoJSON"}
         resp = await authenticated_client.post("/api/datasets/", data=data, files=files)
         assert resp.status_code == 201, resp.text
         body = resp.json()
+        # Extraction is deferred — the HTTP response returns before the
+        # worker has touched the row.
         assert body["kind"] == "vector_geojson"
-        assert body["feature_count"] == 2
-        assert body["extraction_status"] == "ok"
+        assert body["extraction_status"] == "pending"
+        assert body["feature_count"] is None
 
+        # The endpoint enqueued the right Celery task.
+        app.state.background_tasks.celery.send_task.assert_called_once()
+        name, kwargs = (
+            app.state.background_tasks.celery.send_task.call_args.args[0],
+            app.state.background_tasks.celery.send_task.call_args.kwargs,
+        )
+        assert name == EXTRACT_METADATA_TASK
+        assert kwargs["args"] == [body["id"]]
+
+        # Bytes are downloadable even before the worker runs.
         download = await authenticated_client.get(f"/api/datasets/{body['id']}/download")
         assert download.status_code == 200
         assert download.content == payload
@@ -262,3 +282,4 @@ class TestDatasetsModule:
         assert mod.meta.route_prefix == "/api/datasets"
         assert mod.meta.view_prefix == "/datasets"
         assert "FileStorage" in mod.meta.depends_on
+        assert "BackgroundTasks" in mod.meta.depends_on

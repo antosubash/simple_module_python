@@ -5,6 +5,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
+from celery import Celery
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse, StreamingResponse
 from file_storage.contracts.service import NotSupportedError, StorageNotFoundError
@@ -14,11 +15,13 @@ from simple_module_hosting.permissions import RequiresPermission
 from datasets.contracts.events import DatasetDeleted, DatasetUploaded
 from datasets.contracts.schemas import KIND_VALUES, DatasetOut, DatasetUpdate
 from datasets.deps import (
+    get_celery,
     get_dataset_service,
     get_event_bus,
     get_max_upload_bytes,
 )
 from datasets.service import DatasetService, UploadInput
+from datasets.tasks import EXTRACT_METADATA_TASK
 
 router = APIRouter()
 
@@ -88,6 +91,7 @@ async def upload_dataset(
     file: UploadFile = File(...),
     service: DatasetService = Depends(get_dataset_service),
     bus: EventBus = Depends(get_event_bus),
+    celery: Celery = Depends(get_celery),
     max_upload_bytes: int = Depends(get_max_upload_bytes),
 ) -> DatasetOut:
     if kind is not None and kind not in KIND_VALUES:
@@ -131,6 +135,12 @@ async def upload_dataset(
         )
     finally:
         tmp_path.unlink(missing_ok=True)
+
+    # Hand metadata extraction off to a Celery worker. The Dataset row is
+    # already ``extraction_status="pending"`` — the worker flips it to
+    # ok / partial / failed once the parse completes. See
+    # ``datasets.tasks.extract_metadata_task``.
+    celery.send_task(EXTRACT_METADATA_TASK, args=[dataset.id])
 
     await bus.publish(
         DatasetUploaded(

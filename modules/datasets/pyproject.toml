@@ -9,6 +9,8 @@ dependencies = [
     "simple-module-db",
     "simple-module-hosting",
     "file-storage",
+    "background-tasks",
+    "celery>=5.4",
 ]
 
 [project.entry-points.simple_module]
@@ -28,3 +30,4 @@ simple-module-core = { workspace = true }
 simple-module-db = { workspace = true }
 simple-module-hosting = { workspace = true }
 file-storage = { workspace = true }
+background-tasks = { workspace = true }

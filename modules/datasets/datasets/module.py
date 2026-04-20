@@ -21,7 +21,10 @@ class DatasetsModule(ModuleBase):
         name="Datasets",
         route_prefix="/api/datasets",
         view_prefix="/datasets",
-        depends_on=["FileStorage"],
+        # ``FileStorage`` owns the byte-storage backend; ``BackgroundTasks``
+        # owns the Celery app the upload endpoint enqueues into. Both must
+        # have finished ``on_startup`` before any Datasets request fires.
+        depends_on=["FileStorage", "BackgroundTasks"],
     )
 
     def register_settings(self, app: FastAPI) -> None:
