@@ -69,23 +69,76 @@ class UserService:
         page: int = 1,
         per_page: int = 20,
         search: str | None = None,
+        status: str | None = None,
+        role_name: str | None = None,
+        verified: str | None = None,
+        sort: str = "email",
+        order: str = "asc",
     ) -> tuple[list[UserListItem], int]:
-        """Returns (items, total_count). Filters on email/full_name LIKE search."""
+        """Returns (items, total_count).
+
+        Filters: search (email/full_name LIKE), status ("active"|"disabled"),
+        role_name (string), verified ("yes"|"no").
+        Sort: email|last_login_at|created_at, asc|desc.
+        last_login_at always uses NULLS LAST regardless of direction.
+        """
         stmt = select(User).options(selectinload(User.roles))
         count_stmt = select(func.count()).select_from(User)
 
+        conditions = []
+
         if search:
             pattern = f"%{search}%"
-            condition = or_(
-                User.email.ilike(pattern),
-                User.full_name.ilike(pattern),
+            conditions.append(
+                or_(
+                    User.email.ilike(pattern),
+                    User.full_name.ilike(pattern),
+                )
             )
-            stmt = stmt.where(condition)
-            count_stmt = count_stmt.where(condition)
+
+        if status == "active":
+            conditions.append(User.is_active.is_(True))
+        elif status == "disabled":
+            conditions.append(User.is_active.is_(False))
+
+        if verified == "yes":
+            conditions.append(User.is_verified.is_(True))
+        elif verified == "no":
+            conditions.append(User.is_verified.is_(False))
+
+        if role_name is not None:
+            subq = (
+                select(UserRole.user_id)
+                .join(Role, Role.id == UserRole.role_id)
+                .where(Role.name == role_name)
+            )
+            conditions.append(User.id.in_(subq))
+
+        for cond in conditions:
+            stmt = stmt.where(cond)
+            count_stmt = count_stmt.where(cond)
 
         total = (await self._db.execute(count_stmt)).scalar_one()
 
-        stmt = stmt.order_by(User.email).offset((page - 1) * per_page).limit(per_page)
+        sort_col_map = {
+            "email": User.email,
+            "last_login_at": User.last_login_at,
+            "created_at": User.created_at,
+        }
+        sort_col = sort_col_map.get(sort, User.email)
+
+        if sort == "last_login_at":
+            order_clause = (
+                sort_col.desc().nulls_last()  # type: ignore[union-attr]
+                if order == "desc"
+                else sort_col.asc().nulls_last()  # type: ignore[union-attr]
+            )
+        else:
+            order_clause = (
+                sort_col.desc() if order == "desc" else sort_col.asc()  # type: ignore[union-attr]
+            )
+
+        stmt = stmt.order_by(order_clause).offset((page - 1) * per_page).limit(per_page)
         rows = (await self._db.execute(stmt)).scalars().all()
 
         items = [await self.to_list_item(u) for u in rows]
