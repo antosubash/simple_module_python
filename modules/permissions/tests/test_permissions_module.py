@@ -259,7 +259,9 @@ class TestPermissionsAPI:
             from sqlalchemy import select
             from users.models import User
 
-            user_id = (await db.execute(select(User.id))).scalar_one()
+            user_id = (
+                await db.execute(select(User.id).where(User.email == "admin@test"))
+            ).scalar_one()
 
         resp = await authenticated_client.put(
             f"/api/permissions/users/{user_id}",
