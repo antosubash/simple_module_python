@@ -44,6 +44,7 @@ class UserService:
             is_verified=user.is_verified,
             disabled_at=user.disabled_at,
             last_login_at=user.last_login_at,
+            created_at=user.created_at,
             roles=[r.name for r in user.roles],
         )
 

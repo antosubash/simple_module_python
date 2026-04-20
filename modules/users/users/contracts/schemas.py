@@ -57,6 +57,7 @@ class UserListItem(SQLModel):
     is_verified: bool
     disabled_at: datetime | None = None
     last_login_at: datetime | None = None
+    created_at: datetime | None = None
     roles: list[str] = []
 
 
