@@ -252,3 +252,60 @@ class TestAdminIndexFilters:
         assert props["filters"]["status"] == "all"
         assert props["filters"]["sort"] == "email"
         assert props["filters"]["order"] == "asc"
+
+
+# ---------------------------------------------------------------------------
+# has_permissions_module flag on admin edit page
+# ---------------------------------------------------------------------------
+
+
+class _FakeMeta:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+
+class _FakeModule:
+    def __init__(self, name: str) -> None:
+        self.meta = _FakeMeta(name)
+
+
+class TestHasPermissionsModuleFlag:
+    @pytest.mark.anyio
+    async def test_flag_true_when_permissions_installed(self, admin_client, users_app, users_db):
+        import dataclasses
+
+        from test_api_admin import _make_user
+
+        user = await _make_user(users_db, email="flagtest-true@example.com")
+
+        original_sm = users_app.state.sm
+        fake_mod = _FakeModule("Permissions")
+        users_app.state.sm = dataclasses.replace(
+            original_sm,
+            modules=(*original_sm.modules, fake_mod),
+        )
+        try:
+            resp = await admin_client.get(
+                f"/users/admin/{user.id}",
+                headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
+            )
+        finally:
+            users_app.state.sm = original_sm
+
+        assert resp.status_code == 200
+        props = resp.json()["props"]
+        assert props["has_permissions_module"] is True
+
+    @pytest.mark.anyio
+    async def test_flag_false_when_not_installed(self, admin_client, users_db):
+        from test_api_admin import _make_user
+
+        user = await _make_user(users_db, email="flagtest-false@example.com")
+
+        resp = await admin_client.get(
+            f"/users/admin/{user.id}",
+            headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
+        )
+        assert resp.status_code == 200
+        props = resp.json()["props"]
+        assert props["has_permissions_module"] is False
