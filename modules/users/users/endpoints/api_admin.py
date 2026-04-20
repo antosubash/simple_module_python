@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import status as http_status
 from simple_module_core.events import EventBus
 from simple_module_hosting.permissions import RequiresPermission
 
@@ -24,6 +25,11 @@ from users.deps import get_event_bus, get_mailer, get_user_service
 from users.exceptions import UserNotFoundError
 from users.service import UserService
 
+_ALLOWED_STATUS = {"active", "disabled"}
+_ALLOWED_VERIFIED = {"yes", "no"}
+_ALLOWED_SORT = {"email", "last_login_at", "created_at"}
+_ALLOWED_ORDER = {"asc", "desc"}
+
 admin_router = APIRouter(
     prefix="/admin",
     dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
@@ -36,17 +42,35 @@ async def admin_list_users(
     page: int = 1,
     per_page: int = 20,
     q: str | None = None,
+    status: str | None = None,
+    role: str | None = None,
+    verified: str | None = None,
+    sort: str = "email",
+    order: str = "asc",
     service: UserService = Depends(get_user_service),
 ):
-    """List all users (paginated, optional search)."""
-    items, _ = await service.list_users(page=page, per_page=per_page, search=q)
+    """List all users (paginated, optional search and filters)."""
+    _status = status if status in _ALLOWED_STATUS else None
+    _verified = verified if verified in _ALLOWED_VERIFIED else None
+    _sort = sort if sort in _ALLOWED_SORT else "email"
+    _order = order if order in _ALLOWED_ORDER else "asc"
+    items, _ = await service.list_users(
+        page=page,
+        per_page=per_page,
+        search=q,
+        status=_status,
+        role_name=role or None,
+        verified=_verified,
+        sort=_sort,
+        order=_order,
+    )
     return items
 
 
 @admin_router.post(
     "/invite",
     response_model=UserListItem,
-    status_code=status.HTTP_201_CREATED,
+    status_code=http_status.HTTP_201_CREATED,
 )
 async def admin_invite_user(
     data: UserInvite,
