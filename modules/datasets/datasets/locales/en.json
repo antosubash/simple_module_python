@@ -1,10 +1,10 @@
 {
   "browse": {
     "title": "Datasets",
-    "description": "Upload and manage geospatial datasets",
+    "description": "Upload and manage datasets",
     "new_button": "Upload Dataset",
     "empty_title": "No datasets yet",
-    "empty_description": "Upload your first geospatial dataset to get started.",
+    "empty_description": "Upload your first dataset to get started.",
     "create_button": "Upload Dataset"
   },
   "table": {
@@ -28,7 +28,7 @@
   },
   "create": {
     "title": "Upload Dataset",
-    "description": "Add a geospatial dataset to the catalog",
+    "description": "Add a dataset to the catalog",
     "submit_button": "Upload",
     "submitting_button": "Uploading..."
   },

@@ -8,7 +8,7 @@ The upload endpoint leaves newly-created datasets with
 :func:`extract_metadata_task` does the actual work in a worker.
 
 Why this is async:
-* GeoJSON is cheap to parse but shapefile (``fiona``) and raster
+* JSON parsing is cheap but shapefile (``fiona``) and raster
   (``rasterio``) metadata reads can block for tens of seconds on a
   large upload — far too long to hold an HTTP request open.
 * S3/remote backends make even streaming bytes to a temp file an IO
@@ -23,23 +23,23 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import tempfile
 from pathlib import Path
 
 from background_tasks.sync_db import sync_session
 from celery import shared_task
 
+from datasets import constants
 from datasets.extractors import extract_metadata
 from datasets.models import Dataset
 
 logger = logging.getLogger(__name__)
 
-EXTRACT_METADATA_TASK = "datasets.extract_metadata"
 
-
-@shared_task(name=EXTRACT_METADATA_TASK)
+@shared_task(name=constants.TASK_EXTRACT_METADATA)
 def extract_metadata_task(dataset_id: int) -> dict[str, str | int | None]:
-    """Fetch the dataset's bytes from file_storage, extract GIS metadata,
+    """Fetch the dataset's bytes from file_storage, extract metadata,
     and update the Dataset row.
 
     Always returns a status summary (never raises), so a partial
@@ -50,7 +50,7 @@ def extract_metadata_task(dataset_id: int) -> dict[str, str | int | None]:
     """
     storage_key, kind, original_filename = _load_source(dataset_id)
     if storage_key is None:
-        return {"dataset_id": dataset_id, "status": "not_found"}
+        return {"dataset_id": dataset_id, "status": constants.ExtractionStatus.NOT_FOUND}
 
     try:
         local_path = _download_to_tempfile(storage_key, original_filename)
@@ -59,8 +59,8 @@ def extract_metadata_task(dataset_id: int) -> dict[str, str | int | None]:
         # (network, auth, missing key) is recorded as ``failed`` and
         # surfaces in the worker UI rather than crashing the Celery task.
         logger.exception("Download failed for dataset %s (key=%s)", dataset_id, storage_key)
-        _mark_status(dataset_id, status="failed")
-        return {"dataset_id": dataset_id, "status": "failed"}
+        _mark_status(dataset_id, status=constants.ExtractionStatus.FAILED)
+        return {"dataset_id": dataset_id, "status": constants.ExtractionStatus.FAILED}
 
     try:
         meta = extract_metadata(local_path, kind)
@@ -103,15 +103,11 @@ def _download_to_tempfile(storage_key: str, original_filename: str) -> Path:
     async def _download() -> None:
         stream = await backend.get(storage_key)
         async for chunk in stream:
-            import os
-
             os.write(fd, chunk)
 
     try:
         asyncio.run(_download())
     finally:
-        import os
-
         os.close(fd)
     return Path(tmp_path)
 
@@ -137,3 +133,8 @@ def _mark_status(dataset_id: int, *, status: str) -> None:
         if row is None:
             return
         row.extraction_status = status
+
+
+# Re-exported for callers that want to refer to the task by name without
+# importing ``constants`` directly.
+EXTRACT_METADATA_TASK: str = constants.TASK_EXTRACT_METADATA

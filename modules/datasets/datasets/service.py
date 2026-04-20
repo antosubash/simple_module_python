@@ -13,11 +13,13 @@ import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Final
 
 from file_storage.contracts.service import StorageBackend, StorageNotFoundError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from datasets import constants
 from datasets.contracts.files import DatasetFile
 from datasets.contracts.schemas import DatasetOut, DatasetUpdate
 from datasets.extractors import kind_for_filename
@@ -46,31 +48,37 @@ _SLUG_RE = re.compile(r"[^a-z0-9]+")
 _UNSAFE_NAME_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
+_DEFAULT_SLUG: Final = "dataset"
+
+
 def slugify(value: str) -> str:
     slug = _SLUG_RE.sub("-", value.lower()).strip("-")
-    return slug or "dataset"
+    return slug or _DEFAULT_SLUG
 
 
 def safe_filename(name: str) -> str:
     """Return a filename safe to log / surface in URLs."""
-    base = Path(name).name or "upload.bin"
-    cleaned = _UNSAFE_NAME_RE.sub("_", base).strip("._") or "upload.bin"
+    fallback = constants.DEFAULT_FALLBACK_FILENAME
+    base = Path(name).name or fallback
+    cleaned = _UNSAFE_NAME_RE.sub("_", base).strip("._") or fallback
     return cleaned[:200]
 
 
 def _storage_key(dataset_id: int, original_filename: str) -> str:
-    """Build a backend key scoped under ``datasets/``.
+    """Build a backend key scoped under the datasets namespace.
 
-    The ``datasets/`` prefix keeps dataset bytes discoverable alongside
-    other file_storage tenants (e.g. the generic StoredFile uploads)
+    The module-owned prefix (see ``constants.STORAGE_KEY_PREFIX``) keeps
+    dataset bytes discoverable alongside other file_storage tenants
     without namespace collisions. A uuid suffix guarantees uniqueness
     even when a dataset is re-uploaded under the same id.
     """
     suffix = Path(original_filename).suffix.lower()
-    return f"datasets/{dataset_id}/{uuid.uuid4().hex}{suffix}"
+    return f"{constants.STORAGE_KEY_PREFIX}{dataset_id}/{uuid.uuid4().hex}{suffix}"
 
 
-async def _file_stream(path: Path, chunk_size: int = 1024 * 1024) -> AsyncIterator[bytes]:
+async def _file_stream(
+    path: Path, chunk_size: int = constants.DEFAULT_UPLOAD_CHUNK_SIZE
+) -> AsyncIterator[bytes]:
     with path.open("rb") as fp:
         while True:
             chunk = fp.read(chunk_size)
@@ -153,7 +161,7 @@ class DatasetService:
             mime_type=payload.mime_type,
             size_bytes=payload.size_bytes,
             storage_key="",  # filled in once we have entity.id
-            extraction_status="pending",
+            extraction_status=constants.ExtractionStatus.PENDING,
         )
         self.db.add(entity)
         await self.db.flush()  # assigns entity.id
@@ -163,7 +171,7 @@ class DatasetService:
             await self.backend.put(
                 storage_key,
                 _file_stream(payload.temp_path),
-                content_type=payload.mime_type or "application/octet-stream",
+                content_type=payload.mime_type or constants.DEFAULT_MIME_TYPE,
                 size=payload.size_bytes,
             )
         except Exception:

@@ -12,8 +12,9 @@ from file_storage.contracts.service import NotSupportedError, StorageNotFoundErr
 from simple_module_core.events import EventBus
 from simple_module_hosting.permissions import RequiresPermission
 
+from datasets import constants
 from datasets.contracts.events import DatasetDeleted, DatasetUploaded
-from datasets.contracts.schemas import KIND_VALUES, DatasetOut, DatasetUpdate
+from datasets.contracts.schemas import DatasetOut, DatasetUpdate
 from datasets.deps import (
     get_celery,
     get_dataset_service,
@@ -21,7 +22,6 @@ from datasets.deps import (
     get_max_upload_bytes,
 )
 from datasets.service import DatasetService, UploadInput
-from datasets.tasks import EXTRACT_METADATA_TASK
 
 router = APIRouter()
 
@@ -33,7 +33,7 @@ async def list_datasets(
     return await service.get_all()
 
 
-@router.get("/{dataset_id}", response_model=DatasetOut)
+@router.get(constants.PATH_DATASET, response_model=DatasetOut)
 async def get_dataset(
     dataset_id: int,
     service: DatasetService = Depends(get_dataset_service),
@@ -44,7 +44,7 @@ async def get_dataset(
     return item
 
 
-@router.get("/{dataset_id}/download")
+@router.get(constants.PATH_DOWNLOAD)
 async def download_dataset(
     dataset_id: int,
     service: DatasetService = Depends(get_dataset_service),
@@ -54,10 +54,12 @@ async def download_dataset(
         raise HTTPException(status_code=404, detail="Dataset not found")
 
     # Presigned URLs let the client bypass the app entirely for S3-like
-    # backends — avoids proxying multi-GB rasters through the worker.
+    # backends — avoids proxying multi-GB files through the worker.
     if service.backend.supports_presigned_url:
         try:
-            url = await service.backend.presigned_get_url(handle.storage_key, ttl_seconds=300)
+            url = await service.backend.presigned_get_url(
+                handle.storage_key, ttl_seconds=constants.DEFAULT_PRESIGN_TTL_SECONDS
+            )
         except NotSupportedError:
             url = None
         if url is not None:
@@ -73,7 +75,7 @@ async def download_dataset(
     disposition = f'attachment; filename="{handle.original_filename}"'
     return StreamingResponse(
         stream,
-        media_type=handle.mime_type or "application/octet-stream",
+        media_type=handle.mime_type or constants.DEFAULT_MIME_TYPE,
         headers={"Content-Disposition": disposition},
     )
 
@@ -82,7 +84,7 @@ async def download_dataset(
     "/",
     response_model=DatasetOut,
     status_code=201,
-    dependencies=[Depends(RequiresPermission("datasets.upload"))],
+    dependencies=[Depends(RequiresPermission(constants.PERM_DATASETS_UPLOAD))],
 )
 async def upload_dataset(
     name: str = Form(..., min_length=1, max_length=200),
@@ -94,19 +96,19 @@ async def upload_dataset(
     celery: Celery = Depends(get_celery),
     max_upload_bytes: int = Depends(get_max_upload_bytes),
 ) -> DatasetOut:
-    if kind is not None and kind not in KIND_VALUES:
+    if kind is not None and kind not in constants.ALL_KINDS:
         raise HTTPException(status_code=422, detail=f"Unknown kind: {kind}")
 
-    original_filename = file.filename or "upload.bin"
+    original_filename = file.filename or constants.DEFAULT_FALLBACK_FILENAME
     bytes_written = 0
-    # Spool to a temp file first so the extractor (fiona / rasterio / stdlib
-    # json) can work against a path, and so the service can hand a complete
-    # stream to the storage backend.
+    # Spool to a temp file first so size-validation can reject before we
+    # touch the storage backend, and so the service can hand a complete
+    # stream to backend.put().
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_path = Path(tmp.name)
         try:
             while True:
-                chunk = await file.read(1024 * 1024)
+                chunk = await file.read(constants.DEFAULT_UPLOAD_CHUNK_SIZE)
                 if not chunk:
                     break
                 bytes_written += len(chunk)
@@ -140,7 +142,7 @@ async def upload_dataset(
     # already ``extraction_status="pending"`` — the worker flips it to
     # ok / partial / failed once the parse completes. See
     # ``datasets.tasks.extract_metadata_task``.
-    celery.send_task(EXTRACT_METADATA_TASK, args=[dataset.id])
+    celery.send_task(constants.TASK_EXTRACT_METADATA, args=[dataset.id])
 
     await bus.publish(
         DatasetUploaded(
@@ -154,9 +156,9 @@ async def upload_dataset(
 
 
 @router.patch(
-    "/{dataset_id}",
+    constants.PATH_DATASET,
     response_model=DatasetOut,
-    dependencies=[Depends(RequiresPermission("datasets.edit"))],
+    dependencies=[Depends(RequiresPermission(constants.PERM_DATASETS_EDIT))],
 )
 async def update_dataset(
     dataset_id: int,
@@ -170,9 +172,9 @@ async def update_dataset(
 
 
 @router.delete(
-    "/{dataset_id}",
+    constants.PATH_DATASET,
     status_code=204,
-    dependencies=[Depends(RequiresPermission("datasets.delete"))],
+    dependencies=[Depends(RequiresPermission(constants.PERM_DATASETS_DELETE))],
 )
 async def delete_dataset(
     dataset_id: int,

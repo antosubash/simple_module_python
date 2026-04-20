@@ -2,8 +2,8 @@
 
 Consumers that depend on the Datasets module import ``DatasetFile`` rather
 than the private ``Dataset`` SQLModel table. It carries enough to stream
-bytes, hand off to a GIS library, or materialise to a local path without
-a second round-trip.
+bytes, hand off to a parser library, or materialise to a local path
+without a second round-trip.
 
 Because the datasets module delegates bytes storage to
 ``file_storage.StorageBackend``, a dataset's bytes may live on any
@@ -33,8 +33,8 @@ class DatasetFile:
     The handle is decoupled from any specific storage backend. Consumers
     that need bytes use :meth:`stream` (async iterator) or :meth:`read`
     (``bytes``). Consumers that need a filesystem path — e.g. to hand
-    the file off to a GIS library like ``fiona`` or ``rasterio`` that
-    requires ``str(path)`` — use :meth:`materialize_to`.
+    the file off to ``fiona`` / ``rasterio`` / ``pandas`` that require
+    ``str(path)`` — use :meth:`materialize_to`.
     """
 
     metadata: DatasetOut
@@ -61,9 +61,10 @@ class DatasetFile:
     async def materialize_to(self, path: Path) -> Path:
         """Download the file to ``path``. Returns the path.
 
-        Use for GIS libraries that require a filesystem path. For the
-        filesystem backend this is almost free; for S3 it pulls bytes
-        down once. Callers are responsible for deleting the file.
+        Use for libraries that require a filesystem path (``fiona``,
+        ``rasterio``, ``pandas.read_csv``). For the filesystem backend
+        this is almost free; for S3 it pulls bytes down once. Callers
+        are responsible for deleting the file.
         """
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("wb") as fp:

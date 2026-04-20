@@ -7,16 +7,24 @@ from simple_module_db.mixins import AuditMixin, SoftDeleteMixin
 from sqlalchemy import Index
 from sqlmodel import Field
 
+from datasets import constants
+
 # Provider is auto-detected from SM_DATABASE_URL (falls back to SQLite).
-# On PostgreSQL this gives the module its own `datasets` schema; on SQLite
-# all modules share one schema, so __tablename__ is prefixed for isolation.
-Base = create_module_base("datasets")
+# On PostgreSQL this gives the module its own schema; on SQLite all modules
+# share one schema, so __tablename__ is prefixed for isolation.
+Base = create_module_base(constants.SCHEMA_NAME)
 
 
 class Dataset(Base, AuditMixin, SoftDeleteMixin, table=True):  # ty: ignore[unsupported-base]
-    """A geospatial dataset uploaded into the catalog."""
+    """A dataset uploaded into the catalog.
 
-    __tablename__ = "datasets_dataset"
+    ``kind`` identifies the content type (vector GeoJSON, shapefile,
+    raster GeoTIFF, tabular CSV, ...) — see
+    :class:`datasets.constants.DatasetKind`. Geospatial fields (``crs``,
+    ``bbox_*``) stay null for non-geospatial kinds.
+    """
+
+    __tablename__ = constants.TABLE_DATASET
 
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=200)
@@ -36,6 +44,6 @@ class Dataset(Base, AuditMixin, SoftDeleteMixin, table=True):  # ty: ignore[unsu
     bbox_max_y: float | None = Field(default=None)
     feature_count: int | None = Field(default=None)
     band_count: int | None = Field(default=None)
-    extraction_status: str = Field(default="manual", max_length=16)
+    extraction_status: str = Field(default=constants.ExtractionStatus.MANUAL, max_length=16)
 
     __table_args__ = (Index("ix_datasets_dataset_is_deleted", "is_deleted"),)

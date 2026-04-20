@@ -8,6 +8,8 @@ from typing import Literal
 from pydantic import ConfigDict
 from sqlmodel import Field, SQLModel
 
+from datasets import constants
+
 DatasetKind = Literal[
     "vector_geojson",
     "vector_shapefile",
@@ -17,15 +19,11 @@ DatasetKind = Literal[
     "other",
 ]
 
-
-KIND_VALUES: tuple[str, ...] = (
-    "vector_geojson",
-    "vector_shapefile",
-    "vector_kml",
-    "raster_geotiff",
-    "tabular_csv",
-    "other",
-)
+# Duplicated from ``constants.ALL_KINDS`` because ``typing.Literal`` demands
+# string literals at type-evaluation time — a tuple reference won't satisfy
+# it. The runtime check against ``constants.ALL_KINDS`` is the one that
+# matters; this Literal only narrows the ``DatasetUpdate.kind`` type.
+KIND_VALUES: tuple[str, ...] = constants.ALL_KINDS
 
 
 class DatasetOut(SQLModel):

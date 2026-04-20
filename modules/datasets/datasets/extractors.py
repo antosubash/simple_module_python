@@ -1,9 +1,10 @@
-"""Best-effort metadata extraction for uploaded GIS datasets.
+"""Best-effort metadata extraction for uploaded datasets.
 
 The stdlib JSON path covers GeoJSON without any extra dependency. Optional
 ``fiona`` and ``rasterio`` extras enrich extraction for shapefiles, KML, and
-rasters when available. Every extractor degrades to ``status="manual"`` so
-the catalog never blocks an upload because a parser is missing.
+rasters when available. Every extractor degrades to
+``ExtractionStatus.MANUAL`` so the catalog never blocks an upload because
+a parser is missing.
 """
 
 from __future__ import annotations
@@ -11,6 +12,9 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+
+from datasets import constants
+from datasets.constants import DatasetKind, ExtractionStatus
 
 
 @dataclass
@@ -22,46 +26,50 @@ class ExtractedMeta:
     bbox_max_y: float | None = None
     feature_count: int | None = None
     band_count: int | None = None
-    status: str = "manual"
+    status: str = ExtractionStatus.MANUAL
+
+
+_EXTENSION_TO_KIND: dict[str, str] = {
+    ".geojson": DatasetKind.VECTOR_GEOJSON,
+    ".json": DatasetKind.VECTOR_GEOJSON,
+    ".shp": DatasetKind.VECTOR_SHAPEFILE,
+    ".zip": DatasetKind.VECTOR_SHAPEFILE,
+    ".kml": DatasetKind.VECTOR_KML,
+    ".kmz": DatasetKind.VECTOR_KML,
+    ".tif": DatasetKind.RASTER_GEOTIFF,
+    ".tiff": DatasetKind.RASTER_GEOTIFF,
+    ".csv": DatasetKind.TABULAR_CSV,
+}
 
 
 def kind_for_filename(filename: str) -> str:
     """Map a filename to a coarse kind label.
 
     The mapping is intentionally cheap — anything we don't recognise becomes
-    ``"other"`` so the upload still lands and the user can correct the kind
-    via the edit form.
+    ``DatasetKind.OTHER`` so the upload still lands and the user can correct
+    the kind via the edit form.
     """
     suffix = Path(filename).suffix.lower()
-    if suffix == ".geojson" or suffix == ".json":
-        return "vector_geojson"
-    if suffix in {".shp", ".zip"}:
-        return "vector_shapefile"
-    if suffix in {".kml", ".kmz"}:
-        return "vector_kml"
-    if suffix in {".tif", ".tiff"}:
-        return "raster_geotiff"
-    if suffix == ".csv":
-        return "tabular_csv"
-    return "other"
+    return _EXTENSION_TO_KIND.get(suffix, DatasetKind.OTHER)
 
 
 def extract_metadata(path: Path, kind: str) -> ExtractedMeta:
     """Dispatch to a kind-specific extractor.
 
-    Never raises — extraction failures collapse to ``status="failed"`` so
-    the upload itself succeeds and the user can fill the metadata in.
+    Never raises — extraction failures collapse to
+    ``ExtractionStatus.FAILED`` so the upload itself succeeds and the user
+    can fill the metadata in.
     """
     try:
-        if kind == "vector_geojson":
+        if kind == DatasetKind.VECTOR_GEOJSON:
             return _extract_geojson(path)
-        if kind == "raster_geotiff":
+        if kind == DatasetKind.RASTER_GEOTIFF:
             return _extract_raster(path)
-        if kind in {"vector_shapefile", "vector_kml"}:
+        if kind in {DatasetKind.VECTOR_SHAPEFILE, DatasetKind.VECTOR_KML}:
             return _extract_via_fiona(path)
     except Exception:
-        return ExtractedMeta(status="failed")
-    return ExtractedMeta(status="manual")
+        return ExtractedMeta(status=ExtractionStatus.FAILED)
+    return ExtractedMeta(status=ExtractionStatus.MANUAL)
 
 
 def _extract_geojson(path: Path) -> ExtractedMeta:
@@ -75,18 +83,18 @@ def _extract_geojson(path: Path) -> ExtractedMeta:
 
     if bbox is None:
         return ExtractedMeta(
-            crs="EPSG:4326",
+            crs=constants.DEFAULT_GEOJSON_CRS,
             feature_count=len(features),
-            status="partial",
+            status=ExtractionStatus.PARTIAL,
         )
     return ExtractedMeta(
-        crs="EPSG:4326",
+        crs=constants.DEFAULT_GEOJSON_CRS,
         bbox_min_x=float(bbox[0]),
         bbox_min_y=float(bbox[1]),
         bbox_max_x=float(bbox[2]),
         bbox_max_y=float(bbox[3]),
         feature_count=len(features),
-        status="ok",
+        status=ExtractionStatus.OK,
     )
 
 
@@ -145,7 +153,7 @@ def _extract_via_fiona(path: Path) -> ExtractedMeta:
     try:
         import fiona  # type: ignore[import-not-found]  # ty: ignore[unresolved-import]
     except ImportError:
-        return ExtractedMeta(status="manual")
+        return ExtractedMeta(status=ExtractionStatus.MANUAL)
 
     with fiona.open(str(path)) as src:
         bounds = src.bounds
@@ -157,7 +165,7 @@ def _extract_via_fiona(path: Path) -> ExtractedMeta:
             bbox_max_x=float(bounds[2]),
             bbox_max_y=float(bounds[3]),
             feature_count=len(src),
-            status="ok",
+            status=ExtractionStatus.OK,
         )
 
 
@@ -165,7 +173,7 @@ def _extract_raster(path: Path) -> ExtractedMeta:
     try:
         import rasterio  # type: ignore[import-not-found]  # ty: ignore[unresolved-import]
     except ImportError:
-        return ExtractedMeta(status="manual")
+        return ExtractedMeta(status=ExtractionStatus.MANUAL)
 
     with rasterio.open(str(path)) as src:
         bounds = src.bounds
@@ -176,5 +184,5 @@ def _extract_raster(path: Path) -> ExtractedMeta:
             bbox_max_x=float(bounds.right),
             bbox_max_y=float(bounds.top),
             band_count=src.count,
-            status="ok",
+            status=ExtractionStatus.OK,
         )
