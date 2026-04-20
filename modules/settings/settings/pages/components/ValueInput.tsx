@@ -12,29 +12,27 @@ export const VALUE_TYPES: readonly ValueType[] = [
 
 type Props = {
   valueType: ValueType;
-  defaultValue?: string;
-  name?: string;
+  value: string;
+  onValueChange: (value: string) => void;
   required?: boolean;
 };
 
 /** Renders the appropriate HTML control for a given `value_type`.
  *
- * All controls submit under the same `name` (default "value") so the form
- * payload looks identical regardless of the declared type — the server
- * re-validates the string against `value_type`.
+ * Controlled component — emits string values regardless of the declared type.
+ * The server re-validates the string against `value_type`.
  */
-export default function ValueInput({
-  valueType,
-  defaultValue = '',
-  name = 'value',
-  required = false,
-}: Props) {
+export default function ValueInput({ valueType, value, onValueChange, required = false }: Props) {
   const { t } = useT();
 
   if (valueType === 'bool') {
-    const current = defaultValue.toLowerCase();
+    const current = value.toLowerCase();
     return (
-      <select name={name} defaultValue={current || 'false'} className="border rounded w-full p-2">
+      <select
+        value={current || 'false'}
+        onChange={(e) => onValueChange(e.target.value)}
+        className="border rounded w-full p-2"
+      >
         <option value="true">true</option>
         <option value="false">false</option>
       </select>
@@ -46,8 +44,8 @@ export default function ValueInput({
       <input
         type="number"
         step="1"
-        name={name}
-        defaultValue={defaultValue}
+        value={value}
+        onChange={(e) => onValueChange(e.target.value)}
         required={required}
         className="border rounded w-full p-2 font-mono"
       />
@@ -59,8 +57,8 @@ export default function ValueInput({
       <input
         type="number"
         step="any"
-        name={name}
-        defaultValue={defaultValue}
+        value={value}
+        onChange={(e) => onValueChange(e.target.value)}
         required={required}
         className="border rounded w-full p-2 font-mono"
       />
@@ -70,8 +68,8 @@ export default function ValueInput({
   if (valueType === 'json') {
     return (
       <textarea
-        name={name}
-        defaultValue={defaultValue}
+        value={value}
+        onChange={(e) => onValueChange(e.target.value)}
         required={required}
         rows={6}
         placeholder='{"key": "value"}'
@@ -84,8 +82,8 @@ export default function ValueInput({
   return (
     <input
       type="text"
-      name={name}
-      defaultValue={defaultValue}
+      value={value}
+      onChange={(e) => onValueChange(e.target.value)}
       required={required}
       placeholder={t(keys.settings.form.value_placeholder)}
       className="border rounded w-full p-2"

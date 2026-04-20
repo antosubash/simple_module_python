@@ -45,7 +45,7 @@ def _login(page: Page, username: str, password: str) -> None:
     page.get_by_role("link", name="Get Started").first.click()
     page.locator("#email").fill(username)
     page.locator("#password").fill(password)
-    page.get_by_role("button", name="Login").click()
+    page.get_by_role("button", name="Sign in").click()
 
 
 def _login_and_land_on_dashboard(page: Page, username: str, password: str) -> None:
@@ -63,8 +63,7 @@ def test_login_and_browse_smoke(
     e2e_password: str,
 ) -> None:
     _login_and_land_on_dashboard(page, e2e_username, e2e_password)
-    # Welcome card — anchor on the CardTitle text which is unique on this page.
-    expect(page.get_by_text("Welcome", exact=True)).to_be_visible()
+    # _login_and_land_on_dashboard already asserts the Dashboard heading.
 
     # Navigate directly: sidebar link is hidden below the lg breakpoint.
     page.goto("/products")
@@ -183,15 +182,14 @@ def test_admin_invite_smoke(
     import json
     import urllib.request
 
-    list_url = f"{base_url}/api/users/admin/users?query={invitee_email}&page=1&per_page=10"
+    list_url = f"{base_url}/api/users/admin?q={invitee_email}&page=1&per_page=10"
     # Re-use the admin session cookie that Playwright set on the page's context.
     cookies = page.context.cookies()
     cookie_header = "; ".join(f"{c['name']}={c['value']}" for c in cookies)
     req = urllib.request.Request(list_url, headers={"Cookie": cookie_header})
     with urllib.request.urlopen(req, timeout=10) as resp:
-        data = json.loads(resp.read())
+        users = json.loads(resp.read())
 
-    users = data.get("users", [])
     if not users:
         pytest.skip(f"Invited user {invitee_email!r} not found via admin API — cannot mint token")
 

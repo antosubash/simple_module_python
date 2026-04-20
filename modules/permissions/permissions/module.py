@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 
@@ -30,18 +29,6 @@ class PermissionsModule(ModuleBase):
         api_router.include_router(api)
         view_router.include_router(views)
 
-    def register_menu_items(self, registry: MenuRegistry) -> None:
-        registry.add(
-            MenuItem(
-                label="Permissions",
-                url="/permissions",
-                icon="shield-check",
-                order=40,
-                section=MenuSection.SIDEBAR,
-                roles=["admin"],
-            )
-        )
-
     def register_permissions(self, registry: PermissionRegistry) -> None:
         from permissions.constants import PERM_MANAGE, PERM_VIEW, PERMISSION_GROUP
 
@@ -61,4 +48,7 @@ class PermissionsModule(ModuleBase):
         db_state = app.state.sm.db
         registry = app.state.sm.permissions
         async with db_state.session_factory() as db:
-            await PermissionService(db, registry).load_all_into_registry()
+            service = PermissionService(db, registry)
+            await service.load_all_into_registry()
+            await service.sync_admin_all_permissions()
+            await db.commit()

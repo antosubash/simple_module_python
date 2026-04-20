@@ -7,17 +7,44 @@ import importlib.util
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from simple_module_core.diagnostics._coupling import check_framework_module_coupling
+from simple_module_core.diagnostics._js_workspace import check_js_workspace_files
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 
 if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
 
 
+def _iter_render_components(tree: ast.Module) -> list[str]:
+    """Yield ``X.render(component, ...)`` first-arg values, resolving Name constants."""
+    consts = {
+        s.targets[0].id: s.value.value
+        for s in tree.body
+        if isinstance(s, ast.Assign)
+        and len(s.targets) == 1
+        and isinstance(s.targets[0], ast.Name)
+        and isinstance(s.value, ast.Constant)
+        and isinstance(s.value.value, str)
+    }
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "render"
+            and node.args
+        ):
+            continue
+        first = node.args[0]
+        if isinstance(first, ast.Constant) and isinstance(first.value, str):
+            found.append(first.value)
+        elif isinstance(first, ast.Name) and first.id in consts:
+            found.append(consts[first.id])
+    return found
+
+
 class ModuleDiagnostics:
     """Validates module structure and configuration."""
-
-    # Framework packages that must never import from plugin module packages.
-    FRAMEWORK_PACKAGES = ("simple_module_core", "simple_module_hosting", "simple_module_db")
 
     def run(self, modules: list[ModuleBase]) -> list[Diagnostic]:
         diagnostics: list[Diagnostic] = []
@@ -25,7 +52,7 @@ class ModuleDiagnostics:
         diagnostics.extend(self._check_schema_conflicts(modules))
         diagnostics.extend(self._check_empty_modules(modules))
         diagnostics.extend(self._check_missing_meta(modules))
-        diagnostics.extend(self._check_framework_module_coupling(modules))
+        diagnostics.extend(check_framework_module_coupling(modules))
 
         # File-based checks (need to find module source directories)
         for mod in modules:
@@ -34,6 +61,7 @@ class ModuleDiagnostics:
                 rendered_pages = self._find_render_calls(mod, src_dir)
                 diagnostics.extend(self._check_orphan_pages(mod, src_dir, rendered_pages))
                 diagnostics.extend(self._check_phantom_renders(mod, src_dir, rendered_pages))
+                diagnostics.extend(check_js_workspace_files(mod, src_dir))
 
         return diagnostics
 
@@ -129,68 +157,6 @@ class ModuleDiagnostics:
                 )
         return diags
 
-    def _check_framework_module_coupling(self, modules: list[ModuleBase]) -> list[Diagnostic]:
-        """Detect framework packages that directly import from plugin module packages.
-
-        The framework (core, hosting, db) must never ``import`` from a
-        discovered module's package (e.g. ``auth``, ``products``).
-        All interaction should go through the ``ModuleBase`` lifecycle hooks.
-        """
-        module_packages: dict[str, str] = {}  # package -> module name
-        for mod in modules:
-            top_pkg = type(mod).__module__.split(".")[0]
-            module_packages[top_pkg] = mod.meta.name
-
-        if not module_packages:
-            return []
-
-        framework_dirs: list[tuple[str, Path]] = []
-        for fw_pkg in self.FRAMEWORK_PACKAGES:
-            fw_dir = self._find_package_dir(fw_pkg)
-            if fw_dir:
-                framework_dirs.append((fw_pkg, fw_dir))
-
-        diags: list[Diagnostic] = []
-        for fw_pkg, fw_dir in framework_dirs:
-            for py_file in fw_dir.rglob("*.py"):
-                try:
-                    tree = ast.parse(py_file.read_text(), filename=str(py_file))
-                except SyntaxError:
-                    continue
-
-                for node in ast.walk(tree):
-                    imported_pkg: str | None = None
-                    if isinstance(node, ast.Import):
-                        for alias in node.names:
-                            top = alias.name.split(".")[0]
-                            if top in module_packages:
-                                imported_pkg = top
-                                break
-                    elif isinstance(node, ast.ImportFrom) and node.module:
-                        top = node.module.split(".")[0]
-                        if top in module_packages:
-                            imported_pkg = top
-
-                    if imported_pkg:
-                        diags.append(
-                            Diagnostic(
-                                level=DiagnosticLevel.ERROR,
-                                code="SM009",
-                                message=(
-                                    f"Framework package '{fw_pkg}' directly imports "
-                                    f"from module package '{imported_pkg}'"
-                                ),
-                                module_name=module_packages[imported_pkg],
-                                file=str(py_file),
-                                suggestion=(
-                                    "Use a ModuleBase lifecycle hook "
-                                    "(register_middleware, register_routes, etc.) "
-                                    "instead of importing module code from the framework"
-                                ),
-                            )
-                        )
-        return diags
-
     def _find_package_dir(self, package_name: str) -> Path | None:
         """Locate the source directory for a top-level package."""
         spec = importlib.util.find_spec(package_name)
@@ -265,32 +231,17 @@ class ModuleDiagnostics:
         ]
 
     def _find_render_calls(self, mod: ModuleBase, src_dir: Path) -> set[str]:
-        """Parse Python source to find inertia.render("Module/Page") calls."""
+        """Find inertia.render("Module/Page") calls, resolving module-level string consts."""
         rendered: set[str] = set()
         prefix = f"{mod.meta.name}/"
-
         for py_file in src_dir.rglob("*.py"):
             try:
                 tree = ast.parse(py_file.read_text(), filename=str(py_file))
             except SyntaxError:
                 continue
-
-            for node in ast.walk(tree):
-                if not isinstance(node, ast.Call):
-                    continue
-                # Match: inertia.render("Products/Browse", ...)
-                # or: xxx.render("Products/Browse", ...)
-                if (
-                    isinstance(node.func, ast.Attribute)
-                    and node.func.attr == "render"
-                    and node.args
-                    and isinstance(node.args[0], ast.Constant)
-                ):
-                    component = node.args[0].value
-                    if isinstance(component, str) and component.startswith(prefix):
-                        page_name = component[len(prefix) :]
-                        rendered.add(page_name)
-
+            for component in _iter_render_components(tree):
+                if component.startswith(prefix):
+                    rendered.add(component[len(prefix) :])
         return rendered
 
     def _find_source_dir(self, mod: ModuleBase) -> Path | None:

@@ -1,4 +1,7 @@
+import { router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module/i18n';
+import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
+import type React from 'react';
 import type { ValueType } from './components/ValueInput';
 import { ROUTES } from './routes';
 
@@ -16,15 +19,29 @@ type Setting = {
 
 type Props = { settings: Setting[] };
 
-export default function Browse({ settings }: Props) {
+function Browse({ settings }: Props) {
   const { t } = useT();
+
+  function handleDelete(setting: Setting) {
+    if (!window.confirm(t(keys.settings.browse.delete_confirm, { key: setting.key }))) return;
+    router.delete(ROUTES.byId(setting.id));
+  }
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-semibold">{t(keys.settings.browse.title)}</h1>
-        <a href={ROUTES.create} className="rounded bg-primary px-3 py-1.5 text-primary-foreground">
-          {t(keys.settings.browse.new_button)}
-        </a>
+        <div className="flex items-center gap-3">
+          <a href={ROUTES.modules} className="text-sm text-primary hover:underline">
+            {t(keys.settings.modules.browse_link)}
+          </a>
+          <a
+            href={ROUTES.create}
+            className="rounded bg-primary px-3 py-1.5 text-primary-foreground"
+          >
+            {t(keys.settings.browse.new_button)}
+          </a>
+        </div>
       </div>
       {settings.length === 0 ? (
         <div className="py-12 text-center">
@@ -60,7 +77,18 @@ export default function Browse({ settings }: Props) {
                 <td className="py-2 pr-4 font-mono text-sm">{setting.value}</td>
                 <td className="py-2 pr-4 text-muted-foreground">{setting.description ?? ''}</td>
                 <td className="py-2">
-                  <a href={ROUTES.edit(setting.id)}>{t(keys.settings.browse.edit_link)}</a>
+                  <div className="flex gap-3">
+                    <a href={ROUTES.edit(setting.id)} className="text-primary hover:underline">
+                      {t(keys.settings.browse.edit_link)}
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(setting)}
+                      className="text-destructive hover:underline"
+                    >
+                      {t(keys.settings.browse.delete_link)}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -70,3 +98,6 @@ export default function Browse({ settings }: Props) {
     </div>
   );
 }
+
+Browse.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+export default Browse;

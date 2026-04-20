@@ -60,6 +60,13 @@ class UserListItem(SQLModel):
     roles: list[str] = []
 
 
+class RoleListItem(SQLModel):
+    id: uuid.UUID
+    name: str
+    description: str | None = None
+    user_count: int = 0
+
+
 class RoleAssignment(SQLModel):
     role_names: list[str]
 

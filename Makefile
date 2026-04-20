@@ -92,6 +92,15 @@ ci-js-lint:
 
 ci-js-typecheck:
 	npx tsc --noEmit -p host/client_app/tsconfig.json
+	@# Fail if a module ships .tsx files but has no tsconfig.json — otherwise
+	@# the type-check would silently skip the module. See SM017 in `make doctor`.
+	@for dir in modules/*/; do \
+		if [ -n "$$(find "$$dir" -name '*.tsx' -print -quit 2>/dev/null)" ] \
+			&& [ ! -f "$${dir}tsconfig.json" ]; then \
+			echo "error: $$dir has .tsx pages but no tsconfig.json — add one so tsc covers it"; \
+			exit 1; \
+		fi; \
+	done
 	@for cfg in modules/*/tsconfig.json packages/*/tsconfig.json; do \
 		[ -f "$$cfg" ] || continue; \
 		echo "tsc -p $$cfg"; \
@@ -116,7 +125,7 @@ doctor:
 # All targets run from the repo root so alembic and `make dev-api` share the
 # same cwd (and therefore the same .env, SM_DATABASE_URL, and SQLite path).
 migrate:                    ## Run migrations to head
-	uv run --project host alembic -c host/alembic.ini upgrade head
+	uv run --project host alembic -c host/alembic.ini upgrade heads
 
 migration:                  ## Create new migration (usage: make migration msg="add foo")
 	uv run --project host alembic -c host/alembic.ini revision --autogenerate -m "$(msg)"
@@ -138,8 +147,8 @@ kill:
 	@echo "Stopping dev servers..."
 	@-pkill -f "uvicorn host.main" 2>/dev/null
 	@-pkill -f "vite" 2>/dev/null
-	@-lsof -ti:8000,5173 | xargs kill -9 2>/dev/null
-	@echo "Ports 8000 and 5173 freed."
+	@-lsof -ti:8000,5050,5173 | xargs kill -9 2>/dev/null
+	@echo "Ports 8000, 5050, 5173 freed."
 
 # Docker
 docker-up:
