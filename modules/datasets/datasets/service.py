@@ -82,9 +82,10 @@ async def _file_stream(path: Path, chunk_size: int = 1024 * 1024) -> AsyncIterat
 class DatasetService:
     """CRUD + upload orchestration for datasets.
 
-    Downstream modules should depend on the ``IDatasetService`` Protocol
-    (see ``datasets.contracts.service``) rather than this concrete class,
-    and obtain an instance via ``datasets.deps.get_dataset_service``.
+    Downstream modules obtain an instance via
+    ``datasets.deps.DatasetServiceDep`` and type-hint against this class
+    directly — there's no Protocol abstraction since there's only one
+    implementation.
     """
 
     def __init__(self, db: AsyncSession, backend: StorageBackend) -> None:

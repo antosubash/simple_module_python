@@ -10,10 +10,6 @@ Downstream modules that depend on ``Datasets`` import
         ds = await datasets.get_by_slug("world-borders")
         ...
 
-Type-hint with ``IDatasetService`` (the Protocol) if you want to keep the
-dependency loosely coupled in your service layer; the DI seam here returns
-the concrete ``DatasetService`` but it implements the Protocol.
-
 The storage backend comes from the ``file_storage`` module's app-state
 slot. That seam is what lets datasets work on local FS today and S3
 tomorrow without touching this module.

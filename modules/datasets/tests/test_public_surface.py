@@ -56,7 +56,6 @@ class TestContractsReexports:
             DatasetOut,
             DatasetUpdate,
             DatasetUploaded,
-            IDatasetService,
             detail_url,
             download_url,
             show_url,
