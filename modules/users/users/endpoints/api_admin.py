@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import status as http_status
 from simple_module_core.events import EventBus
 from simple_module_hosting.permissions import RequiresPermission
 
-from users.constants import PERM_USERS_MANAGE
+from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
 from users.contracts.events import RoleAssigned, UserDisabled, UserInvited
 from users.contracts.schemas import (
     PasswordResetLink,
@@ -21,6 +22,7 @@ from users.contracts.schemas import (
     UserListItem,
 )
 from users.deps import get_event_bus, get_mailer, get_user_service
+from users.exceptions import UserNotFoundError
 from users.service import UserService
 
 admin_router = APIRouter(
@@ -35,17 +37,32 @@ async def admin_list_users(
     page: int = 1,
     per_page: int = 20,
     q: str | None = None,
+    status: str | None = None,
+    role: str | None = None,
+    verified: str | None = None,
+    sort: str = "email",
+    order: str = "asc",
     service: UserService = Depends(get_user_service),
 ):
-    """List all users (paginated, optional search)."""
-    items, _ = await service.list_users(page=page, per_page=per_page, search=q)
+    """List all users (paginated, optional search and filters)."""
+    _status, _verified, _sort, _order = sanitize_list_filters(status, verified, sort, order)
+    items, _ = await service.list_users(
+        page=page,
+        per_page=per_page,
+        search=q,
+        status=_status,
+        role_name=role or None,
+        verified=_verified,
+        sort=_sort,
+        order=_order,
+    )
     return items
 
 
 @admin_router.post(
     "/invite",
     response_model=UserListItem,
-    status_code=status.HTTP_201_CREATED,
+    status_code=http_status.HTTP_201_CREATED,
 )
 async def admin_invite_user(
     data: UserInvite,
@@ -68,7 +85,7 @@ async def admin_invite_user(
             invited_by=(str(invited_by.id) if invited_by else None),
         )
     )
-    return await service.to_list_item(user)
+    return service.to_list_item(user)
 
 
 @admin_router.patch("/{user_id}/disable", response_model=UserListItem)
@@ -78,9 +95,12 @@ async def admin_disable_user(
     service: UserService = Depends(get_user_service),
 ):
     """Disable a user account (sets is_active=False and disabled_at)."""
-    user = await service.disable(user_id)
+    try:
+        user = await service.disable(user_id)
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found") from None
     await bus.publish(UserDisabled(user_id=user.id))
-    return await service.to_list_item(user)
+    return service.to_list_item(user)
 
 
 @admin_router.patch("/{user_id}/enable", response_model=UserListItem)
@@ -89,8 +109,11 @@ async def admin_enable_user(
     service: UserService = Depends(get_user_service),
 ):
     """Re-enable a previously disabled user account."""
-    user = await service.enable(user_id)
-    return await service.to_list_item(user)
+    try:
+        user = await service.enable(user_id)
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found") from None
+    return service.to_list_item(user)
 
 
 @admin_router.put("/{user_id}/roles", response_model=UserListItem)
@@ -103,14 +126,30 @@ async def admin_set_roles(
 ):
     """Replace a user's role assignments."""
     assigned_by = getattr(request.state, "user", None)
-    user = await service.set_roles(
-        user_id,
-        data.role_names,
-        assigned_by=str(assigned_by.id) if assigned_by else None,
-    )
+    try:
+        user = await service.set_roles(
+            user_id,
+            data.role_names,
+            assigned_by=str(assigned_by.id) if assigned_by else None,
+        )
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found") from None
     for role in data.role_names:
         await bus.publish(RoleAssigned(user_id=user.id, role_name=role))
-    return await service.to_list_item(user)
+    return service.to_list_item(user)
+
+
+@admin_router.patch("/{user_id}/verify", response_model=UserListItem)
+async def admin_mark_verified(
+    user_id: uuid.UUID,
+    service: UserService = Depends(get_user_service),
+):
+    """Mark a user verified. Idempotent."""
+    try:
+        user = await service.mark_verified(user_id)
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found") from None
+    return service.to_list_item(user)
 
 
 @admin_router.post("/{user_id}/reset-password-link", response_model=PasswordResetLink)
@@ -121,5 +160,8 @@ async def admin_reset_password_link(
 ):
     """Generate a password-reset link for the given user (admin copy)."""
     base_url = request.app.state.users.settings.base_url
-    link = await service.generate_reset_link(user_id, base_url)
+    try:
+        link = await service.generate_reset_link(user_id, base_url)
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found") from None
     return PasswordResetLink(link=link)

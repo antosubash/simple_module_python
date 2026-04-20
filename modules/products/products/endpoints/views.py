@@ -19,7 +19,7 @@ from products.service import ProductService
 router = APIRouter()
 
 PER_PAGE = 10
-_REDIRECT_PRODUCTS = "/products"
+_REDIRECT_PRODUCTS = "/products/"
 
 # Inertia page identifiers
 _PAGE_BROWSE = "Products/Browse"

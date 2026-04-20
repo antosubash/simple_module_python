@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class UsersServices:
+class UsersState:
     """Users-module singletons. Single slot at ``app.state.users``."""
 
     settings: UsersSettings

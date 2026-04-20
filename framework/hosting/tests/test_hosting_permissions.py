@@ -15,7 +15,11 @@ from simple_module_hosting.permissions import RequiresPermission
 def _http_scope(
     roles: list[str] | None = None,
     headers: list[tuple[bytes, bytes]] | None = None,
+    principal_serializer=None,
 ) -> dict:
+    state = SimpleNamespace()
+    if principal_serializer is not None:
+        state.principal_serializer = principal_serializer
     scope: dict = {
         "type": "http",
         "method": "GET",
@@ -24,7 +28,7 @@ def _http_scope(
         "state": {},
         # InertiaLayoutDataMiddleware reads request.app.state.i18n_registry; a
         # stub app with an empty state is enough for the lookup to return None.
-        "app": SimpleNamespace(state=SimpleNamespace()),
+        "app": SimpleNamespace(state=state),
     }
     if roles is not None:
         scope["state"]["user"] = SimpleNamespace(
@@ -90,6 +94,45 @@ class TestInertiaLayoutDataMiddlewareRoleMap:
 
         assert captured["resolved"] == set()
         assert captured["shared"]["auth"]["permissions"] == []
+
+    async def test_auth_user_is_none_without_serializer(self):
+        """Framework does not project user fields itself — defaults to None."""
+        reg = PermissionRegistry()
+        menu_reg = MenuRegistry()
+        captured: dict = {}
+
+        async def inner_app(scope, receive, send):
+            from starlette.requests import Request
+
+            req = Request(scope)
+            captured["shared"] = req.state.inertia_shared
+
+        mw = InertiaLayoutDataMiddleware(inner_app, menu_registry=menu_reg, permission_registry=reg)
+        await mw(_http_scope(roles=["user"]), _noop_receive, _noop_send)
+
+        assert captured["shared"]["auth"]["user"] is None
+        assert captured["shared"]["auth"]["isAuthenticated"] is True
+
+    async def test_auth_user_uses_registered_principal_serializer(self):
+        """A module-registered serializer produces the ``auth.user`` projection."""
+        reg = PermissionRegistry()
+        menu_reg = MenuRegistry()
+        captured: dict = {}
+
+        async def inner_app(scope, receive, send):
+            from starlette.requests import Request
+
+            req = Request(scope)
+            captured["shared"] = req.state.inertia_shared
+
+        mw = InertiaLayoutDataMiddleware(inner_app, menu_registry=menu_reg, permission_registry=reg)
+        scope = _http_scope(
+            roles=["user"],
+            principal_serializer=lambda u: {"id": u.id, "display": u.name.upper()},
+        )
+        await mw(scope, _noop_receive, _noop_send)
+
+        assert captured["shared"]["auth"]["user"] == {"id": "u1", "display": "TEST USER"}
 
     async def test_admin_role_still_gets_all_permissions(self):
         """Admin users still get all permissions via wildcard expansion."""

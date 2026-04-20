@@ -1,4 +1,4 @@
-"""Users module — local user management (replaces Keycloak)."""
+"""Users module — local-account authentication and user management."""
 
 from __future__ import annotations
 
@@ -41,11 +41,23 @@ class UsersModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
-        from users.services import UsersServices
-        from users.settings import UsersSettings
+        from auth.contracts.schemas import UserContext
 
-        services = UsersServices(settings=UsersSettings())
-        app.state.users = services
+        from users.settings import UsersSettings
+        from users.state import UsersState
+
+        state = UsersState(settings=UsersSettings())
+        app.state.users = state
+
+        def serialize_principal(user: UserContext) -> dict:
+            return {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "roles": user.roles,
+            }
+
+        app.state.principal_serializer = serialize_principal
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
@@ -113,15 +125,15 @@ class UsersModule(ModuleBase):
         from users.rate_limit import LoginRateLimiter, ThroughputLimiter
         from users.roles_cache import refresh_roles_cache
 
-        services = app.state.users
-        s = services.settings
-        services.mailer = build_mailer(s)
-        services.rate_limiter = LoginRateLimiter(
+        state = app.state.users
+        s = state.settings
+        state.mailer = build_mailer(s)
+        state.rate_limiter = LoginRateLimiter(
             max_failures=s.login_rate_limit_failures,
             window_seconds=s.login_rate_limit_window_seconds,
             cooldown_seconds=s.login_rate_limit_cooldown_seconds,
         )
-        services.auth_throughput_limiter = ThroughputLimiter(
+        state.auth_throughput_limiter = ThroughputLimiter(
             max_attempts=s.auth_rate_limit_attempts,
             window_seconds=s.auth_rate_limit_window_seconds,
         )

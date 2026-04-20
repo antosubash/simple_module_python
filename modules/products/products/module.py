@@ -19,7 +19,7 @@ from products.constants import (
     PERM_PRODUCTS_VIEW,
 )
 
-_URL_PRODUCTS = "/products"
+_URL_PRODUCTS = "/products/"
 _ICON_PRODUCTS = "package"
 
 
