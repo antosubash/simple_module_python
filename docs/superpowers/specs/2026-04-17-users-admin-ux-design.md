@@ -1,10 +1,19 @@
 # Users Module — Admin UX (Sub-project 2 of 4)
 
-**Date:** 2026-04-17
+**Date:** 2026-04-17 (revised 2026-04-20 after origin/main sync)
 **Status:** Design draft.
 **Scope:** Make the admin list and detail pages useful for managing many users.
 
 Second of four sub-projects. Sub-project 1 (quality pass) has shipped; this builds on a clean `UserService` / `api_admin.py` split. Sub-projects 3 (self-service) and 4 (security) come after.
+
+## Post-merge context (2026-04-20)
+
+Origin/main added four modules and one refactor that shape this spec:
+
+- **Permissions module (#37)** — separate module at `/permissions` with its own admin UI. Manages role→permission-key assignments and direct per-user permission grants (`UserEdit` page at `/permissions/users/{user_id}`). **Does not overlap with this spec** — roles on the users edit page are still role *membership*, not permission keys. **Add a cross-link** from the users detail page ("Manage permissions →") so admins can jump between the two.
+- **Constants convention (#34)** — permission strings are now module-level constants (`PERM_USERS_MANAGE`). New code here uses those constants, not literals.
+- **Protocol drop (#39)** — `IProductService`, `IPermissionService`, `IBackgroundTaskService`, `ISettingService` deleted. `UserService` was never in a Protocol and stays a concrete class; new admin-facing code type-hints against `UserService` directly.
+- **Settings, BackgroundTasks, FileStorage modules (#38, #36, #35)** — independent; no impact on this spec.
 
 ## Goal
 
@@ -83,6 +92,8 @@ Metadata
 
 **No "mark unverified" action** — that's a foot-gun with no clear use case; revisit if someone asks.
 
+**Cross-link to Permissions module.** Below the Roles card, add a single link: `Manage permissions →` pointing at `/permissions/users/{user.id}`. Rendered only if the Permissions module is installed (detected via a prop passed from the view — e.g. `has_permissions_module: bool` computed from the app's module registry). Keeps the users module decoupled from the permissions one: users doesn't import from permissions, the view just checks module presence.
+
 ## Out of contract-change scope
 
 - HTTP status codes and response shapes for existing endpoints are preserved.
@@ -159,6 +170,7 @@ Each step is independently shippable. `make test` and `make lint` green between.
 6. **Frontend detail-page Metadata card.**
    - 6a: Render Metadata card with `created_at`, `last_login_at`, `disabled_at`, verified state.
    - 6b: Add [Mark verified] button wired to the new endpoint.
+   - 6c: Render cross-link to `/permissions/users/{id}` when the Permissions module is installed (view-side flag).
 
 ## Risks
 
@@ -175,3 +187,4 @@ Each step is independently shippable. `make test` and `make lint` green between.
 - `UserListItem` gains `created_at`; no other schema changes.
 - New `PATCH /admin/{id}/verify` endpoint exists, idempotent, 404s on unknown UUID.
 - Disable + reset-link actions require confirmation on the admin detail page.
+- Detail page shows a "Manage permissions →" link to the Permissions module when installed; hidden otherwise.
