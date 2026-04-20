@@ -10,7 +10,7 @@ from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from users.contracts.schemas import UserCreate, UserListItem
+from users.contracts.schemas import RoleListItem, UserCreate, UserListItem
 from users.manager import UserManager
 from users.models import Role, User, UserRole
 
@@ -45,6 +45,24 @@ class UserService:
             last_login_at=user.last_login_at,
             roles=[r.name for r in user.roles],
         )
+
+    async def list_roles(self) -> list[RoleListItem]:
+        stmt = (
+            select(Role, func.count(UserRole.user_id))
+            .outerjoin(UserRole, UserRole.role_id == Role.id)
+            .group_by(Role.id)
+            .order_by(Role.name)
+        )
+        result = await self._db.execute(stmt)
+        return [
+            RoleListItem(
+                id=role.id,
+                name=role.name,
+                description=role.description,
+                user_count=user_count,
+            )
+            for role, user_count in result.all()
+        ]
 
     async def _get_user_with_roles(self, user_id: uuid.UUID) -> User | None:
         result = await self._db.execute(

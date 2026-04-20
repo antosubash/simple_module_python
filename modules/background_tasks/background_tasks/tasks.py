@@ -20,6 +20,7 @@ from sqlalchemy import delete, update
 from background_tasks.constants import (
     DEFAULT_RETENTION_DAYS,
     DEFAULT_STUCK_AFTER_SECONDS,
+    DEMO_ECHO_TASK,
     INTERNAL_TASK_PURGE_OLD,
     INTERNAL_TASK_SWEEP_STUCK,
     TERMINAL_STATUSES,
@@ -40,6 +41,17 @@ def _load_settings() -> BackgroundTasksSettings:
     is the same deterministic source of truth.
     """
     return BackgroundTasksSettings()
+
+
+@shared_task(name=DEMO_ECHO_TASK)
+def demo_echo(message: str = "hello") -> dict[str, str]:
+    """Trivial task used for end-to-end smoke tests of the Celery pipeline.
+
+    Returns the input wrapped with a worker timestamp so a successful
+    execution produces a non-empty ``result`` column in the admin UI.
+    """
+    logger.info("demo_echo received message=%r", message)
+    return {"message": message, "at": datetime.now(UTC).isoformat()}
 
 
 @shared_task(name=INTERNAL_TASK_SWEEP_STUCK)

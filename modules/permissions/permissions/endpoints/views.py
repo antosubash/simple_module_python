@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Request
 from inertia import InertiaResponse
 from pydantic import ValidationError
 from simple_module_hosting.inertia_deps import InertiaDep
@@ -14,40 +14,19 @@ from simple_module_hosting.inertia_utils import (
 )
 from starlette.responses import RedirectResponse
 
-from permissions.constants import PERM_MANAGE, PERM_VIEW
+from permissions.constants import PERM_MANAGE
 from permissions.contracts.schemas import RolePermissionsUpdate, UserPermissionsUpdate
 from permissions.deps import RequiresPermission, assigned_by, get_permission_service
 from permissions.service import PermissionService
 
 router = APIRouter()
 
+_ADMIN_URL = "/users/admin"
 
-@router.get(
-    "/",
-    response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_VIEW))],
-)
-async def browse(
-    inertia: InertiaDep,
-    search: str = Query("", alias="q"),
-    service: PermissionService = Depends(get_permission_service),
-) -> InertiaResponse:
-    groups = service.list_registered_groups()
-    roles = await service.list_roles_with_counts()
-    users = await service.list_users_with_counts(search=search or None)
-    return await inertia.render(
-        "Permissions/Browse",
-        {
-            "groups": [g.model_dump(mode="json") for g in groups],
-            "roles": [
-                {**role.model_dump(mode="json"), "permission_count": count} for role, count in roles
-            ],
-            "users": [
-                {**user.model_dump(mode="json"), "permission_count": count} for user, count in users
-            ],
-            "search": search,
-        },
-    )
+
+@router.get("/", response_model=None)
+async def browse() -> RedirectResponse:
+    return RedirectResponse(_ADMIN_URL, status_code=307)
 
 
 # ── Role edit ──────────────────────────────────────────────────
@@ -65,7 +44,7 @@ async def edit_role(
 ) -> InertiaResponse | RedirectResponse:
     assignment = await service.get_role_permissions(role_id)
     if assignment is None:
-        return RedirectResponse("/permissions", status_code=303)
+        return RedirectResponse(_ADMIN_URL, status_code=303)
     groups = service.list_registered_groups()
     return await inertia.render(
         "Permissions/RoleEdit",
@@ -93,7 +72,7 @@ async def update_role(
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
     await service.set_role_permissions(role_id, data.permissions, assigned_by(request))
-    return RedirectResponse("/permissions", status_code=303)
+    return RedirectResponse(_ADMIN_URL, status_code=303)
 
 
 # ── User edit ──────────────────────────────────────────────────
@@ -111,7 +90,7 @@ async def edit_user(
 ) -> InertiaResponse | RedirectResponse:
     assignment = await service.get_user_permissions(user_id)
     if assignment is None:
-        return RedirectResponse("/permissions", status_code=303)
+        return RedirectResponse(_ADMIN_URL, status_code=303)
     groups = service.list_registered_groups()
     return await inertia.render(
         "Permissions/UserEdit",
@@ -141,4 +120,4 @@ async def update_user(
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
     await service.set_user_permissions(user_id, data.permissions, assigned_by(request))
-    return RedirectResponse("/permissions", status_code=303)
+    return RedirectResponse(_ADMIN_URL, status_code=303)

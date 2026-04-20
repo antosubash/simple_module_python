@@ -42,6 +42,11 @@ def pyproject_toml(ctx: ScaffoldContext) -> str:
         requires = ["hatchling"]
         build-backend = "hatchling.build"
 
+        # Ship the module-root package.json inside the wheel so the host can
+        # discover JS deps via importlib.resources after a pip install.
+        [tool.hatch.build.targets.wheel.force-include]
+        "package.json" = "{ctx.pkg}/package.json"
+
         [tool.uv.sources]
         simple-module-core = {{ workspace = true }}
         simple-module-db = {{ workspace = true }}

@@ -70,3 +70,6 @@ DEFAULT_MAX_RETRIES = 3
 # ── Internal task names ─────────────────────────────────────────
 INTERNAL_TASK_SWEEP_STUCK = "background_tasks.sweep_stuck_tasks"
 INTERNAL_TASK_PURGE_OLD = "background_tasks.purge_old_executions"
+# Harmless round-trip task; only wired into CI smoke tests and local dev —
+# not scheduled, not invoked by other modules.
+DEMO_ECHO_TASK = "background_tasks.demo_echo"
