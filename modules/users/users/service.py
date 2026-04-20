@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from users.contracts.schemas import RoleListItem, UserCreate, UserListItem
+from users.exceptions import UserNotFoundError
 from users.manager import UserManager
 from users.models import Role, User, UserRole
 
@@ -33,7 +34,7 @@ class UserService:
         result = await self._db.execute(select(Role).where(Role.name.in_(role_names)))
         return list(result.scalars().all())
 
-    async def to_list_item(self, user: User) -> UserListItem:
+    def to_list_item(self, user: User) -> UserListItem:
         """Build the DTO from a User with roles already eager-loaded."""
         return UserListItem(
             id=user.id,
@@ -43,6 +44,7 @@ class UserService:
             is_verified=user.is_verified,
             disabled_at=user.disabled_at,
             last_login_at=user.last_login_at,
+            created_at=user.created_at,
             roles=[r.name for r in user.roles],
         )
 
@@ -70,6 +72,13 @@ class UserService:
         )
         return result.scalar_one_or_none()
 
+    async def _require_user(self, user_id: uuid.UUID) -> User:
+        """Fetch a user with roles eager-loaded, or raise UserNotFoundError."""
+        user = await self._get_user_with_roles(user_id)
+        if user is None:
+            raise UserNotFoundError(user_id)
+        return user
+
     # ── Public API ───────────────────────────────────────────────
 
     async def list_users(
@@ -78,26 +87,73 @@ class UserService:
         page: int = 1,
         per_page: int = 20,
         search: str | None = None,
+        status: str | None = None,
+        role_name: str | None = None,
+        verified: str | None = None,
+        sort: str = "email",
+        order: str = "asc",
     ) -> tuple[list[UserListItem], int]:
-        """Returns (items, total_count). Filters on email/full_name LIKE search."""
+        """Returns (items, total_count). last_login_at sort always uses NULLS LAST."""
         stmt = select(User).options(selectinload(User.roles))
         count_stmt = select(func.count()).select_from(User)
 
+        conditions = []
+
         if search:
             pattern = f"%{search}%"
-            condition = or_(
-                User.email.ilike(pattern),
-                User.full_name.ilike(pattern),
+            conditions.append(
+                or_(
+                    User.email.ilike(pattern),
+                    User.full_name.ilike(pattern),
+                )
             )
-            stmt = stmt.where(condition)
-            count_stmt = count_stmt.where(condition)
+
+        if status == "active":
+            conditions.append(User.is_active.is_(True))
+        elif status == "disabled":
+            conditions.append(User.is_active.is_(False))
+
+        if verified == "yes":
+            conditions.append(User.is_verified.is_(True))
+        elif verified == "no":
+            conditions.append(User.is_verified.is_(False))
+
+        if role_name is not None:
+            subq = (
+                select(UserRole.user_id)
+                .join(Role, Role.id == UserRole.role_id)
+                .where(Role.name == role_name)
+            )
+            conditions.append(User.id.in_(subq))
+
+        for cond in conditions:
+            stmt = stmt.where(cond)
+            count_stmt = count_stmt.where(cond)
 
         total = (await self._db.execute(count_stmt)).scalar_one()
 
-        stmt = stmt.order_by(User.email).offset((page - 1) * per_page).limit(per_page)
+        sort_col_map = {
+            "email": User.email,
+            "last_login_at": User.last_login_at,
+            "created_at": User.created_at,
+        }
+        sort_col = sort_col_map.get(sort, User.email)
+
+        if sort == "last_login_at":
+            order_clause = (
+                sort_col.desc().nulls_last()  # type: ignore[union-attr]
+                if order == "desc"
+                else sort_col.asc().nulls_last()  # type: ignore[union-attr]
+            )
+        else:
+            order_clause = (
+                sort_col.desc() if order == "desc" else sort_col.asc()  # type: ignore[union-attr]
+            )
+
+        stmt = stmt.order_by(order_clause).offset((page - 1) * per_page).limit(per_page)
         rows = (await self._db.execute(stmt)).scalars().all()
 
-        items = [await self.to_list_item(u) for u in rows]
+        items = [self.to_list_item(u) for u in rows]
         return items, total
 
     async def invite(
@@ -132,38 +188,32 @@ class UserService:
                 )
             )
         if roles:
-            await self._db.commit()
+            await self._db.flush()
+            await self._db.refresh(user, attribute_names=["roles"])
 
         token = await self._manager.generate_verification_token(user)
         return user, token
 
     async def disable(self, user_id: uuid.UUID) -> User:
-        user = await self._get_user_with_roles(user_id)
-        if user is None:
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=404, detail="User not found")
+        user = await self._require_user(user_id)
         user.disabled_at = datetime.now(UTC)
         user.is_active = False
-        await self._db.commit()
-        self._db.expire_all()
-        refreshed = await self._get_user_with_roles(user_id)
-        assert refreshed is not None  # we just committed a change to this user
-        return refreshed
+        await self._db.flush()
+        return user
 
     async def enable(self, user_id: uuid.UUID) -> User:
-        user = await self._get_user_with_roles(user_id)
-        if user is None:
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=404, detail="User not found")
+        user = await self._require_user(user_id)
         user.disabled_at = None
         user.is_active = True
-        await self._db.commit()
-        self._db.expire_all()
-        refreshed = await self._get_user_with_roles(user_id)
-        assert refreshed is not None  # we just committed a change to this user
-        return refreshed
+        await self._db.flush()
+        return user
+
+    async def mark_verified(self, user_id: uuid.UUID) -> User:
+        user = await self._require_user(user_id)
+        if not user.is_verified:
+            user.is_verified = True
+            await self._db.flush()
+        return user
 
     async def set_roles(
         self,
@@ -172,11 +222,7 @@ class UserService:
         *,
         assigned_by: str | None = None,
     ) -> User:
-        user = await self._get_user_with_roles(user_id)
-        if user is None:
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=404, detail="User not found")
+        user = await self._require_user(user_id)
 
         # Delete all existing role assignments for this user
         await self._db.execute(delete(UserRole).where(UserRole.user_id == user_id))
@@ -192,22 +238,13 @@ class UserService:
                 )
             )
 
-        await self._db.commit()
-        # Expire the session so the next query sees DB-committed data.
-        self._db.expire_all()
-
-        # Re-fetch with roles loaded
-        refreshed = await self._get_user_with_roles(user_id)
-        assert refreshed is not None  # we just committed role changes to this user
-        return refreshed
+        await self._db.flush()
+        await self._db.refresh(user, attribute_names=["roles"])
+        return user
 
     async def generate_reset_link(self, user_id: uuid.UUID, base_url: str) -> str:
         """Build an admin-copyable password-reset URL. No email side-effect."""
-        user = await self._get_user_with_roles(user_id)
-        if user is None:
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=404, detail="User not found")
+        user = await self._require_user(user_id)
 
         token = await self._manager.generate_reset_password_token(user)
         return f"{base_url.rstrip('/')}/users/reset-password?token={token}"
@@ -216,9 +253,5 @@ class UserService:
         return await self._get_user_with_roles(user_id)
 
     async def get_list_item(self, user_id: uuid.UUID) -> UserListItem:
-        user = await self._get_user_with_roles(user_id)
-        if user is None:
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=404, detail="User not found")
-        return await self.to_list_item(user)
+        user = await self._require_user(user_id)
+        return self.to_list_item(user)

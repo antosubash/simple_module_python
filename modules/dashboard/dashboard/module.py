@@ -11,7 +11,7 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 
 _MODULE_PRODUCTS = "Products"
 _MODULE_USERS = "Users"
-_URL_DASHBOARD = "/dashboard"
+_URL_DASHBOARD = "/dashboard/"
 _ICON_DASHBOARD = "home"
 
 

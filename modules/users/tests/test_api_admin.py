@@ -164,6 +164,11 @@ class TestAdminDisableEnable:
         resp = await admin_client.patch(f"/api/users/admin/{uuid.uuid4()}/disable")
         assert resp.status_code == 404
 
+    @pytest.mark.anyio
+    async def test_enable_nonexistent_returns_404(self, admin_client):
+        resp = await admin_client.patch(f"/api/users/admin/{uuid.uuid4()}/enable")
+        assert resp.status_code == 404
+
 
 # ---------------------------------------------------------------------------
 # Admin set roles
@@ -202,3 +207,31 @@ class TestAdminSetRoles:
         )
         assert resp.status_code == 302
         assert resp.headers["location"].endswith("/users/login")
+
+    @pytest.mark.anyio
+    async def test_set_roles_nonexistent_returns_404(self, admin_client):
+        resp = await admin_client.put(
+            f"/api/users/admin/{uuid.uuid4()}/roles",
+            json={"role_names": ["user"]},
+        )
+        assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Admin reset password link
+# ---------------------------------------------------------------------------
+
+
+class TestAdminResetPasswordLink:
+    @pytest.mark.anyio
+    async def test_nonexistent_returns_404(self, admin_client):
+        resp = await admin_client.post(f"/api/users/admin/{uuid.uuid4()}/reset-password-link")
+        assert resp.status_code == 404
+
+    @pytest.mark.anyio
+    async def test_returns_link(self, admin_client, users_db):
+        user = await _make_user(users_db, email="linktarget@example.com")
+        resp = await admin_client.post(f"/api/users/admin/{user.id}/reset-password-link")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["link"].startswith("http://testserver/users/reset-password?token=")

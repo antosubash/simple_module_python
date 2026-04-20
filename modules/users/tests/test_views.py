@@ -171,3 +171,28 @@ class TestAdminEditPage:
         assert resp.status_code == 200
         data = resp.json()
         assert data["component"] == "Users/Users/Edit"
+
+
+@pytest.mark.anyio
+async def test_admin_edit_page_unknown_user_returns_404(admin_client):
+    import uuid
+
+    resp = await admin_client.get(
+        f"/users/admin/{uuid.uuid4()}",
+        follow_redirects=False,
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_roles_payload_returns_id_name_dicts(users_app):
+    """Helper reads the roles cache and returns id/name dicts in cache order."""
+    from users.endpoints.views import _roles_payload
+
+    payload = await _roles_payload(users_app)
+
+    assert isinstance(payload, list)
+    assert all(set(item.keys()) == {"id", "name"} for item in payload)
+    names = [item["name"] for item in payload]
+    assert "admin" in names
+    assert "user" in names
