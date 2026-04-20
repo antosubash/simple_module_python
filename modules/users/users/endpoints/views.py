@@ -128,13 +128,14 @@ async def admin_index(
     q: str | None = None,
 ) -> InertiaResponse:
     users, total = await service.list_users(page=page, per_page=per_page, search=q)
+    roles = await service.list_roles()
     return await inertia.render(
         _PAGE_ADMIN_INDEX,
         {
             "users": [u.model_dump(mode="json") for u in users],
             "pagination": {"page": page, "per_page": per_page, "total": total},
             "query": q or "",
-            "roles": [{"id": r.id, "name": r.name} for r in await get_roles_cache(request.app)],
+            "roles": [r.model_dump(mode="json") for r in roles],
         },
     )
 

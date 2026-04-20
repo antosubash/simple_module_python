@@ -256,3 +256,25 @@ class PermissionService:
             by_role.setdefault(name, []).append(key)
         for name, keys in by_role.items():
             self.registry.map_role(name, keys)
+
+    async def sync_admin_all_permissions(self, assigned_by: str | None = None) -> None:
+        """Ensure the admin role holds every registered permission key.
+
+        Why: admin is granted ``*`` via the in-memory registry so authorization
+        always passes, but the role_permission table drives the merged admin
+        UI — without this sync it would show admin missing newly registered
+        keys until someone clicked Save.
+        """
+        from users.constants import ADMIN_ROLE_NAME
+
+        registered = set(self.registry.all_permissions)
+        existing = set(await self._get_role_keys(ADMIN_ROLE_NAME))
+        missing = registered - existing
+        if not missing:
+            return
+        self.db.add_all(
+            RolePermission(role_name=ADMIN_ROLE_NAME, permission_key=key, assigned_by=assigned_by)
+            for key in missing
+        )
+        await self.db.flush()
+        self.registry.map_role(ADMIN_ROLE_NAME, sorted(registered))

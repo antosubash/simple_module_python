@@ -4,7 +4,9 @@
     "new_button": "New Setting",
     "empty_title": "No settings yet",
     "empty_description": "Get started by creating your first setting.",
-    "edit_link": "Edit"
+    "edit_link": "Edit",
+    "delete_link": "Delete",
+    "delete_confirm": "Delete setting \"{key}\"? This cannot be undone."
   },
   "table": {
     "scope": "Scope",
@@ -46,5 +48,21 @@
   "edit": {
     "title": "Edit Setting",
     "submit_button": "Save"
+  },
+  "modules": {
+    "title": "Module Settings",
+    "description": "Read-only view of every module's runtime configuration, autodiscovered from the app. Secrets are masked.",
+    "back_link": "Back to overrides",
+    "empty_title": "No modules with settings",
+    "no_fields": "No fields declared.",
+    "secret_badge": "secret",
+    "browse_link": "View module settings",
+    "table": {
+      "field": "Field",
+      "env_var": "Env var",
+      "value": "Value",
+      "default": "Default",
+      "description": "Description"
+    }
   }
 }

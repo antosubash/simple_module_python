@@ -47,6 +47,7 @@ API_PREFIX: Final = "/api/settings"
 VIEW_PREFIX: Final = "/settings"
 VIEW_CREATE_PATH: Final = "/create"
 VIEW_EDIT_PATH: Final = "/{setting_id}/edit"
+VIEW_MODULES_PATH: Final = "/modules"
 API_BY_ID_PATH: Final = "/{setting_id}"
 API_BY_KEY_PATH: Final = "/by-key/{key}"
 API_RESOLVE_PATH: Final = "/resolve/{key}"
@@ -85,10 +86,12 @@ VALUE_TYPE_MAX_LENGTH: Final = 10
 PAGE_BROWSE: Final = f"{MODULE_NAME}/Browse"
 PAGE_CREATE: Final = f"{MODULE_NAME}/Create"
 PAGE_EDIT: Final = f"{MODULE_NAME}/Edit"
+PAGE_MODULES: Final = f"{MODULE_NAME}/Modules"
 
 # ── Inertia prop keys ────────────────────────────────────────────────
 PROP_SETTINGS: Final = "settings"
 PROP_SETTING: Final = "setting"
+PROP_MODULES: Final = "modules"
 PROP_ERROR: Final = "error"
 
 # ── User-facing error messages ───────────────────────────────────────

@@ -1,82 +1,187 @@
+import { Link, useForm } from '@inertiajs/react';
 import { keys, useT } from '@simple-module/i18n';
+import { PageShell } from '@simple-module/ui/components/PageShell';
+import { Badge } from '@simple-module/ui/components/ui/badge';
+import { Button } from '@simple-module/ui/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@simple-module/ui/components/ui/card';
+import { Checkbox } from '@simple-module/ui/components/ui/checkbox';
+import { Label } from '@simple-module/ui/components/ui/label';
+import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
+import { Link2, ShieldCheck, User } from 'lucide-react';
+import type React from 'react';
+import { toast } from 'sonner';
 
 type Group = { name: string; permissions: string[] };
-type User = { id: string; email: string; full_name: string | null };
+type UserProp = { id: string; email: string; full_name: string | null };
 
 type Props = {
-  user: User;
+  user: UserProp;
   roles: string[];
   direct: string[];
   inherited: string[];
   groups: Group[];
 };
 
-export default function UserEdit({ user, roles, direct, inherited, groups }: Props) {
+function UserEdit({ user, roles, direct, inherited, groups }: Props) {
   const { t } = useT();
-  const directSet = new Set(direct);
   const inheritedSet = new Set(inherited);
+  const { data, setData, put, processing, isDirty, reset } = useForm<{ permissions: string[] }>({
+    permissions: direct,
+  });
+
+  const directSet = new Set(data.permissions);
+  const effectiveSet = new Set([...data.permissions, ...inherited]);
+  const totalRegistered = groups.reduce((sum, g) => sum + g.permissions.length, 0);
+
+  function toggle(key: string, checked: boolean) {
+    const next = new Set(data.permissions);
+    if (checked) next.add(key);
+    else next.delete(key);
+    setData('permissions', Array.from(next));
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    put(`/permissions/users/${user.id}`, {
+      preserveScroll: true,
+      onSuccess: () => toast.success(t(keys.permissions.toasts.saved)),
+      onError: () => toast.error(t(keys.permissions.toasts.save_failed)),
+    });
+  }
 
   return (
-    <div className="p-6 max-w-3xl">
-      <h1 className="text-2xl font-semibold mb-1">
-        {t(keys.permissions.user_edit.title, { email: user.email })}
-      </h1>
-      {user.full_name && <p className="text-sm text-muted-foreground mb-4">{user.full_name}</p>}
+    <PageShell
+      title={t(keys.permissions.user_edit.title, { email: user.email })}
+      description={user.full_name || t(keys.permissions.user_edit.description)}
+      actions={
+        <Button asChild variant="outline">
+          <Link href="/users/admin">{t(keys.permissions.user_edit.cancel_link)}</Link>
+        </Button>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Card>
+          <CardContent className="flex flex-wrap items-center gap-3 py-4">
+            <User className="size-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              {t(keys.permissions.user_edit.roles_label)}
+            </span>
+            {roles.length === 0 ? (
+              <span className="text-sm text-muted-foreground">
+                {t(keys.permissions.user_edit.no_roles)}
+              </span>
+            ) : (
+              roles.map((r) => (
+                <Badge key={r} variant="secondary">
+                  {r}
+                </Badge>
+              ))
+            )}
+          </CardContent>
+        </Card>
 
-      {roles.length > 0 && (
-        <p className="text-sm mb-4">
-          <span className="font-medium">{t(keys.permissions.user_edit.roles_label)} </span>
-          {roles.join(', ')}
-        </p>
-      )}
-
-      <form method="post" action={`/permissions/users/${user.id}`} className="space-y-6">
-        <input type="hidden" name="_method" value="put" />
+        <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="size-4 text-muted-foreground" />
+                <span className="text-muted-foreground">
+                  {t(keys.permissions.user_edit.direct_summary)}
+                </span>
+                <Badge variant="secondary" className="tabular-nums">
+                  {data.permissions.length}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link2 className="size-4 text-muted-foreground" />
+                <span className="text-muted-foreground">
+                  {t(keys.permissions.user_edit.effective_summary)}
+                </span>
+                <Badge variant="outline" className="tabular-nums">
+                  {effectiveSet.size} / {totalRegistered}
+                </Badge>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => reset('permissions')}
+                disabled={!isDirty}
+              >
+                {t(keys.permissions.user_edit.reset_button)}
+              </Button>
+              <Button type="submit" disabled={processing || !isDirty}>
+                {t(keys.permissions.user_edit.submit_button)}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {groups.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t(keys.permissions.user_edit.empty)}</p>
+          <Card>
+            <CardContent className="py-10 text-center text-sm text-muted-foreground">
+              {t(keys.permissions.user_edit.empty)}
+            </CardContent>
+          </Card>
         ) : (
-          groups.map((group) => (
-            <fieldset key={group.name} className="border rounded p-3">
-              <legend className="px-2 font-medium">{group.name}</legend>
-              <div className="space-y-1">
-                {group.permissions.map((key) => {
-                  const fromRole = inheritedSet.has(key);
-                  return (
-                    <label
-                      key={key}
-                      className="flex items-center gap-2 text-sm"
-                      title={fromRole ? t(keys.permissions.user_edit.inherited_hint) : undefined}
-                    >
-                      <input
-                        type="checkbox"
-                        name="permissions"
-                        value={key}
-                        defaultChecked={directSet.has(key)}
-                      />
-                      <span className="font-mono">{key}</span>
-                      {fromRole && (
-                        <span className="text-xs text-muted-foreground">
-                          ({t(keys.permissions.user_edit.inherited_badge)})
-                        </span>
-                      )}
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
-          ))
+          <div className="grid gap-4 md:grid-cols-2">
+            {groups.map((group) => (
+              <Card key={group.name}>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span>{group.name}</span>
+                    <Badge variant="secondary" className="tabular-nums">
+                      {group.permissions.filter((k) => effectiveSet.has(k)).length} /{' '}
+                      {group.permissions.length}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {group.permissions.map((key) => {
+                      const fromRole = inheritedSet.has(key);
+                      const id = `perm-${key}`;
+                      return (
+                        <div
+                          key={key}
+                          className="flex items-center gap-2.5"
+                          title={
+                            fromRole ? t(keys.permissions.user_edit.inherited_hint) : undefined
+                          }
+                        >
+                          <Checkbox
+                            id={id}
+                            checked={directSet.has(key)}
+                            onCheckedChange={(c) => toggle(key, c === true)}
+                          />
+                          <Label
+                            htmlFor={id}
+                            className="font-mono text-xs font-normal cursor-pointer flex items-center gap-2"
+                          >
+                            <span className={fromRole && !directSet.has(key) ? 'opacity-70' : ''}>
+                              {key}
+                            </span>
+                            {fromRole && (
+                              <Badge variant="outline" className="text-[10px] py-0 px-1.5">
+                                {t(keys.permissions.user_edit.inherited_badge)}
+                              </Badge>
+                            )}
+                          </Label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         )}
-
-        <div className="flex gap-2">
-          <button type="submit" className="rounded bg-primary px-3 py-1.5 text-primary-foreground">
-            {t(keys.permissions.user_edit.submit_button)}
-          </button>
-          <a href="/permissions" className="rounded border px-3 py-1.5">
-            {t(keys.permissions.user_edit.cancel_link)}
-          </a>
-        </div>
       </form>
-    </div>
+    </PageShell>
   );
 }
+
+UserEdit.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+export default UserEdit;
