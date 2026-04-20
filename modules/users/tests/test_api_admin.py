@@ -282,3 +282,29 @@ class TestAdminResetPasswordLink:
         assert resp.status_code == 200
         body = resp.json()
         assert body["link"].startswith("http://testserver/users/reset-password?token=")
+
+
+# ---------------------------------------------------------------------------
+# Admin verify
+# ---------------------------------------------------------------------------
+
+
+class TestAdminVerify:
+    @pytest.mark.anyio
+    async def test_verify_sets_flag(self, admin_client, users_db):
+        user = await _make_user(users_db, email="toverify@x.com", verified=False)
+        resp = await admin_client.patch(f"/api/users/admin/{user.id}/verify")
+        assert resp.status_code == 200
+        assert resp.json()["is_verified"] is True
+
+    @pytest.mark.anyio
+    async def test_verify_idempotent(self, admin_client, users_db):
+        user = await _make_user(users_db, email="alreadyverified@x.com", verified=True)
+        resp = await admin_client.patch(f"/api/users/admin/{user.id}/verify")
+        assert resp.status_code == 200
+        assert resp.json()["is_verified"] is True
+
+    @pytest.mark.anyio
+    async def test_verify_unknown_returns_404(self, admin_client):
+        resp = await admin_client.patch(f"/api/users/admin/{uuid.uuid4()}/verify")
+        assert resp.status_code == 404

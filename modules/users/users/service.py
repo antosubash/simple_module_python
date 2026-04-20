@@ -196,6 +196,13 @@ class UserService:
         await self._db.flush()
         return user
 
+    async def mark_verified(self, user_id: uuid.UUID) -> User:
+        user = await self._require_user(user_id)
+        if not user.is_verified:
+            user.is_verified = True
+            await self._db.flush()
+        return user
+
     async def set_roles(
         self,
         user_id: uuid.UUID,

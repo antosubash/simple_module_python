@@ -147,6 +147,19 @@ async def admin_set_roles(
     return await service.to_list_item(user)
 
 
+@admin_router.patch("/{user_id}/verify", response_model=UserListItem)
+async def admin_mark_verified(
+    user_id: uuid.UUID,
+    service: UserService = Depends(get_user_service),
+):
+    """Mark a user verified. Idempotent."""
+    try:
+        user = await service.mark_verified(user_id)
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found") from None
+    return await service.to_list_item(user)
+
+
 @admin_router.post("/{user_id}/reset-password-link", response_model=PasswordResetLink)
 async def admin_reset_password_link(
     user_id: uuid.UUID,

@@ -227,6 +227,50 @@ async def test_list_users_verified_filter(users_app):
     assert items[0].email == "unverified@example.com"
 
 
+# ---------------------------------------------------------------------------
+# mark_verified tests (Task 5)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_mark_verified_sets_flag_and_is_idempotent(users_app):
+    """mark_verified sets is_verified=True and is idempotent."""
+    from fastapi_users.password import PasswordHelper
+
+    from users.models import User
+
+    async with users_app.state.sm.db.session_factory() as session:
+        user = User(
+            id=uuid.uuid4(),
+            email="unverified_mv@example.com",
+            hashed_password=PasswordHelper().hash("x"),
+            is_active=True,
+            is_superuser=False,
+            is_verified=False,
+        )
+        session.add(user)
+        await session.flush()
+
+        svc = _build_service(session, users_app)
+        result = await svc.mark_verified(user.id)
+        assert result.is_verified is True
+
+        # idempotent — second call should not raise
+        result2 = await svc.mark_verified(user.id)
+        assert result2.is_verified is True
+
+
+@pytest.mark.anyio
+async def test_mark_verified_unknown_raises(users_app):
+    """mark_verified raises UserNotFoundError for an unknown user_id."""
+    from users.exceptions import UserNotFoundError
+
+    async with users_app.state.sm.db.session_factory() as session:
+        svc = _build_service(session, users_app)
+        with pytest.raises(UserNotFoundError):
+            await svc.mark_verified(uuid.uuid4())
+
+
 @pytest.mark.anyio
 async def test_list_users_sort_last_login_desc_nulls_last(users_app):
     """list_users(sort='last_login_at', order='desc') orders recent→old→never (NULLs last)."""
