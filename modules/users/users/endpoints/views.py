@@ -10,14 +10,8 @@ from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
 from starlette.responses import RedirectResponse
 
-from users.constants import PERM_USERS_MANAGE
+from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
 from users.deps import get_user_service
-from users.endpoints.api_admin import (
-    _ALLOWED_ORDER,
-    _ALLOWED_SORT,
-    _ALLOWED_STATUS,
-    _ALLOWED_VERIFIED,
-)
 from users.exceptions import UserNotFoundError
 from users.roles_cache import get_roles_cache
 from users.service import UserService
@@ -144,10 +138,9 @@ async def admin_index(
     sort: str = "email",
     order: str = "asc",
 ) -> InertiaResponse:
-    clean_status = status if status in _ALLOWED_STATUS else None
-    clean_verified = verified if verified in _ALLOWED_VERIFIED else None
-    clean_sort = sort if sort in _ALLOWED_SORT else "email"
-    clean_order = order if order in _ALLOWED_ORDER else "asc"
+    clean_status, clean_verified, clean_sort, clean_order = sanitize_list_filters(
+        status, verified, sort, order
+    )
     users, total = await service.list_users(
         page=page,
         per_page=per_page,

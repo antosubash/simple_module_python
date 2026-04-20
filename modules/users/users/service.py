@@ -34,7 +34,7 @@ class UserService:
         result = await self._db.execute(select(Role).where(Role.name.in_(role_names)))
         return list(result.scalars().all())
 
-    async def to_list_item(self, user: User) -> UserListItem:
+    def to_list_item(self, user: User) -> UserListItem:
         """Build the DTO from a User with roles already eager-loaded."""
         return UserListItem(
             id=user.id,
@@ -75,13 +75,7 @@ class UserService:
         sort: str = "email",
         order: str = "asc",
     ) -> tuple[list[UserListItem], int]:
-        """Returns (items, total_count).
-
-        Filters: search (email/full_name LIKE), status ("active"|"disabled"),
-        role_name (string), verified ("yes"|"no").
-        Sort: email|last_login_at|created_at, asc|desc.
-        last_login_at always uses NULLS LAST regardless of direction.
-        """
+        """Returns (items, total_count). last_login_at sort always uses NULLS LAST."""
         stmt = select(User).options(selectinload(User.roles))
         count_stmt = select(func.count()).select_from(User)
 
@@ -141,7 +135,7 @@ class UserService:
         stmt = stmt.order_by(order_clause).offset((page - 1) * per_page).limit(per_page)
         rows = (await self._db.execute(stmt)).scalars().all()
 
-        items = [await self.to_list_item(u) for u in rows]
+        items = [self.to_list_item(u) for u in rows]
         return items, total
 
     async def invite(
@@ -242,4 +236,4 @@ class UserService:
 
     async def get_list_item(self, user_id: uuid.UUID) -> UserListItem:
         user = await self._require_user(user_id)
-        return await self.to_list_item(user)
+        return self.to_list_item(user)

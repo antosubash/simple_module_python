@@ -155,7 +155,6 @@ function Edit() {
       }
     >
       <div className="space-y-6 max-w-xl">
-        {/* Metadata card */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Metadata</CardTitle>
@@ -188,7 +187,6 @@ function Edit() {
           </CardContent>
         </Card>
 
-        {/* Status card */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Account status</CardTitle>
@@ -248,7 +246,6 @@ function Edit() {
           </CardContent>
         </Card>
 
-        {/* Roles card */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Roles</CardTitle>

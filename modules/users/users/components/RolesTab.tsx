@@ -1,5 +1,4 @@
 import { Link } from '@inertiajs/react';
-import { Badge } from '@simple-module/ui/components/ui/badge';
 import { Button } from '@simple-module/ui/components/ui/button';
 import { Card } from '@simple-module/ui/components/ui/card';
 import {
@@ -16,8 +15,7 @@ import { Pencil, ShieldCheck } from 'lucide-react';
 export interface RoleItem {
   id: string;
   name: string;
-  description: string | null;
-  user_count: number;
+  description?: string | null;
 }
 
 export function RolesTab({ roles }: { roles: RoleItem[] }) {
@@ -29,7 +27,6 @@ export function RolesTab({ roles }: { roles: RoleItem[] }) {
             <TableRow>
               <TableHead>Role</TableHead>
               <TableHead className="hidden md:table-cell">Description</TableHead>
-              <TableHead>Users</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -39,11 +36,6 @@ export function RolesTab({ roles }: { roles: RoleItem[] }) {
                 <TableCell className="font-medium">{role.name}</TableCell>
                 <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
                   {role.description || '—'}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary" className="tabular-nums">
-                    {role.user_count}
-                  </Badge>
                 </TableCell>
                 <TableCell className="text-right">
                   <Button asChild variant="ghost" size="icon-sm">
@@ -56,7 +48,7 @@ export function RolesTab({ roles }: { roles: RoleItem[] }) {
             ))}
             {roles.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="h-32 text-center">
+                <TableCell colSpan={3} className="h-32 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <ShieldCheck className="size-8" />
                     <p>No roles defined</p>
