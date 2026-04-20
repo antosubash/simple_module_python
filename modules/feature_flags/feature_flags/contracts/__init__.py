@@ -5,11 +5,9 @@ from feature_flags.contracts.schemas import (
     FeatureFlagView,
     ToggleRequest,
 )
-from feature_flags.contracts.service import IFeatureFlagService
 
 __all__ = [
     "FeatureFlagOverrideOut",
     "FeatureFlagView",
-    "IFeatureFlagService",
     "ToggleRequest",
 ]
