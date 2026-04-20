@@ -94,6 +94,54 @@ version, raising `FrameworkVersionError` with the offending modules named.
 - Inertia plumbing
 - Logging format
 
+## Feature flags
+
+Declare flags in `register_feature_flags` and gate behaviour with the
+helpers from `simple_module_core`. All three are tenant-aware: they read
+`request.state.tenant_id` (populated by `TenantMiddleware`) and resolve
+tenant override > system override > definition default.
+
+```python
+# module.py
+from simple_module_core import FeatureFlagDefinition, FeatureFlagRegistry
+
+class MyModule(ModuleBase):
+    def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
+        registry.add(FeatureFlagDefinition(
+            name="my_module.bulk_import",
+            description="Enable CSV bulk import",
+            default_enabled=False,
+        ))
+```
+
+```python
+# endpoints/api.py — three ways to consume
+from typing import Annotated
+from fastapi import APIRouter, Depends, Request
+from simple_module_core import flag_enabled, is_flag_enabled, require_flag
+
+router = APIRouter()
+
+# 1. Gate a whole endpoint — 404 when off
+@router.post("/bulk", dependencies=[Depends(require_flag("my_module.bulk_import"))])
+async def bulk_import(...): ...
+
+# 2. Inject the value into your handler
+@router.get("/")
+async def list_items(
+    bulk_on: Annotated[bool, Depends(flag_enabled("my_module.bulk_import"))],
+):
+    if bulk_on: ...
+
+# 3. Check ad-hoc inside any handler that already has Request
+@router.get("/dashboard")
+async def dashboard(request: Request):
+    if is_flag_enabled(request, "my_module.bulk_import"): ...
+```
+
+Outside of an HTTP request (background tasks, CLI), pass the registry and
+tenant explicitly: `registry.is_enabled(name, tenant_id=tenant)`.
+
 ## Settings
 
 Each module's settings are loaded via its `register_settings(app)` hook.

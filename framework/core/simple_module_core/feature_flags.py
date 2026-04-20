@@ -7,11 +7,18 @@ Overrides live at two scopes:
   ``tenant_id``; a per-tenant value beats the system override
 
 Resolution order: tenant override > system override > definition default.
+
+Consumers check a flag inside a FastAPI endpoint via ``is_flag_enabled``,
+``flag_enabled``, or ``require_flag`` — all tenant-aware using
+``request.state.tenant_id`` set by ``TenantMiddleware``.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+
+from fastapi import HTTPException, Request
 
 
 @dataclass(frozen=True)
@@ -67,3 +74,52 @@ class FeatureFlagRegistry:
     @property
     def all_flags(self) -> list[FeatureFlagDefinition]:
         return list(self._flags.values())
+
+
+def is_flag_enabled(request: Request, name: str) -> bool:
+    """Return whether ``name`` is enabled for this request's tenant context.
+
+    Reads the registry from ``request.app.state.sm.feature_flags`` and the
+    tenant from ``request.state.tenant_id`` (set by ``TenantMiddleware``).
+    Without a tenant on the request, falls back to the system value or the
+    definition default.
+    """
+    registry: FeatureFlagRegistry = request.app.state.sm.feature_flags
+    tenant_id: str | None = getattr(request.state, "tenant_id", None)
+    return registry.is_enabled(name, tenant_id=tenant_id)
+
+
+def flag_enabled(name: str) -> Callable[[Request], bool]:
+    """FastAPI dep factory — yields ``True`` when the flag is on.
+
+    Usage::
+
+        async def handler(
+            on: Annotated[bool, Depends(flag_enabled("new_ui"))],
+        ) -> ...:
+            if on: ...
+    """
+
+    def _dep(request: Request) -> bool:
+        return is_flag_enabled(request, name)
+
+    return _dep
+
+
+def require_flag(name: str) -> Callable[[Request], None]:
+    """FastAPI dep factory — raises 404 when the flag is off.
+
+    Gate an entire endpoint behind a flag::
+
+        @router.post(
+            "/bulk",
+            dependencies=[Depends(require_flag("products.bulk_import"))],
+        )
+        async def bulk_import(...): ...
+    """
+
+    def _dep(request: Request) -> None:
+        if not is_flag_enabled(request, name):
+            raise HTTPException(status_code=404, detail="Feature not available")
+
+    return _dep
