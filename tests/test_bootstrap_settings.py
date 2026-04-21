@@ -33,3 +33,12 @@ def test_host_settings_ignores_env(monkeypatch):
 def test_host_settings_default_locale_must_be_supported():
     with pytest.raises(ValueError):
         HostSettings(i18n_default_locale="de", i18n_supported_locales=["en"])
+
+
+@pytest.mark.asyncio
+async def test_host_settings_registered_as_host_package(app):
+    registry = app.state.settings.module_registry
+    assert registry.get("host").__name__ == "HostSettings"
+    assert isinstance(app.state.host.settings, __import__(
+        "simple_module_hosting.host_settings", fromlist=["HostSettings"]
+    ).HostSettings)

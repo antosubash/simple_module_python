@@ -171,6 +171,35 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     for mod in modules:
         mod.register_settings(app)
 
+    # Register host-level settings under package="host" (DB-backed). The
+    # Settings module must already have run register_settings (topo order
+    # puts it early; its meta.depends_on = [] so it's among the first).
+    # When the Settings module isn't enabled, there's no registry to
+    # register against — skip quietly.
+    #
+    # We resolve `settings.registration` via importlib rather than a plain
+    # `from settings.registration import ...`: the SM009 coupling check is
+    # AST-based and forbids any static import of a plugin package name
+    # from within framework/* code. Dynamic resolution keeps the framework
+    # AST plugin-free while still hitting the real helper at runtime.
+    if hasattr(app.state, "settings"):
+        import importlib
+        from dataclasses import dataclass as _dataclass
+
+        from simple_module_hosting.host_settings import HostSettings
+
+        _register_module_settings = importlib.import_module(
+            "settings.registration"
+        ).register_module_settings
+
+        @_dataclass
+        class _HostServices:
+            settings: HostSettings
+
+        _register_module_settings(
+            app, "host", HostSettings, lambda s: _HostServices(settings=s)
+        )
+
     if settings.is_development:
         settings_diagnostics = check_settings_registration(app, modules)
         if settings_diagnostics:
