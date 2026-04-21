@@ -5,26 +5,26 @@ description = "Add your description here"
 requires-python = ">=3.12"
 dependencies = [
     "simple-module-hosting",
-    "auth",
-    "dashboard",
-    "products",
-    "datasets",
-    "permissions",
-    "background-tasks",
-    "file-storage",
-    "settings",
-    "feature-flags",
+    "simple-module-auth",
+    "simple-module-dashboard",
+    "simple-module-products",
+    "simple-module-datasets",
+    "simple-module-permissions",
+    "simple-module-background-tasks",
+    "simple-module-file-storage",
+    "simple-module-settings",
+    "simple-module-feature-flags",
     "python-multipart>=0.0.6",
 ]
 
 [tool.uv.sources]
 simple-module-hosting = { workspace = true }
-auth = { workspace = true }
-products = { workspace = true }
-dashboard = { workspace = true }
-datasets = { workspace = true }
-permissions = { workspace = true }
-background-tasks = { workspace = true }
-file-storage = { workspace = true }
-settings = { workspace = true }
-feature-flags = { workspace = true }
+simple-module-auth = { workspace = true }
+simple-module-products = { workspace = true }
+simple-module-dashboard = { workspace = true }
+simple-module-datasets = { workspace = true }
+simple-module-permissions = { workspace = true }
+simple-module-background-tasks = { workspace = true }
+simple-module-file-storage = { workspace = true }
+simple-module-settings = { workspace = true }
+simple-module-feature-flags = { workspace = true }

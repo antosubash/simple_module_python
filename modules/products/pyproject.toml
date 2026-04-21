@@ -1,5 +1,5 @@
 [project]
-name = "products"
+name = "simple-module-products"
 version = "0.1.0"
 description = "Add your description here"
 authors = [
@@ -18,6 +18,9 @@ products = "products.module:ProductsModule"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["products"]
 
 # Ship the module-root package.json inside the wheel so the host can
 # discover JS deps via importlib.resources after a pip install.
