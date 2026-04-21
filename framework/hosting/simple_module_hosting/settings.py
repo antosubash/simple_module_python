@@ -1,79 +1,26 @@
-"""Application settings loaded from environment variables."""
+"""Back-compat shim — prefer BootstrapSettings + HostSettings directly.
 
-from typing import Literal
+During migration, existing code that imports ``Settings`` keeps working by
+combining both classes. Once all call sites have migrated, this shim is
+removed.
+"""
+
+from __future__ import annotations
 
 from pydantic import model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
-_PLACEHOLDER_SECRET_KEY = "change-me-in-production"
+from simple_module_hosting.bootstrap_settings import BootstrapSettings
+from simple_module_hosting.host_settings import HostSettings
 
 
-class Settings(BaseSettings):
-    """Configuration for the SimpleModule host application.
+class Settings(BootstrapSettings):
+    """Combined bootstrap + host settings for legacy import sites."""
 
-    All settings can be overridden via environment variables prefixed with ``SM_``.
-    """
-
-    model_config = SettingsConfigDict(env_prefix="SM_", env_file=".env", extra="ignore")
-
-    # Database
-    database_url: str = "sqlite+aiosqlite:///./app.db"
-
-    # Connection pool — server-side providers only (Postgres); SQLite ignores these.
-    db_pool_size: int = 10
-    db_max_overflow: int = 20
-    db_pool_pre_ping: bool = True
-    db_pool_recycle: int = 1800  # 30 minutes — matches common proxy idle-timeouts
-
-    # App
-    environment: str = "development"
-    secret_key: str = "change-me-in-production"
-    vite_dev_url: str = "http://localhost:5050"
-    debug: bool = False
-
-    # Logging
-    log_level: str = "INFO"
-    log_format: Literal["json", "text"] = "json"
-
-    # Module loading
-    modules_enabled: list[str] | None = None
-    """Optional allowlist of module names to load.
-
-    When ``None`` (default), every installed module is loaded. When a list is
-    provided (e.g. ``SM_MODULES_ENABLED='["Auth","Products"]'`` in env), only
-    those modules are loaded — useful for staging rollouts, feature flags at
-    the module level, or debugging isolation. Names are matched case-insensitively
-    against ``ModuleMeta.name``.
-    """
-
-    # Multi-tenancy — opt-in. When ``False`` the tenant middleware is not
-    # installed, so MultiTenantMixin queries are not auto-filtered. Turn
-    # it on only for deployments that actually partition data by tenant.
-    multi_tenant: bool = False
-
-    # Header used to resolve the active tenant when there's no
-    # authenticated user. Empty string disables the header source
-    # entirely — useful in production to force tenant resolution through
-    # the auth token only.
-    tenant_header: str = ""
-
-    # Internationalization
-    i18n_default_locale: str = "en"
-    """Locale used when no cookie, Accept-Language, or supported locale match."""
-
-    i18n_supported_locales: list[str] = ["en"]
-    """Locales the host will serve. Must include i18n_default_locale.
-
-    Set via env as JSON-style list, e.g. ``SM_I18N_SUPPORTED_LOCALES='["en","es"]'``.
-    """
-
-    i18n_cookie_name: str = "locale"
-    """Name of the cookie that overrides browser Accept-Language."""
-
-    @property
-    def is_development(self) -> bool:
-        return self.environment == "development"
+    multi_tenant: bool = HostSettings.model_fields["multi_tenant"].default
+    tenant_header: str = HostSettings.model_fields["tenant_header"].default
+    i18n_default_locale: str = HostSettings.model_fields["i18n_default_locale"].default
+    i18n_supported_locales: list[str] = HostSettings.model_fields["i18n_supported_locales"].default
+    i18n_cookie_name: str = HostSettings.model_fields["i18n_cookie_name"].default
 
     @model_validator(mode="after")
     def _check_default_locale_supported(self) -> "Settings":
@@ -81,23 +28,5 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"i18n_default_locale '{self.i18n_default_locale}' is not in "
                 f"i18n_supported_locales {self.i18n_supported_locales}"
-            )
-        return self
-
-    @model_validator(mode="after")
-    def _forbid_placeholder_secret_in_production(self) -> "Settings":
-        """Fail boot if production is running with the placeholder secret key.
-
-        Session cookies and any other itsdangerous-signed payloads are signed
-        with ``secret_key``; a known default would let anyone forge them.
-        """
-        if (
-            self.environment not in NON_PROD_ENVIRONMENTS
-            and self.secret_key == _PLACEHOLDER_SECRET_KEY
-        ):
-            raise ValueError(
-                f"SM_SECRET_KEY must be set to a non-default value when "
-                f"SM_ENVIRONMENT={self.environment!r}. Generate one with "
-                "`python -c 'import secrets; print(secrets.token_urlsafe(48))'`."
             )
         return self
