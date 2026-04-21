@@ -1,17 +1,39 @@
 [project]
 name = "simple-module-settings"
-version = "0.1.0"
-description = "The Settings module"
-authors = []
+version = "0.0.1"
+description = "Runtime settings UI — modules plug their own settings panels into a shared admin view"
+readme = "README.md"
+license = "MIT"
+license-files = ["../../LICENSE"]
 requires-python = ">=3.12"
+authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
+keywords = ["simple-module", "settings", "admin", "configuration"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
+]
 dependencies = [
-    "simple-module-core",
-    "simple-module-db",
-    "simple-module-hosting",
+    "simple-module-core==0.0.1",
+    "simple-module-db==0.0.1",
+    "simple-module-hosting==0.0.1",
 ]
 
 [project.entry-points.simple_module]
 settings = "settings.module:SettingsModule"
+
+[project.urls]
+Homepage = "https://github.com/antosubash/simple_module_python"
+Repository = "https://github.com/antosubash/simple_module_python"
+Issues = "https://github.com/antosubash/simple_module_python/issues"
+Changelog = "https://github.com/antosubash/simple_module_python/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["hatchling"]
