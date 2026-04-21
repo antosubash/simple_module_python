@@ -239,7 +239,8 @@ def create_app_project(
     """
     if target.exists() and any(target.iterdir()):
         raise FileExistsError(
-            f"Refusing to scaffold into non-empty directory: {target}"
+            f"Destination {target} already exists and is non-empty; "
+            "choose a new path or remove its contents first."
         )
 
     create_host(target, name=name, modules=["users", "dashboard", "permissions"])

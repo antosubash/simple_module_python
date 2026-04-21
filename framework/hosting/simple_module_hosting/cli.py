@@ -36,6 +36,92 @@ def main() -> None:
     """SimpleModule developer CLI."""
 
 
+@main.command("new")
+@click.argument("name")
+@click.option(
+    "--dest",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Destination directory. Defaults to ./<name>.",
+)
+@click.option(
+    "--db",
+    type=click.Choice(["sqlite", "postgres"]),
+    default="sqlite",
+    show_default=True,
+    help="Database backend to configure in .env.example.",
+)
+@click.option(
+    "--tenancy/--no-tenancy",
+    default=False,
+    show_default=True,
+    help="Enable the multi-tenant middleware by default.",
+)
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Skip interactive prompts; accept all defaults.",
+)
+@click.option(
+    "--no-install",
+    is_flag=True,
+    default=False,
+    help="Skip 'uv sync' / 'npm install' / 'alembic upgrade head' after scaffolding.",
+)
+def new_project(
+    name: str,
+    dest: Path | None,
+    db: str,
+    tenancy: bool,
+    yes: bool,
+    no_install: bool,
+) -> None:
+    """Scaffold a new SimpleModule app — pre-wired with users, dashboard, permissions."""
+    target = dest or Path.cwd() / name
+    if not yes:
+        db = click.prompt(
+            "Database backend",
+            default=db,
+            type=click.Choice(["sqlite", "postgres"]),
+        )
+        tenancy = click.confirm("Enable multi-tenancy?", default=tenancy)
+
+    from simple_module_hosting.scaffolding import create_app_project
+
+    try:
+        create_app_project(target, name=name, db=db, tenancy=tenancy)
+    except FileExistsError as exc:
+        click.echo(f"ERROR: {exc}", err=True)
+        sys.exit(1)
+
+    click.echo(f"Created app '{name}' at {target}")
+    click.echo("\nPre-wired modules: users, dashboard, permissions")
+    click.echo("\nNext steps:")
+    click.echo(f"  cd {target}")
+    if no_install:
+        click.echo("  uv sync")
+        click.echo("  npm install")
+        click.echo("  alembic upgrade head")
+        click.echo("  make dev")
+        return
+
+    click.echo("Installing dependencies...")
+    for cmd in (["uv", "sync"], ["npm", "install"]):
+        result = subprocess.run(cmd, cwd=target, check=False)
+        if result.returncode != 0:
+            click.echo(
+                f"WARNING: {' '.join(cmd)} failed (exit {result.returncode}); "
+                f"finish setup manually.",
+                err=True,
+            )
+            return
+
+    subprocess.run(["uv", "run", "alembic", "upgrade", "head"], cwd=target, check=False)
+    click.echo("\nSetup complete. Run `make dev` in the new directory.")
+
+
 @main.command("create-host")
 @click.argument("name")
 @click.option(
