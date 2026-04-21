@@ -62,8 +62,8 @@
 | `host/routes.py` | (No change — switcher lives in new file `routes_i18n.py`) |
 | `host/client_app/main.tsx` | Import `i18n-types.ts` to activate augmentation |
 | `host/client_app/app.tsx` | Call `configureI18n` at boot; wire `updateI18n` on navigate |
-| `host/client_app/package.json` | Add `i18next`, `react-i18next`, `@simple-module/i18n` deps |
-| `packages/ui/package.json` | Add `@simple-module/i18n` dep |
+| `host/client_app/package.json` | Add `i18next`, `react-i18next`, `@simple-module-py/i18n` deps |
+| `packages/ui/package.json` | Add `@simple-module-py/i18n` dep |
 | `packages/ui/src/layouts/AuthenticatedLayout.tsx` | Mount `<LocaleSwitcher />` |
 | `packages/ui/src/layouts/PublicLayout.tsx` | Mount `<LocaleSwitcher />` |
 | `package.json` (root) | Add `vitest`, `@testing-library/*`, `@vitest/ui` devDeps; add `test` script |
@@ -1455,7 +1455,7 @@ Create `packages/i18n/package.json`:
 
 ```json
 {
-  "name": "@simple-module/i18n",
+  "name": "@simple-module-py/i18n",
   "private": true,
   "type": "module",
   "main": "src/index.ts",
@@ -1466,7 +1466,7 @@ Create `packages/i18n/package.json`:
     "react-i18next": "^15.1.0"
   },
   "devDependencies": {
-    "@simple-module/tsconfig": "*"
+    "@simple-module-py/tsconfig": "*"
   }
 }
 ```
@@ -1477,7 +1477,7 @@ Create `packages/i18n/tsconfig.json`:
 
 ```json
 {
-  "extends": "@simple-module/tsconfig/base.json",
+  "extends": "@simple-module-py/tsconfig/base.json",
   "include": ["src"]
 }
 ```
@@ -1554,19 +1554,19 @@ export { t } from 'i18next';
 Edit `host/client_app/package.json`. In `dependencies`, add:
 
 ```json
-    "@simple-module/i18n": "*",
+    "@simple-module-py/i18n": "*",
     "i18next": "^23.15.0",
     "react-i18next": "^15.1.0",
 ```
 
-(place alphabetically; `@simple-module/i18n` near `@inertiajs/react`)
+(place alphabetically; `@simple-module-py/i18n` near `@inertiajs/react`)
 
 - [ ] **Step 5: Add the dep to `packages/ui/package.json`**
 
 Edit `packages/ui/package.json`. In `dependencies`, add:
 
 ```json
-    "@simple-module/i18n": "*",
+    "@simple-module-py/i18n": "*",
 ```
 
 - [ ] **Step 6: Install JS deps**
@@ -1575,7 +1575,7 @@ Edit `packages/ui/package.json`. In `dependencies`, add:
 npm install
 ```
 
-Expected: packages resolve; new workspace member `@simple-module/i18n` shows as linked.
+Expected: packages resolve; new workspace member `@simple-module-py/i18n` shows as linked.
 
 - [ ] **Step 7: Verify TypeScript compiles**
 
@@ -1589,7 +1589,7 @@ Expected: no errors.
 
 ```bash
 git add packages/i18n host/client_app/package.json packages/ui/package.json package-lock.json
-git commit -m "feat(i18n): add @simple-module/i18n workspace package"
+git commit -m "feat(i18n): add @simple-module-py/i18n workspace package"
 ```
 
 ---
@@ -1649,7 +1649,7 @@ Create `host/client_app/i18n.ts`:
 
 ```ts
 /**
- * Initial wiring for @simple-module/i18n inside the Inertia app.
+ * Initial wiring for @simple-module-py/i18n inside the Inertia app.
  *
  * Reads {locale, messages} from Inertia shared props and calls
  * configureI18n on boot; on every successful navigation, checks whether
@@ -1657,7 +1657,7 @@ Create `host/client_app/i18n.ts`:
  */
 
 import { router, type PageProps } from '@inertiajs/react';
-import { configureI18n, updateI18n } from '@simple-module/i18n';
+import { configureI18n, updateI18n } from '@simple-module-py/i18n';
 
 interface I18nSharedProps {
   locale: string;
@@ -1704,7 +1704,7 @@ Edit `host/client_app/app.tsx`. Replace the existing file content with:
 
 ```tsx
 import { createInertiaApp, router } from '@inertiajs/react';
-import { ErrorBoundary } from '@simple-module/ui/components/ErrorBoundary';
+import { ErrorBoundary } from '@simple-module-py/ui/components/ErrorBoundary';
 import { useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { bootI18nFromInitialPage, subscribeI18nToNavigation } from './i18n';
@@ -1760,7 +1760,7 @@ Expected: no errors. The empty `generated-resources.ts` stub means any `t()` key
 git add host/client_app/i18n.ts host/client_app/i18n-types.ts \
         host/client_app/generated-resources.ts host/client_app/main.tsx \
         host/client_app/app.tsx
-git commit -m "feat(client): wire @simple-module/i18n into Inertia boot"
+git commit -m "feat(client): wire @simple-module-py/i18n into Inertia boot"
 ```
 
 ---
@@ -1991,8 +1991,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@simple-module/ui/components/ui/dropdown-menu';
-import { Button } from '@simple-module/ui/components/ui/button';
+} from '@simple-module-py/ui/components/ui/dropdown-menu';
+import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Globe } from 'lucide-react';
 import { useRef } from 'react';
 
@@ -2075,7 +2075,7 @@ export function LocaleSwitcher() {
 Find the top-right area of `packages/ui/src/layouts/AuthenticatedLayout.tsx` (usually near the user menu). Import:
 
 ```tsx
-import { LocaleSwitcher } from '@simple-module/ui/components/LocaleSwitcher';
+import { LocaleSwitcher } from '@simple-module-py/ui/components/LocaleSwitcher';
 ```
 
 Add `<LocaleSwitcher />` next to the existing user menu trigger. If there's already a user-dropdown component, add the switcher immediately before it.
@@ -2221,7 +2221,7 @@ git commit -m "chore: add Vitest test runner for frontend"
 
 ---
 
-## Task 14: Unit tests for `@simple-module/i18n`
+## Task 14: Unit tests for `@simple-module-py/i18n`
 
 **Files:**
 - Create: `packages/i18n/src/configure.test.ts`
@@ -2759,7 +2759,7 @@ Create `packages/ui/locales/es.json` with the same keys:
 Edit `packages/ui/src/components/ErrorScreen.tsx`. At the top:
 
 ```tsx
-import { useT } from '@simple-module/i18n';
+import { useT } from '@simple-module-py/i18n';
 ```
 
 In the component body, replace each hardcoded string with `t('ui.errors.generic_title')`, etc.
@@ -3007,7 +3007,7 @@ Add to the class:
 Edit `modules/products/products/pages/Browse.tsx`. Add import:
 
 ```tsx
-import { useT } from '@simple-module/i18n';
+import { useT } from '@simple-module-py/i18n';
 ```
 
 Inside the `Browse` function body, after the `usePage` destructure:
@@ -3051,7 +3051,7 @@ Same pattern as Step 4 for each file. Read the file first, inventory strings, ad
 Edit `modules/products/products/pages/validation.ts`. If it currently exports a plain schema, wrap it:
 
 ```ts
-import { useT } from '@simple-module/i18n';
+import { useT } from '@simple-module-py/i18n';
 import { z } from 'zod';
 
 export function useProductSchema() {
@@ -3211,7 +3211,7 @@ In `scaffold_module`, after the `create_file(src_dir / "pages" / "Edit.tsx", ...
 
 Edit `scripts/_templates_tsx.py`. For each of `browse_tsx`, `create_tsx`, `edit_tsx`:
 
-1. Add import `import { useT } from '@simple-module/i18n';`
+1. Add import `import { useT } from '@simple-module-py/i18n';`
 2. Inside the component, add `const { t } = useT();` as the first line after props destructuring.
 3. Swap hardcoded strings for `t('<pkg>.<area>.<key>')` — e.g. `title="{ctx.class_name}"` becomes `title={{t('{ctx.pkg}.browse.title')}}` (in the template's placeholder-aware syntax).
 

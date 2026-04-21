@@ -1,5 +1,5 @@
-import { Separator } from '@simple-module/ui/components/ui/separator';
-import { cn } from '@simple-module/ui/lib/utils';
+import { Separator } from '@simple-module-py/ui/components/ui/separator';
+import { cn } from '@simple-module-py/ui/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Slot } from 'radix-ui';
 

@@ -1,7 +1,7 @@
 'use client';
 
-import { Button } from '@simple-module/ui/components/ui/button';
-import { cn } from '@simple-module/ui/lib/utils';
+import { Button } from '@simple-module-py/ui/components/ui/button';
+import { cn } from '@simple-module-py/ui/lib/utils';
 import useEmblaCarousel, { type UseEmblaCarouselType } from 'embla-carousel-react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import * as React from 'react';

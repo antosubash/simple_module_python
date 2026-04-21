@@ -142,7 +142,7 @@ class TestGeneratedTemplateContent:
         """Scaffolded Browse/Create/Edit pages must import keys + useT and use typed keys."""
         for page in ("Browse.tsx", "Create.tsx", "Edit.tsx"):
             content = (scaffolded_orders / "pages" / page).read_text()
-            assert "from '@simple-module/i18n'" in content, f"{page} missing i18n import"
+            assert "from '@simple-module-py/i18n'" in content, f"{page} missing i18n import"
             assert "keys" in content and "useT" in content, f"{page} missing keys/useT import"
             assert "const { t } = useT();" in content, f"{page} does not call useT()"
             # Typed-key calls use property access, not string literals.

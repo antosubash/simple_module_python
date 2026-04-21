@@ -1,10 +1,10 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { PageShell } from '@simple-module/ui/components/PageShell';
-import { Badge } from '@simple-module/ui/components/ui/badge';
-import { Button } from '@simple-module/ui/components/ui/button';
-import { Card } from '@simple-module/ui/components/ui/card';
-import { usePermissions } from '@simple-module/ui/hooks/use-permissions';
-import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
+import { PageShell } from '@simple-module-py/ui/components/PageShell';
+import { Badge } from '@simple-module-py/ui/components/ui/badge';
+import { Button } from '@simple-module-py/ui/components/ui/button';
+import { Card } from '@simple-module-py/ui/components/ui/card';
+import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
+import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { ArrowLeft, RefreshCcw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { RetryConfirmDialog } from './components/RetryConfirmDialog';

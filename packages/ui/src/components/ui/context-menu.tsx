@@ -1,6 +1,6 @@
 'use client';
 
-import { cn } from '@simple-module/ui/lib/utils';
+import { cn } from '@simple-module-py/ui/lib/utils';
 import { CheckIcon, ChevronRightIcon, CircleIcon } from 'lucide-react';
 import { ContextMenu as ContextMenuPrimitive } from 'radix-ui';
 import type * as React from 'react';

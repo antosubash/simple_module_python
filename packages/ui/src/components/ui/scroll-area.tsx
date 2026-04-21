@@ -1,4 +1,4 @@
-import { cn } from '@simple-module/ui/lib/utils';
+import { cn } from '@simple-module-py/ui/lib/utils';
 import { ScrollArea as ScrollAreaPrimitive } from 'radix-ui';
 import type * as React from 'react';
 

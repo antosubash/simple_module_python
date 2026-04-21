@@ -1,9 +1,9 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { PageShell } from '@simple-module/ui/components/PageShell';
-import { Badge } from '@simple-module/ui/components/ui/badge';
-import { Button } from '@simple-module/ui/components/ui/button';
-import { Card } from '@simple-module/ui/components/ui/card';
-import { Input } from '@simple-module/ui/components/ui/input';
+import { PageShell } from '@simple-module-py/ui/components/PageShell';
+import { Badge } from '@simple-module-py/ui/components/ui/badge';
+import { Button } from '@simple-module-py/ui/components/ui/button';
+import { Card } from '@simple-module-py/ui/components/ui/card';
+import { Input } from '@simple-module-py/ui/components/ui/input';
 import {
   Table,
   TableBody,
@@ -11,9 +11,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@simple-module/ui/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@simple-module/ui/components/ui/tabs';
-import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
+} from '@simple-module-py/ui/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@simple-module-py/ui/components/ui/tabs';
+import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { ArrowDown, ArrowUp, Pencil, Plus, Search, ShieldCheck, Users } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type Filters, IndexFilters } from '../../components/IndexFilters';

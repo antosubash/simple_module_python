@@ -1,4 +1,4 @@
-import { keys, useT } from '@simple-module/i18n';
+import { keys, useT } from '@simple-module-py/i18n';
 
 export type ValueType = 'string' | 'bool' | 'int' | 'float' | 'json';
 

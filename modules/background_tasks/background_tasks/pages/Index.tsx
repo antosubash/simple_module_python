@@ -1,15 +1,15 @@
 import { router, usePage } from '@inertiajs/react';
-import { PageShell } from '@simple-module/ui/components/PageShell';
-import { Button } from '@simple-module/ui/components/ui/button';
-import { Card } from '@simple-module/ui/components/ui/card';
-import { Input } from '@simple-module/ui/components/ui/input';
+import { PageShell } from '@simple-module-py/ui/components/PageShell';
+import { Button } from '@simple-module-py/ui/components/ui/button';
+import { Card } from '@simple-module-py/ui/components/ui/card';
+import { Input } from '@simple-module-py/ui/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@simple-module/ui/components/ui/select';
+} from '@simple-module-py/ui/components/ui/select';
 import {
   Table,
   TableBody,
@@ -17,9 +17,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@simple-module/ui/components/ui/table';
-import { usePermissions } from '@simple-module/ui/hooks/use-permissions';
-import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
+} from '@simple-module-py/ui/components/ui/table';
+import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
+import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { Activity, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ExecutionRow, statusLabel } from './components/ExecutionRow';

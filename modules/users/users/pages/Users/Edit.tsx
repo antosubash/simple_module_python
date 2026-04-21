@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { PageShell } from '@simple-module/ui/components/PageShell';
+import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,13 +10,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@simple-module/ui/components/ui/alert-dialog';
-import { Badge } from '@simple-module/ui/components/ui/badge';
-import { Button } from '@simple-module/ui/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@simple-module/ui/components/ui/card';
-import { Checkbox } from '@simple-module/ui/components/ui/checkbox';
-import { Label } from '@simple-module/ui/components/ui/label';
-import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
+} from '@simple-module-py/ui/components/ui/alert-dialog';
+import { Badge } from '@simple-module-py/ui/components/ui/badge';
+import { Button } from '@simple-module-py/ui/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@simple-module-py/ui/components/ui/card';
+import { Checkbox } from '@simple-module-py/ui/components/ui/checkbox';
+import { Label } from '@simple-module-py/ui/components/ui/label';
+import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';

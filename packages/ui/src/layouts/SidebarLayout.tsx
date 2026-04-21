@@ -1,6 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
-import { Avatar, AvatarFallback } from '@simple-module/ui/components/ui/avatar';
-import { Button } from '@simple-module/ui/components/ui/button';
+import { Avatar, AvatarFallback } from '@simple-module-py/ui/components/ui/avatar';
+import { Button } from '@simple-module-py/ui/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,13 +8,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@simple-module/ui/components/ui/dropdown-menu';
+} from '@simple-module-py/ui/components/ui/dropdown-menu';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@simple-module/ui/components/ui/tooltip';
+} from '@simple-module-py/ui/components/ui/tooltip';
 import { ChevronsUpDown } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';

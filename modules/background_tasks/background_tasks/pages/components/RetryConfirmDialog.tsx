@@ -8,7 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@simple-module/ui/components/ui/alert-dialog';
+} from '@simple-module-py/ui/components/ui/alert-dialog';
 import type { ReactNode } from 'react';
 
 interface Props {

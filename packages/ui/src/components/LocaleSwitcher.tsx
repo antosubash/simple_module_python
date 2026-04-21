@@ -1,12 +1,12 @@
 import { usePage } from '@inertiajs/react';
-import { keys, useT } from '@simple-module/i18n';
-import { Button } from '@simple-module/ui/components/ui/button';
+import { keys, useT } from '@simple-module-py/i18n';
+import { Button } from '@simple-module-py/ui/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@simple-module/ui/components/ui/dropdown-menu';
+} from '@simple-module-py/ui/components/ui/dropdown-menu';
 import { Globe } from 'lucide-react';
 import { useRef } from 'react';
 

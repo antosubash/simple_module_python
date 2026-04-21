@@ -1,5 +1,5 @@
-import { Button } from '@simple-module/ui/components/ui/button';
-import { cn } from '@simple-module/ui/lib/utils';
+import { Button } from '@simple-module-py/ui/components/ui/button';
+import { cn } from '@simple-module-py/ui/lib/utils';
 import { XIcon } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import type * as React from 'react';

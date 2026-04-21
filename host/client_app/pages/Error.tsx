@@ -1,7 +1,7 @@
 import { Link } from '@inertiajs/react';
-import { keys, useT } from '@simple-module/i18n';
-import { ErrorScreen } from '@simple-module/ui/components/ErrorScreen';
-import { Button } from '@simple-module/ui/components/ui/button';
+import { keys, useT } from '@simple-module-py/i18n';
+import { ErrorScreen } from '@simple-module-py/ui/components/ErrorScreen';
+import { Button } from '@simple-module-py/ui/components/ui/button';
 
 interface Props {
   status: number;

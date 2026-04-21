@@ -41,11 +41,11 @@
 - All 14 `pyproject.toml` files under `framework/*` and `modules/*` — name, version, description, keywords, classifiers, URLs, license, readme
 - Root `pyproject.toml` — no functional change; confirm testpaths still resolve after module renames
 - All 10 `modules/*/pyproject.toml` — **package rename** from bare name to `simple-module-<name>`
-- All 3 `packages/*/package.json` — metadata, scope rename `@simple-module/*` → `@simple-module-py/*`, unmark `private`, move React to peerDeps
+- All 3 `packages/*/package.json` — metadata, scope rename `@simple-module-py/*` → `@simple-module-py/*`, unmark `private`, move React to peerDeps
 - `framework/hosting/simple_module_hosting/cli.py` — add `new` subcommand; keep `create-host` + `create-module`
 - `framework/hosting/pyproject.toml` — add `simple-module` as second `[project.scripts]` entry
 - `framework/hosting/simple_module_hosting/scaffolding.py` — extend `_create_host` if needed to pre-wire users+dashboard+permissions
-- `host/client_app/*` and other repo files that import from `@simple-module/*` — update scope
+- `host/client_app/*` and other repo files that import from `@simple-module-py/*` — update scope
 - `Makefile` — add `release-check`, `smoke-npm`; ensure `lint` runs `check_metadata` + `check_readmes`
 - `pyproject.toml` at root — add `tomlkit` to dev dependencies; extend `testpaths`
 
@@ -1483,20 +1483,20 @@ git add packages/ui/package.json
 git commit -m "chore(ui): ready @simple-module-py/ui for npm publish"
 ```
 
-### Task 4.4: Update all consuming `@simple-module/*` imports
+### Task 4.4: Update all consuming `@simple-module-py/*` imports
 
 **Files:**
-- Modify: any file in `host/client_app/`, `modules/*/*/pages/`, `packages/*/src/` that imports `@simple-module/...`
-- Modify: any `package.json` that lists `@simple-module/*` deps (module `package.json` stubs, `host/client_app/package.json`, etc.)
-- Modify: any `tsconfig.json` that `extends` from `@simple-module/tsconfig/base.json`
+- Modify: any file in `host/client_app/`, `modules/*/*/pages/`, `packages/*/src/` that imports `@simple-module-py/...`
+- Modify: any `package.json` that lists `@simple-module-py/*` deps (module `package.json` stubs, `host/client_app/package.json`, etc.)
+- Modify: any `tsconfig.json` that `extends` from `@simple-module-py/tsconfig/base.json`
 
 - [ ] **Step 1: Find every reference**
 
-Run: `rg -n "@simple-module/" --type ts --type tsx --type json --type jsx -l`
+Run: `rg -n "@simple-module-py/" --type ts --type tsx --type json --type jsx -l`
 
-- [ ] **Step 2: Replace `@simple-module/` with `@simple-module-py/` in each matching file**
+- [ ] **Step 2: Replace `@simple-module-py/` with `@simple-module-py/` in each matching file**
 
-Use `rg -l "@simple-module/"` + your editor's replace-in-files to do this in bulk. Verify no occurrences of the bare `@simple-module/` remain: `rg "@simple-module/"` (note the trailing slash; no matches expected).
+Use `rg -l "@simple-module-py/"` + your editor's replace-in-files to do this in bulk. Verify no occurrences of the bare `@simple-module-py/` remain: `rg "@simple-module-py/"` (note the trailing slash; no matches expected).
 
 - [ ] **Step 3: Regenerate `package-lock.json`**
 

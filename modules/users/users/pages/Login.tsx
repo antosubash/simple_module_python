@@ -1,15 +1,15 @@
 import { router, usePage } from '@inertiajs/react';
-import { Button } from '@simple-module/ui/components/ui/button';
+import { Button } from '@simple-module-py/ui/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@simple-module/ui/components/ui/card';
-import { Input } from '@simple-module/ui/components/ui/input';
-import { Label } from '@simple-module/ui/components/ui/label';
-import { AuthCardShell } from '@simple-module/ui/layouts/AuthCardShell';
+} from '@simple-module-py/ui/components/ui/card';
+import { Input } from '@simple-module-py/ui/components/ui/input';
+import { Label } from '@simple-module-py/ui/components/ui/label';
+import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { useState } from 'react';
 
 interface DevAccount {

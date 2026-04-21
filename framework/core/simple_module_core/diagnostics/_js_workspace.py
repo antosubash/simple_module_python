@@ -27,7 +27,7 @@ def check_js_workspace_files(mod: ModuleBase, src_dir: Path) -> list[Diagnostic]
             suggestion=(
                 f"Create {module_dir / fn} — without it npm won't treat the "
                 "module as a workspace member and Vite may fail to resolve "
-                "@simple-module/ui subpath imports"
+                "@simple-module-py/ui subpath imports"
             ),
         )
         for fn in ("package.json", "tsconfig.json")

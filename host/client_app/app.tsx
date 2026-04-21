@@ -1,5 +1,5 @@
 import { createInertiaApp, router } from '@inertiajs/react';
-import { ErrorBoundary } from '@simple-module/ui/components/ErrorBoundary';
+import { ErrorBoundary } from '@simple-module-py/ui/components/ErrorBoundary';
 import { useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { bootI18nFromInitialPage, subscribeI18nToNavigation } from './i18n';

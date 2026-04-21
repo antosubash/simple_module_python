@@ -1,13 +1,13 @@
 import { usePage } from '@inertiajs/react';
-import { Button } from '@simple-module/ui/components/ui/button';
+import { Button } from '@simple-module-py/ui/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@simple-module/ui/components/ui/card';
-import { AuthCardShell } from '@simple-module/ui/layouts/AuthCardShell';
+} from '@simple-module-py/ui/components/ui/card';
+import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { useEffect, useState } from 'react';
 
 interface Props {

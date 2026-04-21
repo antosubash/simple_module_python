@@ -4,7 +4,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@simple-module/ui/components/ui/select';
+} from '@simple-module-py/ui/components/ui/select';
 
 export interface Filters {
   status: 'all' | 'active' | 'disabled';

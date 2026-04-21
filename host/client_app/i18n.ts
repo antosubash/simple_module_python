@@ -1,5 +1,5 @@
 /**
- * Initial wiring for @simple-module/i18n inside the Inertia app.
+ * Initial wiring for @simple-module-py/i18n inside the Inertia app.
  *
  * Reads {locale, messages} from Inertia shared props and calls
  * configureI18n on boot; on every successful navigation, checks whether
@@ -8,7 +8,7 @@
 
 import type { PageProps } from '@inertiajs/core';
 import { router } from '@inertiajs/react';
-import { configureI18n, updateI18n } from '@simple-module/i18n';
+import { configureI18n, updateI18n } from '@simple-module-py/i18n';
 
 interface I18nSharedProps {
   locale: string;

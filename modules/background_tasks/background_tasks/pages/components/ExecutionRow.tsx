@@ -1,7 +1,7 @@
 import { Link } from '@inertiajs/react';
-import { Badge } from '@simple-module/ui/components/ui/badge';
-import { Button } from '@simple-module/ui/components/ui/button';
-import { TableCell, TableRow } from '@simple-module/ui/components/ui/table';
+import { Badge } from '@simple-module-py/ui/components/ui/badge';
+import { Button } from '@simple-module-py/ui/components/ui/button';
+import { TableCell, TableRow } from '@simple-module-py/ui/components/ui/table';
 import { RefreshCcw } from 'lucide-react';
 import { RETRYABLE_STATUSES, STATUS_BADGE_VARIANT, VIEW_BASE } from '../constants';
 import type { Execution } from '../retry';
