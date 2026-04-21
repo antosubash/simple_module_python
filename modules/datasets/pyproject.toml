@@ -11,6 +11,8 @@ dependencies = [
     "file-storage",
     "background-tasks",
     "celery>=5.4",
+    "shapely>=2.0",
+    "python-slugify>=8.0",
 ]
 
 [project.entry-points.simple_module]

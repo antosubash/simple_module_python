@@ -1,10 +1,10 @@
 """Best-effort metadata extraction for uploaded datasets.
 
-The stdlib JSON path covers GeoJSON without any extra dependency. Optional
-``fiona`` and ``rasterio`` extras enrich extraction for shapefiles, KML, and
-rasters when available. Every extractor degrades to
-``ExtractionStatus.MANUAL`` so the catalog never blocks an upload because
-a parser is missing.
+GeoJSON is handled with ``shapely`` (a standard geospatial dependency).
+Optional ``fiona`` and ``rasterio`` extras enrich extraction for
+shapefiles, KML, and rasters when available. Every extractor degrades
+to ``ExtractionStatus.MANUAL`` so the catalog never blocks an upload
+because a parser is missing.
 """
 
 from __future__ import annotations
@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+
+from shapely.geometry import shape
 
 from datasets import constants
 from datasets.constants import DatasetKind, ExtractionStatus
@@ -76,12 +78,30 @@ def _extract_geojson(path: Path) -> ExtractedMeta:
     with path.open("rb") as fp:
         doc = json.load(fp)
 
-    features = _features(doc)
+    features: list[dict]
+    if isinstance(doc, dict) and doc.get("type") == "FeatureCollection":
+        features = [f for f in doc.get("features", []) if isinstance(f, dict)]
+    elif isinstance(doc, dict) and doc.get("type") == "Feature":
+        features = [doc]
+    else:
+        features = []
+
     bbox = doc.get("bbox") if isinstance(doc, dict) else None
     if not bbox:
-        bbox = _compute_bbox(features)
+        bounds = [
+            shape(f["geometry"]).bounds
+            for f in features
+            if isinstance(f.get("geometry"), dict)
+        ]
+        if bounds:
+            bbox = (
+                min(b[0] for b in bounds),
+                min(b[1] for b in bounds),
+                max(b[2] for b in bounds),
+                max(b[3] for b in bounds),
+            )
 
-    if bbox is None:
+    if not bbox:
         return ExtractedMeta(
             crs=constants.DEFAULT_GEOJSON_CRS,
             feature_count=len(features),
@@ -96,57 +116,6 @@ def _extract_geojson(path: Path) -> ExtractedMeta:
         feature_count=len(features),
         status=ExtractionStatus.OK,
     )
-
-
-def _features(doc: object) -> list[dict]:
-    if isinstance(doc, dict):
-        if doc.get("type") == "FeatureCollection":
-            features = doc.get("features", [])
-            return [f for f in features if isinstance(f, dict)]
-        if doc.get("type") == "Feature":
-            return [doc]
-    return []
-
-
-def _compute_bbox(features: list[dict]) -> tuple[float, float, float, float] | None:
-    min_x = min_y = float("inf")
-    max_x = max_y = float("-inf")
-    for feature in features:
-        geom = feature.get("geometry") if isinstance(feature, dict) else None
-        if not isinstance(geom, dict):
-            continue
-        for x, y in _iter_coords(geom):
-            min_x = min(min_x, x)
-            min_y = min(min_y, y)
-            max_x = max(max_x, x)
-            max_y = max(max_y, y)
-    if min_x == float("inf"):
-        return None
-    return min_x, min_y, max_x, max_y
-
-
-def _iter_coords(geom: dict):
-    coords = geom.get("coordinates")
-    geom_type = geom.get("type")
-    if geom_type == "GeometryCollection":
-        for sub in geom.get("geometries", []):
-            if isinstance(sub, dict):
-                yield from _iter_coords(sub)
-        return
-    yield from _walk(coords)
-
-
-def _walk(node: object):
-    if (
-        isinstance(node, list)
-        and len(node) >= 2
-        and all(isinstance(v, (int, float)) for v in node[:2])
-    ):
-        yield float(node[0]), float(node[1])
-        return
-    if isinstance(node, list):
-        for child in node:
-            yield from _walk(child)
 
 
 def _extract_via_fiona(path: Path) -> ExtractedMeta:
