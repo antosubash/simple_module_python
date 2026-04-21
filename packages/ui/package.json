@@ -2,7 +2,13 @@
   "name": "@simple-module-py/ui",
   "version": "0.0.1",
   "description": "shadcn-derived React UI components and layouts for simple_module apps",
-  "keywords": ["simple-module", "react", "shadcn", "tailwind", "ui"],
+  "keywords": [
+    "simple-module",
+    "react",
+    "shadcn",
+    "tailwind",
+    "ui"
+  ],
   "homepage": "https://github.com/antosubash/simple_module_python#readme",
   "bugs": "https://github.com/antosubash/simple_module_python/issues",
   "repository": {
@@ -22,8 +28,13 @@
     },
     "./*": "./src/*"
   },
-  "files": ["src", "README.md"],
-  "publishConfig": { "access": "public" },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "peerDependencies": {
     "react": "^19.0.0"
   },

@@ -1,11 +1,11 @@
 """Tests for the `sm new` / `simple-module new` CLI subcommand."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
 from click.testing import CliRunner
-
 from simple_module_hosting.cli import main
 
 
@@ -60,7 +60,7 @@ def test_sm_new_writes_generated_secret_key(tmp_path: Path) -> None:
     env_text = (target / ".env.example").read_text()
     assert "SM_SECRET_KEY=" in env_text
     assert "CHANGE-ME" not in env_text
-    secret_line = [ln for ln in env_text.splitlines() if ln.startswith("SM_SECRET_KEY=")][0]
+    secret_line = next(ln for ln in env_text.splitlines() if ln.startswith("SM_SECRET_KEY="))
     assert len(secret_line.split("=", 1)[1]) >= 20
 
 

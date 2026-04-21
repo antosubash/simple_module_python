@@ -2,7 +2,13 @@
   "name": "@simple-module-py/i18n",
   "version": "0.0.1",
   "description": "i18next + react-i18next glue for simple_module apps — hooks, namespace conventions, locale wiring",
-  "keywords": ["simple-module", "i18n", "i18next", "react-i18next", "localization"],
+  "keywords": [
+    "simple-module",
+    "i18n",
+    "i18next",
+    "react-i18next",
+    "localization"
+  ],
   "homepage": "https://github.com/antosubash/simple_module_python#readme",
   "bugs": "https://github.com/antosubash/simple_module_python/issues",
   "repository": {
@@ -21,8 +27,13 @@
       "default": "./src/index.ts"
     }
   },
-  "files": ["src", "README.md"],
-  "publishConfig": { "access": "public" },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "peerDependencies": {
     "react": "^19.0.0"
   },

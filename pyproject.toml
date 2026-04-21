@@ -74,6 +74,7 @@ extra-paths = [
     "modules/settings",
     "modules/feature_flags",
     "host",
+    "scripts",
 ]
 
 [tool.ty.src]
