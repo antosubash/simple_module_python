@@ -20,6 +20,8 @@ from typing import Any
 from fastapi import FastAPI
 from pydantic_settings import BaseSettings
 
+from settings.hydrate import value_type_for_field
+
 # Case-insensitive fragment match. We intentionally DON'T match the bare word
 # "token" (would mask `verification_token_lifetime_seconds` — just an int) or
 # "key" alone (would mask `s3_bucket_key_prefix` etc.). Instead we require a
@@ -39,6 +41,9 @@ class ModuleSettingField:
     default: Any
     description: str
     is_secret: bool
+    type: str
+    requires_restart: bool
+    group: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,9 +94,11 @@ def _extract_settings(app: FastAPI, package: str) -> BaseSettings | None:
 
 
 def _field_view(name: str, settings: BaseSettings, prefix: str) -> ModuleSettingField:
-    info = type(settings).model_fields[name]
+    cls = type(settings)
+    info = cls.model_fields[name]
     raw_value = getattr(settings, name)
     is_secret = bool(_SECRET_PATTERNS.search(name))
+    extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
     return ModuleSettingField(
         name=name,
         env_var=f"{prefix}{name.upper()}",
@@ -99,6 +106,9 @@ def _field_view(name: str, settings: BaseSettings, prefix: str) -> ModuleSetting
         default=_mask(info.default) if is_secret else info.default,
         description=info.description or "",
         is_secret=is_secret,
+        type=value_type_for_field(cls, name),
+        requires_restart=bool(extra.get("requires_restart", False)),
+        group=extra.get("group"),
     )
 
 
@@ -144,6 +154,9 @@ def serialize(views: list[ModuleSettingsView]) -> list[dict[str, Any]]:
                     "default": f.default,
                     "description": f.description,
                     "is_secret": f.is_secret,
+                    "type": f.type,
+                    "requires_restart": f.requires_restart,
+                    "group": f.group,
                 }
                 for f in v.fields
             ],
