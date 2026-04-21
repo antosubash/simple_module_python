@@ -12,9 +12,7 @@ from __future__ import annotations
 import httpx
 
 
-async def _create_via_api(
-    authenticated_client: httpx.AsyncClient, name: str = "Seed"
-) -> int:
+async def _create_via_api(authenticated_client: httpx.AsyncClient, name: str = "Seed") -> int:
     files = {"file": (f"{name}.geojson", b'{"type":"FeatureCollection","features":[]}', None)}
     resp = await authenticated_client.post("/api/datasets/", data={"name": name}, files=files)
     assert resp.status_code == 201, resp.text
