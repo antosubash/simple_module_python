@@ -33,10 +33,20 @@ class SettingsModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
+        from settings.contracts.registry import SettingsRegistry
+        from settings.module_registry import ModuleSettingsRegistry
         from settings.services import SettingsServices
         from settings.settings import SettingsSettings
 
-        setattr(app.state, MODULE_PACKAGE, SettingsServices(settings=SettingsSettings()))
+        services = SettingsServices(
+            settings=SettingsSettings(),
+            registry=SettingsRegistry(),
+            module_registry=ModuleSettingsRegistry(),
+        )
+        setattr(app.state, MODULE_PACKAGE, services)
+
+        # Self-register so the UI lists our own settings alongside other modules.
+        services.module_registry.register("settings", SettingsSettings)
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from settings.endpoints.api import router as api
