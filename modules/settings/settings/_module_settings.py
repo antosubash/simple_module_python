@@ -113,29 +113,50 @@ def _field_view(name: str, settings: BaseSettings, prefix: str) -> ModuleSetting
 
 
 def collect_module_settings(app: FastAPI) -> list[ModuleSettingsView]:
-    """Return a sorted, serializable view of every module's BaseSettings."""
+    """Return a sorted, serializable view of every module's BaseSettings.
+
+    Iterates ``app.state.sm.modules`` for plugin modules, then folds in any
+    additional packages recorded in ``app.state.settings.module_registry``
+    (e.g. ``"host"``) that aren't backed by a ``ModuleBase`` instance.
+    """
     views: list[ModuleSettingsView] = []
+    seen: set[str] = set()
+
     modules = getattr(app.state.sm, "modules", ())
     for mod in modules:
         package = _package_of(mod)
         settings = _extract_settings(app, package)
         if settings is None:
             continue
-        fields = [
-            _field_view(name, settings, _env_prefix_of(settings))
-            for name in type(settings).model_fields
-        ]
-        views.append(
-            ModuleSettingsView(
-                module_name=mod.meta.name,
-                package=package,
-                env_prefix=_env_prefix_of(settings),
-                class_name=type(settings).__name__,
-                fields=fields,
-            )
-        )
+        views.append(_build_view(mod.meta.name, package, settings))
+        seen.add(package)
+
+    settings_services = getattr(app.state, "settings", None)
+    registry = getattr(settings_services, "module_registry", None)
+    if registry is not None:
+        for package in registry.all_packages():
+            if package in seen:
+                continue
+            settings = _extract_settings(app, package)
+            if settings is None:
+                continue
+            views.append(_build_view(package.title(), package, settings))
+            seen.add(package)
+
     views.sort(key=lambda v: v.module_name)
     return views
+
+
+def _build_view(module_name: str, package: str, settings: BaseSettings) -> ModuleSettingsView:
+    prefix = _env_prefix_of(settings)
+    fields = [_field_view(name, settings, prefix) for name in type(settings).model_fields]
+    return ModuleSettingsView(
+        module_name=module_name,
+        package=package,
+        env_prefix=prefix,
+        class_name=type(settings).__name__,
+        fields=fields,
+    )
 
 
 def serialize(views: list[ModuleSettingsView]) -> list[dict[str, Any]]:

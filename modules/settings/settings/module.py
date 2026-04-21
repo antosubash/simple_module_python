@@ -50,8 +50,10 @@ class SettingsModule(ModuleBase):
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from settings.endpoints.api import router as api
+        from settings.endpoints.module_api import router as module_api
         from settings.endpoints.views import router as views
 
+        api_router.include_router(module_api)
         api_router.include_router(api)
         view_router.include_router(views)
 
