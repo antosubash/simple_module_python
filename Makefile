@@ -78,6 +78,8 @@ loadtest-memray:            ## Start uvicorn under memray, load-test, emit flame
 	scripts/loadtest_memray.sh $(LOCUST_ARGS)
 
 lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings
+	uv run python scripts/check_metadata.py
+	uv run python scripts/check_readmes.py
 
 # Kept granular so pr.yml can run them in parallel.
 ci-python-lint:

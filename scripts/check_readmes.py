@@ -8,6 +8,7 @@ Rules for every package directory (under framework/*, modules/*, packages/*):
 
 Exit 0 if all pass, 1 otherwise.
 """
+
 from __future__ import annotations
 
 import argparse

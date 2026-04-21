@@ -19,6 +19,7 @@ Rules:
 
 Exit code 0 on success, 1 on any violation. Prints violations to stderr.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -59,9 +60,7 @@ def check_python_package(pyproject: Path) -> list[str]:
 
     urls = project.get("urls", {})
     if str(urls.get("Repository", "")) != CANONICAL_REPO:
-        errors.append(
-            f"{rel}: project.urls.Repository must equal '{CANONICAL_REPO}'"
-        )
+        errors.append(f"{rel}: project.urls.Repository must equal '{CANONICAL_REPO}'")
 
     return errors
 

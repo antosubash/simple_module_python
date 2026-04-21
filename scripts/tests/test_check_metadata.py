@@ -1,9 +1,8 @@
 """Tests for scripts/check_metadata.py."""
+
 from __future__ import annotations
 
 from pathlib import Path
-
-import pytest
 
 from scripts.check_metadata import (
     check_npm_package,
