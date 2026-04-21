@@ -1,9 +1,17 @@
 {
-  "name": "@simple-module/tsconfig",
-  "version": "0.1.0",
-  "private": true,
-  "description": "Shared TypeScript compiler options for the SimpleModule monorepo",
-  "files": [
-    "base.json"
-  ]
+  "name": "@simple-module-py/tsconfig",
+  "version": "0.0.1",
+  "description": "Shared TypeScript compiler options (base.json) for simple_module apps",
+  "keywords": ["simple-module", "tsconfig", "typescript"],
+  "homepage": "https://github.com/antosubash/simple_module_python#readme",
+  "bugs": "https://github.com/antosubash/simple_module_python/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/antosubash/simple_module_python.git",
+    "directory": "packages/tsconfig"
+  },
+  "license": "MIT",
+  "author": "Anto Subash <antosubash@live.com>",
+  "files": ["base.json", "README.md"],
+  "publishConfig": { "access": "public" }
 }
