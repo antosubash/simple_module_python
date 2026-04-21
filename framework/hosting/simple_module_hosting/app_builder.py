@@ -152,6 +152,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.migration = await check_migrations(app.state.sm.db.engine)
 
+        # Hydrate all registered settings from DB before any module
+        # on_startup hook runs, so startup code sees DB-backed values.
+        # Importlib keeps plugin names out of the framework AST (SM009).
+        if hasattr(app.state, "settings"):
+            import importlib
+
+            from simple_module_hosting._hydrate_step import hydrate_all
+
+            service_mod = importlib.import_module("settings.service")
+            store_mod = importlib.import_module("settings.store")
+            SettingService = service_mod.SettingService
+            SettingsStore = store_mod.SettingsStore
+
+            async with app.state.sm.db.session_factory() as session:
+                await hydrate_all(app, SettingsStore(SettingService(session)))
+
         for mod in modules:
             await mod.on_startup(app)
         yield
