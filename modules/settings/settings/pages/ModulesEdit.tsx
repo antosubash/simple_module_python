@@ -1,7 +1,7 @@
 import { keys, useT } from '@simple-module/i18n';
 import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
-import { useMemo, useState } from 'react';
 import type React from 'react';
+import { useMemo, useState } from 'react';
 import { ModuleForm, type ModuleView } from './components/ModuleForm';
 import { ROUTES } from './routes';
 
@@ -42,9 +42,7 @@ function ModulesEdit({ modules }: Props) {
               type="button"
               onClick={() => setSelected(m.package)}
               className={`block w-full rounded px-3 py-2 text-left text-sm ${
-                m.package === selected
-                  ? 'bg-primary text-primary-foreground'
-                  : 'hover:bg-muted'
+                m.package === selected ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
               }`}
             >
               <div className="font-medium">{m.module_name}</div>
@@ -72,7 +70,5 @@ function ModulesEdit({ modules }: Props) {
   );
 }
 
-ModulesEdit.layout = (page: React.ReactNode) => (
-  <AuthenticatedLayout>{page}</AuthenticatedLayout>
-);
+ModulesEdit.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
 export default ModulesEdit;

@@ -18,15 +18,17 @@ type Props = {
   field: FieldMeta;
   onChange: (name: string, value: unknown) => void;
   value: unknown;
+  id?: string;
 };
 
-export function FieldInput({ field, onChange, value }: Props) {
+export function FieldInput({ field, onChange, value, id }: Props) {
   const [revealed, setRevealed] = useState(false);
 
   if (field.is_secret && !revealed) {
     return (
       <div className="flex items-center gap-2">
         <input
+          id={id}
           type="password"
           value="••••••••"
           readOnly
@@ -50,6 +52,7 @@ export function FieldInput({ field, onChange, value }: Props) {
     case 'bool':
       return (
         <input
+          id={id}
           type="checkbox"
           checked={!!value}
           onChange={(e) => onChange(field.name, e.target.checked)}
@@ -58,6 +61,7 @@ export function FieldInput({ field, onChange, value }: Props) {
     case 'int':
       return (
         <input
+          id={id}
           type="number"
           step="1"
           value={String(value ?? '')}
@@ -70,6 +74,7 @@ export function FieldInput({ field, onChange, value }: Props) {
     case 'float':
       return (
         <input
+          id={id}
           type="number"
           step="any"
           value={String(value ?? '')}
@@ -82,6 +87,7 @@ export function FieldInput({ field, onChange, value }: Props) {
     case 'json':
       return (
         <textarea
+          id={id}
           rows={3}
           value={typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
           onChange={(e) => onChange(field.name, e.target.value)}
@@ -91,6 +97,7 @@ export function FieldInput({ field, onChange, value }: Props) {
     default:
       return (
         <input
+          id={id}
           type="text"
           value={String(value ?? '')}
           onChange={(e) => onChange(field.name, e.target.value)}

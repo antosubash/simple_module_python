@@ -29,7 +29,8 @@ export function ModuleForm({ module: m }: Props) {
     const g: Record<string, FieldMeta[]> = {};
     for (const f of m.fields) {
       const key = f.group ?? 'General';
-      (g[key] ??= []).push(f);
+      if (!g[key]) g[key] = [];
+      g[key].push(f);
     }
     return g;
   }, [m]);
@@ -91,7 +92,9 @@ export function ModuleForm({ module: m }: Props) {
             return (
               <div key={f.name} className="grid grid-cols-[1fr_2fr] gap-4 items-start">
                 <div>
-                  <label className="font-mono text-xs">{f.name}</label>
+                  <label htmlFor={`field-${m.package}-${f.name}`} className="font-mono text-xs">
+                    {f.name}
+                  </label>
                   {f.description && (
                     <p className="mt-1 text-xs text-muted-foreground">{f.description}</p>
                   )}
@@ -103,6 +106,7 @@ export function ModuleForm({ module: m }: Props) {
                 </div>
                 <div>
                   <FieldInput
+                    id={`field-${m.package}-${f.name}`}
                     field={f}
                     value={values[f.name]}
                     onChange={(name, v) => setValues((prev) => ({ ...prev, [name]: v }))}
@@ -116,9 +120,7 @@ export function ModuleForm({ module: m }: Props) {
                       Reset to default
                     </button>
                   )}
-                  {errors[f.name] && (
-                    <p className="mt-1 text-xs text-red-600">{errors[f.name]}</p>
-                  )}
+                  {errors[f.name] && <p className="mt-1 text-xs text-red-600">{errors[f.name]}</p>}
                 </div>
               </div>
             );
