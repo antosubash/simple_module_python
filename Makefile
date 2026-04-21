@@ -169,3 +169,8 @@ beat:                       ## Run the Celery beat scheduler locally
 # Celery — containerized (matches prod image)
 worker-docker:              ## Build + run the worker + beat services in docker
 	docker compose up --build worker beat
+
+.PHONY: release-check
+release-check:
+	@test -n "$(version)" || { echo "usage: make release-check version=X.Y.Z"; exit 1; }
+	uv run python scripts/bump_version.py $(version) --check
