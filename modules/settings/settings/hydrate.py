@@ -10,13 +10,11 @@ and constructs the BaseSettings — pydantic enforces field validators and any
 from __future__ import annotations
 
 import json
-from typing import TypeVar, get_origin
+from typing import get_origin
 
 from pydantic_settings import BaseSettings
 
 from settings.store import SettingsStore
-
-T = TypeVar("T", bound=BaseSettings)
 
 
 def value_type_for_field(cls: type[BaseSettings], field_name: str) -> str:
@@ -42,7 +40,7 @@ def value_type_for_field(cls: type[BaseSettings], field_name: str) -> str:
     return "string"
 
 
-def _parse(raw: str, value_type: str):  # noqa: ANN202
+def _parse(raw: str, value_type: str):
     if value_type == "bool":
         return raw.lower() in ("1", "true", "yes", "on")
     if value_type == "int":
@@ -54,7 +52,7 @@ def _parse(raw: str, value_type: str):  # noqa: ANN202
     return raw
 
 
-async def hydrate_settings(cls: type[T], store: SettingsStore, package: str) -> T:
+async def hydrate_settings[T: BaseSettings](cls: type[T], store: SettingsStore, package: str) -> T:
     """Construct ``cls`` with DB overrides merged over pydantic defaults."""
     raw_overrides = await store.get_overrides(package)
     parsed: dict[str, object] = {}

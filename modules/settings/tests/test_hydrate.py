@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings
-
 from settings.hydrate import hydrate_settings, value_type_for_field
 from settings.service import SettingService
 from settings.store import SettingsStore

@@ -37,9 +37,7 @@ async def hydrate_all(app: FastAPI, store: Any) -> None:
         try:
             hydrated = await hydrate_settings(cls, store, package)
         except Exception:
-            logger.exception(
-                "Hydrating %s failed; falling back to defaults", package
-            )
+            logger.exception("Hydrating %s failed; falling back to defaults", package)
             continue
         services = getattr(app.state, package, None)
         if services is None:

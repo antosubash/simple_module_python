@@ -42,7 +42,7 @@ class BootstrapSettings(BaseSettings):
         return self.environment == "development"
 
     @model_validator(mode="after")
-    def _forbid_placeholder_secret_in_production(self) -> "BootstrapSettings":
+    def _forbid_placeholder_secret_in_production(self) -> BootstrapSettings:
         if (
             self.environment not in NON_PROD_ENVIRONMENTS
             and self.secret_key == _PLACEHOLDER_SECRET_KEY

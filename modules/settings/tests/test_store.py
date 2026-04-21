@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from settings.service import SettingService
 from settings.store import SettingsStore
 

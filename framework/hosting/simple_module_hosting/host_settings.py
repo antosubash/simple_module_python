@@ -24,7 +24,7 @@ class HostSettings(BaseSettings):
     i18n_cookie_name: str = "locale"
 
     @model_validator(mode="after")
-    def _check_default_locale_supported(self) -> "HostSettings":
+    def _check_default_locale_supported(self) -> HostSettings:
         if self.i18n_default_locale not in self.i18n_supported_locales:
             raise ValueError(
                 f"i18n_default_locale '{self.i18n_default_locale}' is not in "

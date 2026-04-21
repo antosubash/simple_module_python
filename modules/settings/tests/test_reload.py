@@ -6,16 +6,14 @@ import pytest
 from fastapi import FastAPI
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings
-from simple_module_core.events import EventBus
-
 from settings.contracts.events import SettingsReloaded
-from settings.module_registry import ModuleSettingsRegistry
 from settings.registration import register_module_settings
 from settings.reload import apply_changes_and_reload
 from settings.service import SettingService
 from settings.services import SettingsServices
 from settings.settings import SettingsSettings
 from settings.store import SettingsStore
+from simple_module_core.events import EventBus
 
 
 class _UsersCfg(BaseSettings):
@@ -49,7 +47,10 @@ async def test_apply_changes_updates_app_state_and_fires_event(app_and_bus, db_s
 
     store = SettingsStore(SettingService(db_session))
     new_settings = await apply_changes_and_reload(
-        app, bus, store, package="users",
+        app,
+        bus,
+        store,
+        package="users",
         changes={"allow_signup": True, "smtp_port": 587},
     )
 
@@ -71,7 +72,10 @@ async def test_apply_changes_validation_error_rolls_back(app_and_bus, db_session
 
     with pytest.raises(ValidationError):
         await apply_changes_and_reload(
-            app, bus, store, package="users",
+            app,
+            bus,
+            store,
+            package="users",
             changes={"smtp_port": "not-an-int"},
         )
 
@@ -86,5 +90,9 @@ async def test_apply_changes_unknown_package_raises(app_and_bus, db_session):
 
     with pytest.raises(KeyError):
         await apply_changes_and_reload(
-            app, bus, store, package="unknown", changes={"x": 1},
+            app,
+            bus,
+            store,
+            package="unknown",
+            changes={"x": 1},
         )

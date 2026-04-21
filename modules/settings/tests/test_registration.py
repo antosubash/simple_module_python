@@ -5,8 +5,6 @@ from __future__ import annotations
 import pytest
 from fastapi import FastAPI
 from pydantic_settings import BaseSettings
-
-from settings.constants import MODULE_PACKAGE
 from settings.module_registry import ModuleSettingsRegistry
 from settings.registration import register_module_settings
 from settings.services import SettingsServices
@@ -23,7 +21,9 @@ def app() -> FastAPI:
     app = FastAPI()
     app.state.settings = SettingsServices(
         settings=SettingsSettings(),
-        registry=__import__("settings.contracts.registry", fromlist=["SettingsRegistry"]).SettingsRegistry(),
+        registry=__import__(
+            "settings.contracts.registry", fromlist=["SettingsRegistry"]
+        ).SettingsRegistry(),
         module_registry=ModuleSettingsRegistry(),
     )
     return app

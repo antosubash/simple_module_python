@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 from pydantic_settings import BaseSettings
-
 from settings.module_registry import ModuleSettingsRegistry
 
 

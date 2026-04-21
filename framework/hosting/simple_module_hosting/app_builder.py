@@ -160,13 +160,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
             from simple_module_hosting._hydrate_step import hydrate_all
 
-            service_mod = importlib.import_module("settings.service")
-            store_mod = importlib.import_module("settings.store")
-            SettingService = service_mod.SettingService
-            SettingsStore = store_mod.SettingsStore
+            service_cls = importlib.import_module("settings.service").SettingService
+            store_cls = importlib.import_module("settings.store").SettingsStore
 
             async with app.state.sm.db.session_factory() as session:
-                await hydrate_all(app, SettingsStore(SettingService(session)))
+                await hydrate_all(app, store_cls(service_cls(session)))
 
         for mod in modules:
             await mod.on_startup(app)
@@ -212,9 +210,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         class _HostServices:
             settings: HostSettings
 
-        _register_module_settings(
-            app, "host", HostSettings, lambda s: _HostServices(settings=s)
-        )
+        _register_module_settings(app, "host", HostSettings, lambda s: _HostServices(settings=s))
 
     if settings.is_development:
         settings_diagnostics = check_settings_registration(app, modules)

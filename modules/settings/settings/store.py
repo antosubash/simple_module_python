@@ -35,9 +35,7 @@ class SettingsStore:
             out[field_name] = (item.value, item.value_type)
         return out
 
-    async def set_override(
-        self, package: str, field: str, value: str, value_type: str
-    ) -> None:
+    async def set_override(self, package: str, field: str, value: str, value_type: str) -> None:
         await self._service.upsert_scoped(
             SettingScope.SYSTEM,
             SYSTEM_SCOPE_ID,

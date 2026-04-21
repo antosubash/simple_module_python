@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from simple_module_hosting.bootstrap_settings import BootstrapSettings
 from simple_module_hosting.host_settings import HostSettings
 
@@ -39,6 +38,7 @@ def test_host_settings_default_locale_must_be_supported():
 async def test_host_settings_registered_as_host_package(app):
     registry = app.state.settings.module_registry
     assert registry.get("host").__name__ == "HostSettings"
-    assert isinstance(app.state.host.settings, __import__(
-        "simple_module_hosting.host_settings", fromlist=["HostSettings"]
-    ).HostSettings)
+    assert isinstance(
+        app.state.host.settings,
+        __import__("simple_module_hosting.host_settings", fromlist=["HostSettings"]).HostSettings,
+    )
