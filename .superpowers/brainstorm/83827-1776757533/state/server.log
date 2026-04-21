@@ -1,4 +1,0 @@
-{"type":"server-started","port":56298,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:56298","screen_dir":"/Volumes/ext1/Sandbox/simple_module_python/kind-wiles-92a9a3/.superpowers/brainstorm/83827-1776757533/content","state_dir":"/Volumes/ext1/Sandbox/simple_module_python/kind-wiles-92a9a3/.superpowers/brainstorm/83827-1776757533/state"}
-{"type":"screen-added","file":"/Volumes/ext1/Sandbox/simple_module_python/kind-wiles-92a9a3/.superpowers/brainstorm/83827-1776757533/content/layout.html"}
-{"type":"screen-added","file":"/Volumes/ext1/Sandbox/simple_module_python/kind-wiles-92a9a3/.superpowers/brainstorm/83827-1776757533/content/waiting.html"}
-{"type":"server-stopped","reason":"idle timeout"}

@@ -1,14 +1,7 @@
 """Autodiscover per-module pydantic ``BaseSettings`` attached to ``app.state``.
 
-Framework convention (see ``CLAUDE.md`` and ``ModuleBase.register_settings``):
-each module stores a services dataclass on ``app.state.<package_name>`` whose
-``.settings`` attribute is a pydantic ``BaseSettings`` subclass. This helper
-walks ``app.state.sm.modules``, derives the package name from
-``type(mod).__module__``, pulls the settings object off the attached services,
-and returns a serializable view for the admin UI.
-
-Fields whose name matches ``_SECRET_PATTERNS`` are masked in the output so
-secrets never reach the browser even read-only.
+Each module stores a services dataclass on ``app.state.<package>`` whose
+``.settings`` attribute is a pydantic ``BaseSettings`` subclass.
 """
 
 from __future__ import annotations
@@ -20,17 +13,21 @@ from typing import Any
 from fastapi import FastAPI
 from pydantic_settings import BaseSettings
 
+from settings.env_vars import env_prefix_for
 from settings.hydrate import value_type_for_field
 
-# Case-insensitive fragment match. We intentionally DON'T match the bare word
-# "token" (would mask `verification_token_lifetime_seconds` — just an int) or
-# "key" alone (would mask `s3_bucket_key_prefix` etc.). Instead we require a
-# marker that actually indicates material: "password", "secret", "api_key",
-# "private_key", or the composite "token_secret" used by fastapi-users.
+# We intentionally DON'T match the bare word "token" (would mask
+# `verification_token_lifetime_seconds` — just an int) or "key" alone (would
+# mask `s3_bucket_key_prefix`). Only fragments that actually indicate material.
 _SECRET_PATTERNS = re.compile(
     r"(password|secret|api[_-]?key|private[_-]?key|token[_-]?secret)", re.I
 )
-_SECRET_MASK = "••••••••"
+SECRET_MASK = "••••••••"
+
+
+def is_secret_field(name: str) -> bool:
+    """True if a field name suggests it holds credential material."""
+    return bool(_SECRET_PATTERNS.search(name))
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,24 +55,11 @@ class ModuleSettingsView:
 def _mask(value: Any) -> Any:
     if value in (None, "", [], {}):
         return value
-    return _SECRET_MASK
-
-
-def _env_prefix_of(settings: BaseSettings) -> str:
-    cfg = getattr(settings, "model_config", None)
-    if isinstance(cfg, dict):
-        return str(cfg.get("env_prefix", "") or "")
-    return str(getattr(cfg, "env_prefix", "") or "")
+    return SECRET_MASK
 
 
 def _package_of(mod: Any) -> str:
-    """Return the top-level package name of a module instance (e.g. "users").
-
-    ``type(mod).__module__`` is typically ``"<pkg>.module"`` — take the first
-    segment.
-    """
-    dotted = type(mod).__module__
-    return dotted.split(".", 1)[0]
+    return type(mod).__module__.split(".", 1)[0]
 
 
 def _extract_settings(app: FastAPI, package: str) -> BaseSettings | None:
@@ -97,15 +81,15 @@ def _field_view(name: str, settings: BaseSettings, prefix: str) -> ModuleSetting
     cls = type(settings)
     info = cls.model_fields[name]
     raw_value = getattr(settings, name)
-    is_secret = bool(_SECRET_PATTERNS.search(name))
+    secret = is_secret_field(name)
     extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
     return ModuleSettingField(
         name=name,
         env_var=f"{prefix}{name.upper()}",
-        value=_mask(raw_value) if is_secret else raw_value,
-        default=_mask(info.default) if is_secret else info.default,
+        value=_mask(raw_value) if secret else raw_value,
+        default=_mask(info.default) if secret else info.default,
         description=info.description or "",
-        is_secret=is_secret,
+        is_secret=secret,
         type=value_type_for_field(cls, name),
         requires_restart=bool(extra.get("requires_restart", False)),
         group=extra.get("group"),
@@ -115,15 +99,14 @@ def _field_view(name: str, settings: BaseSettings, prefix: str) -> ModuleSetting
 def collect_module_settings(app: FastAPI) -> list[ModuleSettingsView]:
     """Return a sorted, serializable view of every module's BaseSettings.
 
-    Iterates ``app.state.sm.modules`` for plugin modules, then folds in any
-    additional packages recorded in ``app.state.settings.module_registry``
-    (e.g. ``"host"``) that aren't backed by a ``ModuleBase`` instance.
+    Folds in both ``app.state.sm.modules`` (plugin modules) and additional
+    packages registered via ``app.state.settings.module_registry`` (e.g.
+    ``"host"``) that aren't backed by a ``ModuleBase`` instance.
     """
     views: list[ModuleSettingsView] = []
     seen: set[str] = set()
 
-    modules = getattr(app.state.sm, "modules", ())
-    for mod in modules:
+    for mod in getattr(app.state.sm, "modules", ()):
         package = _package_of(mod)
         settings = _extract_settings(app, package)
         if settings is None:
@@ -148,7 +131,7 @@ def collect_module_settings(app: FastAPI) -> list[ModuleSettingsView]:
 
 
 def _build_view(module_name: str, package: str, settings: BaseSettings) -> ModuleSettingsView:
-    prefix = _env_prefix_of(settings)
+    prefix = env_prefix_for(package)
     fields = [_field_view(name, settings, prefix) for name in type(settings).model_fields]
     return ModuleSettingsView(
         module_name=module_name,

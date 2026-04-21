@@ -1,12 +1,4 @@
-"""Apply a set of field changes to a module's settings and reload them.
-
-Steps:
-1. Look up the module's BaseSettings class from the registry.
-2. Merge changes over current DB overrides + defaults to form the candidate.
-3. Construct ``cls(**candidate)`` — pydantic validates.
-4. On success, write each change to the store, reassign ``app.state.<package>.settings``,
-   and publish ``SettingsReloaded``.
-"""
+"""Apply field changes to a module's settings, validate, persist, hot-swap."""
 
 from __future__ import annotations
 
@@ -19,7 +11,7 @@ from simple_module_core.events import EventBus
 
 from settings.constants import MODULE_PACKAGE
 from settings.contracts.events import SettingsReloaded
-from settings.hydrate import hydrate_settings, value_type_for_field
+from settings.hydrate import value_type_for_field
 from settings.store import SettingsStore
 
 
@@ -47,18 +39,20 @@ async def apply_changes_and_reload(
     if unknown:
         raise KeyError(f"Unknown field(s) for {package!r}: {sorted(unknown)}")
 
-    current = await hydrate_settings(cls, store, package)
+    services = getattr(app.state, package)
+    current = services.settings
+    diff = {k: v for k, v in changes.items() if getattr(current, k) != v}
+    if not diff:
+        return current
+
     merged = current.model_dump()
-    merged.update(changes)
+    merged.update(diff)
     validated = cls(**merged)
 
-    for field_name, raw_value in changes.items():
+    for field_name, raw_value in diff.items():
         vtype = value_type_for_field(cls, field_name)
-        encoded = _encode(raw_value, vtype)
-        await store.set_override(package, field_name, encoded, vtype)
+        await store.set_override(package, field_name, _encode(raw_value, vtype), vtype)
 
-    services = getattr(app.state, package)
     services.settings = validated
-
-    await bus.publish(SettingsReloaded(package=package, changed=tuple(sorted(changes))))
+    await bus.publish(SettingsReloaded(package=package, changed=tuple(sorted(diff))))
     return validated

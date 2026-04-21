@@ -59,24 +59,12 @@ export function FieldInput({ field, onChange, value, id }: Props) {
         />
       );
     case 'int':
-      return (
-        <input
-          id={id}
-          type="number"
-          step="1"
-          value={String(value ?? '')}
-          onChange={(e) =>
-            onChange(field.name, e.target.value === '' ? null : Number(e.target.value))
-          }
-          className="w-full rounded border px-2 py-1 font-mono text-sm"
-        />
-      );
     case 'float':
       return (
         <input
           id={id}
           type="number"
-          step="any"
+          step={field.type === 'int' ? '1' : 'any'}
           value={String(value ?? '')}
           onChange={(e) =>
             onChange(field.name, e.target.value === '' ? null : Number(e.target.value))

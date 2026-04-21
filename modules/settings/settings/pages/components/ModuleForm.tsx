@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FieldInput, type FieldMeta } from './FieldInput';
 
 export type ModuleView = {
@@ -12,18 +12,47 @@ export type ModuleView = {
 
 type Props = { module: ModuleView };
 
+function notEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return false;
+  if (typeof a === 'object' || typeof b === 'object') {
+    return JSON.stringify(a) !== JSON.stringify(b);
+  }
+  return true;
+}
+
 export function ModuleForm({ module: m }: Props) {
   const initial = useMemo(() => {
     const o: Record<string, unknown> = {};
     for (const f of m.fields) o[f.name] = f.value;
     return o;
-  }, [m]);
+  }, [m.fields]);
 
   const [values, setValues] = useState<Record<string, unknown>>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
-  const dirty = JSON.stringify(values) !== JSON.stringify(initial);
+  // Reset the edit buffer whenever the underlying module changes (package
+  // switch, or server-reloaded props after a save/reset).
+  useEffect(() => {
+    setValues(initial);
+    setErrors({});
+  }, [initial]);
+
+  const modifiedFields = useMemo(() => {
+    const s = new Set<string>();
+    for (const name of Object.keys(values)) {
+      if (notEqual(values[name], initial[name])) s.add(name);
+    }
+    return s;
+  }, [values, initial]);
+
+  const defaultByName = useMemo(() => {
+    const o: Record<string, unknown> = {};
+    for (const f of m.fields) o[f.name] = f.default;
+    return o;
+  }, [m.fields]);
+
+  const dirty = modifiedFields.size > 0;
 
   const grouped = useMemo(() => {
     const g: Record<string, FieldMeta[]> = {};
@@ -33,17 +62,13 @@ export function ModuleForm({ module: m }: Props) {
       g[key].push(f);
     }
     return g;
-  }, [m]);
+  }, [m.fields]);
 
   async function onSave() {
     setBusy(true);
     setErrors({});
     const changed: Record<string, unknown> = {};
-    for (const k of Object.keys(values)) {
-      if (JSON.stringify(values[k]) !== JSON.stringify(initial[k])) {
-        changed[k] = values[k];
-      }
-    }
+    for (const name of modifiedFields) changed[name] = values[name];
     const resp = await fetch(`/api/settings/modules/${m.package}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -88,7 +113,7 @@ export function ModuleForm({ module: m }: Props) {
         <section key={group} className="space-y-3">
           <h3 className="text-sm font-semibold text-muted-foreground">{group}</h3>
           {fields.map((f) => {
-            const isModified = JSON.stringify(values[f.name]) !== JSON.stringify(f.default);
+            const isModified = notEqual(values[f.name], defaultByName[f.name]);
             return (
               <div key={f.name} className="grid grid-cols-[1fr_2fr] gap-4 items-start">
                 <div>

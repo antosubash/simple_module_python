@@ -1,8 +1,8 @@
-"""Framework-level hydration step run at start of the FastAPI lifespan.
+"""Hydrate every registered module's settings from the DB at lifespan start.
 
-Walks every registered module (including ``host``), hydrates its BaseSettings
-from the DB, and reassigns ``app.state.<package>.settings``. Runs before any
-module ``on_startup`` hook so startup code sees DB-backed values.
+Runs before any module ``on_startup`` hook so startup code sees DB-backed
+values. ``importlib`` is used to resolve plugin names lazily so the
+framework→plugin AST check (SM009) stays clean.
 """
 
 from __future__ import annotations
@@ -15,25 +15,18 @@ from fastapi import FastAPI
 
 logger = logging.getLogger(__name__)
 
-_MODULE_PACKAGE = "settings"  # hardcoded to avoid importing settings.constants at module scope
+_MODULE_PACKAGE = "settings"
 
 
 async def hydrate_all(app: FastAPI, store: Any) -> None:
-    """Resolve every registered module's settings from the DB.
-
-    ``store`` is a ``settings.store.SettingsStore`` — typed as ``Any`` to avoid a
-    framework→plugin import at module-load time (SM009). Use ``importlib`` to
-    resolve ``hydrate_settings`` lazily.
-    """
+    """Resolve every registered module's settings from the DB."""
     settings_services = getattr(app.state, _MODULE_PACKAGE, None)
     if settings_services is None:
-        return  # Settings module not installed in this boot — nothing to hydrate.
+        return
 
-    hydrate_mod = importlib.import_module("settings.hydrate")
-    hydrate_settings = hydrate_mod.hydrate_settings
+    hydrate_settings = importlib.import_module("settings.hydrate").hydrate_settings
 
-    registry = settings_services.module_registry
-    for package, cls in registry.items():
+    for package, cls in settings_services.module_registry.items():
         try:
             hydrated = await hydrate_settings(cls, store, package)
         except Exception:

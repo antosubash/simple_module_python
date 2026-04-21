@@ -1,20 +1,7 @@
 """REST endpoints for the per-module settings admin UI.
 
-Exposes three operations over each module's DB-backed ``BaseSettings``:
-
-- ``GET    /api/settings/modules`` — list every registered module with its
-  hydrated field values plus metadata (``type``, ``requires_restart``,
-  ``group``, ``is_secret``).
-- ``PUT    /api/settings/modules/{package}`` — update one or more fields;
-  ``apply_changes_and_reload`` validates with pydantic, persists overrides,
-  hot-swaps ``app.state.<package>.settings``, and publishes
-  ``SettingsReloaded``.
-- ``DELETE /api/settings/modules/{package}/{field}`` — clear a single
-  override, re-hydrate, reassign, and publish ``SettingsReloaded``.
-
-PUT silently drops fields whose name matches ``_SECRET_PATTERNS`` AND whose
-value equals the mask sentinel so the UI can echo back the masked list
-without accidentally clobbering real secrets.
+PUT drops fields whose value is the mask sentinel so the UI can echo back
+masked secrets without clobbering the real value.
 """
 
 from __future__ import annotations
@@ -26,9 +13,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import ValidationError
 
 from settings._module_settings import (
-    _SECRET_MASK,
-    _SECRET_PATTERNS,
+    SECRET_MASK,
     collect_module_settings,
+    is_secret_field,
     serialize,
 )
 from settings.constants import MODULE_PACKAGE
@@ -47,7 +34,7 @@ def _strip_mask_sentinels(changes: dict[str, Any]) -> dict[str, Any]:
     return {
         name: value
         for name, value in changes.items()
-        if not (isinstance(value, str) and value == _SECRET_MASK and _SECRET_PATTERNS.search(name))
+        if not (isinstance(value, str) and value == SECRET_MASK and is_secret_field(name))
     }
 
 
