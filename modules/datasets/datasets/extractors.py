@@ -89,9 +89,7 @@ def _extract_geojson(path: Path) -> ExtractedMeta:
     bbox = doc.get("bbox") if isinstance(doc, dict) else None
     if not bbox:
         bounds = [
-            shape(f["geometry"]).bounds
-            for f in features
-            if isinstance(f.get("geometry"), dict)
+            shape(f["geometry"]).bounds for f in features if isinstance(f.get("geometry"), dict)
         ]
         if bounds:
             bbox = (
