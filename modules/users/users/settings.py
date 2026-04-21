@@ -1,4 +1,14 @@
-"""Users module settings loaded from SM_USERS_* environment variables."""
+"""Users module settings — DB-backed via ``register_module_settings``.
+
+Construction no longer reads ``SM_USERS_*`` environment variables. Values
+come from pydantic defaults at boot, then get hydrated from the DB by the
+hosting lifespan before module ``on_startup`` runs. Runtime changes go
+through ``settings.reload.apply_changes_and_reload``.
+
+The one remaining env read is ``SM_ENVIRONMENT``, consulted by the
+``@model_validator`` to refuse placeholder token secrets in production —
+that's a host-level setting, not a users-module field.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +25,7 @@ _PLACEHOLDER_VERIFY_SECRET = "dev-verify-token-secret-change-me"
 class UsersSettings(BaseSettings):
     """Local user management configuration."""
 
-    model_config = SettingsConfigDict(env_prefix="SM_USERS_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(extra="ignore")
 
     # Self-service signup
     allow_signup: bool = False
@@ -76,13 +86,13 @@ class UsersSettings(BaseSettings):
             return self
         bad = []
         if self.reset_password_token_secret == _PLACEHOLDER_RESET_SECRET:
-            bad.append("SM_USERS_RESET_PASSWORD_TOKEN_SECRET")
+            bad.append("RESET_PASSWORD_TOKEN_SECRET")
         if self.verification_token_secret == _PLACEHOLDER_VERIFY_SECRET:
-            bad.append("SM_USERS_VERIFICATION_TOKEN_SECRET")
+            bad.append("VERIFICATION_TOKEN_SECRET")
         if bad:
             names = ", ".join(bad)
             raise ValueError(
-                f"{names} must be set to non-default value(s) when "
+                f"users.{names} must be set to non-default value(s) when "
                 f"SM_ENVIRONMENT={env!r}. Generate with "
                 "`python -c 'import secrets; print(secrets.token_urlsafe(48))'`."
             )

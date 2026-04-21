@@ -86,7 +86,7 @@ VALUE_TYPE_MAX_LENGTH: Final = 10
 PAGE_BROWSE: Final = f"{MODULE_NAME}/Browse"
 PAGE_CREATE: Final = f"{MODULE_NAME}/Create"
 PAGE_EDIT: Final = f"{MODULE_NAME}/Edit"
-PAGE_MODULES: Final = f"{MODULE_NAME}/Modules"
+PAGE_MODULES_EDIT: Final = f"{MODULE_NAME}/ModulesEdit"
 
 # ── Inertia prop keys ────────────────────────────────────────────────
 PROP_SETTINGS: Final = "settings"

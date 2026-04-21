@@ -439,10 +439,13 @@ export const keys = {
     },
     modules: {
       back_link: 'settings.modules.back_link',
+      browse_free_form_link: 'settings.modules.browse_free_form_link',
       browse_link: 'settings.modules.browse_link',
       description: 'settings.modules.description',
       empty_title: 'settings.modules.empty_title',
+      field_count_suffix: 'settings.modules.field_count_suffix',
       no_fields: 'settings.modules.no_fields',
+      search_placeholder: 'settings.modules.search_placeholder',
       secret_badge: 'settings.modules.secret_badge',
       table: {
         default: 'settings.modules.table.default',

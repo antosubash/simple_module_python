@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 
 from fastapi import FastAPI
@@ -189,7 +190,19 @@ async def bootstrap_admin_from_env(app: FastAPI) -> None:
     useful in dev for testing non-admin flows alongside the admin account.
     """
     settings: UsersSettings = app.state.users.settings
-    if not settings.bootstrap_email or not settings.bootstrap_password:
+    # Bootstrap fields are one-shot seed inputs, not runtime DB settings —
+    # prefer the settings value if a test set one explicitly, otherwise fall
+    # back to the env var so production deployments keep working.
+    email = settings.bootstrap_email or os.environ.get("SM_USERS_BOOTSTRAP_EMAIL", "")
+    password = settings.bootstrap_password or os.environ.get("SM_USERS_BOOTSTRAP_PASSWORD", "")
+    user_email = settings.bootstrap_user_email or os.environ.get(
+        "SM_USERS_BOOTSTRAP_USER_EMAIL", ""
+    )
+    user_password = settings.bootstrap_user_password or os.environ.get(
+        "SM_USERS_BOOTSTRAP_USER_PASSWORD", ""
+    )
+
+    if not email or not password:
         return
 
     session_factory = app.state.sm.db.session_factory
@@ -199,16 +212,12 @@ async def bootstrap_admin_from_env(app: FastAPI) -> None:
             return
 
         try:
-            await create_admin(
-                session,
-                email=settings.bootstrap_email,
-                password=settings.bootstrap_password,
-            )
-            if settings.bootstrap_user_email and settings.bootstrap_user_password:
+            await create_admin(session, email=email, password=password)
+            if user_email and user_password:
                 await create_standard_user(
                     session,
-                    email=settings.bootstrap_user_email,
-                    password=settings.bootstrap_user_password,
+                    email=user_email,
+                    password=user_password,
                 )
         except Exception:
             logger.exception(_EVT_FAILED)

@@ -43,11 +43,25 @@ class BackgroundTasksModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
+        import importlib
+
         from background_tasks.services import BackgroundTasksServices
         from background_tasks.settings import BackgroundTasksSettings
 
-        services = BackgroundTasksServices(settings=BackgroundTasksSettings())
-        app.state.background_tasks = services
+        # SM009 is AST-based: a static `from settings.registration import ...`
+        # from a module helper is fine (plugin→plugin), but we resolve via
+        # importlib here to match the convention used framework-side and to
+        # keep the dependency direction one-way explicit.
+        register_module_settings = importlib.import_module(
+            "settings.registration"
+        ).register_module_settings
+
+        register_module_settings(
+            app,
+            "background_tasks",
+            BackgroundTasksSettings,
+            lambda s: BackgroundTasksServices(settings=s),
+        )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(PERM_GROUP, [PERM_VIEW, PERM_MANAGE])

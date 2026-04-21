@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Final
 
 from file_storage.contracts.service import StorageBackend, StorageNotFoundError
+from slugify import slugify as _slugify
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,7 +45,6 @@ class UploadInput:
     kind: str | None = None
 
 
-_SLUG_RE = re.compile(r"[^a-z0-9]+")
 _UNSAFE_NAME_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
@@ -52,8 +52,7 @@ _DEFAULT_SLUG: Final = "dataset"
 
 
 def slugify(value: str) -> str:
-    slug = _SLUG_RE.sub("-", value.lower()).strip("-")
-    return slug or _DEFAULT_SLUG
+    return _slugify(value) or _DEFAULT_SLUG
 
 
 def safe_filename(name: str) -> str:

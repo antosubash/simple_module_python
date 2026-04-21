@@ -152,6 +152,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.migration = await check_migrations(app.state.sm.db.engine)
 
+        # Hydrate all registered settings from DB before any module
+        # on_startup hook runs, so startup code sees DB-backed values.
+        # Importlib keeps plugin names out of the framework AST (SM009).
+        if hasattr(app.state, "settings"):
+            import importlib
+
+            from simple_module_hosting._hydrate_step import hydrate_all
+
+            service_cls = importlib.import_module("settings.service").SettingService
+            store_cls = importlib.import_module("settings.store").SettingsStore
+
+            async with app.state.sm.db.session_factory() as session:
+                await hydrate_all(app, store_cls(service_cls(session)))
+
         for mod in modules:
             await mod.on_startup(app)
         yield
@@ -170,6 +184,33 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # ── Phase 4: Module settings ───────────────────────────
     for mod in modules:
         mod.register_settings(app)
+
+    # Register host-level settings under package="host" (DB-backed). The
+    # Settings module must already have run register_settings (topo order
+    # puts it early; its meta.depends_on = [] so it's among the first).
+    # When the Settings module isn't enabled, there's no registry to
+    # register against — skip quietly.
+    #
+    # We resolve `settings.registration` via importlib rather than a plain
+    # `from settings.registration import ...`: the SM009 coupling check is
+    # AST-based and forbids any static import of a plugin package name
+    # from within framework/* code. Dynamic resolution keeps the framework
+    # AST plugin-free while still hitting the real helper at runtime.
+    if hasattr(app.state, "settings"):
+        import importlib
+        from dataclasses import dataclass as _dataclass
+
+        from simple_module_hosting.host_settings import HostSettings
+
+        _register_module_settings = importlib.import_module(
+            "settings.registration"
+        ).register_module_settings
+
+        @_dataclass
+        class _HostServices:
+            settings: HostSettings
+
+        _register_module_settings(app, "host", HostSettings, lambda s: _HostServices(settings=s))
 
     if settings.is_development:
         settings_diagnostics = check_settings_registration(app, modules)

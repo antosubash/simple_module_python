@@ -2,9 +2,12 @@
 
 The task runs in a Celery worker — its DB goes through
 ``background_tasks.sync_db`` (sync engine reading ``SM_DATABASE_URL``)
-and its bytes come from ``file_storage.build_backend`` (which re-reads
-``SM_FILE_STORAGE_*`` env). Both are independent of the async test
-``app`` fixture, so each test points them at tmp paths for isolation.
+and its bytes come from ``file_storage.build_backend`` (which builds
+from ``FileStorageSettings()``, pydantic defaults). Both are independent
+of the async test ``app`` fixture, so each test points them at tmp paths
+for isolation: ``SM_DATABASE_URL`` via env (still host-level) and the
+storage root by monkeypatching ``FileStorageSettings`` to pre-fill the
+``fs_root_path`` kwarg.
 """
 
 from __future__ import annotations
@@ -42,14 +45,27 @@ def _isolate_worker_env(
     """
     from background_tasks import sync_db
     from datasets.models import Dataset as _Dataset
+    from file_storage import settings as fs_settings
+    from file_storage.settings import FileStorageSettings as _RealFileStorageSettings
 
     db_file = tmp_path / "worker.db"
     fs_root = tmp_path / "fs"
     fs_root.mkdir()
 
     monkeypatch.setenv("SM_DATABASE_URL", f"sqlite:///{db_file}")
-    monkeypatch.setenv("SM_FILE_STORAGE_BACKEND", "filesystem")
-    monkeypatch.setenv("SM_FILE_STORAGE_FS_ROOT_PATH", str(fs_root))
+
+    # The worker (``datasets.tasks._download_to_tempfile``) constructs
+    # ``FileStorageSettings()`` with no args — pydantic defaults only, no
+    # env reads any more. Swap in a factory that pre-fills the tmp root so
+    # the worker sees this test's filesystem backend without a shared DB.
+    def _factory(**kwargs: object) -> _RealFileStorageSettings:
+        return _RealFileStorageSettings(
+            backend="filesystem",
+            fs_root_path=str(fs_root),
+            **kwargs,
+        )
+
+    monkeypatch.setattr(fs_settings, "FileStorageSettings", _factory)
 
     # Reset the process-global sync engine so the new URL is picked up.
     sync_db._engine = None

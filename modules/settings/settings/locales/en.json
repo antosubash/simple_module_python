@@ -57,6 +57,9 @@
     "no_fields": "No fields declared.",
     "secret_badge": "secret",
     "browse_link": "View module settings",
+    "search_placeholder": "Search modules or fields…",
+    "field_count_suffix": "fields",
+    "browse_free_form_link": "View free-form settings",
     "table": {
       "field": "Field",
       "env_var": "Env var",
