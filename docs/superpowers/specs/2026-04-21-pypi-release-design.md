@@ -142,7 +142,7 @@ Per-package specifics below. Each README is ~60–120 lines. The "Usage" snippet
 |---|---|
 | `simple-module-core` | `ModuleBase` + `ModuleMeta` example, lifecycle hook list, entry-points declaration snippet, `discover_modules()` mention. |
 | `simple-module-db` | `create_module_base(name)` example, standard mixins (`AuditMixin`, `SoftDeleteMixin`, `MultiTenantMixin`, `VersionedMixin`), auto-commit-on-flush rule. |
-| `simple-module-hosting` | `create_app(settings)` minimal `main.py` snippet, middleware pipeline overview, `sm` CLI commands (`new`, `doctor`). |
+| `simple-module-hosting` | `create_app(settings)` minimal `main.py` snippet, middleware pipeline overview, `sm` / `simple-module` CLI commands (`new`, `doctor`) and note that both names work. |
 | `simple-module-testing` | Automatic fixture loading via `pytest11` entry point, the fixtures provided (`app`, `client`, `db_session`, `authenticated_client`, `settings`). |
 | `simple-module-users` | Email+password auth, admin invite flow, `SM_USERS_*` settings, `sm-users create-admin` CLI. |
 | `simple-module-dashboard` | Adds `/dashboard` landing page for authenticated users, menu entry registration. |
@@ -155,11 +155,21 @@ Per-package specifics below. Each README is ~60–120 lines. The "Usage" snippet
 | `simple-module-products` | Example CRUD module — explicitly labelled as a reference / demo. |
 | `simple-module-settings` | Runtime settings UI, where modules plug settings panels. |
 
-### 3. `sm new` CLI generator (Workstream 3)
+### 3. `sm` / `simple-module` CLI generator (Workstream 3)
 
-New `new` subcommand on the existing `sm` Click CLI in `simple_module_hosting/cli.py`.
+New `new` subcommand on the existing Click CLI in `simple_module_hosting/cli.py`.
 
-**Interactive:** `simple-module new my-app`
+**Both `sm` and `simple-module` work as CLI entry points** — they are aliases for the same underlying command. This is declared in `framework/hosting/pyproject.toml`:
+
+```toml
+[project.scripts]
+sm = "simple_module_hosting.cli:main"
+simple-module = "simple_module_hosting.cli:main"
+```
+
+`sm` stays as the short form for daily use; `simple-module` is the discoverable long form that matches the package namespace (what users first encounter on PyPI). Both expose the full command tree — `new`, `doctor`, future subcommands — identically.
+
+**Interactive:** `simple-module new my-app` *or* `sm new my-app`
 **Scripted:** `simple-module new my-app --db sqlite --no-tenancy --yes`
 
 Flags:
