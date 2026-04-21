@@ -29,6 +29,7 @@ dependencies = [
     "simple_module_core==0.0.1",
     "simple_module_db==0.0.1",
     "starlette>=0.44",
+    "tomlkit>=0.13",
     "uvicorn[standard]>=0.34",
 ]
 
