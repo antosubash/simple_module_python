@@ -142,10 +142,7 @@ def _is_not_found(exc: Exception) -> bool:
 @register_backend(constants.BackendId.S3)
 def _build(settings: FileStorageSettings) -> S3Backend:
     if not settings.s3_bucket or not settings.s3_region:
-        raise ConfigurationError(
-            f"S3 backend requires {constants.ENV_PREFIX}S3_BUCKET and "
-            f"{constants.ENV_PREFIX}S3_REGION."
-        )
+        raise ConfigurationError("S3 backend requires s3_bucket and s3_region.")
     client_kwargs: dict[str, Any] = {"region_name": settings.s3_region}
     if settings.s3_endpoint_url:
         client_kwargs["endpoint_url"] = settings.s3_endpoint_url

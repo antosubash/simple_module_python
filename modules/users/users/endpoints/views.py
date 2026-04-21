@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -47,22 +48,24 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
     # production, regardless of whether the vars are set.
     dev_accounts: list[dict[str, str]] = []
     if request.app.state.sm.settings.is_development:
-        if users_settings.bootstrap_email and users_settings.bootstrap_password:
+        admin_email = users_settings.bootstrap_email or os.environ.get(
+            "SM_USERS_BOOTSTRAP_EMAIL", ""
+        )
+        admin_password = users_settings.bootstrap_password or os.environ.get(
+            "SM_USERS_BOOTSTRAP_PASSWORD", ""
+        )
+        if admin_email and admin_password:
             dev_accounts.append(
-                {
-                    "label": "Admin",
-                    "email": users_settings.bootstrap_email,
-                    "password": users_settings.bootstrap_password,
-                }
+                {"label": "Admin", "email": admin_email, "password": admin_password}
             )
-        if users_settings.bootstrap_user_email and users_settings.bootstrap_user_password:
-            dev_accounts.append(
-                {
-                    "label": "User",
-                    "email": users_settings.bootstrap_user_email,
-                    "password": users_settings.bootstrap_user_password,
-                }
-            )
+        user_email = users_settings.bootstrap_user_email or os.environ.get(
+            "SM_USERS_BOOTSTRAP_USER_EMAIL", ""
+        )
+        user_password = users_settings.bootstrap_user_password or os.environ.get(
+            "SM_USERS_BOOTSTRAP_USER_PASSWORD", ""
+        )
+        if user_email and user_password:
+            dev_accounts.append({"label": "User", "email": user_email, "password": user_password})
     return await inertia.render(
         _PAGE_LOGIN,
         {"allow_signup": users_settings.allow_signup, "dev_accounts": dev_accounts},

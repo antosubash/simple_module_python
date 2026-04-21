@@ -65,6 +65,17 @@ async def enforce_auth_throughput_limit(request: Request) -> None:
         )
 
 
+async def require_signup_enabled(request: Request) -> None:
+    """Gate the register endpoint at request time on ``allow_signup``.
+
+    Mounting stays unconditional so settings reloads don't need to rebuild
+    the router. When signup is disabled we return 404 so the endpoint
+    appears absent (matches the view-side behaviour at ``/users/register``).
+    """
+    if not request.app.state.users.settings.allow_signup:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+
 # ── Wrapper login ────────────────────────────────────────────────────────────
 
 
@@ -114,8 +125,8 @@ auth_inner = fastapi_users.get_auth_router(auth_backend, requires_verification=T
 router.include_router(auth_inner, prefix="/auth-inner")
 
 
-def register_auth_routes(api_router: APIRouter, settings) -> None:
-    """Mount all auth routes, conditionally adding register if allowed.
+def register_auth_routes(api_router: APIRouter) -> None:
+    """Mount all auth routes.
 
     The stock fastapi-users routers (reset/verify/register) ship POST endpoints
     that trigger email side-effects or account creation. We wrap them with the
@@ -123,6 +134,9 @@ def register_auth_routes(api_router: APIRouter, settings) -> None:
     accounts indefinitely. ``router`` itself is left unwrapped because its
     rate-limited endpoints apply the dep themselves (login via LoginRateLimiter,
     accept-invite via ``enforce_auth_throughput_limit``).
+
+    The register router is always mounted; ``require_signup_enabled`` gates
+    it at request time so ``allow_signup`` is hot-reloadable.
     """
     api_router.include_router(router)
     api_router.include_router(
@@ -137,13 +151,15 @@ def register_auth_routes(api_router: APIRouter, settings) -> None:
         tags=["users-auth"],
         dependencies=[Depends(enforce_auth_throughput_limit)],
     )
-    if settings.allow_signup:
-        api_router.include_router(
-            fastapi_users.get_register_router(UserRead, UserCreate),
-            prefix="/auth",
-            tags=["users-auth"],
-            dependencies=[Depends(enforce_auth_throughput_limit)],
-        )
+    api_router.include_router(
+        fastapi_users.get_register_router(UserRead, UserCreate),
+        prefix="/auth",
+        tags=["users-auth"],
+        dependencies=[
+            Depends(require_signup_enabled),
+            Depends(enforce_auth_throughput_limit),
+        ],
+    )
 
 
 # ── Accept-invite (verify + set password + login, one shot) ─────────────────

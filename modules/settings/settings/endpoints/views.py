@@ -114,4 +114,7 @@ async def modules_view(request: Request, inertia: InertiaDep) -> InertiaResponse
     Auto-discovered from ``app.state.sm.modules``; secrets are masked server-side.
     """
     views = collect_module_settings(request.app)
-    return await inertia.render("Settings/Modules", {PROP_MODULES: serialize(views)})
+    return await inertia.render(
+        "Settings/ModulesEdit",
+        {PROP_MODULES: serialize(views)},
+    )

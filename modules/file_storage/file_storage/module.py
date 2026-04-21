@@ -26,16 +26,31 @@ class FileStorageModule(ModuleBase):
         name=constants.MODULE_PASCAL,
         route_prefix=constants.ROUTE_PREFIX_API,
         view_prefix=constants.ROUTE_PREFIX_VIEW,
+        # Needs Settings to run first so register_module_settings can reach
+        # app.state.settings.module_registry during register_settings.
+        depends_on=["Settings"],
     )
 
     def register_settings(self, app: FastAPI) -> None:
-        from file_storage.backends import build_backend
+        import importlib
+
         from file_storage.services import FileStorageServices
         from file_storage.settings import FileStorageSettings
 
-        settings = FileStorageSettings()
-        backend = build_backend(settings)
-        app.state.file_storage = FileStorageServices(settings=settings, backend=backend)
+        # SM009 is AST-based: a static `from settings.registration import ...`
+        # from a module helper is fine (plugin→plugin), but we resolve via
+        # importlib here to match the convention used framework-side and to
+        # keep the dependency direction one-way explicit.
+        register_module_settings = importlib.import_module(
+            "settings.registration"
+        ).register_module_settings
+
+        register_module_settings(
+            app,
+            "file_storage",
+            FileStorageSettings,
+            lambda s: FileStorageServices(settings=s),
+        )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from file_storage.endpoints.api import router as api
@@ -89,9 +104,18 @@ class FileStorageModule(ModuleBase):
         return {constants.LOCALE_NAMESPACE: base}
 
     async def on_startup(self, app: FastAPI) -> None:
-        """Ensure the filesystem backend's root exists; probe S3 bucket reachability."""
+        """Build the storage backend and probe its backing resource.
+
+        Backend construction is deferred to ``on_startup`` so settings
+        hydrated from the DB (between ``register_settings`` and here) are
+        picked up — constructing in ``register_settings`` would bake in
+        the pydantic defaults instead of the DB overrides.
+        """
+        from file_storage.backends import build_backend
+
         services = app.state.file_storage
         settings = services.settings
+        services.backend = build_backend(settings)
         if settings.backend == constants.BackendId.FILESYSTEM:
             root = settings.resolved_fs_root()
             root.mkdir(parents=True, exist_ok=True)

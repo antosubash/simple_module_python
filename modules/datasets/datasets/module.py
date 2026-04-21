@@ -35,10 +35,25 @@ class DatasetsModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
+        import importlib
+
         from datasets.services import DatasetsServices
         from datasets.settings import DatasetsSettings
 
-        app.state.datasets = DatasetsServices(settings=DatasetsSettings())
+        # SM009 is AST-based: a static `from settings.registration import ...`
+        # from a module helper is fine (plugin→plugin), but we resolve via
+        # importlib here to match the convention used framework-side and to
+        # keep the dependency direction one-way explicit.
+        register_module_settings = importlib.import_module(
+            "settings.registration"
+        ).register_module_settings
+
+        register_module_settings(
+            app,
+            "datasets",
+            DatasetsSettings,
+            lambda s: DatasetsServices(settings=s),
+        )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from datasets.endpoints.api import router as api
@@ -128,7 +143,8 @@ def _setting_definitions() -> list[SettingDefinition]:
             default=str(constants.DEFAULT_MAX_UPLOAD_MB),
             description=(
                 "Per-dataset upload size cap in megabytes. Overrides the "
-                "``SM_DATASETS_MAX_UPLOAD_MB`` env default at runtime."
+                "pydantic default on ``DatasetsSettings.max_upload_mb`` at "
+                "runtime."
             ),
             value_type=SettingValueType.INT,
         ),

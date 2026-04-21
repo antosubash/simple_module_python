@@ -5,7 +5,9 @@ Stored as ``app.state.file_storage`` by
 
 Holds the resolved :class:`StorageBackend` so endpoints don't reconstruct it
 per request — provider handles (S3 client sessions, open file descriptors)
-are pooled inside the backend instance.
+are pooled inside the backend instance. ``backend`` is populated in
+``on_startup`` (after settings have been hydrated from the DB), so it's
+optional at construction time.
 """
 
 from __future__ import annotations
@@ -23,4 +25,4 @@ class FileStorageServices:
     """file_storage module singletons. Single slot at ``app.state.file_storage``."""
 
     settings: FileStorageSettings
-    backend: StorageBackend
+    backend: StorageBackend | None = None
