@@ -51,6 +51,6 @@ class FrameworkVersionError(ModuleError):
         super().__init__(
             f"Installed module(s) incompatible with framework API version {framework_version}:\n"
             + "\n".join(lines)
-            + "\n\nResolution: upgrade the module(s), upgrade simple-module-core, "
+            + "\n\nResolution: upgrade the module(s), upgrade simple_module_core, "
             "or remove the incompatible module."
         )

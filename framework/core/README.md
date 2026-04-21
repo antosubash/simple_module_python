@@ -1,4 +1,4 @@
-# simple-module-core
+# simple_module_core
 
 Module-system primitives for the [simple_module](https://github.com/antosubash/simple_module_python) framework — a modular-monolith for Python/FastAPI where each feature is a plugin package discovered at boot.
 
@@ -7,10 +7,10 @@ This package defines `ModuleBase`, the `ModuleMeta` descriptor, the `discover_mo
 ## Install
 
 ```bash
-pip install simple-module-core
+pip install simple_module_core
 ```
 
-You usually don't install this directly — it's pulled in by `simple-module-hosting` and every `simple-module-*` module.
+You usually don't install this directly — it's pulled in by `simple_module_hosting` and every `simple_module_*` module.
 
 ## What it provides
 

@@ -1,5 +1,5 @@
 [project]
-name = "simple-module-testing"
+name = "simple_module_testing"
 version = "0.0.1"
 description = "Shared pytest fixtures (app, client, db_session, authenticated_client) for writing simple_module module tests"
 readme = "README.md"
@@ -25,9 +25,9 @@ dependencies = [
     "httpx>=0.27",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
-    "simple-module-core==0.0.1",
-    "simple-module-db==0.0.1",
-    "simple-module-hosting==0.0.1",
+    "simple_module_core==0.0.1",
+    "simple_module_db==0.0.1",
+    "simple_module_hosting==0.0.1",
     "sqlalchemy>=2.0",
 ]
 
@@ -48,6 +48,6 @@ build-backend = "hatchling.build"
 packages = ["simple_module_testing"]
 
 [tool.uv.sources]
-simple-module-core = { workspace = true }
-simple-module-db = { workspace = true }
-simple-module-hosting = { workspace = true }
+simple_module_core = { workspace = true }
+simple_module_db = { workspace = true }
+simple_module_hosting = { workspace = true }

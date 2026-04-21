@@ -1,11 +1,11 @@
-# simple-module-hosting
+# simple_module_hosting
 
 FastAPI + Inertia.js host runtime for the [simple_module](https://github.com/antosubash/simple_module_python) framework — builds the app, wires the middleware pipeline, exposes the `sm` / `simple-module` CLI, and ships the project scaffolder.
 
 ## Install
 
 ```bash
-pip install simple-module-hosting
+pip install simple_module_hosting
 ```
 
 For a new project, most users run the generator instead:
@@ -50,7 +50,7 @@ simple-module gen-pages         # regenerate client_app/modules.generated.ts
 
 ## Depends on
 
-- `simple-module-core`, `simple-module-db`
+- `simple_module_core`, `simple_module_db`
 - `fastapi`, `fastapi-inertia`, `starlette`, `uvicorn`, `click`, `jinja2`, `httpx`
 
 ## License

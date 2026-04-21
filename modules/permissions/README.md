@@ -1,4 +1,4 @@
-# simple-module-permissions
+# simple_module_permissions
 
 Role-based access control (RBAC) for [simple_module](https://github.com/antosubash/simple_module_python) apps. Users get roles, roles carry permissions, and route handlers declare required permissions at the decorator or dependency layer.
 
@@ -7,7 +7,7 @@ Pre-wired into any app scaffolded with `simple-module new`.
 ## Install
 
 ```bash
-pip install simple-module-permissions
+pip install simple_module_permissions
 ```
 
 ## What it provides
@@ -47,7 +47,7 @@ Admin flow: navigate to `/permissions/admin`, create a role, assign permissions,
 
 ## Depends on
 
-- `simple-module-core`, `simple-module-db`, `simple-module-hosting`, `simple-module-users`
+- `simple_module_core`, `simple_module_db`, `simple_module_hosting`, `simple_module_users`
 
 ## License
 

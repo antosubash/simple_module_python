@@ -128,8 +128,8 @@ class TestCreateHost:
         dest = tmp_path / "demo"
         create_host(dest, name="demo", modules=["Products", "Auth"])
         pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
-        assert "simple-module-products" in pyproject
-        assert "simple-module-auth" in pyproject
+        assert "simple_module_products" in pyproject
+        assert "simple_module_auth" in pyproject
 
     async def test_refuses_existing_non_empty_dir(self, tmp_path):
         """create_host aborts if the destination exists and is non-empty — no clobbering."""
@@ -166,6 +166,6 @@ class TestCreateHost:
         assert result.exit_code == 0, result.output
         assert (tmp_path / "out" / "main.py").is_file()
         assert (tmp_path / "out" / "pyproject.toml").is_file()
-        assert "simple-module-products" in (tmp_path / "out" / "pyproject.toml").read_text(
+        assert "simple_module_products" in (tmp_path / "out" / "pyproject.toml").read_text(
             encoding="utf-8"
         )

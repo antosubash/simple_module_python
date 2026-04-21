@@ -16,7 +16,7 @@ def test_python_package_missing_simple_module_keyword(tmp_pkg_dir: Path, writer)
         tmp_pkg_dir / "pyproject.toml",
         """
 [project]
-name = "simple-module-foo"
+name = "simple_module_foo"
 version = "0.0.1"
 description = "A real description"
 readme = "README.md"
@@ -36,7 +36,7 @@ def test_python_package_placeholder_description_rejected(tmp_pkg_dir: Path, writ
         tmp_pkg_dir / "pyproject.toml",
         """
 [project]
-name = "simple-module-foo"
+name = "simple_module_foo"
 version = "0.0.1"
 description = "Add your description here"
 readme = "README.md"
@@ -56,7 +56,7 @@ def test_python_package_passes_when_valid(tmp_pkg_dir: Path, writer) -> None:
         tmp_pkg_dir / "pyproject.toml",
         """
 [project]
-name = "simple-module-foo"
+name = "simple_module_foo"
 version = "0.0.1"
 description = "The foo module — handles foo things"
 readme = "README.md"
@@ -130,7 +130,7 @@ def test_main_exits_zero_on_clean_repo(tmp_path: Path, monkeypatch, writer) -> N
         repo / "framework/core/pyproject.toml",
         """
 [project]
-name = "simple-module-core"
+name = "simple_module_core"
 version = "0.0.1"
 description = "Core framework"
 readme = "README.md"
@@ -165,7 +165,7 @@ def test_main_exits_nonzero_on_violation(tmp_path: Path, monkeypatch, writer) ->
         repo / "framework/core/pyproject.toml",
         """
 [project]
-name = "simple-module-core"
+name = "simple_module_core"
 version = "0.0.1"
 description = "Add your description here"
 readme = "README.md"

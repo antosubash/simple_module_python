@@ -1,6 +1,6 @@
 """Shared pytest fixtures and helpers for SimpleModule module authors.
 
-Install with ``pip install simple-module-testing[dev]`` (or add it to
+Install with ``pip install simple_module_testing[dev]`` (or add it to
 ``[project.optional-dependencies].dev`` of your module). The pytest plugin
 registers its fixtures automatically via the ``pytest11`` entry_point — no
 imports needed in your test files.

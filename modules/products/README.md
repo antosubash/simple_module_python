@@ -1,4 +1,4 @@
-# simple-module-products
+# simple_module_products
 
 Example CRUD module for [simple_module](https://github.com/antosubash/simple_module_python). **This is a reference / demo**, not a production-ready commerce module — it exists to show what a fully-featured `simple_module` module looks like end-to-end: `ModuleBase`, SQLModel table with `AuditMixin`, contracts, service, REST + Inertia endpoints, Browse/Create/Edit pages, tests.
 
@@ -7,7 +7,7 @@ Fresh `simple-module new` scaffolds *don't* include this by default — it's her
 ## Install
 
 ```bash
-pip install simple-module-products
+pip install simple_module_products
 ```
 
 ## What it provides
@@ -31,13 +31,13 @@ It's a reference, so the most useful "usage" is reading the source:
 If you do want a working `/products` in your own app:
 
 ```bash
-uv add simple-module-products
+uv add simple_module_products
 # Alembic will now see the products schema at the next `alembic revision --autogenerate`.
 ```
 
 ## Depends on
 
-- `simple-module-core`, `simple-module-db`, `simple-module-hosting`
+- `simple_module_core`, `simple_module_db`, `simple_module_hosting`
 
 ## License
 

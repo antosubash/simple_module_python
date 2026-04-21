@@ -79,12 +79,13 @@ def create_host(name: str, dest: Path | None, modules: str) -> None:
     "--dest",
     type=click.Path(file_okay=False, path_type=Path),
     default=None,
-    help="Destination directory. Defaults to ./simple-module-<slug>.",
+    help="Destination directory. Defaults to ./simple_module_<package>.",
 )
 def create_module_cmd(name: str, dest: Path | None) -> None:
     """Scaffold a publishable SimpleModule module package."""
     slug = _to_kebab_case(name)
-    target = dest or Path.cwd() / f"simple-module-{slug}"
+    package = slug.replace("-", "_")
+    target = dest or Path.cwd() / f"simple_module_{package}"
 
     try:
         create_module(target, name=name)
@@ -92,7 +93,7 @@ def create_module_cmd(name: str, dest: Path | None) -> None:
         click.echo(f"ERROR: {exc}", err=True)
         sys.exit(1)
 
-    click.echo(f"Created module 'simple-module-{slug}' at {target}")
+    click.echo(f"Created module 'simple_module_{package}' at {target}")
     click.echo("\nNext steps:")
     click.echo(f"  cd {target}")
     click.echo("  uv sync --extra dev")

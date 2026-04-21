@@ -1,11 +1,11 @@
-# simple-module-db
+# simple_module_db
 
 Database layer for the [simple_module](https://github.com/antosubash/simple_module_python) framework. Provides a per-module `Base`, an async SQLAlchemy/SQLModel session, standard mixins, and an auto-commit-on-flush listener that removes manual `session.commit()` calls from service code.
 
 ## Install
 
 ```bash
-pip install simple-module-db
+pip install simple_module_db
 ```
 
 ## What it provides
@@ -47,7 +47,7 @@ Never call `session.commit()` — the framework handles it.
 
 ## Depends on
 
-- `simple-module-core`, `sqlalchemy[asyncio]`, `sqlmodel`, `alembic`, `asyncpg`, `aiosqlite`
+- `simple_module_core`, `sqlalchemy[asyncio]`, `sqlmodel`, `alembic`, `asyncpg`, `aiosqlite`
 
 ## License
 

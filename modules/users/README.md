@@ -1,11 +1,11 @@
-# simple-module-users
+# simple_module_users
 
 Email+password user management for [simple_module](https://github.com/antosubash/simple_module_python) apps. Replaces Keycloak/Auth0 for the common case: local accounts, admin invites, password reset, optional public signup. Built on `fastapi-users`.
 
 ## Install
 
 ```bash
-pip install simple-module-users
+pip install simple_module_users
 ```
 
 Pre-wired into any app scaffolded with `simple-module new`.
@@ -47,7 +47,7 @@ async def profile(user: CurrentUser):
 
 ## Depends on
 
-- `simple-module-core`, `simple-module-db`, `simple-module-hosting`, `simple-module-auth`
+- `simple_module_core`, `simple_module_db`, `simple_module_hosting`, `simple_module_auth`
 - `fastapi-users[sqlalchemy]>=15,<16`, `aiosmtplib`, `cachetools`, `typer`
 
 ## License

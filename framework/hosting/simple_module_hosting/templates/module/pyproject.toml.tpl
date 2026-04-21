@@ -1,12 +1,12 @@
 [project]
-name = "simple-module-{{MODULE_SLUG}}"
+name = "simple_module_{{PACKAGE_NAME}}"
 version = "0.1.0"
 description = "{{MODULE_NAME}} module for SimpleModule hosts"
 requires-python = ">=3.12"
 dependencies = [
-    "simple-module-core>=1.0,<2.0",
-    "simple-module-db>=1.0,<2.0",
-    "simple-module-hosting>=1.0,<2.0",
+    "simple_module_core>=1.0,<2.0",
+    "simple_module_db>=1.0,<2.0",
+    "simple_module_hosting>=1.0,<2.0",
     "sqlalchemy>=2.0",
 ]
 
@@ -19,7 +19,7 @@ dev = [
     "pytest-asyncio>=0.24",
     # Shared fixtures (fake_event_bus, build_test_app, etc.) for testing
     # modules in isolation. The pytest11 entry_point auto-registers them.
-    "simple-module-testing>=0.1,<1.0",
+    "simple_module_testing>=0.1,<1.0",
 ]
 
 [build-system]

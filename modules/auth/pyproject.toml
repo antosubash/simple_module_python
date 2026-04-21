@@ -1,5 +1,5 @@
 [project]
-name = "simple-module-auth"
+name = "simple_module_auth"
 version = "0.0.1"
 description = "Session-cookie authentication primitives — middleware, login/logout, redirect helpers for simple_module"
 readme = "README.md"
@@ -22,8 +22,8 @@ classifiers = [
 ]
 dependencies = [
     "itsdangerous>=2.2",
-    "simple-module-core==0.0.1",
-    "simple-module-db==0.0.1",
+    "simple_module_core==0.0.1",
+    "simple_module_db==0.0.1",
 ]
 
 [project.entry-points.simple_module]
@@ -48,5 +48,5 @@ packages = ["auth"]
 "package.json" = "auth/package.json"
 
 [tool.uv.sources]
-simple-module-core = { workspace = true }
-simple-module-db = { workspace = true }
+simple_module_core = { workspace = true }
+simple_module_db = { workspace = true }

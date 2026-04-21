@@ -1,4 +1,4 @@
-# simple-module-file-storage
+# simple_module_file_storage
 
 Pluggable file-upload + storage module for [simple_module](https://github.com/antosubash/simple_module_python) apps. Defaults to local-disk storage for development; install the `[s3]` extra to switch to any S3-compatible backend via `aioboto3`.
 
@@ -6,10 +6,10 @@ Pluggable file-upload + storage module for [simple_module](https://github.com/an
 
 ```bash
 # local-disk storage (dev default)
-pip install simple-module-file-storage
+pip install simple_module_file_storage
 
 # S3-compatible storage (production)
-pip install "simple-module-file-storage[s3]"
+pip install "simple_module_file_storage[s3]"
 ```
 
 ## What it provides
@@ -46,7 +46,7 @@ AWS_SECRET_ACCESS_KEY=...
 
 ## Depends on
 
-- `simple-module-core`, `simple-module-db`, `simple-module-hosting`
+- `simple_module_core`, `simple_module_db`, `simple_module_hosting`
 - `aiofiles`
 - Optional: `aioboto3` (install the `[s3]` extra)
 

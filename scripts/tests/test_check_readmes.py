@@ -32,7 +32,7 @@ def test_missing_sections_reported(tmp_pkg_dir: Path, writer) -> None:
 def test_valid_readme_passes(tmp_pkg_dir: Path, writer) -> None:
     writer(
         tmp_pkg_dir / "README.md",
-        "# simple-module-foo\n\n"
+        "# simple_module_foo\n\n"
         + ("Lorem ipsum dolor sit amet. " * 40)
         + "\n\n## Install\n\n`pip install x`\n\n## Usage\n\n`x()`\n",
     )
@@ -42,7 +42,7 @@ def test_valid_readme_passes(tmp_pkg_dir: Path, writer) -> None:
 def test_main_fails_on_missing(tmp_path: Path, monkeypatch, writer) -> None:
     writer(
         tmp_path / "framework/core/pyproject.toml",
-        '[project]\nname = "simple-module-core"\n',
+        '[project]\nname = "simple_module_core"\n',
     )
     monkeypatch.chdir(tmp_path)
     assert main([]) != 0

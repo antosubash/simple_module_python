@@ -1,4 +1,4 @@
-# simple-module-dashboard
+# simple_module_dashboard
 
 Admin landing page + sidebar menu host for authenticated users of a [simple_module](https://github.com/antosubash/simple_module_python) app. Renders `/dashboard`, collects menu entries registered by every other installed module, and provides the primary Inertia layout.
 
@@ -7,7 +7,7 @@ Pre-wired into any app scaffolded with `simple-module new`.
 ## Install
 
 ```bash
-pip install simple-module-dashboard
+pip install simple_module_dashboard
 ```
 
 ## What it provides
@@ -37,8 +37,8 @@ The dashboard sidebar picks it up automatically.
 
 ## Depends on
 
-- `simple-module-core`, `simple-module-db`, `simple-module-hosting`
-- `simple-module-users`, `simple-module-products` (demo content used by the default layout)
+- `simple_module_core`, `simple_module_db`, `simple_module_hosting`
+- `simple_module_users`, `simple_module_products` (demo content used by the default layout)
 
 ## License
 

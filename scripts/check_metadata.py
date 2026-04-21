@@ -2,7 +2,7 @@
 
 Rules:
   * Every `pyproject.toml` under framework/* and modules/* must have:
-      - name starting with "simple-module-"
+      - name starting with "simple_module_"
       - non-placeholder description (not "Add your description here" or empty)
       - readme = "README.md"
       - license = "MIT"
@@ -41,8 +41,8 @@ def check_python_package(pyproject: Path) -> list[str]:
     rel = pyproject
 
     name = str(project.get("name", ""))
-    if not name.startswith("simple-module-"):
-        errors.append(f"{rel}: name must start with 'simple-module-' (got '{name}')")
+    if not name.startswith("simple_module_"):
+        errors.append(f"{rel}: name must start with 'simple_module_' (got '{name}')")
 
     desc = str(project.get("description", ""))
     if desc in PLACEHOLDER_DESCRIPTIONS:

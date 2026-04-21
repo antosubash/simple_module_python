@@ -26,7 +26,7 @@ class TestGeneratedFilesSyntaxValidity:
     def test_pyproject_toml_parses(self, scaffolded_orders: Path):
         data = tomllib.loads((scaffolded_orders.parent / "pyproject.toml").read_text())
 
-        assert data["project"]["name"] == "orders"
+        assert data["project"]["name"] == "simple_module_orders"
         assert (
             data["project"]["entry-points"]["simple_module"]["orders"]
             == "orders.module:OrdersModule"
@@ -38,7 +38,7 @@ class TestGeneratedFilesSyntaxValidity:
         pyproject = module_root / "modules" / "blog_posts" / "pyproject.toml"
         data = tomllib.loads(pyproject.read_text())
 
-        assert data["project"]["name"] == "blog-posts"
+        assert data["project"]["name"] == "simple_module_blog_posts"
         ep = data["project"]["entry-points"]["simple_module"]
         assert ep["blog_posts"] == "blog_posts.module:BlogPostsModule"
 

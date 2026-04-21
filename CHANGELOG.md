@@ -10,20 +10,20 @@ Initial public release. All 14 Python packages publish to PyPI and all 3 JS pack
 
 ### Python packages (PyPI)
 
-- `simple-module-core`
-- `simple-module-db`
-- `simple-module-hosting`
-- `simple-module-testing`
-- `simple-module-auth`
-- `simple-module-background-tasks`
-- `simple-module-dashboard`
-- `simple-module-datasets`
-- `simple-module-feature-flags`
-- `simple-module-file-storage`
-- `simple-module-permissions`
-- `simple-module-products`
-- `simple-module-settings`
-- `simple-module-users`
+- `simple_module_core`
+- `simple_module_db`
+- `simple_module_hosting`
+- `simple_module_testing`
+- `simple_module_auth`
+- `simple_module_background_tasks`
+- `simple_module_dashboard`
+- `simple_module_datasets`
+- `simple_module_feature_flags`
+- `simple_module_file_storage`
+- `simple_module_permissions`
+- `simple_module_products`
+- `simple_module_settings`
+- `simple_module_users`
 
 ### npm packages
 

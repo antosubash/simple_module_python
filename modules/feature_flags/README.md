@@ -1,11 +1,11 @@
-# simple-module-feature-flags
+# simple_module_feature_flags
 
 Feature flags for [simple_module](https://github.com/antosubash/simple_module_python) apps. Global flags with per-tenant overrides, a tiny consumer API, and no external service to run.
 
 ## Install
 
 ```bash
-pip install simple-module-feature-flags
+pip install simple_module_feature_flags
 ```
 
 ## What it provides
@@ -48,7 +48,7 @@ TenantFlagOverride(tenant_id=7, flag_name="orders.new_pricing_engine", enabled=T
 
 ## Depends on
 
-- `simple-module-core`, `simple-module-db`, `simple-module-hosting`
+- `simple_module_core`, `simple_module_db`, `simple_module_hosting`
 
 ## License
 

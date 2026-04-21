@@ -1,7 +1,7 @@
 """Pytest plugin — registered via the ``pytest11`` entry_point in pyproject.toml.
 
 Fixtures declared here are available to every test run in any environment
-that has ``simple-module-testing`` installed, without a ``conftest.py``
+that has ``simple_module_testing`` installed, without a ``conftest.py``
 import. Delete a fixture from this file and you break external modules'
 test suites — treat the fixture surface like a public API.
 """

@@ -48,8 +48,8 @@ _PACKAGE_PATH_TOKEN = "__PACKAGE__"
 
 
 def _module_to_pypi_name(name: str) -> str:
-    """'Products' -> 'simple-module-products'. Matches the publishing convention."""
-    return f"simple-module-{name.lower()}"
+    """'Products' -> 'simple_module_products'. Matches the publishing convention."""
+    return f"simple_module_{name.lower()}"
 
 
 def _iter_template_files(template_root: Path):
@@ -117,7 +117,7 @@ def create_host(
     """Materialize a SimpleModule host scaffold at ``dest``.
 
     Modules listed in ``modules`` become PyPI dependencies in the scaffolded
-    ``pyproject.toml`` (e.g. ``"simple-module-products>=0.1,<1.0"``). Raises
+    ``pyproject.toml`` (e.g. ``"simple_module_products>=0.1,<1.0"``). Raises
     :class:`FileExistsError` if ``dest`` is an existing non-empty directory.
     """
     dest = Path(dest)
