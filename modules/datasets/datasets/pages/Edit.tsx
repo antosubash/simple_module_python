@@ -44,7 +44,7 @@ function Edit() {
     e.preventDefault();
     setSubmitting(true);
     router.patch(
-      `/api/datasets/${dataset.id}`,
+      `/datasets/${dataset.id}`,
       { name, description: description || null, kind, crs: crs || null },
       {
         onSuccess: () => {
