@@ -1,15 +1,36 @@
 {
-  "name": "@simple-module/i18n",
-  "private": true,
+  "name": "@simple-module-py/i18n",
+  "version": "0.0.1",
+  "description": "i18next + react-i18next glue for simple_module apps — hooks, namespace conventions, locale wiring",
+  "keywords": ["simple-module", "i18n", "i18next", "react-i18next", "localization"],
+  "homepage": "https://github.com/antosubash/simple_module_python#readme",
+  "bugs": "https://github.com/antosubash/simple_module_python/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/antosubash/simple_module_python.git",
+    "directory": "packages/i18n"
+  },
+  "license": "MIT",
+  "author": "Anto Subash <antosubash@live.com>",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "files": ["src", "README.md"],
+  "publishConfig": { "access": "public" },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
   "dependencies": {
     "i18next": "^23.15.0",
-    "react": "^19.0.0",
     "react-i18next": "^15.1.0"
   },
   "devDependencies": {
-    "@simple-module/tsconfig": "*"
+    "@simple-module-py/tsconfig": "0.0.1"
   }
 }
