@@ -1,10 +1,10 @@
 {
-  "extends": "@simple-module/tsconfig/base.json",
+  "extends": "@simple-module-py/tsconfig/base.json",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
       "@/*": ["./background_tasks/*"],
-      "@simple-module/ui/*": ["../../packages/ui/src/*"]
+      "@simple-module-py/ui/*": ["../../packages/ui/src/*"]
     }
   },
   "include": ["background_tasks/**/*.ts", "background_tasks/**/*.tsx"]

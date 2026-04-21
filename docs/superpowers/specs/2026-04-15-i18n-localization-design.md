@@ -262,7 +262,7 @@ SM_I18N_COOKIE_NAME=locale
 
 ### `packages/i18n`
 
-New workspace package, depends on `i18next` and `react-i18next`, consumed as `@simple-module/i18n`.
+New workspace package, depends on `i18next` and `react-i18next`, consumed as `@simple-module-py/i18n`.
 
 ```ts
 // packages/i18n/src/index.ts
@@ -327,7 +327,7 @@ export default {
 `host/client_app/app.tsx` initializes i18next before rendering:
 
 ```tsx
-import { configureI18n } from '@simple-module/i18n';
+import { configureI18n } from '@simple-module-py/i18n';
 
 createInertiaApp({
   resolve: async (name) => resolvePage(name),
@@ -345,7 +345,7 @@ Subsequent Inertia visits bring fresh `{locale, messages}`; a `router.on('succes
 Page-level usage:
 
 ```tsx
-import { useT } from '@simple-module/i18n';
+import { useT } from '@simple-module-py/i18n';
 
 function Browse() {
   const { t } = useT();
@@ -369,7 +369,7 @@ Human-readable locale labels (`"English"`, `"Español"`) are NOT generated from 
 Form validation in module pages (e.g., `modules/products/products/pages/validation.ts`) currently contains hardcoded Zod messages. Pattern for localization:
 
 ```ts
-import { useT } from '@simple-module/i18n';
+import { useT } from '@simple-module-py/i18n';
 import { z } from 'zod';
 
 export function useProductSchema() {

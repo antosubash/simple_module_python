@@ -1,4 +1,4 @@
-import { cn } from '@simple-module/ui/lib/utils';
+import { cn } from '@simple-module-py/ui/lib/utils';
 import * as React from 'react';
 import type { TooltipValueType } from 'recharts';
 import * as RechartsPrimitive from 'recharts';

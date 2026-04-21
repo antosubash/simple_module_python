@@ -4,27 +4,27 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.12"
 dependencies = [
-    "simple-module-hosting",
-    "auth",
-    "dashboard",
-    "products",
-    "datasets",
-    "permissions",
-    "background-tasks",
-    "file-storage",
-    "settings",
-    "feature-flags",
+    "simple_module_hosting",
+    "simple_module_auth",
+    "simple_module_dashboard",
+    "simple_module_products",
+    "simple_module_datasets",
+    "simple_module_permissions",
+    "simple_module_background_tasks",
+    "simple_module_file_storage",
+    "simple_module_settings",
+    "simple_module_feature_flags",
     "python-multipart>=0.0.6",
 ]
 
 [tool.uv.sources]
-simple-module-hosting = { workspace = true }
-auth = { workspace = true }
-products = { workspace = true }
-dashboard = { workspace = true }
-datasets = { workspace = true }
-permissions = { workspace = true }
-background-tasks = { workspace = true }
-file-storage = { workspace = true }
-settings = { workspace = true }
-feature-flags = { workspace = true }
+simple_module_hosting = { workspace = true }
+simple_module_auth = { workspace = true }
+simple_module_products = { workspace = true }
+simple_module_dashboard = { workspace = true }
+simple_module_datasets = { workspace = true }
+simple_module_permissions = { workspace = true }
+simple_module_background_tasks = { workspace = true }
+simple_module_file_storage = { workspace = true }
+simple_module_settings = { workspace = true }
+simple_module_feature_flags = { workspace = true }

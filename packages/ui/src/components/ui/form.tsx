@@ -1,5 +1,5 @@
-import { Label } from '@simple-module/ui/components/ui/label';
-import { cn } from '@simple-module/ui/lib/utils';
+import { Label } from '@simple-module-py/ui/components/ui/label';
+import { cn } from '@simple-module-py/ui/lib/utils';
 import type { Label as LabelPrimitive } from 'radix-ui';
 import { Slot } from 'radix-ui';
 import * as React from 'react';

@@ -1,5 +1,5 @@
-import { Button, buttonVariants } from '@simple-module/ui/components/ui/button';
-import { cn } from '@simple-module/ui/lib/utils';
+import { Button, buttonVariants } from '@simple-module-py/ui/components/ui/button';
+import { cn } from '@simple-module-py/ui/lib/utils';
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import * as React from 'react';
 import { type DayButton, DayPicker, getDefaultClassNames } from 'react-day-picker';

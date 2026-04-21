@@ -1,0 +1,155 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., 0.0.1)"
+        required: true
+        type: string
+      target:
+        description: "Publish target"
+        type: choice
+        options: [pypi, testpypi]
+        default: testpypi
+
+permissions:
+  contents: write
+  id-token: write  # required for Trusted Publishing (OIDC) on both PyPI and npm
+
+jobs:
+  bump-and-build:
+    runs-on: ubuntu-latest
+    outputs:
+      py-artifact: ${{ steps.build-py.outputs.name }}
+      npm-artifact: ${{ steps.build-npm.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PUSH_TOKEN || github.token }}
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Validate version string
+        run: |
+          echo "${{ inputs.version }}" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+([.-]?(a|b|rc|alpha|beta)[0-9]*)?$'
+      - name: Bump all package versions
+        run: uv run python scripts/bump_version.py "${{ inputs.version }}"
+      - name: Regenerate npm lockfile
+        run: npm install --package-lock-only
+      - name: Commit, tag, and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "release: v${{ inputs.version }}" || { echo "no changes to commit"; exit 0; }
+          git tag "v${{ inputs.version }}"
+          git push origin HEAD:main
+          git push origin "v${{ inputs.version }}"
+      - name: Build Python wheels + sdists
+        id: build-py
+        run: |
+          uv build --all-packages --out-dir dist-py
+          echo "name=dist-py" >> "$GITHUB_OUTPUT"
+      - name: Pack npm tarballs
+        id: build-npm
+        run: |
+          mkdir -p dist-npm
+          for pkg in packages/*/; do
+            npm pack "$pkg" --pack-destination dist-npm
+          done
+          echo "name=dist-npm" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-py
+          path: dist-py/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-npm
+          path: dist-npm/
+
+  publish-pypi:
+    needs: bump-and-build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - simple_module_core
+          - simple_module_db
+          - simple_module_hosting
+          - simple_module_testing
+          - simple_module_auth
+          - simple_module_background_tasks
+          - simple_module_dashboard
+          - simple_module_datasets
+          - simple_module_feature_flags
+          - simple_module_file_storage
+          - simple_module_permissions
+          - simple_module_products
+          - simple_module_settings
+          - simple_module_users
+    environment:
+      name: ${{ inputs.target }}
+      url: https://${{ inputs.target == 'testpypi' && 'test.' || '' }}pypi.org/project/${{ matrix.package }}/
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-py
+          path: dist-py/
+      - name: Filter artifacts for this package
+        run: |
+          mkdir -p to-publish
+          name="${{ matrix.package }}"
+          mv dist-py/${name}-* to-publish/ 2>/dev/null || true
+          ls to-publish
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: to-publish
+          repository-url: ${{ inputs.target == 'testpypi' && 'https://test.pypi.org/legacy/' || '' }}
+
+  publish-npm:
+    needs: bump-and-build
+    if: inputs.target == 'pypi'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ["ui", "i18n", "tsconfig"]
+    environment: npm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ inputs.version }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+      - name: Publish via npm Trusted Publisher
+        run: npm publish --provenance --access public
+        working-directory: packages/${{ matrix.package }}
+
+  smoke:
+    needs: [publish-pypi, publish-npm]
+    if: inputs.target == 'pypi'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: astral-sh/setup-uv@v5
+      - name: Install CLI from PyPI
+        run: uv tool install "simple_module_hosting==${{ inputs.version }}"
+      - name: Generate smoke app
+        run: uv tool run simple-module new smoke-app --yes --db sqlite --no-install
+      - name: Install smoke app deps (Python + npm)
+        run: |
+          cd smoke-app
+          uv sync
+          npm install
+      - name: Run smoke app tests
+        run: |
+          cd smoke-app
+          uv run pytest -q

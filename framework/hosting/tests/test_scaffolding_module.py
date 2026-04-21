@@ -34,10 +34,10 @@ class TestCreateModule:
         create_module(dest, name="MyFeature")
         pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
 
-        assert 'name = "simple-module-my-feature"' in pyproject
+        assert 'name = "simple_module_my_feature"' in pyproject
         assert "[project.entry-points.simple_module]" in pyproject
         assert "my_feature = " in pyproject
-        assert "simple-module-core" in pyproject
+        assert "simple_module_core" in pyproject
 
     async def test_module_py_subclasses_module_base(self, tmp_path):
         """The generated module.py has a ModuleBase subclass with the right Meta."""

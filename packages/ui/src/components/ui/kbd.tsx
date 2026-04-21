@@ -1,4 +1,4 @@
-import { cn } from '@simple-module/ui/lib/utils';
+import { cn } from '@simple-module-py/ui/lib/utils';
 
 function Kbd({ className, ...props }: React.ComponentProps<'kbd'>) {
   return (

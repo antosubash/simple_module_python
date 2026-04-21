@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
-import { keys, useT } from '@simple-module/i18n';
-import { Button } from '@simple-module/ui/components/ui/button';
+import { keys, useT } from '@simple-module-py/i18n';
+import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';

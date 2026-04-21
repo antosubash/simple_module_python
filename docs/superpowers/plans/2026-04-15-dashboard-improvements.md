@@ -587,21 +587,21 @@ Replace `modules/dashboard/dashboard/pages/Home.tsx` with:
 
 ```tsx
 import { usePage } from '@inertiajs/react';
-import { keys, useT } from '@simple-module/i18n';
-import { PageShell } from '@simple-module/ui/components/PageShell';
+import { keys, useT } from '@simple-module-py/i18n';
+import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-} from '@simple-module/ui/components/ui/card';
+} from '@simple-module-py/ui/components/ui/card';
 import {
   Table,
   TableBody,
   TableCell,
   TableRow,
-} from '@simple-module/ui/components/ui/table';
-import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
+} from '@simple-module-py/ui/components/ui/table';
+import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { Activity, Box, Heart, Package, Server, Users } from 'lucide-react';
 
 interface SystemModule {

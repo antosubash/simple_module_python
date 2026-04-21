@@ -1,11 +1,11 @@
-# simple-module-{{MODULE_SLUG}}
+# simple_module_{{PACKAGE_NAME}}
 
 The `{{MODULE_NAME}}` module for SimpleModule hosts.
 
 ## Installation
 
 ```bash
-pip install simple-module-{{MODULE_SLUG}}
+pip install simple_module_{{PACKAGE_NAME}}
 ```
 
 A host that installs this package picks it up automatically via
@@ -55,7 +55,7 @@ One-time PyPI setup (do this before your first release):
 
 1. Create the project's Trusted Publisher entry at
    <https://pypi.org/manage/account/publishing/>:
-   - PyPI project name: `simple-module-{{MODULE_SLUG}}`
+   - PyPI project name: `simple_module_{{PACKAGE_NAME}}`
    - Owner / Repository: your GitHub org + this repo
    - Workflow filename: `publish.yml`
    - Environment (recommended): `pypi`
@@ -77,6 +77,6 @@ short-lived OIDC token scoped to this repo + workflow + environment.
 
 ## API-version contract
 
-The `Meta.requires_framework` field declares which `simple-module-core`
+The `Meta.requires_framework` field declares which `simple_module_core`
 versions this module supports. Update the spec on each framework major
 bump after verifying compatibility.

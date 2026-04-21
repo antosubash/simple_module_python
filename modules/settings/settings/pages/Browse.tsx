@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
-import { keys, useT } from '@simple-module/i18n';
-import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
+import { keys, useT } from '@simple-module-py/i18n';
+import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import type React from 'react';
 import type { ValueType } from './components/ValueInput';
 import { ROUTES } from './routes';

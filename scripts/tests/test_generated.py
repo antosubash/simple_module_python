@@ -26,7 +26,7 @@ class TestGeneratedFilesSyntaxValidity:
     def test_pyproject_toml_parses(self, scaffolded_orders: Path):
         data = tomllib.loads((scaffolded_orders.parent / "pyproject.toml").read_text())
 
-        assert data["project"]["name"] == "orders"
+        assert data["project"]["name"] == "simple_module_orders"
         assert (
             data["project"]["entry-points"]["simple_module"]["orders"]
             == "orders.module:OrdersModule"
@@ -38,7 +38,7 @@ class TestGeneratedFilesSyntaxValidity:
         pyproject = module_root / "modules" / "blog_posts" / "pyproject.toml"
         data = tomllib.loads(pyproject.read_text())
 
-        assert data["project"]["name"] == "blog-posts"
+        assert data["project"]["name"] == "simple_module_blog_posts"
         ep = data["project"]["entry-points"]["simple_module"]
         assert ep["blog_posts"] == "blog_posts.module:BlogPostsModule"
 
@@ -78,16 +78,11 @@ class TestGeneratedTemplateContent:
         assert "async def get_order_service(" in deps
         assert "Depends(get_db)" in deps
 
-    def test_contracts_protocol_defined(self, scaffolded_orders: Path):
-        protocol = (scaffolded_orders / "contracts" / "service.py").read_text()
-        assert "class IOrderService(Protocol):" in protocol
-
     def test_contracts_init_exports_public_api(self, scaffolded_orders: Path):
         init = (scaffolded_orders / "contracts" / "__init__.py").read_text()
         assert '"OrderCreate"' in init
         assert '"OrderOut"' in init
         assert '"OrderUpdate"' in init
-        assert '"IOrderService"' in init
 
     def test_module_class_registers_routes(self, scaffolded_orders: Path):
         module_py = (scaffolded_orders / "module.py").read_text()
@@ -142,7 +137,7 @@ class TestGeneratedTemplateContent:
         """Scaffolded Browse/Create/Edit pages must import keys + useT and use typed keys."""
         for page in ("Browse.tsx", "Create.tsx", "Edit.tsx"):
             content = (scaffolded_orders / "pages" / page).read_text()
-            assert "from '@simple-module/i18n'" in content, f"{page} missing i18n import"
+            assert "from '@simple-module-py/i18n'" in content, f"{page} missing i18n import"
             assert "keys" in content and "useT" in content, f"{page} missing keys/useT import"
             assert "const { t } = useT();" in content, f"{page} does not call useT()"
             # Typed-key calls use property access, not string literals.

@@ -24,15 +24,15 @@ class ScaffoldContext:
 def pyproject_toml(ctx: ScaffoldContext) -> str:
     return f"""\
         [project]
-        name = "{ctx.pkg.replace("_", "-")}"
+        name = "simple_module_{ctx.pkg}"
         version = "0.1.0"
         description = "The {ctx.class_name} module"
         authors = []
         requires-python = ">=3.12"
         dependencies = [
-            "simple-module-core",
-            "simple-module-db",
-            "simple-module-hosting",
+            "simple_module_core",
+            "simple_module_db",
+            "simple_module_hosting",
         ]
 
         [project.entry-points.simple_module]
@@ -48,9 +48,9 @@ def pyproject_toml(ctx: ScaffoldContext) -> str:
         "package.json" = "{ctx.pkg}/package.json"
 
         [tool.uv.sources]
-        simple-module-core = {{ workspace = true }}
-        simple-module-db = {{ workspace = true }}
-        simple-module-hosting = {{ workspace = true }}
+        simple_module_core = {{ workspace = true }}
+        simple_module_db = {{ workspace = true }}
+        simple_module_hosting = {{ workspace = true }}
         """
 
 

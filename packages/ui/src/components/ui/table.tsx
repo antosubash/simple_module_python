@@ -1,6 +1,6 @@
 'use client';
 
-import { cn } from '@simple-module/ui/lib/utils';
+import { cn } from '@simple-module-py/ui/lib/utils';
 import type * as React from 'react';
 
 function Table({ className, ...props }: React.ComponentProps<'table'>) {

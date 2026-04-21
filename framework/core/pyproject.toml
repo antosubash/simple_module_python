@@ -1,11 +1,25 @@
 [project]
-name = "simple-module-core"
-version = "0.1.0"
-description = "Add your description here"
-authors = [
-    { name = "Anto Subash", email = "antosubash@live.com" }
-]
+name = "simple_module_core"
+version = "0.0.1"
+description = "Module-system primitives for the simple_module framework — ModuleBase, discovery, diagnostics, events"
+readme = "README.md"
+license = "MIT"
+license-files = ["../../LICENSE"]
 requires-python = ">=3.12"
+authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
+keywords = ["simple-module", "fastapi", "modular-monolith", "plugin-system", "module-discovery"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
+]
 dependencies = [
     "babel>=2.14",
     "fastapi>=0.115",
@@ -14,6 +28,12 @@ dependencies = [
     "pydantic-settings>=2.0",
     "pyee>=12.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/antosubash/simple_module_python"
+Repository = "https://github.com/antosubash/simple_module_python"
+Issues = "https://github.com/antosubash/simple_module_python/issues"
+Changelog = "https://github.com/antosubash/simple_module_python/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["hatchling"]

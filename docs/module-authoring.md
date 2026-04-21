@@ -40,13 +40,13 @@ mock against the Protocol. If none of those apply to your module, skip it.
 
 ```toml
 [project]
-name = "simple-module-my-module"
+name = "simple_module_my_module"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-  "simple-module-core>=1.0,<2.0",
-  "simple-module-db>=1.0,<2.0",
-  "simple-module-hosting>=1.0,<2.0",
+  "simple_module_core>=1.0,<2.0",
+  "simple_module_db>=1.0,<2.0",
+  "simple_module_hosting>=1.0,<2.0",
 ]
 
 [project.entry-points.simple_module]
@@ -182,7 +182,7 @@ the host developer generates a migration each time a new module is
 installed or a module's models change:
 
 ```bash
-pip install simple-module-my-module
+pip install simple_module_my_module
 alembic revision --autogenerate -m "add my-module"
 # review the generated file
 alembic upgrade head
@@ -256,7 +256,7 @@ templates by copying + editing.
 
 ## Testing during development
 
-Install `simple-module-testing` as a dev dependency (the `sm create-module`
+Install `simple_module_testing` as a dev dependency (the `sm create-module`
 scaffold does this automatically):
 
 ```toml
@@ -264,7 +264,7 @@ scaffold does this automatically):
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
-    "simple-module-testing>=0.1,<1.0",
+    "simple_module_testing>=0.1,<1.0",
 ]
 ```
 

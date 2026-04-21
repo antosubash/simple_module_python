@@ -30,7 +30,7 @@ make dev    # if you ship a Makefile; otherwise run vite + uvicorn in two shells
 
 ```bash
 # 1) install the module package (e.g. from PyPI)
-uv add simple-module-my-module
+uv add simple_module_my_module
 
 # 2) generate & apply the migration (new tables + any schema changes)
 alembic revision --autogenerate -m "add my-module"
@@ -54,6 +54,6 @@ but don't contribute any routes, registries, or lifecycle work.
 ## Upgrading the framework
 
 Modules declare `requires_framework` in their `Meta`. If a module can't
-work with your installed `simple-module-core` version, the host refuses
+work with your installed `simple_module_core` version, the host refuses
 to boot with `FrameworkVersionError` listing the offending modules.
 Upgrade or pin as appropriate.

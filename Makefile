@@ -78,6 +78,8 @@ loadtest-memray:            ## Start uvicorn under memray, load-test, emit flame
 	scripts/loadtest_memray.sh $(LOCUST_ARGS)
 
 lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings
+	uv run python scripts/check_metadata.py
+	uv run python scripts/check_readmes.py
 
 # Kept granular so pr.yml can run them in parallel.
 ci-python-lint:
@@ -167,3 +169,8 @@ beat:                       ## Run the Celery beat scheduler locally
 # Celery — containerized (matches prod image)
 worker-docker:              ## Build + run the worker + beat services in docker
 	docker compose up --build worker beat
+
+.PHONY: release-check
+release-check:
+	@test -n "$(version)" || { echo "usage: make release-check version=X.Y.Z"; exit 1; }
+	uv run python scripts/bump_version.py $(version) --check

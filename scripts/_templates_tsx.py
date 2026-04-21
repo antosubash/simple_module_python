@@ -7,7 +7,7 @@ from _templates_py import ScaffoldContext
 
 def browse_tsx(ctx: ScaffoldContext) -> str:
     return f"""\
-        import {{ keys, useT }} from '@simple-module/i18n';
+        import {{ keys, useT }} from '@simple-module-py/i18n';
 
         type {ctx.singular_class} = {{
           id: number;
@@ -58,7 +58,7 @@ def browse_tsx(ctx: ScaffoldContext) -> str:
 
 def create_tsx(ctx: ScaffoldContext) -> str:
     return f"""\
-        import {{ keys, useT }} from '@simple-module/i18n';
+        import {{ keys, useT }} from '@simple-module-py/i18n';
 
         export default function Create() {{
           const {{ t }} = useT();
@@ -91,7 +91,7 @@ def create_tsx(ctx: ScaffoldContext) -> str:
 
 def edit_tsx(ctx: ScaffoldContext) -> str:
     return f"""\
-        import {{ keys, useT }} from '@simple-module/i18n';
+        import {{ keys, useT }} from '@simple-module-py/i18n';
 
         type {ctx.singular_class} = {{
           id: number;

@@ -9,6 +9,22 @@ A modular-monolith framework for Python. Each feature lives in its own self-cont
 - **Auth:** Local user management (email+password, cookie-based sessions) via fastapi-users
 - **Tooling:** uv workspaces, Ruff, ty, Biome, pytest
 
+## Use in a new project
+
+If you want to **build an app on simple_module**, not hack on the framework itself:
+
+```bash
+uvx --from simple_module_hosting simple-module new my-app
+cd my-app
+make dev
+```
+
+That scaffolds a working FastAPI + Inertia + React app with `users`, `dashboard`, and `permissions` pre-wired. You land on `/users/login`, sign in with the admin account you bootstrap, and go from there.
+
+See [CHANGELOG.md](CHANGELOG.md) for the list of published PyPI / npm packages at each release.
+
+---
+
 ## Quickstart
 
 ```bash

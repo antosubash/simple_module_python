@@ -1,8 +1,8 @@
-# Publish simple-module-{{MODULE_SLUG}} to PyPI on tagged releases.
+# Publish simple_module_{{PACKAGE_NAME}} to PyPI on tagged releases.
 #
 # Setup (one-time, in the PyPI project settings → "Publishing"):
 #   1. Create the project on https://pypi.org/manage/account/publishing/
-#      with: PyPI project name = simple-module-{{MODULE_SLUG}}
+#      with: PyPI project name = simple_module_{{PACKAGE_NAME}}
 #            Owner             = <your GitHub org/user>
 #            Repository name   = <this repo's name>
 #            Workflow filename = publish.yml

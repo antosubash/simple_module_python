@@ -1,11 +1,11 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { PageShell } from '@simple-module/ui/components/PageShell';
-import { Button } from '@simple-module/ui/components/ui/button';
-import { Card, CardContent } from '@simple-module/ui/components/ui/card';
-import { Checkbox } from '@simple-module/ui/components/ui/checkbox';
-import { Input } from '@simple-module/ui/components/ui/input';
-import { Label } from '@simple-module/ui/components/ui/label';
-import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
+import { PageShell } from '@simple-module-py/ui/components/PageShell';
+import { Button } from '@simple-module-py/ui/components/ui/button';
+import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
+import { Checkbox } from '@simple-module-py/ui/components/ui/checkbox';
+import { Input } from '@simple-module-py/ui/components/ui/input';
+import { Label } from '@simple-module-py/ui/components/ui/label';
+import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { useState } from 'react';
 import { toast } from 'sonner';
 

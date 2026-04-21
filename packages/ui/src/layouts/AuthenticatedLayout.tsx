@@ -1,4 +1,4 @@
-import { Toaster } from '@simple-module/ui/components/ui/sonner';
+import { Toaster } from '@simple-module-py/ui/components/ui/sonner';
 import type React from 'react';
 import { LocaleSwitcher } from '../components/LocaleSwitcher';
 import { SidebarLayout } from './SidebarLayout';

@@ -1,6 +1,6 @@
 """Emit generated-resources.ts + keys.generated.ts for the frontend.
 
-Both files are consumed by ``@simple-module/i18n``:
+Both files are consumed by ``@simple-module-py/i18n``:
 
 * ``generated-resources.ts`` — flat empty-string keys, fed into i18next's
   ``CustomTypeOptions['resources']`` so ``t('foo.bar')`` narrows to the
@@ -62,7 +62,7 @@ def build_i18n_registry(
 
 
 def emit_frontend_types(registry: I18nRegistry, project_root: Path) -> None:
-    """Write the TS augmentation files into @simple-module/i18n if present.
+    """Write the TS augmentation files into @simple-module-py/i18n if present.
 
     Logs but does not raise on failure — stale types are preferable to a
     broken boot. Dev-loop only; callers should gate on ``is_development``.

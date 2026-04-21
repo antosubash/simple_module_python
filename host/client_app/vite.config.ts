@@ -43,7 +43,7 @@ export default defineConfig({
       : []),
   ],
   // Vite 8 resolves tsconfig `paths` natively from this app's tsconfig.json.
-  // The only live alias in the repo is `@simple-module/ui/*`, which the host
+  // The only live alias in the repo is `@simple-module-py/ui/*`, which the host
   // tsconfig maps to `../../packages/ui/src/*` — that resolves identically
   // regardless of which file does the importing, so we no longer need to
   // feed Vite the per-module tsconfigs.

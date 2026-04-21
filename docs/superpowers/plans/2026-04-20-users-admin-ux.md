@@ -903,18 +903,18 @@ Replace `modules/users/users/pages/Users/Index.tsx` with:
 
 ```tsx
 import { Link, router, usePage } from '@inertiajs/react';
-import { PageShell } from '@simple-module/ui/components/PageShell';
-import { Badge } from '@simple-module/ui/components/ui/badge';
-import { Button } from '@simple-module/ui/components/ui/button';
-import { Card } from '@simple-module/ui/components/ui/card';
-import { Input } from '@simple-module/ui/components/ui/input';
+import { PageShell } from '@simple-module-py/ui/components/PageShell';
+import { Badge } from '@simple-module-py/ui/components/ui/badge';
+import { Button } from '@simple-module-py/ui/components/ui/button';
+import { Card } from '@simple-module-py/ui/components/ui/card';
+import { Input } from '@simple-module-py/ui/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@simple-module/ui/components/ui/select';
+} from '@simple-module-py/ui/components/ui/select';
 import {
   Table,
   TableBody,
@@ -922,8 +922,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@simple-module/ui/components/ui/table';
-import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
+} from '@simple-module-py/ui/components/ui/table';
+import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { ArrowDown, ArrowUp, Pencil, Plus, Search, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -1242,7 +1242,7 @@ Replace `modules/users/users/pages/Users/Edit.tsx` with:
 
 ```tsx
 import { Link, router, usePage } from '@inertiajs/react';
-import { PageShell } from '@simple-module/ui/components/PageShell';
+import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1253,14 +1253,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@simple-module/ui/components/ui/alert-dialog';
-import { Badge } from '@simple-module/ui/components/ui/badge';
-import { Button } from '@simple-module/ui/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@simple-module/ui/components/ui/card';
-import { Checkbox } from '@simple-module/ui/components/ui/checkbox';
-import { Label } from '@simple-module/ui/components/ui/label';
-import { AuthenticatedLayout } from '@simple-module/ui/layouts/AuthenticatedLayout';
-import { fetchWithCsrf } from '@simple-module/ui/lib/csrf';
+} from '@simple-module-py/ui/components/ui/alert-dialog';
+import { Badge } from '@simple-module-py/ui/components/ui/badge';
+import { Button } from '@simple-module-py/ui/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@simple-module-py/ui/components/ui/card';
+import { Checkbox } from '@simple-module-py/ui/components/ui/checkbox';
+import { Label } from '@simple-module-py/ui/components/ui/label';
+import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { fetchWithCsrf } from '@simple-module-py/ui/lib/csrf';
 import { ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';

@@ -1,23 +1,46 @@
 [project]
-name = "auth"
-version = "0.1.0"
-description = "Add your description here"
-authors = [
-    { name = "Anto Subash", email = "antosubash@live.com" }
-]
+name = "simple_module_auth"
+version = "0.0.1"
+description = "Session-cookie authentication primitives — middleware, login/logout, redirect helpers for simple_module"
+readme = "README.md"
+license = "MIT"
+license-files = ["../../LICENSE"]
 requires-python = ">=3.12"
+authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
+keywords = ["simple-module", "fastapi", "authentication", "session", "cookie"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
+]
 dependencies = [
     "itsdangerous>=2.2",
-    "simple-module-core",
-    "simple-module-db",
+    "simple_module_core==0.0.1",
+    "simple_module_db==0.0.1",
 ]
 
 [project.entry-points.simple_module]
 auth = "auth.module:AuthModule"
 
+[project.urls]
+Homepage = "https://github.com/antosubash/simple_module_python"
+Repository = "https://github.com/antosubash/simple_module_python"
+Issues = "https://github.com/antosubash/simple_module_python/issues"
+Changelog = "https://github.com/antosubash/simple_module_python/blob/main/CHANGELOG.md"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["auth"]
 
 # Ship the module-root package.json inside the wheel so the host can
 # discover JS deps via importlib.resources after a pip install.
@@ -25,5 +48,5 @@ build-backend = "hatchling.build"
 "package.json" = "auth/package.json"
 
 [tool.uv.sources]
-simple-module-core = { workspace = true }
-simple-module-db = { workspace = true }
+simple_module_core = { workspace = true }
+simple_module_db = { workspace = true }

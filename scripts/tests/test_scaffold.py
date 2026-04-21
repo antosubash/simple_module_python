@@ -34,7 +34,6 @@ class TestScaffoldModule:
             src_dir / "deps.py",
             src_dir / "contracts" / "__init__.py",
             src_dir / "contracts" / "schemas.py",
-            src_dir / "contracts" / "service.py",
             src_dir / "endpoints" / "__init__.py",
             src_dir / "endpoints" / "api.py",
             src_dir / "endpoints" / "views.py",

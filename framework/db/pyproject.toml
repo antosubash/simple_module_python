@@ -1,23 +1,43 @@
 [project]
-name = "simple-module-db"
-version = "0.1.0"
-description = "Add your description here"
-authors = [
-    { name = "Anto Subash", email = "antosubash@live.com" }
-]
+name = "simple_module_db"
+version = "0.0.1"
+description = "Per-module SQLModel Base, async session, standard mixins (Audit, SoftDelete, MultiTenant, Versioned) for simple_module"
+readme = "README.md"
+license = "MIT"
+license-files = ["../../LICENSE"]
 requires-python = ">=3.12"
+authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
+keywords = ["simple-module", "sqlmodel", "sqlalchemy", "async", "alembic", "multi-tenant"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
+]
 dependencies = [
     "aiosqlite>=0.20",
     "alembic>=1.14",
     "asyncpg>=0.30",
-    "simple-module-core",
+    "simple_module_core==0.0.1",
     "sqlalchemy[asyncio]>=2.0",
     "sqlmodel>=0.0.22",
 ]
+
+[project.urls]
+Homepage = "https://github.com/antosubash/simple_module_python"
+Repository = "https://github.com/antosubash/simple_module_python"
+Issues = "https://github.com/antosubash/simple_module_python/issues"
+Changelog = "https://github.com/antosubash/simple_module_python/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv.sources]
-simple-module-core = { workspace = true }
+simple_module_core = { workspace = true }

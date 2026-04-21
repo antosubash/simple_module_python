@@ -1,7 +1,7 @@
 import { Link } from '@inertiajs/react';
-import { Badge } from '@simple-module/ui/components/ui/badge';
-import { Button } from '@simple-module/ui/components/ui/button';
-import { Card } from '@simple-module/ui/components/ui/card';
+import { Badge } from '@simple-module-py/ui/components/ui/badge';
+import { Button } from '@simple-module-py/ui/components/ui/button';
+import { Card } from '@simple-module-py/ui/components/ui/card';
 import {
   Table,
   TableBody,
@@ -9,8 +9,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@simple-module/ui/components/ui/table';
-import { TabsContent } from '@simple-module/ui/components/ui/tabs';
+} from '@simple-module-py/ui/components/ui/table';
+import { TabsContent } from '@simple-module-py/ui/components/ui/tabs';
 import { Pencil, ShieldCheck } from 'lucide-react';
 
 export interface RoleItem {
