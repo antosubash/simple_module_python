@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from simple_module_core.diagnostics._inertia_api import check_inertia_api_calls
 from simple_module_core.diagnostics._js_workspace import check_js_workspace_files
 from simple_module_core.diagnostics._types import DiagnosticLevel
 
@@ -74,3 +75,72 @@ class TestSm017JsWorkspaceFiles:
         assert len(results) == 1
         assert results[0].code == "SM017"
         assert "tsconfig.json" in (results[0].file or "")
+
+
+def _mk_page(src_dir: Path, filename: str, body: str) -> Path:
+    pages = src_dir / "pages"
+    pages.mkdir(parents=True, exist_ok=True)
+    page = pages / filename
+    page.write_text(body)
+    return page
+
+
+class TestSM018InertiaApiCalls:
+    async def test_flags_router_post_to_api_path(self, tmp_path: Path):
+        src_dir = tmp_path / "datasets" / "datasets"
+        _mk_page(src_dir, "Create.tsx", "router.post('/api/datasets/', data, {})")
+        mod = _FakeModule(meta=_FakeMeta(name="Datasets"))
+
+        results = check_inertia_api_calls(mod, src_dir)  # pyright: ignore[reportArgumentType]
+
+        assert len(results) == 1
+        assert results[0].code == "SM018"
+        assert results[0].level == DiagnosticLevel.WARNING
+        assert "router.post()" in results[0].message
+        assert "Create.tsx:1" in (results[0].file or "")
+
+    async def test_flags_all_mutating_methods(self, tmp_path: Path):
+        src_dir = tmp_path / "m" / "m"
+        body = "\n".join(
+            [
+                "router.post('/api/a/', d)",
+                "router.patch('/api/a/1', d)",
+                "router.put(`/api/a/${id}`, d)",
+                'router.delete("/api/a/1")',
+            ]
+        )
+        _mk_page(src_dir, "X.tsx", body)
+        mod = _FakeModule(meta=_FakeMeta(name="M"))
+
+        results = check_inertia_api_calls(mod, src_dir)  # pyright: ignore[reportArgumentType]
+
+        methods = sorted(r.message.split("()")[0].split(".")[-1] for r in results)
+        assert methods == ["delete", "patch", "post", "put"]
+        assert all(r.code == "SM018" for r in results)
+
+    async def test_silent_on_view_path(self, tmp_path: Path):
+        src_dir = tmp_path / "m" / "m"
+        _mk_page(src_dir, "Create.tsx", "router.post('/datasets/', data)")
+        mod = _FakeModule(meta=_FakeMeta(name="Datasets"))
+
+        results = check_inertia_api_calls(mod, src_dir)  # pyright: ignore[reportArgumentType]
+
+        assert results == []
+
+    async def test_silent_on_router_get(self, tmp_path: Path):
+        src_dir = tmp_path / "m" / "m"
+        _mk_page(src_dir, "Browse.tsx", "router.get('/api/search', params)")
+        mod = _FakeModule(meta=_FakeMeta(name="M"))
+
+        results = check_inertia_api_calls(mod, src_dir)  # pyright: ignore[reportArgumentType]
+
+        assert results == []
+
+    async def test_silent_when_no_pages_dir(self, tmp_path: Path):
+        src_dir = tmp_path / "backend_only" / "backend_only"
+        src_dir.mkdir(parents=True)
+        mod = _FakeModule(meta=_FakeMeta(name="BackendOnly"))
+
+        results = check_inertia_api_calls(mod, src_dir)  # pyright: ignore[reportArgumentType]
+
+        assert results == []

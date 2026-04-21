@@ -41,13 +41,22 @@ class UsersModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
+        import importlib
+
         from auth.contracts.schemas import UserContext
 
         from users.settings import UsersSettings
         from users.state import UsersState
 
-        state = UsersState(settings=UsersSettings())
-        app.state.users = state
+        # SM009 is AST-based: a static `from settings.registration import ...`
+        # from a module helper is fine (plugin→plugin), but we resolve via
+        # importlib here to match the convention used framework-side and to
+        # keep the dependency direction one-way explicit.
+        register_module_settings = importlib.import_module(
+            "settings.registration"
+        ).register_module_settings
+
+        register_module_settings(app, "users", UsersSettings, lambda s: UsersState(settings=s))
 
         def serialize_principal(user: UserContext) -> dict:
             return {
@@ -102,11 +111,11 @@ class UsersModule(ModuleBase):
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from users.endpoints.api import register_auth_routes
         from users.endpoints.views import router as views
-        from users.settings import UsersSettings
 
-        # UsersSettings reads from env every time — safe and idempotent.
-        # app.state is not accessible here so we re-parse from environment.
-        register_auth_routes(api_router, UsersSettings())
+        # The register router is always mounted; its `allow_signup` gate lives
+        # on a per-request dependency, so toggling the setting at runtime takes
+        # effect without needing to remount.
+        register_auth_routes(api_router)
         view_router.include_router(views)
 
     def register_middleware(self, app: FastAPI) -> None:

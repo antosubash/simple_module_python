@@ -51,30 +51,57 @@ class TestUsersSettingsDefaults:
         assert s.bootstrap_email == ""
 
 
-class TestUsersSettingsEnvVars:
-    def test_allow_signup_from_env(self, monkeypatch):
+class TestUsersSettingsDbOverrides:
+    """After the env→DB migration these values come through ``hydrate_settings``."""
+
+    @pytest.mark.asyncio
+    async def test_allow_signup_override_from_db(self, db_session):
+        from settings.hydrate import hydrate_settings
+        from settings.service import SettingService
+        from settings.store import SettingsStore
+        from users.settings import UsersSettings
+
+        store = SettingsStore(SettingService(db_session))
+        await store.set_override("users", "allow_signup", "true", "bool")
+
+        cfg = await hydrate_settings(UsersSettings, store, "users")
+        assert cfg.allow_signup is True
+
+    @pytest.mark.asyncio
+    async def test_mailer_override_from_db(self, db_session):
+        from settings.hydrate import hydrate_settings
+        from settings.service import SettingService
+        from settings.store import SettingsStore
+        from users.settings import UsersSettings
+
+        store = SettingsStore(SettingService(db_session))
+        await store.set_override("users", "mailer", "smtp", "string")
+
+        cfg = await hydrate_settings(UsersSettings, store, "users")
+        assert cfg.mailer == "smtp"
+
+    @pytest.mark.asyncio
+    async def test_base_url_override_from_db(self, db_session):
+        from settings.hydrate import hydrate_settings
+        from settings.service import SettingService
+        from settings.store import SettingsStore
+        from users.settings import UsersSettings
+
+        store = SettingsStore(SettingService(db_session))
+        await store.set_override("users", "base_url", "https://example.com", "string")
+
+        cfg = await hydrate_settings(UsersSettings, store, "users")
+        assert cfg.base_url == "https://example.com"
+
+    def test_env_vars_are_ignored(self, monkeypatch):
+        """Setting SM_USERS_* must not affect UsersSettings() after the migration."""
         monkeypatch.setenv("SM_USERS_ALLOW_SIGNUP", "true")
-
-        from users.settings import UsersSettings
-
-        s = UsersSettings()
-        assert s.allow_signup is True
-
-    def test_mailer_smtp_from_env(self, monkeypatch):
         monkeypatch.setenv("SM_USERS_MAILER", "smtp")
-
         from users.settings import UsersSettings
 
         s = UsersSettings()
-        assert s.mailer == "smtp"
-
-    def test_base_url_from_env(self, monkeypatch):
-        monkeypatch.setenv("SM_USERS_BASE_URL", "https://example.com")
-
-        from users.settings import UsersSettings
-
-        s = UsersSettings()
-        assert s.base_url == "https://example.com"
+        assert s.allow_signup is False
+        assert s.mailer == "console"
 
 
 class TestUsersSettingsValidation:
@@ -112,30 +139,29 @@ class TestTokenSecretProductionGuard:
 
     def test_placeholder_reset_secret_rejected_in_production(self, monkeypatch):
         monkeypatch.setenv("SM_ENVIRONMENT", "production")
-        monkeypatch.setenv(
-            "SM_USERS_VERIFICATION_TOKEN_SECRET", "not-a-placeholder-value-just-for-test"
-        )
         from users.settings import UsersSettings
 
         with pytest.raises(ValidationError, match="RESET_PASSWORD_TOKEN_SECRET"):
-            UsersSettings()
+            UsersSettings(
+                verification_token_secret="not-a-placeholder-value-just-for-test",
+            )
 
     def test_placeholder_verify_secret_rejected_in_production(self, monkeypatch):
         monkeypatch.setenv("SM_ENVIRONMENT", "production")
-        monkeypatch.setenv(
-            "SM_USERS_RESET_PASSWORD_TOKEN_SECRET", "not-a-placeholder-value-just-for-test"
-        )
         from users.settings import UsersSettings
 
         with pytest.raises(ValidationError, match="VERIFICATION_TOKEN_SECRET"):
-            UsersSettings()
+            UsersSettings(
+                reset_password_token_secret="not-a-placeholder-value-just-for-test",
+            )
 
     def test_real_secrets_accepted_in_production(self, monkeypatch):
         monkeypatch.setenv("SM_ENVIRONMENT", "production")
-        monkeypatch.setenv("SM_USERS_RESET_PASSWORD_TOKEN_SECRET", "real-reset-secret")
-        monkeypatch.setenv("SM_USERS_VERIFICATION_TOKEN_SECRET", "real-verify-secret")
         from users.settings import UsersSettings
 
-        s = UsersSettings()
+        s = UsersSettings(
+            reset_password_token_secret="real-reset-secret",
+            verification_token_secret="real-verify-secret",
+        )
         assert s.reset_password_token_secret == "real-reset-secret"
         assert s.verification_token_secret == "real-verify-secret"

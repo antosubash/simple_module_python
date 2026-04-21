@@ -24,19 +24,13 @@ from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
 
 @pytest.fixture(autouse=True)
 def _isolate_users_env(monkeypatch):
-    """Insulate every users-module test from the repo's real ``.env``.
+    """Scrub stale ``SM_USERS_*`` env vars from the shell/.env.
 
-    Local development sets ``SM_USERS_BOOTSTRAP_EMAIL`` (and similar) in
-    ``.env`` so the dev login page can offer quick-login buttons. When
-    pytest runs in that checkout, pydantic-settings loads those values and
-    they leak into tests asserting defaults or empty-table behavior. We
-    turn off the dotenv load and scrub any leftover ``SM_USERS_*`` from
-    ``os.environ``; fixtures that need specific values then set them
-    explicitly via ``monkeypatch.setenv``.
+    After the env→DB migration ``UsersSettings()`` no longer reads these
+    values, so this is belt-and-braces: it keeps old shell exports from
+    muddying any ``SM_ENVIRONMENT`` checks or from being misread during
+    developer spelunking.
     """
-    from users.settings import UsersSettings
-
-    monkeypatch.setitem(UsersSettings.model_config, "env_file", None)
     for key in list(os.environ):
         if key.startswith("SM_USERS_"):
             monkeypatch.delenv(key, raising=False)
@@ -47,18 +41,19 @@ def _isolate_users_env(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def _users_env(allow_signup: bool = False) -> dict:
+def _users_overrides(allow_signup: bool = False) -> dict[str, tuple[str, str]]:
+    """Values seeded into the ``SettingsStore`` before the app lifespan runs."""
     return {
-        "SM_USERS_ALLOW_SIGNUP": str(allow_signup).lower(),
-        "SM_USERS_MAILER": "console",
-        "SM_USERS_BASE_URL": "http://testserver",
-        "SM_USERS_COOKIE_SECURE": "false",
+        "allow_signup": (str(allow_signup).lower(), "bool"),
+        "mailer": ("console", "string"),
+        "base_url": ("http://testserver", "string"),
+        "cookie_secure": ("false", "bool"),
         # 32+ bytes to clear pyjwt's InsecureKeyLengthWarning for HMAC-SHA256.
-        "SM_USERS_RESET_PASSWORD_TOKEN_SECRET": "test-reset-secret-32-bytes-xxxxx",
-        "SM_USERS_VERIFICATION_TOKEN_SECRET": "test-verify-secret-32-bytes-xxxxx",
-        "SM_USERS_LOGIN_RATE_LIMIT_FAILURES": "5",
-        "SM_USERS_LOGIN_RATE_LIMIT_WINDOW_SECONDS": "300",
-        "SM_USERS_LOGIN_RATE_LIMIT_COOLDOWN_SECONDS": "900",
+        "reset_password_token_secret": ("test-reset-secret-32-bytes-xxxxx", "string"),
+        "verification_token_secret": ("test-verify-secret-32-bytes-xxxxx", "string"),
+        "login_rate_limit_failures": ("5", "int"),
+        "login_rate_limit_window_seconds": ("300", "int"),
+        "login_rate_limit_cooldown_seconds": ("900", "int"),
     }
 
 
@@ -112,12 +107,25 @@ async def _seed_roles(application) -> None:
         await session.commit()
 
 
-async def _build_users_app(monkeypatch, *, allow_signup: bool):
-    """Build a test FastAPI app with env patched, DB created, lifespan started."""
-    from simple_module_hosting.app_builder import create_app
+async def _seed_users_settings(application, *, allow_signup: bool) -> None:
+    """Write the test UsersSettings overrides to the DB before hydrate runs.
 
-    for k, v in _users_env(allow_signup=allow_signup).items():
-        monkeypatch.setenv(k, v)
+    Hydrate fires inside the lifespan ``__aenter__``, so this needs to land
+    between table creation and lifespan entry.
+    """
+    from settings.service import SettingService
+    from settings.store import SettingsStore
+
+    async with application.state.sm.db.session_factory() as session:
+        store = SettingsStore(SettingService(session))
+        for field, (raw, vtype) in _users_overrides(allow_signup=allow_signup).items():
+            await store.set_override("users", field, raw, vtype)
+        await session.commit()
+
+
+async def _build_users_app(monkeypatch, *, allow_signup: bool):
+    """Build a test FastAPI app with DB created, settings seeded, lifespan started."""
+    from simple_module_hosting.app_builder import create_app
 
     settings = Settings(
         database_url="sqlite+aiosqlite:///:memory:",
@@ -127,6 +135,7 @@ async def _build_users_app(monkeypatch, *, allow_signup: bool):
     )
     application = create_app(settings)
     await _setup_app_db(application)
+    await _seed_users_settings(application, allow_signup=allow_signup)
 
     ctx = application.router.lifespan_context(application)
     await ctx.__aenter__()

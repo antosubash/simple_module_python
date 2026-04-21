@@ -1,8 +1,13 @@
-"""Datasets module settings loaded from SM_DATASETS_* environment variables.
+"""Datasets module settings (DB-backed).
 
-Bytes storage is delegated to the ``file_storage`` module — its
-``SM_FILE_STORAGE_*`` variables (backend, FS root, S3 bucket, etc.) are
-the single source of truth. Datasets owns only its catalog-specific knobs.
+Construction no longer reads ``SM_DATASETS_*`` environment variables.
+Values come from pydantic defaults at boot, then get hydrated from the DB
+by the hosting lifespan before module ``on_startup`` runs. Runtime changes
+go through ``settings.reload.apply_changes_and_reload``.
+
+Bytes storage is delegated to the ``file_storage`` module — its own
+settings (backend, FS root, S3 bucket, etc.) are the single source of
+truth. Datasets owns only its catalog-specific knobs.
 """
 
 from __future__ import annotations
@@ -16,11 +21,7 @@ from datasets import constants
 class DatasetsSettings(BaseSettings):
     """Configuration for the datasets catalog."""
 
-    model_config = SettingsConfigDict(
-        env_prefix=constants.ENV_PREFIX,
-        env_file=".env",
-        extra="ignore",
-    )
+    model_config = SettingsConfigDict(extra="ignore")
 
     max_upload_mb: int = Field(
         default=constants.DEFAULT_MAX_UPLOAD_MB,

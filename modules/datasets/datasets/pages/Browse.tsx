@@ -68,7 +68,7 @@ function Browse() {
   const canDelete = can('datasets.delete');
 
   function handleDelete(dataset: Dataset) {
-    router.delete(`/api/datasets/${dataset.id}`, { preserveScroll: true });
+    router.delete(`/datasets/${dataset.id}`, { preserveScroll: true });
   }
 
   return (

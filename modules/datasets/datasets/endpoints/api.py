@@ -101,22 +101,16 @@ async def download_dataset(
     )
 
 
-@router.post(
-    "/",
-    response_model=DatasetOut,
-    status_code=201,
-    dependencies=[Depends(RequiresPermission(constants.PERM_DATASETS_UPLOAD))],
-)
-async def upload_dataset(
+async def perform_upload(
     request: Request,
-    name: str = Form(..., min_length=1, max_length=200),
-    description: str | None = Form(default=None, max_length=2000),
-    kind: str | None = Form(default=None),
-    file: UploadFile = File(...),
-    service: DatasetService = Depends(get_dataset_service),
-    bus: EventBus = Depends(get_event_bus),
-    celery: Celery = Depends(get_celery),
-    max_upload_bytes: int = Depends(get_max_upload_bytes),
+    name: str,
+    description: str | None,
+    kind: str | None,
+    file: UploadFile,
+    service: DatasetService,
+    bus: EventBus,
+    celery: Celery,
+    max_upload_bytes: int,
 ) -> DatasetOut:
     if kind is not None and kind not in constants.ALL_KINDS:
         raise HTTPException(status_code=422, detail=f"Unknown kind: {kind}")
@@ -185,6 +179,28 @@ async def upload_dataset(
         )
     )
     return dataset
+
+
+@router.post(
+    "/",
+    response_model=DatasetOut,
+    status_code=201,
+    dependencies=[Depends(RequiresPermission(constants.PERM_DATASETS_UPLOAD))],
+)
+async def upload_dataset(
+    request: Request,
+    name: str = Form(..., min_length=1, max_length=200),
+    description: str | None = Form(default=None, max_length=2000),
+    kind: str | None = Form(default=None),
+    file: UploadFile = File(...),
+    service: DatasetService = Depends(get_dataset_service),
+    bus: EventBus = Depends(get_event_bus),
+    celery: Celery = Depends(get_celery),
+    max_upload_bytes: int = Depends(get_max_upload_bytes),
+) -> DatasetOut:
+    return await perform_upload(
+        request, name, description, kind, file, service, bus, celery, max_upload_bytes
+    )
 
 
 @router.patch(

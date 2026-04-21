@@ -105,21 +105,26 @@ docs/
 
 ## Configuration
 
-All settings are `SM_`-prefixed env vars. Defaults in `.env.example` cover local dev. Key knobs:
+Local deployments only need one env var — everything else has sensible defaults and is managed in the admin UI at `/settings/modules`.
 
-| Variable | Default | Notes |
+| Variable | Default | Required |
 |---|---|---|
-| `SM_DATABASE_URL` | `sqlite+aiosqlite:///./app.db` | Async URL. Postgres: `postgresql+asyncpg://...` |
-| `SM_ENVIRONMENT` | `development` | Anything else triggers strict module discovery |
-| `SM_SECRET_KEY` | _(placeholder)_ | **Must** change in production — signs session cookies |
-| `SM_USERS_ALLOW_SIGNUP` | `false` | Enable public signup (else admin-invite only) |
-| `SM_USERS_MAILER` | `console` | `console` logs links; `smtp` uses SMTP config (see `.env.example`) |
-| `SM_USERS_RESET_PASSWORD_TOKEN_SECRET` | _(dev placeholder)_ | **Must** change in production |
-| `SM_USERS_VERIFICATION_TOKEN_SECRET` | _(dev placeholder)_ | **Must** change in production |
-| `SM_USERS_BOOTSTRAP_EMAIL` | `` | First-admin email; combined with `SM_USERS_BOOTSTRAP_PASSWORD`, creates admin on first boot iff users table is empty |
-| `SM_USERS_BOOTSTRAP_PASSWORD` | `` | Paired with above |
-| `SM_MULTI_TENANT` | `false` | Set `true` to enable `TenantMiddleware` |
-| `SM_TENANT_HEADER` | `` | Empty = token-only; set e.g. `X-Tenant-ID` to enable header fallback |
+| `SM_DATABASE_URL` | `sqlite+aiosqlite:///./app.db` | Yes — async URL. Postgres: `postgresql+asyncpg://...` |
+| `SM_ENVIRONMENT` | `development` | No — any value other than `development`, `test`, `testing` triggers strict discovery and placeholder-secret checks |
+| `SM_SECRET_KEY` | `change-me-in-production` | No in dev; **must** be overridden in production |
+| `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only |
+
+Power users can still override the following bootstrap knobs via env if needed: `SM_DB_POOL_SIZE`, `SM_DB_MAX_OVERFLOW`, `SM_DB_POOL_PRE_PING`, `SM_DB_POOL_RECYCLE`, `SM_DEBUG`, `SM_LOG_LEVEL`, `SM_LOG_FORMAT`, `SM_MODULES_ENABLED`. These are needed before the DB connection is open.
+
+All module-level settings — users, SMTP, Celery broker, file storage backend, etc. — live in the admin UI. After upgrading an existing deployment, run once:
+
+```bash
+uv run sm-settings import-from-env
+```
+
+to seed DB overrides from the current `SM_*` environment.
+
+> **docker-compose note:** `docker-compose.yml` sets a few `SM_BG_TASKS_*` vars so Celery can reach the `redis` service by container hostname before the DB-backed settings are loaded. That's deployment plumbing — not a module config knob.
 
 See `framework-conventions.md` for the settings-per-module convention.
 

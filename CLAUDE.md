@@ -78,7 +78,7 @@ Standard mixins in `simple_module_db.mixins`: `AuditMixin`, `SoftDeleteMixin` (b
 
 ## Diagnostic codes
 
-Meaningful codes when reading `make doctor` output: `SM001` missing meta (error), `SM003` orphan page / `SM004` phantom render (warn), `SM007` module overrides no hooks (info), `SM008` duplicate name (error), `SM009` framework→plugin import (error), `SM010` DB revision behind head (error), `SM011` module table not in migration history (warn), `SM012` `register_settings` overridden but nothing on `app.state.<module>` (warn, fires at dev boot only), `SM013`–`SM016` locale issues, `SM017` module ships `.tsx` pages but is missing `package.json`/`tsconfig.json` (warn). In production, errors fail boot.
+Meaningful codes when reading `make doctor` output: `SM001` missing meta (error), `SM003` orphan page / `SM004` phantom render (warn), `SM007` module overrides no hooks (info), `SM008` duplicate name (error), `SM009` framework→plugin import (error), `SM010` DB revision behind head (error), `SM011` module table not in migration history (warn), `SM012` `register_settings` overridden but nothing on `app.state.<module>` (warn, fires at dev boot only), `SM013`–`SM016` locale issues, `SM017` module ships `.tsx` pages but is missing `package.json`/`tsconfig.json` (warn), `SM018` Inertia `router.{post,patch,put,delete}()` in a page targets a JSON `/api/*` endpoint (warn — Inertia rejects non-Inertia responses). In production, errors fail boot.
 
 ## Tests & fixtures
 

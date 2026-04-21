@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from simple_module_core.diagnostics._coupling import check_framework_module_coupling
+from simple_module_core.diagnostics._inertia_api import check_inertia_api_calls
 from simple_module_core.diagnostics._js_workspace import check_js_workspace_files
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 
@@ -62,6 +63,7 @@ class ModuleDiagnostics:
                 diagnostics.extend(self._check_orphan_pages(mod, src_dir, rendered_pages))
                 diagnostics.extend(self._check_phantom_renders(mod, src_dir, rendered_pages))
                 diagnostics.extend(check_js_workspace_files(mod, src_dir))
+                diagnostics.extend(check_inertia_api_calls(mod, src_dir))
 
         return diagnostics
 

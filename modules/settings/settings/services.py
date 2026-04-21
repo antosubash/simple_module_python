@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from settings.contracts.registry import SettingsRegistry
+from settings.module_registry import ModuleSettingsRegistry
 from settings.settings import SettingsSettings
 
 
@@ -24,7 +25,12 @@ class SettingsServices:
     their setting keys here (typically from their own ``on_startup`` hook)
     so admins can discover every knob and the accessor can fall back to
     declared defaults.
+
+    ``module_registry`` tracks per-module ``BaseSettings`` classes registered
+    via ``register_module_settings``; the hosting lifespan uses it to hydrate
+    each module's effective settings from the DB before ``on_startup`` runs.
     """
 
     settings: SettingsSettings
     registry: SettingsRegistry = field(default_factory=SettingsRegistry)
+    module_registry: ModuleSettingsRegistry = field(default_factory=ModuleSettingsRegistry)

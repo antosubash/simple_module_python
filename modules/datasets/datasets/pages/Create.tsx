@@ -45,7 +45,7 @@ function Create() {
     data.append('file', file);
 
     setSubmitting(true);
-    router.post('/api/datasets/', data, {
+    router.post('/datasets/', data, {
       forceFormData: true,
       onSuccess: () => toast.success(t(keys.datasets.toasts.created)),
       onError: (errs) => {
