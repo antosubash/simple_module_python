@@ -9,7 +9,7 @@ Publish the `simple_module_python` framework to PyPI **and npm** so third partie
 In scope for `v0.0.1`:
 
 1. **PyPI publication of all 14 Python packages** (4 framework + 10 modules).
-2. **npm publication of 3 JS packages** — `@simple-module/ui`, `@simple-module/i18n`, `@simple-module/tsconfig` — under the `@simple-module` npm org.
+2. **npm publication of 3 JS packages** — `@simple-module-py/ui`, `@simple-module-py/i18n`, `@simple-module-py/tsconfig` — under the `@simple-module-py` npm org.
 3. **Per-package metadata hygiene** across both ecosystems — real descriptions, keywords, classifiers/labels, URLs, license, and **substantive READMEs on every package** (17 total).
 4. **`simple-module new <app>` CLI generator** that scaffolds a working app with `users + dashboard + permissions` pre-wired, consuming JS packages from npm as regular dependencies.
 5. **Manual-dispatch GitHub Actions release workflow** using PyPI Trusted Publishing (OIDC) for Python and npm Trusted Publishers (OIDC, GA as of 2024) for JS — no long-lived tokens on either side.
@@ -37,14 +37,15 @@ Out of scope (deferred):
 | 5 | Generator pre-wires users + dashboard + permissions | The 95% default — users can remove what they don't want. |
 | 6 | Template ships inside `simple-module-hosting` | Reuses existing precedent (`simple_module_hosting/templates/` already hosts the module scaffolder). Keeps release matrix at 14. |
 | 7 | **MIT** license across all 14 packages | Permissive, ubiquitous, no copyleft friction for downstream consumers. |
-| 8 | JS packages publish to npm under `@simple-module` scope; generated app depends on them like any npm dep | Consistent dependency story across both ecosystems; users don't fork the UI library by default. Power users can still `npm pack` + vendor if they want shadcn-style ownership. |
+| 8 | JS packages publish to npm under `@simple-module-py` scope; generated app depends on them like any npm dep | Consistent dependency story across both ecosystems; users don't fork the UI library by default. Power users can still `npm pack` + vendor if they want shadcn-style ownership. |
 | 9 | JS packages ship **source** (`.ts` / `.tsx`) + types, not bundled output | Consumers are always Vite-backed apps that will transpile TS anyway. Avoids adding a `tsup`/`rollup` build step and a `dist/` folder. Matches how Radix UI source-ships its primitives. |
 | 10 | npm packages version in lockstep with Python — same version string across all 17 | One `0.0.1` means one release; operators don't have to reason about two version axes. |
+| 11 | **Every package (all 17) MUST include `simple-module` as a keyword/tag** | Makes the whole family discoverable with a single search on PyPI (`?q=simple-module`) and npm (`?q=keywords:simple-module`). Enforced by `scripts/check_metadata.py` in `make lint`. |
 
 ## Open items (need confirmation before implementation plan)
 
 - **PyPI account owner** — assumed `antosubash`. Confirm, then this user must create 14 Trusted Publisher configs on pypi.org + test.pypi.org.
-- **npm org + account owner** — assumed the `@simple-module` npm org is owned by `antosubash` (or will be created by them). Trusted Publishers are configured per-package on npmjs.com pointing at the same GitHub repo + `release.yml` workflow.
+- **npm org + account owner** — assumed the `@simple-module-py` npm org is owned by `antosubash` (or will be created by them). Trusted Publishers are configured per-package on npmjs.com pointing at the same GitHub repo + `release.yml` workflow.
 - **GitHub repo URL** — assumed `https://github.com/antosubash/simple_module_python`. Used in `project.urls` (Python) and `repository.url` (npm).
 
 ## Architecture
@@ -63,7 +64,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
 authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
-keywords = ["fastapi", "modular-monolith", "inertia", "sqlmodel", "<domain>"]
+keywords = ["simple-module", "fastapi", "modular-monolith", "inertia", "sqlmodel", "<domain>"]  # "simple-module" is REQUIRED on every package
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Framework :: FastAPI",
@@ -158,9 +159,9 @@ Per-package specifics below. Each README is ~60–120 lines. The "Usage" snippet
 | `simple-module-feature-flags` | Per-tenant flag overrides, consumer API. |
 | `simple-module-products` | Example CRUD module — explicitly labelled as a reference / demo. |
 | `simple-module-settings` | Runtime settings UI, where modules plug settings panels. |
-| `@simple-module/ui` | shadcn-derived React components (`Button`, `Card`, `Form`, layouts). Peer-deps on React 19. Example: `import { Button } from "@simple-module/ui"`. |
-| `@simple-module/i18n` | `i18next` + `react-i18next` glue for framework i18n. Hook API, namespace conventions, how modules register locales. |
-| `@simple-module/tsconfig` | Shared `base.json` TS config. Install + `extends: "@simple-module/tsconfig/base.json"` in consumer `tsconfig.json`. |
+| `@simple-module-py/ui` | shadcn-derived React components (`Button`, `Card`, `Form`, layouts). Peer-deps on React 19. Example: `import { Button } from "@simple-module-py/ui"`. |
+| `@simple-module-py/i18n` | `i18next` + `react-i18next` glue for framework i18n. Hook API, namespace conventions, how modules register locales. |
+| `@simple-module-py/tsconfig` | Shared `base.json` TS config. Install + `extends: "@simple-module-py/tsconfig/base.json"` in consumer `tsconfig.json`. |
 
 ### 2b. npm package metadata hygiene (Workstream 2b)
 
@@ -168,10 +169,10 @@ All three JS packages currently have `"private": true` and minimal metadata. Eac
 
 ```jsonc
 {
-  "name": "@simple-module/<name>",
+  "name": "@simple-module-py/<name>",
   "version": "0.0.1",
   "description": "<one-sentence description>",
-  "keywords": ["simple-module", "<domain>"],
+  "keywords": ["simple-module", "<domain>"],    // "simple-module" is REQUIRED on every package
   "homepage": "https://github.com/antosubash/simple_module_python#readme",
   "bugs": "https://github.com/antosubash/simple_module_python/issues",
   "repository": {
@@ -201,9 +202,9 @@ All three JS packages currently have `"private": true` and minimal metadata. Eac
 
 Specifics per package:
 
-- **`@simple-module/tsconfig`** — already close. Add `version`, `license`, `repository`, `homepage`, `publishConfig.access=public`, drop `"private": true`. Files stay `["base.json"]`. No React dep.
-- **`@simple-module/i18n`** — move `react`, `react-i18next`, `i18next` from `dependencies` to `peerDependencies` where appropriate (React must be a peer to avoid duplicate-React bugs; i18next stays runtime).
-- **`@simple-module/ui`** — move `react` to `peerDependencies`. Replace the `"@simple-module/i18n": "*"` workspace wildcard with an exact `"0.0.1"` pin (rewritten by the bump script on every release).
+- **`@simple-module-py/tsconfig`** — already close. Add `version`, `license`, `repository`, `homepage`, `publishConfig.access=public`, drop `"private": true`. Files stay `["base.json"]`. No React dep.
+- **`@simple-module-py/i18n`** — move `react`, `react-i18next`, `i18next` from `dependencies` to `peerDependencies` where appropriate (React must be a peer to avoid duplicate-React bugs; i18next stays runtime).
+- **`@simple-module-py/ui`** — move `react` to `peerDependencies`. Replace the `"@simple-module-py/i18n": "*"` workspace wildcard with an exact `"0.0.1"` pin (rewritten by the bump script on every release).
 
 **Shipping source, not built output.** The packages export `.ts` / `.tsx` directly. Vite (and any modern bundler) handles TypeScript transparently. This means:
 
@@ -255,8 +256,8 @@ my-app/
 ├── .env.example            # populated with generated SECRET_KEY, DB URL
 ├── Makefile                # install, dev, test, lint, migrate, migration
 ├── README.md               # links to framework docs
-├── package.json            # deps: @simple-module/ui, @simple-module/i18n, @simple-module/tsconfig
-├── tsconfig.json           # extends "@simple-module/tsconfig/base.json"
+├── package.json            # deps: @simple-module-py/ui, @simple-module-py/i18n, @simple-module-py/tsconfig
+├── tsconfig.json           # extends "@simple-module-py/tsconfig/base.json"
 └── client_app/             # Vite + Inertia root, Tailwind, shadcn bootstrap
     ├── main.tsx
     ├── pages/Home.tsx
@@ -264,7 +265,7 @@ my-app/
     └── tsconfig.json
 ```
 
-The `packages/` folder from the monorepo is **not** vendored. The generated app consumes `@simple-module/ui`, `@simple-module/i18n`, `@simple-module/tsconfig` straight from npm, pinned to the same version as the Python packages it was generated with. This keeps the scaffold small and puts upgrades on a single track (`npm update && uv sync`). A user who wants to own UI components can `cp -r node_modules/@simple-module/ui/src packages/ui-local` post-generate — documented in the generator's output README.
+The `packages/` folder from the monorepo is **not** vendored. The generated app consumes `@simple-module-py/ui`, `@simple-module-py/i18n`, `@simple-module-py/tsconfig` straight from npm, pinned to the same version as the Python packages it was generated with. This keeps the scaffold small and puts upgrades on a single track (`npm update && uv sync`). A user who wants to own UI components can `cp -r node_modules/@simple-module-py/ui/src packages/ui-local` post-generate — documented in the generator's output README.
 
 ### 4. Version bump script (Workstream 4)
 
@@ -286,7 +287,7 @@ Behavior — JS side:
 - Walks all 3 `packages/*/package.json` files.
 - Uses `json` (stdlib) with a custom writer that preserves trailing newlines; key order is stable because `json.dumps(..., indent=2, sort_keys=False)` preserves insertion order and Python 3.7+ `dict` is ordered.
 - Rewrites `version` to `<new_version>`.
-- Rewrites every `@simple-module/*` entry in `dependencies` / `devDependencies` / `peerDependencies` to exactly `<new_version>`.
+- Rewrites every `@simple-module-py/*` entry in `dependencies` / `devDependencies` / `peerDependencies` to exactly `<new_version>`.
 - Leaves `package-lock.json` alone; CI regenerates it via `npm install` during build.
 
 Cross-cutting:
@@ -350,8 +351,8 @@ One-time setup documented in `docs/release.md`.
 
 **npm** — on npmjs.com:
 
-- Create the `@simple-module` scope (org) if it does not exist.
-- For each of `@simple-module/ui`, `@simple-module/i18n`, `@simple-module/tsconfig`: publish an initial empty stub manually *or* use npm's [pending-publisher support](https://docs.npmjs.com/trusted-publishers) where supported, then add a GitHub Actions Trusted Publisher: repo = `antosubash/simple_module_python`, workflow file = `.github/workflows/release.yml`, environment = `npm`.
+- Create the `@simple-module-py` scope (org) if it does not exist.
+- For each of `@simple-module-py/ui`, `@simple-module-py/i18n`, `@simple-module-py/tsconfig`: publish an initial empty stub manually *or* use npm's [pending-publisher support](https://docs.npmjs.com/trusted-publishers) where supported, then add a GitHub Actions Trusted Publisher: repo = `antosubash/simple_module_python`, workflow file = `.github/workflows/release.yml`, environment = `npm`.
 - Three GitHub Environments (`pypi`, `testpypi`, `npm`) exist in repo settings; the publish jobs reference the right one.
 
 ### 7. Repo-level prep (Workstream 7)
@@ -394,12 +395,19 @@ package.json    × 3   ─┘                                              │
 
 ## Testing
 
-1. **Bump script unit tests** — `scripts/tests/test_bump_version.py` with fixtures covering: Python bump succeeds, Python dep pins rewrite, npm version bump succeeds, `@simple-module/*` deps rewrite across `dependencies` / `devDependencies` / `peerDependencies`, `--check` mode, malformed TOML / JSON aborts cleanly, unrelated third-party deps stay untouched.
+1. **Bump script unit tests** — `scripts/tests/test_bump_version.py` with fixtures covering: Python bump succeeds, Python dep pins rewrite, npm version bump succeeds, `@simple-module-py/*` deps rewrite across `dependencies` / `devDependencies` / `peerDependencies`, `--check` mode, malformed TOML / JSON aborts cleanly, unrelated third-party deps stay untouched.
 2. **Local dry run** — `make release-check version=0.0.1` confirms the bump is idempotent across all 17 files.
 3. **TestPyPI + local `npm pack` rehearsal** — run `release.yml` with `target=testpypi` against version `0.0.1a0` (PEP 440 pre-release). Python side publishes to TestPyPI end-to-end; npm side runs `npm pack --dry-run` on every JS package and uploads the resulting `.tgz` tarballs as workflow artifacts so they can be inspected (or `npm install`ed from a file path) without burning an npm version. This must pass before the real run.
 4. **Smoke job** as part of the workflow itself (real run only) — `sm new` + `make test` + `npm install` in the generated app, verifying both PyPI and npm packages resolve.
 5. **Per-package README smoke** — `scripts/check_readmes.py` verifies every one of the 17 published packages has a `README.md` > 500 bytes and contains the required H1 + "Install" + "Usage" sections. Runs in `make lint`.
-6. **npm pack-and-install smoke (local)** — `scripts/smoke_npm_packs.sh` runs `npm pack` on all 3 JS packages and installs them into a temp directory with a minimal Vite app, verifying the published tarballs actually work. Runs before the release workflow is triggered.
+6. **Per-package metadata smoke** — `scripts/check_metadata.py` verifies every one of the 17 packages has:
+   - A non-placeholder `description` (not "Add your description here").
+   - `"simple-module"` in `keywords`.
+   - `license = "MIT"` (Python) or `"license": "MIT"` (npm).
+   - A `repository` / `[project.urls].Repository` pointing at the canonical GitHub URL.
+   - For npm: `publishConfig.access == "public"` and `"private"` unset or `false`.
+   Exits non-zero on any violation. Runs in `make lint`.
+7. **npm pack-and-install smoke (local)** — `scripts/smoke_npm_packs.sh` runs `npm pack` on all 3 JS packages and installs them into a temp directory with a minimal Vite app, verifying the published tarballs actually work. Runs before the release workflow is triggered.
 
 ## Build order
 
@@ -407,7 +415,7 @@ This is also the phasing for the implementation plan:
 
 1. **Metadata hygiene + READMEs** (Workstreams 1 + 2 + 2b) — every `pyproject.toml` and `package.json` gets real description, classifiers/keywords, URLs, license fields; every one of the 17 packages gets a real `README.md`; root `LICENSE` added.
 2. **Bump script + tests** (Workstream 4) — unit-tested in isolation before any workflow depends on it. Covers both TOML and JSON sides.
-3. **`sm new` CLI + template** (Workstream 3) — must work locally (`uv run sm new /tmp/foo`) before the smoke test can rely on it. Template references `@simple-module/*` npm packages by version.
+3. **`sm new` CLI + template** (Workstream 3) — must work locally (`uv run sm new /tmp/foo`) before the smoke test can rely on it. Template references `@simple-module-py/*` npm packages by version.
 4. **Local npm pack smoke + TestPyPI rehearsal** (Workstream 5, `target=testpypi`) — publish `0.0.1a0` to TestPyPI + `npm pack` all JS packages locally; inspect artifacts.
 5. **Trusted Publisher setup** (Workstream 6, manual) — operator configures PyPI + TestPyPI + npm. Happens between step 4 and step 6.
 6. **Real release** — run `release.yml` with `target=pypi`, version `0.0.1`. Publishes 14 Python + 3 npm packages, runs smoke.
