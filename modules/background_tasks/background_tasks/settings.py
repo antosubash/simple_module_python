@@ -1,10 +1,26 @@
-"""BackgroundTasks module settings loaded from SM_BG_TASKS_* env vars."""
+"""BackgroundTasks module settings (DB-backed).
+
+Construction no longer reads ``SM_BG_TASKS_*`` environment variables. Values
+come from pydantic defaults at boot, then get hydrated from the DB by the
+hosting lifespan before module ``on_startup`` runs. Runtime changes go
+through ``settings.reload.apply_changes_and_reload``.
+
+The one remaining env read is ``SM_ENVIRONMENT``, consulted by the
+``@model_validator`` to refuse a localhost broker in production — that's a
+host-level setting, not a background_tasks-module field.
+
+The Celery-critical fields (``broker_url``, ``result_backend``,
+``task_default_queue``) are marked ``requires_restart=True`` via
+``json_schema_extra`` because workers read these once at process start, so
+DB changes can't be hot-reloaded: the admin UI should surface that bumping
+these values requires a worker restart.
+"""
 
 from __future__ import annotations
 
 import os
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
@@ -17,18 +33,19 @@ from background_tasks.constants import (
     DEFAULT_RETENTION_DAYS,
     DEFAULT_STUCK_AFTER_SECONDS,
     DEFAULT_STUCK_SWEEP_INTERVAL_SECONDS,
-    ENV_PREFIX,
 )
+
+_CELERY_RESTART = {"requires_restart": True, "group": "Celery"}
 
 
 class BackgroundTasksSettings(BaseSettings):
     """Configuration for the Celery + Redis task runner."""
 
-    model_config = SettingsConfigDict(env_prefix=ENV_PREFIX, env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(extra="ignore")
 
-    broker_url: str = DEFAULT_BROKER_URL
-    result_backend: str = DEFAULT_RESULT_BACKEND
-    task_default_queue: str = DEFAULT_QUEUE
+    broker_url: str = Field(default=DEFAULT_BROKER_URL, json_schema_extra=_CELERY_RESTART)
+    result_backend: str = Field(default=DEFAULT_RESULT_BACKEND, json_schema_extra=_CELERY_RESTART)
+    task_default_queue: str = Field(default=DEFAULT_QUEUE, json_schema_extra=_CELERY_RESTART)
 
     # A task that has been ``running`` longer than this without a heartbeat is
     # flipped to ``stuck`` by the beat sweep. 5 min is long enough to cover
@@ -54,9 +71,9 @@ class BackgroundTasksSettings(BaseSettings):
             return self
         bad = []
         if "localhost" in self.broker_url or "127.0.0.1" in self.broker_url:
-            bad.append(f"{ENV_PREFIX}BROKER_URL")
+            bad.append("broker_url")
         if "localhost" in self.result_backend or "127.0.0.1" in self.result_backend:
-            bad.append(f"{ENV_PREFIX}RESULT_BACKEND")
+            bad.append("result_backend")
         if bad:
             names = ", ".join(bad)
             raise ValueError(
