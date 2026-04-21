@@ -126,6 +126,22 @@ const ICONS: Record<string, React.ReactNode> = {
       />
     </svg>
   ),
+  layers: (
+    <svg
+      aria-hidden="true"
+      className="w-5 h-5"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="m2.25 12 8.954 4.477a2.25 2.25 0 0 0 1.592 0L21.75 12M2.25 17.25l8.954 4.477a2.25 2.25 0 0 0 1.592 0L21.75 17.25M12 2.25 2.25 6.75l9.75 4.5 9.75-4.5L12 2.25Z"
+      />
+    </svg>
+  ),
   'shield-check': (
     <svg
       aria-hidden="true"

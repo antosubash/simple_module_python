@@ -26,6 +26,10 @@ node_modules/
 *.db
 *.sqlite3
 
+# Module-managed runtime state (e.g. uploaded dataset files,
+# default storage_dir for SM_DATASETS_STORAGE_DIR).
+var/
+
 # file_storage filesystem backend default root (override via SM_FILE_STORAGE_FS_ROOT_PATH).
 uploads/
 

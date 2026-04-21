@@ -8,6 +8,7 @@ dependencies = [
     "auth",
     "dashboard",
     "products",
+    "datasets",
     "permissions",
     "background-tasks",
     "file-storage",
@@ -21,6 +22,7 @@ simple-module-hosting = { workspace = true }
 auth = { workspace = true }
 products = { workspace = true }
 dashboard = { workspace = true }
+datasets = { workspace = true }
 permissions = { workspace = true }
 background-tasks = { workspace = true }
 file-storage = { workspace = true }
