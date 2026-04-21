@@ -14,7 +14,7 @@ A modular-monolith framework for Python. Each feature lives in its own self-cont
 If you want to **build an app on simple_module**, not hack on the framework itself:
 
 ```bash
-uvx simple-module new my-app
+uvx --from simple_module_hosting simple-module new my-app
 cd my-app
 make dev
 ```

@@ -141,7 +141,7 @@ jobs:
           node-version: "20"
       - uses: astral-sh/setup-uv@v5
       - name: Install CLI from PyPI
-        run: uv tool install "simple-module-hosting==${{ inputs.version }}"
+        run: uv tool install "simple_module_hosting==${{ inputs.version }}"
       - name: Generate smoke app
         run: uv tool run simple-module new smoke-app --yes --db sqlite --no-install
       - name: Install smoke app deps (Python + npm)
