@@ -26,6 +26,7 @@ dev = [
     "locust>=2.31",
     "aioboto3>=13",
     "moto[s3]>=5",
+    "tomlkit>=0.13",
 ]
 
 [tool.ruff]
