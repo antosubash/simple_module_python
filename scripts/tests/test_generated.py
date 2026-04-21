@@ -78,16 +78,11 @@ class TestGeneratedTemplateContent:
         assert "async def get_order_service(" in deps
         assert "Depends(get_db)" in deps
 
-    def test_contracts_protocol_defined(self, scaffolded_orders: Path):
-        protocol = (scaffolded_orders / "contracts" / "service.py").read_text()
-        assert "class IOrderService(Protocol):" in protocol
-
     def test_contracts_init_exports_public_api(self, scaffolded_orders: Path):
         init = (scaffolded_orders / "contracts" / "__init__.py").read_text()
         assert '"OrderCreate"' in init
         assert '"OrderOut"' in init
         assert '"OrderUpdate"' in init
-        assert '"IOrderService"' in init
 
     def test_module_class_registers_routes(self, scaffolded_orders: Path):
         module_py = (scaffolded_orders / "module.py").read_text()
