@@ -159,7 +159,23 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
       - run: make install
-      - run: uv run --project host playwright install --with-deps chromium
+      # Playwright's chromium download is ~150MB — cache it keyed on uv.lock so
+      # we only re-download when the pinned playwright version moves. OS deps
+      # (apt packages) aren't cacheable across runs but install-deps is fast on
+      # the GH runner image since most libs are preinstalled.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+      - name: Install Playwright chromium
+        run: |
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
+            uv run --project host playwright install-deps chromium
+          else
+            uv run --project host playwright install --with-deps chromium
+          fi
       - run: make gen-pages
       - run: uv run --project host alembic -c host/alembic.ini upgrade heads
       - name: Start API + Vite
