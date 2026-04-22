@@ -13,7 +13,7 @@ from simple_module_core.discovery import discover_modules
 from simple_module_db.base import all_module_bases
 from simple_module_db.session import DatabaseState, init_db
 from simple_module_hosting.settings import Settings
-from simple_module_testing import forge_session_cookie
+from simple_module_test import forge_session_cookie
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,

@@ -69,7 +69,7 @@ def wire_module_routes(app: FastAPI, module) -> None:
     """Attach a module's API + view routers to ``app`` using its Meta prefixes.
 
     The single canonical implementation so ``create_app`` and the test harness
-    in ``simple_module_testing`` stay in lockstep if ``ModuleBase`` ever gains
+    in ``simple_module_test`` stay in lockstep if ``ModuleBase`` ever gains
     a new router type.
     """
     api_router = APIRouter(prefix=module.meta.route_prefix, tags=[module.meta.name])

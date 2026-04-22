@@ -29,7 +29,7 @@ from background_tasks.signals import (
     on_task_success,
     unbind_event_bus,
 )
-from simple_module_testing import FakeEventBus
+from simple_module_test import FakeEventBus
 from sqlalchemy import select
 
 

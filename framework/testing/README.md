@@ -1,4 +1,4 @@
-# simple_module_testing
+# simple_module_test
 
 Shared pytest fixtures and helpers for writing tests against [simple_module](https://github.com/antosubash/simple_module_python) apps and modules.
 
@@ -7,7 +7,7 @@ Fixtures are exposed via a `pytest11` entry point, so installing the package is 
 ## Install
 
 ```bash
-pip install simple_module_testing
+pip install simple_module_test
 # or, if you already pulled in the framework:
 pip install "simple_module_hosting[dev]"
 ```

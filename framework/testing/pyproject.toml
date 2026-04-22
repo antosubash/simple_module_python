@@ -1,5 +1,5 @@
 [project]
-name = "simple_module_testing"
+name = "simple_module_test"
 version = "0.0.1"
 description = "Shared pytest fixtures (app, client, db_session, authenticated_client) for writing simple_module module tests"
 readme = "README.md"
@@ -32,7 +32,7 @@ dependencies = [
 ]
 
 [project.entry-points.pytest11]
-simple_module_testing = "simple_module_testing.plugin"
+simple_module_test = "simple_module_test.plugin"
 
 [project.urls]
 Homepage = "https://github.com/antosubash/simple_module_python"
@@ -45,7 +45,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["simple_module_testing"]
+packages = ["simple_module_test"]
 
 [tool.uv.sources]
 simple_module_core = { workspace = true }

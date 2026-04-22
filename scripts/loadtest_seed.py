@@ -17,7 +17,7 @@ import asyncio
 
 from simple_module_db.session import init_db
 from simple_module_hosting.settings import Settings
-from simple_module_testing import forge_session_cookie
+from simple_module_test import forge_session_cookie
 from users.bootstrap import create_admin
 
 LOAD_EMAIL = "loadtest@example.com"

@@ -17,7 +17,7 @@ from collections.abc import AsyncGenerator
 import httpx
 import pytest
 from simple_module_hosting.settings import Settings
-from simple_module_testing import forge_session_cookie
+from simple_module_test import forge_session_cookie
 from sqlalchemy.ext.asyncio import AsyncSession
 from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
 
