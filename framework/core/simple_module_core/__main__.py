@@ -25,26 +25,18 @@ from simple_module_core.diagnostics import (
     run_diagnostics,
 )
 from simple_module_core.discovery import discover_modules, topological_sort
+from simple_module_core.dotenv import parse_dotenv
 
 
 def _load_i18n_settings_from_env() -> tuple[list[str], str] | tuple[None, None]:
     """Return ``(supported_locales, default_locale)`` or ``(None, None)`` if unset.
 
     Reads env vars directly to avoid a dependency on ``simple_module_hosting``.
-    Honors ``.env`` by reading it line-by-line if present in the cwd or
-    ``SM_PROJECT_ROOT`` (pydantic-settings isn't imported here).
+    Honors ``.env`` by merging it into ``os.environ`` if present (pydantic-
+    settings isn't imported here).
     """
-    root = Path(os.environ.get("SM_PROJECT_ROOT") or Path.cwd())
-    dotenv = root / ".env"
-    if dotenv.is_file():
-        for raw in dotenv.read_text(encoding="utf-8").splitlines():
-            line = raw.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, value = line.partition("=")
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-            os.environ.setdefault(key, value)
+    for key, value in parse_dotenv().items():
+        os.environ.setdefault(key, value)
 
     supported_raw = os.environ.get("SM_I18N_SUPPORTED_LOCALES")
     if not supported_raw:
