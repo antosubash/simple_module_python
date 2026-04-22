@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from fastapi import FastAPI
 from fastapi_users.password import PasswordHelper
+from simple_module_core.dotenv import parse_dotenv
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +22,15 @@ from users.constants import (
 )
 from users.models import Role, User, UserRole
 from users.settings import UsersSettings
+
+# Maps a UsersSettings attribute to the env var that seeds it on first boot.
+# Shared between the bootstrap function and the test fixture that isolates it.
+BOOTSTRAP_ENV_KEYS: dict[str, str] = {
+    "bootstrap_email": "SM_USERS_BOOTSTRAP_EMAIL",
+    "bootstrap_password": "SM_USERS_BOOTSTRAP_PASSWORD",
+    "bootstrap_user_email": "SM_USERS_BOOTSTRAP_USER_EMAIL",
+    "bootstrap_user_password": "SM_USERS_BOOTSTRAP_USER_PASSWORD",
+}
 
 logger = logging.getLogger("users.bootstrap")
 
@@ -178,29 +188,41 @@ async def _user_table_is_empty(db: AsyncSession) -> bool:
     return count == 0
 
 
+def _read_dotenv_bootstrap_vars() -> dict[str, str]:
+    """Return SM_USERS_BOOTSTRAP_* entries from ``.env`` (ignore everything else).
+
+    ``UsersSettings`` deliberately doesn't use ``env_file`` — runtime fields
+    come from the DB, and pulling the whole ``.env`` in would re-expose every
+    SMTP/cookie/token secret as an env knob. So we re-read ``.env`` just for
+    the four documented seed keys.
+    """
+    wanted = set(BOOTSTRAP_ENV_KEYS.values())
+    return {k: v for k, v in parse_dotenv().items() if k in wanted}
+
+
 async def bootstrap_admin_from_env(app: FastAPI) -> None:
     """On-startup hook: create admin from env vars iff users table is empty.
 
-    Reads ``SM_USERS_BOOTSTRAP_EMAIL`` + ``SM_USERS_BOOTSTRAP_PASSWORD`` via
-    `UsersSettings`. If either is blank, returns silently. If the table
-    already has users, returns silently (so restarts don't try to re-bootstrap).
+    Resolves each of the four bootstrap fields in order: ``UsersSettings``
+    (tests), then ``os.environ`` (docker/systemd), then ``.env`` (documented
+    dev path). If the admin email or password is still blank, returns
+    silently — same if the users table already has rows (so restarts don't
+    try to re-bootstrap).
 
     Optionally also creates a non-admin user from
     ``SM_USERS_BOOTSTRAP_USER_EMAIL`` + ``SM_USERS_BOOTSTRAP_USER_PASSWORD`` —
     useful in dev for testing non-admin flows alongside the admin account.
     """
     settings: UsersSettings = app.state.users.settings
-    # Bootstrap fields are one-shot seed inputs, not runtime DB settings —
-    # prefer the settings value if a test set one explicitly, otherwise fall
-    # back to the env var so production deployments keep working.
-    email = settings.bootstrap_email or os.environ.get("SM_USERS_BOOTSTRAP_EMAIL", "")
-    password = settings.bootstrap_password or os.environ.get("SM_USERS_BOOTSTRAP_PASSWORD", "")
-    user_email = settings.bootstrap_user_email or os.environ.get(
-        "SM_USERS_BOOTSTRAP_USER_EMAIL", ""
-    )
-    user_password = settings.bootstrap_user_password or os.environ.get(
-        "SM_USERS_BOOTSTRAP_USER_PASSWORD", ""
-    )
+    dotenv_vars = _read_dotenv_bootstrap_vars()
+    resolved = {
+        attr: getattr(settings, attr) or os.environ.get(env_key) or dotenv_vars.get(env_key, "")
+        for attr, env_key in BOOTSTRAP_ENV_KEYS.items()
+    }
+    email = resolved["bootstrap_email"]
+    password = resolved["bootstrap_password"]
+    user_email = resolved["bootstrap_user_email"]
+    user_password = resolved["bootstrap_user_password"]
 
     if not email or not password:
         return

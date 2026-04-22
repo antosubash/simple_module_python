@@ -8,7 +8,9 @@ import pytest
 from fastapi_users.password import PasswordHelper
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from users import bootstrap as bootstrap_module
 from users.bootstrap import (
+    BOOTSTRAP_ENV_KEYS,
     CreateAdminResult,
     bootstrap_admin_from_env,
     create_admin,
@@ -16,6 +18,15 @@ from users.bootstrap import (
 from users.constants import ADMIN_ROLE_ID
 from users.models import Role, User, UserRole
 from users.settings import UsersSettings
+
+
+@pytest.fixture(autouse=True)
+def _isolate_from_repo_dotenv(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Prevent the developer's ``.env`` from leaking bootstrap vars into tests."""
+    monkeypatch.setattr(bootstrap_module, "_read_dotenv_bootstrap_vars", dict)
+    for key in BOOTSTRAP_ENV_KEYS.values():
+        monkeypatch.delenv(key, raising=False)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
