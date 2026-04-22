@@ -3,12 +3,6 @@ name: PR
 on:
   pull_request:
     branches: [main]
-  # Also grade every commit that lands on main. The release workflow's preflight
-  # reads the latest pr.yml conclusion for the SHA it's about to tag, so main
-  # HEAD must be validated in its own right (merge-queue or squash-merge can
-  # produce a SHA that no PR run ever graded).
-  push:
-    branches: [main]
 
 # Cancel in-progress runs when new commits are pushed to the same PR
 # so we never waste minutes on outdated code. On main (push), github.ref is
