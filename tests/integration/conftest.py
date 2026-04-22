@@ -18,7 +18,7 @@ from collections.abc import AsyncGenerator
 import httpx
 import pytest
 from fastapi_users.password import PasswordHelper
-from simple_module_testing import forge_session_cookie
+from simple_module_test import forge_session_cookie
 from sqlalchemy import select
 
 

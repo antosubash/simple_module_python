@@ -9,7 +9,7 @@ test and lets pytest-benchmark handle round/warmup selection.
 from __future__ import annotations
 
 import pytest
-from simple_module_testing import forge_session_cookie
+from simple_module_test import forge_session_cookie
 
 pytestmark = pytest.mark.perf
 

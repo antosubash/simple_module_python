@@ -22,7 +22,7 @@ class OrderShipped(Event):
 class TestFakeEventBus:
     async def test_records_publish(self):
         """publish() records the event for later assertion."""
-        from simple_module_testing import FakeEventBus
+        from simple_module_test import FakeEventBus
 
         bus = FakeEventBus()
         await bus.publish(OrderCreated(order_id=42))
@@ -33,7 +33,7 @@ class TestFakeEventBus:
 
     async def test_records_publish_nowait(self):
         """publish_nowait() also records without awaiting."""
-        from simple_module_testing import FakeEventBus
+        from simple_module_test import FakeEventBus
 
         bus = FakeEventBus()
         bus.publish_nowait(OrderCreated(order_id=7))
@@ -41,7 +41,7 @@ class TestFakeEventBus:
 
     async def test_find_by_type(self):
         """find_by_type filters the recorded log to a single event class."""
-        from simple_module_testing import FakeEventBus
+        from simple_module_test import FakeEventBus
 
         bus = FakeEventBus()
         await bus.publish(OrderCreated(order_id=1))
@@ -56,7 +56,7 @@ class TestFakeEventBus:
 
     async def test_clear_resets_log(self):
         """clear() empties the recorded events so test phases can isolate state."""
-        from simple_module_testing import FakeEventBus
+        from simple_module_test import FakeEventBus
 
         bus = FakeEventBus()
         await bus.publish(OrderCreated())
@@ -65,7 +65,7 @@ class TestFakeEventBus:
 
     async def test_subscribed_handlers_still_fire(self):
         """FakeEventBus is a real EventBus — subscribers still run; recording is additive."""
-        from simple_module_testing import FakeEventBus
+        from simple_module_test import FakeEventBus
 
         bus = FakeEventBus()
         received: list[int] = []
@@ -82,7 +82,7 @@ class TestFakeEventBus:
 
     async def test_assert_published_raises_when_missing(self):
         """assert_published raises AssertionError when no matching event was recorded."""
-        from simple_module_testing import FakeEventBus
+        from simple_module_test import FakeEventBus
 
         bus = FakeEventBus()
         await bus.publish(OrderCreated(order_id=1))
@@ -93,7 +93,7 @@ class TestFakeEventBus:
 
     async def test_assert_published_succeeds_when_present(self):
         """assert_published returns the matching events when at least one is found."""
-        from simple_module_testing import FakeEventBus
+        from simple_module_test import FakeEventBus
 
         bus = FakeEventBus()
         await bus.publish(OrderCreated(order_id=1))

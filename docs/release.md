@@ -41,7 +41,7 @@ Repeat for every project in this list:
 simple_module_core
 simple_module_db
 simple_module_hosting
-simple_module_testing
+simple_module_test
 simple_module_auth
 simple_module_background_tasks
 simple_module_dashboard
@@ -219,7 +219,7 @@ Trusted Publishing is tied to the GitHub repo, not any personal account — so a
 | PyPI | `simple_module_core` | [framework/core/](../framework/core/) |
 | PyPI | `simple_module_db` | [framework/db/](../framework/db/) |
 | PyPI | `simple_module_hosting` | [framework/hosting/](../framework/hosting/) — ships the `sm` / `simple-module` CLI |
-| PyPI | `simple_module_testing` | [framework/testing/](../framework/testing/) — pytest plugin |
+| PyPI | `simple_module_test` | [framework/testing/](../framework/testing/) — pytest plugin |
 | PyPI | `simple_module_auth` | [modules/auth/](../modules/auth/) |
 | PyPI | `simple_module_background_tasks` | [modules/background_tasks/](../modules/background_tasks/) |
 | PyPI | `simple_module_dashboard` | [modules/dashboard/](../modules/dashboard/) |

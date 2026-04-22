@@ -115,7 +115,7 @@ class TestValidatePassword:
 class TestOnAfterRegister:
     @pytest.mark.anyio
     async def test_publishes_user_registered(self, manager, fake_user):
-        from simple_module_testing import FakeEventBus
+        from simple_module_test import FakeEventBus
         from users.contracts.events import UserRegistered
 
         bus = FakeEventBus()

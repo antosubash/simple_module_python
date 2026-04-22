@@ -32,21 +32,21 @@ class _EchoModule(ModuleBase):
 class TestBuildTestApp:
     async def test_returns_fastapi_instance_from_class(self):
         """Passing a ModuleBase subclass instantiates it and returns a FastAPI app."""
-        from simple_module_testing import build_test_app
+        from simple_module_test import build_test_app
 
         app = build_test_app(_EchoModule)
         assert isinstance(app, FastAPI)
 
     async def test_returns_fastapi_instance_from_instance(self):
         """Accepts an already-instantiated module too."""
-        from simple_module_testing import build_test_app
+        from simple_module_test import build_test_app
 
         app = build_test_app(_EchoModule())
         assert isinstance(app, FastAPI)
 
     async def test_registers_module_routes_with_prefix(self):
         """The module's register_routes() runs and its api routes appear under the prefix."""
-        from simple_module_testing import build_test_app
+        from simple_module_test import build_test_app
 
         app = build_test_app(_EchoModule)
         paths = {getattr(r, "path", None) for r in app.routes}
@@ -54,14 +54,14 @@ class TestBuildTestApp:
 
     async def test_module_accessible_on_app_state(self):
         """The instance is stored on app.state.module so tests can poke at it."""
-        from simple_module_testing import build_test_app
+        from simple_module_test import build_test_app
 
         app = build_test_app(_EchoModule)
         assert isinstance(app.state.module, _EchoModule)
 
     async def test_isolates_from_other_installed_modules(self):
         """build_test_app only mounts the given module — Products/Auth routes are absent."""
-        from simple_module_testing import build_test_app
+        from simple_module_test import build_test_app
 
         app = build_test_app(_EchoModule)
         paths = {getattr(r, "path", None) for r in app.routes}

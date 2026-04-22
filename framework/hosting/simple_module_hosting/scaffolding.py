@@ -206,7 +206,7 @@ _APP_PY_DEPS = [
     f"simple_module_dashboard=={_FRAMEWORK_VERSION}",
     f"simple_module_permissions=={_FRAMEWORK_VERSION}",
 ]
-_APP_PY_DEV_DEPS = [f"simple_module_testing=={_FRAMEWORK_VERSION}", "pytest>=8.0"]
+_APP_PY_DEV_DEPS = [f"simple_module_test=={_FRAMEWORK_VERSION}", "pytest>=8.0"]
 
 _APP_NPM_DEPS = {
     "@simple-module-py/ui": _FRAMEWORK_VERSION,

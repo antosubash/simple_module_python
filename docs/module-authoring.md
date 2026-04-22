@@ -256,7 +256,7 @@ templates by copying + editing.
 
 ## Testing during development
 
-Install `simple_module_testing` as a dev dependency (the `sm create-module`
+Install `simple_module_test` as a dev dependency (the `sm create-module`
 scaffold does this automatically):
 
 ```toml
@@ -264,7 +264,7 @@ scaffold does this automatically):
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
-    "simple_module_testing>=0.1,<1.0",
+    "simple_module_test>=0.1,<1.0",
 ]
 ```
 

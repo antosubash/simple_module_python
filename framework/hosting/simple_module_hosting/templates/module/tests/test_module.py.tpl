@@ -1,7 +1,7 @@
 """Smoke tests for the {{MODULE_NAME}} module.
 
 The ``build_test_app`` and ``fake_event_bus`` fixtures come from the
-``simple_module_testing`` pytest plugin (registered via entry_points when
+``simple_module_test`` pytest plugin (registered via entry_points when
 that package is installed). No conftest.py is required.
 """
 
