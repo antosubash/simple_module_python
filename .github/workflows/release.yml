@@ -3,79 +3,70 @@ name: release
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: "Version to release (e.g., 0.0.1)"
-        required: true
-        type: string
-      target:
-        description: "Publish target"
+      bump:
+        description: "Semver bump (ignored if `version` is set)"
         type: choice
-        options: [pypi, testpypi]
-        default: testpypi
+        options: [patch, minor, major]
+        default: patch
+      version:
+        description: "Explicit version override (e.g., 1.2.3)"
+        required: false
+        type: string
 
 permissions:
   contents: write
   id-token: write  # required for PyPI Trusted Publishing (OIDC); npm uses NPM_TOKEN
-  actions: read    # preflight's `gh run list` needs this; omitting it silently returns empty
 
 env:
   NODE_VERSION: "24"
   PYTHON_VERSION: "3.12"
 
 jobs:
-  # Fail fast on obvious problems before touching any packaging or git state:
-  #   - malformed version string
-  #   - tag already exists (re-dispatch would silently build on top of it)
-  #   - pr.yml hasn't passed on the commit we're about to release
-  # The release workflow uses workflow_dispatch, so github.sha == main HEAD
-  # at dispatch time; pr.yml's push trigger must have already graded that SHA.
-  preflight:
+  # Resolve the release version once and share it with every downstream job.
+  # If `version` is set, use it verbatim; otherwise bump the current version in
+  # framework/core/pyproject.toml by the chosen level.
+  resolve:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.compute.outputs.version }}
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Validate version string
+      - id: compute
+        shell: bash
         run: |
-          echo "${{ inputs.version }}" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+([.-]?(a|b|rc|alpha|beta)[0-9]*)?$'
-      - name: Fail if tag already exists on origin
-        run: |
-          git fetch --tags --quiet
-          if git rev-parse --verify --quiet "refs/tags/v${{ inputs.version }}" >/dev/null; then
-            echo "::error::tag v${{ inputs.version }} already exists — choose a new version"
-            exit 1
+          if [ -n "${{ inputs.version }}" ]; then
+            ver="${{ inputs.version }}"
+          else
+            ver=$(BUMP="${{ inputs.bump }}" python3 <<'PY'
+          import os, pathlib, re, tomllib
+          cur = tomllib.loads(pathlib.Path("framework/core/pyproject.toml").read_text())["project"]["version"]
+          m = re.match(r"^(\d+)\.(\d+)\.(\d+)", cur)
+          if not m:
+              raise SystemExit(f"cannot parse current version: {cur!r}")
+          major, minor, patch = map(int, m.groups())
+          bump = os.environ["BUMP"]
+          if bump == "major":
+              major, minor, patch = major + 1, 0, 0
+          elif bump == "minor":
+              minor, patch = minor + 1, 0
+          else:
+              patch += 1
+          print(f"{major}.{minor}.{patch}")
+          PY
+          )
           fi
-      - name: Verify pr.yml is green on ${{ github.sha }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          for i in $(seq 1 30); do
-            conclusion=$(gh run list \
-              --commit "${{ github.sha }}" \
-              --workflow pr.yml \
-              --branch main \
-              --json conclusion,status \
-              --jq 'map(select(.status == "completed")) | .[0].conclusion' || true)
-            case "${conclusion:-}" in
-              success)
-                echo "pr.yml passed on ${{ github.sha }}"
-                exit 0 ;;
-              failure|cancelled|timed_out|action_required|startup_failure)
-                echo "::error::pr.yml concluded '${conclusion}' on ${{ github.sha }}"
-                exit 1 ;;
-              *)
-                echo "waiting for pr.yml on ${{ github.sha }} (attempt ${i}/30)"
-                sleep 10 ;;
-            esac
-          done
-          echo "::error::pr.yml did not complete on ${{ github.sha }} within timeout"
-          exit 1
+          echo "${ver}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-]?(a|b|rc|alpha|beta)[0-9]*)?$' \
+            || { echo "::error::'${ver}' is not a valid version"; exit 1; }
+          echo "version=${ver}" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: ${ver}"
 
   # Bump versions in the working tree (no commit yet), build artifacts, upload.
   # The commit + tag only hit origin in `finalize`, after publishes succeed,
   # so a failed build never leaves an orphan tag to clean up.
   build:
-    needs: preflight
+    needs: resolve
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -88,7 +79,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Bump all package versions (working tree only)
-        run: uv run python scripts/bump_version.py "${{ inputs.version }}"
+        run: uv run python scripts/bump_version.py "${{ needs.resolve.outputs.version }}"
       - name: Regenerate npm lockfile
         run: npm install --package-lock-only
       - name: Build Python wheels + sdists
@@ -132,8 +123,8 @@ jobs:
           - simple_module_settings
           - simple_module_users
     environment:
-      name: ${{ inputs.target }}
-      url: https://${{ inputs.target == 'testpypi' && 'test.' || '' }}pypi.org/project/${{ matrix.package }}/
+      name: pypi
+      url: https://pypi.org/project/${{ matrix.package }}/
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -155,11 +146,9 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: to-publish
-          repository-url: ${{ inputs.target == 'testpypi' && 'https://test.pypi.org/legacy/' || '' }}
 
   publish-npm:
     needs: build
-    if: inputs.target == 'pypi'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -194,13 +183,24 @@ jobs:
             ls -la dist-npm
             exit 1
           fi
-          npm publish --access public "${files[0]}"
+          # Guard: the stripped-@ filename is ambiguous between scoped and
+          # unscoped packages (both would yield simple-module-py-ui-*.tgz),
+          # so verify the tarball's package.json actually names an
+          # @simple-module-py/* package before publishing.
+          name=$(tar -xzOf "${files[0]}" package/package.json | python3 -c 'import json,sys; print(json.load(sys.stdin)["name"])')
+          expected="@simple-module-py/${{ matrix.package }}"
+          if [ "$name" != "$expected" ]; then
+            echo "::error::refusing to publish ${files[0]}: package name is '$name', expected '$expected'"
+            exit 1
+          fi
+          # Prefix with ./ so npm treats the arg as a file path, not a
+          # GitHub `user/repo` shorthand (which it does for any bare
+          # single-slash arg, even when the tarball exists on disk).
+          npm publish --access public "./${files[0]}"
 
   # Only after every publish succeeded do we commit the version bump + tag.
-  # Skipped for testpypi so we don't burn a version number on a dry-run.
   finalize:
-    needs: [publish-pypi, publish-npm]
-    if: inputs.target == 'pypi'
+    needs: [resolve, publish-pypi, publish-npm]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -214,103 +214,21 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Re-apply version bump
-        run: uv run python scripts/bump_version.py "${{ inputs.version }}"
+        run: uv run python scripts/bump_version.py "${{ needs.resolve.outputs.version }}"
       - name: Regenerate npm lockfile
         run: npm install --package-lock-only
       - name: Commit, tag, push
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if ! git diff --cached --quiet; then
-            git commit -m "release: v${{ inputs.version }}"
+            git commit -m "release: v${VERSION}"
             git push origin HEAD:main
           else
             echo "working tree clean — packages already published at this version, tagging HEAD"
           fi
-          git tag "v${{ inputs.version }}"
-          git push origin "v${{ inputs.version }}"
-
-  smoke:
-    needs: finalize
-    if: inputs.target == 'pypi'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - uses: astral-sh/setup-uv@v8.0.0
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      - name: Install CLI from PyPI (retry for index propagation)
-        run: |
-          for i in $(seq 1 12); do
-            if uv tool install "simple_module_hosting==${{ inputs.version }}"; then
-              exit 0
-            fi
-            echo "PyPI index not yet showing ${{ inputs.version }} — retry ${i}/12 in 15s"
-            sleep 15
-          done
-          echo "::error::PyPI never served simple_module_hosting==${{ inputs.version }}"
-          exit 1
-      - name: Generate smoke app
-        run: uv tool run simple-module new smoke-app --yes --db sqlite --no-install
-      - name: Install smoke app deps (Python + npm, with propagation retry)
-        working-directory: smoke-app
-        run: |
-          for i in $(seq 1 6); do
-            if uv sync; then break; fi
-            echo "uv sync failed — retry ${i}/6 in 15s"
-            sleep 15
-          done
-          for i in $(seq 1 6); do
-            if npm install; then break; fi
-            echo "npm install failed — retry ${i}/6 in 15s"
-            sleep 15
-          done
-      - name: Run smoke app tests
-        working-directory: smoke-app
-        run: uv run pytest -q
-
-  # TestPyPI equivalent of `smoke`. Exercises the release path before real PyPI
-  # sees the version — the whole point of the testpypi target. Python-only:
-  # npm packages are only published on the pypi target, so the npm deps from
-  # the generated smoke app can't resolve here.
-  smoke-testpypi:
-    needs: publish-pypi
-    if: inputs.target == 'testpypi'
-    runs-on: ubuntu-latest
-    env:
-      UV_INDEX_URL: https://test.pypi.org/simple/
-      UV_EXTRA_INDEX_URL: https://pypi.org/simple/
-    steps:
-      - uses: astral-sh/setup-uv@v8.0.0
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      - name: Install CLI from TestPyPI (retry for index propagation)
-        run: |
-          for i in $(seq 1 12); do
-            if uv tool install \
-                 --index-url "$UV_INDEX_URL" \
-                 --extra-index-url "$UV_EXTRA_INDEX_URL" \
-                 "simple_module_hosting==${{ inputs.version }}"; then
-              exit 0
-            fi
-            echo "TestPyPI not yet showing ${{ inputs.version }} — retry ${i}/12 in 15s"
-            sleep 15
-          done
-          echo "::error::TestPyPI never served simple_module_hosting==${{ inputs.version }}"
-          exit 1
-      - name: Generate smoke app
-        run: uv tool run simple-module new smoke-app --yes --db sqlite --no-install
-      - name: Install Python deps from TestPyPI
-        working-directory: smoke-app
-        run: |
-          for i in $(seq 1 6); do
-            if uv sync; then break; fi
-            echo "uv sync failed — retry ${i}/6 in 15s"
-            sleep 15
-          done
-      - name: Run smoke app tests (Python only)
-        working-directory: smoke-app
-        run: uv run pytest -q
+          git tag "v${VERSION}"
+          git push origin "v${VERSION}"

@@ -4,13 +4,13 @@ This repo publishes **14 Python packages** to PyPI and **3 JS packages** to npm 
 
 - **Python packages** (`simple_module_*`) → [pypi.org](https://pypi.org)
 - **JS packages** (`@simple-module-py/*`) → [npmjs.com](https://www.npmjs.com)
-- **Auth**: OIDC Trusted Publishing on both registries — no API tokens stored anywhere
+- **Auth**: OIDC Trusted Publishing on PyPI; `NPM_TOKEN` on npm
 - **Entry point**: Actions → `release` → Run workflow
 
 ## TL;DR — already set up? Cut a release in 3 clicks
 
 1. Ensure `main` is green (`make lint && make test`).
-2. [Actions → release → Run workflow](https://github.com/antosubash/simple_module_python/actions/workflows/release.yml) → version `X.Y.Z`, target `pypi` → **Run**.
+2. [Actions → release → Run workflow](https://github.com/antosubash/simple_module_python/actions/workflows/release.yml) → pick **bump** (`patch` / `minor` / `major`), leave **version** blank → **Run**.
 3. After it finishes, write release notes on the auto-created `vX.Y.Z` tag on GitHub.
 
 For the very first time, or if any of the above is unfamiliar, keep reading.
@@ -19,11 +19,11 @@ For the very first time, or if any of the above is unfamiliar, keep reading.
 
 ## First-time setup (once per registry account)
 
-You need to set up Trusted Publisher entries on PyPI, TestPyPI, and npm *before* running the workflow. These entries tell each registry: "trust OIDC tokens minted by this exact GitHub Actions workflow." No tokens are exchanged — the registry validates the token's GitHub-issued claims at publish time.
+You need to set up Trusted Publisher entries on PyPI and npm *before* running the workflow. These entries tell each registry: "trust OIDC tokens minted by this exact GitHub Actions workflow." No tokens are exchanged — the registry validates the token's GitHub-issued claims at publish time.
 
-### 1. PyPI (and TestPyPI)
+### 1. PyPI
 
-For *each* of the 14 Python project names, on *both* [pypi.org](https://pypi.org/manage/account/publishing/) and [test.pypi.org](https://test.pypi.org/manage/account/publishing/):
+For *each* of the 14 Python project names, on [pypi.org](https://pypi.org/manage/account/publishing/):
 
 1. Log in as the owner account (`antosubash`).
 2. Go to **Your account → Publishing** (or click "Add a new pending publisher" if the project doesn't exist yet).
@@ -32,7 +32,7 @@ For *each* of the 14 Python project names, on *both* [pypi.org](https://pypi.org
    - **Owner**: `antosubash`
    - **Repository name**: `simple_module_python`
    - **Workflow name**: `release.yml`
-   - **Environment name**: `pypi` on pypi.org, `testpypi` on test.pypi.org
+   - **Environment name**: `pypi`
 4. Save.
 
 Repeat for every project in this list:
@@ -60,23 +60,17 @@ simple_module_users
 
 1. On [npmjs.com](https://www.npmjs.com), sign in as the owner.
 2. Create the `@simple-module-py` organization (Settings → "Create a new organization"). This is a one-time step.
-3. For each of `@simple-module-py/ui`, `@simple-module-py/i18n`, `@simple-module-py/tsconfig`:
-   - Go to the package settings (or "Add a pending publisher" if unpublished).
-   - Under **Trusted Publishers**, add a GitHub Actions publisher:
-     - **Repository**: `antosubash/simple_module_python`
-     - **Workflow name**: `release.yml`
-     - **Environment name**: `npm`
-4. Save.
+3. Generate an automation-type access token with publish rights for `@simple-module-py/*`.
+4. In this repo: **Settings → Secrets and variables → Actions → New repository secret**, name `NPM_TOKEN`, paste the token.
 
 ### 3. GitHub Environments
 
-In the repo's **Settings → Environments → New environment**, create three environments — they match the `environment:` fields used by the release workflow jobs:
+In the repo's **Settings → Environments → New environment**, create two environments — they match the `environment:` fields used by the release workflow jobs:
 
 - `pypi`
-- `testpypi`
 - `npm`
 
-No secrets or variables are needed. Optionally, add a **deployment-protection rule** requiring a manual approval on `pypi` and `npm` so every release gets a human click before it goes live.
+No secrets or variables are needed on the `pypi` environment (OIDC). Optionally, add a **deployment-protection rule** requiring a manual approval on both so every release gets a human click before it goes live.
 
 ### 4. Branch protection
 
@@ -96,53 +90,38 @@ make lint
 make test
 ```
 
-Both should pass locally. CI should be green on `main` too.
+Both should pass locally. CI should be green on every PR into `main`.
 
 ### Step 2. Pick a version
 
 All 17 packages bump in lockstep to the same version. We follow a relaxed SemVer during the 0.x phase:
 
-| Situation | Bump |
+| Situation | Input |
 |---|---|
-| Bug fix, docs, internal refactor | `0.0.N` → `0.0.N+1` |
-| New feature, no breaking changes | `0.0.N` → `0.1.0` |
-| Breaking change (post-1.0) | `X.Y.Z` → `X+1.0.0` |
-| Pre-release rehearsal | append `a0`, `b1`, `rc1` (PEP 440) |
+| Bug fix, docs, internal refactor | **bump**: `patch` |
+| New feature, no breaking changes | **bump**: `minor` |
+| Breaking change (post-1.0) | **bump**: `major` |
+| Pre-release rehearsal or specific number | **version**: e.g. `0.2.0rc1` |
 
-Version strings must match `^[0-9]+\.[0-9]+\.[0-9]+([.-]?(a|b|rc|alpha|beta)[0-9]*)?$` — the workflow validates this up front.
+The workflow derives the next version from the current `framework/core/pyproject.toml` version when you pick a bump level. If you set **version** explicitly, it overrides the bump choice. Version strings must match `^[0-9]+\.[0-9]+\.[0-9]+([.-]?(a|b|rc|alpha|beta)[0-9]*)?$`.
 
-### Step 3. Rehearse on TestPyPI (recommended for anything bigger than a patch)
+### Step 3. Run the release
 
 1. Go to [Actions → release → Run workflow](https://github.com/antosubash/simple_module_python/actions/workflows/release.yml).
-2. **Version**: e.g. `0.0.2a0` (PEP 440 alpha — doesn't collide with the real release).
-3. **Target**: `testpypi`.
-4. Click **Run workflow**.
-
-The rehearsal:
-- Bumps all 17 packages to the alpha version, commits, and pushes a tag.
-- Publishes Python wheels to [test.pypi.org](https://test.pypi.org).
-- Skips npm publishes (npm has no equivalent test registry — we rely on the dry-run tarballs uploaded as workflow artifacts).
-- Skips the smoke test (TestPyPI can't resolve the full dep tree).
-
-Download the `dist-npm` artifact from the workflow run and `tar tf` a tarball to confirm the JS package contents look right. If anything's off, fix on a PR, merge, and rehearse again with `0.0.2a1`.
-
-### Step 4. Real release
-
-Same form, two fields changed:
-
-1. **Version**: `0.0.2` (the real one).
-2. **Target**: `pypi`.
-3. **Run workflow**.
+2. **bump**: `patch` (default), `minor`, or `major`. Leave **version** blank to use it.
+3. **version**: optional — set to an explicit number (e.g. `0.2.0rc1`) to override the bump.
+4. **Run workflow**.
 
 What happens:
-- `bump-and-build` rewrites every version, commits `release: v0.0.2`, tags `v0.0.2`, pushes both, builds 14 wheels + 14 sdists + 3 npm tarballs.
-- `publish-pypi` fans out 14 parallel jobs, each publishing one wheel+sdist pair via OIDC.
-- `publish-npm` fans out 3 parallel jobs publishing via OIDC with `--provenance`.
-- `smoke` installs `simple_module_hosting==0.0.2` from PyPI, runs `simple-module new smoke-app`, and runs the scaffolded app's tests against the just-published registries.
+- `resolve` computes the final version and shares it with every downstream job.
+- `build` rewrites every version, builds 14 wheels + 14 sdists + 3 npm tarballs, and uploads them as artifacts.
+- `publish-pypi` fans out 14 parallel jobs, each publishing one wheel+sdist pair via OIDC Trusted Publishing.
+- `publish-npm` fans out 3 parallel jobs publishing `@simple-module-py/*` tarballs with `NPM_TOKEN`. Each job verifies the tarball's `package.json` is actually scoped to `@simple-module-py/*` before invoking `npm publish`.
+- `finalize` re-applies the bump, commits `release: vX.Y.Z`, tags it, and pushes both.
 
 Expected wall time: 5–8 minutes.
 
-### Step 5. GitHub Release notes
+### Step 4. GitHub Release notes
 
 The workflow creates the `vX.Y.Z` tag but not a GitHub Release. Do that manually:
 
@@ -177,7 +156,7 @@ rm -rf dist-py dist-npm
 uv build --all-packages --out-dir dist-py
 mkdir -p dist-npm && for p in packages/*/; do npm pack "$p" --pack-destination dist-npm; done
 
-# 6. Sanity-check wheel contents
+# 6. Sanity-check contents
 ls dist-py/ | wc -l        # expect 28 (14 wheels + 14 sdists)
 ls dist-npm/ | wc -l       # expect 3
 
@@ -193,14 +172,19 @@ If step 5 fails for any package, the workflow will fail the same way — fix it 
 
 ### Workflow fails at "Trusted publisher not configured"
 
-The project's Trusted Publisher entry is missing or mismatched. Common causes:
+The PyPI project's Trusted Publisher entry is missing or mismatched. Common causes:
 - Wrong workflow filename (must be exactly `release.yml`, not the full path)
-- Wrong environment name (must be exactly `pypi` / `testpypi` / `npm`)
+- Wrong environment name (must be exactly `pypi`)
 - Repository owner typo
 
 Fix the entry on the registry, re-run the failed job.
 
-### `git push` fails in "Commit, tag, and push" step
+### npm publish fails with `401 Unauthorized` or a weird git error
+
+- `401` → `NPM_TOKEN` secret is missing, expired, or lacks publish rights on `@simple-module-py/*`. Rotate and re-run.
+- `git ls-remote` / `Permission denied (publickey)` → npm is mis-parsing the tarball path. This is guarded for in the workflow (the path is prefixed with `./` and the package name is verified against `@simple-module-py/<pkg>`). If you see it again, the guard has regressed.
+
+### `git push` fails in "Commit, tag, push" step
 
 Branch protection is blocking `github-actions[bot]`. Add the `RELEASE_PUSH_TOKEN` secret (see First-time setup → Branch protection) and re-dispatch the workflow. The token is consumed automatically when present.
 
@@ -210,27 +194,21 @@ PyPI is immutable — you cannot re-upload `0.0.2` under any circumstance. Optio
 
 1. **Yank** the bad PyPI versions via the PyPI project UI (doesn't delete, but hides them from `pip install`).
 2. **Unpublish** the good npm versions within 72 hours: `npm unpublish @simple-module-py/<pkg>@0.0.2` for each.
-3. Fix the root cause (almost always a Trusted Publisher misconfiguration).
+3. Fix the root cause.
 4. Bump to `0.0.3` and re-run.
-
-The TestPyPI rehearsal in Step 3 is the mitigation — do it for anything you're unsure about.
-
-### Smoke job fails with "package not found"
-
-PyPI has a short CDN propagation delay (typically <1 min, occasionally up to 10). The smoke job can race against it. Re-run just the smoke job from the Actions UI after a minute or two.
 
 ### A new module was added — how do I include it in releases?
 
 1. Add its distribution name to `scripts/bump_version.py`'s package list (should be automatic if it lives under `modules/*/pyproject.toml`).
 2. Add it to `.github/workflows/release.yml` under `publish-pypi` → `strategy.matrix.package`.
-3. Create the PyPI (and TestPyPI) Trusted Publisher entry for its project name.
+3. Create the PyPI Trusted Publisher entry for its project name.
 4. Add a substantive README (`check_readmes.py` will fail otherwise).
 
 `scripts/check_metadata.py` and `scripts/check_readmes.py` run in `make lint` and will tell you what's missing.
 
 ### I need to rotate or recover the owner account
 
-Trusted Publishing is tied to the GitHub repo, not any personal account — so a PyPI/npm account handover is the usual account-transfer flow at the registry, not a code change. Just update the "Project names" section of this doc afterward.
+Trusted Publishing is tied to the GitHub repo, not any personal account — so a PyPI account handover is the usual account-transfer flow at the registry, not a code change. For npm, rotate `NPM_TOKEN` under the new owner. Update the "Project names" section of this doc afterward.
 
 ---
 
