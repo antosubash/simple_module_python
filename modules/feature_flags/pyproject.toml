@@ -4,7 +4,7 @@ version = "0.0.1"
 description = "Simple feature-flag module with per-tenant overrides and a consumer API for simple_module"
 readme = "README.md"
 license = "MIT"
-license-files = ["../../LICENSE"]
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
 keywords = ["simple-module", "feature-flags", "toggles", "multi-tenant"]

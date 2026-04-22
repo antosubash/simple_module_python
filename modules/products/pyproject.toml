@@ -4,7 +4,7 @@ version = "0.0.1"
 description = "Example CRUD module used as a reference / demo for building simple_module modules"
 readme = "README.md"
 license = "MIT"
-license-files = ["../../LICENSE"]
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
 keywords = ["simple-module", "example", "crud", "demo"]

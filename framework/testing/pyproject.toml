@@ -4,7 +4,7 @@ version = "0.0.1"
 description = "Shared pytest fixtures (app, client, db_session, authenticated_client) for writing simple_module module tests"
 readme = "README.md"
 license = "MIT"
-license-files = ["../../LICENSE"]
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
 keywords = ["simple-module", "pytest", "pytest-plugin", "fixtures", "testing"]
