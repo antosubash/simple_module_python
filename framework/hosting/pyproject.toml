@@ -50,9 +50,6 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["simple_module_hosting"]
 
-[tool.hatch.build.targets.wheel.force-include]
-"simple_module_hosting/templates" = "simple_module_hosting/templates"
-
 [tool.uv.sources]
 simple_module_core = { workspace = true }
 simple_module_db = { workspace = true }
