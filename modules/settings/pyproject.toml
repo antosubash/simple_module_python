@@ -4,7 +4,7 @@ version = "0.0.1"
 description = "Runtime settings UI — modules plug their own settings panels into a shared admin view"
 readme = "README.md"
 license = "MIT"
-license-files = ["../../LICENSE"]
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
 keywords = ["simple-module", "settings", "admin", "configuration"]

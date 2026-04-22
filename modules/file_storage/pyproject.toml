@@ -4,7 +4,7 @@ version = "0.0.1"
 description = "Pluggable file upload + storage (local or S3 via extras) module for simple_module apps"
 readme = "README.md"
 license = "MIT"
-license-files = ["../../LICENSE"]
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
 keywords = ["simple-module", "file-upload", "s3", "storage"]

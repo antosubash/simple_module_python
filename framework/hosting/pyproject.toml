@@ -4,7 +4,7 @@ version = "0.0.1"
 description = "FastAPI + Inertia.js host runtime for simple_module — app_builder, middleware stack, CLI (sm / simple-module), scaffolding"
 readme = "README.md"
 license = "MIT"
-license-files = ["../../LICENSE"]
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
 keywords = ["simple-module", "fastapi", "inertia", "starlette", "uvicorn", "scaffolding"]
