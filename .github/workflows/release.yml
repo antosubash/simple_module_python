@@ -15,63 +15,102 @@ on:
 
 permissions:
   contents: write
-  id-token: write  # required for Trusted Publishing (OIDC) on both PyPI and npm
+  id-token: write  # required for PyPI Trusted Publishing (OIDC); npm uses NPM_TOKEN
+
+env:
+  NODE_VERSION: "24"
+  PYTHON_VERSION: "3.12"
 
 jobs:
-  bump-and-build:
+  # Fail fast on obvious problems before touching any packaging or git state:
+  #   - malformed version string
+  #   - tag already exists (re-dispatch would silently build on top of it)
+  #   - pr.yml hasn't passed on the commit we're about to release
+  # The release workflow uses workflow_dispatch, so github.sha == main HEAD
+  # at dispatch time; pr.yml's push trigger must have already graded that SHA.
+  preflight:
     runs-on: ubuntu-latest
-    outputs:
-      py-artifact: ${{ steps.build-py.outputs.name }}
-      npm-artifact: ${{ steps.build-npm.outputs.name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          token: ${{ secrets.RELEASE_PUSH_TOKEN || github.token }}
-      - uses: astral-sh/setup-uv@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
       - name: Validate version string
         run: |
           echo "${{ inputs.version }}" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+([.-]?(a|b|rc|alpha|beta)[0-9]*)?$'
-      - name: Bump all package versions
+      - name: Fail if tag already exists on origin
+        run: |
+          git fetch --tags --quiet
+          if git rev-parse --verify --quiet "refs/tags/v${{ inputs.version }}" >/dev/null; then
+            echo "::error::tag v${{ inputs.version }} already exists — choose a new version"
+            exit 1
+          fi
+      - name: Verify pr.yml is green on ${{ github.sha }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 30); do
+            conclusion=$(gh run list \
+              --commit "${{ github.sha }}" \
+              --workflow pr.yml \
+              --branch main \
+              --json conclusion,status \
+              --jq 'map(select(.status == "completed")) | .[0].conclusion' 2>/dev/null || true)
+            case "${conclusion:-}" in
+              success)
+                echo "pr.yml passed on ${{ github.sha }}"
+                exit 0 ;;
+              failure|cancelled|timed_out|action_required|startup_failure)
+                echo "::error::pr.yml concluded '${conclusion}' on ${{ github.sha }}"
+                exit 1 ;;
+              *)
+                echo "waiting for pr.yml on ${{ github.sha }} (attempt ${i}/30)"
+                sleep 10 ;;
+            esac
+          done
+          echo "::error::pr.yml did not complete on ${{ github.sha }} within timeout"
+          exit 1
+
+  # Bump versions in the working tree (no commit yet), build artifacts, upload.
+  # The commit + tag only hit origin in `finalize`, after publishes succeed,
+  # so a failed build never leaves an orphan tag to clean up.
+  build:
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Bump all package versions (working tree only)
         run: uv run python scripts/bump_version.py "${{ inputs.version }}"
       - name: Regenerate npm lockfile
         run: npm install --package-lock-only
-      - name: Commit, tag, and push
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "release: v${{ inputs.version }}" || { echo "no changes to commit"; exit 0; }
-          git tag "v${{ inputs.version }}"
-          git push origin HEAD:main
-          git push origin "v${{ inputs.version }}"
       - name: Build Python wheels + sdists
-        id: build-py
-        run: |
-          uv build --all-packages --out-dir dist-py
-          echo "name=dist-py" >> "$GITHUB_OUTPUT"
+        run: uv build --all-packages --out-dir dist-py
       - name: Pack npm tarballs
-        id: build-npm
         run: |
           mkdir -p dist-npm
           for pkg in packages/*/; do
             npm pack "$pkg" --pack-destination dist-npm
           done
-          echo "name=dist-npm" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
           name: dist-py
           path: dist-py/
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
           name: dist-npm
           path: dist-npm/
+          retention-days: 14
 
   publish-pypi:
-    needs: bump-and-build
+    needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -100,10 +139,17 @@ jobs:
           name: dist-py
           path: dist-py/
       - name: Filter artifacts for this package
+        shell: bash
         run: |
+          shopt -s nullglob
+          files=( dist-py/${{ matrix.package }}-* )
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::no artifacts matched dist-py/${{ matrix.package }}-*"
+            ls -la dist-py
+            exit 1
+          fi
           mkdir -p to-publish
-          name="${{ matrix.package }}"
-          mv dist-py/${name}-* to-publish/ 2>/dev/null || true
+          mv "${files[@]}" to-publish/
           ls to-publish
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -111,45 +157,159 @@ jobs:
           repository-url: ${{ inputs.target == 'testpypi' && 'https://test.pypi.org/legacy/' || '' }}
 
   publish-npm:
-    needs: bump-and-build
+    needs: build
     if: inputs.target == 'pypi'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        package: ["ui", "i18n", "tsconfig"]
+        package: [ui, i18n, tsconfig]
     environment: npm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
-          ref: v${{ inputs.version }}
-      - uses: actions/setup-node@v4
+          name: dist-npm
+          path: dist-npm/
+      - uses: actions/setup-node@v6
         with:
-          node-version: "20"
-          registry-url: "https://registry.npmjs.org"
-      - name: Publish via npm Trusted Publisher
-        run: npm publish --provenance --access public
-        working-directory: packages/${{ matrix.package }}
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Configure npm auth
+        # Write the registry line ourselves so _authToken reads from NPM_TOKEN
+        # (setup-node's registry-url would hard-code NODE_AUTH_TOKEN instead).
+        # The backslash escapes the $ so the literal ${NPM_TOKEN} lands in
+        # .npmrc and is expanded by npm at publish time.
+        run: echo "//registry.npmjs.org/:_authToken=\${NPM_TOKEN}" > ~/.npmrc
+      - name: Publish tarball
+        shell: bash
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          shopt -s nullglob
+          # `npm pack` on a scoped package writes <scope>-<name>-<version>.tgz with
+          # the leading @ stripped and '/' replaced by '-'.
+          files=( dist-npm/simple-module-py-${{ matrix.package }}-*.tgz )
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::no tarball for @simple-module-py/${{ matrix.package }} in dist-npm/"
+            ls -la dist-npm
+            exit 1
+          fi
+          npm publish --access public "${files[0]}"
 
-  smoke:
+  # Only after every publish succeeded do we commit the version bump + tag.
+  # Skipped for testpypi so we don't burn a version number on a dry-run.
+  finalize:
     needs: [publish-pypi, publish-npm]
     if: inputs.target == 'pypi'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
         with:
-          node-version: "20"
-      - uses: astral-sh/setup-uv@v5
-      - name: Install CLI from PyPI
-        run: uv tool install "simple_module_hosting==${{ inputs.version }}"
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PUSH_TOKEN || github.token }}
+      - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Re-apply version bump
+        run: uv run python scripts/bump_version.py "${{ inputs.version }}"
+      - name: Regenerate npm lockfile
+        run: npm install --package-lock-only
+      - name: Commit, tag, push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "release: v${{ inputs.version }}"
+            git push origin HEAD:main
+          else
+            echo "working tree clean — packages already published at this version, tagging HEAD"
+          fi
+          git tag "v${{ inputs.version }}"
+          git push origin "v${{ inputs.version }}"
+
+  smoke:
+    needs: finalize
+    if: inputs.target == 'pypi'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install CLI from PyPI (retry for index propagation)
+        run: |
+          for i in $(seq 1 12); do
+            if uv tool install "simple_module_hosting==${{ inputs.version }}"; then
+              exit 0
+            fi
+            echo "PyPI index not yet showing ${{ inputs.version }} — retry ${i}/12 in 15s"
+            sleep 15
+          done
+          echo "::error::PyPI never served simple_module_hosting==${{ inputs.version }}"
+          exit 1
       - name: Generate smoke app
         run: uv tool run simple-module new smoke-app --yes --db sqlite --no-install
-      - name: Install smoke app deps (Python + npm)
+      - name: Install smoke app deps (Python + npm, with propagation retry)
+        working-directory: smoke-app
         run: |
-          cd smoke-app
-          uv sync
-          npm install
+          for i in $(seq 1 6); do
+            if uv sync; then break; fi
+            echo "uv sync failed — retry ${i}/6 in 15s"
+            sleep 15
+          done
+          for i in $(seq 1 6); do
+            if npm install; then break; fi
+            echo "npm install failed — retry ${i}/6 in 15s"
+            sleep 15
+          done
       - name: Run smoke app tests
+        working-directory: smoke-app
+        run: uv run pytest -q
+
+  # TestPyPI equivalent of `smoke`. Exercises the release path before real PyPI
+  # sees the version — the whole point of the testpypi target. Python-only:
+  # npm packages are only published on the pypi target, so the npm deps from
+  # the generated smoke app can't resolve here.
+  smoke-testpypi:
+    needs: publish-pypi
+    if: inputs.target == 'testpypi'
+    runs-on: ubuntu-latest
+    env:
+      UV_INDEX_URL: https://test.pypi.org/simple/
+      UV_EXTRA_INDEX_URL: https://pypi.org/simple/
+    steps:
+      - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install CLI from TestPyPI (retry for index propagation)
         run: |
-          cd smoke-app
-          uv run pytest -q
+          for i in $(seq 1 12); do
+            if uv tool install \
+                 --index-url "$UV_INDEX_URL" \
+                 --extra-index-url "$UV_EXTRA_INDEX_URL" \
+                 "simple_module_hosting==${{ inputs.version }}"; then
+              exit 0
+            fi
+            echo "TestPyPI not yet showing ${{ inputs.version }} — retry ${i}/12 in 15s"
+            sleep 15
+          done
+          echo "::error::TestPyPI never served simple_module_hosting==${{ inputs.version }}"
+          exit 1
+      - name: Generate smoke app
+        run: uv tool run simple-module new smoke-app --yes --db sqlite --no-install
+      - name: Install Python deps from TestPyPI
+        working-directory: smoke-app
+        run: |
+          for i in $(seq 1 6); do
+            if uv sync; then break; fi
+            echo "uv sync failed — retry ${i}/6 in 15s"
+            sleep 15
+          done
+      - name: Run smoke app tests (Python only)
+        working-directory: smoke-app
+        run: uv run pytest -q
