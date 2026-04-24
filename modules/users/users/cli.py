@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
+from importlib.metadata import PackageNotFoundError, version
 
 import typer
 from simple_module_hosting.settings import Settings
@@ -18,11 +19,37 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from users.bootstrap import create_admin
 
-app = typer.Typer(help="Users module administration.", no_args_is_help=True)
+app = typer.Typer(
+    help="Users module administration.",
+    no_args_is_help=True,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+
+
+def _pkg_version() -> str:
+    try:
+        return version("simple_module_users")
+    except PackageNotFoundError:
+        return "unknown"
+
+
+def _version_callback(show: bool) -> None:
+    if show:
+        typer.echo(f"sm-users {_pkg_version()}")
+        raise typer.Exit()
 
 
 @app.callback()
-def _main() -> None:
+def _main(
+    _v: bool = typer.Option(
+        False,
+        "--version",
+        "-V",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show version and exit.",
+    ),
+) -> None:
     """Users module administration CLI."""
 
 
@@ -55,12 +82,13 @@ def create_admin_cli(
                     force=force,
                 )
             if result.created:
-                typer.echo(f"Created admin {email} (id={result.user.id})")
+                typer.secho(f"Created admin {email} (id={result.user.id})", fg="green")
             elif force:
-                typer.echo(f"Updated admin {email} (id={result.user.id})")
+                typer.secho(f"Updated admin {email} (id={result.user.id})", fg="green")
             else:
-                typer.echo(
+                typer.secho(
                     f"User {email} already exists. Pass --force to reset password.",
+                    fg="red",
                     err=True,
                 )
                 return 1

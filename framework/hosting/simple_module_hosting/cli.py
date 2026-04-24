@@ -1,11 +1,7 @@
 """SimpleModule CLI — `sm` console script.
 
-Currently exposes:
-
-* ``sm create-host <name>`` — scaffold a new host directory.
-* ``sm create-module <name>`` — scaffold a new module package.
-* ``sm gen-pages`` — regenerate the frontend pages manifest + Tailwind CSS.
-* ``sm sync-js-deps`` — install JS deps declared by installed modules.
+Subcommands: ``new``, ``create-host``, ``create-module``, ``gen-pages``,
+``sync-js-deps``. Run ``sm --help`` for details.
 """
 
 from __future__ import annotations
@@ -14,6 +10,7 @@ import logging
 import shutil
 import subprocess
 import sys
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 import click
@@ -31,7 +28,23 @@ from simple_module_hosting.scaffolding import (
 )
 
 
-@click.group()
+def _pkg_version() -> str:
+    try:
+        return version("simple_module_hosting")
+    except PackageNotFoundError:
+        return "unknown"
+
+
+def _error(msg: str) -> None:
+    click.secho(f"ERROR: {msg}", fg="red", err=True)
+
+
+def _warn(msg: str) -> None:
+    click.secho(f"WARNING: {msg}", fg="yellow", err=True)
+
+
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
+@click.version_option(_pkg_version(), "-V", "--version", prog_name="sm")
 def main() -> None:
     """SimpleModule developer CLI."""
 
@@ -93,10 +106,10 @@ def new_project(
     try:
         create_app_project(target, name=name, db=db, tenancy=tenancy)
     except FileExistsError as exc:
-        click.echo(f"ERROR: {exc}", err=True)
+        _error(str(exc))
         sys.exit(1)
 
-    click.echo(f"Created app '{name}' at {target}")
+    click.secho(f"Created app '{name}' at {target}", fg="green")
     click.echo("\nPre-wired modules: users, dashboard, permissions")
     click.echo("\nNext steps:")
     click.echo(f"  cd {target}")
@@ -111,15 +124,11 @@ def new_project(
     for cmd in (["uv", "sync"], ["npm", "install"]):
         result = subprocess.run(cmd, cwd=target, check=False)
         if result.returncode != 0:
-            click.echo(
-                f"WARNING: {' '.join(cmd)} failed (exit {result.returncode}); "
-                f"finish setup manually.",
-                err=True,
-            )
+            _warn(f"{' '.join(cmd)} failed (exit {result.returncode}); finish setup manually.")
             return
 
     subprocess.run(["uv", "run", "alembic", "upgrade", "head"], cwd=target, check=False)
-    click.echo("\nSetup complete. Run `make dev` in the new directory.")
+    click.secho("\nSetup complete. Run `make dev` in the new directory.", fg="green")
 
 
 @main.command("create-host")
@@ -144,10 +153,10 @@ def create_host(name: str, dest: Path | None, modules: str) -> None:
     try:
         _create_host(target, name=name, modules=selected)
     except FileExistsError as exc:
-        click.echo(f"ERROR: {exc}", err=True)
+        _error(str(exc))
         sys.exit(1)
 
-    click.echo(f"Created host '{name}' at {target}")
+    click.secho(f"Created host '{name}' at {target}", fg="green")
     if selected:
         click.echo(f"Declared modules: {', '.join(selected)}")
     click.echo("\nNext steps:")
@@ -176,10 +185,10 @@ def create_module_cmd(name: str, dest: Path | None) -> None:
     try:
         create_module(target, name=name)
     except FileExistsError as exc:
-        click.echo(f"ERROR: {exc}", err=True)
+        _error(str(exc))
         sys.exit(1)
 
-    click.echo(f"Created module 'simple_module_{package}' at {target}")
+    click.secho(f"Created module 'simple_module_{package}' at {target}", fg="green")
     click.echo("\nNext steps:")
     click.echo(f"  cd {target}")
     click.echo("  uv sync --extra dev")
@@ -198,14 +207,15 @@ def gen_pages(host_dir: Path | None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     output = host_dir or Path.cwd() / "client_app"
     if not output.is_dir():
-        click.echo(f"ERROR: client_app directory not found at {output}", err=True)
+        _error(f"client_app directory not found at {output}")
         sys.exit(1)
 
     modules = discover_modules()
     written = write_module_pages_manifest(modules, output)
-    click.echo(
+    click.secho(
         f"Wrote {written['manifest'].name}, {written['generated'].name}, "
-        f"{written['css'].name} to {output}"
+        f"{written['css'].name} to {output}",
+        fg="green",
     )
 
 
@@ -223,18 +233,12 @@ def gen_pages(host_dir: Path | None) -> None:
     help="Print the npm install command without running it.",
 )
 def sync_js_deps(host_client_app: Path | None, dry_run: bool) -> None:
-    """Install JS deps declared by installed modules into host's node_modules.
-
-    Walks every discovered module, reads its package.json, and runs a single
-    ``npm install --workspace host/client_app --save=false <specs>``. Use
-    this after ``pip install``-ing a module wheel that declares JS deps;
-    in-repo modules already flow through npm workspaces and need nothing.
-    """
+    """Install JS deps declared by installed modules (use after ``pip install``)."""
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
     output = host_client_app or Path.cwd() / "client_app"
     if not output.is_dir():
-        click.echo(f"ERROR: client_app directory not found at {output}", err=True)
+        _error(f"client_app directory not found at {output}")
         sys.exit(1)
 
     modules = discover_modules()
@@ -258,7 +262,7 @@ def sync_js_deps(host_client_app: Path | None, dry_run: bool) -> None:
 
     npm = shutil.which("npm")
     if npm is None:
-        click.echo("ERROR: npm not found on PATH.", err=True)
+        _error("npm not found on PATH.")
         sys.exit(1)
 
     # Workspace path is relative to the repo root — derive it from output.
