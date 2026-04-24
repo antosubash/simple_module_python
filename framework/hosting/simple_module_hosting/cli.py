@@ -16,6 +16,7 @@ import click
 from simple_module_core import discover_modules
 
 from simple_module_hosting._cli_utils import (
+    attach_plugin_commands,
     error,
     info,
     pkg_version,
@@ -41,6 +42,7 @@ from simple_module_hosting.scaffolding import (
 @click.version_option(pkg_version(), "-V", "--version", prog_name="sm")
 def main() -> None:
     """SimpleModule developer CLI."""
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
 @main.command("new")
@@ -199,7 +201,6 @@ def create_module_cmd(name: str, dest: Path | None) -> None:
 )
 def gen_pages(host_dir: Path | None) -> None:
     """Regenerate client_app/modules.{manifest.json,generated.ts,generated.css}."""
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     output = host_dir or Path.cwd() / "client_app"
     if not output.is_dir():
         error(f"client_app dir not found at {output}", hint="run from host root or pass --host-dir")
@@ -229,8 +230,6 @@ def gen_pages(host_dir: Path | None) -> None:
 )
 def sync_js_deps(host_client_app: Path | None, dry_run: bool) -> None:
     """Install JS deps declared by installed modules (use after ``pip install``)."""
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-
     output = host_client_app or Path.cwd() / "client_app"
     if not output.is_dir():
         error(f"client_app dir not found at {output}", hint="pass --host-client-app")
@@ -291,6 +290,9 @@ def sync_js_deps(host_client_app: Path | None, dry_run: bool) -> None:
 def list_modules() -> None:
     """List modules discovered via [project.entry-points.simple_module]."""
     print_discovered_modules()
+
+
+attach_plugin_commands(main)
 
 
 if __name__ == "__main__":

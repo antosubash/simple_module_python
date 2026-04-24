@@ -31,14 +31,13 @@ dependencies = [
     "fastapi-users[sqlalchemy]>=15,<16",
     "aiosmtplib>=3.0",
     "cachetools>=5.3",
-    "typer>=0.12",
 ]
 
 [project.entry-points.simple_module]
 users = "users.module:UsersModule"
 
-[project.scripts]
-sm-users = "users.cli:app"
+[project.entry-points.simple_module_cli]
+users = "users.cli:cli"
 
 [project.urls]
 Homepage = "https://github.com/antosubash/simple_module_python"

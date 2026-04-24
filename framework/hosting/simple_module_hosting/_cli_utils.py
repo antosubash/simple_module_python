@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from importlib.metadata import PackageNotFoundError, version
+import logging
+from importlib.metadata import PackageNotFoundError, entry_points, version
 
 import click
+
+CLI_ENTRY_POINT_GROUP = "simple_module_cli"
+_logger = logging.getLogger(__name__)
 
 
 def pkg_version() -> str:
@@ -26,6 +30,30 @@ def warn(msg: str) -> None:
 
 def info(msg: str) -> None:
     click.secho(f"==> {msg}", fg="cyan")
+
+
+def attach_plugin_commands(group: click.Group) -> None:
+    """Attach every Click command/group declared in the `simple_module_cli` entry-point group.
+
+    Each module can contribute CLI commands by declaring, in its pyproject.toml::
+
+        [project.entry-points.simple_module_cli]
+        users = "users.cli:cli"
+
+    The loaded object must be a ``click.BaseCommand`` (command or group); anything
+    else is skipped with a warning. Failures to import are logged and skipped so
+    a broken plugin never prevents ``sm --help`` from running.
+    """
+    for ep in entry_points(group=CLI_ENTRY_POINT_GROUP):
+        try:
+            cmd = ep.load()
+        except Exception:
+            _logger.exception("Failed to load CLI plugin %r — skipping", ep.name)
+            continue
+        if not isinstance(cmd, click.Command):
+            _logger.warning("CLI plugin %r is not a click command — skipping", ep.name)
+            continue
+        group.add_command(cmd, name=ep.name)
 
 
 def print_discovered_modules() -> None:

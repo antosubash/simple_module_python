@@ -42,7 +42,7 @@ make dev           # FastAPI on :8000 + Vite on :5173
 Create the first admin user (needed for e2e auth):
 
 ```bash
-uv run sm-users create-admin --email admin@example.com --password admin
+uv run sm users create-admin --email admin@example.com --password admin
 ```
 
 Or set `SM_USERS_BOOTSTRAP_EMAIL` / `SM_USERS_BOOTSTRAP_PASSWORD` in `.env`
@@ -67,7 +67,7 @@ The tests read these environment variables (all optional):
 | Variable       | Default                   | Notes                                                        |
 | -------------- | ------------------------- | ------------------------------------------------------------ |
 | `E2E_BASE_URL` | `http://localhost:8000`   | Where the FastAPI host is listening.                         |
-| `E2E_USERNAME` | `admin@example.com`       | Email of the admin user created via `sm-users create-admin`. |
+| `E2E_USERNAME` | `admin@example.com`       | Email of the admin user created via `sm users create-admin`. |
 | `E2E_PASSWORD` | `admin`                   | Password of the above admin user.                            |
 | `SM_USERS_VERIFICATION_TOKEN_SECRET` | `dev-verify-token-secret-change-me` | Must match the running server's value so locally-minted invite tokens are accepted. |
 
@@ -90,7 +90,7 @@ The tests read these environment variables (all optional):
 4. Delete it through the confirm dialog and verify the row disappears.
 
 The CRUD test relies on the admin user having the `admin` role (created
-automatically by `sm-users create-admin` or the bootstrap env vars).
+automatically by `sm users create-admin` or the bootstrap env vars).
 
 **`test_admin_invite_smoke`**
 
