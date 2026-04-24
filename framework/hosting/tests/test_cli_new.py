@@ -76,3 +76,29 @@ def test_sm_new_refuses_to_overwrite(tmp_path: Path) -> None:
     )
     assert result.exit_code != 0
     assert "exists" in result.output.lower() or "exists" in (result.stderr or "").lower()
+
+
+def test_sm_version_flag() -> None:
+    result = CliRunner().invoke(main, ["--version"])
+    assert result.exit_code == 0
+    assert "sm" in result.output
+
+
+def test_sm_list_modules_prints_header() -> None:
+    result = CliRunner().invoke(main, ["list-modules"])
+    assert result.exit_code == 0, result.output
+    # Either we see the column header (modules discovered) or the empty-state message.
+    assert "PACKAGE" in result.output or "No modules discovered" in result.output
+
+
+def test_sm_gen_pages_missing_dir_has_hint(tmp_path: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(main, ["gen-pages", "--host-dir", str(tmp_path / "nope")])
+    assert result.exit_code != 0
+    # Click .exists=True on --host-dir rejects missing path; no hint expected in that branch.
+    # Exercise the default-path branch by running without --host-dir from a cwd w/o client_app.
+    with runner.isolated_filesystem(temp_dir=str(tmp_path)):
+        result = runner.invoke(main, ["gen-pages"])
+    assert result.exit_code != 0
+    combined = result.output + (result.stderr or "")
+    assert "hint:" in combined
