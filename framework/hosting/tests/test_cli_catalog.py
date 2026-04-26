@@ -83,4 +83,4 @@ def test_module_entry_is_frozen() -> None:
 
     entry = ModuleEntry(name="x", package="simple_module_x", display="X")
     with pytest.raises(FrozenInstanceError):
-        entry.name = "y"  # ty: ignore[invalid-assignment] noqa: B010
+        entry.__setattr__("name", "y")

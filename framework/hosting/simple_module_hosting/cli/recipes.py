@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from simple_module_hosting._env import set_env_key
+
 __all__ = [
     "RECIPES",
     "BackgroundTasksRecipe",
@@ -46,13 +48,6 @@ def _optional_template_root(name: str) -> Path:
     return Path(str(base / "templates" / "host" / "_optional" / name))
 
 
-def _set_env_key(text: str, key: str, value: str) -> str:
-    """Replace or append ``KEY=VALUE`` in an env-style file body."""
-    lines = [ln for ln in text.splitlines() if not ln.startswith(f"{key}=")]
-    lines.append(f"{key}={value}")
-    return "\n".join(lines) + "\n"
-
-
 class BackgroundTasksRecipe:
     """Lays down run_worker.py + compose + Dockerfile + Make targets."""
 
@@ -81,7 +76,7 @@ class BackgroundTasksRecipe:
         env_path = target / ".env.example"
         env_text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
         env_path.write_text(
-            _set_env_key(env_text, _BG_BROKER_ENV_KEY, _BG_BROKER_DEFAULT),
+            set_env_key(env_text, _BG_BROKER_ENV_KEY, _BG_BROKER_DEFAULT),
             encoding="utf-8",
         )
 

@@ -17,6 +17,8 @@ import secrets as _secrets
 from collections.abc import Sequence
 from pathlib import Path
 
+from simple_module_hosting._env import set_env_key
+
 __all__ = ["create_app_project"]
 
 _FRAMEWORK_VERSION = "0.0.1"
@@ -59,7 +61,11 @@ def create_app_project(
     # cannot import from scaffolding at module-load time.
     from simple_module_hosting.cli.catalog import CATALOG, PRESETS, expand_deps
     from simple_module_hosting.cli.recipes import RECIPES, ScaffoldCtx
-    from simple_module_hosting.scaffolding import _to_kebab_case, create_host
+    from simple_module_hosting.scaffolding import (
+        _to_kebab_case,
+        _to_pascal_case,
+        create_host,
+    )
 
     if target.exists() and any(target.iterdir()):
         raise FileExistsError(
@@ -70,7 +76,7 @@ def create_app_project(
     chosen = list(selected) if selected is not None else list(PRESETS["standard"])
     resolved, _added = expand_deps(chosen)
 
-    display_names = [CATALOG[m].display.replace(" ", "") for m in resolved]
+    display_names = [_to_pascal_case(CATALOG[m].display) for m in resolved]
     create_host(target, name=name, modules=display_names)
 
     py_deps = [f"simple_module_hosting=={_FRAMEWORK_VERSION}"] + [
@@ -79,9 +85,9 @@ def create_app_project(
 
     env_path = target / ".env.example"
     env_text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
-    env_text = _set_env_key(env_text, "SM_SECRET_KEY", _secrets.token_urlsafe(32))
-    env_text = _set_env_key(env_text, "SM_DATABASE_URL", _db_url(db, _to_kebab_case(name)))
-    env_text = _set_env_key(env_text, "SM_MULTI_TENANT", "true" if tenancy else "false")
+    env_text = set_env_key(env_text, "SM_SECRET_KEY", _secrets.token_urlsafe(32))
+    env_text = set_env_key(env_text, "SM_DATABASE_URL", _db_url(db, _to_kebab_case(name)))
+    env_text = set_env_key(env_text, "SM_MULTI_TENANT", "true" if tenancy else "false")
     env_path.write_text(env_text, encoding="utf-8")
 
     pyproject = target / "pyproject.toml"
@@ -104,14 +110,6 @@ def create_app_project(
         recipe_key = CATALOG[mod_name].recipe
         if recipe_key is not None and recipe_key in RECIPES:
             RECIPES[recipe_key].apply(target, ctx)
-
-
-def _set_env_key(text: str, key: str, value: str) -> str:
-    lines = text.splitlines()
-    prefix = f"{key}="
-    out = [ln for ln in lines if not ln.startswith(prefix)]
-    out.append(f"{key}={value}")
-    return "\n".join(out) + "\n"
 
 
 def _db_url(db: str, slug: str) -> str:
