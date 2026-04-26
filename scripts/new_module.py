@@ -19,6 +19,8 @@ import sys
 import textwrap
 from pathlib import Path
 
+from simple_module.case import to_pascal_case
+
 # Make sibling template modules importable when this file is run as a script.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -54,11 +56,6 @@ def validate_name(name: str) -> str:
     return name
 
 
-def to_class_name(name: str) -> str:
-    """Convert snake_case module name to PascalCase class name."""
-    return "".join(word.capitalize() for word in name.split("_"))
-
-
 def to_singular(name: str) -> str:
     """Naive singularization: strip trailing 's' if present."""
     if name.endswith("s") and not name.endswith("ss"):
@@ -77,9 +74,9 @@ def _build_context(name: str) -> ScaffoldContext:
     singular = to_singular(name)
     return ScaffoldContext(
         name=name,
-        class_name=to_class_name(name),
+        class_name=to_pascal_case(name),
         singular=singular,
-        singular_class=to_class_name(singular),
+        singular_class=to_pascal_case(singular),
         pkg=name,
     )
 

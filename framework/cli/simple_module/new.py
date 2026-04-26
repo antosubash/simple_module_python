@@ -68,8 +68,6 @@ def new_project(
     target = dest or Path.cwd() / name
     extra_list = [m.strip() for m in extra.split(",") if m.strip()]
     flag_driven = preset is not None or bool(extra_list)
-    db_value: str = db.value
-    tenancy_value: bool = tenancy
 
     if yes or flag_driven:
         chosen = list(PRESETS[(preset or Preset.standard).value]) + extra_list
@@ -80,9 +78,10 @@ def new_project(
             raise typer.Exit(code=1) from exc
         for added_name, required_by in added:
             typer.echo(f"Added {added_name} (required by {required_by})")
+        db_final, tenancy_final = db.value, tenancy
     else:
         try:
-            db_value, tenancy_value, resolved = run_wizard(
+            db_final, tenancy_final, resolved = run_wizard(
                 default_db=db.value, default_tenancy=tenancy
             )
         except typer.Abort:
@@ -90,7 +89,7 @@ def new_project(
             raise typer.Exit(code=1) from None
 
     try:
-        create_app_project(target, name=name, db=db_value, tenancy=tenancy_value, selected=resolved)
+        create_app_project(target, name=name, db=db_final, tenancy=tenancy_final, selected=resolved)
     except FileExistsError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(code=1) from exc
