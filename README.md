@@ -14,7 +14,7 @@ A modular-monolith framework for Python. Each feature lives in its own self-cont
 If you want to **build an app on simple_module**, not hack on the framework itself:
 
 ```bash
-uvx --from simple_module_hosting simple-module new my-app
+uvx --from simple_module_cli sm new my-app
 cd my-app
 make dev
 ```
@@ -119,7 +119,7 @@ Power users can still override the following bootstrap knobs via env if needed: 
 All module-level settings — users, SMTP, Celery broker, file storage backend, etc. — live in the admin UI. After upgrading an existing deployment, run once:
 
 ```bash
-uv run sm-settings import-from-env
+uv run sm settings import-from-env
 ```
 
 to seed DB overrides from the current `SM_*` environment.
@@ -135,7 +135,7 @@ See `framework-conventions.md` for the settings-per-module convention.
 Either use the CLI:
 
 ```bash
-uv run sm-users create-admin --email admin@example.com --password changeme
+uv run sm users create-admin --email admin@example.com --password changeme
 ```
 
 Or let the app bootstrap it automatically on first boot by setting env vars **before** running `make migrate && make dev`:

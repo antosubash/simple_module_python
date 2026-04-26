@@ -34,7 +34,7 @@ line-length = 100
 target-version = "py312"
 # Scaffold templates are copied verbatim (and some live under __PACKAGE__/
 # placeholder dirs that aren't valid Python packages until substituted).
-extend-exclude = ["framework/hosting/simple_module_hosting/templates"]
+extend-exclude = ["framework/cli/simple_module_cli/templates"]
 
 [tool.ruff.lint]
 select = [
@@ -105,7 +105,7 @@ invalid-argument-type = "ignore"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["framework/core/tests", "framework/db/tests", "framework/hosting/tests", "framework/testing/tests", "host/tests", "modules/auth/tests", "modules/dashboard/tests", "modules/products/tests", "modules/users/tests", "modules/datasets/tests", "modules/permissions/tests", "modules/background_tasks/tests", "modules/file_storage/tests", "modules/settings/tests", "modules/feature_flags/tests", "scripts/tests", "tests/integration", "tests/e2e", "tests/benchmarks"]
+testpaths = ["framework/cli/tests", "framework/core/tests", "framework/db/tests", "framework/hosting/tests", "framework/testing/tests", "host/tests", "modules/auth/tests", "modules/dashboard/tests", "modules/products/tests", "modules/users/tests", "modules/datasets/tests", "modules/permissions/tests", "modules/background_tasks/tests", "modules/file_storage/tests", "modules/settings/tests", "modules/feature_flags/tests", "scripts/tests", "tests/integration", "tests/e2e", "tests/benchmarks"]
 markers = [
     "e2e: end-to-end tests requiring a live browser",
     "perf: performance benchmarks (opt-in; run via `make bench`)",

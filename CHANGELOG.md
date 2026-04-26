@@ -33,7 +33,7 @@ Initial public release. All 14 Python packages publish to PyPI and all 3 JS pack
 
 ### Added
 
-- `simple-module new <app>` / `sm new <app>` CLI generator scaffolding a working app with `users + dashboard + permissions` pre-wired.
+- `sm new <app>` CLI generator (shipped via the `simple_module_cli` PyPI distribution) scaffolding a working app with `users + dashboard + permissions` pre-wired.
 - PyPI Trusted Publishing workflow (`.github/workflows/release.yml`) for zero-secret releases.
 - npm Trusted Publishing for all three JS packages.
 

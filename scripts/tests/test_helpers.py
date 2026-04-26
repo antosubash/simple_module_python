@@ -8,10 +8,10 @@ import pytest
 from new_module import (
     _insert_after_last_match,
     create_file,
-    to_class_name,
     to_singular,
     validate_name,
 )
+from simple_module_cli.case import to_pascal_case
 
 
 class TestValidateName:
@@ -41,15 +41,15 @@ class TestValidateName:
             validate_name("")
 
 
-class TestToClassName:
+class TestToPascalCase:
     def test_single_word(self):
-        assert to_class_name("orders") == "Orders"
+        assert to_pascal_case("orders") == "Orders"
 
     def test_two_words(self):
-        assert to_class_name("blog_posts") == "BlogPosts"
+        assert to_pascal_case("blog_posts") == "BlogPosts"
 
     def test_three_words(self):
-        assert to_class_name("user_role_assignments") == "UserRoleAssignments"
+        assert to_pascal_case("user_role_assignments") == "UserRoleAssignments"
 
 
 class TestToSingular:

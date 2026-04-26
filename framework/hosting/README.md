@@ -1,6 +1,6 @@
 # simple_module_hosting
 
-FastAPI + Inertia.js host runtime for the [simple_module](https://github.com/antosubash/simple_module_python) framework — builds the app, wires the middleware pipeline, exposes the `sm` / `simple-module` CLI, and ships the project scaffolder.
+FastAPI + Inertia.js host runtime for the [simple_module](https://github.com/antosubash/simple_module_python) framework — builds the app, wires the middleware pipeline, and contributes the `sm host` plugin to the standalone `sm` CLI.
 
 ## Install
 
@@ -8,10 +8,10 @@ FastAPI + Inertia.js host runtime for the [simple_module](https://github.com/ant
 pip install simple_module_hosting
 ```
 
-For a new project, most users run the generator instead:
+For a new project, most users run the generator instead (shipped by the standalone `simple_module_cli` distribution):
 
 ```bash
-uvx simple-module new my-app
+uvx --from simple_module_cli sm new my-app
 ```
 
 ## What it provides
@@ -19,8 +19,7 @@ uvx simple-module new my-app
 - `create_app(settings)` — returns a fully-wired `FastAPI` instance with all discovered modules registered.
 - Middleware pipeline (execution order): CorrelationId → RequestLogging → SecurityHeaders → Session → `<module middleware>` → Tenant (opt-in) → Locale → InertiaLayoutData → app.
 - Inertia wiring — shared props (`auth`, `menus`, `i18n`), `InertiaDep`, page-route lookup.
-- CLI entry points: both `sm` and `simple-module` are installed and alias the same Click tree.
-- Scaffolders — `sm create-host`, `sm create-module`, `sm new` (greenfield app with users + dashboard + permissions pre-wired), `sm gen-pages`.
+- `sm host` plugin — `sm host gen-pages` regenerates the frontend pages manifest; `sm host sync-js-deps` installs JS deps declared by installed modules. The `sm` binary itself comes from `simple_module_cli`.
 
 ## Usage
 
@@ -38,15 +37,12 @@ if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
 ```
 
-CLI:
+CLI (after also installing `simple_module_cli`):
 
 ```bash
-simple-module new my-app        # scaffold a new project
-simple-module doctor            # diagnostic codes (SM001-SM017)
-simple-module gen-pages         # regenerate client_app/modules.generated.ts
+sm host gen-pages               # regenerate client_app/modules.generated.ts
+sm host sync-js-deps            # sync module JS deps into client_app/node_modules
 ```
-
-`sm` works identically to `simple-module`.
 
 ## Depends on
 
