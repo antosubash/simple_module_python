@@ -8,10 +8,10 @@ FastAPI + Inertia.js host runtime for the [simple_module](https://github.com/ant
 pip install simple_module_hosting
 ```
 
-For a new project, most users run the generator instead (shipped by the standalone `simple-module-cli` distribution):
+For a new project, most users run the generator instead (shipped by the standalone `simple_module_cli` distribution):
 
 ```bash
-uvx --from simple-module-cli sm new my-app
+uvx --from simple_module_cli sm new my-app
 ```
 
 ## What it provides
@@ -19,7 +19,7 @@ uvx --from simple-module-cli sm new my-app
 - `create_app(settings)` — returns a fully-wired `FastAPI` instance with all discovered modules registered.
 - Middleware pipeline (execution order): CorrelationId → RequestLogging → SecurityHeaders → Session → `<module middleware>` → Tenant (opt-in) → Locale → InertiaLayoutData → app.
 - Inertia wiring — shared props (`auth`, `menus`, `i18n`), `InertiaDep`, page-route lookup.
-- `sm host` plugin — `sm host gen-pages` regenerates the frontend pages manifest; `sm host sync-js-deps` installs JS deps declared by installed modules. The `sm` binary itself comes from `simple-module-cli`.
+- `sm host` plugin — `sm host gen-pages` regenerates the frontend pages manifest; `sm host sync-js-deps` installs JS deps declared by installed modules. The `sm` binary itself comes from `simple_module_cli`.
 
 ## Usage
 
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
 ```
 
-CLI (after also installing `simple-module-cli`):
+CLI (after also installing `simple_module_cli`):
 
 ```bash
 sm host gen-pages               # regenerate client_app/modules.generated.ts
