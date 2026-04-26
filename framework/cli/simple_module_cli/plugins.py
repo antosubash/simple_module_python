@@ -1,4 +1,4 @@
-"""Plugin discovery for ``sm`` via the ``simple_module.cli_plugins`` group.
+"""Plugin discovery for ``sm`` via the ``simple_module_cli.cli_plugins`` group.
 
 Each entry-point's value (``module:attr``) must resolve to a
 :class:`typer.Typer` instance. The entry-point name becomes the
@@ -18,7 +18,7 @@ import typer
 
 __all__ = ["discover_and_mount"]
 
-_GROUP = "simple_module.cli_plugins"
+_GROUP = "simple_module_cli.cli_plugins"
 
 
 def _iter_plugin_entries() -> Iterator[EntryPoint]:

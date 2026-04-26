@@ -30,7 +30,7 @@ dependencies = [
 [project.entry-points.simple_module]
 settings = "settings.module:SettingsModule"
 
-[project.entry-points."simple_module.cli_plugins"]
+[project.entry-points."simple_module_cli.cli_plugins"]
 settings = "settings.cli:app"
 
 [project.urls]

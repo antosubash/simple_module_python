@@ -7,12 +7,12 @@ from importlib.metadata import EntryPoint
 
 import pytest
 import typer
-from simple_module.plugins import discover_and_mount
+from simple_module_cli.plugins import discover_and_mount
 from typer.testing import CliRunner
 
 
 def _make_entry(name: str, module_attr: str) -> EntryPoint:
-    return EntryPoint(name=name, value=module_attr, group="simple_module.cli_plugins")
+    return EntryPoint(name=name, value=module_attr, group="simple_module_cli.cli_plugins")
 
 
 @pytest.fixture
@@ -41,7 +41,7 @@ def fake_plugin_module(tmp_path, monkeypatch):
 
 def test_discover_mounts_valid_plugin(monkeypatch, fake_plugin_module) -> None:
     monkeypatch.setattr(
-        "simple_module.plugins._iter_plugin_entries",
+        "simple_module_cli.plugins._iter_plugin_entries",
         lambda: [_make_entry("fake", fake_plugin_module)],
     )
     root = typer.Typer()
@@ -66,7 +66,7 @@ def _root_with_builtin() -> typer.Typer:
 
 def test_discover_skips_broken_plugin(monkeypatch, capsys) -> None:
     bad = _make_entry("broken", "nonexistent_module:app")
-    monkeypatch.setattr("simple_module.plugins._iter_plugin_entries", lambda: [bad])
+    monkeypatch.setattr("simple_module_cli.plugins._iter_plugin_entries", lambda: [bad])
     root = _root_with_builtin()
     discover_and_mount(root)  # should not raise
 
@@ -81,7 +81,7 @@ def test_discover_skips_broken_plugin(monkeypatch, capsys) -> None:
 def test_discover_warns_on_duplicate_subgroup(monkeypatch, fake_plugin_module, capsys) -> None:
     a = _make_entry("dup", fake_plugin_module)
     b = _make_entry("dup", fake_plugin_module)
-    monkeypatch.setattr("simple_module.plugins._iter_plugin_entries", lambda: [a, b])
+    monkeypatch.setattr("simple_module_cli.plugins._iter_plugin_entries", lambda: [a, b])
     root = typer.Typer()
     discover_and_mount(root)
     captured = capsys.readouterr()
@@ -89,7 +89,7 @@ def test_discover_warns_on_duplicate_subgroup(monkeypatch, fake_plugin_module, c
 
 
 def test_discover_with_no_plugins_is_noop(monkeypatch) -> None:
-    monkeypatch.setattr("simple_module.plugins._iter_plugin_entries", list)
+    monkeypatch.setattr("simple_module_cli.plugins._iter_plugin_entries", list)
     root = _root_with_builtin()
     discover_and_mount(root)
     runner = CliRunner()

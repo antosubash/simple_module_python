@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from simple_module.cli import app
+from simple_module_cli.cli import app
 from typer.testing import CliRunner
 
 
@@ -65,7 +65,7 @@ def test_sm_new_writes_generated_secret_key(tmp_path: Path) -> None:
 
 
 def test_create_app_project_with_selected_kwarg(tmp_path: Path) -> None:
-    from simple_module.app_project import create_app_project
+    from simple_module_cli.app_project import create_app_project
 
     target = tmp_path / "demo"
     create_app_project(
@@ -83,7 +83,7 @@ def test_create_app_project_with_selected_kwarg(tmp_path: Path) -> None:
 
 
 def test_create_app_project_runs_recipe_for_background_tasks(tmp_path: Path) -> None:
-    from simple_module.app_project import create_app_project
+    from simple_module_cli.app_project import create_app_project
 
     target = tmp_path / "demo"
     create_app_project(
@@ -102,7 +102,7 @@ def test_create_app_project_runs_recipe_for_background_tasks(tmp_path: Path) -> 
 
 
 def test_create_app_project_default_selected_keeps_back_compat(tmp_path: Path) -> None:
-    from simple_module.app_project import create_app_project
+    from simple_module_cli.app_project import create_app_project
 
     target = tmp_path / "demo"
     create_app_project(target, name="demo", db="sqlite", tenancy=False)

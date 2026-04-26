@@ -11,7 +11,7 @@ from new_module import (
     to_singular,
     validate_name,
 )
-from simple_module.case import to_pascal_case
+from simple_module_cli.case import to_pascal_case
 
 
 class TestValidateName:

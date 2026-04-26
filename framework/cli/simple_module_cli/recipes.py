@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from simple_module._env import set_env_key
+from simple_module_cli._env import set_env_key
 
 __all__ = [
     "RECIPES",
@@ -44,7 +44,7 @@ class Recipe(Protocol):
 
 def _optional_template_root(name: str) -> Path:
     """Resolve ``templates/host/_optional/<name>/`` from package data."""
-    base = importlib.resources.files("simple_module")
+    base = importlib.resources.files("simple_module_cli")
     return Path(str(base / "templates" / "host" / "_optional" / name))
 
 

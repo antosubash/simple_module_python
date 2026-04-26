@@ -17,11 +17,11 @@ import secrets as _secrets
 from collections.abc import Sequence
 from pathlib import Path
 
-from simple_module._env import set_env_key
-from simple_module.case import to_kebab_case, to_pascal_case
-from simple_module.catalog import CATALOG, PRESETS, expand_deps
-from simple_module.recipes import RECIPES, ScaffoldCtx
-from simple_module.scaffolding import create_host
+from simple_module_cli._env import set_env_key
+from simple_module_cli.case import to_kebab_case, to_pascal_case
+from simple_module_cli.catalog import CATALOG, PRESETS, expand_deps
+from simple_module_cli.recipes import RECIPES, ScaffoldCtx
+from simple_module_cli.scaffolding import create_host
 
 __all__ = ["create_app_project"]
 

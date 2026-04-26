@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import typer
-from simple_module.wizard import run_wizard
+from simple_module_cli.wizard import run_wizard
 from typer.testing import CliRunner
 
 

@@ -5,7 +5,7 @@ Built-in commands:
   sm create-host
   sm create-module
 
-Plugins discovered via the ``simple_module.cli_plugins`` entry-point
+Plugins discovered via the ``simple_module_cli.cli_plugins`` entry-point
 group are mounted as named subgroups (e.g. ``sm host gen-pages``).
 """
 
@@ -16,11 +16,11 @@ from typing import Annotated
 
 import typer
 
-from simple_module.case import to_kebab_case
-from simple_module.new import new_project
-from simple_module.plugins import discover_and_mount
-from simple_module.scaffolding import create_host as _create_host
-from simple_module.scaffolding import create_module as _create_module
+from simple_module_cli.case import to_kebab_case
+from simple_module_cli.new import new_project
+from simple_module_cli.plugins import discover_and_mount
+from simple_module_cli.scaffolding import create_host as _create_host
+from simple_module_cli.scaffolding import create_module as _create_module
 
 app = typer.Typer(
     help="SimpleModule developer CLI.",

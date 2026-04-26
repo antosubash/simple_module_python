@@ -19,7 +19,7 @@ import sys
 import textwrap
 from pathlib import Path
 
-from simple_module.case import to_pascal_case
+from simple_module_cli.case import to_pascal_case
 
 # Make sibling template modules importable when this file is run as a script.
 sys.path.insert(0, str(Path(__file__).resolve().parent))

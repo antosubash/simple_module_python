@@ -1,4 +1,4 @@
-"""Guard: `simple-module` distribution depends only on typer + tomlkit.
+"""Guard: `simple-module-cli` distribution depends only on typer + tomlkit.
 
 If a future change accidentally pulls in simple_module_core, FastAPI,
 SQLModel, or anything else, this test fires immediately.
@@ -17,9 +17,10 @@ def _normalize(req: str) -> str:
     return head.strip().lower().replace("_", "-")
 
 
-def test_simple_module_runtime_deps_are_minimal() -> None:
-    requires = distribution("simple-module").requires or []
+def test_simple_module_cli_runtime_deps_are_minimal() -> None:
+    requires = distribution("simple-module-cli").requires or []
     names = {_normalize(r) for r in requires}
-    assert names == {"typer", "tomlkit"}, (
-        f"simple-module direct deps drifted; got {sorted(names)}, expected {{'typer', 'tomlkit'}}"
+    expected = {"typer", "tomlkit"}
+    assert names == expected, (
+        f"simple-module-cli direct deps drifted; got {sorted(names)}, expected {sorted(expected)}"
     )

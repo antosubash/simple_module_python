@@ -18,13 +18,13 @@ import shutil
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from simple_module.case import to_kebab_case, to_pascal_case, to_snake_case
+from simple_module_cli.case import to_kebab_case, to_pascal_case, to_snake_case
 
 __all__ = ["create_host", "create_module"]
 
 logger = logging.getLogger(__name__)
 
-_TEMPLATES_PACKAGE = "simple_module.templates"
+_TEMPLATES_PACKAGE = "simple_module_cli.templates"
 _PACKAGE_PATH_TOKEN = "__PACKAGE__"
 
 

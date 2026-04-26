@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from simple_module.catalog import CATALOG, PRESETS, expand_deps
+from simple_module_cli.catalog import CATALOG, PRESETS, expand_deps
 
 __all__ = ["run_wizard"]
 

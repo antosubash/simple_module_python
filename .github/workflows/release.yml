@@ -108,6 +108,7 @@ jobs:
       fail-fast: false
       matrix:
         package:
+          - simple_module_cli
           - simple_module_core
           - simple_module_db
           - simple_module_hosting

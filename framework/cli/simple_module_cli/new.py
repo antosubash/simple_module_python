@@ -9,9 +9,9 @@ from typing import Annotated
 
 import typer
 
-from simple_module.app_project import create_app_project
-from simple_module.catalog import PRESETS, expand_deps
-from simple_module.wizard import run_wizard
+from simple_module_cli.app_project import create_app_project
+from simple_module_cli.catalog import PRESETS, expand_deps
+from simple_module_cli.wizard import run_wizard
 
 __all__ = ["new_project"]
 
