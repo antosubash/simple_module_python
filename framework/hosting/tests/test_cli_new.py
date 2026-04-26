@@ -115,6 +115,83 @@ def test_create_app_project_default_selected_keeps_back_compat(tmp_path: Path) -
         assert required in pyproject
 
 
+def test_sm_new_with_preset_full_includes_background_tasks(tmp_path: Path) -> None:
+    runner = CliRunner()
+    target = tmp_path / "demo"
+    result = runner.invoke(
+        main,
+        ["new", "demo", "--yes", "--preset", "full", "--no-install", "--dest", str(target)],
+    )
+    assert result.exit_code == 0, result.output
+    assert (target / "scripts" / "run_worker.py").is_file()
+    assert (target / "docker-compose.yml").is_file()
+    pyproject = (target / "pyproject.toml").read_text()
+    assert "simple_module_background_tasks" in pyproject
+
+
+def test_sm_new_with_explicit_with_flag(tmp_path: Path) -> None:
+    runner = CliRunner()
+    target = tmp_path / "demo"
+    result = runner.invoke(
+        main,
+        [
+            "new", "demo",
+            "--yes",
+            "--preset", "minimal",
+            "--with", "background_tasks",
+            "--no-install",
+            "--dest", str(target),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    pyproject = (target / "pyproject.toml").read_text()
+    assert "simple_module_users" in pyproject
+    assert "simple_module_background_tasks" in pyproject
+    assert "simple_module_auth" in pyproject
+
+
+def test_sm_new_unknown_with_module_errors(tmp_path: Path) -> None:
+    runner = CliRunner()
+    target = tmp_path / "demo"
+    result = runner.invoke(
+        main,
+        ["new", "demo", "--yes", "--with", "does_not_exist", "--no-install", "--dest", str(target)],
+    )
+    assert result.exit_code != 0
+    assert "does_not_exist" in result.output
+    assert "available" in result.output.lower()
+
+
+def test_sm_new_yes_with_no_flags_uses_standard_preset(tmp_path: Path) -> None:
+    runner = CliRunner()
+    target = tmp_path / "demo"
+    result = runner.invoke(
+        main,
+        ["new", "demo", "--yes", "--no-install", "--dest", str(target)],
+    )
+    assert result.exit_code == 0, result.output
+    pyproject = (target / "pyproject.toml").read_text()
+    for required in (
+        "simple_module_users",
+        "simple_module_dashboard",
+        "simple_module_permissions",
+    ):
+        assert required in pyproject
+    assert "simple_module_background_tasks" not in pyproject
+
+
+def test_sm_new_interactive_full_preset(tmp_path: Path) -> None:
+    runner = CliRunner()
+    target = tmp_path / "demo"
+    result = runner.invoke(
+        main,
+        ["new", "demo", "--no-install", "--dest", str(target)],
+        input="\n".join(["", "", "3", ""]) + "\n",
+    )
+    assert result.exit_code == 0, result.output
+    assert (target / "docker-compose.yml").is_file()
+
+
 def test_sm_new_refuses_to_overwrite(tmp_path: Path) -> None:
     target = tmp_path / "my-app"
     target.mkdir()
