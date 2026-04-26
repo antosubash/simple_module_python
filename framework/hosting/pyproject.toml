@@ -34,10 +34,6 @@ dependencies = [
     "uvicorn[standard]>=0.34",
 ]
 
-[project.scripts]
-sm = "simple_module_hosting.cli:main"
-simple-module = "simple_module_hosting.cli:main"
-
 [project.urls]
 Homepage = "https://github.com/antosubash/simple_module_python"
 Repository = "https://github.com/antosubash/simple_module_python"

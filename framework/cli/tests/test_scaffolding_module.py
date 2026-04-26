@@ -71,13 +71,13 @@ class TestCreateModule:
 
     async def test_cli_create_module_runs_end_to_end(self, tmp_path):
         """The Click `sm create-module` command produces a working scaffold."""
-        from click.testing import CliRunner
-        from simple_module_hosting.cli import main
+        from typer.testing import CliRunner
+        from simple_module.cli import app
 
         runner = CliRunner()
         dest = tmp_path / "simple-module-smoke"
         result = runner.invoke(
-            main,
+            app,
             ["create-module", "Smoke", "--dest", str(dest)],
         )
         assert result.exit_code == 0, result.output

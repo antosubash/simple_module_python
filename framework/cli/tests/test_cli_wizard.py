@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
-import click
-from click.testing import CliRunner
+import typer
+from typer.testing import CliRunner
+
 from simple_module.wizard import run_wizard
 
 
 def _drive(answers: list[str]) -> tuple[str, bool, list[str], str]:
     """Run the wizard with stdin pre-fed; return (db, tenancy, selected, output)."""
-
     captured: dict = {}
+    wrapper_app = typer.Typer()
 
-    @click.command()
+    @wrapper_app.command()
     def wrapper() -> None:
         db, tenancy, selected = run_wizard(default_db="sqlite", default_tenancy=False)
         captured["db"] = db
@@ -20,7 +21,7 @@ def _drive(answers: list[str]) -> tuple[str, bool, list[str], str]:
         captured["selected"] = selected
 
     runner = CliRunner()
-    result = runner.invoke(wrapper, input="\n".join(answers) + "\n")
+    result = runner.invoke(wrapper_app, [], input="\n".join(answers) + "\n")
     assert result.exit_code == 0, result.output
     return captured["db"], captured["tenancy"], captured["selected"], result.output
 
@@ -53,9 +54,6 @@ def test_wizard_full_preset_includes_background_tasks() -> None:
 
 
 def test_wizard_custom_picks_only_yes_answers() -> None:
-    # CATALOG order is: auth, users, permissions, products, dashboard, settings,
-    # feature_flags, file_storage, background_tasks, datasets — answer y to
-    # background_tasks only.
     answers = ["", "", "4"] + ["n"] * 8 + ["y", "n", ""]
     _, _, selected, out = _drive(answers)
     assert set(selected) == {"background_tasks", "users", "auth"}
@@ -65,16 +63,17 @@ def test_wizard_custom_picks_only_yes_answers() -> None:
 
 def test_wizard_aborts_on_confirm_no() -> None:
     captured: dict = {}
+    wrapper_app = typer.Typer()
 
-    @click.command()
+    @wrapper_app.command()
     def wrapper() -> None:
         try:
             run_wizard(default_db="sqlite", default_tenancy=False)
-        except click.Abort:
+        except typer.Abort:
             captured["aborted"] = True
             raise
 
     runner = CliRunner()
-    result = runner.invoke(wrapper, input="\n".join(["", "", "", "n"]) + "\n")
+    result = runner.invoke(wrapper_app, [], input="\n".join(["", "", "", "n"]) + "\n")
     assert result.exit_code != 0
     assert captured.get("aborted") is True

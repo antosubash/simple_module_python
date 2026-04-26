@@ -155,12 +155,12 @@ class TestCreateHost:
 
     async def test_cli_create_host_runs_end_to_end(self, tmp_path):
         """The Click `sm create-host` command produces a working scaffold."""
-        from click.testing import CliRunner
-        from simple_module_hosting.cli import main
+        from typer.testing import CliRunner
+        from simple_module.cli import app
 
         runner = CliRunner()
         result = runner.invoke(
-            main,
+            app,
             ["create-host", "smoke-host", "--dest", str(tmp_path / "out"), "--with", "Products"],
         )
         assert result.exit_code == 0, result.output

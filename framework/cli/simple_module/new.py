@@ -1,18 +1,13 @@
-"""The upgraded ``sm new`` command.
-
-Combines flag-driven non-interactive use (``--preset`` / ``--with``) with
-the interactive wizard. All paths converge on
-:func:`simple_module_hosting.scaffolding.create_app_project` with a
-resolved module list.
-"""
+"""``sm new`` Typer command — flag-driven or interactive scaffolder."""
 
 from __future__ import annotations
 
 import subprocess
-import sys
+from enum import Enum
 from pathlib import Path
+from typing import Annotated
 
-import click
+import typer
 
 from simple_module.app_project import create_app_project
 from simple_module.catalog import PRESETS, expand_deps
@@ -21,108 +16,105 @@ from simple_module.wizard import run_wizard
 __all__ = ["new_project"]
 
 
-@click.command("new")
-@click.argument("name")
-@click.option(
-    "--dest",
-    type=click.Path(file_okay=False, path_type=Path),
-    default=None,
-    help="Destination directory. Defaults to ./<name>.",
-)
-@click.option(
-    "--db",
-    type=click.Choice(["sqlite", "postgres"]),
-    default="sqlite",
-    show_default=True,
-    help="Database backend to configure in .env.example.",
-)
-@click.option(
-    "--tenancy/--no-tenancy",
-    default=False,
-    show_default=True,
-    help="Enable the multi-tenant middleware by default.",
-)
-@click.option(
-    "--preset",
-    type=click.Choice(["minimal", "standard", "full"]),
-    default=None,
-    help="Module preset. Combine with --with to add modules on top.",
-)
-@click.option(
-    "--with",
-    "extra",
-    default="",
-    help="Comma-separated extra module names (e.g. background_tasks,file_storage).",
-)
-@click.option(
-    "--yes",
-    "-y",
-    is_flag=True,
-    default=False,
-    help="Skip interactive prompts; accept defaults.",
-)
-@click.option(
-    "--no-install",
-    is_flag=True,
-    default=False,
-    help="Skip 'uv sync' / 'npm install' / 'alembic upgrade head' after scaffolding.",
-)
+class Db(str, Enum):
+    sqlite = "sqlite"
+    postgres = "postgres"
+
+
+class Preset(str, Enum):
+    minimal = "minimal"
+    standard = "standard"
+    full = "full"
+
+
 def new_project(
-    name: str,
-    dest: Path | None,
-    db: str,
-    tenancy: bool,
-    preset: str | None,
-    extra: str,
-    yes: bool,
-    no_install: bool,
+    name: Annotated[str, typer.Argument(help="App name (used for directory + package).")],
+    dest: Annotated[
+        Path | None,
+        typer.Option("--dest", help="Destination directory. Defaults to ./<name>."),
+    ] = None,
+    db: Annotated[
+        Db,
+        typer.Option("--db", help="Database backend to configure in .env.example."),
+    ] = Db.sqlite,
+    tenancy: Annotated[
+        bool,
+        typer.Option("--tenancy/--no-tenancy", help="Enable the multi-tenant middleware."),
+    ] = False,
+    preset: Annotated[
+        Preset | None,
+        typer.Option("--preset", help="Module preset. Combine with --with."),
+    ] = None,
+    extra: Annotated[
+        str,
+        typer.Option(
+            "--with",
+            help="Comma-separated extra modules (e.g. background_tasks,file_storage).",
+        ),
+    ] = "",
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Skip interactive prompts; accept defaults."),
+    ] = False,
+    no_install: Annotated[
+        bool,
+        typer.Option(
+            "--no-install",
+            help="Skip 'uv sync' / 'npm install' / 'alembic upgrade head' after scaffolding.",
+        ),
+    ] = False,
 ) -> None:
     """Scaffold a new SimpleModule app, optionally with background jobs."""
     target = dest or Path.cwd() / name
-
     extra_list = [m.strip() for m in extra.split(",") if m.strip()]
     flag_driven = preset is not None or bool(extra_list)
+    db_value: str = db.value
+    tenancy_value: bool = tenancy
 
     if yes or flag_driven:
-        chosen = list(PRESETS[preset or "standard"]) + extra_list
+        chosen = list(PRESETS[(preset or Preset.standard).value]) + extra_list
         try:
             resolved, added = expand_deps(chosen)
         except KeyError as exc:
-            click.echo(f"ERROR: {exc}", err=True)
-            sys.exit(1)
+            typer.echo(f"ERROR: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
         for added_name, required_by in added:
-            click.echo(f"Added {added_name} (required by {required_by})")
+            typer.echo(f"Added {added_name} (required by {required_by})")
     else:
         try:
-            db, tenancy, resolved = run_wizard(default_db=db, default_tenancy=tenancy)
-        except click.Abort:
-            click.echo("Aborted.", err=True)
-            sys.exit(1)
+            db_value, tenancy_value, resolved = run_wizard(
+                default_db=db.value, default_tenancy=tenancy
+            )
+        except typer.Abort:
+            typer.echo("Aborted.", err=True)
+            raise typer.Exit(code=1) from None
 
     try:
-        create_app_project(target, name=name, db=db, tenancy=tenancy, selected=resolved)
+        create_app_project(
+            target, name=name, db=db_value, tenancy=tenancy_value, selected=resolved
+        )
     except FileExistsError as exc:
-        click.echo(f"ERROR: {exc}", err=True)
-        sys.exit(1)
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
 
-    click.echo(f"Created app '{name}' at {target}")
-    click.echo(f"Modules: {', '.join(resolved)}")
-    click.echo("\nNext steps:")
-    click.echo(f"  cd {target}")
+    typer.echo(f"Created app '{name}' at {target}")
+    typer.echo(f"Modules: {', '.join(resolved)}")
+    typer.echo("\nNext steps:")
+    typer.echo(f"  cd {target}")
     if no_install:
-        click.echo("  uv sync")
-        click.echo("  npm install")
-        click.echo("  alembic upgrade head")
-        click.echo("  make dev")
+        typer.echo("  uv sync")
+        typer.echo("  npm install")
+        typer.echo("  alembic upgrade head")
+        typer.echo("  make dev")
         if "background_tasks" in resolved:
-            click.echo("  docker compose up -d redis worker beat   # background jobs")
+            typer.echo("  docker compose up -d redis worker beat   # background jobs")
         return
 
-    click.echo("Installing dependencies...")
+    typer.echo("Installing dependencies...")
     for cmd in (["uv", "sync"], ["npm", "install"]):
         result = subprocess.run(cmd, cwd=target, check=False)
         if result.returncode != 0:
-            click.echo(
+            typer.echo(
                 f"WARNING: {' '.join(cmd)} failed (exit {result.returncode}); "
                 "finish setup manually.",
                 err=True,
@@ -130,6 +122,6 @@ def new_project(
             return
 
     subprocess.run(["uv", "run", "alembic", "upgrade", "head"], cwd=target, check=False)
-    click.echo("\nSetup complete. Run `make dev` in the new directory.")
+    typer.echo("\nSetup complete. Run `make dev` in the new directory.")
     if "background_tasks" in resolved:
-        click.echo("For background jobs, also run: docker compose up -d redis worker beat")
+        typer.echo("For background jobs, also run: docker compose up -d redis worker beat")

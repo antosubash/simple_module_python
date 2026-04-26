@@ -5,15 +5,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from click.testing import CliRunner
-from simple_module_hosting.cli import main
+from typer.testing import CliRunner
+from simple_module.cli import app
 
 
 def test_sm_new_creates_app_directory(tmp_path: Path) -> None:
     runner = CliRunner()
     target = tmp_path / "my-app"
     result = runner.invoke(
-        main,
+        app,
         ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
     assert result.exit_code == 0, result.output
@@ -24,7 +24,7 @@ def test_sm_new_generates_pyproject_with_expected_deps(tmp_path: Path) -> None:
     runner = CliRunner()
     target = tmp_path / "my-app"
     runner.invoke(
-        main,
+        app,
         ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
     pyproject_text = (target / "pyproject.toml").read_text()
@@ -41,7 +41,7 @@ def test_sm_new_generates_package_json_with_npm_deps(tmp_path: Path) -> None:
     runner = CliRunner()
     target = tmp_path / "my-app"
     runner.invoke(
-        main,
+        app,
         ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
     data = json.loads((target / "package.json").read_text())
@@ -54,7 +54,7 @@ def test_sm_new_writes_generated_secret_key(tmp_path: Path) -> None:
     runner = CliRunner()
     target = tmp_path / "my-app"
     runner.invoke(
-        main,
+        app,
         ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
     env_text = (target / ".env.example").read_text()
@@ -119,7 +119,7 @@ def test_sm_new_with_preset_full_includes_background_tasks(tmp_path: Path) -> No
     runner = CliRunner()
     target = tmp_path / "demo"
     result = runner.invoke(
-        main,
+        app,
         ["new", "demo", "--yes", "--preset", "full", "--no-install", "--dest", str(target)],
     )
     assert result.exit_code == 0, result.output
@@ -133,7 +133,7 @@ def test_sm_new_with_explicit_with_flag(tmp_path: Path) -> None:
     runner = CliRunner()
     target = tmp_path / "demo"
     result = runner.invoke(
-        main,
+        app,
         [
             "new",
             "demo",
@@ -158,7 +158,7 @@ def test_sm_new_unknown_with_module_errors(tmp_path: Path) -> None:
     runner = CliRunner()
     target = tmp_path / "demo"
     result = runner.invoke(
-        main,
+        app,
         ["new", "demo", "--yes", "--with", "does_not_exist", "--no-install", "--dest", str(target)],
     )
     assert result.exit_code != 0
@@ -170,7 +170,7 @@ def test_sm_new_yes_with_no_flags_uses_standard_preset(tmp_path: Path) -> None:
     runner = CliRunner()
     target = tmp_path / "demo"
     result = runner.invoke(
-        main,
+        app,
         ["new", "demo", "--yes", "--no-install", "--dest", str(target)],
     )
     assert result.exit_code == 0, result.output
@@ -188,7 +188,7 @@ def test_sm_new_interactive_full_preset(tmp_path: Path) -> None:
     runner = CliRunner()
     target = tmp_path / "demo"
     result = runner.invoke(
-        main,
+        app,
         ["new", "demo", "--no-install", "--dest", str(target)],
         input="\n".join(["", "", "3", ""]) + "\n",
     )
@@ -203,7 +203,7 @@ def test_sm_new_refuses_to_overwrite(tmp_path: Path) -> None:
 
     runner = CliRunner()
     result = runner.invoke(
-        main,
+        app,
         ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
     assert result.exit_code != 0

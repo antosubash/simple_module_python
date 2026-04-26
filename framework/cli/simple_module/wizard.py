@@ -1,57 +1,48 @@
-"""Interactive prompt sequence for ``sm new``.
-
-Returns the user's choices as ``(db, tenancy, selected)`` where
-``selected`` is the topologically resolved module list (already includes
-transitive requires). All prompts use ``click`` — no extra TUI dep.
-"""
+"""Interactive prompt sequence for ``sm new``."""
 
 from __future__ import annotations
 
-import click
+import typer
 
-from .catalog import CATALOG, PRESETS, expand_deps
+from simple_module.catalog import CATALOG, PRESETS, expand_deps
 
 __all__ = ["run_wizard"]
-
 
 _PRESET_CHOICES = ("minimal", "standard", "full", "custom")
 
 
 def run_wizard(*, default_db: str, default_tenancy: bool) -> tuple[str, bool, list[str]]:
-    db = click.prompt(
-        "Database backend",
-        default=default_db,
-        type=click.Choice(["sqlite", "postgres"]),
-    )
-    tenancy = click.confirm("Enable multi-tenancy?", default=default_tenancy)
+    db = typer.prompt("Database backend", default=default_db, type=str)
+    if db not in ("sqlite", "postgres"):
+        typer.echo(f"Invalid database: {db!r}; expected sqlite or postgres", err=True)
+        raise typer.Abort()
+    tenancy = typer.confirm("Enable multi-tenancy?", default=default_tenancy)
 
-    click.echo("\nPreset:")
-    click.echo("  [1] minimal  — users only")
-    click.echo("  [2] standard — users, dashboard, permissions  (default)")
-    click.echo("  [3] full     — every module")
-    click.echo("  [4] custom   — pick modules one by one")
-    choice = click.prompt(
-        "Choose",
-        default="2",
-        type=click.Choice(["1", "2", "3", "4"]),
-        show_choices=False,
-    )
+    typer.echo("\nPreset:")
+    typer.echo("  [1] minimal  — users only")
+    typer.echo("  [2] standard — users, dashboard, permissions  (default)")
+    typer.echo("  [3] full     — every module")
+    typer.echo("  [4] custom   — pick modules one by one")
+    choice = typer.prompt("Choose", default="2", type=str)
+    if choice not in {"1", "2", "3", "4"}:
+        typer.echo(f"Invalid choice: {choice!r}", err=True)
+        raise typer.Abort()
     preset_name = _PRESET_CHOICES[int(choice) - 1]
 
     if preset_name == "custom":
         picked = [
             name
             for name in CATALOG
-            if click.confirm(f"Include {CATALOG[name].display}?", default=False)
+            if typer.confirm(f"Include {CATALOG[name].display}?", default=False)
         ]
     else:
         picked = list(PRESETS[preset_name])
 
     resolved, added = expand_deps(picked)
     for name, required_by in added:
-        click.echo(f"Added {name} (required by {required_by})")
-    click.echo(f"Selected modules: {', '.join(resolved)}")
+        typer.echo(f"Added {name} (required by {required_by})")
+    typer.echo(f"Selected modules: {', '.join(resolved)}")
 
-    if not click.confirm("Proceed?", default=True):
-        raise click.Abort()
+    if not typer.confirm("Proceed?", default=True):
+        raise typer.Abort()
     return db, tenancy, resolved
