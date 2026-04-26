@@ -56,10 +56,18 @@ def _module_to_pypi_name(name: str) -> str:
 
 
 def _iter_template_files(template_root: Path):
-    """Yield every file under ``template_root``, preserving relative paths."""
+    """Yield every file under ``template_root``, preserving relative paths.
+
+    Skips any path under an ``_optional/`` segment — those are recipe-managed
+    templates consumed by :mod:`simple_module_hosting.cli.recipes`, not by
+    the default scaffolding pass.
+    """
     for path in template_root.rglob("*"):
-        if path.is_file():
-            yield path
+        if not path.is_file():
+            continue
+        if "_optional" in path.relative_to(template_root).parts:
+            continue
+        yield path
 
 
 def _require_empty_dest(dest: Path) -> None:

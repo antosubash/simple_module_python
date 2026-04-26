@@ -1,0 +1,12 @@
+# --- background_tasks ----------------------------------------------------
+.PHONY: worker beat worker-docker
+
+worker:                     ## Run a Celery worker locally against $(SM_BG_TASKS_BROKER_URL)
+	uv run celery -A scripts.run_worker:celery worker -l info
+
+beat:                       ## Run the Celery beat scheduler locally
+	uv run celery -A scripts.run_worker:celery beat -l info
+
+worker-docker:              ## Build + run the worker + beat services in docker
+	docker compose up --build worker beat
+# --- end background_tasks ------------------------------------------------
