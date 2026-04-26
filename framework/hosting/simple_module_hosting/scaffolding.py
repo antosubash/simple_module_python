@@ -7,9 +7,9 @@ path during the migration; it is removed in the final cleanup task.
 
 from __future__ import annotations
 
+from simple_module.app_project import create_app_project as create_app_project
 from simple_module.scaffolding import create_host, create_module
 
-from simple_module_hosting.app_project import create_app_project as create_app_project
 from simple_module_hosting.manifest import (
     collect_module_js_deps,
     compute_module_pages,

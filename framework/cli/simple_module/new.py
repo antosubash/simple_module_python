@@ -14,10 +14,9 @@ from pathlib import Path
 
 import click
 
-from simple_module_hosting.scaffolding import create_app_project
-
-from .catalog import PRESETS, expand_deps
-from .wizard import run_wizard
+from simple_module.app_project import create_app_project
+from simple_module.catalog import PRESETS, expand_deps
+from simple_module.wizard import run_wizard
 
 __all__ = ["new_project"]
 

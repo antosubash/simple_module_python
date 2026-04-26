@@ -5,12 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from simple_module_hosting.cli.recipes import (
+from simple_module.recipes import (
     RECIPES,
     BackgroundTasksRecipe,
     ScaffoldCtx,
 )
-from simple_module_hosting.scaffolding import create_host
+from simple_module.scaffolding import create_host
 
 
 def _scaffold_minimal_host(target: Path) -> None:

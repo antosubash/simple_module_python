@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import click
 from click.testing import CliRunner
-from simple_module_hosting.cli.wizard import run_wizard
+from simple_module.wizard import run_wizard
 
 
 def _drive(answers: list[str]) -> tuple[str, bool, list[str], str]:

@@ -57,13 +57,9 @@ def create_app_project(
     framework versions, and applies any matching post-scaffold recipes
     (e.g. the ``background_tasks`` recipe drops a Celery worker stack).
     """
-    # Imports are local to break the import cycle: scaffolding.py
-    # re-exports ``create_app_project`` from this module, so this module
-    # cannot import from scaffolding at module-load time.
+    from simple_module.catalog import CATALOG, PRESETS, expand_deps
+    from simple_module.recipes import RECIPES, ScaffoldCtx
     from simple_module.scaffolding import create_host
-
-    from simple_module_hosting.cli.catalog import CATALOG, PRESETS, expand_deps
-    from simple_module_hosting.cli.recipes import RECIPES, ScaffoldCtx
 
     if target.exists() and any(target.iterdir()):
         raise FileExistsError(

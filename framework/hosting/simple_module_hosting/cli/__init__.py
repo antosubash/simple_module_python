@@ -206,7 +206,7 @@ def sync_js_deps(host_client_app: Path | None, dry_run: bool) -> None:
 
 
 # `sm new` lives in its own module (catalog + wizard + recipes wiring).
-from .new import new_project as _new_project  # noqa: E402
+from simple_module.new import new_project as _new_project  # noqa: E402
 
 main.add_command(_new_project)
 

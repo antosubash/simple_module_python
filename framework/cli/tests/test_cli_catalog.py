@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from simple_module_hosting.cli.catalog import (
+from simple_module.catalog import (
     CATALOG,
     PRESETS,
     ModuleEntry,
