@@ -22,8 +22,8 @@ from pathlib import Path
 import click
 from simple_module_core import discover_modules
 
+from simple_module.case import to_kebab_case
 from simple_module_hosting.scaffolding import (
-    _to_kebab_case,
     collect_module_js_deps,
     create_module,
     repo_root_from_client_app,
@@ -86,7 +86,7 @@ def create_host(name: str, dest: Path | None, modules: str) -> None:
 )
 def create_module_cmd(name: str, dest: Path | None) -> None:
     """Scaffold a publishable SimpleModule module package."""
-    slug = _to_kebab_case(name)
+    slug = to_kebab_case(name)
     package = slug.replace("-", "_")
     target = dest or Path.cwd() / f"simple_module_{package}"
 

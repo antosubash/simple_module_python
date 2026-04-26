@@ -17,7 +17,8 @@ import secrets as _secrets
 from collections.abc import Sequence
 from pathlib import Path
 
-from simple_module_hosting._env import set_env_key
+from simple_module._env import set_env_key
+from simple_module.case import to_kebab_case, to_pascal_case
 
 __all__ = ["create_app_project"]
 
@@ -61,11 +62,7 @@ def create_app_project(
     # cannot import from scaffolding at module-load time.
     from simple_module_hosting.cli.catalog import CATALOG, PRESETS, expand_deps
     from simple_module_hosting.cli.recipes import RECIPES, ScaffoldCtx
-    from simple_module_hosting.scaffolding import (
-        _to_kebab_case,
-        _to_pascal_case,
-        create_host,
-    )
+    from simple_module_hosting.scaffolding import create_host
 
     if target.exists() and any(target.iterdir()):
         raise FileExistsError(
@@ -76,7 +73,7 @@ def create_app_project(
     chosen = list(selected) if selected is not None else list(PRESETS["standard"])
     resolved, _added = expand_deps(chosen)
 
-    display_names = [_to_pascal_case(CATALOG[m].display) for m in resolved]
+    display_names = [to_pascal_case(CATALOG[m].display) for m in resolved]
     create_host(target, name=name, modules=display_names)
 
     py_deps = [f"simple_module_hosting=={_FRAMEWORK_VERSION}"] + [
@@ -86,7 +83,7 @@ def create_app_project(
     env_path = target / ".env.example"
     env_text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
     env_text = set_env_key(env_text, "SM_SECRET_KEY", _secrets.token_urlsafe(32))
-    env_text = set_env_key(env_text, "SM_DATABASE_URL", _db_url(db, _to_kebab_case(name)))
+    env_text = set_env_key(env_text, "SM_DATABASE_URL", _db_url(db, to_kebab_case(name)))
     env_text = set_env_key(env_text, "SM_MULTI_TENANT", "true" if tenancy else "false")
     env_path.write_text(env_text, encoding="utf-8")
 
@@ -100,7 +97,7 @@ def create_app_project(
     if pkg_path.exists():
         data = _json.loads(pkg_path.read_text(encoding="utf-8"))
     else:
-        data = {"name": _to_kebab_case(name), "private": True, "type": "module"}
+        data = {"name": to_kebab_case(name), "private": True, "type": "module"}
     data.setdefault("dependencies", {}).update(_APP_NPM_DEPS)
     data.setdefault("devDependencies", {}).update(_APP_NPM_DEV_DEPS)
     pkg_path.write_text(_json.dumps(data, indent=2) + "\n", encoding="utf-8")

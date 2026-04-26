@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from simple_module_hosting._env import set_env_key
+from simple_module._env import set_env_key
 
 __all__ = [
     "RECIPES",

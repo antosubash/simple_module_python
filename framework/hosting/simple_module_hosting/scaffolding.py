@@ -15,10 +15,11 @@ from __future__ import annotations
 
 import importlib.resources
 import logging
-import re
 import shutil
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+
+from simple_module.case import to_kebab_case, to_pascal_case, to_snake_case
 
 from simple_module_hosting.app_project import create_app_project as create_app_project
 from simple_module_hosting.manifest import (
@@ -146,24 +147,6 @@ def create_host(
     return dest
 
 
-def _to_snake_case(name: str) -> str:
-    """'MyFeature' / 'my-feature' / 'My Feature' -> 'my_feature'."""
-    s = re.sub(r"(?<!^)(?=[A-Z])", "_", name)
-    s = re.sub(r"[\s\-]+", "_", s)
-    return s.lower()
-
-
-def _to_kebab_case(name: str) -> str:
-    """'MyFeature' / 'my_feature' -> 'my-feature' (used as the PyPI slug)."""
-    return _to_snake_case(name).replace("_", "-")
-
-
-def _to_pascal_case(name: str) -> str:
-    """'my-feature' / 'my_feature' -> 'MyFeature' (the display name in Meta)."""
-    snake = _to_snake_case(name)
-    return "".join(part.capitalize() for part in snake.split("_") if part)
-
-
 def create_module(
     dest: Path,
     name: str,
@@ -182,9 +165,9 @@ def create_module(
     dest = Path(dest)
     _require_empty_dest(dest)
 
-    display_name = _to_pascal_case(name)
-    slug = _to_kebab_case(name)
-    package_name = _to_snake_case(name)
+    display_name = to_pascal_case(name)
+    slug = to_kebab_case(name)
+    package_name = to_snake_case(name)
 
     _apply_template_files(
         _resolve_template_root("module", template_root),
