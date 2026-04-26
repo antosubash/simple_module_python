@@ -34,6 +34,9 @@ dependencies = [
     "uvicorn[standard]>=0.34",
 ]
 
+[project.entry-points."simple_module.cli_plugins"]
+host = "simple_module_hosting.host_cli:app"
+
 [project.urls]
 Homepage = "https://github.com/antosubash/simple_module_python"
 Repository = "https://github.com/antosubash/simple_module_python"
