@@ -34,7 +34,7 @@ line-length = 100
 target-version = "py312"
 # Scaffold templates are copied verbatim (and some live under __PACKAGE__/
 # placeholder dirs that aren't valid Python packages until substituted).
-extend-exclude = ["framework/hosting/simple_module_hosting/templates"]
+extend-exclude = ["framework/cli/simple_module/templates"]
 
 [tool.ruff.lint]
 select = [

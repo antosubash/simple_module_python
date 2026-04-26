@@ -44,7 +44,7 @@ class Recipe(Protocol):
 
 def _optional_template_root(name: str) -> Path:
     """Resolve ``templates/host/_optional/<name>/`` from package data."""
-    base = importlib.resources.files("simple_module_hosting")
+    base = importlib.resources.files("simple_module")
     return Path(str(base / "templates" / "host" / "_optional" / name))
 
 
