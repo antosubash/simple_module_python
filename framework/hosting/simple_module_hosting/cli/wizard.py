@@ -17,9 +17,7 @@ __all__ = ["run_wizard"]
 _PRESET_CHOICES = ("minimal", "standard", "full", "custom")
 
 
-def run_wizard(
-    *, default_db: str, default_tenancy: bool
-) -> tuple[str, bool, list[str]]:
+def run_wizard(*, default_db: str, default_tenancy: bool) -> tuple[str, bool, list[str]]:
     db = click.prompt(
         "Database backend",
         default=default_db,

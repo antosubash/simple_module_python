@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from simple_module_hosting.cli.recipes import (
     RECIPES,
     BackgroundTasksRecipe,
@@ -19,9 +18,7 @@ def _scaffold_minimal_host(target: Path) -> None:
 
 
 def _ctx() -> ScaffoldCtx:
-    return ScaffoldCtx(
-        name="demo", db="sqlite", tenancy=False, selected=("background_tasks",)
-    )
+    return ScaffoldCtx(name="demo", db="sqlite", tenancy=False, selected=("background_tasks",))
 
 
 def test_background_tasks_recipe_registered() -> None:

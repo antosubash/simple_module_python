@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from simple_module_hosting.cli.catalog import (
     CATALOG,
     PRESETS,
@@ -20,9 +19,7 @@ def test_catalog_keys_match_entry_names() -> None:
 def test_every_requires_value_is_a_known_catalog_key() -> None:
     for entry in CATALOG.values():
         for required in entry.requires:
-            assert required in CATALOG, (
-                f"{entry.name} requires unknown module {required!r}"
-            )
+            assert required in CATALOG, f"{entry.name} requires unknown module {required!r}"
 
 
 def test_presets_only_reference_known_modules() -> None:
@@ -82,6 +79,8 @@ def test_expand_deps_preserves_load_order_dep_before_dependent() -> None:
 
 
 def test_module_entry_is_frozen() -> None:
+    from dataclasses import FrozenInstanceError
+
     entry = ModuleEntry(name="x", package="simple_module_x", display="X")
-    with pytest.raises(Exception):
-        entry.name = "y"  # type: ignore[misc]
+    with pytest.raises(FrozenInstanceError):
+        entry.name = "y"  # ty: ignore[invalid-assignment] noqa: B010

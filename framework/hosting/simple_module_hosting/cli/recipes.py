@@ -17,8 +17,8 @@ from pathlib import Path
 from typing import Protocol
 
 __all__ = [
-    "BackgroundTasksRecipe",
     "RECIPES",
+    "BackgroundTasksRecipe",
     "Recipe",
     "ScaffoldCtx",
 ]
@@ -87,9 +87,7 @@ class BackgroundTasksRecipe:
 
         makefile_path = target / "Makefile"
         snippet = (templates / "Makefile.snippet").read_text(encoding="utf-8")
-        existing = (
-            makefile_path.read_text(encoding="utf-8") if makefile_path.exists() else ""
-        )
+        existing = makefile_path.read_text(encoding="utf-8") if makefile_path.exists() else ""
         if _MAKEFILE_MARKER not in existing:
             sep = "" if existing.endswith("\n") or not existing else "\n"
             makefile_path.write_text(existing + sep + snippet, encoding="utf-8")

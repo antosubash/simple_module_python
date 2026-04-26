@@ -29,9 +29,7 @@ class ModuleEntry:
 
 CATALOG: dict[str, ModuleEntry] = {
     "auth": ModuleEntry("auth", "simple_module_auth", "Auth"),
-    "users": ModuleEntry(
-        "users", "simple_module_users", "Users", requires=("auth",)
-    ),
+    "users": ModuleEntry("users", "simple_module_users", "Users", requires=("auth",)),
     "permissions": ModuleEntry(
         "permissions",
         "simple_module_permissions",
@@ -46,9 +44,7 @@ CATALOG: dict[str, ModuleEntry] = {
         requires=("users", "products"),
     ),
     "settings": ModuleEntry("settings", "simple_module_settings", "Settings"),
-    "feature_flags": ModuleEntry(
-        "feature_flags", "simple_module_feature_flags", "Feature Flags"
-    ),
+    "feature_flags": ModuleEntry("feature_flags", "simple_module_feature_flags", "Feature Flags"),
     "file_storage": ModuleEntry(
         "file_storage",
         "simple_module_file_storage",

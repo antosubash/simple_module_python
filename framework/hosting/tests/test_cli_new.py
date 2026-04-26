@@ -135,12 +135,16 @@ def test_sm_new_with_explicit_with_flag(tmp_path: Path) -> None:
     result = runner.invoke(
         main,
         [
-            "new", "demo",
+            "new",
+            "demo",
             "--yes",
-            "--preset", "minimal",
-            "--with", "background_tasks",
+            "--preset",
+            "minimal",
+            "--with",
+            "background_tasks",
             "--no-install",
-            "--dest", str(target),
+            "--dest",
+            str(target),
         ],
     )
     assert result.exit_code == 0, result.output

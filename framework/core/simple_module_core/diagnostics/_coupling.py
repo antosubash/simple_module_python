@@ -54,6 +54,11 @@ def check_framework_module_coupling(modules: list[ModuleBase]) -> list[Diagnosti
     diags: list[Diagnostic] = []
     for fw_pkg, fw_dir in framework_dirs:
         for py_file in fw_dir.rglob("*.py"):
+            # `templates/` ships as package data — its `.py` files are not
+            # framework code that runs at import time. They land in the
+            # scaffolded user project and import plugins legitimately there.
+            if "templates" in py_file.relative_to(fw_dir).parts:
+                continue
             try:
                 tree = ast.parse(py_file.read_text(), filename=str(py_file))
             except SyntaxError:

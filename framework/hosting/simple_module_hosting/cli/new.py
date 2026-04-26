@@ -95,17 +95,13 @@ def new_project(
             click.echo(f"Added {added_name} (required by {required_by})")
     else:
         try:
-            db, tenancy, resolved = run_wizard(
-                default_db=db, default_tenancy=tenancy
-            )
+            db, tenancy, resolved = run_wizard(default_db=db, default_tenancy=tenancy)
         except click.Abort:
             click.echo("Aborted.", err=True)
             sys.exit(1)
 
     try:
-        create_app_project(
-            target, name=name, db=db, tenancy=tenancy, selected=resolved
-        )
+        create_app_project(target, name=name, db=db, tenancy=tenancy, selected=resolved)
     except FileExistsError as exc:
         click.echo(f"ERROR: {exc}", err=True)
         sys.exit(1)
