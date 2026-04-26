@@ -131,7 +131,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # Emit frontend module-pages manifest so Vite can find pages shipped
         # inside pip-installed module wheels. See scaffolding.py.
         try:
-            from simple_module_hosting.scaffolding import write_module_pages_manifest
+            from simple_module_hosting.manifest import write_module_pages_manifest
 
             client_app = _PROJECT_ROOT / "host" / "client_app"
             if client_app.is_dir():

@@ -7,9 +7,8 @@ from importlib.metadata import EntryPoint
 
 import pytest
 import typer
-from typer.testing import CliRunner
-
 from simple_module.plugins import discover_and_mount
+from typer.testing import CliRunner
 
 
 def _make_entry(name: str, module_attr: str) -> EntryPoint:
@@ -90,7 +89,7 @@ def test_discover_warns_on_duplicate_subgroup(monkeypatch, fake_plugin_module, c
 
 
 def test_discover_with_no_plugins_is_noop(monkeypatch) -> None:
-    monkeypatch.setattr("simple_module.plugins._iter_plugin_entries", lambda: [])
+    monkeypatch.setattr("simple_module.plugins._iter_plugin_entries", list)
     root = _root_with_builtin()
     discover_and_mount(root)
     runner = CliRunner()

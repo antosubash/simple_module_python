@@ -26,7 +26,6 @@ dependencies = [
     "fastapi-inertia>=1.0",
     "httpx>=0.27",
     "jinja2>=3.1",
-    "simple_module==0.0.1",
     "simple_module_core==0.0.1",
     "simple_module_db==0.0.1",
     "starlette>=0.44",
@@ -51,6 +50,5 @@ build-backend = "hatchling.build"
 packages = ["simple_module_hosting"]
 
 [tool.uv.sources]
-simple_module = { workspace = true }
 simple_module_core = { workspace = true }
 simple_module_db = { workspace = true }

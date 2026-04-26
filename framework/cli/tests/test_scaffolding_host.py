@@ -11,7 +11,7 @@ class TestModulePagesManifest:
     async def test_compute_returns_existing_page_dirs(self):
         """Returns {ModuleName: Path} for installed modules that ship a pages/ dir."""
         from simple_module_core import discover_modules
-        from simple_module_hosting.scaffolding import compute_module_pages
+        from simple_module_hosting.manifest import compute_module_pages
 
         modules = discover_modules()
         result = compute_module_pages(modules)
@@ -26,7 +26,7 @@ class TestModulePagesManifest:
     async def test_compute_skips_modules_without_pages_dir(self, tmp_path, monkeypatch):
         """A module whose package has no pages/ dir is omitted (not an error)."""
         from simple_module_core import ModuleBase, ModuleMeta
-        from simple_module_hosting.scaffolding import compute_module_pages
+        from simple_module_hosting.manifest import compute_module_pages
 
         class HeadlessMod(ModuleBase):
             meta = ModuleMeta(name="Headless")
@@ -39,7 +39,7 @@ class TestModulePagesManifest:
         import json
 
         from simple_module_core import discover_modules
-        from simple_module_hosting.scaffolding import write_module_pages_manifest
+        from simple_module_hosting.manifest import write_module_pages_manifest
 
         modules = discover_modules()
         written = write_module_pages_manifest(modules, tmp_path)
@@ -75,7 +75,7 @@ class TestModulePagesManifest:
 class TestCreateHost:
     async def test_creates_expected_backend_files(self, tmp_path):
         """create_host writes the full backend + frontend scaffold."""
-        from simple_module_hosting.scaffolding import create_host
+        from simple_module.scaffolding import create_host
 
         dest = tmp_path / "demo"
         create_host(dest, name="demo-host", modules=["Products", "Auth"])
@@ -105,7 +105,7 @@ class TestCreateHost:
 
     async def test_package_json_carries_host_name(self, tmp_path):
         """client_app/package.json has its `name` prefixed with the host name."""
-        from simple_module_hosting.scaffolding import create_host
+        from simple_module.scaffolding import create_host
 
         dest = tmp_path / "demo"
         create_host(dest, name="my-host", modules=[])
@@ -114,7 +114,7 @@ class TestCreateHost:
 
     async def test_substitutes_host_name_into_pyproject(self, tmp_path):
         """The host name lands in pyproject.toml's [project].name field."""
-        from simple_module_hosting.scaffolding import create_host
+        from simple_module.scaffolding import create_host
 
         dest = tmp_path / "demo"
         create_host(dest, name="my-acme-app", modules=[])
@@ -123,7 +123,7 @@ class TestCreateHost:
 
     async def test_declares_selected_module_deps(self, tmp_path):
         """Each module from --with appears as a PyPI dep in pyproject.toml."""
-        from simple_module_hosting.scaffolding import create_host
+        from simple_module.scaffolding import create_host
 
         dest = tmp_path / "demo"
         create_host(dest, name="demo", modules=["Products", "Auth"])
@@ -133,7 +133,7 @@ class TestCreateHost:
 
     async def test_refuses_existing_non_empty_dir(self, tmp_path):
         """create_host aborts if the destination exists and is non-empty — no clobbering."""
-        from simple_module_hosting.scaffolding import create_host
+        from simple_module.scaffolding import create_host
 
         dest = tmp_path / "existing"
         dest.mkdir()
@@ -144,7 +144,7 @@ class TestCreateHost:
 
     async def test_env_py_uses_shared_helper(self, tmp_path):
         """Scaffolded migrations/env.py delegates to the shared helper, not inline logic."""
-        from simple_module_hosting.scaffolding import create_host
+        from simple_module.scaffolding import create_host
 
         dest = tmp_path / "demo"
         create_host(dest, name="demo", modules=[])
@@ -155,8 +155,8 @@ class TestCreateHost:
 
     async def test_cli_create_host_runs_end_to_end(self, tmp_path):
         """The Click `sm create-host` command produces a working scaffold."""
-        from typer.testing import CliRunner
         from simple_module.cli import app
+        from typer.testing import CliRunner
 
         runner = CliRunner()
         result = runner.invoke(

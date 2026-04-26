@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import subprocess
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
@@ -16,12 +16,12 @@ from simple_module.wizard import run_wizard
 __all__ = ["new_project"]
 
 
-class Db(str, Enum):
+class Db(StrEnum):
     sqlite = "sqlite"
     postgres = "postgres"
 
 
-class Preset(str, Enum):
+class Preset(StrEnum):
     minimal = "minimal"
     standard = "standard"
     full = "full"
@@ -90,9 +90,7 @@ def new_project(
             raise typer.Exit(code=1) from None
 
     try:
-        create_app_project(
-            target, name=name, db=db_value, tenancy=tenancy_value, selected=resolved
-        )
+        create_app_project(target, name=name, db=db_value, tenancy=tenancy_value, selected=resolved)
     except FileExistsError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(code=1) from exc

@@ -39,10 +39,9 @@ def discover_and_mount(root: typer.Typer) -> None:
             continue
         try:
             plugin_app = entry.load()
-        except Exception as exc:  # noqa: BLE001 — plugin authors can fail in any way
+        except Exception as exc:
             print(
-                f"[simple-module] failed to load plugin '{entry.name}' "
-                f"({entry.value}): {exc}",
+                f"[simple-module] failed to load plugin '{entry.name}' ({entry.value}): {exc}",
                 file=sys.stderr,
             )
             continue

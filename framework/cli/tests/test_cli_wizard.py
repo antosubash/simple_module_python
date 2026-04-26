@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import typer
-from typer.testing import CliRunner
-
 from simple_module.wizard import run_wizard
+from typer.testing import CliRunner
 
 
 def _drive(answers: list[str]) -> tuple[str, bool, list[str], str]:

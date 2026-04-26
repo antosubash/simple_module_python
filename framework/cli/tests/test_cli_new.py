@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from typer.testing import CliRunner
 from simple_module.cli import app
+from typer.testing import CliRunner
 
 
 def test_sm_new_creates_app_directory(tmp_path: Path) -> None:
