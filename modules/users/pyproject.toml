@@ -37,8 +37,8 @@ dependencies = [
 [project.entry-points.simple_module]
 users = "users.module:UsersModule"
 
-[project.scripts]
-sm-users = "users.cli:app"
+[project.entry-points."simple_module.cli_plugins"]
+users = "users.cli:app"
 
 [project.urls]
 Homepage = "https://github.com/antosubash/simple_module_python"
