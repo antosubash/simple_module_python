@@ -208,12 +208,6 @@ def create_module(
 
 _FRAMEWORK_VERSION = "0.0.1"
 
-_APP_PY_DEPS = [
-    f"simple_module_hosting=={_FRAMEWORK_VERSION}",
-    f"simple_module_users=={_FRAMEWORK_VERSION}",
-    f"simple_module_dashboard=={_FRAMEWORK_VERSION}",
-    f"simple_module_permissions=={_FRAMEWORK_VERSION}",
-]
 _APP_PY_DEV_DEPS = [f"simple_module_test=={_FRAMEWORK_VERSION}", "pytest>=8.0"]
 
 _APP_NPM_DEPS = {
@@ -237,21 +231,37 @@ def create_app_project(
     name: str,
     db: str = "sqlite",
     tenancy: bool = False,
+    selected: Sequence[str] | None = None,
 ) -> None:
     """Greenfield ``simple-module new`` scaffold.
 
-    Wraps :func:`create_host` with opinionated pre-wired modules (users +
-    dashboard + permissions), generates a secret, picks a DB URL, and rewrites
-    the generated package.json / pyproject.toml to pin exact framework
-    versions.
+    Wraps :func:`create_host` with a chosen module list (defaults to the
+    ``standard`` preset), generates a secret, picks a DB URL, rewrites
+    the generated ``package.json`` / ``pyproject.toml`` to pin exact
+    framework versions, and applies any matching post-scaffold recipes
+    (e.g. the ``background_tasks`` recipe drops a Celery worker stack).
     """
+    # Imports are local to avoid a circular import: cli.recipes is allowed
+    # to import from scaffolding in the future, but scaffolding itself
+    # only needs catalog/recipes at call time.
+    from simple_module_hosting.cli.catalog import CATALOG, PRESETS, expand_deps
+    from simple_module_hosting.cli.recipes import RECIPES, ScaffoldCtx
+
     if target.exists() and any(target.iterdir()):
         raise FileExistsError(
             f"Destination {target} already exists and is non-empty; "
             "choose a new path or remove its contents first."
         )
 
-    create_host(target, name=name, modules=["users", "dashboard", "permissions"])
+    chosen = list(selected) if selected is not None else list(PRESETS["standard"])
+    resolved, _added = expand_deps(chosen)
+
+    display_names = [CATALOG[m].display.replace(" ", "") for m in resolved]
+    create_host(target, name=name, modules=display_names)
+
+    py_deps = [f"simple_module_hosting=={_FRAMEWORK_VERSION}"] + [
+        f"{CATALOG[m].package}=={_FRAMEWORK_VERSION}" for m in resolved
+    ]
 
     env_path = target / ".env.example"
     env_text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
@@ -263,7 +273,7 @@ def create_app_project(
     pyproject = target / "pyproject.toml"
     if pyproject.exists():
         text = pyproject.read_text(encoding="utf-8")
-        text = _inject_py_deps(text, _APP_PY_DEPS, _APP_PY_DEV_DEPS)
+        text = _inject_py_deps(text, py_deps, _APP_PY_DEV_DEPS)
         pyproject.write_text(text, encoding="utf-8")
 
     pkg_path = target / "package.json"
@@ -274,6 +284,12 @@ def create_app_project(
     data.setdefault("dependencies", {}).update(_APP_NPM_DEPS)
     data.setdefault("devDependencies", {}).update(_APP_NPM_DEV_DEPS)
     pkg_path.write_text(_json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+    ctx = ScaffoldCtx(name=name, db=db, tenancy=tenancy, selected=tuple(resolved))
+    for mod_name in resolved:
+        recipe_key = CATALOG[mod_name].recipe
+        if recipe_key is not None and recipe_key in RECIPES:
+            RECIPES[recipe_key].apply(target, ctx)
 
 
 def _set_env_key(text: str, key: str, value: str) -> str:

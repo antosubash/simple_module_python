@@ -64,6 +64,57 @@ def test_sm_new_writes_generated_secret_key(tmp_path: Path) -> None:
     assert len(secret_line.split("=", 1)[1]) >= 20
 
 
+def test_create_app_project_with_selected_kwarg(tmp_path: Path) -> None:
+    from simple_module_hosting.scaffolding import create_app_project
+
+    target = tmp_path / "demo"
+    create_app_project(
+        target,
+        name="demo",
+        db="sqlite",
+        tenancy=False,
+        selected=["users", "background_tasks"],
+    )
+
+    pyproject = (target / "pyproject.toml").read_text()
+    assert "simple_module_background_tasks" in pyproject
+    assert "simple_module_auth" in pyproject  # auto-added (users requires auth)
+    assert "simple_module_dashboard" not in pyproject
+
+
+def test_create_app_project_runs_recipe_for_background_tasks(tmp_path: Path) -> None:
+    from simple_module_hosting.scaffolding import create_app_project
+
+    target = tmp_path / "demo"
+    create_app_project(
+        target,
+        name="demo",
+        db="sqlite",
+        tenancy=False,
+        selected=["background_tasks"],
+    )
+
+    assert (target / "scripts" / "run_worker.py").is_file()
+    assert (target / "docker-compose.yml").is_file()
+    assert (target / "docker" / "worker.Dockerfile").is_file()
+    makefile_text = (target / "Makefile").read_text()
+    assert "worker:" in makefile_text
+
+
+def test_create_app_project_default_selected_keeps_back_compat(tmp_path: Path) -> None:
+    from simple_module_hosting.scaffolding import create_app_project
+
+    target = tmp_path / "demo"
+    create_app_project(target, name="demo", db="sqlite", tenancy=False)
+    pyproject = (target / "pyproject.toml").read_text()
+    for required in (
+        "simple_module_users",
+        "simple_module_dashboard",
+        "simple_module_permissions",
+    ):
+        assert required in pyproject
+
+
 def test_sm_new_refuses_to_overwrite(tmp_path: Path) -> None:
     target = tmp_path / "my-app"
     target.mkdir()
