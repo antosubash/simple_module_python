@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_products"
-version = "0.0.1"
+version = "0.0.3"
 description = "Example CRUD module used as a reference / demo for building simple_module modules"
 readme = "README.md"
 license = "MIT"
@@ -21,9 +21,9 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "simple_module_core==0.0.1",
-    "simple_module_db==0.0.1",
-    "simple_module_hosting==0.0.1",
+    "simple_module_core==0.0.3",
+    "simple_module_db==0.0.3",
+    "simple_module_hosting==0.0.3",
 ]
 
 [project.entry-points.simple_module]
