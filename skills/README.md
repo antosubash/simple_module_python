@@ -26,6 +26,7 @@ The CLI is [vercel-labs/skills](https://github.com/vercel-labs/skills); see its 
 
 | Skill | Use when |
 |---|---|
+| [simple-module-cli](./simple-module-cli/SKILL.md) | Invoking the `sm` CLI — `sm new`, `sm create-host`, `sm create-module`, `sm host gen-pages`, `sm users create-admin`, etc. |
 | [simple-module-creating](./simple-module-creating/SKILL.md) | Adding a new feature package — scaffolding, entry-point, `ModuleMeta` |
 | [simple-module-conventions](./simple-module-conventions/SKILL.md) | Writing or reviewing module code — the invariant list (SQLModel everywhere, settings layout, framework→plugin direction, etc.) |
 | [simple-module-database](./simple-module-database/SKILL.md) | Adding SQLModel tables, picking a mixin, or debugging session/transaction behavior |
