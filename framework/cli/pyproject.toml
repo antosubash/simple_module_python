@@ -39,6 +39,16 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["simple_module_cli"]
+# The skills directory lives at repo root (so `npx skills add` from
+# vercel-labs/skills picks it up) and is symlinked into
+# ``simple_module_cli/skills`` for editable installs. Exclude the symlink
+# from the package so Hatch doesn't pull it in, then ``force-include`` the
+# real source path for the wheel — that gives the wheel real files at
+# ``simple_module_cli/skills/`` without double-packaging.
+exclude = ["simple_module_cli/skills"]
 
 [tool.hatch.build.targets.wheel.shared-data]
 "simple_module_cli/templates" = "simple_module_cli/templates"
+
+[tool.hatch.build.targets.wheel.force-include]
+"../../skills" = "simple_module_cli/skills"

@@ -1,11 +1,11 @@
 ---
 name: simple-module-cli
-description: Use when invoking the `sm` CLI for a simple_module_python project — starting a new app, scaffolding a host or a publishable module, regenerating the Inertia page manifest, importing settings overrides from env, or creating an admin user. Triggers on "sm new", "sm create-host", "sm create-module", "sm host gen-pages", "sm users create-admin", or any unfamiliar `sm` subcommand.
+description: Use when invoking the `sm` CLI for a simple_module_python project — starting a new app, scaffolding a host or a publishable module, regenerating the Inertia page manifest, importing settings overrides from env, creating an admin user, or installing the bundled agent skills. Triggers on "sm new", "sm create-host", "sm create-module", "sm host gen-pages", "sm users create-admin", "sm skills add", or any unfamiliar `sm` subcommand.
 ---
 
 # simple_module_python: the `sm` CLI
 
-The `sm` command is provided by `simple_module_cli` (installed as a dep of `simple_module_hosting`). It groups four kinds of operations: scaffolding new things, project-time helpers for the host, and admin shortcuts for the bundled modules.
+The `sm` command is provided by `simple_module_cli` (installed as a dep of `simple_module_hosting`). It groups four kinds of operations: scaffolding new things, project-time helpers for the host, admin shortcuts for the bundled modules, and installing the bundled agent skills.
 
 ## Top-level commands
 
@@ -14,6 +14,7 @@ The `sm` command is provided by `simple_module_cli` (installed as a dep of `simp
 | `sm new <name>` | Greenfield: scaffold a complete app (host + selected modules) in one shot, with an interactive wizard for DB / tenancy / module preset |
 | `sm create-host <name>` | You want just a bare host project; you'll add modules later by `pip install`-ing them |
 | `sm create-module <name>` | You're authoring a publishable module package (separate repo, distributed via PyPI) |
+| `sm skills …` | Install / update the bundled agent-skill packs into a project (`add`, `list`, `update`) |
 | `sm host …` | Project-time helpers run from inside a host directory (page manifest, JS dep sync) |
 | `sm settings …` | Settings-module admin — currently `import-from-env` |
 | `sm users …` | Users-module admin — currently `create-admin` |
@@ -84,6 +85,25 @@ The result is a complete package: `pyproject.toml` with the entry point declared
 `<name>` accepts any case — `orders`, `Orders`, `ORDERS`, `blog_posts` all work. The CLI lowercases it for the directory and PascalCases it for `ModuleMeta.name`.
 
 For the post-scaffold steps (entry point, Inertia namespace, etc.) see **simple-module-creating**.
+
+## `sm skills` — install the bundled agent skills
+
+`simple_module_cli` ships a set of [SKILL.md](https://agentskills.io/specification) packs (the ones in this directory). Drop them into any project so Claude Code / Cursor / Codex / etc. find them automatically.
+
+```bash
+sm skills list                                          # see what's available
+sm skills add                                           # install ALL skills into ./.claude/skills/
+sm skills add simple-module-creating simple-module-cli  # specific ones only
+sm skills add -g                                        # ~/.claude/skills (machine-wide)
+sm skills add --dest agents/skills                      # explicit target dir
+sm skills add --symlink                                 # symlink to bundled source (good when iterating on the skills themselves)
+sm skills update                                        # re-pull whatever is already installed at the dest
+sm skills update simple-module-doctor                   # explicitly re-pull one (always force-overwrites)
+```
+
+**Without `--force`, `sm skills add` skips skills that already exist at the destination** — so re-running it is safe. Use `--force` (or `sm skills update`) to overwrite.
+
+The bundle resolves against your installed `simple_module_cli`. To get newer skills, upgrade the CLI (`uv sync` or `pip install -U simple_module_cli`) and re-run `sm skills update`.
 
 ## `sm host gen-pages` — regenerate the Inertia manifest
 
