@@ -17,6 +17,7 @@ from __future__ import annotations
 import importlib
 import logging
 from collections.abc import Callable, Sequence
+from enum import StrEnum
 from typing import Literal
 
 from simple_module_core import ModuleBase
@@ -94,19 +95,42 @@ def make_include_object(metadata: MetaData) -> IncludeObjectFn:
 
 
 def render_item(type_, obj, autogen_context):
-    """Alembic ``render_item`` callback that collapses SQLModel's ``AutoString``.
+    """Alembic ``render_item`` callback for SQLModel + extension types.
 
-    Without this, autogenerate emits ``sqlmodel.sql.sqltypes.AutoString(...)``
-    in generated migrations but does not add the corresponding
-    ``import sqlmodel``, so the migration fails with ``NameError`` on apply.
-    ``AutoString`` is a thin wrapper over ``String``, so collapsing it here
-    keeps migrations self-contained without losing semantics.
+    * Collapses SQLModel's ``AutoString`` to ``sa.String`` so migrations don't
+      need to ``import sqlmodel``.
+    * Renders Python ``StrEnum`` columns with ``values_callable`` so the
+      Postgres enum labels match the lowercase ``StrEnum`` values rather than
+      SQLAlchemy's default of using uppercase attribute names. This means raw
+      SQL like ``WHERE status = 'ready'`` actually works against the live DB.
+    * Adds the necessary imports for ``fastapi_users_db_sqlalchemy.generics``
+      and ``geoalchemy2`` types (rendered by their own classes elsewhere) so
+      the generated migration is importable.
 
     Pass to :func:`alembic.context.configure` as ``render_item=render_item``.
     """
-    if type_ == "type" and type(obj).__name__ == "AutoString":
+    if type_ != "type":
+        return False
+    cls_name = type(obj).__name__
+    cls_module = type(obj).__module__ or ""
+    imports = autogen_context.imports if autogen_context is not None else None
+
+    if cls_name == "AutoString":
         length = getattr(obj, "length", None)
-        if length is not None:
-            return f"sa.String(length={length})"
-        return "sa.String()"
+        return f"sa.String(length={length})" if length is not None else "sa.String()"
+
+    if imports is not None and cls_module.startswith("fastapi_users_db_sqlalchemy"):
+        imports.add("import fastapi_users_db_sqlalchemy.generics")
+    if imports is not None and cls_module.startswith("geoalchemy2"):
+        imports.add("import geoalchemy2")
+
+    if cls_name == "Enum":
+        python_type = getattr(obj, "enum_class", None)
+        if isinstance(python_type, type) and issubclass(python_type, StrEnum):
+            name = getattr(obj, "name", None) or python_type.__name__.lower()
+            members = ", ".join(repr(m.value) for m in python_type)
+            return (
+                f"sa.Enum({members}, name={name!r}, values_callable=lambda e: [m.value for m in e])"
+            )
+
     return False  # let alembic use its default rendering

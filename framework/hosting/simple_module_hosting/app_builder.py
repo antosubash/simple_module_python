@@ -44,21 +44,30 @@ _STATIC_DIR_NAME = "static"
 _ENV_PROJECT_ROOT = "SM_PROJECT_ROOT"
 
 
+_PROJECT_ROOT_SENTINELS = ("pyproject.toml", ".env", "alembic.ini")
+
+
 def _resolve_project_root() -> Path:
     """Return the project root directory.
 
-    Prefers the ``SM_PROJECT_ROOT`` environment variable (set by
-    ``host/main.py``) so the framework works even when installed from a
-    wheel into ``site-packages`` — in that layout the fallback walk-up
-    below would escape the package into ``site-packages/..`` and miss
-    ``host/static`` entirely.
+    Prefers the ``SM_PROJECT_ROOT`` environment variable when set.
 
-    Falls back to ``parents[3]`` for the workspace-install dev loop
-    (simple_module_hosting/ → hosting/ → framework/ → project root).
+    Otherwise walks up from the current working directory looking for a
+    project sentinel (``pyproject.toml``, ``.env`` or ``alembic.ini``). This
+    works whether the framework is installed as a wheel into ``site-packages``
+    or run from a workspace clone.
+
+    Falls back to ``parents[3]`` for the in-tree dev loop only when the walk
+    finds nothing — which still keeps ``framework/`` users working without
+    setting the env var explicitly.
     """
     override = os.environ.get(_ENV_PROJECT_ROOT)
     if override:
         return Path(override)
+    cwd = Path.cwd().resolve()
+    for candidate in (cwd, *cwd.parents):
+        if any((candidate / s).exists() for s in _PROJECT_ROOT_SENTINELS):
+            return candidate
     return Path(__file__).resolve().parents[3]
 
 

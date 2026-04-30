@@ -25,6 +25,7 @@ class Preset(StrEnum):
     minimal = "minimal"
     standard = "standard"
     full = "full"
+    examples = "examples"
 
 
 def new_project(

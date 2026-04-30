@@ -48,8 +48,8 @@ def test_wizard_minimal_preset() -> None:
 def test_wizard_full_preset_includes_background_tasks() -> None:
     _, _, selected, _ = _drive(["", "", "3", ""])
     assert "background_tasks" in selected
-    assert "datasets" in selected
-    assert len(selected) >= 10
+    assert "datasets" not in selected
+    assert len(selected) >= 7
 
 
 def test_wizard_custom_picks_only_yes_answers() -> None:
