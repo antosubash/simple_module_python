@@ -37,13 +37,14 @@ class TestSm003PageRenderResolution:
     """SM003 must resolve PAGE_X constants imported from sibling files."""
 
     def _diags(self, src_dir: Path, mod_name: str):
-        from simple_module_core.diagnostics._module import ModuleDiagnostics
-
-        d = ModuleDiagnostics()
-        rendered = d._find_render_calls(_FakeModule(meta=_FakeMeta(name=mod_name)), src_dir)  # pyright: ignore[reportArgumentType]
-        return d._check_orphan_pages(  # pyright: ignore[reportArgumentType]
-            _FakeModule(meta=_FakeMeta(name=mod_name)), src_dir, rendered
+        from simple_module_core.diagnostics._pages import (
+            check_orphan_pages,
+            find_render_calls,
         )
+
+        mod = _FakeModule(meta=_FakeMeta(name=mod_name))
+        rendered = find_render_calls(mod, src_dir)  # pyright: ignore[reportArgumentType]
+        return check_orphan_pages(mod, src_dir, rendered)  # pyright: ignore[reportArgumentType]
 
     async def test_resolves_constant_imported_from_sibling_file(self, tmp_path: Path):
         # Mirrors modules/feature_flags: PAGE_BROWSE defined in constants.py,

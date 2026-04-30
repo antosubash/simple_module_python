@@ -8,7 +8,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import APIRouter, FastAPI
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
 from simple_module_core.discovery import discover_modules, topological_sort
@@ -27,6 +27,7 @@ from simple_module_hosting._phase_helpers import (
     install_middleware,
     mount_module_static_dirs,
     register_exception_handlers,
+    wire_module_routes,
 )
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types
@@ -72,42 +73,6 @@ def _resolve_project_root() -> Path:
 
 
 _PROJECT_ROOT = _resolve_project_root()
-
-
-def wire_module_routes(app: FastAPI, module) -> None:
-    """Attach a module's API + view routers to ``app`` using its Meta prefixes.
-
-    The single canonical implementation so ``create_app`` and the test harness
-    in ``simple_module_test`` stay in lockstep if ``ModuleBase`` ever gains
-    a new router type.
-
-    Bare-prefix view routes (``view_prefix="/foo"`` + ``@router.get("/")``)
-    are also mounted at the trailing-slash-less form ``"/foo"``. Without this,
-    FastAPI's ``redirect_slashes=True`` fires a 307 to ``"/foo/"``, which
-    clients like httpx strip ``X-Inertia`` from on follow — turning every
-    Inertia navigation into a broken HTML response. Cloning the route at the
-    bare-prefix path serves the same handler directly, no redirect.
-    """
-    from fastapi.routing import APIRoute
-
-    api_router = APIRouter(prefix=module.meta.route_prefix, tags=[module.meta.name])
-    view_router = APIRouter(prefix=module.meta.view_prefix, tags=[f"{module.meta.name} Views"])
-    module.register_routes(api_router, view_router)
-    if module.meta.view_prefix:
-        bare_target = f"{module.meta.view_prefix}/"
-        for route in list(view_router.routes):
-            if isinstance(route, APIRoute) and route.path == bare_target:
-                view_router.add_api_route(
-                    "",
-                    route.endpoint,
-                    methods=list(route.methods or {"GET"}),
-                    response_model=route.response_model,
-                    include_in_schema=False,
-                    dependencies=route.dependencies,
-                    name=f"{route.name}__bare",
-                )
-    app.include_router(api_router)
-    app.include_router(view_router)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
