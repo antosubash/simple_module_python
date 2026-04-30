@@ -21,10 +21,12 @@ interface DevAccount {
 interface Props {
   allow_signup: boolean;
   dev_accounts: DevAccount[];
+  login_redirect_url: string;
 }
 
 function Login() {
-  const { allow_signup, dev_accounts } = usePage<{ props: Props }>().props as unknown as Props;
+  const { allow_signup, dev_accounts, login_redirect_url } = usePage<{ props: Props }>()
+    .props as unknown as Props;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,8 +36,8 @@ function Login() {
 
   const nextUrl =
     typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('next') || '/dashboard/'
-      : '/dashboard/';
+      ? new URLSearchParams(window.location.search).get('next') || login_redirect_url
+      : login_redirect_url;
 
   const submitLogin = (username: string, pwd: string) => {
     setError(null);

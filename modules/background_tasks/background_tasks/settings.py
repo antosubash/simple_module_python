@@ -22,6 +22,7 @@ import os
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from simple_module_core.dotenv import env_bool
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
 from background_tasks.constants import (
@@ -46,6 +47,13 @@ class BackgroundTasksSettings(BaseSettings):
     broker_url: str = Field(default=DEFAULT_BROKER_URL, json_schema_extra=_CELERY_RESTART)
     result_backend: str = Field(default=DEFAULT_RESULT_BACKEND, json_schema_extra=_CELERY_RESTART)
     task_default_queue: str = Field(default=DEFAULT_QUEUE, json_schema_extra=_CELERY_RESTART)
+
+    # Run tasks synchronously inside the calling process. Read at
+    # module-import time so tests can flip it on via ``SM_BG_TASKS_*``
+    # without going through DB-backed hydration (which never fires for
+    # suites that don't use the FastAPI lifespan).
+    task_always_eager: bool = env_bool("SM_BG_TASKS_TASK_ALWAYS_EAGER")
+    task_eager_propagates: bool = True
 
     # A task that has been ``running`` longer than this without a heartbeat is
     # flipped to ``stuck`` by the beat sweep. 5 min is long enough to cover

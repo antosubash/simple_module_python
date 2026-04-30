@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 
+from simple_module_core.dotenv import env_bool
 from sqlalchemy import MetaData
 from sqlmodel import SQLModel
 
@@ -39,13 +40,28 @@ def _register_base(base: type[SQLModel]) -> None:
 
 
 def _default_provider() -> DatabaseProvider:
-    """Resolve the active provider from ``SM_DATABASE_URL`` at import time.
+    """Resolve the schema layout to register module tables under.
 
-    Falls back to SQLite when the variable is unset, keeping the common
-    dev-loop happy without requiring callers to plumb the provider through.
+    Drives whether module tables get a dedicated Postgres schema
+    (``orders.<table>``) or share the public schema with prefixed names
+    (``orders_<table>``). ``SM_SCHEMA_PER_MODULE`` is authoritative when
+    set; the ``SM_DATABASE_URL`` fallback is kept for back-compat with
+    deployments that haven't migrated to the explicit knob — workers and
+    the web process can disagree on whether the URL is set, so prefer
+    the explicit form going forward.
     """
+    explicit = os.environ.get("SM_SCHEMA_PER_MODULE")
+    if explicit is not None:
+        return (
+            DatabaseProvider.POSTGRESQL
+            if env_bool("SM_SCHEMA_PER_MODULE")
+            else DatabaseProvider.SQLITE
+        )
+
     url = os.environ.get("SM_DATABASE_URL", "")
-    return detect_provider(url) if url else DatabaseProvider.SQLITE
+    if url:
+        return detect_provider(url)
+    return DatabaseProvider.SQLITE
 
 
 def create_module_base(
