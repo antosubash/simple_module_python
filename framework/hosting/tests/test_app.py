@@ -127,6 +127,8 @@ class TestRouteRegistration:
         # landing page at "/" is owned by the host and added in host/main.py,
         # which the create_app fixture doesn't run.
         assert "/dashboard/" in route_paths
+        # Bare-prefix alias — see wire_module_routes for the X-Inertia rationale.
+        assert "/dashboard" in route_paths
 
     async def test_products_api_methods(self, app: FastAPI):
         """Products endpoints should support the correct HTTP methods."""
