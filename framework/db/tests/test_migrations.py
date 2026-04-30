@@ -58,33 +58,26 @@ class TestMigrationsHelper:
     async def test_include_object_skips_unmodeled_cross_module_fks_by_default(self):
         """Cross-module FKs declared at the migration level only (no SQLModel
         relationship) appear in the live DB but never in target metadata.
-        Alembic compares: live FK has no metadata counterpart (compare_to is
-        None) and would emit ``op.drop_constraint``. The default filter must
-        drop those constraint-level diffs to avoid silently destroying real
-        FKs on every autogen run.
+        Alembic passes ``compare_to=None`` for live-only constraints and would
+        emit ``op.drop_constraint``; the default filter must drop those
+        constraint-level diffs to avoid destroying real FKs on every autogen.
         """
         from simple_module_db.migrations import build_module_metadata, make_include_object
         from sqlalchemy import Column, ForeignKeyConstraint, Integer, MetaData, Table
 
         metadata = build_module_metadata()
         include = make_include_object(metadata)
+        strict = make_include_object(metadata, ignore_unmodeled_fks=False)
 
         known = next(iter(metadata.tables.values()))
-        # Synthesise a foreign-key constraint hung off a tracked parent table
-        # whose target metadata has no matching FK (compare_to=None).
         scratch = MetaData()
         local = Table(known.name, scratch, Column("id", Integer, primary_key=True))
         fk = ForeignKeyConstraint([local.c.id], ["other_module.other.id"], name="fk_xmod")
         local.append_constraint(fk)
 
-        # compare_to=None ⇒ live DB has it, metadata does not; default filter skips.
         assert include(fk, "fk_xmod", "foreign_key_constraint", True, None) is False
-
-        # Opt-out flag restores the prior drop-on-sight behaviour.
-        strict = make_include_object(metadata, ignore_unmodeled_fks=False)
         assert strict(fk, "fk_xmod", "foreign_key_constraint", True, None) is True
 
-        # FKs on UNKNOWN parent tables remain rejected by the table allowlist.
         stranger_meta = MetaData()
         stranger = Table(
             "totally_unknown_table",
@@ -96,8 +89,6 @@ class TestMigrationsHelper:
             [stranger.c.ref], ["something.else.id"], name="fk_stranger"
         )
         stranger.append_constraint(stranger_fk)
-        # When compare_to is provided (constraint exists in both sides) we fall
-        # through to the parent-table allowlist check.
         assert (
             include(stranger_fk, "fk_stranger", "foreign_key_constraint", False, stranger_fk)
             is False
