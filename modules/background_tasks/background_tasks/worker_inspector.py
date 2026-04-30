@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from kombu.exceptions import OperationalError
+from redis.exceptions import RedisError
 
 from background_tasks.contracts.schemas import WorkerInfo, WorkerSnapshot
 
@@ -38,7 +39,7 @@ class WorkerInspector:
         try:
             with self.celery.connection() as conn:
                 conn.ensure_connection(max_retries=1, timeout=self.timeout)
-        except (OperationalError, ConnectionError, OSError) as exc:
+        except (OperationalError, RedisError, ConnectionError, OSError) as exc:
             logger.info("Broker unreachable: %s", exc)
             return WorkerSnapshot(
                 broker_reachable=False,
@@ -53,7 +54,7 @@ class WorkerInspector:
             stats = inspect.stats() or {}
             queues = inspect.active_queues() or {}
             active = inspect.active() or {}
-        except (OperationalError, ConnectionError, OSError) as exc:
+        except (OperationalError, RedisError, ConnectionError, OSError) as exc:
             logger.info("inspect() failed mid-call: %s", exc)
             return WorkerSnapshot(
                 broker_reachable=False,
