@@ -12,28 +12,21 @@ if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
 
 
-def _iter_render_components(
-    tree: ast.Module, extra_consts: dict[str, str] | None = None
-) -> list[str]:
-    """Yield ``X.render(component, ...)`` first-arg values, resolving Name constants.
+def _module_level_str_consts(tree: ast.Module) -> dict[str, str]:
+    """Return ``{name: literal}`` for top-level ``NAME = "string"`` assignments."""
+    return {
+        s.targets[0].id: s.value.value
+        for s in tree.body
+        if isinstance(s, ast.Assign)
+        and len(s.targets) == 1
+        and isinstance(s.targets[0], ast.Name)
+        and isinstance(s.value, ast.Constant)
+        and isinstance(s.value.value, str)
+    }
 
-    ``extra_consts`` lets the caller supply a registry of names defined in
-    sibling modules (e.g. ``constants.py``) so that
-    ``inertia.render(PAGE_BROWSE, ...)`` resolves when ``PAGE_BROWSE`` is
-    imported from another file.
-    """
-    consts: dict[str, str] = dict(extra_consts or {})
-    consts.update(
-        {
-            s.targets[0].id: s.value.value
-            for s in tree.body
-            if isinstance(s, ast.Assign)
-            and len(s.targets) == 1
-            and isinstance(s.targets[0], ast.Name)
-            and isinstance(s.value, ast.Constant)
-            and isinstance(s.value.value, str)
-        }
-    )
+
+def _iter_render_components(tree: ast.Module, consts: dict[str, str]) -> list[str]:
+    """Yield ``X.render(component, ...)`` first-arg values, resolving Name references."""
     found: list[str] = []
     for node in ast.walk(tree):
         if not (
@@ -51,42 +44,15 @@ def _iter_render_components(
     return found
 
 
-def _collect_module_string_consts(src_dir: Path) -> dict[str, str]:
-    """Collect module-level ``NAME = "literal"`` assignments across all .py files.
-
-    Last definition wins on collisions. Used to resolve ``inertia.render(NAME)``
-    when ``NAME`` is imported from a sibling file like ``constants.py``.
-    """
-    registry: dict[str, str] = {}
-    for py_file in src_dir.rglob("*.py"):
-        try:
-            tree = ast.parse(py_file.read_text(), filename=str(py_file))
-        except (SyntaxError, OSError):
-            continue
-        for stmt in tree.body:
-            if not (
-                isinstance(stmt, ast.Assign)
-                and len(stmt.targets) == 1
-                and isinstance(stmt.targets[0], ast.Name)
-                and isinstance(stmt.value, ast.Constant)
-                and isinstance(stmt.value.value, str)
-            ):
-                continue
-            registry[stmt.targets[0].id] = stmt.value.value
-    return registry
-
-
 def collect_tsx_pages(pages_dir: Path) -> set[str]:
     """Collect .tsx page identifiers relative to pages_dir, without extension.
 
     Nested files are represented with forward slashes so the set compares
     directly against inertia.render("Module/Sub/Page") keys. Subdirectories
-    whose names start with a lowercase letter (e.g. ``components/``,
-    ``hooks/``) are treated as helper folders — not Inertia page roots —
-    and skipped, matching the PascalCase convention Inertia uses.
+    whose names start with a lowercase letter (``components/``, ``hooks/``,
+    ...) are treated as helper folders, not Inertia page roots, matching the
+    PascalCase convention Inertia uses.
     """
-    if not pages_dir.exists():
-        return set()
     pages: set[str] = set()
     for f in pages_dir.rglob("*.tsx"):
         rel = f.relative_to(pages_dir)
@@ -97,32 +63,41 @@ def collect_tsx_pages(pages_dir: Path) -> set[str]:
 
 
 def find_render_calls(mod: ModuleBase, src_dir: Path) -> set[str]:
-    """Find inertia.render("Module/Page") calls, resolving module-level string consts."""
-    rendered: set[str] = set()
-    prefix = f"{mod.meta.name}/"
-    cross_file_consts = _collect_module_string_consts(src_dir)
+    """Find inertia.render("Module/Page") calls in this module's source tree.
+
+    Resolves ``inertia.render(NAME)`` where ``NAME`` is a string constant
+    defined at module scope in any sibling .py file (e.g. ``constants.py``).
+    Each .py file is parsed once: a first pass collects every module-level
+    string const, a second pass walks render calls against the merged map.
+    """
+    trees: list[ast.Module] = []
     for py_file in src_dir.rglob("*.py"):
         try:
-            tree = ast.parse(py_file.read_text(), filename=str(py_file))
-        except SyntaxError:
+            trees.append(ast.parse(py_file.read_text(), filename=str(py_file)))
+        except (SyntaxError, OSError):
             continue
-        for component in _iter_render_components(tree, cross_file_consts):
+    consts: dict[str, str] = {}
+    for tree in trees:
+        consts.update(_module_level_str_consts(tree))
+
+    prefix = f"{mod.meta.name}/"
+    rendered: set[str] = set()
+    for tree in trees:
+        for component in _iter_render_components(tree, consts):
             if component.startswith(prefix):
                 rendered.add(component[len(prefix) :])
     return rendered
 
 
-def check_orphan_pages(
+def check_pages(
     mod: ModuleBase,
     src_dir: Path,
     rendered_pages: set[str],
 ) -> list[Diagnostic]:
-    """Find .tsx pages that aren't referenced by any inertia.render() call."""
+    """Diff .tsx pages against rendered_pages — emits SM003 + SM004 in one pass."""
     pages_dir = src_dir / "pages"
     tsx_pages = collect_tsx_pages(pages_dir)
-    orphans = tsx_pages - rendered_pages
-
-    return [
+    diags: list[Diagnostic] = [
         Diagnostic(
             level=DiagnosticLevel.WARNING,
             code="SM003",
@@ -131,21 +106,9 @@ def check_orphan_pages(
             file=str(pages_dir / f"{name}.tsx"),
             suggestion=f'Add inertia.render("{mod.meta.name}/{name}", ...) in a view endpoint',
         )
-        for name in orphans
+        for name in tsx_pages - rendered_pages
     ]
-
-
-def check_phantom_renders(
-    mod: ModuleBase,
-    src_dir: Path,
-    rendered_pages: set[str],
-) -> list[Diagnostic]:
-    """Find inertia.render() calls that reference non-existent pages."""
-    pages_dir = src_dir / "pages"
-    tsx_pages = collect_tsx_pages(pages_dir)
-    phantoms = rendered_pages - tsx_pages
-
-    return [
+    diags.extend(
         Diagnostic(
             level=DiagnosticLevel.WARNING,
             code="SM004",
@@ -153,5 +116,6 @@ def check_phantom_renders(
             module_name=mod.meta.name,
             suggestion=f"Create {pages_dir / f'{name}.tsx'}",
         )
-        for name in phantoms
-    ]
+        for name in rendered_pages - tsx_pages
+    )
+    return diags

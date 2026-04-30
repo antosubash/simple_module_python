@@ -9,11 +9,7 @@ from typing import TYPE_CHECKING
 from simple_module_core.diagnostics._coupling import check_framework_module_coupling
 from simple_module_core.diagnostics._inertia_api import check_inertia_api_calls
 from simple_module_core.diagnostics._js_workspace import check_js_workspace_files
-from simple_module_core.diagnostics._pages import (
-    check_orphan_pages,
-    check_phantom_renders,
-    find_render_calls,
-)
+from simple_module_core.diagnostics._pages import check_pages, find_render_calls
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 
 if TYPE_CHECKING:
@@ -37,8 +33,7 @@ class ModuleDiagnostics:
             src_dir = self._find_source_dir(mod)
             if src_dir:
                 rendered_pages = find_render_calls(mod, src_dir)
-                diagnostics.extend(check_orphan_pages(mod, src_dir, rendered_pages))
-                diagnostics.extend(check_phantom_renders(mod, src_dir, rendered_pages))
+                diagnostics.extend(check_pages(mod, src_dir, rendered_pages))
                 diagnostics.extend(check_js_workspace_files(mod, src_dir))
                 diagnostics.extend(check_inertia_api_calls(mod, src_dir))
 
@@ -139,13 +134,14 @@ class ModuleDiagnostics:
         for mod in modules:
             cls = type(mod)
             meta = getattr(mod, "meta", None)
-            if meta is None or not getattr(meta, "view_prefix", ""):
-                continue
-            if "register_routes" not in cls.__dict__:
-                continue
-            if "register_menu_items" in cls.__dict__:
-                continue
-            if "register_permissions" in cls.__dict__:
+            silently_invisible = (
+                meta is not None
+                and getattr(meta, "view_prefix", "")
+                and "register_routes" in cls.__dict__
+                and "register_menu_items" not in cls.__dict__
+                and "register_permissions" not in cls.__dict__
+            )
+            if not silently_invisible:
                 continue
             diags.append(
                 Diagnostic(
