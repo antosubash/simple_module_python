@@ -7,32 +7,10 @@ import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedL
 import { ArrowLeft, RefreshCw, ServerCrash, ServerOff } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { API_BASE, VIEW_BASE } from './constants';
-
-interface WorkerInfo {
-  hostname: string;
-  online: boolean;
-  queues: string[];
-  active_task_count: number;
-  pool_size: number | null;
-  total_processed: number | null;
-  software: string | null;
-}
-
-interface WorkerSnapshot {
-  broker_reachable: boolean;
-  polled_at: string;
-  workers: WorkerInfo[];
-  error: string | null;
-}
+import { API_BASE, formatTs, VIEW_BASE, type WorkerInfo, type WorkerSnapshot } from './constants';
 
 interface Props {
   snapshot: WorkerSnapshot;
-}
-
-function formatPolledAt(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleString();
 }
 
 function WorkerCard({ worker }: { worker: WorkerInfo }) {
@@ -123,7 +101,7 @@ function Workers() {
         </Button>
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">
-            Last updated {formatPolledAt(snapshot.polled_at)}
+            Last updated {formatTs(snapshot.polled_at)}
           </span>
           <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
             <RefreshCw className={`mr-2 size-4 ${loading ? 'animate-spin' : ''}`} />

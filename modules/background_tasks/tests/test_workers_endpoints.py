@@ -3,20 +3,16 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from unittest.mock import MagicMock
 
 import httpx
 import pytest
+from background_tasks import worker_inspector as wi
 from background_tasks.contracts.schemas import WorkerInfo, WorkerSnapshot
 
 JSON_BASE = "/api/background_tasks/admin"
 VIEW_BASE = "/admin/background-tasks"
 
-
-@pytest.fixture(autouse=True)
-async def _stub_celery(app) -> None:
-    """Replace the live Celery instance with a MagicMock for these tests."""
-    app.state.background_tasks.celery = MagicMock(name="Celery")
+pytestmark = pytest.mark.usefixtures("_stub_celery")
 
 
 @pytest.fixture
@@ -50,8 +46,6 @@ class TestWorkersJsonEndpoint:
         authenticated_client: httpx.AsyncClient,
         fake_snapshot: WorkerSnapshot,
     ):
-        from background_tasks import worker_inspector as wi
-
         monkeypatch.setattr(wi.WorkerInspector, "snapshot", lambda self: fake_snapshot)
 
         resp = await authenticated_client.get(f"{JSON_BASE}/workers")
@@ -67,8 +61,6 @@ class TestWorkersJsonEndpoint:
         monkeypatch,
         authenticated_client: httpx.AsyncClient,
     ):
-        from background_tasks import worker_inspector as wi
-
         unreachable = WorkerSnapshot(
             broker_reachable=False,
             polled_at=datetime(2026, 5, 1, 12, 0, tzinfo=UTC),
@@ -92,8 +84,6 @@ class TestWorkersInertiaView:
         authenticated_client: httpx.AsyncClient,
         fake_snapshot: WorkerSnapshot,
     ):
-        from background_tasks import worker_inspector as wi
-
         monkeypatch.setattr(wi.WorkerInspector, "snapshot", lambda self: fake_snapshot)
 
         # Inertia returns JSON when X-Inertia is present.
