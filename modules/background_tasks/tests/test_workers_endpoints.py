@@ -53,9 +53,7 @@ class TestWorkersJsonEndpoint:
     ):
         from background_tasks import worker_inspector as wi
 
-        monkeypatch.setattr(
-            wi.WorkerInspector, "snapshot", lambda self: fake_snapshot
-        )
+        monkeypatch.setattr(wi.WorkerInspector, "snapshot", lambda self: fake_snapshot)
 
         resp = await authenticated_client.get(f"{JSON_BASE}/workers")
         assert resp.status_code == 200
