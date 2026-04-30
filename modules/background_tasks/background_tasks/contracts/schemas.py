@@ -64,3 +64,24 @@ class TaskExecutionListResponse(SQLModel):
     per_page: int
     status: TaskStatus | None = None
     task_name: str | None = None
+
+
+class WorkerInfo(SQLModel):
+    """One Celery worker as reported by ``celery.control.inspect()``."""
+
+    hostname: str
+    online: bool
+    queues: list[str] = []
+    active_task_count: int = 0
+    pool_size: int | None = None
+    total_processed: int | None = None
+    software: str | None = None
+
+
+class WorkerSnapshot(SQLModel):
+    """Point-in-time picture of every worker known to the broker."""
+
+    broker_reachable: bool
+    polled_at: datetime
+    workers: list[WorkerInfo] = []
+    error: str | None = None
