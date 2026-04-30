@@ -33,6 +33,46 @@ def _mk_module_tree(root: Path, name: str, *, with_pkg_json: bool, with_tsconfig
     return src_dir
 
 
+class TestSm003PageRenderResolution:
+    """SM003 must resolve PAGE_X constants imported from sibling files."""
+
+    def _diags(self, src_dir: Path, mod_name: str):
+        from simple_module_core.diagnostics._module import ModuleDiagnostics
+
+        d = ModuleDiagnostics()
+        rendered = d._find_render_calls(_FakeModule(meta=_FakeMeta(name=mod_name)), src_dir)  # pyright: ignore[reportArgumentType]
+        return d._check_orphan_pages(  # pyright: ignore[reportArgumentType]
+            _FakeModule(meta=_FakeMeta(name=mod_name)), src_dir, rendered
+        )
+
+    async def test_resolves_constant_imported_from_sibling_file(self, tmp_path: Path):
+        # Mirrors modules/feature_flags: PAGE_BROWSE defined in constants.py,
+        # used in endpoints/views.py via inertia.render(PAGE_BROWSE).
+        src_dir = tmp_path / "feature_flags" / "feature_flags"
+        (src_dir / "pages").mkdir(parents=True)
+        (src_dir / "pages" / "Browse.tsx").write_text("export default function B() {}")
+        (src_dir / "constants.py").write_text('PAGE_BROWSE = "FeatureFlags/Browse"\n')
+        endpoints = src_dir / "endpoints"
+        endpoints.mkdir()
+        (endpoints / "views.py").write_text(
+            "from feature_flags.constants import PAGE_BROWSE\n"
+            "async def view(inertia):\n"
+            "    return await inertia.render(PAGE_BROWSE, {})\n"
+        )
+        assert self._diags(src_dir, "FeatureFlags") == []
+
+    async def test_still_flags_truly_orphan_pages(self, tmp_path: Path):
+        src_dir = tmp_path / "m" / "m"
+        (src_dir / "pages").mkdir(parents=True)
+        (src_dir / "pages" / "Ghost.tsx").write_text("export default function G() {}")
+        (src_dir / "endpoints.py").write_text(
+            'async def view(inertia):\n    return await inertia.render("M/Other", {})\n'
+        )
+        results = self._diags(src_dir, "M")
+        assert [r.code for r in results] == ["SM003"]
+        assert "Ghost.tsx" in results[0].message
+
+
 class TestSm017JsWorkspaceFiles:
     async def test_fires_when_both_missing(self, tmp_path: Path):
         src_dir = _mk_module_tree(tmp_path, "orders", with_pkg_json=False, with_tsconfig=False)
@@ -201,3 +241,23 @@ class TestSM019ViewsWithoutMenu:
             meta = ModuleMeta(name="NoRoutes", view_prefix="/no_routes")
 
         assert self._diags([NoRoutes()]) == []
+
+    async def test_silent_when_permissions_registered(self):
+        """A module that registers permissions is visible in the role editor.
+
+        This covers modules whose views are sub-pages of another module (e.g.
+        Permissions' RoleEdit/UserEdit views, reached from the Users admin
+        page) — they don't need a sidebar entry to be discoverable.
+        """
+        from simple_module_core.module import ModuleBase, ModuleMeta
+
+        class WithPermissions(ModuleBase):
+            meta = ModuleMeta(name="WithPermissions", view_prefix="/with_permissions")
+
+            def register_routes(self, api_router, view_router):
+                pass
+
+            def register_permissions(self, registry):
+                pass
+
+        assert self._diags([WithPermissions()]) == []

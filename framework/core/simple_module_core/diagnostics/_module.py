@@ -16,17 +16,28 @@ if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
 
 
-def _iter_render_components(tree: ast.Module) -> list[str]:
-    """Yield ``X.render(component, ...)`` first-arg values, resolving Name constants."""
-    consts = {
-        s.targets[0].id: s.value.value
-        for s in tree.body
-        if isinstance(s, ast.Assign)
-        and len(s.targets) == 1
-        and isinstance(s.targets[0], ast.Name)
-        and isinstance(s.value, ast.Constant)
-        and isinstance(s.value.value, str)
-    }
+def _iter_render_components(
+    tree: ast.Module, extra_consts: dict[str, str] | None = None
+) -> list[str]:
+    """Yield ``X.render(component, ...)`` first-arg values, resolving Name constants.
+
+    ``extra_consts`` lets the caller supply a registry of names defined in
+    sibling modules (e.g. ``constants.py``) so that
+    ``inertia.render(PAGE_BROWSE, ...)`` resolves when ``PAGE_BROWSE`` is
+    imported from another file.
+    """
+    consts: dict[str, str] = dict(extra_consts or {})
+    consts.update(
+        {
+            s.targets[0].id: s.value.value
+            for s in tree.body
+            if isinstance(s, ast.Assign)
+            and len(s.targets) == 1
+            and isinstance(s.targets[0], ast.Name)
+            and isinstance(s.value, ast.Constant)
+            and isinstance(s.value.value, str)
+        }
+    )
     found: list[str] = []
     for node in ast.walk(tree):
         if not (
@@ -42,6 +53,31 @@ def _iter_render_components(tree: ast.Module) -> list[str]:
         elif isinstance(first, ast.Name) and first.id in consts:
             found.append(consts[first.id])
     return found
+
+
+def _collect_module_string_consts(src_dir: Path) -> dict[str, str]:
+    """Collect module-level ``NAME = "literal"`` assignments across all .py files.
+
+    Last definition wins on collisions. Used to resolve ``inertia.render(NAME)``
+    when ``NAME`` is imported from a sibling file like ``constants.py``.
+    """
+    registry: dict[str, str] = {}
+    for py_file in src_dir.rglob("*.py"):
+        try:
+            tree = ast.parse(py_file.read_text(), filename=str(py_file))
+        except (SyntaxError, OSError):
+            continue
+        for stmt in tree.body:
+            if not (
+                isinstance(stmt, ast.Assign)
+                and len(stmt.targets) == 1
+                and isinstance(stmt.targets[0], ast.Name)
+                and isinstance(stmt.value, ast.Constant)
+                and isinstance(stmt.value.value, str)
+            ):
+                continue
+            registry[stmt.targets[0].id] = stmt.value.value
+    return registry
 
 
 class ModuleDiagnostics:
@@ -146,12 +182,18 @@ class ModuleDiagnostics:
         return diags
 
     def _check_views_without_menu(self, modules: list[ModuleBase]) -> list[Diagnostic]:
-        """Warn when a module ships view routes but never registers a menu item.
+        """Warn when a module ships view routes but is silently invisible.
 
         A module that overrides ``register_routes`` and declares a non-empty
-        ``view_prefix`` produces user-facing pages, but without
-        ``register_menu_items`` those pages have no UI affordance — the
-        sidebar can't surface them.
+        ``view_prefix`` produces user-facing pages. Without either
+        ``register_menu_items`` (so admins can navigate to it from the sidebar)
+        or ``register_permissions`` (so admins can see it in the role-permission
+        editor), the module is silently invisible from the admin UI.
+
+        Modules that surface their views as sub-pages of another module (e.g.
+        deep-link edit forms reached from buttons elsewhere) typically register
+        permissions even when they don't add a sidebar entry — that suffices to
+        keep them discoverable through the role editor.
         """
         diags: list[Diagnostic] = []
         for mod in modules:
@@ -163,18 +205,22 @@ class ModuleDiagnostics:
                 continue
             if "register_menu_items" in cls.__dict__:
                 continue
+            if "register_permissions" in cls.__dict__:
+                continue
             diags.append(
                 Diagnostic(
                     level=DiagnosticLevel.WARNING,
                     code="SM019",
                     message=(
                         f"Module '{meta.name}' registers view routes "
-                        f"(view_prefix={meta.view_prefix!r}) but no menu items"
+                        f"(view_prefix={meta.view_prefix!r}) but no menu items "
+                        "or permissions"
                     ),
                     module_name=meta.name,
                     suggestion=(
                         "Override register_menu_items() to surface this module "
-                        "in the sidebar, or clear view_prefix if it's API-only"
+                        "in the sidebar, register_permissions() to surface it in "
+                        "the role editor, or clear view_prefix if it's API-only"
                     ),
                 )
             )
@@ -272,12 +318,13 @@ class ModuleDiagnostics:
         """Find inertia.render("Module/Page") calls, resolving module-level string consts."""
         rendered: set[str] = set()
         prefix = f"{mod.meta.name}/"
+        cross_file_consts = _collect_module_string_consts(src_dir)
         for py_file in src_dir.rglob("*.py"):
             try:
                 tree = ast.parse(py_file.read_text(), filename=str(py_file))
             except SyntaxError:
                 continue
-            for component in _iter_render_components(tree):
+            for component in _iter_render_components(tree, cross_file_consts):
                 if component.startswith(prefix):
                     rendered.add(component[len(prefix) :])
         return rendered

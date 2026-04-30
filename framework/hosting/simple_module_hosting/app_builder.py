@@ -80,10 +80,32 @@ def wire_module_routes(app: FastAPI, module) -> None:
     The single canonical implementation so ``create_app`` and the test harness
     in ``simple_module_test`` stay in lockstep if ``ModuleBase`` ever gains
     a new router type.
+
+    Bare-prefix view routes (``view_prefix="/foo"`` + ``@router.get("/")``)
+    are also mounted at the trailing-slash-less form ``"/foo"``. Without this,
+    FastAPI's ``redirect_slashes=True`` fires a 307 to ``"/foo/"``, which
+    clients like httpx strip ``X-Inertia`` from on follow — turning every
+    Inertia navigation into a broken HTML response. Cloning the route at the
+    bare-prefix path serves the same handler directly, no redirect.
     """
+    from fastapi.routing import APIRoute
+
     api_router = APIRouter(prefix=module.meta.route_prefix, tags=[module.meta.name])
     view_router = APIRouter(prefix=module.meta.view_prefix, tags=[f"{module.meta.name} Views"])
     module.register_routes(api_router, view_router)
+    if module.meta.view_prefix:
+        bare_target = f"{module.meta.view_prefix}/"
+        for route in list(view_router.routes):
+            if isinstance(route, APIRoute) and route.path == bare_target:
+                view_router.add_api_route(
+                    "",
+                    route.endpoint,
+                    methods=list(route.methods or {"GET"}),
+                    response_model=route.response_model,
+                    include_in_schema=False,
+                    dependencies=route.dependencies,
+                    name=f"{route.name}__bare",
+                )
     app.include_router(api_router)
     app.include_router(view_router)
 
