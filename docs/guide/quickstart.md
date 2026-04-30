@@ -29,7 +29,7 @@ The API and Vite dev servers start side by side. Visit:
 
 - `http://localhost:8000` — landing page
 - `http://localhost:8000/users/login` — sign-in screen
-- `http://localhost:8000/products` — a fully-working example module (CRUD on a `products` table)
+- `http://localhost:8000/dashboard` — the authenticated home (log in first)
 - `http://localhost:8000/settings/modules` — the admin settings UI (log in first)
 
 ## 4. Create an admin

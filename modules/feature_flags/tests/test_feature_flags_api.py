@@ -9,20 +9,20 @@ class TestFeatureFlagsAPI:
     async def test_list_flags_returns_registered_flags(
         self, authenticated_client: httpx.AsyncClient
     ):
-        # Products module registers `products.bulk_import`
+        # file_storage module registers `file_storage.public_uploads`
         resp = await authenticated_client.get("/api/feature_flags/")
         assert resp.status_code == 200
         names = {f["name"] for f in resp.json()}
-        assert "products.bulk_import" in names
+        assert "file_storage.public_uploads" in names
 
     async def test_set_override_flips_flag(self, authenticated_client: httpx.AsyncClient):
         resp = await authenticated_client.put(
-            "/api/feature_flags/products.bulk_import",
+            "/api/feature_flags/file_storage.public_uploads",
             json={"enabled": True},
         )
         assert resp.status_code == 200
         body = resp.json()
-        assert body["name"] == "products.bulk_import"
+        assert body["name"] == "file_storage.public_uploads"
         assert body["enabled"] is True
         assert body["overridden"] is True
 
@@ -35,25 +35,25 @@ class TestFeatureFlagsAPI:
 
     async def test_clear_override_reverts_to_default(self, authenticated_client: httpx.AsyncClient):
         await authenticated_client.put(
-            "/api/feature_flags/products.bulk_import",
+            "/api/feature_flags/file_storage.public_uploads",
             json={"enabled": True},
         )
-        resp = await authenticated_client.delete("/api/feature_flags/products.bulk_import")
+        resp = await authenticated_client.delete("/api/feature_flags/file_storage.public_uploads")
         assert resp.status_code == 204
 
-        follow = await authenticated_client.get("/api/feature_flags/products.bulk_import")
+        follow = await authenticated_client.get("/api/feature_flags/file_storage.public_uploads")
         assert follow.status_code == 200
         assert follow.json()["overridden"] is False
 
     async def test_clear_override_without_any_404s(self, authenticated_client: httpx.AsyncClient):
-        resp = await authenticated_client.delete("/api/feature_flags/products.bulk_import")
+        resp = await authenticated_client.delete("/api/feature_flags/file_storage.public_uploads")
         assert resp.status_code == 404
 
     async def test_get_flag_returns_view(self, authenticated_client: httpx.AsyncClient):
-        resp = await authenticated_client.get("/api/feature_flags/products.bulk_import")
+        resp = await authenticated_client.get("/api/feature_flags/file_storage.public_uploads")
         assert resp.status_code == 200
         body = resp.json()
-        assert body["name"] == "products.bulk_import"
+        assert body["name"] == "file_storage.public_uploads"
         assert "default_enabled" in body
         assert "overridden" in body
 
@@ -63,12 +63,12 @@ class TestFeatureFlagsTenantAPI:
         self, authenticated_client: httpx.AsyncClient
     ):
         resp = await authenticated_client.put(
-            "/api/feature_flags/tenant/acme/products.bulk_import",
+            "/api/feature_flags/tenant/acme/file_storage.public_uploads",
             json={"enabled": True},
         )
         assert resp.status_code == 200
         body = resp.json()
-        assert body["name"] == "products.bulk_import"
+        assert body["name"] == "file_storage.public_uploads"
         assert body["enabled"] is True
         assert body["overridden"] is True  # acme has its own row
 
@@ -76,10 +76,10 @@ class TestFeatureFlagsTenantAPI:
         self, authenticated_client: httpx.AsyncClient
     ):
         await authenticated_client.put(
-            "/api/feature_flags/tenant/acme/products.bulk_import",
+            "/api/feature_flags/tenant/acme/file_storage.public_uploads",
             json={"enabled": True},
         )
-        resp = await authenticated_client.get("/api/feature_flags/products.bulk_import")
+        resp = await authenticated_client.get("/api/feature_flags/file_storage.public_uploads")
         assert resp.status_code == 200
         # System view: no tenant_id → tenant override is invisible
         assert resp.json()["overridden"] is False
@@ -89,16 +89,16 @@ class TestFeatureFlagsTenantAPI:
     ):
         # System on, tenant off → tenant view should report enabled=False
         await authenticated_client.put(
-            "/api/feature_flags/products.bulk_import",
+            "/api/feature_flags/file_storage.public_uploads",
             json={"enabled": True},
         )
         await authenticated_client.put(
-            "/api/feature_flags/tenant/acme/products.bulk_import",
+            "/api/feature_flags/tenant/acme/file_storage.public_uploads",
             json={"enabled": False},
         )
         resp = await authenticated_client.get("/api/feature_flags/tenant/acme")
         assert resp.status_code == 200
-        flag = next(f for f in resp.json() if f["name"] == "products.bulk_import")
+        flag = next(f for f in resp.json() if f["name"] == "file_storage.public_uploads")
         assert flag["enabled"] is False
         assert flag["overridden"] is True
         assert flag["system_enabled"] is True
@@ -107,20 +107,20 @@ class TestFeatureFlagsTenantAPI:
         self, authenticated_client: httpx.AsyncClient
     ):
         await authenticated_client.put(
-            "/api/feature_flags/products.bulk_import",
+            "/api/feature_flags/file_storage.public_uploads",
             json={"enabled": True},
         )
         await authenticated_client.put(
-            "/api/feature_flags/tenant/acme/products.bulk_import",
+            "/api/feature_flags/tenant/acme/file_storage.public_uploads",
             json={"enabled": False},
         )
         resp = await authenticated_client.delete(
-            "/api/feature_flags/tenant/acme/products.bulk_import"
+            "/api/feature_flags/tenant/acme/file_storage.public_uploads"
         )
         assert resp.status_code == 204
 
         follow = await authenticated_client.get("/api/feature_flags/tenant/acme")
-        flag = next(f for f in follow.json() if f["name"] == "products.bulk_import")
+        flag = next(f for f in follow.json() if f["name"] == "file_storage.public_uploads")
         assert flag["enabled"] is True  # back to system value
         assert flag["overridden"] is False
 
@@ -128,7 +128,7 @@ class TestFeatureFlagsTenantAPI:
         self, authenticated_client: httpx.AsyncClient
     ):
         resp = await authenticated_client.delete(
-            "/api/feature_flags/tenant/acme/products.bulk_import"
+            "/api/feature_flags/tenant/acme/file_storage.public_uploads"
         )
         assert resp.status_code == 404
 

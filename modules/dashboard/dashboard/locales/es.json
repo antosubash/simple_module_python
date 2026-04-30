@@ -5,7 +5,6 @@
     "stats": {
       "total_users": "Usuarios Totales",
       "active_users": "Usuarios Activos (7d)",
-      "products": "Productos",
       "modules": "Módulos"
     },
     "system_info_title": "Sistema",
