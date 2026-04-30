@@ -19,12 +19,13 @@ import importlib.resources
 import re
 import shutil
 from collections.abc import Iterable
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
-__all__ = ["app", "install_skill", "iter_bundled_skills"]
+__all__ = ["Action", "app", "install_skill", "iter_bundled_skills"]
 
 app = typer.Typer(
     help="Install agent skills (Claude Code / Agent Skills format) into a project.",
@@ -32,8 +33,13 @@ app = typer.Typer(
 )
 
 _DEFAULT_PROJECT_DIR = Path(".claude") / "skills"
-_GLOBAL_DIR = Path.home() / ".claude" / "skills"
 _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---", re.DOTALL)
+
+
+class Action(StrEnum):
+    WROTE = "wrote"
+    UPDATED = "updated"
+    SKIPPED = "skipped"
 
 
 def _bundled_skills_root() -> Path:
@@ -54,31 +60,35 @@ def iter_bundled_skills(root: Path | None = None) -> list[Path]:
 
 
 def _read_description(skill_dir: Path) -> str:
-    """Pull the ``description:`` field out of a SKILL.md's YAML frontmatter."""
+    """Pull the ``description:`` field out of a SKILL.md's YAML frontmatter.
+
+    Supports YAML's plain-scalar continuation: lines that begin with whitespace
+    after the ``description:`` line are folded into the value. The previous
+    "any line containing a colon ends the value" heuristic mis-fired on
+    prose like ``Note: see docs``.
+    """
     text = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
     match = _FRONTMATTER_RE.match(text)
     if not match:
         return ""
-    body = match.group(1)
-    out_lines: list[str] = []
-    in_desc = False
-    for line in body.splitlines():
+    parts: list[str] = []
+    for line in match.group(1).splitlines():
         if line.startswith("description:"):
-            in_desc = True
-            out_lines.append(line.split(":", 1)[1].strip())
-            continue
-        if in_desc:
-            if line and not line[0].isspace() and ":" in line:
-                break
-            out_lines.append(line.strip())
-    return " ".join(s for s in out_lines if s).strip()
+            parts.append(line.split(":", 1)[1].strip())
+        elif parts and line[:1].isspace():
+            parts.append(line.strip())
+        elif parts:
+            break
+    return " ".join(p for p in parts if p)
 
 
 def _resolve_dest(dest: Path | None, global_: bool) -> Path:
     if dest is not None:
         return dest
     if global_:
-        return _GLOBAL_DIR
+        # Resolve home lazily so HOME overrides (CI, sudo, Docker entrypoints)
+        # take effect for every invocation, not just the import-time one.
+        return Path.home() / ".claude" / "skills"
     return Path.cwd() / _DEFAULT_PROJECT_DIR
 
 
@@ -101,23 +111,19 @@ def install_skill(
     *,
     force: bool,
     symlink: bool,
-) -> tuple[str, Path]:
-    """Copy or symlink one skill directory into ``dest_root/<skill_name>/``.
-
-    Returns ``(action, target_path)`` where action is one of
-    ``"wrote"``, ``"updated"``, or ``"skipped"``.
-    """
+) -> tuple[Action, Path]:
+    """Copy or symlink one skill directory into ``dest_root/<skill_name>/``."""
     target = dest_root / src.name
     if target.exists() or target.is_symlink():
         if not force:
-            return ("skipped", target)
+            return (Action.SKIPPED, target)
         if target.is_symlink() or target.is_file():
             target.unlink()
         else:
             shutil.rmtree(target)
-        action = "updated"
+        action = Action.UPDATED
     else:
-        action = "wrote"
+        action = Action.WROTE
     target.parent.mkdir(parents=True, exist_ok=True)
     if symlink:
         target.symlink_to(src.resolve(), target_is_directory=True)
@@ -176,17 +182,17 @@ def add_skills(
     target_root = _resolve_dest(dest, global_)
     target_root.mkdir(parents=True, exist_ok=True)
 
-    counts = {"wrote": 0, "updated": 0, "skipped": 0}
+    counts: dict[Action, int] = dict.fromkeys(Action, 0)
     for src in selected:
         action, target = install_skill(src, target_root, force=force, symlink=symlink)
         counts[action] += 1
-        typer.echo(f"  {action:8} {src.name} -> {target}")
+        typer.echo(f"  {action.value:8} {src.name} -> {target}")
 
     typer.echo(
-        f"\nDone. wrote={counts['wrote']} updated={counts['updated']} "
-        f"skipped={counts['skipped']} (target: {target_root})"
+        f"\nDone. wrote={counts[Action.WROTE]} updated={counts[Action.UPDATED]} "
+        f"skipped={counts[Action.SKIPPED]} (target: {target_root})"
     )
-    if counts["skipped"]:
+    if counts[Action.SKIPPED]:
         typer.echo("Pass --force to overwrite skipped skills.")
 
 
@@ -239,5 +245,5 @@ def update_skills(
     target_root.mkdir(parents=True, exist_ok=True)
     for src in selected:
         action, target = install_skill(src, target_root, force=True, symlink=symlink)
-        typer.echo(f"  {action:8} {src.name} -> {target}")
+        typer.echo(f"  {action.value:8} {src.name} -> {target}")
     typer.echo(f"\nDone. Updated {len(selected)} skill(s) at {target_root}.")

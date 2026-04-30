@@ -73,6 +73,33 @@ class TestList:
         assert result.exit_code == 0
         assert "no skills bundled" in result.output
 
+    def test_description_continuation_lines_are_folded(self, fake_skills_root):
+        """Multi-line descriptions (YAML plain-scalar continuation) fold on whitespace."""
+        runner = CliRunner()
+        result = runner.invoke(root_app, ["skills", "list"])
+        assert result.exit_code == 0, result.output
+        # The beta fixture's description continues onto an indented line; both halves
+        # must appear in the rendered output.
+        assert "Second fake skill" in result.output
+        assert "spans lines" in result.output
+
+    def test_description_with_internal_colon_does_not_truncate(self, tmp_path, monkeypatch):
+        """Prose containing a colon must not be mistaken for a new YAML key."""
+        root = tmp_path / "bundled"
+        root.mkdir()
+        skill = root / "gamma"
+        skill.mkdir()
+        (skill / "SKILL.md").write_text(
+            "---\nname: gamma\ndescription: Triggers on Foo: bar baz quux.\n---\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(skills_cmd, "_bundled_skills_root", lambda: root)
+
+        runner = CliRunner()
+        result = runner.invoke(root_app, ["skills", "list"])
+        assert result.exit_code == 0, result.output
+        assert "Triggers on Foo: bar baz quux." in result.output
+
 
 class TestAdd:
     def test_installs_all_skills_when_no_args(self, fake_skills_root, tmp_path):
@@ -149,8 +176,6 @@ class TestAdd:
     def test_global_flag_writes_under_home_claude(self, fake_skills_root, tmp_path, monkeypatch):
         fake_home = tmp_path / "home"
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home))
-        # Re-evaluate the module-level constant against the patched home.
-        monkeypatch.setattr(skills_cmd, "_GLOBAL_DIR", fake_home / ".claude" / "skills")
 
         runner = CliRunner()
         result = runner.invoke(root_app, ["skills", "add", "alpha", "-g"])
