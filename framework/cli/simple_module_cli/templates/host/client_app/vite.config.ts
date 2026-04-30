@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
@@ -19,8 +20,18 @@ if (fs.existsSync(manifestPath)) {
 }
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   root: __dirname,
+  // Pre-bundle the use-sync-external-store CJS shim so its named export
+  // resolves under ESM. recharts (and anything else pulling in react-redux)
+  // breaks without this.
+  optimizeDeps: {
+    include: [
+      'use-sync-external-store',
+      'use-sync-external-store/shim',
+      'use-sync-external-store/shim/with-selector',
+    ],
+  },
   build: {
     outDir: '../static/dist',
     manifest: true,

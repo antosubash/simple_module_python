@@ -57,10 +57,23 @@ def setup_inertia(
 
     templates = Jinja2Templates(directory=directories)
 
+    # fastapi-inertia only switches to the asset manifest when environment
+    # equals the literal string "production". Anything else (staging, qa,
+    # ...) would render a /main.tsx <script> tag served by the SPA fallback
+    # as text/html, breaking module loading. Normalize:
+    #   * `development`/`testing` → keep the dev-server path (Vite serves
+    #     /main.tsx directly).
+    #   * Anything else (staging, production, qa, ...) → use the production
+    #     manifest so built assets are referenced.
+    from simple_module_core.environments import NON_PROD_ENVIRONMENTS
+
+    use_dev_server = settings.environment in NON_PROD_ENVIRONMENTS
+    inertia_environment = "development" if use_dev_server else "production"
+
     inertia_config = InertiaConfig(
-        environment=settings.environment,
+        environment=inertia_environment,
         version=_INERTIA_VERSION,
-        dev_url=settings.vite_dev_url if settings.is_development else "",
+        dev_url=settings.vite_dev_url if use_dev_server else "",
         templates=templates,
         root_template_filename=_ROOT_TEMPLATE_FILENAME,
         entrypoint_filename=_ENTRYPOINT_FILENAME,

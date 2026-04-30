@@ -67,10 +67,17 @@ CATALOG: dict[str, ModuleEntry] = {
 }
 
 
+# Example modules — `datasets` and `products` are intentionally excluded
+# from every default preset because their module names collide with custom
+# modules users typically want to register themselves. Pass them via
+# `--with datasets,products` (or pick the `examples` preset) to opt in.
+_EXAMPLE_MODULES: frozenset[str] = frozenset({"datasets", "products"})
+
 PRESETS: dict[str, tuple[str, ...]] = {
     "minimal": ("users",),
     "standard": ("users", "dashboard", "permissions"),
-    "full": tuple(CATALOG),
+    "full": tuple(name for name in CATALOG if name not in _EXAMPLE_MODULES),
+    "examples": tuple(CATALOG),
 }
 
 

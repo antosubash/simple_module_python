@@ -144,3 +144,60 @@ class TestSM018InertiaApiCalls:
         results = check_inertia_api_calls(mod, src_dir)  # pyright: ignore[reportArgumentType]
 
         assert results == []
+
+
+class TestSM019ViewsWithoutMenu:
+    """SM019 fires when a module ships view routes but never registers a menu item."""
+
+    def _diags(self, modules):
+        from simple_module_core.diagnostics._module import ModuleDiagnostics
+
+        return list(ModuleDiagnostics()._check_views_without_menu(modules))
+
+    async def test_fires_when_views_present_but_no_menu(self):
+        from simple_module_core.module import ModuleBase, ModuleMeta
+
+        class ViewsNoMenu(ModuleBase):
+            meta = ModuleMeta(name="ViewsNoMenu", view_prefix="/views_no_menu")
+
+            def register_routes(self, api_router, view_router):
+                pass
+
+        results = self._diags([ViewsNoMenu()])
+        assert len(results) == 1
+        assert results[0].code == "SM019"
+        assert results[0].level == DiagnosticLevel.WARNING
+        assert "ViewsNoMenu" in results[0].message
+
+    async def test_silent_when_menu_registered(self):
+        from simple_module_core.module import ModuleBase, ModuleMeta
+
+        class WithMenu(ModuleBase):
+            meta = ModuleMeta(name="WithMenu", view_prefix="/with_menu")
+
+            def register_routes(self, api_router, view_router):
+                pass
+
+            def register_menu_items(self, registry):
+                pass
+
+        assert self._diags([WithMenu()]) == []
+
+    async def test_silent_when_api_only_module(self):
+        from simple_module_core.module import ModuleBase, ModuleMeta
+
+        class ApiOnly(ModuleBase):
+            meta = ModuleMeta(name="ApiOnly", route_prefix="/api/only", view_prefix="")
+
+            def register_routes(self, api_router, view_router):
+                pass
+
+        assert self._diags([ApiOnly()]) == []
+
+    async def test_silent_when_register_routes_not_overridden(self):
+        from simple_module_core.module import ModuleBase, ModuleMeta
+
+        class NoRoutes(ModuleBase):
+            meta = ModuleMeta(name="NoRoutes", view_prefix="/no_routes")
+
+        assert self._diags([NoRoutes()]) == []

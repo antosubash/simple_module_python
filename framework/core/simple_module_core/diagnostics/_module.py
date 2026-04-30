@@ -53,6 +53,7 @@ class ModuleDiagnostics:
         diagnostics.extend(self._check_schema_conflicts(modules))
         diagnostics.extend(self._check_empty_modules(modules))
         diagnostics.extend(self._check_missing_meta(modules))
+        diagnostics.extend(self._check_views_without_menu(modules))
         diagnostics.extend(check_framework_module_coupling(modules))
 
         # File-based checks (need to find module source directories)
@@ -142,6 +143,41 @@ class ModuleDiagnostics:
                         suggestion="Override register_routes() or other methods to add functionality",  # noqa: E501
                     )
                 )
+        return diags
+
+    def _check_views_without_menu(self, modules: list[ModuleBase]) -> list[Diagnostic]:
+        """Warn when a module ships view routes but never registers a menu item.
+
+        A module that overrides ``register_routes`` and declares a non-empty
+        ``view_prefix`` produces user-facing pages, but without
+        ``register_menu_items`` those pages have no UI affordance — the
+        sidebar can't surface them.
+        """
+        diags: list[Diagnostic] = []
+        for mod in modules:
+            cls = type(mod)
+            meta = getattr(mod, "meta", None)
+            if meta is None or not getattr(meta, "view_prefix", ""):
+                continue
+            if "register_routes" not in cls.__dict__:
+                continue
+            if "register_menu_items" in cls.__dict__:
+                continue
+            diags.append(
+                Diagnostic(
+                    level=DiagnosticLevel.WARNING,
+                    code="SM019",
+                    message=(
+                        f"Module '{meta.name}' registers view routes "
+                        f"(view_prefix={meta.view_prefix!r}) but no menu items"
+                    ),
+                    module_name=meta.name,
+                    suggestion=(
+                        "Override register_menu_items() to surface this module "
+                        "in the sidebar, or clear view_prefix if it's API-only"
+                    ),
+                )
+            )
         return diags
 
     def _check_missing_meta(self, modules: list[ModuleBase]) -> list[Diagnostic]:

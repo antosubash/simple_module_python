@@ -45,8 +45,9 @@ def gen_pages(
     modules = discover_modules()
     written = write_module_pages_manifest(modules, host_dir)
     typer.echo(
-        f"Wrote {written['manifest'].name}, {written['generated'].name}, "
-        f"{written['css'].name} to {host_dir}"
+        f"Module pages manifest: {len(modules)} module(s) "
+        f"→ {written['manifest'].name}, {written['generated'].name}, "
+        f"{written['css'].name} in {host_dir}"
     )
 
 
