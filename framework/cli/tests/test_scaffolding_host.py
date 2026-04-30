@@ -16,8 +16,8 @@ class TestModulePagesManifest:
         modules = discover_modules()
         result = compute_module_pages(modules)
 
-        # Products + Dashboard ship pages/; Auth is API-only (no frontend pages).
-        assert {"Products", "Dashboard"}.issubset(result.keys())
+        # Dashboard ships pages/; Auth is API-only (no frontend pages).
+        assert "Dashboard" in result
         assert "Auth" not in result
         for name, path in result.items():
             assert path.is_dir(), f"{name} -> {path} should exist"
@@ -53,12 +53,12 @@ class TestModulePagesManifest:
         assert written == {"manifest": manifest, "generated": generated, "css": css}
 
         data = json.loads(manifest.read_text(encoding="utf-8"))
-        assert "Products" in data
-        assert data["Products"].endswith("pages") or data["Products"].endswith("pages/")
+        assert "Dashboard" in data
+        assert data["Dashboard"].endswith("pages") or data["Dashboard"].endswith("pages/")
 
         ts = generated.read_text(encoding="utf-8")
         assert "import.meta.glob" in ts
-        assert "Products" in ts
+        assert "Dashboard" in ts
         assert "AUTO-GENERATED" in ts or "auto-generated" in ts.lower()
         # Glob patterns must be relative to output_dir — Vite treats
         # leading-slash paths as project-root-relative and silently matches
@@ -78,7 +78,7 @@ class TestCreateHost:
         from simple_module_cli.scaffolding import create_host
 
         dest = tmp_path / "demo"
-        create_host(dest, name="demo-host", modules=["Products", "Auth"])
+        create_host(dest, name="demo-host", modules=["Dashboard", "Auth"])
 
         for relpath in [
             "pyproject.toml",
@@ -126,9 +126,9 @@ class TestCreateHost:
         from simple_module_cli.scaffolding import create_host
 
         dest = tmp_path / "demo"
-        create_host(dest, name="demo", modules=["Products", "Auth"])
+        create_host(dest, name="demo", modules=["Dashboard", "Auth"])
         pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
-        assert "simple_module_products" in pyproject
+        assert "simple_module_dashboard" in pyproject
         assert "simple_module_auth" in pyproject
 
     async def test_refuses_existing_non_empty_dir(self, tmp_path):
@@ -161,11 +161,11 @@ class TestCreateHost:
         runner = CliRunner()
         result = runner.invoke(
             app,
-            ["create-host", "smoke-host", "--dest", str(tmp_path / "out"), "--with", "Products"],
+            ["create-host", "smoke-host", "--dest", str(tmp_path / "out"), "--with", "Dashboard"],
         )
         assert result.exit_code == 0, result.output
         assert (tmp_path / "out" / "main.py").is_file()
         assert (tmp_path / "out" / "pyproject.toml").is_file()
-        assert "simple_module_products" in (tmp_path / "out" / "pyproject.toml").read_text(
+        assert "simple_module_dashboard" in (tmp_path / "out" / "pyproject.toml").read_text(
             encoding="utf-8"
         )

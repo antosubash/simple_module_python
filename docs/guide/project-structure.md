@@ -12,11 +12,9 @@ simple_module_python/
 │   ├── auth/                  # session cookie, CSRF defences
 │   ├── background_tasks/      # Celery broker + worker integration
 │   ├── dashboard/             # authenticated landing page
-│   ├── datasets/              # CSV / dataset uploads
 │   ├── feature_flags/         # admin UI for flag toggles
 │   ├── file_storage/          # pluggable storage backends (local, S3)
 │   ├── permissions/           # role/permission admin UI
-│   ├── products/              # reference CRUD module (used in examples)
 │   ├── settings/              # DB-backed module settings + admin UI
 │   └── users/                 # email+password auth, invites, bootstrap
 │

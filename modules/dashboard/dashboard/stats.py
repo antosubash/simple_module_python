@@ -8,7 +8,6 @@ import time
 from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI
-from products.models import Product
 from simple_module_core.health import HealthCheck, HealthStatus
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,14 +41,12 @@ async def fetch_dashboard_stats(db: AsyncSession, app: FastAPI) -> dict:
 
         total_users = await _count_users(db)
         active_users_7d = await _count_active_users(db, days=7)
-        total_products = await _count_products(db)
         modules_list = _get_module_info(app)
         health_checks = await _run_health_checks(app)
 
         result = {
             "total_users": total_users,
             "active_users_7d": active_users_7d,
-            "total_products": total_products,
             "module_count": len(modules_list),
             "system_info": {
                 "modules": modules_list,
@@ -81,13 +78,6 @@ async def _count_active_users(db: AsyncSession, *, days: int) -> int:
     cutoff = datetime.now(UTC) - timedelta(days=days)
     result = await db.execute(
         select(func.count()).select_from(User).where(User.last_login_at >= cutoff)
-    )
-    return result.scalar_one()
-
-
-async def _count_products(db: AsyncSession) -> int:
-    result = await db.execute(
-        select(func.count()).select_from(Product).where(Product.is_active.is_(True))
     )
     return result.scalar_one()
 

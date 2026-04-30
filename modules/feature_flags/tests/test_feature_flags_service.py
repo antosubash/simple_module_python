@@ -185,7 +185,7 @@ class TestFeatureFlagsModuleLifecycle:
                 FeatureFlagOverride(
                     scope="system",
                     scope_id="",
-                    name="products.bulk_import",
+                    name="file_storage.public_uploads",
                     enabled=True,
                 )
             )
@@ -193,7 +193,7 @@ class TestFeatureFlagsModuleLifecycle:
                 FeatureFlagOverride(
                     scope="tenant",
                     scope_id="acme",
-                    name="products.bulk_import",
+                    name="file_storage.public_uploads",
                     enabled=False,
                 )
             )
@@ -204,8 +204,8 @@ class TestFeatureFlagsModuleLifecycle:
         await FeatureFlagsModule().on_startup(app)
 
         # System: enabled
-        assert sm.feature_flags.is_enabled("products.bulk_import") is True
+        assert sm.feature_flags.is_enabled("file_storage.public_uploads") is True
         # acme tenant: disabled (tenant beats system)
-        assert sm.feature_flags.is_enabled("products.bulk_import", tenant_id="acme") is False
+        assert sm.feature_flags.is_enabled("file_storage.public_uploads", tenant_id="acme") is False
         # other tenant: still inherits system
-        assert sm.feature_flags.is_enabled("products.bulk_import", tenant_id="other") is True
+        assert sm.feature_flags.is_enabled("file_storage.public_uploads", tenant_id="other") is True
