@@ -4,19 +4,31 @@ Agent skills for working in a [simple_module_python](https://github.com/antosuba
 
 ## Install
 
-Pick your scope and run one command:
+There are two install paths — pick whichever fits your project.
+
+### Option A — `sm skills` (recommended for `simple_module_cli` users)
+
+Every project produced by `sm new` already depends on `simple_module_cli`, which ships these skills inside its wheel. From the project root:
 
 ```bash
-# All skills in this repo, into the current project
-npx skills add antosubash/simple_module_python
+sm skills list                                          # see what's available
+sm skills add                                           # install ALL skills into ./.claude/skills/
+sm skills add simple-module-creating                    # install just one
+sm skills add -g                                        # install into ~/.claude/skills (machine-wide)
+sm skills add --dest agents/skills                      # custom target dir
+sm skills add --symlink                                 # symlink to the bundled source (good for skill devs)
+sm skills update                                        # re-pull updates for skills already installed
+sm skills update simple-module-doctor                   # explicit re-pull (force-overwrites)
+```
 
-# Globally (available in every project on your machine)
-npx skills add antosubash/simple_module_python -g
+`sm skills` resolves the bundled set against whatever version of `simple_module_cli` is installed, so upgrading the CLI ships skill updates the next time you run `sm skills update`.
 
-# Just one skill, into a specific agent
+### Option B — `npx skills` (no Python install needed)
+
+```bash
+npx skills add antosubash/simple_module_python          # all skills, current project
+npx skills add antosubash/simple_module_python -g       # globally
 npx skills add antosubash/simple_module_python --skill simple-module-creating -a claude-code
-
-# List what's available without installing
 npx skills add antosubash/simple_module_python --list
 ```
 
@@ -32,6 +44,9 @@ The CLI is [vercel-labs/skills](https://github.com/vercel-labs/skills); see its 
 | [simple-module-database](./simple-module-database/SKILL.md) | Adding SQLModel tables, picking a mixin, or debugging session/transaction behavior |
 | [simple-module-migrations](./simple-module-migrations/SKILL.md) | Generating, applying, or reviewing Alembic migrations after installing or changing a module |
 | [simple-module-inertia-pages](./simple-module-inertia-pages/SKILL.md) | Adding or debugging an Inertia page in a module — render keys, shared props, common pitfalls |
+| [simple-module-locales](./simple-module-locales/SKILL.md) | Adding or debugging i18n in a module — `locale_dirs()`, namespaces, CLDR plurals, the Zod-in-hook rule |
+| [simple-module-registries](./simple-module-registries/SKILL.md) | Contributing menu items, permissions, feature flags, or events from a module |
+| [simple-module-testing](./simple-module-testing/SKILL.md) | Writing pytest tests — picking the right fixture (`db_session` / `app` / `authenticated_client`), single-test runs, e2e |
 | [simple-module-doctor](./simple-module-doctor/SKILL.md) | Interpreting a diagnostic code (`SM001`–`SM018`) printed at boot |
 
 The skills are designed to stand alone — install them into any host or module-package project and they'll work without needing access to the framework's source repo.
