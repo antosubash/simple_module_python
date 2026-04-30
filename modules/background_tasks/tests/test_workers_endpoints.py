@@ -7,7 +7,6 @@ from unittest.mock import MagicMock
 
 import httpx
 import pytest
-
 from background_tasks.contracts.schemas import WorkerInfo, WorkerSnapshot
 
 JSON_BASE = "/api/background_tasks/admin"
