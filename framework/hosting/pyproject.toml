@@ -33,6 +33,9 @@ dependencies = [
     "uvicorn[standard]>=0.34",
 ]
 
+[project.scripts]
+sm-host = "simple_module_hosting.host_cli:app"
+
 [project.entry-points."simple_module_cli.cli_plugins"]
 host = "simple_module_hosting.host_cli:app"
 

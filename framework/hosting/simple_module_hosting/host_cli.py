@@ -116,3 +116,7 @@ def sync_js_deps(
         return
     result = subprocess.run(cmd, cwd=repo_root, check=False)
     raise typer.Exit(code=result.returncode)
+
+
+if __name__ == "__main__":
+    app()
