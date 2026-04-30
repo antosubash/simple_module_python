@@ -1,4 +1,4 @@
-import { router, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
@@ -20,7 +20,7 @@ import {
 } from '@simple-module-py/ui/components/ui/table';
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import { Activity, Search } from 'lucide-react';
+import { Activity, Search, ServerCog } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ExecutionRow, statusLabel } from './components/ExecutionRow';
 import { STATUS_ORDER, VIEW_BASE } from './constants';
@@ -93,22 +93,30 @@ function Index() {
             className="pl-9"
           />
         </div>
-        <Select
-          value={statusValue}
-          onValueChange={(v) => pushFilters({ status: v, task_name: search }, 1)}
-        >
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={STATUS_ALL}>All statuses</SelectItem>
-            {STATUS_ORDER.map((s) => (
-              <SelectItem key={s} value={s}>
-                {statusLabel(s)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select
+            value={statusValue}
+            onValueChange={(v) => pushFilters({ status: v, task_name: search }, 1)}
+          >
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={STATUS_ALL}>All statuses</SelectItem>
+              {STATUS_ORDER.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {statusLabel(s)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" asChild>
+            <Link href={`${VIEW_BASE}/workers`}>
+              <ServerCog className="mr-2 size-4" />
+              Workers
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <Card>
