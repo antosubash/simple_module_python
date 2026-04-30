@@ -7,7 +7,6 @@ The root ``conftest.py`` already exposes ``app``, ``client`` and
   for exercising permission boundaries on write endpoints.
 * ``inertia_client`` — admin client that advertises itself as an Inertia
   request so view endpoints return JSON page data.
-* ``create_product`` — factory that seeds a product via the admin API.
 """
 
 from __future__ import annotations
@@ -88,7 +87,7 @@ def _make_client(
 
 @pytest.fixture
 async def viewer_client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Authenticated client with only the ``viewer`` role (no admin, no products.*)."""
+    """Authenticated client with only the ``viewer`` role (no admin)."""
     user = await _seed_user_with_roles(app, "viewer@example.com", ["viewer"])
     async with _make_client(app, str(user.id)) as c:
         yield c
@@ -105,17 +104,3 @@ async def inertia_client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
         extra_headers={"X-Inertia": "true"},
     ) as c:
         yield c
-
-
-@pytest.fixture
-def create_product(authenticated_client: httpx.AsyncClient):
-    """Factory that POSTs a product via the admin API and returns its id."""
-
-    async def _create(name: str = "Seed", price: str = "1.00") -> int:
-        resp = await authenticated_client.post(
-            "/api/products/", json={"name": name, "price": price}
-        )
-        assert resp.status_code == 201, resp.text
-        return resp.json()["id"]
-
-    return _create

@@ -41,17 +41,10 @@ def test_expand_deps_pulls_in_transitive_dep() -> None:
 
 
 def test_expand_deps_pulls_in_chain() -> None:
-    resolved, added = expand_deps(["datasets"])
-    assert set(resolved) == {
-        "datasets",
-        "file_storage",
-        "settings",
-        "background_tasks",
-        "users",
-        "auth",
-    }
+    resolved, added = expand_deps(["permissions"])
+    assert set(resolved) == {"permissions", "users", "auth"}
     added_names = {a for a, _ in added}
-    assert added_names == {"file_storage", "settings", "background_tasks", "users", "auth"}
+    assert added_names == {"users", "auth"}
 
 
 def test_expand_deps_idempotent_when_input_already_complete() -> None:

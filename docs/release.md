@@ -45,11 +45,9 @@ simple_module_test
 simple_module_auth
 simple_module_background_tasks
 simple_module_dashboard
-simple_module_datasets
 simple_module_feature_flags
 simple_module_file_storage
 simple_module_permissions
-simple_module_products
 simple_module_settings
 simple_module_users
 ```
@@ -223,11 +221,9 @@ Trusted Publishing is tied to the GitHub repo, not any personal account — so a
 | PyPI | `simple_module_auth` | [modules/auth/](../modules/auth/) |
 | PyPI | `simple_module_background_tasks` | [modules/background_tasks/](../modules/background_tasks/) |
 | PyPI | `simple_module_dashboard` | [modules/dashboard/](../modules/dashboard/) |
-| PyPI | `simple_module_datasets` | [modules/datasets/](../modules/datasets/) |
 | PyPI | `simple_module_feature_flags` | [modules/feature_flags/](../modules/feature_flags/) |
 | PyPI | `simple_module_file_storage` | [modules/file_storage/](../modules/file_storage/) |
 | PyPI | `simple_module_permissions` | [modules/permissions/](../modules/permissions/) |
-| PyPI | `simple_module_products` | [modules/products/](../modules/products/) — reference CRUD example |
 | PyPI | `simple_module_settings` | [modules/settings/](../modules/settings/) |
 | PyPI | `simple_module_users` | [modules/users/](../modules/users/) |
 | npm | `@simple-module-py/ui` | [packages/ui/](../packages/ui/) |

@@ -4,9 +4,9 @@ import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@simple-module-py/ui/components/ui/card';
 import { Table, TableBody, TableCell, TableRow } from '@simple-module-py/ui/components/ui/table';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import { Activity, Box, Heart, Package, Server, Users } from 'lucide-react';
+import { Activity, Box, Heart, Server, Users } from 'lucide-react';
 
-type Accent = 'primary' | 'emerald' | 'violet' | 'amber';
+type Accent = 'emerald' | 'violet' | 'amber';
 
 const HEALTH_STATUS_COLOR: Record<string, string> = {
   healthy: 'bg-emerald-500',
@@ -33,7 +33,6 @@ interface SystemInfo {
 interface Props {
   total_users: number;
   active_users_7d: number;
-  total_products: number;
   module_count: number;
   system_info: SystemInfo;
 }
@@ -47,7 +46,7 @@ function Home() {
       title={t(keys.dashboard.home.title)}
       description={t(keys.dashboard.home.description)}
     >
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
         <StatCard
           title={t(keys.dashboard.home.stats.total_users)}
           value={String(props.total_users)}
@@ -59,12 +58,6 @@ function Home() {
           value={String(props.active_users_7d)}
           icon={<Activity className="size-4" />}
           accent="amber"
-        />
-        <StatCard
-          title={t(keys.dashboard.home.stats.products)}
-          value={String(props.total_products)}
-          icon={<Package className="size-4" />}
-          accent="primary"
         />
         <StatCard
           title={t(keys.dashboard.home.stats.modules)}
@@ -143,11 +136,6 @@ function StatCard({
   accent: Accent;
 }) {
   const styles: Record<Accent, { card: string; icon: string; value: string }> = {
-    primary: {
-      card: 'border-primary-200 bg-gradient-to-br from-primary-50 to-card',
-      icon: 'text-primary-500 bg-primary-100',
-      value: 'text-primary-900',
-    },
     emerald: {
       card: 'border-emerald-border bg-gradient-to-br from-emerald-bg to-card',
       icon: 'text-emerald-icon-fg bg-emerald-icon-bg',
