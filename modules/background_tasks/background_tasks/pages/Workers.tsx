@@ -6,6 +6,7 @@ import { Card } from '@simple-module-py/ui/components/ui/card';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { ArrowLeft, RefreshCw, ServerCrash, ServerOff } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { API_BASE, VIEW_BASE } from './constants';
 
 interface WorkerInfo {
@@ -101,7 +102,11 @@ function Workers() {
       });
       if (res.ok) {
         setSnapshot((await res.json()) as WorkerSnapshot);
+      } else {
+        toast.error(`Failed to refresh workers (HTTP ${res.status})`);
       }
+    } catch {
+      toast.error('Failed to refresh workers');
     } finally {
       setLoading(false);
     }

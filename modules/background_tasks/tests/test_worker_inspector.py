@@ -86,3 +86,21 @@ def test_worker_in_stats_but_not_ping_is_offline():
     assert len(snapshot.workers) == 1
     assert snapshot.workers[0].hostname == "celery@host-b"
     assert snapshot.workers[0].online is False
+
+
+def test_redis_error_during_probe_returns_unreachable_snapshot():
+    """A redis-py exception (e.g. auth failure) is converted, not propagated."""
+    from background_tasks.worker_inspector import WorkerInspector
+    from redis.exceptions import AuthenticationError
+
+    celery = MagicMock(spec=Celery)
+    celery.connection.return_value.__enter__.return_value.ensure_connection.side_effect = (
+        AuthenticationError("invalid password")
+    )
+
+    snapshot = WorkerInspector(celery, timeout=0.1).snapshot()
+
+    assert snapshot.broker_reachable is False
+    assert snapshot.workers == []
+    assert snapshot.error is not None
+    assert "invalid password" in snapshot.error
