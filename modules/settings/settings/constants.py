@@ -59,7 +59,7 @@ API_USER_PATH: Final = "/user/{scope_id}/{key}"
 MENU_LABEL: Final = MODULE_NAME
 MENU_URL: Final = VIEW_PREFIX
 MENU_ICON: Final = "settings"
-MENU_ORDER: Final = 30
+MENU_ORDER: Final = 200
 
 # ── Permissions ──────────────────────────────────────────────────────
 PERM_GROUP: Final = MODULE_NAME

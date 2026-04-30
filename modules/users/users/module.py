@@ -82,9 +82,10 @@ class UsersModule(ModuleBase):
                 label="Users",
                 url=_URL_USERS_ADMIN,
                 icon=_ICON_USERS,
-                order=30,
+                order=100,
                 section=MenuSection.SIDEBAR,
                 roles=[ADMIN_ROLE_NAME],
+                group="Administration",
             )
         )
         # Self-service: profile + logout live in the user dropdown.

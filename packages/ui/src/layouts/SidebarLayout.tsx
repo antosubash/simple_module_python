@@ -19,7 +19,23 @@ import { ChevronsUpDown } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 import { NavIcon } from '../components/NavIcon';
-import type { SharedProps } from '../types';
+import type { MenuItem, SharedProps } from '../types';
+
+function groupMenuItems(items: MenuItem[]): { group: string; items: MenuItem[] }[] {
+  const groups: { group: string; items: MenuItem[] }[] = [];
+  const indexByGroup = new Map<string, number>();
+  for (const item of items) {
+    const key = item.group ?? '';
+    let idx = indexByGroup.get(key);
+    if (idx === undefined) {
+      idx = groups.length;
+      indexByGroup.set(key, idx);
+      groups.push({ group: key, items: [] });
+    }
+    groups[idx].items.push(item);
+  }
+  return groups;
+}
 
 interface SidebarTheme {
   sidebarBg: string;
@@ -143,30 +159,44 @@ export function SidebarLayout({
           {headerSlot}
 
           {/* Navigation */}
-          <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-            {menuItems.map((item, index) => {
-              const isActive = currentUrl.startsWith(item.url);
-              return (
-                <Tooltip key={item.url}>
-                  <TooltipTrigger asChild>
-                    <Link
-                      href={item.url}
-                      onClick={closeSidebar}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
-                        isActive ? theme.activeClass : theme.inactiveClass
-                      }`}
-                      style={{ animationDelay: `${index * 50}ms` }}
-                    >
-                      <NavIcon name={item.icon} />
-                      {item.label}
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="lg:hidden">
-                    {item.label}
-                  </TooltipContent>
-                </Tooltip>
-              );
-            })}
+          <nav className="flex-1 px-3 py-4 overflow-y-auto">
+            {groupMenuItems(menuItems).map((group, groupIndex) => (
+              <div
+                key={group.group || `__ungrouped_${groupIndex}`}
+                className={groupIndex === 0 ? 'space-y-0.5' : 'mt-4 space-y-0.5'}
+              >
+                {group.group && (
+                  <div
+                    className={`px-3 pb-1 text-xs font-semibold uppercase tracking-wider ${theme.mutedTextClass}`}
+                  >
+                    {group.group}
+                  </div>
+                )}
+                {group.items.map((item, index) => {
+                  const isActive = currentUrl.startsWith(item.url);
+                  return (
+                    <Tooltip key={item.url}>
+                      <TooltipTrigger asChild>
+                        <Link
+                          href={item.url}
+                          onClick={closeSidebar}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+                            isActive ? theme.activeClass : theme.inactiveClass
+                          }`}
+                          style={{ animationDelay: `${index * 50}ms` }}
+                        >
+                          <NavIcon name={item.icon} />
+                          {item.label}
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="lg:hidden">
+                        {item.label}
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </div>
+            ))}
             {footerNavSlot}
           </nav>
 

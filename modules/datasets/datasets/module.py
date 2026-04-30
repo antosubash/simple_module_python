@@ -70,6 +70,7 @@ class DatasetsModule(ModuleBase):
                 icon=constants.MENU_ICON,
                 order=constants.MENU_ORDER,
                 section=MenuSection.SIDEBAR,
+                group="Content",
             )
         )
 

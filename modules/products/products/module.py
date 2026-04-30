@@ -45,6 +45,7 @@ class ProductsModule(ModuleBase):
                 icon=_ICON_PRODUCTS,
                 order=20,
                 section=MenuSection.SIDEBAR,
+                group="Content",
             )
         )
 

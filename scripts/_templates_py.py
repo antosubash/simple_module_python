@@ -103,6 +103,7 @@ def module_py(ctx: ScaffoldContext) -> str:
                         icon="box",
                         order=30,
                         section=MenuSection.SIDEBAR,
+                        group="Content",
                     )
                 )
 

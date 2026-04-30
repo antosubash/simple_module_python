@@ -59,7 +59,7 @@ ALL_PERMISSIONS: Final = (
 # ── Menu ─────────────────────────────────────────────────────────────
 MENU_LABEL: Final = "Datasets"
 MENU_ICON: Final = "layers"
-MENU_ORDER: Final = 40
+MENU_ORDER: Final = 30
 
 # ── Celery tasks ─────────────────────────────────────────────────────
 TASK_EXTRACT_METADATA: Final = "datasets.extract_metadata"

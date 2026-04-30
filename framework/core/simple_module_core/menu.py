@@ -33,6 +33,11 @@ class MenuItem:
     method: MenuItemMethod = "get"
     """HTTP method used when the item is activated. ``"post"`` renders as an
     Inertia form submission so the target endpoint can be POST-only (e.g. logout)."""
+    group: str = ""
+    """Sidebar group label. Empty = ungrouped (renders flat, no header).
+    Items in the same section that share a group are visually clustered under a
+    header in the order they already sort by ``order``; the group's own position
+    is set by the lowest-ordered item that belongs to it."""
 
 
 class MenuRegistry:
@@ -83,6 +88,7 @@ class MenuRegistry:
                     "url": item.url,
                     "icon": item.icon,
                     "method": item.method,
+                    "group": item.group,
                 }
             )
 
