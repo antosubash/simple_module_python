@@ -7,7 +7,6 @@ import logging
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -23,6 +22,7 @@ from simple_module_core.services import Services
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 
+from simple_module_hosting._host_services import _HostServices
 from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._phase_helpers import (
     check_settings_registration,
@@ -36,19 +36,6 @@ from simple_module_hosting.host_settings import HostSettings
 from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types
 from simple_module_hosting.migrations import check_migrations
 from simple_module_hosting.settings import Settings
-
-
-@dataclass
-class _HostServices:
-    """Container for host-level services exposed on ``app.state.host``.
-
-    Lives at module scope so the dataclass type is stable across
-    ``create_app`` calls — tests that run multiple builds in one process
-    can ``isinstance(services, _HostServices)`` without each call
-    minting a fresh class.
-    """
-
-    settings: HostSettings
 
 logger = logging.getLogger(__name__)
 

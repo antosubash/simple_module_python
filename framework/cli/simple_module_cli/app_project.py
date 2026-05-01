@@ -15,7 +15,8 @@ from __future__ import annotations
 import json as _json
 import secrets as _secrets
 from collections.abc import Sequence
-from importlib.metadata import PackageNotFoundError, version as _pkg_version
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 from pathlib import Path
 
 from simple_module_cli._env import set_env_key
