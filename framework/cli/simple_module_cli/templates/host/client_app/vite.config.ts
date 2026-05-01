@@ -22,11 +22,21 @@ if (fs.existsSync(manifestPath)) {
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   root: __dirname,
-  // Pre-bundle the use-sync-external-store CJS shim so its named export
-  // resolves under ESM. recharts (and anything else pulling in react-redux)
-  // breaks without this.
+  // Force every importer to resolve to one React copy — without it,
+  // plugin-react's Fast Refresh preamble check fires in a realm where its
+  // global was never set ("can't detect preamble").
+  resolve: {
+    dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
+  },
+  // ``use-sync-external-store`` is the CJS shim recharts/react-redux pull
+  // in; pre-bundling resolves its named export under ESM.
   optimizeDeps: {
     include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react/jsx-runtime',
+      'react/jsx-dev-runtime',
       'use-sync-external-store',
       'use-sync-external-store/shim',
       'use-sync-external-store/shim/with-selector',

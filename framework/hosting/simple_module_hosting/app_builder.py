@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
 import os
 from collections.abc import AsyncGenerator
@@ -73,6 +74,22 @@ def _resolve_project_root() -> Path:
 
 
 _PROJECT_ROOT = _resolve_project_root()
+
+
+def _register_event_handlers(mod, event_bus: EventBus, app: FastAPI) -> None:
+    """Dispatch to ``mod.register_event_handlers`` with or without ``app``.
+
+    Back-compat shim for modules that still override the one-arg form
+    ``(self, bus)``; passing ``app=`` to those crashes.
+    """
+    sig = inspect.signature(mod.register_event_handlers)
+    accepts_app = "app" in sig.parameters or any(
+        p.kind is inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
+    )
+    if accepts_app:
+        mod.register_event_handlers(event_bus, app=app)
+    else:
+        mod.register_event_handlers(event_bus)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -218,7 +235,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         mod.register_menu_items(menu_registry)
         mod.register_permissions(perm_registry)
         mod.register_feature_flags(ff_registry)
-        mod.register_event_handlers(event_bus)
+        _register_event_handlers(mod, event_bus, app)
         mod.register_health_checks(health_registry)
 
     logger.info(

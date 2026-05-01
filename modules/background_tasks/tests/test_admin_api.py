@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -13,19 +12,7 @@ from background_tasks.models import TaskExecution
 
 ADMIN_BASE = "/api/background_tasks/admin"
 
-
-@pytest.fixture(autouse=True)
-async def _stub_celery(app) -> None:
-    """Replace the real Celery instance with a MagicMock for the admin suite.
-
-    ``BackgroundTasksModule.on_startup`` builds a live Celery app which tries
-    to talk to a real Redis broker on the first ``send_task`` call. The admin
-    tests only care that ``retry`` flows through the API — mocking keeps the
-    test hermetic.
-    """
-    celery = MagicMock(name="Celery")
-    celery.send_task.return_value.id = "mocked-celery-id"
-    app.state.background_tasks.celery = celery
+pytestmark = pytest.mark.usefixtures("_stub_celery")
 
 
 async def _seed_failed(app, **overrides) -> TaskExecution:

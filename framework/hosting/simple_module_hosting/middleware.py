@@ -79,6 +79,11 @@ class SecurityHeadersMiddleware:
         "img-src 'self' data: blob:; "
         "font-src 'self' https://fonts.gstatic.com data:; "
         "connect-src 'self'; "
+        # Allow blob: workers — MapLibre, comlink, web-tree-sitter and most
+        # WASM libs ship their worker as a Blob URL. `child-src` is the
+        # legacy fallback some browsers consult before `worker-src`.
+        "worker-src 'self' blob:; "
+        "child-src 'self' blob:; "
         "frame-ancestors 'self'; "
         "base-uri 'self'; "
         "form-action 'self'"
@@ -104,6 +109,8 @@ class SecurityHeadersMiddleware:
             "img-src 'self' data: blob:; "
             "font-src 'self' https://fonts.gstatic.com data:; "
             f"connect-src 'self' {vite_dev_url} {ws_url}; "
+            "worker-src 'self' blob:; "
+            "child-src 'self' blob:; "
             "frame-ancestors 'self'; "
             "base-uri 'self'; "
             "form-action 'self'"

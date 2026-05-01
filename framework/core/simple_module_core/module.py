@@ -107,8 +107,13 @@ class ModuleBase(ABC):
     def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
         """Declare feature flags this module exposes."""
 
-    def register_event_handlers(self, bus: EventBus) -> None:
-        """Subscribe to events published by other modules."""
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+        """Subscribe to events published by other modules.
+
+        ``app`` is optional for back-compat; pass it through to handlers
+        that need ``app.state.sm.db.session_factory`` to persist on the
+        framework's engine instead of building their own.
+        """
 
     def register_health_checks(self, registry: HealthRegistry) -> None:
         """Contribute health checks for the ``/health/ready`` endpoint."""
