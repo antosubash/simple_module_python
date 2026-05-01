@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from enum import StrEnum
 from pathlib import Path
@@ -109,6 +110,13 @@ def new_project(
 
     typer.echo("Installing dependencies...")
     for cmd in (["uv", "sync"], ["npm", "install"]):
+        if shutil.which(cmd[0]) is None:
+            typer.echo(
+                f"WARNING: '{cmd[0]}' not found on PATH; skipping `{' '.join(cmd)}`. "
+                "Install it and finish setup manually.",
+                err=True,
+            )
+            return
         result = subprocess.run(cmd, cwd=target, check=False)
         if result.returncode != 0:
             typer.echo(

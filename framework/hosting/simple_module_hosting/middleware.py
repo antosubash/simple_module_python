@@ -45,7 +45,10 @@ _HEADER_HSTS = "Strict-Transport-Security"
 # Security response header values
 _XCTO_NOSNIFF = "nosniff"
 _XFO_SAMEORIGIN = "SAMEORIGIN"
-_XXSS_BLOCK = "1; mode=block"
+# OWASP/MDN now recommend disabling the legacy XSS auditor — older
+# browser implementations introduced reflected-XSS vectors of their own.
+# Modern protection comes from the CSP below (strict-dynamic + nonces).
+_XXSS_DISABLED = "0"
 _REFERRER_STRICT_ORIGIN = "strict-origin-when-cross-origin"
 
 __all__ = [
@@ -137,7 +140,7 @@ class SecurityHeadersMiddleware:
                 headers = MutableHeaders(scope=message)
                 headers[_HEADER_X_CONTENT_TYPE_OPTIONS] = _XCTO_NOSNIFF
                 headers[_HEADER_X_FRAME_OPTIONS] = _XFO_SAMEORIGIN
-                headers[_HEADER_X_XSS_PROTECTION] = _XXSS_BLOCK
+                headers[_HEADER_X_XSS_PROTECTION] = _XXSS_DISABLED
                 headers[_HEADER_REFERRER_POLICY] = _REFERRER_STRICT_ORIGIN
                 if self.csp:
                     headers[_HEADER_CSP] = self.csp

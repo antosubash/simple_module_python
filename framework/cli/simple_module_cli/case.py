@@ -13,9 +13,17 @@ __all__ = ["to_kebab_case", "to_pascal_case", "to_snake_case"]
 
 
 def to_snake_case(name: str) -> str:
-    """'MyFeature' / 'my-feature' / 'My Feature' -> 'my_feature'."""
-    s = re.sub(r"(?<!^)(?=[A-Z])", "_", name)
-    s = re.sub(r"[\s\-]+", "_", s)
+    """'MyFeature' / 'my-feature' / 'My Feature' / 'URLPath' -> 'my_feature' / 'url_path'.
+
+    Handles acronyms by treating ``Acronym|Word`` and ``word|Capital`` as
+    boundaries: ``URLPath`` -> ``url_path``, ``APIClient`` -> ``api_client``,
+    ``HTTPServer2`` -> ``http_server2``. The single-pass ``(?=[A-Z])`` form
+    that preceded this would emit ``u_r_l_path`` and propagate the typo
+    into the PyPI slug + display name.
+    """
+    s = re.sub(r"[\s\-]+", "_", name)
+    s = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", s)
+    s = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s)
     return s.lower()
 
 

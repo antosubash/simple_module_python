@@ -39,16 +39,22 @@ def _register_base(base: type[SQLModel]) -> None:
         all_module_bases.append(base)
 
 
-def _default_provider() -> DatabaseProvider:
+def _default_schema_policy() -> DatabaseProvider:
     """Resolve the schema layout to register module tables under.
 
-    Drives whether module tables get a dedicated Postgres schema
-    (``orders.<table>``) or share the public schema with prefixed names
-    (``orders_<table>``). ``SM_SCHEMA_PER_MODULE`` is authoritative when
-    set; the ``SM_DATABASE_URL`` fallback is kept for back-compat with
-    deployments that haven't migrated to the explicit knob — workers and
-    the web process can disagree on whether the URL is set, so prefer
-    the explicit form going forward.
+    The :class:`DatabaseProvider` enum doubles as a *schema-layout*
+    selector here — ``POSTGRESQL`` means "give every module its own
+    schema (``orders.<table>``)", ``SQLITE`` means "shared public schema,
+    name-prefixed tables (``orders_<table>``)". The conflation is
+    deliberate so existing call sites keep working, but conceptually this
+    is "schema policy", not "what DB are we connecting to": you can run
+    Postgres with ``SM_SCHEMA_PER_MODULE=false`` to keep a flat layout.
+
+    Resolution order:
+      1. ``SM_SCHEMA_PER_MODULE`` (authoritative when set, decoupled from URL).
+      2. ``SM_DATABASE_URL`` (legacy fallback so deployments that haven't
+         migrated to the explicit knob keep working).
+      3. ``SQLITE`` (shared schema, the safe default).
     """
     explicit = os.environ.get("SM_SCHEMA_PER_MODULE")
     if explicit is not None:
@@ -83,7 +89,7 @@ def create_module_base(
     concrete table classes declare ``table=True`` and inherit from it.
     """
     if provider is None:
-        provider = _default_provider()
+        provider = _default_schema_policy()
 
     cache_key = f"{module_name}:{provider}"
     if cache_key in _base_cache:

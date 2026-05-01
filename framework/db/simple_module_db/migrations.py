@@ -20,6 +20,7 @@ from collections.abc import Callable, Sequence
 from enum import StrEnum
 from typing import Literal
 
+import sqlalchemy as sa
 from simple_module_core import ModuleBase
 from simple_module_core.discovery import discover_modules, get_module_package_name
 from sqlalchemy import MetaData
@@ -139,7 +140,10 @@ def render_item(type_, obj, autogen_context):
     if imports is not None and cls_module.startswith("geoalchemy2"):
         imports.add("import geoalchemy2")
 
-    if cls_name == "Enum":
+    # Match by isinstance, not class-name string — a user-defined ``Enum``
+    # class elsewhere in the project would otherwise be matched here and
+    # render with ``values_callable`` against an unrelated ``enum_class``.
+    if isinstance(obj, sa.Enum):
         python_type = getattr(obj, "enum_class", None)
         if isinstance(python_type, type) and issubclass(python_type, StrEnum):
             name = getattr(obj, "name", None) or python_type.__name__.lower()

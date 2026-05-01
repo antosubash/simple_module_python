@@ -137,7 +137,7 @@ class TestSecurityHeaders:
         resp = await client.get("/health")
         assert resp.headers["x-content-type-options"] == "nosniff"
         assert resp.headers["x-frame-options"] == "SAMEORIGIN"
-        assert resp.headers["x-xss-protection"] == "1; mode=block"
+        assert resp.headers["x-xss-protection"] == "0"
         assert resp.headers["referrer-policy"] == "strict-origin-when-cross-origin"
 
 

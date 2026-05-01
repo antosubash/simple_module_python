@@ -22,6 +22,7 @@ from simple_module_core.services import Services
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 
+from simple_module_hosting._host_services import _HostServices
 from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._phase_helpers import (
     check_settings_registration,
@@ -31,6 +32,7 @@ from simple_module_hosting._phase_helpers import (
     wire_module_routes,
 )
 from simple_module_hosting.health import router as health_router
+from simple_module_hosting.host_settings import HostSettings
 from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types
 from simple_module_hosting.migrations import check_migrations
 from simple_module_hosting.settings import Settings
@@ -211,17 +213,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # AST plugin-free while still hitting the real helper at runtime.
     if hasattr(app.state, "settings"):
         import importlib
-        from dataclasses import dataclass as _dataclass
-
-        from simple_module_hosting.host_settings import HostSettings
 
         _register_module_settings = importlib.import_module(
             "settings.registration"
         ).register_module_settings
-
-        @_dataclass
-        class _HostServices:
-            settings: HostSettings
 
         _register_module_settings(app, "host", HostSettings, lambda s: _HostServices(settings=s))
 
