@@ -20,12 +20,14 @@ import sys
 from pathlib import Path
 
 from simple_module_core.diagnostics import (
+    Diagnostic,
     DiagnosticLevel,
     print_diagnostics,
     run_diagnostics,
 )
 from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.dotenv import parse_dotenv
+from simple_module_core.exceptions import InvalidModuleError
 
 
 def _load_i18n_settings_from_env() -> tuple[list[str], str] | tuple[None, None]:
@@ -69,7 +71,31 @@ def _discover_extra_locale_sources() -> list[tuple[str, str, Path]]:
 
 
 def main() -> int:
-    modules = discover_modules()
+    # ``make doctor`` exists specifically to surface broken modules. The
+    # default (lenient) discovery would silently skip a module whose entry
+    # point fails to load, so doctor would report "all clear" while a
+    # feature was missing from the boot. Use strict and translate the
+    # raised error into a diagnostic so the rest of the run still happens.
+    try:
+        modules = discover_modules(strict=True)
+    except InvalidModuleError as exc:
+        print_diagnostics(
+            [
+                Diagnostic(
+                    level=DiagnosticLevel.ERROR,
+                    code="SM001",
+                    message=str(exc),
+                    module_name="<discovery>",
+                    suggestion=(
+                        "Fix the entry point above (broken import, missing 'meta', "
+                        "or a class that isn't a ModuleBase subclass). Re-run "
+                        "`make doctor` once resolved."
+                    ),
+                )
+            ]
+        )
+        return 1
+
     if not modules:
         print("No modules discovered. Is the project installed (`uv sync --all-packages`)?")
         return 0

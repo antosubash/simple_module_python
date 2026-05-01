@@ -7,6 +7,7 @@ import logging
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -31,9 +32,23 @@ from simple_module_hosting._phase_helpers import (
     wire_module_routes,
 )
 from simple_module_hosting.health import router as health_router
+from simple_module_hosting.host_settings import HostSettings
 from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types
 from simple_module_hosting.migrations import check_migrations
 from simple_module_hosting.settings import Settings
+
+
+@dataclass
+class _HostServices:
+    """Container for host-level services exposed on ``app.state.host``.
+
+    Lives at module scope so the dataclass type is stable across
+    ``create_app`` calls — tests that run multiple builds in one process
+    can ``isinstance(services, _HostServices)`` without each call
+    minting a fresh class.
+    """
+
+    settings: HostSettings
 
 logger = logging.getLogger(__name__)
 
@@ -211,17 +226,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # AST plugin-free while still hitting the real helper at runtime.
     if hasattr(app.state, "settings"):
         import importlib
-        from dataclasses import dataclass as _dataclass
-
-        from simple_module_hosting.host_settings import HostSettings
 
         _register_module_settings = importlib.import_module(
             "settings.registration"
         ).register_module_settings
-
-        @_dataclass
-        class _HostServices:
-            settings: HostSettings
 
         _register_module_settings(app, "host", HostSettings, lambda s: _HostServices(settings=s))
 

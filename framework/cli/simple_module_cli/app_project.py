@@ -15,6 +15,7 @@ from __future__ import annotations
 import json as _json
 import secrets as _secrets
 from collections.abc import Sequence
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
 
 from simple_module_cli._env import set_env_key
@@ -25,7 +26,23 @@ from simple_module_cli.scaffolding import create_host
 
 __all__ = ["create_app_project"]
 
-_FRAMEWORK_VERSION = "0.0.1"
+
+def _resolve_framework_version() -> str:
+    """Resolve the framework version to pin scaffolded apps against.
+
+    The CLI ships in lockstep with the rest of the framework (one
+    ``bump_version.py`` rewrites every ``pyproject.toml`` in the repo), so
+    its own installed version is the source of truth. Falling back to a
+    placeholder lets editable installs without dist-info still scaffold —
+    but that path should never be reached in a release wheel.
+    """
+    try:
+        return _pkg_version("simple_module_cli")
+    except PackageNotFoundError:
+        return "0.0.0"
+
+
+_FRAMEWORK_VERSION = _resolve_framework_version()
 
 _APP_PY_DEV_DEPS = [f"simple_module_test=={_FRAMEWORK_VERSION}", "pytest>=8.0"]
 

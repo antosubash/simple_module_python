@@ -124,6 +124,8 @@ def render_item(type_, obj, autogen_context):
 
     Pass to :func:`alembic.context.configure` as ``render_item=render_item``.
     """
+    import sqlalchemy as sa
+
     if type_ != "type":
         return False
     cls_name = type(obj).__name__
@@ -139,7 +141,10 @@ def render_item(type_, obj, autogen_context):
     if imports is not None and cls_module.startswith("geoalchemy2"):
         imports.add("import geoalchemy2")
 
-    if cls_name == "Enum":
+    # Match by isinstance, not class-name string — a user-defined ``Enum``
+    # class elsewhere in the project would otherwise be matched here and
+    # render with ``values_callable`` against an unrelated ``enum_class``.
+    if isinstance(obj, sa.Enum):
         python_type = getattr(obj, "enum_class", None)
         if isinstance(python_type, type) and issubclass(python_type, StrEnum):
             name = getattr(obj, "name", None) or python_type.__name__.lower()
