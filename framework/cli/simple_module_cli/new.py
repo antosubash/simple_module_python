@@ -126,8 +126,7 @@ def new_project(
             )
             return
 
-    if shutil.which("uv") is not None:
-        subprocess.run(["uv", "run", "alembic", "upgrade", "head"], cwd=target, check=False)
+    subprocess.run(["uv", "run", "alembic", "upgrade", "head"], cwd=target, check=False)
     typer.echo("\nSetup complete. Run `make dev` in the new directory.")
     if "background_tasks" in resolved:
         typer.echo("For background jobs, also run: docker compose up -d redis worker beat")

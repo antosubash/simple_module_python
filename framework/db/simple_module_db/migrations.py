@@ -20,6 +20,7 @@ from collections.abc import Callable, Sequence
 from enum import StrEnum
 from typing import Literal
 
+import sqlalchemy as sa
 from simple_module_core import ModuleBase
 from simple_module_core.discovery import discover_modules, get_module_package_name
 from sqlalchemy import MetaData
@@ -124,8 +125,6 @@ def render_item(type_, obj, autogen_context):
 
     Pass to :func:`alembic.context.configure` as ``render_item=render_item``.
     """
-    import sqlalchemy as sa
-
     if type_ != "type":
         return False
     cls_name = type(obj).__name__

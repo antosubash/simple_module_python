@@ -70,12 +70,6 @@ def _default_schema_policy() -> DatabaseProvider:
     return DatabaseProvider.SQLITE
 
 
-# Back-compat alias for the previous private name. Internal callers should
-# prefer the new spelling; the alias keeps any monkeypatch-based test fixtures
-# working through the rename.
-_default_provider = _default_schema_policy
-
-
 def create_module_base(
     module_name: str,
     provider: DatabaseProvider | None = None,
