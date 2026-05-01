@@ -17,10 +17,10 @@ class TestMigrationsHelper:
         metadata = build_module_metadata()
         table_names = set(metadata.tables.keys())
 
-        # Products ships models and must contribute at least one table.
+        # Users ships models and must contribute at least one table.
         # (Dashboard is event-driven with no models; Auth's tables are
         # currently not part of this workspace's ORM surface.)
-        assert any("product" in name.lower() for name in table_names)
+        assert any("user" in name.lower() for name in table_names)
         assert len(table_names) >= 1
 
     async def test_combined_metadata_only_returns_module_tables(self):

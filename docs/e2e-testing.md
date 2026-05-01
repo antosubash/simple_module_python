@@ -1,22 +1,9 @@
 # End-to-End Testing
 
-The repo ships Playwright-driven smoke tests at
-[tests/e2e/test_smoke.py](../tests/e2e/test_smoke.py). Four tests drive a real
-Chromium browser through the core flows:
-
-* **`test_login_and_browse_smoke`** — landing → local email+password login →
-  dashboard → products browse → logout. Minimal regression guard.
-* **`test_products_crud_smoke`** — same login + a full create / edit / delete
-  round-trip against the products module.
-* **`test_password_reset_smoke`** — **skipped** (see inline comment in the
-  test file).  `fastapi-users` `reset_password()` validates a password
-  fingerprint (`password_fgpt`) that is only available server-side.  The
-  full HTTP-layer flow is covered by unit tests in
-  `modules/users/tests/test_api_auth.py`.
-* **`test_admin_invite_smoke`** — admin invites a new user via the UI; the
-  invitee accepts the invite in a fresh browser context and lands on the
-  dashboard.  Token is minted locally using the dev-default verify secret
-  (equivalent to what the ConsoleMailer logs).
+Playwright-driven smoke tests live in [tests/e2e/](../tests/e2e/) — currently
+just [`test_settings_ui.py`](../tests/e2e/test_settings_ui.py), which logs in,
+navigates to `/settings/modules`, toggles a module setting, and verifies the
+change hot-reloads into `app.state` without a server restart.
 
 End-to-end tests are gated behind the `e2e` pytest marker (declared in
 [pyproject.toml](../pyproject.toml)) and are **excluded from the default
@@ -62,7 +49,7 @@ uv run pytest -m e2e tests/e2e
 
 ## Configuration
 
-The tests read these environment variables (all optional):
+When you write e2e tests, read these environment variables (all optional):
 
 | Variable       | Default                   | Notes                                                        |
 | -------------- | ------------------------- | ------------------------------------------------------------ |
@@ -70,38 +57,6 @@ The tests read these environment variables (all optional):
 | `E2E_USERNAME` | `admin@example.com`       | Email of the admin user created via `sm-users create-admin`. |
 | `E2E_PASSWORD` | `admin`                   | Password of the above admin user.                            |
 | `SM_USERS_VERIFICATION_TOKEN_SECRET` | `dev-verify-token-secret-change-me` | Must match the running server's value so locally-minted invite tokens are accepted. |
-
-## What the smoke tests cover
-
-**`test_login_and_browse_smoke`**
-
-1. Landing page renders (`/`) with the "Get Started" CTA.
-2. Local email+password login via `/users/login`.
-3. Dashboard (`/dashboard/`) renders — proves session cookie + AuthMiddleware +
-   Inertia resolver + AuthenticatedLayout.
-4. Products browse (`/products/`) renders — proves module pages resolve.
-5. Logout returns the user to the public landing page.
-
-**`test_products_crud_smoke`**
-
-1. Login as admin.
-2. Create a timestamped product via the Create form.
-3. Edit its name and verify the new name appears in the list.
-4. Delete it through the confirm dialog and verify the row disappears.
-
-The CRUD test relies on the admin user having the `admin` role (created
-automatically by `sm-users create-admin` or the bootstrap env vars).
-
-**`test_admin_invite_smoke`**
-
-1. Admin logs in and submits the invite form at `/users/admin/invite`.
-2. The test looks up the new user's UUID via the admin API.
-3. A verify token is minted locally (same secret the server uses).
-4. A fresh browser context navigates to `/users/invite/accept?token=…`, sets
-   a password, and verifies a redirect to `/dashboard`.
-
-These are **not** pixel-perfect regression tests — the goal is to catch broad
-breakage in the auth + render + CRUD spine.
 
 ## Debugging
 

@@ -45,7 +45,7 @@ def create_host(
         str,
         typer.Option(
             "--with",
-            help="Comma-separated module names to declare as deps (e.g. Auth,Products).",
+            help="Comma-separated module names to declare as deps (e.g. Auth,Dashboard).",
         ),
     ] = "",
 ) -> None:

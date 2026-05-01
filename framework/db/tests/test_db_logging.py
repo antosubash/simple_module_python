@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import contextlib
 import logging
-from decimal import Decimal
 from unittest.mock import MagicMock
 
 from _models import _TenantBase, _TenantItem
 from simple_module_db.deps import get_db
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def _drive_get_db(db_state, populate=None):
@@ -82,47 +80,3 @@ class TestGetDbLogging:
         read_only = [r for r in records if r.message == "db.session.read_only"]
         assert len(read_only) == 1
         assert read_only[0].operation == "read_only_rollback"  # type: ignore[attr-defined]
-
-
-class TestEntityListenerLogging:
-    async def test_create_logs_entity_created(self, db_session: AsyncSession, caplog):
-        """Inserting a new entity should log db.entity.created."""
-        from products.models import Product
-
-        with caplog.at_level(logging.INFO, logger="simple_module.db"):
-            product = Product(name="Widget", price=Decimal("9.99"))
-            db_session.add(product)
-            await db_session.flush()
-
-        created_msgs = [
-            r
-            for r in caplog.records
-            if r.name == "simple_module.db" and r.message == "db.entity.created"
-        ]
-        assert len(created_msgs) == 1
-        assert created_msgs[0].entity == "Product"  # type: ignore[attr-defined]
-        assert created_msgs[0].operation == "create"  # type: ignore[attr-defined]
-
-    async def test_update_logs_entity_updated(self, db_session: AsyncSession, caplog):
-        """Modifying an entity should log db.entity.updated."""
-        from products.models import Product
-
-        product = Product(name="Widget", price=Decimal("9.99"))
-        db_session.add(product)
-        await db_session.flush()
-
-        caplog.clear()
-
-        product.name = "Updated Widget"
-        with caplog.at_level(logging.INFO, logger="simple_module.db"):
-            await db_session.flush()
-
-        updated_msgs = [
-            r
-            for r in caplog.records
-            if r.name == "simple_module.db" and r.message == "db.entity.updated"
-        ]
-        assert len(updated_msgs) == 1
-        assert updated_msgs[0].entity == "Product"  # type: ignore[attr-defined]
-        assert updated_msgs[0].operation == "update"  # type: ignore[attr-defined]
-        assert updated_msgs[0].entity_id is not None  # type: ignore[attr-defined]

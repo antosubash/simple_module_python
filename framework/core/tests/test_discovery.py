@@ -115,9 +115,9 @@ class TestDiscoverModules:
         """discover_modules() should find modules registered via entry_points."""
         modules = discover_modules()
         names = [m.meta.name for m in modules]
-        assert "Products" in names
         assert "Auth" in names
         assert "Dashboard" in names
+        assert "Users" in names
 
 
 class TestDiscoverModulesAdvanced:
@@ -221,7 +221,7 @@ class TestSelectiveModuleLoading:
         """Passing enabled=None keeps existing behaviour (load all installed modules)."""
         all_mods = discover_modules(enabled=None)
         names = {m.meta.name for m in all_mods}
-        assert {"Auth", "Products", "Dashboard"}.issubset(names)
+        assert {"Auth", "Users", "Dashboard"}.issubset(names)
 
     async def test_discover_with_allowlist_filters(self):
         """Passing enabled=['Auth'] loads only Auth, even if other modules are installed."""
@@ -234,9 +234,9 @@ class TestSelectiveModuleLoading:
         assert discover_modules(enabled=[]) == []
 
     async def test_discover_allowlist_case_insensitive(self):
-        """Allowlist matching ignores case so 'products' and 'Products' both work."""
-        names = [m.meta.name for m in discover_modules(enabled=["products"])]
-        assert names == ["Products"]
+        """Allowlist matching ignores case so 'dashboard' and 'Dashboard' both work."""
+        names = [m.meta.name for m in discover_modules(enabled=["dashboard"])]
+        assert names == ["Dashboard"]
 
     async def test_discover_unknown_name_logged_and_ignored(self, caplog):
         """Names in enabled that don't match any installed module log a warning but don't raise."""

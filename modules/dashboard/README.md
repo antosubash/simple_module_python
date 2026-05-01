@@ -38,7 +38,7 @@ The dashboard sidebar picks it up automatically.
 ## Depends on
 
 - `simple_module_core`, `simple_module_db`, `simple_module_hosting`
-- `simple_module_users`, `simple_module_products` (demo content used by the default layout)
+- `simple_module_users` (user counts shown on the default layout)
 
 ## License
 

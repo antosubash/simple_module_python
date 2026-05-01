@@ -36,12 +36,11 @@ CATALOG: dict[str, ModuleEntry] = {
         "Permissions",
         requires=("auth", "users"),
     ),
-    "products": ModuleEntry("products", "simple_module_products", "Products"),
     "dashboard": ModuleEntry(
         "dashboard",
         "simple_module_dashboard",
         "Dashboard",
-        requires=("users", "products"),
+        requires=("users",),
     ),
     "settings": ModuleEntry("settings", "simple_module_settings", "Settings"),
     "feature_flags": ModuleEntry("feature_flags", "simple_module_feature_flags", "Feature Flags"),
@@ -58,26 +57,13 @@ CATALOG: dict[str, ModuleEntry] = {
         requires=("users",),
         recipe="background_tasks",
     ),
-    "datasets": ModuleEntry(
-        "datasets",
-        "simple_module_datasets",
-        "Datasets",
-        requires=("file_storage", "background_tasks"),
-    ),
 }
 
-
-# Example modules — `datasets` and `products` are intentionally excluded
-# from every default preset because their module names collide with custom
-# modules users typically want to register themselves. Pass them via
-# `--with datasets,products` (or pick the `examples` preset) to opt in.
-_EXAMPLE_MODULES: frozenset[str] = frozenset({"datasets", "products"})
 
 PRESETS: dict[str, tuple[str, ...]] = {
     "minimal": ("users",),
     "standard": ("users", "dashboard", "permissions"),
-    "full": tuple(name for name in CATALOG if name not in _EXAMPLE_MODULES),
-    "examples": tuple(CATALOG),
+    "full": tuple(CATALOG),
 }
 
 

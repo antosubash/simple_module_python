@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
-
 import httpx
 import pytest
 from fastapi import FastAPI
@@ -29,12 +27,11 @@ class TestCreateApp:
 
     async def test_modules_enabled_limits_loaded_modules(self, settings: Settings):
         """Host respects settings.modules_enabled — only listed modules contribute routes."""
-        # Only Auth should be loaded; Products + Dashboard routes must be absent.
+        # Only Auth should be loaded; Dashboard routes must be absent.
         restricted = settings.model_copy(update={"modules_enabled": ["Auth"]})
         app = create_app(restricted)
         paths: set[str] = {str(r.path) for r in app.routes if hasattr(r, "path")}
         # Auth is now contracts-only, so it has no routes — only health remains.
-        assert not any(p.startswith("/api/products") for p in paths)
         assert "/dashboard" not in paths
 
     async def test_module_static_mounts_become_app_routes(
@@ -117,9 +114,6 @@ class TestRouteRegistration:
         assert "/health/live" in route_paths
         assert "/health/ready" in route_paths
 
-        assert "/api/products/" in route_paths
-        assert "/api/products/{product_id}" in route_paths
-
         # Users module owns login, register, etc. Auth module is contracts-only.
         assert "/users/login" in route_paths
 
@@ -130,28 +124,10 @@ class TestRouteRegistration:
         # Bare-prefix alias — see wire_module_routes for the X-Inertia rationale.
         assert "/dashboard" in route_paths
 
-    async def test_products_api_methods(self, app: FastAPI):
-        """Products endpoints should support the correct HTTP methods."""
-        routes_by_path: dict[str, set[str]] = defaultdict(set)
-        for route in app.routes:
-            if hasattr(route, "path") and hasattr(route, "methods"):
-                routes_by_path[route.path].update(route.methods)
-
-        assert "GET" in routes_by_path.get("/api/products/", set())
-        assert "POST" in routes_by_path.get("/api/products/", set())
-        assert "GET" in routes_by_path.get("/api/products/{product_id}", set())
-        assert "PUT" in routes_by_path.get("/api/products/{product_id}", set())
-        assert "DELETE" in routes_by_path.get("/api/products/{product_id}", set())
-
 
 class TestProtectedPages:
     async def test_dashboard_redirects_unauthenticated(self, client: httpx.AsyncClient):
         resp = await client.get("/dashboard", follow_redirects=False)
-        assert resp.status_code == 302
-        assert "/users/login" in resp.headers["location"]
-
-    async def test_products_page_redirects_unauthenticated(self, client: httpx.AsyncClient):
-        resp = await client.get("/products/", follow_redirects=False)
         assert resp.status_code == 302
         assert "/users/login" in resp.headers["location"]
 

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from simple_module_hosting.permissions import RequiresPermission
 
 from background_tasks.constants import (
@@ -17,9 +18,11 @@ from background_tasks.constants import (
 from background_tasks.contracts.schemas import (
     TaskExecutionDetail,
     TaskExecutionListResponse,
+    WorkerSnapshot,
 )
 from background_tasks.deps import get_background_task_service
 from background_tasks.service import BackgroundTaskService
+from background_tasks.worker_inspector import WorkerInspector
 
 router = APIRouter(
     prefix=ADMIN_ROUTER_PREFIX,
@@ -60,3 +63,11 @@ async def retry_execution(
     service: BackgroundTaskService = Depends(get_background_task_service),
 ) -> TaskExecutionDetail:
     return await service.retry(execution_id)
+
+
+@router.get("/workers", response_model=WorkerSnapshot)
+async def get_workers(request: Request) -> WorkerSnapshot:
+    """Live snapshot of every Celery worker reachable via the broker."""
+    celery = request.app.state.background_tasks.celery
+    inspector = WorkerInspector(celery)
+    return await asyncio.to_thread(inspector.snapshot)
