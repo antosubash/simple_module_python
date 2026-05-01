@@ -8,7 +8,13 @@ import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedL
 import { ArrowLeft, RefreshCcw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { RetryConfirmDialog } from './components/RetryConfirmDialog';
-import { RETRYABLE_STATUSES, STATUS_BADGE_VARIANT, type TaskStatus, VIEW_BASE } from './constants';
+import {
+  formatTs,
+  RETRYABLE_STATUSES,
+  STATUS_BADGE_VARIANT,
+  type TaskStatus,
+  VIEW_BASE,
+} from './constants';
 import { retryExecution } from './retry';
 
 interface Execution {
@@ -42,10 +48,6 @@ function pretty(value: unknown): string {
   } catch {
     return String(value);
   }
-}
-
-function formatTs(ts: string | null): string {
-  return ts ? new Date(ts).toLocaleString() : '—';
 }
 
 function JsonCard({ title, children }: { title: string; children: ReactNode }) {

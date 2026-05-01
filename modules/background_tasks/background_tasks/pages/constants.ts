@@ -4,6 +4,27 @@
 export const API_BASE = '/api/background_tasks/admin';
 export const VIEW_BASE = '/admin/background-tasks';
 
+export function formatTs(ts: string | null): string {
+  return ts ? new Date(ts).toLocaleString() : '—';
+}
+
+export interface WorkerInfo {
+  hostname: string;
+  online: boolean;
+  queues: string[];
+  active_task_count: number;
+  pool_size: number | null;
+  total_processed: number | null;
+  software: string | null;
+}
+
+export interface WorkerSnapshot {
+  broker_reachable: boolean;
+  polled_at: string;
+  workers: WorkerInfo[];
+  error: string | null;
+}
+
 export const TASK_STATUS = {
   PENDING: 'pending',
   RUNNING: 'running',
