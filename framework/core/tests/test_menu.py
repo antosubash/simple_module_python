@@ -100,3 +100,17 @@ class TestMenuRegistryAdvanced:
         reg.add(MenuItem(label="Home", url="/", icon="home"))
         result = reg.get_for_user(is_authenticated=True)
         assert result["sidebar"][0]["icon"] == "home"
+
+    async def test_group_default_empty(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Home", url="/"))
+        result = reg.get_for_user(is_authenticated=True)
+        assert result["sidebar"][0]["group"] == ""
+
+    async def test_group_serialized(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Users", url="/users", group="Administration"))
+        reg.add(MenuItem(label="Settings", url="/settings", group="System"))
+        result = reg.get_for_user(is_authenticated=True)
+        groups = [i["group"] for i in result["sidebar"]]
+        assert groups == ["Administration", "System"]

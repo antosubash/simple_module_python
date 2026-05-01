@@ -35,7 +35,7 @@ class DashboardModule(ModuleBase):
                 label="Dashboard",
                 url=_URL_DASHBOARD,
                 icon=_ICON_DASHBOARD,
-                order=1,
+                order=10,
                 section=MenuSection.SIDEBAR,
             )
         )

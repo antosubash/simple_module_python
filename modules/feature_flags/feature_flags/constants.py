@@ -22,7 +22,7 @@ LOCALE_NAMESPACE = "feature_flags"
 MENU_LABEL = "Feature Flags"
 MENU_URL = "/feature_flags"
 MENU_ICON = "flag"
-MENU_ORDER = 45
+MENU_ORDER = 110
 
 PAGE_BROWSE = "FeatureFlags/Browse"
 

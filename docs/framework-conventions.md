@@ -200,6 +200,18 @@ Service code should not call `session.commit()` directly. Flush for intermediate
 
 - `auth.user`, `auth.isAuthenticated`, `auth.permissions` (expanded from roles).
 - `menus` — grouped by `MenuSection` (sidebar, adminSidebar, navbar, userDropdown), role-filtered.
+
+  Sidebar `order` follows banded ranges so installed modules sort into coherent groups:
+
+  | Band      | Purpose             | Built-in modules                                            |
+  |-----------|---------------------|-------------------------------------------------------------|
+  | `10–99`   | Content / domain    | Dashboard (10), Products (20), Datasets (30), Files (40)    |
+  | `100–199` | Administration      | Users (100), Feature Flags (110), Background Tasks (120)    |
+  | `200+`    | System              | Settings (200)                                              |
+
+  Pick a band by audience, leave gaps of ~10 between siblings, and put module-specific user-dropdown items in the `900+` range (Profile=990, Logout=999).
+
+  Sidebar items can also set `group="<Label>"` on the `MenuItem` to render under a group header. The frontend clusters consecutive items with the same group label and prints the label as a section heading; the group's position is set by the lowest-`order` item that joins it. Built-in groups are `Content`, `Administration`, and `System`. Items with no `group` (the default) render flat — Dashboard intentionally stays ungrouped above the headed groups.
 - `i18n` — active locale and translation bundle.
 
 The framework does not know the shape of `auth.user`. A module (typically `users`) registers a `principal_serializer: Callable[[user], dict]` on `app.state` during `register_settings(app)`; the middleware calls it with `request.state.user` to build the `auth.user` payload. Without a registered serializer, `auth.user` is `None` even when a user is authenticated.

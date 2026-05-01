@@ -32,7 +32,7 @@ ADMIN_ROUTER_PREFIX = "/admin"
 # ── Menu ────────────────────────────────────────────────────────
 MENU_LABEL = "Background Tasks"
 MENU_ICON = "activity"
-MENU_ORDER = 80
+MENU_ORDER = 120
 
 # ── Page identifiers ────────────────────────────────────────────
 # Kept as literals at the call site (see endpoints/views.py) so

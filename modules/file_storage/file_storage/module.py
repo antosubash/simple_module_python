@@ -87,6 +87,7 @@ class FileStorageModule(ModuleBase):
                 order=constants.MENU_ORDER,
                 section=MenuSection.SIDEBAR,
                 roles=list(constants.MENU_ROLES),
+                group="Content",
             )
         )
 

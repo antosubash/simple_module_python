@@ -75,6 +75,7 @@ class BackgroundTasksModule(ModuleBase):
                 order=MENU_ORDER,
                 section=MenuSection.SIDEBAR,
                 roles=["admin"],
+                group="Administration",
             )
         )
 
