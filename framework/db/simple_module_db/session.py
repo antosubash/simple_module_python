@@ -33,12 +33,15 @@ def init_db(
     max_overflow: int = 20,
     pool_pre_ping: bool = True,
     pool_recycle: int = 1800,
+    poolclass: type | None = None,
 ) -> DatabaseState:
     """Create an async engine and session factory.
 
-    The pool options only take effect for server-side providers (Postgres).
-    SQLite uses SQLAlchemy's default pool (single-file, no network), so
-    passing ``pool_size``/etc. would raise ``TypeError`` — skipped below.
+    Pool tuning only applies to server-side providers (Postgres) — SQLite
+    rejects ``pool_size``/etc. Pass ``poolclass=NullPool`` from test
+    fixtures running against asyncpg/Postgres so pytest-asyncio's per-test
+    event loops don't outlive pooled connections; the pool-tuning kwargs
+    are ignored in that case.
 
     Returns a ``DatabaseState`` that should be stored on ``app.state.db``.
     """
@@ -46,9 +49,11 @@ def init_db(
 
     connect_args: dict = {}
     engine_kwargs: dict = {"echo": echo, "connect_args": connect_args}
+    if poolclass is not None:
+        engine_kwargs["poolclass"] = poolclass
     if provider == DatabaseProvider.SQLITE:
         connect_args["check_same_thread"] = False
-    else:
+    elif poolclass is None:
         engine_kwargs.update(
             pool_size=pool_size,
             max_overflow=max_overflow,

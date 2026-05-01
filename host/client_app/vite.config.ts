@@ -49,6 +49,20 @@ export default defineConfig({
   // feed Vite the per-module tsconfigs.
   resolve: {
     tsconfigPaths: true,
+    // Force every importer (host, workspace module, wheel-installed module)
+    // to resolve to one React copy — without it, plugin-react's Fast
+    // Refresh preamble check fires in a realm where its global was never
+    // set ("can't detect preamble").
+    dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
+  },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react/jsx-runtime',
+      'react/jsx-dev-runtime',
+    ],
   },
   root: __dirname,
   build: {

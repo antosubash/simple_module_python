@@ -68,7 +68,11 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
             dev_accounts.append({"label": "User", "email": user_email, "password": user_password})
     return await inertia.render(
         _PAGE_LOGIN,
-        {"allow_signup": users_settings.allow_signup, "dev_accounts": dev_accounts},
+        {
+            "allow_signup": users_settings.allow_signup,
+            "dev_accounts": dev_accounts,
+            "login_redirect_url": users_settings.login_redirect_url,
+        },
     )
 
 

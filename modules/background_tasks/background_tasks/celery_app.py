@@ -55,6 +55,11 @@ def build_celery(settings: BackgroundTasksSettings) -> Celery:
         broker_url=settings.broker_url,
         result_backend=settings.result_backend,
         task_default_queue=settings.task_default_queue,
+        # Run tasks synchronously inside the calling process. Tests
+        # toggle this on (via ``SM_BG_TASKS_TASK_ALWAYS_EAGER=true``) so
+        # ``task.delay()`` doesn't reach for a real broker.
+        task_always_eager=settings.task_always_eager,
+        task_eager_propagates=settings.task_eager_propagates,
         # ``task_track_started`` gives us the ``STARTED`` state so
         # ``task_prerun`` can flip our row to ``running``.
         task_track_started=True,
