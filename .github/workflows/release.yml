@@ -115,7 +115,6 @@ jobs:
           - simple_module_auth
           - simple_module_background_tasks
           - simple_module_dashboard
-          - simple_module_datasets
           - simple_module_feature_flags
           - simple_module_file_storage
           - simple_module_permissions
