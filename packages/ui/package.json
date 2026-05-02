@@ -26,6 +26,12 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./components/ui/*": "./src/components/ui/*.tsx",
+    "./components/*": "./src/components/*.tsx",
+    "./layouts/*": "./src/layouts/*.tsx",
+    "./hooks/*": "./src/hooks/*.ts",
+    "./lib/*": "./src/lib/*.ts",
+    "./styles/*": "./src/styles/*",
     "./*": "./src/*"
   },
   "files": [

@@ -112,6 +112,17 @@ class TestSm017JsWorkspaceFiles:
         assert results[0].code == "SM017"
         assert "tsconfig.json" in (results[0].file or "")
 
+    async def test_silent_when_module_lives_in_site_packages(self, tmp_path: Path):
+        site_packages = tmp_path / ".venv" / "lib" / "python3.12" / "site-packages"
+        src_dir = site_packages / "orders"
+        (src_dir / "pages").mkdir(parents=True)
+        (src_dir / "pages" / "Browse.tsx").write_text("export default function Browse() {}")
+        mod = _FakeModule(meta=_FakeMeta(name="Orders"))
+
+        results = check_js_workspace_files(mod, src_dir)  # pyright: ignore[reportArgumentType]
+
+        assert results == []
+
 
 def _mk_page(src_dir: Path, filename: str, body: str) -> Path:
     pages = src_dir / "pages"

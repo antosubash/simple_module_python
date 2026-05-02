@@ -12,11 +12,18 @@ if TYPE_CHECKING:
 
 
 def check_js_workspace_files(mod: ModuleBase, src_dir: Path) -> list[Diagnostic]:
-    """Warn when a module ships .tsx pages but is missing npm workspace files."""
+    """Warn when a module ships .tsx pages but is missing npm workspace files.
+
+    Wheel-installed modules under ``site-packages/`` are skipped — the
+    install location is package-manager-owned, so any file we'd ask the
+    user to create there gets obliterated on the next reinstall.
+    """
+    module_dir = src_dir.parent
+    if "site-packages" in module_dir.parts:
+        return []
     pages_dir = src_dir / "pages"
     if not pages_dir.exists() or not any(pages_dir.rglob("*.tsx")):
         return []
-    module_dir = src_dir.parent
     return [
         Diagnostic(
             level=DiagnosticLevel.WARNING,

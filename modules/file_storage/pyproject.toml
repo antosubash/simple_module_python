@@ -24,6 +24,7 @@ dependencies = [
     "simple_module_core==0.0.6",
     "simple_module_db==0.0.6",
     "simple_module_hosting==0.0.6",
+    "simple_module_settings==0.0.6",
     "aiofiles>=23",
 ]
 
@@ -55,3 +56,4 @@ packages = ["file_storage"]
 simple_module_core = { workspace = true }
 simple_module_db = { workspace = true }
 simple_module_hosting = { workspace = true }
+simple_module_settings = { workspace = true }

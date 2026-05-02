@@ -24,7 +24,8 @@ dependencies = [
     "simple_module_core==0.0.6",
     "simple_module_db==0.0.6",
     "simple_module_hosting==0.0.6",
-    "simple_module_auth==0.0.6",             # workspace module — contracts
+    "simple_module_settings==0.0.6",
+    "simple_module_auth==0.0.6",
     # Pinned to a narrow range: `deps.py` relies on mutating CookieTransport
     # fields after construction (see reconfigure_cookie_transport in backend.py).
     # Bumping the major version requires re-checking those field names.
@@ -60,4 +61,5 @@ packages = ["users"]
 simple_module_core = { workspace = true }
 simple_module_db = { workspace = true }
 simple_module_hosting = { workspace = true }
+simple_module_settings = { workspace = true }
 simple_module_auth = { workspace = true }

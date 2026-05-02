@@ -26,19 +26,27 @@ def setup_inertia(
 ) -> InertiaConfig | None:
     """Configure fastapi-inertia and attach the dependency factory to app.state.
 
-    The host's own ``host/templates`` directory is first in the search path so
-    it can override module-contributed templates. Each installed module
-    contributes additional directories via ``ModuleBase.template_dirs()``.
+    Two host layouts are supported: ``host/templates`` (the framework's
+    own host package) and ``templates`` at the project root (what
+    ``sm new`` produces). The first one found wins so it can override
+    module-contributed templates.
     """
     from fastapi.templating import Jinja2Templates
 
-    host_templates = project_root / "host" / "templates"
+    candidate_dirs = [
+        project_root / "host" / "templates",
+        project_root / "templates",
+    ]
     directories: list[Path] = []
 
-    if host_templates.is_dir():
+    host_templates = next((p for p in candidate_dirs if p.is_dir()), None)
+    if host_templates is not None:
         directories.append(host_templates)
     else:
-        logger.warning("Host templates directory not found at %s", host_templates)
+        logger.warning(
+            "Host templates directory not found (looked in %s)",
+            ", ".join(str(p) for p in candidate_dirs),
+        )
 
     for mod in modules:
         for path in mod.template_dirs():
