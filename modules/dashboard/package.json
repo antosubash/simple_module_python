@@ -12,5 +12,7 @@
   "devDependencies": {
     "@simple-module-py/tsconfig": "*"
   },
-  "dependencies": {}
+  "dependencies": {
+    "lucide-react": "^1.8.0"
+  }
 }

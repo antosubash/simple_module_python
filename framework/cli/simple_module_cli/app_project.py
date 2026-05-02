@@ -18,14 +18,18 @@ from collections.abc import Sequence
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
 from pathlib import Path
+from typing import Any
 
 from simple_module_cli._env import set_env_key
 from simple_module_cli.case import to_kebab_case, to_pascal_case
 from simple_module_cli.catalog import CATALOG, PRESETS, expand_deps
 from simple_module_cli.recipes import RECIPES, ScaffoldCtx
-from simple_module_cli.scaffolding import create_host
+from simple_module_cli.scaffolding import _module_to_pypi_name, create_host, create_module
 
 __all__ = ["create_app_project"]
+
+_SAMPLE_MODULE_NAME = "hello"
+_SAMPLE_MODULE_PKG = _module_to_pypi_name(_SAMPLE_MODULE_NAME)
 
 
 def _resolve_framework_version() -> str:
@@ -69,6 +73,7 @@ def create_app_project(
     db: str = "sqlite",
     tenancy: bool = False,
     selected: Sequence[str] | None = None,
+    flat: bool = False,
 ) -> None:
     """Greenfield ``simple-module new`` scaffold.
 
@@ -101,19 +106,26 @@ def create_app_project(
     env_text = set_env_key(env_text, "SM_MULTI_TENANT", "true" if tenancy else "false")
     env_path.write_text(env_text, encoding="utf-8")
 
+    if not flat:
+        _scaffold_sample_module(target)
+        py_deps.append(_SAMPLE_MODULE_PKG)
+
     pyproject = target / "pyproject.toml"
     if pyproject.exists():
         text = pyproject.read_text(encoding="utf-8")
-        text = _inject_py_deps(text, py_deps, _APP_PY_DEV_DEPS)
+        text = _rewrite_pyproject(text, py_deps, _APP_PY_DEV_DEPS, flat=flat)
         pyproject.write_text(text, encoding="utf-8")
 
     pkg_path = target / "package.json"
+    data: dict[str, Any]
     if pkg_path.exists():
         data = _json.loads(pkg_path.read_text(encoding="utf-8"))
     else:
         data = {"name": to_kebab_case(name), "private": True, "type": "module"}
     data.setdefault("dependencies", {}).update(_APP_NPM_DEPS)
     data.setdefault("devDependencies", {}).update(_APP_NPM_DEV_DEPS)
+    if not flat:
+        data["workspaces"] = ["client_app", "modules/*"]
     pkg_path.write_text(_json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
     ctx = ScaffoldCtx(name=name, db=db, tenancy=tenancy, selected=tuple(resolved))
@@ -123,14 +135,32 @@ def create_app_project(
             RECIPES[recipe_key].apply(target, ctx)
 
 
+def _scaffold_sample_module(target: Path) -> None:
+    """Give the user a place to copy when they want to add a feature module.
+
+    The alternative is reverse-engineering one of the wheel-installed
+    framework modules from ``.venv/site-packages/``.
+    """
+    sample_dest = target / "modules" / _SAMPLE_MODULE_NAME
+    if sample_dest.exists():
+        return
+    create_module(sample_dest, name=_SAMPLE_MODULE_NAME)
+
+
 def _db_url(db: str, slug: str) -> str:
     if db == "postgres":
         return f"postgresql+asyncpg://postgres:postgres@localhost:5432/{slug}"
     return "sqlite+aiosqlite:///./app.db"
 
 
-def _inject_py_deps(text: str, deps: list[str], dev_deps: list[str]) -> str:
-    """Replace project.dependencies + dependency-groups.dev in a pyproject.toml."""
+def _rewrite_pyproject(text: str, deps: list[str], dev_deps: list[str], *, flat: bool) -> str:
+    """Replace deps + wire uv workspace based on ``flat`` mode.
+
+    Workspace mode (``flat=False``) adds a ``[tool.uv.sources]`` entry so uv
+    resolves the bundled sample module from the workspace, not PyPI. Flat
+    mode strips the static ``[tool.uv.workspace]`` block inherited from the
+    template — there is no ``modules/`` tree for it to point at.
+    """
     import tomlkit
 
     doc = tomlkit.parse(text)
@@ -138,4 +168,12 @@ def _inject_py_deps(text: str, deps: list[str], dev_deps: list[str]) -> str:
     project["dependencies"] = list(deps)
     groups = doc.setdefault("dependency-groups", tomlkit.table())
     groups["dev"] = list(dev_deps)
+    tool = doc.setdefault("tool", tomlkit.table())
+    uv_table = tool.setdefault("uv", tomlkit.table())
+    if flat:
+        if "workspace" in uv_table:
+            del uv_table["workspace"]
+    else:
+        sources = uv_table.setdefault("sources", tomlkit.table())
+        sources[_SAMPLE_MODULE_PKG] = {"workspace": True}
     return tomlkit.dumps(doc)

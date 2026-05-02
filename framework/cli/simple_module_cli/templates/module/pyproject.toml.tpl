@@ -7,6 +7,7 @@ dependencies = [
     "simple_module_core>=1.0,<2.0",
     "simple_module_db>=1.0,<2.0",
     "simple_module_hosting>=1.0,<2.0",
+    "pydantic-settings>=2.0",
     "sqlalchemy>=2.0",
 ]
 

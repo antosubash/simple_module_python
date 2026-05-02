@@ -117,6 +117,7 @@ def create_module(
             "{{MODULE_NAME}}": display_name,
             "{{MODULE_SLUG}}": slug,
             "{{PACKAGE_NAME}}": package_name,
+            "{{PACKAGE_NAME_UPPER}}": package_name.upper(),
         },
         path_rewrites={_PACKAGE_PATH_TOKEN: package_name},
     )
