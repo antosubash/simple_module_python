@@ -19,6 +19,7 @@ import typer
 
 from simple_module_cli.case import to_kebab_case
 from simple_module_cli.new import new_project
+from simple_module_cli.package_update import package_update
 from simple_module_cli.plugins import discover_and_mount
 from simple_module_cli.scaffolding import create_host as _create_host
 from simple_module_cli.scaffolding import create_module as _create_module
@@ -31,6 +32,7 @@ app = typer.Typer(
 )
 
 app.command("new")(new_project)
+app.command("package-update")(package_update)
 app.add_typer(skills_app, name="skills")
 
 
