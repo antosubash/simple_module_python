@@ -18,6 +18,7 @@ from collections.abc import Sequence
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
 from pathlib import Path
+from typing import Any
 
 from simple_module_cli._env import set_env_key
 from simple_module_cli.case import to_kebab_case, to_pascal_case
@@ -116,6 +117,7 @@ def create_app_project(
         pyproject.write_text(text, encoding="utf-8")
 
     pkg_path = target / "package.json"
+    data: dict[str, Any]
     if pkg_path.exists():
         data = _json.loads(pkg_path.read_text(encoding="utf-8"))
     else:
