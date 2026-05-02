@@ -93,7 +93,7 @@ def create_app_project(
     resolved, _added = expand_deps(chosen)
 
     display_names = [to_pascal_case(CATALOG[m].display) for m in resolved]
-    create_host(target, name=name, modules=display_names)
+    create_host(target, name=name, modules=display_names, framework_version=_FRAMEWORK_VERSION)
 
     py_deps = [f"simple_module_hosting=={_FRAMEWORK_VERSION}"] + [
         f"{CATALOG[m].package}=={_FRAMEWORK_VERSION}" for m in resolved

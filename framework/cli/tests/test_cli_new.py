@@ -50,6 +50,29 @@ def test_sm_new_generates_package_json_with_npm_deps(tmp_path: Path) -> None:
     assert "@simple-module-py/tsconfig" in data.get("devDependencies", {})
 
 
+def test_sm_new_pins_client_app_simple_module_deps_to_framework_version(tmp_path: Path) -> None:
+    """Regression for #119: the client_app/package.json must not ship stale
+    ``^0.0.x`` pins for ``@simple-module-py/*``. Caret on a 0.0.x version is
+    locked to that exact patch, so a stale pin silently downgrades users on
+    every fresh install. The scaffold must substitute the running CLI's own
+    framework version into the template at scaffold time.
+    """
+    from simple_module_cli.app_project import _FRAMEWORK_VERSION
+
+    runner = CliRunner()
+    target = tmp_path / "my-app"
+    runner.invoke(
+        app,
+        ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
+    )
+    data = json.loads((target / "client_app" / "package.json").read_text())
+    deps = data.get("dependencies", {})
+    for pkg in ("@simple-module-py/ui", "@simple-module-py/i18n"):
+        assert deps.get(pkg) == _FRAMEWORK_VERSION, (
+            f"{pkg} should be pinned to {_FRAMEWORK_VERSION}, got {deps.get(pkg)!r}"
+        )
+
+
 def test_sm_new_writes_generated_secret_key(tmp_path: Path) -> None:
     runner = CliRunner()
     target = tmp_path / "my-app"
