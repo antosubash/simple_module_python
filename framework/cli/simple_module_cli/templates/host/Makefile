@@ -21,4 +21,4 @@ migrate:
 	uv run alembic upgrade head
 
 gen-pages:
-	uv run sm gen-pages --host-dir=client_app
+	uv run python -m simple_module_hosting gen-pages --host-dir=client_app
