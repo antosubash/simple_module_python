@@ -108,13 +108,11 @@ async def test_inertia_shared_props_include_active_locale_messages(
     assert i18n["messages"]["dashboard.home.title"] != "Dashboard"
 
 
-# NOTE: We'd like a test here for TranslatorDep in an HTTPException detail,
-# but the products delete endpoint uses framework/hosting's RequiresPermission
-# class (not the auth module's TranslatorDep-aware require_permission dep),
-# which has a hardcoded English detail. Localizing RequiresPermission.detail
-# is a separate follow-up. The Inertia shared-props test above already
-# verifies the end-to-end cookie -> middleware -> registry -> locale-specific
-# messages path, which is the principal contract i18n promises.
+# NOTE: framework/hosting's RequiresPermission class still has a hardcoded
+# English `detail` and isn't TranslatorDep-aware; localizing it is a separate
+# follow-up. The Inertia shared-props test above already verifies the
+# end-to-end cookie -> middleware -> registry -> locale-specific messages
+# path, which is the principal contract i18n promises.
 
 
 async def test_switcher_rejects_locale_without_loaded_messages(

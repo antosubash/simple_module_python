@@ -44,7 +44,7 @@ make migrate
 make dev
 ```
 
-Hit `http://localhost:8000` — you land on the public page. `/users/login` is the email+password login, `/dashboard` is the authenticated home, `/products` is a fully-working example module.
+Hit `http://localhost:8000` — you land on the public page. `/users/login` is the email+password login, `/dashboard` is the authenticated home.
 
 ## Create a new module
 
@@ -73,7 +73,7 @@ framework/
   core/        # module system, discovery, events, diagnostics
   db/          # per-module Base, session, mixins, listeners
   hosting/     # app_builder, middleware, settings, Inertia glue
-modules/       # plugin modules (auth, dashboard, products, ...)
+modules/       # plugin modules (auth, dashboard, users, settings, ...)
 host/
   main.py      # FastAPI entry point
   routes.py    # host-level routes (landing page)

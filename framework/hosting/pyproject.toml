@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_hosting"
-version = "0.0.1"
+version = "0.0.3"
 description = "FastAPI + Inertia.js host runtime for simple_module — app_builder, middleware stack, CLI (sm / simple-module), scaffolding"
 readme = "README.md"
 license = "MIT"
@@ -26,12 +26,15 @@ dependencies = [
     "fastapi-inertia>=1.0",
     "httpx>=0.27",
     "jinja2>=3.1",
-    "simple_module_core==0.0.1",
-    "simple_module_db==0.0.1",
+    "simple_module_core==0.0.3",
+    "simple_module_db==0.0.3",
     "starlette>=0.44",
     "tomlkit>=0.13",
     "uvicorn[standard]>=0.34",
 ]
+
+[project.scripts]
+sm-host = "simple_module_hosting.host_cli:app"
 
 [project.entry-points."simple_module_cli.cli_plugins"]
 host = "simple_module_hosting.host_cli:app"

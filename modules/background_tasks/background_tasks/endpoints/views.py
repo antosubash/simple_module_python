@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from inertia import InertiaResponse
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
@@ -15,6 +16,7 @@ from background_tasks.constants import (
 )
 from background_tasks.deps import get_background_task_service
 from background_tasks.service import BackgroundTaskService
+from background_tasks.worker_inspector import WorkerInspector
 
 router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_VIEW))])
 
@@ -49,6 +51,16 @@ async def index(
                 "task_name": task_name,
             },
         },
+    )
+
+
+@router.get("/workers", response_model=None)
+async def workers(inertia: InertiaDep, request: Request) -> InertiaResponse:
+    celery = request.app.state.background_tasks.celery
+    snapshot = await asyncio.to_thread(WorkerInspector(celery).snapshot)
+    return await inertia.render(
+        "BackgroundTasks/Workers",
+        {"snapshot": snapshot.model_dump(mode="json")},
     )
 
 

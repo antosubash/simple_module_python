@@ -36,12 +36,11 @@ CATALOG: dict[str, ModuleEntry] = {
         "Permissions",
         requires=("auth", "users"),
     ),
-    "products": ModuleEntry("products", "simple_module_products", "Products"),
     "dashboard": ModuleEntry(
         "dashboard",
         "simple_module_dashboard",
         "Dashboard",
-        requires=("users", "products"),
+        requires=("users",),
     ),
     "settings": ModuleEntry("settings", "simple_module_settings", "Settings"),
     "feature_flags": ModuleEntry("feature_flags", "simple_module_feature_flags", "Feature Flags"),
@@ -57,12 +56,6 @@ CATALOG: dict[str, ModuleEntry] = {
         "Background Tasks",
         requires=("users",),
         recipe="background_tasks",
-    ),
-    "datasets": ModuleEntry(
-        "datasets",
-        "simple_module_datasets",
-        "Datasets",
-        requires=("file_storage", "background_tasks"),
     ),
 }
 

@@ -65,6 +65,7 @@ class SettingsModule(ModuleBase):
                 icon=MENU_ICON,
                 order=MENU_ORDER,
                 section=MenuSection.SIDEBAR,
+                group="System",
             )
         )
 

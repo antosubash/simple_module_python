@@ -17,10 +17,10 @@ class TestMigrationsHelper:
         metadata = build_module_metadata()
         table_names = set(metadata.tables.keys())
 
-        # Products ships models and must contribute at least one table.
+        # Users ships models and must contribute at least one table.
         # (Dashboard is event-driven with no models; Auth's tables are
         # currently not part of this workspace's ORM surface.)
-        assert any("product" in name.lower() for name in table_names)
+        assert any("user" in name.lower() for name in table_names)
         assert len(table_names) >= 1
 
     async def test_combined_metadata_only_returns_module_tables(self):
@@ -54,3 +54,42 @@ class TestMigrationsHelper:
             "unrelated_host_table", MetaData(), Column("id", Integer, primary_key=True)
         )
         assert include(stranger, "unrelated_host_table", "table", False, None) is False
+
+    async def test_include_object_skips_unmodeled_cross_module_fks_by_default(self):
+        """Cross-module FKs declared at the migration level only (no SQLModel
+        relationship) appear in the live DB but never in target metadata.
+        Alembic passes ``compare_to=None`` for live-only constraints and would
+        emit ``op.drop_constraint``; the default filter must drop those
+        constraint-level diffs to avoid destroying real FKs on every autogen.
+        """
+        from simple_module_db.migrations import build_module_metadata, make_include_object
+        from sqlalchemy import Column, ForeignKeyConstraint, Integer, MetaData, Table
+
+        metadata = build_module_metadata()
+        include = make_include_object(metadata)
+        strict = make_include_object(metadata, ignore_unmodeled_fks=False)
+
+        known = next(iter(metadata.tables.values()))
+        scratch = MetaData()
+        local = Table(known.name, scratch, Column("id", Integer, primary_key=True))
+        fk = ForeignKeyConstraint([local.c.id], ["other_module.other.id"], name="fk_xmod")
+        local.append_constraint(fk)
+
+        assert include(fk, "fk_xmod", "foreign_key_constraint", True, None) is False
+        assert strict(fk, "fk_xmod", "foreign_key_constraint", True, None) is True
+
+        stranger_meta = MetaData()
+        stranger = Table(
+            "totally_unknown_table",
+            stranger_meta,
+            Column("id", Integer, primary_key=True),
+            Column("ref", Integer),
+        )
+        stranger_fk = ForeignKeyConstraint(
+            [stranger.c.ref], ["something.else.id"], name="fk_stranger"
+        )
+        stranger.append_constraint(stranger_fk)
+        assert (
+            include(stranger_fk, "fk_stranger", "foreign_key_constraint", False, stranger_fk)
+            is False
+        )

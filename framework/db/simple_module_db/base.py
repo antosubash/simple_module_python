@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 
+from simple_module_core.dotenv import env_bool
 from sqlalchemy import MetaData
 from sqlmodel import SQLModel
 
@@ -38,14 +39,35 @@ def _register_base(base: type[SQLModel]) -> None:
         all_module_bases.append(base)
 
 
-def _default_provider() -> DatabaseProvider:
-    """Resolve the active provider from ``SM_DATABASE_URL`` at import time.
+def _default_schema_policy() -> DatabaseProvider:
+    """Resolve the schema layout to register module tables under.
 
-    Falls back to SQLite when the variable is unset, keeping the common
-    dev-loop happy without requiring callers to plumb the provider through.
+    The :class:`DatabaseProvider` enum doubles as a *schema-layout*
+    selector here — ``POSTGRESQL`` means "give every module its own
+    schema (``orders.<table>``)", ``SQLITE`` means "shared public schema,
+    name-prefixed tables (``orders_<table>``)". The conflation is
+    deliberate so existing call sites keep working, but conceptually this
+    is "schema policy", not "what DB are we connecting to": you can run
+    Postgres with ``SM_SCHEMA_PER_MODULE=false`` to keep a flat layout.
+
+    Resolution order:
+      1. ``SM_SCHEMA_PER_MODULE`` (authoritative when set, decoupled from URL).
+      2. ``SM_DATABASE_URL`` (legacy fallback so deployments that haven't
+         migrated to the explicit knob keep working).
+      3. ``SQLITE`` (shared schema, the safe default).
     """
+    explicit = os.environ.get("SM_SCHEMA_PER_MODULE")
+    if explicit is not None:
+        return (
+            DatabaseProvider.POSTGRESQL
+            if env_bool("SM_SCHEMA_PER_MODULE")
+            else DatabaseProvider.SQLITE
+        )
+
     url = os.environ.get("SM_DATABASE_URL", "")
-    return detect_provider(url) if url else DatabaseProvider.SQLITE
+    if url:
+        return detect_provider(url)
+    return DatabaseProvider.SQLITE
 
 
 def create_module_base(
@@ -67,7 +89,7 @@ def create_module_base(
     concrete table classes declare ``table=True`` and inherit from it.
     """
     if provider is None:
-        provider = _default_provider()
+        provider = _default_schema_policy()
 
     cache_key = f"{module_name}:{provider}"
     if cache_key in _base_cache:

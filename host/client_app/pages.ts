@@ -17,7 +17,7 @@ import { moduleGlobs } from './modules.generated';
 type PageModule = { default: React.ComponentType<Record<string, unknown>> };
 type PageLoader = () => Promise<PageModule>;
 
-const hostPages = import.meta.glob<PageModule>('./pages/*.tsx');
+const hostPages = import.meta.glob<PageModule>('./pages/**/*.tsx');
 
 const pages: Record<string, PageLoader> = {};
 
@@ -33,7 +33,7 @@ for (const [moduleName, globEntries] of Object.entries(moduleGlobs)) {
 
 for (const [filePath, loader] of Object.entries(hostPages)) {
   // e.g., "./pages/Error.tsx" -> "Error"
-  const match = filePath.match(/\.\/pages\/(\w+)\.tsx$/);
+  const match = filePath.match(/\.\/pages\/(.+)\.tsx$/);
   if (match) {
     pages[match[1]] = loader;
   }

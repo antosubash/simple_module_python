@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
@@ -19,8 +20,28 @@ if (fs.existsSync(manifestPath)) {
 }
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   root: __dirname,
+  // Force every importer to resolve to one React copy — without it,
+  // plugin-react's Fast Refresh preamble check fires in a realm where its
+  // global was never set ("can't detect preamble").
+  resolve: {
+    dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
+  },
+  // ``use-sync-external-store`` is the CJS shim recharts/react-redux pull
+  // in; pre-bundling resolves its named export under ESM.
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react/jsx-runtime',
+      'react/jsx-dev-runtime',
+      'use-sync-external-store',
+      'use-sync-external-store/shim',
+      'use-sync-external-store/shim/with-selector',
+    ],
+  },
   build: {
     outDir: '../static/dist',
     manifest: true,

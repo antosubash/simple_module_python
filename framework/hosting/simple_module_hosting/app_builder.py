@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import APIRouter, FastAPI
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
 from simple_module_core.discovery import discover_modules, topological_sort
@@ -21,14 +22,17 @@ from simple_module_core.services import Services
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 
+from simple_module_hosting._host_services import _HostServices
 from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._phase_helpers import (
     check_settings_registration,
     install_middleware,
     mount_module_static_dirs,
     register_exception_handlers,
+    wire_module_routes,
 )
 from simple_module_hosting.health import router as health_router
+from simple_module_hosting.host_settings import HostSettings
 from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types
 from simple_module_hosting.migrations import check_migrations
 from simple_module_hosting.settings import Settings
@@ -44,39 +48,50 @@ _STATIC_DIR_NAME = "static"
 _ENV_PROJECT_ROOT = "SM_PROJECT_ROOT"
 
 
+_PROJECT_ROOT_SENTINELS = ("pyproject.toml", ".env", "alembic.ini")
+
+
 def _resolve_project_root() -> Path:
     """Return the project root directory.
 
-    Prefers the ``SM_PROJECT_ROOT`` environment variable (set by
-    ``host/main.py``) so the framework works even when installed from a
-    wheel into ``site-packages`` — in that layout the fallback walk-up
-    below would escape the package into ``site-packages/..`` and miss
-    ``host/static`` entirely.
+    Prefers the ``SM_PROJECT_ROOT`` environment variable when set.
 
-    Falls back to ``parents[3]`` for the workspace-install dev loop
-    (simple_module_hosting/ → hosting/ → framework/ → project root).
+    Otherwise walks up from the current working directory looking for a
+    project sentinel (``pyproject.toml``, ``.env`` or ``alembic.ini``). This
+    works whether the framework is installed as a wheel into ``site-packages``
+    or run from a workspace clone.
+
+    Falls back to ``parents[3]`` for the in-tree dev loop only when the walk
+    finds nothing — which still keeps ``framework/`` users working without
+    setting the env var explicitly.
     """
     override = os.environ.get(_ENV_PROJECT_ROOT)
     if override:
         return Path(override)
+    cwd = Path.cwd().resolve()
+    for candidate in (cwd, *cwd.parents):
+        if any((candidate / s).exists() for s in _PROJECT_ROOT_SENTINELS):
+            return candidate
     return Path(__file__).resolve().parents[3]
 
 
 _PROJECT_ROOT = _resolve_project_root()
 
 
-def wire_module_routes(app: FastAPI, module) -> None:
-    """Attach a module's API + view routers to ``app`` using its Meta prefixes.
+def _register_event_handlers(mod, event_bus: EventBus, app: FastAPI) -> None:
+    """Dispatch to ``mod.register_event_handlers`` with or without ``app``.
 
-    The single canonical implementation so ``create_app`` and the test harness
-    in ``simple_module_test`` stay in lockstep if ``ModuleBase`` ever gains
-    a new router type.
+    Back-compat shim for modules that still override the one-arg form
+    ``(self, bus)``; passing ``app=`` to those crashes.
     """
-    api_router = APIRouter(prefix=module.meta.route_prefix, tags=[module.meta.name])
-    view_router = APIRouter(prefix=module.meta.view_prefix, tags=[f"{module.meta.name} Views"])
-    module.register_routes(api_router, view_router)
-    app.include_router(api_router)
-    app.include_router(view_router)
+    sig = inspect.signature(mod.register_event_handlers)
+    accepts_app = "app" in sig.parameters or any(
+        p.kind is inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
+    )
+    if accepts_app:
+        mod.register_event_handlers(event_bus, app=app)
+    else:
+        mod.register_event_handlers(event_bus)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -198,17 +213,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # AST plugin-free while still hitting the real helper at runtime.
     if hasattr(app.state, "settings"):
         import importlib
-        from dataclasses import dataclass as _dataclass
-
-        from simple_module_hosting.host_settings import HostSettings
 
         _register_module_settings = importlib.import_module(
             "settings.registration"
         ).register_module_settings
-
-        @_dataclass
-        class _HostServices:
-            settings: HostSettings
 
         _register_module_settings(app, "host", HostSettings, lambda s: _HostServices(settings=s))
 
@@ -222,7 +230,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         mod.register_menu_items(menu_registry)
         mod.register_permissions(perm_registry)
         mod.register_feature_flags(ff_registry)
-        mod.register_event_handlers(event_bus)
+        _register_event_handlers(mod, event_bus, app)
         mod.register_health_checks(health_registry)
 
     logger.info(

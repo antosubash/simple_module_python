@@ -24,7 +24,6 @@ class TestDashboardModuleRegistration:
         mod = DashboardModule()
         assert mod.meta.name == "Dashboard"
         assert mod.meta.route_prefix == "/api/dashboard"
-        assert "Products" in mod.meta.depends_on
         assert "Users" in mod.meta.depends_on
 
 
@@ -42,7 +41,6 @@ class TestFetchDashboardStats:
     async def test_returns_expected_keys(self, stats):
         assert "total_users" in stats
         assert "active_users_7d" in stats
-        assert "total_products" in stats
         assert "module_count" in stats
         assert "system_info" in stats
 
@@ -79,7 +77,6 @@ class TestDashboardStatsEndpoint:
         body = resp.json()
         assert "total_users" in body
         assert "active_users_7d" in body
-        assert "total_products" in body
         assert "module_count" in body
         assert "system_info" in body
 

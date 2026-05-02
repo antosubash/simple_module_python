@@ -3,6 +3,7 @@ export interface MenuItem {
   url: string;
   icon: string;
   method?: 'get' | 'post';
+  group?: string;
 }
 
 export interface SharedProps {

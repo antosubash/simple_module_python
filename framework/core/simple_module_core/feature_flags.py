@@ -144,6 +144,11 @@ def feature_flag(
     directly to the handler. The decorated function must accept a
     ``request: Request`` parameter (FastAPI injects it automatically).
 
+    For new code prefer ``Depends(require_flag(...))`` — it's the standard
+    FastAPI pattern, composes with ``dependencies=[]``, and avoids any
+    per-request signature inspection. The decorator stays for sites that
+    already use it.
+
     Usage::
 
         @router.post("/bulk")
@@ -164,11 +169,34 @@ def feature_flag(
                 f"'request: Request' parameter for the decorator to read tenant state"
             )
 
+        # Pre-compute the request param's positional index so the wrapper
+        # avoids a ``sig.bind`` call per request — sig.bind allocates a
+        # BoundArguments object and walks every parameter, which is
+        # measurable on hot endpoints under load.
+        positional_params = [
+            p.name
+            for p in sig.parameters.values()
+            if p.kind
+            in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        ]
+        try:
+            request_index: int | None = positional_params.index(request_param)
+        except ValueError:
+            request_index = None
+
+        def _resolve_request(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Request:
+            if request_param in kwargs:
+                return kwargs[request_param]
+            if request_index is not None and request_index < len(args):
+                return args[request_index]
+            # Fallback for unusual call shapes (kw-only, partial application).
+            return sig.bind(*args, **kwargs).arguments[request_param]
+
         if inspect.iscoroutinefunction(fn):
 
             @functools.wraps(fn)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                request = sig.bind(*args, **kwargs).arguments[request_param]
+                request = _resolve_request(args, kwargs)
                 if not is_flag_enabled(request, name):
                     raise HTTPException(status_code=404, detail="Feature not available")
                 return await fn(*args, **kwargs)
@@ -177,7 +205,7 @@ def feature_flag(
 
         @functools.wraps(fn)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-            request = sig.bind(*args, **kwargs).arguments[request_param]
+            request = _resolve_request(args, kwargs)
             if not is_flag_enabled(request, name):
                 raise HTTPException(status_code=404, detail="Feature not available")
             return fn(*args, **kwargs)

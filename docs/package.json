@@ -1,0 +1,16 @@
+{
+  "name": "@simple-module-py/docs",
+  "private": true,
+  "version": "0.0.0",
+  "description": "VitePress documentation site for simple_module_python",
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.3",
+    "vue": "^3.5.13"
+  }
+}

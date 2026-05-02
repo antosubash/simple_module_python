@@ -82,9 +82,10 @@ class UsersModule(ModuleBase):
                 label="Users",
                 url=_URL_USERS_ADMIN,
                 icon=_ICON_USERS,
-                order=30,
+                order=100,
                 section=MenuSection.SIDEBAR,
                 roles=[ADMIN_ROLE_NAME],
+                group="Administration",
             )
         )
         # Self-service: profile + logout live in the user dropdown.
@@ -146,6 +147,14 @@ class UsersModule(ModuleBase):
             max_attempts=s.auth_rate_limit_attempts,
             window_seconds=s.auth_rate_limit_window_seconds,
         )
+
+        # Auto-fall-back from the default ``/dashboard/`` to ``/`` when the
+        # Dashboard module isn't installed, so ``--preset minimal`` doesn't
+        # 404 on login. Operator-set overrides are preserved.
+        if s.login_redirect_url == "/dashboard/" and not any(
+            m.meta.name == "Dashboard" for m in app.state.sm.modules
+        ):
+            s.login_redirect_url = "/"
 
         reconfigure_cookie_transport(auth_backend, s)
 

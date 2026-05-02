@@ -19,12 +19,16 @@ class TestCreateModule:
             "my_feature/module.py",
             "my_feature/endpoints/__init__.py",
             "my_feature/endpoints/api.py",
-            "tests/__init__.py",
             "tests/test_module.py",
             ".gitignore",
             "README.md",
         ]:
             assert (dest / relpath).is_file(), f"missing: {relpath}"
+
+        # `tests/__init__.py` is intentionally NOT shipped: under
+        # `--import-mode=importlib`, having one in two modules makes
+        # pytest try to register `tests.conftest` as a plugin twice.
+        assert not (dest / "tests" / "__init__.py").exists()
 
     async def test_pyproject_declares_entry_point_and_deps(self, tmp_path):
         """pyproject.toml sets the entry_point and pins the framework API range."""
