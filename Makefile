@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-memray lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size worker beat worker-docker
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-memray lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings ci-build-packages worker beat worker-docker
 
 # Install
 install:
@@ -118,6 +118,15 @@ ci-check-file-size:
 # names are declared as named constants rather than hardcoded string literals.
 ci-check-hardcoded-strings:
 	uv run python scripts/check_hardcoded_strings.py
+
+# Dry-run the release build: build sdists + wheels for every workspace member
+# the same way release.yml does. Catches packaging regressions at PR time
+# (e.g. force-include paths that crash the sdist→wheel rebuild) instead of
+# only when someone clicks "Run workflow" on Releases.
+ci-build-packages:
+	rm -rf dist-py-ci
+	uv build --all-packages --out-dir dist-py-ci
+	rm -rf dist-py-ci
 
 # Diagnostics
 doctor:
