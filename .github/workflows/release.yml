@@ -90,12 +90,12 @@ jobs:
           for pkg in packages/*/; do
             npm pack "$pkg" --pack-destination dist-npm
           done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: dist-py
           path: dist-py/
           retention-days: 14
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: dist-npm
           path: dist-npm/
@@ -125,7 +125,7 @@ jobs:
       name: pypi
       url: https://pypi.org/project/${{ matrix.package }}/
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: dist-py
           path: dist-py/
@@ -155,7 +155,7 @@ jobs:
         package: [ui, i18n, tsconfig]
     environment: npm
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: dist-npm
           path: dist-npm/
@@ -231,3 +231,8 @@ jobs:
           fi
           git tag "v${VERSION}"
           git push origin "v${VERSION}"
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes
