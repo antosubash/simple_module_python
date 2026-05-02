@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_users"
-version = "0.0.7"
+version = "0.0.8"
 description = "Email + password user management, admin invites, RBAC-ready — replaces Keycloak for simple_module apps"
 readme = "README.md"
 license = "MIT"
@@ -21,11 +21,11 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "simple_module_core==0.0.7",
-    "simple_module_db==0.0.7",
-    "simple_module_hosting==0.0.7",
-    "simple_module_settings==0.0.7",
-    "simple_module_auth==0.0.7",
+    "simple_module_core==0.0.8",
+    "simple_module_db==0.0.8",
+    "simple_module_hosting==0.0.8",
+    "simple_module_settings==0.0.8",
+    "simple_module_auth==0.0.8",
     # Pinned to a narrow range: `deps.py` relies on mutating CookieTransport
     # fields after construction (see reconfigure_cookie_transport in backend.py).
     # Bumping the major version requires re-checking those field names.
