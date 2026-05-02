@@ -23,11 +23,12 @@ from simple_module_cli._env import set_env_key
 from simple_module_cli.case import to_kebab_case, to_pascal_case
 from simple_module_cli.catalog import CATALOG, PRESETS, expand_deps
 from simple_module_cli.recipes import RECIPES, ScaffoldCtx
-from simple_module_cli.scaffolding import create_host, create_module
+from simple_module_cli.scaffolding import _module_to_pypi_name, create_host, create_module
 
 __all__ = ["create_app_project"]
 
 _SAMPLE_MODULE_NAME = "hello"
+_SAMPLE_MODULE_PKG = _module_to_pypi_name(_SAMPLE_MODULE_NAME)
 
 
 def _resolve_framework_version() -> str:
@@ -106,20 +107,12 @@ def create_app_project(
 
     if not flat:
         _scaffold_sample_module(target)
-        py_deps.append(f"simple_module_{_SAMPLE_MODULE_NAME}")
+        py_deps.append(_SAMPLE_MODULE_PKG)
 
     pyproject = target / "pyproject.toml"
     if pyproject.exists():
         text = pyproject.read_text(encoding="utf-8")
-        text = _inject_py_deps(
-            text,
-            py_deps,
-            _APP_PY_DEV_DEPS,
-            workspace_sources=(
-                {f"simple_module_{_SAMPLE_MODULE_NAME}": True} if not flat else None
-            ),
-            drop_workspace=flat,
-        )
+        text = _rewrite_pyproject(text, py_deps, _APP_PY_DEV_DEPS, flat=flat)
         pyproject.write_text(text, encoding="utf-8")
 
     pkg_path = target / "package.json"
@@ -141,10 +134,9 @@ def create_app_project(
 
 
 def _scaffold_sample_module(target: Path) -> None:
-    """Drop a working ``modules/hello/`` package as an authoring template.
+    """Give the user a place to copy when they want to add a feature module.
 
-    Gives the user a place to copy when they want to add a feature module —
-    the alternative is reverse-engineering one of the wheel-installed
+    The alternative is reverse-engineering one of the wheel-installed
     framework modules from ``.venv/site-packages/``.
     """
     sample_dest = target / "modules" / _SAMPLE_MODULE_NAME
@@ -159,22 +151,13 @@ def _db_url(db: str, slug: str) -> str:
     return "sqlite+aiosqlite:///./app.db"
 
 
-def _inject_py_deps(
-    text: str,
-    deps: list[str],
-    dev_deps: list[str],
-    workspace_sources: dict[str, bool] | None = None,
-    drop_workspace: bool = False,
-) -> str:
-    """Replace project.dependencies + dependency-groups.dev in a pyproject.toml.
+def _rewrite_pyproject(text: str, deps: list[str], dev_deps: list[str], *, flat: bool) -> str:
+    """Replace deps + wire uv workspace based on ``flat`` mode.
 
-    ``workspace_sources`` adds ``[tool.uv.sources]`` entries pointing at
-    workspace members (e.g. the bundled sample module) so uv resolves
-    them locally instead of from PyPI.
-
-    ``drop_workspace`` strips the static ``[tool.uv.workspace]`` block
-    inherited from the template — used for ``--flat`` mode, where there
-    is no ``modules/`` tree to scan.
+    Workspace mode (``flat=False``) adds a ``[tool.uv.sources]`` entry so uv
+    resolves the bundled sample module from the workspace, not PyPI. Flat
+    mode strips the static ``[tool.uv.workspace]`` block inherited from the
+    template — there is no ``modules/`` tree for it to point at.
     """
     import tomlkit
 
@@ -183,15 +166,12 @@ def _inject_py_deps(
     project["dependencies"] = list(deps)
     groups = doc.setdefault("dependency-groups", tomlkit.table())
     groups["dev"] = list(dev_deps)
-    if drop_workspace:
-        tool = doc.get("tool")
-        uv_table = tool.get("uv") if isinstance(tool, dict) else None
-        if isinstance(uv_table, dict) and "workspace" in uv_table:
+    tool = doc.setdefault("tool", tomlkit.table())
+    uv_table = tool.setdefault("uv", tomlkit.table())
+    if flat:
+        if "workspace" in uv_table:
             del uv_table["workspace"]
-    if workspace_sources:
-        tool = doc.setdefault("tool", tomlkit.table())
-        uv_table = tool.setdefault("uv", tomlkit.table())
+    else:
         sources = uv_table.setdefault("sources", tomlkit.table())
-        for pkg in workspace_sources:
-            sources[pkg] = {"workspace": True}
+        sources[_SAMPLE_MODULE_PKG] = {"workspace": True}
     return tomlkit.dumps(doc)

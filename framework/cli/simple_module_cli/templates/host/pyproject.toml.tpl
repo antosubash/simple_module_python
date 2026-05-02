@@ -17,9 +17,8 @@ dependencies = [
 [tool.uv]
 package = false
 
-# Workspace plumbing — local modules under modules/<name>/ are picked up
-# automatically. Add a new module with `sm create-module <name>` (writes to
-# modules/<name>/), then add `simple_module_<name>` to the dependency list
-# above. uv resolves it from the workspace instead of PyPI.
+# Add a new module with `sm create-module <name>`, then add
+# `simple_module_<name>` to the dependency list above and to
+# [tool.uv.sources] as `{ workspace = true }`.
 [tool.uv.workspace]
 members = ["modules/*"]
