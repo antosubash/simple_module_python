@@ -196,6 +196,66 @@ def test_sm_new_interactive_full_preset(tmp_path: Path) -> None:
     assert (target / "docker-compose.yml").is_file()
 
 
+def test_sm_new_default_scaffolds_sample_hello_module(tmp_path: Path) -> None:
+    """Default (workspace) mode lays down modules/hello/ as an authoring template."""
+    runner = CliRunner()
+    target = tmp_path / "demo"
+    result = runner.invoke(
+        app,
+        ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
+    )
+    assert result.exit_code == 0, result.output
+    assert (target / "modules" / "hello" / "pyproject.toml").is_file()
+    assert (target / "modules" / "hello" / "hello" / "module.py").is_file()
+
+
+def test_sm_new_default_wires_workspace_in_pyproject(tmp_path: Path) -> None:
+    """Default mode adds [tool.uv.workspace] members + a workspace source for the sample."""
+    runner = CliRunner()
+    target = tmp_path / "demo"
+    runner.invoke(
+        app,
+        ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
+    )
+    pyproject_text = (target / "pyproject.toml").read_text()
+    assert "[tool.uv.workspace]" in pyproject_text
+    assert 'members = ["modules/*"]' in pyproject_text
+    assert "simple_module_hello" in pyproject_text
+    # Sample module is a workspace source, not pulled from PyPI.
+    assert "[tool.uv.sources" in pyproject_text
+    assert "workspace = true" in pyproject_text
+
+
+def test_sm_new_default_adds_npm_workspaces_field(tmp_path: Path) -> None:
+    """Default mode declares ``workspaces`` so vite picks up modules/<name>/."""
+    runner = CliRunner()
+    target = tmp_path / "demo"
+    runner.invoke(
+        app,
+        ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
+    )
+    data = json.loads((target / "package.json").read_text())
+    assert data.get("workspaces") == ["client_app", "modules/*"]
+
+
+def test_sm_new_flat_skips_modules_dir(tmp_path: Path) -> None:
+    """``--flat`` keeps the legacy single-host layout: no modules/ tree, no sample."""
+    runner = CliRunner()
+    target = tmp_path / "demo"
+    result = runner.invoke(
+        app,
+        ["new", "demo", "--yes", "--flat", "--no-install", "--dest", str(target)],
+    )
+    assert result.exit_code == 0, result.output
+    assert not (target / "modules").exists()
+    pyproject_text = (target / "pyproject.toml").read_text()
+    assert "simple_module_hello" not in pyproject_text
+    # No workspace plumbing pointing at a non-existent modules/ tree.
+    assert "[tool.uv.workspace]" not in pyproject_text
+    data = json.loads((target / "package.json").read_text())
+    assert "workspaces" not in data
+
+
 def test_sm_new_refuses_to_overwrite(tmp_path: Path) -> None:
     target = tmp_path / "my-app"
     target.mkdir()

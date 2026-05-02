@@ -64,6 +64,16 @@ def new_project(
             help="Skip 'uv sync' / 'npm install' / 'alembic upgrade head' after scaffolding.",
         ),
     ] = False,
+    flat: Annotated[
+        bool,
+        typer.Option(
+            "--flat",
+            help=(
+                "Skip the modules/ directory and sample module. Use when the host "
+                "will only consume published modules and never author its own."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Scaffold a new SimpleModule app, optionally with background jobs."""
     target = dest or Path.cwd() / name
@@ -90,7 +100,14 @@ def new_project(
             raise typer.Exit(code=1) from None
 
     try:
-        create_app_project(target, name=name, db=db_final, tenancy=tenancy_final, selected=resolved)
+        create_app_project(
+            target,
+            name=name,
+            db=db_final,
+            tenancy=tenancy_final,
+            selected=resolved,
+            flat=flat,
+        )
     except FileExistsError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(code=1) from exc
