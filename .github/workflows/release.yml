@@ -112,6 +112,7 @@ jobs:
           - simple_module_core
           - simple_module_db
           - simple_module_hosting
+          - simple_module_test
           - simple_module_auth
           - simple_module_background_tasks
           - simple_module_dashboard
