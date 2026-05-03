@@ -1,6 +1,6 @@
 # Publishing simple_module_python
 
-This repo publishes **14 Python packages** to PyPI and **3 JS packages** to npm in one lockstep version bump. Releases are driven entirely from GitHub Actions — no tokens live on your laptop.
+This repo publishes **13 Python packages** to PyPI and **3 JS packages** to npm in one lockstep version bump. Releases are driven entirely from GitHub Actions — no tokens live on your laptop.
 
 - **Python packages** (`simple_module_*`) → [pypi.org](https://pypi.org)
 - **JS packages** (`@simple-module-py/*`) → [npmjs.com](https://www.npmjs.com)
@@ -23,7 +23,7 @@ You need to set up Trusted Publisher entries on PyPI and npm *before* running th
 
 ### 1. PyPI
 
-For *each* of the 14 Python project names, on [pypi.org](https://pypi.org/manage/account/publishing/):
+For *each* of the 13 Python project names, on [pypi.org](https://pypi.org/manage/account/publishing/):
 
 1. Log in as the owner account (`antosubash`).
 2. Go to **Your account → Publishing** (or click "Add a new pending publisher" if the project doesn't exist yet).
@@ -92,7 +92,7 @@ Both should pass locally. CI should be green on every PR into `main`.
 
 ### Step 2. Pick a version
 
-All 17 packages bump in lockstep to the same version. We follow a relaxed SemVer during the 0.x phase:
+All 16 packages bump in lockstep to the same version. We follow a relaxed SemVer during the 0.x phase:
 
 | Situation | Input |
 |---|---|
@@ -112,8 +112,8 @@ The workflow derives the next version from the current `framework/core/pyproject
 
 What happens:
 - `resolve` computes the final version and shares it with every downstream job.
-- `build` rewrites every version, builds 14 wheels + 14 sdists + 3 npm tarballs, and uploads them as artifacts.
-- `publish-pypi` fans out 14 parallel jobs, each publishing one wheel+sdist pair via OIDC Trusted Publishing.
+- `build` rewrites every version, builds 13 wheels + 13 sdists + 3 npm tarballs, and uploads them as artifacts.
+- `publish-pypi` fans out 13 parallel jobs, each publishing one wheel+sdist pair via OIDC Trusted Publishing.
 - `publish-npm` fans out 3 parallel jobs publishing `@simple-module-py/*` tarballs with `NPM_TOKEN`. Each job verifies the tarball's `package.json` is actually scoped to `@simple-module-py/*` before invoking `npm publish`.
 - `finalize` re-applies the bump, commits `release: vX.Y.Z`, tags it, and pushes both.
 
@@ -121,12 +121,14 @@ Expected wall time: 5–8 minutes.
 
 ### Step 4. GitHub Release notes
 
-The workflow creates the `vX.Y.Z` tag but not a GitHub Release. Do that manually:
+The `finalize` job pushes the `vX.Y.Z` tag and a follow-up step (`gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes`) automatically creates a GitHub Release with autofilled notes from the commits since the previous tag.
 
-1. Go to [Releases → Draft a new release](https://github.com/antosubash/simple_module_python/releases/new).
-2. Pick the `vX.Y.Z` tag.
-3. Title: `vX.Y.Z`.
-4. Body: user-facing changes since the previous release. `gh` can autofill from commits: `gh release create vX.Y.Z --generate-notes`.
+If you want to edit the body, open the draft at [Releases](https://github.com/antosubash/simple_module_python/releases) and tweak it after the workflow finishes. To regenerate the auto-notes locally:
+
+```bash
+gh release view vX.Y.Z --json body
+gh release edit vX.Y.Z --notes-file - < notes.md
+```
 
 ---
 
@@ -135,7 +137,7 @@ The workflow creates the `vX.Y.Z` tag but not a GitHub Release. Do that manually
 Before running the workflow, you can rehearse the whole pipeline offline. Nothing leaves your machine:
 
 ```bash
-# 1. Check all 17 packages are currently at 0.0.1 (or your expected base)
+# 1. Check all 16 packages are currently at 0.0.1 (or your expected base)
 uv run python scripts/bump_version.py 0.0.1 --check
 
 # 2. Dry-run the bump (writes nothing, shows what would change)
@@ -155,7 +157,7 @@ uv build --all-packages --out-dir dist-py
 mkdir -p dist-npm && for p in packages/*/; do npm pack "$p" --pack-destination dist-npm; done
 
 # 6. Sanity-check contents
-ls dist-py/ | wc -l        # expect 28 (14 wheels + 14 sdists)
+ls dist-py/ | wc -l        # expect 26 (13 wheels + 13 sdists)
 ls dist-npm/ | wc -l       # expect 3
 
 # 7. Revert (if you don't actually want to release)

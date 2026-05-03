@@ -6,21 +6,21 @@ The framework expects three kinds of tests:
 - **Integration tests** — endpoints via `client` / `authenticated_client`. Still `pytest`.
 - **E2E tests** — Playwright-driven browser tests marked `e2e`, excluded from default runs.
 
-The default `pytest` invocation pins `-m 'not e2e'` (root `pyproject.toml`), so `make test` never touches the Playwright suite — run those explicitly with `make test-e2e`.
+The default `pytest` invocation pins `-m 'not e2e'` (your app's `pyproject.toml`), so a normal test run never touches the Playwright suite — run those explicitly via `uv run pytest -m e2e tests/e2e`.
 
 ## Quick reference
 
 | Command | What it does |
 |---|---|
-| `make test` | `test-py` then `test-js` (e2e excluded). |
-| `make test-py` | Just pytest. |
-| `make test-js` | Just Vitest. |
-| `make test-e2e` | Playwright suite against `localhost:8000`. Requires `make dev` running. |
+| `uv run pytest` | Run every Python test (e2e excluded). |
 | `uv run pytest path/to/test_file.py::test_name` | Single test. |
 | `uv run pytest -k "create_order"` | All tests matching a name pattern. |
 | `uv run pytest --lf` | Last failed only. |
 | `uv run pytest -x` | Stop at first failure. |
 | `uv run pytest -v -s` | Verbose + capture off (see `print`). |
+| `uv run pytest -m e2e tests/e2e` | Playwright suite against `localhost:8000`. Requires `make dev` running. |
+| `cd client_app && npx vitest run` | Run every JS test. |
+| `cd client_app && npx vitest run <path>` | Single JS test file. |
 
 ## Async mode
 
@@ -92,7 +92,7 @@ Before marking a test flaky, check:
 - **Async-order-dependent?** `await` everything that returns a coroutine, including `session.flush()` and `session.refresh()`.
 - **Shared state?** Check for `scope="module"` fixtures that should be `scope="function"`.
 
-## Where to go from here
+## Next steps
 
 - [Fixtures](/testing/fixtures) — the shared fixtures in `conftest.py` and how to extend them.
 - [E2E tests](/e2e-testing) — the Playwright suite.

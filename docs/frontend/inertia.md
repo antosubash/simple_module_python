@@ -130,7 +130,7 @@ Accessed from any page via `usePage().props.auth` etc., or via typed helpers fro
 
 ## Frontend runtime setup
 
-`host/client_app/src/main.tsx` bootstraps Inertia:
+`client_app/src/main.tsx` bootstraps Inertia:
 
 ```tsx
 import { createInertiaApp } from "@inertiajs/react";

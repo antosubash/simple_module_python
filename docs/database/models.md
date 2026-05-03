@@ -163,7 +163,7 @@ SQLModel declares fields with plain Python types (`str`, `int`) at class definit
 
 Do not re-enable these rules in module-local configs. Real bugs caused by wrong field access surface in the test suite — these rules produce only noise.
 
-## Next
+## Next steps
 
 - [Per-module Base](/database/per-module-base) — how provider detection and schema isolation works.
 - [Mixins](/database/mixins) — `AuditMixin`, `SoftDeleteMixin`, `MultiTenantMixin`, `VersionedMixin`.

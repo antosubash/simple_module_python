@@ -46,7 +46,7 @@ The public surface **between** modules is a module's `contracts/` directory: SQL
 
 ### 2. Convention-first, with diagnostics
 
-The framework enforces conventions — page naming, settings prefixes, migration branches, locale key structure — through a diagnostics pass (`make doctor`). Violations produce `SM0XX` codes; errors fail boot in production. This replaces runtime surprises with build-time guarantees.
+The framework enforces conventions — page naming, settings prefixes, migration branches, locale key structure — through a diagnostics pass that runs at every app boot. Violations produce `SM0XX` codes; errors fail boot in production. This replaces runtime surprises with build-time guarantees.
 
 See [diagnostic codes](/reference/diagnostic-codes) for the full list.
 

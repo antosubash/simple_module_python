@@ -12,11 +12,11 @@ The server identifies a page by a **key**: `"<ModuleName>/<PageName>"`.
 | `modules/orders/orders/pages/Create.tsx` | `"Orders/Create"` |
 | `modules/orders/orders/pages/admin/Settings.tsx` | `"Orders/admin/Settings"` |
 | `modules/blog_posts/blog_posts/pages/Edit.tsx` | `"BlogPosts/Edit"` |
-| `host/client_app/pages/Landing.tsx` | `"Landing"` (host-level, no namespace) |
+| `client_app/pages/Landing.tsx` | `"Landing"` (host-level, no namespace) |
 
 - **`<ModuleName>`** is the **PascalCase** of the module's package directory: `blog_posts` → `BlogPosts`, `file_storage` → `FileStorage`.
 - **`<PageName>`** is the path under `pages/` minus `.tsx`. Subdirectories become slashes: `admin/Settings.tsx` → `admin/Settings`.
-- **Host-level pages** live under `host/client_app/pages/` and use just the page name without a namespace prefix.
+- **Host-level pages** live under `client_app/pages/` and use just the page name without a namespace prefix.
 
 ## Rendering
 
@@ -33,7 +33,7 @@ The key must match a generated entry in `modules.generated.ts`. Mismatches produ
 - **`SM003`** (warning) — the `.tsx` file exists, but no `inertia.render()` call in any module references it. The page is orphaned.
 - **`SM004`** (warning) — an `inertia.render("Orders/Unknown", ...)` call exists, but there's no matching `.tsx` file. You'll get a runtime error when a user hits that route.
 
-Both fire during `make doctor` and at dev boot.
+Both fire at app boot.
 
 ## The generation pipeline
 
@@ -41,7 +41,7 @@ Both fire during `make doctor` and at dev boot.
 
 1. Discovers every installed module's page directory.
 2. Builds an object literal mapping page keys to dynamic imports.
-3. Writes three files to `host/client_app/`:
+3. Writes three files to `client_app/`:
    - `modules.generated.ts` — the `resolvePage` function used by Inertia.
    - `modules.manifest.json` — metadata used by diagnostics.
    - `modules.generated.css` — imports for any module-scoped CSS.
@@ -49,7 +49,7 @@ Both fire during `make doctor` and at dev boot.
 These files are **regenerated on every `make dev` run**. Never hand-edit them. Add them to `.gitignore` if they aren't already.
 
 ```ts
-// host/client_app/modules.generated.ts  (generated)
+// client_app/modules.generated.ts  (generated)
 export async function resolvePage(name: string) {
   switch (name) {
     case "Orders/Browse":

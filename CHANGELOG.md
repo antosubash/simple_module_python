@@ -6,21 +6,20 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [0.0.1] — 2026-04-21
 
-Initial public release. All 13 Python packages publish to PyPI and all 3 JS packages publish to npm under the `@simple-module-py` scope.
+Initial public release. All 12 Python packages publish to PyPI and all 3 JS packages publish to npm under the `@simple-module-py` scope.
 
 ### Python packages (PyPI)
 
 - `simple_module_core`
 - `simple_module_db`
 - `simple_module_hosting`
-- `simple_module_testing`
+- `simple_module_test`
 - `simple_module_auth`
 - `simple_module_background_tasks`
 - `simple_module_dashboard`
 - `simple_module_feature_flags`
 - `simple_module_file_storage`
 - `simple_module_permissions`
-- `simple_module_products`
 - `simple_module_settings`
 - `simple_module_users`
 

@@ -6,24 +6,24 @@ navigates to `/settings/modules`, toggles a module setting, and verifies the
 change hot-reloads into `app.state` without a server restart.
 
 End-to-end tests are gated behind the `e2e` pytest marker (declared in
-[pyproject.toml](../pyproject.toml)) and are **excluded from the default
-`make test` run**. They only execute under `make test-e2e`.
+your app's `pyproject.toml`) and are **excluded from the default
+`uv run pytest` invocation**. Run them explicitly via the marker.
 
 ## Prerequisites
 
 One-time setup on the machine that will run the tests:
 
 ```bash
-uv sync --all-packages
+uv sync
 uv run playwright install chromium
 ```
 
 Then bring up the full stack (in a separate terminal, leave it running):
 
 ```bash
-make docker-up     # Postgres (skip if using the default SQLite config)
-make migrate       # apply Alembic migrations
-make dev           # FastAPI on :8000 + Vite on :5173
+docker compose up -d postgres   # skip if you're on the default SQLite config
+make migrate                    # apply Alembic migrations
+make dev                        # FastAPI on :8000 + Vite on :5050
 ```
 
 Create the first admin user (needed for e2e auth):
@@ -36,12 +36,6 @@ Or set `SM_USERS_BOOTSTRAP_EMAIL` / `SM_USERS_BOOTSTRAP_PASSWORD` in `.env`
 before the first `make dev` run.
 
 ## Running
-
-```bash
-make test-e2e
-```
-
-Or directly:
 
 ```bash
 uv run pytest -m e2e tests/e2e

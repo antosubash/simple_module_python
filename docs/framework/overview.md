@@ -13,9 +13,9 @@ The framework has **no knowledge of any specific plugin module**. Diagnostic `SM
 
 ## Boot sequence
 
-What actually happens when you run `uvicorn host.main:app`:
+What actually happens when you run `uvicorn main:app`:
 
-1. **`create_app(settings)`** is invoked (in `host/main.py` via FastAPI's lifespan).
+1. **`create_app(settings)`** is invoked (in `main.py` via FastAPI's lifespan).
 2. **Framework singletons** are constructed:
    `Settings`, `DatabaseState` (engines per provider), `EventBus`, `MenuRegistry`, `PermissionRegistry`, `FeatureFlagRegistry`, `HealthRegistry`, `I18nRegistry`. They are bundled into a frozen `Services` dataclass and attached to `app.state.sm`.
 3. **Discovery** — `discover_modules()` reads Python entry points under the `simple_module` group, imports each one, validates it's a `ModuleBase` subclass with a non-null `meta`, and topologically sorts by `ModuleMeta.depends_on`.
@@ -86,9 +86,10 @@ class UsersModule(ModuleBase):
 
 This is how the `auth.user` shared prop is built: framework middleware calls whatever serializer the `users` module registered — without importing `users`.
 
-## What's next
+## Next steps
 
 - [Discovery & entry points](/framework/discovery) — how modules are installed and found.
 - [Lifecycle hooks](/framework/lifecycle) — the 10 hooks in call order with examples.
 - [Middleware pipeline](/framework/middleware) — execution order and how to slot your own in.
 - [Settings & app.state](/framework/settings) — framework vs. module state.
+- [Bundled modules](/modules/) — the eight first-party modules and what each one ships.
