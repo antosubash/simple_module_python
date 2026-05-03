@@ -150,10 +150,6 @@ class MyModule(ModuleBase):
         ...
 ```
 
-## Feature flags
-
-- `file_storage.public_uploads` — reserved for future use (allow unauthenticated uploads). Currently always off.
-
 ## Inertia pages
 
 - `FileStorage/Browse.tsx` — file list + upload dropzone; handles the upload progress + delete confirmation flow.

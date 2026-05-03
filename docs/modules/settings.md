@@ -20,40 +20,12 @@ Two distinct surfaces:
 
 ### Register module settings
 
-```python
-# modules/orders/orders/settings.py
-from pydantic_settings import BaseSettings, SettingsConfigDict
+The pattern (pydantic `BaseSettings` subclass + `register_module_settings` in `register_settings`) is documented in [Per-module settings convention](/guide/configuration#per-module-settings-convention). What the settings module adds on top:
 
-class OrdersSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="SM_ORDERS_", extra="ignore")
-    max_items_per_order: int = 100
-    smtp_from: str = "no-reply@example.com"
-
-# modules/orders/orders/services.py
-from dataclasses import dataclass
-from orders.settings import OrdersSettings
-
-@dataclass
-class OrdersServices:
-    settings: OrdersSettings
-
-# modules/orders/orders/module.py
-from settings.registration import register_module_settings
-
-class OrdersModule(ModuleBase):
-    def register_settings(self, app):
-        register_module_settings(
-            app, "orders", OrdersSettings,
-            services_factory=lambda s: OrdersServices(settings=s),
-        )
-```
-
-What this gives you:
-
-- `app.state.orders.settings` is populated with the **DB-merged** values during the host's hydrate phase (after `register_settings` returns, before `on_startup`).
-- The pydantic `env_prefix` (here `SM_ORDERS_`) lets `sm-settings import-from-env` migrate any legacy env var into the DB once.
-- The settings show up at `/settings/modules/orders` for inline editing.
-- On save, `apply_changes_and_reload` validates the diff, persists it, swaps the dataclass on `app.state.orders`, and publishes [`SettingsReloaded`](#events).
+- **DB hydration**: `app.state.<package>.settings` is replaced with a fresh instance built from DB overrides + pydantic defaults during the host's hydrate phase, before `on_startup` runs.
+- **Env-var migration**: `sm-settings import-from-env` scans every registered class's `env_prefix` and seeds matching `SM_*` env vars as SYSTEM-scoped rows. Idempotent.
+- **Admin editing**: registered fields appear at `/settings/modules/<package>` with type-aware inputs.
+- **Hot reload**: saving via the admin UI calls `apply_changes_and_reload`, which validates the diff against the pydantic class, persists deltas, swaps the live `app.state.<package>.settings`, and publishes [`SettingsReloaded`](#events) so dependents (SMTP clients, Celery configs, …) can rebuild.
 
 ### Read settings at request time (generic K/V)
 

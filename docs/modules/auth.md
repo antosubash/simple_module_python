@@ -65,7 +65,7 @@ async def delete_order(order_id: int, user: CurrentUser) -> None:
     ...
 ```
 
-For permission checks that need to honour **direct user grants** (not just role-derived perms), import [`RequiresPermission` from the permissions module](/modules/permissions) instead.
+For permission checks that need to honour **direct user grants** (not just role-derived perms), use [`RequiresPermission` from the permissions module](/modules/permissions#using-requirespermission) instead.
 
 ## Locales
 
@@ -75,9 +75,3 @@ For permission checks that need to honour **direct user grants** (not just role-
 | `errors.missing_permission` | `"Missing required permission: {permissions}"` |
 
 Translated automatically when the request locale is set — no extra wiring needed.
-
-## What this module does *not* do
-
-- Doesn't run any middleware. `AuthMiddleware` belongs to `users`.
-- Doesn't define `Role` or `User`. Those live in `users`.
-- Doesn't expose any HTTP routes — `route_prefix` exists to claim the namespace, but no router is mounted. If you need login/logout endpoints, hit the [`users` module](/modules/users#auth-endpoints).
