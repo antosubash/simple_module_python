@@ -40,6 +40,7 @@ This documentation is structured around what you're trying to do:
 - **[Database](/database/models)** — SQLModel conventions, per-module `Base`, mixins, session lifecycle, Alembic migrations.
 - **[Frontend](/frontend/inertia)** — Inertia page keys, shared props, page discovery, client dependencies.
 - **[Testing](/testing/overview)** — the fixtures in `conftest.py`, how to write unit tests against a real DB, and how to run E2E.
+- **[Modules](/modules/)** — reference for each bundled module: routes, contracts, settings, permissions, events, CLI.
 - **[Reference](/reference/make-commands)** — `make` targets, environment variables, diagnostic codes, deployment.
 
 The authoritative single-page docs (`framework-conventions.md`, `module-authoring.md`, `e2e-testing.md`, `release.md`) are also linked from each section's sidebar — they are the source of truth when conventions are ambiguous.
