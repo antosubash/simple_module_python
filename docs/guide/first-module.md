@@ -290,8 +290,7 @@ If `make doctor` flags an `SM003` or `SM004`, the Inertia key in `views.py` does
 
 You've shipped a module. Pick the rabbit hole that matches what you need next:
 
-- [Database / Models](/database/models) — the SQLModel conventions you'll use for every table.
-- [Database / Mixins](/database/mixins) — `AuditMixin`, `SoftDeleteMixin`, `MultiTenantMixin`, `VersionedMixin`.
+- [Database / Models](/database/models) — the SQLModel conventions and mixins you'll use for every table.
 - [Framework / Permissions](/framework/permissions) — how `RequiresPermission` resolves roles and direct grants.
 - [Framework / Events](/framework/events) — publishing `OrderPlaced` and subscribing from another module.
 - [Framework / Settings](/framework/settings) and the [`settings` module](/modules/settings) — DB-backed config with hot reload.

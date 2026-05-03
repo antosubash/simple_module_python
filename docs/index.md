@@ -20,29 +20,33 @@ features:
   - title: Build with it
     details: Five-minute quickstart, then scaffold your first module. You'll learn the loop — add a model, generate a migration, write a service, mount a page.
     link: /guide/quickstart
-    linkText: Quickstart →
+    linkText: Quickstart
   - title: Author a module
     details: Read the framework conventions, then walk through a real module end-to-end. Models, contracts, service, endpoints, pages, tests, locales.
     link: /guide/first-module
-    linkText: Build a module →
+    linkText: Build a module
   - title: Use a bundled module
     details: Eight first-party modules ship with the framework — auth, users, permissions, settings, file_storage, background_tasks, feature_flags, dashboard.
     link: /modules/
-    linkText: Browse modules →
+    linkText: Browse modules
   - title: Operate it in production
     details: Deployment, environment variables, diagnostics, release pipeline, performance + load testing.
     link: /reference/deployment
-    linkText: Deploy →
+    linkText: Deploy
 ---
 
 ## How the docs are organised
 
 <style>
 .sm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin: 1rem 0 2rem; }
-.sm-grid a.sm-card { display: block; padding: 1rem 1.25rem; border: 1px solid var(--vp-c-divider); border-radius: 12px; background: var(--vp-c-bg-soft); text-decoration: none !important; transition: border-color .15s ease, transform .15s ease; }
-.sm-grid a.sm-card:hover { border-color: var(--vp-c-brand-1); transform: translateY(-1px); }
+.sm-grid a.sm-card { display: block; padding: 1rem 1.25rem; border: 1px solid var(--vp-c-divider); border-radius: 12px; background: var(--vp-c-bg-soft); text-decoration: none !important; }
+.sm-grid a.sm-card:hover { border-color: var(--vp-c-brand-1); }
 .sm-grid a.sm-card h3 { margin: 0 0 .25rem; font-size: 1rem; color: var(--vp-c-brand-1); }
 .sm-grid a.sm-card p { margin: 0; color: var(--vp-c-text-2); font-size: .9rem; line-height: 1.4; }
+@media (prefers-reduced-motion: no-preference) {
+  .sm-grid a.sm-card { transition: border-color .15s ease, transform .15s ease; }
+  .sm-grid a.sm-card:hover { transform: translateY(-1px); }
+}
 </style>
 
 <div class="sm-grid">
@@ -72,7 +76,7 @@ Then in another terminal:
 make new-module name=orders
 ```
 
-That generates `modules/orders/` with a `ModuleMeta`, a SQLModel table, contracts, a service, REST + Inertia endpoints, three React pages, locales, and a smoke test — all wired into the running app on the next reload. The full walkthrough is in [Your first module](/guide/first-module).
+That generates `modules/orders/` with a `ModuleMeta`, a SQLModel table, contracts, a service, REST + Inertia endpoints, three React pages, locales, and a smoke test — all wired in once the dev server reloads. The full walkthrough is in [Your first module](/guide/first-module).
 
 ## Where to start
 
