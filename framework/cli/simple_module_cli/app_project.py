@@ -186,7 +186,7 @@ def _pin_sample_module_deps(sample_dest: Path) -> None:
 
     pyproject = sample_dest / "pyproject.toml"
     doc = tomlkit.parse(pyproject.read_text(encoding="utf-8"))
-    project = doc["project"]
+    project = doc.setdefault("project", tomlkit.table())
     project["dependencies"] = [_pin_or_keep(dep) for dep in project.get("dependencies", [])]
     optional = project.get("optional-dependencies")
     if optional is not None:
