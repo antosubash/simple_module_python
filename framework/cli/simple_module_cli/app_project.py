@@ -145,7 +145,18 @@ def create_app_project(
     host_pyproject.write_text(text, encoding="utf-8")
 
     if flat:
-        _write_flat_top_level_package_json(target, name=name)
+        # The workspace template already emits a top-level package.json
+        # with workspaces; flat mode has none, so seed one with the
+        # framework npm pins so `npm install` resolves at the root.
+        pkg_path = target / "package.json"
+        pkg_data: dict[str, Any] = (
+            _json.loads(pkg_path.read_text(encoding="utf-8"))
+            if pkg_path.exists()
+            else {"name": to_kebab_case(name), "private": True, "type": "module"}
+        )
+        pkg_data.setdefault("dependencies", {}).update(_APP_NPM_DEPS)
+        pkg_data.setdefault("devDependencies", {}).update(_APP_NPM_DEV_DEPS)
+        pkg_path.write_text(_json.dumps(pkg_data, indent=2) + "\n", encoding="utf-8")
 
     ctx = ScaffoldCtx(name=name, db=db, tenancy=tenancy, selected=tuple(resolved))
     for mod_name in resolved:
@@ -166,10 +177,12 @@ def _scaffold_sample_module(target: Path) -> None:
         return
     create_module(sample_dest, name=_SAMPLE_MODULE_NAME)
     _pin_sample_module_deps(sample_dest)
-    # Hatch's force-include directive resolves at build time even for
-    # editable installs; an empty placeholder dir keeps `uv sync` from
-    # failing before the user has run vite build.
-    static_dist = sample_dest / _SAMPLE_MODULE_NAME / "static" / "dist"
+    _seed_static_dist_placeholder(sample_dest / _SAMPLE_MODULE_NAME / "static" / "dist")
+
+
+def _seed_static_dist_placeholder(static_dist: Path) -> None:
+    # Hatch's force-include resolves at build time even for editable installs;
+    # an empty placeholder keeps `uv sync` from failing before vite build runs.
     static_dist.mkdir(parents=True, exist_ok=True)
     (static_dist / ".gitkeep").touch()
 
@@ -201,24 +214,6 @@ def _pin_or_keep(dep: str) -> str:
     if pkg.startswith(("simple_module_", "simple-module-")):
         return f"{pkg}=={_FRAMEWORK_VERSION}"
     return dep
-
-
-def _write_flat_top_level_package_json(target: Path, *, name: str) -> None:
-    """In flat mode the host template doesn't ship a top-level ``package.json``.
-
-    Create one so ``npm install`` from the project root resolves the
-    framework npm deps. Workspace mode doesn't need this — the workspace
-    template already emits a workspaces-aware top-level package.json.
-    """
-    pkg_path = target / "package.json"
-    data: dict[str, Any]
-    if pkg_path.exists():
-        data = _json.loads(pkg_path.read_text(encoding="utf-8"))
-    else:
-        data = {"name": to_kebab_case(name), "private": True, "type": "module"}
-    data.setdefault("dependencies", {}).update(_APP_NPM_DEPS)
-    data.setdefault("devDependencies", {}).update(_APP_NPM_DEV_DEPS)
-    pkg_path.write_text(_json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
 def _db_url(db: str, slug: str, *, flat: bool) -> str:

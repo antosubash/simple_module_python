@@ -4,6 +4,18 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
+// Force every importer (host, workspace module, wheel-installed module)
+// to resolve to one React copy + a single Inertia hook context. Without
+// dedupe, plugin-react fires "can't detect preamble" and `usePage` from
+// a wheel-loaded page lands in a different React realm than the host's.
+const REACT_CORE_DEPS = [
+  'react',
+  'react-dom',
+  'react/jsx-runtime',
+  'react/jsx-dev-runtime',
+  '@inertiajs/react',
+] as const;
+
 // File-system serve root — the directory that holds `node_modules`. In flat
 // mode that's the host root; in workspace mode npm hoists `node_modules` to
 // the workspace root one level higher, so we walk up to find it.
@@ -42,24 +54,35 @@ if (fs.existsSync(manifestPath)) {
 // host/client_app/package.json + every dep's package.json one level
 // deep and force-including the result keeps the named-import contract
 // for everything pulled in transitively by `@simple-module-py/ui` etc.
-function findPackageJSON(name: string): string | null {
-  let dir = __dirname;
-  while (true) {
-    const candidate = path.join(dir, 'node_modules', name, 'package.json');
-    if (fs.existsSync(candidate)) return candidate;
-    const parent = path.dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
+type Pkg = {
+  main?: string;
+  module?: string;
+  exports?: unknown;
+  dependencies?: Record<string, string>;
+};
+
+const pkgCache = new Map<string, Pkg | null>();
+
+function readPackageJSON(pkgJsonPath: string): Pkg | null {
+  let pkg = pkgCache.get(pkgJsonPath);
+  if (pkg !== undefined) return pkg;
+  try {
+    pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8')) as Pkg;
+  } catch {
+    pkg = null;
   }
+  pkgCache.set(pkgJsonPath, pkg);
+  return pkg;
 }
 
-function hasTopLevelEntry(pkgJsonPath: string): boolean {
-  let pkg: { main?: string; module?: string; exports?: unknown };
-  try {
-    pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'));
-  } catch {
-    return false;
-  }
+function findPackageJSON(name: string): string | null {
+  // npm hoists into `fsRoot/node_modules`; that's the only location worth
+  // checking in workspace + flat layouts alike.
+  const candidate = path.join(fsRoot, 'node_modules', name, 'package.json');
+  return fs.existsSync(candidate) ? candidate : null;
+}
+
+function hasTopLevelEntry(pkg: Pkg): boolean {
   if (pkg.main || pkg.module) return true;
   const exp = pkg.exports;
   if (typeof exp === 'string') return true;
@@ -68,38 +91,31 @@ function hasTopLevelEntry(pkgJsonPath: string): boolean {
 }
 
 function collectOptimizeIncludes(): string[] {
-  const seeded = [
-    'react',
-    'react-dom',
+  const includes = new Set<string>([
+    ...REACT_CORE_DEPS,
     'react-dom/client',
-    'react/jsx-runtime',
-    'react/jsx-dev-runtime',
-    '@inertiajs/react',
     'use-sync-external-store',
     'use-sync-external-store/shim',
     'use-sync-external-store/shim/with-selector',
-  ];
-  const includes = new Set<string>(seeded);
+  ]);
   const visited = new Set<string>();
   const queue: string[] = [path.join(__dirname, 'package.json')];
   while (queue.length > 0) {
     const pkgJsonPath = queue.shift();
     if (!pkgJsonPath || visited.has(pkgJsonPath)) continue;
     visited.add(pkgJsonPath);
-    let pkg: { dependencies?: Record<string, string> };
-    try {
-      pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'));
-    } catch {
-      continue;
-    }
+    const pkg = readPackageJSON(pkgJsonPath);
+    if (!pkg) continue;
     for (const name of Object.keys(pkg.dependencies ?? {})) {
       if (name.startsWith('@types/')) continue;
       const nested = findPackageJSON(name);
       if (!nested) continue;
+      const nestedPkg = readPackageJSON(nested);
+      if (!nestedPkg) continue;
       // Skip packages that ship only sub-paths (`@babel/runtime`); vite
       // refuses to pre-bundle them and bare imports against them resolve
       // naturally through Node's normal module-walk anyway.
-      if (hasTopLevelEntry(nested)) {
+      if (hasTopLevelEntry(nestedPkg)) {
         includes.add(name);
       }
       queue.push(nested);
@@ -111,20 +127,8 @@ function collectOptimizeIncludes(): string[] {
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   root: __dirname,
-  // Force every importer (host pages, workspace modules, wheel-installed
-  // modules) to resolve to one React copy. Without this, plugin-react's
-  // Fast Refresh preamble check fires in a realm where its global was
-  // never set ("can't detect preamble").
   resolve: {
-    dedupe: [
-      'react',
-      'react-dom',
-      'react/jsx-runtime',
-      'react/jsx-dev-runtime',
-      '@inertiajs/react',
-      '@simple-module-py/ui',
-      '@simple-module-py/i18n',
-    ],
+    dedupe: [...REACT_CORE_DEPS, '@simple-module-py/ui', '@simple-module-py/i18n'],
   },
   optimizeDeps: {
     entries: ['main.tsx', 'pages/**/*.tsx', ...moduleOptimizeEntries],
