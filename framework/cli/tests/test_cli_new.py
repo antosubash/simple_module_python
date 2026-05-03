@@ -50,6 +50,27 @@ def test_sm_new_generates_package_json_with_npm_deps(tmp_path: Path) -> None:
     assert "@simple-module-py/tsconfig" in data.get("devDependencies", {})
 
 
+def test_sm_new_pins_client_app_simple_module_deps_to_framework_version(tmp_path: Path) -> None:
+    # Caret on a 0.0.x version is locked to that exact patch, so a stale
+    # template pin silently downgrades fresh installs. The scaffold must
+    # substitute the running CLI's own version into client_app/package.json.
+    from importlib.metadata import version
+
+    expected = version("simple_module_cli")
+    runner = CliRunner()
+    target = tmp_path / "my-app"
+    runner.invoke(
+        app,
+        ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
+    )
+    data = json.loads((target / "client_app" / "package.json").read_text())
+    deps = data.get("dependencies", {})
+    for pkg in ("@simple-module-py/ui", "@simple-module-py/i18n"):
+        assert deps.get(pkg) == expected, (
+            f"{pkg} should be pinned to {expected}, got {deps.get(pkg)!r}"
+        )
+
+
 def test_sm_new_writes_generated_secret_key(tmp_path: Path) -> None:
     runner = CliRunner()
     target = tmp_path / "my-app"

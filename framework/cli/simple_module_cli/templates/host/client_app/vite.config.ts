@@ -1,8 +1,9 @@
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 
 const projectRoot = path.resolve(__dirname, '..');
 
@@ -19,8 +20,43 @@ if (fs.existsSync(manifestPath)) {
   }
 }
 
+// Module .tsx files live in `.venv/.../site-packages/<mod>/pages/`. Vite's
+// default resolver walks UP from the importing file looking for
+// `node_modules/`, but the host's `node_modules/` is in `client_app/` — a
+// sibling of the venv, not an ancestor. Bare imports from module pages
+// (`@simple-module-py/ui`, `lucide-react`, …) therefore fail with
+// "could not be resolved" even though the host has them installed.
+//
+// This plugin re-roots bare-import resolution at the host's node_modules
+// when the importer lives outside the project. It runs `pre` so it beats
+// vite's built-in resolver.
+const hostRequire = createRequire(path.join(__dirname, 'package.json'));
+const resolveCache = new Map<string, string | null>();
+
+function resolveFromHost(): Plugin {
+  return {
+    name: 'resolve-module-imports-from-host',
+    enforce: 'pre',
+    resolveId(source, importer) {
+      if (!importer) return null;
+      if (source.startsWith('.') || source.startsWith('/')) return null;
+      if (importer.startsWith(projectRoot + path.sep)) return null;
+      let resolved = resolveCache.get(source);
+      if (resolved === undefined) {
+        try {
+          resolved = hostRequire.resolve(source);
+        } catch {
+          resolved = null;
+        }
+        resolveCache.set(source, resolved);
+      }
+      return resolved;
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [resolveFromHost(), react(), tailwindcss()],
   root: __dirname,
   // Force every importer to resolve to one React copy — without it,
   // plugin-react's Fast Refresh preamble check fires in a realm where its
