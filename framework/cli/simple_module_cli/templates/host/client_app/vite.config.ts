@@ -13,12 +13,10 @@ const projectRoot = path.resolve(__dirname, '..');
 // dev server can read files outside the host root.
 const manifestPath = path.resolve(__dirname, 'modules.manifest.json');
 const moduleFsAllow: string[] = [];
-const moduleRoots: string[] = [];
 if (fs.existsSync(manifestPath)) {
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as Record<string, string>;
   for (const pagesDir of Object.values(manifest)) {
     moduleFsAllow.push(path.dirname(pagesDir));
-    moduleRoots.push(pagesDir);
   }
 }
 
@@ -31,8 +29,9 @@ if (fs.existsSync(manifestPath)) {
 //
 // This plugin re-roots bare-import resolution at the host's node_modules
 // when the importer lives outside the project. It runs `pre` so it beats
-// vite's built-in resolver. (See issue #116.)
+// vite's built-in resolver.
 const hostRequire = createRequire(path.join(__dirname, 'package.json'));
+const resolveCache = new Map<string, string | null>();
 
 function resolveFromHost(): Plugin {
   return {
@@ -40,18 +39,18 @@ function resolveFromHost(): Plugin {
     enforce: 'pre',
     resolveId(source, importer) {
       if (!importer) return null;
-      // Relative + absolute paths use the default resolver.
       if (source.startsWith('.') || source.startsWith('/')) return null;
-      // Only re-root when the importer lives outside the project (i.e. in
-      // a venv site-packages dir or any other module root). Importers
-      // already inside client_app/ resolve normally.
-      const inHost = importer.startsWith(projectRoot + path.sep);
-      if (inHost) return null;
-      try {
-        return hostRequire.resolve(source);
-      } catch {
-        return null;
+      if (importer.startsWith(projectRoot + path.sep)) return null;
+      let resolved = resolveCache.get(source);
+      if (resolved === undefined) {
+        try {
+          resolved = hostRequire.resolve(source);
+        } catch {
+          resolved = null;
+        }
+        resolveCache.set(source, resolved);
       }
+      return resolved;
     },
   };
 }
