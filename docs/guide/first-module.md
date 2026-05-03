@@ -150,24 +150,26 @@ class OrdersModule(ModuleBase):
         registry.add(
             MenuItem(
                 section=MenuSection.SIDEBAR,
-                key="orders",
-                label_key="orders.menu.orders",
-                href="/orders",
+                label="Orders",
+                url="/orders",
                 icon="package",
-                required_permission="orders.view",
                 order=20,
+                group="Content",
             )
         )
 
     def register_routes(
-        self, api: APIRouter, views: APIRouter
+        self, api_router: APIRouter, view_router: APIRouter
     ) -> None:
-        api.include_router(api_router, prefix="/api/orders")
-        views.include_router(view_router, prefix="/orders")
+        from orders.endpoints.api import router as api
+        from orders.endpoints.views import router as views
+
+        api_router.include_router(api)
+        view_router.include_router(views)
 ```
 
-- `label_key="orders.menu.orders"` — translated string. Add it to `orders/locales/en.json`.
-- `required_permission="orders.view"` — menu item is hidden for users who don't have it. `InertiaLayoutDataMiddleware` filters menus per request.
+- `MenuItem` takes `label` (the displayed string) and `url` (the link target). Translation is handled in the React layer via `useT()` — not on the menu definition. Pre-filter visibility via `roles=[...]` if the entry should only show for specific roles.
+- `route_prefix` / `view_prefix` from `ModuleMeta` already prefix the routers (`/api/orders` and `/orders`) — `register_routes` should mount the inner routers without re-adding the prefix.
 
 ## 7. Enforce permissions on endpoints
 
@@ -248,7 +250,7 @@ Keys flatten at boot: `orders.menu.orders`, `orders.browse.title`, etc. See [Int
 ## 9. Write a test
 
 ```python
-# modules/orders/tests/test_api.py
+# modules/orders/tests/test_orders.py
 import pytest
 
 @pytest.mark.asyncio

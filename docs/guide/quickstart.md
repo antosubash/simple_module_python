@@ -51,15 +51,18 @@ make new-module name=orders
 This generates `modules/orders/` with:
 
 - `pyproject.toml` — `[project.entry-points.simple_module]` → `orders.module:OrdersModule`
+- `package.json` + `tsconfig.json` — JS workspace metadata so `tsc --noEmit` covers the module's `.tsx` pages (SM017 warns if these are missing).
 - `orders/module.py` — `ModuleBase` subclass with `meta = ModuleMeta(name="Orders", ...)`
 - `orders/models.py` — `Order` SQLModel table with `AuditMixin`
 - `orders/contracts/schemas.py` — `OrderCreate`, `OrderOut` DTOs
 - `orders/service.py` — CRUD implementation
+- `orders/services.py` — module-scoped state container (stored on `app.state.orders` by `register_settings`)
+- `orders/deps.py` — FastAPI dependencies
 - `orders/endpoints/api.py` — REST endpoints at `/api/orders`
 - `orders/endpoints/views.py` — Inertia endpoints at `/orders`
 - `orders/pages/Browse.tsx`, `Create.tsx`, `Edit.tsx` — React pages
 - `orders/locales/en.json` — translation namespace
-- `modules/orders/tests/` — pytest test file
+- `modules/orders/tests/test_orders.py` — pytest smoke test
 
 The scaffolder registers the package and re-runs `uv sync --all-packages`, so the module is discoverable on next boot.
 

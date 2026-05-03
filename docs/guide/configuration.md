@@ -84,26 +84,32 @@ From then on, edit at `/settings/modules` (requires the `settings.manage` permis
 
 ## Per-module settings convention
 
-When you write your own module, declare settings as a dataclass on `app.state.<module_lower>` inside `register_settings(app)`. The prefix for env vars must be `SM_<MODULE>_*`.
+When you write your own module, declare settings as a `pydantic_settings.BaseSettings` subclass and store them on `app.state.<module_lower>` (the lowercase package name) inside `register_settings(app)`. Env-var prefix is `SM_<MODULE>_*`.
 
 ```python
 # modules/orders/orders/settings.py
-from dataclasses import dataclass
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-class OrdersEnv(BaseSettings):
+class OrdersSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="SM_ORDERS_", extra="ignore")
+
     max_items_per_order: int = 100
-    class Config:
-        env_prefix = "SM_ORDERS_"
+
+# modules/orders/orders/services.py
+from dataclasses import dataclass
+from orders.settings import OrdersSettings
 
 @dataclass
-class OrdersState:
-    settings: OrdersEnv
+class OrdersServices:
+    settings: OrdersSettings
 
 # modules/orders/orders/module.py
 class OrdersModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
-        app.state.orders = OrdersState(settings=OrdersEnv())
+        from orders.services import OrdersServices
+        from orders.settings import OrdersSettings
+
+        app.state.orders = OrdersServices(settings=OrdersSettings())
 ```
 
 If you override `register_settings` but don't write to `app.state.<module_lower>`, diagnostic `SM012` warns in dev. See [Settings & app.state](/framework/settings) for details.

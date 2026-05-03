@@ -74,7 +74,7 @@ make dev
 In parallel, this starts:
 
 - `uvicorn host.main:app` on `:8000` (the FastAPI + Inertia app)
-- `vite` on `:5173` (the frontend dev server with HMR)
+- `vite` on `:5050` (the frontend dev server with HMR)
 
 Hit `http://localhost:8000`. You should see the landing page. Stop both servers with `make kill`.
 
@@ -105,7 +105,7 @@ E2E tests are off by default (the root `pyproject.toml` pins `-m 'not e2e'`). Ru
 ## Troubleshooting
 
 **`make dev` says a port is in use.**
-Run `make kill` to free ports 8000 and 5173.
+Run `make kill` to free ports 8000 and 5050.
 
 **Alembic complains about revision mismatch.**
 Your local DB is ahead of or behind the migration files. For a dev DB, `rm app.db && make migrate`. For Postgres, `make docker-down && make docker-up && make migrate`.

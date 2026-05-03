@@ -69,26 +69,26 @@ modules/orders/
 ├── pyproject.toml             # entry point: simple_module = "orders.module:OrdersModule"
 ├── package.json               # npm workspace member (for page TSX + Biome)
 ├── tsconfig.json              # TypeScript project for the pages
-└── orders/
-    ├── __init__.py
-    ├── module.py              # ModuleBase subclass with meta = ModuleMeta(...)
-    ├── models.py              # SQLModel tables (optional — some modules are UI-only)
-    ├── contracts/             # SQLModel DTOs — the PUBLIC surface for other modules
-    │   └── schemas.py
-    ├── service.py             # business logic — takes AsyncSession, returns DTOs
-    ├── deps.py                # FastAPI dependencies (auth requirements, etc.)
-    ├── endpoints/
-    │   ├── api.py             # REST (JSON) endpoints
-    │   └── views.py           # Inertia view endpoints
-    ├── pages/                 # *.tsx — auto-discovered by Vite via modules.generated.ts
-    │   ├── Browse.tsx
-    │   ├── Create.tsx
-    │   └── Edit.tsx
-    ├── locales/
-    │   └── en.json            # translations, namespaced by module name
-    └── tests/
-        ├── test_api.py
-        └── test_service.py
+├── orders/
+│   ├── __init__.py
+│   ├── module.py              # ModuleBase subclass with meta = ModuleMeta(...)
+│   ├── models.py              # SQLModel tables (optional — some modules are UI-only)
+│   ├── contracts/             # SQLModel DTOs — the PUBLIC surface for other modules
+│   │   └── schemas.py
+│   ├── service.py             # business logic — takes AsyncSession, returns DTOs
+│   ├── services.py            # module-scoped state container — assigned to app.state.orders
+│   ├── deps.py                # FastAPI dependencies (auth requirements, etc.)
+│   ├── endpoints/
+│   │   ├── api.py             # REST (JSON) endpoints
+│   │   └── views.py           # Inertia view endpoints
+│   ├── pages/                 # *.tsx — auto-discovered by Vite via modules.generated.ts
+│   │   ├── Browse.tsx
+│   │   ├── Create.tsx
+│   │   └── Edit.tsx
+│   └── locales/
+│       └── en.json            # translations, namespaced by module name
+└── tests/
+    └── test_orders.py         # smoke test — extend with service/endpoint tests as needed
 ```
 
 See the [module authoring guide](/module-authoring) for the full contract.

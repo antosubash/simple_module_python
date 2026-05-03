@@ -23,7 +23,7 @@ Then bring up the full stack (in a separate terminal, leave it running):
 ```bash
 make docker-up     # Postgres (skip if using the default SQLite config)
 make migrate       # apply Alembic migrations
-make dev           # FastAPI on :8000 + Vite on :5173
+make dev           # FastAPI on :8000 + Vite on :5050
 ```
 
 Create the first admin user (needed for e2e auth):
