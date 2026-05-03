@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SimpleModule</title>
     {% inertia_head %}
+    {% if request.app.state.sm.inertia_config.environment == "development" %}
+    <script type="module">
+      import RefreshRuntime from "{{ request.app.state.sm.inertia_config.dev_url }}/@react-refresh";
+      RefreshRuntime.injectIntoGlobalHook(window);
+      window.$RefreshReg$ = () => {};
+      window.$RefreshSig$ = () => (type) => type;
+      window.__vite_plugin_react_preamble_installed__ = true;
+    </script>
+    {% endif %}
 </head>
 <body class="antialiased">
     {% inertia_body %}

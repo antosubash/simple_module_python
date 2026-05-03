@@ -198,7 +198,7 @@ def _pin_sample_module_deps(sample_dest: Path) -> None:
 def _pin_or_keep(dep: str) -> str:
     """Pin a ``simple_module_*`` requirement to the framework version; pass through otherwise."""
     pkg = dep.split(">=", 1)[0].split("==", 1)[0].split("<", 1)[0].strip()
-    if pkg.startswith("simple_module_") or pkg.startswith("simple-module-"):
+    if pkg.startswith(("simple_module_", "simple-module-")):
         return f"{pkg}=={_FRAMEWORK_VERSION}"
     return dep
 

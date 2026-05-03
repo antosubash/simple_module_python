@@ -16,8 +16,6 @@ def test_sm_new_generates_pyproject_with_expected_deps(tmp_path: Path) -> None:
         app,
         ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
-    # Workspace mode: framework/module deps live in host/pyproject.toml,
-    # not the workspace-root pyproject.
     pyproject_text = (target / "host" / "pyproject.toml").read_text()
     for required in (
         "simple_module_hosting",
@@ -35,8 +33,6 @@ def test_sm_new_generates_package_json_with_npm_deps(tmp_path: Path) -> None:
         app,
         ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
-    # Workspace mode: app npm deps land in host/client_app/package.json
-    # (the npm workspace member), not the top-level workspace package.json.
     data = json.loads((target / "host" / "client_app" / "package.json").read_text())
     assert "@simple-module-py/ui" in data.get("dependencies", {})
     assert "@simple-module-py/i18n" in data.get("dependencies", {})
@@ -44,9 +40,6 @@ def test_sm_new_generates_package_json_with_npm_deps(tmp_path: Path) -> None:
 
 
 def test_sm_new_pins_client_app_simple_module_deps_to_framework_version(tmp_path: Path) -> None:
-    # Caret on a 0.0.x version is locked to that exact patch, so a stale
-    # template pin silently downgrades fresh installs. The scaffold must
-    # substitute the running CLI's own version into client_app/package.json.
     from importlib.metadata import version
 
     expected = version("simple_module_cli")
@@ -224,17 +217,14 @@ def test_sm_new_default_scaffolds_sample_hello_module(tmp_path: Path) -> None:
 
 
 def test_sm_new_default_lays_down_workspace_layout(tmp_path: Path) -> None:
-    """Default mode mirrors the framework repo: workspace root + host/ subdir + modules/."""
     runner = CliRunner()
     target = tmp_path / "demo"
     runner.invoke(
         app,
         ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
-    # Workspace root files
     for relpath in ("pyproject.toml", "package.json", "Makefile", ".env.example"):
         assert (target / relpath).is_file(), f"missing workspace root file: {relpath}"
-    # Host moves under host/
     for relpath in (
         "main.py",
         "alembic.ini",
@@ -243,20 +233,11 @@ def test_sm_new_default_lays_down_workspace_layout(tmp_path: Path) -> None:
         "client_app/vite.config.ts",
     ):
         assert (target / "host" / relpath).is_file(), f"missing host file: {relpath}"
-    # The host's own copies of files the workspace owns are stripped to
-    # avoid two stale .env.example / README.md hanging around.
-    assert not (target / "host" / ".env.example").exists()
-    assert not (target / "host" / "README.md").exists()
-    assert not (target / "host" / ".gitignore").exists()
+    for relpath in (".env.example", "README.md", ".gitignore"):
+        assert not (target / "host" / relpath).exists()
 
 
 def test_sm_new_default_wires_workspace_in_pyproject(tmp_path: Path) -> None:
-    """Default mode declares ``host`` and ``modules/*`` as uv workspace members.
-
-    The workspace root pyproject is bare (no app deps); the host's
-    pyproject carries the simple_module_* deps and a [tool.uv.sources]
-    entry pointing the sample at the workspace, not PyPI.
-    """
     runner = CliRunner()
     target = tmp_path / "demo"
     runner.invoke(
@@ -275,7 +256,6 @@ def test_sm_new_default_wires_workspace_in_pyproject(tmp_path: Path) -> None:
 
 
 def test_sm_new_default_adds_npm_workspaces_field(tmp_path: Path) -> None:
-    """Default mode declares ``workspaces`` so vite picks up modules/<name>/."""
     runner = CliRunner()
     target = tmp_path / "demo"
     runner.invoke(
@@ -283,8 +263,6 @@ def test_sm_new_default_adds_npm_workspaces_field(tmp_path: Path) -> None:
         ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
     data = json.loads((target / "package.json").read_text())
-    # host/client_app + every module is hoisted into one node_modules so
-    # vite's resolver finds bare imports without per-module aliasing.
     assert data.get("workspaces") == ["host/client_app", "modules/*"]
 
 
