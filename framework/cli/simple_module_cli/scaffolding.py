@@ -85,6 +85,7 @@ def create_host(
     name: str,
     modules: Sequence[str],
     template_root: Path | None = None,
+    framework_version: str = "*",
 ) -> Path:
     dest = Path(dest)
     _require_empty_dest(dest)
@@ -92,7 +93,11 @@ def create_host(
     _apply_template_files(
         _resolve_template_root("host", template_root),
         dest,
-        {"{{HOST_NAME}}": name, "{{MODULE_DEPS}}": module_dep_lines},
+        {
+            "{{HOST_NAME}}": name,
+            "{{MODULE_DEPS}}": module_dep_lines,
+            "{{FRAMEWORK_VERSION}}": framework_version,
+        },
     )
     logger.info(
         "Scaffolded host '%s' at %s (modules: %s)", name, dest, ", ".join(modules) or "<none>"
