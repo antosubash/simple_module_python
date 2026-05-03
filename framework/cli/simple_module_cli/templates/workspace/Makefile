@@ -9,7 +9,7 @@ dev: gen-pages
 	$(MAKE) -j2 dev-api dev-ui
 
 dev-api:
-	cd host && uv run uvicorn main:app --reload --port 8000
+	$(MAKE) -C host dev-api
 
 dev-ui:
 	npm run dev
@@ -28,11 +28,10 @@ sync-module-deps:
 	uv run --project host sm host sync-js-deps --host-client-app=host/client_app
 
 migrate:
-	cd host && uv run alembic upgrade head
+	$(MAKE) -C host migrate
 
 migration:
-	@test -n "$(msg)" || (echo 'Usage: make migration msg="describe the change"' && exit 1)
-	cd host && uv run alembic revision --autogenerate -m "$(msg)"
+	$(MAKE) -C host migration msg="$(msg)"
 
 kill:
 	@-pkill -f "uvicorn main:app" 2>/dev/null

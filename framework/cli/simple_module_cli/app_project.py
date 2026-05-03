@@ -71,10 +71,8 @@ _APP_NPM_DEV_DEPS = {
     "vite": "^8.0.0",
 }
 
-# Files the host template ships that the workspace owns at the project
-# root in workspace mode. After scaffolding the host into ``host/``, we
-# delete these duplicates so the workspace template's copies stay
-# canonical.
+# Files the host template ships that the workspace template re-emits at
+# the project root. Host copies are stripped in workspace mode.
 _HOST_FILES_OWNED_BY_WORKSPACE = (".env.example", ".gitignore", "README.md")
 
 
@@ -226,11 +224,9 @@ def _write_flat_top_level_package_json(target: Path, *, name: str) -> None:
 def _db_url(db: str, slug: str, *, flat: bool) -> str:
     if db == "postgres":
         return f"postgresql+asyncpg://postgres:postgres@localhost:5432/{slug}"
-    # In workspace mode the SQLite file lives next to the host (``host/app.db``)
-    # so ``cd host && uvicorn`` and ``cd host && alembic ...`` agree on the path.
-    if flat:
-        return "sqlite+aiosqlite:///./app.db"
-    return "sqlite+aiosqlite:///./host/app.db"
+    # Workspace mode keeps the SQLite file next to host/'s alembic.ini so
+    # `cd host && uvicorn` and `cd host && alembic` resolve the same path.
+    return "sqlite+aiosqlite:///./app.db" if flat else "sqlite+aiosqlite:///./host/app.db"
 
 
 def _rewrite_pyproject(
