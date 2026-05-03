@@ -9,17 +9,6 @@ from simple_module_cli.cli import app
 from typer.testing import CliRunner
 
 
-def test_sm_new_creates_app_directory(tmp_path: Path) -> None:
-    runner = CliRunner()
-    target = tmp_path / "my-app"
-    result = runner.invoke(
-        app,
-        ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
-    )
-    assert result.exit_code == 0, result.output
-    assert target.is_dir()
-
-
 def test_sm_new_generates_pyproject_with_expected_deps(tmp_path: Path) -> None:
     runner = CliRunner()
     target = tmp_path / "my-app"
@@ -27,7 +16,9 @@ def test_sm_new_generates_pyproject_with_expected_deps(tmp_path: Path) -> None:
         app,
         ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
-    pyproject_text = (target / "pyproject.toml").read_text()
+    # Workspace mode: framework/module deps live in host/pyproject.toml,
+    # not the workspace-root pyproject.
+    pyproject_text = (target / "host" / "pyproject.toml").read_text()
     for required in (
         "simple_module_hosting",
         "simple_module_users",
@@ -44,7 +35,9 @@ def test_sm_new_generates_package_json_with_npm_deps(tmp_path: Path) -> None:
         app,
         ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
-    data = json.loads((target / "package.json").read_text())
+    # Workspace mode: app npm deps land in host/client_app/package.json
+    # (the npm workspace member), not the top-level workspace package.json.
+    data = json.loads((target / "host" / "client_app" / "package.json").read_text())
     assert "@simple-module-py/ui" in data.get("dependencies", {})
     assert "@simple-module-py/i18n" in data.get("dependencies", {})
     assert "@simple-module-py/tsconfig" in data.get("devDependencies", {})
@@ -63,7 +56,7 @@ def test_sm_new_pins_client_app_simple_module_deps_to_framework_version(tmp_path
         app,
         ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
-    data = json.loads((target / "client_app" / "package.json").read_text())
+    data = json.loads((target / "host" / "client_app" / "package.json").read_text())
     deps = data.get("dependencies", {})
     for pkg in ("@simple-module-py/ui", "@simple-module-py/i18n"):
         assert deps.get(pkg) == expected, (
@@ -97,7 +90,7 @@ def test_create_app_project_with_selected_kwarg(tmp_path: Path) -> None:
         selected=["users", "background_tasks"],
     )
 
-    pyproject = (target / "pyproject.toml").read_text()
+    pyproject = (target / "host" / "pyproject.toml").read_text()
     assert "simple_module_background_tasks" in pyproject
     assert "simple_module_auth" in pyproject  # auto-added (users requires auth)
     assert "simple_module_dashboard" not in pyproject
@@ -127,7 +120,7 @@ def test_create_app_project_default_selected_keeps_back_compat(tmp_path: Path) -
 
     target = tmp_path / "demo"
     create_app_project(target, name="demo", db="sqlite", tenancy=False)
-    pyproject = (target / "pyproject.toml").read_text()
+    pyproject = (target / "host" / "pyproject.toml").read_text()
     for required in (
         "simple_module_users",
         "simple_module_dashboard",
@@ -146,7 +139,7 @@ def test_sm_new_with_preset_full_includes_background_tasks(tmp_path: Path) -> No
     assert result.exit_code == 0, result.output
     assert (target / "scripts" / "run_worker.py").is_file()
     assert (target / "docker-compose.yml").is_file()
-    pyproject = (target / "pyproject.toml").read_text()
+    pyproject = (target / "host" / "pyproject.toml").read_text()
     assert "simple_module_background_tasks" in pyproject
 
 
@@ -169,7 +162,7 @@ def test_sm_new_with_explicit_with_flag(tmp_path: Path) -> None:
         ],
     )
     assert result.exit_code == 0, result.output
-    pyproject = (target / "pyproject.toml").read_text()
+    pyproject = (target / "host" / "pyproject.toml").read_text()
     assert "simple_module_users" in pyproject
     assert "simple_module_background_tasks" in pyproject
     assert "simple_module_auth" in pyproject
@@ -195,7 +188,7 @@ def test_sm_new_yes_with_no_flags_uses_standard_preset(tmp_path: Path) -> None:
         ["new", "demo", "--yes", "--no-install", "--dest", str(target)],
     )
     assert result.exit_code == 0, result.output
-    pyproject = (target / "pyproject.toml").read_text()
+    pyproject = (target / "host" / "pyproject.toml").read_text()
     for required in (
         "simple_module_users",
         "simple_module_dashboard",
@@ -230,21 +223,55 @@ def test_sm_new_default_scaffolds_sample_hello_module(tmp_path: Path) -> None:
     assert (target / "modules" / "hello" / "hello" / "module.py").is_file()
 
 
-def test_sm_new_default_wires_workspace_in_pyproject(tmp_path: Path) -> None:
-    """Default mode adds [tool.uv.workspace] members + a workspace source for the sample."""
+def test_sm_new_default_lays_down_workspace_layout(tmp_path: Path) -> None:
+    """Default mode mirrors the framework repo: workspace root + host/ subdir + modules/."""
     runner = CliRunner()
     target = tmp_path / "demo"
     runner.invoke(
         app,
         ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
-    pyproject_text = (target / "pyproject.toml").read_text()
-    assert "[tool.uv.workspace]" in pyproject_text
-    assert 'members = ["modules/*"]' in pyproject_text
-    assert "simple_module_hello" in pyproject_text
-    # Sample module is a workspace source, not pulled from PyPI.
-    assert "[tool.uv.sources" in pyproject_text
-    assert "workspace = true" in pyproject_text
+    # Workspace root files
+    for relpath in ("pyproject.toml", "package.json", "Makefile", ".env.example"):
+        assert (target / relpath).is_file(), f"missing workspace root file: {relpath}"
+    # Host moves under host/
+    for relpath in (
+        "main.py",
+        "alembic.ini",
+        "pyproject.toml",
+        "client_app/package.json",
+        "client_app/vite.config.ts",
+    ):
+        assert (target / "host" / relpath).is_file(), f"missing host file: {relpath}"
+    # The host's own copies of files the workspace owns are stripped to
+    # avoid two stale .env.example / README.md hanging around.
+    assert not (target / "host" / ".env.example").exists()
+    assert not (target / "host" / "README.md").exists()
+    assert not (target / "host" / ".gitignore").exists()
+
+
+def test_sm_new_default_wires_workspace_in_pyproject(tmp_path: Path) -> None:
+    """Default mode declares ``host`` and ``modules/*`` as uv workspace members.
+
+    The workspace root pyproject is bare (no app deps); the host's
+    pyproject carries the simple_module_* deps and a [tool.uv.sources]
+    entry pointing the sample at the workspace, not PyPI.
+    """
+    runner = CliRunner()
+    target = tmp_path / "demo"
+    runner.invoke(
+        app,
+        ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
+    )
+    workspace_pyproject = (target / "pyproject.toml").read_text()
+    assert "[tool.uv.workspace]" in workspace_pyproject
+    assert 'members = ["host", "modules/*"]' in workspace_pyproject
+
+    host_pyproject = (target / "host" / "pyproject.toml").read_text()
+    assert "simple_module_hello" in host_pyproject
+    # Sample module is resolved from the workspace, not PyPI.
+    assert "[tool.uv.sources" in host_pyproject
+    assert "workspace = true" in host_pyproject
 
 
 def test_sm_new_default_adds_npm_workspaces_field(tmp_path: Path) -> None:
@@ -256,7 +283,9 @@ def test_sm_new_default_adds_npm_workspaces_field(tmp_path: Path) -> None:
         ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
     data = json.loads((target / "package.json").read_text())
-    assert data.get("workspaces") == ["client_app", "modules/*"]
+    # host/client_app + every module is hoisted into one node_modules so
+    # vite's resolver finds bare imports without per-module aliasing.
+    assert data.get("workspaces") == ["host/client_app", "modules/*"]
 
 
 def test_sm_new_flat_skips_modules_dir(tmp_path: Path) -> None:

@@ -1,9 +1,10 @@
 """Greenfield ``simple-module new`` scaffolding.
 
-Wraps :func:`simple_module_hosting.scaffolding.create_host` with the
-opinionated bits — module-list resolution from the CLI catalog, secret
-generation, DB URL selection, ``pyproject.toml`` / ``package.json``
-rewriting, and post-scaffold recipe application.
+Wraps :func:`simple_module_cli.scaffolding.create_host` (and, in
+workspace mode, :func:`create_workspace`) with the opinionated bits —
+module-list resolution from the CLI catalog, secret generation, DB URL
+selection, ``pyproject.toml`` / ``package.json`` rewriting, and
+post-scaffold recipe application.
 
 Lives in its own module to keep ``scaffolding.py`` under the per-file
 line cap and to make the surface area of "host scaffold" vs "app
@@ -24,7 +25,12 @@ from simple_module_cli._env import set_env_key
 from simple_module_cli.case import to_kebab_case, to_pascal_case
 from simple_module_cli.catalog import CATALOG, PRESETS, expand_deps
 from simple_module_cli.recipes import RECIPES, ScaffoldCtx
-from simple_module_cli.scaffolding import _module_to_pypi_name, create_host, create_module
+from simple_module_cli.scaffolding import (
+    _module_to_pypi_name,
+    create_host,
+    create_module,
+    create_workspace,
+)
 
 __all__ = ["create_app_project"]
 
@@ -56,7 +62,7 @@ _APP_NPM_DEPS = {
     "@simple-module-py/i18n": _FRAMEWORK_VERSION,
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@inertiajs/react": "^1.0.0",
+    "@inertiajs/react": "^2.0.0",
 }
 _APP_NPM_DEV_DEPS = {
     "@simple-module-py/tsconfig": _FRAMEWORK_VERSION,
@@ -64,6 +70,12 @@ _APP_NPM_DEV_DEPS = {
     "typescript": "^5.6.0",
     "vite": "^8.0.0",
 }
+
+# Files the host template ships that the workspace owns at the project
+# root in workspace mode. After scaffolding the host into ``host/``, we
+# delete these duplicates so the workspace template's copies stay
+# canonical.
+_HOST_FILES_OWNED_BY_WORKSPACE = (".env.example", ".gitignore", "README.md")
 
 
 def create_app_project(
@@ -77,9 +89,14 @@ def create_app_project(
 ) -> None:
     """Greenfield ``simple-module new`` scaffold.
 
-    Wraps :func:`create_host` with a chosen module list (defaults to the
-    ``standard`` preset), generates a secret, picks a DB URL, rewrites
-    the generated ``package.json`` / ``pyproject.toml`` to pin exact
+    In workspace mode (the default), lays down a uv + npm workspace at
+    ``target/`` with the host under ``target/host/`` and a sample module
+    under ``target/modules/hello/``. In flat mode (``flat=True``), keeps
+    the legacy single-host layout: host files at ``target/`` with no
+    ``modules/`` directory or workspace plumbing.
+
+    Generates a secret, picks a DB URL, rewrites the host's
+    ``pyproject.toml`` / the relevant ``package.json`` to pin exact
     framework versions, and applies any matching post-scaffold recipes
     (e.g. the ``background_tasks`` recipe drops a Celery worker stack).
     """
@@ -93,40 +110,44 @@ def create_app_project(
     resolved, _added = expand_deps(chosen)
 
     display_names = [to_pascal_case(CATALOG[m].display) for m in resolved]
-    create_host(target, name=name, modules=display_names, framework_version=_FRAMEWORK_VERSION)
+    host_dir = target if flat else target / "host"
+    if not flat:
+        target.mkdir(parents=True, exist_ok=True)
+        create_workspace(target, name=name)
+    create_host(host_dir, name=name, modules=display_names, framework_version=_FRAMEWORK_VERSION)
+    if not flat:
+        _strip_workspace_owned_files(host_dir)
 
     py_deps = [f"simple_module_hosting=={_FRAMEWORK_VERSION}"] + [
         f"{CATALOG[m].package}=={_FRAMEWORK_VERSION}" for m in resolved
     ]
 
-    env_path = target / ".env.example"
-    env_text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
-    env_text = set_env_key(env_text, "SM_SECRET_KEY", _secrets.token_urlsafe(32))
-    env_text = set_env_key(env_text, "SM_DATABASE_URL", _db_url(db, to_kebab_case(name)))
-    env_text = set_env_key(env_text, "SM_MULTI_TENANT", "true" if tenancy else "false")
-    env_path.write_text(env_text, encoding="utf-8")
-
+    workspace_sources: list[str] = []
     if not flat:
         _scaffold_sample_module(target)
         py_deps.append(_SAMPLE_MODULE_PKG)
+        workspace_sources.append(_SAMPLE_MODULE_PKG)
 
-    pyproject = target / "pyproject.toml"
-    if pyproject.exists():
-        text = pyproject.read_text(encoding="utf-8")
-        text = _rewrite_pyproject(text, py_deps, _APP_PY_DEV_DEPS, flat=flat)
-        pyproject.write_text(text, encoding="utf-8")
+    env_path = target / ".env.example"
+    env_text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
+    env_text = set_env_key(env_text, "SM_SECRET_KEY", _secrets.token_urlsafe(32))
+    env_text = set_env_key(env_text, "SM_DATABASE_URL", _db_url(db, to_kebab_case(name), flat=flat))
+    env_text = set_env_key(env_text, "SM_MULTI_TENANT", "true" if tenancy else "false")
+    env_path.write_text(env_text, encoding="utf-8")
 
-    pkg_path = target / "package.json"
-    data: dict[str, Any]
-    if pkg_path.exists():
-        data = _json.loads(pkg_path.read_text(encoding="utf-8"))
-    else:
-        data = {"name": to_kebab_case(name), "private": True, "type": "module"}
-    data.setdefault("dependencies", {}).update(_APP_NPM_DEPS)
-    data.setdefault("devDependencies", {}).update(_APP_NPM_DEV_DEPS)
-    if not flat:
-        data["workspaces"] = ["client_app", "modules/*"]
-    pkg_path.write_text(_json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    host_pyproject = host_dir / "pyproject.toml"
+    text = host_pyproject.read_text(encoding="utf-8")
+    # Workspace mode needs the host's [project].name distinct from the
+    # workspace root's, otherwise uv refuses with "two workspace members
+    # are both named ...". Flat mode keeps the user's exact name.
+    project_name = None if flat else f"{to_kebab_case(name)}-host"
+    text = _rewrite_pyproject(
+        text, py_deps, _APP_PY_DEV_DEPS, sources=workspace_sources, project_name=project_name
+    )
+    host_pyproject.write_text(text, encoding="utf-8")
+
+    if flat:
+        _write_flat_top_level_package_json(target, name=name)
 
     ctx = ScaffoldCtx(name=name, db=db, tenancy=tenancy, selected=tuple(resolved))
     for mod_name in resolved:
@@ -135,45 +156,113 @@ def create_app_project(
             RECIPES[recipe_key].apply(target, ctx)
 
 
-def _scaffold_sample_module(target: Path) -> None:
-    """Give the user a place to copy when they want to add a feature module.
+def _strip_workspace_owned_files(host_dir: Path) -> None:
+    """Drop host copies of files the workspace root owns in workspace mode."""
+    for relpath in _HOST_FILES_OWNED_BY_WORKSPACE:
+        (host_dir / relpath).unlink(missing_ok=True)
 
-    The alternative is reverse-engineering one of the wheel-installed
-    framework modules from ``.venv/site-packages/``.
-    """
+
+def _scaffold_sample_module(target: Path) -> None:
     sample_dest = target / "modules" / _SAMPLE_MODULE_NAME
     if sample_dest.exists():
         return
     create_module(sample_dest, name=_SAMPLE_MODULE_NAME)
+    _pin_sample_module_deps(sample_dest)
+    # Hatch's force-include directive resolves at build time even for
+    # editable installs; an empty placeholder dir keeps `uv sync` from
+    # failing before the user has run vite build.
+    static_dist = sample_dest / _SAMPLE_MODULE_NAME / "static" / "dist"
+    static_dist.mkdir(parents=True, exist_ok=True)
+    (static_dist / ".gitkeep").touch()
 
 
-def _db_url(db: str, slug: str) -> str:
+def _pin_sample_module_deps(sample_dest: Path) -> None:
+    """Replace the module template's future-API range pins with exact pins.
+
+    The shared ``sm create-module`` template ships ``>=1.0,<2.0`` against the
+    framework's eventual stable line, but the workspace-bundled sample has to
+    resolve against whatever the framework version actually is today (``==X``
+    in pre-1.0). Without rewriting, ``uv sync`` can't satisfy the workspace.
+    """
+    import tomlkit
+
+    pyproject = sample_dest / "pyproject.toml"
+    doc = tomlkit.parse(pyproject.read_text(encoding="utf-8"))
+    project = doc["project"]
+    project["dependencies"] = [_pin_or_keep(dep) for dep in project.get("dependencies", [])]
+    optional = project.get("optional-dependencies")
+    if optional is not None:
+        for extra, deps in list(optional.items()):
+            optional[extra] = [_pin_or_keep(dep) for dep in deps]
+    pyproject.write_text(tomlkit.dumps(doc), encoding="utf-8")
+
+
+def _pin_or_keep(dep: str) -> str:
+    """Pin a ``simple_module_*`` requirement to the framework version; pass through otherwise."""
+    pkg = dep.split(">=", 1)[0].split("==", 1)[0].split("<", 1)[0].strip()
+    if pkg.startswith("simple_module_") or pkg.startswith("simple-module-"):
+        return f"{pkg}=={_FRAMEWORK_VERSION}"
+    return dep
+
+
+def _write_flat_top_level_package_json(target: Path, *, name: str) -> None:
+    """In flat mode the host template doesn't ship a top-level ``package.json``.
+
+    Create one so ``npm install`` from the project root resolves the
+    framework npm deps. Workspace mode doesn't need this — the workspace
+    template already emits a workspaces-aware top-level package.json.
+    """
+    pkg_path = target / "package.json"
+    data: dict[str, Any]
+    if pkg_path.exists():
+        data = _json.loads(pkg_path.read_text(encoding="utf-8"))
+    else:
+        data = {"name": to_kebab_case(name), "private": True, "type": "module"}
+    data.setdefault("dependencies", {}).update(_APP_NPM_DEPS)
+    data.setdefault("devDependencies", {}).update(_APP_NPM_DEV_DEPS)
+    pkg_path.write_text(_json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
+def _db_url(db: str, slug: str, *, flat: bool) -> str:
     if db == "postgres":
         return f"postgresql+asyncpg://postgres:postgres@localhost:5432/{slug}"
-    return "sqlite+aiosqlite:///./app.db"
+    # In workspace mode the SQLite file lives next to the host (``host/app.db``)
+    # so ``cd host && uvicorn`` and ``cd host && alembic ...`` agree on the path.
+    if flat:
+        return "sqlite+aiosqlite:///./app.db"
+    return "sqlite+aiosqlite:///./host/app.db"
 
 
-def _rewrite_pyproject(text: str, deps: list[str], dev_deps: list[str], *, flat: bool) -> str:
-    """Replace deps + wire uv workspace based on ``flat`` mode.
+def _rewrite_pyproject(
+    text: str,
+    deps: list[str],
+    dev_deps: list[str],
+    *,
+    sources: Sequence[str] = (),
+    project_name: str | None = None,
+) -> str:
+    """Replace deps in a host ``pyproject.toml`` and pin workspace sources.
 
-    Workspace mode (``flat=False``) adds a ``[tool.uv.sources]`` entry so uv
-    resolves the bundled sample module from the workspace, not PyPI. Flat
-    mode strips the static ``[tool.uv.workspace]`` block inherited from the
-    template — there is no ``modules/`` tree for it to point at.
+    ``sources`` lists ``simple_module_*`` packages that should resolve from
+    the uv workspace (``modules/*``) instead of PyPI. Emits a
+    ``[tool.uv.sources]`` block per entry. Empty in flat mode.
+
+    ``project_name`` overrides ``[project].name`` — set in workspace mode
+    so the host's package name differs from the workspace root's.
     """
     import tomlkit
 
     doc = tomlkit.parse(text)
     project = doc.setdefault("project", tomlkit.table())
+    if project_name is not None:
+        project["name"] = project_name
     project["dependencies"] = list(deps)
     groups = doc.setdefault("dependency-groups", tomlkit.table())
     groups["dev"] = list(dev_deps)
-    tool = doc.setdefault("tool", tomlkit.table())
-    uv_table = tool.setdefault("uv", tomlkit.table())
-    if flat:
-        if "workspace" in uv_table:
-            del uv_table["workspace"]
-    else:
-        sources = uv_table.setdefault("sources", tomlkit.table())
-        sources[_SAMPLE_MODULE_PKG] = {"workspace": True}
+    if sources:
+        tool = doc.setdefault("tool", tomlkit.table())
+        uv_table = tool.setdefault("uv", tomlkit.table())
+        uv_sources = uv_table.setdefault("sources", tomlkit.table())
+        for src in sources:
+            uv_sources[src] = {"workspace": True}
     return tomlkit.dumps(doc)

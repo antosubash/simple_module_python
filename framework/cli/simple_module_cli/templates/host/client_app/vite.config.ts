@@ -5,7 +5,23 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
-const projectRoot = path.resolve(__dirname, '..');
+// Host project boundary — used by the resolver plugin below to decide
+// whether an importer needs re-rooting. Always one level up from
+// client_app/, regardless of layout.
+const hostRoot = path.resolve(__dirname, '..');
+
+// File-system serve root — the directory that holds `node_modules`. In flat
+// mode that's `hostRoot`; in workspace mode npm hoists `node_modules` to the
+// workspace root one level higher, so we walk up to find it.
+function findNodeModulesRoot(start: string): string {
+  let dir = start;
+  while (dir !== path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, 'node_modules'))) return dir;
+    dir = path.dirname(dir);
+  }
+  return start;
+}
+const fsRoot = findNodeModulesRoot(__dirname);
 
 // Load the module pages manifest written by the Python host at boot.
 // Each entry points at an absolute pages/ directory — typically inside a
@@ -40,7 +56,7 @@ function resolveFromHost(): Plugin {
     resolveId(source, importer) {
       if (!importer) return null;
       if (source.startsWith('.') || source.startsWith('/')) return null;
-      if (importer.startsWith(projectRoot + path.sep)) return null;
+      if (importer.startsWith(hostRoot + path.sep)) return null;
       let resolved = resolveCache.get(source);
       if (resolved === undefined) {
         try {
@@ -90,7 +106,7 @@ export default defineConfig({
     strictPort: true,
     origin: 'http://localhost:5050',
     fs: {
-      allow: [projectRoot, ...moduleFsAllow],
+      allow: [fsRoot, ...moduleFsAllow],
     },
   },
 });
