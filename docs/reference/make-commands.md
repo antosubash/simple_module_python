@@ -1,137 +1,87 @@
-# Make commands
+# Commands
 
-Everything day-to-day flows through `make`. The `Makefile` at the repo root is the interface — if it isn't a `make <target>`, it isn't a routine operation.
+Two surfaces drive day-to-day work:
 
-## Setup & install
+1. **The `sm` CLI** — installed globally with `uv tool install simple_module_cli`. Used to scaffold apps and modules and to bump dependency versions.
+2. **The Makefile in your scaffolded app** — a thin wrapper around `uv` and `npm` for the inner dev loop (`dev`, `migrate`, `build`, `gen-pages`).
 
-| Command | What |
-|---|---|
-| `make install` | `uv sync --all-packages` + `npm install`. Safe to re-run — picks up new packages and entry points. |
-| `make doctor` | Static analysis: orphan pages, coupling violations, migration drift, locale consistency. Same checks run at prod boot. Exits non-zero on errors. |
+Past those, there's no hidden tooling — read the `Makefile` and pyproject.toml in your app directly when something surprises you.
 
-## Dev
+## `sm` CLI
 
-| Command | What |
-|---|---|
-| `make dev` | `make docker-up` + regen module pages + API (`uvicorn` on `:8000`) + Vite (`:5050`) in parallel. |
-| `make kill` | Free ports 8000, 5050, 5173. Useful when `make dev` crashed and left orphans. |
-| `make gen-pages` | Regenerate `host/client_app/modules.{manifest.json,generated.ts,generated.css}` from installed modules. Auto-runs before `make dev`. |
-| `make sync-module-deps` | Install JS deps declared by wheel-installed modules into `host/client_app/node_modules`. In-repo workspace modules don't need this. |
-| `make docker-up` | Start the Postgres + Redis containers defined in `docker-compose.yml`. |
-| `make docker-down` | Stop them. |
+```bash
+sm --help
+```
 
-## Test
+### Scaffolders
 
 | Command | What |
 |---|---|
-| `make test` | `make test-py` then `make test-js`. E2E excluded. |
-| `make test-py` | `uv run pytest` — the root config pins `-m 'not e2e'` and `asyncio_mode=auto`. |
-| `make test-js` | `npx vitest run --passWithNoTests`. |
-| `make test-e2e` | Playwright smoke suite. Requires `make dev` already running and `uv run playwright install chromium` done once. |
+| `sm new <name>` | Scaffold a new app at `./<name>`. Interactive by default; pass `--yes` for defaults, `--preset minimal\|standard\|full`, `--with mod1,mod2` for extras, `--db sqlite\|postgres`, `--tenancy`, `--flat` (no `modules/` dir). |
+| `sm create-module <name>` | Scaffold a publishable module package at `./simple_module_<name>` (or `--dest <path>`). |
+| `sm create-host <name>` | Scaffold just a host project (no sample module). Useful when you want a minimal shell that consumes published modules. |
 
-Single test: `uv run pytest path/to/test_file.py::test_name`. Single Vitest file: `npx vitest run <path>`.
+### Maintenance
 
-## Lint & typecheck
+| Command | What |
+|---|---|
+| `sm package-update` | Bump every `simple_module_*` dependency in `pyproject.toml` to the latest PyPI version. `--dry-run` previews the diff. |
+| `sm skills add\|list\|update` | Install or update the bundled agent skills under `.claude/skills/` for use with Claude Code. |
 
-`make lint` runs the whole battery serially; CI runs them as parallel jobs. The aggregate `pr-checks` job is the required status check on `main`.
+### Module-contributed plugins
 
-| Step | Tool | What it catches |
+When a module declares a `simple_module_cli.cli_plugins` entry point, the CLI mounts it as a `sm <name> ...` subgroup. The bundled modules contribute:
+
+| Command | From | What |
 |---|---|---|
-| Format | Ruff | Python format drift |
-| Lint | Ruff | Python style / common bugs |
-| Type | ty | Python type errors (SQLModel false positives are globally suppressed) |
-| Lint/format | Biome | JS/TS lint + format in one pass |
-| Type | tsc | Per-workspace `tsc --noEmit` |
-| Size | `scripts/check_file_size.py` | 300-line cap on `.py`/`.ts`/`.tsx` (exempts vendored shadcn under `packages/ui/src/components/ui/**`) |
+| `sm host gen-pages` | `simple_module_hosting` | Regenerate `client_app/modules.{manifest.json,generated.ts,generated.css}` from the installed modules. Run when you add or remove pages. |
+| `sm host sync-js-deps` | `simple_module_hosting` | Install JS deps declared by wheel-installed modules into `client_app/node_modules`. In-repo workspace modules don't need this. |
+| `sm settings import-from-env` | `simple_module_settings` | One-shot migration: read every `SM_<MODULE>_*` env var and seed it as a SYSTEM-scope row in the DB-backed settings store. Idempotent. |
 
-Run a single step on its own:
+`sm-users create-admin` is also installed via the `users` module, but as a separate top-level entry point (not under `sm`):
 
-- `uv run ruff format --check .`
-- `uv run ruff check .`
-- `uv run ty check .`
-- `npx biome check .`
-- `npm run typecheck`
+```bash
+uv run sm-users create-admin --email admin@example.com --password changeme
+```
 
-## Migrations
+## Scaffolded-app Makefile
+
+`sm new` writes a slim Makefile to your app. The intent is *zero magic* — every target is one or two lines you could run by hand.
 
 | Command | What |
 |---|---|
-| `make migrate` | `alembic upgrade head`. Idempotent. |
-| `make migration msg="add orders tables"` | `alembic revision --autogenerate -m "..."`. Review the file before committing. |
+| `make install` | `uv sync` + `cd client_app && npm install` + `make sync-js-deps`. Re-runs are safe. |
+| `make dev` | `make gen-pages`, then `uvicorn main:app --reload` on `:8000` and `vite` on `:5050` in parallel. |
+| `make migrate` | `uv run alembic upgrade head`. Idempotent. |
+| `make build` | `cd client_app && npm run build`. Produces the production frontend bundle. |
+| `make gen-pages` | Regenerate the page manifest. Auto-runs before `make dev`. Same effect as `sm host gen-pages`. |
+| `make sync-js-deps` | Install JS deps from wheel-installed modules. Same effect as `sm host sync-js-deps`. |
 
-Downgrade (no dedicated make target):
+If you included `background_tasks` in `sm new`, the scaffold appends `worker`, `beat`, and `worker-docker` targets that wrap the Celery commands — read your `Makefile` to see the exact invocations.
 
-```bash
-uv run alembic downgrade -1                 # one step back
-uv run alembic downgrade <rev_id>           # to a specific revision
-uv run alembic downgrade orders@base        # uninstall one module
-```
+## Routine ops without a target
 
-## Scaffolding
+The scaffolded Makefile intentionally doesn't wrap one-off things. Run them directly:
 
-| Command | What |
+| Need | Command |
 |---|---|
-| `make new-module name=orders` | Generate `modules/orders/` with the full layout, register the entry point, re-run `uv sync`. |
+| New Alembic migration | `uv run alembic revision --autogenerate -m "..."` |
+| Downgrade one revision | `uv run alembic downgrade -1` |
+| Roll back a single module | `uv run alembic downgrade <module>@base` |
+| Single Python test | `uv run pytest path/to/test_file.py::test_name` |
+| Single JS test | `cd client_app && npx vitest run <path>` |
+| Format + lint Python | `uv run ruff format . && uv run ruff check .` |
+| Type-check Python | `uv run ty check` |
+| Format + lint JS | `cd client_app && npx biome check .` |
+| Type-check JS | `cd client_app && npx tsc --noEmit` |
+| Free stuck dev ports | `lsof -ti:8000,5050 \| xargs kill -9` |
 
-After scaffolding, edit `models.py`, run `make migration msg="add orders tables"`, review, `make migrate`, restart `make dev`.
+## Working on the framework itself
 
-## Background tasks
-
-The `background_tasks` module ships a Celery worker + beat scheduler. Redis from `make docker-up` is the default broker.
-
-| Command | What |
-|---|---|
-| `make worker` | Run a Celery worker locally (`celery -A scripts.run_worker:celery worker`). Reloads on code change. |
-| `make beat` | Run the Celery beat scheduler locally. |
-| `make worker-docker` | Build + run the worker + beat services via `docker compose` (matches prod image). |
-
-The admin UI exposes a worker status page at `/background-tasks/workers` for live worker / queue introspection.
-
-## Performance & load testing
-
-| Command | What |
-|---|---|
-| `make bench` | Run the `pytest-benchmark` suite under `tests/benchmarks` (perf marker). Override with `BENCH_ARGS=...`. |
-| `make memray-run TARGET="..."` | Record an allocation profile into `$(MEMRAY_OUT)` (default `.memray/profile.bin`). `TARGET` can be any runnable script/module — defaults to the benchmark suite. |
-| `make memray-flamegraph` | Render `$(MEMRAY_OUT)` as an HTML flamegraph. |
-| `make loadtest` | Run Locust headless against a server already on `$(LOCUST_HOST)` (default `http://localhost:8000`). Override duration/users with `LOCUST_ARGS="-u 20 -r 5 -t 30s"`. |
-| `make loadtest-memray` | Start uvicorn under memray, run a load test, shut down, emit a flamegraph. |
-
-## Common compositions
-
-Pre-commit sanity:
-
-```bash
-make lint && make test
-```
-
-Reset a stuck dev loop:
-
-```bash
-make kill && rm app.db && make migrate && make dev
-```
-
-Full repro of a CI run locally:
-
-```bash
-make install && make lint && make test && make doctor
-```
-
-Clean up and start fresh Postgres:
-
-```bash
-make kill && make docker-down && docker volume rm simple_module_python_pgdata
-make docker-up && make migrate && make dev
-```
-
-## Tips
-
-- `make -j` can parallelize independent targets, but the supplied targets already parallelize where useful (`dev`, CI jobs).
-- `make -n <target>` prints the commands without running them — great for understanding what a composite target does.
-- The Makefile is short and readable — open it when a target's behavior surprises you.
+If you're contributing to `simple_module_python` — not consuming it — the **framework repo's** Makefile is bigger: it includes `make new-module`, `make doctor`, `make lint`, `make test`, `make migration`, `make worker`, `make memray-run`, `make loadtest`, etc. Those targets exist because the framework repo is a multi-package workspace, not because they're the user-facing surface. See the [release playbook](/release) and the repo's `Makefile` for that flow.
 
 ## Next steps
 
 - [Environment variables](/reference/env-vars) — every `SM_*` knob the framework reads.
-- [Diagnostic codes](/reference/diagnostic-codes) — what each `SM0XX` from `make doctor` means and how to fix it.
-- [Deployment](/reference/deployment) — taking a build from `make dev` to production.
+- [Diagnostic codes](/reference/diagnostic-codes) — what each `SM0XX` from boot diagnostics means and how to fix it.
+- [Deployment](/reference/deployment) — taking a build to production.

@@ -35,7 +35,7 @@ Production code should let auto-detection do its thing.
 
 ## The `build_module_metadata()` function
 
-Alembic's autogenerate needs a **single** `MetaData` object describing every table it should manage. Each module has its own — so `host/alembic/env.py` calls:
+Alembic's autogenerate needs a **single** `MetaData` object describing every table it should manage. Each module has its own — so `migrations/env.py` calls:
 
 ```python
 from simple_module_db.base import build_module_metadata
@@ -49,7 +49,7 @@ If a module has no `models.py`, it contributes nothing — fine. If a module has
 
 ## `make_include_object()`
 
-Alembic's `include_object` callback filters which tables `autogenerate` considers. `host/alembic/env.py` uses `make_include_object()` from `simple_module_db` to:
+Alembic's `include_object` callback filters which tables `autogenerate` considers. `migrations/env.py` uses `make_include_object()` from `simple_module_db` to:
 
 - **Include** tables from any discovered module's MetaData.
 - **Exclude** tables owned by the Alembic runtime itself (`alembic_version`).
@@ -97,4 +97,4 @@ for t in meta.sorted_tables:
     print(t.schema or "(no schema)", t.name)
 ```
 
-This is also what the `make doctor` `SM011` check uses — it compares this set against the Alembic history to detect tables that exist in code but not in any migration.
+This is also what the boot-time `SM011` check uses — it compares this set against the Alembic history to detect tables that exist in code but not in any migration.

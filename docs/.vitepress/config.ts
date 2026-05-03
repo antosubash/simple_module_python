@@ -188,7 +188,7 @@ export default defineConfig({
           text: "Reference",
           collapsed: false,
           items: [
-            { text: "Make commands", link: "/reference/make-commands" },
+            { text: "Commands", link: "/reference/make-commands" },
             { text: "Environment variables", link: "/reference/env-vars" },
             {
               text: "Diagnostic codes",

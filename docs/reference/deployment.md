@@ -10,7 +10,7 @@ Before serving traffic:
 - [ ] `SM_SECRET_KEY` is a strong random value (not the default).
 - [ ] `SM_DATABASE_URL` points at Postgres (`postgresql+asyncpg://`), not SQLite.
 - [ ] `alembic upgrade head` run against the production DB.
-- [ ] `make doctor` passes (zero errors) on the built artifact.
+- [ ] App boot in `SM_ENVIRONMENT=production` mode produces no diagnostic errors. Production boot fails fast on any `SM0XX` ERROR — so a successful start *is* the check.
 - [ ] Admin bootstrap complete — an admin user exists and can log in.
 - [ ] Reverse proxy forwards `X-Forwarded-Proto`/`X-Forwarded-For`; configured with `--proxy-headers`.
 - [ ] HTTPS in front of the app (cookie is `Secure` when TLS is present).
@@ -18,31 +18,29 @@ Before serving traffic:
 
 ## Build
 
-Typical Docker build:
+Typical Docker build for an app scaffolded by `sm new`:
 
 ```dockerfile
 FROM python:3.12-slim AS builder
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
-RUN pip install uv && uv sync --frozen --all-packages --no-dev
+RUN pip install uv && uv sync --frozen --no-dev
 COPY . .
-RUN uv run --project host python -m compileall host modules framework packages
+RUN uv run python -m compileall .
 
 # Build the frontend
 FROM node:20-slim AS frontend
-WORKDIR /app
-COPY package.json package-lock.json ./
-COPY host/client_app host/client_app
-COPY packages packages
-COPY modules modules
+WORKDIR /app/client_app
+COPY client_app/package.json client_app/package-lock.json ./
 RUN npm ci
+COPY client_app .
 RUN npm run build
 
 FROM python:3.12-slim
 WORKDIR /app
 COPY --from=builder /app /app
-COPY --from=frontend /app/host/client_app/dist /app/host/client_app/dist
-CMD ["uv", "run", "--project", "host", "uvicorn", "host.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+COPY --from=frontend /app/client_app/dist /app/client_app/dist
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
 ```
 
 Tune worker count with `--workers N` for multi-CPU boxes, or run behind a process manager like Gunicorn with Uvicorn workers.
@@ -126,11 +124,11 @@ Start `uvicorn` with `--proxy-headers` so it trusts `X-Forwarded-For` for client
 
 ## Static assets
 
-The Vite build outputs to `host/client_app/dist/`. Serve these via the reverse proxy directly (not through Uvicorn) for better performance:
+The Vite build outputs to `client_app/dist/`. Serve these via the reverse proxy directly (not through Uvicorn) for better performance:
 
 ```nginx
 location /build/ {
-    alias /var/www/app/host/client_app/dist/;
+    alias /var/www/app/client_app/dist/;
     access_log off;
     expires 1y;
     add_header Cache-Control "public, immutable";

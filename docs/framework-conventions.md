@@ -20,7 +20,7 @@ modules/<name>/
     └── pages/                # *.tsx — auto-discovered by Vite
 ```
 
-Scaffold a fresh module with `make new-module name=<name>` — it generates all of the above.
+Scaffold a fresh module with `sm create-module <name> --dest modules/<name>` — it generates all of the above. Then run `uv add ./modules/<name>` to register it on your app.
 
 ## ModuleMeta
 
@@ -191,7 +191,7 @@ Service code should not call `session.commit()` directly. Flush for intermediate
 `inertia.render("<ModuleName>/<PageName>", ...)` maps to `modules/<name>/<name>/pages/<PageName>.tsx`.
 
 - `<ModuleName>` is the PascalCase of the module directory: `blog_posts` → `BlogPosts`.
-- Host-level pages under `host/client_app/pages/<PageName>.tsx` render with just `<PageName>` as the key (e.g. `inertia.render("Landing", ...)`).
+- Host-level pages under `client_app/pages/<PageName>.tsx` render with just `<PageName>` as the key (e.g. `inertia.render("Landing", ...)`).
 - Mismatched keys fire `SM003` (orphan page) and `SM004` (phantom render) at diagnostic time.
 
 ### Shared props
@@ -281,7 +281,7 @@ Dispatch walks the event's MRO, so subscribing to a base class delivers subclass
 | SM015 | WARNING | Non-default locale has keys not in the default |
 | SM016 | ERROR | Locale JSON invalid or contains non-string leaves |
 
-Run diagnostics manually: `make doctor`.
+Diagnostics run automatically at boot — warnings print to stderr in dev, errors abort startup in production. There's no separate "run diagnostics" step in a scaffolded app: just start the server.
 
 ## Internationalization
 
@@ -296,7 +296,7 @@ class OrdersModule(ModuleBase):
         return {"orders": Path(str(importlib.resources.files(__package__) / "locales"))}
 ```
 
-`make new-module` scaffolds this method and a matching `locales/en.json` automatically.
+`sm create-module` scaffolds this method and a matching `locales/en.json` automatically.
 
 ### Key naming
 
@@ -382,4 +382,4 @@ The active locale lands on `request.state.locale`. The `<LocaleSwitcher />` comp
 
 ### Diagnostics
 
-`make doctor` (and app boot) run `I18nDiagnostics` against every module's declared locale dirs. See codes `SM013`–`SM016` in the table above. Warnings are printed in dev; errors fail the boot in production.
+App boot runs `I18nDiagnostics` against every module's declared locale dirs. See codes `SM013`–`SM016` in the table above. Warnings are printed in dev; errors fail the boot in production.

@@ -13,9 +13,9 @@ The framework has **no knowledge of any specific plugin module**. Diagnostic `SM
 
 ## Boot sequence
 
-What actually happens when you run `uvicorn host.main:app`:
+What actually happens when you run `uvicorn main:app`:
 
-1. **`create_app(settings)`** is invoked (in `host/main.py` via FastAPI's lifespan).
+1. **`create_app(settings)`** is invoked (in `main.py` via FastAPI's lifespan).
 2. **Framework singletons** are constructed:
    `Settings`, `DatabaseState` (engines per provider), `EventBus`, `MenuRegistry`, `PermissionRegistry`, `FeatureFlagRegistry`, `HealthRegistry`, `I18nRegistry`. They are bundled into a frozen `Services` dataclass and attached to `app.state.sm`.
 3. **Discovery** — `discover_modules()` reads Python entry points under the `simple_module` group, imports each one, validates it's a `ModuleBase` subclass with a non-null `meta`, and topologically sorts by `ModuleMeta.depends_on`.

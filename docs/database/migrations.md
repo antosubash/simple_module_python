@@ -1,11 +1,11 @@
 # Migrations
 
-All migrations live in `host/migrations/versions/` — **not** in module packages. Alembic runs from the repo root (`host/alembic.ini`) and shares the host's `.env` / `SM_DATABASE_URL`.
+All migrations live in `migrations/versions/` in your app — **not** in module packages. Alembic runs from the app root (`alembic.ini`) and shares the app's `.env` / `SM_DATABASE_URL`.
 
 ## Why centralized?
 
 - **Dependency ordering is global.** If `invoices` depends on `orders.order.id`, their migrations must order correctly. One linear Alembic history enforces this.
-- **Autogenerate sees everything.** `host/alembic/env.py` calls `build_module_metadata()` to union every installed module's `MetaData`. Autogenerate diffs the DB against that union and writes one migration covering all changes.
+- **Autogenerate sees everything.** `migrations/env.py` calls `build_module_metadata()` to union every installed module's `MetaData`. Autogenerate diffs the DB against that union and writes one migration covering all changes.
 - **Operators run one command.** `make migrate` is the only target. No "did you also run `orders/migrate`?" footgun.
 
 Each module's *first* migration sets `branch_labels = ("<module_name>",)` so you can still downgrade one module at a time with `alembic downgrade <module>@base`.
@@ -15,10 +15,10 @@ Each module's *first* migration sets `branch_labels = ("<module_name>",)` so you
 ### Create a migration
 
 ```bash
-make migration msg="add orders tables"
+uv run alembic revision --autogenerate -m "add orders tables"
 ```
 
-This runs `alembic revision --autogenerate -m "..."` from the repo root. The resulting file lands in `host/migrations/versions/XXXX_add_orders_tables.py`.
+The resulting file lands in `migrations/versions/XXXX_add_orders_tables.py`.
 
 **Always open and read the generated file** before committing. Autogenerate is good but not perfect:
 
@@ -46,10 +46,10 @@ uv run alembic downgrade orders@base     # back to the state before the orders m
 
 ## First migration of a new module
 
-When you scaffold a module with `make new-module`, the *first* `make migration msg=...` produces a file that needs this marker added by hand:
+When you scaffold a module with `sm create-module`, the *first* autogenerate revision produces a file that needs this marker added by hand:
 
 ```python
-# host/migrations/versions/XXXX_add_orders_tables.py
+# migrations/versions/XXXX_add_orders_tables.py
 
 revision = "..."
 down_revision = "..."
@@ -61,7 +61,7 @@ Once the marker is in place, all future `orders` migrations inherit the branch.
 
 ## Alembic environment setup
 
-`host/alembic/env.py` looks roughly like:
+`migrations/env.py` (in your app) looks roughly like:
 
 ```python
 from simple_module_db.base import build_module_metadata
@@ -96,11 +96,11 @@ Fix locally with `make migrate`. In production, run migrations before rolling ov
 
 Fires as a warning when a module's model declares a table that doesn't appear in any Alembic migration. Typical causes:
 
-- You added a model but haven't run `make migration` yet.
+- You added a model but haven't generated a migration for it yet.
 - You renamed a table but the old migration still references the old name.
 - You used `__abstract__ = True` somewhere it shouldn't be.
 
-`make doctor` prints the offending table names. Resolution: run `make migration msg="..."`, review, apply.
+The dev-mode boot log prints the offending table names. Resolution: run `uv run alembic revision --autogenerate -m "..."`, review, `make migrate`.
 
 ## Cross-module foreign keys
 
@@ -108,7 +108,7 @@ If `invoices` has an FK to `orders.order.id`:
 
 - Alembic will emit `ADD CONSTRAINT` in the invoices table's migration.
 - The migration that creates `invoices_invoice` must come **after** the one that creates `orders_order` in linear history.
-- `make new-module` and `make migration` handle this naturally as long as `depends_on` is correct in `ModuleMeta`.
+- `sm create-module` + `uv run alembic revision --autogenerate` handle this naturally as long as `depends_on` is correct in `ModuleMeta`.
 
 On Postgres, cross-schema FKs work natively (`orders.order.id ← invoices.invoice.order_id`).
 
@@ -151,7 +151,7 @@ Keep merges small; a merge revision with its own `op.*` logic is a code smell.
 
 ## Initial-migration gotchas
 
-When you `make migration msg="initial"` for a freshly-added module, autogenerate writes `op.create_table(...)` for every table in the module's `MetaData`. Inspect:
+When you autogenerate a migration for a freshly-added module, autogenerate writes `op.create_table(...)` for every table in the module's `MetaData`. Inspect:
 
 - Are the schema / table names right for your provider (`orders.order` on Postgres vs `orders_order` on SQLite)?
 - Do indexes and constraints have stable names? Rename via `name=...` on the model if not.
@@ -168,7 +168,7 @@ async def test_migration_up_then_down(tmp_path):
     from alembic import command
 
     db_url = f"sqlite:///{tmp_path}/migrate_test.db"
-    cfg = Config("host/alembic.ini")
+    cfg = Config("alembic.ini")
     cfg.set_main_option("sqlalchemy.url", db_url)
 
     command.upgrade(cfg, "head")

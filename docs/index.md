@@ -56,24 +56,23 @@ features:
   <a class="sm-card" href="/frontend/inertia"><h3>Frontend</h3><p>Inertia page keys, shared props, page discovery, React layout.</p></a>
   <a class="sm-card" href="/testing/overview"><h3>Testing</h3><p>The fixtures in <code>conftest.py</code>, unit tests, end-to-end tests.</p></a>
   <a class="sm-card" href="/modules/"><h3>Modules</h3><p>Reference for each bundled module: routes, contracts, settings.</p></a>
-  <a class="sm-card" href="/reference/make-commands"><h3>Reference</h3><p>Make commands, env vars, diagnostic codes, deployment.</p></a>
+  <a class="sm-card" href="/reference/make-commands"><h3>Reference</h3><p>CLI commands, env vars, diagnostic codes, deployment.</p></a>
 </div>
 
 ## Try it in 60 seconds
 
 ```bash
-git clone https://github.com/antosubash/simple_module_python.git
-cd simple_module_python
-make install
-cp .env.example .env
-make migrate
+uv tool install simple_module_cli
+sm new myapp --yes
+cd myapp
 make dev          # API on :8000, Vite on :5050
 ```
 
-Then in another terminal:
+Then in another terminal, inside `myapp`:
 
 ```bash
-make new-module name=orders
+sm create-module orders --dest modules/orders
+uv add ./modules/orders
 ```
 
 That generates `modules/orders/` with a `ModuleMeta`, a SQLModel table, contracts, a service, REST + Inertia endpoints, three React pages, locales, and a smoke test — all wired in once the dev server reloads. The full walkthrough is in [Your first module](/guide/first-module).
@@ -83,6 +82,6 @@ That generates `modules/orders/` with a `ModuleMeta`, a SQLModel table, contract
 - New here? Read [Introduction](/guide/introduction) for the why, then [Quickstart](/guide/quickstart) for the how.
 - Already convinced? Jump straight to [Your first module](/guide/first-module).
 - Need an off-the-shelf piece? See the [bundled modules](/modules/).
-- Operating an existing deployment? Start with [Make commands](/reference/make-commands) and [Environment variables](/reference/env-vars).
+- Operating an existing deployment? Start with [Commands](/reference/make-commands) and [Environment variables](/reference/env-vars).
 
 When conventions are ambiguous, the authoritative single-page docs ([Framework conventions](/framework-conventions), [Module authoring](/module-authoring), [E2E testing](/e2e-testing), [Release playbook](/release)) are the source of truth.

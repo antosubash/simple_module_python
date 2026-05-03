@@ -1,16 +1,17 @@
 # Your first module
 
-A stage-by-stage walk-through: from `make new-module` to a working Orders module with custom fields, validation, a menu entry, and a test.
+A stage-by-stage walk-through: from `sm create-module` to a working Orders module with custom fields, validation, a menu entry, and a test.
 
-Assumes you've completed the [Quickstart](/guide/quickstart).
+Assumes you've completed the [Quickstart](/guide/quickstart) and have an app on disk created by `sm new`.
 
 ## 1. Scaffold
 
 ```bash
-make new-module name=orders
+sm create-module orders --dest modules/orders
+uv add ./modules/orders
 ```
 
-This creates `modules/orders/` with a working CRUD implementation against a single-field `Order` table. Open it in your editor — you'll see the full file layout described in [project structure](/guide/project-structure).
+This creates `modules/orders/` with a working CRUD implementation against a single-field `Order` table, and adds the package to your app's dependencies. Open the generated files in your editor — you'll see the full file layout described in [project structure](/guide/project-structure).
 
 ## 2. Define your domain model
 
@@ -69,13 +70,13 @@ DTOs are plain `SQLModel` subclasses — **not** `BaseModel` and **not** `table=
 ## 4. Generate a migration
 
 ```bash
-make migration msg="add orders tables"
+uv run alembic revision --autogenerate -m "add orders tables"
 ```
 
-Open `host/migrations/versions/XXXX_add_orders_tables.py` and eyeball it:
+Open `migrations/versions/XXXX_add_orders_tables.py` and eyeball it:
 
 - It should create the `orders` schema (Postgres) or the `orders_order` table (SQLite).
-- It should set `branch_labels = ("orders",)` — this enables `alembic downgrade orders@base` to roll the module back to empty without touching other modules.
+- Add `branch_labels = ("orders",)` to the revision so you can later `alembic downgrade orders@base` to roll the module back to empty without touching other modules.
 
 Apply:
 
@@ -278,13 +279,7 @@ uv run pytest modules/orders/tests/ -v
 
 ## 10. Verify end-to-end
 
-```bash
-make doctor            # should report 0 errors
-make lint              # Ruff + ty + Biome + tsc + file-size cap
-make dev               # visit http://localhost:8000/orders
-```
-
-If `make doctor` flags an `SM003` or `SM004`, the Inertia key in `views.py` doesn't match the file you created in `pages/` — see [Pages & discovery](/frontend/pages).
+Restart `make dev` and visit `http://localhost:8000/orders`. The framework runs the full diagnostics suite at boot — any `SM0XX` errors will appear in the dev log (and in production, will fail boot before the server starts serving). If you see an `SM003` or `SM004`, the Inertia key in `views.py` doesn't match the file you created in `pages/` — see [Pages & discovery](/frontend/pages) and the full list of [diagnostic codes](/reference/diagnostic-codes).
 
 ## Next steps
 
