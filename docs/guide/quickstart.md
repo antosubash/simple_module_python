@@ -106,8 +106,9 @@ uv run pytest modules/orders/tests/test_api.py -v
 - **Frontend** — `modules.generated.ts` (rebuilt by `make gen-pages`) maps `"Orders/Browse"` to `modules/orders/orders/pages/Browse.tsx`. Vite resolves and HMR-watches that file.
 - **Database** — `create_module_base("orders")` namespaced the `Order` table under a Postgres `orders` schema (or the `orders_order` table name under SQLite).
 
-Where to go next:
+## Next steps
 
-- [Your first module](/guide/first-module) — stage-by-stage walk-through extending the scaffold to real domain logic.
-- [Framework overview](/framework/overview) — what actually happens between `make dev` and the first HTTP request.
-- [Project structure](/guide/project-structure) — the directory tour.
+- [Your first module](/guide/first-module) — extend the scaffold into real domain logic, end-to-end.
+- [Project structure](/guide/project-structure) — the directory tour, so you know where everything lives.
+- [Framework overview](/framework/overview) — what happens between `make dev` and the first HTTP request.
+- [Bundled modules](/modules/) — what's already in the box (auth, users, permissions, settings, …).

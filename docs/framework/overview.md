@@ -86,9 +86,10 @@ class UsersModule(ModuleBase):
 
 This is how the `auth.user` shared prop is built: framework middleware calls whatever serializer the `users` module registered — without importing `users`.
 
-## What's next
+## Next steps
 
 - [Discovery & entry points](/framework/discovery) — how modules are installed and found.
 - [Lifecycle hooks](/framework/lifecycle) — the 10 hooks in call order with examples.
 - [Middleware pipeline](/framework/middleware) — execution order and how to slot your own in.
 - [Settings & app.state](/framework/settings) — framework vs. module state.
+- [Bundled modules](/modules/) — the eight first-party modules and what each one ships.

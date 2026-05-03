@@ -129,3 +129,9 @@ make docker-up && make migrate && make dev
 - `make -j` can parallelize independent targets, but the supplied targets already parallelize where useful (`dev`, CI jobs).
 - `make -n <target>` prints the commands without running them — great for understanding what a composite target does.
 - The Makefile is short and readable — open it when a target's behavior surprises you.
+
+## Next steps
+
+- [Environment variables](/reference/env-vars) — every `SM_*` knob the framework reads.
+- [Diagnostic codes](/reference/diagnostic-codes) — what each `SM0XX` from `make doctor` means and how to fix it.
+- [Deployment](/reference/deployment) — taking a build from `make dev` to production.

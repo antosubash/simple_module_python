@@ -286,8 +286,13 @@ make dev               # visit http://localhost:8000/orders
 
 If `make doctor` flags an `SM003` or `SM004`, the Inertia key in `views.py` doesn't match the file you created in `pages/` — see [Pages & discovery](/frontend/pages).
 
-Next up:
+## Next steps
 
-- [Models](/database/models) — SQLModel conventions.
-- [Permissions](/framework/permissions) — how `RequiresPermission` resolves roles.
-- [Events](/framework/events) — publishing `OrderPlaced` and subscribing from another module.
+You've shipped a module. Pick the rabbit hole that matches what you need next:
+
+- [Database / Models](/database/models) — the SQLModel conventions you'll use for every table.
+- [Database / Mixins](/database/mixins) — `AuditMixin`, `SoftDeleteMixin`, `MultiTenantMixin`, `VersionedMixin`.
+- [Framework / Permissions](/framework/permissions) — how `RequiresPermission` resolves roles and direct grants.
+- [Framework / Events](/framework/events) — publishing `OrderPlaced` and subscribing from another module.
+- [Framework / Settings](/framework/settings) and the [`settings` module](/modules/settings) — DB-backed config with hot reload.
+- [Module authoring](/module-authoring) — when you're ready to package the module for distribution.

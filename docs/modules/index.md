@@ -45,3 +45,9 @@ SM_MODULES_ENABLED=users,permissions,settings,dashboard
 ```
 
 Don't drop `users` unless you've replaced authentication with a different module — most other bundled modules rely on it for `request.state.user`.
+
+## Next steps
+
+- [Your first module](/guide/first-module) — build one of your own using the same conventions.
+- [Module authoring](/module-authoring) — package and distribute a module via PyPI.
+- [Framework / Discovery](/framework/discovery) — how the framework finds installed modules at boot.

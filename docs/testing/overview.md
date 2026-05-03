@@ -92,7 +92,7 @@ Before marking a test flaky, check:
 - **Async-order-dependent?** `await` everything that returns a coroutine, including `session.flush()` and `session.refresh()`.
 - **Shared state?** Check for `scope="module"` fixtures that should be `scope="function"`.
 
-## Where to go from here
+## Next steps
 
 - [Fixtures](/testing/fixtures) — the shared fixtures in `conftest.py` and how to extend them.
 - [E2E tests](/e2e-testing) — the Playwright suite.
