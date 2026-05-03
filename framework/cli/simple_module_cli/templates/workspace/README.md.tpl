@@ -31,7 +31,7 @@ make migrate
 make dev
 ```
 
-The API listens on http://localhost:8000 and Vite on http://localhost:5173.
+The API listens on http://localhost:8000 and Vite on http://localhost:5050.
 
 ## Adding a module
 
