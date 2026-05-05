@@ -24,3 +24,9 @@ async def landing(request: Request, inertia: InertiaDep) -> InertiaResponse:
             "isAuthenticated": is_authenticated,
         },
     )
+
+
+@router.get("/lacowiki/wireframes", response_model=None)
+async def lacowiki_wireframes(inertia: InertiaDep) -> InertiaResponse:
+    """LacoWiki migration wireframes & design system browser."""
+    return await inertia.render("LacoWikiWireframes", {})
