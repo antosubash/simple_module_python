@@ -1,0 +1,10 @@
+{
+  "menu": {
+    "lacowiki": "LacoWiki",
+    "datasets": "Datasets",
+    "legends": "Legends",
+    "sampling": "Sampling",
+    "validation": "Validation",
+    "reports": "Reports"
+  }
+}

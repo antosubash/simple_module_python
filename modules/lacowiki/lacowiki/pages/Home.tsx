@@ -1,9 +1,9 @@
 import { useState } from 'react';
 
-import '../lib/lacowiki/styles.css';
-import { DesignSystem } from '../lib/lacowiki/design-system';
-import { Overview } from '../lib/lacowiki/overview';
-import { Wireframes } from '../lib/lacowiki/wireframes';
+import '@simple-module-py/ui/lacowiki/styles.css';
+import { DesignSystem } from '@simple-module-py/ui/lacowiki/design-system';
+import { Overview } from '@simple-module-py/ui/lacowiki/overview';
+import { Wireframes } from '@simple-module-py/ui/lacowiki/wireframes';
 
 const TABS: [string, string][] = [
   ['overview', 'Overview'],
@@ -11,7 +11,7 @@ const TABS: [string, string][] = [
   ['wireframes', 'Wireframes'],
 ];
 
-function LacoWikiWireframes() {
+function LacoWikiHome() {
   const [tab, setTab] = useState<string>('overview');
 
   return (
@@ -63,6 +63,6 @@ function LacoWikiWireframes() {
   );
 }
 
-LacoWikiWireframes.layout = (page: React.ReactNode) => page;
+LacoWikiHome.layout = (page: React.ReactNode) => page;
 
-export default LacoWikiWireframes;
+export default LacoWikiHome;

@@ -44,10 +44,7 @@
       }
     },
     {
-      "includes": [
-        "host/client_app/lib/lacowiki/**",
-        "host/client_app/pages/LacoWikiWireframes.tsx"
-      ],
+      "includes": ["packages/ui/src/lacowiki/**", "modules/lacowiki/lacowiki/pages/**"],
       "linter": {
         "rules": {
           "a11y": {

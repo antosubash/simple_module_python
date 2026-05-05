@@ -50,7 +50,16 @@
       "types": "./src/types.ts",
       "default": "./src/types.ts"
     },
-    "./styles/*": "./src/styles/*"
+    "./styles/*": "./src/styles/*",
+    "./lacowiki/*": {
+      "types": "./src/lacowiki/*.tsx",
+      "default": "./src/lacowiki/*.tsx"
+    },
+    "./lacowiki/wf/*": {
+      "types": "./src/lacowiki/wf/*.tsx",
+      "default": "./src/lacowiki/wf/*.tsx"
+    },
+    "./lacowiki/styles.css": "./src/lacowiki/styles.css"
   },
   "files": [
     "src",
