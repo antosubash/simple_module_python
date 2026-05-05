@@ -1,5 +1,5 @@
 import { Chrome } from '../chrome';
-import { Btn, Frame, Placeholder, Row, Stack } from '../primitives';
+import { Btn, Frame, Pill, Placeholder, Row, Stack } from '../primitives';
 
 export { WfDatasetDetail } from './dataset-detail';
 
