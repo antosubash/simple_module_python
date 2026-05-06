@@ -6,6 +6,7 @@ A modular-monolith framework for Python. Each feature lives in its own self-cont
 
 - **Backend:** Python 3.12, FastAPI, SQLModel (SQLAlchemy async + Pydantic), Alembic
 - **Frontend:** Inertia.js + React + Tailwind CSS 4, Vite HMR
+- **UI:** shadcn/ui primitives + emerald/teal design tokens, Sora display font, DM Sans body, JetBrains Mono code
 - **Auth:** Local user management (email+password, cookie-based sessions) via fastapi-users
 - **Tooling:** uv workspaces, Ruff, ty, Biome, pytest
 
@@ -44,7 +45,7 @@ make migrate
 make dev
 ```
 
-Hit `http://localhost:8000` — you land on the public page. `/users/login` is the email+password login, `/dashboard` is the authenticated home.
+Hit `http://localhost:8000` — you land on the public page. `/users/login` is the email+password login, `/dashboard/` is the authenticated home, and `/dashboard/doctor` is the admin-only "sm doctor" panel (static checks, migrations, dev server, modules).
 
 ## Create a new module
 
@@ -80,7 +81,8 @@ host/
   client_app/  # Vite + React client app
   migrations/  # Alembic migrations
 packages/
-  ui/          # shared shadcn/ui components & layouts
+  ui/          # shared shadcn/ui components, layouts, and design-system primitives
+  i18n/        # generated i18n keys + translation runtime
 scripts/
   new_module.py  # module scaffolder (called by `make new-module`)
 docs/
@@ -100,7 +102,7 @@ docs/
 | `make migrate` | Apply pending Alembic migrations |
 | `make migration msg="..."` | Autogenerate a new migration |
 | `make new-module name=<name>` | Scaffold a new module |
-| `make kill` | Stop any running dev servers (ports 8000, 5173) |
+| `make kill` | Stop any running dev servers (ports 8000, 5050, 5173) |
 | `make docker-up` / `docker-down` | Manage the Postgres container (SQLite needs no Docker) |
 
 ## Configuration
@@ -112,7 +114,7 @@ Local deployments only need one env var — everything else has sensible default
 | `SM_DATABASE_URL` | `sqlite+aiosqlite:///./app.db` | Yes — async URL. Postgres: `postgresql+asyncpg://...` |
 | `SM_ENVIRONMENT` | `development` | No — any value other than `development`, `test`, `testing` triggers strict discovery and placeholder-secret checks |
 | `SM_SECRET_KEY` | `change-me-in-production` | No in dev; **must** be overridden in production |
-| `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only |
+| `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only — Vite HMR origin |
 
 Power users can still override the following bootstrap knobs via env if needed: `SM_DB_POOL_SIZE`, `SM_DB_MAX_OVERFLOW`, `SM_DB_POOL_PRE_PING`, `SM_DB_POOL_RECYCLE`, `SM_DEBUG`, `SM_LOG_LEVEL`, `SM_LOG_FORMAT`, `SM_MODULES_ENABLED`. These are needed before the DB connection is open.
 
@@ -127,6 +129,32 @@ to seed DB overrides from the current `SM_*` environment.
 > **docker-compose note:** `docker-compose.yml` sets a few `SM_BG_TASKS_*` vars so Celery can reach the `redis` service by container hostname before the DB-backed settings are loaded. That's deployment plumbing — not a module config knob.
 
 See `framework-conventions.md` for the settings-per-module convention.
+
+## UI & design system
+
+The frontend uses an emerald + teal design system mirrored as Tailwind 4 tokens. Module pages should compose from a small set of shared primitives so they stay visually consistent without duplication.
+
+**Shared primitives** (in `packages/ui/src/`):
+
+| Component | When to use |
+|---|---|
+| `PageShell` | Every authenticated page. Wraps title + description + actions header and a max-width content area. |
+| `StatCard` | Top-of-page KPI tiles — icon, value, label, optional delta badge. Used on Dashboard, Users, Doctor. |
+| `SectionTitle` | Card section headings with the gradient accent bar. |
+| `FilterPills` | Segmented filter chips for status/tab-style toggles. |
+| `AuthCardShell` | Login / register / forgot / accept-invite / verify — light glass card on emerald mesh blobs. |
+| `ErrorScreen` | 403 / 404 / 500 — gradient HTTP numerals + accent badge per status. |
+
+**Design tokens** live in `packages/ui/src/styles/globals.css` under the `@theme` block — primary emerald scale (`--color-primary-50…900`), display/sans/mono families, semantic shadcn tokens. Override the CSS variables to rebrand without touching component code.
+
+**Module pages** should:
+
+- Wrap in `PageShell` with `title`, optional `description`, and `actions`.
+- Use `Card` + `CardContent` from `@simple-module-py/ui/components/ui/card` for content blocks.
+- Reach for `StatCard` / `SectionTitle` / `FilterPills` before rolling new layouts.
+- Use lucide-react icons (already a dependency) and the existing `Badge` / `Button` variants — emerald primary for the main CTA, outline / ghost for secondary actions.
+
+The 300-line file cap (enforced by CI) usually pushes you to factor row-level components into `pages/components/` — see `modules/users/users/components/UserRow.tsx` and `modules/dashboard/dashboard/pages/components/doctor-data.ts` for the pattern.
 
 ## User management
 

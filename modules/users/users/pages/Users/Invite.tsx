@@ -2,10 +2,10 @@ import { Link, router, usePage } from '@inertiajs/react';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
-import { Checkbox } from '@simple-module-py/ui/components/ui/checkbox';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { Mail, Send } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -57,71 +57,83 @@ function Invite() {
 
   return (
     <PageShell
-      title="Invite user"
-      description="Send an invitation email to a new user"
+      title="Invite member"
+      description="They'll get an email with a one-time link. Console mailer logs it to stdout."
       actions={
         <Button asChild variant="outline">
           <Link href="/users/admin">Back to Users</Link>
         </Button>
       }
     >
-      <Card className="max-w-xl">
+      <Card className="max-w-xl border-border">
         <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email">
+              <Label htmlFor="email" className="text-sm font-medium text-muted-foreground">
                 Email <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="user@example.com"
-                required
-                autoComplete="off"
-              />
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="teammate@example.com"
+                  required
+                  autoComplete="off"
+                  className="pl-9"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="full_name">Full name</Label>
+              <Label htmlFor="full_name" className="text-sm font-medium text-muted-foreground">
+                Full name (optional)
+              </Label>
               <Input
                 id="full_name"
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Optional"
+                placeholder="Jane Doe"
               />
             </div>
 
             {roles.length > 0 && (
               <div className="space-y-2">
-                <Label>Roles</Label>
-                <div className="flex flex-col gap-2">
-                  {roles.map((role) => (
-                    <div key={role.id} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`role-${role.id}`}
-                        checked={selectedRoles.includes(role.name)}
-                        onCheckedChange={() => toggleRole(role.name)}
-                      />
-                      <Label htmlFor={`role-${role.id}`} className="cursor-pointer font-normal">
+                <Label className="text-sm font-medium text-muted-foreground">Role</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {roles.map((role) => {
+                    const active = selectedRoles.includes(role.name);
+                    return (
+                      <button
+                        key={role.id}
+                        type="button"
+                        onClick={() => toggleRole(role.name)}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          active
+                            ? 'border-primary-200 bg-primary-600/10 text-primary-700'
+                            : 'border-border bg-card text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
                         {role.name}
-                      </Label>
-                    </div>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
             {error && <p className="text-sm text-destructive">{error}</p>}
 
-            <div className="pt-2 flex gap-3">
-              <Button type="submit" disabled={loading}>
-                {loading ? 'Sending…' : 'Send invite'}
-              </Button>
+            <div className="flex justify-end gap-2 pt-2">
               <Button asChild variant="outline">
                 <Link href="/users/admin">Cancel</Link>
+              </Button>
+              <Button type="submit" disabled={loading} className="gap-1.5">
+                <Send className="h-3.5 w-3.5" />
+                {loading ? 'Sending…' : 'Send invite'}
               </Button>
             </div>
           </form>

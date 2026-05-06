@@ -1,10 +1,14 @@
 export { ErrorBoundary } from './components/ErrorBoundary';
 export { ErrorScreen } from './components/ErrorScreen';
+export { FilterPills } from './components/FilterPills';
 export { NavIcon } from './components/NavIcon';
 export { PageShell } from './components/PageShell';
+export { SectionTitle } from './components/SectionTitle';
+export { StatCard } from './components/StatCard';
 export { AdminLayout } from './layouts/AdminLayout';
 export { AppLayout } from './layouts/AppLayout';
 export { AuthenticatedLayout } from './layouts/AuthenticatedLayout';
 export { PublicLayout } from './layouts/PublicLayout';
 export { SidebarLayout } from './layouts/SidebarLayout';
+export { TONE, type Tone } from './lib/tone';
 export type { MenuItem, SharedProps } from './types';

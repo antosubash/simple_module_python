@@ -1,25 +1,14 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@simple-module-py/ui/components/ui/alert-dialog';
+import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@simple-module-py/ui/components/ui/card';
-import { Checkbox } from '@simple-module-py/ui/components/ui/checkbox';
-import { Label } from '@simple-module-py/ui/components/ui/label';
+import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { AccountStatusCard } from './components/AccountStatusCard';
 
 interface UserListItem {
   id: string;
@@ -66,34 +55,38 @@ function Edit() {
     );
   };
 
-  const disableAccount = () => {
+  const post = (url: string, onSuccess: () => void, label: string) => {
     setSavingStatus(true);
-    fetch(`/api/users/admin/${user.id}/disable`, { method: 'PATCH' })
+    fetch(url, { method: 'PATCH' })
       .then(async (res) => {
         if (res.ok) {
-          setIsActive(false);
-          toast.success('User disabled');
+          onSuccess();
+          toast.success(label);
         } else {
-          toast.error('Failed to disable user');
+          toast.error(`Failed to ${label.toLowerCase()}`);
         }
       })
       .catch(() => toast.error('An error occurred'))
       .finally(() => setSavingStatus(false));
   };
 
-  const enableAccount = () => {
-    setSavingStatus(true);
-    fetch(`/api/users/admin/${user.id}/enable`, { method: 'PATCH' })
+  const disableAccount = () =>
+    post(`/api/users/admin/${user.id}/disable`, () => setIsActive(false), 'User disabled');
+  const enableAccount = () =>
+    post(`/api/users/admin/${user.id}/enable`, () => setIsActive(true), 'User enabled');
+  const markVerified = () => {
+    setSavingVerify(true);
+    fetch(`/api/users/admin/${user.id}/verify`, { method: 'PATCH' })
       .then(async (res) => {
         if (res.ok) {
-          setIsActive(true);
-          toast.success('User enabled');
+          setIsVerified(true);
+          toast.success('User marked verified');
         } else {
-          toast.error('Failed to enable user');
+          toast.error('Failed to mark verified');
         }
       })
       .catch(() => toast.error('An error occurred'))
-      .finally(() => setSavingStatus(false));
+      .finally(() => setSavingVerify(false));
   };
 
   const handleSaveRoles = () => {
@@ -104,11 +97,8 @@ function Edit() {
       body: JSON.stringify({ role_names: selectedRoles }),
     })
       .then(async (res) => {
-        if (res.ok) {
-          toast.success('Roles updated');
-        } else {
-          toast.error('Failed to update roles');
-        }
+        if (res.ok) toast.success('Roles updated');
+        else toast.error('Failed to update roles');
       })
       .catch(() => toast.error('An error occurred'))
       .finally(() => setSavingRoles(false));
@@ -128,21 +118,6 @@ function Edit() {
       .catch(() => toast.error('An error occurred'));
   };
 
-  const markVerified = () => {
-    setSavingVerify(true);
-    fetch(`/api/users/admin/${user.id}/verify`, { method: 'PATCH' })
-      .then(async (res) => {
-        if (res.ok) {
-          setIsVerified(true);
-          toast.success('User marked verified');
-        } else {
-          toast.error('Failed to mark verified');
-        }
-      })
-      .catch(() => toast.error('An error occurred'))
-      .finally(() => setSavingVerify(false));
-  };
-
   return (
     <PageShell
       title={user.email}
@@ -153,137 +128,104 @@ function Edit() {
         </Button>
       }
     >
-      <div className="space-y-6 max-w-xl">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Metadata</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-            <span className="text-muted-foreground">Created</span>
-            <span>{fmt(user.created_at)}</span>
-            <span className="text-muted-foreground">Last login</span>
-            <span>{user.last_login_at ? fmt(user.last_login_at) : 'Never'}</span>
-            <span className="text-muted-foreground">Disabled at</span>
-            <span>{fmt(user.disabled_at)}</span>
-            <span className="text-muted-foreground">Verified</span>
-            <span className="flex items-center gap-2">
-              {isVerified ? (
-                'Yes'
-              ) : (
-                <>
-                  No
-                  <Button
-                    size="sm"
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="border-border">
+          <CardContent className="pt-5">
+            <SectionTitle>Metadata</SectionTitle>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+              <dt className="text-muted-foreground">Created</dt>
+              <dd>{fmt(user.created_at)}</dd>
+              <dt className="text-muted-foreground">Last login</dt>
+              <dd>{user.last_login_at ? fmt(user.last_login_at) : 'Never'}</dd>
+              <dt className="text-muted-foreground">Disabled at</dt>
+              <dd>{fmt(user.disabled_at)}</dd>
+              <dt className="text-muted-foreground">Verified</dt>
+              <dd className="flex items-center gap-2">
+                {isVerified ? (
+                  <Badge
                     variant="outline"
-                    onClick={markVerified}
-                    disabled={savingVerify}
+                    className="border-primary-200 bg-primary-50 text-primary-700"
                   >
-                    {savingVerify ? 'Saving…' : 'Mark verified'}
-                  </Button>
-                </>
-              )}
-            </span>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Account status</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Badge variant={isActive ? 'secondary' : 'destructive'}>
-                {isActive ? 'Active' : 'Disabled'}
-              </Badge>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {isActive ? (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" disabled={savingStatus}>
-                      {savingStatus ? 'Saving…' : 'Disable account'}
+                    yes
+                  </Badge>
+                ) : (
+                  <>
+                    <Badge
+                      variant="outline"
+                      className="border-amber-200 bg-amber-50 text-amber-700"
+                    >
+                      no
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={markVerified}
+                      disabled={savingVerify}
+                    >
+                      {savingVerify ? 'Saving…' : 'Mark verified'}
                     </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Disable {user.email}?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        They won't be able to sign in until you re-enable the account.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={disableAccount}>Disable</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              ) : (
-                <Button size="sm" onClick={enableAccount} disabled={savingStatus}>
-                  {savingStatus ? 'Saving…' : 'Enable account'}
-                </Button>
-              )}
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    Copy reset-password link
+                  </>
+                )}
+              </dd>
+            </dl>
+          </CardContent>
+        </Card>
+
+        <AccountStatusCard
+          email={user.email}
+          isActive={isActive}
+          savingStatus={savingStatus}
+          onDisable={disableAccount}
+          onEnable={enableAccount}
+          onCopyResetLink={copyResetLink}
+        />
+
+        <Card className="border-border lg:col-span-2">
+          <CardContent className="pt-5">
+            <SectionTitle
+              right={
+                <div className="flex gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => router.reload()}>
+                    Discard
                   </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Generate reset link for {user.email}?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      A one-time password-reset URL will be copied to your clipboard.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={copyResetLink}>Generate</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Roles</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col gap-2">
-              {roles.map((role) => (
-                <div key={role.id} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`role-${role.id}`}
-                    checked={selectedRoles.includes(role.name)}
-                    onCheckedChange={() => toggleRole(role.name)}
-                  />
-                  <Label htmlFor={`role-${role.id}`} className="cursor-pointer font-normal">
-                    {role.name}
-                  </Label>
+                  <Button size="sm" onClick={handleSaveRoles} disabled={savingRoles}>
+                    {savingRoles ? 'Saving…' : 'Save roles'}
+                  </Button>
                 </div>
-              ))}
+              }
+            >
+              Roles
+            </SectionTitle>
+            <div className="flex flex-wrap gap-1.5">
+              {roles.map((role) => {
+                const active = selectedRoles.includes(role.name);
+                return (
+                  <button
+                    key={role.id}
+                    type="button"
+                    onClick={() => toggleRole(role.name)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      active
+                        ? 'border-primary-200 bg-primary-600/10 text-primary-700'
+                        : 'border-border bg-card text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {role.name}
+                  </button>
+                );
+              })}
             </div>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleSaveRoles} disabled={savingRoles}>
-                {savingRoles ? 'Saving…' : 'Save roles'}
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => router.reload()}>
-                Discard
-              </Button>
-            </div>
+            {has_permissions_module && (
+              <Link
+                href={`/permissions/users/${user.id}/edit`}
+                className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary-700 hover:text-primary-800"
+              >
+                <ShieldCheck className="size-4" />
+                Manage permissions →
+              </Link>
+            )}
           </CardContent>
         </Card>
-
-        {has_permissions_module && (
-          <Link
-            href={`/permissions/users/${user.id}`}
-            className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-          >
-            <ShieldCheck className="size-4" />
-            Manage permissions →
-          </Link>
-        )}
       </div>
     </PageShell>
   );

@@ -156,6 +156,20 @@ class UserService:
         items = [self.to_list_item(u) for u in rows]
         return items, total
 
+    async def count_user_states(self) -> dict[str, int]:
+        """Workspace-wide counts unaffected by list filters/pagination —
+        feeds the dashboard cards on /users/admin so they don't reflect
+        the current page slice."""
+        active_q = select(func.count()).select_from(User).where(User.is_active.is_(True))
+        unverified_q = (
+            select(func.count())
+            .select_from(User)
+            .where(User.is_active.is_(True), User.is_verified.is_(False))
+        )
+        active = (await self._db.execute(active_q)).scalar_one()
+        unverified = (await self._db.execute(unverified_q)).scalar_one()
+        return {"active": int(active), "unverified": int(unverified)}
+
     async def invite(
         self,
         email: str,

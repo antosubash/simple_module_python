@@ -1,15 +1,9 @@
 import { router, usePage } from '@inertiajs/react';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
+import { AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 
 interface DevAccount {
@@ -93,109 +87,122 @@ function Login() {
 
   return (
     <AuthCardShell>
-      <Card className="w-full max-w-sm">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl">Sign in</CardTitle>
-          <CardDescription>Enter your email and password to continue</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                autoComplete="email"
-              />
+      <h1 className="mb-1.5 text-[22px] font-bold tracking-tight font-[var(--font-display)] text-foreground">
+        Welcome back
+      </h1>
+      <p className="mb-5 text-sm text-muted-foreground">Log in to your workspace.</p>
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+        <div className="space-y-1.5">
+          <Label htmlFor="email" className="text-sm font-medium text-muted-foreground">
+            Email
+          </Label>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            required
+            autoComplete="email"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <div className="flex items-baseline justify-between">
+            <Label htmlFor="password" className="text-sm font-medium text-muted-foreground">
+              Password
+            </Label>
+            <a
+              href="/users/forgot-password"
+              className="text-xs font-semibold text-primary-700 hover:text-primary-800"
+            >
+              Forgot?
+            </a>
+          </div>
+          <Input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            autoComplete="current-password"
+          />
+        </div>
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        {needsVerification && (
+          <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <div>
+              <p className="font-semibold">Verify your email</p>
+              <button
+                type="button"
+                onClick={handleResendVerification}
+                className="mt-0.5 underline hover:no-underline"
+              >
+                Resend verification email
+              </button>
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <a href="/users/forgot-password" className="text-sm text-primary hover:underline">
-                  Forgot password?
-                </a>
-              </div>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
-            </div>
+          </div>
+        )}
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+        <Button type="submit" size="lg" className="w-full" disabled={loading}>
+          {loading ? 'Signing in…' : 'Log in'}
+        </Button>
+      </form>
 
-            {needsVerification && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                <p>Please verify your email before signing in.</p>
-                <button
-                  type="button"
-                  onClick={handleResendVerification}
-                  className="mt-1 underline hover:no-underline"
-                >
-                  Resend verification email
-                </button>
-              </div>
-            )}
+      {allow_signup && (
+        <p className="mt-5 text-center text-xs text-muted-foreground">
+          Don't have an account?{' '}
+          <a
+            href="/users/register"
+            className="font-semibold text-primary-700 hover:text-primary-800"
+          >
+            Sign up
+          </a>
+        </p>
+      )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Signing in…' : 'Sign in'}
-            </Button>
-          </form>
+      {oauth_providers && oauth_providers.length > 0 && (
+        <div className="mt-5 border-t border-border pt-4">
+          <p className="mb-2 text-center font-mono text-[11px] text-muted-foreground">
+            Or continue with
+          </p>
+          <div className="flex flex-col gap-2">
+            {oauth_providers.map((p) => (
+              <Button key={p.name} type="button" variant="outline" asChild disabled={loading}>
+                <a href={`/api/users/auth/${p.name}/login`}>{p.display_name}</a>
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
 
-          {oauth_providers && oauth_providers.length > 0 && (
-            <div className="mt-6 border-t pt-4">
-              <p className="mb-2 text-center text-xs text-muted-foreground">Or continue with</p>
-              <div className="flex flex-col gap-2">
-                {oauth_providers.map((p) => (
-                  <Button key={p.name} type="button" variant="outline" asChild disabled={loading}>
-                    <a href={`/api/users/auth/${p.name}/login`}>{p.display_name}</a>
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {allow_signup && (
-            <p className="mt-4 text-center text-sm text-muted-foreground">
-              Don't have an account?{' '}
-              <a href="/users/register" className="text-primary hover:underline">
-                Create account
-              </a>
-            </p>
-          )}
-
-          {dev_accounts && dev_accounts.length > 0 && (
-            <div className="mt-6 border-t pt-4">
-              <p className="mb-2 text-center text-xs text-muted-foreground">Dev quick-login</p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {dev_accounts.map((acct) => (
-                  <Button
-                    key={acct.email}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={loading}
-                    onClick={() => {
-                      setEmail(acct.email);
-                      setPassword(acct.password);
-                      submitLogin(acct.email, acct.password);
-                    }}
-                  >
-                    {acct.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {dev_accounts && dev_accounts.length > 0 && (
+        <div className="mt-5 border-t border-border pt-4">
+          <p className="mb-2 text-center font-mono text-[11px] text-muted-foreground">
+            Dev quick-login
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {dev_accounts.map((acct) => (
+              <Button
+                key={acct.email}
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={loading}
+                onClick={() => {
+                  setEmail(acct.email);
+                  setPassword(acct.password);
+                  submitLogin(acct.email, acct.password);
+                }}
+              >
+                {acct.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
     </AuthCardShell>
   );
 }

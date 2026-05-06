@@ -1,14 +1,8 @@
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
+import { CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
 
 function ForgotPassword() {
@@ -24,8 +18,8 @@ function ForgotPassword() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     }).finally(() => {
-      // Always show the same message regardless of whether the email exists
-      // (anti-enumeration: fastapi-users returns 202 regardless)
+      // Anti-enumeration: always show the same confirmation regardless of
+      // whether the email exists (fastapi-users returns 202 either way).
       setLoading(false);
       setSubmitted(true);
     });
@@ -34,55 +28,57 @@ function ForgotPassword() {
   if (submitted) {
     return (
       <AuthCardShell>
-        <Card className="w-full max-w-sm">
-          <CardHeader>
-            <CardTitle>Check your email</CardTitle>
-            <CardDescription>
-              If an account with that email exists, we've sent a password reset link.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <a href="/users/login" className="text-sm text-primary hover:underline">
-              Back to sign in
-            </a>
-          </CardContent>
-        </Card>
+        <div className="flex items-start gap-3 rounded-xl border border-primary-200 bg-primary-50 p-3 text-sm text-primary-800">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <div>
+            <p className="font-semibold">Check your inbox</p>
+            <p className="mt-0.5">
+              If <strong>{email}</strong> has an account, a reset link is on its way. The console
+              mailer logs it to stdout.
+            </p>
+          </div>
+        </div>
+        <a
+          href="/users/login"
+          className="mt-4 block text-center text-sm font-semibold text-primary-700 hover:text-primary-800"
+        >
+          Back to log in
+        </a>
       </AuthCardShell>
     );
   }
 
   return (
     <AuthCardShell>
-      <Card className="w-full max-w-sm">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl">Forgot password</CardTitle>
-          <CardDescription>Enter your email to receive a reset link</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                autoComplete="email"
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Sending…' : 'Send reset link'}
-            </Button>
-          </form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            <a href="/users/login" className="text-primary hover:underline">
-              Back to sign in
-            </a>
-          </p>
-        </CardContent>
-      </Card>
+      <h1 className="mb-1.5 text-[22px] font-bold tracking-tight font-[var(--font-display)] text-foreground">
+        Forgot password
+      </h1>
+      <p className="mb-5 text-sm text-muted-foreground">We'll email you a one-time reset link.</p>
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+        <div className="space-y-1.5">
+          <Label htmlFor="email" className="text-sm font-medium text-muted-foreground">
+            Email
+          </Label>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            required
+            autoComplete="email"
+          />
+        </div>
+        <Button type="submit" size="lg" className="w-full" disabled={loading}>
+          {loading ? 'Sending…' : 'Send reset link'}
+        </Button>
+      </form>
+      <p className="mt-5 text-center text-xs text-muted-foreground">
+        Remembered?{' '}
+        <a href="/users/login" className="font-semibold text-primary-700 hover:text-primary-800">
+          Log in
+        </a>
+      </p>
     </AuthCardShell>
   );
 }

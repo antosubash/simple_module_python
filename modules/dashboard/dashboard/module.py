@@ -11,7 +11,9 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 
 _MODULE_USERS = "Users"
 _URL_DASHBOARD = "/dashboard/"
+_URL_DOCTOR = "/dashboard/doctor"
 _ICON_DASHBOARD = "home"
+_ICON_DOCTOR = "stethoscope"
 
 
 class DashboardModule(ModuleBase):
@@ -37,6 +39,15 @@ class DashboardModule(ModuleBase):
                 icon=_ICON_DASHBOARD,
                 order=10,
                 section=MenuSection.SIDEBAR,
+            )
+        )
+        registry.add(
+            MenuItem(
+                label="Doctor",
+                url=_URL_DOCTOR,
+                icon=_ICON_DOCTOR,
+                order=90,
+                section=MenuSection.ADMIN_SIDEBAR,
             )
         )
 

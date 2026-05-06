@@ -3,43 +3,85 @@ layout: home
 
 hero:
   name: simple_module_python
-  text: Modular-monolith for Python
-  tagline: FastAPI + SQLModel + Inertia.js + React — plugin modules that compose at boot. No microservice tax, no API-client glue.
+  text: A modular monolith for Python
+  tagline: FastAPI + SQLModel + Inertia.js + React. Plugin modules that compose at boot. No microservice tax, no API-client glue.
   actions:
     - theme: brand
       text: Get started
-      link: /guide/introduction
-    - theme: alt
-      text: Quickstart
       link: /guide/quickstart
+    - theme: alt
+      text: Why a modular monolith?
+      link: /guide/introduction
     - theme: alt
       text: View on GitHub
       link: https://github.com/antosubash/simple_module_python
 
 features:
-  - title: One app, many modules
-    details: Each module ships its own SQLModel tables, API endpoints, and React pages — but everything runs in one FastAPI process. Installed as Python packages, discovered via entry points.
-  - title: SQLModel end-to-end
-    details: A single type system for tables and DTOs. Per-module Base class gives you a Postgres schema (or table-name prefix on SQLite) with zero boilerplate.
-  - title: Inertia.js, not a split SPA
-    details: Server renders React pages with shared props (auth, menus, i18n) — no REST glue. Auto-discovered .tsx pages under modules/, hot-reloaded by Vite.
-  - title: Diagnostics that fail boot
-    details: Orphan pages, phantom renders, coupling violations, migration drift, locale inconsistencies — caught at dev time, enforced at production boot.
-  - title: Batteries-included
-    details: Permissions, roles, audit/soft-delete/multi-tenant mixins, event bus, i18n with CLDR plurals, feature flags, health checks — standard plumbing you don't have to rebuild.
-  - title: Scaffold in one command
-    details: make new-module name=orders generates the full package — ModuleMeta, models, service, endpoints, pages, tests — already wired into the app.
+  - title: Build with it
+    details: Five-minute quickstart, then scaffold your first module. You'll learn the loop — add a model, generate a migration, write a service, mount a page.
+    link: /guide/quickstart
+    linkText: Quickstart
+  - title: Author a module
+    details: Read the framework conventions, then walk through a real module end-to-end. Models, contracts, service, endpoints, pages, tests, locales.
+    link: /guide/first-module
+    linkText: Build a module
+  - title: Use a bundled module
+    details: Eight first-party modules ship with the framework — auth, users, permissions, settings, file_storage, background_tasks, feature_flags, dashboard.
+    link: /modules/
+    linkText: Browse modules
+  - title: Operate it in production
+    details: Deployment, environment variables, diagnostics, release pipeline, performance + load testing.
+    link: /reference/deployment
+    linkText: Deploy
 ---
 
-## What you'll find here
+## How the docs are organised
 
-This documentation is structured around what you're trying to do:
+<style>
+.sm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin: 1rem 0 2rem; }
+.sm-grid a.sm-card { display: block; padding: 1rem 1.25rem; border: 1px solid var(--vp-c-divider); border-radius: 12px; background: var(--vp-c-bg-soft); text-decoration: none !important; }
+.sm-grid a.sm-card:hover { border-color: var(--vp-c-brand-1); }
+.sm-grid a.sm-card h3 { margin: 0 0 .25rem; font-size: 1rem; color: var(--vp-c-brand-1); }
+.sm-grid a.sm-card p { margin: 0; color: var(--vp-c-text-2); font-size: .9rem; line-height: 1.4; }
+@media (prefers-reduced-motion: no-preference) {
+  .sm-grid a.sm-card { transition: border-color .15s ease, transform .15s ease; }
+  .sm-grid a.sm-card:hover { transform: translateY(-1px); }
+}
+</style>
 
-- **[Guide](/guide/introduction)** — install, bootstrap, and build your first module.
-- **[Framework](/framework/overview)** — the module system: discovery, lifecycle hooks, middleware, permissions, events, i18n.
-- **[Database](/database/models)** — SQLModel conventions, per-module `Base`, mixins, session lifecycle, Alembic migrations.
-- **[Frontend](/frontend/inertia)** — Inertia page keys, shared props, page discovery, client dependencies.
-- **[Testing](/testing/overview)** — the fixtures in `conftest.py`, how to write unit tests against a real DB, and how to run E2E.
-- **[Reference](/reference/make-commands)** — `make` targets, environment variables, diagnostic codes, deployment.
+<div class="sm-grid">
+  <a class="sm-card" href="/guide/introduction"><h3>Guide</h3><p>Install, bootstrap, and build your first module.</p></a>
+  <a class="sm-card" href="/framework/overview"><h3>Framework</h3><p>Discovery, lifecycle hooks, middleware, permissions, events, i18n.</p></a>
+  <a class="sm-card" href="/database/models"><h3>Database</h3><p>SQLModel conventions, per-module Base, mixins, sessions, Alembic.</p></a>
+  <a class="sm-card" href="/frontend/inertia"><h3>Frontend</h3><p>Inertia page keys, shared props, page discovery, React layout.</p></a>
+  <a class="sm-card" href="/testing/overview"><h3>Testing</h3><p>The fixtures in <code>conftest.py</code>, unit tests, end-to-end tests.</p></a>
+  <a class="sm-card" href="/modules/"><h3>Modules</h3><p>Reference for each bundled module: routes, contracts, settings.</p></a>
+  <a class="sm-card" href="/reference/make-commands"><h3>Reference</h3><p>CLI commands, env vars, diagnostic codes, deployment.</p></a>
+</div>
 
-The authoritative single-page docs (`framework-conventions.md`, `module-authoring.md`, `e2e-testing.md`, `release.md`) are also linked from each section's sidebar — they are the source of truth when conventions are ambiguous.
+## Try it in 60 seconds
+
+```bash
+uv tool install simple_module_cli
+sm new myapp --yes
+cd myapp
+make dev          # API on :8000, Vite on :5050
+```
+
+Then in another terminal, inside `myapp`:
+
+```bash
+sm create-module orders --dest modules/orders
+uv add ./modules/orders
+```
+
+That generates `modules/orders/` with a `ModuleMeta`, a SQLModel table, contracts, a service, REST + Inertia endpoints, three React pages, locales, and a smoke test — all wired in once the dev server reloads. The full walkthrough is in [Your first module](/guide/first-module).
+
+## Where to start
+
+- New here? Read [Introduction](/guide/introduction) for the why, then [Quickstart](/guide/quickstart) for the how.
+- Already convinced? Jump straight to [Your first module](/guide/first-module).
+- Need an off-the-shelf piece? See the [bundled modules](/modules/).
+- Operating an existing deployment? Start with [Commands](/reference/make-commands) and [Environment variables](/reference/env-vars).
+
+When conventions are ambiguous, the authoritative single-page docs ([Framework conventions](/framework-conventions), [Module authoring](/module-authoring), [E2E testing](/e2e-testing), [Release playbook](/release)) are the source of truth.

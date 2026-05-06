@@ -1,25 +1,25 @@
 {
   "landing": {
-    "badge": "Hecho con FastAPI + Inertia.js + React",
-    "hero_title_line1": "Monolito modular",
-    "hero_title_line2": "Framework para Python",
-    "hero_subtitle": "Construye aplicaciones escalables con módulos independientes, cada uno con su propio esquema de base de datos, endpoints de API y páginas de React — todo en una sola unidad desplegable.",
+    "badge": "v0.1 · Python 3.12 · experimental",
+    "hero_title_line1": "Monolitos modulares para Python —",
+    "hero_title_line2": "sin el código repetitivo.",
+    "hero_subtitle": "Cada función incluye sus propias tablas SQLModel, endpoints FastAPI y páginas React. Los módulos plugin se componen al iniciar — sin coste de microservicios, sin pegamento de cliente API.",
     "cta_dashboard": "Abrir panel",
-    "cta_get_started": "Comenzar",
-    "cta_docs": "Documentación",
+    "cta_get_started": "Empieza tu proyecto",
+    "cta_docs": "Lee los docs",
     "features": {
-      "module_system_title": "Sistema de módulos",
-      "module_system_description": "Cada módulo es un paquete autocontenido con sus propios modelos, servicios, endpoints de API y páginas de React. Descubierto automáticamente vía entry_points de Python.",
-      "auth_title": "Autenticación local",
-      "auth_description": "Autenticación por correo y contraseña basada en cookies con gestión local de usuarios. Sesiones del lado del servidor, control de acceso por permisos y menús filtrados por rol.",
-      "schema_title": "Aislamiento de esquema",
-      "schema_description": "Cada módulo obtiene su propio esquema de base de datos en PostgreSQL o prefijo de tabla en SQLite. Auditoría completa, borrado lógico y multi-tenancy incorporados.",
-      "inertia_title": "Inertia.js + React",
-      "inertia_description": "SPA dirigida por el servidor — FastAPI renderiza props, React renderiza la UI. Sin cliente API separado, sin duplicación de estado, seguridad de tipos de punta a punta.",
-      "diagnostics_title": "Diagnósticos",
-      "diagnostics_description": "El validador de módulos incorporado detecta páginas huérfanas, renders fantasma, endpoints sin protección y dependencias circulares al inicio.",
-      "devtools_title": "Herramientas de desarrollo",
-      "devtools_description": "Workspaces de uv, Tailwind CSS 4, Vite HMR, páginas auto-descubiertas, 97 pruebas en 0.4s y una herramienta CLI de andamiaje."
+      "module_system_title": "Descubierto al iniciar",
+      "module_system_description": "Los entry points de Python registran cada subclase de ModuleBase. Sin reflexión, sin cableado manual.",
+      "auth_title": "Autenticación incluida",
+      "auth_description": "Email + sesiones por cookie vía fastapi-users. Roles y permisos se registran con el módulo.",
+      "schema_title": "Esquema por módulo",
+      "schema_description": "PostgreSQL → un esquema por módulo. SQLite → tablas con prefijo. Cada módulo posee sus datos.",
+      "inertia_title": "Inertia + React",
+      "inertia_description": "Páginas Browse / Create / Edit incluidas en cada módulo. Vite HMR para el frontend, FastAPI async para el backend.",
+      "diagnostics_title": "sm doctor",
+      "diagnostics_description": "El analizador estático detecta páginas huérfanas, acoplamiento del framework y desviaciones de migración antes del arranque.",
+      "devtools_title": "SQLModel async",
+      "devtools_description": "SQLAlchemy async + Pydantic + Alembic. Genera migraciones por módulo."
     }
   },
   "error": {

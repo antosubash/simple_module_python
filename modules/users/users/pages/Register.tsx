@@ -1,14 +1,8 @@
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
+import { CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
 
 function Register() {
@@ -57,94 +51,106 @@ function Register() {
   if (success) {
     return (
       <AuthCardShell>
-        <Card className="w-full max-w-sm">
-          <CardHeader>
-            <CardTitle>Check your email</CardTitle>
-            <CardDescription>
-              We've sent a verification link to <strong>{email}</strong>. Please verify your account
-              before signing in.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <a href="/users/login" className="text-sm text-primary hover:underline">
-              Back to sign in
-            </a>
-          </CardContent>
-        </Card>
+        <div className="flex items-start gap-3 rounded-xl border border-primary-200 bg-primary-50 p-3 text-sm text-primary-800">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <div>
+            <p className="font-semibold">Check your inbox</p>
+            <p className="mt-0.5">
+              We've sent a verification link to <strong>{email}</strong>.
+            </p>
+          </div>
+        </div>
+        <a
+          href="/users/login"
+          className="mt-4 block text-center text-sm font-semibold text-primary-700 hover:text-primary-800"
+        >
+          Back to log in
+        </a>
       </AuthCardShell>
     );
   }
 
   return (
     <AuthCardShell>
-      <Card className="w-full max-w-sm">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl">Create account</CardTitle>
-          <CardDescription>Fill in your details to get started</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                autoComplete="email"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="full_name">Full name</Label>
-              <Input
-                id="full_name"
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Your name"
-                autoComplete="name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirm">Confirm password</Label>
-              <Input
-                id="confirm"
-                type="password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                required
-                autoComplete="new-password"
-              />
-            </div>
+      <h1 className="mb-1.5 text-[22px] font-bold tracking-tight font-[var(--font-display)] text-foreground">
+        Create your account
+      </h1>
+      <p className="mb-5 text-sm text-muted-foreground">
+        Public signup — controlled by{' '}
+        <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[12px]">
+          SM_USERS_ALLOW_SIGNUP
+        </code>
+        .
+      </p>
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+        <div className="space-y-1.5">
+          <Label htmlFor="full_name" className="text-sm font-medium text-muted-foreground">
+            Full name
+          </Label>
+          <Input
+            id="full_name"
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="Your name"
+            autoComplete="name"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="email" className="text-sm font-medium text-muted-foreground">
+            Email
+          </Label>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            required
+            autoComplete="email"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="password" className="text-sm font-medium text-muted-foreground">
+            Password
+          </Label>
+          <Input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="8+ characters"
+            required
+            autoComplete="new-password"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="confirm" className="text-sm font-medium text-muted-foreground">
+            Confirm password
+          </Label>
+          <Input
+            id="confirm"
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+            autoComplete="new-password"
+          />
+        </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Creating account…' : 'Create account'}
-            </Button>
-          </form>
+        <Button type="submit" size="lg" className="w-full" disabled={loading}>
+          {loading ? 'Creating account…' : 'Sign up'}
+        </Button>
+      </form>
 
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            Already have an account?{' '}
-            <a href="/users/login" className="text-primary hover:underline">
-              Sign in
-            </a>
-          </p>
-        </CardContent>
-      </Card>
+      <p className="mt-5 text-center text-xs text-muted-foreground">
+        Already have an account?{' '}
+        <a href="/users/login" className="font-semibold text-primary-700 hover:text-primary-800">
+          Log in
+        </a>
+      </p>
     </AuthCardShell>
   );
 }

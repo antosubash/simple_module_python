@@ -1,18 +1,12 @@
 import { usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
-import { Card, CardContent, CardHeader, CardTitle } from '@simple-module-py/ui/components/ui/card';
-import { Table, TableBody, TableCell, TableRow } from '@simple-module-py/ui/components/ui/table';
+import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
+import { StatCard } from '@simple-module-py/ui/components/StatCard';
+import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import { Activity, Box, Heart, Server, Users } from 'lucide-react';
-
-type Accent = 'emerald' | 'violet' | 'amber';
-
-const HEALTH_STATUS_COLOR: Record<string, string> = {
-  healthy: 'bg-emerald-500',
-  degraded: 'bg-amber-500',
-  unhealthy: 'bg-red-500',
-};
+import { Activity, Box, Stethoscope, Users } from 'lucide-react';
+import { DemoPlaceholders } from './components/DemoPlaceholders';
 
 interface SystemModule {
   name: string;
@@ -41,132 +35,70 @@ function Home() {
   const props = usePage<{ props: Props }>().props as unknown as Props;
   const { t } = useT();
 
+  const unhealthy = props.system_info.health_checks.filter((c) => c.status !== 'healthy').length;
+
   return (
     <PageShell
       title={t(keys.dashboard.home.title)}
       description={t(keys.dashboard.home.description)}
     >
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
+      <div className="grid grid-cols-2 gap-3 mb-5 sm:grid-cols-4">
         <StatCard
-          title={t(keys.dashboard.home.stats.total_users)}
-          value={String(props.total_users)}
-          icon={<Users className="size-4" />}
-          accent="emerald"
+          label={t(keys.dashboard.home.stats.total_users)}
+          value={props.total_users}
+          icon={Users}
         />
         <StatCard
-          title={t(keys.dashboard.home.stats.active_users)}
-          value={String(props.active_users_7d)}
-          icon={<Activity className="size-4" />}
-          accent="amber"
+          label={t(keys.dashboard.home.stats.active_users)}
+          value={props.active_users_7d}
+          icon={Activity}
+          delta="↑ 7d"
         />
         <StatCard
-          title={t(keys.dashboard.home.stats.modules)}
-          value={String(props.module_count)}
-          icon={<Box className="size-4" />}
-          accent="violet"
+          label={t(keys.dashboard.home.stats.modules)}
+          value={props.module_count}
+          icon={Box}
+        />
+        <StatCard
+          label="Health"
+          value={unhealthy === 0 ? 'OK' : `${unhealthy} alert`}
+          icon={Stethoscope}
+          delta={unhealthy === 0 ? 'all good' : 'see Doctor'}
+          deltaTone={unhealthy === 0 ? 'success' : 'warning'}
         />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 font-[var(--font-display)]">
-            <Server className="size-4" />
-            {t(keys.dashboard.home.system_info_title)}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div>
-            <h4 className="text-sm font-medium text-muted-foreground mb-2">
-              {t(keys.dashboard.home.system_info.modules)}
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {props.system_info.modules.map((mod) => (
-                <span
-                  key={mod.name}
-                  className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium"
-                >
-                  <span className="size-1.5 rounded-full bg-emerald-500" />
-                  {mod.name}
+      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+        <Card className="border-border lg:col-span-2">
+          <CardContent className="pt-5">
+            <SectionTitle
+              right={
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  Python {props.system_info.python_version} · {props.module_count} modules
                 </span>
+              }
+            >
+              System
+            </SectionTitle>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+              {props.system_info.modules.map((m) => (
+                <div
+                  key={m.name}
+                  className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2"
+                >
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-muted-foreground">
+                    <Box className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                  <span className="font-mono text-xs text-foreground truncate">{m.name}</span>
+                </div>
               ))}
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          <Table>
-            <TableBody>
-              <TableRow>
-                <TableCell className="font-medium text-muted-foreground">
-                  {t(keys.dashboard.home.system_info.python_version)}
-                </TableCell>
-                <TableCell>{props.system_info.python_version}</TableCell>
-              </TableRow>
-              {props.system_info.health_checks.map((check) => (
-                <TableRow key={check.name}>
-                  <TableCell className="font-medium text-muted-foreground flex items-center gap-2">
-                    <Heart className="size-3" />
-                    {check.name}
-                  </TableCell>
-                  <TableCell>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span
-                        className={`size-2 rounded-full ${HEALTH_STATUS_COLOR[check.status] ?? 'bg-red-500'}`}
-                      />
-                      {check.status}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+        {import.meta.env.DEV && <DemoPlaceholders totalUsers={props.total_users} />}
+      </div>
     </PageShell>
-  );
-}
-
-function StatCard({
-  title,
-  value,
-  icon,
-  accent,
-}: {
-  title: string;
-  value: string;
-  icon: React.ReactNode;
-  accent: Accent;
-}) {
-  const styles: Record<Accent, { card: string; icon: string; value: string }> = {
-    emerald: {
-      card: 'border-emerald-border bg-gradient-to-br from-emerald-bg to-card',
-      icon: 'text-emerald-icon-fg bg-emerald-icon-bg',
-      value: 'text-emerald-value',
-    },
-    violet: {
-      card: 'border-violet-border bg-gradient-to-br from-violet-bg to-card',
-      icon: 'text-violet-icon-fg bg-violet-icon-bg',
-      value: 'text-violet-value',
-    },
-    amber: {
-      card: 'border-amber-200 bg-gradient-to-br from-amber-50 to-card',
-      icon: 'text-amber-600 bg-amber-100',
-      value: 'text-amber-900',
-    },
-  };
-
-  const s = styles[accent];
-
-  return (
-    <Card className={s.card}>
-      <CardContent className="pt-5">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-muted-foreground">{title}</span>
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${s.icon}`}>
-            {icon}
-          </div>
-        </div>
-        <p className={`text-3xl font-bold font-[var(--font-display)] ${s.value}`}>{value}</p>
-      </CardContent>
-    </Card>
   );
 }
 

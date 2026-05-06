@@ -1,13 +1,7 @@
 import { usePage } from '@inertiajs/react';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@simple-module-py/ui/components/ui/card';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
+import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface Props {
@@ -61,48 +55,64 @@ function VerifyEmail() {
 
   const content = {
     pending: {
+      icon: Loader2,
+      iconClass: 'text-muted-foreground animate-spin',
       title: 'Verifying your email…',
       description: 'Please wait while we verify your email address.',
       body: null,
     },
     success: {
+      icon: CheckCircle2,
+      iconClass: 'text-primary-700',
       title: 'Email verified!',
-      description: 'Your account is now active. You can sign in.',
+      description: 'Your account is now active.',
       body: (
         <a href="/users/login">
-          <Button className="w-full">Sign in</Button>
+          <Button className="w-full">Log in</Button>
         </a>
       ),
     },
     already_verified: {
+      icon: CheckCircle2,
+      iconClass: 'text-primary-700',
       title: 'Already verified',
       description: 'This account is already verified — you can log in.',
       body: (
         <a href="/users/login">
-          <Button className="w-full">Sign in</Button>
+          <Button className="w-full">Log in</Button>
         </a>
       ),
     },
     error: {
+      icon: XCircle,
+      iconClass: 'text-destructive',
       title: 'Verification failed',
       description: errorMsg || 'Verification link expired or invalid.',
       body: (
-        <a href="/users/login" className="text-sm text-primary hover:underline">
-          Back to sign in
+        <a
+          href="/users/login"
+          className="text-center text-sm font-semibold text-primary-700 hover:text-primary-800"
+        >
+          Back to log in
         </a>
       ),
     },
   }[status];
 
+  const Icon = content.icon;
+
   return (
     <AuthCardShell>
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>{content.title}</CardTitle>
-          <CardDescription>{content.description}</CardDescription>
-        </CardHeader>
-        {content.body && <CardContent>{content.body}</CardContent>}
-      </Card>
+      <div className="flex flex-col items-center gap-3 text-center">
+        <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
+          <Icon className={`h-6 w-6 ${content.iconClass}`} aria-hidden="true" />
+        </span>
+        <h1 className="text-[22px] font-bold tracking-tight font-[var(--font-display)] text-foreground">
+          {content.title}
+        </h1>
+        <p className="text-sm text-muted-foreground">{content.description}</p>
+        {content.body && <div className="mt-2 w-full">{content.body}</div>}
+      </div>
     </AuthCardShell>
   );
 }

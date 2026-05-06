@@ -17,6 +17,9 @@ from dashboard.stats import fetch_dashboard_stats
 
 router = APIRouter()
 
+_PAGE_HOME = "Dashboard/Home"
+_PAGE_DOCTOR = "Dashboard/Doctor"
+
 
 @router.get("/", response_model=None)
 async def dashboard(
@@ -28,9 +31,26 @@ async def dashboard(
     """Authenticated dashboard — requires login (enforced by AuthMiddleware)."""
     stats = await fetch_dashboard_stats(db, request.app)
     return await inertia.render(
-        "Dashboard/Home",
+        _PAGE_HOME,
         {
             "welcome": t.t("dashboard.home.welcome_message"),
             **stats,
+        },
+    )
+
+
+@router.get("/doctor", response_model=None)
+async def doctor(
+    request: Request,
+    inertia: InertiaDep,
+    db: AsyncSession = Depends(get_db),
+) -> InertiaResponse:
+    """`sm doctor` mirror — static checks, modules, dev server, env."""
+    stats = await fetch_dashboard_stats(db, request.app)
+    return await inertia.render(
+        _PAGE_DOCTOR,
+        {
+            "module_count": stats["module_count"],
+            "system_info": stats["system_info"],
         },
     )

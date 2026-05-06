@@ -48,6 +48,11 @@ export default defineConfig({
       },
       { text: "Testing", link: "/testing/overview", activeMatch: "/testing/" },
       {
+        text: "Modules",
+        link: "/modules/",
+        activeMatch: "/modules/",
+      },
+      {
         text: "Reference",
         link: "/reference/make-commands",
         activeMatch: "/reference/",
@@ -160,12 +165,30 @@ export default defineConfig({
         },
       ],
 
+      "/modules/": [
+        {
+          text: "Bundled modules",
+          collapsed: false,
+          items: [
+            { text: "Overview", link: "/modules/" },
+            { text: "auth", link: "/modules/auth" },
+            { text: "users", link: "/modules/users" },
+            { text: "permissions", link: "/modules/permissions" },
+            { text: "settings", link: "/modules/settings" },
+            { text: "feature_flags", link: "/modules/feature_flags" },
+            { text: "file_storage", link: "/modules/file_storage" },
+            { text: "background_tasks", link: "/modules/background_tasks" },
+            { text: "dashboard", link: "/modules/dashboard" },
+          ],
+        },
+      ],
+
       "/reference/": [
         {
           text: "Reference",
           collapsed: false,
           items: [
-            { text: "Make commands", link: "/reference/make-commands" },
+            { text: "Commands", link: "/reference/make-commands" },
             { text: "Environment variables", link: "/reference/env-vars" },
             {
               text: "Diagnostic codes",

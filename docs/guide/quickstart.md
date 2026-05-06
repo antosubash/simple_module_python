@@ -1,25 +1,27 @@
 # Quickstart
 
-Five minutes from `git clone` to a running app with a freshly scaffolded module.
+Five minutes from `sm new` to a running app with a freshly scaffolded module.
 
-## 1. Install
-
-```bash
-git clone https://github.com/antosubash/simple_module_python.git
-cd simple_module_python
-make install
-cp .env.example .env
-```
-
-## 2. Migrate
+## 1. Install the CLI
 
 ```bash
-make migrate
+uv tool install simple_module_cli
 ```
 
-Default `.env` uses SQLite — no Docker needed. If you want Postgres, run `make docker-up` first and edit `SM_DATABASE_URL` accordingly.
+(Or `pipx install simple_module_cli`.) That puts `sm` on your PATH globally.
 
-## 3. Boot
+## 2. Scaffold an app
+
+```bash
+sm new myapp --yes
+cd myapp
+```
+
+`--yes` accepts the defaults (SQLite, no multi-tenancy, the `standard` preset: `auth`, `users`, `permissions`, `dashboard`, `settings`, `feature_flags`). The CLI runs `uv sync`, `npm install`, and `alembic upgrade head` for you.
+
+For an interactive run with prompts, drop the `--yes`. For a preset + extras: `sm new myapp --preset standard --with background_tasks,file_storage --yes`.
+
+## 3. Boot it
 
 ```bash
 make dev
@@ -34,7 +36,7 @@ The API and Vite dev servers start side by side. Visit:
 
 ## 4. Create an admin
 
-In another terminal:
+In another terminal, from inside `myapp`:
 
 ```bash
 uv run sm-users create-admin --email admin@example.com --password changeme
@@ -45,32 +47,36 @@ Sign in at `/users/login` and you land on the dashboard.
 ## 5. Scaffold a new module
 
 ```bash
-make new-module name=orders
+sm create-module orders --dest modules/orders
+uv add ./modules/orders
 ```
 
 This generates `modules/orders/` with:
 
 - `pyproject.toml` — `[project.entry-points.simple_module]` → `orders.module:OrdersModule`
-- `orders/module.py` — `ModuleBase` subclass with `meta = ModuleMeta(name="Orders", ...)`
-- `orders/models.py` — `Order` SQLModel table with `AuditMixin`
-- `orders/contracts/schemas.py` — `OrderCreate`, `OrderOut` DTOs
-- `orders/service.py` — CRUD implementation
-- `orders/endpoints/api.py` — REST endpoints at `/api/orders`
-- `orders/endpoints/views.py` — Inertia endpoints at `/orders`
-- `orders/pages/Browse.tsx`, `Create.tsx`, `Edit.tsx` — React pages
-- `orders/locales/en.json` — translation namespace
-- `modules/orders/tests/` — pytest test file
+- `package.json` + `tsconfig.json` — JS workspace metadata so `tsc --noEmit` covers the module's `.tsx` pages.
+- `orders/module.py` — `ModuleBase` subclass with `meta = ModuleMeta(name="Orders", ...)`.
+- `orders/models.py` — `Order` SQLModel table with `AuditMixin`.
+- `orders/contracts/schemas.py` — `OrderCreate`, `OrderOut` DTOs.
+- `orders/service.py` — CRUD implementation.
+- `orders/services.py` — module-scoped state container (stored on `app.state.orders` by `register_settings`).
+- `orders/deps.py` — FastAPI dependencies.
+- `orders/endpoints/api.py` — REST endpoints at `/api/orders`.
+- `orders/endpoints/views.py` — Inertia endpoints at `/orders`.
+- `orders/pages/Browse.tsx`, `Create.tsx`, `Edit.tsx` — React pages.
+- `orders/locales/en.json` — translation namespace.
+- `tests/test_orders.py` — pytest smoke test.
 
-The scaffolder registers the package and re-runs `uv sync --all-packages`, so the module is discoverable on next boot.
+`uv add ./modules/orders` adds the package to your app's dependencies; on the next `uv sync` (which `uv add` also runs) the entry point is registered and the module becomes discoverable on next boot.
 
 ## 6. Generate a migration
 
 ```bash
-make migration msg="add orders tables"
+uv run alembic revision --autogenerate -m "add orders tables"
 make migrate
 ```
 
-Alembic's autogenerate picks up the new `orders` schema (Postgres) or the `orders_*` tables (SQLite) and writes `host/migrations/versions/XXXX_add_orders_tables.py`. The first migration of a new module includes a `branch_labels = ("orders",)` marker so you can downgrade the module in isolation later with `alembic downgrade orders@base`.
+Alembic's autogenerate picks up the new `orders` schema (Postgres) or the `orders_*` tables (SQLite) and writes `migrations/versions/XXXX_add_orders_tables.py`. Add `branch_labels = ("orders",)` to that revision so you can later `alembic downgrade orders@base` to roll the module back in isolation.
 
 ## 7. Hit the module
 
@@ -86,13 +92,13 @@ Visit `http://localhost:8000/orders` — you see the `Browse` page with an empty
 ## 8. Run the tests
 
 ```bash
-make test
+uv run pytest
 ```
 
-Runs Python + JS test suites. Single file:
+Single file:
 
 ```bash
-uv run pytest modules/orders/tests/test_api.py -v
+uv run pytest modules/orders/tests/test_orders.py -v
 ```
 
 ## What just happened
@@ -103,8 +109,9 @@ uv run pytest modules/orders/tests/test_api.py -v
 - **Frontend** — `modules.generated.ts` (rebuilt by `make gen-pages`) maps `"Orders/Browse"` to `modules/orders/orders/pages/Browse.tsx`. Vite resolves and HMR-watches that file.
 - **Database** — `create_module_base("orders")` namespaced the `Order` table under a Postgres `orders` schema (or the `orders_order` table name under SQLite).
 
-Where to go next:
+## Next steps
 
-- [Your first module](/guide/first-module) — stage-by-stage walk-through extending the scaffold to real domain logic.
-- [Framework overview](/framework/overview) — what actually happens between `make dev` and the first HTTP request.
-- [Project structure](/guide/project-structure) — the directory tour.
+- [Your first module](/guide/first-module) — extend the scaffold into real domain logic, end-to-end.
+- [Project structure](/guide/project-structure) — the directory tour, so you know where everything lives.
+- [Framework overview](/framework/overview) — what happens between `make dev` and the first HTTP request.
+- [Bundled modules](/modules/) — what's already in the box (auth, users, permissions, settings, …).
