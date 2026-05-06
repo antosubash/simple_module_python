@@ -1,9 +1,12 @@
 """Host + module scaffolding via package-data templates.
 
+* :func:`create_workspace` materializes the project-root workspace shell
+  (top-level ``pyproject.toml`` / ``package.json`` / ``Makefile``) from
+  ``simple_module_cli/templates/workspace/``.
 * :func:`create_host` materializes a new host project from the templates
-  under ``simple_module/templates/host/``.
+  under ``simple_module_cli/templates/host/``.
 * :func:`create_module` materializes a new module package from
-  ``simple_module/templates/module/``.
+  ``simple_module_cli/templates/module/``.
 
 The frontend pages manifest + per-module JS dep discovery live in
 :mod:`simple_module_hosting.manifest` (those need module-discovery and
@@ -20,7 +23,7 @@ from pathlib import Path
 
 from simple_module_cli.case import to_kebab_case, to_pascal_case, to_snake_case
 
-__all__ = ["create_host", "create_module"]
+__all__ = ["create_host", "create_module", "create_workspace"]
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +81,29 @@ def _apply_template_files(
             target.write_text(text, encoding="utf-8")
         else:
             shutil.copy2(src, target)
+
+
+def create_workspace(
+    dest: Path,
+    name: str,
+    template_root: Path | None = None,
+) -> Path:
+    """Materialize the workspace-root shell at ``dest``.
+
+    Lays down the top-level ``pyproject.toml`` (uv workspace), ``package.json``
+    (npm workspace), ``Makefile`` (delegates to host), ``.env.example``,
+    ``.gitignore``, and ``README.md``. Does NOT create the host or any
+    modules — those go under ``dest/host`` and ``dest/modules/`` afterwards.
+    """
+    dest = Path(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+    _apply_template_files(
+        _resolve_template_root("workspace", template_root),
+        dest,
+        {"{{HOST_NAME}}": to_kebab_case(name)},
+    )
+    logger.info("Scaffolded workspace root at %s", dest)
+    return dest
 
 
 def create_host(

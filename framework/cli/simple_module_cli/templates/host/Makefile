@@ -1,4 +1,4 @@
-.PHONY: install dev dev-api dev-ui build migrate gen-pages sync-js-deps
+.PHONY: install dev dev-api dev-ui build migrate migration gen-pages sync-js-deps
 
 install:
 	uv sync
@@ -20,6 +20,10 @@ build:
 
 migrate:
 	uv run alembic upgrade head
+
+migration:
+	@test -n "$(msg)" || (echo 'Usage: make migration msg="describe the change"' && exit 1)
+	uv run alembic revision --autogenerate -m "$(msg)"
 
 gen-pages:
 	uv run python -m simple_module_hosting gen-pages --host-dir=client_app

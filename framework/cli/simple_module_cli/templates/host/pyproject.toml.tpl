@@ -16,9 +16,3 @@ dependencies = [
 # Host is an application, not a distributable package.
 [tool.uv]
 package = false
-
-# Add a new module with `sm create-module <name>`, then add
-# `simple_module_<name>` to the dependency list above and to
-# [tool.uv.sources] as `{ workspace = true }`.
-[tool.uv.workspace]
-members = ["modules/*"]
