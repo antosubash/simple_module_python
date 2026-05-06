@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_test"
-version = "0.0.10"
+version = "0.0.11"
 description = "Shared pytest fixtures (app, client, db_session, authenticated_client) for writing simple_module module tests"
 readme = "README.md"
 license = "MIT"
@@ -25,9 +25,9 @@ dependencies = [
     "httpx>=0.27",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
-    "simple_module_core==0.0.10",
-    "simple_module_db==0.0.10",
-    "simple_module_hosting==0.0.10",
+    "simple_module_core==0.0.11",
+    "simple_module_db==0.0.11",
+    "simple_module_hosting==0.0.11",
     "sqlalchemy>=2.0",
 ]
 

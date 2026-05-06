@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_cli"
-version = "0.0.10"
+version = "0.0.11"
 description = "Standalone scaffolder for the SimpleModule framework — `sm new`, `sm create-module`, plugin host."
 readme = "README.md"
 license = "MIT"
