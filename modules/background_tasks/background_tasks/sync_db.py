@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 _engine: Engine | None = None
 _session_factory: sessionmaker[Session] | None = None
+_url_override: str | None = None
 
 
 def _sync_url(async_url: str) -> str:
@@ -37,9 +38,35 @@ def _sync_url(async_url: str) -> str:
     return async_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
 
 
+def set_database_url(url: str | None) -> None:
+    """Pin the URL used to build the sync engine.
+
+    The web process loads ``.env`` via pydantic-settings, but those values
+    never land in ``os.environ`` — so reading ``SM_DATABASE_URL`` directly
+    from the env can silently drop us back to the SQLite default while the
+    rest of the app uses Postgres. ``BackgroundTasksModule.on_startup``
+    calls this with the resolved ``settings.database_url`` so signals use
+    the same DB the app is on. Pass ``None`` to clear the override (used in
+    tests + on shutdown).
+    """
+    global _url_override, _engine, _session_factory
+    if _url_override == url:
+        return
+    _url_override = url
+    if _engine is not None:
+        _engine.dispose()
+    _engine = None
+    _session_factory = None
+
+
+def _resolve_url() -> str:
+    if _url_override is not None:
+        return _url_override
+    return os.environ.get("SM_DATABASE_URL", "sqlite:///./app.db")
+
+
 def _build_engine() -> Engine:
-    url = os.environ.get("SM_DATABASE_URL", "sqlite:///./app.db")
-    sync_url = _sync_url(url)
+    sync_url = _sync_url(_resolve_url())
     # Small pool — signals fire sequentially per worker process.
     return create_engine(sync_url, pool_pre_ping=True, pool_size=2, max_overflow=3)
 
@@ -60,11 +87,12 @@ def dispose_sync_engine() -> None:
     restarts within one process (test runners, uvicorn dev reload) don't
     accumulate engines against the old DB URL.
     """
-    global _engine, _session_factory
+    global _engine, _session_factory, _url_override
     if _engine is not None:
         _engine.dispose()
     _engine = None
     _session_factory = None
+    _url_override = None
 
 
 @contextmanager

@@ -96,8 +96,14 @@ class BackgroundTasksModule(ModuleBase):
 
         from background_tasks.celery_app import build_celery
         from background_tasks.signals import bind_event_bus
+        from background_tasks.sync_db import set_database_url
 
         services = app.state.background_tasks
+        # Pin the sync engine to the same URL the host's async settings
+        # resolved — pydantic-settings reads ``.env`` but never propagates
+        # to ``os.environ``, so signals would otherwise fall back to the
+        # SQLite default and silently drop ``TaskExecution`` rows.
+        set_database_url(app.state.sm.settings.database_url)
         # build_celery imports `signals` for side effects and runs
         # `autodiscover_tasks` across every installed module.
         services.celery = build_celery(services.settings)
