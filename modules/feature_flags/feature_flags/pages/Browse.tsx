@@ -156,20 +156,24 @@ function Browse() {
         )}
       </div>
 
-      <Card>
+      <Card className="border-border overflow-hidden p-0">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-secondary/40">
             <TableRow>
-              <TableHead className="sm:px-6">{t(keys.feature_flags.table.name)}</TableHead>
-              <TableHead className="hidden md:table-cell sm:px-6">
+              <TableHead className="sm:px-6 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                {t(keys.feature_flags.table.name)}
+              </TableHead>
+              <TableHead className="hidden md:table-cell sm:px-6 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                 {t(keys.feature_flags.table.description)}
               </TableHead>
-              <TableHead className="hidden sm:table-cell sm:px-6">
+              <TableHead className="hidden sm:table-cell sm:px-6 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                 {t(keys.feature_flags.table.default)}
               </TableHead>
-              <TableHead className="sm:px-6">{t(keys.feature_flags.table.status)}</TableHead>
+              <TableHead className="sm:px-6 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                {t(keys.feature_flags.table.status)}
+              </TableHead>
               {canManage && (
-                <TableHead className="text-right sm:px-6">
+                <TableHead className="text-right sm:px-6 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                   {t(keys.feature_flags.table.actions)}
                 </TableHead>
               )}

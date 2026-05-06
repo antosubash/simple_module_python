@@ -159,11 +159,13 @@ async def admin_index(
         order=clean_order,
     )
     roles = await service.list_roles()
+    aggregates = await service.count_user_states()
     return await inertia.render(
         _PAGE_ADMIN_INDEX,
         {
             "users": [u.model_dump(mode="json") for u in users],
             "pagination": {"page": page, "per_page": per_page, "total": total},
+            "aggregates": aggregates,
             "query": q or "",
             "roles": [r.model_dump(mode="json") for r in roles],
             "filters": {

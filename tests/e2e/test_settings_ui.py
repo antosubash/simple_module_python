@@ -17,10 +17,10 @@ pytestmark = pytest.mark.e2e
 
 
 def _login(page: Page, username: str, password: str) -> None:
-    page.get_by_role("link", name="Get Started").first.click()
+    page.get_by_role("link", name="Log in").first.click()
     page.locator("#email").fill(username)
     page.locator("#password").fill(password)
-    page.get_by_role("button", name="Sign in").click()
+    page.get_by_role("button", name="Log in").click()
     # Wait for the session cookie to land before navigating away, or
     # /settings/modules bounces us back to login and the sidebar never renders.
     page.wait_for_url("**/dashboard/**", timeout=15_000)
