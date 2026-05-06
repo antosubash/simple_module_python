@@ -1,5 +1,6 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
+import { StatCard } from '@simple-module-py/ui/components/StatCard';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
@@ -14,21 +15,20 @@ import {
 } from '@simple-module-py/ui/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@simple-module-py/ui/components/ui/tabs';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import { ArrowDown, ArrowUp, Pencil, Plus, Search, ShieldCheck, Users } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Mail,
+  Plus,
+  Search,
+  ShieldCheck,
+  UserCheck,
+  Users,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type Filters, IndexFilters } from '../../components/IndexFilters';
 import { type RoleItem, RolesTab } from '../../components/RolesTab';
-
-interface UserListItem {
-  id: string;
-  email: string;
-  full_name: string | null;
-  is_active: boolean;
-  is_verified: boolean;
-  last_login_at: string | null;
-  created_at: string | null;
-  roles: string[];
-}
+import { type UserListItem, UserRow } from '../../components/UserRow';
 
 interface Pagination {
   page: number;
@@ -36,9 +36,15 @@ interface Pagination {
   total: number;
 }
 
+interface Aggregates {
+  active: number;
+  unverified: number;
+}
+
 interface Props {
   users: UserListItem[];
   pagination: Pagination;
+  aggregates: Aggregates;
   query: string;
   roles: RoleItem[];
   filters: Filters;
@@ -51,6 +57,8 @@ const DEFAULT_FILTERS: Filters = {
   sort: 'email',
   order: 'asc',
 };
+
+const HEAD_CLASS = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground';
 
 function SortIcon({ col, filters }: { col: Filters['sort']; filters: Filters }) {
   if (filters.sort !== col) return null;
@@ -65,6 +73,7 @@ function Index() {
   const {
     users,
     pagination,
+    aggregates,
     query: initialQuery,
     roles,
     filters: serverFilters,
@@ -115,7 +124,31 @@ function Index() {
   const totalPages = Math.ceil(pagination.total / pagination.per_page);
 
   return (
-    <PageShell title="Users & Roles" description="Manage user accounts, roles, and permissions.">
+    <PageShell
+      title="Users"
+      description="People with access to this workspace. Invites use the configured mailer."
+      actions={
+        <Button asChild className="gap-1.5">
+          <Link href="/users/admin/invite">
+            <Plus className="h-4 w-4" />
+            Invite member
+          </Link>
+        </Button>
+      }
+    >
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard label="Members" value={pagination.total} icon={Users} />
+        <StatCard label="Active" value={aggregates.active} icon={UserCheck} />
+        <StatCard
+          label="Pending invites"
+          value={aggregates.unverified}
+          icon={Mail}
+          delta={aggregates.unverified > 0 ? 'review' : 'all set'}
+          deltaTone={aggregates.unverified > 0 ? 'warning' : 'success'}
+        />
+        <StatCard label="Roles" value={roles.length} icon={ShieldCheck} />
+      </div>
+
       <Tabs defaultValue="users" className="space-y-4">
         <TabsList>
           <TabsTrigger value="users">
@@ -135,11 +168,11 @@ function Index() {
         </TabsList>
 
         <TabsContent value="users">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-            <div className="relative max-w-sm flex-1">
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <div className="relative max-w-sm flex-1 min-w-[240px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
-                placeholder="Search by email or name…"
+                placeholder="Search by name or email…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
@@ -150,106 +183,44 @@ function Index() {
               roles={roles.map((r) => r.name)}
               onChange={(next) => navigate(next)}
             />
-            <Button asChild>
-              <Link href="/users/admin/invite">
-                <Plus />
-                Invite user
-              </Link>
-            </Button>
           </div>
 
-          <Card>
+          <Card className="border-border overflow-hidden p-0">
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-secondary/40">
                 <TableRow>
-                  <TableHead>
+                  <TableHead className={HEAD_CLASS}>
                     <button
                       type="button"
                       className="flex items-center gap-0.5 hover:text-foreground"
                       onClick={() => toggleSort('email')}
                     >
-                      Email
+                      Member
                       <SortIcon col="email" filters={filters} />
                     </button>
                   </TableHead>
-                  <TableHead className="hidden md:table-cell">Name</TableHead>
-                  <TableHead className="hidden sm:table-cell">Roles</TableHead>
-                  <TableHead className="hidden sm:table-cell">Status</TableHead>
-                  <TableHead className="hidden lg:table-cell">
+                  <TableHead className={`${HEAD_CLASS} hidden sm:table-cell`}>Role</TableHead>
+                  <TableHead className={`${HEAD_CLASS} hidden sm:table-cell`}>Status</TableHead>
+                  <TableHead className={`${HEAD_CLASS} hidden lg:table-cell`}>
                     <button
                       type="button"
                       className="flex items-center gap-0.5 hover:text-foreground"
                       onClick={() => toggleSort('last_login_at')}
                     >
-                      Last login
+                      Last seen
                       <SortIcon col="last_login_at" filters={filters} />
                     </button>
                   </TableHead>
-                  <TableHead className="hidden lg:table-cell">
-                    <button
-                      type="button"
-                      className="flex items-center gap-0.5 hover:text-foreground"
-                      onClick={() => toggleSort('created_at')}
-                    >
-                      Created
-                      <SortIcon col="created_at" filters={filters} />
-                    </button>
-                  </TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-right" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div>
-                        <span className="font-medium">{user.email}</span>
-                        {!user.is_verified && (
-                          <Badge variant="outline" className="ml-2 text-xs">
-                            unverified
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                      {user.full_name || '—'}
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell">
-                      <div className="flex flex-wrap gap-1">
-                        {user.roles.length > 0 ? (
-                          user.roles.map((r) => (
-                            <Badge key={r} variant="secondary">
-                              {r}
-                            </Badge>
-                          ))
-                        ) : (
-                          <span className="text-muted-foreground text-sm">—</span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell">
-                      <Badge variant={user.is_active ? 'secondary' : 'destructive'}>
-                        {user.is_active ? 'Active' : 'Disabled'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                      {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : '—'}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                      {user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button asChild variant="ghost" size="icon-sm">
-                        <Link href={`/users/admin/${user.id}`}>
-                          <Pencil />
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                  <UserRow key={user.id} user={user} />
                 ))}
                 {users.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-32 text-center">
+                    <TableCell colSpan={5} className="h-32 text-center">
                       <div className="flex flex-col items-center gap-2 text-muted-foreground">
                         <Users className="size-8" />
                         <p>{search ? `No users match "${search}"` : 'No users yet'}</p>

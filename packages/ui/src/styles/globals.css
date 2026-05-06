@@ -5,19 +5,19 @@
 /* Self-scan — app-level @source lines live in host/client_app/styles.css. */
 @source "../../**/*.{ts,tsx}";
 
-/* ── Design System Theme ── Cool Teal ──────────────────────── */
+/* ── Design System Theme ── Emerald (SimpleModulePython HiFi) ──── */
 @theme {
-  /* Teal / Cyan primary scale */
-  --color-primary-50: oklch(0.97 0.02 185);
-  --color-primary-100: oklch(0.93 0.04 185);
-  --color-primary-200: oklch(0.86 0.07 185);
-  --color-primary-300: oklch(0.76 0.1 185);
-  --color-primary-400: oklch(0.68 0.12 185);
-  --color-primary-500: oklch(0.6 0.13 185);
-  --color-primary-600: oklch(0.52 0.12 185);
-  --color-primary-700: oklch(0.44 0.1 185);
-  --color-primary-800: oklch(0.36 0.08 185);
-  --color-primary-900: oklch(0.28 0.06 185);
+  /* Emerald primary scale — anchored on #059669 / #0f766e */
+  --color-primary-50: oklch(0.97 0.02 158);
+  --color-primary-100: oklch(0.93 0.05 158);
+  --color-primary-200: oklch(0.86 0.09 158);
+  --color-primary-300: oklch(0.79 0.13 158);
+  --color-primary-400: oklch(0.71 0.16 158);
+  --color-primary-500: oklch(0.66 0.16 158);
+  --color-primary-600: oklch(0.59 0.14 158);
+  --color-primary-700: oklch(0.5 0.11 168);
+  --color-primary-800: oklch(0.42 0.09 175);
+  --color-primary-900: oklch(0.35 0.07 178);
 
   /* Cool neutrals for surfaces */
   --color-surface: oklch(0.985 0.003 250);
@@ -63,9 +63,9 @@
   --color-violet-value: oklch(0.3 0.08 300);
 
   /* Typography */
-  --font-display: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 
   /* Shadows */
   --shadow-card: 0 1px 3px oklch(0.2 0.01 250 / 0.08), 0 1px 2px oklch(0.2 0.01 250 / 0.04);
@@ -86,8 +86,8 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.2 0.02 250);
 
-  /* Primary (teal) */
-  --primary: oklch(0.52 0.12 185);
+  /* Primary (emerald) */
+  --primary: oklch(0.59 0.14 158);
   --primary-foreground: oklch(1 0 0);
 
   /* Secondary */
@@ -108,10 +108,10 @@
   /* Border / Input / Ring */
   --border: oklch(0.9 0.005 250);
   --input: oklch(0.82 0.005 250);
-  --ring: oklch(0.6 0.13 185);
+  --ring: oklch(0.66 0.16 158);
 
   /* Chart colors */
-  --chart-1: oklch(0.6 0.13 185);
+  --chart-1: oklch(0.66 0.16 158);
   --chart-2: oklch(0.55 0.12 85);
   --chart-3: oklch(0.55 0.14 300);
   --chart-4: oklch(0.6 0.15 145);
@@ -120,12 +120,12 @@
   /* Sidebar (shadcn sidebar component) */
   --sidebar: oklch(0.985 0.003 250);
   --sidebar-foreground: oklch(0.25 0.02 250);
-  --sidebar-primary: oklch(0.52 0.12 185);
+  --sidebar-primary: oklch(0.59 0.14 158);
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.96 0.005 250);
   --sidebar-accent-foreground: oklch(0.25 0.02 250);
   --sidebar-border: oklch(0.9 0.005 250);
-  --sidebar-ring: oklch(0.6 0.13 185);
+  --sidebar-ring: oklch(0.66 0.16 158);
 
   --radius: 0.625rem;
 }
@@ -140,7 +140,7 @@
   --popover: oklch(0.16 0.02 250);
   --popover-foreground: oklch(0.93 0.005 250);
 
-  --primary: oklch(0.68 0.12 185);
+  --primary: oklch(0.71 0.16 158);
   --primary-foreground: oklch(0.13 0.02 250);
 
   --secondary: oklch(0.22 0.02 250);
@@ -156,9 +156,9 @@
 
   --border: oklch(0.26 0.02 250);
   --input: oklch(0.26 0.02 250);
-  --ring: oklch(0.6 0.13 185);
+  --ring: oklch(0.66 0.16 158);
 
-  --chart-1: oklch(0.68 0.12 185);
+  --chart-1: oklch(0.71 0.16 158);
   --chart-2: oklch(0.6 0.12 85);
   --chart-3: oklch(0.65 0.14 300);
   --chart-4: oklch(0.65 0.15 145);
@@ -166,12 +166,12 @@
 
   --sidebar: oklch(0.16 0.02 250);
   --sidebar-foreground: oklch(0.88 0.005 250);
-  --sidebar-primary: oklch(0.68 0.12 185);
+  --sidebar-primary: oklch(0.71 0.16 158);
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.22 0.02 250);
   --sidebar-accent-foreground: oklch(0.88 0.005 250);
   --sidebar-border: oklch(0.22 0.02 250);
-  --sidebar-ring: oklch(0.6 0.13 185);
+  --sidebar-ring: oklch(0.66 0.16 158);
 }
 
 @theme inline {

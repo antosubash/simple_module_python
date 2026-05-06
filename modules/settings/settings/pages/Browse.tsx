@@ -1,6 +1,19 @@
 import { router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { PageShell } from '@simple-module-py/ui/components/PageShell';
+import { Badge } from '@simple-module-py/ui/components/ui/badge';
+import { Button } from '@simple-module-py/ui/components/ui/button';
+import { Card } from '@simple-module-py/ui/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@simple-module-py/ui/components/ui/table';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { Box, Plus, Settings as SettingsIcon } from 'lucide-react';
 import type React from 'react';
 import type { ValueType } from './components/ValueInput';
 import { ROUTES } from './routes';
@@ -19,6 +32,12 @@ type Setting = {
 
 type Props = { settings: Setting[] };
 
+const SCOPE_TONE: Record<Scope, string> = {
+  system: 'border-primary-200 bg-primary-50 text-primary-700',
+  tenant: 'border-blue-200 bg-blue-50 text-blue-700',
+  user: 'border-amber-200 bg-amber-50 text-amber-700',
+};
+
 function Browse({ settings }: Props) {
   const { t } = useT();
 
@@ -28,74 +47,106 @@ function Browse({ settings }: Props) {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-semibold">{t(keys.settings.browse.title)}</h1>
-        <div className="flex items-center gap-3">
-          <a href={ROUTES.modules} className="text-sm text-primary hover:underline">
-            {t(keys.settings.modules.browse_link)}
-          </a>
-          <a
-            href={ROUTES.create}
-            className="rounded bg-primary px-3 py-1.5 text-primary-foreground"
-          >
-            {t(keys.settings.browse.new_button)}
-          </a>
-        </div>
-      </div>
+    <PageShell
+      title={t(keys.settings.browse.title)}
+      description="Workspace, account, mailer, and module configuration."
+      actions={
+        <>
+          <Button asChild variant="outline" className="gap-1.5">
+            <a href={ROUTES.modules}>
+              <Box className="h-3.5 w-3.5" /> {t(keys.settings.modules.browse_link)}
+            </a>
+          </Button>
+          <Button asChild className="gap-1.5">
+            <a href={ROUTES.create}>
+              <Plus className="h-4 w-4" />
+              {t(keys.settings.browse.new_button)}
+            </a>
+          </Button>
+        </>
+      }
+    >
       {settings.length === 0 ? (
-        <div className="py-12 text-center">
-          <h2 className="text-lg font-medium">{t(keys.settings.browse.empty_title)}</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {t(keys.settings.browse.empty_description)}
-          </p>
-        </div>
+        <Card className="border-border">
+          <div className="flex flex-col items-center gap-2 py-16 text-muted-foreground">
+            <SettingsIcon className="size-8" />
+            <h2 className="text-base font-semibold text-foreground font-[var(--font-display)]">
+              {t(keys.settings.browse.empty_title)}
+            </h2>
+            <p className="text-sm">{t(keys.settings.browse.empty_description)}</p>
+          </div>
+        </Card>
       ) : (
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b">
-              <th className="py-2 pr-4">{t(keys.settings.table.scope)}</th>
-              <th className="py-2 pr-4">{t(keys.settings.table.scope_id)}</th>
-              <th className="py-2 pr-4">{t(keys.settings.table.key)}</th>
-              <th className="py-2 pr-4">{t(keys.settings.table.value_type)}</th>
-              <th className="py-2 pr-4">{t(keys.settings.table.value)}</th>
-              <th className="py-2 pr-4">{t(keys.settings.table.description)}</th>
-              <th className="py-2">{t(keys.settings.table.actions)}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {settings.map((setting) => (
-              <tr key={setting.id} className="border-b">
-                <td className="py-2 pr-4">{t(keys.settings.scopes[setting.scope])}</td>
-                <td className="py-2 pr-4 font-mono text-sm text-muted-foreground">
-                  {setting.scope_id || '—'}
-                </td>
-                <td className="py-2 pr-4 font-mono text-sm">{setting.key}</td>
-                <td className="py-2 pr-4 text-xs uppercase text-muted-foreground">
-                  {t(keys.settings.value_types[setting.value_type])}
-                </td>
-                <td className="py-2 pr-4 font-mono text-sm">{setting.value}</td>
-                <td className="py-2 pr-4 text-muted-foreground">{setting.description ?? ''}</td>
-                <td className="py-2">
-                  <div className="flex gap-3">
-                    <a href={ROUTES.edit(setting.id)} className="text-primary hover:underline">
-                      {t(keys.settings.browse.edit_link)}
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(setting)}
-                      className="text-destructive hover:underline"
-                    >
-                      {t(keys.settings.browse.delete_link)}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <Card className="border-border overflow-hidden p-0">
+          <Table>
+            <TableHeader className="bg-secondary/40">
+              <TableRow>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                  {t(keys.settings.table.scope)}
+                </TableHead>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground hidden md:table-cell">
+                  {t(keys.settings.table.scope_id)}
+                </TableHead>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                  {t(keys.settings.table.key)}
+                </TableHead>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground hidden lg:table-cell">
+                  {t(keys.settings.table.value_type)}
+                </TableHead>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                  {t(keys.settings.table.value)}
+                </TableHead>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground hidden lg:table-cell">
+                  {t(keys.settings.table.description)}
+                </TableHead>
+                <TableHead className="text-right">{t(keys.settings.table.actions)}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {settings.map((setting) => (
+                <TableRow key={setting.id} className="hover:bg-secondary/40">
+                  <TableCell>
+                    <Badge variant="outline" className={SCOPE_TONE[setting.scope]}>
+                      {t(keys.settings.scopes[setting.scope])}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">
+                    {setting.scope_id || '—'}
+                  </TableCell>
+                  <TableCell className="font-mono text-sm font-semibold">{setting.key}</TableCell>
+                  <TableCell className="hidden lg:table-cell text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+                    {t(keys.settings.value_types[setting.value_type])}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs text-foreground max-w-[200px] truncate">
+                    {setting.value}
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground max-w-[200px] truncate">
+                    {setting.description ?? ''}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-3 text-xs">
+                      <a
+                        href={ROUTES.edit(setting.id)}
+                        className="font-semibold text-primary-700 hover:text-primary-800"
+                      >
+                        {t(keys.settings.browse.edit_link)}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(setting)}
+                        className="font-semibold text-destructive hover:underline"
+                      >
+                        {t(keys.settings.browse.delete_link)}
+                      </button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
       )}
-    </div>
+    </PageShell>
   );
 }
 

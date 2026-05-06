@@ -1,120 +1,133 @@
 import { Link, usePage } from '@inertiajs/react';
 import { Button } from '@simple-module-py/ui/components/ui/button';
+import { Menu, X } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 import { LocaleSwitcher } from '../components/LocaleSwitcher';
 import type { SharedProps } from '../types';
-
-const NOISE_STYLE = {
-  backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-} as const;
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
   const { auth } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen flex flex-col bg-landing-bg text-white">
-      {/* Subtle warm grain overlay */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.03]" style={NOISE_STYLE} />
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
+      <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl backdrop-saturate-150">
+        <div className="mx-auto max-w-6xl px-4 py-3 sm:px-8 sm:py-3.5">
+          <div className="flex items-center justify-between">
+            <Link href="/" className="group flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-600 to-primary-800 shadow-md shadow-primary-600/30 transition-transform group-hover:scale-105">
+                <span className="font-bold text-white text-sm font-[var(--font-display)]">S</span>
+              </div>
+              <div className="flex flex-col leading-tight">
+                <span className="text-[15px] font-bold tracking-tight font-[var(--font-display)]">
+                  simple_module
+                </span>
+                <span className="font-mono text-[10px] text-muted-foreground">python · v0.1</span>
+              </div>
+            </Link>
 
-      <nav className="relative z-10 px-4 py-4 sm:px-8 sm:py-5">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center shadow-lg shadow-primary-500/20 transition-transform duration-200 group-hover:scale-105">
-              <span className="text-white font-bold text-sm font-[var(--font-display)]">SM</span>
+            <div className="hidden items-center gap-4 sm:flex">
+              <a
+                href="https://github.com/antosubash/simple_module_python#readme"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Docs
+              </a>
+              <a
+                href="https://github.com/antosubash/simple_module_python/tree/main/modules"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Modules
+              </a>
+              <a
+                href="https://github.com/antosubash/simple_module_python"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                GitHub
+              </a>
+              <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
+              <LocaleSwitcher />
+              {auth?.isAuthenticated ? (
+                <Button asChild size="sm">
+                  <a href="/dashboard/">Open Dashboard</a>
+                </Button>
+              ) : (
+                <>
+                  <Button asChild variant="ghost" size="sm">
+                    <a href="/auth/login">Log in</a>
+                  </Button>
+                  <Button asChild size="sm">
+                    <a href="/auth/login">Sign up</a>
+                  </Button>
+                </>
+              )}
             </div>
-            <span className="text-xl font-bold font-[var(--font-display)] tracking-tight">
-              SimpleModule
-            </span>
-          </Link>
 
-          <div className="hidden sm:flex items-center gap-3">
-            <LocaleSwitcher />
-            {auth?.isAuthenticated ? (
-              <Button asChild>
-                <a href="/dashboard/">Go to Dashboard</a>
-              </Button>
-            ) : (
-              <>
-                <Button
-                  asChild
-                  variant="ghost"
-                  className="text-sidebar-icon hover:text-white hover:bg-white/10"
-                >
-                  <a href="/auth/login">Sign In</a>
-                </Button>
-                <Button asChild>
-                  <a href="/auth/login">Get Started</a>
-                </Button>
-              </>
-            )}
+            <button
+              type="button"
+              onClick={() => setMenuOpen((prev) => !prev)}
+              className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground sm:hidden"
+              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            >
+              {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setMenuOpen((prev) => !prev)}
-            className="sm:hidden p-2 rounded-lg text-sidebar-icon hover:text-white hover:bg-white/10 transition-colors"
-          >
-            {menuOpen ? (
-              <svg
-                aria-hidden="true"
-                className="w-6 h-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
-            ) : (
-              <svg
-                aria-hidden="true"
-                className="w-6 h-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
-                />
-              </svg>
-            )}
-          </button>
-        </div>
-
-        {menuOpen && (
-          <div className="sm:hidden mt-4 pt-4 border-t border-white/10 flex flex-col gap-3 max-w-6xl mx-auto">
-            {auth?.isAuthenticated ? (
-              <Button asChild className="w-full">
-                <a href="/dashboard/">Go to Dashboard</a>
-              </Button>
-            ) : (
-              <>
+          {menuOpen && (
+            <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4 sm:hidden">
+              {auth?.isAuthenticated ? (
                 <Button asChild className="w-full">
-                  <a href="/auth/login">Get Started</a>
+                  <a href="/dashboard/">Open Dashboard</a>
                 </Button>
-                <Button
-                  asChild
-                  variant="ghost"
-                  className="w-full text-sidebar-icon hover:text-white"
-                >
-                  <a href="/auth/login">Sign In</a>
-                </Button>
-              </>
-            )}
-          </div>
-        )}
+              ) : (
+                <>
+                  <Button asChild className="w-full">
+                    <a href="/auth/login">Sign up</a>
+                  </Button>
+                  <Button asChild variant="outline" className="w-full">
+                    <a href="/auth/login">Log in</a>
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </nav>
 
-      <main className="relative z-10 flex-1">{children}</main>
+      <main className="flex-1">{children}</main>
 
-      <footer className="relative z-10 border-t border-white/[0.06] py-6 px-4 text-center text-sm text-dark-text-subtle sm:py-8">
-        <span className="font-[var(--font-display)]">SimpleModule</span> — Built with FastAPI,
-        Inertia.js, React & Tailwind CSS
+      <footer className="border-t border-border bg-background py-6 px-4 sm:px-8">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-primary-600 to-primary-800">
+              <span className="font-bold text-white text-[10px] font-[var(--font-display)]">S</span>
+            </div>
+            <span className="font-mono text-xs text-muted-foreground">
+              simple_module_python · MIT
+            </span>
+          </div>
+          <div className="flex gap-5 text-xs text-muted-foreground">
+            <a
+              href="https://github.com/antosubash/simple_module_python#readme"
+              className="hover:text-foreground transition-colors"
+            >
+              Docs
+            </a>
+            <a
+              href="https://github.com/antosubash/simple_module_python/releases"
+              className="hover:text-foreground transition-colors"
+            >
+              Changelog
+            </a>
+            <a
+              href="https://github.com/antosubash/simple_module_python"
+              className="hover:text-foreground transition-colors"
+            >
+              GitHub
+            </a>
+          </div>
+        </div>
       </footer>
     </div>
   );

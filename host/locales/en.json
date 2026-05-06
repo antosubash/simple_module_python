@@ -1,25 +1,25 @@
 {
   "landing": {
-    "badge": "Built with FastAPI + Inertia.js + React",
-    "hero_title_line1": "Modular Monolith",
-    "hero_title_line2": "Framework for Python",
-    "hero_subtitle": "Build scalable applications with independent modules, each with its own database schema, API endpoints, and React pages — all in one deployable unit.",
+    "badge": "v0.1 · Python 3.12 · experimental",
+    "hero_title_line1": "Modular monoliths for Python —",
+    "hero_title_line2": "without the boilerplate.",
+    "hero_subtitle": "Each feature ships its own SQLModel tables, FastAPI endpoints, and React pages. Plugin modules compose at boot — no microservice tax, no API-client glue.",
     "cta_dashboard": "Open Dashboard",
-    "cta_get_started": "Get Started",
-    "cta_docs": "Documentation",
+    "cta_get_started": "Start your project",
+    "cta_docs": "Read the docs",
     "features": {
-      "module_system_title": "Module System",
-      "module_system_description": "Each module is a self-contained package with its own models, services, API endpoints, and React pages. Discovered automatically via Python entry_points.",
-      "auth_title": "Local Auth",
-      "auth_description": "Cookie-based email+password authentication with local user management. Server-side sessions, permission-based access control, and role-filtered menus.",
-      "schema_title": "Schema Isolation",
-      "schema_description": "Each module gets its own database schema on PostgreSQL or table prefix on SQLite. Full audit trails, soft deletes, and multi-tenancy built in.",
-      "inertia_title": "Inertia.js + React",
-      "inertia_description": "Server-driven SPA — FastAPI renders props, React renders the UI. No separate API client, no state duplication, full-stack type safety.",
-      "diagnostics_title": "Diagnostics",
-      "diagnostics_description": "Built-in module validator catches orphan pages, phantom renders, unguarded endpoints, and circular dependencies at startup.",
-      "devtools_title": "Developer Tools",
-      "devtools_description": "uv workspaces, Tailwind CSS 4, Vite HMR, auto-discovered pages, 97 tests in 0.4s, and a CLI scaffolding tool."
+      "module_system_title": "Discovered at boot",
+      "module_system_description": "Python entry points register every ModuleBase subclass. No reflection, no manual wiring.",
+      "auth_title": "Built-in auth",
+      "auth_description": "Email + cookie sessions via fastapi-users. Roles & permissions register with the module.",
+      "schema_title": "Per-module schema",
+      "schema_description": "PostgreSQL → schema per module. SQLite → prefixed tables. Each module owns its data.",
+      "inertia_title": "Inertia + React",
+      "inertia_description": "Browse / Create / Edit pages ship inside each module. Vite HMR for the frontend, async FastAPI for the backend.",
+      "diagnostics_title": "sm doctor",
+      "diagnostics_description": "Static analyzer catches orphan pages, framework coupling, and migration drift before boot.",
+      "devtools_title": "Async SQLModel",
+      "devtools_description": "SQLAlchemy async + Pydantic + Alembic. Generate migrations per module."
     }
   },
   "error": {
