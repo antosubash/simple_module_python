@@ -1,0 +1,120 @@
+"""OAuth/OIDC provider client factory.
+
+Constructs the ``httpx_oauth`` clients for every provider that has both
+``client_id`` and ``client_secret`` set in :class:`UsersSettings`. A provider
+with no credentials is silently skipped — that's the "feature flag" knob.
+
+Lives in its own module so :func:`UsersModule.register_routes` can import it
+without dragging the heavy ``httpx_oauth`` packages into the cold-start path
+when no provider is configured.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, NamedTuple
+
+if TYPE_CHECKING:
+    from httpx_oauth.oauth2 import BaseOAuth2
+
+    from users.settings import UsersSettings
+
+logger = logging.getLogger(__name__)
+
+
+class OAuthProvider(NamedTuple):
+    """One configured provider — name is the URL segment (``/auth/<name>``)."""
+
+    name: str
+    display_name: str
+    client: BaseOAuth2
+
+
+def enabled_provider_names(settings: UsersSettings) -> list[dict[str, str]]:
+    """Return ``[{"name": ..., "display_name": ...}]`` for configured providers.
+
+    Cheap settings-only check used by the login page to render social-login
+    buttons. Does not construct clients or hit the network — that would be
+    wasteful per page render and would fail-open if discovery is briefly
+    unreachable.
+    """
+    out: list[dict[str, str]] = []
+    if settings.oauth_google_client_id and settings.oauth_google_client_secret:
+        out.append({"name": "google", "display_name": "Google"})
+    if settings.oauth_github_client_id and settings.oauth_github_client_secret:
+        out.append({"name": "github", "display_name": "GitHub"})
+    if (
+        settings.oauth_oidc_client_id
+        and settings.oauth_oidc_client_secret
+        and settings.oauth_oidc_discovery_url
+    ):
+        out.append({"name": "oidc", "display_name": settings.oauth_oidc_display_name or "OIDC"})
+    return out
+
+
+def build_clients(settings: UsersSettings) -> list[OAuthProvider]:
+    """Return one entry per provider that has both id and secret configured.
+
+    The generic OIDC provider also requires a discovery URL. If discovery
+    fetch fails at construction time, the provider is logged and skipped
+    rather than raising — a misconfigured IdP must not break boot.
+    """
+    out: list[OAuthProvider] = []
+
+    if settings.oauth_google_client_id and settings.oauth_google_client_secret:
+        from httpx_oauth.clients.google import GoogleOAuth2
+
+        out.append(
+            OAuthProvider(
+                "google",
+                "Google",
+                GoogleOAuth2(
+                    settings.oauth_google_client_id,
+                    settings.oauth_google_client_secret,
+                ),
+            )
+        )
+
+    if settings.oauth_github_client_id and settings.oauth_github_client_secret:
+        from httpx_oauth.clients.github import GitHubOAuth2
+
+        out.append(
+            OAuthProvider(
+                "github",
+                "GitHub",
+                GitHubOAuth2(
+                    settings.oauth_github_client_id,
+                    settings.oauth_github_client_secret,
+                ),
+            )
+        )
+
+    if (
+        settings.oauth_oidc_client_id
+        and settings.oauth_oidc_client_secret
+        and settings.oauth_oidc_discovery_url
+    ):
+        from httpx_oauth.clients.openid import OpenID, OpenIDConfigurationError
+
+        try:
+            client = OpenID(
+                settings.oauth_oidc_client_id,
+                settings.oauth_oidc_client_secret,
+                settings.oauth_oidc_discovery_url,
+                name="oidc",
+            )
+        except OpenIDConfigurationError:
+            logger.exception(
+                "OIDC discovery failed for %s — provider disabled",
+                settings.oauth_oidc_discovery_url,
+            )
+        else:
+            out.append(
+                OAuthProvider(
+                    "oidc",
+                    settings.oauth_oidc_display_name or "OIDC",
+                    client,
+                )
+            )
+
+    return out

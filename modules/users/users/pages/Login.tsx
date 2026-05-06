@@ -12,15 +12,22 @@ interface DevAccount {
   password: string;
 }
 
+interface OAuthProvider {
+  name: string;
+  display_name: string;
+}
+
 interface Props {
   allow_signup: boolean;
   dev_accounts: DevAccount[];
   login_redirect_url: string;
+  oauth_providers: OAuthProvider[];
 }
 
 function Login() {
-  const { allow_signup, dev_accounts, login_redirect_url } = usePage<{ props: Props }>()
-    .props as unknown as Props;
+  const { allow_signup, dev_accounts, login_redirect_url, oauth_providers } = usePage<{
+    props: Props;
+  }>().props as unknown as Props;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -154,6 +161,21 @@ function Login() {
             Sign up
           </a>
         </p>
+      )}
+
+      {oauth_providers && oauth_providers.length > 0 && (
+        <div className="mt-5 border-t border-border pt-4">
+          <p className="mb-2 text-center font-mono text-[11px] text-muted-foreground">
+            Or continue with
+          </p>
+          <div className="flex flex-col gap-2">
+            {oauth_providers.map((p) => (
+              <Button key={p.name} type="button" variant="outline" asChild disabled={loading}>
+                <a href={`/api/users/auth/${p.name}/login`}>{p.display_name}</a>
+              </Button>
+            ))}
+          </div>
+        </div>
       )}
 
       {dev_accounts && dev_accounts.length > 0 && (

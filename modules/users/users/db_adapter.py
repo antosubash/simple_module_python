@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from users.models import User, UserAccessToken
+from users.models import OAuthAccount, User, UserAccessToken
 
 
 class UserDatabaseWithRoles(SQLAlchemyUserDatabase):
@@ -39,7 +39,10 @@ class UserDatabaseWithRoles(SQLAlchemyUserDatabase):
 async def get_user_db(
     session: AsyncSession = Depends(get_db),
 ) -> AsyncGenerator[UserDatabaseWithRoles, None]:
-    yield UserDatabaseWithRoles(session, User)
+    # OAuthAccount enables fastapi-users' OAuth router (get_by_oauth_account /
+    # add_oauth_account / update_oauth_account). Password-only flows are
+    # unaffected — those code paths never touch oauth_account_table.
+    yield UserDatabaseWithRoles(session, User, OAuthAccount)
 
 
 async def get_access_token_db(
