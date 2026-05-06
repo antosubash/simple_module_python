@@ -49,16 +49,22 @@ def _optional_template_root(name: str) -> Path:
 
 
 class BackgroundTasksRecipe:
-    """Lays down run_worker.py + compose + Dockerfile + Make targets."""
+    """Lays down run_worker.py + compose + Dockerfiles + Make targets."""
 
     def apply(self, target: Path, ctx: ScaffoldCtx) -> None:
         templates = _optional_template_root("background_tasks")
 
         run_worker_dest = target / "scripts" / "run_worker.py"
         compose_dest = target / "docker-compose.yml"
-        dockerfile_dest = target / "docker" / "worker.Dockerfile"
+        host_dockerfile_dest = target / "docker" / "host.Dockerfile"
+        worker_dockerfile_dest = target / "docker" / "worker.Dockerfile"
 
-        for path in (run_worker_dest, compose_dest, dockerfile_dest):
+        for path in (
+            run_worker_dest,
+            compose_dest,
+            host_dockerfile_dest,
+            worker_dockerfile_dest,
+        ):
             if path.exists():
                 raise FileExistsError(
                     f"{path} already exists — refusing to clobber. "
@@ -70,8 +76,9 @@ class BackgroundTasksRecipe:
 
         shutil.copy2(templates / "docker-compose.yml", compose_dest)
 
-        dockerfile_dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(templates / "worker.Dockerfile", dockerfile_dest)
+        host_dockerfile_dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(templates / "host.Dockerfile", host_dockerfile_dest)
+        shutil.copy2(templates / "worker.Dockerfile", worker_dockerfile_dest)
 
         env_path = target / ".env.example"
         env_text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""

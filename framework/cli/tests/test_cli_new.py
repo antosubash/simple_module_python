@@ -103,6 +103,7 @@ def test_create_app_project_runs_recipe_for_background_tasks(tmp_path: Path) -> 
 
     assert (target / "scripts" / "run_worker.py").is_file()
     assert (target / "docker-compose.yml").is_file()
+    assert (target / "docker" / "host.Dockerfile").is_file()
     assert (target / "docker" / "worker.Dockerfile").is_file()
     makefile_text = (target / "Makefile").read_text()
     assert "worker:" in makefile_text
