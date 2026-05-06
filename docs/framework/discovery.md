@@ -111,7 +111,7 @@ Before flipping to `SM_ENVIRONMENT=production`, verify:
 
 - [ ] Every module's `pyproject.toml` declares the `simple_module` entry point.
 - [ ] Every `ModuleBase` subclass has `meta = ModuleMeta(...)`.
-- [ ] `make doctor` reports zero errors (`SM001`, `SM008`, `SM009`, `SM010`, `SM016` are all ERROR-level).
+- [ ] App boot in development reports no diagnostic errors (`SM001`, `SM008`, `SM009`, `SM010`, `SM016` are all ERROR-level — production boot will fail on any of them).
 - [ ] `alembic upgrade head` has been run against the production DB.
 - [ ] `SM_SECRET_KEY` is not `change-me-in-production`.
 

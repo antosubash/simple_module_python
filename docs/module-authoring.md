@@ -213,7 +213,7 @@ Each module's first revision should set a `branch_labels` tuple matching
 the module name:
 
 ```python
-# host/migrations/versions/my_module/<id>_initial_my_module.py
+# migrations/versions/<id>_initial_my_module.py
 branch_labels = ("my_module",)
 ```
 
@@ -225,8 +225,8 @@ This lets operators roll back a single module's schema with
 Modules may ship TSX pages in `my_module/pages/*.tsx`. On host boot (and on
 `make gen-pages`) the framework emits:
 
-- `host/client_app/modules.manifest.json` — machine-readable paths
-- `host/client_app/modules.generated.ts` — per-module `import.meta.glob`
+- `client_app/modules.manifest.json` — machine-readable paths
+- `client_app/modules.generated.ts` — per-module `import.meta.glob`
   calls with absolute paths resolved via `importlib.resources`
 
 Vite's `server.fs.allow` is extended to cover each installed module's

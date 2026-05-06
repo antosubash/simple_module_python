@@ -1,84 +1,103 @@
 # Installation
 
+You install simple_module_python by installing its **CLI** — `sm` — and using it to scaffold a new app. There's no repo to clone; the framework ships as a set of Python packages on PyPI and the CLI assembles them into a working project for you.
+
 ## Prerequisites
 
 | Tool | Why | How to check |
 |---|---|---|
 | **Python 3.12** | Runtime | `python --version` |
-| **[uv](https://docs.astral.sh/uv/)** | Python package manager + venv | `uv --version` |
+| **[uv](https://docs.astral.sh/uv/)** | Python package manager + tool installer | `uv --version` |
 | **Node.js 20+** | Vite dev server, React build | `node --version` |
 | **npm 10+** | JS workspace manager | `npm --version` |
-| **Docker** (optional) | Postgres in a container (SQLite works without) | `docker --version` |
-| **Make** | Task runner — all day-to-day commands flow through this | `make --version` |
+| **Docker** (optional) | Postgres + Redis when you don't want SQLite | `docker --version` |
 
-On macOS, `brew install uv node make` and Docker Desktop will cover it. On Linux, install uv with the install script and Node via `nvm` or your package manager.
+On macOS, `brew install uv node` plus Docker Desktop covers it. On Linux, install uv via the install script and Node via `nvm` or your package manager.
 
-## Clone and install
+## Install the CLI
 
 ```bash
-git clone https://github.com/antosubash/simple_module_python.git
-cd simple_module_python
-make install
+uv tool install simple_module_cli
 ```
 
-`make install` runs:
-
-- `uv sync --all-packages` — installs every Python package in the workspace (framework, modules, host) into a single `.venv`.
-- `npm install` — installs JS deps for `host/client_app`, `packages/*`, and every module that ships a `package.json`.
-
-Installation takes 1–2 minutes on a warm cache.
-
-## Env configuration
+If you prefer pipx:
 
 ```bash
-cp .env.example .env
+pipx install simple_module_cli
 ```
 
-The defaults in `.env.example` work for local SQLite dev. The only variable you'll likely change is `SM_DATABASE_URL` if you're using Postgres:
+That puts `sm` on your PATH globally. Confirm with:
 
 ```bash
-# SQLite (default) — zero setup
+sm --help
+```
+
+## Scaffold a new app
+
+```bash
+sm new myapp
+```
+
+Interactive — you pick the database (SQLite / Postgres), whether to enable multi-tenancy, and which bundled modules to include. Skip the prompts and accept the defaults with:
+
+```bash
+sm new myapp --yes
+```
+
+Or pick a preset and add modules non-interactively:
+
+```bash
+sm new myapp --preset standard --with background_tasks,file_storage
+```
+
+| Preset | Modules |
+|---|---|
+| `minimal` | `auth`, `users`, `permissions` |
+| `standard` (default) | `minimal` + `dashboard`, `settings`, `feature_flags` |
+| `full` | `standard` + `background_tasks`, `file_storage` |
+
+After scaffolding, `sm new` runs `uv sync`, `npm install`, and `alembic upgrade head` for you (skip with `--no-install` if you'd rather drive that yourself).
+
+## Boot it
+
+```bash
+cd myapp
+make dev
+```
+
+The scaffolded app ships with a small Makefile that runs the API + Vite dev server in parallel:
+
+- `uvicorn main:app` on `:8000` (the FastAPI + Inertia app)
+- `vite` on `:5050` (the frontend dev server with HMR)
+
+Hit `http://localhost:8000`. You should see the landing page.
+
+## Database choice
+
+`sm new` writes a `.env.example`. The default is SQLite (zero setup):
+
+```bash
 SM_DATABASE_URL=sqlite+aiosqlite:///./app.db
+```
 
-# Postgres (requires make docker-up)
-SM_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/simple_module
+For Postgres:
+
+```bash
+SM_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/myapp
+```
+
+The scaffolded `docker-compose.yml` brings up a `postgres` container on `:5432` (and a `redis` container on `:6379` when you include `background_tasks`):
+
+```bash
+docker compose up -d postgres
+make migrate
 ```
 
 See [Configuration](/guide/configuration) for the full list of env vars.
 
-## Database setup
-
-### SQLite (no Docker)
-
-```bash
-make migrate
-```
-
-Creates `app.db` in the repo root and stamps it at the Alembic head.
-
-### Postgres (via Docker)
-
-```bash
-make docker-up     # starts Postgres + Redis
-make migrate
-```
-
-The compose file sets up a `postgres` service on port 5432 and a `redis` service on 6379 (used by the `background_tasks` module's Celery broker).
-
-## Sanity check
-
-```bash
-make dev
-```
-
-In parallel, this starts:
-
-- `uvicorn host.main:app` on `:8000` (the FastAPI + Inertia app)
-- `vite` on `:5173` (the frontend dev server with HMR)
-
-Hit `http://localhost:8000`. You should see the landing page. Stop both servers with `make kill`.
-
 ## Create the first admin
+
+If you included the `users` module:
 
 ```bash
 uv run sm-users create-admin --email admin@example.com --password changeme
@@ -94,24 +113,48 @@ SM_USERS_BOOTSTRAP_PASSWORD=changeme
 
 Then `make migrate && make dev`.
 
-## Install Playwright (optional — for E2E)
+## Add a module to your app
 
 ```bash
-uv run playwright install chromium
+sm create-module orders --dest modules/orders
 ```
 
-E2E tests are off by default (the root `pyproject.toml` pins `-m 'not e2e'`). Run them explicitly with `make test-e2e` while a dev server is running. See [E2E testing](/e2e-testing).
+That generates `modules/orders/` with the full layout (model, contracts, service, endpoints, pages, tests, locales, `pyproject.toml` entry point). Add the package to your app's dependencies and re-sync:
+
+```bash
+uv add ./modules/orders
+make dev
+```
+
+The full walkthrough is in [Your first module](/guide/first-module).
+
+## Update framework versions
+
+When new releases of `simple_module_*` ship to PyPI, bump every dep in lockstep:
+
+```bash
+sm package-update
+```
+
+Pass `--dry-run` first to preview the diff.
 
 ## Troubleshooting
 
-**`make dev` says a port is in use.**
-Run `make kill` to free ports 8000 and 5173.
+**`sm: command not found`** after `uv tool install`.
+Run `uv tool update-shell` (or restart your shell) so the tool's bin dir is on PATH.
 
-**Alembic complains about revision mismatch.**
-Your local DB is ahead of or behind the migration files. For a dev DB, `rm app.db && make migrate`. For Postgres, `make docker-down && make docker-up && make migrate`.
+**Port already in use.**
+Free `:8000` and `:5050` before the next `make dev`. On Linux/macOS: `lsof -ti:8000,5050 | xargs kill -9`.
+
+**Alembic complains about a revision mismatch.**
+The DB is ahead of or behind the migration files. For a dev DB: `rm app.db && make migrate`. For Postgres: `docker compose down -v && docker compose up -d postgres && make migrate`.
 
 **Entry points aren't discovered after editing a module's `pyproject.toml`.**
-Re-run `uv sync --all-packages` (or just `make install`) — entry points are registered at install time, not at import time.
+Re-run `uv sync` — entry points are registered at install time, not at import time.
 
-**Diagnostics fail with `SM009`.**
-You wrote `from <module_name> import …` inside `framework/*`. Framework code must not reach into plugin modules — invert the dependency (register a callback from the module) or promote the shared concept into `framework/`.
+## Next steps
+
+- [Quickstart](/guide/quickstart) — bootstrap and tour the running app in five minutes.
+- [Project structure](/guide/project-structure) — what `sm new` lays down.
+- [Your first module](/guide/first-module) — extend the app with your own domain logic.
+- [Bundled modules](/modules/) — what each pre-installed module ships.

@@ -1,16 +1,17 @@
 # Your first module
 
-A stage-by-stage walk-through: from `make new-module` to a working Orders module with custom fields, validation, a menu entry, and a test.
+A stage-by-stage walk-through: from `sm create-module` to a working Orders module with custom fields, validation, a menu entry, and a test.
 
-Assumes you've completed the [Quickstart](/guide/quickstart).
+Assumes you've completed the [Quickstart](/guide/quickstart) and have an app on disk created by `sm new`.
 
 ## 1. Scaffold
 
 ```bash
-make new-module name=orders
+sm create-module orders --dest modules/orders
+uv add ./modules/orders
 ```
 
-This creates `modules/orders/` with a working CRUD implementation against a single-field `Order` table. Open it in your editor — you'll see the full file layout described in [project structure](/guide/project-structure).
+This creates `modules/orders/` with a working CRUD implementation against a single-field `Order` table, and adds the package to your app's dependencies. Open the generated files in your editor — you'll see the full file layout described in [project structure](/guide/project-structure).
 
 ## 2. Define your domain model
 
@@ -69,13 +70,13 @@ DTOs are plain `SQLModel` subclasses — **not** `BaseModel` and **not** `table=
 ## 4. Generate a migration
 
 ```bash
-make migration msg="add orders tables"
+uv run alembic revision --autogenerate -m "add orders tables"
 ```
 
-Open `host/migrations/versions/XXXX_add_orders_tables.py` and eyeball it:
+Open `migrations/versions/XXXX_add_orders_tables.py` and eyeball it:
 
 - It should create the `orders` schema (Postgres) or the `orders_order` table (SQLite).
-- It should set `branch_labels = ("orders",)` — this enables `alembic downgrade orders@base` to roll the module back to empty without touching other modules.
+- Add `branch_labels = ("orders",)` to the revision so you can later `alembic downgrade orders@base` to roll the module back to empty without touching other modules.
 
 Apply:
 
@@ -150,24 +151,26 @@ class OrdersModule(ModuleBase):
         registry.add(
             MenuItem(
                 section=MenuSection.SIDEBAR,
-                key="orders",
-                label_key="orders.menu.orders",
-                href="/orders",
+                label="Orders",
+                url="/orders",
                 icon="package",
-                required_permission="orders.view",
                 order=20,
+                group="Content",
             )
         )
 
     def register_routes(
-        self, api: APIRouter, views: APIRouter
+        self, api_router: APIRouter, view_router: APIRouter
     ) -> None:
-        api.include_router(api_router, prefix="/api/orders")
-        views.include_router(view_router, prefix="/orders")
+        from orders.endpoints.api import router as api
+        from orders.endpoints.views import router as views
+
+        api_router.include_router(api)
+        view_router.include_router(views)
 ```
 
-- `label_key="orders.menu.orders"` — translated string. Add it to `orders/locales/en.json`.
-- `required_permission="orders.view"` — menu item is hidden for users who don't have it. `InertiaLayoutDataMiddleware` filters menus per request.
+- `MenuItem` takes `label` (the displayed string) and `url` (the link target). Translation is handled in the React layer via `useT()` — not on the menu definition. Pre-filter visibility via `roles=[...]` if the entry should only show for specific roles.
+- `route_prefix` / `view_prefix` from `ModuleMeta` already prefix the routers (`/api/orders` and `/orders`) — `register_routes` should mount the inner routers without re-adding the prefix.
 
 ## 7. Enforce permissions on endpoints
 
@@ -248,7 +251,7 @@ Keys flatten at boot: `orders.menu.orders`, `orders.browse.title`, etc. See [Int
 ## 9. Write a test
 
 ```python
-# modules/orders/tests/test_api.py
+# modules/orders/tests/test_orders.py
 import pytest
 
 @pytest.mark.asyncio
@@ -276,16 +279,14 @@ uv run pytest modules/orders/tests/ -v
 
 ## 10. Verify end-to-end
 
-```bash
-make doctor            # should report 0 errors
-make lint              # Ruff + ty + Biome + tsc + file-size cap
-make dev               # visit http://localhost:8000/orders
-```
+Restart `make dev` and visit `http://localhost:8000/orders`. The framework runs the full diagnostics suite at boot — any `SM0XX` errors will appear in the dev log (and in production, will fail boot before the server starts serving). If you see an `SM003` or `SM004`, the Inertia key in `views.py` doesn't match the file you created in `pages/` — see [Pages & discovery](/frontend/pages) and the full list of [diagnostic codes](/reference/diagnostic-codes).
 
-If `make doctor` flags an `SM003` or `SM004`, the Inertia key in `views.py` doesn't match the file you created in `pages/` — see [Pages & discovery](/frontend/pages).
+## Next steps
 
-Next up:
+You've shipped a module. Pick the rabbit hole that matches what you need next:
 
-- [Models](/database/models) — SQLModel conventions.
-- [Permissions](/framework/permissions) — how `RequiresPermission` resolves roles.
-- [Events](/framework/events) — publishing `OrderPlaced` and subscribing from another module.
+- [Database / Models](/database/models) — the SQLModel conventions and mixins you'll use for every table.
+- [Framework / Permissions](/framework/permissions) — how `RequiresPermission` resolves roles and direct grants.
+- [Framework / Events](/framework/events) — publishing `OrderPlaced` and subscribing from another module.
+- [Framework / Settings](/framework/settings) and the [`settings` module](/modules/settings) — DB-backed config with hot reload.
+- [Module authoring](/module-authoring) — when you're ready to package the module for distribution.
