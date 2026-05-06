@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_core"
-version = "0.0.8"
+version = "0.0.9"
 description = "Module-system primitives for the simple_module framework — ModuleBase, discovery, diagnostics, events"
 readme = "README.md"
 license = "MIT"
