@@ -30,8 +30,10 @@ from users.deps import (
     get_user_manager,
 )
 from users.endpoints.api_admin import admin_router
+from users.endpoints.api_oauth import register_oauth_routes
 from users.manager import UserManager
 from users.rate_limit import LoginRateLimiter, ThroughputLimiter
+from users.settings import UsersSettings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -125,7 +127,7 @@ auth_inner = fastapi_users.get_auth_router(auth_backend, requires_verification=T
 router.include_router(auth_inner, prefix="/auth-inner")
 
 
-def register_auth_routes(api_router: APIRouter) -> None:
+def register_auth_routes(api_router: APIRouter, settings: UsersSettings) -> None:
     """Mount all auth routes.
 
     The stock fastapi-users routers (reset/verify/register) ship POST endpoints
@@ -137,6 +139,9 @@ def register_auth_routes(api_router: APIRouter) -> None:
 
     The register router is always mounted; ``require_signup_enabled`` gates
     it at request time so ``allow_signup`` is hot-reloadable.
+
+    OAuth providers configured in ``settings`` are mounted under
+    ``/auth/<provider>/{login,callback}`` — see :mod:`users.endpoints.api_oauth`.
     """
     api_router.include_router(router)
     api_router.include_router(
@@ -160,6 +165,7 @@ def register_auth_routes(api_router: APIRouter) -> None:
             Depends(enforce_auth_throughput_limit),
         ],
     )
+    register_oauth_routes(api_router, settings)
 
 
 # ── Accept-invite (verify + set password + login, one shot) ─────────────────

@@ -25,6 +25,7 @@ from users.models.user_role import UserRole
 if TYPE_CHECKING:
     # Resolved at runtime by SQLModel via the string forward ref;
     # this import only feeds the type checker.
+    from users.models.oauth_account import OAuthAccount
     from users.models.role import Role
 
 
@@ -60,6 +61,17 @@ class User(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
         link_model=UserRole,
         back_populates="users",
         sa_relationship_kwargs={"lazy": "noload"},
+    )
+
+    # fastapi-users' SQLAlchemyUserDatabase.add_oauth_account does
+    # ``user.oauth_accounts.append(...)``, so this attribute must exist.
+    # ``selectin`` so the OAuth router can read the list without an
+    # implicit async lazy-load.
+    oauth_accounts: list["OAuthAccount"] = Relationship(
+        sa_relationship_kwargs={
+            "lazy": "selectin",
+            "cascade": "all, delete-orphan",
+        },
     )
 
     # Functional index so the ``lower(email)`` predicate used by

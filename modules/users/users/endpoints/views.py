@@ -14,6 +14,7 @@ from starlette.responses import RedirectResponse
 from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
 from users.deps import get_user_service
 from users.exceptions import UserNotFoundError
+from users.oauth import enabled_provider_names
 from users.roles_cache import get_roles_cache
 from users.service import UserService
 
@@ -72,6 +73,7 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
             "allow_signup": users_settings.allow_signup,
             "dev_accounts": dev_accounts,
             "login_redirect_url": users_settings.login_redirect_url,
+            "oauth_providers": enabled_provider_names(users_settings),
         },
     )
 

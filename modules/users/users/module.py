@@ -112,11 +112,12 @@ class UsersModule(ModuleBase):
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from users.endpoints.api import register_auth_routes
         from users.endpoints.views import router as views
+        from users.settings import UsersSettings
 
-        # The register router is always mounted; its `allow_signup` gate lives
-        # on a per-request dependency, so toggling the setting at runtime takes
-        # effect without needing to remount.
-        register_auth_routes(api_router)
+        # Construct settings here (re-reads env_str-bound fields like OAuth
+        # client ids/secrets). Validators have already passed by this point —
+        # ``register_settings`` ran first and would have raised on placeholders.
+        register_auth_routes(api_router, UsersSettings())
         view_router.include_router(views)
 
     def register_middleware(self, app: FastAPI) -> None:

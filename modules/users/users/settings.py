@@ -84,6 +84,21 @@ class UsersSettings(BaseSettings):
     bootstrap_user_email: str = ""
     bootstrap_user_password: str = ""
 
+    # OAuth / OIDC providers. Each provider is enabled by setting both client
+    # id and secret; missing credentials = provider not registered. Resolved
+    # at module-import time (env_str) because client secrets shouldn't ride
+    # in the DB-backed settings table that admins can read via the UI.
+    oauth_google_client_id: str = env_str("SM_USERS_OAUTH_GOOGLE_CLIENT_ID", "")
+    oauth_google_client_secret: str = env_str("SM_USERS_OAUTH_GOOGLE_CLIENT_SECRET", "")
+    oauth_github_client_id: str = env_str("SM_USERS_OAUTH_GITHUB_CLIENT_ID", "")
+    oauth_github_client_secret: str = env_str("SM_USERS_OAUTH_GITHUB_CLIENT_SECRET", "")
+    # Generic OIDC — works with any provider that exposes a discovery URL
+    # (Keycloak, Authentik, Auth0, Zitadel, Entra ID, ...).
+    oauth_oidc_client_id: str = env_str("SM_USERS_OAUTH_OIDC_CLIENT_ID", "")
+    oauth_oidc_client_secret: str = env_str("SM_USERS_OAUTH_OIDC_CLIENT_SECRET", "")
+    oauth_oidc_discovery_url: str = env_str("SM_USERS_OAUTH_OIDC_DISCOVERY_URL", "")
+    oauth_oidc_display_name: str = env_str("SM_USERS_OAUTH_OIDC_DISPLAY_NAME", "OIDC")
+
     @model_validator(mode="after")
     def _forbid_placeholder_token_secrets_in_production(self) -> UsersSettings:
         """Fail boot if the reset/verify token secrets are still placeholders.

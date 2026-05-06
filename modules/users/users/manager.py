@@ -11,6 +11,7 @@ from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
 from fastapi_users.jwt import generate_jwt
 
+from users.constants import SESSION_USER_ID_KEY
 from users.contracts.events import UserRegistered
 from users.db_adapter import UserDatabaseWithRoles, get_user_db
 from users.mailer import Mailer
@@ -86,6 +87,13 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     ) -> None:
         user.last_login_at = datetime.now(UTC)
         await self.user_db.update(user, {"last_login_at": user.last_login_at})
+        # Bridge to AuthMiddleware: it reads session["user_id"] (not the
+        # fastapi-users cookie) to identify the request principal. Setting it
+        # here covers OAuth callbacks too, where there's no wrapper to do it
+        # explicitly. Password / accept-invite flows already set this in their
+        # wrappers — re-assigning the same value here is a harmless no-op.
+        if request is not None:
+            request.session[SESSION_USER_ID_KEY] = str(user.id)
 
     # ── Token helpers (no email side-effect) ─────────────────
 
