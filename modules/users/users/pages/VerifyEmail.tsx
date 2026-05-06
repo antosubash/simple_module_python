@@ -1,12 +1,5 @@
 import { usePage } from '@inertiajs/react';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@simple-module-py/ui/components/ui/card';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { useEffect, useState } from 'react';
 
@@ -96,13 +89,9 @@ function VerifyEmail() {
 
   return (
     <AuthCardShell>
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>{content.title}</CardTitle>
-          <CardDescription>{content.description}</CardDescription>
-        </CardHeader>
-        {content.body && <CardContent>{content.body}</CardContent>}
-      </Card>
+      <h1 className="text-2xl font-semibold tracking-tight">{content.title}</h1>
+      <p className="mb-6 mt-1 text-sm text-muted-foreground">{content.description}</p>
+      {content.body && <div>{content.body}</div>}
     </AuthCardShell>
   );
 }

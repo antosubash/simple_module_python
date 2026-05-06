@@ -5,19 +5,25 @@
 /* Self-scan — app-level @source lines live in host/client_app/styles.css. */
 @source "../../**/*.{ts,tsx}";
 
-/* ── Design System Theme ── Cool Teal ──────────────────────── */
+/* ── Design System Theme ── LacoWiki Migration ─────────────────
+   Modern scientific/technical aesthetic:
+   - Inter for UI, JetBrains Mono for tabular data and IDs
+   - Cool grays at near-zero saturation
+   - One precise teal-cyan accent (oklch hue 200)
+   - 1px borders, no gradients or heavy shadows
+*/
 @theme {
-  /* Teal / Cyan primary scale */
-  --color-primary-50: oklch(0.97 0.02 185);
-  --color-primary-100: oklch(0.93 0.04 185);
-  --color-primary-200: oklch(0.86 0.07 185);
-  --color-primary-300: oklch(0.76 0.1 185);
-  --color-primary-400: oklch(0.68 0.12 185);
-  --color-primary-500: oklch(0.6 0.13 185);
-  --color-primary-600: oklch(0.52 0.12 185);
-  --color-primary-700: oklch(0.44 0.1 185);
-  --color-primary-800: oklch(0.36 0.08 185);
-  --color-primary-900: oklch(0.28 0.06 185);
+  /* Teal / Cyan primary scale — hue 200 to match the LacoWiki accent */
+  --color-primary-50: oklch(0.97 0.02 200);
+  --color-primary-100: oklch(0.93 0.04 200);
+  --color-primary-200: oklch(0.86 0.07 200);
+  --color-primary-300: oklch(0.76 0.1 200);
+  --color-primary-400: oklch(0.68 0.12 200);
+  --color-primary-500: oklch(0.62 0.12 200);
+  --color-primary-600: oklch(0.52 0.12 200);
+  --color-primary-700: oklch(0.44 0.1 200);
+  --color-primary-800: oklch(0.36 0.08 200);
+  --color-primary-900: oklch(0.28 0.06 200);
 
   /* Cool neutrals for surfaces */
   --color-surface: oklch(0.985 0.003 250);
@@ -62,32 +68,32 @@
   --color-violet-icon-bg: oklch(0.92 0.05 300);
   --color-violet-value: oklch(0.3 0.08 300);
 
-  /* Typography */
-  --font-display: "Outfit", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  /* Typography — Inter for UI, JetBrains Mono for tabular data and IDs */
+  --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
 
-  /* Shadows */
-  --shadow-card: 0 1px 3px oklch(0.2 0.01 250 / 0.08), 0 1px 2px oklch(0.2 0.01 250 / 0.04);
-  --shadow-card-hover: 0 4px 12px oklch(0.2 0.01 250 / 0.12), 0 2px 4px oklch(0.2 0.01 250 / 0.06);
+  /* Shadows — restrained, mostly flat surfaces */
+  --shadow-card: 0 1px 2px oklch(0.14 0.02 250 / 0.04);
+  --shadow-card-hover: 0 1px 3px oklch(0.14 0.02 250 / 0.08);
 }
 
 /* ── shadcn/ui Semantic Color Tokens ───────────────────────── */
 :root {
-  /* Core */
-  --background: oklch(0.985 0.003 250);
-  --foreground: oklch(0.2 0.02 250);
+  /* Core — cool grays, near-zero saturation, matching LacoWiki tokens */
+  --background: oklch(0.985 0.002 250); /* #fafbfc */
+  --foreground: oklch(0.18 0.01 250); /* #0e1116 */
 
-  /* Card */
+  /* Card — pure white surface on the cool gray bg */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.02 250);
+  --card-foreground: oklch(0.18 0.01 250);
 
   /* Popover */
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.02 250);
+  --popover-foreground: oklch(0.18 0.01 250);
 
-  /* Primary (teal) */
-  --primary: oklch(0.52 0.12 185);
+  /* Primary — solid ink for primary CTAs (LacoWiki style: ink-1, not accent) */
+  --primary: oklch(0.18 0.01 250);
   --primary-foreground: oklch(1 0 0);
 
   /* Secondary */
@@ -105,29 +111,30 @@
   /* Destructive */
   --destructive: oklch(0.55 0.2 25);
 
-  /* Border / Input / Ring */
-  --border: oklch(0.9 0.005 250);
-  --input: oklch(0.82 0.005 250);
-  --ring: oklch(0.6 0.13 185);
+  /* Border / Input / Ring — 1px cool gray lines */
+  --border: oklch(0.9 0.003 250);
+  --input: oklch(0.85 0.003 250);
+  --ring: oklch(0.62 0.12 200);
 
-  /* Chart colors */
-  --chart-1: oklch(0.6 0.13 185);
-  --chart-2: oklch(0.55 0.12 85);
-  --chart-3: oklch(0.55 0.14 300);
-  --chart-4: oklch(0.6 0.15 145);
-  --chart-5: oklch(0.55 0.12 30);
+  /* Chart colors — drawn from the LacoWiki land-cover legend palette */
+  --chart-1: oklch(0.62 0.12 200); /* accent / wetlands */
+  --chart-2: oklch(0.6 0.14 145); /* forest */
+  --chart-3: oklch(0.72 0.13 75); /* cropland */
+  --chart-4: oklch(0.55 0.14 285); /* sampling / settlements */
+  --chart-5: oklch(0.58 0.16 25); /* alert / settlements */
 
-  /* Sidebar (shadcn sidebar component) */
-  --sidebar: oklch(0.985 0.003 250);
-  --sidebar-foreground: oklch(0.25 0.02 250);
-  --sidebar-primary: oklch(0.52 0.12 185);
+  /* Sidebar (shadcn sidebar component) — light cool gray */
+  --sidebar: oklch(0.96 0.003 250);
+  --sidebar-foreground: oklch(0.32 0.01 250);
+  --sidebar-primary: oklch(0.18 0.01 250);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.96 0.005 250);
-  --sidebar-accent-foreground: oklch(0.25 0.02 250);
-  --sidebar-border: oklch(0.9 0.005 250);
-  --sidebar-ring: oklch(0.6 0.13 185);
+  --sidebar-accent: oklch(1 0 0);
+  --sidebar-accent-foreground: oklch(0.18 0.01 250);
+  --sidebar-border: oklch(0.93 0.003 250);
+  --sidebar-ring: oklch(0.62 0.12 200);
 
-  --radius: 0.625rem;
+  /* Tighter radii — LacoWiki uses 4px / 6px corners */
+  --radius: 0.375rem;
 }
 
 .dark {

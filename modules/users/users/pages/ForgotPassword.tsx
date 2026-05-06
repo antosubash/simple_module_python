@@ -1,11 +1,4 @@
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
@@ -24,8 +17,6 @@ function ForgotPassword() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     }).finally(() => {
-      // Always show the same message regardless of whether the email exists
-      // (anti-enumeration: fastapi-users returns 202 regardless)
       setLoading(false);
       setSubmitted(true);
     });
@@ -34,55 +25,50 @@ function ForgotPassword() {
   if (submitted) {
     return (
       <AuthCardShell>
-        <Card className="w-full max-w-sm">
-          <CardHeader>
-            <CardTitle>Check your email</CardTitle>
-            <CardDescription>
-              If an account with that email exists, we've sent a password reset link.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <a href="/users/login" className="text-sm text-primary hover:underline">
-              Back to sign in
-            </a>
-          </CardContent>
-        </Card>
+        <h1 className="text-2xl font-semibold tracking-tight">Check your email</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          If an account with that email exists, we've sent a password reset link.
+        </p>
+        <a
+          href="/users/login"
+          className="mt-6 inline-flex items-center justify-center rounded border border-border bg-card px-3 py-2 text-xs font-medium hover:border-primary-400"
+        >
+          Back to sign in
+        </a>
       </AuthCardShell>
     );
   }
 
   return (
     <AuthCardShell>
-      <Card className="w-full max-w-sm">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl">Forgot password</CardTitle>
-          <CardDescription>Enter your email to receive a reset link</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                autoComplete="email"
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Sending…' : 'Send reset link'}
-            </Button>
-          </form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            <a href="/users/login" className="text-primary hover:underline">
-              Back to sign in
-            </a>
-          </p>
-        </CardContent>
-      </Card>
+      <h1 className="text-2xl font-semibold tracking-tight">Forgot password</h1>
+      <p className="mb-6 mt-1 text-sm text-muted-foreground">
+        Enter your email to receive a reset link.
+      </p>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="email" className="text-xs font-medium">
+            Email
+          </Label>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@institution.org"
+            required
+            autoComplete="email"
+          />
+        </div>
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? 'Sending…' : 'Send reset link'}
+        </Button>
+      </form>
+      <p className="mt-4 text-xs text-muted-foreground">
+        <a href="/users/login" className="text-primary-700 hover:underline">
+          Back to sign in
+        </a>
+      </p>
     </AuthCardShell>
   );
 }

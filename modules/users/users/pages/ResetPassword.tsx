@@ -1,12 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
@@ -19,7 +12,6 @@ interface Props {
 function ResetPassword() {
   const { token: initialToken } = usePage<{ props: Props }>().props as unknown as Props;
 
-  // Prefer the token from the URL query string (deeplink); fall back to Inertia prop.
   const urlToken =
     typeof window !== 'undefined'
       ? (new URLSearchParams(window.location.search).get('token') ?? '')
@@ -62,49 +54,49 @@ function ResetPassword() {
 
   return (
     <AuthCardShell>
-      <Card className="w-full max-w-sm">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl">Reset password</CardTitle>
-          <CardDescription>Choose a new password for your account</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="password">New password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirm">Confirm password</Label>
-              <Input
-                id="confirm"
-                type="password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                required
-                autoComplete="new-password"
-              />
-            </div>
+      <h1 className="text-2xl font-semibold tracking-tight">Reset password</h1>
+      <p className="mb-6 mt-1 text-sm text-muted-foreground">
+        Choose a new password for your account.
+      </p>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="password" className="text-xs font-medium">
+            New password
+          </Label>
+          <Input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            autoComplete="new-password"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="confirm" className="text-xs font-medium">
+            Confirm password
+          </Label>
+          <Input
+            id="confirm"
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+            autoComplete="new-password"
+          />
+        </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-xs text-destructive">{error}</p>}
 
-            <Button type="submit" className="w-full" disabled={loading || !token}>
-              {loading ? 'Resetting…' : 'Reset password'}
-            </Button>
-          </form>
-          {!token && (
-            <p className="mt-2 text-sm text-destructive">
-              No reset token found. Please use the link from your email.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+        <Button type="submit" className="w-full" disabled={loading || !token}>
+          {loading ? 'Resetting…' : 'Reset password'}
+        </Button>
+      </form>
+      {!token && (
+        <p className="mt-2 text-xs text-destructive">
+          No reset token found. Please use the link from your email.
+        </p>
+      )}
     </AuthCardShell>
   );
 }

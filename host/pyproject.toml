@@ -12,7 +12,6 @@ dependencies = [
     "simple_module_file_storage",
     "simple_module_settings",
     "simple_module_feature_flags",
-    "simple_module_lacowiki",
     "python-multipart>=0.0.6",
 ]
 
@@ -25,4 +24,3 @@ simple_module_background_tasks = { workspace = true }
 simple_module_file_storage = { workspace = true }
 simple_module_settings = { workspace = true }
 simple_module_feature_flags = { workspace = true }
-simple_module_lacowiki = { workspace = true }

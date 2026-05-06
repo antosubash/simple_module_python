@@ -1,11 +1,4 @@
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
@@ -57,94 +50,96 @@ function Register() {
   if (success) {
     return (
       <AuthCardShell>
-        <Card className="w-full max-w-sm">
-          <CardHeader>
-            <CardTitle>Check your email</CardTitle>
-            <CardDescription>
-              We've sent a verification link to <strong>{email}</strong>. Please verify your account
-              before signing in.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <a href="/users/login" className="text-sm text-primary hover:underline">
-              Back to sign in
-            </a>
-          </CardContent>
-        </Card>
+        <h1 className="text-2xl font-semibold tracking-tight">Check your email</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          We've sent a verification link to <strong>{email}</strong>. Please verify your account
+          before signing in.
+        </p>
+        <a
+          href="/users/login"
+          className="mt-6 inline-flex items-center justify-center rounded border border-border bg-card px-3 py-2 text-xs font-medium hover:border-primary-400"
+        >
+          Back to sign in
+        </a>
       </AuthCardShell>
     );
   }
 
   return (
     <AuthCardShell>
-      <Card className="w-full max-w-sm">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl">Create account</CardTitle>
-          <CardDescription>Fill in your details to get started</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                autoComplete="email"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="full_name">Full name</Label>
-              <Input
-                id="full_name"
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Your name"
-                autoComplete="name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirm">Confirm password</Label>
-              <Input
-                id="confirm"
-                type="password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                required
-                autoComplete="new-password"
-              />
-            </div>
+      <h1 className="text-2xl font-semibold tracking-tight">Create account</h1>
+      <p className="mb-6 mt-1 text-sm text-muted-foreground">
+        Fill in your details to get started.
+      </p>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="email" className="text-xs font-medium">
+            Email
+          </Label>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@institution.org"
+            required
+            autoComplete="email"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="full_name" className="text-xs font-medium">
+            Full name
+          </Label>
+          <Input
+            id="full_name"
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="Your name"
+            autoComplete="name"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="password" className="text-xs font-medium">
+            Password
+          </Label>
+          <Input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            autoComplete="new-password"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="confirm" className="text-xs font-medium">
+            Confirm password
+          </Label>
+          <Input
+            id="confirm"
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+            autoComplete="new-password"
+          />
+        </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Creating account…' : 'Create account'}
-            </Button>
-          </form>
+        {error && <p className="text-xs text-destructive">{error}</p>}
 
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            Already have an account?{' '}
-            <a href="/users/login" className="text-primary hover:underline">
-              Sign in
-            </a>
-          </p>
-        </CardContent>
-      </Card>
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? 'Creating account…' : 'Create account'}
+        </Button>
+      </form>
+
+      <p className="mt-4 text-xs text-muted-foreground">
+        Already have an account?{' '}
+        <a href="/users/login" className="text-primary-700 hover:underline">
+          Sign in
+        </a>
+      </p>
     </AuthCardShell>
   );
 }

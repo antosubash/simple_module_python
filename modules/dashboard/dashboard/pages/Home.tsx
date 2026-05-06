@@ -1,17 +1,12 @@
 import { usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
-import { Card, CardContent, CardHeader, CardTitle } from '@simple-module-py/ui/components/ui/card';
-import { Table, TableBody, TableCell, TableRow } from '@simple-module-py/ui/components/ui/table';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import { Activity, Box, Heart, Server, Users } from 'lucide-react';
 
-type Accent = 'emerald' | 'violet' | 'amber';
-
-const HEALTH_STATUS_COLOR: Record<string, string> = {
-  healthy: 'bg-emerald-500',
-  degraded: 'bg-amber-500',
-  unhealthy: 'bg-red-500',
+const HEALTH_STATUS_TONE: Record<string, string> = {
+  healthy: 'border-emerald-300 bg-emerald-50 text-emerald-700',
+  degraded: 'border-amber-300 bg-amber-50 text-amber-700',
+  unhealthy: 'border-red-300 bg-red-50 text-red-700',
 };
 
 interface SystemModule {
@@ -37,6 +32,40 @@ interface Props {
   system_info: SystemInfo;
 }
 
+function StatCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-md border bg-card p-3">
+      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+function ModuleChip({ name }: { name: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border bg-secondary px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+      <span className="h-1.5 w-1.5 rounded-full bg-primary-500" />
+      {name}
+    </span>
+  );
+}
+
+function HealthRow({ check }: { check: HealthCheck }) {
+  const tone = HEALTH_STATUS_TONE[check.status] ?? HEALTH_STATUS_TONE.unhealthy;
+  return (
+    <div className="flex items-center gap-3 border-b border-border/60 px-4 py-2.5 text-sm last:border-b-0">
+      <span className="flex-1 font-medium">{check.name}</span>
+      <span
+        className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[11px] ${tone}`}
+      >
+        {check.status}
+      </span>
+    </div>
+  );
+}
+
 function Home() {
   const props = usePage<{ props: Props }>().props as unknown as Props;
   const { t } = useT();
@@ -46,127 +75,39 @@ function Home() {
       title={t(keys.dashboard.home.title)}
       description={t(keys.dashboard.home.description)}
     >
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
-        <StatCard
-          title={t(keys.dashboard.home.stats.total_users)}
-          value={String(props.total_users)}
-          icon={<Users className="size-4" />}
-          accent="emerald"
-        />
-        <StatCard
-          title={t(keys.dashboard.home.stats.active_users)}
-          value={String(props.active_users_7d)}
-          icon={<Activity className="size-4" />}
-          accent="amber"
-        />
-        <StatCard
-          title={t(keys.dashboard.home.stats.modules)}
-          value={String(props.module_count)}
-          icon={<Box className="size-4" />}
-          accent="violet"
-        />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard label={t(keys.dashboard.home.stats.total_users)} value={props.total_users} />
+        <StatCard label={t(keys.dashboard.home.stats.active_users)} value={props.active_users_7d} />
+        <StatCard label={t(keys.dashboard.home.stats.modules)} value={props.module_count} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 font-[var(--font-display)]">
-            <Server className="size-4" />
-            {t(keys.dashboard.home.system_info_title)}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div>
-            <h4 className="text-sm font-medium text-muted-foreground mb-2">
-              {t(keys.dashboard.home.system_info.modules)}
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {props.system_info.modules.map((mod) => (
-                <span
-                  key={mod.name}
-                  className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium"
-                >
-                  <span className="size-1.5 rounded-full bg-emerald-500" />
-                  {mod.name}
-                </span>
-              ))}
-            </div>
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr]">
+        <div className="rounded-md border bg-card">
+          <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
+            <span className="text-sm font-semibold">
+              {t(keys.dashboard.home.system_info_title)}
+            </span>
+            <span className="font-mono text-[11px] text-muted-foreground">
+              python {props.system_info.python_version}
+            </span>
           </div>
-
-          <Table>
-            <TableBody>
-              <TableRow>
-                <TableCell className="font-medium text-muted-foreground">
-                  {t(keys.dashboard.home.system_info.python_version)}
-                </TableCell>
-                <TableCell>{props.system_info.python_version}</TableCell>
-              </TableRow>
-              {props.system_info.health_checks.map((check) => (
-                <TableRow key={check.name}>
-                  <TableCell className="font-medium text-muted-foreground flex items-center gap-2">
-                    <Heart className="size-3" />
-                    {check.name}
-                  </TableCell>
-                  <TableCell>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span
-                        className={`size-2 rounded-full ${HEALTH_STATUS_COLOR[check.status] ?? 'bg-red-500'}`}
-                      />
-                      {check.status}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </PageShell>
-  );
-}
-
-function StatCard({
-  title,
-  value,
-  icon,
-  accent,
-}: {
-  title: string;
-  value: string;
-  icon: React.ReactNode;
-  accent: Accent;
-}) {
-  const styles: Record<Accent, { card: string; icon: string; value: string }> = {
-    emerald: {
-      card: 'border-emerald-border bg-gradient-to-br from-emerald-bg to-card',
-      icon: 'text-emerald-icon-fg bg-emerald-icon-bg',
-      value: 'text-emerald-value',
-    },
-    violet: {
-      card: 'border-violet-border bg-gradient-to-br from-violet-bg to-card',
-      icon: 'text-violet-icon-fg bg-violet-icon-bg',
-      value: 'text-violet-value',
-    },
-    amber: {
-      card: 'border-amber-200 bg-gradient-to-br from-amber-50 to-card',
-      icon: 'text-amber-600 bg-amber-100',
-      value: 'text-amber-900',
-    },
-  };
-
-  const s = styles[accent];
-
-  return (
-    <Card className={s.card}>
-      <CardContent className="pt-5">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-muted-foreground">{title}</span>
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${s.icon}`}>
-            {icon}
+          <div>
+            {props.system_info.health_checks.map((check) => (
+              <HealthRow key={check.name} check={check} />
+            ))}
           </div>
         </div>
-        <p className={`text-3xl font-bold font-[var(--font-display)] ${s.value}`}>{value}</p>
-      </CardContent>
-    </Card>
+
+        <div className="rounded-md border bg-card p-4">
+          <div className="text-sm font-semibold">{t(keys.dashboard.home.system_info.modules)}</div>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {props.system_info.modules.map((mod) => (
+              <ModuleChip key={mod.name} name={mod.name} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </PageShell>
   );
 }
 

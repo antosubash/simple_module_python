@@ -44,7 +44,7 @@
       }
     },
     {
-      "includes": ["packages/ui/src/lacowiki/**", "modules/lacowiki/lacowiki/pages/**"],
+      "includes": ["packages/ui/src/lacowiki/**"],
       "linter": {
         "rules": {
           "a11y": {

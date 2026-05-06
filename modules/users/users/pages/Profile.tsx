@@ -1,8 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
-import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
@@ -22,6 +20,15 @@ interface SharedProps {
     user: AuthUser | null;
   };
 }
+
+const SECTIONS = [
+  'Profile',
+  'Workspaces',
+  'API tokens',
+  'Notifications',
+  'Sessions',
+  'Danger zone',
+];
 
 function Profile() {
   const { auth } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
@@ -55,55 +62,102 @@ function Profile() {
   }
 
   return (
-    <PageShell title="My Profile" description="Manage your account details">
-      <Card className="max-w-xl">
-        <CardContent className="pt-6">
+    <PageShell title="Settings" description="Manage your account details">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[200px_1fr]">
+        <nav className="flex flex-col gap-1">
+          {SECTIONS.map((s, i) => (
+            <div
+              key={s}
+              className={
+                i === 0
+                  ? 'rounded border bg-secondary px-3 py-1.5 text-xs font-semibold'
+                  : 'px-3 py-1.5 text-xs font-medium text-muted-foreground'
+              }
+            >
+              {s}
+            </div>
+          ))}
+        </nav>
+
+        <div className="max-w-xl space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold">Profile</h2>
+            <p className="text-xs text-muted-foreground">
+              Visible to your collaborators across the workspace.
+            </p>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={user.email} readOnly className="bg-muted" />
-              <div className="flex items-center gap-2">
-                {user.is_verified ? (
-                  <Badge variant="secondary">Verified</Badge>
-                ) : (
-                  <Badge variant="destructive">Unverified</Badge>
-                )}
+            <div className="flex items-center gap-4">
+              <div className="h-16 w-16 rounded-full border bg-secondary" />
+              <div className="space-y-1.5">
+                <Button type="button" variant="outline" size="sm">
+                  Upload photo
+                </Button>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  PNG/JPG · 1MB max
+                </p>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="full_name">Full name</Label>
-              <Input
-                id="full_name"
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Your name"
-                maxLength={200}
-              />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="text-xs font-medium">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={user.email}
+                  readOnly
+                  className="bg-muted font-mono text-sm"
+                />
+                <p className="font-mono text-[10px] text-muted-foreground">
+                  {user.is_verified ? '✓ verified' : '× unverified'}
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="full_name" className="text-xs font-medium">
+                  Full name
+                </Label>
+                <Input
+                  id="full_name"
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Your name"
+                  maxLength={200}
+                />
+              </div>
             </div>
 
             {user.roles.length > 0 && (
-              <div className="space-y-2">
-                <Label>Roles</Label>
-                <div className="flex flex-wrap gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Roles</Label>
+                <div className="flex flex-wrap gap-1.5">
                   {user.roles.map((role) => (
-                    <Badge key={role} variant="outline">
+                    <span
+                      key={role}
+                      className="inline-flex items-center rounded-full border bg-secondary px-2 py-0.5 font-mono text-[11px] text-muted-foreground"
+                    >
                       {role}
-                    </Badge>
+                    </span>
                   ))}
                 </div>
               </div>
             )}
 
-            <div className="pt-2">
+            <div className="flex gap-2 pt-2">
+              <Button type="button" variant="outline" disabled={saving}>
+                Cancel
+              </Button>
               <Button type="submit" disabled={saving}>
                 {saving ? 'Saving…' : 'Save changes'}
               </Button>
             </div>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </PageShell>
   );
 }
