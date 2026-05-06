@@ -10,7 +10,7 @@ dev: gen-pages
 	$(MAKE) -j2 dev-api dev-ui
 
 dev-api:
-	$(MAKE) -C host dev-api
+	cd host && uv run uvicorn main:app --reload --port 8000
 
 dev-ui:
 	npm run dev
@@ -19,21 +19,21 @@ build:
 	npm run build
 
 # Regenerate host/client_app/modules.{manifest.json,generated.ts,generated.css}
-# from installed modules (workspace + wheel-installed). Delegates to the
-# host's Makefile so the workspace and flat layouts share one command.
+# from installed modules (workspace + wheel-installed).
 gen-pages:
-	$(MAKE) -C host gen-pages
+	cd host && uv run python -m simple_module_hosting gen-pages --host-dir=client_app
 
 # Pull JS deps shipped by wheel-installed modules into host/client_app/node_modules.
 # Workspace modules under modules/* don't need this — npm hoists them automatically.
 sync-module-deps:
-	$(MAKE) -C host sync-js-deps
+	cd host && uv run python -m simple_module_hosting sync-js-deps --host-client-app=client_app
 
 migrate:
-	$(MAKE) -C host migrate
+	cd host && uv run alembic upgrade head
 
 migration:
-	$(MAKE) -C host migration msg="$(msg)"
+	@test -n "$(msg)" || (echo 'Usage: make migration msg="describe the change"' && exit 1)
+	cd host && uv run alembic revision --autogenerate -m "$(msg)"
 
 kill:
 	@-pkill -f "uvicorn main:app" 2>/dev/null

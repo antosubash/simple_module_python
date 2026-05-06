@@ -73,7 +73,12 @@ _APP_NPM_DEV_DEPS = {
 
 # Files the host template ships that the workspace template re-emits at
 # the project root. Host copies are stripped in workspace mode.
-_HOST_FILES_OWNED_BY_WORKSPACE = (".env.example", ".gitignore", "README.md")
+_HOST_FILES_OWNED_BY_WORKSPACE = (
+    ".env.example",
+    ".gitignore",
+    "README.md",
+    "Makefile",
+)
 
 
 def create_app_project(

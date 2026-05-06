@@ -233,7 +233,7 @@ def test_sm_new_default_lays_down_workspace_layout(tmp_path: Path) -> None:
         "client_app/vite.config.ts",
     ):
         assert (target / "host" / relpath).is_file(), f"missing host file: {relpath}"
-    for relpath in (".env.example", "README.md", ".gitignore"):
+    for relpath in (".env.example", "README.md", ".gitignore", "Makefile"):
         assert not (target / "host" / relpath).exists()
 
 
