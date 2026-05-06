@@ -45,13 +45,38 @@ _GENERATED_CSS_HEADER = """\
 
 
 def repo_root_from_client_app(client_app_dir: Path) -> Path:
-    """Repo root is two levels above ``host/client_app/``.
+    """Locate the workspace/repo root that contains ``client_app_dir``.
 
     Both ``write_module_pages_manifest`` and the ``sync-js-deps`` CLI
     derive the workspace root from the host's client_app directory.
     Centralized here so the heuristic lives in exactly one place.
+
+    Walks up looking for the nearest ``package.json`` that declares
+    ``workspaces`` (the workspace root npm uses), falling back to any
+    ``package.json``. This handles both the framework repo's
+    ``host/client_app/`` layout and the flat ``sm new`` scaffold's
+    ``client_app/`` layout (where the parent IS the workspace root).
     """
-    return client_app_dir.resolve().parent.parent
+    here = client_app_dir.resolve()
+    fallback: Path | None = None
+    for parent in (here.parent, *here.parents):
+        pkg = parent / "package.json"
+        if not pkg.is_file():
+            continue
+        if fallback is None:
+            fallback = parent
+        try:
+            data = json.loads(pkg.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if "workspaces" in data:
+            return parent
+    if fallback is not None:
+        return fallback
+    # No package.json found anywhere on the way up — preserve the legacy
+    # two-levels-up shape so framework-internal callers still get a valid
+    # path even before any npm setup has happened.
+    return here.parent.parent
 
 
 def compute_module_pages(modules: Sequence[ModuleBase]) -> dict[str, Path]:

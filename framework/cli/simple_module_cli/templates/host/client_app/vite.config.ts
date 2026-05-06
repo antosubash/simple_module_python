@@ -35,14 +35,25 @@ const fsRoot = findNodeModulesRoot(__dirname);
 // dev server can read files outside the host root, and in
 // optimizeDeps.entries so its dependency scanner discovers bare imports
 // from wheel-installed pages and pre-bundles them.
+//
+// We also collect each module's package.json (one level up from pages/,
+// where Hatch's force-include drops it) so the dependency walk in
+// `collectOptimizeIncludes` reaches packages a wheel-installed page imports
+// directly (`sonner`, `lucide-react`, ...). Without this seed, Vite's
+// pre-bundler never sees those bare specifiers and Node module resolution
+// walks up from inside .venv/site-packages — never reaching
+// host/client_app/node_modules.
 const manifestPath = path.resolve(__dirname, 'modules.manifest.json');
 const moduleFsAllow: string[] = [];
 const moduleOptimizeEntries: string[] = [];
+const modulePkgJsonPaths: string[] = [];
 if (fs.existsSync(manifestPath)) {
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as Record<string, string>;
   for (const pagesDir of Object.values(manifest)) {
     moduleFsAllow.push(path.dirname(pagesDir));
     moduleOptimizeEntries.push(path.join(pagesDir, '**/*.tsx'));
+    const modulePkgJson = path.join(path.dirname(pagesDir), 'package.json');
+    if (fs.existsSync(modulePkgJson)) modulePkgJsonPaths.push(modulePkgJson);
   }
 }
 
@@ -99,7 +110,7 @@ function collectOptimizeIncludes(): string[] {
     'use-sync-external-store/shim/with-selector',
   ]);
   const visited = new Set<string>();
-  const queue: string[] = [path.join(__dirname, 'package.json')];
+  const queue: string[] = [path.join(__dirname, 'package.json'), ...modulePkgJsonPaths];
   while (queue.length > 0) {
     const pkgJsonPath = queue.shift();
     if (!pkgJsonPath || visited.has(pkgJsonPath)) continue;
