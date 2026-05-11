@@ -16,7 +16,7 @@
       "schema_description": "PostgreSQL → schema per module. SQLite → prefixed tables. Each module owns its data.",
       "inertia_title": "Inertia + React",
       "inertia_description": "Browse / Create / Edit pages ship inside each module. Vite HMR for the frontend, async FastAPI for the backend.",
-      "diagnostics_title": "sm doctor",
+      "diagnostics_title": "make doctor",
       "diagnostics_description": "Static analyzer catches orphan pages, framework coupling, and migration drift before boot.",
       "devtools_title": "Async SQLModel",
       "devtools_description": "SQLAlchemy async + Pydantic + Alembic. Generate migrations per module."

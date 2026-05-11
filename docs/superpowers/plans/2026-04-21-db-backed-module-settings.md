@@ -2522,7 +2522,7 @@ git commit -m "test(e2e): verify settings-UI hot-reload for users.allow_signup"
 
 ## Phase 6: Import-from-env CLI
 
-### Task 6.1: `sm-settings import-from-env` command
+### Task 6.1: `smpy settings import-from-env` command
 
 **Files:**
 - Modify: `modules/settings/settings/cli.py` (create if missing; check `pyproject.toml` for existing entry point)
@@ -2584,7 +2584,7 @@ Expected: FAIL — ImportError.
 # modules/settings/settings/cli.py
 """CLI entry points for the Settings module.
 
-``sm-settings import-from-env`` — reads every ``SM_<MODULE>_*`` from the
+``smpy settings import-from-env`` — reads every ``SM_<MODULE>_*`` from the
 current process environment and writes each matching field as an override
 to the ``Setting`` table. Idempotent.
 """
@@ -2660,7 +2660,7 @@ Add under `[project.scripts]`:
 
 ```toml
 [project.scripts]
-sm-settings = "settings.cli:main"
+smpy settings = "settings.cli:main"
 ```
 
 (If `[project.scripts]` already exists, append the entry.)
@@ -2678,7 +2678,7 @@ Expected: 2 passed.
 
 ```bash
 git add modules/settings/settings/cli.py modules/settings/pyproject.toml modules/settings/tests/test_cli_import.py
-git commit -m "feat(settings): add sm-settings import-from-env CLI"
+git commit -m "feat(settings): add smpy settings import-from-env CLI"
 ```
 
 ---
@@ -2732,7 +2732,7 @@ Inspect `docker-compose.yml:36-40` and `docker-compose.yml:61-65` and remove the
 
 Actually: the compose defaults must match the service hostnames (`redis`), which differ from local dev (`localhost`). Two options:
 - **Option A** — keep env override in compose. Reasonable compromise; compose is "deployment", not module config.
-- **Option B** — change Celery defaults to `redis://redis:6379/*` and tell local-dev users to override via `sm-settings` CLI after first boot.
+- **Option B** — change Celery defaults to `redis://redis:6379/*` and tell local-dev users to override via `smpy settings` CLI after first boot.
 
 Pick **A** — compose env stays. The spec's promise ("only DB URL in env") refers to the user's local `.env.example`, not CI/compose overrides which are container-specific plumbing.
 
@@ -2772,7 +2772,7 @@ Power users can still override the following bootstrap knobs via env if needed: 
 All module-level settings — users, SMTP, Celery broker, file storage backend, etc. — live in the admin UI. After upgrading an existing deployment, run once:
 
 ```bash
-uv run sm-settings import-from-env
+uv run smpy settings import-from-env
 ```
 
 to seed DB overrides from the current `SM_*` environment.
@@ -2828,12 +2828,12 @@ Every `SM_<MODULE>_*` env var has moved to the admin UI at `/settings/modules`.
 
 After deploying this release:
 
-1. Run `uv run sm-settings import-from-env` once to seed the DB with your current environment values.
+1. Run `uv run smpy settings import-from-env` once to seed the DB with your current environment values.
 2. Remove the `SM_<MODULE>_*` entries from your `.env` / deployment config (they're no longer read).
 
 ## Breaking changes
 
-Setting `SM_USERS_ALLOW_SIGNUP=true` (or any other `SM_<MODULE>_*`) in the environment no longer has any effect. Use the admin UI or the `sm-settings` CLI.
+Setting `SM_USERS_ALLOW_SIGNUP=true` (or any other `SM_<MODULE>_*`) in the environment no longer has any effect. Use the admin UI or the `smpy settings` CLI.
 ```
 
 - [ ] **Step 2: Commit**
@@ -2871,4 +2871,4 @@ These were marked "open decisions to resolve during plan writing" in the spec. R
 
 2. **Event bus sync/async**: `EventBus.publish` is async (uses `asyncio.gather`). `apply_changes_and_reload` `await`s the publish so handlers run before the API responds.
 
-3. **`list_packages` source**: uses the in-memory registry (`ModuleSettingsRegistry.all_packages()`) as the source of truth during the app's lifetime. A separate `sm-settings prune-orphans` command (future follow-up, not in this plan) would scan the DB for `Setting` rows whose package is no longer registered.
+3. **`list_packages` source**: uses the in-memory registry (`ModuleSettingsRegistry.all_packages()`) as the source of truth during the app's lifetime. A separate `smpy settings prune-orphans` command (future follow-up, not in this plan) would scan the DB for `Setting` rows whose package is no longer registered.

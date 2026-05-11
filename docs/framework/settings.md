@@ -133,7 +133,7 @@ Values are keyed by `<namespace>.<key>`. Conventional namespace is the module na
 Existing deployments that used env vars for module settings should run once:
 
 ```bash
-uv run sm-settings import-from-env
+uv run smpy settings import-from-env
 ```
 
 This reads the current environment, looks up keys the settings service knows about, and writes overrides into the DB. Idempotent — skips keys that already have a DB override. After running, you can remove those env vars from deployment config.

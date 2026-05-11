@@ -1,4 +1,4 @@
-"""``sm settings`` plugin — currently only ``import-from-env``.
+"""``smpy settings`` plugin — currently only ``import-from-env``.
 
 One-shot migration: walks every registered module's BaseSettings and
 writes a SYSTEM-scoped override for each ``SM_<PREFIX>_<FIELD>`` env

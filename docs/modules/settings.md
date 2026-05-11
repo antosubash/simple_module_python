@@ -23,7 +23,7 @@ Two distinct surfaces:
 The pattern (pydantic `BaseSettings` subclass + `register_module_settings` in `register_settings`) is documented in [Per-module settings convention](/guide/configuration#per-module-settings-convention). What the settings module adds on top:
 
 - **DB hydration**: `app.state.<package>.settings` is replaced with a fresh instance built from DB overrides + pydantic defaults during the host's hydrate phase, before `on_startup` runs.
-- **Env-var migration**: `sm-settings import-from-env` scans every registered class's `env_prefix` and seeds matching `SM_*` env vars as SYSTEM-scoped rows. Idempotent.
+- **Env-var migration**: `smpy settings import-from-env` scans every registered class's `env_prefix` and seeds matching `SM_*` env vars as SYSTEM-scoped rows. Idempotent.
 - **Admin editing**: registered fields appear at `/settings/modules/<package>` with type-aware inputs.
 - **Hot reload**: saving via the admin UI calls `apply_changes_and_reload`, which validates the diff against the pydantic class, persists deltas, swaps the live `app.state.<package>.settings`, and publishes [`SettingsReloaded`](#events) so dependents (SMTP clients, Celery configs, …) can rebuild.
 
@@ -169,7 +169,7 @@ Unique constraint on `(scope, scope_id, key)`.
 
 ## CLI
 
-- `sm-settings import-from-env` — one-shot migration. Walks every module that has registered settings; for each `SM_<PREFIX>_<FIELD>` env var present, writes a SYSTEM-scope row so the value persists without needing the env var any longer. Idempotent — only seeds keys that don't already have a DB override.
+- `smpy settings import-from-env` — one-shot migration. Walks every module that has registered settings; for each `SM_<PREFIX>_<FIELD>` env var present, writes a SYSTEM-scope row so the value persists without needing the env var any longer. Idempotent — only seeds keys that don't already have a DB override.
 
 ## Inertia pages
 

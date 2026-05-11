@@ -1,6 +1,6 @@
 """Per-module post-scaffold recipes.
 
-A recipe is invoked by ``sm new`` after the base host scaffold lands. It
+A recipe is invoked by ``smpy new`` after the base host scaffold lands. It
 performs module-specific actions (write helper scripts, append Make
 targets, drop a docker-compose stack). The framework layer is kept free
 of devex concerns — recipes know about Makefiles and compose, framework
@@ -68,7 +68,7 @@ class BackgroundTasksRecipe:
             if path.exists():
                 raise FileExistsError(
                     f"{path} already exists — refusing to clobber. "
-                    "Remove the file or run `sm new` against an empty directory."
+                    "Remove the file or run `smpy new` against an empty directory."
                 )
 
         run_worker_dest.parent.mkdir(parents=True, exist_ok=True)

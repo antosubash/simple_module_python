@@ -40,7 +40,7 @@ def built_artifacts(tmp_path_factory) -> tuple[Path, Path]:
 
 
 def test_wheel_contains_bundled_skills(built_artifacts: tuple[Path, Path]) -> None:
-    """The wheel must ship the agent skill packs that ``sm skills`` depends on.
+    """The wheel must ship the agent skill packs that ``smpy skills`` depends on.
 
     Regression: ``[tool.hatch.build.targets.wheel.force-include]`` with
     ``../../skills`` made the wheel re-build from sdist crash with
@@ -61,7 +61,7 @@ def test_wheel_contains_bundled_skills(built_artifacts: tuple[Path, Path]) -> No
 
 
 def test_wheel_contains_templates(built_artifacts: tuple[Path, Path]) -> None:
-    """``sm new`` reads from ``simple_module_cli/templates`` — must ship in the wheel."""
+    """``smpy new`` reads from ``simple_module_cli/templates`` — must ship in the wheel."""
     _, wheel = built_artifacts
     with zipfile.ZipFile(wheel) as zf:
         names = zf.namelist()

@@ -195,7 +195,7 @@ def _seed_static_dist_placeholder(static_dist: Path) -> None:
 def _pin_sample_module_deps(sample_dest: Path) -> None:
     """Replace the module template's future-API range pins with exact pins.
 
-    The shared ``sm create-module`` template ships ``>=1.0,<2.0`` against the
+    The shared ``smpy create-module`` template ships ``>=1.0,<2.0`` against the
     framework's eventual stable line, but the workspace-bundled sample has to
     resolve against whatever the framework version actually is today (``==X``
     in pre-1.0). Without rewriting, ``uv sync`` can't satisfy the workspace.

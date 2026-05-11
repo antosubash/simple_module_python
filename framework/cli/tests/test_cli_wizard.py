@@ -1,4 +1,4 @@
-"""Tests for the `sm new` interactive wizard."""
+"""Tests for the `smpy new` interactive wizard."""
 
 from __future__ import annotations
 

@@ -1,9 +1,10 @@
 """Command-line entry points for the users module.
 
-Exposed via ``sm-users`` (see pyproject.toml [project.scripts]).
+Exposed via ``smpy users`` (see pyproject.toml
+[project.entry-points.simple_module_cli.cli_plugins]).
 
-    sm-users create-admin --email a@b.test --password sekret [--full-name Me]
-    sm-users create-admin --email a@b.test --password new --force
+    smpy users create-admin --email a@b.test --password sekret [--full-name Me]
+    smpy users create-admin --email a@b.test --password new --force
 """
 
 from __future__ import annotations

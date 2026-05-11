@@ -63,7 +63,7 @@ features:
 
 ```bash
 uv tool install simple_module_cli
-sm new myapp --yes
+smpy new myapp --yes
 cd myapp
 make dev          # API on :8000, Vite on :5050
 ```
@@ -71,7 +71,7 @@ make dev          # API on :8000, Vite on :5050
 Then in another terminal, inside `myapp`:
 
 ```bash
-sm create-module orders --dest modules/orders
+smpy create-module orders --dest modules/orders
 uv add ./modules/orders
 ```
 

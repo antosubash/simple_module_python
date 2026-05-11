@@ -18,7 +18,7 @@ Before serving traffic:
 
 ## Build
 
-Typical Docker build for an app scaffolded by `sm new`:
+Typical Docker build for an app scaffolded by `smpy new`:
 
 ```dockerfile
 FROM python:3.12-slim AS builder

@@ -1,6 +1,6 @@
 # Quickstart
 
-Five minutes from `sm new` to a running app with a freshly scaffolded module.
+Five minutes from `smpy new` to a running app with a freshly scaffolded module.
 
 ## 1. Install the CLI
 
@@ -8,18 +8,18 @@ Five minutes from `sm new` to a running app with a freshly scaffolded module.
 uv tool install simple_module_cli
 ```
 
-(Or `pipx install simple_module_cli`.) That puts `sm` on your PATH globally.
+(Or `pipx install simple_module_cli`.) That puts `smpy` on your PATH globally.
 
 ## 2. Scaffold an app
 
 ```bash
-sm new myapp --yes
+smpy new myapp --yes
 cd myapp
 ```
 
 `--yes` accepts the defaults (SQLite, no multi-tenancy, the `standard` preset: `auth`, `users`, `permissions`, `dashboard`, `settings`, `feature_flags`). The CLI runs `uv sync`, `npm install`, and `alembic upgrade head` for you.
 
-For an interactive run with prompts, drop the `--yes`. For a preset + extras: `sm new myapp --preset standard --with background_tasks,file_storage --yes`.
+For an interactive run with prompts, drop the `--yes`. For a preset + extras: `smpy new myapp --preset standard --with background_tasks,file_storage --yes`.
 
 ## 3. Boot it
 
@@ -39,7 +39,7 @@ The API and Vite dev servers start side by side. Visit:
 In another terminal, from inside `myapp`:
 
 ```bash
-uv run sm-users create-admin --email admin@example.com --password changeme
+uv run smpy users create-admin --email admin@example.com --password changeme
 ```
 
 Sign in at `/users/login` and you land on the dashboard.
@@ -47,7 +47,7 @@ Sign in at `/users/login` and you land on the dashboard.
 ## 5. Scaffold a new module
 
 ```bash
-sm create-module orders --dest modules/orders
+smpy create-module orders --dest modules/orders
 uv add ./modules/orders
 ```
 

@@ -31,7 +31,7 @@ class UsersSettings(BaseSettings):
     require_verification: bool = True
 
     # Where the login page sends a successful sign-in. Sites without the
-    # bundled ``dashboard`` module (``sm new --preset minimal``) override
+    # bundled ``dashboard`` module (``smpy new --preset minimal``) override
     # this to wherever their post-login landing lives.
     login_redirect_url: str = "/dashboard/"
 

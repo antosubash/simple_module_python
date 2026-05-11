@@ -28,7 +28,7 @@ def setup_inertia(
 
     Two host layouts are supported: ``host/templates`` (the framework's
     own host package) and ``templates`` at the project root (what
-    ``sm new`` produces). The first one found wins so it can override
+    ``smpy new`` produces). The first one found wins so it can override
     module-contributed templates.
     """
     from fastapi.templating import Jinja2Templates

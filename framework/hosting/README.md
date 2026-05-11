@@ -1,6 +1,6 @@
 # simple_module_hosting
 
-FastAPI + Inertia.js host runtime for the [simple_module](https://github.com/antosubash/simple_module_python) framework — builds the app, wires the middleware pipeline, and contributes the `sm host` plugin to the standalone `sm` CLI.
+FastAPI + Inertia.js host runtime for the [simple_module](https://github.com/antosubash/simple_module_python) framework — builds the app, wires the middleware pipeline, and contributes the `smpy host` plugin to the standalone `smpy` CLI.
 
 ## Install
 
@@ -11,7 +11,7 @@ pip install simple_module_hosting
 For a new project, most users run the generator instead (shipped by the standalone `simple_module_cli` distribution):
 
 ```bash
-uvx --from simple_module_cli sm new my-app
+uvx --from simple_module_cli smpy new my-app
 ```
 
 ## What it provides
@@ -19,7 +19,7 @@ uvx --from simple_module_cli sm new my-app
 - `create_app(settings)` — returns a fully-wired `FastAPI` instance with all discovered modules registered.
 - Middleware pipeline (execution order): CorrelationId → RequestLogging → SecurityHeaders → Session → `<module middleware>` → Tenant (opt-in) → Locale → InertiaLayoutData → app.
 - Inertia wiring — shared props (`auth`, `menus`, `i18n`), `InertiaDep`, page-route lookup.
-- `sm host` plugin — `sm host gen-pages` regenerates the frontend pages manifest; `sm host sync-js-deps` installs JS deps declared by installed modules. The `sm` binary itself comes from `simple_module_cli`.
+- `smpy host` plugin — `smpy host gen-pages` regenerates the frontend pages manifest; `smpy host sync-js-deps` installs JS deps declared by installed modules. The `smpy` binary itself comes from `simple_module_cli`.
 
 ## Usage
 
@@ -40,8 +40,8 @@ if __name__ == "__main__":
 CLI (after also installing `simple_module_cli`):
 
 ```bash
-sm host gen-pages               # regenerate client_app/modules.generated.ts
-sm host sync-js-deps            # sync module JS deps into client_app/node_modules
+smpy host gen-pages             # regenerate client_app/modules.generated.ts
+smpy host sync-js-deps          # sync module JS deps into client_app/node_modules
 ```
 
 ## Depends on

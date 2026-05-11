@@ -75,7 +75,7 @@ Prefix `SM_BG_TASKS_*`. The defaults in `docker-compose.yml` already set these s
 After upgrading from an older deployment, import existing `SM_*` values into the DB settings store once:
 
 ```bash
-uv run sm-settings import-from-env
+uv run smpy settings import-from-env
 ```
 
 This is idempotent — it only seeds keys that don't have a DB override yet.

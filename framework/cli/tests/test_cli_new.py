@@ -1,4 +1,4 @@
-"""Tests for the `sm new` / `simple-module new` CLI subcommand."""
+"""Tests for the `smpy new` / `simple-module new` CLI subcommand."""
 
 from __future__ import annotations
 

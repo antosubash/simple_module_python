@@ -23,7 +23,7 @@ my_host/                       # the host project
 
 ## How autogenerate sees every module
 
-The host's `migrations/env.py` (scaffolded by `sm create-host`) calls:
+The host's `migrations/env.py` (scaffolded by `smpy create-host`) calls:
 
 ```python
 from simple_module_db import build_module_metadata, make_include_object

@@ -16,7 +16,7 @@
       "schema_description": "PostgreSQL → un esquema por módulo. SQLite → tablas con prefijo. Cada módulo posee sus datos.",
       "inertia_title": "Inertia + React",
       "inertia_description": "Páginas Browse / Create / Edit incluidas en cada módulo. Vite HMR para el frontend, FastAPI async para el backend.",
-      "diagnostics_title": "sm doctor",
+      "diagnostics_title": "make doctor",
       "diagnostics_description": "El analizador estático detecta páginas huérfanas, acoplamiento del framework y desviaciones de migración antes del arranque.",
       "devtools_title": "SQLModel async",
       "devtools_description": "SQLAlchemy async + Pydantic + Alembic. Genera migraciones por módulo."

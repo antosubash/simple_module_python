@@ -1,13 +1,13 @@
 # Your first module
 
-A stage-by-stage walk-through: from `sm create-module` to a working Orders module with custom fields, validation, a menu entry, and a test.
+A stage-by-stage walk-through: from `smpy create-module` to a working Orders module with custom fields, validation, a menu entry, and a test.
 
-Assumes you've completed the [Quickstart](/guide/quickstart) and have an app on disk created by `sm new`.
+Assumes you've completed the [Quickstart](/guide/quickstart) and have an app on disk created by `smpy new`.
 
 ## 1. Scaffold
 
 ```bash
-sm create-module orders --dest modules/orders
+smpy create-module orders --dest modules/orders
 uv add ./modules/orders
 ```
 

@@ -69,4 +69,4 @@ Top-level keys in `dashboard/locales/en.json`:
 
 ## Replacing it
 
-If you want a different post-login landing page, set `users.login_redirect_url` in the [admin settings UI](/modules/settings) (or via `sm-settings import-from-env` from `SM_USERS_LOGIN_REDIRECT_URL`) to your route. You can keep the dashboard module installed for the menu entry, or set `SM_MODULES_ENABLED` without `dashboard` to drop it entirely. The `users` module auto-detects whether `dashboard` is installed and falls back to `/` if not.
+If you want a different post-login landing page, set `users.login_redirect_url` in the [admin settings UI](/modules/settings) (or via `smpy settings import-from-env` from `SM_USERS_LOGIN_REDIRECT_URL`) to your route. You can keep the dashboard module installed for the menu entry, or set `SM_MODULES_ENABLED` without `dashboard` to drop it entirely. The `users` module auto-detects whether `dashboard` is installed and falls back to `/` if not.

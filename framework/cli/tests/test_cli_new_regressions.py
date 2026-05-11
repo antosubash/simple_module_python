@@ -1,4 +1,4 @@
-"""Regression tests for ``sm new`` scaffold bugs filed against released wheels.
+"""Regression tests for ``smpy new`` scaffold bugs filed against released wheels.
 
 Each test pins a specific issue's repro so the bug can't sneak back in
 without a CI failure pointing at the fix.

@@ -1,4 +1,4 @@
-"""Tests for the sm-users CLI (users.cli).
+"""Tests for the smpy users CLI (users.cli).
 
 Strategy: monkeypatch ``users.bootstrap.create_admin`` so tests do not need
 a real database.  This avoids the complexity of standing up a schema-stamped
@@ -161,7 +161,7 @@ def test_create_admin_missing_email() -> None:
 
 
 def test_app_help() -> None:
-    """``sm-users --help`` shows the top-level help text and lists create-admin."""
+    """``smpy users --help`` shows the top-level help text and lists create-admin."""
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     assert "create-admin" in result.output

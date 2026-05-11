@@ -1,4 +1,4 @@
-"""Interactive prompt sequence for ``sm new``."""
+"""Interactive prompt sequence for ``smpy new``."""
 
 from __future__ import annotations
 

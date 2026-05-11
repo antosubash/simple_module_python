@@ -147,7 +147,7 @@ Per-package specifics below. Each README is ~60–120 lines. The "Usage" snippet
 |---|---|
 | `simple-module-core` | `ModuleBase` + `ModuleMeta` example, lifecycle hook list, entry-points declaration snippet, `discover_modules()` mention. |
 | `simple-module-db` | `create_module_base(name)` example, standard mixins (`AuditMixin`, `SoftDeleteMixin`, `MultiTenantMixin`, `VersionedMixin`), auto-commit-on-flush rule. |
-| `simple-module-hosting` | `create_app(settings)` minimal `main.py` snippet, middleware pipeline overview, `sm` / `simple-module` CLI commands (`new`, `doctor`) and note that both names work. |
+| `simple-module-hosting` | `create_app(settings)` minimal `main.py` snippet, middleware pipeline overview, `smpy` / `simple-module` CLI commands (`new`, `doctor`) and note that both names work. |
 | `simple-module-testing` | Automatic fixture loading via `pytest11` entry point, the fixtures provided (`app`, `client`, `db_session`, `authenticated_client`, `settings`). |
 | `simple-module-users` | Email+password auth, admin invite flow, `SM_USERS_*` settings, `sm-users create-admin` CLI. |
 | `simple-module-dashboard` | Adds `/dashboard` landing page for authenticated users, menu entry registration. |
@@ -212,11 +212,11 @@ Specifics per package:
 - `files` includes `src/` so `.ts` sources are in the tarball.
 - Consumers' `tsconfig.json` must have `"allowJs": false` (default) and resolve `.ts` via bundler — already the case with Vite.
 
-### 3. `sm` / `simple-module` CLI generator (Workstream 3)
+### 3. `smpy` / `simple-module` CLI generator (Workstream 3)
 
 New `new` subcommand on the existing Click CLI in `simple_module_hosting/cli.py`.
 
-**Both `sm` and `simple-module` work as CLI entry points** — they are aliases for the same underlying command. This is declared in `framework/hosting/pyproject.toml`:
+**Both `smpy` and `simple-module` work as CLI entry points** — they are aliases for the same underlying command. This is declared in `framework/hosting/pyproject.toml`:
 
 ```toml
 [project.scripts]
@@ -224,9 +224,9 @@ sm = "simple_module_hosting.cli:main"
 simple-module = "simple_module_hosting.cli:main"
 ```
 
-`sm` stays as the short form for daily use; `simple-module` is the discoverable long form that matches the package namespace (what users first encounter on PyPI). Both expose the full command tree — `new`, `doctor`, future subcommands — identically.
+`smpy` stays as the short form for daily use; `simple-module` is the discoverable long form that matches the package namespace (what users first encounter on PyPI). Both expose the full command tree — `new`, `doctor`, future subcommands — identically.
 
-**Interactive:** `simple-module new my-app` *or* `sm new my-app`
+**Interactive:** `simple-module new my-app` *or* `smpy new my-app`
 **Scripted:** `simple-module new my-app --db sqlite --no-tenancy --yes`
 
 Flags:
@@ -381,7 +381,7 @@ package.json    × 3   ─┘                                              │
                                        pipx install simple-module-hosting==$VERSION
                                                     │
                                                     ▼
-                                       sm new /tmp/smoke  →  make install  (uv sync + npm install)  →  make test ✅
+                                       smpy new /tmp/smoke  →  make install  (uv sync + npm install)  →  make test ✅
 ```
 
 ## Error handling
@@ -398,7 +398,7 @@ package.json    × 3   ─┘                                              │
 1. **Bump script unit tests** — `scripts/tests/test_bump_version.py` with fixtures covering: Python bump succeeds, Python dep pins rewrite, npm version bump succeeds, `@simple-module-py/*` deps rewrite across `dependencies` / `devDependencies` / `peerDependencies`, `--check` mode, malformed TOML / JSON aborts cleanly, unrelated third-party deps stay untouched.
 2. **Local dry run** — `make release-check version=0.0.1` confirms the bump is idempotent across all 17 files.
 3. **TestPyPI + local `npm pack` rehearsal** — run `release.yml` with `target=testpypi` against version `0.0.1a0` (PEP 440 pre-release). Python side publishes to TestPyPI end-to-end; npm side runs `npm pack --dry-run` on every JS package and uploads the resulting `.tgz` tarballs as workflow artifacts so they can be inspected (or `npm install`ed from a file path) without burning an npm version. This must pass before the real run.
-4. **Smoke job** as part of the workflow itself (real run only) — `sm new` + `make test` + `npm install` in the generated app, verifying both PyPI and npm packages resolve.
+4. **Smoke job** as part of the workflow itself (real run only) — `smpy new` + `make test` + `npm install` in the generated app, verifying both PyPI and npm packages resolve.
 5. **Per-package README smoke** — `scripts/check_readmes.py` verifies every one of the 17 published packages has a `README.md` > 500 bytes and contains the required H1 + "Install" + "Usage" sections. Runs in `make lint`.
 6. **Per-package metadata smoke** — `scripts/check_metadata.py` verifies every one of the 17 packages has:
    - A non-placeholder `description` (not "Add your description here").
@@ -415,7 +415,7 @@ This is also the phasing for the implementation plan:
 
 1. **Metadata hygiene + READMEs** (Workstreams 1 + 2 + 2b) — every `pyproject.toml` and `package.json` gets real description, classifiers/keywords, URLs, license fields; every one of the 17 packages gets a real `README.md`; root `LICENSE` added.
 2. **Bump script + tests** (Workstream 4) — unit-tested in isolation before any workflow depends on it. Covers both TOML and JSON sides.
-3. **`sm new` CLI + template** (Workstream 3) — must work locally (`uv run sm new /tmp/foo`) before the smoke test can rely on it. Template references `@simple-module-py/*` npm packages by version.
+3. **`smpy new` CLI + template** (Workstream 3) — must work locally (`uv run smpy new /tmp/foo`) before the smoke test can rely on it. Template references `@simple-module-py/*` npm packages by version.
 4. **Local npm pack smoke + TestPyPI rehearsal** (Workstream 5, `target=testpypi`) — publish `0.0.1a0` to TestPyPI + `npm pack` all JS packages locally; inspect artifacts.
 5. **Trusted Publisher setup** (Workstream 6, manual) — operator configures PyPI + TestPyPI + npm. Happens between step 4 and step 6.
 6. **Real release** — run `release.yml` with `target=pypi`, version `0.0.1`. Publishes 14 Python + 3 npm packages, runs smoke.

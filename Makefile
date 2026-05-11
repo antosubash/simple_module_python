@@ -25,12 +25,12 @@ dev-ui:
 
 # Regenerate host/client_app/modules.{manifest.json,generated.ts,generated.css} from installed modules.
 gen-pages:
-	uv run --project host sm host gen-pages --host-dir=host/client_app
+	uv run --project host smpy host gen-pages --host-dir=host/client_app
 
 # Install JS deps declared by installed modules into host/client_app/node_modules.
 # Wheel-installed modules need this; in-repo workspace modules do not.
 sync-module-deps:
-	uv run --project host sm host sync-js-deps --host-client-app=host/client_app
+	uv run --project host smpy host sync-js-deps --host-client-app=host/client_app
 
 # Build
 build:

@@ -46,7 +46,7 @@ uv run alembic downgrade orders@base     # back to the state before the orders m
 
 ## First migration of a new module
 
-When you scaffold a module with `sm create-module`, the *first* autogenerate revision produces a file that needs this marker added by hand:
+When you scaffold a module with `smpy create-module`, the *first* autogenerate revision produces a file that needs this marker added by hand:
 
 ```python
 # migrations/versions/XXXX_add_orders_tables.py
@@ -108,7 +108,7 @@ If `invoices` has an FK to `orders.order.id`:
 
 - Alembic will emit `ADD CONSTRAINT` in the invoices table's migration.
 - The migration that creates `invoices_invoice` must come **after** the one that creates `orders_order` in linear history.
-- `sm create-module` + `uv run alembic revision --autogenerate` handle this naturally as long as `depends_on` is correct in `ModuleMeta`.
+- `smpy create-module` + `uv run alembic revision --autogenerate` handle this naturally as long as `depends_on` is correct in `ModuleMeta`.
 
 On Postgres, cross-schema FKs work natively (`orders.order.id ← invoices.invoice.order_id`).
 

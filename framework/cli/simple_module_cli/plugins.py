@@ -1,11 +1,11 @@
-"""Plugin discovery for ``sm`` via the ``simple_module_cli.cli_plugins`` group.
+"""Plugin discovery for ``smpy`` via the ``simple_module_cli.cli_plugins`` group.
 
 Each entry-point's value (``module:attr``) must resolve to a
 :class:`typer.Typer` instance. The entry-point name becomes the
-subcommand namespace under ``sm`` (e.g. ``sm host gen-pages``).
+subcommand namespace under ``smpy`` (e.g. ``smpy host gen-pages``).
 
 Failed loads (broken import, wrong type) print one line to stderr and
-are skipped — ``sm`` keeps working with whatever else loads.
+are skipped — ``smpy`` keeps working with whatever else loads.
 """
 
 from __future__ import annotations

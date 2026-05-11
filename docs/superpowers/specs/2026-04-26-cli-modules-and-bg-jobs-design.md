@@ -5,7 +5,7 @@
 
 ## Problem
 
-`sm new <name>` today only pre-wires three modules (`users`, `dashboard`, `permissions`) and ignores the cost of opting in to anything else. To stand up a project that uses `background_tasks`, the user has to:
+`smpy new <name>` today only pre-wires three modules (`users`, `dashboard`, `permissions`) and ignores the cost of opting in to anything else. To stand up a project that uses `background_tasks`, the user has to:
 
 1. Add `simple_module_background_tasks` to `pyproject.toml` by hand.
 2. Set `SM_BG_TASKS_BROKER_URL` in `.env`.
@@ -17,7 +17,7 @@ That is enough friction that "I want background jobs" turns into a half-day yak-
 
 ## Goals
 
-- `sm new` accepts an explicit module list via flags, or runs an interactive wizard when no flags are given.
+- `smpy new` accepts an explicit module list via flags, or runs an interactive wizard when no flags are given.
 - Selecting `background_tasks` lands a runnable Celery worker + beat + Redis stack via `docker compose up`, plus host Make targets and `scripts/run_worker.py`, with no manual editing required.
 - Module dependencies are resolved transitively and added silently (with a printed note).
 - The CLI catalog is hardcoded — adding a new module to the catalog is a CLI code change.
@@ -28,7 +28,7 @@ That is enough friction that "I want background jobs" turns into a half-day yak-
 - Third-party module registration. The catalog is closed for this change.
 - A TUI library (`questionary`, `inquirer`, etc.). Wizard uses `click.prompt` and `click.confirm`.
 - Worker queue configuration, autoscaling, beat-only deployments.
-- Replacing or deprecating `sm create-host` — it remains the lower-level "deps-only" command.
+- Replacing or deprecating `smpy create-host` — it remains the lower-level "deps-only" command.
 
 ## Design
 
@@ -39,13 +39,13 @@ Replace `framework/hosting/simple_module_hosting/cli.py` with a package:
 ```
 framework/hosting/simple_module_hosting/cli/
 ├── __init__.py    # click group; re-exports existing commands
-├── new.py         # `sm new` — flags + wizard, calls into catalog/wizard/recipes
+├── new.py         # `smpy new` — flags + wizard, calls into catalog/wizard/recipes
 ├── catalog.py     # ModuleEntry, CATALOG, PRESETS, expand_deps()
 ├── wizard.py      # interactive prompts (db, tenancy, preset, custom-pick)
 └── recipes.py     # Recipe protocol + per-module post-scaffold actions
 ```
 
-Each file has one responsibility and stays under the 300-line cap. Existing commands (`create-host`, `create-module`, `gen-pages`, `sync-js-deps`) move into `cli/__init__.py` (or thin per-command modules) so the `sm` console script keeps working.
+Each file has one responsibility and stays under the 300-line cap. Existing commands (`create-host`, `create-module`, `gen-pages`, `sync-js-deps`) move into `cli/__init__.py` (or thin per-command modules) so the `smpy` console script keeps working.
 
 ### Catalog
 
@@ -89,10 +89,10 @@ def expand_deps(selected: Iterable[str]) -> tuple[list[str], list[tuple[str, str
 
 `expand_deps` is the only non-trivial function: BFS over `requires`, append-only, preserves topo order so the resulting list is always loadable. Unknown name raises `KeyError("unknown module: <x>; available: ...")`.
 
-### `sm new` interface
+### `smpy new` interface
 
 ```
-sm new <name>
+smpy new <name>
   --dest <path>
   --db sqlite|postgres                  (existing)
   --tenancy/--no-tenancy                (existing)
@@ -190,8 +190,8 @@ The two existing kwargs — `db` and `tenancy` — keep their current behavior.
 
 ### Backward compat
 
-- `sm create-host --with=` keeps current "deps-only" behavior unchanged.
-- `sm new --yes` with no other flags → standard preset → same outcome as today.
+- `smpy create-host --with=` keeps current "deps-only" behavior unchanged.
+- `smpy new --yes` with no other flags → standard preset → same outcome as today.
 - `create_app_project` callers passing only `name`, `db`, `tenancy` keep working (default `selected=None`).
 
 ## Tests
@@ -199,7 +199,7 @@ The two existing kwargs — `db` and `tenancy` — keep their current behavior.
 - `framework/hosting/tests/test_cli_catalog.py` — `expand_deps` returns transitive closure; auto-add list correct; unknown name raises with available-list message; idempotent on already-resolved input.
 - `framework/hosting/tests/test_cli_wizard.py` — `CliRunner` driving each preset path (1/2/3/4) and the custom checkbox loop; verifies dep auto-add notice prints; verifies `--yes` skips prompts.
 - `framework/hosting/tests/test_cli_recipes.py` — `BackgroundTasksRecipe.apply` against a fresh tempdir already populated by `create_host`. Asserts `.env.example` contains `SM_BG_TASKS_BROKER_URL`, `scripts/run_worker.py` exists with the expected import, `Makefile` contains `worker:` / `beat:` targets, `docker-compose.yml` parses to YAML with `redis`, `worker`, `beat` keys under `services`.
-- `framework/hosting/tests/test_cli_new.py` — end-to-end smoke: `sm new demo --yes --preset=full --no-install --dest=<tmp>` produces a project that contains the union of all modules, a runnable compose file, Make targets, and `pyproject.toml` listing every package.
+- `framework/hosting/tests/test_cli_new.py` — end-to-end smoke: `smpy new demo --yes --preset=full --no-install --dest=<tmp>` produces a project that contains the union of all modules, a runnable compose file, Make targets, and `pyproject.toml` listing every package.
 
 ## Failure modes
 
@@ -211,7 +211,7 @@ The two existing kwargs — `db` and `tenancy` — keep their current behavior.
 
 This change is additive:
 
-- `cli.py` becomes `cli/__init__.py` plus four new files. The `sm` console-script entry point in `framework/hosting/pyproject.toml` continues to point at `simple_module_hosting.cli:main` — `__init__.py` exposes `main` from the new package.
+- `cli.py` becomes `cli/__init__.py` plus four new files. The `smpy` console-script entry point in `framework/hosting/pyproject.toml` continues to point at `simple_module_hosting.cli:main` — `__init__.py` exposes `main` from the new package.
 - No template changes that affect existing host scaffolds. The new `_optional/` tree is additive.
 - `create_app_project`'s positional/kwarg signature is unchanged; only the new `selected=` kwarg is added.
 

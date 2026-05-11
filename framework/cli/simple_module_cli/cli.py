@@ -1,13 +1,13 @@
-"""Root `sm` Typer app — scaffolders + plugin mount.
+"""Root `smpy` Typer app — scaffolders + plugin mount.
 
 Built-in commands:
-  sm new
-  sm create-host
-  sm create-module
-  sm skills add / list / update
+  smpy new
+  smpy create-host
+  smpy create-module
+  smpy skills add / list / update
 
 Plugins discovered via the ``simple_module_cli.cli_plugins`` entry-point
-group are mounted as named subgroups (e.g. ``sm host gen-pages``).
+group are mounted as named subgroups (e.g. ``smpy host gen-pages``).
 """
 
 from __future__ import annotations
@@ -101,7 +101,7 @@ discover_and_mount(app)
 
 
 def main() -> None:
-    """Entry point for the `sm` console script."""
+    """Entry point for the `smpy` console script."""
     app()
 
 

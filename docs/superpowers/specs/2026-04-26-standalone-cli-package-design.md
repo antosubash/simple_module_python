@@ -5,14 +5,14 @@
 
 ## Problem
 
-`sm new` is currently shipped inside `simple_module_hosting`, which means `pip install simple-module-hosting` (or anything on top of it like `pipx install`) drags in FastAPI, Starlette, Inertia, Uvicorn, SQLModel, and the rest of the runtime — even when the user only wants to scaffold a new project. There is also no single CLI surface: hosting registers `sm`, `simple_module_hosting`'s helpers (`gen-pages`, `sync-js-deps`) are crammed into the same binary, and individual modules register their own `sm-users`, `sm-settings`, … console scripts. A new user who runs `pip install simple-module` should get a small, runnable scaffolder; a developer working inside a project should get one consolidated `sm` whose subcommand surface grows as plugins are installed.
+`smpy new` is currently shipped inside `simple_module_hosting`, which means `pip install simple-module-hosting` (or anything on top of it like `pipx install`) drags in FastAPI, Starlette, Inertia, Uvicorn, SQLModel, and the rest of the runtime — even when the user only wants to scaffold a new project. There is also no single CLI surface: hosting registers `smpy`, `simple_module_hosting`'s helpers (`gen-pages`, `sync-js-deps`) are crammed into the same binary, and individual modules register their own `sm-users`, `sm-settings`, … console scripts. A new user who runs `pip install simple-module` should get a small, runnable scaffolder; a developer working inside a project should get one consolidated `smpy` whose subcommand surface grows as plugins are installed.
 
 ## Goals
 
 - A new PyPI distribution `simple-module` whose only runtime dependencies are `typer` and `tomlkit`. No framework-runtime deps.
-- A single `sm` console script. All today's `sm-*` scripts (`sm-host`, `sm-users`, `sm-settings`) go away.
-- Built-in (always-available) commands: `sm new`, `sm create-host`, `sm create-module`.
-- Plugin commands provided via Python entry points: `simple_module_hosting` contributes `sm host gen-pages` and `sm host sync-js-deps`; the `users` and `settings` modules contribute `sm users …` and `sm settings …`.
+- A single `smpy` console script. All today's `sm-*` scripts (`sm-host`, `sm-users`, `sm-settings`) go away.
+- Built-in (always-available) commands: `smpy new`, `smpy create-host`, `smpy create-module`.
+- Plugin commands provided via Python entry points: `simple_module_hosting` contributes `smpy host gen-pages` and `smpy host sync-js-deps`; the `users` and `settings` modules contribute `smpy users …` and `smpy settings …`.
 - `pip install simple-module` works on a machine with no other framework packages installed and gives the user a working scaffolder.
 
 ## Non-goals
@@ -40,7 +40,7 @@ framework/cli/                                 ← NEW workspace member
     ├── catalog.py                             ModuleEntry, CATALOG, PRESETS, expand_deps
     ├── wizard.py                              run_wizard
     ├── recipes.py                             Recipe protocol, BackgroundTasksRecipe, RECIPES
-    ├── new.py                                 `sm new` Typer command
+    ├── new.py                                 `smpy new` Typer command
     ├── plugins.py                             entry-point discovery + mounting
     ├── cli.py                                 root Typer app, mounts plugins, exposes `main`
     └── templates/                             package data
@@ -55,7 +55,7 @@ framework/cli/                                 ← NEW workspace member
 [project]
 name = "simple-module"
 version = "0.0.1"
-description = "Standalone scaffolder for the SimpleModule framework — `sm new`, `sm create-module`, plugin host."
+description = "Standalone scaffolder for the SimpleModule framework — `smpy new`, `smpy create-module`, plugin host."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
@@ -66,7 +66,7 @@ dependencies = [
 ]
 
 [project.scripts]
-sm = "simple_module.cli:main"
+smpy = "simple_module.cli:main"
 simple-module = "simple_module.cli:main"
 
 [build-system]
@@ -97,18 +97,18 @@ users = "users.cli:app"
 settings = "settings.cli:app"
 ```
 
-At startup, `simple_module.plugins.discover()` calls `importlib.metadata.entry_points(group="simple_module.cli_plugins")`, loads each entry, and mounts it on the root app via `root.add_typer(plugin_app, name=entry.name)`. A failed entry-point load (broken import, missing attribute) prints a single warning and is skipped — `sm` itself keeps working. Discovery is unconditional but cheap; loading is eager so `--help` shows the full surface.
+At startup, `simple_module.plugins.discover()` calls `importlib.metadata.entry_points(group="simple_module.cli_plugins")`, loads each entry, and mounts it on the root app via `root.add_typer(plugin_app, name=entry.name)`. A failed entry-point load (broken import, missing attribute) prints a single warning and is skipped — `smpy` itself keeps working. Discovery is unconditional but cheap; loading is eager so `--help` shows the full surface.
 
 Resulting CLI surface:
 
 ```
-sm new …                              (built-in)
-sm create-host …                      (built-in)
-sm create-module …                    (built-in)
-sm host gen-pages …                   (when simple_module_hosting installed)
-sm host sync-js-deps …                (when simple_module_hosting installed)
-sm users create-admin …               (when users module installed)
-sm settings import-from-env …         (when settings module installed)
+smpy new …                              (built-in)
+smpy create-host …                      (built-in)
+smpy create-module …                    (built-in)
+smpy host gen-pages …                   (when simple_module_hosting installed)
+smpy host sync-js-deps …                (when simple_module_hosting installed)
+smpy users create-admin …               (when users module installed)
+smpy settings import-from-env …         (when settings module installed)
 ```
 
 ### File moves
@@ -169,7 +169,7 @@ Note: the `simple-module` console-script alias is dropped from `simple_module_ho
 - Root `pyproject.toml`: add `framework/cli` to workspace members.
 - `[tool.uv.sources]`: add `simple-module = { workspace = true }` so in-tree dev resolves to the local copy.
 - `host/pyproject.toml`: add `simple-module==0.0.1` as a dependency. (Hosting and module packages do **not** depend on `simple-module`.)
-- `Makefile`: rename `sm gen-pages` → `sm host gen-pages` and `sm sync-js-deps` → `sm host sync-js-deps` in the `gen-pages` and `sync-module-deps` targets. The `make new-module` target keeps invoking `sm create-module`.
+- `Makefile`: rename `smpy gen-pages` → `smpy host gen-pages` and `smpy sync-js-deps` → `smpy host sync-js-deps` in the `gen-pages` and `sync-module-deps` targets. The `make new-module` target keeps invoking `smpy create-module`.
 - Existing CI (`.github/workflows/pr.yml`) needs no change — `make lint` and `make test` will pick up the new workspace member automatically.
 - Release matrix (`.github/workflows/release.yml`): one new entry for the `simple-module` package alongside the existing 14.
 
@@ -183,9 +183,9 @@ Note: the `simple-module` console-script alias is dropped from `simple_module_ho
 
 ### Failure modes
 
-- **A plugin's entry point references a missing module or non-Typer object.** Log a warning (`sm` keeps working with whatever else is installed). Test covers this.
+- **A plugin's entry point references a missing module or non-Typer object.** Log a warning (`smpy` keeps working with whatever else is installed). Test covers this.
 - **Two plugins claim the same subgroup name** (e.g. two installs both register `host`). `add_typer` raises; we catch the second registration and warn, keeping the first. Test covers this.
-- **A user has `simple-module` installed but no plugins.** Built-in commands work; `sm --help` shows only `new` / `create-host` / `create-module`. No errors.
+- **A user has `simple-module` installed but no plugins.** Built-in commands work; `smpy --help` shows only `new` / `create-host` / `create-module`. No errors.
 - **Templates package-data shipping.** The `_optional/` directory tree is copied as `package-data` under the wheel; verified by `framework/cli/tests/test_cli_recipes.py` reading the package-data path at runtime (same pattern that works today).
 
 ### Backward compat
@@ -194,7 +194,7 @@ This is a pre-`0.0.1` framework with no external consumers. There are no shims o
 
 - `simple_module_hosting.cli` package, `simple_module_hosting.scaffolding`, and `simple_module_hosting.app_project` are **deleted**, not re-exported.
 - All in-tree callers are updated mechanically: tests, the `Makefile`, `host/pyproject.toml`, the per-module `pyproject.toml` files.
-- The `sm-users` and `sm-settings` console scripts are deleted. Anyone running `sm-users create-admin` switches to `sm users create-admin`.
+- The `sm-users` and `sm-settings` console scripts are deleted. Anyone running `sm-users create-admin` switches to `smpy users create-admin`.
 
 ## Open questions
 

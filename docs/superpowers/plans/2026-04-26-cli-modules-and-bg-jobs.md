@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Upgrade `sm new` so it scaffolds a SimpleModule project with any chosen subset of modules (presets or custom) and lands a runnable Celery worker + beat + Redis stack when `background_tasks` is selected — no manual editing required.
+**Goal:** Upgrade `smpy new` so it scaffolds a SimpleModule project with any chosen subset of modules (presets or custom) and lands a runnable Celery worker + beat + Redis stack when `background_tasks` is selected — no manual editing required.
 
 **Architecture:** Replace the single-file `framework/hosting/simple_module_hosting/cli.py` with a `cli/` package containing a hardcoded module **catalog** (with transitive-dep resolution), an interactive **wizard**, and per-module **recipes** that perform post-scaffold actions. The `background_tasks` recipe writes `scripts/run_worker.py`, appends Make targets, and emits a `docker-compose.yml` + `worker.Dockerfile`.
 
@@ -62,9 +62,9 @@ git mv framework/hosting/simple_module_hosting/cli.py framework/hosting/simple_m
 Run: `uv run pytest framework/hosting/tests/test_cli_new.py -v`
 Expected: PASS (3 tests). Python imports `cli/__init__.py` for `simple_module_hosting.cli` exactly the same as `cli.py`, so `main` is still findable.
 
-- [ ] **Step 4: Verify `sm` console script still resolves**
+- [ ] **Step 4: Verify `smpy` console script still resolves**
 
-Run: `uv run sm --help`
+Run: `uv run smpy --help`
 Expected: Lists `new`, `create-host`, `create-module`, `gen-pages`, `sync-js-deps` — same as before.
 
 - [ ] **Step 5: Commit**
@@ -290,7 +290,7 @@ git add framework/hosting/simple_module_hosting/cli/catalog.py framework/hosting
 git commit -m "feat(cli): module catalog with transitive dep expansion
 
 Adds CATALOG, PRESETS, and expand_deps() — pure data + one pure
-function. Will be wired into 'sm new' in a follow-up."
+function. Will be wired into 'smpy new' in a follow-up."
 ```
 
 ---
@@ -307,7 +307,7 @@ Wizard owns the prompt sequence: db → tenancy → preset (or custom checkbox l
 
 ```python
 # framework/hosting/tests/test_cli_wizard.py
-"""Tests for the `sm new` interactive wizard."""
+"""Tests for the `smpy new` interactive wizard."""
 
 from __future__ import annotations
 
@@ -402,7 +402,7 @@ Expected: All 6 tests fail with `ModuleNotFoundError: No module named 'simple_mo
 
 ```python
 # framework/hosting/simple_module_hosting/cli/wizard.py
-"""Interactive prompt sequence for `sm new`.
+"""Interactive prompt sequence for `smpy new`.
 
 Returns the user's choices as ``(db, tenancy, selected)`` where ``selected``
 is the topologically resolved module list (already includes transitive
@@ -469,7 +469,7 @@ Expected: All 6 tests pass.
 
 ```bash
 git add framework/hosting/simple_module_hosting/cli/wizard.py framework/hosting/tests/test_cli_wizard.py
-git commit -m "feat(cli): interactive wizard for sm new
+git commit -m "feat(cli): interactive wizard for smpy new
 
 db -> tenancy -> preset (or custom checkbox loop) -> confirm. Auto-adds
 required deps with a printed note. No new TUI dependency."
@@ -787,7 +787,7 @@ Expected: All tests fail with `ModuleNotFoundError: No module named 'simple_modu
 # framework/hosting/simple_module_hosting/cli/recipes.py
 """Per-module post-scaffold recipes.
 
-A recipe is invoked by ``sm new`` after the base host scaffold lands. It
+A recipe is invoked by ``smpy new`` after the base host scaffold lands. It
 performs module-specific actions (write helper scripts, append Make
 targets, drop a docker-compose stack). The framework layer is kept free
 of devex concerns — recipes know about Makefiles and compose, framework
@@ -853,7 +853,7 @@ class BackgroundTasksRecipe:
             if path.exists():
                 raise FileExistsError(
                     f"{path} already exists — refusing to clobber. "
-                    "Remove the file or run `sm new` against an empty directory."
+                    "Remove the file or run `smpy new` against an empty directory."
                 )
 
         run_worker_dest.parent.mkdir(parents=True, exist_ok=True)
@@ -1057,7 +1057,7 @@ drive both Python deps (from catalog) and post-scaffold recipes."
 
 ---
 
-## Task 6: Wire `sm new` to use catalog + wizard + recipes
+## Task 6: Wire `smpy new` to use catalog + wizard + recipes
 
 **Files:**
 - Create: `framework/hosting/simple_module_hosting/cli/new.py`
@@ -1155,7 +1155,7 @@ Expected: New tests fail (current `new` command doesn't accept `--preset` / `--w
 
 ```python
 # framework/hosting/simple_module_hosting/cli/new.py
-"""The upgraded `sm new` command.
+"""The upgraded `smpy new` command.
 
 Combines flag-driven non-interactive use (`--preset` / `--with`) with the
 interactive wizard. All paths converge on
@@ -1314,7 +1314,7 @@ Expected: All tests pass — both the existing (`--yes --db sqlite`) tests and t
 
 Run:
 ```bash
-TMP=$(mktemp -d) && uv run sm new demo --yes --preset full --no-install --dest "$TMP/demo"
+TMP=$(mktemp -d) && uv run smpy new demo --yes --preset full --no-install --dest "$TMP/demo"
 ls "$TMP/demo/scripts/run_worker.py" "$TMP/demo/docker-compose.yml" "$TMP/demo/docker/worker.Dockerfile"
 grep -E '^(worker|beat|worker-docker):' "$TMP/demo/Makefile"
 grep SM_BG_TASKS_BROKER_URL "$TMP/demo/.env.example"
@@ -1327,7 +1327,7 @@ Expected: every file/grep matches; no errors.
 git add framework/hosting/simple_module_hosting/cli/new.py \
         framework/hosting/simple_module_hosting/cli/__init__.py \
         framework/hosting/tests/test_cli_new.py
-git commit -m "feat(cli): sm new with --preset, --with, and wizard
+git commit -m "feat(cli): smpy new with --preset, --with, and wizard
 
 Scaffolds a project with any chosen subset of modules. Selecting
 background_tasks lands a runnable Celery worker + beat + Redis stack
@@ -1355,8 +1355,8 @@ Expected: All tests pass — including the existing scaffolding/host tests, whic
 
 Run:
 ```bash
-TMP=$(mktemp -d) && uv run sm new demo --yes --preset full --no-install --dest "$TMP/demo"
-cd "$TMP/demo" && uv sync && uv run sm doctor 2>&1 || true
+TMP=$(mktemp -d) && uv run smpy new demo --yes --preset full --no-install --dest "$TMP/demo"
+cd "$TMP/demo" && uv sync && uv run smpy doctor 2>&1 || true
 cd -
 ```
 Expected: Exits clean (no SM001/SM008/SM009 errors). SM010 may surface because the freshly-scaffolded project has no migration history yet — that's existing behavior.
@@ -1378,7 +1378,7 @@ Otherwise skip.
 **Spec coverage:** Every section of the spec is mapped to a task —
 - Catalog → Task 2
 - Wizard → Task 3
-- `sm new` flags → Task 6
+- `smpy new` flags → Task 6
 - Recipes + templates → Task 4
 - `create_app_project` refactor → Task 5
 - File-layout reorg into `cli/` package → Task 1
