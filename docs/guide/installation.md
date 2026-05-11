@@ -1,6 +1,6 @@
 # Installation
 
-You install simple_module_python by installing its **CLI** — `sm` — and using it to scaffold a new app. There's no repo to clone; the framework ships as a set of Python packages on PyPI and the CLI assembles them into a working project for you.
+You install simple_module_python by installing its **CLI** — `smpy` — and using it to scaffold a new app. There's no repo to clone; the framework ships as a set of Python packages on PyPI and the CLI assembles them into a working project for you.
 
 ## Prerequisites
 
@@ -26,28 +26,28 @@ If you prefer pipx:
 pipx install simple_module_cli
 ```
 
-That puts `sm` on your PATH globally. Confirm with:
+That puts `smpy` on your PATH globally. Confirm with:
 
 ```bash
-sm --help
+smpy --help
 ```
 
 ## Scaffold a new app
 
 ```bash
-sm new myapp
+smpy new myapp
 ```
 
 Interactive — you pick the database (SQLite / Postgres), whether to enable multi-tenancy, and which bundled modules to include. Skip the prompts and accept the defaults with:
 
 ```bash
-sm new myapp --yes
+smpy new myapp --yes
 ```
 
 Or pick a preset and add modules non-interactively:
 
 ```bash
-sm new myapp --preset standard --with background_tasks,file_storage
+smpy new myapp --preset standard --with background_tasks,file_storage
 ```
 
 | Preset | Modules |
@@ -56,7 +56,7 @@ sm new myapp --preset standard --with background_tasks,file_storage
 | `standard` (default) | `minimal` + `dashboard`, `settings`, `feature_flags` |
 | `full` | `standard` + `background_tasks`, `file_storage` |
 
-After scaffolding, `sm new` runs `uv sync`, `npm install`, and `alembic upgrade head` for you (skip with `--no-install` if you'd rather drive that yourself).
+After scaffolding, `smpy new` runs `uv sync`, `npm install`, and `alembic upgrade head` for you (skip with `--no-install` if you'd rather drive that yourself).
 
 ## Boot it
 
@@ -74,7 +74,7 @@ Hit `http://localhost:8000`. You should see the landing page.
 
 ## Database choice
 
-`sm new` writes a `.env.example`. The default is SQLite (zero setup):
+`smpy new` writes a `.env.example`. The default is SQLite (zero setup):
 
 ```bash
 SM_DATABASE_URL=sqlite+aiosqlite:///./app.db
@@ -100,7 +100,7 @@ See [Configuration](/guide/configuration) for the full list of env vars.
 If you included the `users` module:
 
 ```bash
-uv run sm-users create-admin --email admin@example.com --password changeme
+uv run smpy users create-admin --email admin@example.com --password changeme
 ```
 
 Or set bootstrap env vars so the admin is auto-created on first boot:
@@ -116,7 +116,7 @@ Then `make migrate && make dev`.
 ## Add a module to your app
 
 ```bash
-sm create-module orders --dest modules/orders
+smpy create-module orders --dest modules/orders
 ```
 
 That generates `modules/orders/` with the full layout (model, contracts, service, endpoints, pages, tests, locales, `pyproject.toml` entry point). Add the package to your app's dependencies and re-sync:
@@ -133,7 +133,7 @@ The full walkthrough is in [Your first module](/guide/first-module).
 When new releases of `simple_module_*` ship to PyPI, bump every dep in lockstep:
 
 ```bash
-sm package-update
+smpy package-update
 ```
 
 Pass `--dry-run` first to preview the diff.
@@ -155,6 +155,6 @@ Re-run `uv sync` — entry points are registered at install time, not at import 
 ## Next steps
 
 - [Quickstart](/guide/quickstart) — bootstrap and tour the running app in five minutes.
-- [Project structure](/guide/project-structure) — what `sm new` lays down.
+- [Project structure](/guide/project-structure) — what `smpy new` lays down.
 - [Your first module](/guide/first-module) — extend the app with your own domain logic.
 - [Bundled modules](/modules/) — what each pre-installed module ships.

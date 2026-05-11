@@ -7,7 +7,7 @@ protects non-module tables from being touched by autogenerate.
 
 This abstraction decouples the host from the import mechanics and is the
 single place where a pip-installed module's ``<pkg>.models`` submodule gets
-loaded — so every host scaffolded by ``sm create-host`` behaves identically
+loaded — so every host scaffolded by ``smpy create-host`` behaves identically
 whether the module was installed via workspace path, PyPI wheel, or
 ``pip install -e``.
 """

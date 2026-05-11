@@ -1,4 +1,4 @@
-"""``sm new`` Typer command — flag-driven or interactive scaffolder."""
+"""``smpy new`` Typer command — flag-driven or interactive scaffolder."""
 
 from __future__ import annotations
 

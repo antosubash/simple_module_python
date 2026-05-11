@@ -6,22 +6,22 @@ Agent skills for working in a [simple_module_python](https://github.com/antosuba
 
 There are two install paths — pick whichever fits your project.
 
-### Option A — `sm skills` (recommended for `simple_module_cli` users)
+### Option A — `smpy skills` (recommended for `simple_module_cli` users)
 
-Every project produced by `sm new` already depends on `simple_module_cli`, which ships these skills inside its wheel. From the project root:
+Every project produced by `smpy new` already depends on `simple_module_cli`, which ships these skills inside its wheel. From the project root:
 
 ```bash
-sm skills list                                          # see what's available
-sm skills add                                           # install ALL skills into ./.claude/skills/
-sm skills add simple-module-creating                    # install just one
-sm skills add -g                                        # install into ~/.claude/skills (machine-wide)
-sm skills add --dest agents/skills                      # custom target dir
-sm skills add --symlink                                 # symlink to the bundled source (good for skill devs)
-sm skills update                                        # re-pull updates for skills already installed
-sm skills update simple-module-doctor                   # explicit re-pull (force-overwrites)
+smpy skills list                                          # see what's available
+smpy skills add                                           # install ALL skills into ./.claude/skills/
+smpy skills add simple-module-creating                    # install just one
+smpy skills add -g                                        # install into ~/.claude/skills (machine-wide)
+smpy skills add --dest agents/skills                      # custom target dir
+smpy skills add --symlink                                 # symlink to the bundled source (good for skill devs)
+smpy skills update                                        # re-pull updates for skills already installed
+smpy skills update simple-module-doctor                   # explicit re-pull (force-overwrites)
 ```
 
-`sm skills` resolves the bundled set against whatever version of `simple_module_cli` is installed, so upgrading the CLI ships skill updates the next time you run `sm skills update`.
+`smpy skills` resolves the bundled set against whatever version of `simple_module_cli` is installed, so upgrading the CLI ships skill updates the next time you run `smpy skills update`.
 
 ### Option B — `npx skills` (no Python install needed)
 
@@ -38,7 +38,7 @@ The CLI is [vercel-labs/skills](https://github.com/vercel-labs/skills); see its 
 
 | Skill | Use when |
 |---|---|
-| [simple-module-cli](./simple-module-cli/SKILL.md) | Invoking the `sm` CLI — `sm new`, `sm create-host`, `sm create-module`, `sm host gen-pages`, `sm users create-admin`, etc. |
+| [simple-module-cli](./simple-module-cli/SKILL.md) | Invoking the `smpy` CLI — `smpy new`, `smpy create-host`, `smpy create-module`, `smpy host gen-pages`, `smpy users create-admin`, etc. |
 | [simple-module-creating](./simple-module-creating/SKILL.md) | Adding a new feature package — scaffolding, entry-point, `ModuleMeta` |
 | [simple-module-conventions](./simple-module-conventions/SKILL.md) | Writing or reviewing module code — the invariant list (SQLModel everywhere, settings layout, framework→plugin direction, etc.) |
 | [simple-module-database](./simple-module-database/SKILL.md) | Adding SQLModel tables, picking a mixin, or debugging session/transaction behavior |

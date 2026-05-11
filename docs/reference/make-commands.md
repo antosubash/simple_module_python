@@ -2,31 +2,31 @@
 
 Two surfaces drive day-to-day work:
 
-1. **The `sm` CLI** — installed globally with `uv tool install simple_module_cli`. Used to scaffold apps and modules and to bump dependency versions.
+1. **The `smpy` CLI** — installed globally with `uv tool install simple_module_cli`. Used to scaffold apps and modules and to bump dependency versions.
 2. **The Makefile in your scaffolded app** — a thin wrapper around `uv` and `npm` for the inner dev loop (`dev`, `migrate`, `build`, `gen-pages`).
 
 Past those, there's no hidden tooling — read the `Makefile` and pyproject.toml in your app directly when something surprises you.
 
-## `sm` CLI
+## `smpy` CLI
 
 ```bash
-sm --help
+smpy --help
 ```
 
 ### Scaffolders
 
 | Command | What |
 |---|---|
-| `sm new <name>` | Scaffold a new app at `./<name>`. Interactive by default; pass `--yes` for defaults, `--preset minimal\|standard\|full`, `--with mod1,mod2` for extras, `--db sqlite\|postgres`, `--tenancy`, `--flat` (no `modules/` dir). |
-| `sm create-module <name>` | Scaffold a publishable module package at `./simple_module_<name>` (or `--dest <path>`). |
-| `sm create-host <name>` | Scaffold just a host project (no sample module). Useful when you want a minimal shell that consumes published modules. |
+| `smpy new <name>` | Scaffold a new app at `./<name>`. Interactive by default; pass `--yes` for defaults, `--preset minimal\|standard\|full`, `--with mod1,mod2` for extras, `--db sqlite\|postgres`, `--tenancy`, `--flat` (no `modules/` dir). |
+| `smpy create-module <name>` | Scaffold a publishable module package at `./simple_module_<name>` (or `--dest <path>`). |
+| `smpy create-host <name>` | Scaffold just a host project (no sample module). Useful when you want a minimal shell that consumes published modules. |
 
 ### Maintenance
 
 | Command | What |
 |---|---|
-| `sm package-update` | Bump every `simple_module_*` dependency in `pyproject.toml` to the latest PyPI version. `--dry-run` previews the diff. |
-| `sm skills add\|list\|update` | Install or update the bundled agent skills under `.claude/skills/` for use with Claude Code. |
+| `smpy package-update` | Bump every `simple_module_*` dependency in `pyproject.toml` to the latest PyPI version. `--dry-run` previews the diff. |
+| `smpy skills add\|list\|update` | Install or update the bundled agent skills under `.claude/skills/` for use with Claude Code. |
 
 ### Module-contributed plugins
 
@@ -34,19 +34,19 @@ When a module declares a `simple_module_cli.cli_plugins` entry point, the CLI mo
 
 | Command | From | What |
 |---|---|---|
-| `sm host gen-pages` | `simple_module_hosting` | Regenerate `client_app/modules.{manifest.json,generated.ts,generated.css}` from the installed modules. Run when you add or remove pages. |
-| `sm host sync-js-deps` | `simple_module_hosting` | Install JS deps declared by wheel-installed modules into `client_app/node_modules`. In-repo workspace modules don't need this. |
-| `sm settings import-from-env` | `simple_module_settings` | One-shot migration: read every `SM_<MODULE>_*` env var and seed it as a SYSTEM-scope row in the DB-backed settings store. Idempotent. |
+| `smpy host gen-pages` | `simple_module_hosting` | Regenerate `client_app/modules.{manifest.json,generated.ts,generated.css}` from the installed modules. Run when you add or remove pages. |
+| `smpy host sync-js-deps` | `simple_module_hosting` | Install JS deps declared by wheel-installed modules into `client_app/node_modules`. In-repo workspace modules don't need this. |
+| `smpy settings import-from-env` | `simple_module_settings` | One-shot migration: read every `SM_<MODULE>_*` env var and seed it as a SYSTEM-scope row in the DB-backed settings store. Idempotent. |
 
-`sm-users create-admin` is also installed via the `users` module, but as a separate top-level entry point (not under `sm`):
+`smpy users create-admin` is contributed by the `users` module as a `smpy users` subcommand:
 
 ```bash
-uv run sm-users create-admin --email admin@example.com --password changeme
+uv run smpy users create-admin --email admin@example.com --password changeme
 ```
 
 ## Scaffolded-app Makefile
 
-`sm new` writes a slim Makefile to your app. The intent is *zero magic* — every target is one or two lines you could run by hand.
+`smpy new` writes a slim Makefile to your app. The intent is *zero magic* — every target is one or two lines you could run by hand.
 
 | Command | What |
 |---|---|
@@ -54,10 +54,10 @@ uv run sm-users create-admin --email admin@example.com --password changeme
 | `make dev` | `make gen-pages`, then `uvicorn main:app --reload` on `:8000` and `vite` on `:5050` in parallel. |
 | `make migrate` | `uv run alembic upgrade head`. Idempotent. |
 | `make build` | `cd client_app && npm run build`. Produces the production frontend bundle. |
-| `make gen-pages` | Regenerate the page manifest. Auto-runs before `make dev`. Same effect as `sm host gen-pages`. |
-| `make sync-js-deps` | Install JS deps from wheel-installed modules. Same effect as `sm host sync-js-deps`. |
+| `make gen-pages` | Regenerate the page manifest. Auto-runs before `make dev`. Same effect as `smpy host gen-pages`. |
+| `make sync-js-deps` | Install JS deps from wheel-installed modules. Same effect as `smpy host sync-js-deps`. |
 
-If you included `background_tasks` in `sm new`, the scaffold appends `worker`, `beat`, and `worker-docker` targets that wrap the Celery commands — read your `Makefile` to see the exact invocations.
+If you included `background_tasks` in `smpy new`, the scaffold appends `worker`, `beat`, and `worker-docker` targets that wrap the Celery commands — read your `Makefile` to see the exact invocations.
 
 ## Routine ops without a target
 

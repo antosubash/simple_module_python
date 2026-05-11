@@ -1,4 +1,4 @@
-"""Tests for the module-pages manifest and `sm create-host` scaffolding."""
+"""Tests for the module-pages manifest and `smpy create-host` scaffolding."""
 
 from __future__ import annotations
 
@@ -154,7 +154,7 @@ class TestCreateHost:
         assert "for mod in modules:" not in env_py
 
     async def test_cli_create_host_runs_end_to_end(self, tmp_path):
-        """The Click `sm create-host` command produces a working scaffold."""
+        """The Click `smpy create-host` command produces a working scaffold."""
         from simple_module_cli.cli import app
         from typer.testing import CliRunner
 

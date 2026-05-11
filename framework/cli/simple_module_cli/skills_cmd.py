@@ -1,4 +1,4 @@
-"""``sm skills`` — install or update agent skill packs in a target project.
+"""``smpy skills`` — install or update agent skill packs in a target project.
 
 Bundles the SKILL.md packs shipped under ``simple_module_cli/skills/`` and
 materialises them into a project directory (default ``.claude/skills``) so any
@@ -7,9 +7,9 @@ can pick them up.
 
 Three subcommands:
 
-* ``sm skills list``    — show every bundled skill and its description.
-* ``sm skills add``     — copy (or symlink) skills into the destination.
-* ``sm skills update``  — re-copy skills that are already installed at the
+* ``smpy skills list``    — show every bundled skill and its description.
+* ``smpy skills add``     — copy (or symlink) skills into the destination.
+* ``smpy skills update``  — re-copy skills that are already installed at the
                           destination, overwriting them.
 """
 

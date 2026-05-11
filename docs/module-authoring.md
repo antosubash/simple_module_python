@@ -1,7 +1,7 @@
 # Module authoring guide
 
 This is the reference for authoring a module that is installable from PyPI
-and assembled into a host by the `sm create-host` scaffold. It describes the
+and assembled into a host by the `smpy create-host` scaffold. It describes the
 contract a module must follow, the env-var conventions, the migration
 workflow the host developer uses, and the API-version / semver rules.
 
@@ -256,7 +256,7 @@ templates by copying + editing.
 
 ## Testing during development
 
-Install `simple_module_test` as a dev dependency (the `sm create-module`
+Install `simple_module_test` as a dev dependency (the `smpy create-module`
 scaffold does this automatically):
 
 ```toml

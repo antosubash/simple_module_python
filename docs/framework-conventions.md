@@ -20,7 +20,7 @@ modules/<name>/
     └── pages/                # *.tsx — auto-discovered by Vite
 ```
 
-Scaffold a fresh module with `sm create-module <name> --dest modules/<name>` — it generates all of the above. Then run `uv add ./modules/<name>` to register it on your app.
+Scaffold a fresh module with `smpy create-module <name> --dest modules/<name>` — it generates all of the above. Then run `uv add ./modules/<name>` to register it on your app.
 
 ## ModuleMeta
 
@@ -296,7 +296,7 @@ class OrdersModule(ModuleBase):
         return {"orders": Path(str(importlib.resources.files(__package__) / "locales"))}
 ```
 
-`sm create-module` scaffolds this method and a matching `locales/en.json` automatically.
+`smpy create-module` scaffolds this method and a matching `locales/en.json` automatically.
 
 ### Key naming
 

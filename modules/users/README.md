@@ -8,7 +8,7 @@ Email+password user management for [simple_module](https://github.com/antosubash
 pip install simple_module_users
 ```
 
-Pre-wired into any app scaffolded with `simple-module new`.
+Pre-wired into any app scaffolded with `smpy new`.
 
 ## What it provides
 
@@ -16,7 +16,7 @@ Pre-wired into any app scaffolded with `simple-module new`.
 - Admin invite flow — admin enters an email, recipient clicks a link, sets a password, is logged in.
 - Public signup toggle (`SM_USERS_ALLOW_SIGNUP`, default `false`).
 - Bootstrap admin via env vars (`SM_USERS_BOOTSTRAP_EMAIL` + `SM_USERS_BOOTSTRAP_PASSWORD`) — idempotent, only creates if the users table is empty.
-- `sm-users create-admin` CLI for ad-hoc admin creation.
+- `smpy users create-admin` CLI for ad-hoc admin creation.
 - Inertia pages for login/register/invite-accept/admin-invite.
 - Console mailer (logs to stdout) or SMTP mailer (`SM_USERS_MAILER=smtp`).
 
@@ -25,7 +25,7 @@ Pre-wired into any app scaffolded with `simple-module new`.
 CLI:
 
 ```bash
-uv run sm-users create-admin --email admin@example.com --password 'change-me'
+uv run smpy users create-admin --email admin@example.com --password 'change-me'
 ```
 
 Bootstrap-on-boot (`.env`):

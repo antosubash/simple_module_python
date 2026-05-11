@@ -12,13 +12,13 @@ description: Use when adding a new feature package to a simple_module_python app
 ```bash
 # scaffold a publishable module package in ./orders (run in a fresh repo or
 # inside a host's modules/ directory)
-sm create-module orders
+smpy create-module orders
 
 # install the new package into the host environment
 uv sync   # or: pip install -e ./orders
 
 # if you added a frontend page, regenerate the Inertia manifest
-sm host gen-pages --host-dir=client_app
+smpy host gen-pages --host-dir=client_app
 
 # if you added SQLModel tables, autogenerate + apply a migration
 uv run alembic revision --autogenerate -m "add orders module"

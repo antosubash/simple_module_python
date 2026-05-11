@@ -1,4 +1,4 @@
-"""``sm package-update`` — bump simple_module_* deps to latest PyPI versions.
+"""``smpy package-update`` — bump simple_module_* deps to latest PyPI versions.
 
 Walks the project's ``pyproject.toml`` (and any ``[tool.uv.workspace]`` members),
 finds every dependency whose distribution name starts with ``simple_module_`` /

@@ -16,16 +16,16 @@ import {
 } from 'lucide-react';
 
 const QUICKSTART = `# 1. install python and js deps
-$ sm install
+$ make install
 
 # 2. copy env template
 $ cp .env.example .env
 
 # 3. run migrations
-$ sm migrate
+$ make migrate
 
 # 4. start API + Vite in parallel
-$ sm dev
+$ make dev
 `;
 
 function Landing() {
@@ -108,7 +108,7 @@ function Landing() {
           <div className="mx-auto mt-7 flex max-w-xl items-center gap-3 rounded-xl border border-white/[0.06] bg-slate-900 px-4 py-3 text-left font-mono text-sm shadow-lg">
             <span className="shrink-0 text-primary-300">$</span>
             <code className="flex-1 truncate text-slate-200">
-              uvx --from simple_module_cli sm new my-app
+              uvx --from simple_module_cli smpy new my-app
             </code>
             <button
               type="button"
@@ -206,7 +206,7 @@ function Landing() {
             <pre className="m-0 px-5 py-4 font-mono text-[13px] leading-7 text-slate-200">
               {QUICKSTART}
               <span className="text-primary-300">✓ ready on http://localhost:8000</span>
-              {'\n\n# 5. scaffold a new module\n$ sm new module orders\n'}
+              {'\n\n# 5. scaffold a new module\n$ make new-module name=orders\n'}
               <span className="text-primary-300">✓ scaffolded modules/orders/</span>
             </pre>
           </div>

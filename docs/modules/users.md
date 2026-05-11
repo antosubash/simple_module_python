@@ -183,10 +183,10 @@ Everything else is DB-backed (initial values are pydantic defaults; edit at `/se
 
 ## CLI
 
-- `sm-users create-admin --email <e> --password <p> [--full-name <name>] [--force]` — creates (or, with `--force`, updates) an admin user. Idempotent: re-running with the same email is a no-op without `--force`.
+- `smpy users create-admin --email <e> --password <p> [--full-name <name>] [--force]` — creates (or, with `--force`, updates) an admin user. Idempotent: re-running with the same email is a no-op without `--force`.
 
 ```bash
-uv run sm-users create-admin --email admin@example.com --password changeme
+uv run smpy users create-admin --email admin@example.com --password changeme
 ```
 
 Programmatically:
@@ -202,7 +202,7 @@ result = await create_admin(db, email="admin@example.com", password="...")
 
 Two paths to seed the first admin:
 
-1. **CLI** — `sm-users create-admin ...`.
+1. **CLI** — `smpy users create-admin ...`.
 2. **Env vars** — set `SM_USERS_BOOTSTRAP_EMAIL` + `SM_USERS_BOOTSTRAP_PASSWORD` before first `make dev`. `bootstrap_admin_from_env(app)` runs at startup and creates the admin if the `users_user` table is empty. Optionally seed a non-admin too via `SM_USERS_BOOTSTRAP_USER_EMAIL` + `SM_USERS_BOOTSTRAP_USER_PASSWORD`.
 
 ## Mailer backends

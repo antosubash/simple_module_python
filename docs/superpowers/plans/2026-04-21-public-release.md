@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Publish all 14 Python packages to PyPI and 3 JS packages to npm as `v0.0.1`, with a working `sm new` / `simple-module new` CLI generator that scaffolds a new app consuming these packages.
+**Goal:** Publish all 14 Python packages to PyPI and 3 JS packages to npm as `v0.0.1`, with a working `smpy new` / `simple-module new` CLI generator that scaffolds a new app consuming these packages.
 
-**Architecture:** Seven phases in sequence. Phase 0 prepares the repo (LICENSE, CHANGELOG, lint scripts). Phase 1 renames 10 modules to the `simple-module-*` PyPI namespace. Phases 2–3 update Python + npm package metadata. Phase 4 writes substantive READMEs for all 17 packages. Phase 5 builds the version-bump script. Phase 6 extends the existing host-template CLI into a full `sm new` generator. Phase 7 adds the release workflow + docs. Every change must pass `make lint` and `make test`.
+**Architecture:** Seven phases in sequence. Phase 0 prepares the repo (LICENSE, CHANGELOG, lint scripts). Phase 1 renames 10 modules to the `simple-module-*` PyPI namespace. Phases 2–3 update Python + npm package metadata. Phase 4 writes substantive READMEs for all 17 packages. Phase 5 builds the version-bump script. Phase 6 extends the existing host-template CLI into a full `smpy new` generator. Phase 7 adds the release workflow + docs. Every change must pass `make lint` and `make test`.
 
 **Tech Stack:** Python 3.12, `uv`, `hatchling`, Click, `tomlkit`; Node 20+, npm workspaces; GitHub Actions + PyPI/npm Trusted Publishing (OIDC); Jinja2 for template rendering.
 
@@ -134,7 +134,7 @@ Initial public release. All 14 Python packages publish to PyPI and all 3 JS pack
 
 ### Added
 
-- `simple-module new <app>` / `sm new <app>` CLI generator scaffolding a working app with `users + dashboard + permissions` pre-wired.
+- `simple-module new <app>` / `smpy new <app>` CLI generator scaffolding a working app with `users + dashboard + permissions` pre-wired.
 - PyPI Trusted Publishing workflow (`.github/workflows/release.yml`) for zero-secret releases.
 - npm Trusted Publishing for all three JS packages.
 
@@ -1152,7 +1152,7 @@ Run: `uv sync --all-packages && uv run which simple-module`
 Expected: prints a path to a `simple-module` executable inside `.venv/bin/`.
 
 Run: `uv run simple-module --help`
-Expected: prints the Click help menu (same as `sm --help`).
+Expected: prints the Click help menu (same as `smpy --help`).
 
 - [ ] **Step 3: Run tests**
 
@@ -1671,7 +1671,7 @@ git commit -m "docs(db): add package README for PyPI"
 ```markdown
 # simple-module-hosting
 
-FastAPI + Inertia.js host runtime for the [simple_module](https://github.com/antosubash/simple_module_python) framework — builds the app, wires the middleware pipeline, exposes the `sm` / `simple-module` CLI, and ships the project scaffolder.
+FastAPI + Inertia.js host runtime for the [simple_module](https://github.com/antosubash/simple_module_python) framework — builds the app, wires the middleware pipeline, exposes the `smpy` / `simple-module` CLI, and ships the project scaffolder.
 
 ## Install
 
@@ -1690,8 +1690,8 @@ uvx simple-module new my-app
 - `create_app(settings)` — returns a fully-wired `FastAPI` instance with all discovered modules registered.
 - Middleware pipeline (execution order): CorrelationId → RequestLogging → SecurityHeaders → Session → `<module middleware>` → Tenant (opt-in) → Locale → InertiaLayoutData → app.
 - Inertia wiring — shared props (`auth`, `menus`, `i18n`), `InertiaDep`, page-route lookup.
-- CLI entry points: both `sm` and `simple-module` are installed and alias the same Click tree.
-- Scaffolders — `sm create-host`, `sm create-module`, `sm new` (greenfield app with users + dashboard + permissions pre-wired), `sm gen-pages`.
+- CLI entry points: both `smpy` and `simple-module` are installed and alias the same Click tree.
+- Scaffolders — `smpy create-host`, `smpy create-module`, `smpy new` (greenfield app with users + dashboard + permissions pre-wired), `smpy gen-pages`.
 
 ## Usage
 
@@ -1717,7 +1717,7 @@ simple-module doctor            # diagnostic codes (SM001-SM017)
 simple-module gen-pages         # regenerate client_app/modules.generated.ts
 ```
 
-`sm` works identically to `simple-module`.
+`smpy` works identically to `simple-module`.
 
 ## Depends on
 
@@ -1881,7 +1881,7 @@ Pre-wired into any app scaffolded with `simple-module new`.
 - Admin invite flow — admin enters an email, recipient clicks a link, sets a password, is logged in.
 - Public signup toggle (`SM_USERS_ALLOW_SIGNUP`, default `false`).
 - Bootstrap admin via env vars (`SM_USERS_BOOTSTRAP_EMAIL` + `SM_USERS_BOOTSTRAP_PASSWORD`) — idempotent, only creates if the users table is empty.
-- `sm-users create-admin` CLI for ad-hoc admin creation.
+- `smpy users create-admin` CLI for ad-hoc admin creation.
 - Inertia pages for login/register/invite-accept/admin-invite.
 - Console mailer (logs to stdout) or SMTP mailer (`SM_USERS_MAILER=smtp`).
 
@@ -1890,7 +1890,7 @@ Pre-wired into any app scaffolded with `simple-module new`.
 CLI:
 
 ```bash
-uv run sm-users create-admin --email admin@example.com --password 'change-me'
+uv run smpy users create-admin --email admin@example.com --password 'change-me'
 ```
 
 Bootstrap-on-boot (`.env`):
@@ -3013,11 +3013,11 @@ git commit -m "feat(scripts): add lockstep bump_version.py for 17-package releas
 
 ---
 
-## Phase 7 — `sm new` CLI + template
+## Phase 7 — `smpy new` CLI + template
 
-This phase extends the existing `simple_module_hosting.cli` with a new `new` subcommand that scaffolds a full app with `users + dashboard + permissions` pre-wired. The existing `sm create-host` stays (it's the lower-level scaffolder); `sm new` is the opinionated wrapper.
+This phase extends the existing `simple_module_hosting.cli` with a new `new` subcommand that scaffolds a full app with `users + dashboard + permissions` pre-wired. The existing `smpy create-host` stays (it's the lower-level scaffolder); `smpy new` is the opinionated wrapper.
 
-### Task 7.1: Write failing test for `sm new`
+### Task 7.1: Write failing test for `smpy new`
 
 **Files:**
 - Create: `framework/hosting/tests/test_cli_new.py`
@@ -3025,7 +3025,7 @@ This phase extends the existing `simple_module_hosting.cli` with a new `new` sub
 - [ ] **Step 1: Write the test file**
 
 ```python
-"""Tests for the `sm new` / `simple-module new` CLI subcommand."""
+"""Tests for the `smpy new` / `simple-module new` CLI subcommand."""
 from __future__ import annotations
 
 import json
@@ -3131,7 +3131,7 @@ The existing `_create_host(target, name, modules)` already copies `templates/hos
 
 ```python
 # ---------------------------------------------------------------
-# create_app_project — used by `sm new` / `simple-module new`
+# create_app_project — used by `smpy new` / `simple-module new`
 # ---------------------------------------------------------------
 
 import json as _json
@@ -3242,7 +3242,7 @@ def _inject_py_deps(text: str, deps: list[str], dev_deps: list[str]) -> str:
 
 ```bash
 git add framework/hosting/simple_module_hosting/scaffolding.py
-git commit -m "feat(scaffolding): add create_app_project helper for sm new"
+git commit -m "feat(scaffolding): add create_app_project helper for smpy new"
 ```
 
 ### Task 7.3: Add the `new` Click subcommand
@@ -3354,7 +3354,7 @@ Expected: `/tmp/smoke/` contains `pyproject.toml`, `main.py`, `package.json`, `.
 
 ```bash
 git add framework/hosting/simple_module_hosting/cli.py framework/hosting/tests/test_cli_new.py
-git commit -m "feat(cli): add 'sm new' / 'simple-module new' greenfield generator
+git commit -m "feat(cli): add 'smpy new' / 'simple-module new' greenfield generator
 
 Scaffolds a fresh app pre-wired with users, dashboard, and
 permissions. Generates a random SM_SECRET_KEY, sets the DB URL
@@ -3408,7 +3408,7 @@ Expected: still pass.
 
 ```bash
 git add framework/hosting/simple_module_hosting/templates/host/
-git commit -m "chore(template): ensure host template is compatible with sm new flow" || echo "nothing to commit"
+git commit -m "chore(template): ensure host template is compatible with smpy new flow" || echo "nothing to commit"
 ```
 
 ---

@@ -45,7 +45,7 @@ async def doctor(
     inertia: InertiaDep,
     db: AsyncSession = Depends(get_db),
 ) -> InertiaResponse:
-    """`sm doctor` mirror — static checks, modules, dev server, env."""
+    """`make doctor` mirror — static checks, modules, dev server, env."""
     stats = await fetch_dashboard_stats(db, request.app)
     return await inertia.render(
         _PAGE_DOCTOR,

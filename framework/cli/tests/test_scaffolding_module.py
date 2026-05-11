@@ -1,4 +1,4 @@
-"""Tests for `sm create-module` scaffolding: module package, CI, static bundling."""
+"""Tests for `smpy create-module` scaffolding: module package, CI, static bundling."""
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ class TestCreateModule:
             create_module(dest, name="MyFeature")
 
     async def test_cli_create_module_runs_end_to_end(self, tmp_path):
-        """The Click `sm create-module` command produces a working scaffold."""
+        """The Click `smpy create-module` command produces a working scaffold."""
         from simple_module_cli.cli import app
         from typer.testing import CliRunner
 

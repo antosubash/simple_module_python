@@ -96,7 +96,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
       # Need uv too — pages.ts imports ./modules.generated, which is
-      # produced by `sm gen-pages` from the installed Python modules.
+      # produced by `smpy gen-pages` from the installed Python modules.
       - uses: astral-sh/setup-uv@v8.0.0
         with:
           enable-cache: true

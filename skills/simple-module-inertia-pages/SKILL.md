@@ -15,12 +15,12 @@ description: Use when adding or debugging an Inertia.js page in a simple_module_
 | Module page (snake-case dir) | `inertia.render("BlogPosts/Index", ...)` | `<module_pkg>/blog_posts/pages/Index.tsx` |
 | Host page | `inertia.render("Landing", ...)` | `<host>/client_app/pages/Landing.tsx` |
 
-The namespace is **PascalCase of the module's directory name**, not the file system path. Directory `blog_posts` → `BlogPosts`. The framework's manifest generator (`sm host gen-pages`) wires up Vite's `import.meta.glob` to resolve these keys at runtime.
+The namespace is **PascalCase of the module's directory name**, not the file system path. Directory `blog_posts` → `BlogPosts`. The framework's manifest generator (`smpy host gen-pages`) wires up Vite's `import.meta.glob` to resolve these keys at runtime.
 
 After adding or renaming a `.tsx`, regenerate the manifest:
 
 ```bash
-sm host gen-pages --host-dir=client_app
+smpy host gen-pages --host-dir=client_app
 ```
 
 Boot regenerates it too; mid-session adds need the manual call before HMR sees them.

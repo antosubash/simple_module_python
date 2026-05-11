@@ -1,7 +1,7 @@
 """Map package names to their historical ``SM_*`` env-var prefix.
 
 Used by ``_module_settings`` to label fields in the admin UI and by the
-``sm-settings import-from-env`` CLI to locate legacy env values. Most
+``smpy settings import-from-env`` CLI to locate legacy env values. Most
 packages follow ``SM_<PACKAGE_UPPER>_``; the exceptions are listed below.
 """
 

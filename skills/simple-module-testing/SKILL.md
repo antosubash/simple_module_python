@@ -84,7 +84,7 @@ modules/orders/
     └── test_service.py      # imports orders.service
 ```
 
-The directory must be listed in the root `pyproject.toml` under `[tool.pytest.ini_options].testpaths` for `make test` to pick it up. `sm create-module` adds this entry; if you scaffolded a module by hand, add it.
+The directory must be listed in the root `pyproject.toml` under `[tool.pytest.ini_options].testpaths` for `make test` to pick it up. `smpy create-module` adds this entry; if you scaffolded a module by hand, add it.
 
 ## Pitfalls
 

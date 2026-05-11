@@ -79,14 +79,14 @@ function Doctor() {
   return (
     <PageShell
       title="Doctor"
-      description="Static checks, migrations, dev server, and module health. Mirrors `sm doctor` output."
+      description="Static checks, migrations, dev server, and module health. Mirrors `make doctor` output."
       actions={
         <>
           <Button variant="outline" size="sm" className="gap-1.5">
             <RefreshCw className="h-3.5 w-3.5" /> Re-run
           </Button>
           <Button size="sm" className="gap-1.5">
-            <Terminal className="h-3.5 w-3.5" /> sm doctor
+            <Terminal className="h-3.5 w-3.5" /> make doctor
           </Button>
         </>
       }
@@ -234,12 +234,14 @@ function Doctor() {
             <CardContent className="pt-5">
               <SectionTitle>Run a command</SectionTitle>
               <div className="flex flex-col gap-2 rounded-lg bg-slate-900 p-3 font-mono text-[12px] text-slate-200">
-                {['sm new module orders', 'sm migrate', 'sm doctor', 'sm dev'].map((c) => (
-                  <div key={c} className="flex items-center gap-2">
-                    <span className="text-primary-300">$</span>
-                    <span className="flex-1 truncate">{c}</span>
-                  </div>
-                ))}
+                {['make new-module name=orders', 'make migrate', 'make doctor', 'make dev'].map(
+                  (c) => (
+                    <div key={c} className="flex items-center gap-2">
+                      <span className="text-primary-300">$</span>
+                      <span className="flex-1 truncate">{c}</span>
+                    </div>
+                  ),
+                )}
               </div>
             </CardContent>
           </Card>

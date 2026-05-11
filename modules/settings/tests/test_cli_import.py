@@ -1,4 +1,4 @@
-"""Tests for the ``sm-settings import-from-env`` CLI entry point.
+"""Tests for the ``smpy settings import-from-env`` CLI entry point.
 
 Exercises ``import_from_env_impl`` directly so we avoid spawning a real
 process but still cover the env → DB override path the CLI wraps.

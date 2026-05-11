@@ -2,7 +2,7 @@
  * Inertia page resolver.
  *
  * Module pages are discovered via a generated file (modules.generated.ts)
- * emitted by the Python host at boot, or manually via `sm gen-pages`. Each
+ * emitted by the Python host at boot, or manually via `smpy gen-pages`. Each
  * installed module contributes an import.meta.glob() call with an absolute
  * path, so pages shipped inside pip-installed module wheels resolve.
  *

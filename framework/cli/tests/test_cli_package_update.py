@@ -1,4 +1,4 @@
-"""Tests for `sm package-update`."""
+"""Tests for `smpy package-update`."""
 
 from __future__ import annotations
 

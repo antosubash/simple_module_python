@@ -14,7 +14,7 @@ Collapse the `.env` surface to a four-variable bootstrap and move every other co
 - New admin UI at `/settings/modules` (replaces today's read-only view) — sidebar + main panel, typed inputs, per-module save, per-field reset-to-default.
 - Hot-reload on save: rebuild `app.state.<package>.settings` and fire a `settings.reloaded` event.
 - Secret fields masked in UI (write-only).
-- One-shot `sm-settings import-from-env` CLI to migrate existing deployments.
+- One-shot `smpy settings import-from-env` CLI to migrate existing deployments.
 
 **Out of scope.**
 - Tenant-scoped and user-scoped overrides in the new UI. The existing free-form `/settings` Browse/Create/Edit pages — which already support all three scopes — stay for power users.
@@ -171,15 +171,15 @@ View endpoints:
 
 - **Pydantic validation fails on save.** UI shows per-field errors; no DB write; `app.state` unchanged.
 - **Pydantic validation fails during `on_startup` hydrate.** The field's DB row is bad (e.g. schema changed between releases). Log a warning, keep the default for that field, continue booting. The UI flags the field as "stored value invalid — using default".
-- **A module disappears between releases.** Its `Setting` rows become orphaned. `make doctor` gets a new `SM018` warning listing orphan settings rows; a separate CLI `sm-settings prune-orphans` removes them.
+- **A module disappears between releases.** Its `Setting` rows become orphaned. `make doctor` gets a new `SM018` warning listing orphan settings rows; a separate CLI `smpy settings prune-orphans` removes them.
 - **Concurrent edits.** Last write wins (there's no optimistic concurrency today on `Setting`). Acceptable — admin UI with low write rate.
 - **Placeholder token-secret check.** `UsersSettings.model_validator` fires during DB hydration in production. On boot: blocks startup (matches current behavior). On UI save: returns validation error.
 
 ## Migration
 
 - **No Alembic migration** — `Setting` table already exists.
-- **`sm-settings import-from-env` CLI** — one-shot: reads `SM_<MODULE>_*` from the current process environment, writes corresponding rows to `Setting` for each registered module. Idempotent.
-- **Release note** — deployments must run `sm-settings import-from-env` after upgrade (or accept that all modules revert to defaults).
+- **`smpy settings import-from-env` CLI** — one-shot: reads `SM_<MODULE>_*` from the current process environment, writes corresponding rows to `Setting` for each registered module. Idempotent.
+- **Release note** — deployments must run `smpy settings import-from-env` after upgrade (or accept that all modules revert to defaults).
 - **Per-module code changes:**
   - Remove `env_prefix` and `env_file` from `SettingsConfigDict`.
   - `register_settings` calls `register_module_settings(app, package, SettingsCls)`; the helper installs defaults on `app.state.<package>.settings`.
@@ -188,7 +188,7 @@ View endpoints:
   - `BootstrapSettings` — the four env vars, read at boot. Lives in `framework/hosting`.
   - `HostSettings` — `multi_tenant`, `tenant_header`, `i18n_default_locale`, `i18n_supported_locales`, `i18n_cookie_name`, plus anything else currently on the monolithic `HostingSettings` minus the bootstrap four. DB-backed via the same `register_module_settings` helper under `package="host"`.
 - **`.env.example`** — rewritten to the four bootstrap vars; everything else removed.
-- **`docker-compose.yml`** — removes `SM_BG_TASKS_BROKER_URL` / `SM_BG_TASKS_RESULT_BACKEND` environment entries; the Redis defaults in `BackgroundTasksSettings` are updated to `redis://redis:6379/*` (matching the compose Redis service hostname). Dev-outside-compose users run `sm-settings import-from-env` or set overrides in the UI.
+- **`docker-compose.yml`** — removes `SM_BG_TASKS_BROKER_URL` / `SM_BG_TASKS_RESULT_BACKEND` environment entries; the Redis defaults in `BackgroundTasksSettings` are updated to `redis://redis:6379/*` (matching the compose Redis service hostname). Dev-outside-compose users run `smpy settings import-from-env` or set overrides in the UI.
 - **`README.md`** — env-var table shrinks to four rows + a pointer to `/settings/modules`.
 
 ## Tests
@@ -208,7 +208,7 @@ View endpoints:
 ## Diagnostics
 
 - Existing `SM012` (`register_settings` overridden but nothing on `app.state.<module>`) is still emitted — the `register_module_settings` helper satisfies it automatically.
-- New `SM018` — orphan `Setting` rows for packages that no longer register a BaseSettings class. Warning level; fixable via `sm-settings prune-orphans`.
+- New `SM018` — orphan `Setting` rows for packages that no longer register a BaseSettings class. Warning level; fixable via `smpy settings prune-orphans`.
 
 ## Ship criteria
 
@@ -216,7 +216,7 @@ View endpoints:
 - `make lint` green, including the 300-line file cap. `_module_settings.py` is ~153 lines today; the metadata extensions should stay under the cap or split into a sibling module.
 - `make doctor` green.
 - Manual: `/settings/modules` renders, editing `users.allow_signup` takes effect without restart, editing `background_tasks.broker_url` shows the "requires restart" badge.
-- `sm-settings import-from-env` run against a dev `.env` successfully populates the `Setting` table.
+- `smpy settings import-from-env` run against a dev `.env` successfully populates the `Setting` table.
 
 ## Open decisions (to resolve during plan writing)
 

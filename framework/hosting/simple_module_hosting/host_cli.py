@@ -1,4 +1,4 @@
-"""``sm host`` plugin — project-time helpers exposed through the simple-module CLI.
+"""``smpy host`` plugin — project-time helpers exposed through the simple-module CLI.
 
 Commands here need module discovery (``simple_module_core.discover_modules``)
 and the manifest helpers; they're not part of the standalone scaffolder.

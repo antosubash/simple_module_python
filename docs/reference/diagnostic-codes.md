@@ -25,7 +25,7 @@ The framework runs a set of static checks over installed modules at app boot. Er
 | `SM014` | WARNING | Non-default locale is missing keys present in the default (untranslated). | Translate the missing keys. |
 | `SM015` | WARNING | Non-default locale has keys not in the default (stale / orphan translation). | Remove the stale keys, or add them to the default file if they really belong. |
 | `SM016` | ERROR | Locale JSON is invalid or contains non-string leaves. | Fix the JSON; keys must flatten to strings only. |
-| `SM017` | WARNING | Module ships `.tsx` pages but has no `package.json` / `tsconfig.json`. Vite can't resolve type imports. | Run `sm create-module` on a dummy name and copy the generated config, or scaffold by hand. |
+| `SM017` | WARNING | Module ships `.tsx` pages but has no `package.json` / `tsconfig.json`. Vite can't resolve type imports. | Run `smpy create-module` on a dummy name and copy the generated config, or scaffold by hand. |
 | `SM018` | WARNING | An Inertia `router.post/patch/put/delete()` call in a page targets a JSON `/api/*` endpoint, which would return raw JSON and be rejected by Inertia. | Point the call at a view endpoint that returns `inertia.render(...)` or a redirect; or use plain `fetch()` if you really want a JSON response. |
 | `SM019` | WARNING | Module declares a non-empty `view_prefix` and overrides `register_routes` but registers neither menu items nor permissions — admins can't reach the pages from the sidebar or grant access from the role editor. | Add `register_menu_items` for a sidebar entry, or `register_permissions` to surface the module in the role editor (sub-pages of another module typically just register permissions). |
 

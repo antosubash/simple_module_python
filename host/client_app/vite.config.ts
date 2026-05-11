@@ -21,7 +21,7 @@ let manifest: Record<string, string> = {};
 try {
   manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
 } catch {
-  // Manifest absent (sm gen-pages hasn't run yet) — proceed with empty set.
+  // Manifest absent (smpy gen-pages hasn't run yet) — proceed with empty set.
 }
 for (const pagesDir of Object.values(manifest)) {
   moduleFsAllow.push(path.dirname(pagesDir));

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Carve the scaffolder out of `simple_module_hosting` into a new PyPI distribution `simple-module` whose only deps are `typer` + `tomlkit`. Single `sm` console script; plugin subcommands (`sm host gen-pages`, `sm users create-admin`, …) discovered via Python entry points. All `sm-*` sibling scripts go away.
+**Goal:** Carve the scaffolder out of `simple_module_hosting` into a new PyPI distribution `simple-module` whose only deps are `typer` + `tomlkit`. Single `smpy` console script; plugin subcommands (`smpy host gen-pages`, `smpy users create-admin`, …) discovered via Python entry points. All `sm-*` sibling scripts go away.
 
 **Architecture:** New workspace member `framework/cli/` containing the importable package `simple_module`. Click → Typer 1:1 port at the decorator layer; logic, templates, and tests are copies. `simple_module_hosting` keeps only its runtime + a new `host_cli.py` Typer app registered as a plugin. Modules `users` and `settings` swap their `sm-*` console-script entries for `simple_module.cli_plugins` entry-point entries.
 
@@ -25,7 +25,7 @@
 | `framework/cli/simple_module/catalog.py` | `ModuleEntry`, `CATALOG`, `PRESETS`, `expand_deps` (moved). |
 | `framework/cli/simple_module/wizard.py` | `run_wizard` (moved + Typer port). |
 | `framework/cli/simple_module/recipes.py` | `Recipe`, `BackgroundTasksRecipe`, `RECIPES` (moved). |
-| `framework/cli/simple_module/new.py` | `sm new` Typer command (moved + ported). |
+| `framework/cli/simple_module/new.py` | `smpy new` Typer command (moved + ported). |
 | `framework/cli/simple_module/cli.py` | Root Typer app + `create-host` / `create-module` commands + plugin mount + `main`. |
 | `framework/cli/simple_module/plugins.py` | Entry-point discovery + mounting. |
 | `framework/cli/simple_module/templates/` | All template files (moved from hosting). |
@@ -37,13 +37,13 @@
 | `framework/hosting/simple_module_hosting/_env.py` | **Deleted**. |
 | `framework/hosting/simple_module_hosting/templates/` | **Deleted** (moved). |
 | `framework/hosting/simple_module_hosting/manifest.py` | Stays — used by `host_cli.py`. |
-| `framework/hosting/pyproject.toml` | Drops `sm`/`simple-module` scripts; adds `simple_module.cli_plugins` entry. |
-| `modules/users/pyproject.toml` | Drops `sm-users` script; adds `simple_module.cli_plugins` entry. |
-| `modules/settings/pyproject.toml` | Drops `sm-settings` script; adds `simple_module.cli_plugins` entry. |
+| `framework/hosting/pyproject.toml` | Drops `smpy`/`simple-module` scripts; adds `simple_module.cli_plugins` entry. |
+| `modules/users/pyproject.toml` | Drops `smpy users` script; adds `simple_module.cli_plugins` entry. |
+| `modules/settings/pyproject.toml` | Drops `smpy settings` script; adds `simple_module.cli_plugins` entry. |
 | `modules/settings/settings/cli.py` | Rewritten as Typer app. |
-| `Makefile` | `sm gen-pages` → `sm host gen-pages`; `sm sync-js-deps` → `sm host sync-js-deps`. |
+| `Makefile` | `smpy gen-pages` → `smpy host gen-pages`; `smpy sync-js-deps` → `smpy host sync-js-deps`. |
 | `pyproject.toml` (root) | Workspace `members = ["framework/*", …]` already covers `framework/cli`; verify ruff `extend-exclude` updated to point at the new templates path. |
-| `README.md` | `sm-users` / `sm-settings` snippets updated to `sm users …` / `sm settings …`. |
+| `README.md` | `smpy users` / `smpy settings` snippets updated to `smpy users …` / `smpy settings …`. |
 
 ---
 
@@ -72,7 +72,7 @@ Create `framework/cli/pyproject.toml`:
 [project]
 name = "simple-module"
 version = "0.0.1"
-description = "Standalone scaffolder for the SimpleModule framework — `sm new`, `sm create-module`, plugin host."
+description = "Standalone scaffolder for the SimpleModule framework — `smpy new`, `smpy create-module`, plugin host."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -96,7 +96,7 @@ dependencies = [
 ]
 
 [project.scripts]
-sm = "simple_module.cli:main"
+smpy = "simple_module.cli:main"
 simple-module = "simple_module.cli:main"
 
 [project.urls]
@@ -117,7 +117,7 @@ packages = ["simple_module"]
 Create `framework/cli/simple_module/cli.py`:
 
 ```python
-"""Root `sm` command — scaffolders + plugin mount.
+"""Root `smpy` command — scaffolders + plugin mount.
 
 This file gets fleshed out in Task 5 (Typer port) and Task 6 (plugin
 discovery). For now it exists only so the ``sm = simple_module.cli:main``
@@ -149,19 +149,19 @@ Standalone scaffolder for the [SimpleModule framework](https://github.com/antosu
 
 ```bash
 pip install simple-module      # or: pipx install simple-module
-sm new my-app                  # interactive wizard
-sm new my-app --yes --preset full
+smpy new my-app                  # interactive wizard
+smpy new my-app --yes --preset full
 ```
 
-Provides three built-in commands: `sm new`, `sm create-host`, `sm create-module`.
+Provides three built-in commands: `smpy new`, `smpy create-host`, `smpy create-module`.
 
 When other framework packages are installed, they contribute additional subcommands via the `simple_module.cli_plugins` entry-point group:
 
 | Package | Commands |
 |---|---|
-| `simple_module_hosting` | `sm host gen-pages`, `sm host sync-js-deps` |
-| `simple_module_users`   | `sm users create-admin` |
-| `simple_module_settings` | `sm settings import-from-env` |
+| `simple_module_hosting` | `smpy host gen-pages`, `smpy host sync-js-deps` |
+| `simple_module_users`   | `smpy users create-admin` |
+| `simple_module_settings` | `smpy settings import-from-env` |
 
 ## License
 
@@ -177,7 +177,7 @@ Expected: succeeds; the new `simple-module` distribution appears in `uv pip list
 
 - [ ] **Step 6: Verify the stub console script resolves**
 
-Run: `uv run sm --help 2>&1 | head -3`
+Run: `uv run smpy --help 2>&1 | head -3`
 Expected: prints the SystemExit message from Step 3 (proves the entry point + package import works).
 
 - [ ] **Step 7: Commit**
@@ -619,7 +619,7 @@ git mv framework/hosting/tests/test_scaffolding_module.py framework/cli/tests/te
 
 - [ ] **Step 8: Update imports in the moved tests**
 
-In both moved files, replace `from simple_module_hosting.scaffolding import ...` with `from simple_module.scaffolding import ...`. The `from simple_module_hosting.cli import main` in the `Click sm create-host/create-module` integration tests stays — those tests get rewritten in Task 5.
+In both moved files, replace `from simple_module_hosting.scaffolding import ...` with `from simple_module.scaffolding import ...`. The `from simple_module_hosting.cli import main` in the `Click smpy create-host/create-module` integration tests stays — those tests get rewritten in Task 5.
 
 Concretely, in `framework/cli/tests/test_scaffolding_host.py`:
 - Line 14: `from simple_module_hosting.scaffolding import compute_module_pages` — leave for now (`compute_module_pages` is re-exported via the shim — works through Task 8).
@@ -812,7 +812,7 @@ In `framework/cli/tests/test_cli_new.py`, change:
 - [ ] **Step 8: Run the test suite**
 
 Run: `uv run pytest framework/cli/ framework/hosting/ -q`
-Expected: all tests pass — the existing Click `sm` is still functional through the hosting package; tests in `framework/cli/tests/` import from the moved homes and exercise the same code.
+Expected: all tests pass — the existing Click `smpy` is still functional through the hosting package; tests in `framework/cli/tests/` import from the moved homes and exercise the same code.
 
 - [ ] **Step 9: Commit**
 
@@ -846,7 +846,7 @@ Big change. Rewrites the four command files — `new.py`, `cli.py` (new), and th
 Replace the entire file with:
 
 ```python
-"""``sm new`` Typer command — flag-driven or interactive scaffolder."""
+"""``smpy new`` Typer command — flag-driven or interactive scaffolder."""
 
 from __future__ import annotations
 
@@ -981,7 +981,7 @@ def new_project(
 Replace the file with:
 
 ```python
-"""Interactive prompt sequence for ``sm new``."""
+"""Interactive prompt sequence for ``smpy new``."""
 
 from __future__ import annotations
 
@@ -1040,15 +1040,15 @@ def run_wizard(*, default_db: str, default_tenancy: bool) -> tuple[str, bool, li
 Replace the stub from Task 1 with:
 
 ```python
-"""Root `sm` Typer app — scaffolders + plugin mount.
+"""Root `smpy` Typer app — scaffolders + plugin mount.
 
 Built-in commands:
-  sm new
-  sm create-host
-  sm create-module
+  smpy new
+  smpy create-host
+  smpy create-module
 
 Plugins discovered via the ``simple_module.cli_plugins`` entry-point
-group are mounted as named subgroups (e.g. ``sm host gen-pages``).
+group are mounted as named subgroups (e.g. ``smpy host gen-pages``).
 """
 
 from __future__ import annotations
@@ -1139,12 +1139,12 @@ def create_module(
 
 
 # Plugin discovery — mount any installed `simple_module.cli_plugins`
-# entry-point apps as named subgroups (e.g. `sm host gen-pages`).
+# entry-point apps as named subgroups (e.g. `smpy host gen-pages`).
 discover_and_mount(app)
 
 
 def main() -> None:
-    """Entry point for the `sm` console script."""
+    """Entry point for the `smpy` console script."""
     app()
 
 
@@ -1237,7 +1237,7 @@ def test_wizard_aborts_on_confirm_no() -> None:
 
 - [ ] **Step 6: Delete the hosting CLI package**
 
-The Click `sm` entry point in `simple_module_hosting` is being replaced by `simple_module.cli:main`. Delete:
+The Click `smpy` entry point in `simple_module_hosting` is being replaced by `simple_module.cli:main`. Delete:
 
 ```bash
 git rm -r framework/hosting/simple_module_hosting/cli/
@@ -1278,14 +1278,14 @@ Also switch `from click.testing import CliRunner` → `from typer.testing import
 - [ ] **Step 9: Re-install workspace and run tests**
 
 Run: `uv sync --all-packages && uv run pytest framework/cli/ framework/hosting/ -q`
-Expected: all tests pass. The `sm` console script is now provided by `simple-module`; the old `simple_module_hosting.cli:main` no longer exists.
+Expected: all tests pass. The `smpy` console script is now provided by `simple-module`; the old `simple_module_hosting.cli:main` no longer exists.
 
 Smoke check the binary:
 
-Run: `uv run sm --help`
+Run: `uv run smpy --help`
 Expected: lists `new`, `create-host`, `create-module` (no plugins yet — Task 6).
 
-Run: `uv run sm new demo --yes --preset full --no-install --dest /tmp/sm-typer-smoke`
+Run: `uv run smpy new demo --yes --preset full --no-install --dest /tmp/sm-typer-smoke`
 Expected: works the same as before; produces the demo project. Clean up: `rm -rf /tmp/sm-typer-smoke`.
 
 - [ ] **Step 10: Commit**
@@ -1418,14 +1418,14 @@ Expected: FAIL — `_iter_plugin_entries` does not exist yet, plus the stub does
 Replace the stub with:
 
 ```python
-"""Plugin discovery for ``sm`` via the ``simple_module.cli_plugins`` group.
+"""Plugin discovery for ``smpy`` via the ``simple_module.cli_plugins`` group.
 
 Each entry-point's value (``module:attr``) must resolve to a
 :class:`typer.Typer` instance. The entry-point name becomes the
-subcommand namespace under ``sm`` (e.g. ``sm host gen-pages``).
+subcommand namespace under ``smpy`` (e.g. ``smpy host gen-pages``).
 
 Failed loads (broken import, wrong type) print one line to stderr and
-are skipped — ``sm`` keeps working with whatever else loads.
+are skipped — ``smpy`` keeps working with whatever else loads.
 """
 
 from __future__ import annotations
@@ -1482,9 +1482,9 @@ def discover_and_mount(root: typer.Typer) -> None:
 Run: `uv run pytest framework/cli/tests/test_plugin_discovery.py -v`
 Expected: 4 tests pass.
 
-- [ ] **Step 5: Verify `sm --help` still works (no plugins installed yet)**
+- [ ] **Step 5: Verify `smpy --help` still works (no plugins installed yet)**
 
-Run: `uv run sm --help`
+Run: `uv run smpy --help`
 Expected: same output as before, no errors. No `host`, `users`, or `settings` subgroups appear yet (those are wired in Tasks 7 & 8).
 
 - [ ] **Step 6: Commit**
@@ -1508,7 +1508,7 @@ EOF
 **Files:**
 - Create: `framework/hosting/simple_module_hosting/host_cli.py` (Typer app with `gen-pages` + `sync-js-deps`).
 - Modify: `framework/hosting/pyproject.toml` (add `[project.entry-points."simple_module.cli_plugins"]`).
-- Modify: `Makefile` (`sm gen-pages` → `sm host gen-pages`; `sm sync-js-deps` → `sm host sync-js-deps`).
+- Modify: `Makefile` (`smpy gen-pages` → `smpy host gen-pages`; `smpy sync-js-deps` → `smpy host sync-js-deps`).
 - Create: `framework/hosting/tests/test_host_cli.py` (smoke).
 
 - [ ] **Step 1: Write the failing test**
@@ -1559,7 +1559,7 @@ Expected: FAIL — `simple_module_hosting.host_cli` does not exist.
 Translate the existing `gen-pages` and `sync-js-deps` Click commands to Typer:
 
 ```python
-"""``sm host`` plugin — project-time helpers exposed through the simple-module CLI.
+"""``smpy host`` plugin — project-time helpers exposed through the simple-module CLI.
 
 Commands here need module discovery (``simple_module_core.discover_modules``)
 and the manifest helpers; they're not part of the standalone scaffolder.
@@ -1691,10 +1691,10 @@ Expected: 3 tests pass.
 
 - [ ] **Step 6: Re-install workspace and verify the plugin mounts**
 
-Run: `uv sync --all-packages && uv run sm --help`
+Run: `uv sync --all-packages && uv run smpy --help`
 Expected: `host` appears in the subcommand list (from the entry point).
 
-Run: `uv run sm host --help`
+Run: `uv run smpy host --help`
 Expected: lists `gen-pages` and `sync-js-deps`.
 
 - [ ] **Step 7: Update Makefile**
@@ -1703,20 +1703,20 @@ In `Makefile`, replace:
 
 ```makefile
 gen-pages:
-	uv run --project host sm gen-pages --host-dir=host/client_app
+	uv run --project host smpy gen-pages --host-dir=host/client_app
 
 sync-module-deps:
-	uv run --project host sm sync-js-deps --host-client-app=host/client_app
+	uv run --project host smpy sync-js-deps --host-client-app=host/client_app
 ```
 
 with:
 
 ```makefile
 gen-pages:
-	uv run --project host sm host gen-pages --host-dir=host/client_app
+	uv run --project host smpy host gen-pages --host-dir=host/client_app
 
 sync-module-deps:
-	uv run --project host sm host sync-js-deps --host-client-app=host/client_app
+	uv run --project host smpy host sync-js-deps --host-client-app=host/client_app
 ```
 
 - [ ] **Step 8: Verify Make targets still work**
@@ -1728,12 +1728,12 @@ Expected: Wrote manifest.json, generated.ts, generated.css. (Or, if the host has
 
 ```bash
 git add -A
-git commit -m "feat(hosting): host_cli plugin (sm host gen-pages, sm host sync-js-deps)
+git commit -m "feat(hosting): host_cli plugin (smpy host gen-pages, smpy host sync-js-deps)
 
 $(cat <<'EOF'
-gen-pages and sync-js-deps move out of the deleted sm console script
+gen-pages and sync-js-deps move out of the deleted smpy console script
 and into a Typer plugin published under the simple_module.cli_plugins
-entry-point group. Makefile updated for the new sm host * shape.
+entry-point group. Makefile updated for the new smpy host * shape.
 EOF
 )"
 ```
@@ -1743,11 +1743,11 @@ EOF
 ## Task 8: Convert `users` and `settings` modules to plugins
 
 **Files:**
-- Modify: `modules/users/pyproject.toml` (drop `sm-users`, add entry point).
+- Modify: `modules/users/pyproject.toml` (drop `smpy users`, add entry point).
 - Modify: `modules/users/users/cli.py` (already a Typer app — verify; minimal changes).
 - Modify: `modules/settings/settings/cli.py` (rewrite as Typer app named `app`).
-- Modify: `modules/settings/pyproject.toml` (drop `sm-settings`, add entry point).
-- Modify: `README.md` (`sm-users` / `sm-settings` snippets → `sm users` / `sm settings`).
+- Modify: `modules/settings/pyproject.toml` (drop `smpy settings`, add entry point).
+- Modify: `README.md` (`smpy users` / `smpy settings` snippets → `smpy users` / `smpy settings`).
 
 - [ ] **Step 1: Update `modules/users/pyproject.toml`**
 
@@ -1755,7 +1755,7 @@ Find:
 
 ```toml
 [project.scripts]
-sm-users = "users.cli:app"
+smpy users = "users.cli:app"
 ```
 
 Replace with:
@@ -1772,7 +1772,7 @@ users = "users.cli:app"
 Replace the entire file with:
 
 ```python
-"""``sm settings`` plugin — currently only ``import-from-env``.
+"""``smpy settings`` plugin — currently only ``import-from-env``.
 
 One-shot migration: walks every registered module's BaseSettings and
 writes a SYSTEM-scoped override for each ``SM_<PREFIX>_<FIELD>`` env
@@ -1841,7 +1841,7 @@ Find:
 
 ```toml
 [project.scripts]
-sm-settings = "settings.cli:main"
+smpy settings = "settings.cli:main"
 ```
 
 Replace with:
@@ -1853,23 +1853,23 @@ settings = "settings.cli:app"
 
 - [ ] **Step 4: Update existing settings test if any**
 
-Run: `grep -n "sm-settings\|settings.cli.main\|from settings.cli import main" modules/settings/tests/`
+Run: `grep -n "smpy settings\|settings.cli.main\|from settings.cli import main" modules/settings/tests/`
 If there are matches, fix them — `main` no longer exists. The new entry is `app`. Most likely there are no test changes needed (the existing settings tests target `import_from_env_impl` directly).
 
 - [ ] **Step 5: Re-install + smoke**
 
-Run: `uv sync --all-packages && uv run sm --help 2>&1 | head -20`
+Run: `uv sync --all-packages && uv run smpy --help 2>&1 | head -20`
 Expected: subgroups `host`, `users`, `settings` all appear.
 
-Run: `uv run sm users --help` and `uv run sm settings --help`
+Run: `uv run smpy users --help` and `uv run smpy settings --help`
 Expected: each lists their subcommand(s).
 
 - [ ] **Step 6: Update README**
 
 In `README.md`, replace:
-- `uv run sm-users create-admin --email …` → `uv run sm users create-admin --email …`
-- `uv run sm-settings import-from-env` → `uv run sm settings import-from-env`
-- Any other occurrences of `sm-users` / `sm-settings`.
+- `uv run smpy users create-admin --email …` → `uv run smpy users create-admin --email …`
+- `uv run smpy settings import-from-env` → `uv run smpy settings import-from-env`
+- Any other occurrences of `smpy users` / `smpy settings`.
 
 - [ ] **Step 7: Run the full test suite**
 
@@ -1883,9 +1883,9 @@ git add -A
 git commit -m "refactor(modules): convert users + settings to sm plugins
 
 $(cat <<'EOF'
-Drops sm-users and sm-settings console scripts. Both modules now
+Drops smpy users and smpy settings console scripts. Both modules now
 register Typer apps under the simple_module.cli_plugins entry-point
-group, mounted as `sm users` and `sm settings`. settings/cli.py
+group, mounted as `smpy users` and `smpy settings`. settings/cli.py
 rewritten as a Typer app (was hand-rolled Click-style argv parsing).
 README updated for the new command shape.
 EOF
@@ -1998,11 +1998,11 @@ Expected: all tests green. The plan's planned test count is roughly:
 
 Run:
 ```bash
-uv run sm --help
-uv run sm host --help
-uv run sm users --help
-uv run sm settings --help
-TMP=$(mktemp -d) && uv run sm new demo --yes --preset full --no-install --dest "$TMP/demo"
+uv run smpy --help
+uv run smpy host --help
+uv run smpy users --help
+uv run smpy settings --help
+TMP=$(mktemp -d) && uv run smpy new demo --yes --preset full --no-install --dest "$TMP/demo"
 ls "$TMP/demo/scripts/run_worker.py" "$TMP/demo/docker-compose.yml"
 ```
 Expected: every command works; the new project lands all background-task scaffolding correctly.
@@ -2018,7 +2018,7 @@ $(cat <<'EOF'
   workspace dep on simple_module.
 - Add framework/cli/tests/test_no_framework_deps.py to guard
   against future dep drift in the standalone scaffolder.
-- README + Makefile reflect the final sm host/users/settings shape.
+- README + Makefile reflect the final smpy host/users/settings shape.
 EOF
 )"
 ```
@@ -2033,7 +2033,7 @@ EOF
 - Click → Typer port → Task 5.
 - Plugin discovery (`simple_module.cli_plugins`, `discover_and_mount`, error handling, dup detection) → Task 6.
 - `host_cli` plugin (gen-pages, sync-js-deps), Makefile rename → Task 7.
-- `users` + `settings` plugin migration, drop sm-users/sm-settings scripts → Task 8.
+- `users` + `settings` plugin migration, drop smpy users/smpy settings scripts → Task 8.
 - No-framework-deps guard → Task 9.
 - Cleanup, README updates, full verification → Tasks 8 & 9.
 

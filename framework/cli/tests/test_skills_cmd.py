@@ -1,4 +1,4 @@
-"""Tests for the ``sm skills`` subcommand group."""
+"""Tests for the ``smpy skills`` subcommand group."""
 
 from __future__ import annotations
 
