@@ -7,6 +7,8 @@ via entry_points; add them to this host's pyproject.toml to install them.
 from simple_module_hosting import Settings, create_app
 from simple_module_hosting.logging import setup_logging
 
+from routes import router as host_router
+
 settings = Settings()
 
 setup_logging(
@@ -15,6 +17,7 @@ setup_logging(
 )
 
 app = create_app(settings)
+app.include_router(host_router)
 
 if __name__ == "__main__":
     import uvicorn
