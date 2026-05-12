@@ -52,9 +52,11 @@ smpy new myapp --preset standard --with background_tasks,file_storage
 
 | Preset | Modules |
 |---|---|
-| `minimal` | `auth`, `users`, `permissions` |
-| `standard` (default) | `minimal` + `dashboard`, `settings`, `feature_flags` |
-| `full` | `standard` + `background_tasks`, `file_storage` |
+| `minimal` | `auth`, `users` |
+| `standard` (default) | `minimal` + `dashboard`, `permissions` |
+| `full` | `standard` + `settings`, `feature_flags`, `file_storage`, `background_tasks` |
+
+`simple_module_settings` is also installed as a baseline dependency of every scaffolded host (regardless of preset), so the Settings admin UI is available even in `minimal`. Dependencies between modules are resolved automatically — e.g. `users` always pulls in `auth`.
 
 After scaffolding, `smpy new` runs `uv sync`, `npm install`, and `alembic upgrade head` for you (skip with `--no-install` if you'd rather drive that yourself).
 
