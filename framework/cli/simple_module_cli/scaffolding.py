@@ -21,7 +21,12 @@ import shutil
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from simple_module_cli.case import to_kebab_case, to_pascal_case, to_snake_case
+from simple_module_cli.case import (
+    to_kebab_case,
+    to_pascal_case,
+    to_snake_case,
+    validate_scaffold_name,
+)
 
 __all__ = ["create_host", "create_module", "create_workspace"]
 
@@ -100,7 +105,10 @@ def create_workspace(
     _apply_template_files(
         _resolve_template_root("workspace", template_root),
         dest,
-        {"{{HOST_NAME}}": to_kebab_case(name)},
+        {
+            "{{HOST_NAME}}": validate_scaffold_name(name),
+            "{{HOST_PYPI_NAME}}": to_kebab_case(name),
+        },
     )
     logger.info("Scaffolded workspace root at %s", dest)
     return dest
@@ -120,7 +128,8 @@ def create_host(
         _resolve_template_root("host", template_root),
         dest,
         {
-            "{{HOST_NAME}}": name,
+            "{{HOST_NAME}}": validate_scaffold_name(name),
+            "{{HOST_PYPI_NAME}}": to_kebab_case(name),
             "{{MODULE_DEPS}}": module_dep_lines,
             "{{FRAMEWORK_VERSION}}": framework_version,
         },

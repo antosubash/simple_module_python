@@ -1,5 +1,5 @@
 {
-  "name": "{{HOST_NAME}}-client-app",
+  "name": "{{HOST_PYPI_NAME}}-client-app",
   "private": true,
   "type": "module",
   "scripts": {

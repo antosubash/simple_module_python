@@ -11,6 +11,7 @@ from typing import Annotated
 import typer
 
 from simple_module_cli.app_project import create_app_project
+from simple_module_cli.case import InvalidScaffoldNameError, to_kebab_case, validate_scaffold_name
 from simple_module_cli.catalog import PRESETS, expand_deps
 from simple_module_cli.wizard import run_wizard
 
@@ -76,6 +77,14 @@ def new_project(
     ] = False,
 ) -> None:
     """Scaffold a new SimpleModule app, optionally with background jobs."""
+    try:
+        validate_scaffold_name(name)
+    except InvalidScaffoldNameError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    pypi_name = to_kebab_case(name)
+    if pypi_name != name:
+        typer.echo(f"Normalizing PyPI name to {pypi_name!r}.")
     target = dest or Path.cwd() / name
     extra_list = [m.strip() for m in extra.split(",") if m.strip()]
     flag_driven = preset is not None or bool(extra_list)
