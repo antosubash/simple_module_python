@@ -97,7 +97,7 @@ def create_app_project(
     tenancy: bool = False,
     selected: Sequence[str] | None = None,
     flat: bool = False,
-) -> None:
+) -> Path:
     """Greenfield ``simple-module new`` scaffold.
 
     In workspace mode (the default), lays down a uv + npm workspace at
@@ -110,6 +110,9 @@ def create_app_project(
     ``pyproject.toml`` / the relevant ``package.json`` to pin exact
     framework versions, and applies any matching post-scaffold recipes
     (e.g. the ``background_tasks`` recipe drops a Celery worker stack).
+
+    Returns the host directory — ``target`` in flat mode, ``target/host``
+    in workspace mode.
     """
     if target.exists() and any(target.iterdir()):
         raise FileExistsError(
@@ -176,6 +179,8 @@ def create_app_project(
         recipe_key = CATALOG[mod_name].recipe
         if recipe_key is not None and recipe_key in RECIPES:
             RECIPES[recipe_key].apply(target, ctx)
+
+    return host_dir
 
 
 def _strip_workspace_owned_files(host_dir: Path) -> None:

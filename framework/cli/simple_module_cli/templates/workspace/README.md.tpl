@@ -25,6 +25,8 @@ make install
 cp .env.example .env
 
 # Apply DB migrations
+# (`smpy new` already generated the initial migration for you; if you started
+#  from a bare host without one, run `make migration msg="initial schema"` first.)
 make migrate
 
 # Run API + UI together
