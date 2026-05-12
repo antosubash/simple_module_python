@@ -83,6 +83,7 @@ class TestCreateHost:
         for relpath in [
             "pyproject.toml",
             "main.py",
+            "routes.py",
             "alembic.ini",
             "migrations/env.py",
             "migrations/script.py.mako",
@@ -99,6 +100,7 @@ class TestCreateHost:
             "client_app/pages.ts",
             "client_app/styles.css",
             "client_app/pages/Error.tsx",
+            "client_app/pages/Landing.tsx",
             "templates/index.html",
         ]:
             assert (dest / relpath).exists(), f"missing: {relpath}"

@@ -59,3 +59,27 @@ def test_sm_new_sample_module_seeds_static_dist_placeholder(tmp_path: Path) -> N
     )
     static_dist = target / "modules" / "hello" / "hello" / "static" / "dist"
     assert static_dist.is_dir(), "static/dist/ must exist for hatch force-include"
+
+
+def test_sm_new_registers_landing_route_at_root(tmp_path: Path) -> None:
+    """Issue #137: the Quickstart promises a landing page at ``http://localhost:8000``,
+    so a fresh scaffold must register a ``/`` route and ship the matching
+    Inertia page — otherwise users get a branded 404 on first visit."""
+    runner = CliRunner()
+    target = tmp_path / "demo"
+    result = runner.invoke(
+        app,
+        ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
+    )
+    assert result.exit_code == 0, result.output
+
+    routes_py = (target / "host" / "routes.py").read_text(encoding="utf-8")
+    assert '@router.get("/"' in routes_py, "host must register GET /"
+    assert '"Landing"' in routes_py, "host's / route must render the Landing page"
+
+    main_py = (target / "host" / "main.py").read_text(encoding="utf-8")
+    assert "host_router" in main_py, "main.py must wire host_router into the app"
+    assert "include_router(host_router)" in main_py
+
+    landing_tsx = target / "host" / "client_app" / "pages" / "Landing.tsx"
+    assert landing_tsx.is_file(), "Landing.tsx must ship in the host's pages dir"
