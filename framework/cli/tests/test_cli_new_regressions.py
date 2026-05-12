@@ -47,6 +47,27 @@ def test_sm_new_sample_module_pins_match_framework_version(tmp_path: Path) -> No
     assert f"simple_module_test=={expected}" in text
 
 
+def test_sm_new_pins_simple_module_cli_as_host_dev_dep(tmp_path: Path) -> None:
+    """Issue #134: scaffolded host must list ``simple_module_cli`` as a dev dep so
+    ``uv run smpy users create-admin …`` discovers the plugin entry points the
+    docs advertise. Without it, ``uv run smpy`` resolves to the globally-installed
+    tool whose isolated venv never sees the project's modules."""
+    from importlib.metadata import version
+
+    expected = version("simple_module_cli")
+    runner = CliRunner()
+    target = tmp_path / "demo"
+    runner.invoke(
+        app,
+        ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
+    )
+    text = (target / "host" / "pyproject.toml").read_text()
+    assert f"simple_module_cli=={expected}" in text, (
+        "host pyproject must pin simple_module_cli in dev deps so `uv run smpy` "
+        "uses the project venv (which sees plugin entry points), not the global tool"
+    )
+
+
 def test_sm_new_sample_module_seeds_static_dist_placeholder(tmp_path: Path) -> None:
     """Issue #127: hatch's force-include resolves at uv-sync time. A fresh
     scaffold must ship an empty ``static/dist/`` so the build doesn't fail
