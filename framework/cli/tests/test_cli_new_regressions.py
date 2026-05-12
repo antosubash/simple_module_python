@@ -59,3 +59,17 @@ def test_sm_new_sample_module_seeds_static_dist_placeholder(tmp_path: Path) -> N
     )
     static_dist = target / "modules" / "hello" / "hello" / "static" / "dist"
     assert static_dist.is_dir(), "static/dist/ must exist for hatch force-include"
+
+
+def test_sm_new_sample_module_does_not_declare_view_prefix(tmp_path: Path) -> None:
+    """Issue #138: fresh scaffold must not declare view_prefix so it boots
+    without an SM019 warning (view routes registered but no menu entry or
+    permissions)."""
+    runner = CliRunner()
+    target = tmp_path / "demo"
+    runner.invoke(
+        app,
+        ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
+    )
+    module_py = (target / "modules" / "hello" / "hello" / "module.py").read_text()
+    assert "view_prefix" not in module_py

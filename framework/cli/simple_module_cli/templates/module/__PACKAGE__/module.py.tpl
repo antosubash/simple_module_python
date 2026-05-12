@@ -13,7 +13,6 @@ class {{MODULE_NAME}}Module(ModuleBase):
     meta = ModuleMeta(
         name="{{MODULE_NAME}}",
         route_prefix="/api/{{MODULE_SLUG}}",
-        view_prefix="/{{MODULE_SLUG}}",
         depends_on=[],
         version="0.1.0",
         requires_framework=">=1.0,<2.0",
