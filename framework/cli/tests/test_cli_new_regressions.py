@@ -118,3 +118,92 @@ def test_sm_new_registers_landing_route_at_root(tmp_path: Path) -> None:
 
     landing_tsx = target / "host" / "client_app" / "pages" / "Landing.tsx"
     assert landing_tsx.is_file(), "Landing.tsx must ship in the host's pages dir"
+
+
+def test_sm_new_underscored_name_keeps_user_form_in_readme(tmp_path: Path) -> None:
+    """Issue #139: when the user types underscores, the README, tree diagram,
+    and directory name must agree. Only the PyPI fields normalize to hyphens."""
+    runner = CliRunner()
+    target = tmp_path / "simple_module_chat"
+    result = runner.invoke(
+        app,
+        ["new", "simple_module_chat", "--yes", "--no-install", "--dest", str(target)],
+    )
+    assert result.exit_code == 0, result.output
+    readme = (target / "README.md").read_text()
+    assert "# simple_module_chat" in readme, "README heading should match the user's input"
+    assert "simple_module_chat/" in readme, "tree diagram should match the directory name"
+    assert "simple-module-chat" not in readme, "no hyphenated form should leak into the README"
+
+
+def test_sm_new_underscored_name_pypi_fields_normalize(tmp_path: Path) -> None:
+    """Issue #139: pyproject + package.json still use the PEP 503 hyphenated form."""
+    runner = CliRunner()
+    target = tmp_path / "simple_module_chat"
+    runner.invoke(
+        app,
+        ["new", "simple_module_chat", "--yes", "--no-install", "--dest", str(target)],
+    )
+    workspace_pyproject = (target / "pyproject.toml").read_text()
+    assert 'name = "simple-module-chat"' in workspace_pyproject
+    workspace_pkg = json.loads((target / "package.json").read_text())
+    assert workspace_pkg["name"] == "simple-module-chat"
+
+
+def test_sm_new_underscored_name_warns_about_normalization(tmp_path: Path) -> None:
+    """Issue #139: when the PyPI form diverges from user input, the CLI says so."""
+    runner = CliRunner()
+    target = tmp_path / "simple_module_chat"
+    result = runner.invoke(
+        app,
+        ["new", "simple_module_chat", "--yes", "--no-install", "--dest", str(target)],
+    )
+    assert result.exit_code == 0, result.output
+    assert "simple-module-chat" in result.output, "expected normalization notice in output"
+
+
+def test_sm_new_hyphenated_name_stays_consistent(tmp_path: Path) -> None:
+    """Issue #139: a clean kebab-case input gives one form everywhere — no warning."""
+    runner = CliRunner()
+    target = tmp_path / "simple-module-chat"
+    result = runner.invoke(
+        app,
+        ["new", "simple-module-chat", "--yes", "--no-install", "--dest", str(target)],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Normalizing PyPI name" not in result.output
+    readme = (target / "README.md").read_text()
+    assert "# simple-module-chat" in readme
+    workspace_pyproject = (target / "pyproject.toml").read_text()
+    assert 'name = "simple-module-chat"' in workspace_pyproject
+
+
+def test_sm_new_rejects_mixed_case_name(tmp_path: Path) -> None:
+    """Issue #139: mixed case is ambiguous (my-app vs my_app) — refuse, don't guess."""
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["new", "MyApp", "--yes", "--no-install", "--dest", str(tmp_path / "out")],
+    )
+    assert result.exit_code != 0
+    assert "MyApp" in result.output or "valid" in result.output.lower()
+
+
+def test_sm_new_rejects_leading_digit_name(tmp_path: Path) -> None:
+    """Issue #139: names starting with a digit aren't valid Python package names."""
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["new", "1chat", "--yes", "--no-install", "--dest", str(tmp_path / "out")],
+    )
+    assert result.exit_code != 0
+
+
+def test_sm_new_rejects_mixed_separators(tmp_path: Path) -> None:
+    """Issue #139: foo_bar-baz mixes separators — no canonical form, refuse."""
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["new", "foo_bar-baz", "--yes", "--no-install", "--dest", str(tmp_path / "out")],
+    )
+    assert result.exit_code != 0
