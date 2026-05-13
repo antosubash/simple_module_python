@@ -66,10 +66,23 @@ class FeatureFlagsModule(ModuleBase):
         Called once, after DB init and before the app starts serving. From
         here on ``registry.is_enabled`` reflects admin overrides even for
         requests that don't hit this module's endpoints.
+
+        If the DB read fails (store unreachable, table missing, etc.) we
+        log a warning and continue with the registry at its
+        ``register_feature_flags``-declared defaults rather than letting a
+        transient outage take the whole app down. Defaults are the
+        conservative choice — admins can re-toggle overrides once the
+        store is healthy again.
         """
+        import logging
+
         from feature_flags.service import FeatureFlagService
 
+        logger = logging.getLogger(__name__)
         sm = app.state.sm
-        async with sm.db.session_factory() as session:
-            service = FeatureFlagService(session)
-            await service.hydrate_registry(sm.feature_flags)
+        try:
+            async with sm.db.session_factory() as session:
+                service = FeatureFlagService(session)
+                await service.hydrate_registry(sm.feature_flags)
+        except Exception:
+            logger.exception("feature_flags.hydrate_failed — continuing with registry defaults")

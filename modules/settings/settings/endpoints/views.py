@@ -1,11 +1,10 @@
 """Inertia view endpoints for the Settings module.
 
-Page component identifiers are inlined as string literals here (instead of
-imported from ``settings.constants``) so the ``SM003`` orphan-page doctor
-check — which parses calls to ``inertia.render`` via AST literal matching —
-can correlate views to their ``pages/*.tsx`` files. The literals must match
-``PAGE_BROWSE`` / ``PAGE_CREATE`` / ``PAGE_EDIT`` in ``constants.py``, and
-a test in ``test_settings_module.py`` enforces that invariant.
+Page component identifiers are file-private module constants — same pattern
+the dashboard/users/feature_flags views use. The diagnostic ``SM003``
+matches the resolved literal value, not the source-level expression, so a
+named constant is fine; ``test_settings_module.py`` cross-checks that the
+strings below match what ``pages/*.tsx`` declare.
 """
 
 from __future__ import annotations
@@ -32,6 +31,11 @@ from settings.contracts.schemas import SettingCreate, SettingUpdate
 from settings.deps import get_setting_service
 from settings.service import SettingService
 
+_PAGE_BROWSE = "Settings/Browse"
+_PAGE_CREATE = "Settings/Create"
+_PAGE_EDIT = "Settings/Edit"
+_PAGE_MODULES_EDIT = "Settings/ModulesEdit"
+
 _REDIRECT_SETTINGS = "/settings"
 
 router = APIRouter()
@@ -44,14 +48,14 @@ async def browse(
 ) -> InertiaResponse:
     items = await service.list_all()
     return await inertia.render(
-        "Settings/Browse",
+        _PAGE_BROWSE,
         {PROP_SETTINGS: [item.model_dump(mode="json") for item in items]},
     )
 
 
 @router.get(VIEW_CREATE_PATH, response_model=None)
 async def create_view(inertia: InertiaDep) -> InertiaResponse:
-    return await inertia.render("Settings/Create")
+    return await inertia.render(_PAGE_CREATE)
 
 
 @router.get(VIEW_EDIT_PATH, response_model=None)
@@ -62,8 +66,8 @@ async def edit_view(
 ) -> InertiaResponse:
     item = await service.get_by_id(setting_id)
     if item is None:
-        return await inertia.render("Settings/Browse", {PROP_ERROR: ERR_SETTING_NOT_FOUND})
-    return await inertia.render("Settings/Edit", {PROP_SETTING: item.model_dump(mode="json")})
+        return await inertia.render(_PAGE_BROWSE, {PROP_ERROR: ERR_SETTING_NOT_FOUND})
+    return await inertia.render(_PAGE_EDIT, {PROP_SETTING: item.model_dump(mode="json")})
 
 
 # ── Form actions (POST/PUT/DELETE → redirect) ─────────────────
@@ -115,6 +119,6 @@ async def modules_view(request: Request, inertia: InertiaDep) -> InertiaResponse
     """
     views = collect_module_settings(request.app)
     return await inertia.render(
-        "Settings/ModulesEdit",
+        _PAGE_MODULES_EDIT,
         {PROP_MODULES: serialize(views)},
     )

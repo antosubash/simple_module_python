@@ -137,20 +137,30 @@ def create_module(
     template_root: Path | None = None,
 ) -> Path:
     dest = Path(dest)
+    existed_before = dest.exists()
     _require_empty_dest(dest)
     display_name = to_pascal_case(name)
     slug = to_kebab_case(name)
     package_name = to_snake_case(name)
-    _apply_template_files(
-        _resolve_template_root("module", template_root),
-        dest,
-        substitutions={
-            "{{MODULE_NAME}}": display_name,
-            "{{MODULE_SLUG}}": slug,
-            "{{PACKAGE_NAME}}": package_name,
-            "{{PACKAGE_NAME_UPPER}}": package_name.upper(),
-        },
-        path_rewrites={_PACKAGE_PATH_TOKEN: package_name},
-    )
+    try:
+        _apply_template_files(
+            _resolve_template_root("module", template_root),
+            dest,
+            substitutions={
+                "{{MODULE_NAME}}": display_name,
+                "{{MODULE_SLUG}}": slug,
+                "{{PACKAGE_NAME}}": package_name,
+                "{{PACKAGE_NAME_UPPER}}": package_name.upper(),
+            },
+            path_rewrites={_PACKAGE_PATH_TOKEN: package_name},
+        )
+    except Exception:
+        # Rollback so a half-scaffolded directory doesn't leave the user
+        # with an unparseable Python package and the impression that a
+        # retry won't work because ``dest`` is now non-empty. We only
+        # nuke the directory we created — never one we found pre-existing.
+        if not existed_before and dest.is_dir():
+            shutil.rmtree(dest, ignore_errors=True)
+        raise
     logger.info("Scaffolded module '%s' at %s (package: %s)", display_name, dest, package_name)
     return dest

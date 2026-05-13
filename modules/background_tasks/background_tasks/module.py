@@ -13,6 +13,7 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 
 from background_tasks.constants import (
+    _MODULE_USERS,
     API_PREFIX,
     MENU_ICON,
     MENU_LABEL,
@@ -39,7 +40,7 @@ class BackgroundTasksModule(ModuleBase):
         name=MODULE_DISPLAY_NAME,
         route_prefix=API_PREFIX,
         view_prefix=VIEW_PREFIX,
-        depends_on=["Users"],
+        depends_on=[_MODULE_USERS],
     )
 
     def register_settings(self, app: FastAPI) -> None:

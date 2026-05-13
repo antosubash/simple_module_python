@@ -11,6 +11,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import ValidationError
+from simple_module_hosting.permissions import RequiresPermission
 
 from settings._module_settings import (
     SECRET_MASK,
@@ -18,7 +19,7 @@ from settings._module_settings import (
     is_secret_field,
     serialize,
 )
-from settings.constants import MODULE_PACKAGE
+from settings.constants import MODULE_PACKAGE, PERM_DELETE, PERM_EDIT, PERM_VIEW
 from settings.contracts.events import SettingsReloaded
 from settings.deps import get_setting_service
 from settings.hydrate import hydrate_settings
@@ -27,6 +28,13 @@ from settings.service import SettingService
 from settings.store import SettingsStore
 
 router = APIRouter(prefix="/modules", tags=["Settings Modules"])
+
+# Per-module settings UI exposes raw secret values (mailer password, JWT
+# signing keys, etc.) — every endpoint here is gated on the same permissions
+# the scoped API uses so a non-admin can't read or mutate module config.
+_VIEW = [Depends(RequiresPermission(PERM_VIEW))]
+_EDIT = [Depends(RequiresPermission(PERM_EDIT))]
+_DELETE = [Depends(RequiresPermission(PERM_DELETE))]
 
 
 def _strip_mask_sentinels(changes: dict[str, Any]) -> dict[str, Any]:
@@ -38,13 +46,13 @@ def _strip_mask_sentinels(changes: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@router.get("")
+@router.get("", dependencies=_VIEW)
 async def list_modules(request: Request) -> dict[str, Any]:
     views = collect_module_settings(request.app)
     return {"modules": serialize(views)}
 
 
-@router.put("/{package}")
+@router.put("/{package}", dependencies=_EDIT)
 async def update_module(
     package: str,
     changes: dict[str, Any],
@@ -75,7 +83,7 @@ async def update_module(
     return {"ok": True, "changed": sorted(cleaned)}
 
 
-@router.delete("/{package}/{field}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{package}/{field}", status_code=status.HTTP_204_NO_CONTENT, dependencies=_DELETE)
 async def clear_module_field(
     package: str,
     field: str,

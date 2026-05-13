@@ -16,6 +16,9 @@ MODULE_DISPLAY_NAME = "BackgroundTasks"
 TABLE_PREFIX = "background_tasks_"
 TABLE_TASK_EXECUTION = f"{TABLE_PREFIX}task_execution"
 
+# ── Module dependencies ─────────────────────────────────────────
+_MODULE_USERS = "Users"
+
 # ── Env / settings ──────────────────────────────────────────────
 ENV_PREFIX = "SM_BG_TASKS_"
 

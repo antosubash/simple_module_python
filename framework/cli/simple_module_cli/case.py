@@ -24,6 +24,11 @@ def to_snake_case(name: str) -> str:
     s = re.sub(r"[\s\-]+", "_", name)
     s = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", s)
     s = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s)
+    # Collapse runs of underscores that the boundary regexes can introduce
+    # when the input already contained a separator (e.g. ``My Feature`` →
+    # ``My_Feature`` → ``My__Feature``). Without this the PyPI slug emits a
+    # double hyphen.
+    s = re.sub(r"_+", "_", s)
     return s.lower()
 
 
