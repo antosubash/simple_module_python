@@ -236,6 +236,7 @@ def test_sm_new_default_lays_down_workspace_layout(tmp_path: Path) -> None:
         assert (target / "host" / relpath).is_file(), f"missing host file: {relpath}"
     for relpath in (".env.example", "README.md", ".gitignore", "Makefile"):
         assert not (target / "host" / relpath).exists()
+    assert not (target / "modules" / "hello" / ".github").exists()
 
 
 def test_sm_new_default_wires_workspace_in_pyproject(tmp_path: Path) -> None:

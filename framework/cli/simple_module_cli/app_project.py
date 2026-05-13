@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json as _json
 import secrets as _secrets
+import shutil as _shutil
 from collections.abc import Sequence
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
@@ -181,6 +182,9 @@ def _scaffold_sample_module(target: Path) -> None:
     if sample_dest.exists():
         return
     create_module(sample_dest, name=_SAMPLE_MODULE_NAME)
+    # GitHub only reads workflows from the repo root, so the template's
+    # .github/ is dead inside a workspace.
+    _shutil.rmtree(sample_dest / ".github")
     _pin_sample_module_deps(sample_dest)
     _seed_static_dist_placeholder(sample_dest / _SAMPLE_MODULE_NAME / "static" / "dist")
 
