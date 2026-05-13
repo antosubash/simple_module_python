@@ -217,19 +217,6 @@ def test_sm_new_default_scaffolds_sample_hello_module(tmp_path: Path) -> None:
     assert (target / "modules" / "hello" / "hello" / "module.py").is_file()
 
 
-def test_sm_new_strips_sample_module_github_workflows(tmp_path: Path) -> None:
-    """The bundled sample module must not ship .github/workflows/ — GitHub only
-    reads workflows from the repo root, so leaving them under modules/hello/
-    creates files that look active but never run."""
-    runner = CliRunner()
-    target = tmp_path / "demo"
-    runner.invoke(
-        app,
-        ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
-    )
-    assert not (target / "modules" / "hello" / ".github").exists()
-
-
 def test_sm_new_default_lays_down_workspace_layout(tmp_path: Path) -> None:
     runner = CliRunner()
     target = tmp_path / "demo"
@@ -249,6 +236,7 @@ def test_sm_new_default_lays_down_workspace_layout(tmp_path: Path) -> None:
         assert (target / "host" / relpath).is_file(), f"missing host file: {relpath}"
     for relpath in (".env.example", "README.md", ".gitignore", "Makefile"):
         assert not (target / "host" / relpath).exists()
+    assert not (target / "modules" / "hello" / ".github").exists()
 
 
 def test_sm_new_default_wires_workspace_in_pyproject(tmp_path: Path) -> None:
