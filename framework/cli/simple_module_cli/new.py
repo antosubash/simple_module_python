@@ -111,7 +111,7 @@ def new_project(
             raise typer.Exit(code=1) from None
 
     try:
-        host_dir = create_app_project(
+        host_dir, preserved = create_app_project(
             target,
             name=name,
             db=db_final,
@@ -125,6 +125,14 @@ def new_project(
 
     typer.echo(f"Created app '{name}' at {target}")
     typer.echo(f"Modules: {', '.join(resolved)}")
+    if preserved:
+        typer.echo(
+            "\nPreserved existing files (scaffold's versions were skipped — "
+            "merge by hand if you want their contents):"
+        )
+        for path in preserved:
+            rel = path.relative_to(target) if path.is_relative_to(target) else path
+            typer.echo(f"  {rel}")
     typer.echo("\nNext steps:")
     typer.echo(f"  cd {target}")
     if no_install:
