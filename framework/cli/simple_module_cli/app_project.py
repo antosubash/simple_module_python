@@ -56,7 +56,14 @@ def _resolve_framework_version() -> str:
 
 _FRAMEWORK_VERSION = _resolve_framework_version()
 
-_APP_PY_DEV_DEPS = [f"simple_module_test=={_FRAMEWORK_VERSION}", "pytest>=8.0"]
+# Pin ``simple_module_cli`` as a dev dep so ``uv run smpy`` resolves to the
+# project venv. The global ``uv tool`` install runs in its own isolated venv
+# that can't see the project's plugin entry points (issue #134).
+_APP_PY_DEV_DEPS = [
+    f"simple_module_test=={_FRAMEWORK_VERSION}",
+    f"simple_module_cli=={_FRAMEWORK_VERSION}",
+    "pytest>=8.0",
+]
 
 _APP_NPM_DEPS = {
     "@simple-module-py/ui": _FRAMEWORK_VERSION,
