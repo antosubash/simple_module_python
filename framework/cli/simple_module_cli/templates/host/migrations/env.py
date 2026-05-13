@@ -11,7 +11,12 @@ import logging
 from logging.config import fileConfig
 
 from alembic import context
-from simple_module_db import build_module_metadata, make_include_object, render_item
+from simple_module_db import (
+    build_module_metadata,
+    make_include_object,
+    make_process_revision_directives,
+    render_item,
+)
 from simple_module_hosting.settings import Settings
 from sqlalchemy import engine_from_config, pool
 
@@ -24,6 +29,9 @@ if config.config_file_name is not None:
 
 target_metadata = build_module_metadata()
 include_object = make_include_object(target_metadata)
+# Re-emit expression-based indexes (e.g. ``lower(email)``) that autogenerate
+# silently drops under SQLite. See ``make_process_revision_directives`` docstring.
+process_revision_directives = make_process_revision_directives(target_metadata)
 
 
 def _get_url() -> str:
@@ -45,6 +53,7 @@ def run_migrations_offline() -> None:
         dialect_opts={"paramstyle": "named"},
         include_object=include_object,
         render_item=render_item,
+        process_revision_directives=process_revision_directives,
     )
 
     with context.begin_transaction():
@@ -68,6 +77,7 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
             include_object=include_object,
             render_item=render_item,
+            process_revision_directives=process_revision_directives,
         )
 
         with context.begin_transaction():

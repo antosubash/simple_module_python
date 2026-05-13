@@ -21,9 +21,10 @@ from enum import StrEnum
 from typing import Literal
 
 import sqlalchemy as sa
+from alembic.operations.ops import CreateIndexOp, CreateTableOp, DropIndexOp, DropTableOp
 from simple_module_core import ModuleBase
 from simple_module_core.discovery import discover_modules, get_module_package_name
-from sqlalchemy import MetaData
+from sqlalchemy import Column, Index, MetaData
 from sqlalchemy.schema import SchemaItem
 
 from simple_module_db.base import all_module_bases
@@ -36,6 +37,7 @@ _SchemaItemType = Literal[
     "schema", "table", "column", "index", "unique_constraint", "foreign_key_constraint"
 ]
 IncludeObjectFn = Callable[[SchemaItem, str | None, _SchemaItemType, bool, SchemaItem | None], bool]
+ProcessRevisionDirectivesFn = Callable[[object, object, list], None]
 
 
 def build_module_metadata(modules: Sequence[ModuleBase] | None = None) -> MetaData:
@@ -108,6 +110,97 @@ def make_include_object(
         return True
 
     return include_object
+
+
+def make_process_revision_directives(
+    metadata: MetaData,
+) -> ProcessRevisionDirectivesFn:
+    """Return an Alembic ``process_revision_directives`` hook that re-adds
+    expression-based indexes silently dropped by autogenerate.
+
+    SQLAlchemy 2.0 can't reflect expression-based indexes (functional indexes
+    like ``CREATE INDEX ... ON t (lower(email))``) under the SQLite dialect.
+    Autogenerate guards against false-positive diffs there by *skipping* the
+    index entirely — which is correct for an "existing table, can't tell if
+    the index already exists" diff, but disastrous on initial CREATE TABLE:
+    SQLite dev DBs end up without an index that production Postgres has.
+
+    This hook walks each generated ``MigrationScript`` and, for every
+    ``CreateTableOp`` whose target table has expression-based indexes in the
+    metadata, appends a matching ``CreateIndexOp``. The reverse ``DropIndexOp``
+    is inserted into ``downgrade_ops`` before the table drop for symmetry —
+    not strictly required (dropping the table drops the index) but it keeps
+    autogen output readable.
+
+    Call as::
+
+        context.configure(
+            ...,
+            process_revision_directives=make_process_revision_directives(target_metadata),
+        )
+    """
+    expression_indexes: dict[str, list[Index]] = {}
+    for table in metadata.tables.values():
+        for index in table.indexes:
+            if _index_is_expression_based(index):
+                expression_indexes.setdefault(table.name, []).append(index)
+
+    def process_revision_directives(context, revision, directives):
+        if not expression_indexes:
+            return
+        for script in directives:
+            upgrade_ops = getattr(script, "upgrade_ops", None)
+            if upgrade_ops is not None:
+                _inject_create_index_after_create_table(upgrade_ops, expression_indexes)
+            downgrade_ops = getattr(script, "downgrade_ops", None)
+            if downgrade_ops is not None:
+                _inject_drop_index_before_drop_table(downgrade_ops, expression_indexes)
+
+    return process_revision_directives
+
+
+def _index_is_expression_based(index: Index) -> bool:
+    """An index is expression-based when any of its expressions is not a plain ``Column``."""
+    return any(not isinstance(expr, Column) for expr in index.expressions)
+
+
+def _inject_create_index_after_create_table(upgrade_ops, expression_indexes) -> None:
+    existing_index_names = {
+        getattr(op, "index_name", None) for op in upgrade_ops.ops if isinstance(op, CreateIndexOp)
+    }
+    new_ops: list = []
+    for op in upgrade_ops.ops:
+        new_ops.append(op)
+        if not isinstance(op, CreateTableOp):
+            continue
+        for index in expression_indexes.get(op.table_name, []):
+            if index.name in existing_index_names:
+                continue
+            new_ops.append(CreateIndexOp.from_index(index))
+            existing_index_names.add(index.name)
+            logger.info(
+                "Re-emitting expression-based index %r on %r — autogenerate "
+                "skipped it (dialect can't reflect functional indexes).",
+                index.name,
+                op.table_name,
+            )
+    upgrade_ops.ops = new_ops
+
+
+def _inject_drop_index_before_drop_table(downgrade_ops, expression_indexes) -> None:
+    existing_drop_names = {
+        getattr(op, "index_name", None) for op in downgrade_ops.ops if isinstance(op, DropIndexOp)
+    }
+    new_ops: list = []
+    for op in downgrade_ops.ops:
+        if isinstance(op, DropTableOp):
+            for index in expression_indexes.get(op.table_name, []):
+                if index.name in existing_drop_names:
+                    continue
+                new_ops.append(DropIndexOp(index.name, table_name=op.table_name))
+                existing_drop_names.add(index.name)
+        new_ops.append(op)
+    downgrade_ops.ops = new_ops
 
 
 def render_item(type_, obj, autogen_context):
