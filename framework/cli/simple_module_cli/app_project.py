@@ -182,11 +182,9 @@ def _scaffold_sample_module(target: Path) -> None:
     if sample_dest.exists():
         return
     create_module(sample_dest, name=_SAMPLE_MODULE_NAME)
-    # The module template ships .github/workflows/ for standalone-repo use
-    # (`smpy create-module`); inside a workspace GitHub only reads workflows
-    # from the repo root, so these files are dead — drop them to avoid
-    # confusing authors who think they'd ever run.
-    _shutil.rmtree(sample_dest / ".github", ignore_errors=True)
+    # GitHub only reads workflows from the repo root, so the template's
+    # .github/ is dead inside a workspace.
+    _shutil.rmtree(sample_dest / ".github")
     _pin_sample_module_deps(sample_dest)
     _seed_static_dist_placeholder(sample_dest / _SAMPLE_MODULE_NAME / "static" / "dist")
 
