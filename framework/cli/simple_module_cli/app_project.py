@@ -27,6 +27,7 @@ from simple_module_cli.case import to_kebab_case, to_pascal_case
 from simple_module_cli.catalog import CATALOG, PRESETS, expand_deps
 from simple_module_cli.recipes import RECIPES, ScaffoldCtx
 from simple_module_cli.scaffolding import (
+    SAFE_PRESERVED_NAMES,
     _module_to_pypi_name,
     create_host,
     create_module,
@@ -97,35 +98,39 @@ def create_app_project(
     tenancy: bool = False,
     selected: Sequence[str] | None = None,
     flat: bool = False,
-) -> None:
+) -> tuple[Path, list[Path]]:
     """Greenfield ``simple-module new`` scaffold.
 
-    In workspace mode (the default), lays down a uv + npm workspace at
-    ``target/`` with the host under ``target/host/`` and a sample module
-    under ``target/modules/hello/``. In flat mode (``flat=True``), keeps
-    the legacy single-host layout: host files at ``target/`` with no
-    ``modules/`` directory or workspace plumbing.
+    Workspace mode (default) lays down a uv + npm workspace at ``target/``
+    with the host under ``target/host/`` and a sample module under
+    ``target/modules/hello/``. Flat mode keeps the legacy single-host layout.
+    Tolerates ``SAFE_PRESERVED_NAMES`` at ``target`` (leftovers from
+    ``git init`` / ``gh repo create`` / IDE setup); other pre-existing
+    entries raise ``FileExistsError``.
 
-    Generates a secret, picks a DB URL, rewrites the host's
-    ``pyproject.toml`` / the relevant ``package.json`` to pin exact
-    framework versions, and applies any matching post-scaffold recipes
-    (e.g. the ``background_tasks`` recipe drops a Celery worker stack).
+    Returns ``(host_dir, preserved)`` — the host directory (``target`` in
+    flat mode, ``target/host`` in workspace mode) and the paths whose
+    scaffold copy was skipped because the user already had one.
     """
-    if target.exists() and any(target.iterdir()):
-        raise FileExistsError(
-            f"Destination {target} already exists and is non-empty; "
-            "choose a new path or remove its contents first."
-        )
-
     chosen = list(selected) if selected is not None else list(PRESETS["standard"])
     resolved, _added = expand_deps(chosen)
 
     display_names = [to_pascal_case(CATALOG[m].display) for m in resolved]
     host_dir = target if flat else target / "host"
+    preserved: list[Path] = []
     if not flat:
-        target.mkdir(parents=True, exist_ok=True)
-        create_workspace(target, name=name)
-    create_host(host_dir, name=name, modules=display_names, framework_version=_FRAMEWORK_VERSION)
+        preserved.extend(
+            create_workspace(target, name=name, preserve_existing=SAFE_PRESERVED_NAMES)
+        )
+    preserved.extend(
+        create_host(
+            host_dir,
+            name=name,
+            modules=display_names,
+            framework_version=_FRAMEWORK_VERSION,
+            preserve_existing=SAFE_PRESERVED_NAMES if flat else frozenset(),
+        )
+    )
     if not flat:
         _strip_workspace_owned_files(host_dir)
 
@@ -176,6 +181,8 @@ def create_app_project(
         recipe_key = CATALOG[mod_name].recipe
         if recipe_key is not None and recipe_key in RECIPES:
             RECIPES[recipe_key].apply(target, ctx)
+
+    return host_dir, preserved
 
 
 def _strip_workspace_owned_files(host_dir: Path) -> None:

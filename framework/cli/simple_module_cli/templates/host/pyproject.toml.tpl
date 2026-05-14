@@ -1,5 +1,5 @@
 [project]
-name = "{{HOST_NAME}}"
+name = "{{HOST_PYPI_NAME}}"
 version = "0.1.0"
 description = "SimpleModule host application"
 requires-python = ">=3.12"

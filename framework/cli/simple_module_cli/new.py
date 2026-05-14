@@ -11,10 +11,13 @@ from typing import Annotated
 import typer
 
 from simple_module_cli.app_project import create_app_project
+from simple_module_cli.case import InvalidScaffoldNameError, to_kebab_case, validate_scaffold_name
 from simple_module_cli.catalog import PRESETS, expand_deps
 from simple_module_cli.wizard import run_wizard
 
 __all__ = ["new_project"]
+
+_ALEMBIC = ("uv", "run", "alembic")
 
 
 class Db(StrEnum):
@@ -61,7 +64,7 @@ def new_project(
         bool,
         typer.Option(
             "--no-install",
-            help="Skip 'uv sync' / 'npm install' / 'alembic upgrade head' after scaffolding.",
+            help=("Skip 'uv sync' / 'npm install' / initial alembic migration after scaffolding."),
         ),
     ] = False,
     flat: Annotated[
@@ -76,6 +79,14 @@ def new_project(
     ] = False,
 ) -> None:
     """Scaffold a new SimpleModule app, optionally with background jobs."""
+    try:
+        validate_scaffold_name(name)
+    except InvalidScaffoldNameError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    pypi_name = to_kebab_case(name)
+    if pypi_name != name:
+        typer.echo(f"Normalizing PyPI name to {pypi_name!r}.")
     target = dest or Path.cwd() / name
     extra_list = [m.strip() for m in extra.split(",") if m.strip()]
     flag_driven = preset is not None or bool(extra_list)
@@ -100,7 +111,7 @@ def new_project(
             raise typer.Exit(code=1) from None
 
     try:
-        create_app_project(
+        host_dir, preserved = create_app_project(
             target,
             name=name,
             db=db_final,
@@ -114,12 +125,21 @@ def new_project(
 
     typer.echo(f"Created app '{name}' at {target}")
     typer.echo(f"Modules: {', '.join(resolved)}")
+    if preserved:
+        typer.echo(
+            "\nPreserved existing files (scaffold's versions were skipped — "
+            "merge by hand if you want their contents):"
+        )
+        for path in preserved:
+            rel = path.relative_to(target) if path.is_relative_to(target) else path
+            typer.echo(f"  {rel}")
     typer.echo("\nNext steps:")
     typer.echo(f"  cd {target}")
     if no_install:
         typer.echo("  uv sync")
         typer.echo("  npm install")
-        typer.echo("  alembic upgrade head")
+        typer.echo('  make migration msg="initial schema"')
+        typer.echo("  make migrate")
         typer.echo("  make dev")
         if "background_tasks" in resolved:
             typer.echo("  docker compose up -d redis worker beat   # background jobs")
@@ -143,7 +163,24 @@ def new_project(
             )
             return
 
-    subprocess.run(["uv", "run", "alembic", "upgrade", "head"], cwd=target, check=False)
+    _bootstrap_initial_migration(host_dir)
+    subprocess.run([*_ALEMBIC, "upgrade", "head"], cwd=host_dir, check=False)
     typer.echo("\nSetup complete. Run `make dev` in the new directory.")
     if "background_tasks" in resolved:
         typer.echo("For background jobs, also run: docker compose up -d redis worker beat")
+
+
+def _bootstrap_initial_migration(host_dir: Path) -> None:
+    """Autogenerate the baseline migration if the scaffold ships none.
+
+    Without a real revision, ``alembic upgrade head`` is a silent no-op
+    against an empty schema — the bundled modules' tables never exist.
+    """
+    versions_dir = host_dir / "migrations" / "versions"
+    if any(p.name != "__init__.py" for p in versions_dir.glob("*.py")):
+        return
+    subprocess.run(
+        [*_ALEMBIC, "revision", "--autogenerate", "-m", "initial schema"],
+        cwd=host_dir,
+        check=False,
+    )
