@@ -51,12 +51,14 @@ async def test_on_startup_swallows_store_failure_and_keeps_registry_defaults(mon
         db=SimpleNamespace(session_factory=lambda: _SessionCM()),
     )
 
-    # Force FeatureFlagService(...) -> _BoomService so hydrate fails.
+    # ``on_startup`` does ``from feature_flags.service import FeatureFlagService``
+    # *inside* the method body — patching ``feature_flags.module.FeatureFlagService``
+    # would be a no-op since the name is never bound there. Patch the source
+    # module so the deferred import resolves to ``_BoomService``.
     import feature_flags.module as ff_module
+    import feature_flags.service as ff_service
 
-    monkeypatch.setattr(
-        ff_module, "FeatureFlagService", lambda *a, **kw: _BoomService(), raising=False
-    )
+    monkeypatch.setattr(ff_service, "FeatureFlagService", lambda *a, **kw: _BoomService())
 
     module = FeatureFlagsModule()
     with caplog.at_level(logging.WARNING, logger=ff_module.__name__):

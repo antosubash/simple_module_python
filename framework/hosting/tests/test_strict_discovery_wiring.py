@@ -14,7 +14,7 @@ entry-point stubbing pattern) rather than redeclaring the same shim here.
 from __future__ import annotations
 
 import contextlib
-import sys
+import importlib.util
 from pathlib import Path
 
 import pytest
@@ -22,16 +22,25 @@ from simple_module_core.exceptions import InvalidModuleError
 from simple_module_hosting.app_builder import create_app
 from simple_module_hosting.settings import Settings
 
-# ``framework/core/tests/test_discovery.py`` already provides the
-# ``_FakeEntryPoint`` shim and the ``_patch_entry_points`` helper. They're not
-# packaged (no ``__init__.py``), so we side-load the module by path.
-_CORE_TESTS = Path(__file__).resolve().parents[2] / "core" / "tests"
-sys.path.insert(0, str(_CORE_TESTS))
-from test_discovery import (  # noqa: E402  # ty: ignore[unresolved-import]
-    _boom_loader,
-    _FakeEntryPoint,
-    _patch_entry_points,
-)
+
+def _load_discovery_helpers():
+    """Side-load ``framework/core/tests/test_discovery.py`` without mutating ``sys.path``.
+
+    The core-tests directory isn't a package (no ``__init__.py``), and adding
+    it to ``sys.path`` would expose every ``test_*`` module in there as a
+    top-level import for the rest of the session — risking name collisions.
+    ``spec_from_file_location`` loads just the one file we need into a
+    private namespace.
+    """
+    discovery_path = Path(__file__).resolve().parents[2] / "core" / "tests" / "test_discovery.py"
+    spec = importlib.util.spec_from_file_location("_core_test_discovery_helpers", discovery_path)
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod._FakeEntryPoint, mod._boom_loader, mod._patch_entry_points
+
+
+_FakeEntryPoint, _boom_loader, _patch_entry_points = _load_discovery_helpers()
 
 
 class _NotAModule:

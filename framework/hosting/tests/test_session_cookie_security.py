@@ -32,13 +32,19 @@ def _set_cookie_for(name: str, response: httpx.Response) -> str:
 async def test_session_cookie_is_samesite_lax_and_httponly(client) -> None:
     """Any response that creates the session cookie must mark it Lax + HttpOnly.
 
-    A GET ``/`` reliably trips ``SessionMiddleware.save()`` because every
-    request flows through the middleware stack regardless of route handler.
+    An unauthenticated request to a protected page (``/dashboard/``)
+    deterministically writes to the session: ``AuthMiddleware`` stores the
+    intended target in ``session["next"]`` before redirecting to the login
+    page. That guarantees ``SessionMiddleware.save()`` emits a Set-Cookie
+    header regardless of how other middleware happens to touch the session.
     """
-    resp = await client.get("/")
+    resp = await client.get("/dashboard/", follow_redirects=False)
     raw = _set_cookie_for("session", resp)
 
-    assert raw, "GET / didn't set the session cookie — has SessionMiddleware been removed?"
+    assert raw, (
+        "Protected route didn't set the session cookie — has SessionMiddleware "
+        "or AuthMiddleware been removed from the pipeline?"
+    )
     lowered = raw.lower()
     assert "samesite=lax" in lowered, (
         f"Session cookie missing SameSite=Lax — CSRF defence weakened. Raw: {raw!r}"

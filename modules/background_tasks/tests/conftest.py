@@ -33,18 +33,19 @@ def sync_sqlite(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Pat
     Shared between the signal-handler suite and the stuck-sweep suite; both
     exercise the sync DB code path that workers use, and need a clean engine
     per test so the process-global cache doesn't bleed across files.
+
+    Uses ``dispose_sync_engine`` for setup and teardown — it's the only sweep
+    that also clears ``_url_override``, so a prior call to
+    ``set_database_url(...)`` in some other test (or worker module startup)
+    can't shadow the ``SM_DATABASE_URL`` we set here.
     """
     db_file = tmp_path / "bg_tasks_sync.db"
     monkeypatch.setenv("SM_DATABASE_URL", f"sqlite:///{db_file}")
-    sync_db._engine = None
-    sync_db._session_factory = None
+    sync_db.dispose_sync_engine()
 
     factory = sync_db.get_sync_session_factory()
     TaskExecution.metadata.create_all(factory.kw["bind"])
 
     yield db_file
 
-    if sync_db._engine is not None:
-        sync_db._engine.dispose()
-    sync_db._engine = None
-    sync_db._session_factory = None
+    sync_db.dispose_sync_engine()
