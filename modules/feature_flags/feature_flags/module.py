@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.resources
+import logging
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
@@ -19,6 +20,8 @@ from feature_flags.constants import (
     PERM_FEATURE_FLAGS_MANAGE,
     PERM_FEATURE_FLAGS_VIEW,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 class FeatureFlagsModule(ModuleBase):
@@ -74,15 +77,12 @@ class FeatureFlagsModule(ModuleBase):
         conservative choice — admins can re-toggle overrides once the
         store is healthy again.
         """
-        import logging
-
         from feature_flags.service import FeatureFlagService
 
-        logger = logging.getLogger(__name__)
         sm = app.state.sm
         try:
             async with sm.db.session_factory() as session:
                 service = FeatureFlagService(session)
                 await service.hydrate_registry(sm.feature_flags)
         except Exception:
-            logger.exception("feature_flags.hydrate_failed — continuing with registry defaults")
+            _logger.exception("feature_flags.hydrate_failed — continuing with registry defaults")

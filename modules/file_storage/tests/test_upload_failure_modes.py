@@ -1,13 +1,13 @@
 """Upload-time failure-mode coverage beyond the happy path.
 
-The existing ``test_service.py`` covers the DB-fail-after-backend-write
-compensation. The audit flagged additional scenarios:
+``test_service.py`` covers the DB-fail-after-backend-write compensation.
+This file extends that to:
 
 * Backend ``put`` raising (disk full / S3 timeout) — no DB row must be left.
 * Compensation ``delete`` itself failing — the original error must still
   surface; we shouldn't swallow it in favour of the cleanup exception.
 
-Both manifest in production as orphan rows or silent data loss; pin them.
+Both manifest in production as orphan rows or silent data loss.
 """
 
 from __future__ import annotations
@@ -29,10 +29,11 @@ def _upload(name: str, data: bytes, content_type: str = "application/octet-strea
     return UploadFile(filename=name, file=BytesIO(data), headers={"content-type": content_type})  # type: ignore[arg-type]
 
 
-def _settings(tmp_path) -> FileStorageSettings:
+def _settings(tmp_path, **overrides) -> FileStorageSettings:
     return FileStorageSettings(
         backend=constants.BackendId.FILESYSTEM,
         fs_root_path=str(tmp_path),
+        **overrides,
     )
 
 
@@ -99,13 +100,12 @@ async def test_compensation_delete_failure_does_not_mask_original_error(
 
     monkeypatch.setattr(db_session, "flush", boom_then_real)
 
-    # The current implementation re-raises *whatever* propagated last from
-    # the except branch — depending on Python version that's either the
-    # original RuntimeError (the `raise` after the cleanup block) or the
-    # OSError (if cleanup raises during compensation). Both are
-    # tolerable; the regression we're guarding against is "succeeds
-    # silently and returns garbage."
-    with pytest.raises((RuntimeError, OSError)):
+    # The service uses ``except: backend.delete(...); raise`` — Python's
+    # ``raise`` without an argument re-raises the original RuntimeError, even
+    # if ``backend.delete`` raised inside the except clause (that becomes the
+    # exception's ``__context__``). The caller-facing error must therefore be
+    # the trigger, not the cleanup failure.
+    with pytest.raises(RuntimeError, match="DB write failure"):
         await svc.upload(_upload("doomed.bin", b"x"))
 
 
@@ -115,11 +115,7 @@ async def test_oversize_upload_does_not_create_db_row(tmp_path, db_session: Asyn
     svc = FileStorageService(
         db_session,
         FilesystemBackend(root=tmp_path),
-        FileStorageSettings(
-            backend=constants.BackendId.FILESYSTEM,
-            fs_root_path=str(tmp_path),
-            max_file_size_bytes=4,
-        ),
+        _settings(tmp_path, max_file_size_bytes=4),
     )
 
     from file_storage.service import FileTooLargeError

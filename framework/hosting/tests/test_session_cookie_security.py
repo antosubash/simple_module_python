@@ -1,9 +1,9 @@
 """SameSite/HttpOnly invariants for the framework's session cookie.
 
 CLAUDE.md treats SameSite=Lax as the CSRF defence — there is no explicit
-token middleware. If a future Starlette upgrade or a renamed parameter
-silently switched the default to ``None`` (used to be the case on older
-versions), CSRF protection would evaporate without any test catching it.
+token middleware. If a future Starlette upgrade silently switched the
+default to ``None`` (used to be the case on older versions), CSRF
+protection would evaporate without any test catching it.
 
 The session cookie is also Set-Cookie'd with HttpOnly so a successful XSS
 can't directly exfiltrate the user_id+user_ctx blob.
@@ -32,26 +32,13 @@ def _set_cookie_for(name: str, response: httpx.Response) -> str:
 async def test_session_cookie_is_samesite_lax_and_httponly(client) -> None:
     """Any response that creates the session cookie must mark it Lax + HttpOnly.
 
-    We POST to a public endpoint (the login form) — it always sets the
-    session cookie even on failed auth because Starlette's SessionMiddleware
-    persists ``request.session`` regardless of body. The cookie's attributes
-    are what we assert; the response status code is incidental.
+    A GET ``/`` reliably trips ``SessionMiddleware.save()`` because every
+    request flows through the middleware stack regardless of route handler.
     """
-    resp = await client.post(
-        "/api/users/auth/login",
-        data={"username": "nobody@example.com", "password": "wrong"},
-    )
+    resp = await client.get("/")
     raw = _set_cookie_for("session", resp)
-    # No cookie was set — try the GET-root path which goes through every
-    # middleware and reliably trips SessionMiddleware.save().
-    if not raw:
-        resp = await client.get("/")
-        raw = _set_cookie_for("session", resp)
 
-    assert raw, (
-        "Session cookie was not set on either /api/users/auth/login or /. "
-        "Did SessionMiddleware get removed from the pipeline?"
-    )
+    assert raw, "GET / didn't set the session cookie — has SessionMiddleware been removed?"
     lowered = raw.lower()
     assert "samesite=lax" in lowered, (
         f"Session cookie missing SameSite=Lax — CSRF defence weakened. Raw: {raw!r}"

@@ -27,13 +27,16 @@ async def test_repeated_upserts_last_write_wins(db_session):
     """
     store = SettingsStore(SettingService(db_session))
 
-    for i in range(100):
+    # The insert-vs-update branch stabilises after 2 iterations — a handful
+    # is plenty to exercise the branch repeatedly without paying for 100
+    # synchronous aiosqlite commits per test run.
+    for i in range(5):
         await store.set_override("users", "base_url", f"value_{i}", "string")
         await db_session.commit()
 
     overrides = await store.get_overrides("users")
     raw_value, value_type = overrides["base_url"]
-    assert raw_value == "value_99"
+    assert raw_value == "value_4"
     assert value_type == "string"
 
 

@@ -6,46 +6,36 @@ nothing pins the wiring — a regression that hard-coded ``strict=False`` would
 silently restore the old "drop a broken module and keep booting" behaviour in
 production, which is exactly what CLAUDE.md says must not happen.
 
-This test stubs ``entry_points`` for the lifetime of the call so we don't have
-to install a deliberately-broken plugin.
+Reuses the ``_FakeEntryPoint`` and ``_patch_entry_points`` helpers from
+``framework/core/tests/test_discovery.py`` (the canonical location for the
+entry-point stubbing pattern) rather than redeclaring the same shim here.
 """
 
 from __future__ import annotations
 
 import contextlib
+import sys
+from pathlib import Path
 
 import pytest
 from simple_module_core.exceptions import InvalidModuleError
 from simple_module_hosting.app_builder import create_app
 from simple_module_hosting.settings import Settings
 
-
-class _BoomEntryPoint:
-    """Entry point whose ``.load()`` raises — simulates a corrupt wheel."""
-
-    name = "boom"
-
-    @staticmethod
-    def load():  # pragma: no cover - body intentionally fails
-        raise ImportError("simulated broken plugin")
+# ``framework/core/tests/test_discovery.py`` already provides the
+# ``_FakeEntryPoint`` shim and the ``_patch_entry_points`` helper. They're not
+# packaged (no ``__init__.py``), so we side-load the module by path.
+_CORE_TESTS = Path(__file__).resolve().parents[2] / "core" / "tests"
+sys.path.insert(0, str(_CORE_TESTS))
+from test_discovery import (  # noqa: E402  # ty: ignore[unresolved-import]
+    _boom_loader,
+    _FakeEntryPoint,
+    _patch_entry_points,
+)
 
 
 class _NotAModule:
     """A class returned by an entry point that isn't a ModuleBase subclass."""
-
-
-class _NotAModuleEP:
-    name = "notmod"
-
-    @staticmethod
-    def load():
-        return _NotAModule
-
-
-def _patch_eps(monkeypatch, eps):
-    import simple_module_core.discovery as discovery_mod
-
-    monkeypatch.setattr(discovery_mod, "entry_points", lambda group: eps)
 
 
 def _prod_settings() -> Settings:
@@ -59,14 +49,14 @@ def _prod_settings() -> Settings:
 
 def test_create_app_in_production_fails_on_broken_entrypoint(monkeypatch):
     """A failed entry-point load in production must abort ``create_app``."""
-    _patch_eps(monkeypatch, [_BoomEntryPoint()])
+    _patch_entry_points(monkeypatch, [_FakeEntryPoint("boom", _boom_loader)])
     with pytest.raises(InvalidModuleError, match="Failed to load"):
         create_app(_prod_settings())
 
 
 def test_create_app_in_production_fails_on_non_modulebase(monkeypatch):
     """Same contract for non-ModuleBase classes registered as entry points."""
-    _patch_eps(monkeypatch, [_NotAModuleEP()])
+    _patch_entry_points(monkeypatch, [_FakeEntryPoint("notmod", _NotAModule)])
     with pytest.raises(InvalidModuleError, match="not a ModuleBase"):
         create_app(_prod_settings())
 

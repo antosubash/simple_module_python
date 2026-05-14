@@ -4,15 +4,13 @@ If a Celery worker dies between ``task_prerun`` (RUNNING) and a terminal
 signal (SUCCESS/FAILED), the corresponding ``TaskExecution`` row stays in
 RUNNING forever — never retried, never surfaced. ``sweep_stuck_tasks`` is
 the beat-scheduled task that flips those rows to STUCK once their
-heartbeat goes stale. The audit found this had no unit test.
+heartbeat goes stale.
 """
 
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 import pytest
 from background_tasks import sync_db
@@ -22,24 +20,10 @@ from background_tasks.tasks import sweep_stuck_tasks
 from sqlalchemy import select
 
 
-@pytest.fixture
-def sync_sqlite(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
-    """Mirrors test_signals' fixture so the sync sweep task talks to SQLite."""
-    db_file = tmp_path / "sweep.db"
-    monkeypatch.setenv("SM_DATABASE_URL", f"sqlite:///{db_file}")
+@pytest.fixture(autouse=True)
+def _stuck_after_60s(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin the stuck-cutoff so the cutoff-vs-heartbeat assertions are deterministic."""
     monkeypatch.setenv("SM_BG_TASKS_STUCK_AFTER_SECONDS", "60")
-    sync_db._engine = None
-    sync_db._session_factory = None
-
-    factory = sync_db.get_sync_session_factory()
-    TaskExecution.metadata.create_all(factory.kw["bind"])
-
-    yield db_file
-
-    if sync_db._engine is not None:
-        sync_db._engine.dispose()
-    sync_db._engine = None
-    sync_db._session_factory = None
 
 
 def _make_row(*, status: TaskStatus, heartbeat_at: datetime) -> uuid.UUID:

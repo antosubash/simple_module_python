@@ -54,8 +54,13 @@ class _VersionedRow(_MixinsBase, VersionedMixin, table=True):  # type: ignore[ca
 
 
 class _AllRow(
-    _MixinsBase, MultiTenantMixin, AuditMixin, SoftDeleteMixin, VersionedMixin, table=True
-):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+    _MixinsBase,  # ty: ignore[unsupported-base]
+    MultiTenantMixin,
+    AuditMixin,
+    SoftDeleteMixin,
+    VersionedMixin,
+    table=True,
+):  # type: ignore[call-arg]
     """Composite: confirms every listener stays compatible when stacked."""
 
     __tablename__ = "mixins_test_all_row"

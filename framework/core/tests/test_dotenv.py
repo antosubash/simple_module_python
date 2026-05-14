@@ -3,7 +3,6 @@
 ``parse_dotenv`` is invoked by the diagnostics CLI, the users-module
 bootstrap, and every worker entrypoint before settings construction — a bug
 here is hard to debug because it manifests as "the setting just isn't there".
-The audit found it had zero tests; this file pins the contract.
 """
 
 from __future__ import annotations

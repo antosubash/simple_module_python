@@ -2,8 +2,8 @@
 
 Every endpoint guarded by ``RequiresPermission(...)`` must answer 403 when the
 caller is authenticated but not an admin. The decorator presence alone isn't
-enough — the audit found the rejection was never asserted end-to-end. Even one
-missing ``Depends(...)`` would leak admin-only data to ordinary users.
+enough — even one missing ``Depends(...)`` would leak admin-only data to
+ordinary users.
 
 The matrix below is exhaustive across the modules that ship with the framework
 (users, permissions, settings, feature_flags, background_tasks, file_storage).
