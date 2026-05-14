@@ -21,14 +21,34 @@ import shutil
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from simple_module_cli.case import to_kebab_case, to_pascal_case, to_snake_case
+from simple_module_cli.case import (
+    to_kebab_case,
+    to_pascal_case,
+    to_snake_case,
+    validate_scaffold_name,
+)
 
-__all__ = ["create_host", "create_module", "create_workspace"]
+__all__ = [
+    "SAFE_PRESERVED_NAMES",
+    "create_host",
+    "create_module",
+    "create_workspace",
+]
 
 logger = logging.getLogger(__name__)
 
 _TEMPLATES_PACKAGE = "simple_module_cli.templates"
 _PACKAGE_PATH_TOKEN = "__PACKAGE__"
+
+# Pre-existing entries we tolerate at a scaffold target — typical leftovers
+# from ``git init`` / ``gh repo create`` / IDE setup.
+SAFE_PRESERVED_NAMES = frozenset(
+    {".git", ".gitignore", ".gitattributes", ".editorconfig", ".DS_Store"}
+    | {".claude", ".vscode", ".idea"}
+    | {"README", "README.md", "README.rst"}
+    | {"LICENSE", "LICENSE.md", "LICENSE.txt", "COPYING"}
+    | {"CHANGELOG.md", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md"}
+)
 
 
 def _module_to_pypi_name(name: str) -> str:
@@ -45,12 +65,21 @@ def _iter_template_files(template_root: Path):
         yield path
 
 
-def _require_empty_dest(dest: Path) -> None:
-    if dest.exists() and any(dest.iterdir()):
-        raise FileExistsError(
-            f"Destination {dest} already exists and is non-empty. "
-            "Choose a new path or remove the contents first."
-        )
+def _require_empty_dest(dest: Path, *, preserve_existing: frozenset[str] = frozenset()) -> None:
+    """Refuse a non-empty destination unless every top-level entry is allowed.
+
+    ``preserve_existing`` is matched against the *name* of each top-level entry,
+    so callers can permit common pre-existing files (``.git``, ``README.md``,
+    ...) without silently overwriting unrelated user content.
+    """
+    if dest.exists():
+        unexpected = sorted(p.name for p in dest.iterdir() if p.name not in preserve_existing)
+        if unexpected:
+            raise FileExistsError(
+                f"Destination {dest} exists and contains files that would collide "
+                f"with the scaffold: {', '.join(unexpected)}. "
+                "Move them aside or choose another path."
+            )
     dest.mkdir(parents=True, exist_ok=True)
 
 
@@ -66,13 +95,20 @@ def _apply_template_files(
     substitutions: Mapping[str, str],
     *,
     path_rewrites: Mapping[str, str] | None = None,
-) -> None:
+    preserve_existing: frozenset[str] = frozenset(),
+) -> list[Path]:
+    """Write template files into ``dest``; return paths skipped to preserve the user's copy."""
+    preserved: list[Path] = []
     for src in _iter_template_files(src_root):
         rel_str = str(src.relative_to(src_root))
         for old, new in (path_rewrites or {}).items():
             rel_str = rel_str.replace(old, new)
         rel_str = rel_str.removesuffix(".tpl")
         target = dest / rel_str
+        top = Path(rel_str).parts[0] if rel_str else ""
+        if top in preserve_existing and target.exists():
+            preserved.append(target)
+            continue
         target.parent.mkdir(parents=True, exist_ok=True)
         if src.suffix == ".tpl":
             text = src.read_text(encoding="utf-8")
@@ -81,29 +117,41 @@ def _apply_template_files(
             target.write_text(text, encoding="utf-8")
         else:
             shutil.copy2(src, target)
+    return preserved
 
 
 def create_workspace(
     dest: Path,
     name: str,
     template_root: Path | None = None,
-) -> Path:
-    """Materialize the workspace-root shell at ``dest``.
+    *,
+    preserve_existing: frozenset[str] = frozenset(),
+) -> list[Path]:
+    """Materialize the workspace-root shell at ``dest``; return preserved paths.
 
     Lays down the top-level ``pyproject.toml`` (uv workspace), ``package.json``
     (npm workspace), ``Makefile`` (delegates to host), ``.env.example``,
     ``.gitignore``, and ``README.md``. Does NOT create the host or any
     modules — those go under ``dest/host`` and ``dest/modules/`` afterwards.
+
+    ``preserve_existing`` lists top-level entry names that may already exist
+    in ``dest``; the scaffold's copy is skipped and the preserved path is
+    included in the returned list. Other pre-existing entries raise
+    ``FileExistsError``.
     """
     dest = Path(dest)
-    dest.mkdir(parents=True, exist_ok=True)
-    _apply_template_files(
+    _require_empty_dest(dest, preserve_existing=preserve_existing)
+    preserved = _apply_template_files(
         _resolve_template_root("workspace", template_root),
         dest,
-        {"{{HOST_NAME}}": to_kebab_case(name)},
+        {
+            "{{HOST_NAME}}": validate_scaffold_name(name),
+            "{{HOST_PYPI_NAME}}": to_kebab_case(name),
+        },
+        preserve_existing=preserve_existing,
     )
     logger.info("Scaffolded workspace root at %s", dest)
-    return dest
+    return preserved
 
 
 def create_host(
@@ -112,23 +160,31 @@ def create_host(
     modules: Sequence[str],
     template_root: Path | None = None,
     framework_version: str = "*",
-) -> Path:
+    *,
+    preserve_existing: frozenset[str] = frozenset(),
+) -> list[Path]:
+    """Scaffold a host project at ``dest``; return preserved pre-existing paths.
+
+    ``preserve_existing`` semantics match :func:`create_workspace`.
+    """
     dest = Path(dest)
-    _require_empty_dest(dest)
+    _require_empty_dest(dest, preserve_existing=preserve_existing)
     module_dep_lines = "\n".join(f'    "{_module_to_pypi_name(m)}>=0.1,<1.0",' for m in modules)
-    _apply_template_files(
+    preserved = _apply_template_files(
         _resolve_template_root("host", template_root),
         dest,
         {
-            "{{HOST_NAME}}": name,
+            "{{HOST_NAME}}": validate_scaffold_name(name),
+            "{{HOST_PYPI_NAME}}": to_kebab_case(name),
             "{{MODULE_DEPS}}": module_dep_lines,
             "{{FRAMEWORK_VERSION}}": framework_version,
         },
+        preserve_existing=preserve_existing,
     )
     logger.info(
         "Scaffolded host '%s' at %s (modules: %s)", name, dest, ", ".join(modules) or "<none>"
     )
-    return dest
+    return preserved
 
 
 def create_module(

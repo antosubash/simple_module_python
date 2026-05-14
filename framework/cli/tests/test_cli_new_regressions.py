@@ -118,3 +118,155 @@ def test_sm_new_registers_landing_route_at_root(tmp_path: Path) -> None:
 
     landing_tsx = target / "host" / "client_app" / "pages" / "Landing.tsx"
     assert landing_tsx.is_file(), "Landing.tsx must ship in the host's pages dir"
+
+
+def test_sm_new_underscored_name_keeps_user_form_in_readme(tmp_path: Path) -> None:
+    """Issue #139: when the user types underscores, the README, tree diagram,
+    and directory name must agree. Only the PyPI fields normalize to hyphens."""
+    runner = CliRunner()
+    target = tmp_path / "simple_module_chat"
+    result = runner.invoke(
+        app,
+        ["new", "simple_module_chat", "--yes", "--no-install", "--dest", str(target)],
+    )
+    assert result.exit_code == 0, result.output
+    readme = (target / "README.md").read_text()
+    assert "# simple_module_chat" in readme, "README heading should match the user's input"
+    assert "simple_module_chat/" in readme, "tree diagram should match the directory name"
+    assert "simple-module-chat" not in readme, "no hyphenated form should leak into the README"
+
+
+def test_sm_new_underscored_name_pypi_fields_normalize(tmp_path: Path) -> None:
+    """Issue #139: pyproject + package.json still use the PEP 503 hyphenated form."""
+    runner = CliRunner()
+    target = tmp_path / "simple_module_chat"
+    runner.invoke(
+        app,
+        ["new", "simple_module_chat", "--yes", "--no-install", "--dest", str(target)],
+    )
+    workspace_pyproject = (target / "pyproject.toml").read_text()
+    assert 'name = "simple-module-chat"' in workspace_pyproject
+    workspace_pkg = json.loads((target / "package.json").read_text())
+    assert workspace_pkg["name"] == "simple-module-chat"
+
+
+def test_sm_new_underscored_name_warns_about_normalization(tmp_path: Path) -> None:
+    """Issue #139: when the PyPI form diverges from user input, the CLI says so."""
+    runner = CliRunner()
+    target = tmp_path / "simple_module_chat"
+    result = runner.invoke(
+        app,
+        ["new", "simple_module_chat", "--yes", "--no-install", "--dest", str(target)],
+    )
+    assert result.exit_code == 0, result.output
+    assert "simple-module-chat" in result.output, "expected normalization notice in output"
+
+
+def test_sm_new_hyphenated_name_stays_consistent(tmp_path: Path) -> None:
+    """Issue #139: a clean kebab-case input gives one form everywhere — no warning."""
+    runner = CliRunner()
+    target = tmp_path / "simple-module-chat"
+    result = runner.invoke(
+        app,
+        ["new", "simple-module-chat", "--yes", "--no-install", "--dest", str(target)],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Normalizing PyPI name" not in result.output
+    readme = (target / "README.md").read_text()
+    assert "# simple-module-chat" in readme
+    workspace_pyproject = (target / "pyproject.toml").read_text()
+    assert 'name = "simple-module-chat"' in workspace_pyproject
+
+
+def test_sm_new_rejects_mixed_case_name(tmp_path: Path) -> None:
+    """Issue #139: mixed case is ambiguous (my-app vs my_app) — refuse, don't guess."""
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["new", "MyApp", "--yes", "--no-install", "--dest", str(tmp_path / "out")],
+    )
+    assert result.exit_code != 0
+    assert "MyApp" in result.output or "valid" in result.output.lower()
+
+
+def test_sm_new_rejects_leading_digit_name(tmp_path: Path) -> None:
+    """Issue #139: names starting with a digit aren't valid Python package names."""
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["new", "1chat", "--yes", "--no-install", "--dest", str(tmp_path / "out")],
+    )
+    assert result.exit_code != 0
+
+
+def test_sm_new_rejects_mixed_separators(tmp_path: Path) -> None:
+    """Issue #139: foo_bar-baz mixes separators — no canonical form, refuse."""
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["new", "foo_bar-baz", "--yes", "--no-install", "--dest", str(tmp_path / "out")],
+    )
+    assert result.exit_code != 0
+
+
+def test_sm_new_no_install_next_steps_include_initial_migration(tmp_path: Path) -> None:
+    """Issue #135: ``host/migrations/versions/`` ships empty, so a fresh
+    ``make migrate`` is a no-op. The printed next-steps must therefore
+    guide ``--no-install`` users to generate the baseline migration first."""
+    runner = CliRunner()
+    target = tmp_path / "demo"
+    result = runner.invoke(
+        app,
+        ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
+    )
+    assert result.exit_code == 0, result.output
+    assert 'make migration msg="initial schema"' in result.output
+    assert "make migrate" in result.output
+
+
+def test_bootstrap_initial_migration_runs_autogenerate_when_versions_empty(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Issue #135: the post-install hook must call ``alembic revision
+    --autogenerate`` when ``migrations/versions/`` holds only ``.gitkeep``."""
+    from simple_module_cli import new as new_mod
+
+    host = tmp_path / "host"
+    (host / "migrations" / "versions").mkdir(parents=True)
+    (host / "migrations" / "versions" / ".gitkeep").touch()
+
+    calls: list[tuple[list[str], Path]] = []
+
+    def fake_run(cmd, *, cwd, check):
+        del check
+        calls.append((list(cmd), Path(cwd)))
+
+        class _Result:
+            returncode = 0
+
+        return _Result()
+
+    monkeypatch.setattr(new_mod.subprocess, "run", fake_run)
+    new_mod._bootstrap_initial_migration(host)
+    assert calls, "expected alembic autogenerate to run"
+    cmd, cwd = calls[0]
+    assert cmd[:5] == ["uv", "run", "alembic", "revision", "--autogenerate"]
+    assert cwd == host
+
+
+def test_bootstrap_initial_migration_skips_when_revision_exists(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """If the user has already run ``make migration``, don't clobber their
+    revision by autogenerating a second baseline."""
+    from simple_module_cli import new as new_mod
+
+    host = tmp_path / "host"
+    (host / "migrations" / "versions").mkdir(parents=True)
+    (host / "migrations" / "versions" / "0001_initial.py").write_text("# revision\n")
+
+    def fake_run(*_a, **_kw):  # pragma: no cover - must not be called
+        raise AssertionError("alembic should not be invoked when a revision exists")
+
+    monkeypatch.setattr(new_mod.subprocess, "run", fake_run)
+    new_mod._bootstrap_initial_migration(host)

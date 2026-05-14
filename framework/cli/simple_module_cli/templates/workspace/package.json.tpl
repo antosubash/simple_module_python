@@ -1,5 +1,5 @@
 {
-  "name": "{{HOST_NAME}}",
+  "name": "{{HOST_PYPI_NAME}}",
   "private": true,
   "type": "module",
   "workspaces": [
