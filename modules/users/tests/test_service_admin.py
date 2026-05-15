@@ -10,10 +10,10 @@ import pytest
 
 def _build_service(session, users_app):
     """Build a UserService directly (bypass FastAPI Depends)."""
+    from users.admin.service import UserService
     from users.db_adapter import UserDatabaseWithRoles
     from users.manager import UserManager
     from users.models import User
-    from users.service import UserService
 
     user_db = UserDatabaseWithRoles(session, User)
     manager = UserManager(

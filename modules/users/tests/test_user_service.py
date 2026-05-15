@@ -9,10 +9,10 @@ import pytest
 
 def _build_service(session, users_app):
     """Build a UserService directly (bypass FastAPI Depends)."""
+    from users.admin.service import UserService
     from users.db_adapter import UserDatabaseWithRoles
     from users.manager import UserManager
     from users.models import User
-    from users.service import UserService
 
     user_db = UserDatabaseWithRoles(session, User)
     manager = UserManager(
@@ -77,10 +77,10 @@ async def test_get_list_item_unknown_user_raises_user_not_found(users_app):
 async def test_to_list_item_includes_created_at(users_app):
     """`UserListItem` carries `created_at` sourced from AuditMixin."""
     from fastapi_users.password import PasswordHelper
+    from users.admin.service import UserService
     from users.db_adapter import UserDatabaseWithRoles
     from users.manager import UserManager
     from users.models import User
-    from users.service import UserService
 
     async with users_app.state.sm.db.session_factory() as session:
         user = User(

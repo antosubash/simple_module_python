@@ -1,8 +1,4 @@
-"""Admin REST endpoints for the users module.
-
-Split out of :mod:`.api` to keep per-file complexity manageable. Mounted
-into the main ``router`` via ``include_router`` at the bottom of ``api.py``.
-"""
+"""Admin REST endpoints for the users module."""
 
 from __future__ import annotations
 
@@ -13,6 +9,7 @@ from fastapi import status as http_status
 from simple_module_core.events import EventBus
 from simple_module_hosting.permissions import RequiresPermission
 
+from users.admin.service import UserService
 from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
 from users.contracts.events import RoleAssigned, UserDisabled, UserInvited
 from users.contracts.schemas import (
@@ -23,7 +20,6 @@ from users.contracts.schemas import (
 )
 from users.deps import get_event_bus, get_mailer, get_user_service
 from users.exceptions import UserNotFoundError
-from users.service import UserService
 
 admin_router = APIRouter(
     prefix="/admin",

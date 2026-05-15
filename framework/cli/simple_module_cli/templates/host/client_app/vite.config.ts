@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { type Plugin, defineConfig } from 'vite';
 
 // Force every importer (host, workspace module, wheel-installed module)
 // to resolve to one React copy + a single Inertia hook context. Without
@@ -36,26 +36,40 @@ const fsRoot = findNodeModulesRoot(__dirname);
 // optimizeDeps.entries so its dependency scanner discovers bare imports
 // from wheel-installed pages and pre-bundles them.
 //
-// We also collect each module's package.json (one level up from pages/,
-// where Hatch's force-include drops it) so the dependency walk in
-// `collectOptimizeIncludes` reaches packages a wheel-installed page imports
-// directly (`sonner`, `lucide-react`, ...). Without this seed, Vite's
-// pre-bundler never sees those bare specifiers and Node module resolution
-// walks up from inside .venv/site-packages — never reaching
-// host/client_app/node_modules.
+// We also collect each module's package.json — wheels embed it next to
+// the Python package (one level up from pages/, force-included by Hatch),
+// while editable/workspace installs leave it at the source-tree module
+// root (two levels up). We accept either. The dep walk in
+// `collectOptimizeIncludes` uses it to reach packages a module's pages
+// import directly (`sonner`, `lucide-react`, `maplibre-gl`, …). Without
+// this seed, Vite's pre-bundler never sees those bare specifiers and Node
+// module resolution walks up from inside .venv/site-packages — never
+// reaching host/client_app/node_modules.
 const manifestPath = path.resolve(__dirname, 'modules.manifest.json');
 const moduleFsAllow: string[] = [];
 const moduleOptimizeEntries: string[] = [];
 const modulePkgJsonPaths: string[] = [];
+const modulePagesPrefixes: string[] = [];
 if (fs.existsSync(manifestPath)) {
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as Record<string, string>;
   for (const pagesDir of Object.values(manifest)) {
-    moduleFsAllow.push(path.dirname(pagesDir));
+    const pkgDir = path.dirname(pagesDir);
+    moduleFsAllow.push(pkgDir);
     moduleOptimizeEntries.push(path.join(pagesDir, '**/*.tsx'));
-    const modulePkgJson = path.join(path.dirname(pagesDir), 'package.json');
-    if (fs.existsSync(modulePkgJson)) modulePkgJsonPaths.push(modulePkgJson);
+    modulePagesPrefixes.push(pagesDir + path.sep);
+    for (const candidate of [
+      path.join(pkgDir, 'package.json'),
+      path.join(path.dirname(pkgDir), 'package.json'),
+    ]) {
+      if (fs.existsSync(candidate)) {
+        modulePkgJsonPaths.push(candidate);
+        break;
+      }
+    }
   }
 }
+const fsRootPrefix = fsRoot + path.sep;
+const fakeWorkspaceImporter = path.join(fsRoot, 'package.json');
 
 // CJS-only deps like `clsx`, `tailwind-merge`, `class-variance-authority`
 // expose named exports only after esbuild's CJS→ESM transform. Vite's
@@ -70,6 +84,7 @@ type Pkg = {
   module?: string;
   exports?: unknown;
   dependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
 };
 
 const pkgCache = new Map<string, Pkg | null>();
@@ -117,26 +132,72 @@ function collectOptimizeIncludes(): string[] {
     visited.add(pkgJsonPath);
     const pkg = readPackageJSON(pkgJsonPath);
     if (!pkg) continue;
-    for (const name of Object.keys(pkg.dependencies ?? {})) {
-      if (name.startsWith('@types/')) continue;
-      const nested = findPackageJSON(name);
-      if (!nested) continue;
-      const nestedPkg = readPackageJSON(nested);
-      if (!nestedPkg) continue;
-      // Skip packages that ship only sub-paths (`@babel/runtime`); vite
-      // refuses to pre-bundle them and bare imports against them resolve
-      // naturally through Node's normal module-walk anyway.
-      if (hasTopLevelEntry(nestedPkg)) {
-        includes.add(name);
+    // Walk both `dependencies` and `peerDependencies`: a module's pages
+    // routinely import host-provided peer deps (`@inertiajs/react`,
+    // `@simple-module-py/ui`, …) as bare specifiers and we need those
+    // pre-bundled too, not just the deps the module ships its own copy of.
+    for (const block of [pkg.dependencies, pkg.peerDependencies]) {
+      for (const name of Object.keys(block ?? {})) {
+        if (name.startsWith('@types/')) continue;
+        const nested = findPackageJSON(name);
+        if (!nested) continue;
+        const nestedPkg = readPackageJSON(nested);
+        if (!nestedPkg) continue;
+        // Skip packages that ship only sub-paths (`@babel/runtime`); vite
+        // refuses to pre-bundle them and bare imports against them resolve
+        // naturally through Node's normal module-walk anyway.
+        if (hasTopLevelEntry(nestedPkg)) {
+          includes.add(name);
+        }
+        queue.push(nested);
       }
-      queue.push(nested);
     }
   }
   return [...includes];
 }
 
+// Cross-package bare imports from module pages (`maplibre-gl`, `pmtiles`,
+// `@inertiajs/react`, …) live in fsRoot/node_modules after `npm install`.
+// But when a module's pages sit outside fsRoot — under
+// `.venv/.../site-packages/<pkg>/pages/` for wheel installs — Vite's
+// resolver walks up from the importer looking for node_modules and never
+// reaches fsRoot/node_modules. Resolution fails with: "Failed to resolve
+// import … Does the file exist?".
+//
+// This plugin recovers by retrying any unresolved bare import from a
+// module-pages importer as if the importer lived at fsRoot, which puts
+// fsRoot/node_modules back on the resolver's path. Combined with the
+// `optimizeDeps.include` walk above (module deps + peer deps), dev,
+// dep-scan, and production builds all converge on the host's hoisted copy.
+function moduleBareImportResolver(): Plugin {
+  return {
+    name: 'simple-module:resolve-module-bare-imports',
+    enforce: 'pre',
+    async resolveId(source, importer) {
+      if (!importer) return null;
+      if (
+        source.startsWith('.') ||
+        source.startsWith('/') ||
+        source.startsWith('\0') ||
+        source.startsWith('virtual:')
+      ) {
+        return null;
+      }
+      const importerPath = importer.split('?')[0];
+      if (importerPath.startsWith(fsRootPrefix)) return null;
+      if (!modulePagesPrefixes.some((prefix) => importerPath.startsWith(prefix))) {
+        return null;
+      }
+      const resolved = await this.resolve(source, fakeWorkspaceImporter, {
+        skipSelf: true,
+      });
+      return resolved ?? null;
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [moduleBareImportResolver(), react(), tailwindcss()],
   root: __dirname,
   resolve: {
     dedupe: [...REACT_CORE_DEPS, '@simple-module-py/ui', '@simple-module-py/i18n'],

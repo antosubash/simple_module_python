@@ -24,7 +24,7 @@ from fastapi_users import exceptions as fu_exceptions
 from starlette.responses import RedirectResponse
 
 from users.deps import auth_backend, get_user_manager
-from users.oauth import OAuthProvider, build_clients
+from users.oauth.providers import OAuthProvider, build_clients
 
 if TYPE_CHECKING:
     from users.manager import UserManager
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 _SESSION_STATE_KEY_FMT = "oauth_state:{provider}"
 
 
-def _build_provider_router(provider: OAuthProvider, login_redirect_url: str) -> APIRouter:
+def _build_provider_router(provider: OAuthProvider) -> APIRouter:
     """Mount /login + /callback for one provider."""
     router = APIRouter()
     state_key = _SESSION_STATE_KEY_FMT.format(provider=provider.name)
@@ -105,7 +105,11 @@ def _build_provider_router(provider: OAuthProvider, login_redirect_url: str) -> 
         login_response = await auth_backend.login(strategy, user)
         await user_manager.on_after_login(user, request, login_response)
 
-        redirect = RedirectResponse(login_redirect_url, status_code=303)
+        # Read login_redirect_url lazily: ``UsersModule.on_startup`` may
+        # mutate it (e.g. dashboard-fallback) after this router is mounted,
+        # and admins can change it at runtime via the settings UI.
+        redirect_url = request.app.state.users.settings.login_redirect_url
+        redirect = RedirectResponse(redirect_url, status_code=303)
         for key, value in login_response.headers.items():
             if key.lower() == "set-cookie":
                 redirect.raw_headers.append((b"set-cookie", value.encode("latin-1")))
@@ -119,7 +123,7 @@ def register_oauth_routes(api_router: APIRouter, settings: UsersSettings) -> Non
     providers = build_clients(settings)
     for provider in providers:
         api_router.include_router(
-            _build_provider_router(provider, settings.login_redirect_url),
+            _build_provider_router(provider),
             prefix=f"/auth/{provider.name}",
             tags=["users-auth"],
         )

@@ -26,9 +26,9 @@ import {
   Users,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { type Filters, IndexFilters } from '../../components/IndexFilters';
-import { type RoleItem, RolesTab } from '../../components/RolesTab';
-import { type UserListItem, UserRow } from '../../components/UserRow';
+import { type Filters, IndexFilters } from '../../admin/components/IndexFilters';
+import { type RoleItem, RolesTab } from '../../admin/components/RolesTab';
+import { type UserListItem, UserRow } from '../../admin/components/UserRow';
 
 interface Pagination {
   page: number;

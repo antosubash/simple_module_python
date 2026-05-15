@@ -31,7 +31,7 @@ from users.manager import UserManager, get_user_manager
 from users.models import User
 
 if TYPE_CHECKING:
-    from users.service import UserService
+    from users.admin.service import UserService
 
 # Dev-safe singleton — UsersModule patches cookie params at startup.
 _cookie_transport = build_cookie_transport(
@@ -62,7 +62,7 @@ async def get_user_service(
     db: AsyncSession = Depends(get_db),
     user_manager: UserManager = Depends(get_user_manager),
 ) -> UserService:
-    from users.service import UserService
+    from users.admin.service import UserService
 
     return UserService(db, user_manager)
 
