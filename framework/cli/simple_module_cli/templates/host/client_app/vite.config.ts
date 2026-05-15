@@ -49,12 +49,14 @@ const manifestPath = path.resolve(__dirname, 'modules.manifest.json');
 const moduleFsAllow: string[] = [];
 const moduleOptimizeEntries: string[] = [];
 const modulePkgJsonPaths: string[] = [];
+const modulePagesPrefixes: string[] = [];
 if (fs.existsSync(manifestPath)) {
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as Record<string, string>;
   for (const pagesDir of Object.values(manifest)) {
     const pkgDir = path.dirname(pagesDir);
     moduleFsAllow.push(pkgDir);
     moduleOptimizeEntries.push(path.join(pagesDir, '**/*.tsx'));
+    modulePagesPrefixes.push(pagesDir + path.sep);
     for (const candidate of [
       path.join(pkgDir, 'package.json'),
       path.join(path.dirname(pkgDir), 'package.json'),
@@ -66,6 +68,8 @@ if (fs.existsSync(manifestPath)) {
     }
   }
 }
+const fsRootPrefix = fsRoot + path.sep;
+const fakeWorkspaceImporter = path.join(fsRoot, 'package.json');
 
 // CJS-only deps like `clsx`, `tailwind-merge`, `class-variance-authority`
 // expose named exports only after esbuild's CJS→ESM transform. Vite's
@@ -180,11 +184,11 @@ function moduleBareImportResolver(): Plugin {
         return null;
       }
       const importerPath = importer.split('?')[0];
-      if (importerPath.startsWith(`${fsRoot}${path.sep}`)) return null;
-      if (!moduleFsAllow.some((dir) => importerPath.startsWith(`${dir}${path.sep}`))) {
+      if (importerPath.startsWith(fsRootPrefix)) return null;
+      if (!modulePagesPrefixes.some((prefix) => importerPath.startsWith(prefix))) {
         return null;
       }
-      const resolved = await this.resolve(source, path.join(fsRoot, 'package.json'), {
+      const resolved = await this.resolve(source, fakeWorkspaceImporter, {
         skipSelf: true,
       });
       return resolved ?? null;

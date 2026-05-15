@@ -29,6 +29,7 @@ const manifestPath = path.resolve(__dirname, 'modules.manifest.json');
 const moduleFsAllow: string[] = [];
 const moduleOptimizeEntries: string[] = [];
 const modulePkgJsonPaths: string[] = [];
+const modulePagesPrefixes: string[] = [];
 let manifest: Record<string, string> = {};
 try {
   manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
@@ -39,6 +40,7 @@ for (const pagesDir of Object.values(manifest)) {
   const pkgDir = path.dirname(pagesDir);
   moduleFsAllow.push(pkgDir);
   moduleOptimizeEntries.push(path.join(pagesDir, '**/*.tsx'));
+  modulePagesPrefixes.push(pagesDir + path.sep);
   for (const candidate of [
     path.join(pkgDir, 'package.json'),
     path.join(path.dirname(pkgDir), 'package.json'),
@@ -49,6 +51,7 @@ for (const pagesDir of Object.values(manifest)) {
     }
   }
 }
+const projectRootPrefix = projectRoot + path.sep;
 
 // Gather every bare specifier a module's pages might import. We include
 // both `dependencies` (deps the module ships its own copy of) and
@@ -103,18 +106,11 @@ function moduleBareImportResolver(): Plugin {
         return null;
       }
       const importerPath = importer.split('?')[0];
-      // Importers inside the workspace can already find hoisted deps via
-      // the natural upward node_modules walk; let Vite handle them.
-      if (importerPath.startsWith(`${projectRoot}${path.sep}`)) return null;
-      // Only rescue importers that belong to a registered module's
-      // pages dir — otherwise this plugin would silently route every
-      // unrelated bare specifier through the workspace.
-      if (!moduleFsAllow.some((dir) => importerPath.startsWith(`${dir}${path.sep}`))) {
+      if (importerPath.startsWith(projectRootPrefix)) return null;
+      if (!modulePagesPrefixes.some((prefix) => importerPath.startsWith(prefix))) {
         return null;
       }
-      // Re-resolve as if the importer were the workspace's package.json,
-      // so the resolver walks <repo>/node_modules.
-      const resolved = await this.resolve(source, path.join(projectRoot, 'package.json'), {
+      const resolved = await this.resolve(source, fakeWorkspaceImporter, {
         skipSelf: true,
       });
       return resolved ?? null;
@@ -123,6 +119,7 @@ function moduleBareImportResolver(): Plugin {
 }
 
 const moduleDecls = collectModuleDecls();
+const fakeWorkspaceImporter = path.join(projectRoot, 'package.json');
 
 export default defineConfig({
   plugins: [

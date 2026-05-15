@@ -68,25 +68,22 @@ def test_repo_root_falls_back_to_two_levels_up_if_no_package_json(tmp_path: Path
     assert repo_root_from_client_app(deep) == (tmp_path / "outer").resolve()
 
 
-# Vite's vite.config.ts walks ``<pages_dir>/..`` (wheel) and
-# ``<pages_dir>/../..`` (source-tree workspace member) looking for the
-# module's package.json so it can pre-bundle and alias declared deps.
-# The Python-side helper has to agree on those two locations or the
-# cross-package bare-import fix can't find anything to surface.
-
-
 @pytest.fixture
 def fake_module_factory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Build a fake installed module with a configurable on-disk layout.
 
     Returns a callable that takes a ``layout`` ∈ {"wheel", "source"} plus
-    an optional ``dependencies`` map, lays the files down under
-    ``tmp_path``, registers the package in ``sys.modules``, and returns a
-    ``ModuleBase`` subclass pinned to it.
+    optional ``dependencies`` and ``peer_dependencies`` maps, lays the
+    files down under ``tmp_path``, registers the package in ``sys.modules``,
+    and returns a ``ModuleBase`` subclass pinned to it.
     """
     counter = {"n": 0}
 
-    def _build(layout: str, dependencies: dict[str, str] | None = None) -> type[ModuleBase]:
+    def _build(
+        layout: str,
+        dependencies: dict[str, str] | None = None,
+        peer_dependencies: dict[str, str] | None = None,
+    ) -> type[ModuleBase]:
         counter["n"] += 1
         pkg_name = f"fake_module_{counter['n']}"
         if layout == "wheel":
@@ -105,9 +102,13 @@ def fake_module_factory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             raise ValueError(f"unknown layout: {layout}")
         init_py = pkg_root / "__init__.py"
         init_py.write_text("")
-        pkg_json_path.write_text(
-            json.dumps({"name": f"@fake/{pkg_name}", "dependencies": dependencies or {}})
-        )
+        pkg_json: dict[str, object] = {
+            "name": f"@fake/{pkg_name}",
+            "dependencies": dependencies or {},
+        }
+        if peer_dependencies is not None:
+            pkg_json["peerDependencies"] = peer_dependencies
+        pkg_json_path.write_text(json.dumps(pkg_json))
 
         # Register the package with a real importlib spec so that
         # importlib.resources.files() can locate the on-disk pkg_root.
@@ -130,10 +131,17 @@ def fake_module_factory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 def test_read_module_package_json_finds_wheel_layout(fake_module_factory) -> None:
     """Wheel install: package.json sits next to the Python package."""
-    fake_cls = fake_module_factory("wheel", {"dep-a": "^1.0.0"})
+    fake_cls = fake_module_factory(
+        "wheel",
+        {"dep-a": "^1.0.0"},
+        peer_dependencies={"@host/peer": "^2.0.0"},
+    )
     pkg = read_module_package_json(fake_cls())
     assert pkg is not None
     assert pkg["dependencies"] == {"dep-a": "^1.0.0"}
+    # The TS-side vite.config.ts also reads peerDependencies for its
+    # optimizeDeps walk — make sure the raw dict surfaces both blocks.
+    assert pkg["peerDependencies"] == {"@host/peer": "^2.0.0"}
 
 
 def test_read_module_package_json_finds_source_layout(fake_module_factory) -> None:
