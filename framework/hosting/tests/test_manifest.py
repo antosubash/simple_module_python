@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
+import sys
 from pathlib import Path
 
-from simple_module_hosting.manifest import repo_root_from_client_app
+import pytest
+from simple_module_core import ModuleBase, ModuleMeta
+from simple_module_hosting.manifest import (
+    collect_module_js_deps,
+    read_module_package_json,
+    repo_root_from_client_app,
+)
 
 
 def test_repo_root_finds_workspace_root_in_framework_layout(tmp_path: Path) -> None:
@@ -58,3 +66,100 @@ def test_repo_root_falls_back_to_two_levels_up_if_no_package_json(tmp_path: Path
     deep.mkdir(parents=True)
 
     assert repo_root_from_client_app(deep) == (tmp_path / "outer").resolve()
+
+
+@pytest.fixture
+def fake_module_factory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Build a fake installed module with a configurable on-disk layout.
+
+    Returns a callable that takes a ``layout`` ∈ {"wheel", "source"} plus
+    optional ``dependencies`` and ``peer_dependencies`` maps, lays the
+    files down under ``tmp_path``, registers the package in ``sys.modules``,
+    and returns a ``ModuleBase`` subclass pinned to it.
+    """
+    counter = {"n": 0}
+
+    def _build(
+        layout: str,
+        dependencies: dict[str, str] | None = None,
+        peer_dependencies: dict[str, str] | None = None,
+    ) -> type[ModuleBase]:
+        counter["n"] += 1
+        pkg_name = f"fake_module_{counter['n']}"
+        if layout == "wheel":
+            # Wheel: <pkg>/ contains code + package.json (Hatch force-include).
+            pkg_root = tmp_path / pkg_name
+            pkg_root.mkdir()
+            pkg_json_path = pkg_root / "package.json"
+        elif layout == "source":
+            # Source-tree / editable: package.json sits above the Python pkg.
+            module_root = tmp_path / f"{pkg_name}_repo"
+            module_root.mkdir()
+            pkg_root = module_root / pkg_name
+            pkg_root.mkdir()
+            pkg_json_path = module_root / "package.json"
+        else:
+            raise ValueError(f"unknown layout: {layout}")
+        init_py = pkg_root / "__init__.py"
+        init_py.write_text("")
+        pkg_json: dict[str, object] = {
+            "name": f"@fake/{pkg_name}",
+            "dependencies": dependencies or {},
+        }
+        if peer_dependencies is not None:
+            pkg_json["peerDependencies"] = peer_dependencies
+        pkg_json_path.write_text(json.dumps(pkg_json))
+
+        # Register the package with a real importlib spec so that
+        # importlib.resources.files() can locate the on-disk pkg_root.
+        spec = importlib.util.spec_from_file_location(
+            pkg_name, init_py, submodule_search_locations=[str(pkg_root)]
+        )
+        assert spec is not None and spec.loader is not None
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        monkeypatch.setitem(sys.modules, pkg_name, mod)
+
+        class FakeMod(ModuleBase):
+            meta = ModuleMeta(name=pkg_name.title().replace("_", ""))
+
+        FakeMod.__module__ = pkg_name
+        return FakeMod
+
+    return _build
+
+
+def test_read_module_package_json_finds_wheel_layout(fake_module_factory) -> None:
+    """Wheel install: package.json sits next to the Python package."""
+    fake_cls = fake_module_factory(
+        "wheel",
+        {"dep-a": "^1.0.0"},
+        peer_dependencies={"@host/peer": "^2.0.0"},
+    )
+    pkg = read_module_package_json(fake_cls())
+    assert pkg is not None
+    assert pkg["dependencies"] == {"dep-a": "^1.0.0"}
+    # The TS-side vite.config.ts also reads peerDependencies for its
+    # optimizeDeps walk — make sure the raw dict surfaces both blocks.
+    assert pkg["peerDependencies"] == {"@host/peer": "^2.0.0"}
+
+
+def test_read_module_package_json_finds_source_layout(fake_module_factory) -> None:
+    """Source-tree / workspace: package.json sits at the module repo root."""
+    fake_cls = fake_module_factory("source", {"dep-b": "^2.0.0"})
+    pkg = read_module_package_json(fake_cls())
+    assert pkg is not None
+    assert pkg["dependencies"] == {"dep-b": "^2.0.0"}
+
+
+def test_collect_module_js_deps_aggregates_across_layouts(fake_module_factory) -> None:
+    """Mixed-layout modules all contribute their declared deps."""
+    wheel_cls = fake_module_factory("wheel", {"cmdk": "^1.0.0"})
+    source_cls = fake_module_factory("source", {"maplibre-gl": "^4.7.0", "pmtiles": "^3.2.0"})
+    empty_cls = fake_module_factory("wheel", {})
+
+    deps = collect_module_js_deps([wheel_cls(), source_cls(), empty_cls()])
+    # Empty deps are dropped; both populated modules appear by their meta.name.
+    assert empty_cls.meta.name not in deps
+    assert deps[wheel_cls.meta.name] == {"cmdk": "^1.0.0"}
+    assert deps[source_cls.meta.name] == {"maplibre-gl": "^4.7.0", "pmtiles": "^3.2.0"}
