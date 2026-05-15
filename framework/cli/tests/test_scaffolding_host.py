@@ -171,3 +171,35 @@ class TestCreateHost:
         assert "simple_module_dashboard" in (tmp_path / "out" / "pyproject.toml").read_text(
             encoding="utf-8"
         )
+
+    async def test_scaffold_vite_config_includes_node_paths_fallback(self, tmp_path):
+        """vite.config.ts must seed optimizeDeps.esbuildOptions.nodePaths
+        with the workspace node_modules so esbuild's scan-imports pass can
+        resolve cross-package bare imports from module pages whose importers
+        sit outside the host's client_app (e.g. wheel-installed modules).
+
+        Regression test for GitHub issue #152.
+        """
+        from simple_module_cli.scaffolding import create_host
+
+        dest = tmp_path / "demo"
+        create_host(name="demo", dest=dest, modules=[])
+
+        vite_config = (dest / "client_app" / "vite.config.ts").read_text(encoding="utf-8")
+
+        # The scanner fallback must be configured under optimizeDeps so it
+        # applies to both dev pre-bundling and `vite build`'s pre-bundle pass.
+        assert "esbuildOptions" in vite_config, (
+            "vite.config.ts must configure optimizeDeps.esbuildOptions"
+        )
+        assert "nodePaths" in vite_config, (
+            "vite.config.ts must seed optimizeDeps.esbuildOptions.nodePaths "
+            "with the workspace node_modules (GH issue #152)."
+        )
+        # The seeded path must reference fsRoot — the dir that contains the
+        # hoisted node_modules — not a hardcoded literal that breaks in
+        # flat-vs-workspace layouts.
+        assert "fsRoot" in vite_config and "node_modules" in vite_config, (
+            "nodePaths must point at fsRoot/node_modules so the fallback "
+            "works in both flat and workspace layouts."
+        )
