@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
@@ -110,15 +110,51 @@ class UsersModule(ModuleBase):
         )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from users.endpoints.api import register_auth_routes
-        from users.endpoints.views import router as views
+        from users.admin.api import admin_router
+        from users.admin.views import router as admin_views
+        from users.auth_local import api as auth_local_api
+        from users.auth_local.views import router as auth_views
+        from users.contracts.schemas import UserCreate, UserRead
+        from users.deps import fastapi_users
+        from users.oauth.api import register_oauth_routes
         from users.settings import UsersSettings
 
-        # Construct settings here (re-reads env_str-bound fields like OAuth
-        # client ids/secrets). Validators have already passed by this point —
-        # ``register_settings`` ran first and would have raised on placeholders.
-        register_auth_routes(api_router, UsersSettings())
-        view_router.include_router(views)
+        # Consumed only by ``register_oauth_routes`` → ``build_clients`` at
+        # registration time, which reads class-attribute defaults captured by
+        # ``env_str()`` at import. Request-time readers of mutable fields
+        # (e.g. ``login_redirect_url``) must go through
+        # ``request.app.state.users.settings``, not this instance.
+        settings = UsersSettings()
+
+        api_router.include_router(auth_local_api.router)
+        api_router.include_router(admin_router)
+        # Throughput-wrap the stock fastapi-users routers; ``require_signup_enabled``
+        # gates /register at request time so ``allow_signup`` is hot-reloadable.
+        api_router.include_router(
+            fastapi_users.get_reset_password_router(),
+            prefix="/auth",
+            tags=["users-auth"],
+            dependencies=[Depends(auth_local_api.enforce_auth_throughput_limit)],
+        )
+        api_router.include_router(
+            fastapi_users.get_verify_router(UserRead),
+            prefix="/auth",
+            tags=["users-auth"],
+            dependencies=[Depends(auth_local_api.enforce_auth_throughput_limit)],
+        )
+        api_router.include_router(
+            fastapi_users.get_register_router(UserRead, UserCreate),
+            prefix="/auth",
+            tags=["users-auth"],
+            dependencies=[
+                Depends(auth_local_api.require_signup_enabled),
+                Depends(auth_local_api.enforce_auth_throughput_limit),
+            ],
+        )
+        register_oauth_routes(api_router, settings)
+
+        view_router.include_router(auth_views)
+        view_router.include_router(admin_views)
 
     def register_middleware(self, app: FastAPI) -> None:
         from users.middleware import AuthMiddleware
@@ -129,11 +165,12 @@ class UsersModule(ModuleBase):
         """Build the mailer, rate limiter, and apply production cookie params."""
         import asyncio
 
+        from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
         from users.backend import reconfigure_cookie_transport
         from users.bootstrap import bootstrap_admin_from_env
         from users.deps import auth_backend
         from users.mailer import build_mailer
-        from users.rate_limit import LoginRateLimiter, ThroughputLimiter
+        from users.oauth.providers import enabled_provider_names
         from users.roles_cache import refresh_roles_cache
 
         state = app.state.users
@@ -148,6 +185,7 @@ class UsersModule(ModuleBase):
             max_attempts=s.auth_rate_limit_attempts,
             window_seconds=s.auth_rate_limit_window_seconds,
         )
+        state.oauth_providers = enabled_provider_names(s)
 
         # Auto-fall-back from the default ``/dashboard/`` to ``/`` when the
         # Dashboard module isn't installed, so ``--preset minimal`` doesn't

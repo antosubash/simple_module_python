@@ -198,7 +198,7 @@ class TestAuthThroughputLimit:
         self, anon_client, users_app, users_db
     ):
         """After the configured attempt budget, /forgot-password returns 429."""
-        from users.rate_limit import ThroughputLimiter
+        from users.auth_local.rate_limit import ThroughputLimiter
 
         # Tighten the limit for the test so we don't need to hit 10 real endpoints
         users_app.state.users.auth_throughput_limiter = ThroughputLimiter(
