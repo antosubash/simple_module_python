@@ -1,0 +1,79 @@
+"""Pin the documented middleware execution order.
+
+CLAUDE.md spells out the pipeline:
+
+    CorrelationId → RequestLogging → Security → Session → <module>
+                  → Tenant (opt-in) → Locale → InertiaLayoutData → app
+
+Tenant/Locale must see ``request.state.user`` set by AuthMiddleware so
+DB queries get filtered correctly; CorrelationId must wrap everything so
+every log line carries its id. Order matters and a swap is the kind of
+regression that breaks production without breaking any happy-path test.
+``app.user_middleware`` lists middlewares in execution order (Starlette
+LIFOs ``add_middleware`` calls, FastAPI surfaces them already reversed).
+"""
+
+from __future__ import annotations
+
+import pytest
+from simple_module_hosting.app_builder import create_app
+from simple_module_hosting.settings import Settings
+
+_EXPECTED_MULTI_TENANT = (
+    "CorrelationIdMiddleware",
+    "RequestLoggingMiddleware",
+    "SecurityHeadersMiddleware",
+    "SessionMiddleware",
+    "AuthMiddleware",
+    "TenantMiddleware",
+    "LocaleMiddleware",
+    "InertiaLayoutDataMiddleware",
+)
+
+_EXPECTED_SINGLE_TENANT = (
+    "CorrelationIdMiddleware",
+    "RequestLoggingMiddleware",
+    "SecurityHeadersMiddleware",
+    "SessionMiddleware",
+    "AuthMiddleware",
+    "LocaleMiddleware",
+    "InertiaLayoutDataMiddleware",
+)
+
+
+def _names(app) -> tuple[str, ...]:
+    return tuple(m.cls.__name__ for m in app.user_middleware)
+
+
+@pytest.mark.parametrize(
+    ("multi_tenant", "expected"),
+    [(True, _EXPECTED_MULTI_TENANT), (False, _EXPECTED_SINGLE_TENANT)],
+)
+def test_middleware_pipeline_order(multi_tenant: bool, expected: tuple[str, ...]) -> None:
+    settings = Settings(
+        database_url="sqlite+aiosqlite:///:memory:",
+        environment="testing",
+        secret_key="x" * 32,
+        multi_tenant=multi_tenant,
+    )
+    app = create_app(settings)
+    assert _names(app) == expected, (
+        "Middleware pipeline order drifted from CLAUDE.md. "
+        f"Got {_names(app)!r}, expected {expected!r}."
+    )
+
+
+def test_tenant_middleware_absent_when_disabled() -> None:
+    """``multi_tenant=False`` must not register TenantMiddleware at all.
+
+    Just toggling off the header would still leak the DB context-var setter
+    onto every request; the middleware itself is what must vanish.
+    """
+    settings = Settings(
+        database_url="sqlite+aiosqlite:///:memory:",
+        environment="testing",
+        secret_key="x" * 32,
+        multi_tenant=False,
+    )
+    app = create_app(settings)
+    assert "TenantMiddleware" not in _names(app)

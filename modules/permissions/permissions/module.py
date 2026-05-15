@@ -10,6 +10,8 @@ from fastapi import APIRouter
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 
+from permissions.constants import _MODULE_AUTH, _MODULE_USERS
+
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
@@ -19,7 +21,7 @@ class PermissionsModule(ModuleBase):
         name="Permissions",
         route_prefix="/api/permissions",
         view_prefix="/permissions",
-        depends_on=["Auth", "Users"],
+        depends_on=[_MODULE_AUTH, _MODULE_USERS],
     )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:

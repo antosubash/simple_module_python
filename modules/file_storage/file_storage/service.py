@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import logging
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -23,6 +24,9 @@ from file_storage.models import StoredFile
 if TYPE_CHECKING:
     from file_storage.contracts.service import StorageBackend
     from file_storage.settings import FileStorageSettings
+
+
+_logger = logging.getLogger(__name__)
 
 
 class FileTooLargeError(Exception):
@@ -100,7 +104,11 @@ class FileStorageService:
             size=0,  # unknown until stream is drained; backends that need it can spool
         )
 
-        # Compensation: on DB failure, drop the just-uploaded object.
+        # Compensation: on DB failure, drop the just-uploaded object. A
+        # cleanup-time exception must NOT replace the original failure —
+        # otherwise the operator chases the wrong root cause. We swallow
+        # the cleanup error after logging; the orphaned key can be reaped
+        # by a janitor sweep.
         try:
             row = StoredFile(
                 key=key,
@@ -114,7 +122,13 @@ class FileStorageService:
             await self.db.flush()
             await self.db.refresh(row)
         except Exception:
-            await self.backend.delete(key)
+            try:
+                await self.backend.delete(key)
+            except Exception:
+                _logger.exception(
+                    "file_storage.cleanup_failed key=%s — original upload error follows",
+                    key,
+                )
             raise
 
         return StoredFileOut.model_validate(_to_out_dict(row))

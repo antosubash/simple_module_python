@@ -17,11 +17,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import io
+import ast
 import re
 import subprocess
 import sys
-import tokenize
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
@@ -59,16 +58,40 @@ def _should_skip(path: Path, root: Path) -> bool:
     return any(part in rel for part in _SKIP_PATH_PARTS)
 
 
-def _string_literal_lines(source: str) -> set[int]:
-    """Return line numbers that are part of a string/docstring token."""
+def _docstring_lines(source: str) -> set[int]:
+    """Return line numbers that are module/class/function docstrings.
+
+    The earlier implementation flagged *every* line that contained a string
+    token, which silently disabled the rules: a real ``RequiresPermission(
+    "users.manage")`` call always has a string on the same line as the
+    function name, so the line was excluded. We only want to skip docstring
+    bodies — strings that sit on their own as the first statement of a
+    module, class, or function.
+    """
     inside: set[int] = set()
     try:
-        tokens = tokenize.generate_tokens(io.StringIO(source).readline)
-        for tok_type, _, (start_row, _), (end_row, _), _ in tokens:
-            if tok_type == tokenize.STRING:
-                inside.update(range(start_row, end_row + 1))
-    except tokenize.TokenError:
-        pass
+        tree = ast.parse(source)
+    except SyntaxError:
+        return inside
+
+    def _maybe_record(node: ast.AST) -> None:
+        body = getattr(node, "body", None)
+        if not body:
+            return
+        first = body[0]
+        if not isinstance(first, ast.Expr):
+            return
+        value = first.value
+        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            end = getattr(first, "end_lineno", first.lineno)
+            inside.update(range(first.lineno, end + 1))
+
+    for node in ast.walk(tree):
+        if isinstance(
+            node,
+            (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef),
+        ):
+            _maybe_record(node)
     return inside
 
 
@@ -79,10 +102,10 @@ def _check_file(path: Path) -> list[tuple[int, str, str]]:
         source = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return violations
-    string_lines = _string_literal_lines(source)
+    docstring_lines = _docstring_lines(source)
     for lineno, line in enumerate(source.splitlines(), start=1):
         stripped = line.strip()
-        if stripped.startswith("#") or lineno in string_lines:
+        if stripped.startswith("#") or lineno in docstring_lines:
             continue
         for pattern, message in _RULES:
             if pattern.search(line):

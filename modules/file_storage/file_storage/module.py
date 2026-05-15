@@ -28,7 +28,7 @@ class FileStorageModule(ModuleBase):
         view_prefix=constants.ROUTE_PREFIX_VIEW,
         # Needs Settings to run first so register_module_settings can reach
         # app.state.settings.module_registry during register_settings.
-        depends_on=["Settings"],
+        depends_on=[constants._MODULE_SETTINGS],
     )
 
     def register_settings(self, app: FastAPI) -> None:
