@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from users.rate_limit import LoginRateLimiter, ThroughputLimiter
+from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
 
 
 @pytest.fixture

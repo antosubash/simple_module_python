@@ -187,7 +187,7 @@ async def test_admin_edit_page_unknown_user_returns_404(admin_client):
 @pytest.mark.anyio
 async def test_roles_payload_returns_id_name_dicts(users_app):
     """Helper reads the roles cache and returns id/name dicts in cache order."""
-    from users.endpoints.views import _roles_payload
+    from users.admin.views import _roles_payload
 
     payload = await _roles_payload(users_app)
 

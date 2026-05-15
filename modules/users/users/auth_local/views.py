@@ -1,0 +1,103 @@
+"""Inertia view routes for local-credential auth (login/register/reset/verify/profile)."""
+
+from __future__ import annotations
+
+import os
+
+from fastapi import APIRouter, HTTPException, Request
+from inertia import InertiaResponse
+from simple_module_hosting.inertia_deps import InertiaDep
+from starlette.responses import RedirectResponse
+
+router = APIRouter()
+
+_PAGE_LOGIN = "Users/Login"
+_PAGE_REGISTER = "Users/Register"
+_PAGE_FORGOT_PASSWORD = "Users/ForgotPassword"
+_PAGE_RESET_PASSWORD = "Users/ResetPassword"
+_PAGE_VERIFY_EMAIL = "Users/VerifyEmail"
+_PAGE_ACCEPT_INVITE = "Users/AcceptInvite"
+_PAGE_PROFILE = "Users/Profile"
+
+
+@router.get("/login", response_model=None)
+async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
+    users_state = request.app.state.users
+    users_settings = users_state.settings
+    # In development only, surface the bootstrap credentials as click-to-fill
+    # buttons so manual QA doesn't need to retype them. Never exposed in
+    # production, regardless of whether the vars are set.
+    dev_accounts: list[dict[str, str]] = []
+    if request.app.state.sm.settings.is_development:
+        admin_email = users_settings.bootstrap_email or os.environ.get(
+            "SM_USERS_BOOTSTRAP_EMAIL", ""
+        )
+        admin_password = users_settings.bootstrap_password or os.environ.get(
+            "SM_USERS_BOOTSTRAP_PASSWORD", ""
+        )
+        if admin_email and admin_password:
+            dev_accounts.append(
+                {"label": "Admin", "email": admin_email, "password": admin_password}
+            )
+        user_email = users_settings.bootstrap_user_email or os.environ.get(
+            "SM_USERS_BOOTSTRAP_USER_EMAIL", ""
+        )
+        user_password = users_settings.bootstrap_user_password or os.environ.get(
+            "SM_USERS_BOOTSTRAP_USER_PASSWORD", ""
+        )
+        if user_email and user_password:
+            dev_accounts.append({"label": "User", "email": user_email, "password": user_password})
+    return await inertia.render(
+        _PAGE_LOGIN,
+        {
+            "allow_signup": users_settings.allow_signup,
+            "dev_accounts": dev_accounts,
+            "login_redirect_url": users_settings.login_redirect_url,
+            "oauth_providers": users_state.oauth_providers,
+        },
+    )
+
+
+@router.post("/logout", response_model=None)
+async def logout(request: Request) -> RedirectResponse:
+    """POST-only to resist cross-site `<img>` logout attacks — the menu's
+    logout link submits this as an Inertia form."""
+    request.session.clear()
+    cookie_name = request.app.state.users.settings.cookie_name
+    # 303 forces the follow-up to GET — Inertia treats the redirect as a full
+    # navigation rather than replaying the POST.
+    response = RedirectResponse("/", status_code=303)
+    response.delete_cookie(cookie_name, path="/")
+    return response
+
+
+@router.get("/register", response_model=None)
+async def register_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
+    if not request.app.state.users.settings.allow_signup:
+        raise HTTPException(status_code=404)
+    return await inertia.render(_PAGE_REGISTER, {})
+
+
+@router.get("/forgot-password", response_model=None)
+async def forgot_password_page(inertia: InertiaDep) -> InertiaResponse:
+    return await inertia.render(_PAGE_FORGOT_PASSWORD, {})
+
+
+@router.get("/reset-password", response_model=None)
+async def reset_password_page(inertia: InertiaDep, token: str = "") -> InertiaResponse:
+    return await inertia.render(_PAGE_RESET_PASSWORD, {"token": token})
+
+
+@router.get("/verify", response_model=None)
+async def verify_page(inertia: InertiaDep, token: str = "") -> InertiaResponse:
+    return await inertia.render(_PAGE_VERIFY_EMAIL, {"token": token})
+
+
+@router.get("/invite/accept", response_model=None)
+async def accept_invite_page(inertia: InertiaDep, token: str = "") -> InertiaResponse:
+    return await inertia.render(_PAGE_ACCEPT_INVITE, {"token": token})
+
+
+@router.get("/me", response_model=None)
+async def profile_page(inertia: InertiaDep) -> InertiaResponse:
+    return await inertia.render(_PAGE_PROFILE, {})

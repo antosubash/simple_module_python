@@ -1,11 +1,11 @@
-"""REST API endpoints for the users module.
+"""REST endpoints for local-credential auth + self profile.
 
-Structure:
-  /api/users/auth/login    — wrapper with rate limit
-  /api/users/auth/*        — fastapi-users routers (register/reset/verify/logout)
-  /api/users/auth/accept-invite — custom (verify + set password + login)
-  /api/users/me            — self profile
-  /api/users/admin/*       — admin REST (RequiresPermission('users.manage'))
+Routes owned here (all mounted by :meth:`UsersModule.register_routes`):
+  POST /api/users/auth/login          — rate-limited wrapper around fastapi-users
+  POST /api/users/auth/accept-invite  — verify invite + set password + login
+  GET  /api/users/me                  — current user
+  PATCH /api/users/me                 — update current user
+  /api/users/auth-inner/*             — fastapi-users stock auth router
 """
 
 from __future__ import annotations
@@ -16,11 +16,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import exceptions as fu_exceptions
 
+from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
 from users.constants import SESSION_USER_ID_KEY
 from users.contracts.schemas import (
     AcceptInviteRequest,
     SelfProfileUpdate,
-    UserCreate,
     UserRead,
     UserUpdate,
 )
@@ -29,11 +29,7 @@ from users.deps import (
     fastapi_users,
     get_user_manager,
 )
-from users.endpoints.api_admin import admin_router
-from users.endpoints.api_oauth import register_oauth_routes
 from users.manager import UserManager
-from users.rate_limit import LoginRateLimiter, ThroughputLimiter
-from users.settings import UsersSettings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -127,47 +123,6 @@ auth_inner = fastapi_users.get_auth_router(auth_backend, requires_verification=T
 router.include_router(auth_inner, prefix="/auth-inner")
 
 
-def register_auth_routes(api_router: APIRouter, settings: UsersSettings) -> None:
-    """Mount all auth routes.
-
-    The stock fastapi-users routers (reset/verify/register) ship POST endpoints
-    that trigger email side-effects or account creation. We wrap them with the
-    throughput limiter so an attacker can't spam password-reset emails or mint
-    accounts indefinitely. ``router`` itself is left unwrapped because its
-    rate-limited endpoints apply the dep themselves (login via LoginRateLimiter,
-    accept-invite via ``enforce_auth_throughput_limit``).
-
-    The register router is always mounted; ``require_signup_enabled`` gates
-    it at request time so ``allow_signup`` is hot-reloadable.
-
-    OAuth providers configured in ``settings`` are mounted under
-    ``/auth/<provider>/{login,callback}`` — see :mod:`users.endpoints.api_oauth`.
-    """
-    api_router.include_router(router)
-    api_router.include_router(
-        fastapi_users.get_reset_password_router(),
-        prefix="/auth",
-        tags=["users-auth"],
-        dependencies=[Depends(enforce_auth_throughput_limit)],
-    )
-    api_router.include_router(
-        fastapi_users.get_verify_router(UserRead),
-        prefix="/auth",
-        tags=["users-auth"],
-        dependencies=[Depends(enforce_auth_throughput_limit)],
-    )
-    api_router.include_router(
-        fastapi_users.get_register_router(UserRead, UserCreate),
-        prefix="/auth",
-        tags=["users-auth"],
-        dependencies=[
-            Depends(require_signup_enabled),
-            Depends(enforce_auth_throughput_limit),
-        ],
-    )
-    register_oauth_routes(api_router, settings)
-
-
 # ── Accept-invite (verify + set password + login, one shot) ─────────────────
 
 
@@ -226,8 +181,3 @@ async def update_me(
         user,
         request=request,
     )
-
-
-# ── Admin REST — defined in api_admin.py, mounted here ──────────────────────
-
-router.include_router(admin_router)

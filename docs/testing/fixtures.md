@@ -105,7 +105,7 @@ The admin has `*` permission (via `DEFAULT_ROLE_PERMISSIONS["admin"]`), so it by
 ```python
 @pytest.mark.asyncio
 async def test_non_admin_denied(client, db_session):
-    from users.service import UserService
+    from users.admin.service import UserService
     svc = UserService(db_session)
     await svc.create(email="u@e.com", password="x", roles=["viewer"])
     await db_session.commit()

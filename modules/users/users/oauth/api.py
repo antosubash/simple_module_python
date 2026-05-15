@@ -24,7 +24,7 @@ from fastapi_users import exceptions as fu_exceptions
 from starlette.responses import RedirectResponse
 
 from users.deps import auth_backend, get_user_manager
-from users.oauth import OAuthProvider, build_clients
+from users.oauth.providers import OAuthProvider, build_clients
 
 if TYPE_CHECKING:
     from users.manager import UserManager
