@@ -3,7 +3,7 @@ import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 
 const projectRoot = path.resolve(__dirname, '../..');
 
@@ -13,10 +13,23 @@ const analyzeBundle = process.env.ANALYZE === '1';
 
 // Load the module pages manifest written by the Python host at boot.
 // Each entry points at an absolute pages/ directory — typically inside a
-// pip-installed module wheel. Vite needs these in server.fs.allow so the
-// dev server can read files outside the workspace root.
+// pip-installed module wheel under .venv/.../site-packages/. From each
+// pages dir we derive three things:
+//   1. The parent directory, for server.fs.allow (so Vite can serve the
+//      files from outside the workspace root).
+//   2. The module's package.json. Two install modes ship it in different
+//      places: wheels embed it next to the Python package (one level up
+//      from pages/, force-included by Hatch), while editable/workspace
+//      installs leave it at the source-tree module root (two levels up).
+//      We accept either. Its `dependencies` + `peerDependencies` declare
+//      every bare specifier the module's pages can import.
+//   3. A glob pattern for optimizeDeps.entries, so Vite's dependency
+//      scanner walks the pages and discovers their imports.
 const manifestPath = path.resolve(__dirname, 'modules.manifest.json');
 const moduleFsAllow: string[] = [];
+const moduleOptimizeEntries: string[] = [];
+const modulePkgJsonPaths: string[] = [];
+const modulePagesPrefixes: string[] = [];
 let manifest: Record<string, string> = {};
 try {
   manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
@@ -24,11 +37,93 @@ try {
   // Manifest absent (smpy gen-pages hasn't run yet) — proceed with empty set.
 }
 for (const pagesDir of Object.values(manifest)) {
-  moduleFsAllow.push(path.dirname(pagesDir));
+  const pkgDir = path.dirname(pagesDir);
+  moduleFsAllow.push(pkgDir);
+  moduleOptimizeEntries.push(path.join(pagesDir, '**/*.tsx'));
+  modulePagesPrefixes.push(pagesDir + path.sep);
+  for (const candidate of [
+    path.join(pkgDir, 'package.json'),
+    path.join(path.dirname(pkgDir), 'package.json'),
+  ]) {
+    if (fs.existsSync(candidate)) {
+      modulePkgJsonPaths.push(candidate);
+      break;
+    }
+  }
 }
+const projectRootPrefix = projectRoot + path.sep;
+
+// Gather every bare specifier a module's pages might import. We include
+// both `dependencies` (deps the module ships its own copy of) and
+// `peerDependencies` (deps the host is expected to provide, e.g.
+// `@inertiajs/react`, `@simple-module-py/ui`) so the dep scanner pre-
+// bundles all of them. Without pre-bundling, the resolver would have to
+// walk from each importer at request time, which is the failure mode
+// described in https://github.com/antosubash/simple_module_python/issues/152.
+function collectModuleDecls(): string[] {
+  const decls = new Set<string>();
+  for (const pkgJsonPath of modulePkgJsonPaths) {
+    let pkg: { dependencies?: Record<string, string>; peerDependencies?: Record<string, string> };
+    try {
+      pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'));
+    } catch {
+      continue;
+    }
+    for (const block of [pkg.dependencies, pkg.peerDependencies]) {
+      for (const dep of Object.keys(block ?? {})) {
+        if (!dep.startsWith('@types/')) decls.add(dep);
+      }
+    }
+  }
+  return [...decls];
+}
+
+// Cross-package bare imports from module pages (`maplibre-gl`, `pmtiles`,
+// `@inertiajs/react`, …) live in the workspace-root node_modules after
+// `npm install`. But when a module's pages sit outside the workspace root
+// — under `.venv/.../site-packages/<pkg>/pages/` for wheel installs — Vite's
+// resolver walks up from the importer looking for node_modules and never
+// reaches <repo>/node_modules. Resolution fails with: "Failed to resolve
+// import … Does the file exist?".
+//
+// This plugin recovers by retrying any unresolved bare import from a
+// module-pages importer as if the importer lived at the workspace root,
+// which puts <repo>/node_modules back on the resolver's path. Combined
+// with `optimizeDeps.include` (declared module deps + peer deps),
+// dev/scan/build all converge on the host's hoisted copy.
+function moduleBareImportResolver(): Plugin {
+  return {
+    name: 'simple-module:resolve-module-bare-imports',
+    enforce: 'pre',
+    async resolveId(source, importer) {
+      if (!importer) return null;
+      if (
+        source.startsWith('.') ||
+        source.startsWith('/') ||
+        source.startsWith('\0') ||
+        source.startsWith('virtual:')
+      ) {
+        return null;
+      }
+      const importerPath = importer.split('?')[0];
+      if (importerPath.startsWith(projectRootPrefix)) return null;
+      if (!modulePagesPrefixes.some((prefix) => importerPath.startsWith(prefix))) {
+        return null;
+      }
+      const resolved = await this.resolve(source, fakeWorkspaceImporter, {
+        skipSelf: true,
+      });
+      return resolved ?? null;
+    },
+  };
+}
+
+const moduleDecls = collectModuleDecls();
+const fakeWorkspaceImporter = path.join(projectRoot, 'package.json');
 
 export default defineConfig({
   plugins: [
+    moduleBareImportResolver(),
     react(),
     tailwindcss(),
     ...(analyzeBundle
@@ -56,12 +151,14 @@ export default defineConfig({
     dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
   },
   optimizeDeps: {
+    entries: ['main.tsx', 'pages/**/*.tsx', ...moduleOptimizeEntries],
     include: [
       'react',
       'react-dom',
       'react-dom/client',
       'react/jsx-runtime',
       'react/jsx-dev-runtime',
+      ...moduleDecls,
     ],
   },
   root: __dirname,
