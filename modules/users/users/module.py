@@ -119,9 +119,11 @@ class UsersModule(ModuleBase):
         from users.oauth.api import register_oauth_routes
         from users.settings import UsersSettings
 
-        # Construct settings here (re-reads env_str-bound fields like OAuth
-        # client ids/secrets). Validators have already passed by this point —
-        # ``register_settings`` ran first and would have raised on placeholders.
+        # Consumed only by ``register_oauth_routes`` → ``build_clients`` at
+        # registration time, which reads class-attribute defaults captured by
+        # ``env_str()`` at import. Request-time readers of mutable fields
+        # (e.g. ``login_redirect_url``) must go through
+        # ``request.app.state.users.settings``, not this instance.
         settings = UsersSettings()
 
         api_router.include_router(auth_local_api.router)
