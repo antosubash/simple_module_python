@@ -199,7 +199,10 @@ class TestCreateHost:
         # The seeded path must reference fsRoot — the dir that contains the
         # hoisted node_modules — not a hardcoded literal that breaks in
         # flat-vs-workspace layouts.
-        assert "fsRoot" in vite_config and "node_modules" in vite_config, (
-            "nodePaths must point at fsRoot/node_modules so the fallback "
-            "works in both flat and workspace layouts."
+        assert "fsRoot" in vite_config, (
+            "nodePaths must reference fsRoot (not a hardcoded literal) so the "
+            "fallback works in both flat and workspace layouts (GH issue #152)."
+        )
+        assert "node_modules" in vite_config, (
+            "nodePaths entry must include 'node_modules' (GH issue #152)."
         )
