@@ -63,13 +63,17 @@ export default defineConfig({
       'react/jsx-runtime',
       'react/jsx-dev-runtime',
     ],
-    // Seed NODE_PATH-style fallback so esbuild's scan-imports resolves
-    // bare specifiers from module pages whose importer paths sit outside
-    // host/client_app (e.g. `modules/<name>/pages/*.tsx` shipping their
-    // own JS deps that live in the hoisted workspace node_modules).
-    // See GitHub issue #152.
-    esbuildOptions: {
-      nodePaths: [path.join(projectRoot, 'node_modules')],
+    // Add the hoisted workspace node_modules to Rolldown's resolve search
+    // so the dev-mode scan resolves bare specifiers from module pages
+    // whose importer paths sit outside host/client_app (e.g.
+    // `modules/<name>/pages/*.tsx` shipping their own JS deps). Rolldown's
+    // default `modules: ['node_modules']` walks upward from the importer,
+    // which doesn't always reach the workspace root; adding the absolute
+    // path provides a NODE_PATH-style fallback. See GitHub issue #152.
+    rolldownOptions: {
+      resolve: {
+        modules: ['node_modules', path.join(projectRoot, 'node_modules')],
+      },
     },
   },
   root: __dirname,
