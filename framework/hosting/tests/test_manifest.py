@@ -9,7 +9,6 @@ from pathlib import Path
 
 import pytest
 from simple_module_core import ModuleBase, ModuleMeta
-
 from simple_module_hosting.manifest import (
     collect_module_js_deps,
     read_module_package_json,
@@ -131,28 +130,28 @@ def fake_module_factory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 def test_read_module_package_json_finds_wheel_layout(fake_module_factory) -> None:
     """Wheel install: package.json sits next to the Python package."""
-    FakeMod = fake_module_factory("wheel", {"dep-a": "^1.0.0"})
-    pkg = read_module_package_json(FakeMod())
+    fake_cls = fake_module_factory("wheel", {"dep-a": "^1.0.0"})
+    pkg = read_module_package_json(fake_cls())
     assert pkg is not None
     assert pkg["dependencies"] == {"dep-a": "^1.0.0"}
 
 
 def test_read_module_package_json_finds_source_layout(fake_module_factory) -> None:
     """Source-tree / workspace: package.json sits at the module repo root."""
-    FakeMod = fake_module_factory("source", {"dep-b": "^2.0.0"})
-    pkg = read_module_package_json(FakeMod())
+    fake_cls = fake_module_factory("source", {"dep-b": "^2.0.0"})
+    pkg = read_module_package_json(fake_cls())
     assert pkg is not None
     assert pkg["dependencies"] == {"dep-b": "^2.0.0"}
 
 
 def test_collect_module_js_deps_aggregates_across_layouts(fake_module_factory) -> None:
     """Mixed-layout modules all contribute their declared deps."""
-    Wheel = fake_module_factory("wheel", {"cmdk": "^1.0.0"})
-    Source = fake_module_factory("source", {"maplibre-gl": "^4.7.0", "pmtiles": "^3.2.0"})
-    Empty = fake_module_factory("wheel", {})
+    wheel_cls = fake_module_factory("wheel", {"cmdk": "^1.0.0"})
+    source_cls = fake_module_factory("source", {"maplibre-gl": "^4.7.0", "pmtiles": "^3.2.0"})
+    empty_cls = fake_module_factory("wheel", {})
 
-    deps = collect_module_js_deps([Wheel(), Source(), Empty()])
+    deps = collect_module_js_deps([wheel_cls(), source_cls(), empty_cls()])
     # Empty deps are dropped; both populated modules appear by their meta.name.
-    assert Empty.meta.name not in deps
-    assert deps[Wheel.meta.name] == {"cmdk": "^1.0.0"}
-    assert deps[Source.meta.name] == {"maplibre-gl": "^4.7.0", "pmtiles": "^3.2.0"}
+    assert empty_cls.meta.name not in deps
+    assert deps[wheel_cls.meta.name] == {"cmdk": "^1.0.0"}
+    assert deps[source_cls.meta.name] == {"maplibre-gl": "^4.7.0", "pmtiles": "^3.2.0"}
