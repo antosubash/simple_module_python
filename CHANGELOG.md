@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+- Vite's dev-mode dependency pre-bundling now resolves cross-package bare
+  imports (e.g. `maplibre-gl`, `pmtiles`) from module pages whose importers sit
+  outside the host's `client_app/` — including wheel-installed modules and
+  workspace modules shipping their own JS deps. The scaffold template (Vite 6)
+  seeds `optimizeDeps.esbuildOptions.nodePaths` and the framework repo (Vite 8)
+  seeds `optimizeDeps.rolldownOptions.resolve.modules` with the workspace
+  `node_modules/` as a NODE_PATH-style fallback for the dep scanner (GH issue #152).
+
 ## [0.0.1] — 2026-04-21
 
 Initial public release. All 12 Python packages publish to PyPI and all 3 JS packages publish to npm under the `@simple-module-py` scope.

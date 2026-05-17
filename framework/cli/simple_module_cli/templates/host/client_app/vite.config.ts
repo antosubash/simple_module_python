@@ -205,6 +205,16 @@ export default defineConfig({
   optimizeDeps: {
     entries: ['main.tsx', 'pages/**/*.tsx', ...moduleOptimizeEntries],
     include: collectOptimizeIncludes(),
+    // Vite's dep scanner runs esbuild against every entry above. When the
+    // entry sits outside the workspace (a wheel-installed module's
+    // pages/, or sometimes even a workspace module's pages/), esbuild's
+    // upward node_modules walk from the importer does not always reach
+    // the hoisted node_modules at fsRoot. Seeding it as NODE_PATH-style
+    // fallback ensures bare specifiers like `maplibre-gl` resolve during
+    // scan-imports. See GitHub issue #152.
+    esbuildOptions: {
+      nodePaths: [path.join(fsRoot, 'node_modules')],
+    },
   },
   build: {
     outDir: '../static/dist',
