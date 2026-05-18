@@ -206,3 +206,42 @@ class TestCreateHost:
         assert "node_modules" in vite_config, (
             "nodePaths entry must include 'node_modules' (GH issue #152)."
         )
+
+    async def test_scaffold_vite_resolver_does_not_skip_workspace_modules(self, tmp_path):
+        """The moduleBareImportResolver plugin must NOT short-circuit on
+        ``fsRootPrefix`` containment.
+
+        In an npm-workspaces scaffold, ``fsRoot`` resolves to the workspace
+        root, which means workspace-member modules at ``modules/<name>/`` sit
+        *under* ``fsRoot``. An early-return gating on ``fsRootPrefix`` skips
+        them, leaving cross-package bare imports (`maplibre-gl`, `pmtiles`,
+        ...) unresolved during dev-mode resolveId.
+
+        The plugin should guard only on the module-pages prefix set — the
+        condition that actually identifies module-page importers regardless of
+        whether they sit inside or outside ``fsRoot``.
+
+        Regression test for GitHub issue #156.
+        """
+        from simple_module_cli.scaffolding import create_host
+
+        dest = tmp_path / "demo"
+        create_host(name="demo", dest=dest, modules=[])
+
+        vite_config = (dest / "client_app" / "vite.config.ts").read_text(encoding="utf-8")
+
+        # The resolver must still exist — the fix shouldn't remove the plugin.
+        assert "moduleBareImportResolver" in vite_config, (
+            "vite.config.ts must register the cross-package bare-import resolver."
+        )
+        # The buggy early-return must be gone (GH issue #156).
+        assert "startsWith(fsRootPrefix)" not in vite_config, (
+            "vite.config.ts must not early-return on fsRootPrefix containment — "
+            "in npm-workspaces mode workspace-member module pages live under "
+            "fsRoot and would be incorrectly skipped (GH issue #156)."
+        )
+        # The workspace-root re-resolution must still run.
+        assert "fakeWorkspaceImporter" in vite_config, (
+            "vite.config.ts must re-resolve unresolved bare imports against the "
+            "workspace root so hoisted node_modules wins (GH issue #156)."
+        )

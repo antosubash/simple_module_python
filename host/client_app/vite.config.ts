@@ -51,7 +51,6 @@ for (const pagesDir of Object.values(manifest)) {
     }
   }
 }
-const projectRootPrefix = projectRoot + path.sep;
 
 // Gather every bare specifier a module's pages might import. We include
 // both `dependencies` (deps the module ships its own copy of) and
@@ -80,11 +79,13 @@ function collectModuleDecls(): string[] {
 
 // Cross-package bare imports from module pages (`maplibre-gl`, `pmtiles`,
 // `@inertiajs/react`, …) live in the workspace-root node_modules after
-// `npm install`. But when a module's pages sit outside the workspace root
-// — under `.venv/.../site-packages/<pkg>/pages/` for wheel installs — Vite's
-// resolver walks up from the importer looking for node_modules and never
-// reaches <repo>/node_modules. Resolution fails with: "Failed to resolve
-// import … Does the file exist?".
+// `npm install`. But Vite's resolver walks up from the importer looking
+// for node_modules and doesn't always reach <repo>/node_modules — true for
+// wheel installs under `.venv/.../site-packages/<pkg>/pages/` (outside the
+// project root) AND for workspace-member modules at `modules/<name>/<pkg>/
+// pages/` whose upward walk hits intermediate dirs without node_modules
+// before reaching the hoisted workspace root. Resolution fails with:
+// "Failed to resolve import … Does the file exist?".
 //
 // This plugin recovers by retrying any unresolved bare import from a
 // module-pages importer as if the importer lived at the workspace root,
@@ -106,7 +107,6 @@ function moduleBareImportResolver(): Plugin {
         return null;
       }
       const importerPath = importer.split('?')[0];
-      if (importerPath.startsWith(projectRootPrefix)) return null;
       if (!modulePagesPrefixes.some((prefix) => importerPath.startsWith(prefix))) {
         return null;
       }
