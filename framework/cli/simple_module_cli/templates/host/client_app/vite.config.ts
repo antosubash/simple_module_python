@@ -68,7 +68,6 @@ if (fs.existsSync(manifestPath)) {
     }
   }
 }
-const fsRootPrefix = fsRoot + path.sep;
 const fakeWorkspaceImporter = path.join(fsRoot, 'package.json');
 
 // CJS-only deps like `clsx`, `tailwind-merge`, `class-variance-authority`
@@ -158,11 +157,13 @@ function collectOptimizeIncludes(): string[] {
 
 // Cross-package bare imports from module pages (`maplibre-gl`, `pmtiles`,
 // `@inertiajs/react`, …) live in fsRoot/node_modules after `npm install`.
-// But when a module's pages sit outside fsRoot — under
-// `.venv/.../site-packages/<pkg>/pages/` for wheel installs — Vite's
-// resolver walks up from the importer looking for node_modules and never
-// reaches fsRoot/node_modules. Resolution fails with: "Failed to resolve
-// import … Does the file exist?".
+// But Vite's resolver walks up from the importer looking for node_modules
+// and doesn't always reach fsRoot/node_modules — true for wheel installs
+// under `.venv/.../site-packages/<pkg>/pages/` (outside fsRoot) AND for
+// workspace-member modules at `modules/<name>/<pkg>/pages/` whose upward
+// walk hits intermediate dirs without node_modules before reaching the
+// hoisted workspace root. Resolution fails with: "Failed to resolve import
+// … Does the file exist?".
 //
 // This plugin recovers by retrying any unresolved bare import from a
 // module-pages importer as if the importer lived at fsRoot, which puts
@@ -184,7 +185,6 @@ function moduleBareImportResolver(): Plugin {
         return null;
       }
       const importerPath = importer.split('?')[0];
-      if (importerPath.startsWith(fsRootPrefix)) return null;
       if (!modulePagesPrefixes.some((prefix) => importerPath.startsWith(prefix))) {
         return null;
       }

@@ -12,6 +12,13 @@ All notable changes to this project are documented in this file. The format is b
   seeds `optimizeDeps.esbuildOptions.nodePaths` and the framework repo (Vite 8)
   seeds `optimizeDeps.rolldownOptions.resolve.modules` with the workspace
   `node_modules/` as a NODE_PATH-style fallback for the dep scanner (GH issue #152).
+- The `moduleBareImportResolver` Vite plugin no longer short-circuits on
+  `fsRoot`/`projectRoot` containment, so workspace-member modules at
+  `modules/<name>/<pkg>/pages/` get the same workspace-root re-resolution as
+  wheel-installed modules. In an npm-workspaces layout the workspace root *is*
+  the resolver root, so the previous early-return excluded the very modules
+  that need it. Cross-package bare imports (`maplibre-gl`, `pmtiles`, peer
+  deps) now resolve in both wheel and workspace install modes (GH issue #156).
 
 ## [0.0.1] — 2026-04-21
 
