@@ -20,6 +20,7 @@ from typing import Final
 MODULE_NAME: Final = "file_storage"
 MODULE_PASCAL: Final = "FileStorage"
 MODULE_DISPLAY_NAME: Final = "Files"
+_MODULE_SETTINGS: Final = "Settings"
 
 # ── Configuration ────────────────────────────────────────────────────
 ENV_PREFIX: Final = "SM_FILE_STORAGE_"

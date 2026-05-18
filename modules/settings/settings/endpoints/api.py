@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from simple_module_hosting.permissions import RequiresPermission
 
 from settings.constants import (
     API_BY_ID_PATH,
@@ -11,6 +12,10 @@ from settings.constants import (
     API_TENANT_PATH,
     API_USER_PATH,
     ERR_SETTING_NOT_FOUND,
+    PERM_CREATE,
+    PERM_DELETE,
+    PERM_EDIT,
+    PERM_VIEW,
     QP_SCOPE,
     QP_SCOPE_ID,
     QP_TENANT_ID,
@@ -32,6 +37,16 @@ from settings.service import SettingService
 
 router = APIRouter()
 
+# Module permissions exist (settings.view / .create / .edit / .delete) but the
+# endpoints used to be unauthenticated relative to the role map — any logged-in
+# user could read or rewrite system settings (including secrets like
+# ``reset_password_token_secret``). Each route now gates on the relevant
+# permission via the wildcard map.
+_VIEW = [Depends(RequiresPermission(PERM_VIEW))]
+_CREATE = [Depends(RequiresPermission(PERM_CREATE))]
+_EDIT = [Depends(RequiresPermission(PERM_EDIT))]
+_DELETE = [Depends(RequiresPermission(PERM_DELETE))]
+
 
 def _not_found() -> HTTPException:
     return HTTPException(status_code=STATUS_NOT_FOUND, detail=ERR_SETTING_NOT_FOUND)
@@ -40,7 +55,7 @@ def _not_found() -> HTTPException:
 # ── List / filter ───────────────────────────────────────────────────
 
 
-@router.get("/", response_model=list[SettingOut])
+@router.get("/", response_model=list[SettingOut], dependencies=_VIEW)
 async def list_settings(
     scope: SettingScope | None = Query(default=None, alias=QP_SCOPE),
     scope_id: str = Query(default=SYSTEM_SCOPE_ID, alias=QP_SCOPE_ID),
@@ -54,7 +69,7 @@ async def list_settings(
 # ── Resolution (USER > TENANT > SYSTEM) ─────────────────────────────
 
 
-@router.get(API_RESOLVE_PATH, response_model=SettingOut)
+@router.get(API_RESOLVE_PATH, response_model=SettingOut, dependencies=_VIEW)
 async def resolve_setting(
     key: str,
     user_id: str | None = Query(default=None, alias=QP_USER_ID),
@@ -70,7 +85,7 @@ async def resolve_setting(
 # ── Scoped (system / tenant / user) ─────────────────────────────────
 
 
-@router.get(API_SYSTEM_PATH, response_model=SettingOut)
+@router.get(API_SYSTEM_PATH, response_model=SettingOut, dependencies=_VIEW)
 async def get_system_setting(
     key: str, service: SettingService = Depends(get_setting_service)
 ) -> SettingOut:
@@ -80,7 +95,7 @@ async def get_system_setting(
     return result
 
 
-@router.put(API_SYSTEM_PATH, response_model=SettingOut)
+@router.put(API_SYSTEM_PATH, response_model=SettingOut, dependencies=_EDIT)
 async def upsert_system_setting(
     key: str,
     data: SettingUpsert,
@@ -89,7 +104,7 @@ async def upsert_system_setting(
     return await service.upsert_scoped(SettingScope.SYSTEM, SYSTEM_SCOPE_ID, key, data)
 
 
-@router.delete(API_SYSTEM_PATH, status_code=STATUS_NO_CONTENT)
+@router.delete(API_SYSTEM_PATH, status_code=STATUS_NO_CONTENT, dependencies=_DELETE)
 async def delete_system_setting(
     key: str, service: SettingService = Depends(get_setting_service)
 ) -> None:
@@ -97,7 +112,7 @@ async def delete_system_setting(
         raise _not_found()
 
 
-@router.get(API_TENANT_PATH, response_model=SettingOut)
+@router.get(API_TENANT_PATH, response_model=SettingOut, dependencies=_VIEW)
 async def get_tenant_setting(
     scope_id: str,
     key: str,
@@ -109,7 +124,7 @@ async def get_tenant_setting(
     return result
 
 
-@router.put(API_TENANT_PATH, response_model=SettingOut)
+@router.put(API_TENANT_PATH, response_model=SettingOut, dependencies=_EDIT)
 async def upsert_tenant_setting(
     scope_id: str,
     key: str,
@@ -119,7 +134,7 @@ async def upsert_tenant_setting(
     return await service.upsert_scoped(SettingScope.TENANT, scope_id, key, data)
 
 
-@router.delete(API_TENANT_PATH, status_code=STATUS_NO_CONTENT)
+@router.delete(API_TENANT_PATH, status_code=STATUS_NO_CONTENT, dependencies=_DELETE)
 async def delete_tenant_setting(
     scope_id: str,
     key: str,
@@ -129,7 +144,7 @@ async def delete_tenant_setting(
         raise _not_found()
 
 
-@router.get(API_USER_PATH, response_model=SettingOut)
+@router.get(API_USER_PATH, response_model=SettingOut, dependencies=_VIEW)
 async def get_user_setting(
     scope_id: str,
     key: str,
@@ -141,7 +156,7 @@ async def get_user_setting(
     return result
 
 
-@router.put(API_USER_PATH, response_model=SettingOut)
+@router.put(API_USER_PATH, response_model=SettingOut, dependencies=_EDIT)
 async def upsert_user_setting(
     scope_id: str,
     key: str,
@@ -151,7 +166,7 @@ async def upsert_user_setting(
     return await service.upsert_scoped(SettingScope.USER, scope_id, key, data)
 
 
-@router.delete(API_USER_PATH, status_code=STATUS_NO_CONTENT)
+@router.delete(API_USER_PATH, status_code=STATUS_NO_CONTENT, dependencies=_DELETE)
 async def delete_user_setting(
     scope_id: str,
     key: str,
@@ -164,7 +179,7 @@ async def delete_user_setting(
 # ── Id-based CRUD (admin tooling) ───────────────────────────────────
 
 
-@router.post("/", response_model=SettingOut, status_code=STATUS_CREATED)
+@router.post("/", response_model=SettingOut, status_code=STATUS_CREATED, dependencies=_CREATE)
 async def create_setting(
     data: SettingCreate,
     service: SettingService = Depends(get_setting_service),
@@ -172,7 +187,7 @@ async def create_setting(
     return await service.create(data)
 
 
-@router.get(API_BY_ID_PATH, response_model=SettingOut)
+@router.get(API_BY_ID_PATH, response_model=SettingOut, dependencies=_VIEW)
 async def get_setting(
     setting_id: int, service: SettingService = Depends(get_setting_service)
 ) -> SettingOut:
@@ -182,7 +197,7 @@ async def get_setting(
     return result
 
 
-@router.put(API_BY_ID_PATH, response_model=SettingOut)
+@router.put(API_BY_ID_PATH, response_model=SettingOut, dependencies=_EDIT)
 async def update_setting(
     setting_id: int,
     data: SettingUpdate,
@@ -194,7 +209,7 @@ async def update_setting(
     return result
 
 
-@router.delete(API_BY_ID_PATH, status_code=STATUS_NO_CONTENT)
+@router.delete(API_BY_ID_PATH, status_code=STATUS_NO_CONTENT, dependencies=_DELETE)
 async def delete_setting(
     setting_id: int, service: SettingService = Depends(get_setting_service)
 ) -> None:

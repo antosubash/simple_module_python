@@ -202,10 +202,52 @@ async def _make_admin_user(app):
     return user
 
 
+async def _make_standard_user(app, email: str = "user@example.com"):
+    """Seed a non-admin User with the standard ``user`` role.
+
+    Used by the negative-authz tests to confirm endpoints protected by
+    ``RequiresPermission(...)`` reject authenticated-but-non-admin callers.
+    """
+    from users.bootstrap import create_standard_user
+    from users.models import User
+
+    async with app.state.sm.db.session_factory() as session:
+        result = await create_standard_user(
+            session,
+            email=email,
+            password="UserPass1!",
+            full_name="Regular User",
+        )
+    user: User = result.user
+    return user
+
+
 @pytest.fixture
 async def admin_client(users_app) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Client with a signed local-user session cookie (admin role)."""
     user = await _make_admin_user(users_app)
+    cookie = forge_session_cookie(
+        str(users_app.state.sm.settings.secret_key),
+        {"user_id": str(user.id)},
+    )
+    transport = httpx.ASGITransport(app=users_app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+        cookies={"session": cookie},
+    ) as c:
+        yield c
+
+
+@pytest.fixture
+async def user_client(users_app) -> AsyncGenerator[httpx.AsyncClient, None]:
+    """Client with a signed session cookie for an authenticated non-admin user.
+
+    Counterpart to ``admin_client`` — every endpoint behind
+    ``RequiresPermission(...)`` should answer with 403 for this caller, since
+    the default role map only grants the wildcard to ``admin``.
+    """
+    user = await _make_standard_user(users_app)
     cookie = forge_session_cookie(
         str(users_app.state.sm.settings.secret_key),
         {"user_id": str(user.id)},

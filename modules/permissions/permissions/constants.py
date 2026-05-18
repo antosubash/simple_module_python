@@ -11,3 +11,7 @@ PERMISSION_GROUP = "Permissions"
 
 PERM_VIEW = "permissions.view"
 PERM_MANAGE = "permissions.manage"
+
+# ── Module dependencies (used by ModuleMeta.depends_on) ────────────────
+_MODULE_AUTH = "Auth"
+_MODULE_USERS = "Users"
