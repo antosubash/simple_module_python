@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import TYPE_CHECKING
 
 import httpx
 from simple_module_hosting.logging import (
@@ -12,6 +13,13 @@ from simple_module_hosting.logging import (
     correlation_id,
     setup_logging,
 )
+from simple_module_hosting.middleware import CorrelationIdMiddleware
+from starlette.applications import Starlette
+from starlette.responses import JSONResponse
+from starlette.routing import Route
+
+if TYPE_CHECKING:
+    from starlette.requests import Request
 
 # ── JsonFormatter ──────────────────────────────────────────────────────
 
@@ -173,6 +181,29 @@ class TestCorrelationIdMiddleware:
         r1 = await client.get("/health")
         r2 = await client.get("/health")
         assert r1.headers["x-correlation-id"] != r2.headers["x-correlation-id"]
+
+    async def test_state_contextvar_and_header_agree(self):
+        # Background tasks read the ContextVar; handlers read request.state;
+        # clients read the response header — all three must agree per request.
+        async def echo(request: Request) -> JSONResponse:
+            return JSONResponse(
+                {
+                    "state": request.state.correlation_id,
+                    "contextvar": correlation_id.get(""),
+                }
+            )
+
+        app = Starlette(routes=[Route("/echo", echo)])
+        app.add_middleware(CorrelationIdMiddleware)
+
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+            resp = await c.get("/echo", headers={CorrelationIdMiddleware.HEADER: "trace-xyz"})
+
+        assert resp.headers[CorrelationIdMiddleware.HEADER] == "trace-xyz"
+        body = resp.json()
+        assert body["state"] == "trace-xyz"
+        assert body["contextvar"] == "trace-xyz"
 
 
 # ── Request logging middleware (integration) ────────────────────────────

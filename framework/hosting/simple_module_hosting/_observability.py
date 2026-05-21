@@ -26,10 +26,16 @@ _QUIET_PREFIXES = ("/health", "/static/")
 class CorrelationIdMiddleware:
     """Generate or propagate a correlation ID for every request.
 
-    Reads the incoming ``X-Correlation-ID`` header (or generates a UUID4) and
-    stores it in a :class:`~contextvars.ContextVar` so that every log record
-    emitted during the request automatically includes the ID.  The same value
-    is echoed back in the response header.
+    Reads the incoming ``X-Correlation-ID`` header (or generates a UUID4) and:
+
+    * stores it in the ``simple_module_hosting.logging.correlation_id``
+      ContextVar so the stdlib logging filter (or a user-supplied structlog
+      processor — see ``docs/framework/middleware.md``) picks it up with no
+      per-handler plumbing;
+    * exposes it on ``request.state.correlation_id`` for handlers that
+      prefer the request object over the contextvar;
+    * echoes the value back as the ``X-Correlation-ID`` response header so
+      clients can cross-reference their request with server-side logs.
     """
 
     HEADER = "X-Correlation-ID"
@@ -43,6 +49,8 @@ class CorrelationIdMiddleware:
             return
 
         cid = Headers(scope=scope).get(self.HEADER) or uuid.uuid4().hex
+        # Skip allocating a Request wrapper — downstream Request(scope).state reads this same dict.
+        scope.setdefault("state", {})["correlation_id"] = cid
 
         async def send_with_header(message: Message) -> None:
             if message["type"] == _MSG_RESPONSE_START:

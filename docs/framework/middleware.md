@@ -50,7 +50,37 @@ The response flows back up in the reverse of this order.
 
 ### `CorrelationIdMiddleware`
 
-Reads the `X-Request-ID` header (or generates a UUID4), puts it on `request.state.correlation_id`, and adds it to every log line via `contextvars`. Included in the response as `X-Request-ID` so clients can cross-reference logs.
+Reads the `X-Correlation-ID` header (or generates a UUID4 hex) and makes the value available three ways:
+
+- `request.state.correlation_id` — for handlers that already hold the `Request`.
+- The `simple_module_hosting.logging.correlation_id` `ContextVar` — for code (services, background tasks spawned from a request) that doesn't.
+- An `X-Correlation-ID` response header — so clients can cross-reference their request with server-side logs.
+
+Every record emitted via the stdlib `logging` setup configured by `setup_logging()` already carries the ID under the `correlation_id` field, thanks to `_CorrelationIdFilter` reading the contextvar. For **structlog**, add a tiny processor that copies the framework's `ContextVar` into structlog's event dict:
+
+```python
+# anywhere during app startup (e.g. main.py)
+import structlog
+from simple_module_hosting.logging import correlation_id
+
+def add_correlation_id(_, __, event_dict):
+    cid = correlation_id.get("")
+    if cid:
+        event_dict.setdefault("correlation_id", cid)
+    return event_dict
+
+structlog.configure(
+    processors=[
+        add_correlation_id,
+        structlog.processors.add_log_level,
+        structlog.processors.JSONRenderer(),
+    ],
+)
+```
+
+No per-handler `bind()` and no middleware of your own — the framework's middleware calls `correlation_id.set(...)` for the duration of every request, and the processor above lifts that value into every log event.
+
+> `structlog.contextvars.merge_contextvars` is **not** a substitute here: it only merges `ContextVar`s whose names start with `structlog_` (set via `structlog.contextvars.bind_contextvars`), and the framework's `correlation_id` is a plain stdlib `ContextVar` outside that namespace.
 
 ### `RequestLoggingMiddleware`
 
