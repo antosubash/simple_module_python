@@ -49,3 +49,17 @@ def test_auth_state_resolvers_is_mutable_list():
 
     state.principal_resolvers.append(resolver)
     assert state.principal_resolvers == [resolver]
+
+
+def test_auth_module_register_settings_populates_app_state():
+    """``AuthModule.register_settings(app)`` must put an AuthState on ``app.state.auth``."""
+    from fastapi import FastAPI
+
+    from auth.module import AuthModule
+    from auth.state import AuthState
+
+    app = FastAPI()
+    AuthModule().register_settings(app)
+
+    assert isinstance(app.state.auth, AuthState)
+    assert app.state.auth.principal_resolvers == []
