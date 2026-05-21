@@ -124,9 +124,7 @@ class AuthMiddleware:
 
         if user_ctx is None and not is_public:
             if path.startswith("/api/"):
-                response = JSONResponse(
-                    {"detail": "Not authenticated"}, status_code=401
-                )
+                response = JSONResponse({"detail": "Not authenticated"}, status_code=401)
             else:
                 request = Request(scope)
                 session[_SESSION_NEXT_KEY] = str(request.url)

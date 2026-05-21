@@ -40,9 +40,7 @@ async def app_with_pat_resolver(app):
 @pytest.fixture
 async def pat_client(app_with_pat_resolver) -> AsyncGenerator[httpx.AsyncClient, None]:
     transport = httpx.ASGITransport(app=app_with_pat_resolver)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://testserver"
-    ) as c:
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
         yield c
 
 
@@ -74,9 +72,7 @@ async def test_invalid_bearer_token_returns_401_on_api_path(pat_client):
 @pytest.mark.anyio
 async def test_no_auth_header_on_api_returns_401(pat_client):
     """No Authorization header on a private /api/* path -> 401 JSON."""
-    resp = await pat_client.get(
-        "/api/users/admin", follow_redirects=False
-    )
+    resp = await pat_client.get("/api/users/admin", follow_redirects=False)
     assert resp.status_code == 401
     assert resp.json() == {"detail": "Not authenticated"}
 
