@@ -3,18 +3,21 @@
 import os
 from pathlib import Path
 
-# Publish the project root so the hosting layer can find host/static and
-# host/templates whether we're running from the uv workspace or a wheel.
-os.environ.setdefault(
-    "SM_PROJECT_ROOT",
-    str(Path(__file__).resolve().parent.parent),
-)
+from simple_module_core.dotenv import load_dotenv_into_environ
 
-from simple_module_hosting import Settings, create_app
-from simple_module_hosting.logging import setup_logging
+# Publish ``SM_PROJECT_ROOT`` and merge ``.env`` into ``os.environ`` *before*
+# any settings import so framework code reading ``os.environ.get("SM_…")``
+# directly (not via pydantic-settings) sees the same values pydantic does —
+# keeping precedence (real env wins) consistent across the web process, the
+# worker, and one-shot scripts.
+os.environ.setdefault("SM_PROJECT_ROOT", str(Path(__file__).resolve().parent.parent))
+load_dotenv_into_environ(Path(os.environ["SM_PROJECT_ROOT"]) / ".env")
 
-from host.routes import router as host_router
-from host.routes_i18n import router as i18n_router
+from simple_module_hosting import Settings, create_app  # noqa: E402
+from simple_module_hosting.logging import setup_logging  # noqa: E402
+
+from host.routes import router as host_router  # noqa: E402
+from host.routes_i18n import router as i18n_router  # noqa: E402
 
 settings = Settings()
 

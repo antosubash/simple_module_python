@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
-import os
-
 from fastapi import APIRouter, HTTPException, Request
 from inertia import InertiaResponse
 from simple_module_hosting.inertia_deps import InertiaDep
 from starlette.responses import RedirectResponse
 
+from users.bootstrap import resolve_bootstrap_credentials
+
 router = APIRouter()
+
+# (label, email-key, password-key) for the dev-quick-login buttons, in the
+# order they should appear on the page.
+_DEV_ACCOUNT_SPECS: tuple[tuple[str, str, str], ...] = (
+    ("Admin", "bootstrap_email", "bootstrap_password"),
+    ("User", "bootstrap_user_email", "bootstrap_user_password"),
+)
 
 _PAGE_LOGIN = "Users/Login"
 _PAGE_REGISTER = "Users/Register"
@@ -26,27 +33,21 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
     users_settings = users_state.settings
     # In development only, surface the bootstrap credentials as click-to-fill
     # buttons so manual QA doesn't need to retype them. Never exposed in
-    # production, regardless of whether the vars are set.
+    # production, regardless of whether the vars are set. Uses the same
+    # resolution as the boot-time seeder so the buttons appear iff a seed
+    # admin would actually be created.
     dev_accounts: list[dict[str, str]] = []
     if request.app.state.sm.settings.is_development:
-        admin_email = users_settings.bootstrap_email or os.environ.get(
-            "SM_USERS_BOOTSTRAP_EMAIL", ""
-        )
-        admin_password = users_settings.bootstrap_password or os.environ.get(
-            "SM_USERS_BOOTSTRAP_PASSWORD", ""
-        )
-        if admin_email and admin_password:
-            dev_accounts.append(
-                {"label": "Admin", "email": admin_email, "password": admin_password}
-            )
-        user_email = users_settings.bootstrap_user_email or os.environ.get(
-            "SM_USERS_BOOTSTRAP_USER_EMAIL", ""
-        )
-        user_password = users_settings.bootstrap_user_password or os.environ.get(
-            "SM_USERS_BOOTSTRAP_USER_PASSWORD", ""
-        )
-        if user_email and user_password:
-            dev_accounts.append({"label": "User", "email": user_email, "password": user_password})
+        resolved = resolve_bootstrap_credentials(users_settings)
+        for label, email_key, password_key in _DEV_ACCOUNT_SPECS:
+            if resolved[email_key] and resolved[password_key]:
+                dev_accounts.append(
+                    {
+                        "label": label,
+                        "email": resolved[email_key],
+                        "password": resolved[password_key],
+                    }
+                )
     return await inertia.render(
         _PAGE_LOGIN,
         {

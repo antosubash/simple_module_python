@@ -200,25 +200,34 @@ def _read_dotenv_bootstrap_vars() -> dict[str, str]:
     return {k: v for k, v in parse_dotenv().items() if k in wanted}
 
 
+def resolve_bootstrap_credentials(settings: UsersSettings) -> dict[str, str]:
+    """Resolve the four bootstrap fields with the same precedence everywhere.
+
+    Order: ``UsersSettings`` (test overrides) → ``os.environ`` (docker/systemd)
+    → ``.env`` file (documented dev path). Used by both the boot-time admin
+    seeder and the dev-only login-page quick-fill so the two stay in lockstep.
+    """
+    dotenv_vars = _read_dotenv_bootstrap_vars()
+    return {
+        attr: getattr(settings, attr) or os.environ.get(env_key) or dotenv_vars.get(env_key, "")
+        for attr, env_key in BOOTSTRAP_ENV_KEYS.items()
+    }
+
+
 async def bootstrap_admin_from_env(app: FastAPI) -> None:
     """On-startup hook: create admin from env vars iff users table is empty.
 
-    Resolves each of the four bootstrap fields in order: ``UsersSettings``
-    (tests), then ``os.environ`` (docker/systemd), then ``.env`` (documented
-    dev path). If the admin email or password is still blank, returns
-    silently — same if the users table already has rows (so restarts don't
-    try to re-bootstrap).
+    Resolves each of the four bootstrap fields via
+    :func:`resolve_bootstrap_credentials`. If the admin email or password is
+    still blank, returns silently — same if the users table already has rows
+    (so restarts don't try to re-bootstrap).
 
     Optionally also creates a non-admin user from
     ``SM_USERS_BOOTSTRAP_USER_EMAIL`` + ``SM_USERS_BOOTSTRAP_USER_PASSWORD`` —
     useful in dev for testing non-admin flows alongside the admin account.
     """
     settings: UsersSettings = app.state.users.settings
-    dotenv_vars = _read_dotenv_bootstrap_vars()
-    resolved = {
-        attr: getattr(settings, attr) or os.environ.get(env_key) or dotenv_vars.get(env_key, "")
-        for attr, env_key in BOOTSTRAP_ENV_KEYS.items()
-    }
+    resolved = resolve_bootstrap_credentials(settings)
     email = resolved["bootstrap_email"]
     password = resolved["bootstrap_password"]
     user_email = resolved["bootstrap_user_email"]
