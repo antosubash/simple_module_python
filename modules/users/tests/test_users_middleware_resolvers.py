@@ -22,13 +22,13 @@ def _ctx(uid: str = "11111111-1111-1111-1111-111111111111", **overrides):
     """Build a UserContext for resolver tests."""
     from auth.contracts.schemas import UserContext
 
-    fields = dict(
-        id=uid,
-        email="pat@example.com",
-        name="PAT User",
-        roles=["user"],
-        tenant_id=None,
-    )
+    fields = {
+        "id": uid,
+        "email": "pat@example.com",
+        "name": "PAT User",
+        "roles": ["user"],
+        "tenant_id": None,
+    }
     fields.update(overrides)
     return UserContext(**fields)
 

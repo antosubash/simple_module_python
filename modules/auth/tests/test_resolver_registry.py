@@ -53,10 +53,9 @@ def test_auth_state_resolvers_is_mutable_list():
 
 def test_auth_module_register_settings_populates_app_state():
     """``AuthModule.register_settings(app)`` must put an AuthState on ``app.state.auth``."""
-    from fastapi import FastAPI
-
     from auth.module import AuthModule
     from auth.state import AuthState
+    from fastapi import FastAPI
 
     app = FastAPI()
     AuthModule().register_settings(app)
