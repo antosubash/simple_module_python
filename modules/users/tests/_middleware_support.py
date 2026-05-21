@@ -36,8 +36,15 @@ def _session_cookie(data: dict[str, Any]) -> dict[str, str]:
     return {"session": _sign_session(data)}
 
 
-async def _build_app(db_state, inner_handler=None):
-    """Build a minimal ASGI app with AuthMiddleware + SessionMiddleware."""
+async def _build_app(db_state, inner_handler=None, *, principal_resolvers=None):
+    """Build a minimal ASGI app with AuthMiddleware + SessionMiddleware.
+
+    ``principal_resolvers`` (optional) is a list of resolvers seeded onto
+    ``app.state.auth.principal_resolvers`` before the middleware runs.
+    Defaults to an empty registry — matches a production app where no
+    downstream module has registered anything.
+    """
+    from auth.state import AuthState
 
     async def _default_handler(request: Request):
         user = getattr(request.state, "user", None)
@@ -62,6 +69,9 @@ async def _build_app(db_state, inner_handler=None):
 
     app = FastAPI()
     app.state.sm = SimpleNamespace(db=db_state)
+    app.state.auth = AuthState(
+        principal_resolvers=list(principal_resolvers or []),
+    )
 
     @app.get("/{path:path}")
     async def _catch_all(request: Request, path: str = ""):
