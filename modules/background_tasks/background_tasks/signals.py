@@ -38,6 +38,7 @@ from background_tasks._signal_support import (
 )
 from background_tasks.constants import DEFAULT_QUEUE, TaskStatus
 from background_tasks.contracts.events import TaskFailed
+from background_tasks.log_context import signal_task_finished, signal_task_started
 from background_tasks.models import TaskExecution
 from background_tasks.sync_db import sync_session
 
@@ -161,14 +162,15 @@ def on_task_prerun(
     kwargs: Any = None,
     **_k: Any,
 ) -> None:
-    """Flip the row to ``running`` and start the heartbeat."""
+    """Flip the row to ``running``, start the heartbeat, bind log context."""
     args_n, kwargs_n = coerce_args_kwargs(args, kwargs)
     now = now_utc()
+    name = task_name_of(sender, task)
     _apply(
         "on_task_prerun",
         celery_task_id=task_id,
         defaults={
-            "task_name": task_name_of(sender, task),
+            "task_name": name,
             "status": TaskStatus.RUNNING,
             "args": args_n,
             "kwargs": kwargs_n,
@@ -176,6 +178,7 @@ def on_task_prerun(
             "heartbeat_at": now,
         },
     )
+    signal_task_started(task_id=task_id, task_name=name)
 
 
 @signals.task_postrun.connect
@@ -185,7 +188,7 @@ def on_task_postrun(
     task: Any = None,
     **_k: Any,
 ) -> None:
-    """Refresh the heartbeat on normal completion.
+    """Refresh the heartbeat, then unbind the log context.
 
     Terminal status is written by ``task_success`` / ``task_failure`` /
     ``task_retry`` which fire *before* postrun; postrun only refreshes the
@@ -196,6 +199,7 @@ def on_task_postrun(
         celery_task_id=task_id,
         defaults={"task_name": task_name_of(sender, task), "heartbeat_at": now_utc()},
     )
+    signal_task_finished(task_id=task_id)
 
 
 @signals.task_success.connect
