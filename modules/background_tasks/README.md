@@ -52,6 +52,33 @@ Run a worker locally:
 uv run celery -A background_tasks.celery_app worker --loglevel=info
 ```
 
+## Worker log context
+
+Every worker log line automatically carries the Celery task identifiers
+that fired it. A `LogContextFilter` is attached when the Celery app is
+built (`build_celery`) and the `task_prerun` / `task_postrun` signals
+bind `task_id` + `task_name` into `contextvars` for the task's duration:
+
+```jsonc
+{"level": "INFO", "logger": "reports.tasks", "message": "ingest done",
+ "task_id": "9c2a…", "task_name": "reports.generate"}
+```
+
+Use `bind_task_context(...)` to attach app-level identifiers (the
+domain `job_id` that named a Celery task is the canonical example):
+
+```python
+from background_tasks import bind_task_context
+
+@celery_app.task
+def process_dataset(job_id: int) -> None:
+    with bind_task_context(job_id=job_id):
+        logger.info("starting ingest")   # now carries job_id too
+```
+
+Bindings nest cleanly and restore on exit. structlog users can mount the
+same `contextvars` directly via `structlog.contextvars.merge_contextvars`.
+
 ## Depends on
 
 - `simple_module_core`, `simple_module_db`, `simple_module_hosting`

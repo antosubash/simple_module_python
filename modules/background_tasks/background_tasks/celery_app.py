@@ -96,5 +96,8 @@ def build_celery(settings: BackgroundTasksSettings) -> Celery:
     # Side-effect import: connects signal handlers to this Celery instance's
     # ``celery.signals.*`` globals. Safe to import repeatedly.
     from background_tasks import signals  # noqa: F401
+    from background_tasks.log_context import install_log_filter
+
+    install_log_filter()
 
     return celery
