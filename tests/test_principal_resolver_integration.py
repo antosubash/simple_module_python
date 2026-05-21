@@ -6,7 +6,7 @@ from collections.abc import AsyncGenerator
 
 import httpx
 import pytest
-from auth.contracts.schemas import UserContext
+from auth import UserContext  # exercises the documented public re-export
 
 
 @pytest.fixture
@@ -83,10 +83,7 @@ async def test_session_wins_over_bad_bearer(authenticated_client):
 
     The ``authenticated_client`` fixture already carries an admin session cookie;
     here we additionally send a bad bearer to prove the session path wins.
-
-    Targets ``/api/permissions/`` (admin-readable, doesn't enumerate users) to
-    avoid the unrelated email-validation issue in ``/api/users/admin`` triggered
-    by the fixture's ``admin@test`` seeded email."""
+    Endpoint is any admin-readable, non-user-enumerating route."""
     resp = await authenticated_client.get(
         "/api/permissions/",
         headers={"Authorization": "Bearer bad"},

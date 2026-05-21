@@ -37,6 +37,8 @@ _SESSION_USER_ID_KEY = SESSION_USER_ID_KEY
 _SESSION_NEXT_KEY = "next"
 _SCOPE_HTTP = "http"
 _LOGIN_REDIRECT = "/users/login"
+_API_PATH_PREFIX = "/api/"
+_UNAUTH_DETAIL = "Not authenticated"
 
 # Paths that don't require authentication.
 PUBLIC_PATHS = (
@@ -123,8 +125,8 @@ class AuthMiddleware:
                         break
 
         if user_ctx is None and not is_public:
-            if path.startswith("/api/"):
-                response = JSONResponse({"detail": "Not authenticated"}, status_code=401)
+            if path.startswith(_API_PATH_PREFIX):
+                response = JSONResponse({"detail": _UNAUTH_DETAIL}, status_code=401)
             else:
                 request = Request(scope)
                 session[_SESSION_NEXT_KEY] = str(request.url)

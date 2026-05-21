@@ -45,6 +45,13 @@ A resolver MUST:
    `401 {"detail": "Not authenticated"}`; for view paths it 302-redirects to
    `/users/login` and stashes the original URL in `session["next"]`.
 
+The chain runs on **every** request, including public paths (`/health`,
+`/openapi.json`, the login page itself). That lets a resolver attach
+`request.state.user` for telemetry even on unauthenticated routes. The
+unauthenticated response is suppressed for public paths regardless of
+resolver outcome — the chain populates the principal, public-path
+allow-listing controls the response.
+
 ## Worked example — bearer-token resolver
 
 A module that ships its own Personal-Access-Token table registers a
@@ -94,6 +101,20 @@ class ExampleModule(ModuleBase):
 `depends_on=["Auth", "Users"]` ensures `AuthModule.register_settings` has
 run (so `app.state.auth` exists) and `UsersModule.register_middleware` has
 installed `AuthMiddleware` (which calls the resolvers).
+
+### Performance — caching the token lookup
+
+The middleware does not cache resolver results (there's nothing safe to key
+on — credentials must be re-validated every request to honor revocation).
+For each authenticated request, the resolver opens a fresh DB session
+and queries the token store. That's one round-trip per request.
+
+For high-traffic deployments, cache the token-to-user mapping *inside*
+the resolver — typically an LRU keyed by the token (or its hash) with a
+short TTL. The resolver still runs every request, but the DB lookup is
+skipped on cache hits. Pick a TTL short enough that revocation latency
+stays acceptable. The framework deliberately stays out of this — caching
+policy is a per-module concern.
 
 ## When NOT to write a resolver
 
