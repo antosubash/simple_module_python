@@ -29,3 +29,23 @@ def test_principal_resolver_type_accepts_async_callable():
     result = resolver(MagicMock(spec=Request))
     assert isinstance(result, Awaitable)
     result.close()  # don't leave an unawaited coroutine
+
+
+def test_auth_state_initializes_with_empty_resolvers():
+    from auth.state import AuthState
+
+    state = AuthState()
+    assert state.principal_resolvers == []
+
+
+def test_auth_state_resolvers_is_mutable_list():
+    """Modules register resolvers by appending; the list must be a list, not a tuple."""
+    from auth.state import AuthState
+
+    state = AuthState()
+
+    async def resolver(request):  # pragma: no cover - registration smoke only
+        return None
+
+    state.principal_resolvers.append(resolver)
+    assert state.principal_resolvers == [resolver]
