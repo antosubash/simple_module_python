@@ -15,7 +15,7 @@ on:
 
 permissions:
   contents: write
-  id-token: write  # required for PyPI Trusted Publishing (OIDC); npm uses NPM_TOKEN
+  id-token: write  # OIDC for PyPI and npm Trusted Publishing
 
 env:
   NODE_VERSION: "24"
@@ -104,6 +104,8 @@ jobs:
   publish-pypi:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # mint OIDC token for PyPI Trusted Publishing
     strategy:
       fail-fast: false
       matrix:
@@ -149,6 +151,9 @@ jobs:
   publish-npm:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read    # explicit so future cache:/checkout: steps don't 403
+      id-token: write   # mint OIDC token for npm Trusted Publishing
     strategy:
       fail-fast: false
       matrix:
@@ -162,20 +167,11 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - name: Configure npm auth
-        # Write the registry line ourselves so _authToken reads from NPM_TOKEN
-        # (setup-node's registry-url would hard-code NODE_AUTH_TOKEN instead).
-        # The backslash escapes the $ so the literal ${NPM_TOKEN} lands in
-        # .npmrc and is expanded by npm at publish time.
-        run: echo "//registry.npmjs.org/:_authToken=\${NPM_TOKEN}" > ~/.npmrc
+          registry-url: 'https://registry.npmjs.org'
       - name: Publish tarball
         shell: bash
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           shopt -s nullglob
-          # `npm pack` on a scoped package writes <scope>-<name>-<version>.tgz with
-          # the leading @ stripped and '/' replaced by '-'.
           files=( dist-npm/simple-module-py-${{ matrix.package }}-*.tgz )
           if [ ${#files[@]} -eq 0 ]; then
             echo "::error::no tarball for @simple-module-py/${{ matrix.package }} in dist-npm/"
