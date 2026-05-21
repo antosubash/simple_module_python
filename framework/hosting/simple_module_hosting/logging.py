@@ -38,6 +38,9 @@ class JsonFormatter(logging.Formatter):
         "entity",
         "entity_id",
         "db_duration_ms",
+        # Bound by log filters on Celery / job-runner workers.
+        "task_id",
+        "task_name",
     )
 
     def format(self, record: logging.LogRecord) -> str:
