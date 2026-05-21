@@ -46,11 +46,10 @@ class TestAdminList:
     @pytest.mark.anyio
     async def test_list_without_auth_is_rejected(self, anon_client):
         resp = await anon_client.get("/api/users/admin", follow_redirects=False)
-        # AuthMiddleware redirects unauthenticated non-public API paths to
-        # /users/login. Preserving the 302 here so a regression to 401 or
-        # pass-through is caught.
-        assert resp.status_code == 302
-        assert resp.headers["location"].endswith("/users/login")
+        # AuthMiddleware returns 401 JSON for unauthenticated /api/* paths
+        # (view routes still get a 302 redirect to /users/login).
+        assert resp.status_code == 401
+        assert resp.json() == {"detail": "Not authenticated"}
 
     @pytest.mark.anyio
     async def test_list_as_admin_returns_200(self, admin_client, users_db):
@@ -128,8 +127,8 @@ class TestAdminInvite:
             json={"email": "hacker@example.com"},
             follow_redirects=False,
         )
-        assert resp.status_code == 302
-        assert resp.headers["location"].endswith("/users/login")
+        assert resp.status_code == 401
+        assert resp.json() == {"detail": "Not authenticated"}
 
 
 # ---------------------------------------------------------------------------
@@ -205,8 +204,8 @@ class TestAdminSetRoles:
             json={"role_names": ["admin"]},
             follow_redirects=False,
         )
-        assert resp.status_code == 302
-        assert resp.headers["location"].endswith("/users/login")
+        assert resp.status_code == 401
+        assert resp.json() == {"detail": "Not authenticated"}
 
     @pytest.mark.anyio
     async def test_set_roles_nonexistent_returns_404(self, admin_client):

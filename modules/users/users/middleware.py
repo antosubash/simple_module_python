@@ -24,7 +24,7 @@ from simple_module_db.listeners import current_user_id
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from starlette.requests import Request
-from starlette.responses import RedirectResponse
+from starlette.responses import JSONResponse, RedirectResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from users.constants import SESSION_USER_ID_KEY
@@ -102,10 +102,35 @@ class AuthMiddleware:
                     else:
                         session[SESSION_USER_CTX_KEY] = user_ctx.to_session_dict()
 
+        # Fall-through: registered principal resolvers (PAT, API key, ...).
+        # The session-cookie path above is authoritative; resolvers only run
+        # when no session-authenticated user was resolved.
+        if user_ctx is None:
+            auth_state = getattr(scope["app"].state, "auth", None)
+            resolvers = getattr(auth_state, "principal_resolvers", ()) if auth_state else ()
+            if resolvers:
+                request = Request(scope)
+                for resolver in resolvers:
+                    try:
+                        user_ctx = await resolver(request)
+                    except Exception:
+                        logger.exception(
+                            "Principal resolver %r raised; treating as no-match",
+                            resolver,
+                        )
+                        continue
+                    if user_ctx is not None:
+                        break
+
         if user_ctx is None and not is_public:
-            request = Request(scope)
-            session[_SESSION_NEXT_KEY] = str(request.url)
-            response = RedirectResponse(_LOGIN_REDIRECT, status_code=302)
+            if path.startswith("/api/"):
+                response = JSONResponse(
+                    {"detail": "Not authenticated"}, status_code=401
+                )
+            else:
+                request = Request(scope)
+                session[_SESSION_NEXT_KEY] = str(request.url)
+                response = RedirectResponse(_LOGIN_REDIRECT, status_code=302)
             await response(scope, receive, send)
             return
 
