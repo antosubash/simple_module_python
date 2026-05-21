@@ -63,3 +63,20 @@ def test_auth_module_register_settings_populates_app_state():
 
     assert isinstance(app.state.auth, AuthState)
     assert app.state.auth.principal_resolvers == []
+
+
+def test_auth_package_reexports_public_surface():
+    """Downstream authors should be able to ``from auth import PrincipalResolver, UserContext``."""
+    import auth
+
+    assert hasattr(auth, "PrincipalResolver")
+    assert hasattr(auth, "UserContext")
+    assert "PrincipalResolver" in auth.__all__
+    assert "UserContext" in auth.__all__
+
+    # Identity check — re-exports point at the canonical definitions.
+    from auth.contracts.resolver import PrincipalResolver
+    from auth.contracts.schemas import UserContext
+
+    assert auth.PrincipalResolver is PrincipalResolver
+    assert auth.UserContext is UserContext
