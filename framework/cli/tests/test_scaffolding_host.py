@@ -155,6 +155,28 @@ class TestCreateHost:
         assert "make_include_object" in env_py
         assert "for mod in modules:" not in env_py
 
+    async def test_main_py_loads_dotenv_before_settings(self, tmp_path):
+        """Regression for #158: scaffolded main.py must populate ``os.environ``
+        from ``.env`` *before* ``Settings`` is imported, otherwise framework
+        code reading ``os.environ`` directly (e.g. users.bootstrap's dotenv
+        fallback under uvicorn launched from ``host/``) silently misses values
+        that pydantic-settings would have picked up.
+        """
+        from simple_module_cli.scaffolding import create_host
+
+        dest = tmp_path / "demo"
+        create_host(dest, name="demo", modules=[])
+        main_py = (dest / "main.py").read_text(encoding="utf-8")
+
+        assert "load_dotenv_into_environ" in main_py
+        assert "os.chdir" in main_py
+        # The load_dotenv call must precede the first ``Settings`` import so
+        # ``BootstrapSettings``' ``env_file=".env"`` lookup and any direct
+        # ``os.environ.get(...)`` reads see the same view of the environment.
+        dotenv_idx = main_py.index("load_dotenv_into_environ(")
+        settings_import_idx = main_py.index("from simple_module_hosting import")
+        assert dotenv_idx < settings_import_idx
+
     async def test_cli_create_host_runs_end_to_end(self, tmp_path):
         """The Click `smpy create-host` command produces a working scaffold."""
         from simple_module_cli.cli import app

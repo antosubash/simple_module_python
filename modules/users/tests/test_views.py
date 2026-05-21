@@ -67,6 +67,51 @@ class TestLoginPage:
         data = resp.json()
         assert data["component"] == "Users/Login"
 
+    @pytest.mark.anyio
+    async def test_dev_accounts_empty_outside_development(self, anon_client):
+        """``dev_accounts`` MUST NOT surface bootstrap creds in non-dev envs."""
+        resp = await anon_client.get(
+            "/users/login",
+            headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
+        )
+        assert resp.json()["props"]["dev_accounts"] == []
+
+    @pytest.mark.anyio
+    async def test_dev_accounts_resolved_via_dotenv_fallback(
+        self, anon_client, users_app, monkeypatch
+    ):
+        """Regression for #159: login_page surfaces creds seeded only via .env.
+
+        With ``environment=development`` and bootstrap vars present only in
+        ``.env`` (not on settings, not on ``os.environ``), the buttons must
+        still appear — otherwise the admin gets seeded by the boot-time hook
+        but the dev-quick-login UX silently breaks.
+        """
+        from users import bootstrap as bootstrap_module
+
+        monkeypatch.setattr(users_app.state.sm.settings, "environment", "development")
+        monkeypatch.setattr(
+            bootstrap_module,
+            "_read_dotenv_bootstrap_vars",
+            lambda: {
+                "SM_USERS_BOOTSTRAP_EMAIL": "admin@example.com",
+                "SM_USERS_BOOTSTRAP_PASSWORD": "AdminPass1!",
+                "SM_USERS_BOOTSTRAP_USER_EMAIL": "user@example.com",
+                "SM_USERS_BOOTSTRAP_USER_PASSWORD": "UserPass1!",
+            },
+        )
+
+        resp = await anon_client.get(
+            "/users/login",
+            headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
+        )
+
+        dev_accounts = resp.json()["props"]["dev_accounts"]
+        assert dev_accounts == [
+            {"label": "Admin", "email": "admin@example.com", "password": "AdminPass1!"},
+            {"label": "User", "email": "user@example.com", "password": "UserPass1!"},
+        ]
+
 
 class TestRegisterPage:
     @pytest.mark.anyio

@@ -29,11 +29,16 @@ def _isolate_users_env(monkeypatch):
     After the env→DB migration ``UsersSettings()`` no longer reads these
     values, so this is belt-and-braces: it keeps old shell exports from
     muddying any ``SM_ENVIRONMENT`` checks or from being misread during
-    developer spelunking.
+    developer spelunking. Also stubs out
+    ``users.bootstrap._read_dotenv_bootstrap_vars`` so the developer's local
+    ``.env`` can't seed bootstrap creds into tests that exercise the resolver.
     """
+    from users import bootstrap as bootstrap_module
+
     for key in list(os.environ):
         if key.startswith("SM_USERS_"):
             monkeypatch.delenv(key, raising=False)
+    monkeypatch.setattr(bootstrap_module, "_read_dotenv_bootstrap_vars", dict)
 
 
 # ---------------------------------------------------------------------------
