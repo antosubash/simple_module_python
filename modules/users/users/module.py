@@ -187,13 +187,24 @@ class UsersModule(ModuleBase):
         )
         state.oauth_providers = enabled_provider_names(s)
 
-        # Auto-fall-back from the default ``/dashboard/`` to ``/`` when the
-        # Dashboard module isn't installed, so ``--preset minimal`` doesn't
-        # 404 on login. Operator-set overrides are preserved.
+        # Auto-fall-back when the default ``/dashboard/`` target is
+        # unreachable because the Dashboard module isn't installed (e.g.
+        # ``--preset minimal`` or apps like smpy_gis that omit it).
+        # Pick the first sibling module that exposes view routes instead
+        # of hard-coding ``/`` which may itself 404 (#173). Operator-set
+        # overrides are always preserved.
         if s.login_redirect_url == "/dashboard/" and not any(
             m.meta.name == "Dashboard" for m in app.state.sm.modules
         ):
-            s.login_redirect_url = "/"
+            first_view = next(
+                (
+                    m.meta.view_prefix
+                    for m in app.state.sm.modules
+                    if m.meta.view_prefix and m.meta.name != self.meta.name
+                ),
+                None,
+            )
+            s.login_redirect_url = f"{first_view}/" if first_view else "/"
 
         reconfigure_cookie_transport(auth_backend, s)
 

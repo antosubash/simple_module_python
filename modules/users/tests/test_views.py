@@ -112,6 +112,15 @@ class TestLoginPage:
             {"label": "User", "email": "user@example.com", "password": "UserPass1!"},
         ]
 
+    @pytest.mark.anyio
+    async def test_login_redirect_url_is_dashboard_when_installed(self, anon_client):
+        """Regression for #173: with Dashboard installed, prop stays /dashboard/."""
+        resp = await anon_client.get(
+            "/users/login",
+            headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
+        )
+        assert resp.json()["props"]["login_redirect_url"] == "/dashboard/"
+
 
 class TestRegisterPage:
     @pytest.mark.anyio
@@ -241,3 +250,28 @@ async def test_roles_payload_returns_id_name_dicts(users_app):
     names = [item["name"] for item in payload]
     assert "admin" in names
     assert "user" in names
+
+
+@pytest.mark.anyio
+async def test_login_redirect_fallback_without_dashboard(users_app):
+    """Regression for #173: without Dashboard, redirect falls back to
+    the first sibling module view_prefix, not ``/`` (which may 404)."""
+    sm = users_app.state.sm
+    original = sm.modules
+    no_dash = tuple(m for m in original if m.meta.name != "Dashboard")
+    assert len(no_dash) < len(original), "test setup: Dashboard should exist"
+
+    settings = users_app.state.users.settings
+    settings.login_redirect_url = "/dashboard/"
+    object.__setattr__(sm, "modules", no_dash)
+    try:
+        from users.module import UsersModule
+
+        mod = UsersModule()
+        await mod.on_startup(users_app)
+        url = settings.login_redirect_url
+        assert url != "/", "must not fall back to / (may 404)"
+        assert url.startswith("/"), "must be an absolute path"
+        assert url.endswith("/"), "must have trailing slash"
+    finally:
+        object.__setattr__(sm, "modules", original)
