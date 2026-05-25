@@ -1,4 +1,4 @@
-import { usePage } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { StatCard } from '@simple-module-py/ui/components/StatCard';
@@ -77,6 +77,8 @@ function Doctor() {
   const unhealthy = system_info.health_checks.filter((c) => c.status !== 'healthy').length;
 
   return (
+    <>
+    <Head title="Doctor" />
     <PageShell
       title="Doctor"
       description="Static checks, migrations, dev server, and module health. Mirrors `make doctor` output."
@@ -267,6 +269,7 @@ function Doctor() {
         </div>
       </div>
     </PageShell>
+    </>
   );
 }
 

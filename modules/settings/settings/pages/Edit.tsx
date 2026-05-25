@@ -1,4 +1,4 @@
-import { Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
@@ -39,8 +39,10 @@ function Edit({ setting }: Props) {
   }
 
   return (
-    <PageShell
-      title={t(keys.settings.edit.title)}
+    <>
+      <Head title="Edit Setting" />
+      <PageShell
+        title={t(keys.settings.edit.title)}
       description={`${setting.scope}.${setting.key}`}
       actions={
         <Button asChild variant="outline">
@@ -118,6 +120,7 @@ function Edit({ setting }: Props) {
         </CardContent>
       </Card>
     </PageShell>
+    </>
   );
 }
 

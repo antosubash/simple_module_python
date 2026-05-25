@@ -1,4 +1,4 @@
-import { Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
@@ -63,8 +63,10 @@ function RoleEdit({ role, assigned, groups }: Props) {
   const pct = totalRegistered === 0 ? 0 : (data.permissions.length / totalRegistered) * 100;
 
   return (
-    <PageShell
-      title={t(keys.permissions.edit.title, { role: role.name })}
+    <>
+      <Head title="Edit Role" />
+      <PageShell
+        title={t(keys.permissions.edit.title, { role: role.name })}
       description={role.description ?? t(keys.permissions.edit.description)}
       actions={
         <>
@@ -186,6 +188,7 @@ function RoleEdit({ role, assigned, groups }: Props) {
         )}
       </form>
     </PageShell>
+    </>
   );
 }
 

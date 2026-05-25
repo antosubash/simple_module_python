@@ -1,3 +1,4 @@
+import { Head } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
@@ -66,6 +67,7 @@ function Landing() {
 
   return (
     <>
+      <Head title="Welcome" />
       {/* Hero with mesh blobs */}
       <section className="relative overflow-hidden">
         <div

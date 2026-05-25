@@ -1,4 +1,4 @@
-import { router, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
@@ -91,10 +91,12 @@ function Browse() {
   }
 
   return (
-    <PageShell
-      title={t(keys.feature_flags.browse.title)}
-      description={t(keys.feature_flags.browse.description)}
-    >
+    <>
+      <Head title="Feature Flags" />
+      <PageShell
+        title={t(keys.feature_flags.browse.title)}
+        description={t(keys.feature_flags.browse.description)}
+      >
       <Card className="mb-4 p-4">
         <form
           className="flex flex-wrap items-end gap-3"
@@ -274,6 +276,7 @@ function Browse() {
         </Table>
       </Card>
     </PageShell>
+    </>
   );
 }
 

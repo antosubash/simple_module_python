@@ -1,4 +1,4 @@
-import { Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
@@ -79,10 +79,12 @@ function Index() {
   }
 
   return (
-    <PageShell
-      title="Background Tasks"
-      description="Monitor task executions and retry failed or stuck jobs."
-    >
+    <>
+      <Head title="Background Tasks" />
+      <PageShell
+        title="Background Tasks"
+        description="Monitor task executions and retry failed or stuck jobs."
+      >
       <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -182,6 +184,7 @@ function Index() {
         </div>
       )}
     </PageShell>
+    </>
   );
 }
 

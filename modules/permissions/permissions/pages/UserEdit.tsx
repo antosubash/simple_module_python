@@ -1,4 +1,4 @@
-import { Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { StatCard } from '@simple-module-py/ui/components/StatCard';
@@ -64,8 +64,10 @@ function UserEdit({ user, roles, direct, inherited, groups }: Props) {
   }
 
   return (
-    <PageShell
-      title={t(keys.permissions.user_edit.title, { email: user.email })}
+    <>
+      <Head title="Edit User" />
+      <PageShell
+        title={t(keys.permissions.user_edit.title, { email: user.email })}
       description={user.full_name || t(keys.permissions.user_edit.description)}
       actions={
         <>
@@ -215,6 +217,7 @@ function UserEdit({ user, roles, direct, inherited, groups }: Props) {
         )}
       </form>
     </PageShell>
+    </>
   );
 }
 

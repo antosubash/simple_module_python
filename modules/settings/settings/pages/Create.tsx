@@ -1,4 +1,4 @@
-import { Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
@@ -38,8 +38,10 @@ function Create() {
   }
 
   return (
-    <PageShell
-      title={t(keys.settings.create.title)}
+    <>
+      <Head title="Create Setting" />
+      <PageShell
+        title={t(keys.settings.create.title)}
       actions={
         <Button asChild variant="outline">
           <Link href={ROUTES.browse}>Cancel</Link>
@@ -152,6 +154,7 @@ function Create() {
         </CardContent>
       </Card>
     </PageShell>
+    </>
   );
 }
 

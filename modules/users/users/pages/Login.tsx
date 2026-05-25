@@ -1,4 +1,4 @@
-import { router, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
@@ -87,6 +87,7 @@ function Login() {
 
   return (
     <AuthCardShell>
+      <Head title="Login" />
       <h1 className="mb-1.5 text-[22px] font-bold tracking-tight font-[var(--font-display)] text-foreground">
         Welcome back
       </h1>

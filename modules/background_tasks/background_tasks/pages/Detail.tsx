@@ -1,4 +1,4 @@
-import { Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
@@ -89,9 +89,11 @@ function Detail() {
   }
 
   return (
-    <PageShell
-      title={execution.task_name}
-      description={`Task execution ${execution.id}`}
+    <>
+      <Head title="Task Detail" />
+      <PageShell
+        title={execution.task_name}
+        description={`Task execution ${execution.id}`}
       actions={
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
@@ -175,6 +177,7 @@ function Detail() {
         </div>
       </div>
     </PageShell>
+    </>
   );
 }
 

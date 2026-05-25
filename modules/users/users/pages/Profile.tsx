@@ -1,4 +1,4 @@
-import { usePage } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
@@ -58,7 +58,9 @@ function Profile() {
   const initial = (user.full_name || user.email).charAt(0).toUpperCase();
 
   return (
-    <PageShell title="Your profile" description="Shown to teammates in audit logs and dropdowns.">
+    <>
+      <Head title="Profile" />
+      <PageShell title="Your profile" description="Shown to teammates in audit logs and dropdowns.">
       <Card className="max-w-2xl border-border">
         <CardContent className="pt-6">
           <SectionTitle>Account</SectionTitle>
@@ -141,6 +143,7 @@ function Profile() {
         </CardContent>
       </Card>
     </PageShell>
+    </>
   );
 }
 

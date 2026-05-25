@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
@@ -47,8 +47,10 @@ function Browse({ settings }: Props) {
   }
 
   return (
-    <PageShell
-      title={t(keys.settings.browse.title)}
+    <>
+      <Head title="Settings" />
+      <PageShell
+        title={t(keys.settings.browse.title)}
       description="Workspace, account, mailer, and module configuration."
       actions={
         <>
@@ -147,6 +149,7 @@ function Browse({ settings }: Props) {
         </Card>
       )}
     </PageShell>
+    </>
   );
 }
 

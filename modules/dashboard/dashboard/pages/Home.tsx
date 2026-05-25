@@ -1,4 +1,4 @@
-import { usePage } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
@@ -38,11 +38,13 @@ function Home() {
   const unhealthy = props.system_info.health_checks.filter((c) => c.status !== 'healthy').length;
 
   return (
-    <PageShell
-      title={t(keys.dashboard.home.title)}
-      description={t(keys.dashboard.home.description)}
-    >
-      <div className="grid grid-cols-2 gap-3 mb-5 sm:grid-cols-4">
+    <>
+      <Head title="Dashboard" />
+      <PageShell
+        title={t(keys.dashboard.home.title)}
+        description={t(keys.dashboard.home.description)}
+      >
+        <div className="grid grid-cols-2 gap-3 mb-5 sm:grid-cols-4">
         <StatCard
           label={t(keys.dashboard.home.stats.total_users)}
           value={props.total_users}
@@ -98,8 +100,9 @@ function Home() {
         </Card>
 
         {import.meta.env.DEV && <DemoPlaceholders totalUsers={props.total_users} />}
-      </div>
-    </PageShell>
+        </div>
+      </PageShell>
+    </>
   );
 }
 

@@ -1,4 +1,4 @@
-import { router, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import {
@@ -81,9 +81,11 @@ function Browse() {
   }
 
   return (
-    <PageShell
-      title={t(keys.file_storage.browse.title)}
-      description={t(keys.file_storage.browse.description)}
+    <>
+      <Head title="File Storage" />
+      <PageShell
+        title={t(keys.file_storage.browse.title)}
+        description={t(keys.file_storage.browse.description)}
       actions={canUpload ? <UploadDropzone /> : undefined}
     >
       <Card>
@@ -183,6 +185,7 @@ function Browse() {
         </Table>
       </Card>
     </PageShell>
+    </>
   );
 }
 

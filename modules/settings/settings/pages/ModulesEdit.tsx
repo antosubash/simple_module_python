@@ -1,3 +1,4 @@
+import { Head } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
@@ -29,7 +30,9 @@ function ModulesEdit({ modules }: Props) {
   const current = modules.find((m) => m.package === selected);
 
   return (
-    <div className="flex h-[calc(100vh-64px)] bg-background">
+    <>
+      <Head title="Modules" />
+      <div className="flex h-[calc(100vh-64px)] bg-background">
       <aside className="w-72 shrink-0 border-r border-border bg-secondary/30 overflow-y-auto">
         <div className="p-3">
           <div className="relative">
@@ -93,6 +96,7 @@ function ModulesEdit({ modules }: Props) {
         )}
       </main>
     </div>
+    </>
   );
 }
 

@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
@@ -91,7 +91,9 @@ function Workers() {
   }
 
   return (
-    <PageShell title="Workers" description="Celery workers connected to the broker.">
+    <>
+      <Head title="Workers" />
+      <PageShell title="Workers" description="Celery workers connected to the broker.">
       <div className="mb-4 flex items-center justify-between gap-3">
         <Button variant="outline" size="sm" asChild>
           <Link href={VIEW_BASE}>
@@ -147,6 +149,7 @@ function Workers() {
         </div>
       )}
     </PageShell>
+    </>
   );
 }
 
