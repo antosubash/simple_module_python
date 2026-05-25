@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from inertia import (
@@ -26,6 +27,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from simple_module_hosting._error_handlers import (
     http_exception_handler,
     not_found_error_handler,
+    request_validation_error_handler,
     unhandled_exception_handler,
 )
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
@@ -53,6 +55,7 @@ def register_exception_handlers(app: FastAPI, modules: list) -> None:
     )
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(NotFoundError, not_found_error_handler)
+    app.add_exception_handler(RequestValidationError, request_validation_error_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
     for mod in modules:
         mod.register_exception_handlers(app)
