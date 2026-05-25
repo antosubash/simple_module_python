@@ -72,6 +72,7 @@ function Home() {
         <Card className="border-border lg:col-span-2">
           <CardContent className="pt-5">
             <SectionTitle
+              as="h2"
               right={
                 <span className="font-mono text-[11px] text-muted-foreground">
                   Python {props.system_info.python_version} · {props.module_count} modules
