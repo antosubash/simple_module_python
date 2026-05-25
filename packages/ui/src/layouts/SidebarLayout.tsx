@@ -82,6 +82,7 @@ export function SidebarLayout({
             variant="ghost"
             size="icon-sm"
             onClick={() => setSidebarOpen(true)}
+            aria-label="Open sidebar"
             className="text-sidebar-icon hover:text-white hover:bg-white/10"
           >
             <svg
@@ -141,6 +142,7 @@ export function SidebarLayout({
               variant="ghost"
               size="icon-sm"
               onClick={closeSidebar}
+              aria-label="Close sidebar"
               className="lg:hidden text-sidebar-icon-muted hover:text-white hover:bg-white/10"
             >
               <svg

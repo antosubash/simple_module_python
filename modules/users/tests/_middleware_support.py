@@ -9,15 +9,13 @@ parameters.
 
 from __future__ import annotations
 
-import json
 import uuid
-from base64 import b64encode
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from fastapi import FastAPI, Request
-from itsdangerous import TimestampSigner
+from simple_module_test import forge_session_cookie
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import JSONResponse
 from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
@@ -26,18 +24,19 @@ from users.middleware import AuthMiddleware
 SECRET_KEY = "test-secret-key-for-session-middleware"
 
 
-def _sign_session(data: dict[str, Any], secret: str = SECRET_KEY) -> str:
-    """Encode and sign a session dict exactly as Starlette's SessionMiddleware does."""
-    raw = b64encode(json.dumps(data).encode()).decode()
-    return TimestampSigner(secret).sign(raw).decode("utf-8")
-
-
 def _session_cookie(data: dict[str, Any]) -> dict[str, str]:
-    return {"session": _sign_session(data)}
+    return {"session": forge_session_cookie(SECRET_KEY, data)}
 
 
-async def _build_app(db_state, inner_handler=None):
-    """Build a minimal ASGI app with AuthMiddleware + SessionMiddleware."""
+async def _build_app(db_state, inner_handler=None, *, principal_resolvers=None):
+    """Build a minimal ASGI app with AuthMiddleware + SessionMiddleware.
+
+    ``principal_resolvers`` (optional) is a list of resolvers seeded onto
+    ``app.state.auth.principal_resolvers`` before the middleware runs.
+    Defaults to an empty registry — matches a production app where no
+    downstream module has registered anything.
+    """
+    from auth.state import AuthState
 
     async def _default_handler(request: Request):
         user = getattr(request.state, "user", None)
@@ -62,6 +61,9 @@ async def _build_app(db_state, inner_handler=None):
 
     app = FastAPI()
     app.state.sm = SimpleNamespace(db=db_state)
+    app.state.auth = AuthState(
+        principal_resolvers=list(principal_resolvers or []),
+    )
 
     @app.get("/{path:path}")
     async def _catch_all(request: Request, path: str = ""):

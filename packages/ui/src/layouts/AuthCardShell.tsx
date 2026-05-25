@@ -9,7 +9,7 @@ import type React from 'react';
  */
 export function AuthCardShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-secondary/40 p-4">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-secondary/40 p-4">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-[10%] -right-[10%] h-[600px] w-[600px] rounded-full bg-primary-600 opacity-15 blur-[100px]" />
         <div className="absolute -bottom-[10%] -left-[10%] h-[500px] w-[500px] rounded-full bg-primary-800 opacity-15 blur-[100px]" />
@@ -30,6 +30,6 @@ export function AuthCardShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </div>
-    </div>
+    </main>
   );
 }

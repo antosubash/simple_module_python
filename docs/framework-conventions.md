@@ -237,6 +237,16 @@ async def create_order(...): ...
 
 `DEFAULT_ROLE_PERMISSIONS` in `simple_module_hosting.permissions` ships only `admin: ["*"]`. Host apps configure their own role → permission map; the framework does not know about plugin permission strings.
 
+## Authentication extension points
+
+The `auth` module exposes a principal-resolver chain on
+`app.state.auth.principal_resolvers` — a list of async callables that
+`users.AuthMiddleware` consults after the session-cookie path. Use it to add
+non-cookie credential sources (Personal Access Tokens, API keys, JWTs)
+without forking the middleware. See
+[`docs/framework/principal-resolvers.md`](framework/principal-resolvers.md)
+for the contract, ordering rules, and a worked Bearer-token example.
+
 ## Events
 
 Base class: `Event` from `simple_module_core.events`. Subclass per domain event:
