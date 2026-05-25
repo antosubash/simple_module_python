@@ -194,7 +194,6 @@ function Login() {
                 onClick={() => {
                   setEmail(acct.email);
                   setPassword(acct.password);
-                  submitLogin(acct.email, acct.password);
                 }}
               >
                 {acct.label}
