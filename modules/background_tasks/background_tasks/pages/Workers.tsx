@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
@@ -91,62 +91,65 @@ function Workers() {
   }
 
   return (
-    <PageShell title="Workers" description="Celery workers connected to the broker.">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <Button variant="outline" size="sm" asChild>
-          <Link href={VIEW_BASE}>
-            <ArrowLeft className="mr-2 size-4" />
-            Back to executions
-          </Link>
-        </Button>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">
-            Last updated {formatTs(snapshot.polled_at)}
-          </span>
-          <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
-            <RefreshCw className={`mr-2 size-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+    <>
+      <Head title="Workers" />
+      <PageShell title="Workers" description="Celery workers connected to the broker.">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <Button variant="outline" size="sm" asChild>
+            <Link href={VIEW_BASE}>
+              <ArrowLeft className="mr-2 size-4" />
+              Back to executions
+            </Link>
           </Button>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">
+              Last updated {formatTs(snapshot.polled_at)}
+            </span>
+            <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
+              <RefreshCw className={`mr-2 size-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
-      </div>
 
-      {!snapshot.broker_reachable ? (
-        <Card className="p-6">
-          <div className="flex items-start gap-3">
-            <ServerCrash className="size-5 text-destructive" />
-            <div>
-              <h3 className="font-medium">Broker unreachable</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {snapshot.error ?? 'No error message reported.'}
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Check the <code>SM_BG_TASKS_BROKER_URL</code> setting and confirm the broker process
-                is running.
-              </p>
+        {!snapshot.broker_reachable ? (
+          <Card className="p-6">
+            <div className="flex items-start gap-3">
+              <ServerCrash className="size-5 text-destructive" />
+              <div>
+                <h3 className="font-medium">Broker unreachable</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {snapshot.error ?? 'No error message reported.'}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Check the <code>SM_BG_TASKS_BROKER_URL</code> setting and confirm the broker
+                  process is running.
+                </p>
+              </div>
             </div>
-          </div>
-        </Card>
-      ) : snapshot.workers.length === 0 ? (
-        <Card className="p-6">
-          <div className="flex items-start gap-3">
-            <ServerOff className="size-5 text-muted-foreground" />
-            <div>
-              <h3 className="font-medium">No workers connected</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                The broker is reachable but no Celery workers are responding. Start one with{' '}
-                <code>uv run python scripts/run_worker.py</code>.
-              </p>
+          </Card>
+        ) : snapshot.workers.length === 0 ? (
+          <Card className="p-6">
+            <div className="flex items-start gap-3">
+              <ServerOff className="size-5 text-muted-foreground" />
+              <div>
+                <h3 className="font-medium">No workers connected</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  The broker is reachable but no Celery workers are responding. Start one with{' '}
+                  <code>uv run python scripts/run_worker.py</code>.
+                </p>
+              </div>
             </div>
+          </Card>
+        ) : (
+          <div className="grid gap-3">
+            {snapshot.workers.map((w) => (
+              <WorkerCard key={w.hostname} worker={w} />
+            ))}
           </div>
-        </Card>
-      ) : (
-        <div className="grid gap-3">
-          {snapshot.workers.map((w) => (
-            <WorkerCard key={w.hostname} worker={w} />
-          ))}
-        </div>
-      )}
-    </PageShell>
+        )}
+      </PageShell>
+    </>
   );
 }
 

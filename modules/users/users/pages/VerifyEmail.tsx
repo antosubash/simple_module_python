@@ -1,4 +1,4 @@
-import { usePage } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
@@ -103,6 +103,7 @@ function VerifyEmail() {
 
   return (
     <AuthCardShell>
+      <Head title="Verify Email" />
       <div className="flex flex-col items-center gap-3 text-center">
         <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
           <Icon className={`h-6 w-6 ${content.iconClass}`} aria-hidden="true" />

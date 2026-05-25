@@ -1,3 +1,4 @@
+import { Head } from '@inertiajs/react';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
@@ -72,6 +73,7 @@ function Register() {
 
   return (
     <AuthCardShell>
+      <Head title="Register" />
       <h1 className="mb-1.5 text-[22px] font-bold tracking-tight font-[var(--font-display)] text-foreground">
         Create your account
       </h1>
