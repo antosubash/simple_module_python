@@ -68,155 +68,155 @@ function UserEdit({ user, roles, direct, inherited, groups }: Props) {
       <Head title="Edit User" />
       <PageShell
         title={t(keys.permissions.user_edit.title, { email: user.email })}
-      description={user.full_name || t(keys.permissions.user_edit.description)}
-      actions={
-        <>
-          <Button asChild variant="ghost">
-            <Link href="/users/admin">{t(keys.permissions.user_edit.cancel_link)}</Link>
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => reset('permissions')}
-            disabled={!isDirty}
-          >
-            {t(keys.permissions.user_edit.reset_button)}
-          </Button>
-          <Button
-            type="submit"
-            form="user-edit-form"
-            disabled={processing || !isDirty}
-            className="gap-1.5"
-          >
-            <Check className="h-4 w-4" />
-            {t(keys.permissions.user_edit.submit_button)}
-          </Button>
-        </>
-      }
-    >
-      <form id="user-edit-form" onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Card className="border-border">
-            <CardContent className="pt-5">
-              <div className="flex items-start justify-between">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600/10 text-primary-700">
-                  <ShieldCheck className="h-[18px] w-[18px]" aria-hidden="true" />
-                </span>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {roles.length === 0 ? (
-                  <span className="text-sm text-muted-foreground">
-                    {t(keys.permissions.user_edit.no_roles)}
+        description={user.full_name || t(keys.permissions.user_edit.description)}
+        actions={
+          <>
+            <Button asChild variant="ghost">
+              <Link href="/users/admin">{t(keys.permissions.user_edit.cancel_link)}</Link>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => reset('permissions')}
+              disabled={!isDirty}
+            >
+              {t(keys.permissions.user_edit.reset_button)}
+            </Button>
+            <Button
+              type="submit"
+              form="user-edit-form"
+              disabled={processing || !isDirty}
+              className="gap-1.5"
+            >
+              <Check className="h-4 w-4" />
+              {t(keys.permissions.user_edit.submit_button)}
+            </Button>
+          </>
+        }
+      >
+        <form id="user-edit-form" onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Card className="border-border">
+              <CardContent className="pt-5">
+                <div className="flex items-start justify-between">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600/10 text-primary-700">
+                    <ShieldCheck className="h-[18px] w-[18px]" aria-hidden="true" />
                   </span>
-                ) : (
-                  roles.map((r) => (
-                    <Badge
-                      key={r}
-                      variant="outline"
-                      className="border-primary-200 bg-primary-50 text-primary-700"
-                    >
-                      {r}
-                    </Badge>
-                  ))
-                )}
-              </div>
-              <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                {t(keys.permissions.user_edit.roles_label)}
-              </div>
-            </CardContent>
-          </Card>
-          <StatCard
-            label={t(keys.permissions.user_edit.direct_summary)}
-            value={data.permissions.length}
-            icon={KeyRound}
-          />
-          <StatCard
-            label={t(keys.permissions.user_edit.effective_summary)}
-            value={`${effectiveSet.size} / ${totalRegistered}`}
-            icon={Link2}
-          />
-        </div>
-
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input
-            placeholder="Filter modules…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-
-        {filtered.length === 0 ? (
-          <Card className="border-border">
-            <CardContent className="py-12 text-center text-sm text-muted-foreground">
-              {t(keys.permissions.user_edit.empty)}
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {filtered.map((group) => {
-              const granted = group.permissions.filter((k) => effectiveSet.has(k)).length;
-              const lastRowStart = Math.floor((group.permissions.length - 1) / 2) * 2;
-              return (
-                <Card key={group.name} className="border-border overflow-hidden p-0">
-                  <div className="flex items-center gap-3 border-b border-border bg-secondary/40 px-4 py-3">
-                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary-600/10 text-primary-700">
-                      <Package className="h-3.5 w-3.5" aria-hidden="true" />
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {roles.length === 0 ? (
+                    <span className="text-sm text-muted-foreground">
+                      {t(keys.permissions.user_edit.no_roles)}
                     </span>
-                    <h3 className="flex-1 font-mono text-sm font-semibold text-foreground">
-                      {group.name}
-                    </h3>
-                    <span className="font-mono text-[11px] text-muted-foreground">
-                      {granted}/{group.permissions.length}
-                    </span>
-                  </div>
-                  <div className="grid sm:grid-cols-2">
-                    {group.permissions.map((key, i) => {
-                      const fromRole = inheritedSet.has(key);
-                      const checked = directSet.has(key);
-                      return (
-                        <label
-                          key={key}
-                          htmlFor={`perm-${key}`}
-                          className={`flex items-center gap-2.5 px-4 py-3 cursor-pointer ${
-                            i % 2 === 0 ? 'sm:border-r sm:border-border' : ''
-                          } ${i < lastRowStart ? 'border-b border-border' : ''}`}
-                          title={
-                            fromRole ? t(keys.permissions.user_edit.inherited_hint) : undefined
-                          }
-                        >
-                          <Switch
-                            id={`perm-${key}`}
-                            checked={checked}
-                            onCheckedChange={(c) => toggle(key, c === true)}
-                          />
-                          <code
-                            className={`rounded bg-secondary px-2 py-0.5 font-mono text-[12px] ${
-                              fromRole && !checked ? 'text-muted-foreground' : 'text-foreground'
-                            }`}
-                          >
-                            {key}
-                          </code>
-                          {fromRole && (
-                            <Badge
-                              variant="outline"
-                              className="border-blue-200 bg-blue-50 text-blue-700 text-[10px] py-0 px-1.5"
-                            >
-                              {t(keys.permissions.user_edit.inherited_badge)}
-                            </Badge>
-                          )}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </Card>
-              );
-            })}
+                  ) : (
+                    roles.map((r) => (
+                      <Badge
+                        key={r}
+                        variant="outline"
+                        className="border-primary-200 bg-primary-50 text-primary-700"
+                      >
+                        {r}
+                      </Badge>
+                    ))
+                  )}
+                </div>
+                <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                  {t(keys.permissions.user_edit.roles_label)}
+                </div>
+              </CardContent>
+            </Card>
+            <StatCard
+              label={t(keys.permissions.user_edit.direct_summary)}
+              value={data.permissions.length}
+              icon={KeyRound}
+            />
+            <StatCard
+              label={t(keys.permissions.user_edit.effective_summary)}
+              value={`${effectiveSet.size} / ${totalRegistered}`}
+              icon={Link2}
+            />
           </div>
-        )}
-      </form>
-    </PageShell>
+
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Filter modules…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          {filtered.length === 0 ? (
+            <Card className="border-border">
+              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+                {t(keys.permissions.user_edit.empty)}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {filtered.map((group) => {
+                const granted = group.permissions.filter((k) => effectiveSet.has(k)).length;
+                const lastRowStart = Math.floor((group.permissions.length - 1) / 2) * 2;
+                return (
+                  <Card key={group.name} className="border-border overflow-hidden p-0">
+                    <div className="flex items-center gap-3 border-b border-border bg-secondary/40 px-4 py-3">
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary-600/10 text-primary-700">
+                        <Package className="h-3.5 w-3.5" aria-hidden="true" />
+                      </span>
+                      <h3 className="flex-1 font-mono text-sm font-semibold text-foreground">
+                        {group.name}
+                      </h3>
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        {granted}/{group.permissions.length}
+                      </span>
+                    </div>
+                    <div className="grid sm:grid-cols-2">
+                      {group.permissions.map((key, i) => {
+                        const fromRole = inheritedSet.has(key);
+                        const checked = directSet.has(key);
+                        return (
+                          <label
+                            key={key}
+                            htmlFor={`perm-${key}`}
+                            className={`flex items-center gap-2.5 px-4 py-3 cursor-pointer ${
+                              i % 2 === 0 ? 'sm:border-r sm:border-border' : ''
+                            } ${i < lastRowStart ? 'border-b border-border' : ''}`}
+                            title={
+                              fromRole ? t(keys.permissions.user_edit.inherited_hint) : undefined
+                            }
+                          >
+                            <Switch
+                              id={`perm-${key}`}
+                              checked={checked}
+                              onCheckedChange={(c) => toggle(key, c === true)}
+                            />
+                            <code
+                              className={`rounded bg-secondary px-2 py-0.5 font-mono text-[12px] ${
+                                fromRole && !checked ? 'text-muted-foreground' : 'text-foreground'
+                              }`}
+                            >
+                              {key}
+                            </code>
+                            {fromRole && (
+                              <Badge
+                                variant="outline"
+                                className="border-blue-200 bg-blue-50 text-blue-700 text-[10px] py-0 px-1.5"
+                              >
+                                {t(keys.permissions.user_edit.inherited_badge)}
+                              </Badge>
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </form>
+      </PageShell>
     </>
   );
 }

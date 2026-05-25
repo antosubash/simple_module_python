@@ -37,17 +37,17 @@ function ErrorPage({ status, message }: Props) {
     <>
       <Head title="Error" />
       <ErrorScreen hero={status} title={title} description={description} accent={accents[status]}>
-      <Button asChild className="gap-1.5">
-        <Link href="/">
-          <Home className="h-4 w-4" />
-          {t(keys.host.error.go_home)}
-        </Link>
-      </Button>
-      <Button variant="outline" onClick={() => window.history.back()} className="gap-1.5">
-        <LifeBuoy className="h-4 w-4" />
-        {t(keys.host.error.go_back)}
-      </Button>
-    </ErrorScreen>
+        <Button asChild className="gap-1.5">
+          <Link href="/">
+            <Home className="h-4 w-4" />
+            {t(keys.host.error.go_home)}
+          </Link>
+        </Button>
+        <Button variant="outline" onClick={() => window.history.back()} className="gap-1.5">
+          <LifeBuoy className="h-4 w-4" />
+          {t(keys.host.error.go_back)}
+        </Button>
+      </ErrorScreen>
     </>
   );
 }

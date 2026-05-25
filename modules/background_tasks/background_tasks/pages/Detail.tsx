@@ -94,89 +94,89 @@ function Detail() {
       <PageShell
         title={execution.task_name}
         description={`Task execution ${execution.id}`}
-      actions={
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link href={VIEW_BASE}>
-              <ArrowLeft />
-              Back to tasks
-            </Link>
-          </Button>
-          {retryable && (
-            <RetryConfirmDialog
-              trigger={
-                <Button size="sm">
-                  <RefreshCcw />
-                  Retry task
-                </Button>
-              }
-              onConfirm={handleRetry}
-            />
-          )}
-        </div>
-      }
-    >
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="p-4 lg:col-span-1">
-          <h3 className="font-semibold mb-3">Details</h3>
-          <dl className="text-sm space-y-2">
-            <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">Status</dt>
-              <dd>
-                <Badge variant={STATUS_BADGE_VARIANT[execution.status]}>
-                  {statusLabel(execution.status)}
-                </Badge>
-              </dd>
-            </div>
-            <Row label="Queue" value={execution.queue} />
-            <Row label="Retries" value={String(execution.retries)} />
-            <Row label="Worker" value={execution.worker || '—'} />
-            <Row label="Celery id" value={execution.celery_task_id || '—'} mono />
-            <Row label="Queued at" value={formatTs(execution.queued_at)} />
-            <Row label="Started at" value={formatTs(execution.started_at)} />
-            <Row label="Finished at" value={formatTs(execution.finished_at)} />
-            <Row label="Heartbeat" value={formatTs(execution.heartbeat_at)} />
-            <Row label="Exception" value={execution.exception_type || '—'} />
-            {execution.retried_from_id && (
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href={VIEW_BASE}>
+                <ArrowLeft />
+                Back to tasks
+              </Link>
+            </Button>
+            {retryable && (
+              <RetryConfirmDialog
+                trigger={
+                  <Button size="sm">
+                    <RefreshCcw />
+                    Retry task
+                  </Button>
+                }
+                onConfirm={handleRetry}
+              />
+            )}
+          </div>
+        }
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Card className="p-4 lg:col-span-1">
+            <h3 className="font-semibold mb-3">Details</h3>
+            <dl className="text-sm space-y-2">
               <div className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">Retried from</dt>
+                <dt className="text-muted-foreground">Status</dt>
                 <dd>
-                  <Link
-                    href={`${VIEW_BASE}/${execution.retried_from_id}`}
-                    className="hover:underline"
-                  >
-                    {execution.retried_from_id.slice(0, 8)}…
-                  </Link>
+                  <Badge variant={STATUS_BADGE_VARIANT[execution.status]}>
+                    {statusLabel(execution.status)}
+                  </Badge>
                 </dd>
               </div>
-            )}
-          </dl>
-        </Card>
+              <Row label="Queue" value={execution.queue} />
+              <Row label="Retries" value={String(execution.retries)} />
+              <Row label="Worker" value={execution.worker || '—'} />
+              <Row label="Celery id" value={execution.celery_task_id || '—'} mono />
+              <Row label="Queued at" value={formatTs(execution.queued_at)} />
+              <Row label="Started at" value={formatTs(execution.started_at)} />
+              <Row label="Finished at" value={formatTs(execution.finished_at)} />
+              <Row label="Heartbeat" value={formatTs(execution.heartbeat_at)} />
+              <Row label="Exception" value={execution.exception_type || '—'} />
+              {execution.retried_from_id && (
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">Retried from</dt>
+                  <dd>
+                    <Link
+                      href={`${VIEW_BASE}/${execution.retried_from_id}`}
+                      className="hover:underline"
+                    >
+                      {execution.retried_from_id.slice(0, 8)}…
+                    </Link>
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </Card>
 
-        <div className="lg:col-span-2 flex flex-col gap-4">
-          <JsonCard title="Arguments">
-            <JsonBlock value={execution.args} />
-          </JsonCard>
-          <JsonCard title="Keyword arguments">
-            <JsonBlock value={execution.kwargs} />
-          </JsonCard>
-          {execution.result !== null && (
-            <JsonCard title="Result">
-              <JsonBlock value={execution.result} />
+          <div className="lg:col-span-2 flex flex-col gap-4">
+            <JsonCard title="Arguments">
+              <JsonBlock value={execution.args} />
             </JsonCard>
-          )}
-          <JsonCard title="Traceback">
-            {execution.traceback ? (
-              <pre className="text-xs bg-muted rounded p-3 overflow-x-auto whitespace-pre-wrap">
-                {execution.traceback}
-              </pre>
-            ) : (
-              <p className="text-sm text-muted-foreground">No traceback recorded.</p>
+            <JsonCard title="Keyword arguments">
+              <JsonBlock value={execution.kwargs} />
+            </JsonCard>
+            {execution.result !== null && (
+              <JsonCard title="Result">
+                <JsonBlock value={execution.result} />
+              </JsonCard>
             )}
-          </JsonCard>
+            <JsonCard title="Traceback">
+              {execution.traceback ? (
+                <pre className="text-xs bg-muted rounded p-3 overflow-x-auto whitespace-pre-wrap">
+                  {execution.traceback}
+                </pre>
+              ) : (
+                <p className="text-sm text-muted-foreground">No traceback recorded.</p>
+              )}
+            </JsonCard>
+          </div>
         </div>
-      </div>
-    </PageShell>
+      </PageShell>
     </>
   );
 }
