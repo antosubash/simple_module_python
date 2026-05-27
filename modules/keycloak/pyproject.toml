@@ -2,6 +2,7 @@
 name = "simple_module_keycloak"
 version = "0.0.15"
 description = "Keycloak OIDC authentication provider for simple_module — swap with simple_module_users"
+readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
 authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
