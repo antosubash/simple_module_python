@@ -19,10 +19,7 @@ class OIDCClient:
         client_id: str,
         client_secret: str,
     ) -> None:
-        self._base = (
-            f"{server_url.rstrip('/')}/realms/{realm}"
-            "/protocol/openid-connect"
-        )
+        self._base = f"{server_url.rstrip('/')}/realms/{realm}/protocol/openid-connect"
         self._client_id = client_id
         self._client_secret = client_secret
         self._server_url = server_url.rstrip("/")
@@ -71,9 +68,7 @@ class OIDCClient:
             "client_secret": self._client_secret,
         }
         async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                self.token_endpoint, data=data, timeout=10
-            )
+            resp = await client.post(self.token_endpoint, data=data, timeout=10)
             resp.raise_for_status()
             return resp.json()
 

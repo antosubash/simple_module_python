@@ -70,9 +70,7 @@ def test_claims_to_user_context(provider):
         "preferred_username": "testuser",
         "realm_access": {"roles": ["admin", "unknown_role", "user"]},
     }
-    ctx = provider._claims_to_user_context(
-        claims, cache_id="aaaaaaaa-0000-0000-0000-000000000001"
-    )
+    ctx = provider._claims_to_user_context(claims, cache_id="aaaaaaaa-0000-0000-0000-000000000001")
     assert isinstance(ctx, UserContext)
     assert ctx.id == "aaaaaaaa-0000-0000-0000-000000000001"
     assert ctx.email == "test@example.com"

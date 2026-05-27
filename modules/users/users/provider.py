@@ -98,9 +98,7 @@ class UsersAuthProvider:
                 if access is None:
                     return None
                 stmt = (
-                    select(User)
-                    .where(User.id == access.user_id)
-                    .options(selectinload(User.roles))
+                    select(User).where(User.id == access.user_id).options(selectinload(User.roles))
                 )
                 user = (await db_session.execute(stmt)).scalar_one_or_none()
                 if user is None or not user.is_active or user.disabled_at is not None:
@@ -119,11 +117,7 @@ class UsersAuthProvider:
 
             session_factory = scope["app"].state.sm.db.session_factory
             async with session_factory() as db_session:
-                stmt = (
-                    select(User)
-                    .where(User.id == user_id)
-                    .options(selectinload(User.roles))
-                )
+                stmt = select(User).where(User.id == user_id).options(selectinload(User.roles))
                 user = (await db_session.execute(stmt)).scalar_one_or_none()
                 if user is None or not user.is_active or user.disabled_at is not None:
                     return None

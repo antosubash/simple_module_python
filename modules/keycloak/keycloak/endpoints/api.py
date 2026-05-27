@@ -67,26 +67,18 @@ async def oidc_callback(request: Request):
     callback_url = str(request.url_for("oidc_callback"))
 
     try:
-        tokens = await client.exchange_code(
-            code=code, redirect_uri=callback_url
-        )
+        tokens = await client.exchange_code(code=code, redirect_uri=callback_url)
     except Exception:
         logger.exception("Token exchange failed")
-        raise HTTPException(
-            status_code=502, detail="Token exchange failed"
-        )
+        raise HTTPException(status_code=502, detail="Token exchange failed")
 
     id_token = tokens.get("id_token", "")
     access_token = tokens.get("access_token", "")
 
     jwks_cache = request.app.state.keycloak.jwks_cache
-    claims = (
-        await jwks_cache.validate_jwt(access_token) if jwks_cache else None
-    )
+    claims = await jwks_cache.validate_jwt(access_token) if jwks_cache else None
     if claims is None:
-        raise HTTPException(
-            status_code=401, detail="Token validation failed"
-        )
+        raise HTTPException(status_code=401, detail="Token validation failed")
 
     provider = request.app.state.auth.auth_provider
     cache_id = await provider._upsert_user_cache(request, claims)
@@ -96,7 +88,5 @@ async def oidc_callback(request: Request):
     request.session[_SESSION_ID_TOKEN] = id_token
 
     s = _get_settings(request)
-    next_url = (
-        request.session.pop(_SESSION_NEXT, None) or s.login_redirect_url
-    )
+    next_url = request.session.pop(_SESSION_NEXT, None) or s.login_redirect_url
     return RedirectResponse(next_url, status_code=303)

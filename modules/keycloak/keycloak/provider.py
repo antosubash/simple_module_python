@@ -33,13 +33,9 @@ class KeycloakAuthProvider:
             return await self._resolve_bearer(request, auth_header[7:])
 
         session = request.scope.get("session", {})
-        return UserContext.from_session_dict(
-            session.get(_SESSION_USER_CTX_KEY)
-        )
+        return UserContext.from_session_dict(session.get(_SESSION_USER_CTX_KEY))
 
-    def get_login_url(
-        self, request: Request | None, next_url: str | None = None
-    ) -> str:
+    def get_login_url(self, request: Request | None, next_url: str | None = None) -> str:
         return "/keycloak/login"
 
     def get_logout_url(self, request: Request | None) -> str:
@@ -56,13 +52,9 @@ class KeycloakAuthProvider:
             return False
         return request.headers.get("authorization", "").startswith("Bearer ")
 
-    async def _resolve_bearer(
-        self, request: Request, token: str
-    ) -> UserContext | None:
+    async def _resolve_bearer(self, request: Request, token: str) -> UserContext | None:
         if self.jwks_cache is None:
-            logger.warning(
-                "JWKS cache not initialized; rejecting bearer token"
-            )
+            logger.warning("JWKS cache not initialized; rejecting bearer token")
             return None
         claims = await self.jwks_cache.validate_jwt(token)
         if claims is None:
@@ -78,9 +70,7 @@ class KeycloakAuthProvider:
         cache_id: str,
     ) -> UserContext:
         roles_raw = (
-            _extract_nested(claims, self._settings.roles_claim_path)
-            if self._settings
-            else None
+            _extract_nested(claims, self._settings.roles_claim_path) if self._settings else None
         )
         mapped = [
             self._settings.role_mapping[r]
@@ -90,16 +80,12 @@ class KeycloakAuthProvider:
         return UserContext(
             id=cache_id,
             email=claims.get("email", ""),
-            name=(
-                claims.get("preferred_username") or claims.get("name", "")
-            ),
+            name=(claims.get("preferred_username") or claims.get("name", "")),
             roles=mapped,
             tenant_id=claims.get("tenant_id"),
         )
 
-    async def _upsert_user_cache(
-        self, request: Request, claims: dict
-    ) -> str:
+    async def _upsert_user_cache(self, request: Request, claims: dict) -> str:
         try:
             from keycloak.models import KeycloakUserCache
             from sqlalchemy import select
@@ -107,9 +93,7 @@ class KeycloakAuthProvider:
             session_factory = request.app.state.sm.db.session_factory
             sub = claims["sub"]
             async with session_factory() as db:
-                stmt = select(KeycloakUserCache).where(
-                    KeycloakUserCache.keycloak_sub == sub
-                )
+                stmt = select(KeycloakUserCache).where(KeycloakUserCache.keycloak_sub == sub)
                 row = (await db.execute(stmt)).scalar_one_or_none()
                 if row is None:
                     import uuid as uuid_mod
@@ -128,9 +112,7 @@ class KeycloakAuthProvider:
                     from datetime import datetime, timezone
 
                     row.email = claims.get("email", row.email)
-                    row.full_name = claims.get(
-                        "preferred_username", row.full_name
-                    )
+                    row.full_name = claims.get("preferred_username", row.full_name)
                     row.last_login_at = datetime.now(timezone.utc)
                     await db.flush()
                 return str(row.id)

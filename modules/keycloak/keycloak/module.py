@@ -40,9 +40,7 @@ class KeycloakModule(ModuleBase):
             lambda s: KeycloakState(settings=s),
         )
 
-        app.state.auth.auth_provider = KeycloakAuthProvider(
-            app.state.keycloak.settings
-        )
+        app.state.auth.auth_provider = KeycloakAuthProvider(app.state.keycloak.settings)
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
@@ -56,9 +54,7 @@ class KeycloakModule(ModuleBase):
             )
         )
 
-    def register_routes(
-        self, api_router: APIRouter, view_router: APIRouter
-    ) -> None:
+    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from keycloak.endpoints.api import router as api
         from keycloak.endpoints.views import router as views
 
@@ -72,10 +68,7 @@ class KeycloakModule(ModuleBase):
         s = state.settings
         if s.server_url and s.realm:
             state.jwks_cache = JWKSCache(
-                jwks_url=(
-                    f"{s.server_url}/realms/{s.realm}"
-                    "/protocol/openid-connect/certs"
-                ),
+                jwks_url=(f"{s.server_url}/realms/{s.realm}/protocol/openid-connect/certs"),
                 ttl_seconds=s.jwks_cache_ttl_seconds,
                 issuer=f"{s.server_url}/realms/{s.realm}",
                 audience=s.client_id,
@@ -84,8 +77,4 @@ class KeycloakModule(ModuleBase):
             provider.jwks_cache = state.jwks_cache
 
     def locale_dirs(self) -> dict[str, Path]:
-        return {
-            "keycloak": Path(
-                str(importlib.resources.files(__package__) / "locales")
-            )
-        }
+        return {"keycloak": Path(str(importlib.resources.files(__package__) / "locales"))}

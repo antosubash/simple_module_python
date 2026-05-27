@@ -22,9 +22,7 @@ def test_authorization_url(oidc_client):
         redirect_uri="https://app.example.com/callback",
         nonce="test-nonce",
     )
-    assert (
-        "auth.example.com/realms/test/protocol/openid-connect/auth" in url
-    )
+    assert "auth.example.com/realms/test/protocol/openid-connect/auth" in url
     assert "client_id=my-app" in url
     assert "redirect_uri=" in url
     assert "response_type=code" in url
@@ -36,8 +34,7 @@ def test_authorization_url(oidc_client):
 
 def test_token_endpoint_url(oidc_client):
     assert oidc_client.token_endpoint == (
-        "https://auth.example.com/realms/test"
-        "/protocol/openid-connect/token"
+        "https://auth.example.com/realms/test/protocol/openid-connect/token"
     )
 
 
@@ -46,9 +43,7 @@ def test_logout_url(oidc_client):
         post_logout_redirect_uri="https://app.example.com/login",
         id_token_hint="token123",
     )
-    assert (
-        "auth.example.com/realms/test/protocol/openid-connect/logout" in url
-    )
+    assert "auth.example.com/realms/test/protocol/openid-connect/logout" in url
     assert "post_logout_redirect_uri=" in url
     assert "id_token_hint=token123" in url
 

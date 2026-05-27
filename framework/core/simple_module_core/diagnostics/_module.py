@@ -176,8 +176,7 @@ class ModuleDiagnostics:
                     message=f"Multiple auth provider modules installed: {names}",
                     module_name=providers[0].meta.name,
                     suggestion=(
-                        "Install only one auth provider "
-                        "(e.g. 'users' OR 'keycloak', not both)"
+                        "Install only one auth provider (e.g. 'users' OR 'keycloak', not both)"
                     ),
                 )
             )

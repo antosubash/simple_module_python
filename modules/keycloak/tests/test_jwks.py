@@ -13,9 +13,7 @@ from keycloak.jwks import JWKSCache
 
 
 def _generate_rsa_keypair():
-    private_key = rsa.generate_private_key(
-        public_exponent=65537, key_size=2048
-    )
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     public_key = private_key.public_key()
     return private_key, public_key
 
@@ -31,9 +29,7 @@ def _make_jwks_response(public_key, kid="test-key-1"):
 
 
 def _sign_token(private_key, payload, kid="test-key-1"):
-    return jwt.encode(
-        payload, private_key, algorithm="RS256", headers={"kid": kid}
-    )
+    return jwt.encode(payload, private_key, algorithm="RS256", headers={"kid": kid})
 
 
 @pytest.fixture
@@ -59,9 +55,7 @@ def valid_payload():
 async def test_validate_jwt_valid_token(rsa_keys, valid_payload, httpx_mock):
     private_key, public_key = rsa_keys
     jwks_data = _make_jwks_response(public_key)
-    httpx_mock.add_response(
-        url="https://auth.example.com/jwks", json=jwks_data
-    )
+    httpx_mock.add_response(url="https://auth.example.com/jwks", json=jwks_data)
 
     cache = JWKSCache(
         jwks_url="https://auth.example.com/jwks",
@@ -81,9 +75,7 @@ async def test_validate_jwt_expired_token(rsa_keys, valid_payload, httpx_mock):
     private_key, public_key = rsa_keys
     valid_payload["exp"] = int(time.time()) - 100
     jwks_data = _make_jwks_response(public_key)
-    httpx_mock.add_response(
-        url="https://auth.example.com/jwks", json=jwks_data
-    )
+    httpx_mock.add_response(url="https://auth.example.com/jwks", json=jwks_data)
 
     cache = JWKSCache(
         jwks_url="https://auth.example.com/jwks",
@@ -100,9 +92,7 @@ async def test_validate_jwt_expired_token(rsa_keys, valid_payload, httpx_mock):
 async def test_validate_jwt_wrong_issuer(rsa_keys, valid_payload, httpx_mock):
     private_key, public_key = rsa_keys
     jwks_data = _make_jwks_response(public_key)
-    httpx_mock.add_response(
-        url="https://auth.example.com/jwks", json=jwks_data
-    )
+    httpx_mock.add_response(url="https://auth.example.com/jwks", json=jwks_data)
 
     cache = JWKSCache(
         jwks_url="https://auth.example.com/jwks",
@@ -119,9 +109,7 @@ async def test_validate_jwt_wrong_issuer(rsa_keys, valid_payload, httpx_mock):
 async def test_validate_jwt_wrong_audience(rsa_keys, valid_payload, httpx_mock):
     private_key, public_key = rsa_keys
     jwks_data = _make_jwks_response(public_key)
-    httpx_mock.add_response(
-        url="https://auth.example.com/jwks", json=jwks_data
-    )
+    httpx_mock.add_response(url="https://auth.example.com/jwks", json=jwks_data)
 
     cache = JWKSCache(
         jwks_url="https://auth.example.com/jwks",
@@ -135,17 +123,11 @@ async def test_validate_jwt_wrong_audience(rsa_keys, valid_payload, httpx_mock):
     assert claims is None
 
 
-async def test_jwks_cache_refetches_on_unknown_kid(
-    rsa_keys, valid_payload, httpx_mock
-):
+async def test_jwks_cache_refetches_on_unknown_kid(rsa_keys, valid_payload, httpx_mock):
     private_key, public_key = rsa_keys
     jwks_data = _make_jwks_response(public_key, kid="rotated-key")
-    httpx_mock.add_response(
-        url="https://auth.example.com/jwks", json={"keys": []}
-    )
-    httpx_mock.add_response(
-        url="https://auth.example.com/jwks", json=jwks_data
-    )
+    httpx_mock.add_response(url="https://auth.example.com/jwks", json={"keys": []})
+    httpx_mock.add_response(url="https://auth.example.com/jwks", json=jwks_data)
 
     cache = JWKSCache(
         jwks_url="https://auth.example.com/jwks",
