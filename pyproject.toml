@@ -27,6 +27,7 @@ dev = [
     "aioboto3>=13",
     "moto[s3]>=5",
     "tomlkit>=0.13",
+    "pytest-httpx>=0.36.2",
 ]
 
 [tool.ruff]
