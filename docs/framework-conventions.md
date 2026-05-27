@@ -241,11 +241,30 @@ async def create_order(...): ...
 
 The `auth` module exposes a principal-resolver chain on
 `app.state.auth.principal_resolvers` — a list of async callables that
-`users.AuthMiddleware` consults after the session-cookie path. Use it to add
+`AuthMiddleware` consults after the session-cookie path. Use it to add
 non-cookie credential sources (Personal Access Tokens, API keys, JWTs)
 without forking the middleware. See
 [`docs/framework/principal-resolvers.md`](framework/principal-resolvers.md)
 for the contract, ordering rules, and a worked Bearer-token example.
+
+### Auth Provider Contract
+
+The framework supports swappable authentication backends. Exactly one auth provider
+module must be installed — either `simple-module-users` (local credentials + OAuth)
+or `simple-module-keycloak` (Keycloak OIDC). Both implement the `AuthProvider`
+protocol from `auth.contracts.provider`.
+
+**Module authors never import from `users` or `keycloak` directly.** Use only:
+- `from auth.deps import CurrentUser, require_permission`
+- `from auth.contracts.schemas import UserContext`
+
+The `AuthMiddleware` (in `auth/middleware.py`) delegates to the active provider's
+`resolve_user()` method, then falls through to the principal-resolver chain.
+API paths (`/api/*`) receive 401 JSON when unauthenticated; view paths receive
+a 302 redirect to the provider's login URL.
+
+Boot-time diagnostic `SM020` fails if multiple auth providers are installed.
+`SM021` warns if none is installed.
 
 ## Events
 
@@ -290,6 +309,8 @@ Dispatch walks the event's MRO, so subscribing to a base class delivers subclass
 | SM014 | WARNING | Non-default locale missing keys present in the default |
 | SM015 | WARNING | Non-default locale has keys not in the default |
 | SM016 | ERROR | Locale JSON invalid or contains non-string leaves |
+| SM020 | ERROR | Multiple auth provider modules installed |
+| SM021 | WARNING | No auth provider module installed |
 
 Diagnostics run automatically at boot — warnings print to stderr in dev, errors abort startup in production. There's no separate "run diagnostics" step in a scaffolded app: just start the server.
 
