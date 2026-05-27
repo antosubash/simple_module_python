@@ -56,6 +56,10 @@ class UsersModule(ModuleBase):
 
         register_module_settings(app, "users", UsersSettings, lambda s: UsersState(settings=s))
 
+        from users.provider import UsersAuthProvider
+
+        app.state.auth.auth_provider = UsersAuthProvider()
+
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
             "Users",
