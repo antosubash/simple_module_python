@@ -122,6 +122,7 @@ async def test_validate_jwt_wrong_audience(rsa_keys, valid_payload, httpx_mock):
     assert claims is None
 
 
+@pytest.mark.httpx_mock(assert_all_responses_were_requested=False)
 async def test_jwks_cache_refetches_on_unknown_kid(rsa_keys, valid_payload, httpx_mock):
     private_key, public_key = rsa_keys
     jwks_data = _make_jwks_response(public_key, kid="rotated-key")

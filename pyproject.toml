@@ -102,6 +102,9 @@ no-matching-overload = "ignore"
 # The false positives massively outnumber the real bugs and the latter still
 # get caught at runtime by tests, so we ignore the rule globally.
 invalid-argument-type = "ignore"
+# SQLModel's ``model_config = ConfigDict(...)`` clashes with the internal
+# ``SQLModelConfig`` type in newer ty versions. Same root cause as above.
+invalid-assignment = "ignore"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
