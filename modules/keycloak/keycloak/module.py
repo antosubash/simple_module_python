@@ -12,13 +12,16 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
 
+_MODULE_DEPENDENCY_AUTH = "Auth"
+_MODULE_DEPENDENCY_SETTINGS = "Settings"
+
 
 class KeycloakModule(ModuleBase):
     meta = ModuleMeta(
         name="Keycloak",
         route_prefix="/api/keycloak",
         view_prefix="/keycloak",
-        depends_on=["Auth", "Settings"],
+        depends_on=[_MODULE_DEPENDENCY_AUTH, _MODULE_DEPENDENCY_SETTINGS],
     )
     _is_auth_provider = True
 
