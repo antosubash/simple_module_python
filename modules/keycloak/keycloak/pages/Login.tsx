@@ -1,9 +1,9 @@
-import { router } from "@inertiajs/react";
-import { useEffect } from "react";
+import { router } from '@inertiajs/react';
+import { useEffect } from 'react';
 
 export default function Login() {
   useEffect(() => {
-    router.get("/api/keycloak/auth/login");
+    router.get('/api/keycloak/auth/login');
   }, []);
 
   return (
