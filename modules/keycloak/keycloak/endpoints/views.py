@@ -13,7 +13,7 @@ _SESSION_ID_TOKEN = "keycloak_id_token"
 
 @router.get("/login")
 async def login_page(request: Request, inertia: InertiaDep):
-    return inertia.render("Keycloak/Login")
+    return await inertia.render("Keycloak/Login")
 
 
 @router.post("/logout")
