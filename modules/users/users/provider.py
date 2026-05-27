@@ -20,12 +20,16 @@ _SESSION_USER_CTX_KEY = "user_ctx"
 
 
 class UsersAuthProvider:
-    """Cookie-based auth provider using fastapi-users' DatabaseStrategy."""
+    """Cookie + bearer auth provider using fastapi-users' DatabaseStrategy."""
 
     name = "users"
     _is_auth_provider = True
 
     async def resolve_user(self, request: Request) -> UserContext | None:
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            return await self._resolve_bearer(request.scope, auth_header[7:])
+
         session = request.scope.get("session", {})
         raw_user_id = session.get(_SESSION_USER_ID_KEY)
         if not raw_user_id:
@@ -78,6 +82,33 @@ class UsersAuthProvider:
         if request is None:
             return False
         return request.headers.get("authorization", "").startswith("Bearer ")
+
+    async def _resolve_bearer(self, scope, token: str) -> UserContext | None:
+        """Look up an access token in users_access_token and return the user."""
+        try:
+            from sqlalchemy import select
+            from sqlalchemy.orm import selectinload
+
+            from users.models import User, UserAccessToken
+
+            session_factory = scope["app"].state.sm.db.session_factory
+            async with session_factory() as db_session:
+                stmt = select(UserAccessToken).where(UserAccessToken.token == token)
+                access = (await db_session.execute(stmt)).scalar_one_or_none()
+                if access is None:
+                    return None
+                stmt = (
+                    select(User)
+                    .where(User.id == access.user_id)
+                    .options(selectinload(User.roles))
+                )
+                user = (await db_session.execute(stmt)).scalar_one_or_none()
+                if user is None or not user.is_active or user.disabled_at is not None:
+                    return None
+                return UserContext.from_user(user)
+        except Exception:
+            logger.exception("Bearer token resolution failed")
+            return None
 
     async def _load_user(self, scope, user_id: uuid_mod.UUID) -> UserContext | None:
         try:
