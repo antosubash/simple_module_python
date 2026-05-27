@@ -38,6 +38,8 @@ _EVENT_ENTITY_UPDATED = "db.entity.updated"
 _EVENT_ENTITY_SOFT_DELETED = "db.entity.soft_deleted"
 _EVENT_ENTITY_DELETED = "db.entity.deleted"
 
+_db_state: DatabaseState | None = None
+
 # DB operation strings used in log extra dicts
 _OP_CREATE = "create"
 _OP_UPDATE = "update"
@@ -84,6 +86,9 @@ def register_listeners(db_state: DatabaseState) -> None:
     if db_state._listeners_registered:
         logger.debug("Listeners already registered, skipping")
         return
+
+    global _db_state
+    _db_state = db_state
 
     event.listen(db_state.sync_session_class, "before_flush", _before_flush_listener)
     event.listen(db_state.sync_session_class, "after_flush", _mark_session_written)
@@ -184,6 +189,21 @@ def _before_flush_listener(
                     "user_id": user_id,
                 },
             )
+
+    if _db_state is not None and _db_state.audit_callback is not None:
+        from simple_module_db.audit import collect_audit_records
+
+        correlation_id_val: str | None = None
+        try:
+            from simple_module_hosting.logging import correlation_id as _cid_var
+
+            correlation_id_val = _cid_var.get("") or None
+        except ImportError:
+            pass
+
+        records = collect_audit_records(session, user_id, correlation_id_val)
+        if records:
+            _db_state.audit_callback(session, records)
 
 
 # Cache ``(is_soft_delete, is_multi_tenant)`` flags per mapper class so the

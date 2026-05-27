@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from sqlalchemy.ext.asyncio import (
@@ -22,6 +23,7 @@ class DatabaseState:
     engine: AsyncEngine
     session_factory: async_sessionmaker[AsyncSession]
     sync_session_class: type[Session] = field(repr=False, default=Session)
+    audit_callback: Callable | None = field(default=None, repr=False)
     _listeners_registered: bool = field(default=False, repr=False)
 
 
