@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import time
 
-import httpx
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -125,7 +124,7 @@ async def test_validate_jwt_wrong_audience(rsa_keys, valid_payload, httpx_mock):
 
 async def test_jwks_cache_refetches_on_unknown_kid(rsa_keys, valid_payload):
     """When a token has a kid not in cache, refetch JWKS once before rejecting."""
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import patch
 
     private_key, public_key = rsa_keys
     jwks_data = _make_jwks_response(public_key, kid="rotated-key")
