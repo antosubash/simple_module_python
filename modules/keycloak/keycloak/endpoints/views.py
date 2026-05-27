@@ -9,11 +9,12 @@ from starlette.responses import RedirectResponse
 router = APIRouter(tags=["keycloak-views"])
 
 _SESSION_ID_TOKEN = "keycloak_id_token"
+_PAGE_LOGIN = "Keycloak/Login"
 
 
 @router.get("/login")
 async def login_page(request: Request, inertia: InertiaDep):
-    return await inertia.render("Keycloak/Login")
+    return await inertia.render(_PAGE_LOGIN)
 
 
 @router.post("/logout")
