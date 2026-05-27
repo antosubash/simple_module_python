@@ -106,6 +106,7 @@ class UsersModule(ModuleBase):
         from users.admin.api import admin_router
         from users.admin.views import router as admin_views
         from users.auth_local import api as auth_local_api
+        from users.auth_local.token_api import router as token_router
         from users.auth_local.views import router as auth_views
         from users.contracts.schemas import UserCreate, UserRead
         from users.deps import fastapi_users
@@ -120,6 +121,7 @@ class UsersModule(ModuleBase):
         settings = UsersSettings()
 
         api_router.include_router(auth_local_api.router)
+        api_router.include_router(token_router)
         api_router.include_router(admin_router)
         # Throughput-wrap the stock fastapi-users routers; ``require_signup_enabled``
         # gates /register at request time so ``allow_signup`` is hot-reloadable.

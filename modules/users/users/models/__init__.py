@@ -10,6 +10,7 @@ from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyAccessTokenDataba
 from users.models._base import Base
 from users.models.access_token import UserAccessToken
 from users.models.oauth_account import OAuthAccount
+from users.models.refresh_token import RefreshToken
 from users.models.role import Role
 from users.models.user import User
 from users.models.user_role import UserRole
@@ -17,6 +18,7 @@ from users.models.user_role import UserRole
 __all__ = [
     "Base",
     "OAuthAccount",
+    "RefreshToken",
     "Role",
     "SQLAlchemyAccessTokenDatabase",
     "SQLAlchemyUserDatabase",

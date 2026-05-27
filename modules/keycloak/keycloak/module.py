@@ -18,7 +18,7 @@ class KeycloakModule(ModuleBase):
         name="Keycloak",
         route_prefix="/api/keycloak",
         view_prefix="/keycloak",
-        depends_on=["Auth"],
+        depends_on=["Auth", "Settings"],
     )
     _is_auth_provider = True
 

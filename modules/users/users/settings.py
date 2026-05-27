@@ -50,6 +50,10 @@ class UsersSettings(BaseSettings):
     reset_password_token_lifetime_seconds: int = 60 * 60  # 1 hour
     verification_token_lifetime_seconds: int = 60 * 60 * 24 * 7  # 7 days
 
+    # Bearer token (mobile / API clients)
+    bearer_token_lifetime_seconds: int = 60 * 15  # 15 minutes
+    refresh_token_lifetime_seconds: int = 60 * 60 * 24 * 30  # 30 days
+
     # Cookie (fastapi-users AuthenticationBackend)
     cookie_name: str = "sm_auth"
     cookie_max_age_seconds: int = 60 * 60 * 24 * 14  # 14 days
