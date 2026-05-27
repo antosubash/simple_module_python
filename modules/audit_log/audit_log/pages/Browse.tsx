@@ -94,6 +94,7 @@ function Browse() {
     if (fd) p.from_date = String(fd);
     if (td) p.to_date = String(td);
     if (Number(pg) > 1) p.page = String(pg);
+    if (page_size !== 50) p.page_size = String(page_size);
     router.visit(`/audit_log?${new URLSearchParams(p).toString()}`);
   }
 
@@ -141,11 +142,11 @@ function Browse() {
           </div>
           <div className="min-w-[140px]">
             <label className="block text-sm font-medium mb-1">{t(keys.audit_log.filters.from_date_label)}</label>
-            <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-8 text-sm" />
+            <Input type="datetime-local" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-8 text-sm" />
           </div>
           <div className="min-w-[140px]">
             <label className="block text-sm font-medium mb-1">{t(keys.audit_log.filters.to_date_label)}</label>
-            <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-8 text-sm" />
+            <Input type="datetime-local" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-8 text-sm" />
           </div>
           <Button type="submit" size="sm">{t(keys.audit_log.filters.apply)}</Button>
           <Button type="button" variant="ghost" size="sm" onClick={handleClear}>{t(keys.audit_log.filters.clear)}</Button>
