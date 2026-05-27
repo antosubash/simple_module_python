@@ -1,0 +1,61 @@
+"""Inertia view endpoints for the Audit Log admin UI."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, Query
+from inertia import InertiaResponse
+from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.permissions import RequiresPermission
+
+from audit_log.constants import DEFAULT_PAGE_SIZE, PAGE_BROWSE, PERM_VIEW
+from audit_log.deps import AuditLogServiceDep
+
+router = APIRouter()
+
+
+@router.get(
+    "/",
+    response_model=None,
+    dependencies=[Depends(RequiresPermission(PERM_VIEW))],
+)
+async def browse(
+    inertia: InertiaDep,
+    service: AuditLogServiceDep,
+    entity_type: str | None = Query(default=None),
+    action: str | None = Query(default=None),
+    user_id: str | None = Query(default=None),
+    from_date: datetime | None = Query(default=None),
+    to_date: datetime | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=200),
+) -> InertiaResponse:
+    result = await service.list_entries(
+        entity_type=entity_type,
+        action=action,
+        user_id=user_id,
+        from_date=from_date,
+        to_date=to_date,
+        page=page,
+        page_size=page_size,
+    )
+    entity_types = await service.distinct_entity_types()
+
+    return await inertia.render(
+        PAGE_BROWSE,
+        {
+            "items": [item.model_dump(mode="json") for item in result.items],
+            "total": result.total,
+            "page": result.page,
+            "page_size": result.page_size,
+            "entity_types": entity_types,
+            "filters": {
+                "entity_type": entity_type,
+                "action": action,
+                "user_id": user_id,
+                "from_date": from_date.isoformat() if from_date else None,
+                "to_date": to_date.isoformat() if to_date else None,
+            },
+        },
+    )
