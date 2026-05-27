@@ -106,12 +106,24 @@ class TestAuditLogAPI:
     """Verify the audit log REST API filtering and pagination."""
 
     async def test_filter_by_action(self, authenticated_client: httpx.AsyncClient):
+        # Ensure at least one "created" entry exists
+        await authenticated_client.post(
+            "/api/settings/",
+            json={
+                "scope": "system",
+                "scope_id": "",
+                "key": "filter.action.test",
+                "value": "test",
+                "value_type": "string",
+            },
+        )
         resp = await authenticated_client.get(
             "/api/audit_log/",
             params={"action": "created"},
         )
         assert resp.status_code == 200
         data = resp.json()
+        assert len(data["items"]) > 0, "Expected at least one 'created' audit entry"
         for item in data["items"]:
             assert item["action"] == "created"
 
