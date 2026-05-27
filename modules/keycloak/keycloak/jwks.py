@@ -24,9 +24,14 @@ class JWKSCache:
         self,
         jwks_url: str,
         ttl_seconds: int = 3600,
-        issuer: str = "",
-        audience: str = "",
+        *,
+        issuer: str,
+        audience: str,
     ) -> None:
+        if not issuer:
+            raise ValueError("issuer is required for JWT validation")
+        if not audience:
+            raise ValueError("audience is required for JWT validation")
         self._jwks_url = jwks_url
         self._ttl = ttl_seconds
         self._issuer = issuer
@@ -57,12 +62,8 @@ class JWKSCache:
                 token,
                 key,
                 algorithms=["RS256"],
-                issuer=self._issuer if self._issuer else None,
-                audience=self._audience if self._audience else None,
-                options={
-                    "verify_iss": bool(self._issuer),
-                    "verify_aud": bool(self._audience),
-                },
+                issuer=self._issuer,
+                audience=self._audience,
             )
         except (
             jwt.ExpiredSignatureError,

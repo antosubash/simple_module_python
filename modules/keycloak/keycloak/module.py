@@ -77,6 +77,8 @@ class KeycloakModule(ModuleBase):
                     "/protocol/openid-connect/certs"
                 ),
                 ttl_seconds=s.jwks_cache_ttl_seconds,
+                issuer=f"{s.server_url}/realms/{s.realm}",
+                audience=s.client_id,
             )
             provider = app.state.auth.auth_provider
             provider.jwks_cache = state.jwks_cache
