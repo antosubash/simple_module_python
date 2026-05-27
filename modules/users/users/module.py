@@ -39,6 +39,7 @@ class UsersModule(ModuleBase):
         view_prefix="/users",
         depends_on=[_MODULE_DEPENDENCY_AUTH],
     )
+    _is_auth_provider = True
 
     def register_settings(self, app: FastAPI) -> None:
         import importlib
