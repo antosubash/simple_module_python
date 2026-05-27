@@ -1,0 +1,51 @@
+[project]
+name = "simple_module_audit_log"
+version = "0.0.15"
+description = "Automatic field-level audit trail for all SQLModel entities"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
+keywords = ["simple-module", "audit-log", "change-tracking"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
+]
+dependencies = [
+    "simple_module_core==0.0.15",
+    "simple_module_db==0.0.15",
+    "simple_module_hosting==0.0.15",
+]
+
+[project.entry-points.simple_module]
+audit_log = "audit_log.module:AuditLogModule"
+
+[project.urls]
+Homepage = "https://github.com/antosubash/simple_module_python"
+Repository = "https://github.com/antosubash/simple_module_python"
+Issues = "https://github.com/antosubash/simple_module_python/issues"
+Changelog = "https://github.com/antosubash/simple_module_python/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["audit_log"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"package.json" = "audit_log/package.json"
+
+[tool.uv.sources]
+simple_module_core = { workspace = true }
+simple_module_db = { workspace = true }
+simple_module_hosting = { workspace = true }

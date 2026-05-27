@@ -1,0 +1,11 @@
+{
+  "extends": "@simple-module-py/tsconfig/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./audit_log/*"],
+      "@simple-module-py/ui/*": ["../../packages/ui/src/*"]
+    }
+  },
+  "include": ["audit_log/**/*.ts", "audit_log/**/*.tsx"]
+}
