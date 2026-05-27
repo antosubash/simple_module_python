@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 
 from pydantic import ConfigDict
@@ -11,7 +12,7 @@ from sqlmodel import SQLModel
 class AuditEntryRead(SQLModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: str
+    id: uuid.UUID
     entity_type: str
     entity_id: str
     action: str
