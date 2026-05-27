@@ -145,6 +145,54 @@ class TestAuditLogAPI:
         assert resp.status_code in (302, 303, 401, 403)
 
 
+class TestAuditLogViewInvalidParams:
+    """BUG-001: Invalid query params on view routes must not return raw JSON errors."""
+
+    @pytest.mark.parametrize(
+        "params",
+        [
+            {"page": "abc"},
+            {"page_size": "0"},
+            {"page": "-1"},
+            {"page_size": "-5"},
+            {"page": "abc", "page_size": "xyz"},
+            {"page_size": "999"},
+        ],
+        ids=[
+            "non-integer-page",
+            "zero-page-size",
+            "negative-page",
+            "negative-page-size",
+            "both-non-integer",
+            "page-size-over-max",
+        ],
+    )
+    async def test_invalid_pagination_returns_html(
+        self, authenticated_client: httpx.AsyncClient, params: dict[str, str]
+    ):
+        """View endpoint should clamp bad pagination values, never 422."""
+        resp = await authenticated_client.get(
+            "/audit_log/",
+            params=params,
+            follow_redirects=False,
+        )
+        # Should succeed (200 full-page) — not a 422 validation error.
+        assert resp.status_code == 200, (
+            f"Expected 200 for params {params}, got {resp.status_code}: "
+            f"{resp.text[:300]}"
+        )
+
+    async def test_api_still_rejects_invalid_params(
+        self, authenticated_client: httpx.AsyncClient
+    ):
+        """API endpoint should still return 422 for invalid pagination."""
+        resp = await authenticated_client.get(
+            "/api/audit_log/",
+            params={"page_size": "0"},
+        )
+        assert resp.status_code == 422
+
+
 class TestAuditLogRecursionGuard:
     """Verify that AuditEntry writes don't trigger more audit entries."""
 
