@@ -19,7 +19,7 @@ from simple_module_test import forge_session_cookie
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import JSONResponse
 from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
-from users.middleware import AuthMiddleware
+from auth.middleware import AuthMiddleware
 
 SECRET_KEY = "test-secret-key-for-session-middleware"
 
@@ -61,7 +61,10 @@ async def _build_app(db_state, inner_handler=None, *, principal_resolvers=None):
 
     app = FastAPI()
     app.state.sm = SimpleNamespace(db=db_state)
+    from users.provider import UsersAuthProvider
+
     app.state.auth = AuthState(
+        auth_provider=UsersAuthProvider(),
         principal_resolvers=list(principal_resolvers or []),
     )
 
