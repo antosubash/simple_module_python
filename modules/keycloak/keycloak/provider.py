@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC
 from typing import TYPE_CHECKING, Any
 
 from auth.contracts.schemas import UserContext
@@ -87,8 +88,9 @@ class KeycloakAuthProvider:
 
     async def _upsert_user_cache(self, request: Request, claims: dict) -> str:
         try:
-            from keycloak.models import KeycloakUserCache
             from sqlalchemy import select
+
+            from keycloak.models import KeycloakUserCache
 
             session_factory = request.app.state.sm.db.session_factory
             sub = claims["sub"]
@@ -97,23 +99,23 @@ class KeycloakAuthProvider:
                 row = (await db.execute(stmt)).scalar_one_or_none()
                 if row is None:
                     import uuid as uuid_mod
-                    from datetime import datetime, timezone
+                    from datetime import datetime
 
                     row = KeycloakUserCache(
                         id=uuid_mod.uuid4(),
                         keycloak_sub=sub,
                         email=claims.get("email", ""),
                         full_name=claims.get("preferred_username"),
-                        last_login_at=datetime.now(timezone.utc),
+                        last_login_at=datetime.now(UTC),
                     )
                     db.add(row)
                     await db.flush()
                 else:
-                    from datetime import datetime, timezone
+                    from datetime import datetime
 
                     row.email = claims.get("email", row.email)
                     row.full_name = claims.get("preferred_username", row.full_name)
-                    row.last_login_at = datetime.now(timezone.utc)
+                    row.last_login_at = datetime.now(UTC)
                     await db.flush()
                 return str(row.id)
         except Exception:

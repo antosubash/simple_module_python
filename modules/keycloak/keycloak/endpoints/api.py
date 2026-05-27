@@ -70,7 +70,7 @@ async def oidc_callback(request: Request):
         tokens = await client.exchange_code(code=code, redirect_uri=callback_url)
     except Exception:
         logger.exception("Token exchange failed")
-        raise HTTPException(status_code=502, detail="Token exchange failed")
+        raise HTTPException(status_code=502, detail="Token exchange failed") from None
 
     id_token = tokens.get("id_token", "")
     access_token = tokens.get("access_token", "")

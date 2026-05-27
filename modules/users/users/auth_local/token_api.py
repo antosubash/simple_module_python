@@ -8,7 +8,7 @@ third-party API consumers).
 from __future__ import annotations
 
 import uuid as uuid_mod
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_db.deps import get_db
@@ -87,9 +87,9 @@ async def token_refresh(
     try:
         token_uuid = uuid_mod.UUID(body.refresh_token)
     except (ValueError, TypeError):
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
+        raise HTTPException(status_code=401, detail="Invalid refresh token") from None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     stmt = select(RefreshToken).where(
         RefreshToken.token == token_uuid,
         RefreshToken.revoked_at.is_(None),  # type: ignore[union-attr]
@@ -115,12 +115,12 @@ async def token_revoke(
     try:
         token_uuid = uuid_mod.UUID(body.refresh_token)
     except (ValueError, TypeError):
-        raise HTTPException(status_code=400, detail="Invalid token format")
+        raise HTTPException(status_code=400, detail="Invalid token format") from None
 
     stmt = select(RefreshToken).where(RefreshToken.token == token_uuid)
     rt = (await db.execute(stmt)).scalar_one_or_none()
     if rt and rt.revoked_at is None:
-        rt.revoked_at = datetime.now(timezone.utc)
+        rt.revoked_at = datetime.now(UTC)
         await db.flush()
     return {"status": "ok"}
 
@@ -133,7 +133,7 @@ async def _create_token_pair(
     """Mint a new access token + refresh token pair and persist both."""
     from users.models import UserAccessToken
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     access_token = UserAccessToken(
         token=str(uuid_mod.uuid4()),

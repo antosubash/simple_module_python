@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from auth.contracts.provider import AuthProvider
-from auth.state import AuthState
 
 
 def test_users_module_is_auth_provider():

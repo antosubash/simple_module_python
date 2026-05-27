@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
 from auth.contracts.provider import AuthProvider
 from auth.contracts.schemas import UserContext
 from keycloak.provider import KeycloakAuthProvider
 from keycloak.settings import KeycloakSettings
-
-import pytest
 
 
 @pytest.fixture
@@ -49,7 +48,7 @@ def test_logout_url(provider):
 
 
 def test_public_paths(provider):
-    prefixes, exact = provider.get_public_paths()
+    prefixes, _exact = provider.get_public_paths()
     assert "/keycloak/login" in prefixes
     assert "/api/keycloak/auth/" in prefixes
 

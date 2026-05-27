@@ -23,7 +23,7 @@ def test_logout_url():
 
 def test_public_paths():
     provider = UsersAuthProvider()
-    prefixes, exact = provider.get_public_paths()
+    prefixes, _exact = provider.get_public_paths()
     assert "/users/login" in prefixes
     assert "/api/users/auth/" in prefixes
 

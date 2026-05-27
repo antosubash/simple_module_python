@@ -8,7 +8,6 @@ import time
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
-
 from keycloak.jwks import JWKSCache
 
 
