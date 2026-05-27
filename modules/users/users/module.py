@@ -43,8 +43,6 @@ class UsersModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
         import importlib
 
-        from auth.contracts.schemas import UserContext
-
         from users.settings import UsersSettings
         from users.state import UsersState
 
@@ -57,16 +55,6 @@ class UsersModule(ModuleBase):
         ).register_module_settings
 
         register_module_settings(app, "users", UsersSettings, lambda s: UsersState(settings=s))
-
-        def serialize_principal(user: UserContext) -> dict:
-            return {
-                "id": user.id,
-                "name": user.name,
-                "email": user.email,
-                "roles": user.roles,
-            }
-
-        app.state.principal_serializer = serialize_principal
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
@@ -155,11 +143,6 @@ class UsersModule(ModuleBase):
 
         view_router.include_router(auth_views)
         view_router.include_router(admin_views)
-
-    def register_middleware(self, app: FastAPI) -> None:
-        from users.middleware import AuthMiddleware
-
-        app.add_middleware(AuthMiddleware)
 
     async def on_startup(self, app: FastAPI) -> None:
         """Build the mailer, rate limiter, and apply production cookie params."""
