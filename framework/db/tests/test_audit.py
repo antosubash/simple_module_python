@@ -14,7 +14,7 @@ import pytest
 from simple_module_db.audit import AuditRecord, collect_audit_records
 from simple_module_db.base import create_module_base
 from simple_module_db.listeners import register_listeners
-from simple_module_db.mixins import AuditMixin
+from simple_module_db.mixins import AuditMixin, SoftDeleteMixin
 from simple_module_db.provider import DatabaseProvider
 from simple_module_db.session import init_db
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,6 +49,14 @@ class PartialExcludeModel(_AuditBase, AuditMixin, table=True):  # type: ignore[c
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(max_length=100)
     password_hash: str = Field(max_length=255, default="")
+
+
+class SoftDeleteItem(_AuditBase, AuditMixin, SoftDeleteMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+    """Audited entity with soft-delete support for testing."""
+
+    __tablename__ = "test_audit_soft_delete_item"
+    id: int | None = Field(default=None, primary_key=True)
+    title: str = Field(max_length=100)
 
 
 @pytest.fixture
@@ -208,3 +216,73 @@ async def test_collect_records_for_update(audit_session: AsyncSession):
     assert change["field"] == "name"
     assert change["old"] == "original"
     assert change["new"] == "renamed"
+
+
+# ── collect_audit_records: soft-deleted entity ────────────────────────────
+
+
+async def test_soft_deleted_entity_produces_soft_deleted_record(
+    audit_session: AsyncSession,
+):
+    """A SoftDeleteMixin object re-added to session.new with is_deleted=True
+    should produce action='soft_deleted', not action='created'."""
+    item = SoftDeleteItem(title="doomed")
+    audit_session.add(item)
+    await audit_session.commit()
+    await audit_session.refresh(item)
+
+    # Simulate what the soft-delete listener does: expunge from deleted,
+    # set is_deleted=True, re-add to session.new.  We use make_transient
+    # so SQLAlchemy treats the re-added object as new (matching the
+    # session state that triggers Bug 1).
+    await audit_session.delete(item)
+
+    def _simulate_soft_delete(session):
+        from sqlalchemy.orm import make_transient
+
+        session.expunge(item)
+        item.is_deleted = True
+        make_transient(item)
+        session.add(item)
+
+    await audit_session.run_sync(_simulate_soft_delete)
+
+    records: list[AuditRecord] = []
+
+    def _collect(session):
+        records.extend(
+            collect_audit_records(session, user_id="admin", correlation_id="req-sd")
+        )
+
+    await audit_session.run_sync(_collect)
+
+    assert len(records) == 1
+    rec = records[0]
+    assert rec.action == "soft_deleted"
+    assert rec.entity_type == "SoftDeleteItem"
+    assert rec.entity_id == str(item.id)
+    assert rec.changes == []
+    assert rec.user_id == "admin"
+    assert rec.correlation_id == "req-sd"
+
+
+# ── collect_audit_records: soft-delete fields excluded from diffs ─────────
+
+
+async def test_soft_delete_fields_excluded(audit_session: AsyncSession):
+    """is_deleted, deleted_at, deleted_by should never appear in changes."""
+    item = SoftDeleteItem(title="widget")
+    audit_session.add(item)
+
+    records: list[AuditRecord] = []
+
+    def _collect(session):
+        records.extend(collect_audit_records(session))
+
+    await audit_session.run_sync(_collect)
+
+    assert len(records) == 1
+    field_names = {c["field"] for c in records[0].changes}
+    assert "title" in field_names
+    for soft_field in ("is_deleted", "deleted_at", "deleted_by"):
+        assert soft_field not in field_names, f"{soft_field} should be excluded"

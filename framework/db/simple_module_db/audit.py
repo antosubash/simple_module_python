@@ -13,11 +13,21 @@ from typing import Any
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
+from simple_module_db.mixins import SoftDeleteMixin
+
 # Fields injected by AuditMixin — always excluded from change diffs
 # because they are bookkeeping, not business data.
 _AUDIT_MIXIN_FIELDS: frozenset[str] = frozenset(
     {"created_at", "updated_at", "created_by", "updated_by"}
 )
+
+# Fields injected by SoftDeleteMixin — also excluded because they are
+# bookkeeping managed by the soft-delete listener, not business data.
+_SOFT_DELETE_MIXIN_FIELDS: frozenset[str] = frozenset(
+    {"is_deleted", "deleted_at", "deleted_by"}
+)
+
+_EXCLUDED_MIXIN_FIELDS: frozenset[str] = _AUDIT_MIXIN_FIELDS | _SOFT_DELETE_MIXIN_FIELDS
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,7 +55,7 @@ def _is_excluded(obj: object) -> bool:
 def _excluded_fields(obj: object) -> set[str]:
     """Return the set of field names that should be skipped for this model."""
     per_model: set[str] = getattr(obj, "__audit_exclude_fields__", set())
-    return _AUDIT_MIXIN_FIELDS | per_model
+    return _EXCLUDED_MIXIN_FIELDS | per_model
 
 
 def _entity_pk_str(obj: object) -> str:
@@ -116,6 +126,22 @@ def collect_audit_records(
     for obj in session.new:
         if _is_excluded(obj):
             continue
+
+        # Soft-delete listener moves objects from session.deleted → session.new
+        # with is_deleted=True.  Classify them as "soft_deleted", not "created".
+        if isinstance(obj, SoftDeleteMixin) and getattr(obj, "is_deleted", False):
+            records.append(
+                AuditRecord(
+                    entity_type=type(obj).__name__,
+                    entity_id=_entity_pk_str(obj),
+                    action="soft_deleted",
+                    changes=[],
+                    user_id=user_id,
+                    correlation_id=correlation_id,
+                )
+            )
+            continue
+
         excl = _get_excluded(obj)
         pk_cols = _get_pk_cols(obj)
         changes: list[dict[str, Any]] = []
