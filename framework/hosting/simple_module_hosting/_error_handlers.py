@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from inertia import (
     Inertia,
@@ -47,6 +49,18 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> Respon
 
 async def not_found_error_handler(request: Request, exc: NotFoundError) -> Response:
     return await render_error_page(request, 404, str(exc))
+
+
+async def request_validation_error_handler(
+    request: Request, exc: RequestValidationError
+) -> Response:
+    """Return an Inertia error page for browser requests with invalid params."""
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        return await render_error_page(
+            request, 422, "The requested URL contains invalid parameters."
+        )
+    return JSONResponse(status_code=422, content={"detail": jsonable_encoder(exc.errors())})
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> Response:

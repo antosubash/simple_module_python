@@ -6,6 +6,7 @@ import { bootI18nFromInitialPage, subscribeI18nToNavigation } from './i18n';
 import { resolvePage } from './pages';
 
 createInertiaApp({
+  title: (title) => (title ? `${title} — SimpleModule` : 'SimpleModule'),
   resolve: async (name) => {
     const page = await resolvePage(name);
     return page;
