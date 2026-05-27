@@ -24,6 +24,7 @@ async def browse(
     inertia: InertiaDep,
     service: AuditLogServiceDep,
     entity_type: str | None = Query(default=None),
+    entity_id: str | None = Query(default=None),
     action: str | None = Query(default=None),
     user_id: str | None = Query(default=None),
     from_date: datetime | None = Query(default=None),
@@ -33,6 +34,7 @@ async def browse(
 ) -> InertiaResponse:
     result = await service.list_entries(
         entity_type=entity_type,
+        entity_id=entity_id,
         action=action,
         user_id=user_id,
         from_date=from_date,
@@ -52,6 +54,7 @@ async def browse(
             "entity_types": entity_types,
             "filters": {
                 "entity_type": entity_type,
+                "entity_id": entity_id,
                 "action": action,
                 "user_id": user_id,
                 "from_date": from_date.isoformat() if from_date else None,
