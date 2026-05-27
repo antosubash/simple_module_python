@@ -1,0 +1,210 @@
+"""Tests for AuditRecord dataclass and collect_audit_records diff collection.
+
+Verifies the pure-logic core: given SQLAlchemy session state, produce a list
+of ``AuditRecord`` structs describing what changed.
+"""
+
+from __future__ import annotations
+
+from collections.abc import AsyncGenerator
+from dataclasses import FrozenInstanceError
+from typing import ClassVar
+
+import pytest
+from simple_module_db.audit import AuditRecord, collect_audit_records
+from simple_module_db.base import create_module_base
+from simple_module_db.listeners import register_listeners
+from simple_module_db.mixins import AuditMixin
+from simple_module_db.provider import DatabaseProvider
+from simple_module_db.session import init_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import Field
+
+_AuditBase = create_module_base("test_audit", provider=DatabaseProvider.SQLITE)
+
+
+class AuditTestItem(_AuditBase, AuditMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+    """Standard audited entity for testing."""
+
+    __tablename__ = "test_audit_item"
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(max_length=100)
+    value: int = Field(default=0)
+
+
+class ExcludedModel(_AuditBase, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+    """Model that opts out of auditing entirely."""
+
+    __tablename__ = "test_audit_excluded"
+    __audit_exclude__ = True
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(max_length=100)
+
+
+class PartialExcludeModel(_AuditBase, AuditMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+    """Model with specific fields excluded from audit tracking."""
+
+    __tablename__ = "test_audit_partial"
+    __audit_exclude_fields__: ClassVar[set[str]] = {"password_hash"}
+    id: int | None = Field(default=None, primary_key=True)
+    username: str = Field(max_length=100)
+    password_hash: str = Field(max_length=255, default="")
+
+
+@pytest.fixture
+async def audit_session() -> AsyncGenerator[AsyncSession, None]:
+    """Session backed by in-memory SQLite with listeners registered."""
+    db_state = init_db("sqlite+aiosqlite:///:memory:")
+    try:
+        register_listeners(db_state)
+        async with db_state.engine.begin() as conn:
+            await conn.run_sync(_AuditBase.metadata.create_all)
+        async with db_state.session_factory() as session:
+            yield session
+    finally:
+        await db_state.engine.dispose()
+
+
+# ── AuditRecord dataclass ─────────────────────────────────────────────────
+
+
+def test_audit_record_is_frozen():
+    record = AuditRecord(
+        entity_type="Item",
+        entity_id="1",
+        action="created",
+        changes=[{"field": "name", "new": "test"}],
+        user_id="alice",
+        correlation_id="req-123",
+    )
+    with pytest.raises(FrozenInstanceError):
+        record.action = "updated"  # type: ignore[misc]
+
+
+# ── collect_audit_records: created ─────────────────────────────────────────
+
+
+async def test_collect_records_for_new_entity(audit_session: AsyncSession):
+    item = AuditTestItem(name="widget", value=42)
+    audit_session.add(item)
+
+    # Collect before flush (inside the sync session via run_sync)
+    records: list[AuditRecord] = []
+
+    def _collect(session):
+        records.extend(collect_audit_records(session, user_id="alice", correlation_id="req-1"))
+
+    await audit_session.run_sync(_collect)
+
+    assert len(records) == 1
+    rec = records[0]
+    assert rec.entity_type == "AuditTestItem"
+    assert rec.action == "created"
+    assert rec.user_id == "alice"
+    assert rec.correlation_id == "req-1"
+
+    # Should contain name and value, but not PK or AuditMixin fields
+    field_names = {c["field"] for c in rec.changes}
+    assert "name" in field_names
+    assert "value" in field_names
+    assert "id" not in field_names
+    assert "created_at" not in field_names
+    assert "updated_at" not in field_names
+
+    # Check values
+    name_change = next(c for c in rec.changes if c["field"] == "name")
+    assert name_change["new"] == "widget"
+    value_change = next(c for c in rec.changes if c["field"] == "value")
+    assert value_change["new"] == 42
+
+
+# ── collect_audit_records: excluded model ──────────────────────────────────
+
+
+async def test_excluded_model_produces_no_records(audit_session: AsyncSession):
+    excluded = ExcludedModel(name="secret")
+    audit_session.add(excluded)
+
+    records: list[AuditRecord] = []
+
+    def _collect(session):
+        records.extend(collect_audit_records(session))
+
+    await audit_session.run_sync(_collect)
+
+    assert len(records) == 0
+
+
+# ── collect_audit_records: excluded fields ─────────────────────────────────
+
+
+async def test_excluded_fields_are_omitted(audit_session: AsyncSession):
+    user = PartialExcludeModel(username="bob", password_hash="s3cret")
+    audit_session.add(user)
+
+    records: list[AuditRecord] = []
+
+    def _collect(session):
+        records.extend(collect_audit_records(session))
+
+    await audit_session.run_sync(_collect)
+
+    assert len(records) == 1
+    field_names = {c["field"] for c in records[0].changes}
+    assert "username" in field_names
+    assert "password_hash" not in field_names
+
+
+# ── collect_audit_records: AuditMixin fields always excluded ───────────────
+
+
+async def test_audit_mixin_fields_excluded_by_default(audit_session: AsyncSession):
+    item = AuditTestItem(name="audited", value=1)
+    audit_session.add(item)
+
+    records: list[AuditRecord] = []
+
+    def _collect(session):
+        records.extend(collect_audit_records(session))
+
+    await audit_session.run_sync(_collect)
+
+    assert len(records) == 1
+    field_names = {c["field"] for c in records[0].changes}
+    for mixin_field in ("created_at", "updated_at", "created_by", "updated_by"):
+        assert mixin_field not in field_names, f"{mixin_field} should be excluded"
+
+
+# ── collect_audit_records: updated ─────────────────────────────────────────
+
+
+async def test_collect_records_for_update(audit_session: AsyncSession):
+    # First create and commit so the entity is persistent
+    item = AuditTestItem(name="original", value=10)
+    audit_session.add(item)
+    await audit_session.commit()
+    await audit_session.refresh(item)
+
+    # Now modify it
+    item.name = "renamed"
+
+    records: list[AuditRecord] = []
+
+    def _collect(session):
+        records.extend(collect_audit_records(session, user_id="bob", correlation_id="req-2"))
+
+    await audit_session.run_sync(_collect)
+
+    assert len(records) == 1
+    rec = records[0]
+    assert rec.entity_type == "AuditTestItem"
+    assert rec.action == "updated"
+    assert rec.entity_id == str(item.id)
+    assert rec.user_id == "bob"
+
+    # Should only contain the changed field
+    assert len(rec.changes) == 1
+    change = rec.changes[0]
+    assert change["field"] == "name"
+    assert change["old"] == "original"
+    assert change["new"] == "renamed"
