@@ -19,6 +19,11 @@ from sqlmodel import SQLModel
 from users.models import User
 from users.models.refresh_token import RefreshToken
 
+# Pre-computed bcrypt hash used when a login attempt targets a non-existent
+# user. Running verify against this takes the same time as a real check,
+# preventing timing-based email enumeration.
+_DUMMY_HASH = "$2b$12$LJ3m4ys3Lg/PFgWCZxEzR.ZVxFMz3yeqHEhSYmiJ9gJOPG7W3Cq2G"
+
 router = APIRouter(prefix="/auth", tags=["users-token"])
 
 
@@ -53,12 +58,17 @@ async def token_login(
     """Exchange email + password for an access/refresh token pair."""
     from fastapi_users.password import PasswordHelper
 
+    helper = PasswordHelper()
+
     stmt = select(User).where(User.email == body.email)
     user = (await db.execute(stmt)).scalar_one_or_none()
     if user is None or not user.is_active or user.disabled_at is not None:
+        # Constant-time: run bcrypt on a dummy hash to prevent timing-based
+        # email enumeration (existing user + wrong password takes ~50ms for
+        # bcrypt; missing user would be instant without this).
+        helper.verify_and_update(body.password, _DUMMY_HASH)
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    helper = PasswordHelper()
     verified, _ = helper.verify_and_update(body.password, user.hashed_password)
     if not verified:
         raise HTTPException(status_code=401, detail="Invalid credentials")
