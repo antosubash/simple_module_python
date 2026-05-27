@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 
+import httpx
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -122,12 +123,22 @@ async def test_validate_jwt_wrong_audience(rsa_keys, valid_payload, httpx_mock):
     assert claims is None
 
 
-@pytest.mark.httpx_mock(assert_all_responses_were_requested=False)
-async def test_jwks_cache_refetches_on_unknown_kid(rsa_keys, valid_payload, httpx_mock):
+async def test_jwks_cache_refetches_on_unknown_kid(rsa_keys, valid_payload):
+    """When a token has a kid not in cache, refetch JWKS once before rejecting."""
+    from unittest.mock import AsyncMock, patch
+
     private_key, public_key = rsa_keys
     jwks_data = _make_jwks_response(public_key, kid="rotated-key")
-    httpx_mock.add_response(url="https://auth.example.com/jwks", json={"keys": []})
-    httpx_mock.add_response(url="https://auth.example.com/jwks", json=jwks_data)
+
+    call_count = 0
+    resp_cls = type("R", (), {"raise_for_status": lambda s: None})
+
+    async def mock_get(self, url, **kw):
+        nonlocal call_count
+        call_count += 1
+        r = resp_cls()
+        r.json = lambda: {"keys": []} if call_count == 1 else jwks_data
+        return r
 
     cache = JWKSCache(
         jwks_url="https://auth.example.com/jwks",
@@ -137,6 +148,8 @@ async def test_jwks_cache_refetches_on_unknown_kid(rsa_keys, valid_payload, http
     )
 
     token = _sign_token(private_key, valid_payload, kid="rotated-key")
-    claims = await cache.validate_jwt(token)
+    with patch("httpx.AsyncClient.get", mock_get):
+        claims = await cache.validate_jwt(token)
     assert claims is not None
     assert claims["sub"] == "user-123"
+    assert call_count == 2
