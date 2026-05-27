@@ -79,3 +79,38 @@ def test_auth_package_reexports_public_surface():
 
     assert auth.PrincipalResolver is PrincipalResolver
     assert auth.UserContext is UserContext
+
+
+def test_auth_state_has_auth_provider_field():
+    from auth.state import AuthState
+
+    state = AuthState()
+    assert state.auth_provider is None
+
+
+def test_auth_state_accepts_auth_provider():
+    from auth.contracts.provider import AuthProvider
+    from auth.state import AuthState
+
+    class FakeProvider:
+        name = "fake"
+
+        async def resolve_user(self, request):
+            return None
+
+        def get_login_url(self, request, next_url=None):
+            return "/login"
+
+        def get_logout_url(self, request):
+            return "/logout"
+
+        def get_public_paths(self):
+            return ((), ())
+
+        def is_bearer_request(self, request):
+            return False
+
+    provider = FakeProvider()
+    state = AuthState(auth_provider=provider)
+    assert state.auth_provider is provider
+    assert isinstance(state.auth_provider, AuthProvider)
