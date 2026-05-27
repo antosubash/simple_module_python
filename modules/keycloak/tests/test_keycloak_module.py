@@ -10,7 +10,7 @@ def test_keycloak_module_meta():
 
     mod = KeycloakModule()
     assert mod.meta.name == "Keycloak"
-    assert mod.meta.depends_on == ["Auth"]
+    assert mod.meta.depends_on == ["Auth", "Settings"]
     assert mod._is_auth_provider is True
 
 
