@@ -19,7 +19,6 @@ from audit_log.constants import (
     MENU_ORDER,
     MENU_URL,
     MODULE_NAME,
-    MODULE_PACKAGE,
     PERM_GROUP,
     VIEW_PREFIX,
 )

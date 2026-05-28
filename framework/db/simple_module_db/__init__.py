@@ -15,8 +15,8 @@ from simple_module_db.provider import DatabaseProvider, detect_provider
 from simple_module_db.session import DatabaseState, init_db
 
 __all__ = [
-    "AuditRecord",
     "AuditMixin",
+    "AuditRecord",
     "DatabaseProvider",
     "DatabaseState",
     "MultiTenantMixin",

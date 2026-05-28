@@ -77,7 +77,7 @@ def _is_excluded(obj: object) -> bool:
     return getattr(obj, "__audit_exclude__", False) is True
 
 
-def _excluded_fields(obj: object) -> set[str]:
+def _excluded_fields(obj: object) -> frozenset[str]:
     """Return the set of field names that should be skipped for this model."""
     per_model: set[str] = getattr(obj, "__audit_exclude_fields__", set())
     return _EXCLUDED_MIXIN_FIELDS | per_model
@@ -132,10 +132,10 @@ def snapshot_changes(
     """
     pending: list[_PendingChange] = []
 
-    excluded_cache: dict[type, set[str]] = {}
+    excluded_cache: dict[type, frozenset[str]] = {}
     pk_cols_cache: dict[type, set[str]] = {}
 
-    def _get_excluded(obj: object) -> set[str]:
+    def _get_excluded(obj: object) -> frozenset[str]:
         cls = type(obj)
         if cls not in excluded_cache:
             excluded_cache[cls] = _excluded_fields(obj)

@@ -46,13 +46,15 @@ class AuditLogService:
         if to_date:
             base = base.where(AuditEntry.created_at <= to_date)
 
-        total_result = await self.db.execute(
-            select(func.count()).select_from(base.subquery())
-        )
+        total_result = await self.db.execute(select(func.count()).select_from(base.subquery()))
         total = total_result.scalar_one()
 
         offset = (page - 1) * page_size
-        stmt = base.order_by(AuditEntry.created_at.desc(), AuditEntry.id).offset(offset).limit(page_size)
+        stmt = (
+            base.order_by(AuditEntry.created_at.desc(), AuditEntry.id)
+            .offset(offset)
+            .limit(page_size)
+        )
         result = await self.db.execute(stmt)
         items = [AuditEntryRead.model_validate(row) for row in result.scalars()]
 
