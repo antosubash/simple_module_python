@@ -117,10 +117,20 @@ async def login(
 # ── Mount fastapi-users stock routers ────────────────────────────────────────
 
 # The stock auth router (login + logout) is mounted at /auth-inner so its
-# logout and other endpoints remain accessible. Our wrapper at /auth/login
-# shadows the stock login endpoint. Logout is exposed via /auth-inner/logout.
+# endpoints remain accessible. Our wrappers at /auth/login and /auth/logout
+# shadow the stock endpoints to also manage the session cookie.
 auth_inner = fastapi_users.get_auth_router(auth_backend, requires_verification=True)
 router.include_router(auth_inner, prefix="/auth-inner")
+
+
+@router.post("/auth/logout", status_code=204)
+async def api_logout(request: Request):
+    """API logout — clears both the access-token cookie and the session."""
+    request.session.clear()
+    cookie_name = request.app.state.users.settings.cookie_name
+    response = Response(status_code=204)
+    response.delete_cookie(cookie_name, path="/")
+    return response
 
 
 # ── Accept-invite (verify + set password + login, one shot) ─────────────────

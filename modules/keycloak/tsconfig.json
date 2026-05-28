@@ -1,0 +1,4 @@
+{
+  "extends": "../../host/client_app/tsconfig.json",
+  "include": ["keycloak/**/*.ts", "keycloak/**/*.tsx"]
+}

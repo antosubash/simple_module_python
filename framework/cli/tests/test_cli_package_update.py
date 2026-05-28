@@ -157,14 +157,23 @@ def test_excludes_prereleases_by_default(tmp_path: Path) -> None:
 
 
 def test_missing_pyproject_exits_nonzero(tmp_path: Path) -> None:
-    with pytest.raises(click.exceptions.Exit) as exc:
+    # typer >= 0.26 vendors click as ``typer._click``; the raised ``Exit``
+    # no longer inherits from ``click.exceptions.Exit``.  Catch both.
+    _exit_types: tuple[type[BaseException], ...] = (click.exceptions.Exit,)
+    try:
+        from typer._click.exceptions import Exit as _TyExit
+
+        _exit_types = (*_exit_types, _TyExit)
+    except ImportError:
+        pass
+    with pytest.raises(_exit_types) as exc:
         pu.run_update(
             path=tmp_path,
             dry_run=False,
             include_pre=False,
             fetcher=_fake_pypi({}),
         )
-    assert exc.value.exit_code == 1
+    assert getattr(exc.value, "exit_code", getattr(exc.value, "code", None)) == 1
 
 
 def test_cli_command_registered() -> None:

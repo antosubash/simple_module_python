@@ -26,6 +26,7 @@ class ModuleDiagnostics:
         diagnostics.extend(self._check_empty_modules(modules))
         diagnostics.extend(self._check_missing_meta(modules))
         diagnostics.extend(self._check_views_without_menu(modules))
+        diagnostics.extend(self._check_auth_provider_conflict(modules))
         diagnostics.extend(check_framework_module_coupling(modules))
 
         # File-based checks (need to find module source directories)
@@ -157,6 +158,38 @@ class ModuleDiagnostics:
                         "Override register_menu_items() to surface this module "
                         "in the sidebar, register_permissions() to surface it in "
                         "the role editor, or clear view_prefix if it's API-only"
+                    ),
+                )
+            )
+        return diags
+
+    def _check_auth_provider_conflict(self, modules: list[ModuleBase]) -> list[Diagnostic]:
+        """SM020/SM021: exactly one auth provider module must be installed."""
+        providers = [m for m in modules if getattr(m, "_is_auth_provider", False)]
+        diags: list[Diagnostic] = []
+        if len(providers) > 1:
+            names = ", ".join(m.meta.name for m in providers)
+            diags.append(
+                Diagnostic(
+                    level=DiagnosticLevel.ERROR,
+                    code="SM020",
+                    message=f"Multiple auth provider modules installed: {names}",
+                    module_name=providers[0].meta.name,
+                    suggestion=(
+                        "Install only one auth provider (e.g. 'users' OR 'keycloak', not both)"
+                    ),
+                )
+            )
+        elif len(providers) == 0:
+            diags.append(
+                Diagnostic(
+                    level=DiagnosticLevel.WARNING,
+                    code="SM021",
+                    message="No auth provider module installed",
+                    module_name="(none)",
+                    suggestion=(
+                        "Install an auth provider module "
+                        "(e.g. 'simple-module-users' or 'simple-module-keycloak')"
                     ),
                 )
             )

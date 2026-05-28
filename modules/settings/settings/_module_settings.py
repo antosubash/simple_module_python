@@ -77,17 +77,34 @@ def _extract_settings(app: FastAPI, package: str) -> BaseSettings | None:
     return inner if isinstance(inner, BaseSettings) else None
 
 
+def _resolve_default(info) -> Any:
+    """Return the effective default, handling ``default_factory`` fields.
+
+    Pydantic sets ``info.default`` to ``PydanticUndefined`` when
+    ``default_factory`` is used. We call the factory to get the concrete
+    default so the settings UI can serialize it.
+    """
+    from pydantic_core import PydanticUndefined
+
+    if info.default is not PydanticUndefined:
+        return info.default
+    if info.default_factory is not None:
+        return info.default_factory()
+    return None
+
+
 def _field_view(name: str, settings: BaseSettings, prefix: str) -> ModuleSettingField:
     cls = type(settings)
     info = cls.model_fields[name]
     raw_value = getattr(settings, name)
     secret = is_secret_field(name)
     extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
+    default = _resolve_default(info)
     return ModuleSettingField(
         name=name,
         env_var=f"{prefix}{name.upper()}",
         value=_mask(raw_value) if secret else raw_value,
-        default=_mask(info.default) if secret else info.default,
+        default=_mask(default) if secret else default,
         description=info.description or "",
         is_secret=secret,
         type=value_type_for_field(cls, name),

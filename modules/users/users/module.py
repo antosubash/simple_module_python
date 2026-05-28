@@ -39,11 +39,10 @@ class UsersModule(ModuleBase):
         view_prefix="/users",
         depends_on=[_MODULE_DEPENDENCY_AUTH],
     )
+    _is_auth_provider = True
 
     def register_settings(self, app: FastAPI) -> None:
         import importlib
-
-        from auth.contracts.schemas import UserContext
 
         from users.settings import UsersSettings
         from users.state import UsersState
@@ -58,15 +57,9 @@ class UsersModule(ModuleBase):
 
         register_module_settings(app, "users", UsersSettings, lambda s: UsersState(settings=s))
 
-        def serialize_principal(user: UserContext) -> dict:
-            return {
-                "id": user.id,
-                "name": user.name,
-                "email": user.email,
-                "roles": user.roles,
-            }
+        from users.provider import UsersAuthProvider
 
-        app.state.principal_serializer = serialize_principal
+        app.state.auth.auth_provider = UsersAuthProvider()
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
@@ -113,6 +106,7 @@ class UsersModule(ModuleBase):
         from users.admin.api import admin_router
         from users.admin.views import router as admin_views
         from users.auth_local import api as auth_local_api
+        from users.auth_local.token_api import router as token_router
         from users.auth_local.views import router as auth_views
         from users.contracts.schemas import UserCreate, UserRead
         from users.deps import fastapi_users
@@ -127,6 +121,7 @@ class UsersModule(ModuleBase):
         settings = UsersSettings()
 
         api_router.include_router(auth_local_api.router)
+        api_router.include_router(token_router)
         api_router.include_router(admin_router)
         # Throughput-wrap the stock fastapi-users routers; ``require_signup_enabled``
         # gates /register at request time so ``allow_signup`` is hot-reloadable.
@@ -155,11 +150,6 @@ class UsersModule(ModuleBase):
 
         view_router.include_router(auth_views)
         view_router.include_router(admin_views)
-
-    def register_middleware(self, app: FastAPI) -> None:
-        from users.middleware import AuthMiddleware
-
-        app.add_middleware(AuthMiddleware)
 
     async def on_startup(self, app: FastAPI) -> None:
         """Build the mailer, rate limiter, and apply production cookie params."""
