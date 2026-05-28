@@ -60,9 +60,8 @@ const ACTION_BADGE: Record<string, string> = {
 };
 const TH = 'sm:px-6 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground';
 
-type TFn = (k: string, p?: Record<string, unknown>) => string;
-
-function ChangesList({ entry, t }: { entry: AuditEntryRead; t: TFn }) {
+function ChangesList({ entry }: { entry: AuditEntryRead }) {
+  const { t } = useT();
   const [expanded, setExpanded] = useState(false);
   if (entry.action === 'deleted' || entry.action === 'soft_deleted')
     return <span className="text-muted-foreground">{t(keys.audit_log.changes.no_changes)}</span>;
@@ -203,7 +202,7 @@ function Browse() {
                       {entry.user_id ?? t(keys.audit_log.changes.system_user)}
                     </TableCell>
                     <TableCell className="sm:px-6 hidden md:table-cell">
-                      <ChangesList entry={entry} t={t} />
+                      <ChangesList entry={entry} />
                     </TableCell>
                   </TableRow>
                 ))}
