@@ -11,7 +11,12 @@ from dataclasses import FrozenInstanceError
 from typing import ClassVar
 
 import pytest
-from simple_module_db.audit import AuditRecord, collect_audit_records
+from simple_module_db.audit import (
+    AuditRecord,
+    collect_audit_records,
+    finalize_records,
+    snapshot_changes,
+)
 from simple_module_db.base import create_module_base
 from simple_module_db.listeners import register_listeners
 from simple_module_db.mixins import AuditMixin, SoftDeleteMixin
@@ -57,6 +62,14 @@ class SoftDeleteItem(_AuditBase, AuditMixin, SoftDeleteMixin, table=True):  # ty
     __tablename__ = "test_audit_soft_delete_item"
     id: int | None = Field(default=None, primary_key=True)
     title: str = Field(max_length=100)
+
+
+class IntPKItem(_AuditBase, AuditMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+    """Entity with a DB-assigned integer primary key (BUG-002 regression case)."""
+
+    __tablename__ = "test_audit_int_pk_item"
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(max_length=100)
 
 
 @pytest.fixture
@@ -250,9 +263,7 @@ async def test_soft_deleted_entity_produces_soft_deleted_record(
     records: list[AuditRecord] = []
 
     def _collect(session):
-        records.extend(
-            collect_audit_records(session, user_id="admin", correlation_id="req-sd")
-        )
+        records.extend(collect_audit_records(session, user_id="admin", correlation_id="req-sd"))
 
     await audit_session.run_sync(_collect)
 
@@ -286,3 +297,40 @@ async def test_soft_delete_fields_excluded(audit_session: AsyncSession):
     assert "title" in field_names
     for soft_field in ("is_deleted", "deleted_at", "deleted_by"):
         assert soft_field not in field_names, f"{soft_field} should be excluded"
+
+
+# ── Two-phase capture: DB-assigned integer PKs (BUG-002) ──────────────────
+
+
+async def test_created_entry_has_resolved_int_pk(audit_session: AsyncSession):
+    """Integer PKs are populated by the DB during INSERT, so entity_id should
+    be resolved correctly in the audit log via the two-phase capture.
+
+    Regression test for BUG-002: single-phase ``collect_audit_records`` ran
+    in ``before_flush`` where the PK was still ``None``, yielding
+    ``entity_id=""``. The two-phase flow snapshots the diff up-front but
+    defers ``entity_id`` resolution until after the flush has assigned it.
+    """
+    item = IntPKItem(name="hello")
+    audit_session.add(item)
+
+    # Phase 1: snapshot while id is still None (pre-flush).
+    pending_holder: list = []
+
+    def _phase1(session):
+        pending_holder.extend(snapshot_changes(session, None, None))
+
+    await audit_session.run_sync(_phase1)
+    assert any(p.entity_type == "IntPKItem" for p in pending_holder)
+    assert item.id is None  # PK not yet assigned
+
+    # Now flush to assign the PK
+    await audit_session.flush()
+    assert item.id is not None  # DB assigned it
+
+    # Phase 2: finalize — entity_id should now be the real PK
+    records = finalize_records(pending_holder)
+    int_records = [r for r in records if r.entity_type == "IntPKItem"]
+    assert len(int_records) == 1
+    assert int_records[0].entity_id == str(item.id)
+    assert int_records[0].entity_id != ""

@@ -37,9 +37,7 @@ class TestAuditLogCapture:
         assert entry["entity_type"] == "Setting"
         assert any(c["field"] == "key" for c in entry["changes"])
 
-    async def test_update_entity_produces_diff(
-        self, authenticated_client: httpx.AsyncClient
-    ):
+    async def test_update_entity_produces_diff(self, authenticated_client: httpx.AsyncClient):
         """Updating a setting should record old/new values."""
         create_resp = await authenticated_client.post(
             "/api/settings/",
@@ -72,6 +70,41 @@ class TestAuditLogCapture:
         assert value_change["old"] == "before"
         assert value_change["new"] == "after"
 
+    async def test_created_entity_has_resolved_int_pk_in_audit(
+        self, authenticated_client: httpx.AsyncClient
+    ):
+        """Settings use integer PKs; audit entry should record the actual ID, not ''.
+
+        Regression test for BUG-002: previously the audit record was captured
+        in ``before_flush`` where the integer PK was still ``None``, so
+        ``entity_id`` ended up as an empty string. The two-phase capture
+        resolves the PK in ``after_flush_postexec`` instead.
+        """
+        create_resp = await authenticated_client.post(
+            "/api/settings/",
+            json={
+                "scope": "system",
+                "scope_id": "",
+                "key": "audit.intpk.test",
+                "value": "x",
+                "value_type": "string",
+            },
+        )
+        setting_id = str(create_resp.json()["id"])
+
+        resp = await authenticated_client.get(
+            "/api/audit_log/",
+            params={"entity_type": "Setting", "action": "created"},
+        )
+        data = resp.json()
+        # Find the audit entry for the setting we just created
+        matching = [e for e in data["items"] if e["entity_id"] == setting_id]
+        assert len(matching) == 1, (
+            f"Expected entity_id={setting_id}, got entries: "
+            f"{[e['entity_id'] for e in data['items']]}"
+        )
+        assert matching[0]["entity_id"] != "", "entity_id should not be empty"
+
     async def test_delete_entity_produces_audit_entry(
         self, authenticated_client: httpx.AsyncClient
     ):
@@ -96,9 +129,7 @@ class TestAuditLogCapture:
         )
         assert resp.status_code == 200
         data = resp.json()
-        delete_entries = [
-            i for i in data["items"] if i["action"] in ("deleted", "soft_deleted")
-        ]
+        delete_entries = [i for i in data["items"] if i["action"] in ("deleted", "soft_deleted")]
         assert len(delete_entries) >= 1
 
 
@@ -138,9 +169,7 @@ class TestAuditLogAPI:
         assert data["page_size"] == 2
         assert len(data["items"]) <= 2
 
-    async def test_unauthenticated_returns_redirect(
-        self, client: httpx.AsyncClient
-    ):
+    async def test_unauthenticated_returns_redirect(self, client: httpx.AsyncClient):
         resp = await client.get("/api/audit_log/", follow_redirects=False)
         assert resp.status_code in (302, 303, 401, 403)
 
@@ -178,13 +207,10 @@ class TestAuditLogViewInvalidParams:
         )
         # Should succeed (200 full-page) — not a 422 validation error.
         assert resp.status_code == 200, (
-            f"Expected 200 for params {params}, got {resp.status_code}: "
-            f"{resp.text[:300]}"
+            f"Expected 200 for params {params}, got {resp.status_code}: {resp.text[:300]}"
         )
 
-    async def test_api_still_rejects_invalid_params(
-        self, authenticated_client: httpx.AsyncClient
-    ):
+    async def test_api_still_rejects_invalid_params(self, authenticated_client: httpx.AsyncClient):
         """API endpoint should still return 422 for invalid pagination."""
         resp = await authenticated_client.get(
             "/api/audit_log/",
@@ -196,9 +222,7 @@ class TestAuditLogViewInvalidParams:
 class TestAuditLogRecursionGuard:
     """Verify that AuditEntry writes don't trigger more audit entries."""
 
-    async def test_no_infinite_recursion(
-        self, authenticated_client: httpx.AsyncClient
-    ):
+    async def test_no_infinite_recursion(self, authenticated_client: httpx.AsyncClient):
         """Creating a setting should not cause exponential audit entries."""
         await authenticated_client.post(
             "/api/settings/",

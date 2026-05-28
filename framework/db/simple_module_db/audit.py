@@ -3,6 +3,16 @@
 Pure logic — no DB writes, no module imports. Given a flushing session,
 ``collect_audit_records`` returns a list of frozen ``AuditRecord`` structs
 describing every entity that was created, updated, or deleted.
+
+Two-phase capture
+-----------------
+
+Entities whose primary key is assigned by the database (e.g. integer ``id``
+columns populated by ``AUTOINCREMENT`` / ``SERIAL``) do not have a usable PK
+during ``before_flush`` — it gets populated only when the INSERT executes.
+``snapshot_changes`` captures the diff in ``before_flush`` (the only place
+SQLAlchemy attribute *history* is still intact) and ``finalize_records``
+resolves the now-stable ``entity_id`` in ``after_flush_postexec``.
 """
 
 from __future__ import annotations
@@ -23,9 +33,7 @@ _AUDIT_MIXIN_FIELDS: frozenset[str] = frozenset(
 
 # Fields injected by SoftDeleteMixin — also excluded because they are
 # bookkeeping managed by the soft-delete listener, not business data.
-_SOFT_DELETE_MIXIN_FIELDS: frozenset[str] = frozenset(
-    {"is_deleted", "deleted_at", "deleted_by"}
-)
+_SOFT_DELETE_MIXIN_FIELDS: frozenset[str] = frozenset({"is_deleted", "deleted_at", "deleted_by"})
 
 _EXCLUDED_MIXIN_FIELDS: frozenset[str] = _AUDIT_MIXIN_FIELDS | _SOFT_DELETE_MIXIN_FIELDS
 
@@ -40,6 +48,23 @@ class AuditRecord:
     changes: list[dict[str, Any]] = field(default_factory=list)
     user_id: str | None = None
     correlation_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _PendingChange:
+    """Intermediate snapshot — obj_ref preserved so entity_id can be resolved later.
+
+    Produced in ``before_flush`` (when attribute history is still available)
+    and consumed in ``after_flush_postexec`` (when DB-assigned PKs are
+    populated on the live object).
+    """
+
+    obj_ref: object
+    entity_type: str
+    action: str  # "created" | "updated" | "deleted" | "soft_deleted"
+    changes: list[dict[str, Any]]
+    user_id: str | None
+    correlation_id: str | None
 
 
 # ---------------------------------------------------------------------------
@@ -90,21 +115,22 @@ def _serialize(value: Any) -> Any:
 
 
 # ---------------------------------------------------------------------------
-# Core collection
+# Two-phase capture
 # ---------------------------------------------------------------------------
 
 
-def collect_audit_records(
+def snapshot_changes(
     session: Session,
     user_id: str | None = None,
     correlation_id: str | None = None,
-) -> list[AuditRecord]:
-    """Inspect session state and return a list of :class:`AuditRecord`.
+) -> list[_PendingChange]:
+    """Phase 1: capture diffs from session state. Called in ``before_flush``.
 
-    Meant to be called from a ``before_flush`` listener *before* the session
-    state is cleared.  Does not modify the session.
+    Returns intermediate records holding *object references* (not entity_ids)
+    because DB-assigned PKs aren't available yet. Attribute *history* is wiped
+    after flush, so the diff itself must be captured now.
     """
-    records: list[AuditRecord] = []
+    pending: list[_PendingChange] = []
 
     excluded_cache: dict[type, set[str]] = {}
     pk_cols_cache: dict[type, set[str]] = {}
@@ -123,17 +149,17 @@ def collect_audit_records(
         return pk_cols_cache[cls]
 
     # ── Created entities ───────────────────────────────────────────────
-    for obj in session.new:
+    for obj in list(session.new):
         if _is_excluded(obj):
             continue
 
         # Soft-delete listener moves objects from session.deleted → session.new
         # with is_deleted=True.  Classify them as "soft_deleted", not "created".
         if isinstance(obj, SoftDeleteMixin) and getattr(obj, "is_deleted", False):
-            records.append(
-                AuditRecord(
+            pending.append(
+                _PendingChange(
+                    obj_ref=obj,
                     entity_type=type(obj).__name__,
-                    entity_id=_entity_pk_str(obj),
                     action="soft_deleted",
                     changes=[],
                     user_id=user_id,
@@ -149,10 +175,10 @@ def collect_audit_records(
             if col_name in excl or col_name in pk_cols:
                 continue
             changes.append({"field": col_name, "new": _serialize(getattr(obj, col_name))})
-        records.append(
-            AuditRecord(
+        pending.append(
+            _PendingChange(
+                obj_ref=obj,
                 entity_type=type(obj).__name__,
-                entity_id=_entity_pk_str(obj),
                 action="created",
                 changes=changes,
                 user_id=user_id,
@@ -161,7 +187,7 @@ def collect_audit_records(
         )
 
     # ── Updated entities ───────────────────────────────────────────────
-    for obj in session.dirty:
+    for obj in list(session.dirty):
         if not session.is_modified(obj):
             continue
         if _is_excluded(obj):
@@ -182,10 +208,10 @@ def collect_audit_records(
                 {"field": col_name, "old": _serialize(old_val), "new": _serialize(new_val)}
             )
         if changes:
-            records.append(
-                AuditRecord(
+            pending.append(
+                _PendingChange(
+                    obj_ref=obj,
                     entity_type=type(obj).__name__,
-                    entity_id=_entity_pk_str(obj),
                     action="updated",
                     changes=changes,
                     user_id=user_id,
@@ -194,13 +220,13 @@ def collect_audit_records(
             )
 
     # ── Deleted entities ───────────────────────────────────────────────
-    for obj in session.deleted:
+    for obj in list(session.deleted):
         if _is_excluded(obj):
             continue
-        records.append(
-            AuditRecord(
+        pending.append(
+            _PendingChange(
+                obj_ref=obj,
                 entity_type=type(obj).__name__,
-                entity_id=_entity_pk_str(obj),
                 action="deleted",
                 changes=[],
                 user_id=user_id,
@@ -208,4 +234,45 @@ def collect_audit_records(
             )
         )
 
-    return records
+    return pending
+
+
+def finalize_records(pending: list[_PendingChange]) -> list[AuditRecord]:
+    """Phase 2: resolve entity_ids now that DB-assigned PKs are populated.
+
+    Called from ``after_flush_postexec``. By this point the object's primary
+    key is stable for new entities (the INSERT has executed).
+    """
+    return [
+        AuditRecord(
+            entity_type=p.entity_type,
+            entity_id=_entity_pk_str(p.obj_ref),
+            action=p.action,
+            changes=p.changes,
+            user_id=p.user_id,
+            correlation_id=p.correlation_id,
+        )
+        for p in pending
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Single-phase public API (used directly by tests / callers with stable PKs)
+# ---------------------------------------------------------------------------
+
+
+def collect_audit_records(
+    session: Session,
+    user_id: str | None = None,
+    correlation_id: str | None = None,
+) -> list[AuditRecord]:
+    """Inspect session state and return a list of :class:`AuditRecord`.
+
+    Convenience wrapper around :func:`snapshot_changes` +
+    :func:`finalize_records` for callers that don't need the two-phase split
+    (e.g. tests, or contexts where PKs are already populated client-side).
+
+    Meant to be called from a ``before_flush`` listener *before* the session
+    state is cleared. Does not modify the session.
+    """
+    return finalize_records(snapshot_changes(session, user_id, correlation_id))
