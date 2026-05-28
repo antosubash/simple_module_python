@@ -23,13 +23,15 @@ from audit_log.constants import (
     VIEW_PREFIX,
 )
 
+_MODULE_USERS = "Users"
+
 
 class AuditLogModule(ModuleBase):
     meta = ModuleMeta(
         name=MODULE_NAME,
         route_prefix=API_PREFIX,
         view_prefix=VIEW_PREFIX,
-        depends_on=["Users"],
+        depends_on=[_MODULE_USERS],
     )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:

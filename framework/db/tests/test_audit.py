@@ -56,7 +56,7 @@ def test_audit_record_is_frozen():
         correlation_id="req-123",
     )
     with pytest.raises(FrozenInstanceError):
-        record.action = "updated"  # ty: ignore[invalid-assignment]
+        record.action = "updated"
 
 
 # ── collect_audit_records: created ─────────────────────────────────────────
