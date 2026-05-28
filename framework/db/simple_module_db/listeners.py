@@ -32,11 +32,17 @@ class TenantIsolationError(Exception):
 # flush has cleared ``session.new/.dirty/.deleted``.
 SESSION_HAS_WRITES_KEY = "has_writes"
 
+# Key on ``Session.info`` for pending audit snapshots produced in before_flush
+# and consumed in after_flush_postexec (when DB-assigned PKs are populated).
+_AUDIT_PENDING_KEY = "_audit_pending"
+
 # DB audit event names
 _EVENT_ENTITY_CREATED = "db.entity.created"
 _EVENT_ENTITY_UPDATED = "db.entity.updated"
 _EVENT_ENTITY_SOFT_DELETED = "db.entity.soft_deleted"
 _EVENT_ENTITY_DELETED = "db.entity.deleted"
+
+_db_state: DatabaseState | None = None
 
 # DB operation strings used in log extra dicts
 _OP_CREATE = "create"
@@ -85,8 +91,12 @@ def register_listeners(db_state: DatabaseState) -> None:
         logger.debug("Listeners already registered, skipping")
         return
 
+    global _db_state
+    _db_state = db_state
+
     event.listen(db_state.sync_session_class, "before_flush", _before_flush_listener)
     event.listen(db_state.sync_session_class, "after_flush", _mark_session_written)
+    event.listen(db_state.sync_session_class, "after_flush_postexec", _after_flush_audit)
     event.listen(db_state.sync_session_class, "do_orm_execute", _filter_select_statements)
     db_state._listeners_registered = True
     logger.info("Registered SQLAlchemy entity listeners")
@@ -184,6 +194,45 @@ def _before_flush_listener(
                     "user_id": user_id,
                 },
             )
+
+    # Audit phase 1: snapshot diffs while attribute history is still available.
+    # entity_id resolution is deferred to after_flush_postexec because
+    # DB-assigned integer PKs aren't populated until the INSERT executes.
+    if _db_state is not None and _db_state.audit_callback is not None:
+        from simple_module_db.audit import snapshot_changes
+
+        correlation_id_val: str | None = None
+        try:
+            from simple_module_hosting.logging import correlation_id as _cid_var
+
+            correlation_id_val = _cid_var.get("") or None
+        except ImportError:
+            pass
+
+        pending = snapshot_changes(session, user_id, correlation_id_val)
+        if pending:
+            session.info[_AUDIT_PENDING_KEY] = pending
+
+
+def _after_flush_audit(session: Session, flush_context: object) -> None:
+    """Phase 2: finalize audit records now that DB-assigned PKs are populated.
+
+    Called via ``after_flush_postexec`` — after INSERTs have executed and
+    SQLAlchemy has refreshed PK columns on the live object. Records added
+    here land in ``session.new`` for the *next* flush (triggered by commit's
+    autoflush). The recursion guard relies on AuditEntry having
+    ``__audit_exclude__ = True`` so its own flush produces no pending records.
+    """
+    if _db_state is None or _db_state.audit_callback is None:
+        return
+    pending = session.info.pop(_AUDIT_PENDING_KEY, None)
+    if not pending:
+        return
+    from simple_module_db.audit import finalize_records
+
+    records = finalize_records(pending)
+    if records:
+        _db_state.audit_callback(session, records)
 
 
 # Cache ``(is_soft_delete, is_multi_tenant)`` flags per mapper class so the

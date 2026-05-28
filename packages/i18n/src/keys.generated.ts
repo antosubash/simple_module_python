@@ -2,6 +2,49 @@
 // Regenerate by booting the host in development mode.
 
 export const keys = {
+  audit_log: {
+    actions: {
+      created: 'audit_log.actions.created',
+      deleted: 'audit_log.actions.deleted',
+      soft_deleted: 'audit_log.actions.soft_deleted',
+      updated: 'audit_log.actions.updated',
+    },
+    browse: {
+      description: 'audit_log.browse.description',
+      empty_description: 'audit_log.browse.empty_description',
+      empty_title: 'audit_log.browse.empty_title',
+      next: 'audit_log.browse.next',
+      previous: 'audit_log.browse.previous',
+      showing: 'audit_log.browse.showing',
+      title: 'audit_log.browse.title',
+    },
+    changes: {
+      fields_set: 'audit_log.changes.fields_set',
+      no_changes: 'audit_log.changes.no_changes',
+      show_less: 'audit_log.changes.show_less',
+      show_more: 'audit_log.changes.show_more',
+      system_user: 'audit_log.changes.system_user',
+    },
+    filters: {
+      action_all: 'audit_log.filters.action_all',
+      action_label: 'audit_log.filters.action_label',
+      apply: 'audit_log.filters.apply',
+      clear: 'audit_log.filters.clear',
+      entity_type_all: 'audit_log.filters.entity_type_all',
+      entity_type_label: 'audit_log.filters.entity_type_label',
+      from_date_label: 'audit_log.filters.from_date_label',
+      to_date_label: 'audit_log.filters.to_date_label',
+      user_label: 'audit_log.filters.user_label',
+      user_placeholder: 'audit_log.filters.user_placeholder',
+    },
+    table: {
+      action: 'audit_log.table.action',
+      changes: 'audit_log.table.changes',
+      entity: 'audit_log.table.entity',
+      timestamp: 'audit_log.table.timestamp',
+      user: 'audit_log.table.user',
+    },
+  },
   auth: {
     errors: {
       missing_permission: 'auth.errors.missing_permission',

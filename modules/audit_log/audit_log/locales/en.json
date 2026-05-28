@@ -1,0 +1,43 @@
+{
+  "browse": {
+    "title": "Audit Log",
+    "description": "Track all entity changes across the system.",
+    "empty_title": "No audit entries",
+    "empty_description": "Changes to entities will appear here automatically.",
+    "showing": "Showing {from}–{to} of {total} entries",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "filters": {
+    "entity_type_label": "Entity Type",
+    "entity_type_all": "All types",
+    "action_label": "Action",
+    "action_all": "All actions",
+    "user_label": "User ID",
+    "user_placeholder": "Filter by user…",
+    "from_date_label": "From",
+    "to_date_label": "To",
+    "apply": "Apply",
+    "clear": "Clear"
+  },
+  "table": {
+    "timestamp": "Timestamp",
+    "action": "Action",
+    "entity": "Entity",
+    "user": "User",
+    "changes": "Changes"
+  },
+  "actions": {
+    "created": "Created",
+    "updated": "Updated",
+    "deleted": "Deleted",
+    "soft_deleted": "Archived"
+  },
+  "changes": {
+    "fields_set": "{count} fields set",
+    "show_more": "Show {count} more…",
+    "show_less": "Show less",
+    "system_user": "System",
+    "no_changes": "—"
+  }
+}

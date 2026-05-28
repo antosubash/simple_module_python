@@ -1,5 +1,6 @@
 """SimpleModule DB - SQLAlchemy async support with per-module schema isolation."""
 
+from simple_module_db.audit import AuditRecord
 from simple_module_db.base import create_module_base
 from simple_module_db.deps import get_db
 from simple_module_db.listeners import TenantIsolationError, current_tenant_id
@@ -15,6 +16,7 @@ from simple_module_db.session import DatabaseState, init_db
 
 __all__ = [
     "AuditMixin",
+    "AuditRecord",
     "DatabaseProvider",
     "DatabaseState",
     "MultiTenantMixin",
