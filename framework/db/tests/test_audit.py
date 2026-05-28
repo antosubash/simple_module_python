@@ -8,68 +8,25 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 from dataclasses import FrozenInstanceError
-from typing import ClassVar
 
 import pytest
+from _audit_models import (
+    AuditBase,
+    AuditTestItem,
+    ExcludedModel,
+    IntPKItem,
+    PartialExcludeModel,
+    SoftDeleteItem,
+)
 from simple_module_db.audit import (
     AuditRecord,
     collect_audit_records,
     finalize_records,
     snapshot_changes,
 )
-from simple_module_db.base import create_module_base
 from simple_module_db.listeners import register_listeners
-from simple_module_db.mixins import AuditMixin, SoftDeleteMixin
-from simple_module_db.provider import DatabaseProvider
 from simple_module_db.session import init_db
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import Field
-
-_AuditBase = create_module_base("test_audit", provider=DatabaseProvider.SQLITE)
-
-
-class AuditTestItem(_AuditBase, AuditMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
-    """Standard audited entity for testing."""
-
-    __tablename__ = "test_audit_item"
-    id: int | None = Field(default=None, primary_key=True)
-    name: str = Field(max_length=100)
-    value: int = Field(default=0)
-
-
-class ExcludedModel(_AuditBase, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
-    """Model that opts out of auditing entirely."""
-
-    __tablename__ = "test_audit_excluded"
-    __audit_exclude__ = True
-    id: int | None = Field(default=None, primary_key=True)
-    name: str = Field(max_length=100)
-
-
-class PartialExcludeModel(_AuditBase, AuditMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
-    """Model with specific fields excluded from audit tracking."""
-
-    __tablename__ = "test_audit_partial"
-    __audit_exclude_fields__: ClassVar[set[str]] = {"password_hash"}
-    id: int | None = Field(default=None, primary_key=True)
-    username: str = Field(max_length=100)
-    password_hash: str = Field(max_length=255, default="")
-
-
-class SoftDeleteItem(_AuditBase, AuditMixin, SoftDeleteMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
-    """Audited entity with soft-delete support for testing."""
-
-    __tablename__ = "test_audit_soft_delete_item"
-    id: int | None = Field(default=None, primary_key=True)
-    title: str = Field(max_length=100)
-
-
-class IntPKItem(_AuditBase, AuditMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
-    """Entity with a DB-assigned integer primary key (BUG-002 regression case)."""
-
-    __tablename__ = "test_audit_int_pk_item"
-    id: int | None = Field(default=None, primary_key=True)
-    name: str = Field(max_length=100)
 
 
 @pytest.fixture
@@ -79,7 +36,7 @@ async def audit_session() -> AsyncGenerator[AsyncSession, None]:
     try:
         register_listeners(db_state)
         async with db_state.engine.begin() as conn:
-            await conn.run_sync(_AuditBase.metadata.create_all)
+            await conn.run_sync(AuditBase.metadata.create_all)
         async with db_state.session_factory() as session:
             yield session
     finally:
