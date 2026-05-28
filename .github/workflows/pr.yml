@@ -149,7 +149,7 @@ jobs:
       SM_USERS_BOOTSTRAP_PASSWORD: admin
       # Exclude Keycloak module — SM020 prevents both users and keycloak
       # from running simultaneously. E2E tests use the users module.
-      SM_MODULES_ENABLED: '["Auth","Users","Dashboard","Permissions","Settings","BackgroundTasks","FileStorage","FeatureFlags"]'
+      SM_MODULES_ENABLED: '["Auth","Users","Dashboard","Permissions","Settings","BackgroundTasks","FileStorage","FeatureFlags","AuditLog"]'
       E2E_BASE_URL: http://localhost:8000
     steps:
       - uses: actions/checkout@v6
