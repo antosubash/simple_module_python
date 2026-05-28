@@ -1,15 +1,15 @@
-import { router, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
-import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@simple-module-py/ui/components/ui/empty';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@simple-module-py/ui/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@simple-module-py/ui/components/ui/table';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { ScrollText } from 'lucide-react';
+import type React from 'react';
 import { useState } from 'react';
 
 interface Change { field: string; old?: unknown; new?: unknown }
@@ -39,7 +39,7 @@ const ACTION_BADGE: Record<string, string> = {
   deleted: 'border-red-200 bg-red-50 text-red-700',
   soft_deleted: 'border-amber-200 bg-amber-50 text-amber-700',
 };
-const TH = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground';
+const TH = 'sm:px-6 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground';
 
 type TFn = (k: string, p?: Record<string, unknown>) => string;
 
@@ -108,7 +108,9 @@ function Browse() {
   const to = Math.min(page * page_size, total);
 
   return (
-    <PageShell title={t(keys.audit_log.browse.title)} description={t(keys.audit_log.browse.description)}>
+    <>
+      <Head title="Audit Log" />
+      <PageShell title={t(keys.audit_log.browse.title)} description={t(keys.audit_log.browse.description)}>
       <Card className="mb-4 p-4">
         <form className="flex flex-wrap items-end gap-3" onSubmit={(e) => { e.preventDefault(); navigate(); }}>
           <div className="min-w-[140px]">
@@ -153,50 +155,51 @@ function Browse() {
         </form>
       </Card>
 
-      <Card className="border-border overflow-hidden p-0">
-        <Table>
-          <TableHeader className="bg-secondary/40">
-            <TableRow>
-              <TableHead className={TH}>{t(keys.audit_log.table.timestamp)}</TableHead>
-              <TableHead className={TH}>{t(keys.audit_log.table.action)}</TableHead>
-              <TableHead className={TH}>{t(keys.audit_log.table.entity)}</TableHead>
-              <TableHead className={`${TH} hidden sm:table-cell`}>{t(keys.audit_log.table.user)}</TableHead>
-              <TableHead className={`${TH} hidden md:table-cell`}>{t(keys.audit_log.table.changes)}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((entry) => (
-              <TableRow key={entry.id}>
-                <TableCell className="whitespace-nowrap text-sm tabular-nums text-muted-foreground">
-                  {new Date(entry.created_at).toLocaleString()}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={ACTION_BADGE[entry.action] ?? ''}>{t(keys.audit_log.actions[entry.action])}</Badge>
-                </TableCell>
-                <TableCell>
-                  <span className="font-medium text-sm">{entry.entity_type}</span>
-                  <span className="ml-1 font-mono text-xs text-muted-foreground">{entry.entity_id}</span>
-                </TableCell>
-                <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                  {entry.user_id ?? t(keys.audit_log.changes.system_user)}
-                </TableCell>
-                <TableCell className="hidden md:table-cell"><ChangesList entry={entry} t={t} /></TableCell>
-              </TableRow>
-            ))}
-            {items.length === 0 && (
+      {items.length === 0 ? (
+        <Card className="border-border">
+          <div className="flex flex-col items-center gap-2 py-16 text-muted-foreground">
+            <ScrollText className="size-8" />
+            <h2 className="text-base font-semibold text-foreground font-[var(--font-display)]">
+              {t(keys.audit_log.browse.empty_title)}
+            </h2>
+            <p className="text-sm">{t(keys.audit_log.browse.empty_description)}</p>
+          </div>
+        </Card>
+      ) : (
+        <Card className="border-border overflow-hidden p-0">
+          <Table>
+            <TableHeader className="bg-secondary/40">
               <TableRow>
-                <TableCell colSpan={5} className="h-40">
-                  <Empty>
-                    <EmptyMedia variant="icon"><ScrollText className="size-5 text-primary-300" /></EmptyMedia>
-                    <EmptyTitle>{t(keys.audit_log.browse.empty_title)}</EmptyTitle>
-                    <EmptyDescription>{t(keys.audit_log.browse.empty_description)}</EmptyDescription>
-                  </Empty>
-                </TableCell>
+                <TableHead className={TH}>{t(keys.audit_log.table.timestamp)}</TableHead>
+                <TableHead className={TH}>{t(keys.audit_log.table.action)}</TableHead>
+                <TableHead className={TH}>{t(keys.audit_log.table.entity)}</TableHead>
+                <TableHead className={`${TH} hidden sm:table-cell`}>{t(keys.audit_log.table.user)}</TableHead>
+                <TableHead className={`${TH} hidden md:table-cell`}>{t(keys.audit_log.table.changes)}</TableHead>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+            </TableHeader>
+            <TableBody>
+              {items.map((entry) => (
+                <TableRow key={entry.id} className="hover:bg-secondary/40">
+                  <TableCell className="sm:px-6 whitespace-nowrap text-sm tabular-nums text-muted-foreground">
+                    {new Date(entry.created_at).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="sm:px-6">
+                    <Badge variant="outline" className={ACTION_BADGE[entry.action] ?? ''}>{t(keys.audit_log.actions[entry.action])}</Badge>
+                  </TableCell>
+                  <TableCell className="sm:px-6">
+                    <span className="font-medium text-sm">{entry.entity_type}</span>
+                    <span className="ml-1 font-mono text-xs text-muted-foreground">{entry.entity_id}</span>
+                  </TableCell>
+                  <TableCell className="sm:px-6 hidden sm:table-cell text-sm text-muted-foreground">
+                    {entry.user_id ?? t(keys.audit_log.changes.system_user)}
+                  </TableCell>
+                  <TableCell className="sm:px-6 hidden md:table-cell"><ChangesList entry={entry} t={t} /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
 
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-between">
@@ -213,7 +216,8 @@ function Browse() {
           </div>
         </div>
       )}
-    </PageShell>
+      </PageShell>
+    </>
   );
 }
 
