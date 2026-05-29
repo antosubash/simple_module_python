@@ -54,9 +54,7 @@ modules/<name>/<name>/
 **Middleware pipeline** (Starlette `add_middleware` is LIFO — last added runs first). Execution order on a request:
 `CorrelationId → RequestLogging → SecurityHeaders → Session → <module middleware> → Tenant (opt-in) → Locale → InertiaLayoutData → app`. When two modules add middleware at the same dependency tier, the module that sorts **later** wraps outermost. Use `depends_on` to express relative order — don't rely on names.
 
-**Database**: per-module `Base` via `create_module_base("<name>")`. Provider auto-detected from `SM_DATABASE_URL`:
-- **Postgres** → one schema per module (`orders.<table>`).
-- **SQLite** → single schema; `__tablename__` must be prefixed with the module name (`orders_order`).
+**Database**: per-module `Base` via `create_module_base("<name>")`. Every module owns its own `MetaData` (so Alembic autogenerate can attribute tables to a module), but all tables live in the host's single schema. `__tablename__` must be prefixed with the module name to avoid collisions (`orders_order`). Postgres and SQLite share the same layout.
 
 Standard mixins in `simple_module_db.mixins`: `AuditMixin`, `SoftDeleteMixin` (bypass with `stmt.execution_options(include_deleted=True)`), `MultiTenantMixin`, `VersionedMixin`. The per-request session (`get_db`) auto-commits **only if** there are pending writes (via `after_flush` listener); otherwise rollback. Service code should **not** call `session.commit()` — flush if you need DB-assigned values.
 

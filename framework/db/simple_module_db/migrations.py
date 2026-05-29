@@ -1,4 +1,4 @@
-"""Helpers for Alembic integration with module-based schemas.
+"""Helpers for Alembic integration with module-based metadata.
 
 A host's ``migrations/env.py`` should call :func:`build_module_metadata` to
 obtain the combined ``target_metadata`` for autogenerate, and

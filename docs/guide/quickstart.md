@@ -76,7 +76,7 @@ uv run alembic revision --autogenerate -m "add orders tables"
 make migrate
 ```
 
-Alembic's autogenerate picks up the new `orders` schema (Postgres) or the `orders_*` tables (SQLite) and writes `migrations/versions/XXXX_add_orders_tables.py`. Add `branch_labels = ("orders",)` to that revision so you can later `alembic downgrade orders@base` to roll the module back in isolation.
+Alembic's autogenerate picks up the new `orders_*` tables and writes `migrations/versions/XXXX_add_orders_tables.py`. Add `branch_labels = ("orders",)` to that revision so you can later `alembic downgrade orders@base` to roll the module back in isolation.
 
 ## 7. Hit the module
 
@@ -107,7 +107,7 @@ uv run pytest modules/orders/tests/test_orders.py -v
 - **Routes** — `register_routes(api_router, view_router)` attached the `orders` routers at `/api/orders` and `/orders`.
 - **Menu** — `register_menu_items` pushed an entry onto `MenuRegistry`; the Inertia shared-props middleware serialized it into `menus.sidebar` for every authenticated request.
 - **Frontend** — `modules.generated.ts` (rebuilt by `make gen-pages`) maps `"Orders/Browse"` to `modules/orders/orders/pages/Browse.tsx`. Vite resolves and HMR-watches that file.
-- **Database** — `create_module_base("orders")` namespaced the `Order` table under a Postgres `orders` schema (or the `orders_order` table name under SQLite).
+- **Database** — `create_module_base("orders")` gave the module its own SQLModel `MetaData` so Alembic can attribute the `orders_order` table to it.
 
 ## Next steps
 

@@ -193,9 +193,8 @@ def models_py(ctx: ScaffoldContext) -> str:
         from simple_module_db.mixins import AuditMixin
         from sqlmodel import Field
 
-        # Provider is auto-detected from SM_DATABASE_URL (falls back to SQLite).
-        # On PostgreSQL this gives the module its own `{ctx.name}` schema; on SQLite
-        # all modules share one schema, so __tablename__ is prefixed for isolation.
+        # All modules share the host's single schema, so __tablename__ is
+        # prefixed with the module name to avoid collisions.
         Base = create_module_base("{ctx.name}")
 
 
