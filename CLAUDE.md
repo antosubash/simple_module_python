@@ -6,6 +6,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Python 3.12 + FastAPI + SQLModel + Alembic on the backend; Inertia.js + React + Tailwind 4 + Vite on the frontend. `uv` workspaces for Python, `npm` workspaces for JS. Package managers: `uv sync --all-packages` and `npm install`.
 
+## Local database & services (shared dev-services stack)
+
+**Do NOT start your own Postgres/Redis container.** All repos in `~/Repos` share
+one stack defined in `~/Repos/dev-services` (one PostGIS + Redis + MinIO + Adminer
+on the `devnet` Docker network). `make docker-up` here brings that shared stack up
+(it no longer starts a local postgres/redis); `make docker-down` only stops this
+repo's own containers (worker/beat), never the shared stack.
+
+This repo's slice:
+
+- **Postgres**: `localhost:5432`, `postgres`/`postgres`, database
+  **`simple_module_python`** (the default `SM_DATABASE_URL` is SQLite; uncomment
+  the Postgres line in `.env.example` to use the shared DB).
+- **Redis**: `localhost:6379`, logical DBs **4** (broker) / **5** (result backend).
+
+If a port is taken by an old per-project container, stop that container rather
+than remapping ports. To add a database, edit `dev-services/init/01-databases.sql`.
+
 ## Commands
 
 All day-to-day tasks go through `make`:

@@ -161,10 +161,14 @@ kill:
 	@-lsof -ti:8000,5050,5173 | xargs kill -9 2>/dev/null
 	@echo "Ports 8000, 5050, 5173 freed."
 
-# Docker
+# Docker — Postgres/Redis now live in the shared ../dev-services stack.
+# docker-up brings that shared stack up (idempotent, shared with other repos).
 docker-up:
-	docker compose up -d postgres redis
+	docker compose -f ../dev-services/compose.yml up -d
 
+# Only stop THIS project's own containers (worker/beat). Never tear down the
+# shared stack here — other repos depend on it. Use `make down` in
+# ../dev-services to stop the shared services.
 docker-down:
 	docker compose down
 

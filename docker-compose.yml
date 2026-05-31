@@ -1,31 +1,9 @@
 services:
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: simple_module
-      POSTGRES_USER: sm
-      POSTGRES_PASSWORD: sm
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sm -d simple_module"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redisdata:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
+  # Postgres + Redis now come from the shared ../dev-services stack
+  # (one PostGIS + one Redis on the external `devnet` network). Start it first
+  # with `make up` in ~/Repos/dev-services. This project uses:
+  #   database:  simple_module_python  (on shared postgres:5432, postgres/postgres)
+  #   redis:     DB 4 (broker) / DB 5 (result backend)
 
   worker:
     build:
@@ -33,14 +11,10 @@ services:
       dockerfile: docker/worker.Dockerfile
     env_file: .env
     environment:
-      SM_BG_TASKS_BROKER_URL: redis://redis:6379/0
-      SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/1
-      SM_DATABASE_URL: ${SM_DATABASE_URL:-postgresql+asyncpg://sm:sm@postgres:5432/simple_module}
-    depends_on:
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
+      SM_BG_TASKS_BROKER_URL: redis://redis:6379/4
+      SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/5
+      SM_DATABASE_URL: ${SM_DATABASE_URL:-postgresql+asyncpg://postgres:postgres@postgres:5432/simple_module_python}
+    networks: [devnet]
     command:
       - "uv"
       - "run"
@@ -58,14 +32,13 @@ services:
       dockerfile: docker/worker.Dockerfile
     env_file: .env
     environment:
-      SM_BG_TASKS_BROKER_URL: redis://redis:6379/0
-      SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/1
-      SM_DATABASE_URL: ${SM_DATABASE_URL:-postgresql+asyncpg://sm:sm@postgres:5432/simple_module}
+      SM_BG_TASKS_BROKER_URL: redis://redis:6379/4
+      SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/5
+      SM_DATABASE_URL: ${SM_DATABASE_URL:-postgresql+asyncpg://postgres:postgres@postgres:5432/simple_module_python}
     depends_on:
-      redis:
-        condition: service_healthy
       worker:
         condition: service_started
+    networks: [devnet]
     command:
       - "uv"
       - "run"
@@ -76,6 +49,6 @@ services:
       - "-l"
       - "info"
 
-volumes:
-  pgdata:
-  redisdata:
+networks:
+  devnet:
+    external: true
