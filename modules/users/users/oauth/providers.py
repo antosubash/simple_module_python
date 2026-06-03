@@ -117,3 +117,8 @@ def build_clients(settings: UsersSettings) -> list[OAuthProvider]:
 def build_client_map(settings: UsersSettings) -> dict[str, OAuthProvider]:
     """Configured providers keyed by name for O(1) request-time lookup."""
     return {p.name: p for p in build_clients(settings)}
+
+
+def provider_buttons(clients: dict[str, OAuthProvider]) -> list[dict[str, str]]:
+    """Login-button descriptors derived from a built client map."""
+    return [{"name": p.name, "display_name": p.display_name} for p in clients.values()]

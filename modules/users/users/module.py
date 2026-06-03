@@ -75,17 +75,14 @@ class UsersModule(ModuleBase):
         import importlib
 
         settings_reloaded = importlib.import_module("settings.contracts.events").SettingsReloaded
-        from users.oauth.providers import build_client_map
+        from users.oauth.providers import build_client_map, provider_buttons
 
-        async def _rebuild_oauth_clients(event) -> None:
+        async def _rebuild_oauth_clients(event: settings_reloaded) -> None:
             if event.package != "users":
                 return
             state = app.state.users
             state.oauth_clients = build_client_map(state.settings)
-            state.oauth_providers = [
-                {"name": p.name, "display_name": p.display_name}
-                for p in state.oauth_clients.values()
-            ]
+            state.oauth_providers = provider_buttons(state.oauth_clients)
 
         bus.subscribe(settings_reloaded, _rebuild_oauth_clients)
 
@@ -180,7 +177,7 @@ class UsersModule(ModuleBase):
         from users.bootstrap import bootstrap_admin_from_env
         from users.deps import auth_backend
         from users.mailer import build_mailer
-        from users.oauth.providers import build_client_map
+        from users.oauth.providers import build_client_map, provider_buttons
         from users.roles_cache import refresh_roles_cache
 
         state = app.state.users
@@ -196,9 +193,7 @@ class UsersModule(ModuleBase):
             window_seconds=s.auth_rate_limit_window_seconds,
         )
         state.oauth_clients = build_client_map(s)
-        state.oauth_providers = [
-            {"name": p.name, "display_name": p.display_name} for p in state.oauth_clients.values()
-        ]
+        state.oauth_providers = provider_buttons(state.oauth_clients)
 
         # Auto-fall-back when the default ``/dashboard/`` target is
         # unreachable because the Dashboard module isn't installed (e.g.
