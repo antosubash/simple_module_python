@@ -27,12 +27,11 @@ from simple_module_db.mixins import (
     SoftDeleteMixin,
     VersionedMixin,
 )
-from simple_module_db.provider import DatabaseProvider
 from simple_module_db.session import init_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Field, select
 
-_MixinsBase = create_module_base("mixins_test", provider=DatabaseProvider.SQLITE)
+_MixinsBase = create_module_base("mixins_test")
 
 
 class _AuditRow(_MixinsBase, AuditMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]

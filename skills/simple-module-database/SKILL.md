@@ -18,26 +18,14 @@ from simple_module_db.mixins import AuditMixin
 Base = create_module_base("orders")
 
 class Order(Base, AuditMixin, table=True):
-    __tablename__ = "orders_order"   # SQLite-safe prefix; required (see below)
+    __tablename__ = "orders_order"   # module-name prefix; required
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=200)
 ```
 
-The provider is auto-detected from `SM_DATABASE_URL`. Pin it explicitly only in tests:
+## Table naming
 
-```python
-from simple_module_db.base import create_module_base, DatabaseProvider
-Base = create_module_base("orders", provider=DatabaseProvider.SQLITE)
-```
-
-## Postgres vs SQLite — the same code, different physical layout
-
-| Provider | Physical placement | Required convention |
-|---|---|---|
-| **PostgreSQL** | One **schema** per module (`orders.order`, `users.user`). Created automatically. | Set `__tablename__` to a name unique within the module. |
-| **SQLite** | Single schema. Cross-module name collisions break things. | Prefix `__tablename__` with the module name (`orders_order`). |
-
-Always include the module-name prefix in `__tablename__`. It's redundant on Postgres (the schema already namespaces it) and **required** on SQLite. Code that runs in CI on SQLite and prod on Postgres needs both — pick the prefix.
+All modules — on Postgres and SQLite alike — share the host's single schema. Cross-module name collisions break things, so `__tablename__` must be prefixed with the module name (e.g. `orders_order`, `users_user`). The framework does not enforce the prefix; it's a convention the migrations and diagnostics rely on.
 
 ## Mixins
 

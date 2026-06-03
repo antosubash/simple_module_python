@@ -1,4 +1,4 @@
-"""SimpleModule DB - SQLAlchemy async support with per-module schema isolation."""
+"""SimpleModule DB — async SQLAlchemy/SQLModel runtime shared by every module."""
 
 from simple_module_db.audit import AuditRecord
 from simple_module_db.base import create_module_base

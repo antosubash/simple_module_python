@@ -10,10 +10,9 @@ from __future__ import annotations
 
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import MultiTenantMixin, SoftDeleteMixin
-from simple_module_db.provider import DatabaseProvider
 from sqlmodel import Field
 
-_TenantBase = create_module_base("mt_test", provider=DatabaseProvider.SQLITE)
+_TenantBase = create_module_base("mt_test")
 
 
 class _TenantItem(_TenantBase, MultiTenantMixin, table=True):  # ty: ignore[unsupported-base]

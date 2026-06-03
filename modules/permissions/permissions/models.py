@@ -11,7 +11,7 @@ of those keys onto the principals that receive them:
   top of (or independent of) any role they happen to hold.
 
 Both junction rows are keyed on plain strings rather than FKs into the
-``users`` schema — per-module :class:`MetaData` cannot express a
+``users`` tables — per-module :class:`MetaData` cannot express a
 cross-module foreign key, and this keeps the permissions module
 independent of ``users``' table layout.
 """

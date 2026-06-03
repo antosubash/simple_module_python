@@ -13,25 +13,13 @@ class Order(Base, table=True):
     ...
 ```
 
-`create_module_base` returns a SQLModel base that's bound to a private `MetaData` object. This isolation is what lets modules live side-by-side without their tables trampling each other's Alembic autogenerate output.
+`create_module_base` returns a SQLModel base bound to a private `MetaData` object. This isolation is what lets Alembic autogenerate attribute each table to a specific module and what makes `build_module_metadata()` able to assemble the combined target metadata.
 
-## Provider auto-detection
+## Single shared schema
 
-The function inspects `SM_DATABASE_URL` at import time and picks the right strategy:
+All modules — whether on Postgres or SQLite — live in the host's single schema. There is no per-module schema policy. `__tablename__` must be prefixed with the module name to avoid collisions (`orders_order`, `users_user`). `create_module_base` doesn't enforce the prefix; it's a convention the framework relies on.
 
-- **PostgreSQL** → the Base sets `__table_args__ = {"schema": "<name>"}`. Tables live at `orders.<table>`. Each module effectively owns a namespace; one `DROP SCHEMA orders CASCADE` can cleanly uninstall a module.
-- **SQLite** → no schema (SQLite has one). The `__tablename__` must still be prefixed with the module name to avoid collisions. `create_module_base` does not enforce the prefix — it's a convention.
-
-You can override detection explicitly for tests or special cases:
-
-```python
-from simple_module_db.base import create_module_base
-from simple_module_db.types import DatabaseProvider
-
-Base = create_module_base("orders", provider=DatabaseProvider.SQLITE)
-```
-
-Production code should let auto-detection do its thing.
+The same migrations apply to Postgres and SQLite. There is no provider branching in model metadata.
 
 ## The `build_module_metadata()` function
 
@@ -59,9 +47,9 @@ If you write a one-off host-level table that autogenerate shouldn't track, exten
 
 ## Naming rules
 
-- Module name must match `ModuleMeta.name.lower()`. The framework caches the Base by module name; a mismatch causes silent schema drift.
+- Module name must match `ModuleMeta.name.lower()`. The framework caches the Base by module name; a mismatch causes silent metadata drift.
 - Module names should be identifiers: `[a-z][a-z0-9_]*`. Hyphens break SQL identifier parsing on some providers.
-- Don't rename a module after it ships without migrating data. Both the schema name (Postgres) and the table prefix (SQLite) are durable.
+- Don't rename a module after it ships without migrating data. The table prefix is durable across deployments.
 
 ## Tables across modules
 
@@ -74,13 +62,12 @@ from orders.models import Order
 class Invoice(Base, table=True):
     __tablename__ = "invoices_invoice"
     id: int | None = Field(default=None, primary_key=True)
-    order_id: int = Field(foreign_key="orders.order.id")
+    order_id: int = Field(foreign_key="orders_order.id")
 ```
 
 Caveats:
 
 - Add `depends_on=["Orders"]` in `InvoicesModule.meta` — modules are loaded in topological order; without `depends_on`, `orders.models` might not be imported when `invoices.models` runs.
-- Autogenerate handles cross-schema FKs on Postgres natively.
 - Uninstalling `Orders` while `Invoices` still references it produces a DB error — cross-module FKs are a commitment.
 
 If you can avoid a hard FK (store `order_id: int` without the constraint), module lifecycles stay more independent. Prefer application-level validation for loose coupling.
@@ -94,7 +81,7 @@ from simple_module_db.base import build_module_metadata
 
 meta = build_module_metadata()
 for t in meta.sorted_tables:
-    print(t.schema or "(no schema)", t.name)
+    print(t.name)
 ```
 
 This is also what the boot-time `SM011` check uses — it compares this set against the Alembic history to detect tables that exist in code but not in any migration.
