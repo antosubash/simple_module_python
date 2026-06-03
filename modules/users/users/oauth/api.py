@@ -17,7 +17,6 @@ cookie.
 
 from __future__ import annotations
 
-import logging
 import secrets
 from typing import TYPE_CHECKING
 
@@ -30,8 +29,6 @@ from users.deps import auth_backend, get_user_manager
 if TYPE_CHECKING:
     from users.manager import UserManager
     from users.oauth.providers import OAuthProvider
-
-logger = logging.getLogger(__name__)
 
 _SESSION_STATE_KEY_FMT = "oauth_state:{provider}"
 _CALLBACK_ROUTE_NAME = "users_oauth_callback"
