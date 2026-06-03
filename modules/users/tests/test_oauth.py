@@ -5,8 +5,8 @@ covered here because both depend on real httpx-oauth clients that hit the
 network (token exchange, profile fetch). Those are best validated in a manual
 QA pass against a dev IdP. What this file *does* cover:
 
-- ``enabled_provider_names`` correctly reflects settings.
-- ``build_clients`` instantiates the Google + GitHub clients when configured.
+- ``build_clients`` / ``build_client_map`` instantiate clients when configured.
+- The provider-agnostic dispatcher resolves clients at request time.
 - ``OAuthAccount`` persists and FK-cascades on user delete.
 - ``UserManager.oauth_callback`` (the find-or-create core fastapi-users helper
   the route delegates to) creates a fresh user + linked OAuthAccount, and
@@ -21,7 +21,7 @@ import pytest
 from fastapi_users.password import PasswordHelper
 from sqlalchemy import select
 from users.models import OAuthAccount, User
-from users.oauth import build_client_map, build_clients, enabled_provider_names
+from users.oauth import OAuthProvider, build_client_map, build_clients
 from users.settings import UsersSettings
 
 _pw = PasswordHelper()
@@ -45,35 +45,6 @@ def test_oauth_fields_carry_group_metadata_for_settings_ui():
     assert fields["oauth_github_client_id"].json_schema_extra == {"group": "GitHub OAuth"}
     assert fields["oauth_oidc_discovery_url"].json_schema_extra == {"group": "OIDC"}
     assert fields["oauth_microsoft_client_secret"].json_schema_extra == {"group": "Microsoft OAuth"}
-
-
-def test_enabled_provider_names_empty_by_default():
-    assert enabled_provider_names(UsersSettings()) == []
-
-
-def test_enabled_provider_names_lists_configured_providers():
-    s = UsersSettings(
-        oauth_google_client_id="g-id",
-        oauth_google_client_secret="g-secret",
-        oauth_github_client_id="gh-id",
-        oauth_github_client_secret="gh-secret",
-    )
-    names = [p["name"] for p in enabled_provider_names(s)]
-    assert names == ["google", "github"]
-
-
-def test_enabled_provider_names_skips_provider_missing_secret():
-    s = UsersSettings(oauth_google_client_id="g-id")  # no secret
-    assert enabled_provider_names(s) == []
-
-
-def test_enabled_provider_names_oidc_requires_discovery_url():
-    s = UsersSettings(
-        oauth_oidc_client_id="x",
-        oauth_oidc_client_secret="y",
-        # discovery_url unset → not registered
-    )
-    assert enabled_provider_names(s) == []
 
 
 # ---------------------------------------------------------------------------
@@ -242,6 +213,42 @@ async def test_oauth_callback_links_to_existing_email(users_app, users_db):
         assert names == ["github"]
     finally:
         await session.__aexit__(None, None, None)
+
+
+# ---------------------------------------------------------------------------
+# Provider-agnostic dispatcher (request-time client resolution)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_oauth_login_redirects_for_configured_provider(users_app, anon_client):
+    from httpx_oauth.clients.microsoft import MicrosoftGraphOAuth2
+
+    users_app.state.users.oauth_clients["microsoft"] = OAuthProvider(
+        "microsoft", "Microsoft", MicrosoftGraphOAuth2("ms-id", "ms-secret")
+    )
+    resp = await anon_client.get("/api/users/auth/microsoft/login", follow_redirects=False)
+    assert resp.status_code == 302
+    assert "login.microsoftonline.com" in resp.headers["location"]
+
+
+@pytest.mark.anyio
+async def test_oauth_login_404_for_unknown_provider(anon_client):
+    resp = await anon_client.get("/api/users/auth/nope/login", follow_redirects=False)
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_oauth_callback_rejects_bad_state(users_app, anon_client):
+    from httpx_oauth.clients.microsoft import MicrosoftGraphOAuth2
+
+    users_app.state.users.oauth_clients["microsoft"] = OAuthProvider(
+        "microsoft", "Microsoft", MicrosoftGraphOAuth2("ms-id", "ms-secret")
+    )
+    resp = await anon_client.get(
+        "/api/users/auth/microsoft/callback?code=abc&state=bad", follow_redirects=False
+    )
+    assert resp.status_code == 400
 
 
 # ---------------------------------------------------------------------------

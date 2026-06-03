@@ -111,14 +111,6 @@ class UsersModule(ModuleBase):
         from users.contracts.schemas import UserCreate, UserRead
         from users.deps import fastapi_users
         from users.oauth.api import register_oauth_routes
-        from users.settings import UsersSettings
-
-        # Consumed only by ``register_oauth_routes`` → ``build_clients`` at
-        # registration time, which reads class-attribute defaults captured by
-        # ``env_str()`` at import. Request-time readers of mutable fields
-        # (e.g. ``login_redirect_url``) must go through
-        # ``request.app.state.users.settings``, not this instance.
-        settings = UsersSettings()
 
         api_router.include_router(auth_local_api.router)
         api_router.include_router(token_router)
@@ -146,7 +138,7 @@ class UsersModule(ModuleBase):
                 Depends(auth_local_api.enforce_auth_throughput_limit),
             ],
         )
-        register_oauth_routes(api_router, settings)
+        register_oauth_routes(api_router)
 
         view_router.include_router(auth_views)
         view_router.include_router(admin_views)
@@ -160,7 +152,7 @@ class UsersModule(ModuleBase):
         from users.bootstrap import bootstrap_admin_from_env
         from users.deps import auth_backend
         from users.mailer import build_mailer
-        from users.oauth.providers import enabled_provider_names
+        from users.oauth.providers import build_client_map
         from users.roles_cache import refresh_roles_cache
 
         state = app.state.users
@@ -175,7 +167,10 @@ class UsersModule(ModuleBase):
             max_attempts=s.auth_rate_limit_attempts,
             window_seconds=s.auth_rate_limit_window_seconds,
         )
-        state.oauth_providers = enabled_provider_names(s)
+        state.oauth_clients = build_client_map(s)
+        state.oauth_providers = [
+            {"name": p.name, "display_name": p.display_name} for p in state.oauth_clients.values()
+        ]
 
         # Auto-fall-back when the default ``/dashboard/`` target is
         # unreachable because the Dashboard module isn't installed (e.g.

@@ -30,28 +30,6 @@ class OAuthProvider(NamedTuple):
     client: BaseOAuth2
 
 
-def enabled_provider_names(settings: UsersSettings) -> list[dict[str, str]]:
-    """Return ``[{"name": ..., "display_name": ...}]`` for configured providers.
-
-    Cheap settings-only check used by the login page to render social-login
-    buttons. Does not construct clients or hit the network — that would be
-    wasteful per page render and would fail-open if discovery is briefly
-    unreachable.
-    """
-    out: list[dict[str, str]] = []
-    if settings.oauth_google_client_id and settings.oauth_google_client_secret:
-        out.append({"name": "google", "display_name": "Google"})
-    if settings.oauth_github_client_id and settings.oauth_github_client_secret:
-        out.append({"name": "github", "display_name": "GitHub"})
-    if (
-        settings.oauth_oidc_client_id
-        and settings.oauth_oidc_client_secret
-        and settings.oauth_oidc_discovery_url
-    ):
-        out.append({"name": "oidc", "display_name": settings.oauth_oidc_display_name or "OIDC"})
-    return out
-
-
 def build_clients(settings: UsersSettings) -> list[OAuthProvider]:
     """Return one entry per provider that has both id and secret configured.
 
