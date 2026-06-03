@@ -32,6 +32,21 @@ _pw = PasswordHelper()
 # ---------------------------------------------------------------------------
 
 
+def test_microsoft_settings_defaults():
+    s = UsersSettings()
+    assert s.oauth_microsoft_client_id == ""
+    assert s.oauth_microsoft_client_secret == ""
+    assert s.oauth_microsoft_tenant == "common"
+
+
+def test_oauth_fields_carry_group_metadata_for_settings_ui():
+    fields = UsersSettings.model_fields
+    assert fields["oauth_google_client_id"].json_schema_extra == {"group": "Google OAuth"}
+    assert fields["oauth_github_client_id"].json_schema_extra == {"group": "GitHub OAuth"}
+    assert fields["oauth_oidc_discovery_url"].json_schema_extra == {"group": "OIDC"}
+    assert fields["oauth_microsoft_client_secret"].json_schema_extra == {"group": "Microsoft OAuth"}
+
+
 def test_enabled_provider_names_empty_by_default():
     assert enabled_provider_names(UsersSettings()) == []
 

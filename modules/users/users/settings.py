@@ -88,20 +88,33 @@ class UsersSettings(BaseSettings):
     bootstrap_user_email: str = ""
     bootstrap_user_password: str = ""
 
-    # OAuth / OIDC providers. Each provider is enabled by setting both client
-    # id and secret; missing credentials = provider not registered. Resolved
-    # at module-import time (env_str) because client secrets shouldn't ride
-    # in the DB-backed settings table that admins can read via the UI.
-    oauth_google_client_id: str = env_str("SM_USERS_OAUTH_GOOGLE_CLIENT_ID", "")
-    oauth_google_client_secret: str = env_str("SM_USERS_OAUTH_GOOGLE_CLIENT_SECRET", "")
-    oauth_github_client_id: str = env_str("SM_USERS_OAUTH_GITHUB_CLIENT_ID", "")
-    oauth_github_client_secret: str = env_str("SM_USERS_OAUTH_GITHUB_CLIENT_SECRET", "")
-    # Generic OIDC — works with any provider that exposes a discovery URL
-    # (Keycloak, Authentik, Auth0, Zitadel, Entra ID, ...).
-    oauth_oidc_client_id: str = env_str("SM_USERS_OAUTH_OIDC_CLIENT_ID", "")
-    oauth_oidc_client_secret: str = env_str("SM_USERS_OAUTH_OIDC_CLIENT_SECRET", "")
-    oauth_oidc_discovery_url: str = env_str("SM_USERS_OAUTH_OIDC_DISCOVERY_URL", "")
-    oauth_oidc_display_name: str = env_str("SM_USERS_OAUTH_OIDC_DISPLAY_NAME", "OIDC")
+    # OAuth / OIDC providers — configured via the admin settings UI
+    # (/settings/modules → Users). Credentials live in the DB-backed settings
+    # store and hydrate after boot; secret fields are masked in the UI (the
+    # same treatment the SMTP password gets). Provider changes apply live via
+    # the SettingsReloaded event — no restart (see users/module.py).
+    oauth_google_client_id: str = Field(default="", json_schema_extra={"group": "Google OAuth"})
+    oauth_google_client_secret: str = Field(default="", json_schema_extra={"group": "Google OAuth"})
+    oauth_github_client_id: str = Field(default="", json_schema_extra={"group": "GitHub OAuth"})
+    oauth_github_client_secret: str = Field(default="", json_schema_extra={"group": "GitHub OAuth"})
+    # Generic OIDC — any provider that exposes a discovery URL
+    # (Keycloak, Authentik, Auth0, Zitadel, ...).
+    oauth_oidc_client_id: str = Field(default="", json_schema_extra={"group": "OIDC"})
+    oauth_oidc_client_secret: str = Field(default="", json_schema_extra={"group": "OIDC"})
+    oauth_oidc_discovery_url: str = Field(default="", json_schema_extra={"group": "OIDC"})
+    oauth_oidc_display_name: str = Field(default="OIDC", json_schema_extra={"group": "OIDC"})
+    # Microsoft Entra ID / Microsoft accounts. tenant: "common" (any work/school
+    # or personal account), "organizations" (work/school only), or a tenant GUID
+    # to restrict sign-in to a single Entra tenant.
+    oauth_microsoft_client_id: str = Field(
+        default="", json_schema_extra={"group": "Microsoft OAuth"}
+    )
+    oauth_microsoft_client_secret: str = Field(
+        default="", json_schema_extra={"group": "Microsoft OAuth"}
+    )
+    oauth_microsoft_tenant: str = Field(
+        default="common", json_schema_extra={"group": "Microsoft OAuth"}
+    )
 
     @model_validator(mode="after")
     def _forbid_placeholder_token_secrets_in_production(self) -> UsersSettings:
