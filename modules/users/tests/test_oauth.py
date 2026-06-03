@@ -242,3 +242,15 @@ async def test_oauth_callback_links_to_existing_email(users_app, users_db):
         assert names == ["github"]
     finally:
         await session.__aexit__(None, None, None)
+
+
+# ---------------------------------------------------------------------------
+# UsersState defaults
+# ---------------------------------------------------------------------------
+
+
+def test_users_state_defaults_empty_oauth_clients():
+    from users.state import UsersState
+
+    state = UsersState(settings=UsersSettings())
+    assert state.oauth_clients == {}
