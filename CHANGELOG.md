@@ -19,6 +19,12 @@ All notable changes to this project are documented in this file. The format is b
   the resolver root, so the previous early-return excluded the very modules
   that need it. Cross-package bare imports (`maplibre-gl`, `pmtiles`, peer
   deps) now resolve in both wheel and workspace install modes (GH issue #156).
+- The `users` module's post-login redirect (`login_redirect_url`) no longer
+  hard-codes a `/` fallback when the Dashboard module isn't installed — `/`
+  404s on apps without a root route (e.g. `smpy_gis`, `--preset minimal`). It
+  now redirects to the first sibling module that exposes view routes, falling
+  back to `/` only as an absolute last resort. Operator-set overrides are
+  always preserved (GH issue #173).
 
 ## [0.0.1] — 2026-04-21
 

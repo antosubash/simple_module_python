@@ -140,7 +140,7 @@ Everything else is DB-backed (initial values are pydantic defaults; edit at `/se
 |---|---|
 | `allow_signup` | `False` |
 | `require_verification` | `True` |
-| `login_redirect_url` | `"/dashboard/"` (auto-falls back to `/` if dashboard module isn't installed) |
+| `login_redirect_url` | `"/dashboard/"` (if the Dashboard module isn't installed, auto-falls back to the first other module that exposes view routes, or `/` only as a last resort) |
 | `reset_password_token_lifetime_seconds` | `3600` |
 | `verification_token_lifetime_seconds` | `604_800` (7 days) |
 | `cookie_name` | `"sm_auth"` |
