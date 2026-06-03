@@ -1,4 +1,4 @@
-"""Unit + integration tests for the OAuth/OIDC plumbing.
+"""Unit tests for the OAuth/OIDC plumbing.
 
 Provider client construction and the /authorize+/callback ASGI flow are not
 covered here because both depend on real httpx-oauth clients that hit the
@@ -6,11 +6,13 @@ network (token exchange, profile fetch). Those are best validated in a manual
 QA pass against a dev IdP. What this file *does* cover:
 
 - ``build_clients`` / ``build_client_map`` instantiate clients when configured.
-- The provider-agnostic dispatcher resolves clients at request time.
 - ``OAuthAccount`` persists and FK-cascades on user delete.
 - ``UserManager.oauth_callback`` (the find-or-create core fastapi-users helper
   the route delegates to) creates a fresh user + linked OAuthAccount, and
   associates by email when the user already exists.
+
+HTTP dispatcher and live-reload (``SettingsReloaded``) integration tests live
+in ``test_oauth_routes.py``.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ import pytest
 from fastapi_users.password import PasswordHelper
 from sqlalchemy import select
 from users.models import OAuthAccount, User
-from users.oauth import OAuthProvider, build_client_map, build_clients
+from users.oauth import build_client_map, build_clients
 from users.settings import UsersSettings
 
 _pw = PasswordHelper()
@@ -216,42 +218,6 @@ async def test_oauth_callback_links_to_existing_email(users_app, users_db):
 
 
 # ---------------------------------------------------------------------------
-# Provider-agnostic dispatcher (request-time client resolution)
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.anyio
-async def test_oauth_login_redirects_for_configured_provider(users_app, anon_client):
-    from httpx_oauth.clients.microsoft import MicrosoftGraphOAuth2
-
-    users_app.state.users.oauth_clients["microsoft"] = OAuthProvider(
-        "microsoft", "Microsoft", MicrosoftGraphOAuth2("ms-id", "ms-secret")
-    )
-    resp = await anon_client.get("/api/users/auth/microsoft/login", follow_redirects=False)
-    assert resp.status_code == 302
-    assert "login.microsoftonline.com" in resp.headers["location"]
-
-
-@pytest.mark.anyio
-async def test_oauth_login_404_for_unknown_provider(anon_client):
-    resp = await anon_client.get("/api/users/auth/nope/login", follow_redirects=False)
-    assert resp.status_code == 404
-
-
-@pytest.mark.anyio
-async def test_oauth_callback_rejects_bad_state(users_app, anon_client):
-    from httpx_oauth.clients.microsoft import MicrosoftGraphOAuth2
-
-    users_app.state.users.oauth_clients["microsoft"] = OAuthProvider(
-        "microsoft", "Microsoft", MicrosoftGraphOAuth2("ms-id", "ms-secret")
-    )
-    resp = await anon_client.get(
-        "/api/users/auth/microsoft/callback?code=abc&state=bad", follow_redirects=False
-    )
-    assert resp.status_code == 400
-
-
-# ---------------------------------------------------------------------------
 # UsersState defaults
 # ---------------------------------------------------------------------------
 
@@ -261,60 +227,3 @@ def test_users_state_defaults_empty_oauth_clients():
 
     state = UsersState(settings=UsersSettings())
     assert state.oauth_clients == {}
-
-
-# ---------------------------------------------------------------------------
-# Live cache rebuild on SettingsReloaded
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.anyio
-async def test_settings_reload_adds_provider_to_cache(users_app):
-    from settings.contracts.events import SettingsReloaded
-
-    assert users_app.state.users.oauth_clients == {}
-    assert users_app.state.users.oauth_providers == []
-
-    users_app.state.users.settings = users_app.state.users.settings.model_copy(
-        update={"oauth_microsoft_client_id": "ms-id", "oauth_microsoft_client_secret": "ms-secret"}
-    )
-    await users_app.state.sm.event_bus.publish(
-        SettingsReloaded(package="users", changed=("oauth_microsoft_client_id",))
-    )
-
-    assert "microsoft" in users_app.state.users.oauth_clients
-    buttons = users_app.state.users.oauth_providers
-    assert {"name": "microsoft", "display_name": "Microsoft"} in buttons
-
-
-@pytest.mark.anyio
-async def test_settings_reload_removes_cleared_provider(users_app):
-    from settings.contracts.events import SettingsReloaded
-
-    users_app.state.users.settings = users_app.state.users.settings.model_copy(
-        update={"oauth_microsoft_client_id": "ms-id", "oauth_microsoft_client_secret": "ms-secret"}
-    )
-    await users_app.state.sm.event_bus.publish(
-        SettingsReloaded(package="users", changed=("oauth_microsoft_client_id",))
-    )
-    assert "microsoft" in users_app.state.users.oauth_clients
-
-    users_app.state.users.settings = users_app.state.users.settings.model_copy(
-        update={"oauth_microsoft_client_id": "", "oauth_microsoft_client_secret": ""}
-    )
-    await users_app.state.sm.event_bus.publish(
-        SettingsReloaded(package="users", changed=("oauth_microsoft_client_id",))
-    )
-    assert "microsoft" not in users_app.state.users.oauth_clients
-
-
-@pytest.mark.anyio
-async def test_settings_reload_ignores_other_packages(users_app):
-    from settings.contracts.events import SettingsReloaded
-
-    sentinel = object()
-    users_app.state.users.oauth_clients["microsoft"] = sentinel
-    await users_app.state.sm.event_bus.publish(
-        SettingsReloaded(package="background_tasks", changed=("broker_url",))
-    )
-    assert users_app.state.users.oauth_clients["microsoft"] is sentinel
