@@ -21,7 +21,7 @@ import pytest
 from fastapi_users.password import PasswordHelper
 from sqlalchemy import select
 from users.models import OAuthAccount, User
-from users.oauth import build_clients, enabled_provider_names
+from users.oauth import build_client_map, build_clients, enabled_provider_names
 from users.settings import UsersSettings
 
 _pw = PasswordHelper()
@@ -79,6 +79,46 @@ def test_enabled_provider_names_oidc_requires_discovery_url():
 # ---------------------------------------------------------------------------
 # build_clients (no-network providers only)
 # ---------------------------------------------------------------------------
+
+
+def test_build_clients_includes_microsoft():
+    s = UsersSettings(
+        oauth_microsoft_client_id="ms-id",
+        oauth_microsoft_client_secret="ms-secret",
+    )
+    providers = build_clients(s)
+    assert [p.name for p in providers] == ["microsoft"]
+    assert providers[0].display_name == "Microsoft"
+    assert providers[0].client.client_id == "ms-id"
+
+
+def test_build_clients_skips_microsoft_without_secret():
+    s = UsersSettings(oauth_microsoft_client_id="ms-id")  # no secret
+    assert [p.name for p in build_clients(s)] == []
+
+
+@pytest.mark.anyio
+async def test_microsoft_authorize_url_carries_tenant():
+    s = UsersSettings(
+        oauth_microsoft_client_id="ms-id",
+        oauth_microsoft_client_secret="ms-secret",
+        oauth_microsoft_tenant="my-tenant-guid",
+    )
+    client = build_client_map(s)["microsoft"].client
+    url = await client.get_authorization_url("http://testserver/cb", "state123")
+    assert "my-tenant-guid" in url
+
+
+def test_build_client_map_keys_by_name():
+    s = UsersSettings(
+        oauth_google_client_id="g-id",
+        oauth_google_client_secret="g-secret",
+        oauth_microsoft_client_id="ms-id",
+        oauth_microsoft_client_secret="ms-secret",
+    )
+    m = build_client_map(s)
+    assert set(m) == {"google", "microsoft"}
+    assert m["microsoft"].name == "microsoft"
 
 
 def test_build_clients_google_and_github():

@@ -89,6 +89,22 @@ def build_clients(settings: UsersSettings) -> list[OAuthProvider]:
             )
         )
 
+    if settings.oauth_microsoft_client_id and settings.oauth_microsoft_client_secret:
+        from httpx_oauth.clients.microsoft import MicrosoftGraphOAuth2
+
+        out.append(
+            OAuthProvider(
+                "microsoft",
+                "Microsoft",
+                MicrosoftGraphOAuth2(
+                    settings.oauth_microsoft_client_id,
+                    settings.oauth_microsoft_client_secret,
+                    tenant=settings.oauth_microsoft_tenant or "common",
+                    name="microsoft",
+                ),
+            )
+        )
+
     if (
         settings.oauth_oidc_client_id
         and settings.oauth_oidc_client_secret
@@ -118,3 +134,8 @@ def build_clients(settings: UsersSettings) -> list[OAuthProvider]:
             )
 
     return out
+
+
+def build_client_map(settings: UsersSettings) -> dict[str, OAuthProvider]:
+    """Configured providers keyed by name for O(1) request-time lookup."""
+    return {p.name: p for p in build_clients(settings)}
