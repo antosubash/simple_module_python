@@ -18,6 +18,7 @@ from users.constants import (
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+    from simple_module_core.events import EventBus
 
 _MODULE_DEPENDENCY_AUTH = "Auth"
 
@@ -60,6 +61,33 @@ class UsersModule(ModuleBase):
         from users.provider import UsersAuthProvider
 
         app.state.auth.auth_provider = UsersAuthProvider()
+
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+        """Rebuild the OAuth client cache when the users settings reload.
+
+        Routes mount at construction (before DB hydration), so the cache is the
+        single source of truth at request time. Rebuilding it here lets an admin
+        add/remove a provider via the settings UI without a restart.
+        """
+        if app is None:
+            return
+
+        import importlib
+
+        settings_reloaded = importlib.import_module("settings.contracts.events").SettingsReloaded
+        from users.oauth.providers import build_client_map
+
+        async def _rebuild_oauth_clients(event) -> None:
+            if event.package != "users":
+                return
+            state = app.state.users
+            state.oauth_clients = build_client_map(state.settings)
+            state.oauth_providers = [
+                {"name": p.name, "display_name": p.display_name}
+                for p in state.oauth_clients.values()
+            ]
+
+        bus.subscribe(settings_reloaded, _rebuild_oauth_clients)
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
