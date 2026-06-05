@@ -1,0 +1,4 @@
+{
+  "extends": "../../host/client_app/tsconfig.json",
+  "include": ["oidc/**/*.ts", "oidc/**/*.tsx"]
+}
