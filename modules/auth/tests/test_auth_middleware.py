@@ -44,21 +44,24 @@ class _StubProvider:
         return auth.startswith("Bearer ")
 
 
-def _build_app(provider, *, principal_resolvers=None):
+def _build_app(provider, *, principal_resolvers=None, public_routes=None):
     app = FastAPI()
     app.state.auth = AuthState(
         auth_provider=provider,
         principal_resolvers=list(principal_resolvers or []),
     )
+    if public_routes is not None:
+        app.state.public_routes = public_routes
 
-    @app.get("/{path:path}")
-    async def catch_all(request: Request, path: str = ""):
+    async def _handler(request: Request, path: str = ""):
         user = getattr(request.state, "user", None)
         return JSONResponse(
             {
                 "user": user.to_session_dict() if user else None,
             }
         )
+
+    app.add_api_route("/{path:path}", _handler, methods=["GET", "POST", "PATCH"])
 
     app.add_middleware(AuthMiddleware)
     app.add_middleware(SessionMiddleware, secret_key=SECRET)
@@ -127,6 +130,47 @@ async def test_root_is_public(unauthenticated_app):
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
         resp = await c.get("/")
     assert resp.status_code == 200
+
+
+async def test_registry_public_route_skips_auth():
+    """A module-contributed public route lets an unauthenticated GET through."""
+    from simple_module_core.public_routes import PublicRouteRegistry
+
+    registry = PublicRouteRegistry()
+    registry.add_prefix("/api/gis/stac")
+    app = _build_app(_StubProvider(user=None), public_routes=registry)
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+        resp = await c.get("/api/gis/stac/collections")
+    assert resp.status_code == 200
+    assert resp.json()["user"] is None
+
+
+async def test_registry_method_scoping_gates_other_verbs():
+    """A GET-scoped public rule exempts GET but still gates PATCH on the same path."""
+    from simple_module_core.public_routes import PublicRouteRegistry
+
+    registry = PublicRouteRegistry()
+    registry.add_regex(r"/api/gis/datasets/[^/]+/tilejson$", methods={"GET"})
+    app = _build_app(_StubProvider(user=None), public_routes=registry)
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+        ok = await c.get("/api/gis/datasets/42/tilejson")
+        gated = await c.patch("/api/gis/datasets/42/tilejson")
+    assert ok.status_code == 200
+    assert gated.status_code == 401
+
+
+async def test_no_registry_falls_back_to_provider_paths(unauthenticated_app):
+    """Apps built without a public-routes registry still honor provider paths."""
+    transport = httpx.ASGITransport(app=unauthenticated_app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+        public = await c.get("/stub/public/data")
+        gated = await c.get("/api/protected")
+    assert public.status_code == 200
+    assert gated.status_code == 401
 
 
 async def test_resolver_chain_fallback():

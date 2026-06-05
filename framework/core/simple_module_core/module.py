@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from simple_module_core.health import HealthRegistry
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.public_routes import PublicRouteRegistry
 
 
 @dataclass(frozen=True)
@@ -117,6 +118,24 @@ class ModuleBase(ABC):
 
     def register_health_checks(self, registry: HealthRegistry) -> None:
         """Contribute health checks for the ``/health/ready`` endpoint."""
+
+    def register_public_routes(self, registry: PublicRouteRegistry) -> None:
+        """Declare routes that must bypass authentication (anonymous access).
+
+        ``AuthMiddleware`` gates every request behind the active auth provider.
+        Override this hook to exempt read-only or webhook routes that are meant
+        to be reached without a session — e.g. a STAC / OGC API surface::
+
+            def register_public_routes(self, registry):
+                registry.add_prefix("/api/gis/stac")
+                registry.add_regex(
+                    r"/api/gis/datasets/[^/]+/tilejson$", methods={"GET"}
+                )
+
+        Rules are method-aware, so a GET read route nested under a prefix that
+        also carries POST/PATCH mutations can be exempted without opening the
+        mutations. Called once at boot, in dependency order.
+        """
 
     def register_middleware(self, app: FastAPI) -> None:
         """Add middleware to the application.

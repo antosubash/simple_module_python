@@ -95,6 +95,7 @@ class ModuleDiagnostics:
                     "register_event_handlers",
                     "register_middleware",
                     "register_health_checks",
+                    "register_public_routes",
                     "register_exception_handlers",
                     "register_settings",
                     "template_dirs",

@@ -67,7 +67,7 @@ modules/<name>/<name>/
 ```
 
 **Lifecycle hooks** (in `framework/core/simple_module_core/module.py`) — all no-op by default; subclasses override as needed:
-`register_settings` → `register_menu_items` / `register_permissions` / `register_feature_flags` / `register_event_handlers` / `register_health_checks` → `register_exception_handlers` → `register_middleware` → `register_routes(api_router, view_router)` → async `on_startup` / `on_shutdown` (reverse order).
+`register_settings` → `register_menu_items` / `register_permissions` / `register_feature_flags` / `register_event_handlers` / `register_health_checks` / `register_public_routes` → `register_exception_handlers` → `register_middleware` → `register_routes(api_router, view_router)` → async `on_startup` / `on_shutdown` (reverse order). `register_public_routes(registry)` lets a module exempt anonymous/read-only routes (STAC/OGC, webhooks) from `AuthMiddleware`; rules are method-aware (`registry.add_regex(r"…/tilejson$", methods={"GET"})`), so a GET read route can be public while sibling POST/PATCH mutations under the same prefix stay gated. See [docs/framework/public-routes.md](docs/framework/public-routes.md).
 
 **Middleware pipeline** (Starlette `add_middleware` is LIFO — last added runs first). Execution order on a request:
 `CorrelationId → RequestLogging → SecurityHeaders → Session → <module middleware> → Tenant (opt-in) → Locale → InertiaLayoutData → app`. When two modules add middleware at the same dependency tier, the module that sorts **later** wraps outermost. Use `depends_on` to express relative order — don't rely on names.

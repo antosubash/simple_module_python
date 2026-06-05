@@ -47,7 +47,9 @@ class AuthMiddleware:
             return
 
         path: str = scope["path"]
-        auth_state = scope["app"].state.auth
+        method: str = scope.get("method", "GET")
+        app_state = scope["app"].state
+        auth_state = app_state.auth
         provider = auth_state.auth_provider
 
         if provider is None:
@@ -58,6 +60,14 @@ class AuthMiddleware:
             any(path.startswith(p) for p in _FRAMEWORK_PUBLIC_PREFIXES)
             or path in _FRAMEWORK_PUBLIC_EXACT
         )
+        # Module-contributed public routes (register_public_routes hook). Method
+        # -aware, so a GET read route can be exempted without opening sibling
+        # POST/PATCH mutations under the same prefix.
+        if not is_public:
+            public_routes = getattr(app_state, "public_routes", None)
+            is_public = public_routes is not None and public_routes.matches(method, path)
+        # Legacy provider-declared paths (prefix-only, method-agnostic). Kept for
+        # back-compat with AuthProvider implementations.
         if not is_public:
             prefix_paths, exact_paths = provider.get_public_paths()
             is_public = any(path.startswith(p) for p in prefix_paths) or path in exact_paths

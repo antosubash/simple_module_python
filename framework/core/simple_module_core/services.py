@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.module import ModuleBase
     from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.public_routes import PublicRouteRegistry
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +41,7 @@ class Services:
     permissions: PermissionRegistry
     feature_flags: FeatureFlagRegistry
     health_registry: HealthRegistry
+    public_routes: PublicRouteRegistry
     i18n_registry: I18nRegistry
     inertia_config: InertiaConfig
     modules: tuple[ModuleBase, ...]

@@ -105,6 +105,20 @@ def install_middleware(
     app.add_middleware(CorrelationIdMiddleware)
 
 
+def attach_public_routes(app: FastAPI, settings: Settings, registry) -> None:
+    """Seed host-level public paths and publish the registry for AuthMiddleware.
+
+    Modules contribute method-aware rules through their ``register_public_routes``
+    hook (already applied to *registry* by the caller). This adds the host escape
+    hatch — ``SM_AUTH_PUBLIC_PATHS`` prefixes — then exposes the registry at
+    ``app.state.public_routes``, where ``auth.middleware.AuthMiddleware`` reads it
+    on every request.
+    """
+    for prefix in settings.auth_public_paths:
+        registry.add_prefix(prefix)
+    app.state.public_routes = registry
+
+
 def mount_module_static_dirs(app: FastAPI, modules: list) -> None:
     """Mount each module's declared static directories.
 
