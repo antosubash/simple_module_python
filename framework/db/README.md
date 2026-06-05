@@ -10,7 +10,7 @@ pip install simple_module_db
 
 ## What it provides
 
-- `create_module_base("<module_name>")` — a module-scoped declarative `Base`. PostgreSQL maps it to its own schema; SQLite namespaces via table-name prefix.
+- `create_module_base("<module_name>")` — a module-scoped declarative `Base` with its own `MetaData`. All modules share the host's single schema, so `__tablename__` should be prefixed with the module name (e.g. `users_user`) to avoid collisions.
 - Per-request async session (`get_db`) with an auto-commit-on-flush hook — `after_flush` commits if there are pending writes, rolls back otherwise.
 - Mixins in `simple_module_db.mixins`: `AuditMixin` (created_at/updated_at), `SoftDeleteMixin` (auto-filtered unless `stmt.execution_options(include_deleted=True)`), `MultiTenantMixin`, `VersionedMixin`.
 - `DatabaseState` container used by the framework to avoid global mutable state.

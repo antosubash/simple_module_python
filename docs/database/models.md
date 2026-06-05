@@ -23,10 +23,7 @@ class Order(Base, AuditMixin, table=True):
 
 ### Table naming
 
-- **Postgres.** `create_module_base("orders")` gives the class a per-module schema. The `__tablename__` can be just `order`, and the fully-qualified name is `orders.order`. The prefix `orders_` is redundant but harmless.
-- **SQLite.** One schema, so `__tablename__` must be prefixed with the module name to avoid collisions: `orders_order`.
-
-**Convention: always prefix the table name with the module name.** This makes migrations and DB dumps readable in both providers and avoids a "works on my machine" footgun when swapping between them.
+All modules share the host's single schema, so `__tablename__` must be prefixed with the module name to avoid collisions: `orders_order`, `users_user`, etc. `create_module_base` does not enforce the prefix — it's a convention the framework relies on.
 
 ### Primary keys
 
@@ -50,8 +47,7 @@ class OrderLine(Base, table=True):
     __tablename__ = "orders_order_line"
 
     id: int | None = Field(default=None, primary_key=True)
-    order_id: int = Field(foreign_key="orders.order.id")   # Postgres
-    # order_id: int = Field(foreign_key="orders_order.id") # SQLite
+    order_id: int = Field(foreign_key="orders_order.id")
     quantity: int
 
     order: "Order" = Relationship(back_populates="lines")
@@ -165,7 +161,7 @@ Do not re-enable these rules in module-local configs. Real bugs caused by wrong 
 
 ## Next steps
 
-- [Per-module Base](/database/per-module-base) — how provider detection and schema isolation works.
+- [Per-module Base](/database/per-module-base) — how `create_module_base` and `build_module_metadata` work.
 - [Mixins](/database/mixins) — `AuditMixin`, `SoftDeleteMixin`, `MultiTenantMixin`, `VersionedMixin`.
 - [Session lifecycle](/database/sessions) — the `get_db` dependency and why you don't call `commit()`.
 - [Migrations](/database/migrations) — Alembic autogenerate and per-module branch labels.

@@ -12,7 +12,6 @@ from sqlmodel import Field
 
 from file_storage import constants
 
-# PostgreSQL → ``file_storage`` schema; SQLite → table name is prefixed below.
 Base = create_module_base(constants.MODULE_NAME)
 
 

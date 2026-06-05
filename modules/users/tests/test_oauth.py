@@ -1,16 +1,18 @@
-"""Unit + integration tests for the OAuth/OIDC plumbing.
+"""Unit tests for the OAuth/OIDC plumbing.
 
 Provider client construction and the /authorize+/callback ASGI flow are not
 covered here because both depend on real httpx-oauth clients that hit the
 network (token exchange, profile fetch). Those are best validated in a manual
 QA pass against a dev IdP. What this file *does* cover:
 
-- ``enabled_provider_names`` correctly reflects settings.
-- ``build_clients`` instantiates the Google + GitHub clients when configured.
+- ``build_clients`` / ``build_client_map`` instantiate clients when configured.
 - ``OAuthAccount`` persists and FK-cascades on user delete.
 - ``UserManager.oauth_callback`` (the find-or-create core fastapi-users helper
   the route delegates to) creates a fresh user + linked OAuthAccount, and
   associates by email when the user already exists.
+
+HTTP dispatcher and live-reload (``SettingsReloaded``) integration tests live
+in ``test_oauth_routes.py``.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ import pytest
 from fastapi_users.password import PasswordHelper
 from sqlalchemy import select
 from users.models import OAuthAccount, User
-from users.oauth import build_clients, enabled_provider_names
+from users.oauth import build_client_map, build_clients
 from users.settings import UsersSettings
 
 _pw = PasswordHelper()
@@ -32,38 +34,64 @@ _pw = PasswordHelper()
 # ---------------------------------------------------------------------------
 
 
-def test_enabled_provider_names_empty_by_default():
-    assert enabled_provider_names(UsersSettings()) == []
+def test_microsoft_settings_defaults():
+    s = UsersSettings()
+    assert s.oauth_microsoft_client_id == ""
+    assert s.oauth_microsoft_client_secret == ""
+    assert s.oauth_microsoft_tenant == "common"
 
 
-def test_enabled_provider_names_lists_configured_providers():
-    s = UsersSettings(
-        oauth_google_client_id="g-id",
-        oauth_google_client_secret="g-secret",
-        oauth_github_client_id="gh-id",
-        oauth_github_client_secret="gh-secret",
-    )
-    names = [p["name"] for p in enabled_provider_names(s)]
-    assert names == ["google", "github"]
-
-
-def test_enabled_provider_names_skips_provider_missing_secret():
-    s = UsersSettings(oauth_google_client_id="g-id")  # no secret
-    assert enabled_provider_names(s) == []
-
-
-def test_enabled_provider_names_oidc_requires_discovery_url():
-    s = UsersSettings(
-        oauth_oidc_client_id="x",
-        oauth_oidc_client_secret="y",
-        # discovery_url unset → not registered
-    )
-    assert enabled_provider_names(s) == []
+def test_oauth_fields_carry_group_metadata_for_settings_ui():
+    fields = UsersSettings.model_fields
+    assert fields["oauth_google_client_id"].json_schema_extra == {"group": "Google OAuth"}
+    assert fields["oauth_github_client_id"].json_schema_extra == {"group": "GitHub OAuth"}
+    assert fields["oauth_oidc_discovery_url"].json_schema_extra == {"group": "OIDC"}
+    assert fields["oauth_microsoft_client_secret"].json_schema_extra == {"group": "Microsoft OAuth"}
 
 
 # ---------------------------------------------------------------------------
 # build_clients (no-network providers only)
 # ---------------------------------------------------------------------------
+
+
+def test_build_clients_includes_microsoft():
+    s = UsersSettings(
+        oauth_microsoft_client_id="ms-id",
+        oauth_microsoft_client_secret="ms-secret",
+    )
+    providers = build_clients(s)
+    assert [p.name for p in providers] == ["microsoft"]
+    assert providers[0].display_name == "Microsoft"
+    assert providers[0].client.client_id == "ms-id"
+
+
+def test_build_clients_skips_microsoft_without_secret():
+    s = UsersSettings(oauth_microsoft_client_id="ms-id")  # no secret
+    assert [p.name for p in build_clients(s)] == []
+
+
+@pytest.mark.anyio
+async def test_microsoft_authorize_url_carries_tenant():
+    s = UsersSettings(
+        oauth_microsoft_client_id="ms-id",
+        oauth_microsoft_client_secret="ms-secret",
+        oauth_microsoft_tenant="my-tenant-guid",
+    )
+    client = build_client_map(s)["microsoft"].client
+    url = await client.get_authorization_url("http://testserver/cb", "state123")
+    assert "my-tenant-guid" in url
+
+
+def test_build_client_map_keys_by_name():
+    s = UsersSettings(
+        oauth_google_client_id="g-id",
+        oauth_google_client_secret="g-secret",
+        oauth_microsoft_client_id="ms-id",
+        oauth_microsoft_client_secret="ms-secret",
+    )
+    m = build_client_map(s)
+    assert set(m) == {"google", "microsoft"}
+    assert m["microsoft"].name == "microsoft"
 
 
 def test_build_clients_google_and_github():
@@ -187,3 +215,15 @@ async def test_oauth_callback_links_to_existing_email(users_app, users_db):
         assert names == ["github"]
     finally:
         await session.__aexit__(None, None, None)
+
+
+# ---------------------------------------------------------------------------
+# UsersState defaults
+# ---------------------------------------------------------------------------
+
+
+def test_users_state_defaults_empty_oauth_clients():
+    from users.state import UsersState
+
+    state = UsersState(settings=UsersSettings())
+    assert state.oauth_clients == {}

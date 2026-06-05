@@ -18,10 +18,6 @@ from background_tasks.constants import (
     TaskStatus,
 )
 
-# Provider is auto-detected from SM_DATABASE_URL (falls back to SQLite).
-# On PostgreSQL this gives the module its own `background_tasks` schema; on
-# SQLite all modules share one schema, so __tablename__ is prefixed for
-# isolation.
 Base = create_module_base(MODULE_NAME)
 
 

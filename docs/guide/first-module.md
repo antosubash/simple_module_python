@@ -36,7 +36,7 @@ class Order(Base, AuditMixin, SoftDeleteMixin, table=True):
 
 - `AuditMixin` adds `created_at`, `updated_at`, `created_by`, `updated_by` — populated automatically from the request user.
 - `SoftDeleteMixin` replaces `DELETE` with `is_deleted=true`. `SELECT` filters them out by default; pass `include_deleted=True` to bypass.
-- `__tablename__` must be prefixed with the module name under SQLite. On Postgres, the per-module Base puts tables in an `orders` schema automatically, so the prefix is redundant but harmless.
+- `__tablename__` must be prefixed with the module name (`orders_order`) so it doesn't collide with other modules' tables — every module shares the host's single schema on both Postgres and SQLite.
 
 ## 3. Update the DTOs
 
@@ -75,7 +75,7 @@ uv run alembic revision --autogenerate -m "add orders tables"
 
 Open `migrations/versions/XXXX_add_orders_tables.py` and eyeball it:
 
-- It should create the `orders` schema (Postgres) or the `orders_order` table (SQLite).
+- It should create the `orders_order` table.
 - Add `branch_labels = ("orders",)` to the revision so you can later `alembic downgrade orders@base` to roll the module back to empty without touching other modules.
 
 Apply:

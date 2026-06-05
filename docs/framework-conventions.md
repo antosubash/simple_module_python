@@ -37,7 +37,7 @@ class OrdersModule(ModuleBase):
     )
 ```
 
-- `name` is unique across the app — it's the schema name for PostgreSQL, the SQLite table prefix, the Inertia component namespace, and the diagnostic reporter name.
+- `name` is unique across the app — it's the table-name prefix, the Inertia component namespace, and the diagnostic reporter name.
 - `depends_on` expresses a hard ordering requirement; the framework topo-sorts modules and invokes lifecycle hooks in that order.
 - Missing or invalid `meta` fails the boot in production (strict discovery) and logs a `SM001` warning in development.
 
@@ -159,13 +159,10 @@ class OrderCreate(SQLModel):
 ```python
 from simple_module_db.base import create_module_base
 
-Base = create_module_base("orders")   # provider auto-detected from SM_DATABASE_URL
+Base = create_module_base("orders")
 ```
 
-- **PostgreSQL**: the module gets its own schema (`orders`). Tables live at `orders.<table>`.
-- **SQLite**: single schema. Prefix `__tablename__` with the module name to avoid collisions (`orders_order`).
-
-You can pin the provider for tests (`provider=DatabaseProvider.SQLITE`), but code that ships should let auto-detection handle it.
+`create_module_base` returns a SQLModel base bound to its own `MetaData`, but all modules share the host's single schema (same layout on Postgres and SQLite). Prefix `__tablename__` with the module name to avoid collisions (`orders_order`).
 
 ### Mixins
 

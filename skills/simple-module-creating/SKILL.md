@@ -68,7 +68,7 @@ class OrdersModule(ModuleBase):
     )
 ```
 
-`ModuleMeta.name` is load-bearing in three places: the Postgres schema name, the SQLite `__tablename__` prefix you author, and the PascalCase Inertia component namespace. So directory `blog_posts` → `name="BlogPosts"` → `inertia.render("BlogPosts/Index", ...)` → `pages/Index.tsx`. Mismatches fire diagnostic codes `SM003` (orphan page) / `SM004` (phantom render).
+`ModuleMeta.name` is load-bearing in two places: the `__tablename__` prefix you author and the PascalCase Inertia component namespace. So directory `blog_posts` → `name="BlogPosts"` → `inertia.render("BlogPosts/Index", ...)` → `pages/Index.tsx`. Mismatches fire diagnostic codes `SM003` (orphan page) / `SM004` (phantom render).
 
 For modules you intend to publish, also add `version=` (your module's semver) and `requires_framework=` (a PEP 440 spec for the framework API range, e.g. `">=1.0,<2.0"`) so the host can reject incompatible installs at boot.
 

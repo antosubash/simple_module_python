@@ -10,10 +10,9 @@ from typing import ClassVar
 
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin, SoftDeleteMixin
-from simple_module_db.provider import DatabaseProvider
 from sqlmodel import Field
 
-AuditBase = create_module_base("test_audit", provider=DatabaseProvider.SQLITE)
+AuditBase = create_module_base("test_audit")
 
 
 class AuditTestItem(AuditBase, AuditMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
