@@ -37,6 +37,15 @@ class BootstrapSettings(BaseSettings):
 
     modules_enabled: list[str] | None = None
 
+    auth_public_paths: list[str] = []
+    """Host-level anonymous-access path prefixes (``SM_AUTH_PUBLIC_PATHS``).
+
+    An escape hatch for exposing a route without a session when no module owns
+    it. Each entry is treated as a prefix rule and seeded into the
+    ``PublicRouteRegistry`` at boot. Modules should prefer the
+    ``register_public_routes`` hook, which is method-aware.
+    """
+
     @property
     def is_development(self) -> bool:
         return self.environment == "development"

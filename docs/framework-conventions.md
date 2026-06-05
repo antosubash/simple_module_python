@@ -263,6 +263,25 @@ a 302 redirect to the provider's login URL.
 Boot-time diagnostic `SM020` fails if multiple auth providers are installed.
 `SM021` warns if none is installed.
 
+### Public routes (anonymous access)
+
+To expose a route without a session — a read-only STAC / OGC API, a TileJSON
+endpoint, an inbound webhook — a module overrides `register_public_routes`:
+
+```python
+def register_public_routes(self, registry):
+    registry.add_prefix("/api/gis/stac")
+    registry.add_regex(r"/api/gis/datasets/[^/]+/tilejson$", methods={"GET"})
+```
+
+Rules are **method-aware**, so a GET read route can be exempted while sibling
+`POST`/`PATCH` mutations under the same prefix stay gated. The host aggregates
+every module's rules into one `PublicRouteRegistry` (plus host-level
+`SM_AUTH_PUBLIC_PATHS` prefixes) and publishes it at `app.state.public_routes`,
+which `AuthMiddleware` consults on every request. See
+[`docs/framework/public-routes.md`](framework/public-routes.md) for match kinds
+and resolution order.
+
 ## Events
 
 Base class: `Event` from `simple_module_core.events`. Subclass per domain event:

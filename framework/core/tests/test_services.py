@@ -29,6 +29,7 @@ class TestServices:
         assert s.permissions is _SENTINEL_PERMS
         assert s.feature_flags is _SENTINEL_FLAGS
         assert s.health_registry is _SENTINEL_HEALTH
+        assert s.public_routes is _SENTINEL_PUBLIC_ROUTES
         assert s.i18n_registry is _SENTINEL_I18N
         assert s.inertia_config is _SENTINEL_INERTIA
         assert s.modules == ()
@@ -41,6 +42,7 @@ _SENTINEL_MENU = object()
 _SENTINEL_PERMS = object()
 _SENTINEL_FLAGS = object()
 _SENTINEL_HEALTH = object()
+_SENTINEL_PUBLIC_ROUTES = object()
 _SENTINEL_I18N = object()
 _SENTINEL_INERTIA = object()
 
@@ -55,6 +57,7 @@ def _make_services() -> Services:
         permissions=_SENTINEL_PERMS,  # type: ignore[arg-type]
         feature_flags=_SENTINEL_FLAGS,  # type: ignore[arg-type]
         health_registry=_SENTINEL_HEALTH,  # type: ignore[arg-type]
+        public_routes=_SENTINEL_PUBLIC_ROUTES,  # type: ignore[arg-type]
         i18n_registry=_SENTINEL_I18N,  # type: ignore[arg-type]
         inertia_config=_SENTINEL_INERTIA,  # type: ignore[arg-type]
         modules=(),

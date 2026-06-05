@@ -33,6 +33,7 @@ from simple_module_core.i18n import I18nRegistry, Translator
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.public_routes import PublicRoute, PublicRouteRegistry
 from simple_module_core.services import Services
 from simple_module_core.versioning import FRAMEWORK_API_VERSION, check_framework_compatibility
 
@@ -60,6 +61,8 @@ __all__ = [
     "ModuleMeta",
     "NotFoundError",
     "PermissionRegistry",
+    "PublicRoute",
+    "PublicRouteRegistry",
     "Services",
     "Translator",
     "ValidationError",
