@@ -4,6 +4,11 @@ Counts physical lines (``len(text.splitlines())``) so a trailing newline
 does not change the total. Exits 1 if any covered file exceeds ``--max``
 (default 300). Exempt paths matching ``--exempt`` globs are skipped.
 
+By default scans the git working tree — tracked files plus untracked files
+that aren't gitignored — so a brand-new oversized file fails the check
+before it's committed (#204). ``--no-git`` walks the filesystem instead
+(does not honour ``.gitignore``).
+
 Usage:
     uv run python scripts/check_file_size.py
     uv run python scripts/check_file_size.py --max 200
@@ -91,9 +96,17 @@ def _relative_for_match(path: Path, root: Path | None) -> Path:
         return path
 
 
-def _list_git_tracked_files(root: Path) -> list[Path]:
+def _list_git_files(root: Path) -> list[Path]:
+    """List tracked + untracked-but-not-ignored files via git.
+
+    ``--cached`` covers tracked files and ``--others --exclude-standard``
+    adds untracked files that aren't gitignored, so an oversized file is
+    caught the moment it's written — not only after it's committed (#204).
+    Gitignored paths (``.venv``, ``node_modules``, build output) stay out
+    of scope, which a bare filesystem walk would not respect.
+    """
     result = subprocess.run(
-        ["git", "ls-files"],
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
         cwd=root,
         capture_output=True,
         text=True,
@@ -107,7 +120,7 @@ def _walk_filesystem(root: Path) -> list[Path]:
 
 
 def _collect_candidates(root: Path, use_git: bool) -> list[Path]:
-    return _list_git_tracked_files(root) if use_git else _walk_filesystem(root)
+    return _list_git_files(root) if use_git else _walk_filesystem(root)
 
 
 def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
