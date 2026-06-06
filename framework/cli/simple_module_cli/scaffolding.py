@@ -33,6 +33,8 @@ __all__ = [
     "create_host",
     "create_module",
     "create_workspace",
+    "pin_framework_deps",
+    "resolve_framework_version",
 ]
 
 logger = logging.getLogger(__name__)
@@ -53,6 +55,59 @@ SAFE_PRESERVED_NAMES = frozenset(
 
 def _module_to_pypi_name(name: str) -> str:
     return f"simple_module_{name.lower()}"
+
+
+def resolve_framework_version() -> str:
+    """Resolve the framework version that scaffolded apps should pin against.
+
+    The CLI ships in lockstep with the rest of the framework (one
+    ``bump_version.py`` rewrites every ``pyproject.toml``), so its own
+    installed distribution version is the source of truth. Falls back to a
+    placeholder for editable installs lacking dist-info — never reached from a
+    release wheel.
+    """
+    from importlib.metadata import PackageNotFoundError
+    from importlib.metadata import version as pkg_version
+
+    try:
+        return pkg_version("simple_module_cli")
+    except PackageNotFoundError:
+        return "0.0.0"
+
+
+def _pin_one(dep: str, version: str) -> str:
+    """Pin a single ``simple_module_*`` requirement to ``==version``; else pass through."""
+    pkg = dep.split(">=", 1)[0].split("==", 1)[0].split("<", 1)[0].strip()
+    if pkg.startswith(("simple_module_", "simple-module-")):
+        return f"{pkg}=={version}"
+    return dep
+
+
+def pin_framework_deps(pyproject_path: Path, version: str) -> None:
+    """Pin every ``simple_module_*`` requirement in a pyproject to ``==version``.
+
+    The module template ships forward-looking ranges (``>=1.0,<2.0``) against
+    the framework's eventual stable line, but the published distributions are
+    pre-1.0 (``0.0.x``), so those ranges resolve to nothing on PyPI. Rewriting
+    to an exact pin lets a freshly created module resolve against the framework
+    version that created it — e.g. ``uv add ./modules/<name>`` into the same
+    workspace. Both ``dependencies`` and every ``optional-dependencies`` extra
+    (the ``dev`` extra pins ``simple_module_test``) are rewritten. See GH #195.
+    """
+    import tomlkit
+
+    doc = tomlkit.parse(pyproject_path.read_text(encoding="utf-8"))
+    project = doc.get("project")
+    if project is None:
+        return
+    deps = project.get("dependencies")
+    if deps is not None:
+        project["dependencies"] = [_pin_one(dep, version) for dep in deps]
+    optional = project.get("optional-dependencies")
+    if optional is not None:
+        for extra, items in list(optional.items()):
+            optional[extra] = [_pin_one(dep, version) for dep in items]
+    pyproject_path.write_text(tomlkit.dumps(doc), encoding="utf-8")
 
 
 def _iter_template_files(template_root: Path):
@@ -124,15 +179,20 @@ def create_workspace(
     dest: Path,
     name: str,
     template_root: Path | None = None,
+    framework_version: str = "*",
     *,
     preserve_existing: frozenset[str] = frozenset(),
 ) -> list[Path]:
     """Materialize the workspace-root shell at ``dest``; return preserved paths.
 
-    Lays down the top-level ``pyproject.toml`` (uv workspace), ``package.json``
-    (npm workspace), ``Makefile`` (delegates to host), ``.env.example``,
-    ``.gitignore``, and ``README.md``. Does NOT create the host or any
-    modules — those go under ``dest/host`` and ``dest/modules/`` afterwards.
+    Lays down the top-level ``pyproject.toml`` (uv workspace + dev tooling for
+    ``make test``/``lint``), ``package.json`` (npm workspace), ``Makefile``
+    (delegates to host), ``.env.example``, ``.gitignore``, and ``README.md``.
+    Does NOT create the host or any modules — those go under ``dest/host`` and
+    ``dest/modules/`` afterwards.
+
+    ``framework_version`` pins ``simple_module_test`` in the root dev group;
+    defaults to ``"*"`` for callers that don't need an exact pin.
 
     ``preserve_existing`` lists top-level entry names that may already exist
     in ``dest``; the scaffold's copy is skipped and the preserved path is
@@ -147,6 +207,7 @@ def create_workspace(
         {
             "{{HOST_NAME}}": validate_scaffold_name(name),
             "{{HOST_PYPI_NAME}}": to_kebab_case(name),
+            "{{FRAMEWORK_VERSION}}": framework_version,
         },
         preserve_existing=preserve_existing,
     )
@@ -191,7 +252,17 @@ def create_module(
     dest: Path,
     name: str,
     template_root: Path | None = None,
+    *,
+    framework_version: str | None = None,
 ) -> Path:
+    """Scaffold a module package at ``dest``.
+
+    When ``framework_version`` is given, the template's forward-looking
+    ``simple_module_*`` ranges are rewritten to an exact pin so the module
+    resolves against that framework version (e.g. ``uv add`` into the workspace
+    that created it). Left as ``None``, the template's ranges are kept verbatim.
+    See GH #195.
+    """
     dest = Path(dest)
     existed_before = dest.exists()
     _require_empty_dest(dest)
@@ -210,6 +281,8 @@ def create_module(
             },
             path_rewrites={_PACKAGE_PATH_TOKEN: package_name},
         )
+        if framework_version is not None:
+            pin_framework_deps(dest / "pyproject.toml", framework_version)
     except Exception:
         # Rollback so a half-scaffolded directory doesn't leave the user
         # with an unparseable Python package and the impression that a

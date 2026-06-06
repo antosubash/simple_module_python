@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
+import tomllib
 from pathlib import Path
 
+import pytest
 from simple_module_cli.cli import app
 from typer.testing import CliRunner
 
@@ -284,6 +288,76 @@ def test_sm_new_flat_skips_modules_dir(tmp_path: Path) -> None:
     assert "[tool.uv.workspace]" not in pyproject_text
     data = json.loads((target / "package.json").read_text())
     assert "workspaces" not in data
+
+
+def test_sm_new_dev_api_watches_modules_dir(tmp_path: Path) -> None:
+    """Regression #202: the dev-api reloader must watch modules/* so edits to
+    in-repo module packages (routes/endpoints/locales) hot-reload — uvicorn
+    otherwise only watches the launch cwd (host/)."""
+    from simple_module_cli.app_project import create_app_project
+
+    target = tmp_path / "demo"
+    create_app_project(target, name="demo", db="sqlite", tenancy=False, selected=[])
+    makefile = (target / "Makefile").read_text()
+    assert "--reload-dir" in makefile
+    assert "../modules" in makefile
+
+
+def test_sm_new_makefile_has_quality_gate_targets(tmp_path: Path) -> None:
+    """Regression #201: the scaffold Makefile must emit test/lint/doctor targets
+    and use `alembic upgrade heads` (plural) for per-module branch heads."""
+    from simple_module_cli.app_project import create_app_project
+
+    target = tmp_path / "demo"
+    create_app_project(target, name="demo", db="sqlite", tenancy=False, selected=[])
+    makefile = (target / "Makefile").read_text()
+    for tgt in ("test:", "test-py:", "test-js:", "lint:", "doctor:"):
+        assert tgt in makefile, f"missing Makefile target {tgt}"
+    assert "upgrade heads" in makefile
+    assert "upgrade head\n" not in makefile  # the buggy singular form is gone
+
+
+def test_sm_new_root_pyproject_has_dev_tooling_and_config(tmp_path: Path) -> None:
+    """Regression #201: the workspace root must ship the dev tooling + pytest /
+    ruff / ty config so `make test` and `make lint` work out of the box."""
+    from simple_module_cli.app_project import create_app_project
+
+    target = tmp_path / "demo"
+    create_app_project(target, name="demo", db="sqlite", tenancy=False, selected=[])
+    data = tomllib.loads((target / "pyproject.toml").read_text())
+
+    dev = data["dependency-groups"]["dev"]
+    joined = " ".join(dev)
+    assert "ruff" in joined and "ty" in joined and "pytest" in joined
+    # simple_module_test is pinned to the framework version, not the broken range.
+    assert any(d.startswith("simple_module_test==") for d in dev)
+    assert data["tool"]["pytest"]["ini_options"]["asyncio_mode"] == "auto"
+    assert data["tool"]["ruff"]["line-length"] == 100
+    assert "unresolved-attribute" in data["tool"]["ty"]["rules"]
+
+
+def test_sm_new_generated_app_passes_its_own_ruff(tmp_path: Path) -> None:
+    """Regression #201: a freshly scaffolded app must pass its own `make lint`
+    ruff gate out of the box. Templates are excluded from the framework's own
+    ruff, so violations in generated code only surface against the scaffold's
+    shipped ruff config — this test runs it end to end."""
+    ruff = shutil.which("ruff")
+    if ruff is None:
+        pytest.skip("ruff not installed")
+
+    runner = CliRunner()
+    target = tmp_path / "demo"
+    result = runner.invoke(
+        app, ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)]
+    )
+    assert result.exit_code == 0, result.output
+
+    fmt = subprocess.run(
+        [ruff, "format", "--check", "."], cwd=target, capture_output=True, text=True
+    )
+    assert fmt.returncode == 0, f"`ruff format --check` failed:\n{fmt.stdout}\n{fmt.stderr}"
+    check = subprocess.run([ruff, "check", "."], cwd=target, capture_output=True, text=True)
+    assert check.returncode == 0, f"`ruff check` failed:\n{check.stdout}\n{check.stderr}"
 
 
 def test_sm_new_refuses_to_overwrite(tmp_path: Path) -> None:

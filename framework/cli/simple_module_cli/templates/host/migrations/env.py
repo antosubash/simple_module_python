@@ -37,10 +37,7 @@ process_revision_directives = make_process_revision_directives(target_metadata)
 def _get_url() -> str:
     """Read database URL from settings, convert async to sync driver."""
     settings = Settings()
-    url = settings.database_url
-    url = url.replace("+aiosqlite", "")
-    url = url.replace("+asyncpg", "+psycopg2")
-    return url
+    return settings.database_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
 
 
 def run_migrations_offline() -> None:
