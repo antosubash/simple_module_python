@@ -1,8 +1,8 @@
 # simple_module_auth
 
-Session-cookie authentication primitives for [simple_module](https://github.com/antosubash/simple_module_python) apps. Provides the `SessionMiddleware` wiring, login/logout helpers, and login-redirect handling used by the `simple_module_users` module.
+Pluggable authentication core for [simple_module](https://github.com/antosubash/simple_module_python) apps. Owns the stable public contracts every other module imports — `UserContext`, the `AuthProvider` protocol, the `PrincipalResolver` chain, and the `get_current_user` / `CurrentUser` / `require_permission` dependencies — plus the `AuthMiddleware` that resolves the current principal on every request.
 
-**Heads up:** for most apps you don't install this directly — `simple_module_users` pulls it in and builds the email+password auth flow on top of these primitives.
+**Heads up:** for most apps you don't install this directly — an auth-provider module (`simple_module_users` for email+password, `simple_module_keycloak` for OIDC) pulls it in and registers itself on `app.state.auth.auth_provider`.
 
 ## Install
 
@@ -12,26 +12,39 @@ pip install simple_module_auth
 
 ## What it provides
 
-- Starlette `SessionMiddleware` configuration reading `SM_SECRET_KEY` and `SM_SESSION_COOKIE_*` env vars.
-- `current_user_id` FastAPI dependency reading the signed session cookie.
-- Redirect-to-login helpers for unauthenticated requests on Inertia routes.
-- Login-required decorator / dependency for protecting routes without pulling in the heavier `simple_module_users` package.
+- `UserContext` — the request-scoped principal (`id`, `name`, `email`, `roles`).
+- `AuthProvider` protocol — the swappable-backend contract (`resolve_user`, `get_login_url`, `get_logout_url`, `get_public_paths`, `is_bearer_request`); exactly one provider module registers an implementation on `app.state.auth.auth_provider`.
+- `PrincipalResolver` chain — async `(Request) -> UserContext | None` callables apps append to `app.state.auth.principal_resolvers` (e.g. PAT/bearer-token or API-key auth), consulted after the session path.
+- `AuthMiddleware` — delegates to the provider + resolver chain on every request and populates the request principal.
+- `get_current_user` / `CurrentUser` dependency and the `require_permission(*permissions)` dependency factory.
+- Anonymous-access is declared via the framework's method-aware `register_public_routes` hook (with the `SM_AUTH_PUBLIC_PATHS` host-level escape hatch).
 
 ## Usage
 
 ```python
-from fastapi import APIRouter, Depends
-from simple_module_auth import require_login
+from fastapi import APIRouter
+
+from auth.deps import CurrentUser
 
 router = APIRouter()
 
 
 @router.get("/me")
-async def me(user_id: int = Depends(require_login)):
-    return {"user_id": user_id}
+async def me(user: CurrentUser):
+    return {"user_id": user.id, "email": user.email}
 ```
 
-Routes that need more than just "logged in" (e.g. role/permission checks) should use `simple_module_permissions` instead.
+Routes that need a specific permission use the `require_permission(...)` dependency factory:
+
+```python
+from fastapi import Depends
+
+from auth.deps import require_permission
+
+
+@router.post("/", dependencies=[Depends(require_permission("products.create"))])
+async def create_product(): ...
+```
 
 ## Depends on
 

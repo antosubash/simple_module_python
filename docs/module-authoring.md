@@ -85,7 +85,7 @@ version, raising `FrameworkVersionError` with the offending modules named.
 - `create_module_base`, `build_module_metadata`, `make_include_object`
 - Model mixins: `AuditMixin`, `SoftDeleteMixin`, `MultiTenantMixin`,
   `VersionedMixin`
-- `build_app()` entry point
+- `create_app()` entry point (`simple_module_hosting`)
 
 **Internal** (free to change without bumping major):
 
@@ -169,8 +169,10 @@ tenant explicitly: `registry.is_enabled(FLAG_BULK_IMPORT.name, tenant_id=tenant)
 
 Each module's settings are loaded via its `register_settings(app)` hook.
 Convention: read environment variables under the prefix `SM_<MODULE>_`
-(e.g. `SM_AUTH_CLIENT_ID`) and store the result on
-`app.state.<module_name_lower>_settings`. Hosts can declare
+(e.g. `SM_AUTH_CLIENT_ID`) and store the result on a module-owned object at
+`app.state.<module_package_lower>` (e.g. `app.state.auth`, `app.state.users`).
+The `SM012` diagnostic looks for exactly that attribute, so the `_settings`
+suffix some older modules used is not recognised. Hosts can declare
 `SM_MODULES_ENABLED='["Auth","MyModule"]'` to load only a subset of
 installed modules.
 

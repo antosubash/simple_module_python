@@ -6,7 +6,7 @@ The framework expects three kinds of tests:
 - **Integration tests** — endpoints via `client` / `authenticated_client`. Still `pytest`.
 - **E2E tests** — Playwright-driven browser tests marked `e2e`, excluded from default runs.
 
-The default `pytest` invocation pins `-m 'not e2e'` (your app's `pyproject.toml`), so a normal test run never touches the Playwright suite — run those explicitly via `uv run pytest -m e2e tests/e2e`.
+The default `pytest` invocation pins `-m 'not e2e and not perf'` (your app's `pyproject.toml`), so a normal test run never touches the Playwright suite or the benchmarks — run e2e explicitly via `uv run pytest -m e2e tests/e2e`.
 
 ## Quick reference
 
@@ -19,8 +19,8 @@ The default `pytest` invocation pins `-m 'not e2e'` (your app's `pyproject.toml`
 | `uv run pytest -x` | Stop at first failure. |
 | `uv run pytest -v -s` | Verbose + capture off (see `print`). |
 | `uv run pytest -m e2e tests/e2e` | Playwright suite against `localhost:8000`. Requires `make dev` running. |
-| `cd client_app && npx vitest run` | Run every JS test. |
-| `cd client_app && npx vitest run <path>` | Single JS test file. |
+| `npm test` (or `npx vitest run`) | Run every JS test (from the repo root). |
+| `npx vitest run <path>` | Single JS test file. |
 
 ## Async mode
 
@@ -30,17 +30,16 @@ The root `pyproject.toml` sets `asyncio_mode = "auto"`. Async tests don't need `
 
 ```text
 conftest.py                    # root fixtures: app, db_session, client, authenticated_client
-tests/
-├── framework/                 # tests against framework/ packages
-│   ├── core/
-│   ├── db/
-│   └── hosting/
-├── modules/                   # tests that live at the root, cross-module
-└── e2e/                       # Playwright tests (marked `e2e`)
+framework/<pkg>/tests/         # tests against each framework package (core, db, hosting, cli, testing)
+host/tests/                    # host-level tests
 modules/<name>/tests/          # per-module pytest tests
+tests/
+├── integration/               # cross-module integration tests
+├── benchmarks/                # perf benchmarks (marked `perf`)
+└── e2e/                       # Playwright tests (marked `e2e`)
 ```
 
-Any `conftest.py` under a subtree can add more fixtures; they cascade down but don't leak sideways. Keep module-specific fixtures in the module's `tests/conftest.py`.
+These directories are enumerated in `testpaths` in the root `pyproject.toml`. Any `conftest.py` under a subtree can add more fixtures; they cascade down but don't leak sideways. Keep module-specific fixtures in the module's `tests/conftest.py`.
 
 ## What good tests look like
 
@@ -60,14 +59,14 @@ There's no enforced coverage percentage, but:
 
 ## JS / TSX tests
 
-Vitest + Testing Library, configured in `vitest.config.ts` and `vitest.setup.ts`. Tests live next to the source:
+Vitest + Testing Library, configured in the repo-root `vitest.config.ts` and `vitest.setup.ts`. The config's `include` globs cover `packages/**` and `host/client_app/**`, so tests live next to the source there:
 
 ```text
-modules/orders/orders/pages/__tests__/Browse.test.tsx
-packages/ui/src/components/__tests__/Button.test.tsx
+packages/ui/src/components/StatCard.test.tsx
+host/client_app/<something>.test.tsx
 ```
 
-Run all: `npx vitest run`. Watch: `npx vitest`. Single file: `npx vitest run path/to/Browse.test.tsx`.
+Run all: `npm test` (or `npx vitest run`). Watch: `npx vitest`. Single file: `npx vitest run path/to/StatCard.test.tsx`.
 
 Use `@testing-library/react`'s `render` and query helpers:
 
@@ -81,7 +80,7 @@ it("shows the empty state", () => {
 });
 ```
 
-For pages that depend on `useT` / `useAuth`, wrap in a mock provider from `packages/ui/src/test-utils.tsx`.
+For components that depend on `useT` / `usePage`, mock the source module with `vi.mock("@simple-module-py/i18n", ...)` / `vi.mock("@inertiajs/react", ...)` — see `packages/ui/src/components/LocaleSwitcher.test.tsx`.
 
 ## Flaky-test checklist
 

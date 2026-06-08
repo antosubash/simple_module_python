@@ -10,27 +10,32 @@ pip install simple_module_settings
 
 ## What it provides
 
-- `/settings` admin page aggregating every installed module's settings panel.
-- `register_settings_panel()` hook — a module declares `{title, inertia_page, requires_permission}`; `simple_module_settings` renders the tab.
-- DB-backed runtime settings table (separate from env-var-driven `SM_*` settings) for values admins change at runtime.
+- `/settings` admin page (and `/settings/modules`) aggregating every installed module's settings into one editable view.
+- `register_module_settings(app, package, SettingsClass, services_factory)` helper — a module calls this from its own `register_settings(app)` hook to record its `BaseSettings` class; the UI renders its fields automatically (no panel/page wiring needed).
+- DB-backed runtime settings store (hydrated into each module's `BaseSettings` at startup, before module `on_startup` hooks run) for values admins change at runtime.
 
 ## Usage
 
-Register a panel:
+Register a module's settings from its `register_settings(app)` hook:
 
 ```python
+from fastapi import FastAPI
+
+
 class OrdersModule(ModuleBase):
     meta = ModuleMeta(name="orders")
 
-    def register_settings_panel(self):
-        return {
-            "title": "Orders",
-            "inertia_page": "Orders/SettingsPanel",
-            "requires_permission": "orders.manage",
-        }
+    def register_settings(self, app: FastAPI) -> None:
+        from settings.registration import register_module_settings
+        from orders.settings import OrdersSettings
+        from orders.services import OrdersServices
+
+        register_module_settings(
+            app, "orders", OrdersSettings, lambda s: OrdersServices(settings=s)
+        )
 ```
 
-That adds an **Orders** tab at `/settings`. The rendered page is a regular Inertia page authored inside the `orders` module.
+That surfaces the module's settings fields under `/settings/modules`, hydrated from the DB store at startup. The settings class is a `pydantic_settings.BaseSettings` with the module's `SM_<PREFIX>_*` env-var defaults.
 
 ## Depends on
 

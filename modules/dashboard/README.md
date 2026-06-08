@@ -2,7 +2,7 @@
 
 Admin landing page + sidebar menu host for authenticated users of a [simple_module](https://github.com/antosubash/simple_module_python) app. Renders `/dashboard`, collects menu entries registered by every other installed module, and provides the primary Inertia layout.
 
-Pre-wired into any app scaffolded with `simple-module new`.
+Pre-wired into any app scaffolded with `smpy new`.
 
 ## Install
 
@@ -23,14 +23,14 @@ Install the module in a host, and any other module can register a menu entry:
 ```python
 # modules/orders/orders/module.py
 from simple_module_core import ModuleBase, ModuleMeta
-from simple_module_core.menus import MenuItem
+from simple_module_core.menu import MenuItem, MenuRegistry
 
 
 class OrdersModule(ModuleBase):
     meta = ModuleMeta(name="orders")
 
-    def register_menu_items(self):
-        return [MenuItem(label="Orders", href="/orders", icon="shopping-bag")]
+    def register_menu_items(self, registry: MenuRegistry) -> None:
+        registry.add(MenuItem(label="Orders", url="/orders", icon="shopping-bag"))
 ```
 
 The dashboard sidebar picks it up automatically.

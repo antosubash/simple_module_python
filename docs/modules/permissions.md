@@ -57,11 +57,11 @@ async def delete_order(order_id: int) -> None:
     ...
 ```
 
-`RequiresPermission(*permissions)` 403s unless the request's user has each listed key, considering:
+`RequiresPermission(permission)` takes a **single** permission key and 403s unless the request's user holds it, considering:
 
-1. The keys assigned to any of the user's roles.
-2. The keys assigned directly to the user.
-3. The implicit grant of every permission to anyone with the `admin` role.
+1. The keys assigned to any of the user's roles (read from the request-cached `resolved_permissions`).
+2. The keys assigned directly to the user (`permissions_user_permission`).
+3. The implicit `WILDCARD` grant — the `admin` role is synced to hold every permission key at startup, so admins pass any check.
 
 For something tied to *only* role membership (no direct grants), use `auth.deps.require_permission` instead — it's a hair cheaper.
 

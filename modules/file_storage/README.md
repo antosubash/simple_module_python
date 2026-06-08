@@ -14,39 +14,34 @@ pip install "simple_module_file_storage[s3]"
 
 ## What it provides
 
-- `POST /api/files` upload endpoint with multipart + metadata.
-- `GET /api/files/{id}` signed-URL or stream download.
-- Pluggable backend via `SM_FILE_STORAGE_BACKEND` (`local` | `s3`).
-- S3 config via `SM_FILE_STORAGE_S3_BUCKET`, `SM_FILE_STORAGE_S3_ENDPOINT` (for R2/MinIO/etc.), `SM_FILE_STORAGE_S3_REGION`.
+- `POST /api/file-storage/upload` multipart upload endpoint.
+- `GET /api/file-storage/files` (paged list), `GET /api/file-storage/files/{file_id}` (metadata), `GET /api/file-storage/files/{file_id}/download` (signed-URL redirect or stream), `DELETE /api/file-storage/files/{file_id}`.
+- Pluggable backend selected by the `backend` setting (`filesystem` default | `s3`); third-party backends can register under any id.
+- Settings (`backend`, `s3_bucket`, `s3_region`, `s3_endpoint_url` for R2/MinIO/etc., `s3_access_key_id`, `s3_secret_access_key`, `s3_presign_ttl_seconds`) are configured from the DB settings store via the admin UI — they are not read from `SM_FILE_STORAGE_*` environment variables at runtime.
 
 ## Usage
 
-From another module:
+From another module, inject the service via its dependency:
 
 ```python
-from file_storage.service import FileStorageService   # type: ignore[import-not-found]
+from fastapi import Depends, File, UploadFile
+
+from file_storage.deps import get_file_storage_service   # type: ignore[import-not-found]
+from file_storage.service import FileStorageService      # type: ignore[import-not-found]
 
 async def attach_receipt(
-    svc: FileStorageService = Depends(FileStorageService),
     upload: UploadFile = File(...),
+    svc: FileStorageService = Depends(get_file_storage_service),
 ):
-    record = await svc.save(upload, folder="receipts/")
-    return {"file_id": record.id, "url": record.url}
+    record = await svc.upload(upload)
+    return {"file_id": record.id}
 ```
 
-Env config (example, S3):
-
-```
-SM_FILE_STORAGE_BACKEND=s3
-SM_FILE_STORAGE_S3_BUCKET=my-app-uploads
-SM_FILE_STORAGE_S3_REGION=us-east-1
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
-```
+Backend and S3 credentials are configured from the admin UI at **/settings/modules → FileStorage** (DB-backed settings); switch `backend` to `s3` and fill in `s3_bucket`, `s3_region`, `s3_endpoint_url` (for MinIO/R2), `s3_access_key_id`, and `s3_secret_access_key`.
 
 ## Depends on
 
-- `simple_module_core`, `simple_module_db`, `simple_module_hosting`
+- `simple_module_core`, `simple_module_db`, `simple_module_hosting`, `simple_module_settings`
 - `aiofiles`
 - Optional: `aioboto3` (install the `[s3]` extra)
 

@@ -1,6 +1,6 @@
 # users
 
-The auth + user-management module: email/password login, sessions, registration, invites, password reset, email verification, role assignment, admin UI, mailer backends, and the `AuthMiddleware` that other modules depend on for `request.state.user`.
+The default auth provider + user-management module: email/password login, OAuth/OIDC sign-in, sessions, registration, invites, password reset, email verification, role assignment, admin UI, and mailer backends. It registers a `UsersAuthProvider` on `app.state.auth.auth_provider`, which the [`auth`](/modules/auth) module's `AuthMiddleware` delegates to for `request.state.user`. (It's one of two bundled auth providers — [`keycloak`](/modules/keycloak) is the alternative; install exactly one.)
 
 ## ModuleMeta
 
@@ -15,10 +15,11 @@ The auth + user-management module: email/password login, sessions, registration,
 
 The module is built on [`fastapi-users`](https://fastapi-users.github.io/) for password hashing, registration, password reset, and verification. On top of that it layers:
 
-- A signed session cookie (`sm_auth` by default) — `AuthMiddleware` reads it on every request and populates `request.state.user`.
+- A signed session cookie (`sm_auth` by default) — the auth module's `AuthMiddleware` calls `UsersAuthProvider.resolve_user`, which reads it on every request and populates `request.state.user`. Bearer tokens (`Authorization: Bearer <token>`) resolve against `users_access_token`.
+- OAuth / OIDC sign-in (Google, GitHub, Microsoft/Entra ID, and any generic OIDC provider) — see [OAuth providers](#oauth-providers).
 - An invite flow — admins generate an invite link; the recipient sets their password via `POST /api/users/auth/accept-invite`.
-- `LoginRateLimiter` — N failures within a window triggers a cooldown per email.
-- `AuthRateLimiter` — global rate limit across signup / forgot-password / verify endpoints.
+- `LoginRateLimiter` — N failures within a window triggers a cooldown per `email::ip` key.
+- `ThroughputLimiter` — per-IP rate limit across register / forgot-password / accept-invite / verify-token endpoints.
 
 ### Auth endpoints
 
@@ -27,10 +28,12 @@ The module is built on [`fastapi-users`](https://fastapi-users.github.io/) for p
 | `POST /api/users/auth/login` | `OAuth2PasswordRequestForm` | sets `sm_auth` cookie + `session["user_id"]`; rate-limited per email |
 | `POST /api/users/auth/register` | `UserCreate` | gated by `users.allow_signup`; rate-limited |
 | `POST /api/users/auth/forgot-password` | `PasswordReset` | rate-limited |
-| `POST /api/users/auth/reset-password/{token}` | `ResetPassword` | |
+| `POST /api/users/auth/reset-password` | `{token, password}` | |
 | `POST /api/users/auth/request-verify-token` | `RequestVerifyToken` | rate-limited |
 | `POST /api/users/auth/verify` | `VerifyRequest` | |
 | `POST /api/users/auth/accept-invite` | `AcceptInviteRequest` | sets password + signs the user in |
+| `GET /api/users/auth/{provider}/login` | — | OAuth: redirect to the IdP (`provider` ∈ configured set) |
+| `GET /api/users/auth/{provider}/callback` | `?code=&state=` | OAuth: find-or-create user, set cookie, 303 to `login_redirect_url` |
 
 ### Self-service endpoints
 
@@ -114,7 +117,11 @@ from users.contracts.events import (
 
 `UserRole` (table `users_user_role`) — composite-PK join table with `assigned_at`, `assigned_by`. The `(user_id, role_id)` PK is user-id-first; a separate index covers reverse lookups by `role_id`.
 
-`UserAccessToken` — fastapi-users API tokens (rare path; sessions are the primary auth).
+`UserAccessToken` (table `users_access_token`) — bearer API tokens; resolved by `UsersAuthProvider` on `Authorization: Bearer` requests (sessions remain the primary browser auth).
+
+`OAuthAccount` (table `users_oauth_account`) — linked OAuth/OIDC accounts: `oauth_name`, `account_id`, `account_email`, `access_token`, `refresh_token`, `expires_at`.
+
+`RefreshToken` (table `users_refresh_token`) — opaque refresh tokens for the bearer flow: `token` (PK), `user_id`, `created_at`, `expires_at`, `revoked_at`.
 
 Two pre-seeded roles get fixed UUIDs so other modules can reference them safely:
 
@@ -143,6 +150,8 @@ Everything else is DB-backed (initial values are pydantic defaults; edit at `/se
 | `login_redirect_url` | `"/dashboard/"` (if the Dashboard module isn't installed, auto-falls back to the first other module that exposes view routes, or `/` only as a last resort) |
 | `reset_password_token_lifetime_seconds` | `3600` |
 | `verification_token_lifetime_seconds` | `604_800` (7 days) |
+| `bearer_token_lifetime_seconds` | `900` (15 min) |
+| `refresh_token_lifetime_seconds` | `2_592_000` (30 days) |
 | `cookie_name` | `"sm_auth"` |
 | `cookie_max_age_seconds` | `1_209_600` (14 days) |
 | `cookie_secure` | `True` (flipped to `False` in dev at startup) |
@@ -156,6 +165,10 @@ Everything else is DB-backed (initial values are pydantic defaults; edit at `/se
 | `auth_rate_limit_attempts` | `10` |
 | `auth_rate_limit_window_seconds` | `300` |
 | `bootstrap_email`, `bootstrap_password`, `bootstrap_user_email`, `bootstrap_user_password` | `""` — see [Bootstrap](#bootstrap-the-first-admin) |
+| `oauth_google_client_id` / `oauth_google_client_secret` | `""` — Google OAuth |
+| `oauth_github_client_id` / `oauth_github_client_secret` | `""` — GitHub OAuth |
+| `oauth_microsoft_client_id` / `oauth_microsoft_client_secret` / `oauth_microsoft_tenant` | `""` / `""` / `"common"` — Microsoft (Entra ID) |
+| `oauth_oidc_client_id` / `oauth_oidc_client_secret` / `oauth_oidc_discovery_url` / `oauth_oidc_display_name` | `""` / `""` / `""` / `"OIDC"` — generic OIDC |
 
 ## Permissions
 
@@ -216,15 +229,33 @@ Two paths to seed the first admin:
 
 `build_mailer(settings)` returns the right instance based on `users.mailer`.
 
-## AuthMiddleware
+## OAuth providers
 
-Reads `session["user_id"]`, loads the User row with eagerly-loaded roles, builds a `UserContext`, and writes it to `request.state.user`. Caches the context in `session["user_ctx"]` so subsequent requests don't re-query.
+OAuth/OIDC sign-in is **DB-settings-driven**: a provider is enabled simply by setting its `client_id` + `client_secret` (and, for generic OIDC, a discovery URL) in the settings UI at `/settings/modules/users`. No code change or restart — `register_event_handlers` rebuilds the client cache (`app.state.users.oauth_clients`) on the `SettingsReloaded` event, so changes take effect live. Providers with no credentials are silently skipped.
 
-Public paths (no redirect to login):
+Built-in provider keys (the `{provider}` URL segment):
 
-`/users/login`, `/users/register`, `/users/forgot-password`, `/users/reset-password`, `/users/verify`, `/users/invite/accept`, `/api/users/auth/`, `/api/users/register`, `/health`, `/static/`, `/api/docs`, `/api/redoc`, `/openapi.json`, `/i18n/`, and the exact path `/`.
+| Provider | Key | Notes |
+|---|---|---|
+| Google | `google` | |
+| GitHub | `github` | |
+| Microsoft (Entra ID) | `microsoft` | `oauth_microsoft_tenant`: `"common"` (any account), `"organizations"` (work/school), or a tenant GUID |
+| Generic OIDC | `oidc` | any provider exposing a discovery URL (Keycloak, Authentik, Auth0, Zitadel, …); discovery failure logs + disables rather than breaking boot |
 
-Anything else without a session redirects to `/users/login`.
+A single dispatcher pair (`/api/users/auth/{provider}/login` + `/callback`) serves every provider; the client is resolved per request from the cache. The `/callback` returns a 303 redirect (not the stock fastapi-users 204) so Inertia lands on a real page, with the auth cookie attached. Find-or-create + email association goes through `UserManager.oauth_callback` (`associate_by_email=True`, `is_verified_by_default=True`); state CSRF uses the signed session cookie. Linked accounts are stored in `users_oauth_account`.
+
+## UsersAuthProvider
+
+`UsersAuthProvider` (registered on `app.state.auth.auth_provider` in `register_settings`) is the `AuthProvider` the auth module's `AuthMiddleware` delegates to. On each request `resolve_user`:
+
+- For a `Bearer` token, looks the token up in `users_access_token` and returns the active user.
+- Otherwise reads `session["user_id"]`, returns the cached context from `session["user_ctx"]` on a hit, else loads the User row with eagerly-loaded roles, builds a `UserContext`, caches it in `session["user_ctx"]`, and clears stale session keys when the user is missing/disabled.
+
+`get_login_url()` → `/users/login`, `get_logout_url()` → `/users/logout`. The provider's `get_public_paths()` declares these prefixes anonymous (in addition to the framework defaults `/health`, `/static/`, `/api/docs`, `/api/redoc`, `/openapi.json`, `/i18n/`, `/`):
+
+`/users/login`, `/users/register`, `/users/forgot-password`, `/users/reset-password`, `/users/verify`, `/users/invite/accept`, `/api/users/auth/`, `/api/users/register`.
+
+Anything else without a session redirects to `/users/login` (or returns 401 JSON for `/api/*` / bearer requests).
 
 ## Roles cache
 
@@ -244,5 +275,5 @@ Components:
 ## Notes
 
 - `cookie_secure` is automatically flipped to `False` in dev (`SM_ENVIRONMENT=development`) so login works over plain HTTP. Don't override it in non-dev environments.
-- `LoginRateLimiter` keys by lowercased email, so an attacker spreading attempts across emails won't be slowed down — pair with WAF / IP-based rate limiting in front for that.
+- `LoginRateLimiter` keys login attempts by `lowercased-email::client-ip`. Counters live in-process (no Redis), so a multi-worker deployment has independent counters per worker — swap for a Redis-backed store when running more than one worker.
 - The functional `lower(email)` index makes case-insensitive lookups fast on Postgres; on SQLite the lookup falls back to `LOWER(email) = ?` which still uses the regular index.

@@ -23,7 +23,7 @@ smpy create-module my_feature         # scaffold a publishable module package
 smpy create-host bare-host            # scaffold a bare host (no opinionated wiring)
 ```
 
-Built-in commands: `smpy new`, `smpy create-host`, `smpy create-module`.
+Built-in commands: `smpy new`, `smpy create-host`, `smpy create-module`, `smpy package-update`, and `smpy skills {list,add,update}`.
 
 When other framework packages are installed, they contribute additional subcommands via the `simple_module_cli.cli_plugins` entry-point group:
 

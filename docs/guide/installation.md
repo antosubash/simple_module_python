@@ -56,7 +56,7 @@ smpy new myapp --preset standard --with background_tasks,file_storage
 | `standard` (default) | `minimal` + `dashboard`, `permissions` |
 | `full` | `standard` + `settings`, `feature_flags`, `file_storage`, `background_tasks` |
 
-`simple_module_settings` is also installed as a baseline dependency of every scaffolded host (regardless of preset), so the Settings admin UI is available even in `minimal`. Dependencies between modules are resolved automatically — e.g. `users` always pulls in `auth`.
+Dependencies between modules are resolved automatically — e.g. `users` always pulls in `auth`, and `file_storage` pulls in `settings`. The `settings` module ships only in the `full` preset (or when added explicitly with `--with settings`).
 
 After scaffolding, `smpy new` runs `uv sync`, `npm install`, and `alembic upgrade head` for you (skip with `--no-install` if you'd rather drive that yourself).
 
@@ -82,20 +82,20 @@ Hit `http://localhost:8000`. You should see the landing page.
 SM_DATABASE_URL=sqlite+aiosqlite:///./app.db
 ```
 
-For Postgres:
+For Postgres, scaffold with `--db postgres` (or pick Postgres in the wizard) and `smpy new` writes a matching `SM_DATABASE_URL`:
 
 ```bash
 SM_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/myapp
 ```
 
-The scaffolded `docker-compose.yml` brings up a `postgres` container on `:5432` (and a `redis` container on `:6379` when you include `background_tasks`):
+A `docker-compose.yml` is only generated when you include the `background_tasks` module; it brings up `postgres` (db `simple_module`, user `sm`/`sm`) on `:5432`, `redis` on `:6379`, and the `host`/`worker`/`beat` services:
 
 ```bash
 docker compose up -d postgres
 make migrate
 ```
 
-See [Configuration](/guide/configuration) for the full list of env vars.
+Without `background_tasks`, bring your own Postgres (or stay on the default SQLite). See [Configuration](/guide/configuration) for the full list of env vars.
 
 ## Create the first admin
 
@@ -121,7 +121,7 @@ Then `make migrate && make dev`.
 smpy create-module orders --dest modules/orders
 ```
 
-That generates `modules/orders/` with the full layout (model, contracts, service, endpoints, pages, tests, locales, `pyproject.toml` entry point). Add the package to your app's dependencies and re-sync:
+That generates a publishable module package at `modules/orders/` with the starter layout — `module.py` (its `ModuleBase` subclass + entry point), `services.py`, `settings.py`, a REST `endpoints/api.py`, an empty `pages/` dir, tests, and `pyproject.toml`/`package.json`/`tsconfig.json`. Flesh out models, contracts, views, and pages as your domain needs them. Add the package to your app's dependencies and re-sync:
 
 ```bash
 uv add ./modules/orders
@@ -142,7 +142,7 @@ Pass `--dry-run` first to preview the diff.
 
 ## Troubleshooting
 
-**`sm: command not found`** after `uv tool install`.
+**`smpy: command not found`** after `uv tool install`.
 Run `uv tool update-shell` (or restart your shell) so the tool's bin dir is on PATH.
 
 **Port already in use.**

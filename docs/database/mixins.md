@@ -19,18 +19,18 @@ class Order(
     ...
 ```
 
-Each mixin adds columns and attaches SQLAlchemy event listeners. The session dependency (`get_db`) wires the request user / tenant into those listeners so writes are stamped automatically.
+Each mixin adds columns; the framework's SQLAlchemy event listeners (registered once per engine in `simple_module_db.listeners`) populate them. Auth and tenant middleware push the current user / tenant into contextvars (`current_user_id`, `current_tenant_id`) that those listeners read, so writes are stamped automatically.
 
 ## `AuditMixin`
 
 Adds:
 
-- `created_at: datetime` — set on INSERT.
-- `updated_at: datetime` — set on INSERT and on every UPDATE.
-- `created_by: int | None` — stamped from `request.state.principal.user_id`.
-- `updated_by: int | None` — same, on every update.
+- `created_at: datetime` — populated both Python-side (`default_factory`) and server-side (`server_default=func.now()`), so a freshly-instantiated instance can be serialized before flush.
+- `updated_at: datetime | None` — `None` until the first UPDATE; set by the audit listener and by the column's `onupdate=func.now()`.
+- `created_by: str | None` — stamped from the `current_user_id` contextvar.
+- `updated_by: str | None` — same, on insert and on every update.
 
-A `before_insert` listener and a `before_update` listener populate these. When no principal is in scope (e.g. a migration data-migration or a boot-time seeder), `created_by` and `updated_by` stay null. The timestamps always fire.
+The `before_flush` listener populates `created_by`/`updated_by` and `updated_at`. When no principal is in scope (e.g. a migration data-migration or a boot-time seeder), `created_by` and `updated_by` stay null.
 
 Use on every table that participates in business workflows. Skip on pure enum / lookup tables.
 
@@ -40,11 +40,11 @@ Adds:
 
 - `is_deleted: bool` — default `False`.
 - `deleted_at: datetime | None`.
-- `deleted_by: int | None`.
+- `deleted_by: str | None`.
 
-On `session.delete(instance)`, a `before_delete` listener converts the delete into an UPDATE that sets the three fields. The row stays.
+On `session.delete(instance)`, the `before_flush` listener cancels the hard delete and re-adds the instance with the three fields set, so the row stays as an UPDATE.
 
-Selects auto-filter soft-deleted rows. A `before_compile` query rewrite appends `WHERE is_deleted = FALSE` to any query touching a `SoftDeleteMixin` table.
+Selects auto-filter soft-deleted rows. A `do_orm_execute` listener attaches a per-mapper `with_loader_criteria(cls, cls.is_deleted.is_(False))` to every SELECT touching a `SoftDeleteMixin` table.
 
 ### Bypass for admin / audit
 
@@ -76,40 +76,25 @@ Use sparingly — audit trails and downstream systems may depend on historical r
 
 Adds:
 
-- `tenant_id: str` — populated from `request.state.tenant_id` (set by `TenantMiddleware`).
+- `tenant_id: str | None` — Python-side optional (so callers don't have to thread the tenant through), but the **column is non-nullable**. `TenantMiddleware` sets `request.state.tenant_id` and pushes it into the `current_tenant_id` contextvar; the `before_flush` listener reads that contextvar to stamp the column.
 
 ### Automatic filtering
 
-When `SM_MULTI_TENANT=true` and a request has an active tenant, selects auto-filter: `WHERE tenant_id = :current_tenant`. The filter runs for every `SELECT` that touches a `MultiTenantMixin` table.
+When `SM_MULTI_TENANT=true` and a request has an active tenant, the `do_orm_execute` listener attaches `with_loader_criteria(cls, cls.tenant_id == tenant_id)` to every SELECT touching a `MultiTenantMixin` table.
 
 ### Automatic stamping
 
-INSERTs populate `tenant_id` from the request context. Cross-tenant writes raise `ValueError` — if a session somehow ends up with two tenants' rows, the commit fails loudly.
+INSERTs populate `tenant_id` from the `current_tenant_id` contextvar. Creating a row for a different tenant than the active one — or changing `tenant_id` on an existing row — raises `TenantIsolationError`.
 
 ### Bypass
 
-Admin operations that span tenants (billing consolidation, platform-wide reports) need to opt out:
-
-```python
-stmt = select(Order).execution_options(skip_tenant_filter=True)
-```
-
-Or run inside a context manager that clears the tenant:
-
-```python
-from simple_module_db.tenancy import no_tenant
-
-async with no_tenant():
-    rows = (await session.exec(select(Order))).all()
-```
-
-Use these escape hatches **rarely** and in well-named admin endpoints; they defeat the primary isolation guarantee.
+A row inserted outside any tenant context (no active `current_tenant_id`) is stamped `None` and, because the column is non-nullable, fails at the DB rather than silently leaking. There is no per-statement `skip_tenant_filter` option or `no_tenant()` helper today; cross-tenant admin operations run outside a tenant-scoped request (e.g. a CLI or background worker where `current_tenant_id` is unset).
 
 ## `VersionedMixin`
 
 Adds:
 
-- `version: int` — default `1`, incremented on every UPDATE via `before_update` listener.
+- `version: int` — default `1`, incremented on every UPDATE by the `before_flush` listener.
 
 Useful for optimistic concurrency control: check the version didn't change between read and write, abort if it did.
 

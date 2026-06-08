@@ -10,7 +10,7 @@ npm install --save-dev @simple-module-py/tsconfig
 
 ## What it provides
 
-- `base.json` — the canonical compiler options for simple_module apps. Targets ES2022, `strict: true`, `module: "ESNext"`, `moduleResolution: "bundler"`, JSX `react-jsx`, `allowImportingTsExtensions: true`, `verbatimModuleSyntax: true`.
+- `base.json` — the canonical compiler options for simple_module apps. Targets ES2022, `strict: true`, `module: "ESNext"`, `moduleResolution: "bundler"`, JSX `react-jsx`, `noEmit: true`, `esModuleInterop: true`, `skipLibCheck: true`, with `types: ["vite/client", "node"]`.
 
 ## Usage
 

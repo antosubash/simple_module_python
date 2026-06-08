@@ -2,7 +2,7 @@
 
 Module-system primitives for the [simple_module](https://github.com/antosubash/simple_module_python) framework — a modular-monolith for Python/FastAPI where each feature is a plugin package discovered at boot.
 
-This package defines `ModuleBase`, the `ModuleMeta` descriptor, the `discover_modules()` entry-point loader, topological dependency sorting, event bus primitives, and the diagnostic codes (`SM001`–`SM017`) used by `make doctor`.
+This package defines `ModuleBase`, the `ModuleMeta` descriptor, the `discover_modules()` entry-point loader, topological dependency sorting, event bus primitives, and the diagnostic codes (`SM001`–`SM021`) used by `make doctor`.
 
 ## Install
 
@@ -17,7 +17,7 @@ You usually don't install this directly — it's pulled in by `simple_module_hos
 - `ModuleBase` — the subclass every module extends to opt into lifecycle hooks.
 - `ModuleMeta` — required `meta = ModuleMeta(name=..., depends_on=...)` attribute on each module.
 - `discover_modules()` — loads all `[project.entry-points.simple_module]` modules, topologically sorts by `depends_on`.
-- Diagnostic registry — `SM001` missing meta, `SM003` orphan page, `SM008` duplicate name, `SM009` framework→plugin coupling violation, and ~ten others.
+- Diagnostic registry — `SM001` missing meta, `SM003` orphan page, `SM008` duplicate name, `SM009` framework→plugin coupling violation, and the rest of the `SM0xx` set through `SM021`.
 - Tiny event-bus (`pyee`) for decoupled module-to-module communication.
 
 ## Usage

@@ -53,7 +53,7 @@ class OrderLine(Base, table=True):
     order: "Order" = Relationship(back_populates="lines")
 ```
 
-For cross-module foreign keys, use the `contracts/` schema of the target module to know the expected column shape — but remember every module manages its own migrations, so the target table must exist at migration time. Cross-module FKs also complicate module uninstall; prefer application-level references where possible.
+For cross-module foreign keys, use the `contracts/` schema of the target module to know the expected column shape — but remember migrations are centralized (one linear Alembic history under `host/migrations/`), so the target table's migration must come first. Cross-module FKs also complicate module uninstall; prefer application-level references where possible.
 
 ## DTOs (schemas)
 
@@ -132,7 +132,7 @@ class Order(Base, table=True):
 
 class OrderLine(Base, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    order_id: int = Field(foreign_key="orders.order.id")
+    order_id: int = Field(foreign_key="orders_order.id")
     order: Order = Relationship(back_populates="lines")
 ```
 
