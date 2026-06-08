@@ -112,13 +112,14 @@ modules/orders/orders/pages/
 Shared layouts live in `packages/ui/src/layouts/`. Use them via JSX composition:
 
 ```tsx
-import { AuthenticatedLayout } from "@simple-module-py/ui";
+import { AuthenticatedLayout, PageShell } from "@simple-module-py/ui";
 
 export default function Browse({ orders }) {
   return (
     <AuthenticatedLayout>
-      <PageHeader title="Orders" />
-      ...
+      <PageShell title="Orders">
+        ...
+      </PageShell>
     </AuthenticatedLayout>
   );
 }
