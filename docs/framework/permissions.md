@@ -123,7 +123,7 @@ export default function OrdersToolbar() {
 
 ## Testing with permissions
 
-The `authenticated_client` fixture in `conftest.py` seeds an admin user (who has `*`). For tests that need a less-privileged user, build one from the `users` module fixtures or flip the principal temporarily:
+The `authenticated_client` fixture from the `simple_module_test` plugin seeds an admin user (who has `*`). For tests that need a less-privileged user, build one from the `users` module fixtures or flip the principal temporarily:
 
 ```python
 @pytest.mark.asyncio

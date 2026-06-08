@@ -110,7 +110,7 @@ Cross-tenant admin work runs outside a tenant-scoped request (a CLI or worker wh
 
 ## Sessions in tests
 
-The `db_session` fixture in `conftest.py` creates a fresh in-memory SQLite DB, creates every module's tables, stamps `alembic_version` at head, and yields an `AsyncSession`. Each test gets a fresh one — no shared state, no transaction rollback hacks.
+The `db_session` fixture from the `simple_module_test` plugin creates a fresh in-memory SQLite DB, creates every module's tables, stamps `alembic_version` at head, and yields an `AsyncSession`. Each test gets a fresh one — no shared state, no transaction rollback hacks.
 
 ```python
 @pytest.mark.asyncio

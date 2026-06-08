@@ -98,7 +98,7 @@ Meaningful codes when reading `make doctor` output: `SM001` missing meta (error)
 
 ## Tests & fixtures
 
-Root `conftest.py` provides app-level fixtures available to every test directory:
+The `simple_module_test` plugin provides app-level fixtures available to every test directory — auto-loaded via its `pytest11` entry point (defined in `framework/testing/simple_module_test/fixtures.py`), so the root `conftest.py` is intentionally thin:
 - `settings` — in-memory SQLite `Settings` with `multi_tenant=True`.
 - `db_state`, `engine`, `db_session` — fresh in-memory `DatabaseState` per test; `db_session` also creates all module tables and stamps `alembic_version` at head so the boot-time migration check passes.
 - `app` — `create_app(settings)` with lifespan started/stopped.

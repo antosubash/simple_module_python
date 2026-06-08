@@ -287,7 +287,7 @@ async def test_create_and_list_orders(authenticated_client):
     assert any(o["id"] == created["id"] for o in r.json())
 ```
 
-The `authenticated_client` fixture from `conftest.py` seeds an admin user and carries a signed session cookie. The `db_session` fixture creates all module tables and stamps the Alembic head so the boot-time migration check passes. See [Fixtures](/testing/fixtures).
+The `authenticated_client` fixture from the `simple_module_test` plugin seeds an admin user and carries a signed session cookie. The `db_session` fixture creates all module tables and stamps the Alembic head so the boot-time migration check passes. See [Fixtures](/testing/fixtures).
 
 Run:
 

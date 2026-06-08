@@ -220,6 +220,6 @@ Historical, point-in-time design docs live under [`docs/plans/`](docs/plans/) an
 
 ## Contributing
 
-- Write tests with the fixtures in `conftest.py` (`db_session`, `authenticated_client`).
+- Write tests with the fixtures from the `simple_module_test` plugin (`db_session`, `authenticated_client`).
 - Lint with `make lint` before pushing; CI runs all four checks in parallel.
 - Stick to the conventions in `docs/framework-conventions.md` — they're what diagnostics enforce.
