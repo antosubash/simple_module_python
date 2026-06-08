@@ -177,6 +177,29 @@ class TestCreateHost:
         settings_import_idx = main_py.index("from simple_module_hosting import")
         assert dotenv_idx < settings_import_idx
 
+    async def test_main_py_pins_host_dir_on_syspath_before_chdir(self, tmp_path):
+        """Regression for #194: scaffolded main.py must pin the host dir on
+        ``sys.path`` (absolute) *before* ``os.chdir``, so ``from routes import``
+        still resolves after the chdir. uvicorn launches the app as ``main:app``
+        with ``sys.path[0] == ''`` (the cwd, resolved lazily); once main.py
+        chdirs to the repo root that entry points at the wrong dir and the
+        sibling ``routes`` module is no longer importable.
+        """
+        from simple_module_cli.scaffolding import create_host
+
+        dest = tmp_path / "demo"
+        create_host(dest, name="demo", modules=[])
+        main_py = (dest / "main.py").read_text(encoding="utf-8")
+
+        assert "sys.path.insert(0, str(_HOST_DIR))" in main_py
+        syspath_idx = main_py.index("sys.path.insert(0, str(_HOST_DIR))")
+        chdir_idx = main_py.index("os.chdir(")
+        # The real import statement (the comment uses "from routes import ...").
+        routes_idx = main_py.index("from routes import router")
+        assert syspath_idx < chdir_idx < routes_idx, (
+            "sys.path pin must precede os.chdir, which must precede the routes import"
+        )
+
     async def test_cli_create_host_runs_end_to_end(self, tmp_path):
         """The Click `smpy create-host` command produces a working scaffold."""
         from simple_module_cli.cli import app

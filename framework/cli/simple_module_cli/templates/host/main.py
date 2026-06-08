@@ -5,25 +5,38 @@ via entry_points; add them to this host's pyproject.toml to install them.
 """
 
 import os
+import sys
 from pathlib import Path
 
 from simple_module_core.dotenv import load_dotenv_into_environ
 
+# Pin this host directory on ``sys.path`` as an ABSOLUTE path *before* the
+# chdir below, so ``from routes import ...`` resolves no matter what the cwd
+# is. The scaffolded Makefile launches the app as ``cd host && uvicorn
+# main:app``; uvicorn puts the launch cwd on ``sys.path`` as the empty string
+# ``''`` (resolved lazily against the *current* cwd). Once we chdir to the
+# repo root, that ``''`` entry points at the wrong directory and the sibling
+# ``routes`` module is no longer importable — and the ``--reload`` subprocess
+# re-imports via the same path, so it breaks there too. See GH #194.
+_HOST_DIR = Path(__file__).resolve().parent
+_REPO_ROOT = _HOST_DIR.parent
+if str(_HOST_DIR) not in sys.path:
+    sys.path.insert(0, str(_HOST_DIR))
+
 # Resolve the workspace root from this file's location so the web process
-# behaves the same regardless of where uvicorn was launched (the scaffolded
-# Makefile uses ``cd host && uvicorn main:app``, but ``uv run --project host``
-# or a wheel deployment may run from elsewhere). chdir up front so cwd-relative
-# paths in ``.env`` (e.g. ``sqlite+aiosqlite:///./host/app.db``) resolve
-# consistently; load ``.env`` into ``os.environ`` so framework code reading
-# ``os.environ.get("SM_…")`` directly sees the same values pydantic does.
-_REPO_ROOT = Path(__file__).resolve().parent.parent
+# behaves the same regardless of where uvicorn was launched (``uv run
+# --project host`` or a wheel deployment may run from elsewhere). chdir up
+# front so cwd-relative paths in ``.env`` (e.g.
+# ``sqlite+aiosqlite:///./host/app.db``) resolve consistently; load ``.env``
+# into ``os.environ`` so framework code reading ``os.environ.get("SM_…")``
+# directly sees the same values pydantic does.
 os.chdir(_REPO_ROOT)
 load_dotenv_into_environ(_REPO_ROOT / ".env")
 
-from simple_module_hosting import Settings, create_app
-from simple_module_hosting.logging import setup_logging
+from simple_module_hosting import Settings, create_app  # noqa: E402
+from simple_module_hosting.logging import setup_logging  # noqa: E402
 
-from routes import router as host_router
+from routes import router as host_router  # noqa: E402
 
 settings = Settings()
 

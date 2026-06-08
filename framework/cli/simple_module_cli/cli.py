@@ -23,6 +23,7 @@ from simple_module_cli.package_update import package_update
 from simple_module_cli.plugins import discover_and_mount
 from simple_module_cli.scaffolding import create_host as _create_host
 from simple_module_cli.scaffolding import create_module as _create_module
+from simple_module_cli.scaffolding import resolve_framework_version
 from simple_module_cli.skills_cmd import app as skills_app
 
 app = typer.Typer(
@@ -68,7 +69,7 @@ def create_host(
     typer.echo("  uv sync")
     typer.echo("  cp .env.example .env")
     typer.echo('  alembic revision --autogenerate -m "initial schema"')
-    typer.echo("  alembic upgrade head")
+    typer.echo("  alembic upgrade heads")
     typer.echo("  python main.py")
 
 
@@ -85,7 +86,10 @@ def create_module(
     package = slug.replace("-", "_")
     target = dest or Path.cwd() / f"simple_module_{package}"
     try:
-        _create_module(target, name=name)
+        # Pin framework deps to the installed framework version so the module
+        # resolves against the app that created it (the template's >=1.0,<2.0
+        # ranges don't exist on PyPI pre-1.0). See GH #195.
+        _create_module(target, name=name, framework_version=resolve_framework_version())
     except FileExistsError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(code=1) from exc

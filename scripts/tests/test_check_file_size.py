@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -202,3 +203,63 @@ class TestMain:
     def test_module_runs_as_script(self) -> None:
         assert hasattr(check_file_size, "main")
         assert callable(check_file_size.main)
+
+
+def _git(args: list[str], cwd: Path) -> None:
+    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
+
+
+def _init_repo(root: Path) -> None:
+    _git(["init"], root)
+    _git(["config", "user.email", "test@example.com"], root)
+    _git(["config", "user.name", "Test"], root)
+    _git(["config", "commit.gpgsign", "false"], root)
+
+
+class TestGitCandidateCollection:
+    """Default (git) mode must scan the working tree, not just the index.
+
+    Regression for GH #204: an oversized file that is untracked but not
+    gitignored used to pass ``make lint`` (git ls-files lists only tracked
+    paths) and then fail only after being committed.
+    """
+
+    def test_default_scan_catches_untracked_not_ignored(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _init_repo(tmp_path)
+        tracked = tmp_path / "tracked.py"
+        tracked.write_text("a\n" * 320, encoding="utf-8")
+        _git(["add", "tracked.py"], tmp_path)
+        _git(["commit", "-m", "init"], tmp_path)
+
+        untracked = tmp_path / "untracked.py"
+        untracked.write_text("a\n" * 330, encoding="utf-8")
+
+        (tmp_path / ".gitignore").write_text("ignored.py\n", encoding="utf-8")
+        ignored = tmp_path / "ignored.py"
+        ignored.write_text("a\n" * 340, encoding="utf-8")
+
+        exit_code = main(["--root", str(tmp_path)])  # default = git mode
+        out = capsys.readouterr().out
+
+        assert exit_code == 1
+        assert "tracked.py" in out
+        assert "untracked.py" in out, "untracked-but-not-ignored file must be scanned (#204)"
+        assert "ignored.py" not in out, "gitignored files stay out of scope"
+
+    def test_default_scan_passes_when_only_violation_is_ignored(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _init_repo(tmp_path)
+        (tmp_path / "ok.py").write_text("a\n" * 10, encoding="utf-8")
+        _git(["add", "ok.py"], tmp_path)
+        _git(["commit", "-m", "init"], tmp_path)
+
+        (tmp_path / ".gitignore").write_text("build/\n", encoding="utf-8")
+        build = tmp_path / "build"
+        build.mkdir()
+        (build / "huge.py").write_text("a\n" * 500, encoding="utf-8")
+
+        assert main(["--root", str(tmp_path)]) == 0
+        assert "huge.py" not in capsys.readouterr().out
