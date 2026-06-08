@@ -56,7 +56,17 @@ def create_host(
     target = dest or Path.cwd() / name
     selected = [m.strip() for m in modules.split(",") if m.strip()]
     try:
-        _create_host(target, name=name, modules=selected)
+        # Pin the host's framework + module deps to the installed framework
+        # version so the generated host's first `uv sync` resolves (the
+        # template's >=1.0,<2.0 / >=0.1,<1.0 ranges don't exist pre-1.0). The
+        # workspace `smpy new` path rewrites these via _rewrite_pyproject, but
+        # standalone create-host never did — see GH #206.
+        _create_host(
+            target,
+            name=name,
+            modules=selected,
+            framework_version=resolve_framework_version(),
+        )
     except FileExistsError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(code=1) from exc

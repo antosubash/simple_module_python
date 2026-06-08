@@ -12,9 +12,12 @@ Primary exports:
 * :func:`build_test_app` — return a minimal FastAPI app loading exactly
   one module, with an in-memory SQLite DB.
 
-The corresponding pytest fixtures are ``fake_event_bus``, ``test_app``,
-``test_client``, and ``test_db_session``. See ``simple_module_test.plugin``
-for their definitions.
+The pytest plugin auto-registers these fixtures (no imports needed):
+``fake_event_bus``, ``build_test_app``, ``settings``, ``db_state``,
+``engine``, ``db_session``, ``app``, ``client``, and ``authenticated_client``.
+See ``simple_module_test.plugin`` (and ``simple_module_test.fixtures``) for
+their definitions. ``authenticated_client`` additionally requires the ``users``
+module to be installed — it seeds an admin via ``users.bootstrap``.
 """
 
 from simple_module_test.app_factory import build_test_app

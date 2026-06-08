@@ -15,6 +15,7 @@ is picked up automatically — no framework hook, no per-module registration.
 
 from __future__ import annotations
 
+import importlib
 import logging
 from importlib.metadata import entry_points
 
@@ -47,9 +48,59 @@ def _discover_task_packages() -> list[str]:
     return sorted(packages)
 
 
+def _collect_module_beat_schedules(packages: list[str]) -> dict:
+    """Merge every installed module's optional ``tasks.BEAT_SCHEDULE`` mapping.
+
+    A module registers periodic work the same way it registers tasks — by
+    shipping a ``tasks.py`` — and additionally exporting a module-level
+    ``BEAT_SCHEDULE`` dict of ``{entry_name: celery beat entry}``. Because
+    ``build_celery`` runs identically in the web and worker processes, this is
+    worker-safe and deterministic, unlike runtime registration via
+    ``add_periodic_task`` / the ``on_after_finalize`` signal (and unlike the
+    commonly-cited ``on_after_configure``, which never fires here — see GH #199).
+
+    Importing ``<pkg>.tasks`` is idempotent (autodiscover imports the same
+    modules), so doing it eagerly here has no extra side effects.
+    """
+    merged: dict = {}
+    for pkg in packages:
+        try:
+            tasks_mod = importlib.import_module(f"{pkg}.tasks")
+        except ModuleNotFoundError:
+            continue  # module ships no tasks.py — nothing to schedule
+        schedule_dict = getattr(tasks_mod, "BEAT_SCHEDULE", None)
+        if not isinstance(schedule_dict, dict):
+            continue
+        for name, entry in schedule_dict.items():
+            if name in merged:
+                logger.warning(
+                    "Beat entry %r from %s.tasks overrides an earlier module's entry", name, pkg
+                )
+            merged[name] = entry
+    return merged
+
+
 def build_celery(settings: BackgroundTasksSettings) -> Celery:
     """Construct a Celery app wired to the project's Redis broker."""
     celery = Celery(MODULE_NAME)
+
+    packages = _discover_task_packages()
+
+    # The two internal entries always ship; modules contribute more via their
+    # own ``tasks.BEAT_SCHEDULE``. ``setdefault`` keeps the built-ins authoritative
+    # if a module reuses one of their entry names. See GH #199.
+    beat_schedule = {
+        "background-tasks-sweep-stuck": {
+            "task": INTERNAL_TASK_SWEEP_STUCK,
+            "schedule": schedule(settings.stuck_sweep_interval_seconds),
+        },
+        "background-tasks-purge-old": {
+            "task": INTERNAL_TASK_PURGE_OLD,
+            "schedule": schedule(settings.purge_interval_seconds),
+        },
+    }
+    for name, entry in _collect_module_beat_schedules(packages).items():
+        beat_schedule.setdefault(name, entry)
 
     celery.conf.update(
         broker_url=settings.broker_url,
@@ -74,22 +125,12 @@ def build_celery(settings: BackgroundTasksSettings) -> Celery:
         timezone="UTC",
         enable_utc=True,
         broker_connection_retry_on_startup=True,
-        beat_schedule={
-            "background-tasks-sweep-stuck": {
-                "task": INTERNAL_TASK_SWEEP_STUCK,
-                "schedule": schedule(settings.stuck_sweep_interval_seconds),
-            },
-            "background-tasks-purge-old": {
-                "task": INTERNAL_TASK_PURGE_OLD,
-                "schedule": schedule(settings.purge_interval_seconds),
-            },
-        },
+        beat_schedule=beat_schedule,
         beat_scheduler="celery.beat:PersistentScheduler",
     )
 
     # Autodiscover across every installed simple_module — a module just ships
     # a `tasks.py` and the worker picks it up.
-    packages = _discover_task_packages()
     logger.info("Celery autodiscover_tasks across: %s", packages)
     celery.autodiscover_tasks(packages, related_name="tasks", force=True)
 
