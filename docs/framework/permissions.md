@@ -49,7 +49,7 @@ async def create_order(...): ...
 async def export_orders(...): ...
 ```
 
-`RequiresPermission` raises `HTTPException(403)` if the current principal lacks the permission. Unauthenticated requests return 401 — the auth middleware runs earlier and attaches `request.state.principal`.
+`RequiresPermission` raises `HTTPException(403)` if the current user lacks the permission. Unauthenticated requests return 401 — `AuthMiddleware` runs earlier and attaches `request.state.user` (a `UserContext`) plus the resolved permission set on `request.state.resolved_permissions`.
 
 ## Roles
 
@@ -69,49 +69,49 @@ Host apps customize this by:
 
 The framework ships only `admin: ["*"]`. The wildcard grants every declared permission.
 
-## Principal resolution
+## User resolution
 
-For each request, middleware resolves the current **principal** — a normalized user snapshot with expanded permissions — onto `request.state.principal`:
+For each request, `AuthMiddleware` resolves the authenticated user onto `request.state.user` as a `UserContext` (from `auth.contracts.schemas`):
 
 ```python
 @dataclass
-class Principal:
-    user_id: int | None
-    email: str | None
-    roles: list[str]
-    permissions: set[str]
+class UserContext:
+    id: str
+    email: str
+    name: str
+    roles: list[str] = field(default_factory=list)
+    tenant_id: str | None = None
 ```
 
-The `users` module owns the extraction from the session cookie. The framework's `InertiaLayoutDataMiddleware` reads `request.state.principal` and serializes `auth.user`, `auth.isAuthenticated`, `auth.permissions` into the Inertia shared props.
+The active auth provider (the `users` or `keycloak` module) owns extraction from the session cookie / bearer token. `InertiaLayoutDataMiddleware` then expands roles into a permission set (cached on `request.state.resolved_permissions`) and serializes `auth.user`, `auth.isAuthenticated`, `auth.permissions` into the Inertia shared props. `UserContext` carries roles, not permissions — permissions are derived from the `PermissionRegistry.role_map`.
 
-## Permission shorthand for menus
+## Role shorthand for menus
 
-`MenuItem.required_permission` hides an item from users who don't have it. Evaluated in `InertiaLayoutDataMiddleware` *before* sending the menu to the client — the client never sees menu items it can't use.
+`MenuItem.roles` hides an item from users who hold none of the listed roles (an empty list = visible to all authenticated users); `requires_auth` (default `True`) hides it from anonymous visitors. Filtering happens in `MenuRegistry.get_for_user`, called by `InertiaLayoutDataMiddleware` *before* the menu reaches the client — so the client never sees menu items it can't use.
 
 ```python
 registry.add(MenuItem(
     section=MenuSection.SIDEBAR,
-    key="orders",
-    label_key="orders.menu.orders",
-    href="/orders",
-    required_permission="orders.view",
+    label="orders.menu.orders",
+    url="/orders",
+    roles=["admin"],
 ))
 ```
 
-If you need a conjunction of permissions, use a comma-separated string (`"a,b"` means both) or a dedicated `required_any_of: list[str]` — see `simple_module_core.menu`.
+Menu visibility is **role**-based (`MenuItem` has no `required_permission` field) — see `simple_module_core.menu`. Enforce the actual permission on the endpoint with `RequiresPermission`.
 
 ## Client-side checks
 
 The Inertia shared props include `auth.permissions`. Use them for UI affordances (hide/disable buttons), not for security:
 
 ```tsx
-import { useAuth } from "@simple-module-py/ui";
+import { usePermissions } from "@simple-module-py/ui/hooks/use-permissions";
 
 export default function OrdersToolbar() {
-  const { permissions } = useAuth();
+  const { can } = usePermissions();
   return (
     <div>
-      {permissions.has("orders.create") && (
+      {can("orders.create") && (
         <Button>Create order</Button>
       )}
     </div>
@@ -128,14 +128,15 @@ The `authenticated_client` fixture in `conftest.py` seeds an admin user (who has
 ```python
 @pytest.mark.asyncio
 async def test_create_requires_permission(client, db_session):
-    # Create a user without `orders.create`
-    from users.bootstrap import create_user
-    user = await create_user(db_session, email="u@e.com", password="x")
-    # Sign in via HTTP to get the session cookie
+    # Create a user without `orders.create` (e.g. via the users
+    # registration flow or by inserting a users.models.User row directly —
+    # users.bootstrap only ships create_admin).
+    ...
+    # Sign in via the local-auth API to get the session cookie.
     r = await client.post(
-        "/users/login", data={"email": "u@e.com", "password": "x"}
+        "/api/users/auth/login", data={"username": "u@e.com", "password": "x"}
     )
-    assert r.status_code in (200, 303)
+    assert r.status_code in (200, 204)
 
     r = await client.post("/api/orders", json={...})
     assert r.status_code == 403
@@ -146,4 +147,4 @@ async def test_create_requires_permission(client, db_session):
 - **Namespace with the module name.** `orders.create`, not `create_order`.
 - **Use `<module>.<verb>` form.** Nouns like `orders.admin` are fine for broad grants.
 - **Don't inline string checks.** `if "orders.create" in principal.permissions: ...` scattered through code is hard to audit. Use `RequiresPermission` or refactor into a dependency.
-- **Don't use roles in business logic.** Check permissions, not `principal.roles`. Roles are an admin concept; permissions are the enforcement boundary.
+- **Don't use roles in business logic.** Check permissions, not `user.roles`. Roles are an admin concept; permissions are the enforcement boundary.

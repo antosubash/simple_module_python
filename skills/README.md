@@ -47,7 +47,7 @@ The CLI is [vercel-labs/skills](https://github.com/vercel-labs/skills); see its 
 | [simple-module-locales](./simple-module-locales/SKILL.md) | Adding or debugging i18n in a module — `locale_dirs()`, namespaces, CLDR plurals, the Zod-in-hook rule |
 | [simple-module-registries](./simple-module-registries/SKILL.md) | Contributing menu items, permissions, feature flags, or events from a module |
 | [simple-module-testing](./simple-module-testing/SKILL.md) | Writing pytest tests — picking the right fixture (`db_session` / `app` / `authenticated_client`), single-test runs, e2e |
-| [simple-module-doctor](./simple-module-doctor/SKILL.md) | Interpreting a diagnostic code (`SM001`–`SM018`) printed at boot |
+| [simple-module-doctor](./simple-module-doctor/SKILL.md) | Interpreting a diagnostic code (`SM001`–`SM021`) printed at boot |
 
 The skills are designed to stand alone — install them into any host or module-package project and they'll work without needing access to the framework's source repo.
 

@@ -4,22 +4,25 @@ Starlette's `app.add_middleware(...)` is **LIFO**. The last middleware added is 
 
 ## Installation order (inside `create_app`)
 
+The actual `add_middleware` call order (in `install_middleware`) is the
+**reverse** of execution order, because the first added wraps innermost:
+
 ```python
-# Added last → executed first (outermost wrapper)
-app.add_middleware(CorrelationIdMiddleware)
-app.add_middleware(RequestLoggingMiddleware)
-app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(SessionMiddleware, secret_key=...)
+# Added first → executed last (closest to the app)
+app.add_middleware(InertiaLayoutDataMiddleware, ...)
+app.add_middleware(LocaleMiddleware, ...)
+
+if settings.multi_tenant:
+    app.add_middleware(TenantMiddleware, ...)
 
 for module in discovered_modules:
     module.register_middleware(app)   # each module may add 0+ middleware
 
-if settings.multi_tenant:
-    app.add_middleware(TenantMiddleware)
-
-app.add_middleware(LocaleMiddleware)
-app.add_middleware(InertiaLayoutDataMiddleware)
-# Added first → executed last (closest to the app)
+app.add_middleware(SessionMiddleware, secret_key=...)
+app.add_middleware(SecurityHeadersMiddleware, ...)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(CorrelationIdMiddleware)
+# Added last → executed first (outermost wrapper)
 ```
 
 ## Execution order (per request)
@@ -88,7 +91,7 @@ Emits a structured log line per request with method, path, status, duration, and
 
 ### `SecurityHeadersMiddleware`
 
-Sets conservative defaults: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY`, plus CSP / HSTS in production. Override on a per-route basis with your own response headers.
+Sets conservative defaults: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: SAMEORIGIN`, `X-XSS-Protection: 0` (the legacy auditor is disabled in favour of CSP), plus a default CSP and — outside development — HSTS. In development the CSP is widened for the Vite dev origin and HSTS is suppressed. Override on a per-route basis with your own response headers.
 
 ### `SessionMiddleware`
 
@@ -96,7 +99,7 @@ Starlette's built-in signed-cookie sessions. Cookie name is `session`; attribute
 
 ### `TenantMiddleware` *(opt-in)*
 
-Reads `SM_TENANT_HEADER` (default `X-Tenant-ID`) and sets `request.state.tenant_id`. The `MultiTenantMixin` auto-filters SELECTs and auto-populates INSERTs using this value.
+Resolves the tenant — first from the authenticated user's `tenant_id`, then (if the configured header is enabled, default name `X-Tenant-ID` via `SM_TENANT_HEADER`) from that request header — and sets both `request.state.tenant_id` and the `current_tenant_id` ContextVar. The `MultiTenantMixin` auto-filters SELECTs and auto-populates INSERTs using this value.
 
 ### `LocaleMiddleware`
 

@@ -14,7 +14,7 @@ You get the distribution benefits of microservices — teams can own a module, s
 | Migrations | Alembic |
 | Frontend bridge | Inertia.js |
 | Frontend | React 19 + Tailwind CSS 4 + Vite |
-| Auth | fastapi-users (local email+password, cookie sessions) |
+| Auth | Pluggable auth providers — local email+password (cookie sessions) or Keycloak OIDC, with a principal-resolver chain (session or bearer token) |
 | Tooling | uv (Python), npm (JS), Ruff, ty, Biome, pytest, Playwright |
 
 ## When to reach for this

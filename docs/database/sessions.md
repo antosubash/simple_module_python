@@ -5,13 +5,13 @@ Each request opens exactly one `AsyncSession`. The framework commits only when t
 ## The `get_db` dependency
 
 ```python
-# simple_module_db.session
-async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
-    engine = request.app.state.sm.db.engine_for(...)
-    async with AsyncSession(engine) as session:
+# simple_module_db.deps
+async def get_db(request: Request) -> AsyncGenerator[AsyncSession, None]:
+    factory = request.app.state.sm.db.session_factory
+    async with factory() as session:
         try:
             yield session
-            if _has_writes(session):
+            if _has_pending_writes(session):
                 await session.commit()
             else:
                 await session.rollback()
@@ -26,7 +26,7 @@ Usage in endpoints:
 from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from simple_module_db.session import get_db
+from simple_module_db.deps import get_db
 
 SessionDep = Annotated[AsyncSession, Depends(get_db)]
 
@@ -87,26 +87,26 @@ Flushing sends the INSERT but keeps the transaction open. Rollback still works u
 
 ## Manual transactions
 
-If you need finer control — e.g. a background worker that processes many items in its own transactions — use `DatabaseState` directly:
+If you need finer control — e.g. a background worker that processes many items in its own transactions — use the `DatabaseState.session_factory` directly:
 
 ```python
-from simple_module_db.state import DatabaseState
+from simple_module_db import DatabaseState
 
 async def worker(db: DatabaseState):
-    async with db.session() as session:
+    async with db.session_factory() as session:
         async with session.begin():
             # explicit transaction block
             session.add(...)
             # commits on exit, rolls back on exception
 ```
 
-The `async with session.begin()` pattern opens a sub-transaction you control. Use it in code that runs **outside** a request scope.
+The `async with session.begin()` pattern opens a transaction you control. Use it in code that runs **outside** a request scope.
 
 ## Sessions and `MultiTenantMixin`
 
-`get_db` captures `request.state.tenant_id` into the session's `info` dict. The tenant listeners read it to filter SELECTs and stamp INSERTs. This is why sessions are **request-scoped** — sharing one across tenants would silently leak data.
+The active tenant is carried in the `current_tenant_id` contextvar (set by `TenantMiddleware`, not on the session). The tenant listeners read that contextvar to filter SELECTs and stamp INSERTs. Sessions stay **request-scoped** so they always run under the request's tenant context — sharing one across tenants would silently leak data.
 
-For cross-tenant admin ops, use `no_tenant()` context or the `skip_tenant_filter=True` execution option. See [Mixins → MultiTenantMixin](/database/mixins).
+Cross-tenant admin work runs outside a tenant-scoped request (a CLI or worker where `current_tenant_id` is unset). See [Mixins → MultiTenantMixin](/database/mixins).
 
 ## Sessions in tests
 

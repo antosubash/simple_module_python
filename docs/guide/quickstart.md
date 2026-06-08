@@ -17,7 +17,7 @@ smpy new myapp --yes
 cd myapp
 ```
 
-`--yes` accepts the defaults (SQLite, no multi-tenancy, the `standard` preset: `auth`, `users`, `dashboard`, `permissions`, plus `settings` as a baseline). The CLI runs `uv sync`, `npm install`, and `alembic upgrade head` for you.
+`--yes` accepts the defaults (SQLite, no multi-tenancy, the `standard` preset: `auth`, `users`, `dashboard`, `permissions`). The CLI runs `uv sync`, `npm install`, and `alembic upgrade head` for you.
 
 For an interactive run with prompts, drop the `--yes`. For a preset + extras: `smpy new myapp --preset standard --with background_tasks,file_storage --yes`.
 
@@ -32,7 +32,7 @@ The API and Vite dev servers start side by side. Visit:
 - `http://localhost:8000` — landing page
 - `http://localhost:8000/users/login` — sign-in screen
 - `http://localhost:8000/dashboard` — the authenticated home (log in first)
-- `http://localhost:8000/settings/modules` — the admin settings UI (log in first)
+- `http://localhost:8000/settings/modules` — the admin settings UI (log in first; only when the `settings` module is installed, e.g. the `full` preset or `--with settings`)
 
 ## 4. Create an admin
 
@@ -51,32 +51,29 @@ smpy create-module orders --dest modules/orders
 uv add ./modules/orders
 ```
 
-This generates `modules/orders/` with:
+This generates a publishable starter module at `modules/orders/` with:
 
 - `pyproject.toml` — `[project.entry-points.simple_module]` → `orders.module:OrdersModule`
 - `package.json` + `tsconfig.json` — JS workspace metadata so `tsc --noEmit` covers the module's `.tsx` pages.
-- `orders/module.py` — `ModuleBase` subclass with `meta = ModuleMeta(name="Orders", ...)`.
-- `orders/models.py` — `Order` SQLModel table with `AuditMixin`.
-- `orders/contracts/schemas.py` — `OrderCreate`, `OrderOut` DTOs.
-- `orders/service.py` — CRUD implementation.
+- `orders/module.py` — `ModuleBase` subclass with `meta = ModuleMeta(name="Orders", ...)`, wiring `register_routes` and `register_settings`.
 - `orders/services.py` — module-scoped state container (stored on `app.state.orders` by `register_settings`).
-- `orders/deps.py` — FastAPI dependencies.
-- `orders/endpoints/api.py` — REST endpoints at `/api/orders`.
-- `orders/endpoints/views.py` — Inertia endpoints at `/orders`.
-- `orders/pages/Browse.tsx`, `Create.tsx`, `Edit.tsx` — React pages.
-- `orders/locales/en.json` — translation namespace.
-- `tests/test_orders.py` — pytest smoke test.
+- `orders/settings.py` — the module's `pydantic_settings` settings class.
+- `orders/endpoints/api.py` — starter REST endpoints at `/api/orders`.
+- `orders/pages/` — empty page dir; add `.tsx` pages (and a `register_routes` view router) as you build views.
+- `tests/test_module.py` — pytest smoke test.
+
+You add the domain model (`models.py`), DTOs (`contracts/`), service, Inertia views, and pages yourself — the [first-module guide](/guide/first-module) walks through that.
 
 `uv add ./modules/orders` adds the package to your app's dependencies; on the next `uv sync` (which `uv add` also runs) the entry point is registered and the module becomes discoverable on next boot.
 
 ## 6. Generate a migration
 
 ```bash
-uv run alembic revision --autogenerate -m "add orders tables"
+make migration msg="add orders tables"
 make migrate
 ```
 
-Alembic's autogenerate picks up the new `orders_*` tables and writes `migrations/versions/XXXX_add_orders_tables.py`. Add `branch_labels = ("orders",)` to that revision so you can later `alembic downgrade orders@base` to roll the module back in isolation.
+`make migration` runs Alembic from the host directory (where `alembic.ini` lives). Autogenerate picks up the new `orders_*` tables and writes `host/migrations/versions/XXXX_add_orders_tables.py`. Add `branch_labels = ("orders",)` to that revision so you can later `alembic downgrade orders@base` to roll the module back in isolation.
 
 ## 7. Hit the module
 

@@ -31,8 +31,8 @@ All day-to-day tasks go through `make`:
 | Command | Purpose |
 |---|---|
 | `make install` | Install Python + JS deps |
-| `make dev` | Docker up + regen module pages + API (8000) and Vite (5173) in parallel |
-| `make kill` | Free ports 8000/5173 |
+| `make dev` | Docker up + regen module pages + API (8000) and Vite (5050) in parallel |
+| `make kill` | Free ports 8000/5050/5173 |
 | `make test` | Run `test-py` then `test-js` (e2e excluded by default) |
 | `make test-py` / `make test-js` | Run a single suite |
 | `make test-e2e` | Playwright smoke tests (requires `make dev` running + `uv run playwright install chromium`) |
@@ -42,7 +42,7 @@ All day-to-day tasks go through `make`:
 | `make new-module name=<name>` | Scaffold a new module package end-to-end |
 | `make gen-pages` | Regenerate `host/client_app/modules.{manifest.json,generated.ts,generated.css}` from installed modules |
 
-Single test: `uv run pytest path/to/test_file.py::test_name` (root `pyproject.toml` sets `asyncio_mode=auto` and `-m 'not e2e'`). A single JS test: `npx vitest run <path>`.
+Single test: `uv run pytest path/to/test_file.py::test_name` (root `pyproject.toml` sets `asyncio_mode=auto` and `-m 'not e2e and not perf'`). A single JS test: `npx vitest run <path>`.
 
 Entry point: `host/main.py` (`uv run --project host uvicorn host.main:app --reload`). Alembic runs from the repo root (`host/alembic.ini`) so it shares the `.env` / `SM_DATABASE_URL` with the API.
 

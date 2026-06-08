@@ -28,7 +28,7 @@ def test_settings_defaults(settings):
 
 ## `db_session`
 
-The workhorse. Creates a fresh in-memory DB, runs `CREATE TABLE` for every module's tables (via `build_module_metadata()`), stamps `alembic_version` at head, and yields an `AsyncSession`.
+The workhorse. Creates a fresh in-memory DB, runs `CREATE TABLE` for every module's tables (iterating `all_module_bases` and calling `base.metadata.create_all`), stamps `alembic_version` at head, and yields an `AsyncSession`.
 
 ```python
 from decimal import Decimal
@@ -121,7 +121,7 @@ async def test_non_admin_denied(client, db_session):
 
 ## Fixture composition
 
-Fixtures compose the expected way — `client` depends on `app`, which depends on `db_session`, which depends on `db_state`, which depends on `settings`. Request only the fixture you need; the DAG pulls in the rest.
+Fixtures compose the expected way — `client` and `authenticated_client` depend on `app`, which depends on `settings` (and creates its own tables on `app.state.sm.db.engine`). The `db_session` / `engine` fixtures depend on `db_state`, which builds its own in-memory engine independent of `settings`. Request only the fixture you need; the DAG pulls in the rest.
 
 Adding your own fixtures at module level:
 

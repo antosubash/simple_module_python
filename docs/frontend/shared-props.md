@@ -5,9 +5,10 @@ Every Inertia response carries a set of shared props attached by `InertiaLayoutD
 ## The contract
 
 ```ts
+// The exported SharedProps type (packages/ui/src/types.ts) covers auth + menus:
 interface SharedProps {
   auth: {
-    user: UserSummary | null;
+    user: { name: string; email: string; roles: string[] } | null;
     isAuthenticated: boolean;
     permissions: string[];
   };
@@ -17,11 +18,13 @@ interface SharedProps {
     navbar: MenuItem[];
     userDropdown: MenuItem[];
   };
-  i18n: {
-    locale: string;
-    bundle: Record<string, string>;
-  };
-  flash: { type: "success" | "error" | "info"; message: string } | null;
+}
+
+// Every Inertia response also carries an `i18n` block (read via usePage().props.i18n):
+interface I18nSharedProps {
+  locale: string;
+  supportedLocales: string[];
+  messages: Record<string, string> | null;   // null on Inertia XHR partials when the locale is unchanged
 }
 ```
 
@@ -29,64 +32,51 @@ interface SharedProps {
 
 `InertiaLayoutDataMiddleware` runs **last** in the middleware pipeline (closest to the app). For every outgoing Inertia response, it reads:
 
-- `request.state.principal` (set by the users module's auth middleware) and the registered `principal_serializer` to build `auth.user`.
-- `app.state.sm.menu_registry`, filtered by the current principal's permissions, to build `menus`.
+- `request.state.user` (set by the auth middleware) and the registered `app.state.principal_serializer` to build `auth.user`. The user's roles drive `auth.permissions`.
+- `menu_registry.get_for_user(...)`, filtered by the user's auth state and roles, to build `menus`.
 - `request.state.locale` + `app.state.sm.i18n_registry` to build `i18n`.
-- `request.session.pop("flash", None)` to build `flash`.
 
-Then it merges those into the Inertia payload under the "shared" slot.
+Then it stores the result on `request.state.inertia_shared`, which `get_inertia` (`simple_module_hosting.inertia_deps`) shares into the Inertia payload.
 
 ## Accessing from a page
 
-### Typed helpers
-
-Prefer the helpers from `@simple-module-py/ui`:
-
-```tsx
-import { useAuth, useMenus, useT } from "@simple-module-py/ui";
-
-export default function Browse() {
-  const { user, permissions } = useAuth();
-  const { sidebar } = useMenus();
-  const { t, locale } = useT();
-  ...
-}
-```
-
-### Raw
-
-For cases where a helper doesn't cover your need, use Inertia's `usePage`:
+Read `auth` / `menus` via Inertia's `usePage` and the exported `SharedProps` type; use `useT` from `@simple-module-py/i18n` for translations:
 
 ```tsx
 import { usePage } from "@inertiajs/react";
+import { useT } from "@simple-module-py/i18n";
 import type { SharedProps } from "@simple-module-py/ui";
 
-const { props } = usePage<SharedProps>();
-console.log(props.auth.user, props.i18n.locale);
+export default function Browse() {
+  const { auth, menus } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const { t } = useT();
+  // auth.user, auth.permissions, menus.sidebar, ...
+}
 ```
+
+The layouts in `@simple-module-py/ui` (`SidebarLayout`, `PublicLayout`, …) read these props for you, so most pages don't touch `usePage` directly.
 
 ## `auth.user` — the principal serializer
 
-The framework doesn't know the shape of your `User`. A module (typically `users`) registers a `principal_serializer: Callable[[User], dict]` during `register_settings`:
+The framework doesn't know the shape of your `User`. A module (the `auth` module) assigns a serializer to `app.state.principal_serializer` during `register_settings`:
 
 ```python
-# modules/users/users/module.py
-class UsersModule(ModuleBase):
-    def register_settings(self, app: FastAPI) -> None:
-        app.state.sm.inertia_config.register_principal_serializer(
-            serialize_user
-        )
-
-def serialize_user(user: User) -> dict:
+# modules/auth/auth/module.py
+def _serialize_principal(user: UserContext) -> dict:
     return {
         "id": user.id,
+        "name": user.name,
         "email": user.email,
-        "full_name": user.full_name,
-        "roles": [r.name for r in user.roles],
+        "roles": user.roles,
     }
+
+class AuthModule(ModuleBase):
+    def register_settings(self, app: FastAPI) -> None:
+        app.state.auth = AuthState()
+        app.state.principal_serializer = _serialize_principal
 ```
 
-Without a registered serializer, `auth.user` is `None` even when a user is authenticated. This is intentional — the framework has no opinion on what a "user" is. If you replace the users module with your own auth, register your own serializer.
+Without a registered serializer, `auth.user` is `None` even when a user is authenticated. This is intentional — the framework has no opinion on what a "user" is. If you replace the auth module with your own, register your own serializer on `app.state.principal_serializer`.
 
 ## Menus
 
@@ -95,28 +85,29 @@ Populated from the `MenuRegistry`. Each module adds items during `register_menu_
 ```python
 registry.add(MenuItem(
     section=MenuSection.SIDEBAR,
-    key="orders",
-    label_key="orders.menu.orders",
-    href="/orders",
+    label="Orders",
+    url="/orders",
     icon="package",
-    required_permission="orders.view",
+    requires_auth=True,
+    roles=["admin"],   # empty list = visible to all authenticated users
     order=20,
 ))
 ```
 
-`InertiaLayoutDataMiddleware` filters by `required_permission` before sending — users who lack it never see the item.
+`menu_registry.get_for_user(is_authenticated=..., roles=...)` filters by `requires_auth` and `roles` before sending — users without a matching role never see the item.
 
-Render in a layout:
+Render in a layout via `usePage` and the `SharedProps` type:
 
 ```tsx
-import { useMenus } from "@simple-module-py/ui";
+import { usePage } from "@inertiajs/react";
+import type { MenuItem, SharedProps } from "@simple-module-py/ui";
 
 export function Sidebar() {
-  const { sidebar } = useMenus();
+  const { menus } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
   return (
     <nav>
-      {sidebar.map((item) => (
-        <a key={item.key} href={item.href}>
+      {menus.sidebar.map((item: MenuItem) => (
+        <a key={item.url} href={item.url}>
           {item.label}
         </a>
       ))}
@@ -125,49 +116,36 @@ export function Sidebar() {
 }
 ```
 
-Labels are **pre-translated**. The middleware runs through `I18nRegistry` before serializing, so the client just renders `item.label`.
+Labels are passed through as `item.label` — the module supplies the display string when it registers the item.
 
-## `flash` — flash messages
+## Toasts
 
-Flash a message server-side with Starlette's session:
-
-```python
-@router.post("")
-async def create(...):
-    ...
-    request.session["flash"] = {"type": "success", "message": "Order created"}
-    return RedirectResponse("/orders", status_code=303)
-```
-
-`InertiaLayoutDataMiddleware` pops and forwards it. Consume in a toast component:
+There is no `flash` shared prop. Pages fire toasts directly from their own request callbacks using `sonner`:
 
 ```tsx
-import { useFlash } from "@simple-module-py/ui";
-import { useEffect } from "react";
 import { toast } from "sonner";
 
-export function FlashToaster() {
-  const flash = useFlash();
-  useEffect(() => {
-    if (flash) toast[flash.type](flash.message);
-  }, [flash]);
-  return null;
-}
+router.post("/api/orders", data, {
+  onSuccess: () => toast.success("Order created"),
+  onError: () => toast.error("Failed to create order"),
+});
 ```
 
-Shows once per request, then gone.
+For server-driven error messages, the Inertia config enables fastapi-inertia's `use_flash_errors`, which surfaces validation errors on the page's `errors` prop.
 
-## `i18n` — the active bundle
+## `i18n` — the active messages
 
-`useT` reads the bundle and exposes `t(key, params?)`:
+`useT` (from `@simple-module-py/i18n`, a re-export of react-i18next's `useTranslation`) exposes `t(key, params?)`:
 
 ```tsx
-const { t, locale } = useT();
+import { useT } from "@simple-module-py/i18n";
+
+const { t } = useT();
 t("orders.browse.title");
 t("orders.items", { count: orders.length });   // pluralization
 ```
 
-The bundle is the **resolved locale's** translations merged across all modules. Switching the locale (via `<LocaleSwitcher />` or a direct POST to `/i18n/set-locale`) triggers a full-page navigation so the bundle is re-fetched.
+The `i18n.messages` block is the **resolved locale's** translations merged across all modules. Switching the locale (via `<LocaleSwitcher />`, which POSTs to `/i18n/set-locale`) triggers a full-page navigation so the messages are re-fetched. The active locale and supported locales are on `usePage().props.i18n` (`locale`, `supportedLocales`).
 
 ## Extending shared props
 
@@ -177,7 +155,7 @@ If your module needs to inject a new shared prop (e.g. feature flags), do **not*
 class FeatureFlagsSharedPropsMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         flags = request.app.state.sm.feature_flags.evaluate_all(
-            principal=getattr(request.state, "principal", None)
+            principal=getattr(request.state, "user", None)
         )
         if not hasattr(request.state, "inertia_shared"):
             request.state.inertia_shared = {}

@@ -8,36 +8,33 @@ Celery + Redis background-task module for [simple_module](https://github.com/ant
 pip install simple_module_background_tasks
 ```
 
-Requires a Redis broker — set `SM_CELERY_BROKER_URL` (default `redis://localhost:6379/0`).
+Requires a Redis broker. The broker / result-backend URLs are module settings (`broker_url`, default `redis://localhost:6379/0`; `result_backend`, default `redis://localhost:6379/1`) configured from the DB settings store via the admin UI — they are not read from environment variables at runtime. These fields are `requires_restart` (changing them needs a worker/web restart).
 
 ## What it provides
 
-- `register_background_tasks()` module hook — modules declare tasks here; the registry wires them into the Celery app at boot.
-- Admin UI at `/background-tasks/admin` — list recent runs, retry failed, inspect tracebacks.
-- Shared Celery app accessible via `from background_tasks import celery_app` (import name `background_tasks`, distribution name `simple_module_background_tasks`).
+- Zero-config task discovery — any installed module that ships a `tasks.py` has its tasks autodiscovered (`celery.autodiscover_tasks` imports `<package>.tasks` for every installed module). No per-module registration hook.
+- Admin UI at `/admin/background-tasks` — list recent runs, retry failed, inspect tracebacks (gated by the `background_tasks.view` permission).
+- `build_celery(settings)` factory in `background_tasks.celery_app`, plus `bind_task_context` / `get_log_context` / `install_log_filter` exported from the package root (import name `background_tasks`, distribution name `simple_module_background_tasks`).
 
 ## Usage
 
-Declare a task in a module:
+Declare a task in a module's `tasks.py` with Celery's `@shared_task` — it's autodiscovered, no registration hook needed:
 
 ```python
 # modules/reports/reports/tasks.py
-from background_tasks import celery_app   # type: ignore[import-not-found]
+from celery import shared_task
 
 
-@celery_app.task(name="reports.generate")
+@shared_task(name="reports.generate")
 def generate_report(report_id: int) -> None:
     ...
 ```
 
-Register it:
+Declaring `background_tasks` as a `depends_on` ensures the Celery app is built before your tasks run:
 
 ```python
 class ReportsModule(ModuleBase):
     meta = ModuleMeta(name="reports", depends_on=["background_tasks"])
-
-    def register_background_tasks(self):
-        from . import tasks  # noqa: F401 — side-effect: registers tasks
 ```
 
 Enqueue from an endpoint:
@@ -46,10 +43,11 @@ Enqueue from an endpoint:
 generate_report.delay(report_id=42)
 ```
 
-Run a worker locally:
+Run a worker locally (the scaffolded host ships a `scripts/run_worker.py` that builds the app via `build_celery`):
 
 ```bash
-uv run celery -A background_tasks.celery_app worker --loglevel=info
+uv run celery -A scripts.run_worker:celery worker -l info
+uv run celery -A scripts.run_worker:celery beat   -l info
 ```
 
 ## Worker log context
@@ -69,8 +67,9 @@ domain `job_id` that named a Celery task is the canonical example):
 
 ```python
 from background_tasks import bind_task_context
+from celery import shared_task
 
-@celery_app.task
+@shared_task
 def process_dataset(job_id: int) -> None:
     with bind_task_context(job_id=job_id):
         logger.info("starting ingest")   # now carries job_id too
@@ -81,7 +80,7 @@ same `contextvars` directly via `structlog.contextvars.merge_contextvars`.
 
 ## Depends on
 
-- `simple_module_core`, `simple_module_db`, `simple_module_hosting`
+- `simple_module_core`, `simple_module_db`, `simple_module_hosting`, `simple_module_settings`
 - `celery[redis]>=5.4`, `redis>=5`
 
 ## License

@@ -7,9 +7,9 @@ Runtime configuration has **two** sources, in order of precedence:
 
 Most deployments only need `SM_DATABASE_URL` and `SM_SECRET_KEY` in the environment — everything else is configurable from the admin UI.
 
-## Framework env vars
+## Framework env vars (bootstrap)
 
-Prefix is always `SM_`. These are parsed by `simple_module_hosting.settings.Settings` (pydantic) at startup.
+Prefix is always `SM_`. These are the pre-DB knobs read by `simple_module_hosting.bootstrap_settings.BootstrapSettings` (pydantic) at startup — they're needed to open the DB, sign cookies, or configure the process, so they can't live in the DB-backed store.
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -19,10 +19,11 @@ Prefix is always `SM_`. These are parsed by `simple_module_hosting.settings.Sett
 | `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only — where the Vite HMR client connects. |
 | `SM_DEBUG` | `false` | Enables debug mode (shows tracebacks in HTTP responses). |
 | `SM_LOG_LEVEL` | `INFO` | `DEBUG`/`INFO`/`WARNING`/`ERROR` |
-| `SM_LOG_FORMAT` | `plain` | `plain` for dev, `json` for structured logs in prod. |
-| `SM_MULTI_TENANT` | `false` | Enables `TenantMiddleware` + `MultiTenantMixin` auto-filter. |
-| `SM_TENANT_HEADER` | `X-Tenant-ID` | HTTP header that identifies the current tenant. |
+| `SM_LOG_FORMAT` | `json` | `json` (structured) or `text`. |
 | `SM_MODULES_ENABLED` | unset (all enabled) | Comma-separated allow-list to disable modules without uninstalling them. |
+| `SM_AUTH_PUBLIC_PATHS` | `[]` | JSON array of anonymous-access path prefixes — a host-level escape hatch. Modules should prefer the `register_public_routes` hook. |
+
+Multi-tenancy (`multi_tenant`, `tenant_header`) and i18n (`i18n_default_locale`, `i18n_supported_locales`, `i18n_cookie_name`) are **DB-backed host settings** now, not env vars — edit them under `host` at `/settings/modules`. (`smpy new --tenancy` still writes `SM_MULTI_TENANT=true` into `.env.example` as a scaffold convenience, and tests can override these.)
 
 ## Database bootstrap knobs
 
@@ -30,45 +31,42 @@ Only change if you know what you're doing — these must be set *before* the DB 
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SM_DB_POOL_SIZE` | `5` | SQLAlchemy `pool_size` |
-| `SM_DB_MAX_OVERFLOW` | `10` | SQLAlchemy `max_overflow` |
+| `SM_DB_POOL_SIZE` | `10` | SQLAlchemy `pool_size` |
+| `SM_DB_MAX_OVERFLOW` | `20` | SQLAlchemy `max_overflow` |
 | `SM_DB_POOL_PRE_PING` | `true` | Test connections before use |
 | `SM_DB_POOL_RECYCLE` | `1800` | Recycle connections after N seconds |
 
 ## Internationalization
 
-| Variable | Default | Notes |
+These are **DB-backed host settings** (under `host` in `/settings/modules`), not env vars.
+
+| Setting | Default | Notes |
 |---|---|---|
-| `SM_I18N_DEFAULT_LOCALE` | `en` | Must be in `SM_I18N_SUPPORTED_LOCALES`. |
-| `SM_I18N_SUPPORTED_LOCALES` | `en` | Comma-separated, e.g. `en,es,de`. |
-| `SM_I18N_COOKIE_NAME` | `locale` | Cookie that stores the user's selected locale. |
+| `i18n_default_locale` | `en` | Must be in `i18n_supported_locales`. |
+| `i18n_supported_locales` | `["en"]` | List of supported locales, e.g. `["en", "es", "de"]`. |
+| `i18n_cookie_name` | `locale` | Cookie that stores the user's selected locale. |
 
 ## Users module
 
-Prefix `SM_USERS_*`. These live in the env for bootstrap; everything else moved to the DB-backed settings store.
+Only the first-boot **bootstrap seed** is read from the env (prefix `SM_USERS_*`). Signup policy, mailer, SMTP creds, and base URL all moved to the DB-backed settings store — edit them under `users` at `/settings/modules`.
 
 | Variable | Default | Notes |
 |---|---|---|
 | `SM_USERS_BOOTSTRAP_EMAIL` | unset | Auto-creates an admin if set **and** `users_user` is empty. |
 | `SM_USERS_BOOTSTRAP_PASSWORD` | unset | Paired with the email above. |
-| `SM_USERS_ALLOW_SIGNUP` | `false` | If `true`, `/users/register` is public. |
-| `SM_USERS_MAILER` | `console` | `console` (logs invite link to stdout) or `smtp`. |
-| `SM_USERS_BASE_URL` | derived | The public URL used to build invite links. |
-| `SM_USERS_SMTP_HOST` | — | Only when `SM_USERS_MAILER=smtp`. |
-| `SM_USERS_SMTP_PORT` | `587` | |
-| `SM_USERS_SMTP_USERNAME` | — | |
-| `SM_USERS_SMTP_PASSWORD` | — | |
-| `SM_USERS_SMTP_FROM` | — | |
-| `SM_USERS_SMTP_TLS` | `true` | |
+| `SM_USERS_BOOTSTRAP_USER_EMAIL` | unset | Optional second, non-admin seed user. |
+| `SM_USERS_BOOTSTRAP_USER_PASSWORD` | unset | Paired with the user email above. |
+
+DB-backed users settings (defaults): `allow_signup=false`, `mailer=console` (or `smtp`), `base_url=http://localhost:8000`, and the `smtp_*` fields (`smtp_port=587`, `smtp_from=no-reply@localhost`, `smtp_tls=true`).
 
 ## Background tasks (Celery)
 
-Prefix `SM_BG_TASKS_*`. The defaults in `docker-compose.yml` already set these so Celery can reach the in-container `redis` service before DB-backed settings are loaded.
+The broker/result settings are DB-backed (under `background_tasks` in `/settings/modules`) with the defaults below. The generated `docker-compose.yml` sets `SM_BG_TASKS_BROKER_URL` / `SM_BG_TASKS_RESULT_BACKEND` on the `worker` and `beat` containers so they reach the in-container `redis` service.
 
-| Variable | Default | Notes |
+| Setting | Default | Notes |
 |---|---|---|
-| `SM_BG_TASKS_BROKER_URL` | `redis://localhost:6379/0` | Celery broker. |
-| `SM_BG_TASKS_RESULT_BACKEND` | `redis://localhost:6379/1` | Celery result backend. |
+| `broker_url` | `redis://localhost:6379/0` | Celery broker. |
+| `result_backend` | `redis://localhost:6379/1` | Celery result backend. |
 
 ## DB-backed settings
 
