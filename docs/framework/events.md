@@ -146,7 +146,7 @@ async def test_place_order_publishes_event(db_session, app):
     assert received[0].customer_email == "a@b.c"
 ```
 
-The `app` fixture from `conftest.py` provides a fresh app with a fresh `EventBus` per test.
+The `app` fixture from the `simple_module_test` plugin provides a fresh app with a fresh `EventBus` per test.
 
 ## Design guidelines
 

@@ -54,7 +54,7 @@ features:
   <a class="sm-card" href="/framework/overview"><h3>Framework</h3><p>Discovery, lifecycle hooks, middleware, permissions, events, i18n.</p></a>
   <a class="sm-card" href="/database/models"><h3>Database</h3><p>SQLModel conventions, per-module Base, mixins, sessions, Alembic.</p></a>
   <a class="sm-card" href="/frontend/inertia"><h3>Frontend</h3><p>Inertia page keys, shared props, page discovery, React layout.</p></a>
-  <a class="sm-card" href="/testing/overview"><h3>Testing</h3><p>The fixtures in <code>conftest.py</code>, unit tests, end-to-end tests.</p></a>
+  <a class="sm-card" href="/testing/overview"><h3>Testing</h3><p>The <code>simple_module_test</code> plugin fixtures, unit tests, end-to-end tests.</p></a>
   <a class="sm-card" href="/modules/"><h3>Modules</h3><p>Reference for each bundled module: routes, contracts, settings.</p></a>
   <a class="sm-card" href="/reference/make-commands"><h3>Reference</h3><p>CLI commands, env vars, diagnostic codes, deployment.</p></a>
 </div>

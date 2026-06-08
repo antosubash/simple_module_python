@@ -29,7 +29,8 @@ The root `pyproject.toml` sets `asyncio_mode = "auto"`. Async tests don't need `
 ## File layout
 
 ```text
-conftest.py                    # root fixtures: app, db_session, client, authenticated_client
+conftest.py                    # intentionally thin — shared fixtures ship in the simple_module_test plugin
+framework/testing/             # simple_module_test plugin: app, db_session, client, authenticated_client fixtures
 framework/<pkg>/tests/         # tests against each framework package (core, db, hosting, cli, testing)
 host/tests/                    # host-level tests
 modules/<name>/tests/          # per-module pytest tests
@@ -93,5 +94,5 @@ Before marking a test flaky, check:
 
 ## Next steps
 
-- [Fixtures](/testing/fixtures) — the shared fixtures in `conftest.py` and how to extend them.
+- [Fixtures](/testing/fixtures) — the shared fixtures from the `simple_module_test` plugin and how to extend them.
 - [E2E tests](/e2e-testing) — the Playwright suite.

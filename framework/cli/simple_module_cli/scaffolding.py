@@ -28,6 +28,10 @@ from simple_module_cli.case import (
     validate_scaffold_name,
 )
 
+# Re-exported so the scaffolders and their long-standing callers keep importing
+# version pinning from one place; the implementations live in pins.py.
+from simple_module_cli.pins import pin_framework_deps, resolve_framework_version
+
 __all__ = [
     "SAFE_PRESERVED_NAMES",
     "create_host",
@@ -57,57 +61,15 @@ def _module_to_pypi_name(name: str) -> str:
     return f"simple_module_{name.lower()}"
 
 
-def resolve_framework_version() -> str:
-    """Resolve the framework version that scaffolded apps should pin against.
+def _should_pin_framework_version(version: str | None) -> bool:
+    """Whether ``version`` is a concrete pin rather than a skip sentinel.
 
-    The CLI ships in lockstep with the rest of the framework (one
-    ``bump_version.py`` rewrites every ``pyproject.toml``), so its own
-    installed distribution version is the source of truth. Falls back to a
-    placeholder for editable installs lacking dist-info — never reached from a
-    release wheel.
+    Both scaffolders skip pinning for ``None`` (a library caller that wants the
+    template's ranges kept verbatim) and ``"*"`` (the npm-wildcard default,
+    which would otherwise render the invalid PEP 508 specifier ``==*``). One
+    rule, so the two paths can't drift. See GH #195 / #206.
     """
-    from importlib.metadata import PackageNotFoundError
-    from importlib.metadata import version as pkg_version
-
-    try:
-        return pkg_version("simple_module_cli")
-    except PackageNotFoundError:
-        return "0.0.0"
-
-
-def _pin_one(dep: str, version: str) -> str:
-    """Pin a single ``simple_module_*`` requirement to ``==version``; else pass through."""
-    pkg = dep.split(">=", 1)[0].split("==", 1)[0].split("<", 1)[0].strip()
-    if pkg.startswith(("simple_module_", "simple-module-")):
-        return f"{pkg}=={version}"
-    return dep
-
-
-def pin_framework_deps(pyproject_path: Path, version: str) -> None:
-    """Pin every ``simple_module_*`` requirement in a pyproject to ``==version``.
-
-    The module template ships forward-looking ranges (``>=1.0,<2.0``) against
-    the framework's eventual stable line, but the published distributions are
-    pre-1.0 (``0.0.x``), so those ranges resolve to nothing on PyPI. Rewriting
-    to an exact pin lets a freshly created module resolve against the framework
-    version that created it — e.g. ``uv add ./modules/<name>`` into the same
-    workspace. Both ``dependencies`` and every ``optional-dependencies`` extra
-    (the ``dev`` extra pins ``simple_module_test``) are rewritten. See GH #195.
-    """
-    import tomlkit
-
-    doc = tomlkit.parse(pyproject_path.read_text(encoding="utf-8"))
-    project = doc.get("project")
-    if project is None:
-        return
-    deps = project.get("dependencies")
-    if deps is not None:
-        project["dependencies"] = [_pin_one(dep, version) for dep in deps]
-    optional = project.get("optional-dependencies")
-    if optional is not None:
-        for extra, items in list(optional.items()):
-            optional[extra] = [_pin_one(dep, version) for dep in items]
-    pyproject_path.write_text(tomlkit.dumps(doc), encoding="utf-8")
+    return bool(version) and version != "*"
 
 
 def _iter_template_files(template_root: Path):
@@ -242,6 +204,12 @@ def create_host(
         },
         preserve_existing=preserve_existing,
     )
+    # Pin every simple_module_* host dep (framework packages *and* selected
+    # bundled modules) to the lockstep version so the host's first `uv sync`
+    # resolves — the template's >=1.0,<2.0 / >=0.1,<1.0 ranges match nothing
+    # against pre-1.0 dists. See GH #206.
+    if _should_pin_framework_version(framework_version):
+        pin_framework_deps(dest / "pyproject.toml", framework_version)
     logger.info(
         "Scaffolded host '%s' at %s (modules: %s)", name, dest, ", ".join(modules) or "<none>"
     )
@@ -257,11 +225,11 @@ def create_module(
 ) -> Path:
     """Scaffold a module package at ``dest``.
 
-    When ``framework_version`` is given, the template's forward-looking
-    ``simple_module_*`` ranges are rewritten to an exact pin so the module
-    resolves against that framework version (e.g. ``uv add`` into the workspace
-    that created it). Left as ``None``, the template's ranges are kept verbatim.
-    See GH #195.
+    When ``framework_version`` is a concrete version, the template's
+    forward-looking ``simple_module_*`` ranges are rewritten to an exact pin so
+    the module resolves against that framework version (e.g. ``uv add`` into the
+    workspace that created it). Left as ``None`` (or the ``"*"`` sentinel), the
+    template's ranges are kept verbatim. See GH #195.
     """
     dest = Path(dest)
     existed_before = dest.exists()
@@ -281,7 +249,7 @@ def create_module(
             },
             path_rewrites={_PACKAGE_PATH_TOKEN: package_name},
         )
-        if framework_version is not None:
+        if _should_pin_framework_version(framework_version):
             pin_framework_deps(dest / "pyproject.toml", framework_version)
     except Exception:
         # Rollback so a half-scaffolded directory doesn't leave the user

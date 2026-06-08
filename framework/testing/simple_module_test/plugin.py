@@ -15,6 +15,21 @@ import pytest
 from simple_module_test.app_factory import build_test_app as _build_test_app
 from simple_module_test.fake_events import FakeEventBus
 
+# Re-export the headline app/db/client fixtures the README advertises. pytest
+# collects fixture-decorated attributes of the plugin module, so importing them
+# here registers them for every test run that installs simple_module_test —
+# without a per-consumer conftest. Treat this surface like a public API: deleting
+# one breaks external modules' suites. See GH #200.
+from simple_module_test.fixtures import (  # noqa: F401
+    app,
+    authenticated_client,
+    client,
+    db_session,
+    db_state,
+    engine,
+    settings,
+)
+
 
 def _bootstrap_eager_celery() -> None:
     """Register a process-wide eager Celery app before any test runs.

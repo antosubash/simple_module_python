@@ -32,6 +32,32 @@ send_receipt.delay(order_id=42)
 
 Every dispatch / start / completion / failure / retry / revoke is recorded in the `background_tasks_task_execution` table by Celery signal handlers, so you can see history even after the Celery result backend has expired the result.
 
+## Scheduling periodic work (beat)
+
+A module schedules recurring work the same way it registers tasks — by shipping a `tasks.py` — and additionally exporting a module-level `BEAT_SCHEDULE` dict. `build_celery` merges every installed module's `BEAT_SCHEDULE` into the beat schedule at boot (identically in the web and worker processes), so `make beat` runs them alongside the built-ins:
+
+```python
+# modules/invoices/invoices/tasks.py
+from celery import shared_task
+from celery.schedules import crontab
+
+@shared_task(name="invoices.generate_recurring")
+def generate_recurring() -> int:
+    ...
+
+# Discovered by build_celery and merged into the beat schedule.
+BEAT_SCHEDULE = {
+    "invoices-generate-recurring-daily": {
+        "task": "invoices.generate_recurring",
+        "schedule": crontab(hour=6, minute=0),  # 0 6 * * *
+    },
+}
+```
+
+Entry values are plain Celery [beat entries](https://docs.celeryq.dev/en/stable/userguide/periodic-tasks.html#entries): `schedule` accepts a number of seconds, a `crontab(...)`, or a `solar(...)`. The two built-in entry names (`background-tasks-sweep-stuck`, `background-tasks-purge-old`) are authoritative — a module reusing one is ignored with a warning.
+
+> **Don't reach for `from celery.signals import on_after_configure`.** It's an *app-instance* signal (not a member of `celery.signals`, so the import raises), and `build_celery` runs `conf.update(...)` — which fires it — *before* `autodiscover_tasks` imports your `tasks.py`, so a handler would miss the window. The declarative `BEAT_SCHEDULE` dict above is the supported mechanism. If you need entries computed at runtime, Celery's `@app.on_after_finalize.connect` + `sender.add_periodic_task(...)` also works.
+
 ## Running workers
 
 | Command | Use case |
@@ -144,6 +170,8 @@ Bootstrap env-var equivalents (`SM_BG_TASKS_*`) only seed pydantic defaults at f
 | `background_tasks.purge_old_executions` | every `purge_interval_seconds` | deletes terminal rows older than `retention_days` |
 
 A `background_tasks.demo_echo` task is also registered for smoke tests; not scheduled.
+
+Other modules contribute their own periodic entries via `tasks.BEAT_SCHEDULE` — see [Scheduling periodic work (beat)](#scheduling-periodic-work-beat).
 
 ## Events
 

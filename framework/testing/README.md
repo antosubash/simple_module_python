@@ -14,11 +14,15 @@ pip install "simple_module_hosting[dev]"
 
 ## What it provides
 
+All fixtures below are auto-registered via the `pytest11` entry point — installing the package is enough.
+
+- `fake_event_bus` — a fresh recording `EventBus` per test that captures every `publish`/`publish_nowait` call.
+- `build_test_app` — callable returning a minimal FastAPI app that loads exactly one module.
 - `settings` — a ready-to-use `Settings` instance with an in-memory SQLite database and multi-tenancy enabled.
 - `db_state`, `engine`, `db_session` — fresh `DatabaseState` per test; `db_session` also creates all module tables and stamps `alembic_version` at head so the boot-time migration check passes.
 - `app` — a `create_app(settings)` instance with `lifespan` started and stopped.
 - `client` — an `httpx.AsyncClient` bound to the test app.
-- `authenticated_client` — same but with an admin user seeded and a forged session cookie attached.
+- `authenticated_client` — same but with an admin user seeded and a forged session cookie attached. **Requires the `users` module** to be installed (it seeds the admin via `users.bootstrap`); apps scaffolded by `smpy` include it.
 
 ## Usage
 

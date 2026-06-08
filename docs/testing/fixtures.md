@@ -1,6 +1,6 @@
 # Fixtures
 
-The root `conftest.py` provides app-level fixtures that every test directory inherits. Everything you need for a typical integration test — app, DB session, HTTP client, authenticated client — is already wired up.
+The `simple_module_test` plugin provides app-level fixtures that every test directory inherits — auto-loaded via its `pytest11` entry point, so installing the package is enough (no `conftest.py` import needed). Everything you need for a typical integration test — app, DB session, HTTP client, authenticated client — is already wired up.
 
 ## Available fixtures
 
@@ -89,6 +89,8 @@ Same as `client`, but the fixture also:
 1. Seeds an admin user via `users.bootstrap.create_admin(...)`.
 2. Forges a signed session cookie for that user.
 3. Attaches the cookie to the client.
+
+> Because it seeds via `users.bootstrap`, this fixture requires the `users` module to be installed (the import is deferred to the fixture body, so the rest of the plugin loads without it). Apps scaffolded by `smpy` include `users`.
 
 ```python
 @pytest.mark.asyncio

@@ -277,6 +277,11 @@ The package registers pytest fixtures via a `pytest11` entry_point — no
 |---|---|
 | `build_test_app` | Callable `(ModuleCls) -> FastAPI` — wraps a single module in a minimal FastAPI app with its routes registered. |
 | `fake_event_bus` | A `FakeEventBus` that records every `publish`/`publish_nowait` call so tests can assert emitted events. |
+| `settings` | In-memory-SQLite `Settings` (`multi_tenant=True`) for the test app. |
+| `db_state` / `engine` / `db_session` | Fresh in-memory `DatabaseState` per test; `db_session` creates every installed module's tables and stamps `alembic_version` at head. |
+| `app` | A full `create_app(settings)` with lifespan started/stopped. |
+| `client` | `httpx.AsyncClient` bound to the test app (anonymous). |
+| `authenticated_client` | Same, with a seeded admin + signed session cookie. Requires the `users` module installed (seeds via `users.bootstrap`). |
 
 Example test:
 

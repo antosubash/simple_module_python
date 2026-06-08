@@ -67,6 +67,18 @@ Top-level keys in `dashboard/locales/en.json`:
 - `home.system_info_title`, `home.system_info.python_version`, `home.system_info.health_checks`, `home.system_info.modules`
 - `home.welcome_card_title`, `home.description_body`
 
+## Extending it
+
+The bundled dashboard renders a **fixed** set of cards — `dashboard/stats.py` returns a hardcoded shape and the module exposes only `register_routes` + `register_menu_items`. This is intentional: there is **no** `register_dashboard_cards` hook or card/widget registry, and the module deliberately keeps no extension surface so it stays a small, predictable landing template rather than a framework subsystem to maintain.
+
+To show app-specific tiles, **build your own dashboard page in your module** rather than contributing to this one:
+
+- Add an Inertia view route + page (`register_routes` → `pages/Home.tsx`) and a sidebar entry (`register_menu_items`), exactly like any other module page.
+- Make it the post-login landing page by pointing `users.login_redirect_url` at your route (see [Replacing it](#replacing-it)). You can drop the bundled dashboard entirely via `SM_MODULES_ENABLED` minus `dashboard`.
+- Your page can still reuse this module's data — call `GET /api/dashboard/stats` for the system overview alongside your own module's endpoints.
+
+> Resolved as **by design** (GH #203): consumer modules build their own dashboard page; the bundled one is not a contribution point.
+
 ## Replacing it
 
 If you want a different post-login landing page, set `users.login_redirect_url` in the [admin settings UI](/modules/settings) (or via `smpy settings import-from-env` from `SM_USERS_LOGIN_REDIRECT_URL`) to your route. You can keep the dashboard module installed for the menu entry, or set `SM_MODULES_ENABLED` without `dashboard` to drop it entirely. The `users` module auto-detects whether `dashboard` is installed; if not, it redirects to the first other module that exposes view routes (e.g. the GIS module on apps like smpy_gis), falling back to `/` only as a last resort.
