@@ -61,6 +61,17 @@ def _module_to_pypi_name(name: str) -> str:
     return f"simple_module_{name.lower()}"
 
 
+def _should_pin_framework_version(version: str | None) -> bool:
+    """Whether ``version`` is a concrete pin rather than a skip sentinel.
+
+    Both scaffolders skip pinning for ``None`` (a library caller that wants the
+    template's ranges kept verbatim) and ``"*"`` (the npm-wildcard default,
+    which would otherwise render the invalid PEP 508 specifier ``==*``). One
+    rule, so the two paths can't drift. See GH #195 / #206.
+    """
+    return bool(version) and version != "*"
+
+
 def _iter_template_files(template_root: Path):
     """Yield every file under ``template_root``. Skips ``_optional/`` paths."""
     for path in template_root.rglob("*"):
@@ -196,9 +207,8 @@ def create_host(
     # Pin every simple_module_* host dep (framework packages *and* selected
     # bundled modules) to the lockstep version so the host's first `uv sync`
     # resolves — the template's >=1.0,<2.0 / >=0.1,<1.0 ranges match nothing
-    # against pre-1.0 dists. The "*" default skips pinning for direct-library
-    # callers (it would render the invalid specifier `==*`). See GH #206.
-    if framework_version and framework_version != "*":
+    # against pre-1.0 dists. See GH #206.
+    if _should_pin_framework_version(framework_version):
         pin_framework_deps(dest / "pyproject.toml", framework_version)
     logger.info(
         "Scaffolded host '%s' at %s (modules: %s)", name, dest, ", ".join(modules) or "<none>"
@@ -215,11 +225,11 @@ def create_module(
 ) -> Path:
     """Scaffold a module package at ``dest``.
 
-    When ``framework_version`` is given, the template's forward-looking
-    ``simple_module_*`` ranges are rewritten to an exact pin so the module
-    resolves against that framework version (e.g. ``uv add`` into the workspace
-    that created it). Left as ``None``, the template's ranges are kept verbatim.
-    See GH #195.
+    When ``framework_version`` is a concrete version, the template's
+    forward-looking ``simple_module_*`` ranges are rewritten to an exact pin so
+    the module resolves against that framework version (e.g. ``uv add`` into the
+    workspace that created it). Left as ``None`` (or the ``"*"`` sentinel), the
+    template's ranges are kept verbatim. See GH #195.
     """
     dest = Path(dest)
     existed_before = dest.exists()
@@ -239,7 +249,7 @@ def create_module(
             },
             path_rewrites={_PACKAGE_PATH_TOKEN: package_name},
         )
-        if framework_version is not None:
+        if _should_pin_framework_version(framework_version):
             pin_framework_deps(dest / "pyproject.toml", framework_version)
     except Exception:
         # Rollback so a half-scaffolded directory doesn't leave the user

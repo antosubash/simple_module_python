@@ -6,9 +6,12 @@ the broken ``on_after_configure`` signal).
 
 from __future__ import annotations
 
+import importlib
+import logging
 import sys
 import types
 
+import pytest
 from background_tasks import celery_app
 from background_tasks.constants import INTERNAL_TASK_SWEEP_STUCK
 from background_tasks.settings import BackgroundTasksSettings
@@ -49,6 +52,23 @@ class TestCollectModuleBeatSchedules:
         sys.modules["weird.tasks"].BEAT_SCHEDULE = ["not", "a", "dict"]
         assert celery_app._collect_module_beat_schedules(["weird"]) == {}
 
+    def test_propagates_error_from_a_broken_tasks_module(self, monkeypatch):
+        """A tasks.py that *exists* but fails its own import (missing dependency)
+        must surface, not be mistaken for 'module ships no tasks.py' and silently
+        drop its periodic work."""
+        real_import = importlib.import_module
+
+        def fake_import(name, *args, **kwargs):
+            if name == "brokenpkg.tasks":
+                # The module's own `import some_dep` fails — note the missing
+                # name is NOT brokenpkg/brokenpkg.tasks.
+                raise ModuleNotFoundError("No module named 'some_dep'", name="some_dep")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(importlib, "import_module", fake_import)
+        with pytest.raises(ModuleNotFoundError, match="some_dep"):
+            celery_app._collect_module_beat_schedules(["brokenpkg"])
+
 
 class TestBuildCeleryBeatSchedule:
     def test_module_beat_entry_lands_in_schedule(self, monkeypatch):
@@ -66,16 +86,20 @@ class TestBuildCeleryBeatSchedule:
         assert "background-tasks-sweep-stuck" in schedule
         assert "background-tasks-purge-old" in schedule
 
-    def test_builtin_entries_win_on_name_clash(self, monkeypatch):
-        # A module that reuses a built-in entry name must not clobber it.
+    def test_builtin_entries_win_on_name_clash_and_warn(self, monkeypatch, caplog):
+        # A module that reuses a built-in entry name must not clobber it, and the
+        # drop must be diagnosable (not silent).
         rogue = {"task": "rogue.evil", "schedule": 1}
         _install_fake_module(monkeypatch, "rogue", {"background-tasks-sweep-stuck": rogue})
         monkeypatch.setattr(
             celery_app, "_discover_task_packages", lambda: ["background_tasks", "rogue"]
         )
 
-        app = celery_app.build_celery(BackgroundTasksSettings(task_always_eager=True))
+        with caplog.at_level(logging.WARNING, logger=celery_app.__name__):
+            app = celery_app.build_celery(BackgroundTasksSettings(task_always_eager=True))
+
         assert (
             app.conf.beat_schedule["background-tasks-sweep-stuck"]["task"]
             == INTERNAL_TASK_SWEEP_STUCK
         )
+        assert any("clashes with a built-in entry" in r.message for r in caplog.records)

@@ -118,6 +118,18 @@ class TestCreateModule:
         pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
         assert "simple_module_core>=1.0,<2.0" in pyproject
 
+    async def test_create_module_treats_star_as_skip_not_a_pin(self, tmp_path):
+        """The ``"*"`` sentinel keeps the template ranges (same as ``None``) — it
+        must NOT render the invalid PEP 508 specifier ``==*``. Guards the
+        harmonized pin rule shared with create_host."""
+        from simple_module_cli.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-orders"
+        create_module(dest, name="Orders", framework_version="*")
+        pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
+        assert "simple_module_core>=1.0,<2.0" in pyproject
+        assert "==*" not in pyproject
+
     async def test_cli_create_module_pins_to_framework_version(self, tmp_path):
         """The `smpy create-module` command pins framework deps so `uv add`
         resolves into the app that created it (#195)."""

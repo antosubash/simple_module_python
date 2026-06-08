@@ -66,8 +66,14 @@ def _collect_module_beat_schedules(packages: list[str]) -> dict:
     for pkg in packages:
         try:
             tasks_mod = importlib.import_module(f"{pkg}.tasks")
-        except ModuleNotFoundError:
-            continue  # module ships no tasks.py — nothing to schedule
+        except ModuleNotFoundError as exc:
+            # The module simply ships no tasks.py — skip. But a tasks.py that
+            # *exists* and fails to import (its own dependency is missing) must
+            # surface loudly, not be mistaken for "no tasks.py" and silently
+            # drop the module's periodic work.
+            if exc.name in (pkg, f"{pkg}.tasks"):
+                continue
+            raise
         schedule_dict = getattr(tasks_mod, "BEAT_SCHEDULE", None)
         if not isinstance(schedule_dict, dict):
             continue
@@ -100,7 +106,12 @@ def build_celery(settings: BackgroundTasksSettings) -> Celery:
         },
     }
     for name, entry in _collect_module_beat_schedules(packages).items():
-        beat_schedule.setdefault(name, entry)
+        if name in beat_schedule:
+            logger.warning(
+                "Module beat entry %r clashes with a built-in entry; the built-in wins", name
+            )
+            continue
+        beat_schedule[name] = entry
 
     celery.conf.update(
         broker_url=settings.broker_url,
