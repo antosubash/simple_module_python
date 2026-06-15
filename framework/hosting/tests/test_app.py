@@ -27,12 +27,14 @@ class TestCreateApp:
 
     async def test_modules_enabled_limits_loaded_modules(self, settings: Settings):
         """Host respects settings.modules_enabled — only listed modules contribute routes."""
+        from simple_module_test import effective_route_paths
+
         # Only Auth should be loaded; Dashboard routes must be absent.
         restricted = settings.model_copy(update={"modules_enabled": ["Auth"]})
         app = create_app(restricted)
-        paths: set[str] = {str(r.path) for r in app.routes if hasattr(r, "path")}
+        paths = effective_route_paths(app)
         # Auth is now contracts-only, so it has no routes — only health remains.
-        assert "/dashboard" not in paths
+        assert not any(p.startswith("/dashboard") for p in paths)
 
     async def test_module_static_mounts_become_app_routes(
         self,
@@ -203,7 +205,9 @@ class TestResolveProjectRoot:
 class TestRouteRegistration:
     async def test_expected_routes_registered(self, app: FastAPI):
         """All modules should have their routes registered in the app."""
-        route_paths = [r.path for r in app.routes if hasattr(r, "path")]
+        from simple_module_test import effective_route_paths
+
+        route_paths = effective_route_paths(app)
 
         assert "/health" in route_paths
         assert "/health/live" in route_paths
@@ -216,8 +220,9 @@ class TestRouteRegistration:
         # landing page at "/" is owned by the host and added in host/main.py,
         # which the create_app fixture doesn't run.
         assert "/dashboard/" in route_paths
-        # Bare-prefix alias — see wire_module_routes for the X-Inertia rationale.
-        assert "/dashboard" in route_paths
+        # The bare-prefix Inertia alias ("/dashboard" without the slash) is
+        # registered with include_in_schema=False, so it isn't enumerable here;
+        # TestProtectedPages::test_dashboard_redirects_unauthenticated covers it.
 
 
 class TestProtectedPages:
