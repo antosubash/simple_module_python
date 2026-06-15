@@ -23,6 +23,17 @@ my-module/
 └── tests/
 ```
 
+### Standalone vs in-repo: `.github/` workflows
+
+`smpy create-module` ships a `.github/` with `ci.yml` + `publish.yml` (PyPI
+trusted-publishing on a `v*` tag) — useful when the module lives in its **own
+repo**. When you scaffold a module **inside an existing repo/host** (the
+documented `modules/*` monorepo layout), the CLI omits `.github/` by default:
+GitHub only runs workflows from the repository-root `.github/workflows/`, so a
+nested per-module one never runs, and `publish.yml` would be a publish footgun.
+Pass `--standalone` to force the workflows for a module destined for its own
+repo. See GH #210.
+
 ### Service types: concrete class, not Protocol
 
 Export the concrete service class from `<module>.service` and have consumers
