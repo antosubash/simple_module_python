@@ -22,11 +22,13 @@ module to be installed — it seeds an admin via ``users.bootstrap``.
 
 from simple_module_test.app_factory import build_test_app
 from simple_module_test.fake_events import FakeEventBus, RecordedEvent
+from simple_module_test.routes import effective_route_paths
 from simple_module_test.session_cookie import forge_session_cookie
 
 __all__ = [
     "FakeEventBus",
     "RecordedEvent",
     "build_test_app",
+    "effective_route_paths",
     "forge_session_cookie",
 ]
