@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import json as _json
 import secrets as _secrets
-import shutil as _shutil
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -193,10 +192,15 @@ def _scaffold_sample_module(target: Path) -> None:
     # Pin the sample's framework deps to the exact framework version so the
     # workspace resolves (the template's >=1.0,<2.0 ranges don't exist on PyPI
     # pre-1.0). See GH #195.
-    create_module(sample_dest, name=_SAMPLE_MODULE_NAME, framework_version=_FRAMEWORK_VERSION)
-    # GitHub only reads workflows from the repo root, so the template's
-    # .github/ is dead inside a workspace.
-    _shutil.rmtree(sample_dest / ".github")
+    # The sample lives inside the workspace, so it gets no per-module .github/:
+    # GitHub only reads workflows from the repo root, where the template's
+    # .github/ would be dead anyway. See GH #210.
+    create_module(
+        sample_dest,
+        name=_SAMPLE_MODULE_NAME,
+        framework_version=_FRAMEWORK_VERSION,
+        include_ci=False,
+    )
     _seed_static_dist_placeholder(sample_dest / _SAMPLE_MODULE_NAME / "static" / "dist")
 
 

@@ -37,6 +37,7 @@ __all__ = [
     "create_host",
     "create_module",
     "create_workspace",
+    "is_inside_existing_repo",
     "pin_framework_deps",
     "resolve_framework_version",
 ]
@@ -59,6 +60,31 @@ SAFE_PRESERVED_NAMES = frozenset(
 
 def _module_to_pypi_name(name: str) -> str:
     return f"simple_module_{name.lower()}"
+
+
+def is_inside_existing_repo(dest: Path) -> bool:
+    """Return True when ``dest`` lands inside an existing repo / host project.
+
+    A module scaffolded under an existing host application (the documented
+    monorepo ``modules/*`` layout) is an *in-repo* module: GitHub only runs
+    workflows from the repository-root ``.github/workflows/``, so a per-module
+    ``.github/`` is dead weight there — and the bundled ``publish.yml`` (which
+    publishes ``simple_module_<name>`` to PyPI on any ``v*`` tag) is a footgun if
+    it ever surfaces at the repo root. We detect this by walking up from
+    ``dest``'s parent for a ``.git`` directory or a ``pyproject.toml`` (an
+    existing repo / host / workspace member).
+
+    ``dest`` itself is *excluded* from the walk — the module's own scaffolded
+    ``pyproject.toml`` must not count as "an existing host". A truly standalone
+    target (no repo/pyproject above it) returns False. See GH #210.
+    """
+    # ``resolve()`` allows ``dest`` to not exist yet; the walk is over its
+    # absolute parents so a relative ``--dest`` is handled the same way.
+    start = Path(dest).resolve().parent
+    for parent in (start, *start.parents):
+        if (parent / ".git").exists() or (parent / "pyproject.toml").is_file():
+            return True
+    return False
 
 
 def _should_pin_framework_version(version: str | None) -> bool:
@@ -222,6 +248,7 @@ def create_module(
     template_root: Path | None = None,
     *,
     framework_version: str | None = None,
+    include_ci: bool = True,
 ) -> Path:
     """Scaffold a module package at ``dest``.
 
@@ -230,6 +257,12 @@ def create_module(
     the module resolves against that framework version (e.g. ``uv add`` into the
     workspace that created it). Left as ``None`` (or the ``"*"`` sentinel), the
     template's ranges are kept verbatim. See GH #195.
+
+    When ``include_ci`` is False, the scaffolded ``.github/`` (CI + PyPI publish
+    workflows) is omitted. Those nested workflows never run inside an existing
+    host repo (GitHub only reads the repo-root ``.github/``) and ``publish.yml``
+    is a footgun there, so callers creating an *in-repo* module pass
+    ``include_ci=False``. See GH #210.
     """
     dest = Path(dest)
     existed_before = dest.exists()
@@ -249,6 +282,8 @@ def create_module(
             },
             path_rewrites={_PACKAGE_PATH_TOKEN: package_name},
         )
+        if not include_ci:
+            shutil.rmtree(dest / ".github", ignore_errors=True)
         if _should_pin_framework_version(framework_version):
             pin_framework_deps(dest / "pyproject.toml", framework_version)
     except Exception:
