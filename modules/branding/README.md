@@ -8,6 +8,15 @@ applied everywhere the framework would otherwise show the default identity —
 the sidebar/header logo and name, the browser tab title, the favicon, and the
 primary accent colour.
 
+## Screenshots
+
+The admin page at `/branding`, and the same app rebranded as "Acme Analytics"
+(custom logo + name + primary colour) across the sidebar and dashboard:
+
+| Admin page | Branding applied | Across the app |
+|---|---|---|
+| ![Branding admin](../../docs/branding/screenshots/01-branding-admin-default.png) | ![Branding applied](../../docs/branding/screenshots/02-branding-admin-applied.png) | ![Branded dashboard](../../docs/branding/screenshots/03-branded-dashboard.png) |
+
 ## Install
 
 The module ships with the default app. To add it to a custom host, declare it
