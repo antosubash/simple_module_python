@@ -11,12 +11,10 @@ frontend derives a download URL from the id.
 
 from __future__ import annotations
 
-import re
-
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
+from branding.constants import HEX_COLOR_RE, MAX_APP_NAME_LEN
 
 DEFAULT_APP_NAME = "SimpleModule"
 
@@ -37,13 +35,13 @@ class BrandingSettings(BaseSettings):
         cleaned = value.strip()
         if not cleaned:
             raise ValueError("app_name must not be blank")
-        if len(cleaned) > 60:
-            raise ValueError("app_name must be at most 60 characters")
+        if len(cleaned) > MAX_APP_NAME_LEN:
+            raise ValueError(f"app_name must be at most {MAX_APP_NAME_LEN} characters")
         return cleaned
 
     @field_validator("primary_color")
     @classmethod
     def _valid_hex(cls, value: str) -> str:
-        if value and not _HEX_COLOR.match(value):
+        if value and not HEX_COLOR_RE.match(value):
             raise ValueError("primary_color must be a #rrggbb hex string or empty")
         return value.lower()

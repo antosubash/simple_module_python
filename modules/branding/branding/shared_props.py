@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 def file_url(file_id: str) -> str | None:
     """Build the file_storage download URL for a stored file id (or None)."""
-    return FILE_DOWNLOAD_URL.format(file_id) if file_id else None
+    return FILE_DOWNLOAD_URL.format(file_id=file_id) if file_id else None
 
 
 def branding_payload(settings: BrandingSettings) -> dict:

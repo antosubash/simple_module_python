@@ -92,10 +92,8 @@ function ImageField({
 
 function Manage() {
   const { t } = useT();
-  const { branding } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
-  const canManage = (
-    usePage<{ props: SharedProps }>().props as unknown as SharedProps
-  ).auth?.permissions?.includes('branding.manage');
+  const { auth, branding } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const canManage = auth?.permissions?.includes('branding.manage');
 
   const [appName, setAppName] = useState(branding?.appName ?? '');
   const [color, setColor] = useState(branding?.primaryColor ?? '');

@@ -73,3 +73,19 @@ def test_no_providers_leaves_shared_unchanged() -> None:
     body = TestClient(_build_app()).get("/shared").json()
     assert "branding" not in body
     assert "auth" in body and "menus" in body
+
+
+def test_provider_cannot_clobber_framework_keys(caplog) -> None:
+    app = _build_app()
+    # A misbehaving provider tries to overwrite the framework-owned auth block.
+    register_inertia_shared_provider(
+        app, lambda _req: {"auth": "HIJACKED", "branding": {"ok": True}}
+    )
+
+    with caplog.at_level(logging.WARNING, logger="simple_module_hosting.middleware"):
+        body = TestClient(app).get("/shared").json()
+
+    # auth stays the framework's dict; only the non-reserved key is added.
+    assert isinstance(body["auth"], dict)
+    assert body["branding"] == {"ok": True}
+    assert any("reserved shared-prop" in rec.message for rec in caplog.records)

@@ -292,8 +292,18 @@ class InertiaLayoutDataMiddleware:
                     exc_info=True,
                 )
                 continue
-            if extra:
-                shared.update(extra)
+            for key, value in (extra or {}).items():
+                # Don't let a provider clobber framework-owned blocks
+                # (auth/menus/i18n) or an earlier provider's key.
+                if key in shared:
+                    logger.warning(
+                        "InertiaLayoutDataMiddleware: provider %r tried to overwrite "
+                        "reserved shared-prop %r; ignoring",
+                        getattr(provider, "__name__", provider),
+                        key,
+                    )
+                    continue
+                shared[key] = value
 
         request.state.inertia_shared = shared
 

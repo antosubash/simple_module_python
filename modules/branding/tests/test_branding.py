@@ -113,6 +113,12 @@ async def test_update_rejects_bad_hex(authenticated_client: httpx.AsyncClient) -
     assert resp.status_code == 422
 
 
+async def test_update_rejects_blank_app_name(authenticated_client: httpx.AsyncClient) -> None:
+    # A whitespace-only name must be a clean 422, not a 500 from BrandingSettings.
+    resp = await authenticated_client.put("/api/branding/", json={"app_name": "   "})
+    assert resp.status_code == 422
+
+
 async def test_logo_upload_rejects_non_image(authenticated_client: httpx.AsyncClient) -> None:
     resp = await authenticated_client.post(
         "/api/branding/logo",

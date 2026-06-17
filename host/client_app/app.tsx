@@ -1,5 +1,4 @@
 import { createInertiaApp, router } from '@inertiajs/react';
-import { BrandingHead } from '@simple-module-py/ui/components/BrandingHead';
 import { ErrorBoundary } from '@simple-module-py/ui/components/ErrorBoundary';
 import { useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -44,7 +43,6 @@ createInertiaApp({
 
       return (
         <ErrorBoundary ref={boundaryRef}>
-          <BrandingHead />
           <App {...props} />
         </ErrorBoundary>
       );

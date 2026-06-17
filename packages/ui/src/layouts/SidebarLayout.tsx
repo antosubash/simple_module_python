@@ -18,6 +18,7 @@ import {
 import { ChevronsUpDown } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { BrandingHead } from '../components/BrandingHead';
 import { BrandingMark } from '../components/BrandingMark';
 import { NavIcon } from '../components/NavIcon';
 import type { MenuItem, SharedProps } from '../types';
@@ -76,6 +77,7 @@ export function SidebarLayout({
 
   return (
     <TooltipProvider>
+      <BrandingHead />
       <div className="min-h-screen bg-background">
         {/* Mobile top bar */}
         <div
