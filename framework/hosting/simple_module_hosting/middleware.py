@@ -18,7 +18,7 @@ from starlette.datastructures import Headers, MutableHeaders
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from simple_module_hosting._inertia_shared import build_i18n_block
+from simple_module_hosting._inertia_shared import build_i18n_block, merge_shared_prop_providers
 from simple_module_hosting._observability import (
     CorrelationIdMiddleware,
     RequestLoggingMiddleware,
@@ -278,32 +278,9 @@ class InertiaLayoutDataMiddleware:
             "i18n": i18n_block,
         }
 
-        # Merge module-registered shared-prop providers (e.g. branding). Read off
-        # app.state (never importing the plugin) to keep SM009 intact. Defensive:
-        # a provider that raises is skipped, not allowed to 500 the page.
-        providers = getattr(scope["app"].state, "inertia_shared_providers", None) or ()
-        for provider in providers:
-            try:
-                extra = provider(request)
-            except Exception:  # a bad provider must not break the page render
-                logger.warning(
-                    "InertiaLayoutDataMiddleware: shared-prop provider %r raised; skipping",
-                    getattr(provider, "__name__", provider),
-                    exc_info=True,
-                )
-                continue
-            for key, value in (extra or {}).items():
-                # Don't let a provider clobber framework-owned blocks
-                # (auth/menus/i18n) or an earlier provider's key.
-                if key in shared:
-                    logger.warning(
-                        "InertiaLayoutDataMiddleware: provider %r tried to overwrite "
-                        "reserved shared-prop %r; ignoring",
-                        getattr(provider, "__name__", provider),
-                        key,
-                    )
-                    continue
-                shared[key] = value
+        # Merge module-registered shared-prop providers (e.g. branding) — read off
+        # app.state without importing the plugin (SM009), defensively.
+        merge_shared_prop_providers(scope["app"], request, shared)
 
         request.state.inertia_shared = shared
 
