@@ -23,7 +23,7 @@ class BrandingModule(ModuleBase):
         name="Branding",
         route_prefix="/api/branding",
         view_prefix="/branding",
-        depends_on=["Settings", "FileStorage"],
+        depends_on=[constants._MODULE_SETTINGS, constants._MODULE_FILE_STORAGE],
     )
 
     def register_settings(self, app: FastAPI) -> None:

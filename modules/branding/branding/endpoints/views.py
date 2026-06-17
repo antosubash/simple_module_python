@@ -20,4 +20,10 @@ router = APIRouter()
 async def manage(inertia: InertiaDep) -> InertiaResponse:
     # Current branding is delivered through the shared ``branding`` prop
     # (the branding shared-props provider), so no page props are needed.
-    return await inertia.render("Branding/Manage")
+    # The page name is inlined as a literal (rather than constants._PAGE_MANAGE)
+    # so the SM003/SM004 diagnostics — which do static AST analysis and can't
+    # resolve attribute access — pair this call with pages/Manage.tsx. A unit
+    # test asserts the literal matches constants._PAGE_MANAGE.
+    return await inertia.render(
+        "Branding/Manage",
+    )

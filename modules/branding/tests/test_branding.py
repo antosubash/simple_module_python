@@ -148,3 +148,15 @@ async def test_logo_upload_sets_logo_url(
 async def test_manage_view_requires_auth(client: httpx.AsyncClient) -> None:
     resp = await client.get("/branding", follow_redirects=False)
     assert resp.status_code in (302, 401, 403)
+
+
+def test_page_constant_matches_view_literal() -> None:
+    # Guards against the inlined render literal drifting from the constant
+    # (the literal is required inline for SM003/SM004 static AST pairing).
+    import inspect
+
+    from branding import constants
+    from branding.endpoints import views
+
+    assert constants._PAGE_MANAGE == "Branding/Manage"
+    assert f'"{constants._PAGE_MANAGE}"' in inspect.getsource(views.manage)

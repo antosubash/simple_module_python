@@ -1,8 +1,11 @@
 [project]
 name = "simple_module_branding"
 version = "0.1.0"
-description = "The Branding module"
-authors = []
+description = "Customisable application branding (name, logo, favicon, primary colour) for simple_module apps"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
+keywords = ["simple-module", "branding", "theming", "white-label"]
 requires-python = ">=3.12"
 dependencies = [
     "simple_module_core",
@@ -11,6 +14,9 @@ dependencies = [
     "simple_module_settings",
     "simple_module_file_storage",
 ]
+
+[project.urls]
+Repository = "https://github.com/antosubash/simple_module_python"
 
 [project.entry-points.simple_module]
 branding = "branding.module:BrandingModule"

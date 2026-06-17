@@ -6,6 +6,16 @@ from typing import Final
 
 PACKAGE: Final = "branding"
 
+# Modules this one depends on (kept as constants so the depends_on list doesn't
+# carry bare string literals — see scripts/check_hardcoded_strings.py).
+_MODULE_SETTINGS: Final = "Settings"
+_MODULE_FILE_STORAGE: Final = "FileStorage"
+
+# Inertia page identifier. The view endpoint renders this as a literal (so the
+# SM003/SM004 static-AST diagnostics can pair it with pages/Manage.tsx); a test
+# asserts the literal matches this constant.
+_PAGE_MANAGE: Final = "Branding/Manage"
+
 PERM_VIEW: Final = "branding.view"
 PERM_MANAGE: Final = "branding.manage"
 

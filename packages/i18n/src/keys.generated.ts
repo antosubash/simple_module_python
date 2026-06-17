@@ -273,21 +273,6 @@ export const keys = {
       hero_title_line2: 'host.landing.hero_title_line2',
     },
   },
-  keycloak: {
-    errors: {
-      callback_failed: 'keycloak.errors.callback_failed',
-      invalid_state: 'keycloak.errors.invalid_state',
-      token_validation_failed: 'keycloak.errors.token_validation_failed',
-    },
-    login: {
-      redirecting: 'keycloak.login.redirecting',
-      title: 'keycloak.login.title',
-    },
-    logout: {
-      message: 'keycloak.logout.message',
-      title: 'keycloak.logout.title',
-    },
-  },
   permissions: {
     browse: {
       count_label: 'permissions.browse.count_label',
