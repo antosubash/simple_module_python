@@ -45,9 +45,7 @@ class BrandingService:
 
         store = SettingsStore(SettingService(self.db))
         bus = self.app.state.sm.event_bus
-        await apply_changes_and_reload(
-            self.app, bus, store, package=PACKAGE, changes=changes
-        )
+        await apply_changes_and_reload(self.app, bus, store, package=PACKAGE, changes=changes)
         return self.current()
 
     async def set_logo(self, file_id: str) -> BrandingOut:

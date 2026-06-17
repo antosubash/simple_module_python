@@ -285,7 +285,7 @@ class InertiaLayoutDataMiddleware:
         for provider in providers:
             try:
                 extra = provider(request)
-            except Exception:  # noqa: BLE001 - a bad provider must not break the page
+            except Exception:  # a bad provider must not break the page render
                 logger.warning(
                     "InertiaLayoutDataMiddleware: shared-prop provider %r raised; skipping",
                     getattr(provider, "__name__", provider),

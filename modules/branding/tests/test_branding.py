@@ -88,9 +88,7 @@ async def test_get_branding_returns_defaults(authenticated_client: httpx.AsyncCl
     assert body["logo_url"] is None
 
 
-async def test_update_persists_and_hot_swaps(
-    app, authenticated_client: httpx.AsyncClient
-) -> None:
+async def test_update_persists_and_hot_swaps(app, authenticated_client: httpx.AsyncClient) -> None:
     resp = await authenticated_client.put(
         "/api/branding/",
         json={"app_name": "Acme Corp", "primary_color": "#1A7DD1"},
@@ -128,12 +126,10 @@ async def test_logo_upload_sets_logo_url(
 ) -> None:
     fake_id = uuid.uuid4()
 
-    async def fake_upload(self, upload):  # noqa: ANN001
+    async def fake_upload(self, upload):
         return SimpleNamespace(id=fake_id)
 
-    monkeypatch.setattr(
-        "file_storage.service.FileStorageService.upload", fake_upload, raising=True
-    )
+    monkeypatch.setattr("file_storage.service.FileStorageService.upload", fake_upload, raising=True)
 
     resp = await authenticated_client.post(
         "/api/branding/logo",

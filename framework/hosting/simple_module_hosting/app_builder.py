@@ -199,10 +199,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Generic Inertia shared-prop providers (modules append via
-    # register_inertia_shared_provider). Initialised here so it always exists.
-    app.state.inertia_shared_providers = []
-
     # ── Phase 4: Module settings ───────────────────────────
     for mod in modules:
         mod.register_settings(app)

@@ -6,6 +6,13 @@ export interface MenuItem {
   group?: string;
 }
 
+export interface BrandingShared {
+  appName: string;
+  primaryColor: string | null;
+  logoUrl: string | null;
+  faviconUrl: string | null;
+}
+
 export interface SharedProps {
   auth: {
     user: { name: string; email: string; roles: string[] } | null;
@@ -18,4 +25,7 @@ export interface SharedProps {
     navbar: MenuItem[];
     userDropdown: MenuItem[];
   };
+  // Injected by the branding module's shared-props provider (optional: the
+  // module may not be installed).
+  branding?: BrandingShared;
 }
