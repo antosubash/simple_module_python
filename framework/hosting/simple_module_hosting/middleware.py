@@ -277,6 +277,24 @@ class InertiaLayoutDataMiddleware:
             ),
             "i18n": i18n_block,
         }
+
+        # Merge module-registered shared-prop providers (e.g. branding). Read off
+        # app.state (never importing the plugin) to keep SM009 intact. Defensive:
+        # a provider that raises is skipped, not allowed to 500 the page.
+        providers = getattr(scope["app"].state, "inertia_shared_providers", None) or ()
+        for provider in providers:
+            try:
+                extra = provider(request)
+            except Exception:  # noqa: BLE001 - a bad provider must not break the page
+                logger.warning(
+                    "InertiaLayoutDataMiddleware: shared-prop provider %r raised; skipping",
+                    getattr(provider, "__name__", provider),
+                    exc_info=True,
+                )
+                continue
+            if extra:
+                shared.update(extra)
+
         request.state.inertia_shared = shared
 
         await self.app(scope, receive, send)
