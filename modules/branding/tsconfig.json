@@ -1,0 +1,11 @@
+{
+  "extends": "@simple-module-py/tsconfig/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./branding/*"],
+      "@simple-module-py/ui/*": ["../../packages/ui/src/*"]
+    }
+  },
+  "include": ["branding/**/*.ts", "branding/**/*.tsx"]
+}

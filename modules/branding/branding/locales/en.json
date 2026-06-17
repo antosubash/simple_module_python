@@ -1,0 +1,23 @@
+{
+  "manage": {
+    "title": "Branding",
+    "description": "Customise your application's name, logo, favicon and primary colour.",
+    "app_name_label": "Application name",
+    "app_name_help": "Shown in the sidebar, the browser tab and on sign-in.",
+    "primary_color_label": "Primary colour",
+    "primary_color_help": "Accent colour used across buttons and highlights. Leave blank for the default.",
+    "logo_label": "Logo",
+    "logo_help": "Square PNG or SVG works best. Replaces the default badge in the sidebar.",
+    "favicon_label": "Favicon",
+    "favicon_help": "Small icon shown in the browser tab. PNG, SVG or ICO.",
+    "upload_button": "Upload",
+    "replace_button": "Replace",
+    "remove_button": "Remove",
+    "save_button": "Save changes",
+    "saving": "Saving…",
+    "preview_title": "Preview",
+    "saved_toast": "Branding updated",
+    "error_toast": "Could not update branding",
+    "upload_error_toast": "Could not upload image"
+  }
+}
