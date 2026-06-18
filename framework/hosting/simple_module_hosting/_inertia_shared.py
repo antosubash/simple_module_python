@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from starlette.datastructures import Headers
 from starlette.requests import Request
@@ -59,3 +60,30 @@ def build_i18n_block(scope: Scope, request: Request) -> dict:
         "supportedLocales": registry.available_locales(),
         "messages": registry.messages_snapshot(locale) if send_messages else None,
     }
+
+
+def merge_shared_prop_providers(app: Any, request: Request, shared: dict) -> None:
+    """Merge module-registered Inertia shared-prop providers into ``shared`` in place.
+
+    Providers are read off ``app.state.inertia_shared_providers`` (never importing
+    the plugin — preserves SM009). A provider that raises is skipped and logged; a
+    provider may not clobber a framework-owned key (auth/menus/i18n) or an earlier
+    provider's key.
+    """
+    providers = getattr(app.state, "inertia_shared_providers", None) or ()
+    for provider in providers:
+        name = getattr(provider, "__name__", provider)
+        try:
+            extra = provider(request)
+        except Exception:  # a bad provider must not break the page render
+            logger.warning("shared-prop provider %r raised; skipping", name, exc_info=True)
+            continue
+        for key, value in (extra or {}).items():
+            if key in shared:
+                logger.warning(
+                    "provider %r tried to overwrite reserved shared-prop %r; ignoring",
+                    name,
+                    key,
+                )
+                continue
+            shared[key] = value

@@ -3,28 +3,40 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Menu, X } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { BrandingHead } from '../components/BrandingHead';
 import { LocaleSwitcher } from '../components/LocaleSwitcher';
 import type { SharedProps } from '../types';
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
-  const { auth } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const { auth, branding } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
   const [menuOpen, setMenuOpen] = useState(false);
+  const appName = branding?.appName ?? 'simple_module';
+  const logoUrl = branding?.logoUrl ?? null;
+  const brandInitial = appName.trim().charAt(0).toUpperCase() || 'S';
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
+      <BrandingHead />
       <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl backdrop-saturate-150">
         <div className="mx-auto max-w-6xl px-4 py-3 sm:px-8 sm:py-3.5">
           <div className="flex items-center justify-between">
             <Link href="/" className="group flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-600 to-primary-800 shadow-md shadow-primary-600/30 transition-transform group-hover:scale-105">
-                <span className="font-bold text-white text-sm font-[var(--font-display)]">S</span>
-              </div>
-              <div className="flex flex-col leading-tight">
-                <span className="text-[15px] font-bold tracking-tight font-[var(--font-display)]">
-                  simple_module
-                </span>
-                <span className="font-mono text-[10px] text-muted-foreground">python · v0.1</span>
-              </div>
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt={appName}
+                  className="h-8 w-8 rounded-lg object-contain shadow-md transition-transform group-hover:scale-105"
+                />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-600 to-primary-800 shadow-md shadow-primary-600/30 transition-transform group-hover:scale-105">
+                  <span className="font-bold text-white text-sm font-[var(--font-display)]">
+                    {brandInitial}
+                  </span>
+                </div>
+              )}
+              <span className="text-[15px] font-bold tracking-tight font-[var(--font-display)]">
+                {appName}
+              </span>
             </Link>
 
             <div className="hidden items-center gap-4 sm:flex">

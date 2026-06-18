@@ -18,6 +18,8 @@ import {
 import { ChevronsUpDown } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { BrandingHead } from '../components/BrandingHead';
+import { BrandingMark } from '../components/BrandingMark';
 import { NavIcon } from '../components/NavIcon';
 import type { MenuItem, SharedProps } from '../types';
 
@@ -64,8 +66,10 @@ export function SidebarLayout({
   footerNavSlot,
 }: SidebarLayoutProps) {
   const page = usePage<{ props: SharedProps }>();
-  const { auth, menus } = page.props as unknown as SharedProps;
+  const { auth, menus, branding } = page.props as unknown as SharedProps;
   const currentUrl = page.url;
+  const appName = branding?.appName ?? theme.mobileTitleLabel;
+  const logoUrl = branding?.logoUrl ?? null;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = () => setSidebarOpen(false);
 
@@ -73,6 +77,7 @@ export function SidebarLayout({
 
   return (
     <TooltipProvider>
+      <BrandingHead />
       <div className="min-h-screen bg-background">
         {/* Mobile top bar */}
         <div
@@ -101,14 +106,12 @@ export function SidebarLayout({
             </svg>
           </Button>
           <Link href="/dashboard/" className="flex items-center gap-2">
-            <div
-              className={`w-7 h-7 rounded-md ${theme.accentColor} flex items-center justify-center shadow-sm`}
-            >
-              <span className="text-white font-bold text-xs font-[var(--font-display)]">SM</span>
-            </div>
-            <span className="text-base font-semibold text-white font-[var(--font-display)]">
-              {theme.mobileTitleLabel}
-            </span>
+            <BrandingMark
+              appName={appName}
+              logoUrl={logoUrl}
+              accentColor={theme.accentColor}
+              size="sm"
+            />
           </Link>
         </div>
 
@@ -129,14 +132,12 @@ export function SidebarLayout({
           {/* Logo */}
           <div className="h-14 lg:h-16 flex items-center justify-between px-4 lg:px-5 border-b border-white/[0.06]">
             <Link href="/dashboard/" className="flex items-center gap-2.5 group">
-              <div
-                className={`w-8 h-8 rounded-lg ${theme.accentColor} flex items-center justify-center shadow-lg shadow-primary-500/15 transition-transform duration-200 group-hover:scale-105`}
-              >
-                <span className="text-white font-bold text-sm font-[var(--font-display)]">SM</span>
-              </div>
-              <span className="text-lg font-semibold text-white font-[var(--font-display)] tracking-tight">
-                SimpleModule
-              </span>
+              <BrandingMark
+                appName={appName}
+                logoUrl={logoUrl}
+                accentColor={theme.accentColor}
+                size="md"
+              />
             </Link>
             <Button
               variant="ghost"
