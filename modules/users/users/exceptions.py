@@ -16,3 +16,11 @@ class UserNotFoundError(Exception):
     def __init__(self, user_id: uuid.UUID) -> None:
         super().__init__(f"User {user_id} not found")
         self.user_id = user_id
+
+
+class EmailAlreadyExistsError(Exception):
+    """Raised when updating a user to an email already owned by another user."""
+
+    def __init__(self, email: str) -> None:
+        super().__init__(f"Email {email} already in use")
+        self.email = email

@@ -56,6 +56,11 @@ class UserAdminCreate(SQLModel):
     role_names: list[str] = []
 
 
+class UserDetailsUpdate(SQLModel):
+    email: EmailStr
+    full_name: str | None = None
+
+
 class UserListItem(SQLModel):
     id: uuid.UUID
     email: EmailStr

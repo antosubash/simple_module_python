@@ -17,11 +17,12 @@ from users.contracts.schemas import (
     PasswordResetLink,
     RoleAssignment,
     UserAdminCreate,
+    UserDetailsUpdate,
     UserInvite,
     UserListItem,
 )
 from users.deps import get_event_bus, get_mailer, get_user_service
-from users.exceptions import UserNotFoundError
+from users.exceptions import EmailAlreadyExistsError, UserNotFoundError
 
 admin_router = APIRouter(
     prefix="/admin",
@@ -115,9 +116,26 @@ async def admin_create_user(
         ) from None
     except fa_exceptions.InvalidPasswordException as exc:
         raise HTTPException(status_code=400, detail=exc.reason) from None
-    await bus.publish(
-        UserCreated(user_id=user.id, email=user.email, created_by=created_by)
-    )
+    await bus.publish(UserCreated(user_id=user.id, email=user.email, created_by=created_by))
+    return service.to_list_item(user)
+
+
+@admin_router.patch("/{user_id}", response_model=UserListItem)
+async def admin_update_user(
+    user_id: uuid.UUID,
+    data: UserDetailsUpdate,
+    service: UserService = Depends(get_user_service),
+):
+    """Update a user's email and full name."""
+    try:
+        user = await service.update_details(user_id, data.email, data.full_name)
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found") from None
+    except EmailAlreadyExistsError:
+        raise HTTPException(
+            status_code=409,
+            detail="A user with this email already exists.",
+        ) from None
     return service.to_list_item(user)
 
 

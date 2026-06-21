@@ -6,10 +6,11 @@ import secrets
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import delete
+from sqlalchemy import delete, func, select
 
 from users.admin.queries import _UserServiceBase
 from users.contracts.schemas import UserCreate
+from users.exceptions import EmailAlreadyExistsError
 from users.models import User, UserRole
 
 
@@ -58,6 +59,30 @@ class UserService(_UserServiceBase):
             if loaded is None:  # impossible: row was just flushed in this txn
                 raise RuntimeError(f"User {user_id} vanished immediately after create")
             return loaded
+        return user
+
+    async def update_details(
+        self,
+        user_id: uuid.UUID,
+        email: str,
+        full_name: str | None,
+    ) -> User:
+        """Update a user's email + full name. Raises UserNotFoundError if the
+        user is missing, EmailAlreadyExistsError if the new email is taken by
+        another user."""
+        user = await self._require_user(user_id)
+        if email.lower() != user.email.lower():
+            clash = await self._db.execute(
+                select(User.id).where(
+                    func.lower(User.email) == email.lower(),
+                    User.id != user_id,
+                )
+            )
+            if clash.scalar_one_or_none() is not None:
+                raise EmailAlreadyExistsError(email)
+        user.email = email
+        user.full_name = full_name
+        await self._db.flush()
         return user
 
     async def invite(
