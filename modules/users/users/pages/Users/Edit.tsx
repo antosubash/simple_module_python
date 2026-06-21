@@ -9,6 +9,8 @@ import { ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { AccountStatusCard } from './components/AccountStatusCard';
+import { DangerZone } from './components/DangerZone';
+import { DetailsCard } from './components/DetailsCard';
 
 interface UserListItem {
   id: string;
@@ -31,6 +33,7 @@ interface Props {
   user: UserListItem;
   roles: Role[];
   has_permissions_module: boolean;
+  auth?: { user?: { id?: string } };
 }
 
 function fmt(dt: string | null): string {
@@ -39,8 +42,9 @@ function fmt(dt: string | null): string {
 }
 
 function Edit() {
-  const { user, roles, has_permissions_module } = usePage<{ props: Props }>()
+  const { user, roles, has_permissions_module, auth } = usePage<{ props: Props }>()
     .props as unknown as Props;
+  const isSelf = auth?.user?.id === user.id;
 
   const [isActive, setIsActive] = useState(user.is_active);
   const [isVerified, setIsVerified] = useState(user.is_verified);
@@ -129,6 +133,11 @@ function Edit() {
       }
     >
       <div className="grid gap-4 lg:grid-cols-2">
+        <DetailsCard
+          key={user.id}
+          user={{ id: user.id, email: user.email, full_name: user.full_name }}
+        />
+
         <Card className="border-border">
           <CardContent className="pt-5">
             <SectionTitle>Metadata</SectionTitle>
@@ -226,6 +235,8 @@ function Edit() {
             )}
           </CardContent>
         </Card>
+
+        <DangerZone userId={user.id} email={user.email} isSelf={isSelf} />
       </div>
     </PageShell>
   );

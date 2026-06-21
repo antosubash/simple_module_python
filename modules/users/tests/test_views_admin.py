@@ -126,3 +126,26 @@ class TestHasPermissionsModuleFlag:
         assert resp.status_code == 200
         props = resp.json()["props"]
         assert props["has_permissions_module"] is False
+
+
+# ---------------------------------------------------------------------------
+# Admin create page
+# ---------------------------------------------------------------------------
+
+
+class TestAdminCreatePage:
+    @pytest.mark.anyio
+    async def test_create_page_renders_with_roles(self, admin_client):
+        resp = await admin_client.get(
+            "/users/admin/create",
+            headers={"X-Inertia": "true", "Accept": "application/json"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["component"] == "Users/Users/Create"
+        assert "roles" in data["props"]
+
+    @pytest.mark.anyio
+    async def test_create_page_requires_auth(self, anon_client):
+        resp = await anon_client.get("/users/admin/create", follow_redirects=False)
+        assert resp.status_code == 302

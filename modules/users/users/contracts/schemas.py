@@ -49,6 +49,18 @@ class UserInvite(SQLModel):
     role_names: list[str] = []
 
 
+class UserAdminCreate(SQLModel):
+    email: EmailStr
+    password: str
+    full_name: str | None = None
+    role_names: list[str] = []
+
+
+class UserDetailsUpdate(SQLModel):
+    email: EmailStr
+    full_name: str | None = None
+
+
 class UserListItem(SQLModel):
     id: uuid.UUID
     email: EmailStr

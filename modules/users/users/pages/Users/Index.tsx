@@ -128,12 +128,20 @@ function Index() {
       title="Users"
       description="People with access to this workspace. Invites use the configured mailer."
       actions={
-        <Button asChild className="gap-1.5">
-          <Link href="/users/admin/invite">
-            <Plus className="h-4 w-4" />
-            Invite member
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild className="gap-1.5">
+            <Link href="/users/admin/create">
+              <Plus className="h-4 w-4" />
+              Create user
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="gap-1.5">
+            <Link href="/users/admin/invite">
+              <Mail className="h-4 w-4" />
+              Invite member
+            </Link>
+          </Button>
+        </div>
       }
     >
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
