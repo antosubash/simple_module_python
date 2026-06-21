@@ -99,7 +99,7 @@ async def admin_create_user(
 ):
     """Create an active+verified user with an admin-set password."""
     creator = getattr(request.state, "user", None)
-    created_by = creator.id if creator else None
+    created_by = str(creator.id) if creator else None
     try:
         user = await service.create_user(
             data.email,

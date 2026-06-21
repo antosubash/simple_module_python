@@ -55,7 +55,8 @@ class UserService(_UserServiceBase):
             user_id = user.id
             self._db.expunge(user)
             loaded = await self._get_user_with_roles(user_id)
-            assert loaded is not None
+            if loaded is None:  # impossible: row was just flushed in this txn
+                raise RuntimeError(f"User {user_id} vanished immediately after create")
             return loaded
         return user
 
