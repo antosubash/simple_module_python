@@ -29,6 +29,11 @@ class UserCreated(Event):
 
 
 @dataclass
+class UserDeleted(Event):
+    user_id: uuid.UUID
+
+
+@dataclass
 class UserDisabled(Event):
     user_id: uuid.UUID
 

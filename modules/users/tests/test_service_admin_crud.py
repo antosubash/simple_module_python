@@ -109,3 +109,43 @@ async def test_update_details_same_email_is_allowed(users_app):
         updated = await svc.update_details(user.id, email="keep@example.com", full_name="Renamed")
         assert updated.email == "keep@example.com"
         assert updated.full_name == "Renamed"
+
+
+# ---------------------------------------------------------------------------
+# delete_user
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_delete_user_removes_user_and_roles(users_app):
+    from sqlalchemy import select
+    from test_api_admin import _make_user
+    from users.models import User, UserRole
+
+    async with users_app.state.sm.db.session_factory() as session:
+        user = await _make_user(session, email="todelete@example.com", role_names=["admin"])
+        svc = _build_service(session, users_app)
+        await svc.delete_user(user.id)
+        await session.flush()
+
+        remaining = (
+            await session.execute(select(User).where(User.id == user.id))
+        ).scalar_one_or_none()
+        assert remaining is None
+        roles = (
+            (await session.execute(select(UserRole).where(UserRole.user_id == user.id)))
+            .scalars()
+            .all()
+        )
+        assert roles == []
+
+
+@pytest.mark.anyio
+async def test_delete_user_nonexistent_raises(users_app):
+    import uuid
+    from users.exceptions import UserNotFoundError
+
+    async with users_app.state.sm.db.session_factory() as session:
+        svc = _build_service(session, users_app)
+        with pytest.raises(UserNotFoundError):
+            await svc.delete_user(uuid.uuid4())

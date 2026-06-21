@@ -104,3 +104,43 @@ class TestAdminUpdate:
             follow_redirects=False,
         )
         assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Admin delete
+# ---------------------------------------------------------------------------
+
+
+class TestAdminDelete:
+    @pytest.mark.anyio
+    async def test_delete_returns_204(self, admin_client, users_db):
+        user = await _make_user(users_db, email="deleteme@example.com")
+        resp = await admin_client.delete(f"/api/users/admin/{user.id}")
+        assert resp.status_code == 204
+
+    @pytest.mark.anyio
+    async def test_delete_nonexistent_returns_404(self, admin_client):
+        resp = await admin_client.delete(f"/api/users/admin/{uuid.uuid4()}")
+        assert resp.status_code == 404
+
+    @pytest.mark.anyio
+    async def test_delete_self_returns_400(self, admin_client, users_app):
+        from sqlalchemy import select
+        from users.models import User
+
+        async with users_app.state.sm.db.session_factory() as session:
+            admin = (
+                await session.execute(
+                    select(User).where(User.email == "admin@example.com")
+                )
+            ).scalar_one()
+        resp = await admin_client.delete(f"/api/users/admin/{admin.id}")
+        assert resp.status_code == 400
+
+    @pytest.mark.anyio
+    async def test_delete_without_auth_is_rejected(self, anon_client):
+        resp = await anon_client.delete(
+            f"/api/users/admin/{uuid.uuid4()}",
+            follow_redirects=False,
+        )
+        assert resp.status_code == 401

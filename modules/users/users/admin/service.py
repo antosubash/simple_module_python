@@ -11,7 +11,7 @@ from sqlalchemy import delete, func, select
 from users.admin.queries import _UserServiceBase
 from users.contracts.schemas import UserCreate
 from users.exceptions import EmailAlreadyExistsError
-from users.models import User, UserRole
+from users.models import OAuthAccount, RefreshToken, User, UserAccessToken, UserRole
 
 
 class UserService(_UserServiceBase):
@@ -84,6 +84,19 @@ class UserService(_UserServiceBase):
         user.full_name = full_name
         await self._db.flush()
         return user
+
+    async def delete_user(self, user_id: uuid.UUID) -> None:
+        """Hard-delete a user and its dependent rows.
+
+        Child rows are deleted explicitly (not via FK cascade) so the result is
+        identical on Postgres and SQLite — SQLite only enforces FK cascade when
+        the per-connection ``foreign_keys`` pragma is on, which we don't rely
+        on. RefreshToken has no DB cascade at all, so it must be cleared here."""
+        user = await self._require_user(user_id)
+        for model in (UserRole, UserAccessToken, OAuthAccount, RefreshToken):
+            await self._db.execute(delete(model).where(model.user_id == user_id))
+        await self._db.delete(user)
+        await self._db.flush()
 
     async def invite(
         self,

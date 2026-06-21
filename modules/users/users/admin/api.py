@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi import status as http_status
 from fastapi_users import exceptions as fa_exceptions
 from simple_module_core.events import EventBus
@@ -12,7 +12,13 @@ from simple_module_hosting.permissions import RequiresPermission
 
 from users.admin.service import UserService
 from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
-from users.contracts.events import RoleAssigned, UserCreated, UserDisabled, UserInvited
+from users.contracts.events import (
+    RoleAssigned,
+    UserCreated,
+    UserDeleted,
+    UserDisabled,
+    UserInvited,
+)
 from users.contracts.schemas import (
     PasswordResetLink,
     RoleAssignment,
@@ -137,6 +143,28 @@ async def admin_update_user(
             detail="A user with this email already exists.",
         ) from None
     return service.to_list_item(user)
+
+
+@admin_router.delete("/{user_id}", status_code=http_status.HTTP_204_NO_CONTENT)
+async def admin_delete_user(
+    user_id: uuid.UUID,
+    request: Request,
+    bus: EventBus = Depends(get_event_bus),
+    service: UserService = Depends(get_user_service),
+):
+    """Hard-delete a user. An admin cannot delete their own account."""
+    actor = getattr(request.state, "user", None)
+    if actor is not None and str(user_id) == actor.id:
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot delete your own account.",
+        )
+    try:
+        await service.delete_user(user_id)
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found") from None
+    await bus.publish(UserDeleted(user_id=user_id))
+    return Response(status_code=http_status.HTTP_204_NO_CONTENT)
 
 
 @admin_router.patch("/{user_id}/disable", response_model=UserListItem)
