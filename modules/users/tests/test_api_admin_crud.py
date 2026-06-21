@@ -7,7 +7,7 @@ import uuid
 import pytest
 from sqlalchemy import select
 from test_api_admin import _make_user
-from users.models import User
+from users.models import User, UserRole
 
 # ---------------------------------------------------------------------------
 # Admin create
@@ -120,6 +120,25 @@ class TestAdminDelete:
         user = await _make_user(users_db, email="deleteme@example.com")
         resp = await admin_client.delete(f"/api/users/admin/{user.id}")
         assert resp.status_code == 204
+
+    @pytest.mark.anyio
+    async def test_delete_user_with_role_returns_204(self, admin_client, users_db):
+        """Regression: deleting a user that HAS a role must not 500.
+
+        The delete runs in the request session, which eager-loads the user's
+        ``roles`` relationship. Bulk-deleting the ``users_user_role`` rows the
+        ORM is tracking raised ``StaleDataError`` on flush. The roleless
+        ``test_delete_returns_204`` never exercised this path."""
+        user = await _make_user(users_db, email="hasrole@example.com", role_names=["admin"])
+        resp = await admin_client.delete(f"/api/users/admin/{user.id}")
+        assert resp.status_code == 204
+        # The role association row is gone too (no orphan).
+        rows = (
+            (await users_db.execute(select(UserRole).where(UserRole.user_id == user.id)))
+            .scalars()
+            .all()
+        )
+        assert rows == []
 
     @pytest.mark.anyio
     async def test_delete_nonexistent_returns_404(self, admin_client):

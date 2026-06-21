@@ -7,10 +7,11 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.orm import noload
 
 from users.admin.queries import _UserServiceBase
 from users.contracts.schemas import UserCreate
-from users.exceptions import EmailAlreadyExistsError
+from users.exceptions import EmailAlreadyExistsError, UserNotFoundError
 from users.models import OAuthAccount, RefreshToken, User, UserAccessToken, UserRole
 
 
@@ -86,13 +87,32 @@ class UserService(_UserServiceBase):
         return user
 
     async def delete_user(self, user_id: uuid.UUID) -> None:
-        """Hard-delete a user and its dependent rows.
+        """Hard-delete a user and all of its dependent rows.
 
-        Child rows are deleted explicitly (not via FK cascade) so the result is
-        identical on Postgres and SQLite — SQLite only enforces FK cascade when
-        the per-connection ``foreign_keys`` pragma is on, which we don't rely
-        on. RefreshToken has no DB cascade at all, so it must be cleared here."""
-        user = await self._require_user(user_id)
+        Every child table is cleared with an explicit bulk ``DELETE`` so the
+        result is deterministic and identical on Postgres and SQLite (SQLite
+        only honours FK cascade with a per-connection pragma we don't set, and
+        ``RefreshToken`` has no DB cascade at all).
+
+        The user is loaded with ``roles`` and ``oauth_accounts`` forced to
+        ``noload``. ``noload`` returns an empty collection *without* emitting a
+        query, which matters twice: (1) the unit of work isn't tracking the
+        ``users_user_role`` / ``oauth_account`` rows, so our bulk deletes don't
+        race the ORM and trigger ``StaleDataError`` on flush (the original bug —
+        it only bit a real request session deleting a user that actually had a
+        role); (2) ``session.delete(user)`` won't trigger an implicit async
+        lazy-load of the ``delete-orphan`` ``oauth_accounts`` collection
+        mid-flush. ``session.delete(user)`` is what flags the session as
+        written so ``get_db`` commits — a bulk ``DELETE`` of the user alone
+        would be rolled back as a read-only request."""
+        result = await self._db.execute(
+            select(User)
+            .where(User.id == user_id)
+            .options(noload(User.roles), noload(User.oauth_accounts))
+        )
+        user = result.scalar_one_or_none()
+        if user is None:
+            raise UserNotFoundError(user_id)
         for model in (UserRole, UserAccessToken, OAuthAccount, RefreshToken):
             await self._db.execute(delete(model).where(model.user_id == user_id))
         await self._db.delete(user)
