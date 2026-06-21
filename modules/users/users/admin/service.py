@@ -14,6 +14,51 @@ from users.models import User, UserRole
 
 
 class UserService(_UserServiceBase):
+    async def create_user(
+        self,
+        email: str,
+        password: str,
+        full_name: str | None,
+        role_names: list[str],
+        *,
+        created_by: str | None,
+    ) -> User:
+        """Create an active+verified user with an admin-set password.
+
+        Reuses ``manager.create`` for the password policy + email-uniqueness
+        check. ``is_verified=True`` means ``on_after_register`` does not fire a
+        verification email (and with no request, no event is published here —
+        the endpoint publishes ``UserCreated``)."""
+        user_create = UserCreate(
+            email=email,
+            password=password,
+            full_name=full_name,
+            is_active=True,
+            is_verified=True,
+            is_superuser=False,
+        )
+        user = await self._manager.create(user_create, safe=False)
+
+        roles = await self._resolve_roles(role_names)
+        for role in roles:
+            self._db.add(
+                UserRole(
+                    user_id=user.id,
+                    role_id=role.id,
+                    assigned_by=created_by,
+                )
+            )
+        if roles:
+            await self._db.flush()
+            # User.roles is lazy="noload": selectinload only populates a fresh
+            # fetch, not an identity-map hit. Expunge first to force a reload.
+            user_id = user.id
+            self._db.expunge(user)
+            loaded = await self._get_user_with_roles(user_id)
+            assert loaded is not None
+            return loaded
+        return user
+
     async def invite(
         self,
         email: str,

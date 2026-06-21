@@ -234,3 +234,56 @@ class TestAdminResetPasswordLink:
         assert resp.status_code == 200
         body = resp.json()
         assert body["link"].startswith("http://testserver/users/reset-password?token=")
+
+
+# ---------------------------------------------------------------------------
+# Admin create
+# ---------------------------------------------------------------------------
+
+
+class TestAdminCreate:
+    @pytest.mark.anyio
+    async def test_create_returns_201(self, admin_client):
+        resp = await admin_client.post(
+            "/api/users/admin",
+            json={
+                "email": "newuser@example.com",
+                "password": "SecurePass1!",
+                "full_name": "New User",
+                "role_names": ["user"],
+            },
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["email"] == "newuser@example.com"
+        assert body["is_active"] is True
+        assert body["is_verified"] is True
+        assert body["roles"] == ["user"]
+
+    @pytest.mark.anyio
+    async def test_create_duplicate_returns_409(self, admin_client, users_db):
+        await _make_user(users_db, email="taken@example.com")
+        resp = await admin_client.post(
+            "/api/users/admin",
+            json={"email": "taken@example.com", "password": "SecurePass1!"},
+        )
+        assert resp.status_code == 409
+
+    @pytest.mark.anyio
+    async def test_create_weak_password_returns_400(self, admin_client):
+        resp = await admin_client.post(
+            "/api/users/admin",
+            json={"email": "weakpw@example.com", "password": "short"},
+        )
+        assert resp.status_code == 400
+        assert "8 characters" in resp.json()["detail"]
+
+    @pytest.mark.anyio
+    async def test_create_without_auth_is_rejected(self, anon_client):
+        resp = await anon_client.post(
+            "/api/users/admin",
+            json={"email": "hacker@example.com", "password": "SecurePass1!"},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 401
+        assert resp.json() == {"detail": "Not authenticated"}

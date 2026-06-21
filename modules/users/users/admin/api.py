@@ -6,15 +6,17 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi import status as http_status
+from fastapi_users import exceptions as fa_exceptions
 from simple_module_core.events import EventBus
 from simple_module_hosting.permissions import RequiresPermission
 
 from users.admin.service import UserService
 from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
-from users.contracts.events import RoleAssigned, UserDisabled, UserInvited
+from users.contracts.events import RoleAssigned, UserCreated, UserDisabled, UserInvited
 from users.contracts.schemas import (
     PasswordResetLink,
     RoleAssignment,
+    UserAdminCreate,
     UserInvite,
     UserListItem,
 )
@@ -80,6 +82,41 @@ async def admin_invite_user(
             email=user.email,
             invited_by=(str(invited_by.id) if invited_by else None),
         )
+    )
+    return service.to_list_item(user)
+
+
+@admin_router.post(
+    "",
+    response_model=UserListItem,
+    status_code=http_status.HTTP_201_CREATED,
+)
+async def admin_create_user(
+    data: UserAdminCreate,
+    request: Request,
+    bus: EventBus = Depends(get_event_bus),
+    service: UserService = Depends(get_user_service),
+):
+    """Create an active+verified user with an admin-set password."""
+    creator = getattr(request.state, "user", None)
+    created_by = creator.id if creator else None
+    try:
+        user = await service.create_user(
+            data.email,
+            data.password,
+            data.full_name,
+            data.role_names,
+            created_by=created_by,
+        )
+    except fa_exceptions.UserAlreadyExists:
+        raise HTTPException(
+            status_code=409,
+            detail="A user with this email already exists.",
+        ) from None
+    except fa_exceptions.InvalidPasswordException as exc:
+        raise HTTPException(status_code=400, detail=exc.reason) from None
+    await bus.publish(
+        UserCreated(user_id=user.id, email=user.email, created_by=created_by)
     )
     return service.to_list_item(user)
 
