@@ -24,6 +24,7 @@ dev = [
     "ty>=0.0.29",
     "memray>=1.14; sys_platform != 'win32'",
     "locust>=2.31",
+    "faker>=30",
     "aioboto3>=13",
     "moto[s3]>=5",
     "tomlkit>=0.13",
