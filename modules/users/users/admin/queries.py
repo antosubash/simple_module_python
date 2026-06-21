@@ -91,8 +91,22 @@ class _UserServiceBase:
         sort: str = "email",
         order: str = "asc",
     ) -> tuple[list[UserListItem], int]:
-        """Returns (items, total_count). last_login_at sort always uses NULLS LAST."""
-        stmt = select(User).options(selectinload(User.roles))
+        """Returns (items, total_count). last_login_at sort always uses NULLS LAST.
+
+        Selects only the columns ``UserListItem`` needs (plain rows, not ORM
+        entities) + one batched roles query — avoids hydrating full User+Role
+        ORM graphs, which dominated this endpoint's CPU under load.
+        """
+        stmt = select(
+            User.id,
+            User.email,
+            User.full_name,
+            User.is_active,
+            User.is_verified,
+            User.disabled_at,
+            User.last_login_at,
+            User.created_at,
+        )
         count_stmt = select(func.count()).select_from(User)
 
         conditions = []
@@ -149,9 +163,24 @@ class _UserServiceBase:
             )
 
         stmt = stmt.order_by(order_clause).offset((page - 1) * per_page).limit(per_page)
-        rows = (await self._db.execute(stmt)).scalars().all()
+        rows = (await self._db.execute(stmt)).all()
 
-        items = [self.to_list_item(u) for u in rows]
+        # One batched roles query, grouped in Python — DB-agnostic (no
+        # array_agg/group_concat) and builds no Role ORM objects.
+        user_ids = [r.id for r in rows]
+        roles_by_user: dict[uuid.UUID, list[str]] = {}
+        if user_ids:
+            role_rows = await self._db.execute(
+                select(UserRole.user_id, Role.name)
+                .join(Role, Role.id == UserRole.role_id)
+                .where(UserRole.user_id.in_(user_ids))
+                .order_by(UserRole.user_id, Role.name)
+            )
+            for uid, role_name_ in role_rows:
+                roles_by_user.setdefault(uid, []).append(role_name_)
+
+        # Selected columns == UserListItem fields (minus roles): unpack directly.
+        items = [UserListItem(**r._mapping, roles=roles_by_user.get(r.id, [])) for r in rows]
         return items, total
 
     async def count_user_states(self) -> dict[str, int]:
