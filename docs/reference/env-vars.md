@@ -22,10 +22,16 @@ This is the full reference. See [Configuration](/guide/configuration) for a narr
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SM_DB_POOL_SIZE` | `10` | SQLAlchemy `pool_size`. |
-| `SM_DB_MAX_OVERFLOW` | `20` | SQLAlchemy `max_overflow`. |
+| `SM_DB_POOL_SIZE` | `10` | SQLAlchemy `pool_size` (per process). |
+| `SM_DB_MAX_OVERFLOW` | `20` | SQLAlchemy `max_overflow` (per process). |
 | `SM_DB_POOL_PRE_PING` | `true` | Test connections before use. |
 | `SM_DB_POOL_RECYCLE` | `1800` | Recycle connections after N seconds (helps with LB idle drops). |
+
+Pools are **per process**. With multiple `uvicorn --workers`, total connections =
+`workers × (SM_DB_POOL_SIZE + SM_DB_MAX_OVERFLOW)`; keep it under the database's
+`max_connections` (Postgres default 100) or workers raise
+`asyncpg.TooManyConnectionsError` under load. See
+[deployment](deployment.md#build) for sizing examples.
 
 ## Host settings (DB-backed, not env)
 
