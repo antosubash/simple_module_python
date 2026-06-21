@@ -10,7 +10,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
 from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.events import EventBus
@@ -26,6 +25,7 @@ from simple_module_db.session import init_db
 from simple_module_hosting._host_services import _HostServices
 from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._phase_helpers import (
+    ImmutableStaticFiles,
     attach_public_routes,
     check_settings_registration,
     install_middleware,
@@ -277,7 +277,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     static_dir = _PROJECT_ROOT / "host" / _STATIC_DIR_NAME
     if static_dir.is_dir():
-        app.mount(_STATIC_MOUNT_PATH, StaticFiles(directory=static_dir), name=_STATIC_DIR_NAME)
+        app.mount(
+            _STATIC_MOUNT_PATH, ImmutableStaticFiles(directory=static_dir), name=_STATIC_DIR_NAME
+        )
 
     mount_module_static_dirs(app, modules)
 
