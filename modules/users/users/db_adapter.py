@@ -10,7 +10,7 @@ from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyAccessTokenDataba
 from simple_module_db.deps import get_db
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import noload, selectinload
 
 from users.models import OAuthAccount, User, UserAccessToken
 
@@ -19,19 +19,22 @@ class UserDatabaseWithRoles(SQLAlchemyUserDatabase):
     """Eager-load User.roles so fastapi-users can read role names without
     triggering implicit async lazy-loads.
 
-    ``oauth_accounts`` is ``lazy="noload"`` on the model, so it is *not* loaded
-    on the read-only auth path (``get`` backs ``current_user`` on every
-    request). It is eager-loaded only in ``get_by_email`` — the entry point for
-    fastapi-users' OAuth association flow, which appends to the collection and
-    therefore needs it materialised. ``get_by_oauth_account`` (base class) runs
-    its own join and does not depend on the relationship being loaded.
+    ``oauth_accounts`` is ``lazy="selectin"`` on the model (needed for the ORM
+    delete-orphan cascade, since SQLite doesn't enforce the FK). ``get`` backs
+    ``current_user`` on every request and never reads OAuth accounts, so it
+    suppresses that load with ``noload``. ``get_by_email`` — the entry point for
+    fastapi-users' OAuth association flow, which appends to the collection —
+    lets the model's default ``selectin`` materialise it.
     """
 
     async def get(self, id):
         stmt = (
             select(self.user_table)
             .where(self.user_table.id == id)
-            .options(selectinload(self.user_table.roles))
+            .options(
+                selectinload(self.user_table.roles),
+                noload(self.user_table.oauth_accounts),
+            )
         )
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
@@ -41,7 +44,6 @@ class UserDatabaseWithRoles(SQLAlchemyUserDatabase):
             .where(func.lower(self.user_table.email) == email.lower())
             .options(
                 selectinload(self.user_table.roles),
-                selectinload(self.user_table.oauth_accounts),
             )
         )
         return (await self.session.execute(stmt)).scalar_one_or_none()

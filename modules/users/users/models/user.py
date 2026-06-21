@@ -65,16 +65,16 @@ class User(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
 
     # fastapi-users' SQLAlchemyUserDatabase.add_oauth_account does
     # ``user.oauth_accounts.append(...)``, so this attribute must exist.
-    # ``noload`` (like ``roles``) keeps it off the hot auth path: a plain
-    # ``select(User)`` — used on every authenticated request by the auth
-    # middleware/provider and by admin user lists — no longer fires an extra
-    # selectin query for OAuth accounts it never reads. The OAuth association
-    # flow eager-loads it explicitly via ``UserDatabaseWithRoles.get_by_email``
-    # (see db_adapter.py); user deletion is covered by the DB-level
-    # ``ondelete="CASCADE"`` on ``OAuthAccount.user_id``.
+    # ``selectin`` + ``delete-orphan`` is required for the ORM cascade to remove
+    # a user's OAuth accounts when the user is deleted — SQLite (the default DB)
+    # does not enforce the ``ondelete="CASCADE"`` FK, so the cascade must happen
+    # in the ORM. To keep this off the hot read path, the auth provider and the
+    # ``current_user`` adapter add ``noload(User.oauth_accounts)`` to their
+    # queries (see provider.py / db_adapter.py) — only the OAuth association
+    # flow (get_by_email) actually materialises the collection.
     oauth_accounts: list["OAuthAccount"] = Relationship(
         sa_relationship_kwargs={
-            "lazy": "noload",
+            "lazy": "selectin",
             "cascade": "all, delete-orphan",
         },
     )
