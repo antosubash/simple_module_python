@@ -49,6 +49,15 @@ def test_returns_empty_when_no_built_manifest(tmp_path: Path):
     assert _prod_manifest_path(tmp_path) == ""
 
 
+def test_returns_empty_when_no_entry_chunk(tmp_path: Path):
+    # A manifest with no isEntry chunk must degrade to "" (not return a path
+    # that would KeyError at render) — same graceful path as no-manifest.
+    manifest_dir = tmp_path / "host" / "static" / "dist" / ".vite"
+    manifest_dir.mkdir(parents=True)
+    (manifest_dir / "manifest.json").write_text(json.dumps({"pages/Foo.tsx": {"file": "f.js"}}))
+    assert _prod_manifest_path(tmp_path) == ""
+
+
 def test_scaffolded_layout_without_host_dir(tmp_path: Path):
     # smpy-new apps keep static/ at the project root (no host/ subdir).
     manifest_dir = tmp_path / "static" / "dist" / ".vite"

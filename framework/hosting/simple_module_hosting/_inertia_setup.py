@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import tempfile
@@ -52,14 +53,20 @@ def _prod_manifest_path(project_root: Path) -> str:
         if expected_key not in data:
             entry = next((v for v in data.values() if v.get("isEntry")), None)
             if entry is None:
+                # No entry to re-key: degrade gracefully (same as no-manifest)
+                # rather than returning a path that KeyErrors at render time.
                 logger.warning("No isEntry chunk in Vite manifest %s", vite_manifest)
-                return str(vite_manifest)
+                return ""
             data = {**data, expected_key: entry}
         out = vite_manifest.parent / "inertia-manifest.json"
         try:
             out.write_text(json.dumps(data))
         except OSError:
-            out = Path(tempfile.gettempdir()) / "sm-inertia-manifest.json"
+            # Build dir read-only (e.g. immutable container layer): fall back to
+            # a temp file keyed by the source manifest path so multiple apps on
+            # one host don't clobber each other's normalized manifests.
+            digest = hashlib.sha1(str(vite_manifest).encode()).hexdigest()[:12]
+            out = Path(tempfile.gettempdir()) / f"sm-inertia-manifest-{digest}.json"
             out.write_text(json.dumps(data))
         return str(out)
     except Exception:

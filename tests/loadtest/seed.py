@@ -69,7 +69,10 @@ async def main() -> None:
             await engine.dispose()
             return
         if force:
-            await conn.execute(delete(UserRole))
+            # Scope every delete to seeded rows — never truncate a table wholesale,
+            # so an accidental --force against a shared DB can't wipe real data.
+            loadtest_users = select(User.id).where(User.email.like("loadtest+%@example.com"))
+            await conn.execute(delete(UserRole).where(UserRole.user_id.in_(loadtest_users)))
             await conn.execute(delete(User).where(User.email.like("loadtest+%@example.com")))
             await conn.execute(delete(AuditEntry).where(AuditEntry.correlation_id == "seed"))
 

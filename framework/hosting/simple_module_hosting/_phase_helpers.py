@@ -64,7 +64,9 @@ class ImmutableStaticFiles(StaticFiles):
 
     async def get_response(self, path: str, scope: Scope) -> Response:
         response = await super().get_response(path, scope)
-        if response.status_code == 200 and path.startswith("dist/assets/"):
+        # StaticFiles hands us an OS-separator path (backslashes on Windows), so
+        # normalize before matching the forward-slash asset prefix.
+        if response.status_code == 200 and path.replace("\\", "/").startswith("dist/assets/"):
             response.headers["Cache-Control"] = _IMMUTABLE_CACHE_CONTROL
         return response
 
