@@ -182,9 +182,9 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5050,
+    port: Number(process.env.SM_VITE_PORT) || 5050,
     strictPort: true,
-    origin: 'http://localhost:5050',
+    origin: `http://localhost:${Number(process.env.SM_VITE_PORT) || 5050}`,
     fs: {
       allow: [projectRoot, ...moduleFsAllow],
     },

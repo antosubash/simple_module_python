@@ -16,8 +16,16 @@ from users.models import OAuthAccount, User, UserAccessToken
 
 
 class UserDatabaseWithRoles(SQLAlchemyUserDatabase):
-    """Always eager-load User.roles so fastapi-users can read role names
-    without triggering implicit async lazy-loads."""
+    """Eager-load User.roles so fastapi-users can read role names without
+    triggering implicit async lazy-loads.
+
+    ``oauth_accounts`` is ``lazy="noload"`` on the model, so it is *not* loaded
+    on the read-only auth path (``get`` backs ``current_user`` on every
+    request). It is eager-loaded only in ``get_by_email`` — the entry point for
+    fastapi-users' OAuth association flow, which appends to the collection and
+    therefore needs it materialised. ``get_by_oauth_account`` (base class) runs
+    its own join and does not depend on the relationship being loaded.
+    """
 
     async def get(self, id):
         stmt = (
@@ -31,7 +39,10 @@ class UserDatabaseWithRoles(SQLAlchemyUserDatabase):
         stmt = (
             select(self.user_table)
             .where(func.lower(self.user_table.email) == email.lower())
-            .options(selectinload(self.user_table.roles))
+            .options(
+                selectinload(self.user_table.roles),
+                selectinload(self.user_table.oauth_accounts),
+            )
         )
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
