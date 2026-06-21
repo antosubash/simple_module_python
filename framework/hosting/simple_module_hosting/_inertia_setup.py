@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import tempfile
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -16,6 +18,53 @@ _INERTIA_VERSION = "1.0"
 _ROOT_TEMPLATE_FILENAME = "index.html"
 _ENTRYPOINT_FILENAME = "main.tsx"
 _ROOT_DIRECTORY = "."
+# Built assets are served from the "/static" mount under "dist/", so production
+# asset URLs are prefixed with "static/dist".
+_ASSETS_PREFIX = "static/dist"
+_VITE_MANIFEST_RELPATH = Path("static") / "dist" / ".vite" / "manifest.json"
+
+
+def _prod_manifest_path(project_root: Path) -> str:
+    """Return a manifest path fastapi-inertia can read in production.
+
+    fastapi-inertia looks the entry up by ``f"{root_directory}/{entrypoint}"``
+    (here ``"./main.tsx"``), but Vite keys its manifest by the entry's path
+    relative to the Vite root (``"main.tsx"``) — so the raw Vite manifest would
+    ``KeyError``. Read it, re-key the ``isEntry`` chunk under the key
+    fastapi-inertia expects, and write the normalized copy beside the build
+    output (falling back to a temp file if that dir is read-only). Returns ``""``
+    when no built manifest exists, leaving production assets unconfigured rather
+    than crashing at import time.
+    """
+    candidates = [
+        project_root / "host" / _VITE_MANIFEST_RELPATH,
+        project_root / _VITE_MANIFEST_RELPATH,
+    ]
+    vite_manifest = next((p for p in candidates if p.is_file()), None)
+    if vite_manifest is None:
+        logger.warning(
+            "Production Vite manifest not found (looked in %s)", [str(c) for c in candidates]
+        )
+        return ""
+    try:
+        data = json.loads(vite_manifest.read_text())
+        expected_key = f"{_ROOT_DIRECTORY}/{_ENTRYPOINT_FILENAME}"
+        if expected_key not in data:
+            entry = next((v for v in data.values() if v.get("isEntry")), None)
+            if entry is None:
+                logger.warning("No isEntry chunk in Vite manifest %s", vite_manifest)
+                return str(vite_manifest)
+            data = {**data, expected_key: entry}
+        out = vite_manifest.parent / "inertia-manifest.json"
+        try:
+            out.write_text(json.dumps(data))
+        except OSError:
+            out = Path(tempfile.gettempdir()) / "sm-inertia-manifest.json"
+            out.write_text(json.dumps(data))
+        return str(out)
+    except Exception:
+        logger.exception("Failed to prepare production Inertia manifest from %s", vite_manifest)
+        return ""
 
 
 def setup_inertia(
@@ -82,6 +131,10 @@ def setup_inertia(
         environment=inertia_environment,
         version=_INERTIA_VERSION,
         dev_url=settings.vite_dev_url if use_dev_server else "",
+        # Production reads built assets from the Vite manifest; dev serves them
+        # from the Vite dev server, so these only matter when not use_dev_server.
+        manifest_json_path="" if use_dev_server else _prod_manifest_path(project_root),
+        assets_prefix="" if use_dev_server else _ASSETS_PREFIX,
         templates=templates,
         root_template_filename=_ROOT_TEMPLATE_FILENAME,
         entrypoint_filename=_ENTRYPOINT_FILENAME,
