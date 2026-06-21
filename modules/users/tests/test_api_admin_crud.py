@@ -5,7 +5,9 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from sqlalchemy import select
 from test_api_admin import _make_user
+from users.models import User
 
 # ---------------------------------------------------------------------------
 # Admin create
@@ -125,9 +127,6 @@ class TestAdminDelete:
 
     @pytest.mark.anyio
     async def test_delete_self_returns_400(self, admin_client, users_app):
-        from sqlalchemy import select
-        from users.models import User
-
         async with users_app.state.sm.db.session_factory() as session:
             admin = (
                 await session.execute(

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from test_service_admin import _build_service
 
@@ -117,32 +119,53 @@ async def test_update_details_same_email_is_allowed(users_app):
 
 
 @pytest.mark.anyio
-async def test_delete_user_removes_user_and_roles(users_app):
+async def test_delete_user_removes_user_and_all_child_rows(users_app):
+    from datetime import UTC, datetime, timedelta
+
     from sqlalchemy import select
     from test_api_admin import _make_user
-    from users.models import User, UserRole
+    from users.models import (
+        OAuthAccount,
+        RefreshToken,
+        User,
+        UserAccessToken,
+        UserRole,
+    )
 
     async with users_app.state.sm.db.session_factory() as session:
         user = await _make_user(session, email="todelete@example.com", role_names=["admin"])
-        svc = _build_service(session, users_app)
-        await svc.delete_user(user.id)
+        session.add(UserAccessToken(token=f"tok-{user.id.hex}", user_id=user.id))
+        session.add(
+            OAuthAccount(
+                user_id=user.id,
+                oauth_name="google",
+                access_token="x",
+                account_id="acct-1",
+                account_email="todelete@example.com",
+            )
+        )
+        session.add(
+            RefreshToken(user_id=user.id, expires_at=datetime.now(UTC) + timedelta(days=1))
+        )
         await session.flush()
 
-        remaining = (
+        svc = _build_service(session, users_app)
+        await svc.delete_user(user.id)
+
+        assert (
             await session.execute(select(User).where(User.id == user.id))
-        ).scalar_one_or_none()
-        assert remaining is None
-        roles = (
-            (await session.execute(select(UserRole).where(UserRole.user_id == user.id)))
-            .scalars()
-            .all()
-        )
-        assert roles == []
+        ).scalar_one_or_none() is None
+        for model in (UserRole, UserAccessToken, OAuthAccount, RefreshToken):
+            rows = (
+                (await session.execute(select(model).where(model.user_id == user.id)))
+                .scalars()
+                .all()
+            )
+            assert rows == [], f"{model.__name__} rows not cleaned up"
 
 
 @pytest.mark.anyio
 async def test_delete_user_nonexistent_raises(users_app):
-    import uuid
     from users.exceptions import UserNotFoundError
 
     async with users_app.state.sm.db.session_factory() as session:
