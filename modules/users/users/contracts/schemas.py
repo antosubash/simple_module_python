@@ -9,12 +9,19 @@ from fastapi_users.schemas import CreateUpdateDictModel
 from pydantic import ConfigDict, EmailStr
 from sqlmodel import SQLModel
 
+# NOTE on EmailStr: only *input* schemas (UserCreate/UserUpdate/UserInvite) use
+# EmailStr — that is where an email must be format-validated. Response schemas
+# (UserRead/UserListItem) use plain ``str``: their data comes straight from the
+# DB (already validated on write), and FastAPI's response_model would otherwise
+# re-run email-validator for every serialized user. Under load that validation
+# was ~8% of total CPU on list endpoints (20 users/page) — pure waste.
+
 
 class UserRead(CreateUpdateDictModel, SQLModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    email: EmailStr
+    email: str
     is_active: bool = True
     is_superuser: bool = False
     is_verified: bool = False
@@ -63,7 +70,7 @@ class UserDetailsUpdate(SQLModel):
 
 class UserListItem(SQLModel):
     id: uuid.UUID
-    email: EmailStr
+    email: str
     full_name: str | None = None
     is_active: bool
     is_verified: bool
