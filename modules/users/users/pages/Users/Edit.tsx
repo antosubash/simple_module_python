@@ -133,7 +133,10 @@ function Edit() {
       }
     >
       <div className="grid gap-4 lg:grid-cols-2">
-        <DetailsCard user={{ id: user.id, email: user.email, full_name: user.full_name }} />
+        <DetailsCard
+          key={user.id}
+          user={{ id: user.id, email: user.email, full_name: user.full_name }}
+        />
 
         <Card className="border-border">
           <CardContent className="pt-5">

@@ -33,13 +33,16 @@ export function DangerZone({ userId, email, isSelf }: Props) {
         if (res.ok) {
           toast.success('User deleted');
           router.visit('/users/admin');
-        } else {
-          const data = await res.json().catch(() => ({}));
-          toast.error(typeof data?.detail === 'string' ? data.detail : 'Failed to delete user');
+          return; // navigating away — leave `deleting` set
         }
+        const data = await res.json().catch(() => ({}));
+        toast.error(typeof data?.detail === 'string' ? data.detail : 'Failed to delete user');
+        setDeleting(false);
       })
-      .catch(() => toast.error('An error occurred'))
-      .finally(() => setDeleting(false));
+      .catch(() => {
+        toast.error('An error occurred');
+        setDeleting(false);
+      });
   };
 
   return (
