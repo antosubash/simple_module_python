@@ -19,6 +19,7 @@ router = APIRouter()
 
 _PAGE_ADMIN_INDEX = "Users/Users/Index"
 _PAGE_ADMIN_INVITE = "Users/Users/Invite"
+_PAGE_ADMIN_CREATE = "Users/Users/Create"
 _PAGE_ADMIN_EDIT = "Users/Users/Edit"
 
 
@@ -90,6 +91,23 @@ async def admin_invite_page(
 ) -> InertiaResponse:
     return await inertia.render(
         _PAGE_ADMIN_INVITE,
+        {
+            "roles": await _roles_payload(request.app),
+        },
+    )
+
+
+@router.get(
+    "/admin/create",
+    response_model=None,
+    dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
+)
+async def admin_create_page(
+    request: Request,
+    inertia: InertiaDep,
+) -> InertiaResponse:
+    return await inertia.render(
+        _PAGE_ADMIN_CREATE,
         {
             "roles": await _roles_payload(request.app),
         },
