@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-memray lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings ci-build-packages worker beat worker-docker
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings ci-build-packages worker beat worker-docker
 
 # Install
 install:
@@ -69,8 +69,14 @@ memray-flamegraph:          ## Render $(MEMRAY_OUT) as an HTML flamegraph
 # Load testing. `make loadtest` assumes `make dev` is running separately.
 # `make loadtest-memray` starts uvicorn under memray, runs locust headless,
 # shuts down, and emits a flamegraph. Override locust args via LOCUST_ARGS=...
+# Run `make loadtest-seed` once beforehand to fill the DB (faker) with realistic
+# volumes — set SM_DATABASE_URL to a THROWAWAY database first. Override row
+# counts via SEED_ARGS="5000 50000" (users, audit). See tests/loadtest/README.md.
 LOCUST_HOST ?= http://localhost:8000
 LOCUST_ARGS ?= -u 20 -r 5 -t 30s
+loadtest-seed:              ## Seed realistic faker data into $$SM_DATABASE_URL (users + audit)
+	uv run python tests/loadtest/seed.py $(SEED_ARGS)
+
 loadtest:                   ## Run locust against a server already on $(LOCUST_HOST)
 	uv run locust -f tests/loadtest/locustfile.py --host $(LOCUST_HOST) --headless $(LOCUST_ARGS)
 

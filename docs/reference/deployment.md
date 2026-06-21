@@ -44,7 +44,9 @@ COPY --from=frontend /app/static/dist /app/static/dist
 CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
 ```
 
-Tune worker count with `--workers N` for multi-CPU boxes, or run behind a process manager like Gunicorn with Uvicorn workers.
+Tune worker count with `--workers N` for multi-CPU boxes, or run behind a process manager like Gunicorn with Uvicorn workers. A single worker is CPU-bound (one process, the GIL) — multiple workers scale read throughput roughly linearly on a multi-core box.
+
+**Size the DB pool to the worker count.** Each worker keeps its own connection pool of up to `SM_DB_POOL_SIZE + SM_DB_MAX_OVERFLOW` (default `10 + 20 = 30`) connections, so the deployment's ceiling is `workers × (pool_size + max_overflow)`. Keep that under the database's `max_connections` (Postgres default `100`) or workers will throw `asyncpg.TooManyConnectionsError: sorry, too many clients already` under load. For example, 4 workers want roughly `SM_DB_POOL_SIZE=5`, `SM_DB_MAX_OVERFLOW=10` (≤ 60 connections). For larger fleets, put PgBouncer in front instead of growing every pool.
 
 ## Running migrations on deploy
 
