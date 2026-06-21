@@ -27,6 +27,13 @@ _PROTECTED_ENDPOINTS: tuple[tuple[str, str, dict | None], ...] = (
     ("PUT", f"/api/users/admin/{_FAKE_ID}/roles", {"role_names": []}),
     ("PATCH", f"/api/users/admin/{_FAKE_ID}/verify", None),
     ("POST", f"/api/users/admin/{_FAKE_ID}/reset-password-link", None),
+    (
+        "POST",
+        "/api/users/admin",
+        {"email": "x@y.test", "password": "SecurePass1!", "role_names": []},
+    ),
+    ("PATCH", f"/api/users/admin/{_FAKE_ID}", {"email": "x@y.test"}),
+    ("DELETE", f"/api/users/admin/{_FAKE_ID}", None),
     # permissions — root GET lists registered groups (PERM_VIEW)
     ("GET", "/api/permissions/", None),
     ("GET", f"/api/permissions/roles/{_FAKE_ID}", None),

@@ -41,6 +41,7 @@ class TestAdminCreate:
             json={"email": "taken@example.com", "password": "SecurePass1!"},
         )
         assert resp.status_code == 409
+        assert "already exists" in resp.json()["detail"]
 
     @pytest.mark.anyio
     async def test_create_weak_password_returns_400(self, admin_client):
