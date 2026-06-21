@@ -129,9 +129,7 @@ class TestAdminDelete:
     async def test_delete_self_returns_400(self, admin_client, users_app):
         async with users_app.state.sm.db.session_factory() as session:
             admin = (
-                await session.execute(
-                    select(User).where(User.email == "admin@example.com")
-                )
+                await session.execute(select(User).where(User.email == "admin@example.com"))
             ).scalar_one()
         resp = await admin_client.delete(f"/api/users/admin/{admin.id}")
         assert resp.status_code == 400

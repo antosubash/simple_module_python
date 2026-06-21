@@ -144,9 +144,7 @@ async def test_delete_user_removes_user_and_all_child_rows(users_app):
                 account_email="todelete@example.com",
             )
         )
-        session.add(
-            RefreshToken(user_id=user.id, expires_at=datetime.now(UTC) + timedelta(days=1))
-        )
+        session.add(RefreshToken(user_id=user.id, expires_at=datetime.now(UTC) + timedelta(days=1)))
         await session.flush()
 
         svc = _build_service(session, users_app)
