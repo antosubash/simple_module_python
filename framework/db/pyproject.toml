@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_db"
-version = "0.0.19"
+version = "0.0.20"
 description = "Per-module SQLModel Base, async session, standard mixins (Audit, SoftDelete, MultiTenant, Versioned) for simple_module"
 readme = "README.md"
 license = "MIT"
@@ -28,7 +28,7 @@ dependencies = [
     # The async app code goes through asyncpg; migration env.py rewrites the
     # URL to +psycopg2 because Alembic's online migrations are sync-only.
     "psycopg2-binary>=2.9",
-    "simple_module_core==0.0.19",
+    "simple_module_core==0.0.20",
     "sqlalchemy[asyncio]>=2.0",
     "sqlmodel>=0.0.22",
 ]

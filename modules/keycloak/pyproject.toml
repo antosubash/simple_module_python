@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_keycloak"
-version = "0.0.19"
+version = "0.0.20"
 description = "Keycloak OIDC authentication provider for simple_module — swap with simple_module_users"
 readme = "README.md"
 license = "MIT"
@@ -20,11 +20,11 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "simple_module_core==0.0.19",
-    "simple_module_db==0.0.19",
-    "simple_module_hosting==0.0.19",
-    "simple_module_settings==0.0.19",
-    "simple_module_auth==0.0.19",
+    "simple_module_core==0.0.20",
+    "simple_module_db==0.0.20",
+    "simple_module_hosting==0.0.20",
+    "simple_module_settings==0.0.20",
+    "simple_module_auth==0.0.20",
     "PyJWT[crypto]>=2.8",
     "httpx>=0.27",
 ]
