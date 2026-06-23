@@ -11,7 +11,7 @@ from sqlmodel import Field
 Base = create_module_base("oidc")
 
 
-class OidcUserCache(Base, table=True):
+class OidcUserCache(Base, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "oidc_user_cache"
 
     id: uuid_mod.UUID = Field(default_factory=uuid_mod.uuid4, primary_key=True)

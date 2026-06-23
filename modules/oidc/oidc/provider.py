@@ -107,7 +107,13 @@ class OidcAuthProvider:
                 else:
                     self._touch_cache_row(row, claims)
                 await db.flush()
-                return str(row.id)
+                row_id = str(row.id)
+                # This is a self-managed session (not the request-scoped
+                # ``get_db``), so it must commit explicitly — otherwise the row
+                # is rolled back on close and the subject->UUID mapping never
+                # persists, minting a fresh id on every login.
+                await db.commit()
+                return row_id
         except Exception:
             logger.exception("Failed to upsert OidcUserCache for subject=%s", subject)
             return subject or "unknown"

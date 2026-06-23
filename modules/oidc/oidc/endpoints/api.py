@@ -25,11 +25,11 @@ def _require_client(request: Request):
     return client
 
 
-@router.get("/login")
+@router.get("/login", name="oidc_auth_login")
 async def oidc_login(request: Request):
     client = _require_client(request)
     s = request.app.state.oidc.settings
-    callback_url = str(request.url_for("oidc_callback"))
+    callback_url = str(request.url_for("oidc_auth_callback"))
     nonce = secrets.token_urlsafe(32)
     url, state = client.build_authorization_url(
         redirect_uri=callback_url,
@@ -41,19 +41,19 @@ async def oidc_login(request: Request):
     return RedirectResponse(url, status_code=302)
 
 
-@router.get("/callback")
+@router.get("/callback", name="oidc_auth_callback")
 async def oidc_callback(request: Request):
     code = request.query_params.get("code")
     state = request.query_params.get("state")
 
     expected_state = request.session.pop(_SESSION_OIDC_STATE, None)
-    request.session.pop(_SESSION_OIDC_NONCE, None)
+    expected_nonce = request.session.pop(_SESSION_OIDC_NONCE, None)
 
     if not code or not state or state != expected_state:
         raise HTTPException(status_code=400, detail="Invalid OIDC state")
 
     client = _require_client(request)
-    callback_url = str(request.url_for("oidc_callback"))
+    callback_url = str(request.url_for("oidc_auth_callback"))
 
     try:
         tokens = await client.exchange_code(code=code, redirect_uri=callback_url)
@@ -69,6 +69,12 @@ async def oidc_callback(request: Request):
     claims = await jwks_cache.validate_jwt(id_token) if jwks_cache else None
     if claims is None:
         raise HTTPException(status_code=401, detail="Token validation failed")
+
+    # Bind the id_token to this login: the nonce we sent in the authorize
+    # request must come back in the validated token (OIDC Core 3.1.3.7 §11).
+    # Without this an attacker could replay/inject a separately-obtained token.
+    if not expected_nonce or claims.get("nonce") != expected_nonce:
+        raise HTTPException(status_code=401, detail="OIDC nonce mismatch")
 
     provider = request.app.state.auth.auth_provider
     cache_id = await provider._upsert_user_cache(request, claims)
