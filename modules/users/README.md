@@ -38,7 +38,7 @@ SM_USERS_BOOTSTRAP_PASSWORD=change-me
 Program:
 
 ```python
-from users.deps import CurrentUser    # type: ignore[import-not-found]
+from auth.deps import CurrentUser    # type: ignore[import-not-found]
 
 @router.get("/profile")
 async def profile(user: CurrentUser):
@@ -47,8 +47,8 @@ async def profile(user: CurrentUser):
 
 ## Depends on
 
-- `simple_module_core`, `simple_module_db`, `simple_module_hosting`, `simple_module_auth`
-- `fastapi-users[sqlalchemy]>=15,<16`, `aiosmtplib`, `cachetools`, `typer`
+- `simple_module_core`, `simple_module_db`, `simple_module_hosting`, `simple_module_settings`, `simple_module_auth`
+- `fastapi-users[sqlalchemy,oauth]>=15,<16`, `aiosmtplib`, `cachetools`, `typer`
 
 ## Social sign-in (Google, GitHub, Microsoft, OIDC)
 

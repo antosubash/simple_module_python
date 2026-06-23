@@ -1,4 +1,4 @@
-"""UserService — admin operations delegating to the DB and UserManager."""
+"""UserService — admin write operations (reads live in queries.py)."""
 
 from __future__ import annotations
 
@@ -6,169 +6,117 @@ import secrets
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, func, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy import delete, func, select
+from sqlalchemy.orm import noload
 
-from users.contracts.schemas import RoleListItem, UserCreate, UserListItem
-from users.exceptions import UserNotFoundError
-from users.manager import UserManager
-from users.models import Role, User, UserRole
+from users.admin.queries import _UserServiceBase
+from users.contracts.schemas import UserCreate
+from users.exceptions import EmailAlreadyExistsError, UserNotFoundError
+from users.models import OAuthAccount, RefreshToken, User, UserAccessToken, UserRole
 
 
-class UserService:
-    def __init__(
+class UserService(_UserServiceBase):
+    async def create_user(
         self,
-        db: AsyncSession,
-        user_manager: UserManager,
-    ) -> None:
-        self._db = db
-        self._manager = user_manager
-
-    # ── Helpers ─────────────────────────────────────────────────
-
-    async def _resolve_roles(self, role_names: list[str]) -> list[Role]:
-        """Return Role ORM objects matching the given names."""
-        if not role_names:
-            return []
-        result = await self._db.execute(select(Role).where(Role.name.in_(role_names)))
-        return list(result.scalars().all())
-
-    def to_list_item(self, user: User) -> UserListItem:
-        """Build the DTO from a User with roles already eager-loaded."""
-        return UserListItem(
-            id=user.id,
-            email=user.email,
-            full_name=user.full_name,
-            is_active=user.is_active,
-            is_verified=user.is_verified,
-            disabled_at=user.disabled_at,
-            last_login_at=user.last_login_at,
-            created_at=user.created_at,
-            roles=[r.name for r in user.roles],
-        )
-
-    async def list_roles(self) -> list[RoleListItem]:
-        stmt = (
-            select(Role, func.count(UserRole.user_id))
-            .outerjoin(UserRole, UserRole.role_id == Role.id)
-            .group_by(Role.id)
-            .order_by(Role.name)
-        )
-        result = await self._db.execute(stmt)
-        return [
-            RoleListItem(
-                id=role.id,
-                name=role.name,
-                description=role.description,
-                user_count=user_count,
-            )
-            for role, user_count in result.all()
-        ]
-
-    async def _get_user_with_roles(self, user_id: uuid.UUID) -> User | None:
-        result = await self._db.execute(
-            select(User).where(User.id == user_id).options(selectinload(User.roles))
-        )
-        return result.scalar_one_or_none()
-
-    async def _require_user(self, user_id: uuid.UUID) -> User:
-        """Fetch a user with roles eager-loaded, or raise UserNotFoundError."""
-        user = await self._get_user_with_roles(user_id)
-        if user is None:
-            raise UserNotFoundError(user_id)
-        return user
-
-    # ── Public API ───────────────────────────────────────────────
-
-    async def list_users(
-        self,
+        email: str,
+        password: str,
+        full_name: str | None,
+        role_names: list[str],
         *,
-        page: int = 1,
-        per_page: int = 20,
-        search: str | None = None,
-        status: str | None = None,
-        role_name: str | None = None,
-        verified: str | None = None,
-        sort: str = "email",
-        order: str = "asc",
-    ) -> tuple[list[UserListItem], int]:
-        """Returns (items, total_count). last_login_at sort always uses NULLS LAST."""
-        stmt = select(User).options(selectinload(User.roles))
-        count_stmt = select(func.count()).select_from(User)
+        created_by: str | None,
+    ) -> User:
+        """Create an active+verified user with an admin-set password.
 
-        conditions = []
+        Reuses ``manager.create`` for the password policy + email-uniqueness
+        check. ``is_verified=True`` means ``on_after_register`` does not fire a
+        verification email (and with no request, no event is published here —
+        the endpoint publishes ``UserCreated``)."""
+        user_create = UserCreate(
+            email=email,
+            password=password,
+            full_name=full_name,
+            is_active=True,
+            is_verified=True,
+            is_superuser=False,
+        )
+        user = await self._manager.create(user_create, safe=False)
 
-        if search:
-            pattern = f"%{search}%"
-            conditions.append(
-                or_(
-                    User.email.ilike(pattern),
-                    User.full_name.ilike(pattern),
+        roles = await self._resolve_roles(role_names)
+        for role in roles:
+            self._db.add(
+                UserRole(
+                    user_id=user.id,
+                    role_id=role.id,
+                    assigned_by=created_by,
                 )
             )
+        if roles:
+            await self._db.flush()
+            # User.roles is lazy="noload": selectinload only populates a fresh
+            # fetch, not an identity-map hit. Expunge first to force a reload.
+            user_id = user.id
+            self._db.expunge(user)
+            loaded = await self._get_user_with_roles(user_id)
+            if loaded is None:  # impossible: row was just flushed in this txn
+                raise RuntimeError(f"User {user_id} vanished immediately after create")
+            return loaded
+        return user
 
-        if status == "active":
-            conditions.append(User.is_active.is_(True))
-        elif status == "disabled":
-            conditions.append(User.is_active.is_(False))
-
-        if verified == "yes":
-            conditions.append(User.is_verified.is_(True))
-        elif verified == "no":
-            conditions.append(User.is_verified.is_(False))
-
-        if role_name is not None:
-            subq = (
-                select(UserRole.user_id)
-                .join(Role, Role.id == UserRole.role_id)
-                .where(Role.name == role_name)
+    async def update_details(
+        self,
+        user_id: uuid.UUID,
+        email: str,
+        full_name: str | None,
+    ) -> User:
+        """Update a user's email + full name. Raises UserNotFoundError if the
+        user is missing, EmailAlreadyExistsError if the new email is taken by
+        another user."""
+        user = await self._require_user(user_id)
+        if email.lower() != user.email.lower():
+            clash = await self._db.execute(
+                select(User.id).where(
+                    func.lower(User.email) == email.lower(),
+                    User.id != user_id,
+                )
             )
-            conditions.append(User.id.in_(subq))
+            if clash.scalar_one_or_none() is not None:
+                raise EmailAlreadyExistsError(email)
+        user.email = email
+        user.full_name = full_name
+        await self._db.flush()
+        return user
 
-        for cond in conditions:
-            stmt = stmt.where(cond)
-            count_stmt = count_stmt.where(cond)
+    async def delete_user(self, user_id: uuid.UUID) -> None:
+        """Hard-delete a user and all of its dependent rows.
 
-        total = (await self._db.execute(count_stmt)).scalar_one()
+        Every child table is cleared with an explicit bulk ``DELETE`` so the
+        result is deterministic and identical on Postgres and SQLite (SQLite
+        only honours FK cascade with a per-connection pragma we don't set, and
+        ``RefreshToken`` has no DB cascade at all).
 
-        sort_col_map = {
-            "email": User.email,
-            "last_login_at": User.last_login_at,
-            "created_at": User.created_at,
-        }
-        sort_col = sort_col_map.get(sort, User.email)
-
-        if sort == "last_login_at":
-            order_clause = (
-                sort_col.desc().nulls_last()  # type: ignore[union-attr]
-                if order == "desc"
-                else sort_col.asc().nulls_last()  # type: ignore[union-attr]
-            )
-        else:
-            order_clause = (
-                sort_col.desc() if order == "desc" else sort_col.asc()  # type: ignore[union-attr]
-            )
-
-        stmt = stmt.order_by(order_clause).offset((page - 1) * per_page).limit(per_page)
-        rows = (await self._db.execute(stmt)).scalars().all()
-
-        items = [self.to_list_item(u) for u in rows]
-        return items, total
-
-    async def count_user_states(self) -> dict[str, int]:
-        """Workspace-wide counts unaffected by list filters/pagination —
-        feeds the dashboard cards on /users/admin so they don't reflect
-        the current page slice."""
-        active_q = select(func.count()).select_from(User).where(User.is_active.is_(True))
-        unverified_q = (
-            select(func.count())
-            .select_from(User)
-            .where(User.is_active.is_(True), User.is_verified.is_(False))
+        The user is loaded with ``roles`` and ``oauth_accounts`` forced to
+        ``noload``. ``noload`` returns an empty collection *without* emitting a
+        query, which matters twice: (1) the unit of work isn't tracking the
+        ``users_user_role`` / ``oauth_account`` rows, so our bulk deletes don't
+        race the ORM and trigger ``StaleDataError`` on flush (the original bug —
+        it only bit a real request session deleting a user that actually had a
+        role); (2) ``session.delete(user)`` won't trigger an implicit async
+        lazy-load of the ``delete-orphan`` ``oauth_accounts`` collection
+        mid-flush. ``session.delete(user)`` is what flags the session as
+        written so ``get_db`` commits — a bulk ``DELETE`` of the user alone
+        would be rolled back as a read-only request."""
+        result = await self._db.execute(
+            select(User)
+            .where(User.id == user_id)
+            .options(noload(User.roles), noload(User.oauth_accounts))
         )
-        active = (await self._db.execute(active_q)).scalar_one()
-        unverified = (await self._db.execute(unverified_q)).scalar_one()
-        return {"active": int(active), "unverified": int(unverified)}
+        user = result.scalar_one_or_none()
+        if user is None:
+            raise UserNotFoundError(user_id)
+        for model in (UserRole, UserAccessToken, OAuthAccount, RefreshToken):
+            await self._db.execute(delete(model).where(model.user_id == user_id))
+        await self._db.delete(user)
+        await self._db.flush()
 
     async def invite(
         self,
@@ -262,10 +210,3 @@ class UserService:
 
         token = await self._manager.generate_reset_password_token(user)
         return f"{base_url.rstrip('/')}/users/reset-password?token={token}"
-
-    async def get_with_roles(self, user_id: uuid.UUID) -> User | None:
-        return await self._get_user_with_roles(user_id)
-
-    async def get_list_item(self, user_id: uuid.UUID) -> UserListItem:
-        user = await self._require_user(user_id)
-        return self.to_list_item(user)

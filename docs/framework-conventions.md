@@ -20,7 +20,7 @@ modules/<name>/
     └── pages/                # *.tsx — auto-discovered by Vite
 ```
 
-Scaffold a fresh module with `smpy create-module <name> --dest modules/<name>` — it generates all of the above. Then run `uv add ./modules/<name>` to register it on your app.
+Scaffold a fresh module with `smpy create-module <name> --dest modules/<name>` — it generates a working subset (`module.py`, `services.py`, `settings.py`, `endpoints/api.py`, an empty `pages/`, plus packaging files); add `models.py`, `deps.py`, `contracts/`, `endpoints/views.py`, and `locales/` as your module needs them. Then run `uv add ./modules/<name>` to register it on your app.
 
 ## ModuleMeta
 
@@ -66,6 +66,7 @@ SecurityHeadersMiddleware
 SessionMiddleware
 <module-registered middleware>     # each module's register_middleware()
 TenantMiddleware    (if multi_tenant=True)
+LocaleMiddleware
 InertiaLayoutDataMiddleware
 # Added first → last executed
 ```
@@ -74,7 +75,7 @@ InertiaLayoutDataMiddleware
 
 ```
 CorrelationId → RequestLogging → SecurityHeaders → Session
-  → <modules> → Tenant → InertiaLayoutData → app
+  → <modules> → Tenant → Locale → InertiaLayoutData → app
 ```
 
 ### Module-registered middleware ordering
@@ -99,7 +100,8 @@ once at boot. Consumers read `request.app.state.sm.<field>` — never raw `app.s
 attributes for framework-owned state.
 
 Fields: `settings`, `db`, `event_bus`, `menu_registry`, `permissions`,
-`feature_flags`, `health_registry`, `i18n_registry`, `inertia_config`, `modules`.
+`feature_flags`, `health_registry`, `public_routes`, `i18n_registry`,
+`inertia_config`, `modules`.
 
 Two attributes are intentionally kept outside `Services`:
 
@@ -211,7 +213,7 @@ Service code should not call `session.commit()` directly. Flush for intermediate
   Sidebar items can also set `group="<Label>"` on the `MenuItem` to render under a group header. The frontend clusters consecutive items with the same group label and prints the label as a section heading; the group's position is set by the lowest-`order` item that joins it. Built-in groups are `Content`, `Administration`, and `System`. Items with no `group` (the default) render flat — Dashboard intentionally stays ungrouped above the headed groups.
 - `i18n` — active locale and translation bundle.
 
-The framework does not know the shape of `auth.user`. A module (typically `users`) registers a `principal_serializer: Callable[[user], dict]` on `app.state` during `register_settings(app)`; the middleware calls it with `request.state.user` to build the `auth.user` payload. Without a registered serializer, `auth.user` is `None` even when a user is authenticated.
+The framework does not know the shape of `auth.user`. The `auth` module registers a `principal_serializer: Callable[[UserContext], dict]` on `app.state.principal_serializer` during `register_settings(app)`; the middleware calls it with `request.state.user` to build the `auth.user` payload. Without a registered serializer, `auth.user` is `None` even when a user is authenticated.
 
 Use `InertiaDep` from `simple_module_hosting.inertia_deps` — it attaches the shared data automatically.
 
@@ -263,6 +265,25 @@ a 302 redirect to the provider's login URL.
 Boot-time diagnostic `SM020` fails if multiple auth providers are installed.
 `SM021` warns if none is installed.
 
+### Public routes (anonymous access)
+
+To expose a route without a session — a read-only STAC / OGC API, a TileJSON
+endpoint, an inbound webhook — a module overrides `register_public_routes`:
+
+```python
+def register_public_routes(self, registry):
+    registry.add_prefix("/api/gis/stac")
+    registry.add_regex(r"/api/gis/datasets/[^/]+/tilejson$", methods={"GET"})
+```
+
+Rules are **method-aware**, so a GET read route can be exempted while sibling
+`POST`/`PATCH` mutations under the same prefix stay gated. The host aggregates
+every module's rules into one `PublicRouteRegistry` (plus host-level
+`SM_AUTH_PUBLIC_PATHS` prefixes) and publishes it at `app.state.public_routes`,
+which `AuthMiddleware` consults on every request. See
+[`docs/framework/public-routes.md`](framework/public-routes.md) for match kinds
+and resolution order.
+
 ## Events
 
 Base class: `Event` from `simple_module_core.events`. Subclass per domain event:
@@ -287,7 +308,7 @@ Publish from anywhere with a bus handle:
 await bus.publish(OrderPlaced(order_id=42, total=Decimal("99")))
 ```
 
-Dispatch walks the event's MRO, so subscribing to a base class delivers subclass events.
+Dispatch keys on the **exact** event class (`module.qualname`), not its MRO — subscribing to a base `Event` class does **not** receive subclass events. Subscribe to the concrete type you want.
 
 ## Diagnostic codes
 
@@ -306,6 +327,9 @@ Dispatch walks the event's MRO, so subscribing to a base class delivers subclass
 | SM014 | WARNING | Non-default locale missing keys present in the default |
 | SM015 | WARNING | Non-default locale has keys not in the default |
 | SM016 | ERROR | Locale JSON invalid or contains non-string leaves |
+| SM017 | WARNING | Module ships `pages/*.tsx` but is missing `package.json` / `tsconfig.json` |
+| SM018 | WARNING | Inertia `router.{post,patch,put,delete}()` in a page targets a JSON `/api/*` endpoint |
+| SM019 | WARNING | Module registers view routes but no menu items or permissions (unreachable in UI) |
 | SM020 | ERROR | Multiple auth provider modules installed |
 | SM021 | WARNING | No auth provider module installed |
 
@@ -324,7 +348,7 @@ class OrdersModule(ModuleBase):
         return {"orders": Path(str(importlib.resources.files(__package__) / "locales"))}
 ```
 
-`smpy create-module` scaffolds this method and a matching `locales/en.json` automatically.
+Add this method (and a matching `locales/en.json`) yourself — the `smpy create-module` scaffold does not emit a `locales/` directory.
 
 ### Key naming
 

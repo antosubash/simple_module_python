@@ -23,7 +23,7 @@ The same migrations apply to Postgres and SQLite. There is no provider branching
 
 ## The `build_module_metadata()` function
 
-Alembic's autogenerate needs a **single** `MetaData` object describing every table it should manage. Each module has its own — so `migrations/env.py` calls:
+Alembic's autogenerate needs a **single** `MetaData` object describing every table it should manage. Each module has its own — so `host/migrations/env.py` calls:
 
 ```python
 from simple_module_db.base import build_module_metadata
@@ -37,13 +37,13 @@ If a module has no `models.py`, it contributes nothing — fine. If a module has
 
 ## `make_include_object()`
 
-Alembic's `include_object` callback filters which tables `autogenerate` considers. `migrations/env.py` uses `make_include_object()` from `simple_module_db` to:
+Alembic's `include_object` callback filters which tables `autogenerate` considers. `host/migrations/env.py` calls `make_include_object(target_metadata)` from `simple_module_db` to:
 
-- **Include** tables from any discovered module's MetaData.
-- **Exclude** tables owned by the Alembic runtime itself (`alembic_version`).
-- **Exclude** host-owned tables that shouldn't be in a module migration (there are currently none, but the hook is there).
+- **Include** only tables present in the combined module `MetaData` (the allowlist is `{t.name for t in metadata.tables.values()}`).
+- **Exclude** everything else — tables owned by the Alembic runtime (`alembic_version`) and any host-owned tables that aren't part of an installed module.
+- Optionally skip unmodeled foreign-key constraints (`ignore_unmodeled_fks=True` by default) so migration-level cross-module FKs aren't dropped on every autogen run.
 
-If you write a one-off host-level table that autogenerate shouldn't track, extend `make_include_object()` — don't reach into a module's `models.py`.
+If you write a one-off host-level table that autogenerate shouldn't track, keep it out of the module metadata — `make_include_object` already excludes anything not in the allowlist.
 
 ## Naming rules
 

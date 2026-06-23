@@ -31,8 +31,8 @@ All day-to-day tasks go through `make`:
 | Command | Purpose |
 |---|---|
 | `make install` | Install Python + JS deps |
-| `make dev` | Docker up + regen module pages + API (8000) and Vite (5173) in parallel |
-| `make kill` | Free ports 8000/5173 |
+| `make dev` | Docker up + regen module pages + API (8000) and Vite (5050) in parallel |
+| `make kill` | Free ports 8000/5050/5173 |
 | `make test` | Run `test-py` then `test-js` (e2e excluded by default) |
 | `make test-py` / `make test-js` | Run a single suite |
 | `make test-e2e` | Playwright smoke tests (requires `make dev` running + `uv run playwright install chromium`) |
@@ -42,7 +42,7 @@ All day-to-day tasks go through `make`:
 | `make new-module name=<name>` | Scaffold a new module package end-to-end |
 | `make gen-pages` | Regenerate `host/client_app/modules.{manifest.json,generated.ts,generated.css}` from installed modules |
 
-Single test: `uv run pytest path/to/test_file.py::test_name` (root `pyproject.toml` sets `asyncio_mode=auto` and `-m 'not e2e'`). A single JS test: `npx vitest run <path>`.
+Single test: `uv run pytest path/to/test_file.py::test_name` (root `pyproject.toml` sets `asyncio_mode=auto` and `-m 'not e2e and not perf'`). A single JS test: `npx vitest run <path>`.
 
 Entry point: `host/main.py` (`uv run --project host uvicorn host.main:app --reload`). Alembic runs from the repo root (`host/alembic.ini`) so it shares the `.env` / `SM_DATABASE_URL` with the API.
 
@@ -67,7 +67,7 @@ modules/<name>/<name>/
 ```
 
 **Lifecycle hooks** (in `framework/core/simple_module_core/module.py`) — all no-op by default; subclasses override as needed:
-`register_settings` → `register_menu_items` / `register_permissions` / `register_feature_flags` / `register_event_handlers` / `register_health_checks` → `register_exception_handlers` → `register_middleware` → `register_routes(api_router, view_router)` → async `on_startup` / `on_shutdown` (reverse order).
+`register_settings` → `register_menu_items` / `register_permissions` / `register_feature_flags` / `register_event_handlers` / `register_health_checks` / `register_public_routes` → `register_exception_handlers` → `register_middleware` → `register_routes(api_router, view_router)` → async `on_startup` / `on_shutdown` (reverse order). `register_public_routes(registry)` lets a module exempt anonymous/read-only routes (STAC/OGC, webhooks) from `AuthMiddleware`; rules are method-aware (`registry.add_regex(r"…/tilejson$", methods={"GET"})`), so a GET read route can be public while sibling POST/PATCH mutations under the same prefix stay gated. See [docs/framework/public-routes.md](docs/framework/public-routes.md).
 
 **Middleware pipeline** (Starlette `add_middleware` is LIFO — last added runs first). Execution order on a request:
 `CorrelationId → RequestLogging → SecurityHeaders → Session → <module middleware> → Tenant (opt-in) → Locale → InertiaLayoutData → app`. When two modules add middleware at the same dependency tier, the module that sorts **later** wraps outermost. Use `depends_on` to express relative order — don't rely on names.
@@ -98,7 +98,7 @@ Meaningful codes when reading `make doctor` output: `SM001` missing meta (error)
 
 ## Tests & fixtures
 
-Root `conftest.py` provides app-level fixtures available to every test directory:
+The `simple_module_test` plugin provides app-level fixtures available to every test directory — auto-loaded via its `pytest11` entry point (defined in `framework/testing/simple_module_test/fixtures.py`), so the root `conftest.py` is intentionally thin:
 - `settings` — in-memory SQLite `Settings` with `multi_tenant=True`.
 - `db_state`, `engine`, `db_session` — fresh in-memory `DatabaseState` per test; `db_session` also creates all module tables and stamps `alembic_version` at head so the boot-time migration check passes.
 - `app` — `create_app(settings)` with lifespan started/stopped.

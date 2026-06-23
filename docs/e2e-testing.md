@@ -1,9 +1,10 @@
 # End-to-End Testing
 
 Playwright-driven smoke tests live in [tests/e2e/](../tests/e2e/) — currently
-just [`test_settings_ui.py`](../tests/e2e/test_settings_ui.py), which logs in,
-navigates to `/settings/modules`, toggles a module setting, and verifies the
-change hot-reloads into `app.state` without a server restart.
+[`test_settings_ui.py`](../tests/e2e/test_settings_ui.py) (logs in, navigates to
+`/settings/modules`, toggles a module setting, and verifies the change
+hot-reloads into `app.state` without a server restart) and
+[`test_audit_log_ui.py`](../tests/e2e/test_audit_log_ui.py).
 
 End-to-end tests are gated behind the `e2e` pytest marker (declared in
 your app's `pyproject.toml`) and are **excluded from the default
@@ -21,7 +22,7 @@ uv run playwright install chromium
 Then bring up the full stack (in a separate terminal, leave it running):
 
 ```bash
-docker compose up -d postgres   # skip if you're on the default SQLite config
+make docker-up                  # shared dev-services stack (Postgres/Redis/MinIO); skip if on default SQLite
 make migrate                    # apply Alembic migrations
 make dev                        # FastAPI on :8000 + Vite on :5050
 ```

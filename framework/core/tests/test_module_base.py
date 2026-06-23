@@ -101,6 +101,30 @@ class TestModuleNewHooks:
         mod = DummyModule()
         mod.register_settings(None)
 
+    async def test_register_public_routes_default_noop(self):
+        from simple_module_core.public_routes import PublicRouteRegistry
+
+        mod = DummyModule()
+        reg = PublicRouteRegistry()
+        mod.register_public_routes(reg)
+        assert reg.routes == []
+
+    async def test_register_public_routes_override(self):
+        from simple_module_core.public_routes import PublicRouteRegistry
+
+        class ModWithPublic(ModuleBase):
+            meta = ModuleMeta(name="WithPublic")
+
+            def register_public_routes(self, registry):
+                registry.add_prefix("/api/with-public/stac")
+                registry.add_regex(r"/api/with-public/datasets/[^/]+/tilejson$", methods={"GET"})
+
+        reg = PublicRouteRegistry()
+        ModWithPublic().register_public_routes(reg)
+        assert reg.matches("GET", "/api/with-public/stac/collections")
+        assert reg.matches("GET", "/api/with-public/datasets/9/tilejson")
+        assert not reg.matches("PATCH", "/api/with-public/datasets/9/tilejson")
+
 
 class TestModuleAssetHooks:
     async def test_template_dirs_default_empty(self):

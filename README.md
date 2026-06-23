@@ -1,13 +1,13 @@
 # simple_module_python
 
-A modular-monolith framework for Python. Each feature lives in its own self-contained module — its own SQLModel tables, schema, FastAPI endpoints, React pages — but everything ships as one FastAPI + Inertia.js + React app. No microservice tax, no API-client glue; just plugin modules that compose at boot.
+A modular-monolith framework for Python. Each feature lives in its own self-contained module — its own SQLModel tables, FastAPI endpoints, React pages — but everything ships as one FastAPI + Inertia.js + React app. No microservice tax, no API-client glue; just plugin modules that compose at boot.
 
 ## Stack
 
 - **Backend:** Python 3.12, FastAPI, SQLModel (SQLAlchemy async + Pydantic), Alembic
 - **Frontend:** Inertia.js + React + Tailwind CSS 4, Vite HMR
 - **UI:** shadcn/ui primitives + emerald/teal design tokens, Sora display font, DM Sans body, JetBrains Mono code
-- **Auth:** Local user management (email+password, cookie-based sessions) via fastapi-users
+- **Auth:** Pluggable providers — local users (email+password + OAuth/OIDC: Google, GitHub, Microsoft/Entra) via fastapi-users, or Keycloak OIDC SSO; cookie sessions or bearer tokens resolved through a principal-resolver chain
 - **Tooling:** uv workspaces, Ruff, ty, Biome, pytest
 
 ## Use in a new project
@@ -35,7 +35,7 @@ make install
 # 2. Copy env template (defaults work for local SQLite dev)
 cp .env.example .env
 
-# 3. Start Postgres (skip if using SQLite — the default .env uses SQLite)
+# 3. Start the shared dev-services stack — Postgres/Redis/MinIO (skip if using the default SQLite)
 make docker-up
 
 # 4. Run migrations
@@ -71,9 +71,11 @@ The new module is automatically discovered (via Python entry points), its routes
 
 ```
 framework/
+  cli/         # smpy CLI — scaffolding, skills, package updates
   core/        # module system, discovery, events, diagnostics
   db/          # per-module Base, session, mixins, listeners
   hosting/     # app_builder, middleware, settings, Inertia glue
+  testing/     # shared pytest fixtures + helpers
 modules/       # plugin modules (auth, dashboard, users, settings, ...)
 host/
   main.py      # FastAPI entry point
@@ -103,7 +105,7 @@ docs/
 | `make migration msg="..."` | Autogenerate a new migration |
 | `make new-module name=<name>` | Scaffold a new module |
 | `make kill` | Stop any running dev servers (ports 8000, 5050, 5173) |
-| `make docker-up` / `docker-down` | Manage the Postgres container (SQLite needs no Docker) |
+| `make docker-up` / `docker-down` | `docker-up` brings up the shared dev-services stack (Postgres/Redis/MinIO); `docker-down` stops only this repo's worker/beat (SQLite needs no Docker) |
 
 ## Configuration
 
@@ -202,20 +204,22 @@ SM_USERS_SMTP_TLS=true
 ## Architecture
 
 - **Modules**: discovered via Python entry points at boot. Each module subclasses `ModuleBase` and opts into the lifecycle hooks it needs (`register_routes`, `register_menu_items`, `register_permissions`, `register_middleware`, `on_startup`, ...).
-- **Database isolation**: PostgreSQL → one schema per module. SQLite → single schema, `__tablename__` prefixed with the module name.
+- **Database**: a single shared schema on both Postgres and SQLite. Each module owns its own `MetaData` (so Alembic can attribute tables to it), and `__tablename__` is prefixed with the module name (`orders_order`) to avoid collisions.
 - **Middleware pipeline** (LIFO order of execution): CorrelationId → RequestLogging → SecurityHeaders → Session → `<module middleware>` → Tenant (opt-in) → Locale → InertiaLayoutData → app.
 - **Diagnostics**: `make doctor` runs a static analyzer over installed modules looking for orphan pages, phantom renders, empty modules, framework/plugin coupling, migration drift, and locale-file consistency. Errors fail the boot in production.
 - **Internationalization**: per-module `locales/<lang>.json` files merged at boot into `I18nRegistry`. Frontend uses `i18next` with type-safe keys; backend uses `Babel` for CLDR plurals. Locale resolved per request via cookie → `Accept-Language` → `SM_I18N_DEFAULT_LOCALE`. See `docs/framework-conventions.md` → Internationalization.
 
-Deeper dives in `docs/plans/`:
+Full documentation lives in [`docs/`](docs/index.md) — a VitePress site covering the guide, framework internals, database, frontend, testing, every bundled module, and reference. When conventions are ambiguous, the authoritative single-pagers are the source of truth:
 
-- [Module lifecycle hooks](docs/superpowers/specs/2026-04-13-module-lifecycle-hooks-design.md)
-- [Alembic migrations design](docs/plans/2026-04-13-alembic-migrations-design.md)
-- [DB state refactor](docs/plans/2026-04-13-eliminate-global-mutable-db-state-design.md)
-- [DX hardening (latest)](docs/plans/2026-04-14-dx-hardening-design.md)
+- [Framework conventions](docs/framework-conventions.md)
+- [Module authoring](docs/module-authoring.md)
+- [E2E testing](docs/e2e-testing.md)
+- [Release playbook](docs/release.md)
+
+Historical, point-in-time design docs live under [`docs/plans/`](docs/plans/) and [`docs/superpowers/`](docs/superpowers/).
 
 ## Contributing
 
-- Write tests with the fixtures in `conftest.py` (`db_session`, `authenticated_client`).
+- Write tests with the fixtures from the `simple_module_test` plugin (`db_session`, `authenticated_client`).
 - Lint with `make lint` before pushing; CI runs all four checks in parallel.
 - Stick to the conventions in `docs/framework-conventions.md` — they're what diagnostics enforce.

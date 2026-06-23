@@ -1,6 +1,6 @@
 # Fixtures
 
-The root `conftest.py` provides app-level fixtures that every test directory inherits. Everything you need for a typical integration test — app, DB session, HTTP client, authenticated client — is already wired up.
+The `simple_module_test` plugin provides app-level fixtures that every test directory inherits — auto-loaded via its `pytest11` entry point, so installing the package is enough (no `conftest.py` import needed). Everything you need for a typical integration test — app, DB session, HTTP client, authenticated client — is already wired up.
 
 ## Available fixtures
 
@@ -28,7 +28,7 @@ def test_settings_defaults(settings):
 
 ## `db_session`
 
-The workhorse. Creates a fresh in-memory DB, runs `CREATE TABLE` for every module's tables (via `build_module_metadata()`), stamps `alembic_version` at head, and yields an `AsyncSession`.
+The workhorse. Creates a fresh in-memory DB, runs `CREATE TABLE` for every module's tables (iterating `all_module_bases` and calling `base.metadata.create_all`), stamps `alembic_version` at head, and yields an `AsyncSession`.
 
 ```python
 from decimal import Decimal
@@ -90,6 +90,8 @@ Same as `client`, but the fixture also:
 2. Forges a signed session cookie for that user.
 3. Attaches the cookie to the client.
 
+> Because it seeds via `users.bootstrap`, this fixture requires the `users` module to be installed (the import is deferred to the fixture body, so the rest of the plugin loads without it). Apps scaffolded by `smpy` include `users`.
+
 ```python
 @pytest.mark.asyncio
 async def test_create_order_as_admin(authenticated_client):
@@ -121,7 +123,7 @@ async def test_non_admin_denied(client, db_session):
 
 ## Fixture composition
 
-Fixtures compose the expected way — `client` depends on `app`, which depends on `db_session`, which depends on `db_state`, which depends on `settings`. Request only the fixture you need; the DAG pulls in the rest.
+Fixtures compose the expected way — `client` and `authenticated_client` depend on `app`, which depends on `settings` (and creates its own tables on `app.state.sm.db.engine`). The `db_session` / `engine` fixtures depend on `db_state`, which builds its own in-memory engine independent of `settings`. Request only the fixture you need; the DAG pulls in the rest.
 
 Adding your own fixtures at module level:
 

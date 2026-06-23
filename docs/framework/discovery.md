@@ -21,17 +21,16 @@ Entry points are registered **at install time**, not at import time. After editi
 `simple_module_core.discovery.discover_modules()`:
 
 1. Iterates `importlib.metadata.entry_points(group="simple_module")`.
-2. For each entry point, calls `.load()` to import the module's `module.py` and pull out the class.
+2. For each entry point, calls `.load()` to import the module's `module.py` and pull out the class, then instantiates it (`module_cls()`).
 3. Validates: the loaded object must be a `ModuleBase` subclass with a `meta` attribute of type `ModuleMeta`.
-4. If `SM_MODULES_ENABLED` is set, filters to only those listed.
-5. Topologically sorts by `ModuleMeta.depends_on` using a stable tiebreaker (name).
-6. Returns a tuple of `ModuleBase` **instances** (one per module, constructed with no args).
+4. If `SM_MODULES_ENABLED` is set, filters to only the modules whose `ModuleMeta.name` (case-insensitive) appears in the list.
+5. Returns a `list` of `ModuleBase` **instances** (one per module, constructed with no args). A separate `topological_sort()` call (made by `create_app`) then orders them by `ModuleMeta.depends_on` using a stable tiebreaker (name).
 
 Failures:
 
 - **Import error** (e.g. syntax error in `module.py`) — lenient mode: logged + skipped. Strict mode: raises `InvalidModuleError`.
 - **Missing `meta`** — emits `SM001`. Strict mode: raises.
-- **Duplicate `meta.name`** — emits `SM008` (error). Always fails boot, even in dev, because names are used as DB schemas/prefixes.
+- **Duplicate `meta.name`** — emits `SM008` (error). Always fails boot, even in dev, because names are used as table-name prefixes.
 - **Cycle in `depends_on`** — raises `CircularDependencyError`. Always fails boot.
 
 ## ModuleMeta
@@ -52,8 +51,7 @@ meta = ModuleMeta(
 
 The authoritative identifier. It's used for:
 
-- Postgres schema name (lowercased → `orders`).
-- SQLite table-name prefix (`orders_*`).
+- Table-name prefix (`orders_*`) — every module's tables share the host's single schema on both Postgres and SQLite, so the prefix is what keeps them collision-free.
 - Inertia page namespace (`"Orders/Browse"`).
 - Diagnostic reporter name.
 - Feature-flag and permission grouping.
@@ -72,7 +70,7 @@ A list of other modules' `meta.name` values that **must be loaded first**. The f
 
 ### `version`
 
-Semver string. Used in diagnostic output and can be surfaced in `/admin/health` to help operators correlate deployed module versions with bug reports. Not currently parsed for automated version-range checks.
+Semver string. Used in diagnostic/boot logging to help operators correlate deployed module versions with bug reports. Unless a module declares `requires_framework`, it is not parsed for automated version-range checks.
 
 ## The `simple_module` group
 
@@ -97,9 +95,9 @@ for ep in entry_points(group='simple_module'):
 
 ## Disabling modules at runtime
 
-Set `SM_MODULES_ENABLED` to a comma-separated allow-list of entry-point names. Useful for:
+Set `SM_MODULES_ENABLED` to a comma-separated allow-list of module names (matched case-insensitively against `ModuleMeta.name`). Useful for:
 
-- Running tests against a minimal world (`SM_MODULES_ENABLED=users,orders`).
+- Running tests against a minimal world (`SM_MODULES_ENABLED=Users,Orders`).
 - Temporarily disabling a misbehaving module in production without a redeploy.
 - Sharding a large app into multiple deployments (e.g. background-worker process loads only the `background_tasks` module).
 

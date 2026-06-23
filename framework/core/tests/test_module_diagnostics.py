@@ -193,6 +193,36 @@ class TestSM018InertiaApiCalls:
         assert results == []
 
 
+class TestSM007EmptyModules:
+    """SM007 fires only when a module overrides no registration hooks at all."""
+
+    def _diags(self, modules):
+        from simple_module_core.diagnostics._module import ModuleDiagnostics
+
+        return list(ModuleDiagnostics()._check_empty_modules(modules))
+
+    async def test_fires_when_no_hooks_overridden(self):
+        from simple_module_core.module import ModuleBase, ModuleMeta
+
+        class Bare(ModuleBase):
+            meta = ModuleMeta(name="Bare")
+
+        results = self._diags([Bare()])
+        assert len(results) == 1
+        assert results[0].code == "SM007"
+
+    async def test_silent_when_only_public_routes_registered(self):
+        from simple_module_core.module import ModuleBase, ModuleMeta
+
+        class PublicOnly(ModuleBase):
+            meta = ModuleMeta(name="PublicOnly")
+
+            def register_public_routes(self, registry):
+                registry.add_prefix("/api/public_only/stac")
+
+        assert self._diags([PublicOnly()]) == []
+
+
 class TestSM019ViewsWithoutMenu:
     """SM019 fires when a module ships view routes but never registers a menu item."""
 

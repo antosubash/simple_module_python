@@ -5,7 +5,7 @@ The `auth` module exposes an extension point — a list of async resolvers on
 additional credential sources alongside the built-in session cookie. This is
 the supported way to add Personal Access Tokens, API keys, JWT bearers, or
 any other request-scoped authentication scheme without forking
-`users.AuthMiddleware`.
+`auth.AuthMiddleware`.
 
 ## The contract
 
@@ -34,16 +34,19 @@ A resolver MUST:
 
 ## Resolution order
 
-`users.AuthMiddleware` consults credential sources in this order:
+`auth.AuthMiddleware` consults credential sources in this order:
 
-1. **Session cookie** — the existing fast/cached path. If the session
-   carries a valid `user_id` (and matching cached `user_ctx`), the user is
-   authenticated and the resolver chain is **not** consulted.
+1. **The active `AuthProvider`** — `provider.resolve_user(request)`, the
+   existing fast/cached path (session cookie for the `users` provider). If it
+   returns a `UserContext`, the user is authenticated and the resolver chain
+   is **not** consulted.
 2. **Registered resolvers**, in registration order. The first non-`None`
    return wins.
-3. **Unauthenticated** — for `/api/*` paths the middleware returns
-   `401 {"detail": "Not authenticated"}`; for view paths it 302-redirects to
-   `/users/login` and stashes the original URL in `session["next"]`.
+3. **Unauthenticated** — for `/api/*` paths (or any request the provider
+   reports as a bearer request) the middleware returns
+   `401 {"detail": "Not authenticated"}`; otherwise it 302-redirects to
+   `provider.get_login_url(request)` (the `users` provider's is `/users/login`)
+   and stashes the original URL in `session["next"]`.
 
 The chain runs on **every** request, including public paths (`/health`,
 `/openapi.json`, the login page itself). That lets a resolver attach
@@ -99,8 +102,10 @@ class ExampleModule(ModuleBase):
 ```
 
 `depends_on=["Auth", "Users"]` ensures `AuthModule.register_settings` has
-run (so `app.state.auth` exists) and `UsersModule.register_middleware` has
-installed `AuthMiddleware` (which calls the resolvers).
+run (so `app.state.auth` exists) and — since `AuthModule.register_middleware`
+installs `AuthMiddleware` (which calls the resolvers) — that the auth stack is
+wired before this module's `on_startup` appends its resolver. The `Users`
+dependency is for loading the user records the resolver looks up.
 
 ### Performance — caching the token lookup
 

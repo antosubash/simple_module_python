@@ -8,21 +8,21 @@ shadcn-derived React UI components and layouts for [simple_module](https://githu
 npm install @simple-module-py/ui
 ```
 
-Peer-depends on React 19. Assumes Tailwind CSS 4 is configured in the consuming app.
+Peer-depends on React 19, React DOM 19, and `@inertiajs/react` 2. Assumes Tailwind CSS 4 is configured in the consuming app.
 
 ## What it provides
 
-- Core primitives: `Button`, `Input`, `Label`, `Textarea`, `Select`, `Switch`, `Checkbox`.
-- Composite components: `Card`, `Dialog`, `Sheet`, `Popover`, `Tooltip`, `Toaster`, `Form` (react-hook-form bindings).
-- Layouts: `AppLayout` (sidebar + content), `AuthLayout` (centred form).
-- Small set of icons from `lucide-react`, re-exported.
+- shadcn primitives under `@simple-module-py/ui/components/ui/*`: `Button`, `Input`, `Label`, `Textarea`, `Select`, `Switch`, `Checkbox`, `Card`, `Dialog`, `Sheet`, `Popover`, `Tooltip`, `Form` (react-hook-form bindings), and many more.
+- Framework components under `@simple-module-py/ui/components/*` (also re-exported from the package root): `PageShell`, `SectionTitle`, `StatCard`, `FilterPills`, `NavIcon`, `ErrorBoundary`, `ErrorScreen`.
+- Layouts under `@simple-module-py/ui/layouts/*` (also re-exported from the root): `AppLayout`, `SidebarLayout`, `AuthenticatedLayout`, `AdminLayout`, `PublicLayout`, `AuthCardShell` (centred form).
 
 All components ship as `.ts` / `.tsx` source (no bundling step) — any modern bundler (Vite, Next, etc.) handles them transparently.
 
 ## Usage
 
 ```tsx
-import { Button, Card, CardHeader, CardContent, CardTitle } from "@simple-module-py/ui";
+import { Button } from "@simple-module-py/ui/components/ui/button";
+import { Card, CardHeader, CardContent, CardTitle } from "@simple-module-py/ui/components/ui/card";
 
 export default function ProductCard({ product }) {
   return (
@@ -51,8 +51,8 @@ At that point you've forked the library — `npm update` will no longer bring ch
 
 ## Depends on
 
-- `@simple-module-py/i18n`
-- Peer: `react ^19.0.0`
+- `@simple-module-py/i18n`, plus Radix/`radix-ui`, `lucide-react`, `recharts`, `sonner`, `class-variance-authority`, `clsx`, `tailwind-merge`, and other shadcn runtime deps.
+- Peer: `react ^19.0.0`, `react-dom ^19.0.0`, `@inertiajs/react ^2.0.0`
 
 ## License
 

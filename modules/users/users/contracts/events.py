@@ -22,6 +22,18 @@ class UserInvited(Event):
 
 
 @dataclass
+class UserCreated(Event):
+    user_id: uuid.UUID
+    email: str
+    created_by: str | None
+
+
+@dataclass
+class UserDeleted(Event):
+    user_id: uuid.UUID
+
+
+@dataclass
 class UserDisabled(Event):
     user_id: uuid.UUID
 

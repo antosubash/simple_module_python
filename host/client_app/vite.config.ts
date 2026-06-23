@@ -182,9 +182,12 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5050,
+    // If you override SM_VITE_PORT, set the backend's SM_VITE_DEV_URL to the
+    // same port — the backend uses it for the dev <script src> and the CSP
+    // script-src/connect-src, so a mismatch breaks asset loading + HMR.
+    port: Number(process.env.SM_VITE_PORT) || 5050,
     strictPort: true,
-    origin: 'http://localhost:5050',
+    origin: `http://localhost:${Number(process.env.SM_VITE_PORT) || 5050}`,
     fs: {
       allow: [projectRoot, ...moduleFsAllow],
     },

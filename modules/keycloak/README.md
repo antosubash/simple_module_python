@@ -8,7 +8,7 @@ Add to your app's `pyproject.toml` dependencies instead of `simple_module_users`
 
 ```toml
 dependencies = [
-    "simple_module_keycloak==0.0.15",
+    "simple_module_keycloak==0.0.17",
 ]
 ```
 

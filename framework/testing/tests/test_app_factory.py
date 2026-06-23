@@ -46,11 +46,10 @@ class TestBuildTestApp:
 
     async def test_registers_module_routes_with_prefix(self):
         """The module's register_routes() runs and its api routes appear under the prefix."""
-        from simple_module_test import build_test_app
+        from simple_module_test import build_test_app, effective_route_paths
 
         app = build_test_app(_EchoModule)
-        paths = {getattr(r, "path", None) for r in app.routes}
-        assert "/api/echo/ping" in paths
+        assert "/api/echo/ping" in effective_route_paths(app)
 
     async def test_module_accessible_on_app_state(self):
         """The instance is stored on app.state.module so tests can poke at it."""
@@ -61,12 +60,12 @@ class TestBuildTestApp:
 
     async def test_isolates_from_other_installed_modules(self):
         """build_test_app only mounts the given module — Products/Auth routes are absent."""
-        from simple_module_test import build_test_app
+        from simple_module_test import build_test_app, effective_route_paths
 
         app = build_test_app(_EchoModule)
-        paths = {getattr(r, "path", None) for r in app.routes}
-        assert not any(p and p.startswith("/api/products") for p in paths)
-        assert not any(p and p.startswith("/auth") for p in paths)
+        paths = effective_route_paths(app)
+        assert not any(p.startswith("/api/products") for p in paths)
+        assert not any(p.startswith("/auth") for p in paths)
 
 
 # ── pytest plugin fixtures ──────────────────────────────────────────

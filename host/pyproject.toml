@@ -13,6 +13,7 @@ dependencies = [
     "simple_module_settings",
     "simple_module_feature_flags",
     "simple_module_audit_log",
+    "simple_module_branding",
     "python-multipart>=0.0.6",
 ]
 
@@ -26,3 +27,4 @@ simple_module_file_storage = { workspace = true }
 simple_module_settings = { workspace = true }
 simple_module_feature_flags = { workspace = true }
 simple_module_audit_log = { workspace = true }
+simple_module_branding = { workspace = true }

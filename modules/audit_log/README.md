@@ -1,6 +1,6 @@
 # simple_module_audit_log
 
-Automatic field-level audit trail for all SQLModel entities in [simple_module](https://github.com/antosubash/simple_module_python) apps. Every create / update / delete / soft-delete is captured in `audit_log.audit_entries` with the changed fields, the user who made the change, and the request correlation id — no instrumentation required in module code.
+Automatic field-level audit trail for all SQLModel entities in [simple_module](https://github.com/antosubash/simple_module_python) apps. Every create / update / delete / soft-delete is captured in the `audit_log_audit_entry` table with the changed fields, the user who made the change, and the request correlation id — no instrumentation required in module code.
 
 ## Install
 

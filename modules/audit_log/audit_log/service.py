@@ -31,32 +31,48 @@ class AuditLogService:
         page_size = min(max(page_size, 1), MAX_PAGE_SIZE)
         page = max(page, 1)
 
-        base = select(AuditEntry)
-
+        conditions = []
         if entity_type:
-            base = base.where(AuditEntry.entity_type == entity_type)
+            conditions.append(AuditEntry.entity_type == entity_type)
         if entity_id:
-            base = base.where(AuditEntry.entity_id == entity_id)
+            conditions.append(AuditEntry.entity_id == entity_id)
         if action:
-            base = base.where(AuditEntry.action == action)
+            conditions.append(AuditEntry.action == action)
         if user_id:
-            base = base.where(AuditEntry.user_id == user_id)
+            conditions.append(AuditEntry.user_id == user_id)
         if from_date:
-            base = base.where(AuditEntry.created_at >= from_date)
+            conditions.append(AuditEntry.created_at >= from_date)
         if to_date:
-            base = base.where(AuditEntry.created_at <= to_date)
+            conditions.append(AuditEntry.created_at <= to_date)
 
-        total_result = await self.db.execute(select(func.count()).select_from(base.subquery()))
-        total = total_result.scalar_one()
+        # Select only AuditEntryRead's columns (plain rows, no ORM hydration) and
+        # count the same conditions directly — avoids hydrating full AuditEntry
+        # objects per page and the subquery wrapper around the count.
+        cols = select(
+            AuditEntry.id,
+            AuditEntry.entity_type,
+            AuditEntry.entity_id,
+            AuditEntry.action,
+            AuditEntry.changes,
+            AuditEntry.user_id,
+            AuditEntry.correlation_id,
+            AuditEntry.created_at,
+        )
+        count_stmt = select(func.count()).select_from(AuditEntry)
+        for cond in conditions:
+            cols = cols.where(cond)
+            count_stmt = count_stmt.where(cond)
+
+        total = (await self.db.execute(count_stmt)).scalar_one()
 
         offset = (page - 1) * page_size
         stmt = (
-            base.order_by(AuditEntry.created_at.desc(), AuditEntry.id)
+            cols.order_by(AuditEntry.created_at.desc(), AuditEntry.id)
             .offset(offset)
             .limit(page_size)
         )
-        result = await self.db.execute(stmt)
-        items = [AuditEntryRead.model_validate(row) for row in result.scalars()]
+        rows = (await self.db.execute(stmt)).all()
+        items = [AuditEntryRead(**row._mapping) for row in rows]
 
         return AuditEntryList(items=items, total=total, page=page, page_size=page_size)
 

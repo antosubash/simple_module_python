@@ -23,6 +23,7 @@ from simple_module_cli.package_update import package_update
 from simple_module_cli.plugins import discover_and_mount
 from simple_module_cli.scaffolding import create_host as _create_host
 from simple_module_cli.scaffolding import create_module as _create_module
+from simple_module_cli.scaffolding import is_inside_existing_repo, resolve_framework_version
 from simple_module_cli.skills_cmd import app as skills_app
 
 app = typer.Typer(
@@ -55,7 +56,17 @@ def create_host(
     target = dest or Path.cwd() / name
     selected = [m.strip() for m in modules.split(",") if m.strip()]
     try:
-        _create_host(target, name=name, modules=selected)
+        # Pin the host's framework + module deps to the installed framework
+        # version so the generated host's first `uv sync` resolves (the
+        # template's >=1.0,<2.0 / >=0.1,<1.0 ranges don't exist pre-1.0). The
+        # workspace `smpy new` path rewrites these via _rewrite_pyproject, but
+        # standalone create-host never did — see GH #206.
+        _create_host(
+            target,
+            name=name,
+            modules=selected,
+            framework_version=resolve_framework_version(),
+        )
     except FileExistsError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(code=1) from exc
@@ -68,7 +79,7 @@ def create_host(
     typer.echo("  uv sync")
     typer.echo("  cp .env.example .env")
     typer.echo('  alembic revision --autogenerate -m "initial schema"')
-    typer.echo("  alembic upgrade head")
+    typer.echo("  alembic upgrade heads")
     typer.echo("  python main.py")
 
 
@@ -79,18 +90,44 @@ def create_module(
         Path | None,
         typer.Option("--dest", help="Destination dir. Defaults to ./simple_module_<name>."),
     ] = None,
+    standalone: Annotated[
+        bool,
+        typer.Option(
+            "--standalone",
+            help="Emit the module's own .github/ CI + PyPI publish workflows. "
+            "By default they are omitted when the module lands inside an "
+            "existing repo/host (nested workflows never run there).",
+        ),
+    ] = False,
 ) -> None:
     """Scaffold a publishable SimpleModule module package."""
     slug = to_kebab_case(name)
     package = slug.replace("-", "_")
     target = dest or Path.cwd() / f"simple_module_{package}"
+    # An in-repo module (the documented modules/* layout) gets no .github/: those
+    # nested workflows never run and publish.yml is a PyPI footgun. --standalone
+    # forces them for a module that lives in its own repo. See GH #210.
+    include_ci = standalone or not is_inside_existing_repo(target)
     try:
-        _create_module(target, name=name)
+        # Pin framework deps to the installed framework version so the module
+        # resolves against the app that created it (the template's >=1.0,<2.0
+        # ranges don't exist on PyPI pre-1.0). See GH #195.
+        _create_module(
+            target,
+            name=name,
+            framework_version=resolve_framework_version(),
+            include_ci=include_ci,
+        )
     except FileExistsError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(code=1) from exc
 
     typer.echo(f"Created module 'simple_module_{package}' at {target}")
+    if not include_ci:
+        typer.echo(
+            "Skipped .github/ workflows: this module is inside an existing repo, "
+            "where nested workflows never run. Use --standalone to emit them."
+        )
     typer.echo("\nNext steps:")
     typer.echo(f"  cd {target}")
     typer.echo("  uv sync --extra dev")

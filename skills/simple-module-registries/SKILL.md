@@ -47,7 +47,7 @@ class OrdersModule(ModuleBase):
 
 The runtime expansion (role → permissions) is cached. `register_permissions` is called once at boot; mutating the registry afterwards bypasses the cache and invalidates user sessions until the cache TTL elapses. Don't mutate at request time.
 
-To check inside an endpoint, depend on the `RequireAnyPermissionDep` / `RequireAllPermissionsDep` dependencies (see auth/users), not by reading the registry by hand.
+To check inside an endpoint, depend on `RequiresPermission("<module>.<action>")` (from `simple_module_hosting.permissions`), not by reading the registry by hand. The dependency handles wildcard expansion and the 401-vs-403 distinction.
 
 ## Feature flags — `register_feature_flags(registry: FeatureFlagRegistry)`
 
@@ -132,7 +132,7 @@ Module A consuming Module B's events should import only from `b.contracts.events
 ## Pitfalls
 
 - **Mutated a registry after boot.** Boot-phase only. Cached views (menus, role→permission map) aren't invalidated for live requests; mutations look fine in dev with auto-reload and silently rot in prod.
-- **Raw permission strings in endpoints (`request.state.user.permissions`).** Use `RequireAnyPermissionDep` / `RequireAllPermissionsDep`. The dependency handles wildcard expansion and 401 vs 403 distinction.
+- **Raw permission strings in endpoints (`request.state.user.permissions`).** Use `RequiresPermission(...)`. The dependency handles wildcard expansion and the 401-vs-403 distinction.
 - **Forgot a feature flag's `default_enabled=False`.** A flag added with `default_enabled=True` is on for every tenant on first deploy — defeats the point of gating a rollout. Default to `False`; flip via override after the rollout window.
 - **Subscribed to an event in `register_settings` instead of `register_event_handlers`.** `register_settings` runs **before** the event bus is constructed; the subscription silently no-ops.
 - **Used `publish_nowait` inside a request handler that needs the listener to commit a DB row in the same transaction.** It returns immediately — the handler runs after the request has already committed/rolled back. For "in this request, do X then Y", just call Y directly.

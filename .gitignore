@@ -61,3 +61,4 @@ Thumbs.db
 .playwright-mcp/*
 host/client_app/.playwright-cli/*
 .superpowers/
+.qa/

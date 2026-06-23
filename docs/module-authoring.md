@@ -23,6 +23,17 @@ my-module/
 └── tests/
 ```
 
+### Standalone vs in-repo: `.github/` workflows
+
+`smpy create-module` ships a `.github/` with `ci.yml` + `publish.yml` (PyPI
+trusted-publishing on a `v*` tag) — useful when the module lives in its **own
+repo**. When you scaffold a module **inside an existing repo/host** (the
+documented `modules/*` monorepo layout), the CLI omits `.github/` by default:
+GitHub only runs workflows from the repository-root `.github/workflows/`, so a
+nested per-module one never runs, and `publish.yml` would be a publish footgun.
+Pass `--standalone` to force the workflows for a module destined for its own
+repo. See GH #210.
+
 ### Service types: concrete class, not Protocol
 
 Export the concrete service class from `<module>.service` and have consumers
@@ -85,7 +96,7 @@ version, raising `FrameworkVersionError` with the offending modules named.
 - `create_module_base`, `build_module_metadata`, `make_include_object`
 - Model mixins: `AuditMixin`, `SoftDeleteMixin`, `MultiTenantMixin`,
   `VersionedMixin`
-- `build_app()` entry point
+- `create_app()` entry point (`simple_module_hosting`)
 
 **Internal** (free to change without bumping major):
 
@@ -169,8 +180,10 @@ tenant explicitly: `registry.is_enabled(FLAG_BULK_IMPORT.name, tenant_id=tenant)
 
 Each module's settings are loaded via its `register_settings(app)` hook.
 Convention: read environment variables under the prefix `SM_<MODULE>_`
-(e.g. `SM_AUTH_CLIENT_ID`) and store the result on
-`app.state.<module_name_lower>_settings`. Hosts can declare
+(e.g. `SM_AUTH_CLIENT_ID`) and store the result on a module-owned object at
+`app.state.<module_package_lower>` (e.g. `app.state.auth`, `app.state.users`).
+The `SM012` diagnostic looks for exactly that attribute, so the `_settings`
+suffix some older modules used is not recognised. Hosts can declare
 `SM_MODULES_ENABLED='["Auth","MyModule"]'` to load only a subset of
 installed modules.
 
@@ -275,6 +288,11 @@ The package registers pytest fixtures via a `pytest11` entry_point — no
 |---|---|
 | `build_test_app` | Callable `(ModuleCls) -> FastAPI` — wraps a single module in a minimal FastAPI app with its routes registered. |
 | `fake_event_bus` | A `FakeEventBus` that records every `publish`/`publish_nowait` call so tests can assert emitted events. |
+| `settings` | In-memory-SQLite `Settings` (`multi_tenant=True`) for the test app. |
+| `db_state` / `engine` / `db_session` | Fresh in-memory `DatabaseState` per test; `db_session` creates every installed module's tables and stamps `alembic_version` at head. |
+| `app` | A full `create_app(settings)` with lifespan started/stopped. |
+| `client` | `httpx.AsyncClient` bound to the test app (anonymous). |
+| `authenticated_client` | Same, with a seeded admin + signed session cookie. Requires the `users` module installed (seeds via `users.bootstrap`). |
 
 Example test:
 

@@ -89,9 +89,9 @@ def _event_bus(request: Request) -> EventBus:
 EventBusDep = Annotated[EventBus, Depends(_event_bus)]
 ```
 
-## MRO dispatch
+## Exact-type dispatch
 
-The bus walks the event's MRO, so subscribing to a **base class** delivers every subclass event:
+The bus (backed by `pyee`'s `AsyncIOEventEmitter`) keys handlers by the **exact** event type — internally `f"{event_type.__module__}.{event_type.__qualname__}"`. There is **no MRO walk**: subscribing to a base class does **not** deliver subclass events. Subscribe to each concrete type you care about:
 
 ```python
 @dataclass
@@ -103,18 +103,18 @@ class OrderPlaced(OrderEvent): ...
 @dataclass
 class OrderCancelled(OrderEvent): ...
 
-bus.subscribe(OrderEvent, audit_handler)     # receives both
-bus.subscribe(OrderPlaced, specific_handler) # receives only placed
+bus.subscribe(OrderEvent, audit_handler)     # receives only OrderEvent, NOT subclasses
+bus.subscribe(OrderPlaced, specific_handler) # receives only OrderPlaced
 ```
 
-Use base-class subscriptions sparingly — they're magnets for unintended coupling when new subclasses appear.
+If you want a handler to see several event types, subscribe it to each one explicitly.
 
 ## Delivery semantics
 
-- **Synchronous** from the publisher's perspective: `await bus.publish(...)` resolves after all handlers have run (or raised).
+- **Awaited** from the publisher's perspective: `await bus.publish(...)` runs all handlers **concurrently** via `asyncio.gather` and resolves once they've all completed. (Use `publish_nowait(...)` for fire-and-forget scheduling on the loop.)
 - **In-process only.** Not delivered to other uvicorn workers, other processes, or other hosts.
 - **No persistence.** A crash mid-publish loses undelivered events.
-- **Handler failures don't stop the publisher.** The bus logs handler exceptions and continues with the next handler. The publish itself does not raise.
+- **Handler failures are isolated.** `publish` gathers with `return_exceptions=True`: each handler exception is logged and the publish itself never raises.
 
 If you need durable delivery across processes, handlers should enqueue a Celery task:
 
@@ -146,7 +146,7 @@ async def test_place_order_publishes_event(db_session, app):
     assert received[0].customer_email == "a@b.c"
 ```
 
-The `app` fixture from `conftest.py` provides a fresh app with a fresh `EventBus` per test.
+The `app` fixture from the `simple_module_test` plugin provides a fresh app with a fresh `EventBus` per test.
 
 ## Design guidelines
 

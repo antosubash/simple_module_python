@@ -1,16 +1,18 @@
 # Bundled modules
 
-simple_module_python ships with eight first-party modules. Each is a regular Python package — same shape as a module you'd write yourself — registered through the `simple_module` entry point and discovered at boot. They are independent: install only what you need.
+simple_module_python ships with ten first-party modules. Each is a regular Python package — same shape as a module you'd write yourself — registered through the `simple_module` entry point and discovered at boot. They are independent: install only what you need.
 
 | Module | Depends on | What it provides |
 |---|---|---|
-| [`auth`](/modules/auth) | — | Tiny public surface (`UserContext`, `get_current_user`, `require_permission`) other modules import. The actual login/session logic lives in `users`. |
-| [`users`](/modules/users) | `auth` | Email + password auth, sessions, roles, invites, password reset, email verification, admin UI, mailer backends, `smpy users create-admin`. |
+| [`auth`](/modules/auth) | — | Tiny public surface (`UserContext`, `AuthProvider`, `get_current_user`, `require_permission`) other modules import, plus the provider-agnostic `AuthMiddleware` and principal-resolver chain. The actual login/session logic lives in an auth-provider module (`users` or `keycloak`). |
+| [`users`](/modules/users) | `auth` | Email + password auth, OAuth/OIDC (Google, GitHub, Microsoft/Entra ID, generic OIDC), sessions, roles, invites, password reset, email verification, admin UI, mailer backends, `smpy users create-admin`. |
+| [`keycloak`](/modules/keycloak) | `auth`, `settings` | Alternative auth provider: Keycloak OIDC single sign-on. |
 | [`permissions`](/modules/permissions) | `auth`, `users` | Role / direct-grant assignment store + admin UI; `RequiresPermission` dependency that honours both forms. |
 | [`settings`](/modules/settings) | — | DB-backed key/value store with system / tenant / user precedence; per-module pydantic settings registration; hot reload; `smpy settings` CLI. |
 | [`feature_flags`](/modules/feature_flags) | — | Runtime feature toggles with system + tenant overrides. |
 | [`file_storage`](/modules/file_storage) | `settings` | Pluggable file storage (filesystem, S3-compatible) with upload validation, presigned URLs, browse/download/delete UI. |
 | [`background_tasks`](/modules/background_tasks) | `users` | Celery + Redis workers, persistent task history, retry, stuck-task sweep, live worker dashboard. |
+| [`audit_log`](/modules/audit_log) | `users` | Automatic field-level audit trail for SQLModel entities, with an admin UI to browse change history. |
 | [`dashboard`](/modules/dashboard) | `users` | Authenticated landing page with system overview (user counts, module list, health checks). |
 
 ## How modules are wired in

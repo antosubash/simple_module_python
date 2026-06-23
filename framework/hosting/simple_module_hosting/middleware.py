@@ -18,7 +18,7 @@ from starlette.datastructures import Headers, MutableHeaders
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from simple_module_hosting._inertia_shared import build_i18n_block
+from simple_module_hosting._inertia_shared import build_i18n_block, merge_shared_prop_providers
 from simple_module_hosting._observability import (
     CorrelationIdMiddleware,
     RequestLoggingMiddleware,
@@ -277,6 +277,11 @@ class InertiaLayoutDataMiddleware:
             ),
             "i18n": i18n_block,
         }
+
+        # Merge module-registered shared-prop providers (e.g. branding) — read off
+        # app.state without importing the plugin (SM009), defensively.
+        merge_shared_prop_providers(scope["app"], request, shared)
+
         request.state.inertia_shared = shared
 
         await self.app(scope, receive, send)

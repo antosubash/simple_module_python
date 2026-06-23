@@ -27,12 +27,14 @@ class TestCreateApp:
 
     async def test_modules_enabled_limits_loaded_modules(self, settings: Settings):
         """Host respects settings.modules_enabled — only listed modules contribute routes."""
+        from simple_module_test import effective_route_paths
+
         # Only Auth should be loaded; Dashboard routes must be absent.
         restricted = settings.model_copy(update={"modules_enabled": ["Auth"]})
         app = create_app(restricted)
-        paths: set[str] = {str(r.path) for r in app.routes if hasattr(r, "path")}
+        paths = effective_route_paths(app)
         # Auth is now contracts-only, so it has no routes — only health remains.
-        assert "/dashboard" not in paths
+        assert not any(p.startswith("/dashboard") for p in paths)
 
     async def test_module_static_mounts_become_app_routes(
         self,
@@ -64,6 +66,95 @@ class TestCreateApp:
         app = create_app(settings)
         paths = {getattr(r, "path", None) for r in app.routes}
         assert "/modules/fakestatic/static" in paths
+
+    async def test_module_register_public_routes_is_wired(
+        self,
+        settings: Settings,
+        monkeypatch,
+    ):
+        """register_public_routes() contributions land on app.state.public_routes."""
+        from simple_module_core import ModuleBase, ModuleMeta
+        from simple_module_hosting import app_builder
+
+        class FakePublicMod(ModuleBase):
+            meta = ModuleMeta(name="FakePublic")
+
+            def register_public_routes(self, registry):
+                registry.add_prefix("/api/fakepublic/stac")
+                registry.add_regex(r"/api/fakepublic/datasets/[^/]+/tilejson$", methods={"GET"})
+
+        real_discover = app_builder.discover_modules
+
+        def fake_discover(enabled=None, *, strict=False):
+            return [*real_discover(enabled=enabled, strict=strict), FakePublicMod()]
+
+        monkeypatch.setattr(app_builder, "discover_modules", fake_discover)
+
+        app = create_app(settings)
+        registry = app.state.public_routes
+        assert registry is app.state.sm.public_routes
+        assert registry.matches("GET", "/api/fakepublic/stac/collections")
+        assert registry.matches("GET", "/api/fakepublic/datasets/7/tilejson")
+        assert not registry.matches("PATCH", "/api/fakepublic/datasets/7/tilejson")
+
+    async def test_host_public_paths_setting_is_seeded(self, settings: Settings):
+        """SM_AUTH_PUBLIC_PATHS prefixes land on the registry as prefix rules."""
+        with_paths = settings.model_copy(
+            update={"auth_public_paths": ["/api/hostpublic", "/status"]}
+        )
+        app = create_app(with_paths)
+        registry = app.state.public_routes
+        assert registry.matches("GET", "/api/hostpublic/anything")
+        assert registry.matches("POST", "/status")
+        assert not registry.matches("GET", "/api/private")
+
+    async def test_module_public_route_reachable_anonymously(
+        self,
+        settings: Settings,
+        monkeypatch,
+    ):
+        """End-to-end: an unauthenticated GET to a module-declared public route
+        returns 200, while a sibling gated route under the same prefix 401s.
+
+        This is the repro from issue #191 — a read-only anonymous API
+        (STAC / OGC) consumed without a session cookie.
+        """
+        from simple_module_core import ModuleBase, ModuleMeta
+        from simple_module_hosting import app_builder
+
+        class FakeGisMod(ModuleBase):
+            meta = ModuleMeta(name="FakeGis", route_prefix="/api/fakegis")
+
+            def register_routes(self, api_router, view_router):
+                @api_router.get("/stac")
+                async def stac():
+                    return {"type": "Catalog"}
+
+                @api_router.get("/secret")
+                async def secret():
+                    return {"private": True}
+
+            def register_public_routes(self, registry):
+                registry.add_prefix("/api/fakegis/stac")
+
+        real_discover = app_builder.discover_modules
+
+        def fake_discover(enabled=None, *, strict=False):
+            return [*real_discover(enabled=enabled, strict=strict), FakeGisMod()]
+
+        monkeypatch.setattr(app_builder, "discover_modules", fake_discover)
+
+        app = create_app(settings)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver", follow_redirects=False
+        ) as client:
+            public = await client.get("/api/fakegis/stac")
+            gated = await client.get("/api/fakegis/secret")
+
+        assert public.status_code == 200
+        assert public.json() == {"type": "Catalog"}
+        assert gated.status_code == 401
 
     async def test_app_state_has_sm_services(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path
@@ -118,7 +209,9 @@ class TestResolveProjectRoot:
 class TestRouteRegistration:
     async def test_expected_routes_registered(self, app: FastAPI):
         """All modules should have their routes registered in the app."""
-        route_paths = [r.path for r in app.routes if hasattr(r, "path")]
+        from simple_module_test import effective_route_paths
+
+        route_paths = effective_route_paths(app)
 
         assert "/health" in route_paths
         assert "/health/live" in route_paths
@@ -131,8 +224,9 @@ class TestRouteRegistration:
         # landing page at "/" is owned by the host and added in host/main.py,
         # which the create_app fixture doesn't run.
         assert "/dashboard/" in route_paths
-        # Bare-prefix alias — see wire_module_routes for the X-Inertia rationale.
-        assert "/dashboard" in route_paths
+        # The bare-prefix Inertia alias ("/dashboard" without the slash) is
+        # registered with include_in_schema=False, so it isn't enumerable here;
+        # TestProtectedPages::test_dashboard_redirects_unauthenticated covers it.
 
 
 class TestProtectedPages:

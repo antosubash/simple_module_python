@@ -6,34 +6,34 @@ There are **three** separate settings surfaces in a running app. They serve diff
 |---|---|---|---|
 | **Framework env** (`Settings`) | `app.state.sm.settings` | No (read once at boot) | DB URL, secret key, log level, anything needed before the DB is open. |
 | **Module env** (`<Module>Env`) | `app.state.<module>.settings` | No | Module bootstrap knobs that must be resolved before DB-backed settings load. |
-| **DB-backed settings** | `sm_settings.settings` table, edited via `/settings/modules` | Yes | Everything else: SMTP creds, storage backends, feature toggles that operators tune. |
+| **DB-backed settings** | `settings_setting` table, edited via `/settings/modules` | Yes | Everything else: SMTP creds, storage backends, feature toggles that operators tune. |
 
 ## Framework settings
 
-Defined as a pydantic `BaseSettings` subclass in `simple_module_hosting.settings`:
+`Settings` (in `simple_module_hosting.settings`) combines `BootstrapSettings` (env-only, read before the DB is open) and `HostSettings`. The pre-DB knobs are a pydantic `BaseSettings` subclass:
 
 ```python
-class Settings(BaseSettings):
+class BootstrapSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="SM_", env_file=".env", extra="ignore")
+
     database_url: str = "sqlite+aiosqlite:///./app.db"
     environment: str = "development"
     secret_key: str = "change-me-in-production"
     vite_dev_url: str = "http://localhost:5050"
     debug: bool = False
     log_level: str = "INFO"
-    log_format: str = "plain"
-    multi_tenant: bool = False
-    tenant_header: str = "X-Tenant-ID"
+    log_format: Literal["json", "text"] = "json"
     modules_enabled: list[str] | None = None
-
-    class Config:
-        env_prefix = "SM_"
+    auth_public_paths: list[str] = []
 ```
+
+The `SM_` prefix means every field is set via `SM_<FIELD>` (e.g. `SM_DATABASE_URL`, `SM_LOG_FORMAT`). `multi_tenant` / `tenant_header` and the other tunables live on the DB-backed `HostSettings` half.
 
 Construct once at boot, put on `app.state.sm.settings`, never mutated.
 
 ### Placeholder-secret check
 
-In production (`environment != "development"`), boot fails if `secret_key == "change-me-in-production"`. The check runs before middleware installation to avoid issuing signed cookies against a known-placeholder key.
+Outside the non-prod environments, boot fails if `secret_key == "change-me-in-production"`. A pydantic `model_validator(mode="after")` enforces this when `Settings()` is constructed — before any middleware can issue signed cookies against a known-placeholder key.
 
 ## Module settings
 
@@ -117,13 +117,14 @@ async def users_config(state: UsersStateDep):
 
 ## DB-backed settings
 
-After bootstrap, most configuration lives in the `sm_settings.settings` table and is edited via the admin UI at `/settings/modules`. Reads go through `SettingsService` which caches in-memory with invalidation on write:
+After bootstrap, most configuration lives in the `settings_setting` table and is edited via the admin UI at `/settings/modules`. The CRUD layer is `SettingService` (in `settings.service`); typed reads (with USER > TENANT > SYSTEM resolution and registered defaults) go through a `SettingsAccessor` that wraps it:
 
 ```python
-from settings.service import SettingsService
+from settings.service import SettingService
+from settings.contracts.accessor import SettingsAccessor
 
-service = SettingsService(session)
-max_size = await service.get_int("file_storage.max_upload_mb", default=10)
+accessor = SettingsAccessor(SettingService(session), registry)
+max_size = await accessor.get_int("file_storage.max_upload_mb", default=10)
 ```
 
 Values are keyed by `<namespace>.<key>`. Conventional namespace is the module name lowercased.
@@ -140,10 +141,10 @@ This reads the current environment, looks up keys the settings service knows abo
 
 ## Framework state (`app.state.sm`)
 
-Framework singletons — not settings, but long-lived services — live on `app.state.sm`, a frozen `Services` dataclass populated once at boot:
+Framework singletons — not settings, but long-lived services — live on `app.state.sm`, a frozen `Services` dataclass (defined in `simple_module_core.services`) populated once at boot:
 
 ```python
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Services:
     settings: Settings
     db: DatabaseState
@@ -152,6 +153,7 @@ class Services:
     permissions: PermissionRegistry
     feature_flags: FeatureFlagRegistry
     health_registry: HealthRegistry
+    public_routes: PublicRouteRegistry
     i18n_registry: I18nRegistry
     inertia_config: InertiaConfig
     modules: tuple[ModuleBase, ...]

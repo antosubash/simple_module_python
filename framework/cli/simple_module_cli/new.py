@@ -164,7 +164,9 @@ def new_project(
             return
 
     _bootstrap_initial_migration(host_dir)
-    subprocess.run([*_ALEMBIC, "upgrade", "head"], cwd=host_dir, check=False)
+    # `heads` (plural) applies every per-module branch head; `head` (singular)
+    # errors once a second module ships its own migration branch label.
+    subprocess.run([*_ALEMBIC, "upgrade", "heads"], cwd=host_dir, check=False)
     typer.echo("\nSetup complete. Run `make dev` in the new directory.")
     if "background_tasks" in resolved:
         typer.echo("For background jobs, also run: docker compose up -d redis worker beat")

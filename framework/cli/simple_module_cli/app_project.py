@@ -15,10 +15,7 @@ from __future__ import annotations
 
 import json as _json
 import secrets as _secrets
-import shutil as _shutil
 from collections.abc import Sequence
-from importlib.metadata import PackageNotFoundError
-from importlib.metadata import version as _pkg_version
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +29,7 @@ from simple_module_cli.scaffolding import (
     create_host,
     create_module,
     create_workspace,
+    resolve_framework_version,
 )
 
 __all__ = ["create_app_project"]
@@ -40,30 +38,21 @@ _SAMPLE_MODULE_NAME = "hello"
 _SAMPLE_MODULE_PKG = _module_to_pypi_name(_SAMPLE_MODULE_NAME)
 
 
-def _resolve_framework_version() -> str:
-    """Resolve the framework version to pin scaffolded apps against.
-
-    The CLI ships in lockstep with the rest of the framework (one
-    ``bump_version.py`` rewrites every ``pyproject.toml`` in the repo), so
-    its own installed version is the source of truth. Falling back to a
-    placeholder lets editable installs without dist-info still scaffold —
-    but that path should never be reached in a release wheel.
-    """
-    try:
-        return _pkg_version("simple_module_cli")
-    except PackageNotFoundError:
-        return "0.0.0"
-
-
-_FRAMEWORK_VERSION = _resolve_framework_version()
+_FRAMEWORK_VERSION = resolve_framework_version()
 
 # Pin ``simple_module_cli`` as a dev dep so ``uv run smpy`` resolves to the
 # project venv. The global ``uv tool`` install runs in its own isolated venv
-# that can't see the project's plugin entry points (issue #134).
+# that can't see the project's plugin entry points (issue #134). The lint /
+# test tooling (ruff, ty, pytest-*) backs the generated `make lint`/`make
+# test` targets so a fresh app can run its own quality gates.
 _APP_PY_DEV_DEPS = [
     f"simple_module_test=={_FRAMEWORK_VERSION}",
     f"simple_module_cli=={_FRAMEWORK_VERSION}",
     "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "pytest-playwright>=0.7.2",
+    "ruff>=0.8",
+    "ty>=0.0.29",
 ]
 
 _APP_NPM_DEPS = {
@@ -120,7 +109,12 @@ def create_app_project(
     preserved: list[Path] = []
     if not flat:
         preserved.extend(
-            create_workspace(target, name=name, preserve_existing=SAFE_PRESERVED_NAMES)
+            create_workspace(
+                target,
+                name=name,
+                framework_version=_FRAMEWORK_VERSION,
+                preserve_existing=SAFE_PRESERVED_NAMES,
+            )
         )
     preserved.extend(
         create_host(
@@ -195,11 +189,18 @@ def _scaffold_sample_module(target: Path) -> None:
     sample_dest = target / "modules" / _SAMPLE_MODULE_NAME
     if sample_dest.exists():
         return
-    create_module(sample_dest, name=_SAMPLE_MODULE_NAME)
-    # GitHub only reads workflows from the repo root, so the template's
-    # .github/ is dead inside a workspace.
-    _shutil.rmtree(sample_dest / ".github")
-    _pin_sample_module_deps(sample_dest)
+    # Pin the sample's framework deps to the exact framework version so the
+    # workspace resolves (the template's >=1.0,<2.0 ranges don't exist on PyPI
+    # pre-1.0). See GH #195.
+    # The sample lives inside the workspace, so it gets no per-module .github/:
+    # GitHub only reads workflows from the repo root, where the template's
+    # .github/ would be dead anyway. See GH #210.
+    create_module(
+        sample_dest,
+        name=_SAMPLE_MODULE_NAME,
+        framework_version=_FRAMEWORK_VERSION,
+        include_ci=False,
+    )
     _seed_static_dist_placeholder(sample_dest / _SAMPLE_MODULE_NAME / "static" / "dist")
 
 
@@ -208,35 +209,6 @@ def _seed_static_dist_placeholder(static_dist: Path) -> None:
     # an empty placeholder keeps `uv sync` from failing before vite build runs.
     static_dist.mkdir(parents=True, exist_ok=True)
     (static_dist / ".gitkeep").touch()
-
-
-def _pin_sample_module_deps(sample_dest: Path) -> None:
-    """Replace the module template's future-API range pins with exact pins.
-
-    The shared ``smpy create-module`` template ships ``>=1.0,<2.0`` against the
-    framework's eventual stable line, but the workspace-bundled sample has to
-    resolve against whatever the framework version actually is today (``==X``
-    in pre-1.0). Without rewriting, ``uv sync`` can't satisfy the workspace.
-    """
-    import tomlkit
-
-    pyproject = sample_dest / "pyproject.toml"
-    doc = tomlkit.parse(pyproject.read_text(encoding="utf-8"))
-    project = doc.setdefault("project", tomlkit.table())
-    project["dependencies"] = [_pin_or_keep(dep) for dep in project.get("dependencies", [])]
-    optional = project.get("optional-dependencies")
-    if optional is not None:
-        for extra, deps in list(optional.items()):
-            optional[extra] = [_pin_or_keep(dep) for dep in deps]
-    pyproject.write_text(tomlkit.dumps(doc), encoding="utf-8")
-
-
-def _pin_or_keep(dep: str) -> str:
-    """Pin a ``simple_module_*`` requirement to the framework version; pass through otherwise."""
-    pkg = dep.split(">=", 1)[0].split("==", 1)[0].split("<", 1)[0].strip()
-    if pkg.startswith(("simple_module_", "simple-module-")):
-        return f"{pkg}=={_FRAMEWORK_VERSION}"
-    return dep
 
 
 def _db_url(db: str, slug: str, *, flat: bool) -> str:

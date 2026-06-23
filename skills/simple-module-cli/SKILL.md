@@ -5,7 +5,7 @@ description: Use when invoking the `smpy` CLI for a simple_module_python project
 
 # simple_module_python: the `smpy` CLI
 
-The `smpy` command is provided by `simple_module_cli` (installed as a dep of `simple_module_hosting`). It groups four kinds of operations: scaffolding new things, project-time helpers for the host, admin shortcuts for the bundled modules, and installing the bundled agent skills.
+The `smpy` command is provided by `simple_module_cli` (installed as a dep of `simple_module_hosting`). It groups several kinds of operations: scaffolding new things, project-time helpers for the host, admin shortcuts for the bundled modules, installing the bundled agent skills, and bumping `simple_module_*` deps.
 
 ## Top-level commands
 
@@ -14,6 +14,7 @@ The `smpy` command is provided by `simple_module_cli` (installed as a dep of `si
 | `smpy new <name>` | Greenfield: scaffold a complete app (host + selected modules) in one shot, with an interactive wizard for DB / tenancy / module preset |
 | `smpy create-host <name>` | You want just a bare host project; you'll add modules later by `pip install`-ing them |
 | `smpy create-module <name>` | You're authoring a publishable module package (separate repo, distributed via PyPI) |
+| `smpy package-update` | Bump every `simple_module_*` / `simple-module-*` dependency in `pyproject.toml` to its latest non-yanked PyPI release (workspace/path/git/URL sources are left untouched) |
 | `smpy skills …` | Install / update the bundled agent-skill packs into a project (`add`, `list`, `update`) |
 | `smpy host …` | Project-time helpers run from inside a host directory (page manifest, JS dep sync) |
 | `smpy settings …` | Settings-module admin — currently `import-from-env` |
@@ -47,7 +48,7 @@ smpy new MyApp --no-install
 | `full` | every module in the catalog |
 | `custom` | interactive — pick each module yes/no |
 
-`--with` accepts a comma-separated list of catalog keys (`auth, users, permissions, products, dashboard, settings, feature_flags, file_storage, background_tasks, …`). Transitive `requires` are auto-added; the wizard prints `Added X (required by Y)` so you can see what got pulled in.
+`--with` accepts a comma-separated list of catalog keys (`auth, users, permissions, dashboard, settings, feature_flags, file_storage, background_tasks`). Transitive `requires` are auto-added; the wizard prints `Added X (required by Y)` so you can see what got pulled in.
 
 **Options summary:**
 

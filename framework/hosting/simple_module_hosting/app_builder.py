@@ -10,7 +10,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
 from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.events import EventBus
@@ -18,6 +17,7 @@ from simple_module_core.feature_flags import FeatureFlagRegistry
 from simple_module_core.health import HealthRegistry
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.services import Services
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
@@ -25,6 +25,8 @@ from simple_module_db.session import init_db
 from simple_module_hosting._host_services import _HostServices
 from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._phase_helpers import (
+    ImmutableStaticFiles,
+    attach_public_routes,
     check_settings_registration,
     install_middleware,
     mount_module_static_dirs,
@@ -162,6 +164,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ff_registry = FeatureFlagRegistry()
     event_bus = EventBus()
     health_registry = HealthRegistry()
+    public_route_registry = PublicRouteRegistry()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -232,13 +235,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         mod.register_feature_flags(ff_registry)
         _register_event_handlers(mod, event_bus, app)
         mod.register_health_checks(health_registry)
+        mod.register_public_routes(public_route_registry)
+
+    attach_public_routes(app, settings, public_route_registry)
 
     logger.info(
-        "Registered %d menu items, %d permissions, %d feature flags, %d health checks",
+        "Registered %d menu items, %d permissions, %d feature flags, "
+        "%d health checks, %d public routes",
         len(menu_registry.all_items),
         len(perm_registry.all_permissions),
         len(ff_registry.all_flags),
         len(health_registry.all_checks),
+        len(public_route_registry.routes),
     )
 
     # ── Phase 6: Initialize database ───────────────────────
@@ -269,7 +277,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     static_dir = _PROJECT_ROOT / "host" / _STATIC_DIR_NAME
     if static_dir.is_dir():
-        app.mount(_STATIC_MOUNT_PATH, StaticFiles(directory=static_dir), name=_STATIC_DIR_NAME)
+        app.mount(
+            _STATIC_MOUNT_PATH, ImmutableStaticFiles(directory=static_dir), name=_STATIC_DIR_NAME
+        )
 
     mount_module_static_dirs(app, modules)
 
@@ -281,6 +291,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         permissions=perm_registry,
         feature_flags=ff_registry,
         health_registry=health_registry,
+        public_routes=public_route_registry,
         i18n_registry=i18n_registry,
         inertia_config=inertia_config,
         modules=tuple(modules),

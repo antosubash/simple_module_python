@@ -90,6 +90,63 @@ class TestCreateModule:
             encoding="utf-8"
         )
 
+    async def test_create_module_pins_framework_deps_when_version_given(self, tmp_path):
+        """Regression #195: create_module(..., framework_version=X) rewrites the
+        template's >=1.0,<2.0 ranges to ==X so `uv add ./modules/<name>` resolves
+        against the framework version that created the module (pre-1.0 dists
+        don't satisfy >=1.0,<2.0)."""
+        from simple_module_cli.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-orders"
+        create_module(dest, name="Orders", framework_version="0.0.17")
+        pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
+
+        for pkg in ("simple_module_core", "simple_module_db", "simple_module_hosting"):
+            assert f"{pkg}==0.0.17" in pyproject
+            assert f"{pkg}>=1.0,<2.0" not in pyproject
+        # The dev extra's simple_module_test is pinned too (was >=0.1,<1.0).
+        assert "simple_module_test==0.0.17" in pyproject
+        # Non-framework deps are left untouched.
+        assert "pydantic-settings>=2.0" in pyproject
+
+    async def test_create_module_keeps_ranges_without_version(self, tmp_path):
+        """Without framework_version the publishable template ranges are kept."""
+        from simple_module_cli.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-orders"
+        create_module(dest, name="Orders")
+        pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
+        assert "simple_module_core>=1.0,<2.0" in pyproject
+
+    async def test_create_module_treats_star_as_skip_not_a_pin(self, tmp_path):
+        """The ``"*"`` sentinel keeps the template ranges (same as ``None``) — it
+        must NOT render the invalid PEP 508 specifier ``==*``. Guards the
+        harmonized pin rule shared with create_host."""
+        from simple_module_cli.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-orders"
+        create_module(dest, name="Orders", framework_version="*")
+        pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
+        assert "simple_module_core>=1.0,<2.0" in pyproject
+        assert "==*" not in pyproject
+
+    async def test_cli_create_module_pins_to_framework_version(self, tmp_path):
+        """The `smpy create-module` command pins framework deps so `uv add`
+        resolves into the app that created it (#195)."""
+        from simple_module_cli.cli import app
+        from simple_module_cli.scaffolding import resolve_framework_version
+        from typer.testing import CliRunner
+
+        runner = CliRunner()
+        dest = tmp_path / "simple-module-orders"
+        result = runner.invoke(app, ["create-module", "Orders", "--dest", str(dest)])
+        assert result.exit_code == 0, result.output
+
+        pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
+        version = resolve_framework_version()
+        assert f"simple_module_core=={version}" in pyproject
+        assert "simple_module_core>=1.0,<2.0" not in pyproject
+
     async def test_scaffold_ships_github_workflows(self, tmp_path):
         """Gap 8: scaffolded modules include publish.yml + ci.yml."""
         from simple_module_cli.scaffolding import create_module

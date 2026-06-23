@@ -4,22 +4,31 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi import status as http_status
+from fastapi_users import exceptions as fa_exceptions
 from simple_module_core.events import EventBus
 from simple_module_hosting.permissions import RequiresPermission
 
 from users.admin.service import UserService
 from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
-from users.contracts.events import RoleAssigned, UserDisabled, UserInvited
+from users.contracts.events import (
+    RoleAssigned,
+    UserCreated,
+    UserDeleted,
+    UserDisabled,
+    UserInvited,
+)
 from users.contracts.schemas import (
     PasswordResetLink,
     RoleAssignment,
+    UserAdminCreate,
+    UserDetailsUpdate,
     UserInvite,
     UserListItem,
 )
 from users.deps import get_event_bus, get_mailer, get_user_service
-from users.exceptions import UserNotFoundError
+from users.exceptions import EmailAlreadyExistsError, UserNotFoundError
 
 admin_router = APIRouter(
     prefix="/admin",
@@ -82,6 +91,80 @@ async def admin_invite_user(
         )
     )
     return service.to_list_item(user)
+
+
+@admin_router.post(
+    "",
+    response_model=UserListItem,
+    status_code=http_status.HTTP_201_CREATED,
+)
+async def admin_create_user(
+    data: UserAdminCreate,
+    request: Request,
+    bus: EventBus = Depends(get_event_bus),
+    service: UserService = Depends(get_user_service),
+):
+    """Create an active+verified user with an admin-set password."""
+    creator = getattr(request.state, "user", None)
+    created_by = str(creator.id) if creator else None
+    try:
+        user = await service.create_user(
+            data.email,
+            data.password,
+            data.full_name,
+            data.role_names,
+            created_by=created_by,
+        )
+    except fa_exceptions.UserAlreadyExists:
+        raise HTTPException(
+            status_code=409,
+            detail="A user with this email already exists.",
+        ) from None
+    except fa_exceptions.InvalidPasswordException as exc:
+        raise HTTPException(status_code=400, detail=exc.reason) from None
+    await bus.publish(UserCreated(user_id=user.id, email=user.email, created_by=created_by))
+    return service.to_list_item(user)
+
+
+@admin_router.patch("/{user_id}", response_model=UserListItem)
+async def admin_update_user(
+    user_id: uuid.UUID,
+    data: UserDetailsUpdate,
+    service: UserService = Depends(get_user_service),
+):
+    """Update a user's email and full name."""
+    try:
+        user = await service.update_details(user_id, data.email, data.full_name)
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found") from None
+    except EmailAlreadyExistsError:
+        raise HTTPException(
+            status_code=409,
+            detail="A user with this email already exists.",
+        ) from None
+    return service.to_list_item(user)
+
+
+@admin_router.delete("/{user_id}", status_code=http_status.HTTP_204_NO_CONTENT)
+async def admin_delete_user(
+    user_id: uuid.UUID,
+    request: Request,
+    bus: EventBus = Depends(get_event_bus),
+    service: UserService = Depends(get_user_service),
+):
+    """Hard-delete a user. An admin cannot delete their own account."""
+    actor = getattr(request.state, "user", None)
+    if actor is not None and str(user_id) == actor.id:
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot delete your own account.",
+        )
+    try:
+        await service.delete_user(user_id)
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found") from None
+    await bus.publish(UserDeleted(user_id=user_id))
+    return Response(status_code=http_status.HTTP_204_NO_CONTENT)
 
 
 @admin_router.patch("/{user_id}/disable", response_model=UserListItem)

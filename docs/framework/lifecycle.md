@@ -1,6 +1,6 @@
 # Lifecycle hooks
 
-`ModuleBase` defines ten lifecycle hooks. All are no-ops by default — override the ones you need.
+`ModuleBase` defines a set of lifecycle hooks. All are no-ops by default — override the ones you need.
 
 At boot, for each module (in topological order), the framework calls them in this sequence:
 
@@ -11,6 +11,7 @@ register_permissions
 register_feature_flags
 register_event_handlers
 register_health_checks
+register_public_routes
 register_exception_handlers
 register_middleware
 register_routes
@@ -35,22 +36,21 @@ If you override this hook but don't touch `app.state.<module_lower>`, diagnostic
 
 ## `register_menu_items(registry)`
 
-Add entries to the global `MenuRegistry`. Items are grouped by `MenuSection` and role-filtered per request by `InertiaLayoutDataMiddleware`.
+Add entries to the global `MenuRegistry`. Items are grouped by `MenuSection` and filtered per request by `InertiaLayoutDataMiddleware` (by authentication state and `roles`).
 
 ```python
 def register_menu_items(self, registry: MenuRegistry) -> None:
     registry.add(MenuItem(
         section=MenuSection.SIDEBAR,
-        key="orders",
-        label_key="orders.menu.orders",     # i18n key
-        href="/orders",
+        label="orders.menu.orders",     # i18n key, resolved client-side
+        url="/orders",
         icon="package",
-        required_permission="orders.view",
+        roles=["admin"],                # empty = all authenticated users
         order=20,
     ))
 ```
 
-`required_permission` filters the item from users without the permission. `order` is a stable sort key (lower = earlier).
+`roles` filters the item to users holding at least one of the listed roles (empty list = visible to all authenticated users); `requires_auth` (default `True`) hides it from anonymous visitors. `order` is a stable sort key (lower = earlier).
 
 Sections: `SIDEBAR`, `ADMIN_SIDEBAR`, `NAVBAR`, `USER_DROPDOWN`.
 
@@ -73,14 +73,17 @@ Declare feature flags with defaults. The admin can toggle them at `/settings/fea
 
 ```python
 def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
-    registry.add("orders.new_checkout", default=False)
+    registry.add(FeatureFlagDefinition(
+        name="orders.new_checkout",
+        default_enabled=False,
+    ))
 ```
 
 Query from code:
 
 ```python
 flags = request.app.state.sm.feature_flags
-if flags.is_enabled("orders.new_checkout", user=request.state.principal):
+if flags.is_enabled("orders.new_checkout", tenant_id=request.state.tenant_id):
     ...
 ```
 
@@ -97,21 +100,21 @@ async def _on_order_placed(self, event: OrderPlaced) -> None:
     ...
 ```
 
-Dispatch walks the event's MRO, so subscribing to a base class delivers subclass events. See [Events](/framework/events).
+Handlers are keyed by the exact event type and run concurrently on publish. See [Events](/framework/events).
 
 ## `register_health_checks(registry)`
 
-Register named async checks. They're surfaced at `/admin/health`:
+Register named async checks. They're surfaced at `/health/ready`:
 
 ```python
 def register_health_checks(self, registry: HealthRegistry) -> None:
-    registry.add("orders.db", self._check_db)
+    registry.add(HealthCheck(name="orders.db", check=self._check_db))
 
-async def _check_db(self) -> HealthStatus:
+async def _check_db(self) -> HealthCheckResult:
     ...
 ```
 
-Return `HealthStatus.ok()` or `HealthStatus.failing(detail=...)`. The health endpoint aggregates all checks and returns 503 if any critical check fails.
+Each check returns a `HealthCheckResult(status=HealthStatus.HEALTHY | DEGRADED | UNHEALTHY, detail=...)`. The `/health/ready` endpoint runs all checks concurrently and reports the worst status (a raising check counts as `UNHEALTHY`).
 
 ## `register_exception_handlers(app)`
 
@@ -146,29 +149,29 @@ Mount your API and Inertia view routers onto the two framework-provided routers.
 
 ```python
 def register_routes(
-    self, api: APIRouter, views: APIRouter
+    self, api_router: APIRouter, view_router: APIRouter
 ) -> None:
-    from orders.endpoints.api import router as api_router
-    from orders.endpoints.views import router as view_router
+    from orders.endpoints.api import router as api
+    from orders.endpoints.views import router as views
 
-    api.include_router(api_router, prefix="/api/orders")
-    views.include_router(view_router, prefix="/orders")
+    api_router.include_router(api)
+    view_router.include_router(views)
 ```
 
-- `api_router` is mounted at `/api` on the main app.
-- `view_router` is mounted at `/` on the main app.
+- `api_router` is pre-built with `prefix=ModuleMeta.route_prefix`.
+- `view_router` is pre-built with `prefix=ModuleMeta.view_prefix`.
 
-Prefixes in `ModuleMeta.route_prefix` / `view_prefix` are **documentation**; the framework does not auto-apply them. You specify the prefix in `include_router`.
+The framework **auto-applies** `ModuleMeta.route_prefix` / `view_prefix` — `create_app` constructs each router already prefixed (`APIRouter(prefix=module.meta.route_prefix)`), so your `include_router` calls usually pass no further prefix (add one only for a sub-grouping *inside* the module's own prefix).
 
 ## `on_startup()` / `on_shutdown()`
 
 Async lifespan hooks that run after all modules are registered.
 
 ```python
-async def on_startup(self) -> None:
+async def on_startup(self, app: FastAPI) -> None:
     await self._worker_pool.start()
 
-async def on_shutdown(self) -> None:
+async def on_shutdown(self, app: FastAPI) -> None:
     await self._worker_pool.stop()
 ```
 
@@ -198,14 +201,15 @@ class OrdersModule(ModuleBase):
     def register_menu_items(self, registry): ...
     def register_permissions(self, registry): ...
     def register_feature_flags(self, registry): ...
-    def register_event_handlers(self, bus): ...
+    def register_event_handlers(self, bus, app=None): ...
     def register_health_checks(self, registry): ...
+    def register_public_routes(self, registry): ...
     def register_exception_handlers(self, app): ...
     def register_middleware(self, app): ...
-    def register_routes(self, api, views): ...
+    def register_routes(self, api_router, view_router): ...
 
-    async def on_startup(self): ...
-    async def on_shutdown(self): ...
+    async def on_startup(self, app): ...
+    async def on_shutdown(self, app): ...
 ```
 
 If your module overrides zero hooks, diagnostic `SM007` (INFO) asks whether the module is still doing anything useful. Empty modules are typically deletable.

@@ -23,6 +23,8 @@ from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
 from simple_module_core.exceptions import NotFoundError
 from starlette.exceptions import HTTPException
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.responses import Response
+from starlette.types import Scope
 
 from simple_module_hosting._error_handlers import (
     http_exception_handler,
@@ -45,6 +47,28 @@ if TYPE_CHECKING:
     from simple_module_core.permissions import PermissionRegistry
 
 logger = logging.getLogger(__name__)
+
+_IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable"
+
+
+class ImmutableStaticFiles(StaticFiles):
+    """StaticFiles that marks Vite's content-hashed build assets immutable.
+
+    Vite emits files under ``dist/assets/`` with a content hash in the filename
+    (e.g. ``main-3YbShAJ4.js``), so the bytes for a given URL never change —
+    browsers can cache them indefinitely and skip even the revalidation
+    round-trip. The default StaticFiles only sets ETag/Last-Modified, forcing a
+    conditional GET per asset on every visit. Non-hashed paths (the manifest,
+    etc.) keep the default behaviour.
+    """
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        response = await super().get_response(path, scope)
+        # StaticFiles hands us an OS-separator path (backslashes on Windows), so
+        # normalize before matching the forward-slash asset prefix.
+        if response.status_code == 200 and path.replace("\\", "/").startswith("dist/assets/"):
+            response.headers["Cache-Control"] = _IMMUTABLE_CACHE_CONTROL
+        return response
 
 
 def register_exception_handlers(app: FastAPI, modules: list) -> None:
@@ -103,6 +127,20 @@ def install_middleware(
         app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
+
+
+def attach_public_routes(app: FastAPI, settings: Settings, registry) -> None:
+    """Seed host-level public paths and publish the registry for AuthMiddleware.
+
+    Modules contribute method-aware rules through their ``register_public_routes``
+    hook (already applied to *registry* by the caller). This adds the host escape
+    hatch — ``SM_AUTH_PUBLIC_PATHS`` prefixes — then exposes the registry at
+    ``app.state.public_routes``, where ``auth.middleware.AuthMiddleware`` reads it
+    on every request.
+    """
+    for prefix in settings.auth_public_paths:
+        registry.add_prefix(prefix)
+    app.state.public_routes = registry
 
 
 def mount_module_static_dirs(app: FastAPI, modules: list) -> None:

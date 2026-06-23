@@ -87,7 +87,7 @@ class UsersAuthProvider:
         """Look up an access token in users_access_token and return the user."""
         try:
             from sqlalchemy import select
-            from sqlalchemy.orm import selectinload
+            from sqlalchemy.orm import noload, selectinload
 
             from users.models import User, UserAccessToken
 
@@ -97,8 +97,12 @@ class UsersAuthProvider:
                 access = (await db_session.execute(stmt)).scalar_one_or_none()
                 if access is None:
                     return None
+                # noload oauth_accounts: lazy="selectin" on the model would
+                # otherwise fire an extra query the UserContext never reads.
                 stmt = (
-                    select(User).where(User.id == access.user_id).options(selectinload(User.roles))
+                    select(User)
+                    .where(User.id == access.user_id)
+                    .options(selectinload(User.roles), noload(User.oauth_accounts))
                 )
                 user = (await db_session.execute(stmt)).scalar_one_or_none()
                 if user is None or not user.is_active or user.disabled_at is not None:
@@ -111,13 +115,19 @@ class UsersAuthProvider:
     async def _load_user(self, scope, user_id: uuid_mod.UUID) -> UserContext | None:
         try:
             from sqlalchemy import select
-            from sqlalchemy.orm import selectinload
+            from sqlalchemy.orm import noload, selectinload
 
             from users.models import User
 
             session_factory = scope["app"].state.sm.db.session_factory
             async with session_factory() as db_session:
-                stmt = select(User).where(User.id == user_id).options(selectinload(User.roles))
+                # noload oauth_accounts: lazy="selectin" on the model would
+                # otherwise fire an extra query the UserContext never reads.
+                stmt = (
+                    select(User)
+                    .where(User.id == user_id)
+                    .options(selectinload(User.roles), noload(User.oauth_accounts))
+                )
                 user = (await db_session.execute(stmt)).scalar_one_or_none()
                 if user is None or not user.is_active or user.disabled_at is not None:
                     return None

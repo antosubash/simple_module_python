@@ -1,11 +1,11 @@
 # Migrations
 
-All migrations live in `migrations/versions/` in your app — **not** in module packages. Alembic runs from the app root (`alembic.ini`) and shares the app's `.env` / `SM_DATABASE_URL`.
+All migrations live in `host/migrations/versions/` — **not** in module packages. Alembic runs from the repo root via `host/alembic.ini` and shares the app's `.env` / `SM_DATABASE_URL`.
 
 ## Why centralized?
 
-- **Dependency ordering is global.** If `invoices` depends on `orders.order.id`, their migrations must order correctly. One linear Alembic history enforces this.
-- **Autogenerate sees everything.** `migrations/env.py` calls `build_module_metadata()` to union every installed module's `MetaData`. Autogenerate diffs the DB against that union and writes one migration covering all changes.
+- **Dependency ordering is global.** If `invoices` depends on `orders_order.id`, their migrations must order correctly. One linear Alembic history enforces this.
+- **Autogenerate sees everything.** `host/migrations/env.py` calls `build_module_metadata()` to union every installed module's `MetaData`. Autogenerate diffs the DB against that union and writes one migration covering all changes.
 - **Operators run one command.** `make migrate` is the only target. No "did you also run `orders/migrate`?" footgun.
 
 Each module's *first* migration sets `branch_labels = ("<module_name>",)` so you can still downgrade one module at a time with `alembic downgrade <module>@base`.
@@ -15,10 +15,10 @@ Each module's *first* migration sets `branch_labels = ("<module_name>",)` so you
 ### Create a migration
 
 ```bash
-uv run alembic revision --autogenerate -m "add orders tables"
+make migration msg="add orders tables"
 ```
 
-The resulting file lands in `migrations/versions/XXXX_add_orders_tables.py`.
+This runs `alembic -c host/alembic.ini revision --autogenerate` from the repo root. The resulting file lands in `host/migrations/versions/XXXX_add_orders_tables.py`.
 
 **Always open and read the generated file** before committing. Autogenerate is good but not perfect:
 
@@ -32,14 +32,14 @@ The resulting file lands in `migrations/versions/XXXX_add_orders_tables.py`.
 make migrate
 ```
 
-Runs `alembic upgrade head`. Idempotent.
+Runs `alembic -c host/alembic.ini upgrade heads`. Idempotent.
 
 ### Downgrade
 
 ```bash
-uv run alembic downgrade -1              # back one revision
-uv run alembic downgrade <revision_id>   # to a specific revision
-uv run alembic downgrade orders@base     # back to the state before the orders module existed
+make downgrade                                                 # back one revision
+uv run --project host alembic -c host/alembic.ini downgrade <revision_id>   # to a specific revision
+uv run --project host alembic -c host/alembic.ini downgrade orders@base     # back to the state before the orders module existed
 ```
 
 `orders@base` uses the `branch_labels` marker from the module's first migration. Module-level downgrade is the mechanism for uninstalling a module cleanly.
@@ -49,7 +49,7 @@ uv run alembic downgrade orders@base     # back to the state before the orders m
 When you scaffold a module with `smpy create-module`, the *first* autogenerate revision produces a file that needs this marker added by hand:
 
 ```python
-# migrations/versions/XXXX_add_orders_tables.py
+# host/migrations/versions/XXXX_add_orders_tables.py
 
 revision = "..."
 down_revision = "..."
@@ -61,27 +61,32 @@ Once the marker is in place, all future `orders` migrations inherit the branch.
 
 ## Alembic environment setup
 
-`migrations/env.py` (in your app) looks roughly like:
+`host/migrations/env.py` looks roughly like:
 
 ```python
-from simple_module_db.base import build_module_metadata
-from simple_module_db.migration_support import make_include_object
+from simple_module_db import (
+    build_module_metadata,
+    make_include_object,
+    make_process_revision_directives,
+    render_item,
+)
 
 target_metadata = build_module_metadata()
-include_object = make_include_object()
+include_object = make_include_object(target_metadata)
+process_revision_directives = make_process_revision_directives(target_metadata)
 
 context.configure(
     target_metadata=target_metadata,
     include_object=include_object,
-    compare_type=True,
-    compare_server_default=True,
+    render_item=render_item,
+    process_revision_directives=process_revision_directives,
 )
 ```
 
 - `target_metadata` — union of every module's `MetaData`.
-- `include_object` — filters out system tables (`alembic_version`) and any host-owned tables you don't want tracked.
-- `compare_type=True` — detects type changes (e.g. `VARCHAR(50)` → `VARCHAR(100)`).
-- `compare_server_default=True` — detects default-value changes.
+- `include_object` — accepts only tables present in `target_metadata`, so autogenerate never diffs system tables (`alembic_version`) or any host-owned tables outside the module system.
+- `render_item` — collapses SQLModel's `AutoString` to `sa.String` and renders `StrEnum` columns with `values_callable` so generated migrations are importable.
+- `process_revision_directives` — re-emits expression-based (functional) indexes that autogenerate silently drops under SQLite.
 
 ## Boot-time migration check
 
@@ -100,17 +105,17 @@ Fires as a warning when a module's model declares a table that doesn't appear in
 - You renamed a table but the old migration still references the old name.
 - You used `__abstract__ = True` somewhere it shouldn't be.
 
-The dev-mode boot log prints the offending table names. Resolution: run `uv run alembic revision --autogenerate -m "..."`, review, `make migrate`.
+The dev-mode boot log prints the offending table names. Resolution: run `make migration msg="..."`, review, `make migrate`.
 
 ## Cross-module foreign keys
 
-If `invoices` has an FK to `orders.order.id`:
+If `invoices` has an FK to `orders_order.id`:
 
 - Alembic will emit `ADD CONSTRAINT` in the invoices table's migration.
 - The migration that creates `invoices_invoice` must come **after** the one that creates `orders_order` in linear history.
-- `smpy create-module` + `uv run alembic revision --autogenerate` handle this naturally as long as `depends_on` is correct in `ModuleMeta`.
+- `smpy create-module` + `make migration` handle this naturally as long as `depends_on` is correct in `ModuleMeta`.
 
-On Postgres, cross-schema FKs work natively (`orders.order.id ← invoices.invoice.order_id`).
+All tables share the host's single schema on both Postgres and SQLite, so a cross-module FK is just an ordinary same-schema reference (`orders_order.id ← invoices_invoice.order_id`).
 
 On SQLite, FKs are off by default but the test suite enables them; in production SQLite use (rare), set `PRAGMA foreign_keys = ON`.
 
@@ -153,7 +158,7 @@ Keep merges small; a merge revision with its own `op.*` logic is a code smell.
 
 When you autogenerate a migration for a freshly-added module, autogenerate writes `op.create_table(...)` for every table in the module's `MetaData`. Inspect:
 
-- Are the schema / table names right for your provider (`orders.order` on Postgres vs `orders_order` on SQLite)?
+- Are the table names right (the module-prefixed `orders_order`, identical on Postgres and SQLite)?
 - Do indexes and constraints have stable names? Rename via `name=...` on the model if not.
 - Did autogenerate also pick up any **other** module's tables? That means you forgot `make migrate` after the last scaffold. Squash the file down to just this module's changes.
 
@@ -168,7 +173,7 @@ async def test_migration_up_then_down(tmp_path):
     from alembic import command
 
     db_url = f"sqlite:///{tmp_path}/migrate_test.db"
-    cfg = Config("alembic.ini")
+    cfg = Config("host/alembic.ini")
     cfg.set_main_option("sqlalchemy.url", db_url)
 
     command.upgrade(cfg, "head")

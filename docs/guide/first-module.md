@@ -70,10 +70,10 @@ DTOs are plain `SQLModel` subclasses — **not** `BaseModel` and **not** `table=
 ## 4. Generate a migration
 
 ```bash
-uv run alembic revision --autogenerate -m "add orders tables"
+make migration msg="add orders tables"
 ```
 
-Open `migrations/versions/XXXX_add_orders_tables.py` and eyeball it:
+Open `host/migrations/versions/XXXX_add_orders_tables.py` and eyeball it (`make migration` runs Alembic from the host dir):
 
 - It should create the `orders_order` table.
 - Add `branch_labels = ("orders",)` to the revision so you can later `alembic downgrade orders@base` to roll the module back to empty without touching other modules.
@@ -202,32 +202,50 @@ async def create_order(
     return await service.create(data)
 ```
 
-`RequiresPermission` checks `request.state.principal.permissions` and returns 403 if the permission isn't granted.
+`RequiresPermission` returns 401 if the request is unauthenticated and 403 if the resolved permissions (`request.state.resolved_permissions`, populated from the user's roles) don't include the required permission. A wildcard grant short-circuits the check.
 
 ## 8. Build the React page
 
 `pages/Browse.tsx` was scaffolded — extend it:
 
 ```tsx
-import { useT } from "@simple-module-py/i18n-react";
-import { DataTable, PageHeader } from "@simple-module-py/ui";
+import { useT } from "@simple-module-py/i18n";
+import { PageShell } from "@simple-module-py/ui/components/PageShell";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@simple-module-py/ui/components/ui/table";
 import type { OrderOut } from "../contracts";
 
 export default function Browse({ orders }: { orders: OrderOut[] }) {
   const { t } = useT();
   return (
-    <>
-      <PageHeader title={t("orders.browse.title")} />
-      <DataTable
-        data={orders}
-        columns={[
-          { key: "id", header: "#" },
-          { key: "customer_email", header: t("orders.fields.customer") },
-          { key: "total", header: t("orders.fields.total") },
-          { key: "status", header: t("orders.fields.status") },
-        ]}
-      />
-    </>
+    <PageShell title={t("orders.browse.title")}>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>#</TableHead>
+            <TableHead>{t("orders.fields.customer")}</TableHead>
+            <TableHead>{t("orders.fields.total")}</TableHead>
+            <TableHead>{t("orders.fields.status")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {orders.map((order) => (
+            <TableRow key={order.id}>
+              <TableCell>{order.id}</TableCell>
+              <TableCell>{order.customer_email}</TableCell>
+              <TableCell>{order.total}</TableCell>
+              <TableCell>{order.status}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </PageShell>
   );
 }
 ```
@@ -269,7 +287,7 @@ async def test_create_and_list_orders(authenticated_client):
     assert any(o["id"] == created["id"] for o in r.json())
 ```
 
-The `authenticated_client` fixture from `conftest.py` seeds an admin user and carries a signed session cookie. The `db_session` fixture creates all module tables and stamps the Alembic head so the boot-time migration check passes. See [Fixtures](/testing/fixtures).
+The `authenticated_client` fixture from the `simple_module_test` plugin seeds an admin user and carries a signed session cookie. The `db_session` fixture creates all module tables and stamps the Alembic head so the boot-time migration check passes. See [Fixtures](/testing/fixtures).
 
 Run:
 
