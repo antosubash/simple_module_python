@@ -35,7 +35,7 @@ class TestModuleMeta:
     async def test_frozen(self):
         meta = ModuleMeta(name="Frozen")
         with pytest.raises(AttributeError):
-            meta.name = "Changed"  # type: ignore[misc]  # ty: ignore[invalid-assignment]
+            meta.name = "Changed"  # type: ignore[misc]
 
 
 class DummyModule(ModuleBase):
