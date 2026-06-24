@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 from fastapi_users_db_sqlalchemy.generics import GUID
 from simple_module_db.mixins import AuditMixin
-from sqlalchemy import DateTime, Index, text
+from sqlalchemy import DateTime, Index, false, text
 from sqlmodel import Field, Relationship
 
 from users.models._base import Base
@@ -40,10 +40,20 @@ class User(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
         primary_key=True,
     )
     email: str = Field(max_length=320, unique=True, index=True)
-    hashed_password: str = Field(max_length=1024)
+    # Nullable: external (SSO) users have NO local password. fastapi-users sets
+    # this for password accounts; the OAuth path leaves it ``None`` (see
+    # ``UserManager.on_after_register``).
+    hashed_password: str | None = Field(default=None, max_length=1024)
     is_active: bool = Field(default=True)
     is_superuser: bool = Field(default=False)
     is_verified: bool = Field(default=False)
+    # True for users provisioned via an external IdP (Microsoft/Entra, Google,
+    # GitHub, generic OIDC). They authenticate only through SSO; password login
+    # and password reset are refused. Roles are still assigned locally.
+    is_external: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": false()},
+    )
 
     full_name: str | None = Field(default=None, max_length=255)
     tenant_id: str | None = Field(default=None, max_length=50, index=True)

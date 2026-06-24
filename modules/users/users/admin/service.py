@@ -11,7 +11,11 @@ from sqlalchemy.orm import noload
 
 from users.admin.queries import _UserServiceBase
 from users.contracts.schemas import UserCreate
-from users.exceptions import EmailAlreadyExistsError, UserNotFoundError
+from users.exceptions import (
+    EmailAlreadyExistsError,
+    ExternalUserNoPasswordError,
+    UserNotFoundError,
+)
 from users.models import OAuthAccount, RefreshToken, User, UserAccessToken, UserRole
 
 
@@ -205,8 +209,15 @@ class UserService(_UserServiceBase):
         return user
 
     async def generate_reset_link(self, user_id: uuid.UUID, base_url: str) -> str:
-        """Build an admin-copyable password-reset URL. No email side-effect."""
+        """Build an admin-copyable password-reset URL. No email side-effect.
+
+        Raises ``ExternalUserNoPasswordError`` for SSO users — they have no
+        local password, so a reset link is meaningless (and would crash on the
+        null-hash fingerprint).
+        """
         user = await self._require_user(user_id)
+        if user.is_external:
+            raise ExternalUserNoPasswordError(user_id)
 
         token = await self._manager.generate_reset_password_token(user)
         return f"{base_url.rstrip('/')}/users/reset-password?token={token}"

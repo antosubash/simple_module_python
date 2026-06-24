@@ -10,6 +10,7 @@ export interface UserListItem {
   full_name: string | null;
   is_active: boolean;
   is_verified: boolean;
+  is_external: boolean;
   last_login_at: string | null;
   created_at: string | null;
   roles: string[];
@@ -63,7 +64,14 @@ export function UserRow({ user }: { user: UserListItem }) {
         {user.roles.length > 0 ? user.roles.join(', ') : '—'}
       </TableCell>
       <TableCell className="hidden sm:table-cell">
-        <StatusBadge user={user} />
+        <div className="flex items-center gap-1.5">
+          <StatusBadge user={user} />
+          {user.is_external && (
+            <Badge variant="outline" className="border-violet-200 bg-violet-50 text-violet-700">
+              SSO
+            </Badge>
+          )}
+        </div>
       </TableCell>
       <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
         {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : '—'}

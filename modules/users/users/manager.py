@@ -11,9 +11,10 @@ from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
 from fastapi_users.jwt import generate_jwt
 
-from users.constants import SESSION_USER_ID_KEY
+from users.constants import OAUTH_REGISTRATION_REQUEST_FLAG, SESSION_USER_ID_KEY
 from users.contracts.events import UserRegistered
 from users.db_adapter import UserDatabaseWithRoles, get_user_db
+from users.exceptions import ExternalUserNoPasswordError
 from users.mailer import Mailer
 from users.models import User
 
@@ -51,9 +52,57 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         if password.isdigit():
             raise exceptions.InvalidPasswordException(reason="Password cannot be all numbers")
 
+    # ── Auth (password-credential guards) ────────────────────
+
+    async def authenticate(self, credentials):
+        """Authenticate by email + password.
+
+        Mirrors ``BaseUserManager.authenticate`` but rejects **external (SSO)
+        users**: they have ``hashed_password is None``, so there is no local
+        password to verify. We still run a dummy hash to keep timing uniform
+        with the user-not-found and wrong-password paths.
+        """
+        try:
+            user = await self.get_by_email(credentials.username)
+        except exceptions.UserNotExists:
+            self.password_helper.hash(credentials.password)
+            return None
+
+        if user.hashed_password is None:
+            self.password_helper.hash(credentials.password)
+            return None
+
+        verified, updated_password_hash = self.password_helper.verify_and_update(
+            credentials.password, user.hashed_password
+        )
+        if not verified:
+            return None
+        if updated_password_hash is not None:
+            await self.user_db.update(user, {"hashed_password": updated_password_hash})
+        return user
+
+    async def forgot_password(self, user: User, request: Request | None = None) -> None:
+        """Skip password reset for external (SSO) users — they have no password.
+
+        Returning silently (rather than raising) preserves the public
+        forgot-password endpoint's anti-enumeration behaviour: it always
+        responds the same regardless of whether the account can reset.
+        """
+        if user.is_external:
+            return
+        await super().forgot_password(user, request)
+
     # ── Lifecycle hooks ──────────────────────────────────────
 
     async def on_after_register(self, user: User, request: Request | None = None) -> None:
+        # A user provisioned via OAuth (flag set by the OAuth callback before
+        # find-or-create) is external: drop the random password fastapi-users
+        # assigned and mark the account SSO-only. Fires only for *new* users —
+        # OAuth logins that link to an existing account don't reach here.
+        if request is not None and getattr(request.state, OAUTH_REGISTRATION_REQUEST_FLAG, False):
+            user.hashed_password = None
+            user.is_external = True
+            await self.user_db.update(user, {"hashed_password": None, "is_external": True})
         await self._publish_user_registered(user, request)
         if not user.is_verified:
             # Kicks off on_after_request_verify, which sends the email
@@ -130,6 +179,9 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         default rounds) so we offload it to a worker thread — otherwise a
         single admin action would stall the event loop for other requests.
         """
+        if user.is_external or user.hashed_password is None:
+            # No local password to fingerprint — hashing None would crash.
+            raise ExternalUserNoPasswordError(user.id)
         fingerprint = await asyncio.to_thread(self.password_helper.hash, user.hashed_password)
         token_data = {
             "sub": str(user.id),

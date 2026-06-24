@@ -28,7 +28,11 @@ from users.contracts.schemas import (
     UserListItem,
 )
 from users.deps import get_event_bus, get_mailer, get_user_service
-from users.exceptions import EmailAlreadyExistsError, UserNotFoundError
+from users.exceptions import (
+    EmailAlreadyExistsError,
+    ExternalUserNoPasswordError,
+    UserNotFoundError,
+)
 
 admin_router = APIRouter(
     prefix="/admin",
@@ -243,4 +247,9 @@ async def admin_reset_password_link(
         link = await service.generate_reset_link(user_id, base_url)
     except UserNotFoundError:
         raise HTTPException(status_code=404, detail="User not found") from None
+    except ExternalUserNoPasswordError:
+        raise HTTPException(
+            status_code=409,
+            detail="External (SSO) users have no password to reset",
+        ) from None
     return PasswordResetLink(link=link)
