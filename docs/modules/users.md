@@ -32,6 +32,9 @@ The module is built on [`fastapi-users`](https://fastapi-users.github.io/) for p
 | `POST /api/users/auth/request-verify-token` | `RequestVerifyToken` | rate-limited |
 | `POST /api/users/auth/verify` | `VerifyRequest` | |
 | `POST /api/users/auth/accept-invite` | `AcceptInviteRequest` | sets password + signs the user in |
+| `POST /api/users/auth/token` | `TokenRequest` (email + password) | bearer login for mobile / API clients → `{access_token, refresh_token, token_type, expires_in}`; `401` for external/SSO users |
+| `POST /api/users/auth/token/refresh` | `RefreshRequest` (refresh_token) | rotates a refresh token into a new pair (old one revoked) |
+| `DELETE /api/users/auth/token` | `RefreshRequest` (refresh_token) | revokes a refresh token (idempotent) |
 | `GET /api/users/auth/{provider}/login` | — | OAuth: redirect to the IdP (`provider` ∈ configured set) |
 | `GET /api/users/auth/{provider}/callback` | `?code=&state=` | OAuth: find-or-create user, set cookie, 303 to `login_redirect_url` |
 
@@ -47,12 +50,17 @@ The module is built on [`fastapi-users`](https://fastapi-users.github.io/) for p
 | Method + path | Body / response |
 |---|---|
 | `GET /api/users/admin` | `?q=&status=&role=&verified=&sort=&order=&page=&per_page=` → `list[UserListItem]` |
-| `POST /api/users/admin/invite` | `UserInvite` → `UserListItem` |
-| `POST /api/users/admin/{user_id}/disable` | → `UserListItem` |
-| `POST /api/users/admin/{user_id}/enable` | → `UserListItem` |
-| `POST /api/users/admin/{user_id}/roles` | `RoleAssignment` |
-| `POST /api/users/admin/{user_id}/mark-verified` | → `UserListItem` |
-| `POST /api/users/admin/{user_id}/reset-password-link` | → `PasswordResetLink` |
+| `POST /api/users/admin` | `UserAdminCreate` → `UserListItem` (201) — active+verified user with an admin-set password |
+| `POST /api/users/admin/invite` | `UserInvite` → `UserListItem` (201) |
+| `PATCH /api/users/admin/{user_id}` | `UserDetailsUpdate` → `UserListItem` — edit email + full name |
+| `DELETE /api/users/admin/{user_id}` | → `204` (hard delete; an admin cannot delete their own account → `400`) |
+| `PATCH /api/users/admin/{user_id}/disable` | → `UserListItem` |
+| `PATCH /api/users/admin/{user_id}/enable` | → `UserListItem` |
+| `PUT /api/users/admin/{user_id}/roles` | `RoleAssignment` → `UserListItem` |
+| `PATCH /api/users/admin/{user_id}/verify` | → `UserListItem` (mark verified; idempotent) |
+| `POST /api/users/admin/{user_id}/reset-password-link` | → `PasswordResetLink` (`409` for external/SSO users) |
+
+`POST /api/users/admin` creates an **active + verified** user directly — no invite email, no verification flow; the admin sets the password. It returns `409` if the email is already taken and `400` for an invalid password. The matching admin UI (Create form, Edit details card, and a delete "danger zone") lives under `/users/admin` — see [View routes](#view-routes) and [Inertia pages](#inertia-pages).
 
 ### View routes
 
@@ -75,27 +83,32 @@ Admin (`users.manage`):
 
 - `GET /users/admin` → `Users/Users/Index`
 - `GET /users/admin/invite` → `Users/Users/Invite`
-- `GET /users/admin/{user_id}/edit` → `Users/Users/Edit`
+- `GET /users/admin/create` → `Users/Users/Create`
+- `GET /users/admin/{user_id}` → `Users/Users/Edit`
 
 ## Public contracts
 
 ```python
-from users.contracts import (
+from users.contracts.schemas import (
     UserRead, UserCreate, UserUpdate, UserInvite,
+    UserAdminCreate, UserDetailsUpdate,
     UserListItem, RoleListItem, RoleAssignment,
     AcceptInviteRequest, PasswordResetLink, SelfProfileUpdate,
 )
 from users.contracts.events import (
-    UserRegistered, UserInvited, UserDisabled, RoleAssigned,
+    UserRegistered, UserInvited, UserCreated, UserDeleted,
+    UserDisabled, RoleAssigned,
 )
 ```
 
 | Class | Purpose |
 |---|---|
-| `UserRead` | `id`, `email`, `is_active`, `is_superuser`, `is_verified`, `full_name`, `tenant_id`, `disabled_at`, `last_login_at`. |
-| `UserListItem` | Admin list row with `roles`. |
+| `UserRead` | `id`, `email`, `is_active`, `is_superuser`, `is_verified`, `is_external`, `full_name`, `tenant_id`, `disabled_at`, `last_login_at`. |
+| `UserAdminCreate` | Admin create-user input: `email`, `password`, `full_name`, `role_names`. |
+| `UserDetailsUpdate` | Admin edit input: `email`, `full_name`. |
+| `UserListItem` | Admin list row; adds `is_external`, `created_at`, `roles`. |
 | `RoleListItem` | `id`, `name`, `description`, `user_count`. |
-| `UserRegistered`, `UserInvited`, `UserDisabled`, `RoleAssigned` | Events — see [Events](#events). |
+| `UserRegistered`, `UserInvited`, `UserCreated`, `UserDeleted`, `UserDisabled`, `RoleAssigned` | Events — see [Events](#events). |
 
 ## Models
 
@@ -105,8 +118,9 @@ from users.contracts.events import (
 |---|---|---|
 | `id` | `UUID` | PK |
 | `email` | `str` | unique, indexed; functional index on `lower(email)` |
-| `hashed_password` | `str` | |
+| `hashed_password` | `str \| None` | **nullable** — external (SSO) users have no local password (see [External / SSO users](#external-sso-users)) |
 | `is_active` / `is_superuser` / `is_verified` | `bool` | |
+| `is_external` | `bool` | `True` for users provisioned via an external IdP; default `False` (`server_default false`) |
 | `full_name` | `str \| None` | |
 | `tenant_id` | `str \| None` | indexed; only set when multi-tenant |
 | `disabled_at` | `datetime \| None` | |
@@ -191,8 +205,10 @@ Everything else is DB-backed (initial values are pydantic defaults; edit at `/se
 |---|---|---|
 | `UserRegistered` | `user_id`, `email` | on signup |
 | `UserInvited` | `user_id`, `email`, `invited_by` | on admin invite |
+| `UserCreated` | `user_id`, `email`, `created_by` | on admin create (`POST /api/users/admin`) |
+| `UserDeleted` | `user_id` | on admin delete |
 | `UserDisabled` | `user_id` | on admin disable |
-| `RoleAssigned` | `user_id`, `role_name` | once per role on `POST /admin/{user_id}/roles` |
+| `RoleAssigned` | `user_id`, `role_name` | once per role on `PUT /admin/{user_id}/roles` |
 
 ## CLI
 
@@ -242,7 +258,22 @@ Built-in provider keys (the `{provider}` URL segment):
 | Microsoft (Entra ID) | `microsoft` | `oauth_microsoft_tenant`: `"common"` (any account), `"organizations"` (work/school), or a tenant GUID |
 | Generic OIDC | `oidc` | any provider exposing a discovery URL (Keycloak, Authentik, Auth0, Zitadel, …); discovery failure logs + disables rather than breaking boot |
 
-A single dispatcher pair (`/api/users/auth/{provider}/login` + `/callback`) serves every provider; the client is resolved per request from the cache. The `/callback` returns a 303 redirect (not the stock fastapi-users 204) so Inertia lands on a real page, with the auth cookie attached. Find-or-create + email association goes through `UserManager.oauth_callback` (`associate_by_email=True`, `is_verified_by_default=True`); state CSRF uses the signed session cookie. Linked accounts are stored in `users_oauth_account`.
+A single dispatcher pair (`/api/users/auth/{provider}/login` + `/callback`) serves every provider; the client is resolved per request from the cache. The `/callback` returns a 303 redirect (not the stock fastapi-users 204) so Inertia lands on a real page, with the auth cookie attached. Find-or-create + email association goes through `UserManager.oauth_callback` (`associate_by_email=True`, `is_verified_by_default=True`); state CSRF uses the signed session cookie. Linked accounts are stored in `users_oauth_account`. A **newly provisioned** OAuth account is marked external (see below); an existing password account linked by email keeps its password and is left unchanged.
+
+## External / SSO users
+
+Users created through an external IdP (Google, GitHub, Microsoft/Entra ID, or generic OIDC) are provisioned with `is_external=True` and **no local password** (`hashed_password` is `NULL`). The OAuth callback's find-or-create only nulls the password + marks external for accounts it *creates* — an existing password account that gets linked by email keeps its password and stays non-external. External users sign in **only** through their IdP; roles are still assigned locally like any other user.
+
+Every password-credential path guards against external users, server-side:
+
+| Action | Behaviour for an external user |
+|---|---|
+| `POST /api/users/auth/login` (session) | `401` — treated like a missing user (a dummy bcrypt verify still runs, so timing doesn't leak that the account is SSO-only) |
+| `POST /api/users/auth/token` (bearer) | `401` — same guard as session login |
+| `POST /api/users/auth/forgot-password` | `200` but a **silent no-op** — preserves anti-enumeration |
+| `POST /api/users/admin/{user_id}/reset-password-link` | `409` — raises `ExternalUserNoPasswordError`; there is no password to reset |
+
+In the admin UI, the user list and edit page show an **"External · SSO"** badge, and the password-reset action is hidden with an explanation. Disable / enable, role assignment, and delete work the same as for any other user.
 
 ## UsersAuthProvider
 
@@ -267,10 +298,12 @@ Auth flow:
 - `Users/Login.tsx`, `Users/Register.tsx`, `Users/ForgotPassword.tsx`, `Users/ResetPassword.tsx`, `Users/VerifyEmail.tsx`, `Users/AcceptInvite.tsx`, `Users/Profile.tsx`.
 
 Admin:
-- `Users/Users/Index.tsx`, `Users/Users/Invite.tsx`, `Users/Users/Edit.tsx`.
+- `Users/Users/Index.tsx` (list + Create button), `Users/Users/Invite.tsx`, `Users/Users/Create.tsx`, `Users/Users/Edit.tsx`.
 
-Components:
-- `Users/components/IndexFilters.tsx`, `Users/components/RolesTab.tsx`.
+Components (under `pages/Users/components/`):
+- `AccountStatusCard.tsx` — status block, including the **External · SSO** badge and the hidden-password-reset explanation for external users.
+- `DetailsCard.tsx` — edit email + full name.
+- `DangerZone.tsx` — delete-user action with confirmation.
 
 ## Notes
 

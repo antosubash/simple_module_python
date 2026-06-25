@@ -16,6 +16,7 @@ This is the full reference. See [Configuration](/guide/configuration) for a narr
 | `SM_LOG_FORMAT` | `json` | `text` for readable dev logs, `json` for structured logs in prod. |
 | `SM_MODULES_ENABLED` | unset | Comma-separated allow-list to disable modules without uninstalling them. |
 | `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only — where the Vite HMR client connects. |
+| `SM_VITE_PORT` | `5050` | Dev only — port the Vite dev server binds to (read by `vite.config.ts`). If you change it, set `SM_VITE_DEV_URL` to match so the backend points the HMR client at the right origin. |
 | `SM_AUTH_PUBLIC_PATHS` | `[]` | JSON array of host-level anonymous-access path prefixes. Escape hatch for exposing a route without a session when no module owns it; modules should prefer the method-aware `register_public_routes` hook. |
 
 ## DB connection pool

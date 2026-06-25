@@ -10,6 +10,7 @@ Before serving traffic:
 - [ ] `SM_SECRET_KEY` is a strong random value (not the default).
 - [ ] `SM_DATABASE_URL` points at Postgres (`postgresql+asyncpg://`), not SQLite.
 - [ ] `alembic upgrade head` run against the production DB.
+- [ ] Frontend built (`npm run build` → `static/dist/`) and bundled into the image — outside `development`/`testing`, the app renders assets from the Vite manifest, not a dev server (see [Static assets](#static-assets)).
 - [ ] App boot in a non-development `SM_ENVIRONMENT` starts clean. Module discovery runs strict (missing/invalid `meta` and entry-point failures raise), and the migration check (SM010) aborts boot — so a successful start covers those. The full page/locale/auth-provider diagnostic suite only runs in development, so do a clean dev boot before shipping (see [diagnostic codes](/reference/diagnostic-codes)).
 - [ ] Admin bootstrap complete — an admin user exists and can log in.
 - [ ] Reverse proxy forwards `X-Forwarded-Proto`/`X-Forwarded-For`; configured with `--proxy-headers`.
@@ -140,6 +141,13 @@ location /static/ {
 ```
 
 Vite emits filenames with content hashes, so long cache TTLs are safe.
+
+### Production rendering & cache headers
+
+Outside `development`/`testing` (i.e. any other `SM_ENVIRONMENT`), the app serves the built frontend instead of the Vite dev server:
+
+- **Manifest-based Inertia rendering.** In dev/testing the page loads `main.tsx` from the Vite dev server; otherwise the app reads the built Vite manifest and emits content-hashed `<script>`/`<link>` tags. At boot it normalises the raw Vite manifest (`static/dist/.vite/manifest.json`) into `static/dist/.vite/inertia-manifest.json`, re-keying the entry chunk to the path fastapi-inertia expects. If the build directory is read-only (e.g. an immutable container layer) it writes that normalised copy to a temp file instead. If **no** built manifest is found it logs a warning and leaves assets unconfigured rather than crashing — so a missing `npm run build` surfaces as broken asset URLs, not a boot failure. Build the frontend before serving production traffic.
+- **Immutable cache headers, even through Uvicorn.** The app mounts `static/` with a `StaticFiles` subclass that sets `Cache-Control: public, max-age=31536000, immutable` on anything under `/static/dist/assets/` (Vite content-hashes those filenames, so the bytes for a URL never change). Non-hashed paths keep the default `ETag`/`Last-Modified`. Fronting `/static/` with nginx (above) is still recommended for throughput, but the immutable headers are correct even when assets are served straight from the app.
 
 ## Zero-downtime deploys
 

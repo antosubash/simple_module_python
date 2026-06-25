@@ -180,6 +180,7 @@ export default defineConfig({
             { text: "settings", link: "/modules/settings" },
             { text: "feature_flags", link: "/modules/feature_flags" },
             { text: "file_storage", link: "/modules/file_storage" },
+            { text: "branding", link: "/modules/branding" },
             { text: "background_tasks", link: "/modules/background_tasks" },
             { text: "audit_log", link: "/modules/audit_log" },
             { text: "dashboard", link: "/modules/dashboard" },
