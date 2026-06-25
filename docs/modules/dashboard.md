@@ -20,6 +20,9 @@ It's intentionally simple — a place for new installs to land that proves the p
 | Method + path | Inertia component | Permission |
 |---|---|---|
 | `GET /dashboard/` | `Dashboard/Home` | authenticated user (any role) |
+| `GET /dashboard/doctor` | `Dashboard/Doctor` | authenticated user (any role) |
+
+`/dashboard/doctor` is a browser mirror of `make doctor` — it shows the same module list, static checks, dev-server and environment info from the stats payload. The route itself only requires login; its sidebar link is admin-only (see [Menu](#menu)).
 
 ### API
 
@@ -49,6 +52,7 @@ The result is cached process-wide for 30 seconds. If you mutate something that s
 | Label | URL | Icon | Section | Order |
 |---|---|---|---|---|
 | `Dashboard` | `/dashboard/` | `home` | `SIDEBAR` | `10` |
+| `Doctor` | `/dashboard/doctor` | `stethoscope` | `ADMIN_SIDEBAR` | `90` |
 
 ## Permissions
 
@@ -57,6 +61,7 @@ _(none registered)_ — the page is gated by authentication only, via the `users
 ## Inertia pages
 
 - `Dashboard/Home.tsx` — single page rendering the stats card, system info card, and welcome card. Kept simple on purpose so it's a useful starting template for a custom landing page.
+- `Dashboard/Doctor.tsx` — the `make doctor` mirror (module list, static checks, dev-server + environment info).
 
 ## Locales
 

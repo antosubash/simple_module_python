@@ -1,6 +1,6 @@
 # Bundled modules
 
-simple_module_python ships with ten first-party modules. Each is a regular Python package — same shape as a module you'd write yourself — registered through the `simple_module` entry point and discovered at boot. They are independent: install only what you need.
+simple_module_python ships with eleven first-party modules. Each is a regular Python package — same shape as a module you'd write yourself — registered through the `simple_module` entry point and discovered at boot. They are independent: install only what you need.
 
 | Module | Depends on | What it provides |
 |---|---|---|
@@ -11,6 +11,7 @@ simple_module_python ships with ten first-party modules. Each is a regular Pytho
 | [`settings`](/modules/settings) | — | DB-backed key/value store with system / tenant / user precedence; per-module pydantic settings registration; hot reload; `smpy settings` CLI. |
 | [`feature_flags`](/modules/feature_flags) | — | Runtime feature toggles with system + tenant overrides. |
 | [`file_storage`](/modules/file_storage) | `settings` | Pluggable file storage (filesystem, S3-compatible) with upload validation, presigned URLs, browse/download/delete UI. |
+| [`branding`](/modules/branding) | `settings`, `file_storage` | Admin-configurable app identity — app name, logo, favicon and primary colour — pushed to every page via Inertia shared props. |
 | [`background_tasks`](/modules/background_tasks) | `users` | Celery + Redis workers, persistent task history, retry, stuck-task sweep, live worker dashboard. |
 | [`audit_log`](/modules/audit_log) | `users` | Automatic field-level audit trail for SQLModel entities, with an admin UI to browse change history. |
 | [`dashboard`](/modules/dashboard) | `users` | Authenticated landing page with system overview (user counts, module list, health checks). |
