@@ -25,6 +25,7 @@ class UserRead(CreateUpdateDictModel, SQLModel):
     is_active: bool = True
     is_superuser: bool = False
     is_verified: bool = False
+    is_external: bool = False
     full_name: str | None = None
     tenant_id: str | None = None
     disabled_at: datetime | None = None
@@ -74,6 +75,7 @@ class UserListItem(SQLModel):
     full_name: str | None = None
     is_active: bool
     is_verified: bool
+    is_external: bool = False
     disabled_at: datetime | None = None
     last_login_at: datetime | None = None
     created_at: datetime | None = None

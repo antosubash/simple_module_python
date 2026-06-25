@@ -24,6 +24,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi_users import exceptions as fu_exceptions
 from starlette.responses import RedirectResponse
 
+from users.constants import OAUTH_REGISTRATION_REQUEST_FLAG
 from users.deps import auth_backend, get_user_manager
 
 if TYPE_CHECKING:
@@ -86,6 +87,10 @@ def register_oauth_routes(api_router: APIRouter) -> None:
         if account_email is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OAUTH_NO_EMAIL")
 
+        # Mark this request so the manager's on_after_register provisions a
+        # *new* OAuth user as external (null password). Ignored when the login
+        # links to an existing account (on_after_register won't fire).
+        setattr(request.state, OAUTH_REGISTRATION_REQUEST_FLAG, True)
         try:
             user = await user_manager.oauth_callback(
                 provider,

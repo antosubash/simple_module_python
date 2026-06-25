@@ -18,6 +18,7 @@ interface UserListItem {
   full_name: string | null;
   is_active: boolean;
   is_verified: boolean;
+  is_external: boolean;
   disabled_at: string | null;
   last_login_at: string | null;
   created_at: string | null;
@@ -142,6 +143,24 @@ function Edit() {
           <CardContent className="pt-5">
             <SectionTitle>Metadata</SectionTitle>
             <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+              <dt className="text-muted-foreground">Sign-in</dt>
+              <dd>
+                {user.is_external ? (
+                  <Badge
+                    variant="outline"
+                    className="border-violet-200 bg-violet-50 text-violet-700"
+                  >
+                    External · SSO
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="border-border bg-secondary text-muted-foreground"
+                  >
+                    Local · password
+                  </Badge>
+                )}
+              </dd>
               <dt className="text-muted-foreground">Created</dt>
               <dd>{fmt(user.created_at)}</dd>
               <dt className="text-muted-foreground">Last login</dt>
@@ -183,6 +202,7 @@ function Edit() {
         <AccountStatusCard
           email={user.email}
           isActive={isActive}
+          isExternal={user.is_external}
           savingStatus={savingStatus}
           onDisable={disableAccount}
           onEnable={enableAccount}

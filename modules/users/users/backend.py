@@ -82,4 +82,4 @@ def reconfigure_cookie_transport(
     transport.cookie_name = settings.cookie_name
     transport.cookie_max_age = settings.cookie_max_age_seconds
     transport.cookie_secure = settings.cookie_secure
-    transport.cookie_samesite = settings.cookie_samesite  # type: ignore[assignment] # ty: ignore[invalid-assignment]
+    transport.cookie_samesite = settings.cookie_samesite  # type: ignore[assignment]

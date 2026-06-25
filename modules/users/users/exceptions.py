@@ -24,3 +24,15 @@ class EmailAlreadyExistsError(Exception):
     def __init__(self, email: str) -> None:
         super().__init__(f"Email {email} already in use")
         self.email = email
+
+
+class ExternalUserNoPasswordError(Exception):
+    """Raised when a password-credential action targets an external (SSO) user.
+
+    External users have no local password, so password reset / set has no
+    meaning for them. Endpoints translate this into a 4xx.
+    """
+
+    def __init__(self, user_id: uuid.UUID) -> None:
+        super().__init__(f"User {user_id} is external (SSO) and has no password")
+        self.user_id = user_id

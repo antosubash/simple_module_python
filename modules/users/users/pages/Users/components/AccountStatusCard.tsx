@@ -18,6 +18,7 @@ import { Copy } from 'lucide-react';
 interface Props {
   email: string;
   isActive: boolean;
+  isExternal: boolean;
   savingStatus: boolean;
   onDisable: () => void;
   onEnable: () => void;
@@ -27,6 +28,7 @@ interface Props {
 export function AccountStatusCard({
   email,
   isActive,
+  isExternal,
   savingStatus,
   onDisable,
   onEnable,
@@ -47,6 +49,11 @@ export function AccountStatusCard({
           >
             {isActive ? 'active' : 'disabled'}
           </Badge>
+          {isExternal && (
+            <Badge variant="outline" className="border-violet-200 bg-violet-50 text-violet-700">
+              External · SSO
+            </Badge>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {isActive ? (
@@ -74,28 +81,36 @@ export function AccountStatusCard({
               {savingStatus ? 'Saving…' : 'Enable account'}
             </Button>
           )}
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <Copy className="h-3.5 w-3.5" />
-                Copy reset link
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Generate reset link for {email}?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  A one-time password-reset URL will be copied to your clipboard. Any previously
-                  issued reset link for this user will be invalidated.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={onCopyResetLink}>Generate</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          {!isExternal && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy reset link
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Generate reset link for {email}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    A one-time password-reset URL will be copied to your clipboard. Any previously
+                    issued reset link for this user will be invalidated.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={onCopyResetLink}>Generate</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
+        {isExternal && (
+          <p className="mt-3 text-sm text-muted-foreground">
+            This account signs in through an external identity provider (SSO) and has no password,
+            so there's no reset link to generate.
+          </p>
+        )}
       </CardContent>
     </Card>
   );

@@ -20,6 +20,12 @@ PERM_USERS_SELF_PROFILE = "users.self.profile"
 # Session keys
 SESSION_USER_ID_KEY = "user_id"
 
+# request.state flag set by the OAuth callback before find-or-create so the
+# manager's on_after_register hook can mark *newly provisioned* OAuth users as
+# external (null password). on_after_register fires only for new users, so the
+# flag is ignored when an OAuth login merely links to an existing account.
+OAUTH_REGISTRATION_REQUEST_FLAG = "users_oauth_registration"
+
 # Admin list-endpoint allowed filter/sort values
 ALLOWED_STATUS = frozenset({"active", "disabled"})
 ALLOWED_VERIFIED = frozenset({"yes", "no"})
