@@ -11,7 +11,7 @@ from sqlmodel import Field
 Base = create_module_base("keycloak")
 
 
-class KeycloakUserCache(Base, table=True):
+class KeycloakUserCache(Base, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "keycloak_user_cache"
 
     id: uuid_mod.UUID = Field(default_factory=uuid_mod.uuid4, primary_key=True)

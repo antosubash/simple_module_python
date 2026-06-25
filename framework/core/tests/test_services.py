@@ -11,13 +11,13 @@ class TestServices:
         """Mutation after construction must raise — singletons don't change at runtime."""
         s = _make_services()
         with pytest.raises((AttributeError, TypeError)):
-            s.settings = None  # type: ignore[misc,assignment]  # ty: ignore[invalid-assignment]
+            s.settings = None  # type: ignore[misc,assignment]
 
     async def test_services_has_slots(self) -> None:
         """Slotted dataclass prevents silent attribute additions (the original bloat pattern)."""
         s = _make_services()
         with pytest.raises((AttributeError, TypeError)):
-            s.rogue_new_attribute = 42  # type: ignore[attr-defined]  # ty: ignore[invalid-assignment]
+            s.rogue_new_attribute = 42  # type: ignore[attr-defined]
 
     async def test_services_round_trip_field_access(self) -> None:
         """Every declared field must be readable after construction."""
