@@ -136,6 +136,20 @@ async def test_external_user_cannot_password_login(users_app, anon_client, users
 
 
 @pytest.mark.anyio
+async def test_external_user_cannot_bearer_token_login(users_app, anon_client, users_db):
+    """The bearer-token login path must reject external users cleanly (401),
+    not 500 on a None-hash verify, and without a timing/error enumeration leak."""
+    await _seed_external_user(users_db, "ext-token@example.com")
+
+    resp = await anon_client.post(
+        "/api/users/auth/token",
+        json={"email": "ext-token@example.com", "password": "anything-at-all"},
+    )
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "Invalid credentials"
+
+
+@pytest.mark.anyio
 async def test_admin_reset_link_rejected_for_external_user(admin_client, users_db):
     user = await _seed_external_user(users_db, "ext-reset@example.com")
 

@@ -88,7 +88,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         forgot-password endpoint's anti-enumeration behaviour: it always
         responds the same regardless of whether the account can reset.
         """
-        if user.is_external:
+        if user.is_external or user.hashed_password is None:
             return
         await super().forgot_password(user, request)
 

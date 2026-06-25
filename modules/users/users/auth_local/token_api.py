@@ -62,7 +62,17 @@ async def token_login(
 
     stmt = select(User).where(User.email == body.email)
     user = (await db.execute(stmt)).scalar_one_or_none()
-    if user is None or not user.is_active or user.disabled_at is not None:
+    if (
+        user is None
+        or not user.is_active
+        or user.disabled_at is not None
+        # External (SSO) users have ``hashed_password is None`` — there's no
+        # local password to verify. Treat them like a missing user: verifying
+        # against a None hash would raise (500) and the instant failure would
+        # leak that the account is SSO-only. The session login is guarded the
+        # same way in ``UserManager.authenticate``.
+        or user.hashed_password is None
+    ):
         # Constant-time: run bcrypt on a dummy hash to prevent timing-based
         # email enumeration (existing user + wrong password takes ~50ms for
         # bcrypt; missing user would be instant without this).

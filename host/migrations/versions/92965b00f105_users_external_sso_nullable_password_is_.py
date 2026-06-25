@@ -46,6 +46,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Restoring ``hashed_password NOT NULL`` will fail if any external (SSO)
+    # user exists at downgrade time — they carry a NULL password by design.
+    # Such rows must be deleted or given a password before downgrading.
     bind = op.get_bind()
     with op.batch_alter_table("users_user") as batch_op:
         batch_op.alter_column(
