@@ -3,8 +3,10 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Menu, X } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
 import { LocaleSwitcher } from '../components/LocaleSwitcher';
+import { BRAND_REPO_URL } from '../lib/brand';
 import type { SharedProps } from '../types';
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
@@ -41,19 +43,19 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
 
             <div className="hidden items-center gap-4 sm:flex">
               <a
-                href="https://github.com/antosubash/simple_module_python#readme"
+                href={`${BRAND_REPO_URL}#readme`}
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 Docs
               </a>
               <a
-                href="https://github.com/antosubash/simple_module_python/tree/main/modules"
+                href={`${BRAND_REPO_URL}/tree/main/modules`}
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 Modules
               </a>
               <a
-                href="https://github.com/antosubash/simple_module_python"
+                href={BRAND_REPO_URL}
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 GitHub
@@ -109,38 +111,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t border-border bg-background py-6 px-4 sm:px-8">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-primary-600 to-primary-800">
-              <span className="font-bold text-white text-[10px] font-[var(--font-display)]">S</span>
-            </div>
-            <span className="font-mono text-xs text-muted-foreground">
-              simple_module_python · MIT
-            </span>
-          </div>
-          <div className="flex gap-5 text-xs text-muted-foreground">
-            <a
-              href="https://github.com/antosubash/simple_module_python#readme"
-              className="hover:text-foreground transition-colors"
-            >
-              Docs
-            </a>
-            <a
-              href="https://github.com/antosubash/simple_module_python/releases"
-              className="hover:text-foreground transition-colors"
-            >
-              Changelog
-            </a>
-            <a
-              href="https://github.com/antosubash/simple_module_python"
-              className="hover:text-foreground transition-colors"
-            >
-              GitHub
-            </a>
-          </div>
-        </div>
-      </footer>
+      <BrandingFooter appName={appName} logoUrl={logoUrl} variant="public" />
     </div>
   );
 }

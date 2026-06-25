@@ -11,6 +11,10 @@ interface BrandingMarkProps {
   size?: 'sm' | 'md';
   /** Classes for the wordmark text (colour/spacing supplied by the layout). */
   labelClassName?: string;
+  /** Optional muted sub-caption stacked under the wordmark (e.g. `python`, `© 2026 · MIT`). */
+  caption?: string;
+  /** Classes for the caption text. Defaults to a muted mono line. */
+  captionClassName?: string;
 }
 
 /**
@@ -24,10 +28,23 @@ export function BrandingMark({
   accentColor,
   size = 'md',
   labelClassName,
+  caption,
+  captionClassName,
 }: BrandingMarkProps): React.ReactElement {
   const box = size === 'sm' ? 'w-7 h-7 rounded-md' : 'w-8 h-8 rounded-lg';
   const labelSize = size === 'sm' ? 'text-base' : 'text-lg';
   const initial = appName.trim().charAt(0).toUpperCase() || 'S';
+
+  const wordmark = (
+    <span
+      className={
+        labelClassName ??
+        `${labelSize} font-semibold text-white font-[var(--font-display)] tracking-tight`
+      }
+    >
+      {appName}
+    </span>
+  );
 
   return (
     <>
@@ -38,14 +55,16 @@ export function BrandingMark({
           <span className="text-white font-bold text-xs font-[var(--font-display)]">{initial}</span>
         </div>
       )}
-      <span
-        className={
-          labelClassName ??
-          `${labelSize} font-semibold text-white font-[var(--font-display)] tracking-tight`
-        }
-      >
-        {appName}
-      </span>
+      {caption ? (
+        <span className="flex flex-col leading-tight">
+          {wordmark}
+          <span className={captionClassName ?? 'font-mono text-[11px] text-muted-foreground'}>
+            {caption}
+          </span>
+        </span>
+      ) : (
+        wordmark
+      )}
     </>
   );
 }
