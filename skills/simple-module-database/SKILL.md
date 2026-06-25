@@ -31,9 +31,9 @@ All modules — on Postgres and SQLite alike — share the host's single schema.
 
 | Mixin | Adds | Behavior |
 |---|---|---|
-| `AuditMixin` | `created_at`, `updated_at`, `created_by`, `updated_by` | Auto-populated by SQLAlchemy listeners from the current user/timestamp. |
+| `AuditMixin` | `created_at`, `updated_at`, `created_by`, `updated_by` | `created_at` defaults Python-side (and via `server_default`); `updated_at`/`created_by`/`updated_by` set by the `before_flush` listener from `current_user_id` + timestamp. |
 | `SoftDeleteMixin` | `is_deleted`, `deleted_at`, `deleted_by` | `session.delete(obj)` → soft-delete; `SELECT` auto-filters deleted rows. |
-| `MultiTenantMixin` | `tenant_id` | Auto-populated on insert; `SELECT` auto-scoped when `current_tenant_id` is set. |
+| `MultiTenantMixin` | `tenant_id` | Auto-populated on insert from `current_tenant_id`. Column is **non-nullable**, so inserting outside any tenant context fails at the DB; creating/mutating a row for a different tenant raises `TenantIsolationError`. `SELECT` auto-scoped when `current_tenant_id` is set. |
 | `VersionedMixin` | `version: int` | Auto-incremented on update. Use for optimistic concurrency. |
 
 List `Base` first; Python MRO handles mixin ordering after that:
@@ -77,7 +77,7 @@ async def create_order(session: AsyncSession, payload: OrderCreate) -> Order:
 
 ## Pitfalls
 
-- **Setting `tenant_id` manually.** `MultiTenantMixin` populates it on insert from request state. Setting it yourself fights the listener and produces wrong tenant attribution.
+- **Setting `tenant_id` manually.** `MultiTenantMixin` populates it on insert from request state (`current_tenant_id`). Setting it to a *different* tenant than the active context raises `TenantIsolationError`; changing it on an existing row raises too.
 - **Querying `WHERE is_deleted = false` by hand.** The listener already does it. Use `execution_options(include_deleted=True)` only when you genuinely want deleted rows.
 
 ## Related skills

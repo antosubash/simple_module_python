@@ -96,7 +96,16 @@ export function useOrderSchema() {
 
 ## Backend usage
 
-Server-side, translated strings come from the same bundle via `request.state.locale` resolution. Avoid hard-coding English in error responses that surface to users — pull the message through the locale system so other languages get it for free.
+Inject `TranslatorDep` (from `simple_module_hosting.i18n_deps`) into an endpoint to get a `Translator` bound to `request.state.locale` (set by `LocaleMiddleware`). Call `t.t(key, **params)` — same `{name}` placeholders, and pass `count=` for CLDR pluralization:
+
+```python
+from simple_module_hosting.i18n_deps import TranslatorDep
+
+async def create(t: TranslatorDep):
+    raise HTTPException(404, t.t("orders.errors.not_found", id=order_id))
+```
+
+Resolution falls back to the default locale, then to the bare key. Avoid hard-coding English in error responses that surface to users — pull the message through the locale system so other languages get it for free.
 
 ## Diagnostic codes
 

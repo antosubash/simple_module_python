@@ -7,10 +7,11 @@ description: Use when writing or running pytest tests in a simple_module_python 
 
 ## What's already wired up
 
-Root `conftest.py` provides app-level fixtures that **every** test directory inherits — module tests don't redeclare them. `pyproject.toml` sets `asyncio_mode = "auto"` and `-m 'not e2e'`, so:
+Root `conftest.py` provides app-level fixtures that **every** test directory inherits — module tests don't redeclare them. `pyproject.toml` sets `asyncio_mode = "auto"` and `addopts = "-m 'not e2e and not perf' --durations=20 --benchmark-disable"`, so:
 
 - `async def test_*` works without `@pytest.mark.asyncio`.
-- `make test` excludes the `e2e` marker by default; only `make test-e2e` runs it.
+- `make test` excludes the `e2e` and `perf` markers by default; only `make test-e2e` runs e2e, and only `make bench` runs the `perf` benchmarks (`tests/benchmarks`).
+- Every run prints `--durations=20` (the 20 slowest tests) so a slow function-scoped fixture surfaces without an opt-in flag.
 
 | Fixture | What you get |
 |---|---|
@@ -52,11 +53,11 @@ uv run pytest modules/orders/tests/test_service.py
 # One test
 uv run pytest modules/orders/tests/test_service.py::test_creates_order
 
-# One JS test
-npx vitest run modules/orders/orders/pages/__tests__/Index.test.tsx
+# One JS test (vitest's `include` covers packages/** and host/client_app/** only)
+npx vitest run packages/ui/src/components/StatCard.test.tsx
 ```
 
-`make test` runs `test-py` then `test-js`. `make test-py` and `make test-js` run only one suite each.
+`make test` runs `test-py` then `test-js`. `make test-py` (`uv run pytest`) and `make test-js` (`npm test` → `vitest run --passWithNoTests`) run only one suite each. Vitest's `include` globs (`vitest.config.ts`) only match `packages/**` and `host/client_app/**`, so a `.test.tsx` placed under `modules/**` is **not** picked up by `make test-js` — colocate UI tests with the page in `host/client_app/` or in a `packages/*` workspace.
 
 ## E2E tests (Playwright)
 
@@ -81,10 +82,10 @@ modules/orders/
 ├── orders/                  # package
 └── tests/
     ├── __init__.py
-    └── test_service.py      # imports orders.service
+    └── test_orders.py       # imports orders.service — name from the scaffold
 ```
 
-The directory must be listed in the root `pyproject.toml` under `[tool.pytest.ini_options].testpaths` for `make test` to pick it up. `smpy create-module` adds this entry; if you scaffolded a module by hand, add it.
+The directory must be listed in the root `pyproject.toml` under `[tool.pytest.ini_options].testpaths` for `make test` to pick it up. Both `smpy create-module` and `make new-module name=<name>` add this entry (via `scripts/new_module.py`'s `update_root_pyproject`); if you scaffolded a module by hand, add it.
 
 ## Pitfalls
 
