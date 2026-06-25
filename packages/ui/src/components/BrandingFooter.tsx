@@ -1,4 +1,4 @@
-import { BRAND_FOOTER_LINKS, BRAND_LICENSE } from '../lib/brand';
+import { BRAND_ACCENT, BRAND_FOOTER_LINKS, BRAND_LICENSE } from '../lib/brand';
 import { BrandingMark } from './BrandingMark';
 
 /** Stable for the lifetime of the bundle — the year only matters at page load. */
@@ -32,14 +32,16 @@ export function BrandingFooter({
   return (
     <footer className="mt-auto border-t border-border bg-background">
       <div className={`flex flex-wrap items-center justify-between gap-4 ${container}`}>
-        <BrandingMark
-          appName={appName}
-          logoUrl={logoUrl}
-          accentColor="bg-gradient-to-br from-primary-600 to-primary-800"
-          size="sm"
-          labelClassName="text-sm font-semibold tracking-tight text-foreground font-[var(--font-display)]"
-          caption={`© ${FOOTER_YEAR} · ${BRAND_LICENSE}`}
-        />
+        <div className="flex items-center gap-2.5">
+          <BrandingMark
+            appName={appName}
+            logoUrl={logoUrl}
+            accentColor={BRAND_ACCENT}
+            size="sm"
+            labelClassName="text-sm font-semibold tracking-tight text-foreground font-[var(--font-display)]"
+            caption={`© ${FOOTER_YEAR} · ${BRAND_LICENSE}`}
+          />
+        </div>
         <nav className="flex flex-wrap items-center gap-5 text-xs text-muted-foreground">
           {BRAND_FOOTER_LINKS.map((link) => (
             <a key={link.href} href={link.href} className="transition-colors hover:text-foreground">

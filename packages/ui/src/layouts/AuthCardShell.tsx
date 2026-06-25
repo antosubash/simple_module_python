@@ -2,7 +2,7 @@ import { usePage } from '@inertiajs/react';
 import type React from 'react';
 import { BrandingHead } from '../components/BrandingHead';
 import { BrandingMark } from '../components/BrandingMark';
-import { BRAND_TECH } from '../lib/brand';
+import { BRAND_ACCENT, BRAND_DEFAULT_APP_NAME, BRAND_TECH } from '../lib/brand';
 import type { SharedProps } from '../types';
 
 /**
@@ -14,7 +14,7 @@ import type { SharedProps } from '../types';
  */
 export function AuthCardShell({ children }: { children: React.ReactNode }) {
   const { branding } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
-  const appName = branding?.appName ?? 'SimpleModule';
+  const appName = branding?.appName ?? BRAND_DEFAULT_APP_NAME;
   const logoUrl = branding?.logoUrl ?? null;
 
   return (
@@ -30,7 +30,9 @@ export function AuthCardShell({ children }: { children: React.ReactNode }) {
             <BrandingMark
               appName={appName}
               logoUrl={logoUrl}
-              accentColor="bg-gradient-to-br from-primary-600 to-primary-800"
+              accentColor={BRAND_ACCENT}
+              size="lg"
+              badgeClassName="shadow-md shadow-primary-600/30"
               labelClassName="text-[17px] font-bold tracking-tight font-[var(--font-display)] text-foreground"
               caption={BRAND_TECH}
             />

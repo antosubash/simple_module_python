@@ -6,13 +6,13 @@ import { useState } from 'react';
 import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
 import { LocaleSwitcher } from '../components/LocaleSwitcher';
-import { BRAND_REPO_URL } from '../lib/brand';
+import { BRAND_ACCENT, BRAND_DEFAULT_APP_NAME, BRAND_REPO_URL } from '../lib/brand';
 import type { SharedProps } from '../types';
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
   const { auth, branding } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
   const [menuOpen, setMenuOpen] = useState(false);
-  const appName = branding?.appName ?? 'simple_module';
+  const appName = branding?.appName ?? BRAND_DEFAULT_APP_NAME;
   const logoUrl = branding?.logoUrl ?? null;
   const brandInitial = appName.trim().charAt(0).toUpperCase() || 'S';
 
@@ -30,7 +30,9 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                   className="h-8 w-8 rounded-lg object-contain shadow-md transition-transform group-hover:scale-105"
                 />
               ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-600 to-primary-800 shadow-md shadow-primary-600/30 transition-transform group-hover:scale-105">
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-lg ${BRAND_ACCENT} shadow-md shadow-primary-600/30 transition-transform group-hover:scale-105`}
+                >
                   <span className="font-bold text-white text-sm font-[var(--font-display)]">
                     {brandInitial}
                   </span>
