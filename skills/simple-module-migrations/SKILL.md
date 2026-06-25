@@ -105,10 +105,10 @@ No branch label on subsequent revisions. The diff covers every installed module 
 
 | Code | When |
 |---|---|
-| **SM010** (error) | DB revision is behind migration head — production fails boot, dev warns |
+| **SM010** (error) | DB revision is behind migration head |
 | **SM011** (warning) | Module declares a table that has no entry in migration history — usually means you added a model and forgot to autogenerate |
 
-Both fire at boot. SM010 in production is fatal: deploy a migration before deploying the code that depends on it.
+SM010/SM011 are **not** emitted at boot or by `make doctor`. They only surface when a caller passes `migration_state=` / `module_tables=` / `migrated_tables=` to `run_diagnostics(...)` — e.g. a CI job asserting migration health. The boot-time guard is separate: `check_migrations()` (in the lifespan) raises a plain `RuntimeError` — not an SM code — in **both dev and prod** if the DB is behind head. Operationally the rule is unchanged: deploy the migration before the code that depends on it.
 
 ## Pitfalls
 
@@ -121,4 +121,4 @@ Both fire at boot. SM010 in production is fatal: deploy a migration before deplo
 ## Related skills
 
 - **simple-module-database** — defining tables that autogenerate will pick up
-- **simple-module-doctor** — interpreting SM010/SM011 and other boot-time codes
+- **simple-module-doctor** — interpreting SM010/SM011 and the other diagnostic codes

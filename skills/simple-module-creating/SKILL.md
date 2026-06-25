@@ -105,14 +105,14 @@ In execution order — all no-op by default:
 
 ## Verify after scaffolding
 
-Boot the host. Diagnostics run automatically: in development, warnings/errors land in the boot logs; in production (`SM_ENVIRONMENT != development`), errors fail the boot. Codes `SM001`/`SM008`/`SM009` are blocking; `SM007` (module overrides no hooks) is info-only.
+Boot the host. The diagnostics pass runs **only in development** — warnings/errors print to the boot logs and any ERROR raises `SystemExit`. In **production** the diagnostics pass is skipped; the one thing that fails a production boot is strict module *discovery* (a bad entry point — broken import, missing `meta`, non-`ModuleBase` class), surfaced as `SM001`. So `SM008`/`SM009` are dev-boot / `make doctor` errors, not production-boot blockers; `SM007` (module overrides no hooks) is info-only.
 
 The new module should appear in the registered-modules log line. If it has a view endpoint, visit `<view_prefix>/`. Run `make doctor` for the same diagnostics out of band (orphan pages, coupling, migration drift, locale checks) — see the **simple-module-doctor** skill for the full code list.
 
 ## Pitfalls
 
 - **Forgot the entry point.** Package installs, module silently doesn't load (production strict mode raises `InvalidModuleError`). Verify `[project.entry-points.simple_module]` exists in `pyproject.toml`.
-- **`name=` collides.** Two modules with the same `ModuleMeta.name` raise `SM008` at boot.
+- **`name=` collides.** Two modules with the same `ModuleMeta.name` raise `SM008` at dev boot / `make doctor` (their lowercased names would also collide as table prefixes in the shared schema).
 - **Registered the module by hand in host code.** Don't — discovery is entry-point-only; host code never imports module code.
 
 For framework-wide rules that apply once the module exists (SQLModel-everywhere, file-size cap, settings layout, no `session.commit()` in services), see the **simple-module-conventions** skill. For migration mechanics see **simple-module-migrations**.

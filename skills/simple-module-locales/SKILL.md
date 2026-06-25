@@ -116,7 +116,7 @@ Resolution falls back to the default locale, then to the bare key. Avoid hard-co
 | **SM015** | WARNING | A non-default locale has keys **not** in the default | Either remove the dead keys or add them to the default file |
 | **SM016** | ERROR | A locale JSON file is invalid or has non-string leaves | Fix the JSON. Only string leaves are allowed — interpolation is `{placeholder}` strings, not nested objects |
 
-SM016 is fatal in production. SM013–SM015 are warnings, but they're the kind of warnings that turn into "Spanish users see English in production" if ignored.
+SM016 is an ERROR that fails **dev boot** and `make doctor` (exit 1) — in production the diagnostics pass is skipped, so a malformed locale won't crash a prod boot; catch it before deploy via `make doctor` / dev boot. SM013–SM015 are warnings, but they're the kind that turn into "Spanish users see English in production" if ignored.
 
 ## Pitfalls
 
