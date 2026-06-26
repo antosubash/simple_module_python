@@ -78,3 +78,53 @@ async def test_base_url_trailing_slash_stripped(caplog):
     link = caplog.records[0].link  # type: ignore[attr-defined]
     assert not link.startswith("http://localhost:8000//")
     assert link == "http://localhost:8000/users/verify?token=tok"
+
+
+@pytest.mark.anyio
+async def test_console_logs_configured_app_name(caplog):
+    """A supplied provider brands the console log; otherwise the default."""
+    from users.mailer.console import ConsoleMailer
+
+    branded = ConsoleMailer(base_url="http://localhost:8000", app_name_provider=lambda: "Acme")
+    default = ConsoleMailer(base_url="http://localhost:8000")
+
+    with caplog.at_level(logging.INFO, logger="users.mailer"):
+        await branded.send_invite("a@b.com", "tok", "Alice")
+        await default.send_verification("a@b.com", "tok")
+
+    assert caplog.records[0].app_name == "Acme"  # type: ignore[attr-defined]
+    assert caplog.records[1].app_name == "SimpleModule"  # type: ignore[attr-defined]
+
+
+@pytest.mark.anyio
+async def test_smtp_emails_carry_the_app_name(monkeypatch):
+    """SMTP subjects + bodies include the live app name (and keep the link)."""
+    from users.mailer.smtp import SmtpMailer
+
+    captured: list[dict[str, str]] = []
+
+    async def fake_send(self, to: str, subject: str, body: str) -> None:
+        captured.append({"to": to, "subject": subject, "body": body})
+
+    monkeypatch.setattr(SmtpMailer, "_send", fake_send)
+    mailer = SmtpMailer(
+        host="smtp.test",
+        port=25,
+        username="",
+        password="",
+        from_address="from@test",
+        use_tls=False,
+        base_url="http://localhost:8000",
+        app_name_provider=lambda: "Acme",
+    )
+
+    await mailer.send_invite("new@x.com", "tok", "Alice")
+    await mailer.send_verification("v@x.com", "vtok")
+    await mailer.send_password_reset("r@x.com", "rtok")
+
+    invite, verify, reset = captured
+    assert "Acme" in invite["subject"] and "Alice" in invite["subject"]
+    assert "Acme" in invite["body"]
+    assert "http://localhost:8000/users/invite/accept?token=tok" in invite["body"]
+    assert "Acme" in verify["subject"] and "Acme" in verify["body"]
+    assert "Acme" in reset["subject"] and "Acme" in reset["body"]

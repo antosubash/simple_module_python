@@ -10,6 +10,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from inertia import InertiaConfig, inertia_dependency_factory
+from starlette.requests import Request
 
 from simple_module_hosting.settings import Settings
 
@@ -19,6 +20,33 @@ _INERTIA_VERSION = "1.0"
 _ROOT_TEMPLATE_FILENAME = "index.html"
 _ENTRYPOINT_FILENAME = "main.tsx"
 _ROOT_DIRECTORY = "."
+
+# Fallback app name when the (optional) branding module isn't installed. Mirrors
+# branding's own default so the unbranded title is identical everywhere.
+_DEFAULT_APP_NAME = "SimpleModule"
+
+
+def branding_head(request: Request) -> dict:
+    """Branding metadata for the root template's ``<head>``.
+
+    Reads the optional branding module's settings off ``app.state`` by name
+    (duck-typed, never imported) so the static ``<title>`` and ``theme-color``
+    are already branded *before* React hydrates. Degrades to the framework
+    default when branding isn't installed. Only plain settings strings are
+    surfaced here — the favicon is applied client-side by ``BrandingHead`` via
+    Inertia's ``<Head>``, keeping file_storage's download-route shape out of
+    framework code.
+    """
+    services = getattr(request.app.state, "branding", None)
+    settings = getattr(services, "settings", None)
+    if settings is None:
+        return {"app_name": _DEFAULT_APP_NAME, "theme_color": None}
+    return {
+        "app_name": getattr(settings, "app_name", "") or _DEFAULT_APP_NAME,
+        "theme_color": getattr(settings, "primary_color", "") or None,
+    }
+
+
 # Built assets are served from the "/static" mount under "dist/", so production
 # asset URLs are prefixed with "static/dist".
 _ASSETS_PREFIX = "static/dist"
@@ -120,6 +148,8 @@ def setup_inertia(
         return None
 
     templates = Jinja2Templates(directory=directories)
+    # Expose branding metadata to the root template (pre-hydration head tags).
+    templates.env.globals["branding_head"] = branding_head
 
     # fastapi-inertia only switches to the asset manifest when environment
     # equals the literal string "production". Anything else (staging, qa,

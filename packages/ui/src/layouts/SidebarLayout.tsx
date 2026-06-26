@@ -18,6 +18,7 @@ import {
 import { ChevronsUpDown } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
 import { BrandingMark } from '../components/BrandingMark';
 import { NavIcon } from '../components/NavIcon';
@@ -281,7 +282,10 @@ export function SidebarLayout({
         </aside>
 
         {/* Main content */}
-        <main className="min-h-screen lg:ml-64">{children}</main>
+        <main className="flex min-h-screen flex-col lg:ml-64">
+          <div className="flex-1">{children}</div>
+          <BrandingFooter appName={appName} logoUrl={logoUrl} variant="app" />
+        </main>
       </div>
     </TooltipProvider>
   );

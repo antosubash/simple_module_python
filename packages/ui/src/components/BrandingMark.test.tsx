@@ -25,4 +25,10 @@ describe('BrandingMark', () => {
     expect(screen.queryByRole('img')).toBeNull();
     expect(screen.getByText('Z')).toBeInTheDocument();
   });
+
+  test('renders an optional caption stacked under the wordmark', () => {
+    render(<BrandingMark appName="Acme" accentColor="bg-blue-500" caption="python" />);
+    expect(screen.getByText('Acme')).toBeInTheDocument();
+    expect(screen.getByText('python')).toBeInTheDocument();
+  });
 });

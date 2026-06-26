@@ -29,6 +29,14 @@ def test_settings_app_name_trimmed_and_required() -> None:
         BrandingSettings(app_name="x" * 61)
 
 
+def test_settings_app_name_rejects_control_chars() -> None:
+    # A CR/LF in the name would break email Subject headers downstream — it must
+    # be rejected at the source rather than passing a bare strip().
+    for bad in ("Acme\nCorp", "Acme\rCorp", "Acme\tInc"):
+        with pytest.raises(ValueError):
+            BrandingSettings(app_name=bad)
+
+
 def test_settings_primary_color_validation() -> None:
     assert BrandingSettings(primary_color="#1A7DD1").primary_color == "#1a7dd1"
     assert BrandingSettings(primary_color="").primary_color == ""
@@ -108,6 +116,24 @@ async def test_update_persists_and_hot_swaps(app, authenticated_client: httpx.As
     assert again.json()["app_name"] == "Acme Corp"
 
 
+async def test_root_template_reflects_branding(
+    app, authenticated_client: httpx.AsyncClient
+) -> None:
+    """The pre-hydration HTML shell carries the branded title + theme-color."""
+    # Default name before any change.
+    default_page = await authenticated_client.get("/branding/", follow_redirects=False)
+    assert default_page.status_code == 200, default_page.text
+    assert "<title>SimpleModule</title>" in default_page.text
+
+    await authenticated_client.put(
+        "/api/branding/",
+        json={"app_name": "Acme Corp", "primary_color": "#1A7DD1"},
+    )
+    page = await authenticated_client.get("/branding/", follow_redirects=False)
+    assert "<title>Acme Corp</title>" in page.text
+    assert '<meta name="theme-color" content="#1a7dd1" />' in page.text
+
+
 async def test_update_rejects_bad_hex(authenticated_client: httpx.AsyncClient) -> None:
     resp = await authenticated_client.put("/api/branding/", json={"primary_color": "nope"})
     assert resp.status_code == 422
@@ -116,6 +142,15 @@ async def test_update_rejects_bad_hex(authenticated_client: httpx.AsyncClient) -
 async def test_update_rejects_blank_app_name(authenticated_client: httpx.AsyncClient) -> None:
     # A whitespace-only name must be a clean 422, not a 500 from BrandingSettings.
     resp = await authenticated_client.put("/api/branding/", json={"app_name": "   "})
+    assert resp.status_code == 422
+
+
+async def test_update_rejects_control_char_app_name(
+    authenticated_client: httpx.AsyncClient,
+) -> None:
+    # A newline must be a clean 422 — otherwise it would later break email
+    # Subject headers (it now flows into invite/verify/reset subjects).
+    resp = await authenticated_client.put("/api/branding/", json={"app_name": "Acme\nCorp"})
     assert resp.status_code == 422
 
 

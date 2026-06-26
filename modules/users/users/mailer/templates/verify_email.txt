@@ -1,1 +1,7 @@
-Verify your email: {{ link }}
+Welcome to {{ app_name }}!
+
+Verify your email address: {{ link }}
+
+If you didn't create an account, you can safely ignore this email.
+
+— The {{ app_name }} team

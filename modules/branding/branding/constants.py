@@ -45,3 +45,21 @@ ALLOWED_IMAGE_TYPES: Final = frozenset(
 # (branding depends on FileStorage) so it tracks any route change. The
 # ``{file_id}`` placeholder is filled per stored-file id.
 FILE_DOWNLOAD_URL: Final = ROUTE_PREFIX_API + PATH_FILE_DOWNLOAD
+
+
+def clean_app_name(value: str) -> str:
+    """Normalise + validate an app name (shared by the settings + update DTO).
+
+    The name is surfaced in HTML titles and—critically—email ``Subject``
+    headers, so control characters (notably CR/LF) must be rejected: an
+    embedded newline would otherwise pass a bare ``strip()`` and then raise
+    when set as a header, breaking every transactional email.
+    """
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError("app_name must not be blank")
+    if len(cleaned) > MAX_APP_NAME_LEN:
+        raise ValueError(f"app_name must be at most {MAX_APP_NAME_LEN} characters")
+    if any(ord(ch) < 0x20 for ch in cleaned):
+        raise ValueError("app_name must not contain control characters")
+    return cleaned
