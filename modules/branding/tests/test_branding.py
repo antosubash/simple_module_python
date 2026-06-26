@@ -108,6 +108,24 @@ async def test_update_persists_and_hot_swaps(app, authenticated_client: httpx.As
     assert again.json()["app_name"] == "Acme Corp"
 
 
+async def test_root_template_reflects_branding(
+    app, authenticated_client: httpx.AsyncClient
+) -> None:
+    """The pre-hydration HTML shell carries the branded title + theme-color."""
+    # Default name before any change.
+    default_page = await authenticated_client.get("/branding/", follow_redirects=False)
+    assert default_page.status_code == 200, default_page.text
+    assert "<title>SimpleModule</title>" in default_page.text
+
+    await authenticated_client.put(
+        "/api/branding/",
+        json={"app_name": "Acme Corp", "primary_color": "#1A7DD1"},
+    )
+    page = await authenticated_client.get("/branding/", follow_redirects=False)
+    assert "<title>Acme Corp</title>" in page.text
+    assert '<meta name="theme-color" content="#1a7dd1" />' in page.text
+
+
 async def test_update_rejects_bad_hex(authenticated_client: httpx.AsyncClient) -> None:
     resp = await authenticated_client.put("/api/branding/", json={"primary_color": "nope"})
     assert resp.status_code == 422

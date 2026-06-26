@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import importlib.resources
 from email.message import EmailMessage
+from typing import TYPE_CHECKING
 
 import aiosmtplib
 import jinja2
+
+if TYPE_CHECKING:
+    from users.mailer import AppNameProvider
 
 
 def _load_template_env() -> jinja2.Environment:
@@ -33,6 +37,7 @@ class SmtpMailer:
         from_address: str,
         use_tls: bool,
         base_url: str,
+        app_name_provider: AppNameProvider | None = None,
     ) -> None:
         self._host = host
         self._port = port
@@ -41,24 +46,30 @@ class SmtpMailer:
         self._from = from_address
         self._use_tls = use_tls
         self._base = base_url.rstrip("/")
+        from users.mailer import default_app_name
+
+        self._app_name = app_name_provider or default_app_name
 
     async def send_verification(self, email: str, token: str) -> None:
+        app = self._app_name()
         link = f"{self._base}/users/verify?token={token}"
         template = _template_env.get_template("verify_email.txt")
-        body = template.render(link=link)
-        await self._send(email, "Verify your email address", body)
+        body = template.render(link=link, app_name=app)
+        await self._send(email, f"Verify your email for {app}", body)
 
     async def send_password_reset(self, email: str, token: str) -> None:
+        app = self._app_name()
         link = f"{self._base}/users/reset-password?token={token}"
         template = _template_env.get_template("reset_password.txt")
-        body = template.render(link=link)
-        await self._send(email, "Reset your password", body)
+        body = template.render(link=link, app_name=app)
+        await self._send(email, f"Reset your {app} password", body)
 
     async def send_invite(self, email: str, token: str, invited_by_name: str) -> None:
+        app = self._app_name()
         link = f"{self._base}/users/invite/accept?token={token}"
         template = _template_env.get_template("invite.txt")
-        body = template.render(link=link, invited_by_name=invited_by_name)
-        await self._send(email, f"You've been invited by {invited_by_name}", body)
+        body = template.render(link=link, invited_by_name=invited_by_name, app_name=app)
+        await self._send(email, f"{invited_by_name} invited you to {app}", body)
 
     async def _send(self, to: str, subject: str, body: str) -> None:
         message = EmailMessage()

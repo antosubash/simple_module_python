@@ -176,13 +176,21 @@ class UsersModule(ModuleBase):
         from users.backend import reconfigure_cookie_transport
         from users.bootstrap import bootstrap_admin_from_env
         from users.deps import auth_backend
-        from users.mailer import build_mailer
+        from users.mailer import build_mailer, default_app_name
         from users.oauth.providers import build_client_map, provider_buttons
         from users.roles_cache import refresh_roles_cache
 
         state = app.state.users
         s = state.settings
-        state.mailer = build_mailer(s)
+
+        def _app_name() -> str:
+            # Read the (optional) branding module's live name off app.state by
+            # name — never imported, so users stays decoupled from branding.
+            branding = getattr(app.state, "branding", None)
+            name = getattr(getattr(branding, "settings", None), "app_name", None)
+            return name or default_app_name()
+
+        state.mailer = build_mailer(s, _app_name)
         state.rate_limiter = LoginRateLimiter(
             max_failures=s.login_rate_limit_failures,
             window_seconds=s.login_rate_limit_window_seconds,
