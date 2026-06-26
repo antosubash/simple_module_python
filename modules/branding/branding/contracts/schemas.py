@@ -5,7 +5,7 @@ from __future__ import annotations
 from pydantic import field_validator
 from sqlmodel import Field, SQLModel
 
-from branding.constants import HEX_COLOR_RE, MAX_APP_NAME_LEN
+from branding.constants import HEX_COLOR_RE, MAX_APP_NAME_LEN, clean_app_name
 
 
 class BrandingOut(SQLModel):
@@ -26,14 +26,12 @@ class BrandingUpdate(SQLModel):
     @field_validator("app_name")
     @classmethod
     def _non_empty_name(cls, value: str | None) -> str | None:
-        # Reject blank/whitespace here so it surfaces as a 422 rather than a 500
-        # when BrandingSettings (which strips + requires non-empty) re-validates.
+        # Validate here so bad input surfaces as a 422 rather than a 500 when
+        # BrandingSettings re-validates (blank, too long, or control chars —
+        # the last would otherwise break email Subject headers downstream).
         if value is None:
             return None
-        cleaned = value.strip()
-        if not cleaned:
-            raise ValueError("app_name must not be blank")
-        return cleaned
+        return clean_app_name(value)
 
     @field_validator("primary_color")
     @classmethod

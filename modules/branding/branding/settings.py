@@ -14,7 +14,7 @@ from __future__ import annotations
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from branding.constants import HEX_COLOR_RE, MAX_APP_NAME_LEN
+from branding.constants import HEX_COLOR_RE, clean_app_name
 
 DEFAULT_APP_NAME = "SimpleModule"
 
@@ -32,12 +32,7 @@ class BrandingSettings(BaseSettings):
     @field_validator("app_name")
     @classmethod
     def _non_empty_name(cls, value: str) -> str:
-        cleaned = value.strip()
-        if not cleaned:
-            raise ValueError("app_name must not be blank")
-        if len(cleaned) > MAX_APP_NAME_LEN:
-            raise ValueError(f"app_name must be at most {MAX_APP_NAME_LEN} characters")
-        return cleaned
+        return clean_app_name(value)
 
     @field_validator("primary_color")
     @classmethod

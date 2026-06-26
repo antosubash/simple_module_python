@@ -41,7 +41,7 @@ export const BASE_PRIMARY_RAMP: { step: number; l: number; c: number }[] = [
 ];
 
 /** Chroma of the default ramp's 600 step — the reference for chroma scaling. */
-const BASE_REFERENCE_CHROMA = 0.14;
+const BASE_REFERENCE_CHROMA = BASE_PRIMARY_RAMP.find((s) => s.step === 600)?.c ?? 0.14;
 /** Clamp the chroma scale so a vivid pick can't blow far out of gamut. */
 const MAX_CHROMA_SCALE = 1.8;
 

@@ -47,6 +47,19 @@ describe('BrandingHead', () => {
     expect(document.documentElement.style.getPropertyValue('--color-primary-600')).toBe('');
   });
 
+  test('keeps the server-rendered theme-color meta in sync, restoring on unmount', () => {
+    const meta = document.createElement('meta');
+    meta.setAttribute('name', 'theme-color');
+    meta.setAttribute('content', '#000000');
+    document.head.appendChild(meta);
+    state.branding = { appName: 'Acme', primaryColor: '#ff0000', logoUrl: null, faviconUrl: null };
+    const { unmount } = render(<BrandingHead />);
+    expect(meta.getAttribute('content')).toBe('#ff0000');
+    unmount();
+    expect(meta.getAttribute('content')).toBe('#000000');
+    meta.remove();
+  });
+
   test('renders a favicon link when a faviconUrl is set', () => {
     state.branding = {
       appName: 'Acme',

@@ -24,27 +24,25 @@ _ROOT_DIRECTORY = "."
 # Fallback app name when the (optional) branding module isn't installed. Mirrors
 # branding's own default so the unbranded title is identical everywhere.
 _DEFAULT_APP_NAME = "SimpleModule"
-# file_storage's download route. Mirrored here (not imported) because framework
-# code must not import plugin modules (SM009); a branding render test pins it.
-_FILE_DOWNLOAD_URL = "/api/file-storage/files/{file_id}/download"
 
 
 def branding_head(request: Request) -> dict:
     """Branding metadata for the root template's ``<head>``.
 
     Reads the optional branding module's settings off ``app.state`` by name
-    (duck-typed, never imported) so the static ``<title>``, favicon ``<link>``
-    and ``theme-color`` are already branded *before* React hydrates. Degrades to
-    the framework default when branding isn't installed.
+    (duck-typed, never imported) so the static ``<title>`` and ``theme-color``
+    are already branded *before* React hydrates. Degrades to the framework
+    default when branding isn't installed. Only plain settings strings are
+    surfaced here — the favicon is applied client-side by ``BrandingHead`` via
+    Inertia's ``<Head>``, keeping file_storage's download-route shape out of
+    framework code.
     """
     services = getattr(request.app.state, "branding", None)
     settings = getattr(services, "settings", None)
     if settings is None:
-        return {"app_name": _DEFAULT_APP_NAME, "favicon_url": None, "theme_color": None}
-    favicon_id = getattr(settings, "favicon_file_id", "") or None
+        return {"app_name": _DEFAULT_APP_NAME, "theme_color": None}
     return {
         "app_name": getattr(settings, "app_name", "") or _DEFAULT_APP_NAME,
-        "favicon_url": _FILE_DOWNLOAD_URL.format(file_id=favicon_id) if favicon_id else None,
         "theme_color": getattr(settings, "primary_color", "") or None,
     }
 

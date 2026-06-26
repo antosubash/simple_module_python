@@ -16,22 +16,17 @@ def _request(branding: object | None) -> SimpleNamespace:
 
 def test_defaults_when_branding_not_installed() -> None:
     meta = branding_head(_request(None))
-    assert meta == {"app_name": "SimpleModule", "favicon_url": None, "theme_color": None}
+    assert meta == {"app_name": "SimpleModule", "theme_color": None}
 
 
-def test_reads_app_name_favicon_and_theme_color() -> None:
-    settings = SimpleNamespace(
-        app_name="Acme",
-        favicon_file_id="fav123",
-        primary_color="#1a7dd1",
-    )
+def test_reads_app_name_and_theme_color() -> None:
+    settings = SimpleNamespace(app_name="Acme", primary_color="#1a7dd1")
     meta = branding_head(_request(SimpleNamespace(settings=settings)))
     assert meta["app_name"] == "Acme"
-    assert meta["favicon_url"] == "/api/file-storage/files/fav123/download"
     assert meta["theme_color"] == "#1a7dd1"
 
 
 def test_blank_values_fall_back() -> None:
-    settings = SimpleNamespace(app_name="", favicon_file_id="", primary_color="")
+    settings = SimpleNamespace(app_name="", primary_color="")
     meta = branding_head(_request(SimpleNamespace(settings=settings)))
-    assert meta == {"app_name": "SimpleModule", "favicon_url": None, "theme_color": None}
+    assert meta == {"app_name": "SimpleModule", "theme_color": None}

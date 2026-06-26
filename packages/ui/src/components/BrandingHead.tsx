@@ -13,7 +13,9 @@ import type { SharedProps } from '../types';
  *   variables on `:root`. Inline wins over the stylesheet's `:root`/`.dark`
  *   rules, so every Tailwind `primary` utility — solid buttons *and* the
  *   `primary-600/700/800` gradient tints used by the brand badge — follows the
- *   configured colour site-wide, and
+ *   configured colour site-wide,
+ * - the `<meta name="theme-color">` (server-rendered, kept in sync here on a
+ *   runtime colour change), and
  * - the app name for the document `<title>` suffix on client navigations.
  *
  * Reads the `branding` shared prop, so it stays reactive across navigation.
@@ -25,7 +27,9 @@ export function BrandingHead(): React.ReactElement | null {
   const appName = branding?.appName ?? null;
 
   // Keep the title suffix in sync if the app is renamed without a reload.
-  setTitleAppName(appName);
+  useEffect(() => {
+    setTitleAppName(appName);
+  }, [appName]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -33,8 +37,15 @@ export function BrandingHead(): React.ReactElement | null {
     if (!ramp) return;
     const keys = Object.keys(ramp);
     for (const k of keys) root.style.setProperty(k, ramp[k]);
+
+    // Keep the (server-rendered) theme-color chrome in sync with a live change.
+    const meta = document.querySelector('meta[name="theme-color"]');
+    const prevThemeColor = meta?.getAttribute('content') ?? null;
+    if (meta && primaryColor) meta.setAttribute('content', primaryColor);
+
     return () => {
       for (const k of keys) root.style.removeProperty(k);
+      if (meta && prevThemeColor !== null) meta.setAttribute('content', prevThemeColor);
     };
   }, [primaryColor]);
 
