@@ -74,9 +74,15 @@ InertiaLayoutDataMiddleware
 **Execution order on a request:**
 
 ```
-CorrelationId → RequestLogging → SecurityHeaders → Session
+(ProxyHeaders) → CorrelationId → RequestLogging → SecurityHeaders → Session
   → <modules> → Tenant → Locale → InertiaLayoutData → app
 ```
+
+`ProxyHeaders` is installed only when `SM_TRUSTED_PROXY` is set (uvicorn's
+`ProxyHeadersMiddleware`). It sits outermost so the scheme/client corrected
+from `X-Forwarded-*` is visible to every downstream layer — request logs get
+the real client IP, and `request.url.scheme` reflects the proxy-terminated
+scheme so Inertia's absolute page url is `https`, not `http`.
 
 ### Module-registered middleware ordering
 

@@ -32,6 +32,15 @@ class BootstrapSettings(BaseSettings):
     vite_dev_url: str = "http://localhost:5050"
     debug: bool = False
 
+    # Trust the X-Forwarded-* headers from a fronting reverse proxy. Unset by
+    # default (no proxy trusted). Set to ``*`` to trust any peer (correct when
+    # the container is only reachable through a single proxy), or a comma-
+    # separated list of proxy IPs / CIDRs. Drives uvicorn's
+    # ProxyHeadersMiddleware so request.url.scheme reflects X-Forwarded-Proto
+    # behind a TLS-terminating proxy — without it Inertia's pushState throws a
+    # cross-scheme SecurityError and login breaks (GH #223).
+    trusted_proxy: str | None = None
+
     log_level: str = "INFO"
     log_format: Literal["json", "text"] = "json"
 

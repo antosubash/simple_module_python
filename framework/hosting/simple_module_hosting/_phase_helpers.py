@@ -25,6 +25,7 @@ from starlette.exceptions import HTTPException
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import Response
 from starlette.types import Scope
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from simple_module_hosting._error_handlers import (
     http_exception_handler,
@@ -95,8 +96,8 @@ def install_middleware(
     """Install the full middleware pipeline.
 
     Order matters: last added = first executed. Execution order:
-    CorrelationId → RequestLogging → Security → Session
-    → [module] → (Tenant, if multi_tenant) → Locale → Inertia.
+    (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging
+    → Security → Session → [module] → (Tenant, if multi_tenant) → Locale → Inertia.
     """
     app.add_middleware(
         InertiaLayoutDataMiddleware,
@@ -127,6 +128,12 @@ def install_middleware(
         app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
+    # Outermost: rewrite scheme/client from X-Forwarded-* before anything else
+    # reads them, so request logs see the real client IP and Inertia's absolute
+    # page url carries the proxy-terminated scheme (GH #223). Gated on an
+    # explicit trust setting — never trust forwarded headers by default.
+    if settings.trusted_proxy:
+        app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.trusted_proxy)
 
 
 def attach_public_routes(app: FastAPI, settings: Settings, registry) -> None:
