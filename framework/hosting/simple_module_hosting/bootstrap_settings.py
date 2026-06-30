@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
@@ -54,6 +54,21 @@ class BootstrapSettings(BaseSettings):
     ``PublicRouteRegistry`` at boot. Modules should prefer the
     ``register_public_routes`` hook, which is method-aware.
     """
+
+    @field_validator("trusted_proxy", mode="after")
+    @classmethod
+    def _normalize_trusted_proxy(cls, value: str | None) -> str | None:
+        """Strip surrounding whitespace; treat blank as unset.
+
+        Guards against a stray space silently defeating the feature: uvicorn
+        decides ``*``-trust by comparing the *raw* string to ``"*"`` before it
+        strips, so ``"* "`` would be parsed as a literal host that matches no
+        client — re-introducing GH #223 with no error. Blank → ``None`` so the
+        middleware isn't installed at all.
+        """
+        if value is None:
+            return None
+        return value.strip() or None
 
     @property
     def is_development(self) -> bool:

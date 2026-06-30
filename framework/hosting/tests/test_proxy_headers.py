@@ -61,6 +61,23 @@ class TestMiddlewareWiring:
         proxy = next(m for m in app.user_middleware if m.cls.__name__ == "ProxyHeadersMiddleware")
         assert proxy.kwargs["trusted_hosts"] == "10.0.0.0/8,127.0.0.1"
 
+    def test_surrounding_whitespace_stripped(self) -> None:
+        """A stray space must not silently defeat ``*`` trust.
+
+        uvicorn computes always-trust as ``raw in ("*", ["*"])`` *before*
+        stripping, so ``"* "`` would be parsed as a literal host that never
+        matches any client — silently re-introducing GH #223 with no error.
+        The setting must normalize the value first.
+        """
+        app = create_app(_settings(trusted_proxy="* "))
+        proxy = next(m for m in app.user_middleware if m.cls.__name__ == "ProxyHeadersMiddleware")
+        assert proxy.kwargs["trusted_hosts"] == "*"
+
+    def test_blank_value_disables(self) -> None:
+        """Whitespace-only SM_TRUSTED_PROXY is treated as unset (no middleware)."""
+        app = create_app(_settings(trusted_proxy="   "))
+        assert "ProxyHeadersMiddleware" not in _names(app)
+
 
 async def _client_for(settings: Settings):
     """Build an app + lifespan-started client mirroring the shared fixtures."""
