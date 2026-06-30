@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_auth"
-version = "0.0.21"
+version = "0.0.24"
 description = "Session-cookie authentication primitives — middleware, login/logout, redirect helpers for simple_module"
 readme = "README.md"
 license = "MIT"
@@ -22,8 +22,8 @@ classifiers = [
 ]
 dependencies = [
     "itsdangerous>=2.2",
-    "simple_module_core==0.0.21",
-    "simple_module_db==0.0.21",
+    "simple_module_core==0.0.24",
+    "simple_module_db==0.0.24",
 ]
 
 [project.entry-points.simple_module]
