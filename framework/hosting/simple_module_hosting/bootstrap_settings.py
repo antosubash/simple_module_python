@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
@@ -32,6 +32,15 @@ class BootstrapSettings(BaseSettings):
     vite_dev_url: str = "http://localhost:5050"
     debug: bool = False
 
+    # Trust the X-Forwarded-* headers from a fronting reverse proxy. Unset by
+    # default (no proxy trusted). Set to ``*`` to trust any peer (correct when
+    # the container is only reachable through a single proxy), or a comma-
+    # separated list of proxy IPs / CIDRs. Drives uvicorn's
+    # ProxyHeadersMiddleware so request.url.scheme reflects X-Forwarded-Proto
+    # behind a TLS-terminating proxy — without it Inertia's pushState throws a
+    # cross-scheme SecurityError and login breaks (GH #223).
+    trusted_proxy: str | None = None
+
     log_level: str = "INFO"
     log_format: Literal["json", "text"] = "json"
 
@@ -45,6 +54,21 @@ class BootstrapSettings(BaseSettings):
     ``PublicRouteRegistry`` at boot. Modules should prefer the
     ``register_public_routes`` hook, which is method-aware.
     """
+
+    @field_validator("trusted_proxy", mode="after")
+    @classmethod
+    def _normalize_trusted_proxy(cls, value: str | None) -> str | None:
+        """Strip surrounding whitespace; treat blank as unset.
+
+        Guards against a stray space silently defeating the feature: uvicorn
+        decides ``*``-trust by comparing the *raw* string to ``"*"`` before it
+        strips, so ``"* "`` would be parsed as a literal host that matches no
+        client — re-introducing GH #223 with no error. Blank → ``None`` so the
+        middleware isn't installed at all.
+        """
+        if value is None:
+            return None
+        return value.strip() or None
 
     @property
     def is_development(self) -> bool:
