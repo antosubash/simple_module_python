@@ -1,0 +1,54 @@
+[project]
+name = "simple_module_oidc"
+version = "0.0.17"
+description = "Generic OIDC authentication provider for simple_module — native Microsoft Entra ID, Auth0, Okta, Keycloak, and any OpenID Connect identity provider"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
+keywords = ["simple-module", "oidc", "entra", "azure-ad", "authentication", "fastapi"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
+]
+dependencies = [
+    "simple_module_core==0.0.17",
+    "simple_module_db==0.0.17",
+    "simple_module_hosting==0.0.17",
+    "simple_module_settings==0.0.17",
+    "simple_module_auth==0.0.17",
+    "PyJWT[crypto]>=2.8",
+    "httpx>=0.27",
+]
+
+[project.entry-points.simple_module]
+oidc = "oidc.module:OidcModule"
+
+[project.urls]
+Homepage = "https://github.com/antosubash/simple_module_python"
+Repository = "https://github.com/antosubash/simple_module_python"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["oidc"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"package.json" = "oidc/package.json"
+
+[tool.uv.sources]
+simple_module_core = { workspace = true }
+simple_module_db = { workspace = true }
+simple_module_hosting = { workspace = true }
+simple_module_settings = { workspace = true }
+simple_module_auth = { workspace = true }

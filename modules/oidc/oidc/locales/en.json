@@ -1,0 +1,15 @@
+{
+  "login": {
+    "redirecting": "Redirecting to identity provider…",
+    "title": "Sign In"
+  },
+  "logout": {
+    "title": "Signed Out",
+    "message": "You have been signed out successfully."
+  },
+  "errors": {
+    "callback_failed": "Authentication failed. Please try again.",
+    "invalid_state": "Invalid authentication state. Please try again.",
+    "token_validation_failed": "Token validation failed."
+  }
+}

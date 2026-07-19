@@ -74,6 +74,7 @@ extra-paths = [
     "modules/settings",
     "modules/feature_flags",
     "modules/keycloak",
+    "modules/oidc",
     "modules/audit_log",
     "modules/branding",
     "host",
@@ -111,7 +112,7 @@ invalid-assignment = "ignore"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["framework/cli/tests", "framework/core/tests", "framework/db/tests", "framework/hosting/tests", "framework/testing/tests", "host/tests", "modules/auth/tests", "modules/dashboard/tests", "modules/users/tests", "modules/permissions/tests", "modules/background_tasks/tests", "modules/file_storage/tests", "modules/settings/tests", "modules/feature_flags/tests", "modules/keycloak/tests", "modules/audit_log/tests", "modules/branding/tests", "scripts/tests", "tests/integration", "tests/e2e", "tests/benchmarks"]
+testpaths = ["framework/cli/tests", "framework/core/tests", "framework/db/tests", "framework/hosting/tests", "framework/testing/tests", "host/tests", "modules/auth/tests", "modules/dashboard/tests", "modules/users/tests", "modules/permissions/tests", "modules/background_tasks/tests", "modules/file_storage/tests", "modules/settings/tests", "modules/feature_flags/tests", "modules/keycloak/tests", "modules/oidc/tests", "modules/audit_log/tests", "modules/branding/tests", "scripts/tests", "tests/integration", "tests/e2e", "tests/benchmarks"]
 markers = [
     "e2e: end-to-end tests requiring a live browser",
     "perf: performance benchmarks (opt-in; run via `make bench`)",
