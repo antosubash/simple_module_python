@@ -27,16 +27,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _templates_contracts import contracts_init, schemas_py
 from _templates_endpoints import api_py, views_py
 from _templates_js import package_json, tsconfig_json
+from _templates_module import module_py, services_py, settings_py
 from _templates_py import (
     ScaffoldContext,
     deps_py,
     locales_en_json,
     models_py,
-    module_py,
     package_init,
     pyproject_toml,
     service_py,
-    services_py,
 )
 from _templates_tests import test_module_py
 from _templates_tsx import browse_tsx, create_tsx, edit_tsx
@@ -99,6 +98,7 @@ def scaffold_module(name: str) -> None:
     create_file(src_dir / "__init__.py", package_init(ctx))
     create_file(src_dir / "py.typed", "")
     create_file(src_dir / "module.py", module_py(ctx))
+    create_file(src_dir / "settings.py", settings_py(ctx))
     create_file(src_dir / "services.py", services_py(ctx))
     create_file(src_dir / "models.py", models_py(ctx))
     create_file(src_dir / "contracts" / "__init__.py", contracts_init(ctx))

@@ -1,22 +1,32 @@
 {
   "browse": {
     "title": "Catalog",
-    "description": "Manage your catalog",
-    "new_button": "New Catalog",
-    "empty_title": "No catalog yet",
-    "empty_description": "Get started by creating your first catalog.",
-    "edit_link": "Edit"
+    "description": "Browse products",
+    "search_label": "Search products",
+    "search_placeholder": "Search by name",
+    "search_button": "Search",
+    "all_statuses": "All statuses",
+    "empty_title": "No products found",
+    "empty_description": "Try a different search or filter.",
+    "showing": "Page {{page}} of {{pages}} — {{total}} products",
+    "previous": "Previous",
+    "next": "Next"
   },
-  "form": {
-    "name_label": "Name",
+  "columns": {
+    "sku": "SKU",
+    "name": "Name",
+    "status": "Status",
+    "price": "Price",
+    "created": "Created"
+  },
+  "detail": {
+    "title": "Product",
+    "back_link": "Back to catalog",
     "description_label": "Description"
   },
-  "create": {
-    "title": "New Catalog",
-    "submit_button": "Create"
-  },
-  "edit": {
-    "title": "Edit Catalog",
-    "submit_button": "Save"
+  "status": {
+    "draft": "Draft",
+    "active": "Active",
+    "archived": "Archived"
   }
 }

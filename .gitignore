@@ -62,3 +62,4 @@ Thumbs.db
 host/client_app/.playwright-cli/*
 .superpowers/
 .qa/
+.claude/settings.local.json

@@ -132,6 +132,38 @@ export const keys = {
       upload_error_toast: 'branding.manage.upload_error_toast',
     },
   },
+  catalog: {
+    browse: {
+      all_statuses: 'catalog.browse.all_statuses',
+      description: 'catalog.browse.description',
+      empty_description: 'catalog.browse.empty_description',
+      empty_title: 'catalog.browse.empty_title',
+      next: 'catalog.browse.next',
+      previous: 'catalog.browse.previous',
+      search_button: 'catalog.browse.search_button',
+      search_label: 'catalog.browse.search_label',
+      search_placeholder: 'catalog.browse.search_placeholder',
+      showing: 'catalog.browse.showing',
+      title: 'catalog.browse.title',
+    },
+    columns: {
+      created: 'catalog.columns.created',
+      name: 'catalog.columns.name',
+      price: 'catalog.columns.price',
+      sku: 'catalog.columns.sku',
+      status: 'catalog.columns.status',
+    },
+    detail: {
+      back_link: 'catalog.detail.back_link',
+      description_label: 'catalog.detail.description_label',
+      title: 'catalog.detail.title',
+    },
+    status: {
+      active: 'catalog.status.active',
+      archived: 'catalog.status.archived',
+      draft: 'catalog.status.draft',
+    },
+  },
   dashboard: {
     home: {
       description: 'dashboard.home.description',

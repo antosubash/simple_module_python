@@ -29,6 +29,10 @@ class TestScaffoldModule:
             src_dir / "__init__.py",
             src_dir / "py.typed",
             src_dir / "module.py",
+            # module.py's register_settings imports both of these; without them
+            # a freshly scaffolded module raises ModuleNotFoundError at boot.
+            src_dir / "settings.py",
+            src_dir / "services.py",
             src_dir / "models.py",
             src_dir / "service.py",
             src_dir / "deps.py",
@@ -45,6 +49,19 @@ class TestScaffoldModule:
     def test_scaffold_pyproject_has_entry_point(self, scaffolded_orders: Path):
         content = (scaffolded_orders.parent / "pyproject.toml").read_text()
         assert 'orders = "orders.module:OrdersModule"' in content
+
+    def test_scaffold_pyproject_declares_the_wheel_package(self, scaffolded_orders: Path):
+        """The dist name (simple_module_orders) differs from the package dir
+        (orders), so hatchling cannot infer it — without an explicit declaration
+        the wheel builds empty and the entry point fails to import."""
+        content = (scaffolded_orders.parent / "pyproject.toml").read_text()
+        assert "[tool.hatch.build.targets.wheel]" in content
+        assert 'packages = ["orders"]' in content
+
+    def test_scaffold_settings_class_matches_the_module_import(self, scaffolded_orders: Path):
+        """module.py and services.py both import OrdersSettings by name."""
+        content = (scaffolded_orders / "settings.py").read_text()
+        assert "class OrdersSettings(BaseSettings):" in content
 
     def test_scaffold_module_class_name(self, scaffolded_orders: Path):
         content = (scaffolded_orders / "module.py").read_text()
@@ -87,17 +104,19 @@ class TestUpdateHostPyproject:
 
         update_host_pyproject("orders")
 
+        # Must be the distribution name the module's own pyproject.toml declares,
+        # not the bare module name — uv resolves the workspace member by dist name.
         content = (host_dir / "pyproject.toml").read_text()
-        assert '"orders"' in content
-        assert "orders = { workspace = true }" in content
+        assert '"simple_module_orders"' in content
+        assert "simple_module_orders = { workspace = true }" in content
 
     def test_skips_if_already_present(self, module_root: Path):
         host_dir = module_root / "host"
         host_dir.mkdir()
         original = (
             '[project]\nname = "simple-module-host"\ndependencies = [\n'
-            '    "products",\n    "orders",\n]\n\n[tool.uv.sources]\n'
-            "products = { workspace = true }\norders = { workspace = true }\n"
+            '    "products",\n    "simple_module_orders",\n]\n\n[tool.uv.sources]\n'
+            "products = { workspace = true }\nsimple_module_orders = { workspace = true }\n"
         )
         (host_dir / "pyproject.toml").write_text(original)
 

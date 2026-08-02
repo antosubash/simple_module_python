@@ -10,12 +10,29 @@ from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 
+from catalog.constants import (
+    ALL_PERMISSIONS,
+    API_PREFIX,
+    LOCALE_NAMESPACE,
+    MENU_GROUP,
+    MENU_ICON,
+    MENU_LABEL,
+    MENU_ORDER,
+    MENU_URL,
+    MODULE_NAME,
+    PERM_GROUP,
+    VIEW_PREFIX,
+)
+
+_MODULE_USERS = "Users"
+
 
 class CatalogModule(ModuleBase):
     meta = ModuleMeta(
-        name="Catalog",
-        route_prefix="/api/catalog",
-        view_prefix="/catalog",
+        name=MODULE_NAME,
+        route_prefix=API_PREFIX,
+        view_prefix=VIEW_PREFIX,
+        depends_on=[_MODULE_USERS],
     )
 
     def register_settings(self, app: FastAPI) -> None:
@@ -34,26 +51,18 @@ class CatalogModule(ModuleBase):
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
             MenuItem(
-                label="Catalog",
-                url="/catalog",
-                icon="box",
-                order=30,
+                label=MENU_LABEL,
+                url=MENU_URL,
+                icon=MENU_ICON,
+                order=MENU_ORDER,
                 section=MenuSection.SIDEBAR,
-                group="Content",
+                group=MENU_GROUP,
             )
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            "Catalog",
-            [
-                "catalog.view",
-                "catalog.create",
-                "catalog.edit",
-                "catalog.delete",
-            ],
-        )
+        registry.add_group(PERM_GROUP, list(ALL_PERMISSIONS))
 
     def locale_dirs(self) -> dict[str, Path]:
         base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {"catalog": base}
+        return {LOCALE_NAMESPACE: base}

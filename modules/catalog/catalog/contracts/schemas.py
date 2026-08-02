@@ -2,35 +2,42 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 
 from pydantic import ConfigDict
-from sqlmodel import Field, SQLModel
+from sqlmodel import SQLModel
 
 
-class CatalogOut(SQLModel):
-    """Catalog data returned by the API."""
+class CategoryRead(SQLModel):
+    """A category as returned by the API."""
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: uuid.UUID
     name: str
-    description: str | None = None
-    is_active: bool
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    slug: str
 
 
-class CatalogCreate(SQLModel):
-    """Data required to create a new catalog."""
+class ProductRead(SQLModel):
+    """A product as returned by the API."""
 
-    name: str = Field(min_length=1, max_length=200)
-    description: str | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    sku: str
+    name: str
+    description: str
+    status: str
+    price_cents: int
+    category_id: uuid.UUID
+    created_at: datetime
 
 
-class CatalogUpdate(SQLModel):
-    """Data to update an existing catalog. All fields optional."""
+class ProductList(SQLModel):
+    """A page of products plus the total matching the same filters."""
 
-    name: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
-    is_active: bool | None = None
+    items: list[ProductRead]
+    total: int
+    page: int
+    page_size: int

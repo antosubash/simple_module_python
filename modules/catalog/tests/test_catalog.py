@@ -1,171 +1,162 @@
-"""Tests for the Catalog module: service CRUD, API endpoints, schema validation."""
+"""Catalog list/search/filter/detail behaviour through the HTTP layer.
+
+Seeding goes through ``app.state.sm.db.session_factory`` rather than the
+``db_session`` fixture: those are two independent in-memory engines, so rows
+written via ``db_session`` are invisible to requests made through the app.
+"""
 
 from __future__ import annotations
 
+import uuid
+
 import httpx
-import pytest
-from pydantic import ValidationError
-from catalog.contracts.schemas import (
-    CatalogCreate,
-    CatalogUpdate,
-)
-from catalog.service import CatalogService
-from sqlalchemy.ext.asyncio import AsyncSession
+from catalog.constants import STATUS_ACTIVE, STATUS_DRAFT
+from catalog.models import Category, Product
 
-# ── Schema validation ────────────────────────────────────────────────
+_OK = 200
+_NOT_FOUND = 404
+_UNAUTHORIZED = 401
+_SEED_COUNT = 5
+_ACTIVE_COUNT = 3
 
 
-class TestCatalogSchemas:
-    async def test_create_valid(self):
-        data = CatalogCreate(name="Test Catalog")
-        assert data.name == "Test Catalog"
-        assert data.description is None
-
-    async def test_create_empty_name_rejected(self):
-        with pytest.raises(ValidationError):
-            CatalogCreate(name="")
-
-    async def test_update_all_optional(self):
-        data = CatalogUpdate()
-        assert data.name is None
-        assert data.is_active is None
-
-
-# ── CatalogService CRUD ──────────────────────────────────────────────
-
-
-class TestCatalogService:
-    async def test_create(self, db_session: AsyncSession):
-        svc = CatalogService(db_session)
-        item = await svc.create(CatalogCreate(name="Test"))
-        assert item.id is not None
-        assert item.name == "Test"
-        assert item.is_active is True
-
-    async def test_get_all(self, db_session: AsyncSession):
-        svc = CatalogService(db_session)
-        await svc.create(CatalogCreate(name="A"))
-        await svc.create(CatalogCreate(name="B"))
-        items = await svc.get_all()
-        assert len(items) == 2
-
-    async def test_get_by_id(self, db_session: AsyncSession):
-        svc = CatalogService(db_session)
-        created = await svc.create(CatalogCreate(name="X"))
-        found = await svc.get_by_id(created.id)
-        assert found is not None
-        assert found.name == "X"
-
-    async def test_get_by_id_not_found(self, db_session: AsyncSession):
-        svc = CatalogService(db_session)
-        found = await svc.get_by_id(999)
-        assert found is None
-
-    async def test_update(self, db_session: AsyncSession):
-        svc = CatalogService(db_session)
-        created = await svc.create(CatalogCreate(name="Old"))
-        updated = await svc.update(created.id, CatalogUpdate(name="New"))
-        assert updated is not None
-        assert updated.name == "New"
-
-    async def test_update_not_found(self, db_session: AsyncSession):
-        svc = CatalogService(db_session)
-        result = await svc.update(999, CatalogUpdate(name="Ghost"))
-        assert result is None
-
-    async def test_delete(self, db_session: AsyncSession):
-        svc = CatalogService(db_session)
-        created = await svc.create(CatalogCreate(name="Doomed"))
-        deleted = await svc.delete(created.id)
-        assert deleted is True
-
-    async def test_delete_not_found(self, db_session: AsyncSession):
-        svc = CatalogService(db_session)
-        deleted = await svc.delete(999)
-        assert deleted is False
+async def _seed(app) -> uuid.UUID:
+    """Insert one category and five products; return the category id."""
+    async with app.state.sm.db.session_factory() as session:
+        category = Category(name="Widgets", slug="widgets")
+        session.add(category)
+        await session.flush()
+        for i in range(_SEED_COUNT):
+            session.add(
+                Product(
+                    sku=f"SKU-{i:03d}",
+                    name=f"Widget {i}",
+                    description="a test widget",
+                    status=STATUS_ACTIVE if i % 2 == 0 else STATUS_DRAFT,
+                    price_cents=100 * i,
+                    category_id=category.id,
+                )
+            )
+        await session.commit()
+        return category.id
 
 
-# ── API endpoints ───────────────────────────────────────────────
+class TestCatalogListAPI:
+    async def test_list_returns_paginated_products(
+        self, app, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        await _seed(app)
+        resp = await authenticated_client.get("/api/catalog/products?page=1&page_size=2")
+        assert resp.status_code == _OK
+        body = resp.json()
+        assert body["total"] == _SEED_COUNT
+        assert len(body["items"]) == 2
+        assert body["page"] == 1
 
+    async def test_search_filters_by_name(
+        self, app, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        await _seed(app)
+        resp = await authenticated_client.get("/api/catalog/products?q=Widget 3")
+        assert resp.status_code == _OK
+        assert [i["name"] for i in resp.json()["items"]] == ["Widget 3"]
 
-class TestCatalogAPI:
-    async def test_list_empty(self, authenticated_client: httpx.AsyncClient):
-        resp = await authenticated_client.get("/api/catalog/")
-        assert resp.status_code == 200
-        assert resp.json() == []
+    async def test_status_filter_narrows_results(
+        self, app, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        await _seed(app)
+        resp = await authenticated_client.get(f"/api/catalog/products?status={STATUS_ACTIVE}")
+        assert resp.status_code == _OK
+        body = resp.json()
+        assert body["total"] == _ACTIVE_COUNT
+        assert all(i["status"] == STATUS_ACTIVE for i in body["items"])
 
-    async def test_create(self, authenticated_client: httpx.AsyncClient):
-        resp = await authenticated_client.post(
-            "/api/catalog/",
-            json={"name": "Test Catalog"},
-        )
-        assert resp.status_code == 201
-        data = resp.json()
-        assert data["name"] == "Test Catalog"
-        assert data["id"] is not None
+    async def test_category_filter_narrows_results(
+        self, app, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        category_id = await _seed(app)
+        resp = await authenticated_client.get(f"/api/catalog/products?category_id={category_id}")
+        assert resp.status_code == _OK
+        assert resp.json()["total"] == _SEED_COUNT
 
-    async def test_get_by_id(self, authenticated_client: httpx.AsyncClient):
-        create_resp = await authenticated_client.post(
-            "/api/catalog/",
-            json={"name": "Findable"},
-        )
-        item_id = create_resp.json()["id"]
-        resp = await authenticated_client.get(f"/api/catalog/{item_id}")
-        assert resp.status_code == 200
-        assert resp.json()["name"] == "Findable"
+    async def test_sort_by_name_orders_ascending(
+        self, app, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        await _seed(app)
+        resp = await authenticated_client.get("/api/catalog/products?sort=name")
+        names = [i["name"] for i in resp.json()["items"]]
+        assert names == sorted(names)
 
-    async def test_get_not_found(self, authenticated_client: httpx.AsyncClient):
-        resp = await authenticated_client.get("/api/catalog/99999")
-        assert resp.status_code == 404
+    async def test_unknown_sort_falls_back_to_default(
+        self, app, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        """A bad sort key must not 500 or 422 — it falls back to newest-first."""
+        await _seed(app)
+        resp = await authenticated_client.get("/api/catalog/products?sort=bogus")
+        assert resp.status_code == _OK
+        assert resp.json()["total"] == _SEED_COUNT
 
-    async def test_update(self, authenticated_client: httpx.AsyncClient):
-        create_resp = await authenticated_client.post(
-            "/api/catalog/",
-            json={"name": "Original"},
-        )
-        item_id = create_resp.json()["id"]
-        resp = await authenticated_client.put(
-            f"/api/catalog/{item_id}",
-            json={"name": "Updated"},
-        )
-        assert resp.status_code == 200
-        assert resp.json()["name"] == "Updated"
-
-    async def test_delete(self, authenticated_client: httpx.AsyncClient):
-        create_resp = await authenticated_client.post(
-            "/api/catalog/",
-            json={"name": "Deletable"},
-        )
-        item_id = create_resp.json()["id"]
-        resp = await authenticated_client.delete(f"/api/catalog/{item_id}")
-        assert resp.status_code == 204
-
-    async def test_delete_not_found(self, authenticated_client: httpx.AsyncClient):
-        resp = await authenticated_client.delete("/api/catalog/99999")
-        assert resp.status_code == 404
-
-    async def test_create_invalid_data(self, authenticated_client: httpx.AsyncClient):
-        resp = await authenticated_client.post(
-            "/api/catalog/",
-            json={"name": ""},
-        )
+    async def test_page_size_is_capped(self, app, authenticated_client: httpx.AsyncClient) -> None:
+        await _seed(app)
+        resp = await authenticated_client.get("/api/catalog/products?page_size=9999")
         assert resp.status_code == 422
 
 
-# ── Module lifecycle ────────────────────────────────────────────────
+class TestCatalogDetailAPI:
+    async def test_detail_returns_single_product(
+        self, app, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        await _seed(app)
+        listing = await authenticated_client.get("/api/catalog/products?page_size=1")
+        product_id = listing.json()["items"][0]["id"]
+        resp = await authenticated_client.get(f"/api/catalog/products/{product_id}")
+        assert resp.status_code == _OK
+        assert resp.json()["id"] == product_id
+
+    async def test_detail_404s_for_unknown_id(
+        self, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        resp = await authenticated_client.get(f"/api/catalog/products/{uuid.uuid4()}")
+        assert resp.status_code == _NOT_FOUND
 
 
-class TestCatalogModuleLifecycle:
-    async def test_on_startup_does_not_call_create_all(self):
-        """on_startup should not create tables — Alembic manages schema."""
-        from unittest.mock import AsyncMock, MagicMock
+class TestCatalogCategoriesAPI:
+    async def test_lists_seeded_categories(
+        self, app, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        await _seed(app)
+        resp = await authenticated_client.get("/api/catalog/categories")
+        assert resp.status_code == _OK
+        assert [c["slug"] for c in resp.json()] == ["widgets"]
 
-        from catalog.module import CatalogModule
 
-        mod = CatalogModule()
-        mock_app = MagicMock()
-        mock_app.state.sm.db.engine = AsyncMock()
+class TestCatalogAuth:
+    async def test_list_requires_authentication(self, client: httpx.AsyncClient) -> None:
+        resp = await client.get("/api/catalog/products")
+        assert resp.status_code == _UNAUTHORIZED
 
-        await mod.on_startup(mock_app)
 
-        mock_app.state.sm.db.engine.begin.assert_not_called()
+class TestCatalogViews:
+    async def test_browse_renders_the_inertia_page(
+        self, app, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        await _seed(app)
+        resp = await authenticated_client.get(
+            "/catalog/", headers={"X-Inertia": "true", "Accept": "application/json"}
+        )
+        assert resp.status_code == _OK
+        body = resp.json()
+        assert body["component"] == "Catalog/Browse"
+        assert body["props"]["total"] == _SEED_COUNT
+
+    async def test_browse_survives_a_garbage_query_string(
+        self, app, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        """Bad pagination params fall back to defaults instead of 422ing."""
+        await _seed(app)
+        resp = await authenticated_client.get(
+            "/catalog/?page=abc&page_size=xyz&status=nope&sort=nope",
+            headers={"X-Inertia": "true", "Accept": "application/json"},
+        )
+        assert resp.status_code == _OK
+        assert resp.json()["props"]["page"] == 1
