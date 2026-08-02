@@ -22,6 +22,7 @@ from inertia import (
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
 from simple_module_core.exceptions import NotFoundError
 from starlette.exceptions import HTTPException
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import Response
 from starlette.types import Scope
@@ -50,6 +51,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable"
+
+# Below this, gzip framing costs more than it saves. Starlette's own default.
+COMPRESSION_MIN_BYTES = 500
 
 
 class ImmutableStaticFiles(StaticFiles):
@@ -126,6 +130,13 @@ def install_middleware(
         )
     else:
         app.add_middleware(SecurityHeadersMiddleware)
+    # Compress response bodies. Added here so it sits inside CorrelationId and
+    # RequestLogging (which set headers and read request state) but outside
+    # everything that produces a body — including the /static mount, where it
+    # matters most: the built CSS is ~139 KB raw and ~21 KB gzipped, and the
+    # JS bundle compresses about 3x. Uncompressed assets dominated cold page
+    # load, several times larger than anything on the server request path.
+    app.add_middleware(GZipMiddleware, minimum_size=COMPRESSION_MIN_BYTES)
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
     # Outermost: rewrite scheme/client from X-Forwarded-* before anything else

@@ -33,7 +33,13 @@ ROUTES = (
 
 
 def _click_sidebar(page: Page, href: str) -> None:
-    page.locator(f'a[href="{href}"]').first.click()
+    """Click the sidebar link for *href*.
+
+    ``:visible`` is required — the layout also renders a collapsed-state brand
+    link pointing at /dashboard/, which is hidden at desktop widths. Matching
+    it would hang the click waiting for an element that never becomes visible.
+    """
+    page.locator(f'a[href="{href}"]:visible').first.click()
 
 
 def _report(title: str, build: str, data: dict[str, dict[str, float]]) -> None:

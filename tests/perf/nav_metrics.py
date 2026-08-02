@@ -56,13 +56,31 @@ _READ_LAST = """
 
 @dataclass(frozen=True, slots=True)
 class NavSample:
-    """One measured Inertia client-side navigation."""
+    """One measured Inertia client-side navigation.
+
+    The phases partition ``total_ms``::
+
+        start ──────────────── finish ──────── painted
+              └── request_ms ──┘└── render_ms ─┘
+              └── ttfb_ms ─┘
+
+    ``ttfb_ms`` is the server's share and sits *inside* ``request_ms``; the
+    remainder of ``request_ms`` is client-side — response transfer, JSON parse,
+    the dynamic import of the page component chunk, and React reconciliation.
+    That remainder is where an unexplained navigation cost shows up.
+    """
 
     route: str
     ttfb_ms: float
     response_bytes: int
+    request_ms: float
     render_ms: float
     total_ms: float
+
+    @property
+    def client_request_ms(self) -> float:
+        """``request_ms`` minus the server's contribution."""
+        return max(0.0, self.request_ms - self.ttfb_ms)
 
 
 def install_hooks(page: Page) -> None:
@@ -107,6 +125,7 @@ def measure_navigation(page: Page, trigger: Callable[[], None], route: str) -> N
         route=route,
         ttfb_ms=max(ttfbs) if ttfbs else 0.0,
         response_bytes=max(sizes) if sizes else 0,
+        request_ms=raw["finish"] - raw["start"],
         render_ms=raw["painted"] - raw["finish"],
         total_ms=raw["painted"] - raw["start"],
     )
@@ -126,7 +145,11 @@ def summarize(samples: list[NavSample]) -> dict[str, float]:
         "n": len(samples),
         "median_total_ms": round(statistics.median(totals), 2),
         "p95_total_ms": round(totals[p95_index], 2),
+        # Phase breakdown — server, client-side request handling, then paint.
         "median_ttfb_ms": round(statistics.median([s.ttfb_ms for s in samples]), 2),
+        "median_client_request_ms": round(
+            statistics.median([s.client_request_ms for s in samples]), 2
+        ),
         "median_render_ms": round(statistics.median([s.render_ms for s in samples]), 2),
         "median_bytes": int(statistics.median([s.response_bytes for s in samples])),
     }

@@ -56,8 +56,17 @@ def perf_rounds() -> int:
 
 @pytest.fixture(scope="session")
 def browser_context_args(browser_context_args, base_url):
-    """Resolve ``page.goto("/")`` against PERF_BASE_URL."""
-    return {**browser_context_args, "base_url": base_url}
+    """Resolve ``page.goto("/")`` against PERF_BASE_URL, at a fixed desktop size.
+
+    The viewport is pinned so the sidebar is always expanded and the numbers
+    are comparable across runs — a narrower window collapses the nav and
+    changes both what renders and what gets measured.
+    """
+    return {
+        **browser_context_args,
+        "base_url": base_url,
+        "viewport": {"width": 1440, "height": 900},
+    }
 
 
 @pytest.fixture
