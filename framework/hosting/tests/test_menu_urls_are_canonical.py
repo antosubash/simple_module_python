@@ -50,8 +50,7 @@ async def test_menu_urls_do_not_redirect(app, authenticated_client: httpx.AsyncC
     assert not offenders, (
         "These menu URLs redirect, costing an extra round trip on every "
         "navigation. Point the menu item at the canonical path (usually adding "
-        "a trailing slash), or register the route without one:\n  "
-        + "\n  ".join(offenders)
+        "a trailing slash), or register the route without one:\n  " + "\n  ".join(offenders)
     )
 
 

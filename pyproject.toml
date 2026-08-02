@@ -29,6 +29,11 @@ dev = [
     "moto[s3]>=5",
     "tomlkit>=0.13",
     "pytest-httpx>=0.36.2",
+    # Test-only: builds real brotli payloads for the pre-compressed static-file
+    # tests. The build itself compresses with Node's zlib, so nothing at runtime
+    # needs this. Declared explicitly because it was otherwise only present as a
+    # transitive dep of locust's geventhttpclient.
+    "brotli>=1.1",
 ]
 
 [tool.ruff]

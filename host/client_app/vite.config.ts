@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig, type Plugin } from 'vite';
+import { compressAssets } from './compress-assets';
 
 const projectRoot = path.resolve(__dirname, '../..');
 
@@ -129,6 +130,7 @@ export default defineConfig({
     moduleBareImportResolver(),
     react(),
     tailwindcss(),
+    compressAssets(),
     ...(analyzeBundle
       ? [
           visualizer({
