@@ -20,7 +20,7 @@ from tests.perf.page_load_metrics import NetworkProfile, measure_cold_load
 
 pytestmark = [pytest.mark.perf, pytest.mark.e2e]
 
-ROUTES = ("/catalog/", "/dashboard/")
+ROUTES = ("/audit_log/", "/dashboard/")
 # Compression must cut total transfer by at least this much. The observed
 # reduction is ~70%; 40% leaves generous headroom for bundle changes while
 # still failing loudly if compression silently stops being applied.

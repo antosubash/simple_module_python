@@ -276,7 +276,7 @@ jobs:
           # Keycloak excluded (SM020: one auth provider). BackgroundTasks
           # excluded because its DB-hydrated settings reject a localhost broker
           # under SM_ENVIRONMENT=production.
-          SM_MODULES_ENABLED: '["Auth","Users","Dashboard","Permissions","Settings","FileStorage","FeatureFlags","AuditLog","Branding","Catalog"]'
+          SM_MODULES_ENABLED: '["Auth","Users","Dashboard","Permissions","Settings","FileStorage","FeatureFlags","AuditLog","Branding"]'
         run: |
           uv run --project host uvicorn host.main:app --port 8000 > api.log 2>&1 &
           echo $! > api.pid

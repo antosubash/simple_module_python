@@ -29,7 +29,6 @@ pytestmark = [pytest.mark.perf, pytest.mark.e2e]
 # enforces that no menu URL redirects.
 ROUTES = (
     ("dashboard", "/dashboard/"),
-    ("catalog_list", "/catalog/"),
     ("users_admin", "/users/admin"),
     ("audit_log", "/audit_log/"),
 )
@@ -74,32 +73,6 @@ def test_sidebar_navigation_timings(
         assert all(s.total_ms > 0 for s in rows), f"{name}: zero-duration sample"
 
 
-def test_catalog_list_to_detail_navigation(
-    logged_in_page: Page, perf_rounds: int, perf_build: str
-) -> None:
-    """The list -> detail -> list round trip, against the seeded catalog."""
-    page = logged_in_page
-    install_hooks(page)
-    measure_navigation(page, lambda: _click_sidebar(page, "/catalog/"), "catalog_list")
-
-    detail: list[NavSample] = []
-    back: list[NavSample] = []
-    for _ in range(perf_rounds):
-        row = page.get_by_test_id("catalog-row").first
-        detail.append(measure_navigation(page, row.click, "catalog_detail"))
-        back_link = page.get_by_test_id("catalog-back")
-        back.append(measure_navigation(page, back_link.click, "catalog_back"))
-
-    _report(
-        "catalog drill-down",
-        perf_build,
-        {"catalog_detail": summarize(detail), "catalog_back": summarize(back)},
-    )
-
-    assert len(detail) == perf_rounds
-    assert len(back) == perf_rounds
-
-
 def test_shared_props_payload_share(logged_in_page: Page, perf_build: str) -> None:
     """How much of a navigation's payload is static shared props?
 
@@ -138,9 +111,9 @@ def test_shared_props_payload_share(logged_in_page: Page, perf_build: str) -> No
 
     page.on("response", _on_response)
     try:
-        measure_navigation(page, lambda: _click_sidebar(page, "/catalog/"), "catalog_list")
+        measure_navigation(page, lambda: _click_sidebar(page, "/audit_log/"), "audit_log")
     finally:
         page.remove_listener("response", _on_response)
 
-    _report("shared-props payload share", perf_build, {"catalog_list": captured})
+    _report("shared-props payload share", perf_build, {"audit_log": captured})
     assert captured, "no Inertia JSON response captured"

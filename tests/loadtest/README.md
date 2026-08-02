@@ -7,7 +7,6 @@ data volumes) and **memray** (allocation profiling). Run it against a
 ## Files
 
 - `seed.py` — faker bulk data seed (users, role assignments, audit entries).
-- `seed_catalog.py` — faker bulk data seed (catalog categories + products).
 - `locustfile.py` — the `AuthedUser` browse scenario (weighted endpoint mix).
 - Auth: `scripts/loadtest_seed.py` mints a forged session cookie
   (`SM_LOADTEST_COOKIE`) so locust skips the login flow and its rate limiter.
@@ -29,8 +28,6 @@ export SM_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/smp
 uv run --project host alembic -c host/alembic.ini upgrade heads
 make loadtest-seed                       # 10k users + 100k audit rows (idempotent)
 # or: make loadtest-seed SEED_ARGS="5000 50000"
-make loadtest-seed-catalog               # 5k products across 12 categories
-# or: make loadtest-seed-catalog CATALOG_SEED_ARGS="20000"
 docker exec dev-services-postgres-1 psql -U postgres -d smpy_loadtest -c "ANALYZE"
 ```
 

@@ -33,7 +33,6 @@ pytestmark = [pytest.mark.perf, pytest.mark.e2e]
 
 ROUTES = (
     ("dashboard", "/dashboard/"),
-    ("catalog_list", "/catalog/"),
     ("users_admin", "/users/admin"),
     ("audit_log", "/audit_log/"),
 )

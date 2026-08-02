@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-seed-catalog loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings ci-build-packages worker beat worker-docker
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings ci-build-packages worker beat worker-docker
 
 # Install
 install:
@@ -86,9 +86,6 @@ LOCUST_ARGS ?= -u 20 -r 5 -t 30s
 loadtest-seed:              ## Seed realistic faker data into $$SM_DATABASE_URL (users + audit)
 	uv run python tests/loadtest/seed.py $(SEED_ARGS)
 
-CATALOG_SEED_ARGS ?=
-loadtest-seed-catalog:      ## Seed faker catalog products into $$SM_DATABASE_URL
-	uv run python tests/loadtest/seed_catalog.py $(CATALOG_SEED_ARGS)
 
 loadtest:                   ## Run locust against a server already on $(LOCUST_HOST)
 	uv run locust -f tests/loadtest/locustfile.py --host $(LOCUST_HOST) --headless $(LOCUST_ARGS)

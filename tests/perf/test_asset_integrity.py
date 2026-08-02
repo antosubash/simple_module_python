@@ -23,7 +23,7 @@ from playwright.sync_api import Page
 
 pytestmark = [pytest.mark.perf, pytest.mark.e2e]
 
-ROUTES = ("/users/login", "/dashboard/", "/catalog/", "/audit_log/", "/users/admin")
+ROUTES = ("/users/login", "/dashboard/", "/audit_log/", "/users/admin")
 _SETTLE_MS = 1500
 _CLIENT_ERROR = 400
 # Chrome reports a module served as text/html this way; it is the signature of
@@ -100,7 +100,7 @@ def test_lazy_page_chunks_resolve_under_the_static_prefix(
     )
 
     # A route whose page component is a lazily-imported chunk.
-    page.goto(f"{base_url}/catalog/", wait_until="load")
+    page.goto(f"{base_url}/audit_log/", wait_until="load")
     page.wait_for_timeout(_SETTLE_MS)
 
     stray = [u for u in js_urls if u.startswith("/assets/")]

@@ -1,7 +1,7 @@
 """Every sidebar link must hit its route directly, with no redirect.
 
-A menu item pointing at ``/catalog`` when the route is registered at
-``/catalog/`` still works — Starlette 307s to the canonical path and the
+A menu item pointing at ``/audit_log`` when the route is registered at
+``/audit_log/`` still works — Starlette 307s to the canonical path and the
 client follows. But it costs a full extra round trip on *every* navigation to
 that page. On localhost that's ~8 ms and invisible; on a 40 ms-latency link it
 roughly doubles the navigation, and it is worse on mobile.
