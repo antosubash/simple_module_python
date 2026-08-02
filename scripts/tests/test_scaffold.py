@@ -182,3 +182,34 @@ class TestUpdateRootPyproject:
         update_root_pyproject("orders")
 
         assert "warning" in capsys.readouterr().err.lower()
+
+
+class TestScaffoldPassesRepoChecks:
+    """A freshly scaffolded module must satisfy `make lint` immediately.
+
+    Before this, `make new-module` emitted no README and no license/keywords/
+    urls metadata, so check_readmes.py and check_metadata.py failed on every
+    new module until an author wrote them by hand.
+    """
+
+    def test_readme_is_created_and_satisfies_check_readmes(self, scaffolded_orders: Path):
+        readme = scaffolded_orders.parent / "README.md"
+        assert readme.exists(), "no README.md generated"
+        text = readme.read_text()
+        # Mirrors scripts/check_readmes.py: >=500 bytes, an H1, Install + Usage.
+        assert len(text.encode()) >= 500
+        assert text.lstrip().startswith("# ")
+        assert "Install" in text
+        assert "Usage" in text
+
+    def test_license_file_is_created(self, scaffolded_orders: Path):
+        license_file = scaffolded_orders.parent / "LICENSE"
+        assert license_file.exists(), "no LICENSE generated"
+        assert "MIT License" in license_file.read_text()
+
+    def test_pyproject_satisfies_check_metadata(self, scaffolded_orders: Path):
+        content = (scaffolded_orders.parent / "pyproject.toml").read_text()
+        assert 'readme = "README.md"' in content
+        assert 'license = "MIT"' in content
+        assert '"simple-module"' in content
+        assert 'Repository = "https://github.com/antosubash/simple_module_python"' in content

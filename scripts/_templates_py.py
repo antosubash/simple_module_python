@@ -27,8 +27,12 @@ def pyproject_toml(ctx: ScaffoldContext) -> str:
         name = "simple_module_{ctx.pkg}"
         version = "0.1.0"
         description = "The {ctx.class_name} module"
-        authors = []
+        readme = "README.md"
+        license = "MIT"
+        license-files = ["LICENSE"]
         requires-python = ">=3.12"
+        authors = [{{ name = "Anto Subash", email = "antosubash@live.com" }}]
+        keywords = ["simple-module", "{ctx.name}"]
         dependencies = [
             "simple_module_core",
             "simple_module_db",
@@ -37,6 +41,12 @@ def pyproject_toml(ctx: ScaffoldContext) -> str:
 
         [project.entry-points.simple_module]
         {ctx.name} = "{ctx.pkg}.module:{ctx.class_name}Module"
+
+        [project.urls]
+        Homepage = "https://github.com/antosubash/simple_module_python"
+        Repository = "https://github.com/antosubash/simple_module_python"
+        Issues = "https://github.com/antosubash/simple_module_python/issues"
+        Changelog = "https://github.com/antosubash/simple_module_python/blob/main/CHANGELOG.md"
 
         [build-system]
         requires = ["hatchling"]
@@ -208,3 +218,71 @@ def deps_py(ctx: ScaffoldContext) -> str:
         ) -> {ctx.singular_class}Service:
             return {ctx.singular_class}Service(db)
         '''
+
+
+def readme_md(ctx: ScaffoldContext) -> str:
+    """A README that satisfies scripts/check_readmes.py out of the box.
+
+    That checker requires an H1, an "Install" and a "Usage" section, and at
+    least 500 bytes — a scaffolded module used to fail `make lint` on all
+    three until an author wrote one by hand.
+    """
+    return f"""\
+        # simple_module_{ctx.pkg}
+
+        The {ctx.class_name} module for
+        [simple_module](https://github.com/antosubash/simple_module_python) apps.
+
+        Replace this paragraph with a description of what the module actually does —
+        the problem it solves and the surface it exposes to a host application.
+
+        ## Install
+
+        ```bash
+        pip install simple_module_{ctx.pkg}
+        ```
+
+        Add `simple_module_{ctx.pkg}` to your host's dependencies; the
+        `[project.entry-points.simple_module]` entry point is discovered automatically
+        at boot, so no further wiring is required.
+
+        ## Usage
+
+        | Route | Page | Purpose |
+        |---|---|---|
+        | `GET /{ctx.name}/` | `{ctx.class_name}/Browse` | List view |
+        | `GET /api/{ctx.name}/` | — | JSON list endpoint |
+
+        Both are gated by the `{ctx.name}.view` permission. Document the real routes,
+        settings (`SM_{ctx.name.upper()}_*`) and any events the module emits here.
+
+        ## Configuration
+
+        Settings live on `app.state.{ctx.pkg}` and use the `SM_{ctx.name.upper()}_*`
+        environment prefix.
+        """
+
+
+def license_txt(ctx: ScaffoldContext) -> str:
+    """MIT license — scripts/check_metadata.py requires license = "MIT"."""
+    return """\
+        MIT License
+
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        """

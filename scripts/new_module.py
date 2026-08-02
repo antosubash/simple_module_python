@@ -31,10 +31,12 @@ from _templates_module import module_py, services_py, settings_py
 from _templates_py import (
     ScaffoldContext,
     deps_py,
+    license_txt,
     locales_en_json,
     models_py,
     package_init,
     pyproject_toml,
+    readme_md,
     service_py,
 )
 from _templates_tests import test_module_py
@@ -93,6 +95,8 @@ def scaffold_module(name: str) -> None:
     print(f"Scaffolding module '{name}'...")
 
     create_file(module_dir / "pyproject.toml", pyproject_toml(ctx))
+    create_file(module_dir / "README.md", readme_md(ctx))
+    create_file(module_dir / "LICENSE", license_txt(ctx))
     create_file(module_dir / "package.json", package_json(ctx))
     create_file(module_dir / "tsconfig.json", tsconfig_json(ctx))
     create_file(src_dir / "__init__.py", package_init(ctx))

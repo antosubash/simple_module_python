@@ -1,9 +1,13 @@
 [project]
 name = "simple_module_catalog"
 version = "0.1.0"
-description = "The Catalog module"
-authors = []
+description = "Sample product catalog module — reference implementation and perf benchmark fixture"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
+authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
+keywords = ["simple-module", "catalog", "example"]
 dependencies = [
     "simple_module_core",
     "simple_module_db",
@@ -12,6 +16,12 @@ dependencies = [
 
 [project.entry-points.simple_module]
 catalog = "catalog.module:CatalogModule"
+
+[project.urls]
+Homepage = "https://github.com/antosubash/simple_module_python"
+Repository = "https://github.com/antosubash/simple_module_python"
+Issues = "https://github.com/antosubash/simple_module_python/issues"
+Changelog = "https://github.com/antosubash/simple_module_python/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["hatchling"]
