@@ -1,0 +1,22 @@
+{
+  "browse": {
+    "title": "Catalog",
+    "description": "Manage your catalog",
+    "new_button": "New Catalog",
+    "empty_title": "No catalog yet",
+    "empty_description": "Get started by creating your first catalog.",
+    "edit_link": "Edit"
+  },
+  "form": {
+    "name_label": "Name",
+    "description_label": "Description"
+  },
+  "create": {
+    "title": "New Catalog",
+    "submit_button": "Create"
+  },
+  "edit": {
+    "title": "Edit Catalog",
+    "submit_button": "Save"
+  }
+}

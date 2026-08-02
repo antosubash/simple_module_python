@@ -42,6 +42,12 @@ def pyproject_toml(ctx: ScaffoldContext) -> str:
         requires = ["hatchling"]
         build-backend = "hatchling.build"
 
+        # The distribution name (simple_module_{ctx.pkg}) doesn't match the package
+        # directory ({ctx.pkg}), so hatchling can't infer what to ship — without
+        # this the wheel builds empty and the entry point fails to import.
+        [tool.hatch.build.targets.wheel]
+        packages = ["{ctx.pkg}"]
+
         # Ship the module-root package.json inside the wheel so the host can
         # discover JS deps via importlib.resources after a pip install.
         [tool.hatch.build.targets.wheel.force-include]

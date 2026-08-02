@@ -134,7 +134,11 @@ def update_host_pyproject(name: str) -> None:
     """Add the new module as a dependency in host/pyproject.toml."""
     host_toml = ROOT / "host" / "pyproject.toml"
     content = host_toml.read_text()
-    pkg = name.replace("_", "-")
+    # Must match the distribution name the module's own pyproject.toml declares
+    # (``simple_module_<name>``, see _templates_py.pyproject_toml). Writing the
+    # bare module name here produces a dependency uv cannot resolve to the
+    # workspace member, and `uv sync` fails with "not a workspace member".
+    pkg = f"simple_module_{name}"
 
     if f'"{pkg}"' in content:
         print(f"  host/pyproject.toml already contains {pkg}, skipping")

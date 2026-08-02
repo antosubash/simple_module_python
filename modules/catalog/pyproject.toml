@@ -1,0 +1,34 @@
+[project]
+name = "simple_module_catalog"
+version = "0.1.0"
+description = "The Catalog module"
+authors = []
+requires-python = ">=3.12"
+dependencies = [
+    "simple_module_core",
+    "simple_module_db",
+    "simple_module_hosting",
+]
+
+[project.entry-points.simple_module]
+catalog = "catalog.module:CatalogModule"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# The distribution name (simple_module_catalog) doesn't match the package
+# directory (catalog), so hatchling can't infer what to ship — without this the
+# wheel builds empty and the entry point fails to import.
+[tool.hatch.build.targets.wheel]
+packages = ["catalog"]
+
+# Ship the module-root package.json inside the wheel so the host can
+# discover JS deps via importlib.resources after a pip install.
+[tool.hatch.build.targets.wheel.force-include]
+"package.json" = "catalog/package.json"
+
+[tool.uv.sources]
+simple_module_core = { workspace = true }
+simple_module_db = { workspace = true }
+simple_module_hosting = { workspace = true }
