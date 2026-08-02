@@ -23,12 +23,15 @@ from tests.perf.nav_metrics import NavSample, install_hooks, measure_navigation,
 
 pytestmark = [pytest.mark.perf, pytest.mark.e2e]
 
-# (label, href) — href must match the sidebar link's href exactly.
+# (label, href) — href must match the sidebar link's href exactly, and that
+# href must be the canonical path. Linking to a redirecting path would add a
+# round trip to every sample; framework/hosting/tests/test_menu_urls_are_canonical.py
+# enforces that no menu URL redirects.
 ROUTES = (
     ("dashboard", "/dashboard/"),
-    ("catalog_list", "/catalog"),
+    ("catalog_list", "/catalog/"),
     ("users_admin", "/users/admin"),
-    ("audit_log", "/audit_log"),
+    ("audit_log", "/audit_log/"),
 )
 
 
@@ -77,7 +80,7 @@ def test_catalog_list_to_detail_navigation(
     """The list -> detail -> list round trip, against the seeded catalog."""
     page = logged_in_page
     install_hooks(page)
-    measure_navigation(page, lambda: _click_sidebar(page, "/catalog"), "catalog_list")
+    measure_navigation(page, lambda: _click_sidebar(page, "/catalog/"), "catalog_list")
 
     detail: list[NavSample] = []
     back: list[NavSample] = []
@@ -135,7 +138,7 @@ def test_shared_props_payload_share(logged_in_page: Page, perf_build: str) -> No
 
     page.on("response", _on_response)
     try:
-        measure_navigation(page, lambda: _click_sidebar(page, "/catalog"), "catalog_list")
+        measure_navigation(page, lambda: _click_sidebar(page, "/catalog/"), "catalog_list")
     finally:
         page.remove_listener("response", _on_response)
 

@@ -7,6 +7,11 @@ from typing import Final
 
 from file_storage.constants import PATH_FILE_DOWNLOAD, ROUTE_PREFIX_API
 
+VIEW_PREFIX: Final = "/branding"
+# Trailing slash: the browse route is registered at "/" under VIEW_PREFIX, so
+# linking to the bare prefix costs a 307 round trip on every navigation.
+MENU_URL: Final = f"{VIEW_PREFIX}/"
+
 PACKAGE: Final = "branding"
 
 # Modules this one depends on (kept as constants so the depends_on list doesn't

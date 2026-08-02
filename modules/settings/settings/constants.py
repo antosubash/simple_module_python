@@ -57,7 +57,9 @@ API_USER_PATH: Final = "/user/{scope_id}/{key}"
 
 # ── Menu ─────────────────────────────────────────────────────────────
 MENU_LABEL: Final = MODULE_NAME
-MENU_URL: Final = VIEW_PREFIX
+# Trailing slash: the browse route is registered at "/" under VIEW_PREFIX, so
+# linking to the bare prefix costs a 307 round trip on every navigation.
+MENU_URL: Final = f"{VIEW_PREFIX}/"
 MENU_ICON: Final = "settings"
 MENU_ORDER: Final = 200
 

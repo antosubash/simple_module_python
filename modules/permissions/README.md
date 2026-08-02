@@ -37,7 +37,7 @@ Guard a route:
 
 ```python
 from fastapi import APIRouter, Depends
-from permissions.deps import RequiresPermission   # type: ignore[import-not-found]
+from permissions.deps import RequiresPermission  # type: ignore[import-not-found]
 
 router = APIRouter()
 

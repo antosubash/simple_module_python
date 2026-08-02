@@ -38,7 +38,8 @@ SM_USERS_BOOTSTRAP_PASSWORD=change-me
 Program:
 
 ```python
-from auth.deps import CurrentUser    # type: ignore[import-not-found]
+from auth.deps import CurrentUser  # type: ignore[import-not-found]
+
 
 @router.get("/profile")
 async def profile(user: CurrentUser):

@@ -16,6 +16,7 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 
 from branding import constants
+from branding.constants import MENU_URL
 
 
 class BrandingModule(ModuleBase):
@@ -49,7 +50,7 @@ class BrandingModule(ModuleBase):
         registry.add(
             MenuItem(
                 label="Branding",
-                url="/branding",
+                url=MENU_URL,
                 icon="palette",
                 order=115,
                 section=MenuSection.SIDEBAR,
