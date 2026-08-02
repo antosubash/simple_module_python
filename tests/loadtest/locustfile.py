@@ -21,6 +21,9 @@ from locust import HttpUser, between, task
 _COOKIE = os.environ.get("SM_LOADTEST_COOKIE", "")
 _INERTIA = {"X-Inertia": "true"}
 _SEARCH_TERMS = ("john", "smith", "maria", "lee", "garcia", "son", "er", "a")
+# Faker's catch_phrase() vocabulary — these actually match seeded product names,
+# so the search path exercises real index lookups rather than empty result sets.
+_CATALOG_TERMS = ("solution", "system", "network", "matrix", "portal", "e")
 
 
 class AuthedUser(HttpUser):
@@ -80,3 +83,24 @@ class AuthedUser(HttpUser):
     @task(3)
     def feature_flags(self) -> None:
         self.client.get("/api/feature_flags/", name="/api/feature_flags/")
+
+    @task(14)
+    def catalog_list_api(self) -> None:
+        page = random.randint(1, 100)
+        self.client.get(
+            f"/api/catalog/products?page={page}&page_size=20",
+            name="/api/catalog/products",
+        )
+
+    @task(10)
+    def catalog_list_view(self) -> None:
+        page = random.randint(1, 100)
+        self.client.get(f"/catalog/?page={page}&page_size=20", headers=_INERTIA, name="/catalog/")
+
+    @task(6)
+    def catalog_search(self) -> None:
+        term = random.choice(_CATALOG_TERMS)
+        self.client.get(
+            f"/api/catalog/products?q={term}&page=1&page_size=20",
+            name="/api/catalog/products?q",
+        )

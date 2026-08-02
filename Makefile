@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings ci-build-packages worker beat worker-docker
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-seed-catalog loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings ci-build-packages worker beat worker-docker
 
 # Install
 install:
@@ -52,6 +52,15 @@ test-e2e:                   ## Run end-to-end browser smoke tests (requires `mak
 bench:                      ## Run pytest-benchmark suite (tests/benchmarks). Override args with BENCH_ARGS=...
 	uv run pytest -m perf --benchmark-enable --benchmark-columns=min,mean,median,max,stddev,ops,rounds $(BENCH_ARGS) tests/benchmarks
 
+# Navigation benchmark — click-to-paint for Inertia client-side navigations.
+# Separate from `bench` because it needs a live server and a browser, whereas
+# `bench` runs in-process. Point PERF_BASE_URL at the server under test and set
+# PERF_BUILD=dev|prod so the report records which build produced the numbers.
+PERF_ROUNDS ?= 20
+PERF_BUILD ?= dev
+bench-nav:                  ## Navigation benchmark (needs a running server + `uv run playwright install chromium`)
+	PERF_ROUNDS=$(PERF_ROUNDS) PERF_BUILD=$(PERF_BUILD) uv run pytest -m "perf and e2e" tests/perf -v -s
+
 # Memory profiling with memray. Point TARGET at any runnable script/module.
 # Examples:
 #   make memray-run TARGET="-m pytest tests/benchmarks -m perf --benchmark-disable"
@@ -76,6 +85,10 @@ LOCUST_HOST ?= http://localhost:8000
 LOCUST_ARGS ?= -u 20 -r 5 -t 30s
 loadtest-seed:              ## Seed realistic faker data into $$SM_DATABASE_URL (users + audit)
 	uv run python tests/loadtest/seed.py $(SEED_ARGS)
+
+CATALOG_SEED_ARGS ?=
+loadtest-seed-catalog:      ## Seed faker catalog products into $$SM_DATABASE_URL
+	uv run python tests/loadtest/seed_catalog.py $(CATALOG_SEED_ARGS)
 
 loadtest:                   ## Run locust against a server already on $(LOCUST_HOST)
 	uv run locust -f tests/loadtest/locustfile.py --host $(LOCUST_HOST) --headless $(LOCUST_ARGS)
