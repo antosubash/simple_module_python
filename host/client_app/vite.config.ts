@@ -125,7 +125,19 @@ const fakeWorkspaceImporter = path.join(projectRoot, 'package.json');
 // Chunks smaller than this get merged into their importer. See build.rollupOptions.
 const MIN_CHUNK_BYTES = 20_000;
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // Built chunks record their lazy-import dependencies as base-relative paths
+  // ("assets/Browse-x.js"), and Vite's __vitePreload helper prefixes them with
+  // `base`. The host serves the build under /static/dist/, so the default base
+  // of "/" made every preload request /assets/... — which the SPA fallback
+  // answered with HTML, producing a 404 plus a MIME-type console error on
+  // every lazy page load. The page still worked, because the *actual* dynamic
+  // import uses a relative "./" specifier; only the preloads were wasted.
+  //
+  // Build only: in dev the host points <script> straight at
+  // ${SM_VITE_DEV_URL}/main.tsx, and a base here would move the dev server's
+  // served paths out from under it.
+  base: command === 'build' ? '/static/dist/' : '/',
   plugins: [
     moduleBareImportResolver(),
     react(),
@@ -235,4 +247,4 @@ export default defineConfig({
       allow: [projectRoot, ...moduleFsAllow],
     },
   },
-});
+}));

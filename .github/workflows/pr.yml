@@ -293,7 +293,7 @@ jobs:
           # wrong bundle and pass vacuously.
           curl -sf http://localhost:8000/users/login | grep -q '/static/dist/assets/' \
             || { echo "server is not serving built assets"; exit 1; }
-      - run: uv run pytest -m "perf and e2e" tests/perf/test_page_load.py -v -s
+      - run: uv run pytest -m "perf and e2e" tests/perf/test_page_load.py tests/perf/test_asset_integrity.py -v -s
       - name: Upload server log on failure
         if: failure()
         uses: actions/upload-artifact@v6
