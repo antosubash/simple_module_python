@@ -25,6 +25,12 @@ ROUTES = ("/catalog/", "/dashboard/")
 # reduction is ~70%; 40% leaves generous headroom for bundle changes while
 # still failing loudly if compression silently stops being applied.
 MIN_COMPRESSION_SAVING = 0.40
+# Cold load settled at 13-15 requests after chunk grouping, down from 55-63.
+# The server speaks HTTP/1.1, so every request past the browser's ~6-connection
+# limit adds a serial round trip; regressing here costs latency directly, not
+# bytes. Generous headroom for new modules, tight enough to catch the chunk
+# groups being dropped from vite.config.ts.
+MAX_COLD_LOAD_REQUESTS = 30
 
 
 @pytest.fixture
@@ -48,6 +54,12 @@ def test_cold_page_load_under_throttled_network(
     for route, metrics in report.items():
         assert metrics["fcp_ms"], f"{route}: no first-contentful-paint recorded"
         assert metrics["requests"] > 0, f"{route}: no resources recorded"
+        assert metrics["requests"] <= MAX_COLD_LOAD_REQUESTS, (
+            f"{route}: cold load makes {metrics['requests']} requests "
+            f"(limit {MAX_COLD_LOAD_REQUESTS}). Over HTTP/1.1 each request past "
+            "the ~6-connection limit is another serial round trip — are the "
+            "advancedChunks groups still declared in vite.config.ts?"
+        )
 
 
 def test_compression_materially_reduces_cold_load(
