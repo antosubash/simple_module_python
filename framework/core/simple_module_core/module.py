@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
 
     from simple_module_core.events import EventBus
+    from simple_module_core.design_packs import DesignPackRegistry
     from simple_module_core.feature_flags import FeatureFlagRegistry
     from simple_module_core.health import HealthRegistry
     from simple_module_core.menu import MenuRegistry
@@ -135,6 +136,19 @@ class ModuleBase(ABC):
         Rules are method-aware, so a GET read route nested under a prefix that
         also carries POST/PATCH mutations can be exempted without opening the
         mutations. Called once at boot, in dependency order.
+        """
+
+    def register_design_packs(self, registry: DesignPackRegistry) -> None:
+        """Contribute selectable site themes.
+
+        A design pack is a CSS bundle scoped to ``f"{value}-root"``. Register
+        the name here so the branding UI can offer it; the stylesheet itself
+        reaches the browser through the host's CSS entry point::
+
+            def register_design_packs(self, registry):
+                registry.register(DesignPack(value="gca", label="Canopy Atlas"))
+
+        Called once at boot, in dependency order.
         """
 
     def register_middleware(self, app: FastAPI) -> None:

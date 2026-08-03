@@ -11,6 +11,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
+from simple_module_core.design_packs import DesignPackRegistry
 from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagRegistry
@@ -165,6 +166,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     event_bus = EventBus()
     health_registry = HealthRegistry()
     public_route_registry = PublicRouteRegistry()
+    design_pack_registry = DesignPackRegistry()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -236,17 +238,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         _register_event_handlers(mod, event_bus, app)
         mod.register_health_checks(health_registry)
         mod.register_public_routes(public_route_registry)
+        mod.register_design_packs(design_pack_registry)
 
     attach_public_routes(app, settings, public_route_registry)
+    # Read by the branding module to offer the packs installed modules ship.
+    app.state.design_packs = design_pack_registry
 
     logger.info(
         "Registered %d menu items, %d permissions, %d feature flags, "
-        "%d health checks, %d public routes",
+        "%d health checks, %d public routes, %d design packs",
         len(menu_registry.all_items),
         len(perm_registry.all_permissions),
         len(ff_registry.all_flags),
         len(health_registry.all_checks),
         len(public_route_registry.routes),
+        len(design_pack_registry.all()),
     )
 
     # ── Phase 6: Initialize database ───────────────────────

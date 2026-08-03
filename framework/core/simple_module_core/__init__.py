@@ -28,6 +28,7 @@ from simple_module_core.feature_flags import (
     is_flag_enabled,
     require_flag,
 )
+from simple_module_core.design_packs import DesignPack, DesignPackRegistry
 from simple_module_core.health import HealthCheck, HealthCheckResult, HealthRegistry, HealthStatus
 from simple_module_core.i18n import I18nRegistry, Translator
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
@@ -40,6 +41,8 @@ from simple_module_core.versioning import FRAMEWORK_API_VERSION, check_framework
 __all__ = [
     "FRAMEWORK_API_VERSION",
     "CircularDependencyError",
+    "DesignPack",
+    "DesignPackRegistry",
     "DiagnosticLevel",
     "Event",
     "EventBus",
