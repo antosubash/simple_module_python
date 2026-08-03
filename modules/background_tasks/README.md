@@ -26,8 +26,7 @@ from celery import shared_task
 
 
 @shared_task(name="reports.generate")
-def generate_report(report_id: int) -> None:
-    ...
+def generate_report(report_id: int) -> None: ...
 ```
 
 Declaring `background_tasks` as a `depends_on` ensures the Celery app is built before your tasks run:
@@ -69,10 +68,11 @@ domain `job_id` that named a Celery task is the canonical example):
 from background_tasks import bind_task_context
 from celery import shared_task
 
+
 @shared_task
 def process_dataset(job_id: int) -> None:
     with bind_task_context(job_id=job_id):
-        logger.info("starting ingest")   # now carries job_id too
+        logger.info("starting ingest")  # now carries job_id too
 ```
 
 Bindings nest cleanly and restore on exit. structlog users can mount the

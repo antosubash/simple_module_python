@@ -88,18 +88,22 @@ When you write your own module, declare settings as a `pydantic_settings.BaseSet
 # modules/orders/orders/settings.py
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class OrdersSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="SM_ORDERS_", extra="ignore")
 
     max_items_per_order: int = 100
 
+
 # modules/orders/orders/services.py
 from dataclasses import dataclass
 from orders.settings import OrdersSettings
 
+
 @dataclass
 class OrdersServices:
     settings: OrdersSettings
+
 
 # modules/orders/orders/module.py
 class OrdersModule(ModuleBase):

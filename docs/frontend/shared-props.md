@@ -70,6 +70,7 @@ def _serialize_principal(user: UserContext) -> dict:
         "roles": user.roles,
     }
 
+
 class AuthModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
         app.state.auth = AuthState()
@@ -83,15 +84,17 @@ Without a registered serializer, `auth.user` is `None` even when a user is authe
 Populated from the `MenuRegistry`. Each module adds items during `register_menu_items`:
 
 ```python
-registry.add(MenuItem(
-    section=MenuSection.SIDEBAR,
-    label="Orders",
-    url="/orders",
-    icon="package",
-    requires_auth=True,
-    roles=["admin"],   # empty list = visible to all authenticated users
-    order=20,
-))
+registry.add(
+    MenuItem(
+        section=MenuSection.SIDEBAR,
+        label="Orders",
+        url="/orders",
+        icon="package",
+        requires_auth=True,
+        roles=["admin"],  # empty list = visible to all authenticated users
+        order=20,
+    )
+)
 ```
 
 `menu_registry.get_for_user(is_authenticated=..., roles=...)` filters by `requires_auth` and `roles` before sending — users without a matching role never see the item.

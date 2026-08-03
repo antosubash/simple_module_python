@@ -9,15 +9,19 @@ Inside a module's `register_permissions(registry)`:
 ```python
 from simple_module_core.permissions import PermissionRegistry
 
+
 class OrdersModule(ModuleBase):
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group("Orders", [
-            "orders.view",
-            "orders.create",
-            "orders.edit",
-            "orders.delete",
-            "orders.export",
-        ])
+        registry.add_group(
+            "Orders",
+            [
+                "orders.view",
+                "orders.create",
+                "orders.edit",
+                "orders.delete",
+                "orders.export",
+            ],
+        )
 ```
 
 The group name (`"Orders"`) is the display label in the role editor. Permission strings conventionally use `<module>.<verb>` lowercase.
@@ -90,12 +94,14 @@ The active auth provider (the `users` or `keycloak` module) owns extraction from
 `MenuItem.roles` hides an item from users who hold none of the listed roles (an empty list = visible to all authenticated users); `requires_auth` (default `True`) hides it from anonymous visitors. Filtering happens in `MenuRegistry.get_for_user`, called by `InertiaLayoutDataMiddleware` *before* the menu reaches the client — so the client never sees menu items it can't use.
 
 ```python
-registry.add(MenuItem(
-    section=MenuSection.SIDEBAR,
-    label="orders.menu.orders",
-    url="/orders",
-    roles=["admin"],
-))
+registry.add(
+    MenuItem(
+        section=MenuSection.SIDEBAR,
+        label="orders.menu.orders",
+        url="/orders",
+        roles=["admin"],
+    )
+)
 ```
 
 Menu visibility is **role**-based (`MenuItem` has no `required_permission` field) — see `simple_module_core.menu`. Enforce the actual permission on the endpoint with `RequiresPermission`.
@@ -133,9 +139,7 @@ async def test_create_requires_permission(client, db_session):
     # users.bootstrap only ships create_admin).
     ...
     # Sign in via the local-auth API to get the session cookie.
-    r = await client.post(
-        "/api/users/auth/login", data={"username": "u@e.com", "password": "x"}
-    )
+    r = await client.post("/api/users/auth/login", data={"username": "u@e.com", "password": "x"})
     assert r.status_code in (200, 204)
 
     r = await client.post("/api/orders", json={...})

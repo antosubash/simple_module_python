@@ -322,6 +322,7 @@ def create_app_project(
     from simple_module_hosting.cli.catalog import CATALOG, PRESETS, expand_deps
     from simple_module_hosting.cli.recipes import RECIPES, ScaffoldCtx
     from simple_module_hosting.scaffolding import create_host
+
     ...
 ```
 
@@ -700,6 +701,7 @@ def create_app_project(
     from simple_module.catalog import CATALOG, PRESETS, expand_deps
     from simple_module.recipes import RECIPES, ScaffoldCtx
     from simple_module.scaffolding import create_host
+
     ...
 ```
 
@@ -939,9 +941,7 @@ def new_project(
             raise typer.Exit(code=1)
 
     try:
-        create_app_project(
-            target, name=name, db=db_value, tenancy=tenancy_value, selected=resolved
-        )
+        create_app_project(target, name=name, db=db_value, tenancy=tenancy_value, selected=resolved)
     except FileExistsError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(code=1) from exc
@@ -995,9 +995,7 @@ _PRESET_CHOICES = ("minimal", "standard", "full", "custom")
 
 
 def run_wizard(*, default_db: str, default_tenancy: bool) -> tuple[str, bool, list[str]]:
-    db = typer.prompt(
-        "Database backend", default=default_db, type=str
-    )
+    db = typer.prompt("Database backend", default=default_db, type=str)
     if db not in ("sqlite", "postgres"):
         typer.echo(f"Invalid database: {db!r}; expected sqlite or postgres", err=True)
         raise typer.Abort()
@@ -1262,10 +1260,12 @@ The two tests that import `from simple_module_hosting.cli import main` (`framewo
 ```python
 # Before
 from simple_module_hosting.cli import main
+
 runner.invoke(main, ["create-host", ...])
 
 # After
 from simple_module.cli import app
+
 runner.invoke(app, ["create-host", ...])
 ```
 
@@ -1376,9 +1376,7 @@ def test_discover_mounts_valid_plugin(monkeypatch, fake_plugin_module) -> None:
 
 def test_discover_skips_broken_plugin(monkeypatch) -> None:
     bad = _make_entry("broken", "nonexistent_module:app")
-    monkeypatch.setattr(
-        "simple_module.plugins._iter_plugin_entries", lambda: [bad]
-    )
+    monkeypatch.setattr("simple_module.plugins._iter_plugin_entries", lambda: [bad])
     root = typer.Typer()
     discover_and_mount(root)  # should not raise
 
@@ -1390,9 +1388,7 @@ def test_discover_skips_broken_plugin(monkeypatch) -> None:
 def test_discover_warns_on_duplicate_subgroup(monkeypatch, fake_plugin_module, capsys) -> None:
     a = _make_entry("dup", fake_plugin_module)
     b = _make_entry("dup", fake_plugin_module)
-    monkeypatch.setattr(
-        "simple_module.plugins._iter_plugin_entries", lambda: [a, b]
-    )
+    monkeypatch.setattr("simple_module.plugins._iter_plugin_entries", lambda: [a, b])
     root = typer.Typer()
     discover_and_mount(root)
     captured = capsys.readouterr()
@@ -1461,8 +1457,7 @@ def discover_and_mount(root: typer.Typer) -> None:
             plugin_app = entry.load()
         except Exception as exc:  # noqa: BLE001 — plugin authors can fail in any way
             print(
-                f"[simple-module] failed to load plugin '{entry.name}' "
-                f"({entry.value}): {exc}",
+                f"[simple-module] failed to load plugin '{entry.name}' ({entry.value}): {exc}",
                 file=sys.stderr,
             )
             continue
@@ -1542,9 +1537,7 @@ def test_help_lists_gen_pages_and_sync_js_deps() -> None:
 
 def test_gen_pages_errors_on_missing_client_app(tmp_path: Path) -> None:
     runner = CliRunner()
-    result = runner.invoke(
-        app, ["gen-pages", "--host-dir", str(tmp_path / "does-not-exist")]
-    )
+    result = runner.invoke(app, ["gen-pages", "--host-dir", str(tmp_path / "does-not-exist")])
     assert result.exit_code != 0
     assert "not found" in result.output.lower() or "not found" in (result.stderr or "").lower()
 ```
@@ -1660,8 +1653,14 @@ def sync_js_deps(
         workspace = str(host_client_app.resolve())
 
     cmd = [
-        npm, "install", "--workspace", workspace,
-        "--save=false", "--no-audit", "--no-fund", *deduped,
+        npm,
+        "install",
+        "--workspace",
+        workspace,
+        "--save=false",
+        "--no-audit",
+        "--no-fund",
+        *deduped,
     ]
     typer.echo("Installing module JS deps:")
     for spec in deduped:
@@ -1957,7 +1956,18 @@ from importlib.metadata import distribution
 
 def _normalize(req: str) -> str:
     """'typer (>=0.12)' -> 'typer'. Strip version specs + extras + spaces."""
-    return req.split(";")[0].split("(")[0].split(">=")[0].split(">")[0].split("<")[0].split("==")[0].split("[")[0].strip().lower().replace("_", "-")
+    return (
+        req.split(";")[0]
+        .split("(")[0]
+        .split(">=")[0]
+        .split(">")[0]
+        .split("<")[0]
+        .split("==")[0]
+        .split("[")[0]
+        .strip()
+        .lower()
+        .replace("_", "-")
+    )
 
 
 def test_simple_module_runtime_deps_are_minimal() -> None:
@@ -1966,8 +1976,7 @@ def test_simple_module_runtime_deps_are_minimal() -> None:
     # Allowed: declared deps + their transitive obligations are NOT checked here;
     # only the direct deps of `simple-module` itself.
     assert names == {"typer", "tomlkit"}, (
-        f"simple-module direct deps drifted; got {sorted(names)}, "
-        "expected {'typer', 'tomlkit'}"
+        f"simple-module direct deps drifted; got {sorted(names)}, expected {{'typer', 'tomlkit'}}"
     )
 ```
 

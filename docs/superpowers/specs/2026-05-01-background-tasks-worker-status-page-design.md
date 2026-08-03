@@ -74,7 +74,8 @@ class WorkerInfo(SQLModel):
     active_task_count: int = 0
     pool_size: int | None = None
     total_processed: int | None = None  # sum across stats()['total']
-    software: str | None = None         # e.g. "celery:5.3.6"
+    software: str | None = None  # e.g. "celery:5.3.6"
+
 
 class WorkerSnapshot(SQLModel):
     broker_reachable: bool

@@ -155,15 +155,27 @@ async def test_list_users_status_disabled_filter(users_db):
     from users.models import User
 
     pw = PasswordHelper()
-    users_db.add(User(
-        id=_uuid.uuid4(), email="active@x.com", hashed_password=pw.hash("x"),
-        is_active=True, is_superuser=False, is_verified=True,
-    ))
-    users_db.add(User(
-        id=_uuid.uuid4(), email="off@x.com", hashed_password=pw.hash("x"),
-        is_active=False, is_superuser=False, is_verified=True,
-        disabled_at=datetime.now(UTC),
-    ))
+    users_db.add(
+        User(
+            id=_uuid.uuid4(),
+            email="active@x.com",
+            hashed_password=pw.hash("x"),
+            is_active=True,
+            is_superuser=False,
+            is_verified=True,
+        )
+    )
+    users_db.add(
+        User(
+            id=_uuid.uuid4(),
+            email="off@x.com",
+            hashed_password=pw.hash("x"),
+            is_active=False,
+            is_superuser=False,
+            is_verified=True,
+            disabled_at=datetime.now(UTC),
+        )
+    )
     await users_db.flush()
 
     svc = UserService(users_db, UserManager(None))
@@ -197,12 +209,20 @@ async def test_list_users_role_filter(users_db):
     admin_role = (await users_db.execute(select(Role).where(Role.name == "admin"))).scalar_one()
 
     admin_user = User(
-        id=_uuid.uuid4(), email="role-a@x.com", hashed_password=pw.hash("x"),
-        is_active=True, is_superuser=False, is_verified=True,
+        id=_uuid.uuid4(),
+        email="role-a@x.com",
+        hashed_password=pw.hash("x"),
+        is_active=True,
+        is_superuser=False,
+        is_verified=True,
     )
     plain_user = User(
-        id=_uuid.uuid4(), email="role-b@x.com", hashed_password=pw.hash("x"),
-        is_active=True, is_superuser=False, is_verified=True,
+        id=_uuid.uuid4(),
+        email="role-b@x.com",
+        hashed_password=pw.hash("x"),
+        is_active=True,
+        is_superuser=False,
+        is_verified=True,
     )
     users_db.add(admin_user)
     users_db.add(plain_user)
@@ -225,10 +245,26 @@ async def test_list_users_verified_filter(users_db):
     from users.models import User
 
     pw = PasswordHelper()
-    users_db.add(User(id=_uuid.uuid4(), email="v@x.com", hashed_password=pw.hash("x"),
-        is_active=True, is_superuser=False, is_verified=True))
-    users_db.add(User(id=_uuid.uuid4(), email="u@x.com", hashed_password=pw.hash("x"),
-        is_active=True, is_superuser=False, is_verified=False))
+    users_db.add(
+        User(
+            id=_uuid.uuid4(),
+            email="v@x.com",
+            hashed_password=pw.hash("x"),
+            is_active=True,
+            is_superuser=False,
+            is_verified=True,
+        )
+    )
+    users_db.add(
+        User(
+            id=_uuid.uuid4(),
+            email="u@x.com",
+            hashed_password=pw.hash("x"),
+            is_active=True,
+            is_superuser=False,
+            is_verified=False,
+        )
+    )
     await users_db.flush()
 
     svc = UserService(users_db, UserManager(None))
@@ -248,13 +284,38 @@ async def test_list_users_sort_last_login_desc_nulls_last(users_db):
 
     pw = PasswordHelper()
     now = datetime.now(UTC)
-    users_db.add(User(id=_uuid.uuid4(), email="recent@x.com", hashed_password=pw.hash("x"),
-        is_active=True, is_superuser=False, is_verified=True, last_login_at=now))
-    users_db.add(User(id=_uuid.uuid4(), email="old@x.com", hashed_password=pw.hash("x"),
-        is_active=True, is_superuser=False, is_verified=True,
-        last_login_at=now - timedelta(days=7)))
-    users_db.add(User(id=_uuid.uuid4(), email="never@x.com", hashed_password=pw.hash("x"),
-        is_active=True, is_superuser=False, is_verified=True))
+    users_db.add(
+        User(
+            id=_uuid.uuid4(),
+            email="recent@x.com",
+            hashed_password=pw.hash("x"),
+            is_active=True,
+            is_superuser=False,
+            is_verified=True,
+            last_login_at=now,
+        )
+    )
+    users_db.add(
+        User(
+            id=_uuid.uuid4(),
+            email="old@x.com",
+            hashed_password=pw.hash("x"),
+            is_active=True,
+            is_superuser=False,
+            is_verified=True,
+            last_login_at=now - timedelta(days=7),
+        )
+    )
+    users_db.add(
+        User(
+            id=_uuid.uuid4(),
+            email="never@x.com",
+            hashed_password=pw.hash("x"),
+            is_active=True,
+            is_superuser=False,
+            is_verified=True,
+        )
+    )
     await users_db.flush()
 
     svc = UserService(users_db, UserManager(None))
@@ -276,77 +337,75 @@ Expected: all FAIL with TypeError on unknown kwargs.
 Replace `modules/users/users/service.py:65-91` with:
 
 ```python
-    async def list_users(
-        self,
-        *,
-        page: int = 1,
-        per_page: int = 20,
-        search: str | None = None,
-        status: str | None = None,
-        role_name: str | None = None,
-        verified: str | None = None,
-        sort: str = "email",
-        order: str = "asc",
-    ) -> tuple[list[UserListItem], int]:
-        """Returns (items, total_count).
+async def list_users(
+    self,
+    *,
+    page: int = 1,
+    per_page: int = 20,
+    search: str | None = None,
+    status: str | None = None,
+    role_name: str | None = None,
+    verified: str | None = None,
+    sort: str = "email",
+    order: str = "asc",
+) -> tuple[list[UserListItem], int]:
+    """Returns (items, total_count).
 
-        Filters:
-          - search: email/full_name ILIKE pattern
-          - status: "active" | "disabled" | None (=all)
-          - role_name: users holding this role
-          - verified: "yes" | "no" | None (=all)
-        Sort columns: "email" | "last_login_at" | "created_at"
-        Order: "asc" | "desc". last_login_at sorts NULLs last in both directions.
-        """
-        stmt = select(User).options(selectinload(User.roles))
-        count_stmt = select(func.count()).select_from(User)
+    Filters:
+      - search: email/full_name ILIKE pattern
+      - status: "active" | "disabled" | None (=all)
+      - role_name: users holding this role
+      - verified: "yes" | "no" | None (=all)
+    Sort columns: "email" | "last_login_at" | "created_at"
+    Order: "asc" | "desc". last_login_at sorts NULLs last in both directions.
+    """
+    stmt = select(User).options(selectinload(User.roles))
+    count_stmt = select(func.count()).select_from(User)
 
-        conditions = []
-        if search:
-            pattern = f"%{search}%"
-            conditions.append(
-                or_(User.email.ilike(pattern), User.full_name.ilike(pattern))
-            )
-        if status == "active":
-            conditions.append(User.is_active.is_(True))
-        elif status == "disabled":
-            conditions.append(User.is_active.is_(False))
-        if verified == "yes":
-            conditions.append(User.is_verified.is_(True))
-        elif verified == "no":
-            conditions.append(User.is_verified.is_(False))
-        if role_name:
-            subq = (
-                select(UserRole.user_id)
-                .join(Role, Role.id == UserRole.role_id)
-                .where(Role.name == role_name)
-            )
-            conditions.append(User.id.in_(subq))
+    conditions = []
+    if search:
+        pattern = f"%{search}%"
+        conditions.append(or_(User.email.ilike(pattern), User.full_name.ilike(pattern)))
+    if status == "active":
+        conditions.append(User.is_active.is_(True))
+    elif status == "disabled":
+        conditions.append(User.is_active.is_(False))
+    if verified == "yes":
+        conditions.append(User.is_verified.is_(True))
+    elif verified == "no":
+        conditions.append(User.is_verified.is_(False))
+    if role_name:
+        subq = (
+            select(UserRole.user_id)
+            .join(Role, Role.id == UserRole.role_id)
+            .where(Role.name == role_name)
+        )
+        conditions.append(User.id.in_(subq))
 
-        if conditions:
-            for cond in conditions:
-                stmt = stmt.where(cond)
-                count_stmt = count_stmt.where(cond)
+    if conditions:
+        for cond in conditions:
+            stmt = stmt.where(cond)
+            count_stmt = count_stmt.where(cond)
 
-        total = (await self._db.execute(count_stmt)).scalar_one()
+    total = (await self._db.execute(count_stmt)).scalar_one()
 
-        sort_col = {
-            "email": User.email,
-            "last_login_at": User.last_login_at,
-            "created_at": User.created_at,
-        }.get(sort, User.email)
-        if sort == "last_login_at":
-            # Always NULLs last — admins picking recency don't want never-logged-in on top
-            order_clause = (
-                sort_col.desc().nulls_last() if order == "desc" else sort_col.asc().nulls_last()
-            )
-        else:
-            order_clause = sort_col.desc() if order == "desc" else sort_col.asc()
-        stmt = stmt.order_by(order_clause).offset((page - 1) * per_page).limit(per_page)
+    sort_col = {
+        "email": User.email,
+        "last_login_at": User.last_login_at,
+        "created_at": User.created_at,
+    }.get(sort, User.email)
+    if sort == "last_login_at":
+        # Always NULLs last — admins picking recency don't want never-logged-in on top
+        order_clause = (
+            sort_col.desc().nulls_last() if order == "desc" else sort_col.asc().nulls_last()
+        )
+    else:
+        order_clause = sort_col.desc() if order == "desc" else sort_col.asc()
+    stmt = stmt.order_by(order_clause).offset((page - 1) * per_page).limit(per_page)
 
-        rows = (await self._db.execute(stmt)).scalars().all()
-        items = [await self.to_list_item(u) for u in rows]
-        return items, total
+    rows = (await self._db.execute(stmt)).scalars().all()
+    items = [await self.to_list_item(u) for u in rows]
+    return items, total
 ```
 
 - [ ] **Step 2.6: Run filter tests — must pass**
@@ -389,6 +448,7 @@ class TestAdminListFilters:
         await _make_user(users_db, email="on@x.com")
         # Build a disabled user directly
         from datetime import UTC, datetime
+
         u = await _make_user(users_db, email="off@x.com")
         u.is_active = False
         u.disabled_at = datetime.now(UTC)
@@ -411,6 +471,7 @@ class TestAdminListFilters:
     @pytest.mark.anyio
     async def test_sort_last_login_desc(self, admin_client, users_db):
         from datetime import UTC, datetime, timedelta
+
         now = datetime.now(UTC)
         a = await _make_user(users_db, email="alpha@x.com")
         b = await _make_user(users_db, email="beta@x.com")
@@ -418,9 +479,7 @@ class TestAdminListFilters:
         b.last_login_at = now
         await users_db.commit()
 
-        resp = await admin_client.get(
-            "/api/users/admin?sort=last_login_at&order=desc&per_page=50"
-        )
+        resp = await admin_client.get("/api/users/admin?sort=last_login_at&order=desc&per_page=50")
         assert resp.status_code == 200
         emails = [u["email"] for u in resp.json()]
         assert emails.index("beta@x.com") < emails.index("alpha@x.com")
@@ -650,8 +709,12 @@ async def test_mark_verified_sets_flag_and_is_idempotent(users_db):
 
     pw = PasswordHelper()
     user = User(
-        id=_uuid.uuid4(), email="unv@x.com", hashed_password=pw.hash("x"),
-        is_active=True, is_superuser=False, is_verified=False,
+        id=_uuid.uuid4(),
+        email="unv@x.com",
+        hashed_password=pw.hash("x"),
+        is_active=True,
+        is_superuser=False,
+        is_verified=False,
     )
     users_db.add(user)
     await users_db.flush()
@@ -725,6 +788,7 @@ class TestAdminVerify:
     @pytest.mark.anyio
     async def test_verify_unknown_returns_404(self, admin_client):
         import uuid as _uuid
+
         resp = await admin_client.patch(f"/api/users/admin/{_uuid.uuid4()}/verify")
         assert resp.status_code == 404
 ```
@@ -791,8 +855,10 @@ class TestAdminEditCrosslink:
         # Fake that the permissions module is installed by stubbing app.state.sm.modules
         class _FakeMeta:
             name = "Permissions"
+
         class _FakeMod:
             meta = _FakeMeta()
+
         original = app.state.sm.modules
         app.state.sm = app.state.sm._replace(modules=(*original, _FakeMod()))
         try:
@@ -851,9 +917,7 @@ async def admin_edit_page(
     except UserNotFoundError:
         raise HTTPException(status_code=404) from None
 
-    has_permissions = any(
-        m.meta.name == "Permissions" for m in request.app.state.sm.modules
-    )
+    has_permissions = any(m.meta.name == "Permissions" for m in request.app.state.sm.modules)
 
     return await inertia.render(
         "Users/Users/Edit",

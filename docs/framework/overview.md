@@ -77,12 +77,11 @@ Framework code must never import from `modules/*`. Diagnostic `SM009` enforces t
 class PrincipalSerializerRegistry:
     def register(self, fn: Callable[[User], dict]) -> None: ...
 
+
 # Module registers during register_settings
 class UsersModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
-        app.state.sm.inertia_config.register_principal_serializer(
-            serialize_user
-        )
+        app.state.sm.inertia_config.register_principal_serializer(serialize_user)
 ```
 
 This is how the `auth.user` shared prop is built: framework middleware calls whatever serializer the `users` module registered — without importing `users`.

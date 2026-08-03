@@ -69,14 +69,15 @@ my_module = "my_module.module:MyModule"
 ```python
 from simple_module_core import ModuleBase, ModuleMeta
 
+
 class MyModule(ModuleBase):
     meta = ModuleMeta(
         name="MyModule",
         route_prefix="/api/my-module",
         view_prefix="/my-module",
-        depends_on=[],                   # other module names
-        version="0.1.0",                 # your module's semver
-        requires_framework=">=1.0,<2.0", # framework API range
+        depends_on=[],  # other module names
+        version="0.1.0",  # your module's semver
+        requires_framework=">=1.0,<2.0",  # framework API range
     )
 ```
 
@@ -130,6 +131,7 @@ FLAG_BULK_IMPORT = FeatureFlagDefinition(
 from simple_module_core import FeatureFlagRegistry, ModuleBase
 
 from my_module.constants import FLAG_BULK_IMPORT
+
 
 class MyModule(ModuleBase):
     def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
@@ -206,8 +208,8 @@ The host's `env.py` (scaffolded from the framework's template) calls:
 ```python
 from simple_module_db import build_module_metadata, make_include_object
 
-target_metadata = build_module_metadata()      # every installed module
-include_object  = make_include_object(target_metadata)
+target_metadata = build_module_metadata()  # every installed module
+include_object = make_include_object(target_metadata)
 ```
 
 `build_module_metadata()` imports each installed module's `<pkg>.models`
@@ -251,6 +253,7 @@ the wheel and expose it via `ModuleBase.static_mounts()`:
 
 ```python
 from importlib.resources import files
+
 
 class MyModule(ModuleBase):
     def static_mounts(self):
@@ -298,6 +301,7 @@ Example test:
 
 ```python
 from my_feature.module import MyFeatureModule
+
 
 async def test_api_emits_event(build_test_app, fake_event_bus):
     app = build_test_app(MyFeatureModule)

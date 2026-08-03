@@ -608,35 +608,36 @@ Expected: first test fails — `items_one` lookup only tries the base key.
 Replace the `Translator.t` method in `framework/core/simple_module_core/i18n.py` with:
 
 ```python
-    def t(self, key: str, **params: Any) -> str:
-        """Translate ``key`` with optional interpolation and plural resolution.
+def t(self, key: str, **params: Any) -> str:
+    """Translate ``key`` with optional interpolation and plural resolution.
 
-        When ``count`` is in params, look up ``<key>_<plural_form>`` using
-        Babel's CLDR plural rule for the active locale, falling back to
-        ``<key>_other`` and finally ``<key>``.
-        """
-        resolved_key = self._resolve_plural_key(key, params)
-        template = self._lookup(resolved_key)
-        if template is None and resolved_key != key:
-            template = self._lookup(key)
-        if template is None:
-            logger.debug("i18n: missing key '%s' in locale '%s'", key, self.locale)
-            return key
-        return template.format_map(_SafeFormatDict(params))
-
-    def _resolve_plural_key(self, key: str, params: dict[str, Any]) -> str:
-        count = params.get("count")
-        if count is None:
-            return key
-        form = _plural_form(self.locale, count)
-        # Prefer the exact form; fall back to _other if that form has no entry.
-        candidate = f"{key}_{form}"
-        if self._lookup(candidate) is not None:
-            return candidate
-        other = f"{key}_other"
-        if self._lookup(other) is not None:
-            return other
+    When ``count`` is in params, look up ``<key>_<plural_form>`` using
+    Babel's CLDR plural rule for the active locale, falling back to
+    ``<key>_other`` and finally ``<key>``.
+    """
+    resolved_key = self._resolve_plural_key(key, params)
+    template = self._lookup(resolved_key)
+    if template is None and resolved_key != key:
+        template = self._lookup(key)
+    if template is None:
+        logger.debug("i18n: missing key '%s' in locale '%s'", key, self.locale)
         return key
+    return template.format_map(_SafeFormatDict(params))
+
+
+def _resolve_plural_key(self, key: str, params: dict[str, Any]) -> str:
+    count = params.get("count")
+    if count is None:
+        return key
+    form = _plural_form(self.locale, count)
+    # Prefer the exact form; fall back to _other if that form has no entry.
+    candidate = f"{key}_{form}"
+    if self._lookup(candidate) is not None:
+        return candidate
+    other = f"{key}_other"
+    if self._lookup(other) is not None:
+        return other
+    return key
 ```
 
 Add the `_plural_form` helper above the class (after the imports):
@@ -760,12 +761,12 @@ from simple_module_core.i18n import I18nRegistry, Translator
 And in the `__all__` list (alphabetically):
 
 ```python
-    "I18nRegistry",
+("I18nRegistry",)
 ```
 (after `"HealthStatus"`)
 
 ```python
-    "Translator",
+("Translator",)
 ```
 (after `"PermissionRegistry"`)
 
@@ -1416,15 +1417,13 @@ Expected: 3 passed.
 In `framework/hosting/simple_module_hosting/app_builder.py`, find the block that emits `modules.generated.ts` (the `write_module_pages_manifest` call around lines 130-139). Immediately after it, add generation of resources:
 
 ```python
-        try:
-            from simple_module_hosting.i18n_manifest import write_generated_resources
+try:
+    from simple_module_hosting.i18n_manifest import write_generated_resources
 
-            if client_app.is_dir():
-                write_generated_resources(i18n_registry, client_app)
-        except Exception:
-            logger.exception(
-                "Failed to write generated-resources.ts — frontend types will be stale"
-            )
+    if client_app.is_dir():
+        write_generated_resources(i18n_registry, client_app)
+except Exception:
+    logger.exception("Failed to write generated-resources.ts — frontend types will be stale")
 ```
 
 - [ ] **Step 6: Commit**
@@ -2539,9 +2538,7 @@ class I18nDiagnostics:
                     Diagnostic(
                         level=DiagnosticLevel.WARNING,
                         code="SM013",
-                        message=(
-                            f"Missing locale file {locale}.json for namespace '{namespace}'"
-                        ),
+                        message=(f"Missing locale file {locale}.json for namespace '{namespace}'"),
                         module_name=module_name,
                         file=str(path),
                         suggestion=f"Create {path} (even if empty: '{{}}')",
@@ -2640,6 +2637,7 @@ def run_diagnostics(
 
     if i18n_supported_locales and i18n_default_locale:
         from simple_module_core.diagnostics._i18n import I18nDiagnostics
+
         diagnostics.extend(
             I18nDiagnostics(
                 supported_locales=i18n_supported_locales,
@@ -2657,9 +2655,7 @@ def run_diagnostics(
             )
         )
         if module_tables is not None and migrated_tables is not None:
-            diagnostics.extend(
-                migration_diag.check_table_coverage(module_tables, migrated_tables)
-            )
+            diagnostics.extend(migration_diag.check_table_coverage(module_tables, migrated_tables))
 
     return diagnostics
 ```
@@ -3172,11 +3168,11 @@ def locales_en_json(ctx: ScaffoldContext) -> str:
 }
 """ % (
         ctx.class_name,  # title
-        ctx.name,        # description plural
+        ctx.name,  # description plural
         ctx.singular_class,  # new button
-        ctx.name,        # search placeholder
-        ctx.name,        # empty title
-        ctx.singular,    # empty description
+        ctx.name,  # search placeholder
+        ctx.name,  # empty title
+        ctx.singular,  # empty description
         ctx.singular_class,  # create button
         ctx.singular_class,  # toast created
         ctx.singular_class,  # toast updated

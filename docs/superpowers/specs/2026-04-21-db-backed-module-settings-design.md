@@ -70,6 +70,7 @@ Keys in the `Setting` table are written as `"<package>.<field>"` to avoid collis
 def load_settings(cls: type[T]) -> T:
     """Construct a BaseSettings using pydantic defaults only (no DB, no env)."""
 
+
 async def hydrate_settings(cls: type[T], store: SettingsStore, package: str) -> T:
     """Return a BaseSettings where each field is (DB value > default)."""
 ```

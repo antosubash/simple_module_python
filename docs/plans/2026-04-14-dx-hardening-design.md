@@ -96,7 +96,7 @@ Keep the existing `SM001` diagnostic — it still helps dev users catch the issu
 
 ```python
 multi_tenant: bool = False
-tenant_header: str = ""            # empty → header source disabled
+tenant_header: str = ""  # empty → header source disabled
 ```
 
 In `app_builder`:

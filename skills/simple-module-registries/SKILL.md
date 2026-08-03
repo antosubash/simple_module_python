@@ -14,6 +14,7 @@ All four are populated in **Phase 5** of `app_builder.build_app`, in this per-mo
 ```python
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 
+
 class OrdersModule(ModuleBase):
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
@@ -23,7 +24,7 @@ class OrdersModule(ModuleBase):
                 icon="shopping-cart",
                 order=10,
                 section=MenuSection.SIDEBAR,
-                roles=["admin", "staff"],   # empty list = all authenticated users
+                roles=["admin", "staff"],  # empty list = all authenticated users
             )
         )
 ```
@@ -35,13 +36,17 @@ class OrdersModule(ModuleBase):
 ```python
 from simple_module_core.permissions import PermissionRegistry
 
+
 class OrdersModule(ModuleBase):
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group("Orders", [
-            "orders.view",
-            "orders.create",
-            "orders.delete",
-        ])
+        registry.add_group(
+            "Orders",
+            [
+                "orders.view",
+                "orders.create",
+                "orders.delete",
+            ],
+        )
         registry.map_role("staff", ["orders.view", "orders.create"])
 ```
 
@@ -56,13 +61,16 @@ To check inside an endpoint, depend on `RequiresPermission("<module>.<action>")`
 ```python
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 
+
 class OrdersModule(ModuleBase):
     def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
-        registry.add(FeatureFlagDefinition(
-            name="orders.bulk_import",
-            description="Enables the CSV bulk-import UI on /orders/import",
-            default_enabled=False,
-        ))
+        registry.add(
+            FeatureFlagDefinition(
+                name="orders.bulk_import",
+                description="Enables the CSV bulk-import UI on /orders/import",
+                default_enabled=False,
+            )
+        )
 ```
 
 **Resolution order at request time:** tenant override > system override > `default_enabled`. Per-tenant overrides come from the multi-tenant context (`request.state.tenant_id` from `TenantMiddleware`); system overrides come from the settings module's persisted overrides table.
@@ -101,6 +109,7 @@ The event bus is async and in-process (backed by `pyee`'s `AsyncIOEventEmitter`)
 from dataclasses import dataclass
 from simple_module_core.events import Event
 
+
 @dataclass
 class OrderPlaced(Event):
     order_id: int
@@ -113,12 +122,12 @@ class OrderPlaced(Event):
 from simple_module_core.events import EventBus
 from orders.contracts.events import OrderPlaced
 
+
 class NotificationsModule(ModuleBase):
     def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
         bus.subscribe(OrderPlaced, self._send_receipt)
 
-    async def _send_receipt(self, event: OrderPlaced) -> None:
-        ...
+    async def _send_receipt(self, event: OrderPlaced) -> None: ...
 ```
 
 ```python

@@ -106,9 +106,11 @@ class AuthSettings(BaseSettings):
     keycloak_client_id: str = "simple-module-app"
     keycloak_client_secret: str = ""
 
+
 # In AuthModule
 def register_settings(self, app: FastAPI) -> None:
     from sm_auth.settings import AuthSettings
+
     app.state.auth_settings = AuthSettings()
 ```
 

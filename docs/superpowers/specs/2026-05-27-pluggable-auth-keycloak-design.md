@@ -51,6 +51,7 @@ from typing import Protocol, runtime_checkable
 from starlette.requests import Request
 from auth.contracts.schemas import UserContext
 
+
 @runtime_checkable
 class AuthProvider(Protocol):
     name: str
@@ -97,8 +98,16 @@ Both `users` and `keycloak` modules implement this protocol. The active provider
 The current `users/middleware.py` hardcodes session-key reading and DB user loading. The new middleware delegates to the provider:
 
 ```python
-_FRAMEWORK_PUBLIC_PREFIXES = ("/health", "/static/", "/api/docs", "/api/redoc", "/openapi.json", "/i18n/")
+_FRAMEWORK_PUBLIC_PREFIXES = (
+    "/health",
+    "/static/",
+    "/api/docs",
+    "/api/redoc",
+    "/openapi.json",
+    "/i18n/",
+)
 _FRAMEWORK_PUBLIC_EXACT = ("/",)
+
 
 class AuthMiddleware:
     def __init__(self, app: ASGIApp) -> None:
@@ -201,9 +210,16 @@ class UsersAuthProvider:
 
     def get_public_paths(self) -> tuple[tuple[str, ...], tuple[str, ...]]:
         return (
-            ("/users/login", "/users/register", "/users/forgot-password",
-             "/users/reset-password", "/users/verify", "/users/invite/accept",
-             "/api/users/auth/", "/api/users/register"),
+            (
+                "/users/login",
+                "/users/register",
+                "/users/forgot-password",
+                "/users/reset-password",
+                "/users/verify",
+                "/users/invite/accept",
+                "/api/users/auth/",
+                "/api/users/register",
+            ),
             (),
         )
 
@@ -383,28 +399,32 @@ Purpose:
 
 ```python
 def _check_auth_provider_conflict(self, modules: list[ModuleBase]) -> list[Diagnostic]:
-    providers = [m for m in modules if getattr(m, '_is_auth_provider', False)]
+    providers = [m for m in modules if getattr(m, "_is_auth_provider", False)]
     if len(providers) > 1:
         names = ", ".join(m.meta.name for m in providers)
-        return [Diagnostic(
-            level=DiagnosticLevel.ERROR,
-            code="SM020",
-            message=f"Multiple auth provider modules installed: {names}",
-            suggestion="Install only one auth provider (e.g. 'users' OR 'keycloak', not both)",
-        )]
+        return [
+            Diagnostic(
+                level=DiagnosticLevel.ERROR,
+                code="SM020",
+                message=f"Multiple auth provider modules installed: {names}",
+                suggestion="Install only one auth provider (e.g. 'users' OR 'keycloak', not both)",
+            )
+        ]
     return []
 ```
 
 **SM021 — No auth provider.** Warns (not errors) if no auth provider is installed — allows headless/API-only deployments that handle auth externally.
 
 ```python
-    if len(providers) == 0:
-        return [Diagnostic(
+if len(providers) == 0:
+    return [
+        Diagnostic(
             level=DiagnosticLevel.WARNING,
             code="SM021",
             message="No auth provider module installed",
             suggestion="Install an auth provider module (e.g. 'simple-module-users' or 'simple-module-keycloak')",
-        )]
+        )
+    ]
 ```
 
 The marker `_is_auth_provider = True` is a class attribute on both `UsersModule` and `KeycloakModule`. In production (`strict=True`), SM020 (error) fails boot; SM021 (warning) logs only.

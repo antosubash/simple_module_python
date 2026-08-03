@@ -13,6 +13,7 @@ from sqlmodel import Field
 
 Base = create_module_base("orders")
 
+
 class Order(Base, AuditMixin, table=True):
     __tablename__ = "orders_order"
 
@@ -43,6 +44,7 @@ id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 ```python
 from sqlmodel import Field, Relationship
 
+
 class OrderLine(Base, table=True):
     __tablename__ = "orders_order_line"
 
@@ -66,12 +68,15 @@ from datetime import datetime
 from pydantic import ConfigDict
 from sqlmodel import Field, SQLModel
 
+
 class OrderCreate(SQLModel):
     customer_email: str = Field(min_length=1, max_length=200)
     total: Decimal = Field(ge=0)
 
+
 class OrderUpdate(SQLModel):
     status: str | None = Field(default=None, max_length=20)
+
 
 class OrderOut(SQLModel):
     model_config = ConfigDict(from_attributes=True)
@@ -129,6 +134,7 @@ SQLModel `Relationship` is the usual pattern:
 class Order(Base, table=True):
     id: int | None = Field(default=None, primary_key=True)
     lines: list["OrderLine"] = Relationship(back_populates="order")
+
 
 class OrderLine(Base, table=True):
     id: int | None = Field(default=None, primary_key=True)

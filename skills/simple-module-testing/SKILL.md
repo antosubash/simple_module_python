@@ -30,10 +30,12 @@ async def test_service_creates_order(db_session):
     order = await OrdersService(db_session).create(name="x")
     assert order.id is not None
 
+
 # API test — JSON endpoint
 async def test_api_lists_orders(authenticated_client):
     resp = await authenticated_client.get("/api/orders")
     assert resp.status_code == 200
+
 
 # View test — Inertia endpoint (X-Inertia header)
 async def test_view_renders_index(authenticated_client):

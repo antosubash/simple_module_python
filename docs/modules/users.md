@@ -90,14 +90,26 @@ Admin (`users.manage`):
 
 ```python
 from users.contracts.schemas import (
-    UserRead, UserCreate, UserUpdate, UserInvite,
-    UserAdminCreate, UserDetailsUpdate,
-    UserListItem, RoleListItem, RoleAssignment,
-    AcceptInviteRequest, PasswordResetLink, SelfProfileUpdate,
+    UserRead,
+    UserCreate,
+    UserUpdate,
+    UserInvite,
+    UserAdminCreate,
+    UserDetailsUpdate,
+    UserListItem,
+    RoleListItem,
+    RoleAssignment,
+    AcceptInviteRequest,
+    PasswordResetLink,
+    SelfProfileUpdate,
 )
 from users.contracts.events import (
-    UserRegistered, UserInvited, UserCreated, UserDeleted,
-    UserDisabled, RoleAssigned,
+    UserRegistered,
+    UserInvited,
+    UserCreated,
+    UserDeleted,
+    UserDisabled,
+    RoleAssigned,
 )
 ```
 

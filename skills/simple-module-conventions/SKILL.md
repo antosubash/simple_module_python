@@ -17,12 +17,14 @@ from simple_module_db.base import create_module_base
 
 Base = create_module_base("orders")
 
-class Order(Base, AuditMixin, table=True):           # table
+
+class Order(Base, AuditMixin, table=True):  # table
     __tablename__ = "orders_order"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=200)
 
-class OrderOut(SQLModel):                            # DTO — plain SQLModel, no table=True
+
+class OrderOut(SQLModel):  # DTO — plain SQLModel, no table=True
     model_config = ConfigDict(from_attributes=True)
     id: int
     name: str
@@ -39,8 +41,9 @@ Treat 300 lines as the design pressure on every `.py`, `.ts`, and `.tsx` file (t
 ```python
 class UsersModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
-        from users.settings import UsersSettings    # reads SM_USERS_* env
+        from users.settings import UsersSettings  # reads SM_USERS_* env
         from users.state import UsersState
+
         app.state.users = UsersState(settings=UsersSettings())
 ```
 

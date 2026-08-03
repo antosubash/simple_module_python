@@ -18,6 +18,7 @@ Anywhere a module has access to `app.state.sm.feature_flags` (typically inside `
 ```python
 from simple_module_core.feature_flags import FeatureFlag
 
+
 class OrdersModule(ModuleBase):
     def register_feature_flags(self, registry):
         registry.register(
@@ -35,6 +36,7 @@ Once registered, the flag shows up at `/feature_flags` in the admin UI. Unregist
 
 ```python
 from feature_flags.deps import FeatureFlagRegistryDep
+
 
 @router.post("/checkout")
 async def checkout(

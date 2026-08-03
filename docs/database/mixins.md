@@ -5,13 +5,21 @@ Standard mixins in `simple_module_db.mixins`. Compose as many as you need alongs
 ```python
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import (
-    AuditMixin, SoftDeleteMixin, MultiTenantMixin, VersionedMixin,
+    AuditMixin,
+    SoftDeleteMixin,
+    MultiTenantMixin,
+    VersionedMixin,
 )
 
 Base = create_module_base("orders")
 
+
 class Order(
-    Base, AuditMixin, SoftDeleteMixin, MultiTenantMixin, VersionedMixin,
+    Base,
+    AuditMixin,
+    SoftDeleteMixin,
+    MultiTenantMixin,
+    VersionedMixin,
     table=True,
 ):
     __tablename__ = "orders_order"
@@ -65,9 +73,8 @@ If you genuinely need to remove the row, call the underlying SQLAlchemy DELETE â
 
 ```python
 from sqlmodel import delete
-await session.exec(
-    delete(Order).where(Order.id == order_id)
-)
+
+await session.exec(delete(Order).where(Order.id == order_id))
 ```
 
 Use sparingly â€” audit trails and downstream systems may depend on historical rows.
@@ -118,9 +125,9 @@ Order matters only for MRO of columns that share names; the mixins here don't ov
 ```python
 class Order(
     Base,
-    AuditMixin,          # created/updated timestamps + author
-    SoftDeleteMixin,     # is_deleted flag + auto-filter
-    MultiTenantMixin,    # tenant_id + auto-filter
+    AuditMixin,  # created/updated timestamps + author
+    SoftDeleteMixin,  # is_deleted flag + auto-filter
+    MultiTenantMixin,  # tenant_id + auto-filter
     table=True,
 ):
     __tablename__ = "orders_order"

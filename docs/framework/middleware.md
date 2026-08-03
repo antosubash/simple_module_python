@@ -16,7 +16,7 @@ if settings.multi_tenant:
     app.add_middleware(TenantMiddleware, ...)
 
 for module in discovered_modules:
-    module.register_middleware(app)   # each module may add 0+ middleware
+    module.register_middleware(app)  # each module may add 0+ middleware
 
 app.add_middleware(SessionMiddleware, secret_key=...)
 app.add_middleware(SecurityHeadersMiddleware, ...)
@@ -66,11 +66,13 @@ Every record emitted via the stdlib `logging` setup configured by `setup_logging
 import structlog
 from simple_module_hosting.logging import correlation_id
 
+
 def add_correlation_id(_, __, event_dict):
     cid = correlation_id.get("")
     if cid:
         event_dict.setdefault("correlation_id", cid)
     return event_dict
+
 
 structlog.configure(
     processors=[
@@ -140,6 +142,7 @@ Use the Starlette pattern. Keep it asynchronous.
 # modules/orders/orders/middleware.py
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
+
 
 class OrdersRateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp, rate: int = 10) -> None:

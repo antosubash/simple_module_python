@@ -30,6 +30,7 @@ from simple_module_db.deps import get_db
 
 SessionDep = Annotated[AsyncSession, Depends(get_db)]
 
+
 @router.post("")
 async def create_order(data: OrderCreate, session: SessionDep): ...
 ```
@@ -40,8 +41,10 @@ Most modules wrap `get_db` in their own `deps.py` so the service is injected rat
 # modules/orders/orders/deps.py
 from orders.service import OrderService
 
+
 def _order_service(session: SessionDep) -> OrderService:
     return OrderService(session)
+
 
 OrderServiceDep = Annotated[OrderService, Depends(_order_service)]
 ```
@@ -78,7 +81,7 @@ Instead, **flush** when you need a DB-assigned value (e.g. an auto-generated `id
 async def create(self, data: OrderCreate) -> OrderOut:
     order = Order(**data.model_dump())
     self.session.add(order)
-    await self.session.flush()     # populates order.id, stays inside the transaction
+    await self.session.flush()  # populates order.id, stays inside the transaction
     # further logic can see order.id but won't persist until the dependency commits
     return OrderOut.model_validate(order)
 ```
@@ -91,6 +94,7 @@ If you need finer control — e.g. a background worker that processes many items
 
 ```python
 from simple_module_db import DatabaseState
+
 
 async def worker(db: DatabaseState):
     async with db.session_factory() as session:

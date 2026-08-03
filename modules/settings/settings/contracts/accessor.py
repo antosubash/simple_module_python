@@ -118,8 +118,8 @@ class SettingsAccessor:
     def bind(
         self,
         *,
-        user_id: str | None | _Unset = _UNSET,
-        tenant_id: str | None | _Unset = _UNSET,
+        user_id: str | _Unset | None = _UNSET,
+        tenant_id: str | _Unset | None = _UNSET,
     ) -> SettingsAccessor:
         """Return a new accessor with the given user/tenant overrides.
 

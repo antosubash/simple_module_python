@@ -71,9 +71,9 @@ Add Microsoft fields as plain `Field` (no `env_str`), grouped for the admin UI:
 
 ```python
 _MS_OAUTH = {"group": "Microsoft OAuth"}
-oauth_microsoft_client_id: str     = Field(default="",       json_schema_extra=_MS_OAUTH)
-oauth_microsoft_client_secret: str = Field(default="",       json_schema_extra=_MS_OAUTH)  # auto-masked
-oauth_microsoft_tenant: str        = Field(default="common", json_schema_extra=_MS_OAUTH)
+oauth_microsoft_client_id: str = Field(default="", json_schema_extra=_MS_OAUTH)
+oauth_microsoft_client_secret: str = Field(default="", json_schema_extra=_MS_OAUTH)  # auto-masked
+oauth_microsoft_tenant: str = Field(default="common", json_schema_extra=_MS_OAUTH)
 ```
 
 - Migrate the existing `oauth_google_*`, `oauth_github_*`, `oauth_oidc_*` fields
@@ -100,6 +100,7 @@ Documented as a security note.
 
   ```python
   from httpx_oauth.clients.microsoft import MicrosoftGraphOAuth2
+
   MicrosoftGraphOAuth2(
       settings.oauth_microsoft_client_id,
       settings.oauth_microsoft_client_secret,
@@ -154,8 +155,7 @@ the single dispatcher.
   ```python
   state.oauth_clients = build_client_map(s)
   state.oauth_providers = [
-      {"name": p.name, "display_name": p.display_name}
-      for p in state.oauth_clients.values()
+      {"name": p.name, "display_name": p.display_name} for p in state.oauth_clients.values()
   ]
   ```
 - Override `register_event_handlers(self, bus, app)`: subscribe to

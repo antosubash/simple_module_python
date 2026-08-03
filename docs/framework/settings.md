@@ -43,6 +43,7 @@ Each module that needs configuration declares a **`<Module>Env`** pydantic-setti
 # modules/users/users/settings.py
 from pydantic_settings import BaseSettings
 
+
 class UsersEnv(BaseSettings):
     allow_signup: bool = False
     mailer: str = "console"
@@ -60,10 +61,11 @@ class UsersEnv(BaseSettings):
 # modules/users/users/state.py
 from dataclasses import dataclass
 
+
 @dataclass
 class UsersState:
     settings: UsersEnv
-    mailer: Mailer              # picked based on settings.mailer
+    mailer: Mailer  # picked based on settings.mailer
     principal_serializer: Callable[[User], dict]
 ```
 
@@ -92,6 +94,7 @@ class UsersModule(ModuleBase):
 ```python
 from fastapi import Request
 
+
 @router.get("/config")
 async def users_config(request: Request):
     state = request.app.state.users
@@ -105,10 +108,13 @@ Or as a typed dependency — cleaner when you use it in many handlers:
 from typing import Annotated
 from fastapi import Depends, Request
 
+
 def _users_state(request: Request) -> UsersState:
     return request.app.state.users
 
+
 UsersStateDep = Annotated[UsersState, Depends(_users_state)]
+
 
 @router.get("/config")
 async def users_config(state: UsersStateDep):

@@ -32,6 +32,7 @@ The pattern (pydantic `BaseSettings` subclass + `register_module_settings` in `r
 ```python
 from settings.contracts import SettingsDep
 
+
 @router.get("/check")
 async def check(settings: SettingsDep) -> dict:
     if await settings.get_bool("orders.beta", default=False):
@@ -55,6 +56,7 @@ async def check(settings: SettingsDep) -> dict:
 
 ```python
 from settings.contracts import SettingsRegistry, SettingDefinition
+
 
 class OrdersModule(ModuleBase):
     def register_settings(self, app):
@@ -108,9 +110,16 @@ All write endpoints require `settings.edit` / `settings.create` / `settings.dele
 
 ```python
 from settings.contracts import (
-    SettingOut, SettingCreate, SettingUpdate, SettingUpsert,
-    SettingScope, SettingValueType,
-    SettingsAccessor, SettingsDep, SettingsRegistry, SettingDefinition,
+    SettingOut,
+    SettingCreate,
+    SettingUpdate,
+    SettingUpsert,
+    SettingScope,
+    SettingValueType,
+    SettingsAccessor,
+    SettingsDep,
+    SettingsRegistry,
+    SettingDefinition,
     SettingsReloaded,
 )
 ```

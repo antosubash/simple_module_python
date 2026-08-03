@@ -32,6 +32,7 @@ class OrdersModule(ModuleBase):
 
     def register_routes(self, api_router, view_router):
         from .endpoints import api, views
+
         api_router.include_router(api.router)
         view_router.include_router(views.router)
 ```

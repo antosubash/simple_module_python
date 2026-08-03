@@ -40,14 +40,16 @@ Add entries to the global `MenuRegistry`. Items are grouped by `MenuSection` and
 
 ```python
 def register_menu_items(self, registry: MenuRegistry) -> None:
-    registry.add(MenuItem(
-        section=MenuSection.SIDEBAR,
-        label="orders.menu.orders",     # i18n key, resolved client-side
-        url="/orders",
-        icon="package",
-        roles=["admin"],                # empty = all authenticated users
-        order=20,
-    ))
+    registry.add(
+        MenuItem(
+            section=MenuSection.SIDEBAR,
+            label="orders.menu.orders",  # i18n key, resolved client-side
+            url="/orders",
+            icon="package",
+            roles=["admin"],  # empty = all authenticated users
+            order=20,
+        )
+    )
 ```
 
 `roles` filters the item to users holding at least one of the listed roles (empty list = visible to all authenticated users); `requires_auth` (default `True`) hides it from anonymous visitors. `order` is a stable sort key (lower = earlier).
@@ -60,9 +62,15 @@ Declare permission strings your module enforces. Grouped by a display name for t
 
 ```python
 def register_permissions(self, registry: PermissionRegistry) -> None:
-    registry.add_group("Orders", [
-        "orders.view", "orders.create", "orders.edit", "orders.delete",
-    ])
+    registry.add_group(
+        "Orders",
+        [
+            "orders.view",
+            "orders.create",
+            "orders.edit",
+            "orders.delete",
+        ],
+    )
 ```
 
 Permissions become available in the role admin UI (`/settings/permissions`). See [Permissions](/framework/permissions).
@@ -73,10 +81,12 @@ Declare feature flags with defaults. The admin can toggle them at `/settings/fea
 
 ```python
 def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
-    registry.add(FeatureFlagDefinition(
-        name="orders.new_checkout",
-        default_enabled=False,
-    ))
+    registry.add(
+        FeatureFlagDefinition(
+            name="orders.new_checkout",
+            default_enabled=False,
+        )
+    )
 ```
 
 Query from code:
@@ -94,10 +104,11 @@ Subscribe to events on the in-process `EventBus`. Handlers can be sync or async;
 ```python
 def register_event_handlers(self, bus: EventBus) -> None:
     from orders.contracts.events import OrderPlaced
+
     bus.subscribe(OrderPlaced, self._on_order_placed)
 
-async def _on_order_placed(self, event: OrderPlaced) -> None:
-    ...
+
+async def _on_order_placed(self, event: OrderPlaced) -> None: ...
 ```
 
 Handlers are keyed by the exact event type and run concurrently on publish. See [Events](/framework/events).
@@ -110,8 +121,8 @@ Register named async checks. They're surfaced at `/health/ready`:
 def register_health_checks(self, registry: HealthRegistry) -> None:
     registry.add(HealthCheck(name="orders.db", check=self._check_db))
 
-async def _check_db(self) -> HealthCheckResult:
-    ...
+
+async def _check_db(self) -> HealthCheckResult: ...
 ```
 
 Each check returns a `HealthCheckResult(status=HealthStatus.HEALTHY | DEGRADED | UNHEALTHY, detail=...)`. The `/health/ready` endpoint runs all checks concurrently and reports the worst status (a raising check counts as `UNHEALTHY`).
@@ -124,9 +135,8 @@ Register FastAPI exception handlers scoped to your module's exceptions:
 def register_exception_handlers(self, app: FastAPI) -> None:
     app.add_exception_handler(OrderNotFound, self._handle_not_found)
 
-async def _handle_not_found(
-    self, request: Request, exc: OrderNotFound
-) -> Response:
+
+async def _handle_not_found(self, request: Request, exc: OrderNotFound) -> Response:
     return JSONResponse({"detail": str(exc)}, status_code=404)
 ```
 
@@ -148,9 +158,7 @@ When two modules at the same dependency tier both add middleware, the module tha
 Mount your API and Inertia view routers onto the two framework-provided routers.
 
 ```python
-def register_routes(
-    self, api_router: APIRouter, view_router: APIRouter
-) -> None:
+def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
     from orders.endpoints.api import router as api
     from orders.endpoints.views import router as views
 
@@ -170,6 +178,7 @@ Async lifespan hooks that run after all modules are registered.
 ```python
 async def on_startup(self, app: FastAPI) -> None:
     await self._worker_pool.start()
+
 
 async def on_shutdown(self, app: FastAPI) -> None:
     await self._worker_pool.stop()

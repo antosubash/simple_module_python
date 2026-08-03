@@ -39,11 +39,11 @@ Failures:
 from simple_module_core.module import ModuleMeta
 
 meta = ModuleMeta(
-    name="Orders",                    # PascalCase, globally unique
-    route_prefix="/api/orders",       # where the API router mounts
-    view_prefix="/orders",            # where the view router mounts
-    depends_on=["Products"],          # hard ordering requirements
-    version="1.0.0",                  # semver for the module
+    name="Orders",  # PascalCase, globally unique
+    route_prefix="/api/orders",  # where the API router mounts
+    view_prefix="/orders",  # where the view router mounts
+    depends_on=["Products"],  # hard ordering requirements
+    version="1.0.0",  # semver for the module
 )
 ```
 

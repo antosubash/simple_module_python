@@ -44,6 +44,7 @@ discover_modules()
 
 # Combine metadata
 from sqlalchemy import MetaData
+
 target_metadata = MetaData()
 for base in all_module_bases:
     for table in base.metadata.tables.values():
@@ -69,9 +70,11 @@ async def _check_migrations(engine):
     head = script.get_current_head()
 
     async with engine.connect() as conn:
+
         def get_current(sync_conn):
             ctx = MigrationContext.configure(sync_conn)
             return ctx.get_current_revision()
+
         current = await conn.run_sync(get_current)
 
     if current != head:
@@ -112,11 +115,8 @@ Alembic's autogenerate reflects all tables in the database and compares against 
 **Solution:** Allowlist approach via `include_object` in `env.py`.
 
 ```python
-MODULE_TABLES = {
-    t.name
-    for base in all_module_bases
-    for t in base.metadata.tables.values()
-}
+MODULE_TABLES = {t.name for base in all_module_bases for t in base.metadata.tables.values()}
+
 
 def include_object(object, name, type_, reflected, compare_to):
     if type_ == "table":

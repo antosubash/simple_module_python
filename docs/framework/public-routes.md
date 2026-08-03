@@ -19,6 +19,7 @@ authenticated" because read and write routes share a prefix.
 ```python
 from simple_module_core import ModuleBase, ModuleMeta, PublicRouteRegistry
 
+
 class GisModule(ModuleBase):
     meta = ModuleMeta(name="Gis", route_prefix="/api/gis")
 

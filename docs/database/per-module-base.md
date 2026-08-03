@@ -7,6 +7,7 @@ from simple_module_db.base import create_module_base
 
 Base = create_module_base("orders")
 
+
 class Order(Base, table=True):
     __tablename__ = "orders_order"
     id: int | None = Field(default=None, primary_key=True)
@@ -58,6 +59,7 @@ If your module needs to reference another module's table by foreign key, import 
 ```python
 # modules/invoices/invoices/models.py
 from orders.models import Order
+
 
 class Invoice(Base, table=True):
     __tablename__ = "invoices_invoice"
