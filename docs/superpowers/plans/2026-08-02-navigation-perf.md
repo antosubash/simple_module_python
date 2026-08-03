@@ -538,11 +538,7 @@ class CatalogService:
         total = (await self.db.execute(count_stmt)).scalar_one()
 
         order_by = _SORT_CLAUSES.get(sort, _SORT_CLAUSES[SORT_CREATED])
-        stmt = (
-            cols.order_by(order_by, Product.id)
-            .offset((page - 1) * page_size)
-            .limit(page_size)
-        )
+        stmt = cols.order_by(order_by, Product.id).offset((page - 1) * page_size).limit(page_size)
         rows = (await self.db.execute(stmt)).all()
         items = [ProductRead(**row._mapping) for row in rows]
 
@@ -1411,25 +1407,25 @@ _CATALOG_TERMS = ("solution", "system", "network", "matrix", "portal", "e")
 ```
 
 ```python
-    @task(14)
-    def catalog_list_api(self) -> None:
-        page = random.randint(1, 100)
-        self.client.get(f"/api/catalog/products?page={page}&page_size=20", name="/api/catalog/products")
+@task(14)
+def catalog_list_api(self) -> None:
+    page = random.randint(1, 100)
+    self.client.get(f"/api/catalog/products?page={page}&page_size=20", name="/api/catalog/products")
 
-    @task(10)
-    def catalog_list_view(self) -> None:
-        page = random.randint(1, 100)
-        self.client.get(
-            f"/catalog/?page={page}&page_size=20", headers=_INERTIA, name="/catalog/"
-        )
 
-    @task(6)
-    def catalog_search(self) -> None:
-        term = random.choice(_CATALOG_TERMS)
-        self.client.get(
-            f"/api/catalog/products?q={term}&page=1&page_size=20",
-            name="/api/catalog/products?q",
-        )
+@task(10)
+def catalog_list_view(self) -> None:
+    page = random.randint(1, 100)
+    self.client.get(f"/catalog/?page={page}&page_size=20", headers=_INERTIA, name="/catalog/")
+
+
+@task(6)
+def catalog_search(self) -> None:
+    term = random.choice(_CATALOG_TERMS)
+    self.client.get(
+        f"/api/catalog/products?q={term}&page=1&page_size=20",
+        name="/api/catalog/products?q",
+    )
 ```
 
 The `name=` argument groups paginated URLs into one stats row, matching the convention already used by every other task in the file.
@@ -1509,17 +1505,13 @@ def menu_registry() -> MenuRegistry:
 def permission_registry() -> PermissionRegistry:
     registry = PermissionRegistry()
     for g in range(N_PERMISSION_GROUPS):
-        registry.add_group(
-            f"Group{g}", [f"group{g}.perm{p}" for p in range(N_PERMS_PER_GROUP)]
-        )
+        registry.add_group(f"Group{g}", [f"group{g}.perm{p}" for p in range(N_PERMS_PER_GROUP)])
     return registry
 
 
 def test_menu_get_for_user(benchmark, menu_registry: MenuRegistry) -> None:
     """Per-request menu filtering + dict construction."""
-    result = benchmark(
-        lambda: menu_registry.get_for_user(is_authenticated=True, roles=ADMIN_ROLES)
-    )
+    result = benchmark(lambda: menu_registry.get_for_user(is_authenticated=True, roles=ADMIN_ROLES))
     assert result[MenuSection.SIDEBAR.value]
 
 
@@ -1847,57 +1839,57 @@ Expected: `test_returned_menu_is_not_mutable_by_callers` FAILS once caching is a
 In `menu.py`, add a cache dict to `__init__`, clear it in `_invalidate`, and memoize in `get_for_user`:
 
 ```python
-    def __init__(self) -> None:
-        self._items: list[MenuItem] = []
-        self._sorted: list[MenuItem] | None = None
-        self._user_cache: dict[tuple[bool, frozenset[str]], dict[str, list[dict]]] = {}
+def __init__(self) -> None:
+    self._items: list[MenuItem] = []
+    self._sorted: list[MenuItem] | None = None
+    self._user_cache: dict[tuple[bool, frozenset[str]], dict[str, list[dict]]] = {}
 
-    def _invalidate(self) -> None:
-        self._sorted = None
-        self._user_cache.clear()
+
+def _invalidate(self) -> None:
+    self._sorted = None
+    self._user_cache.clear()
 ```
 
 ```python
-    def get_for_user(
-        self,
-        *,
-        is_authenticated: bool,
-        roles: list[str] | None = None,
-    ) -> dict[str, list[dict]]:
-        """Return menu items grouped by section, filtered by auth/roles.
+def get_for_user(
+    self,
+    *,
+    is_authenticated: bool,
+    roles: list[str] | None = None,
+) -> dict[str, list[dict]]:
+    """Return menu items grouped by section, filtered by auth/roles.
 
-        Memoized on ``(is_authenticated, frozenset(roles))`` — the only inputs
-        that vary the output — because this runs on every page render. Callers
-        get a fresh shallow structure so mutating the result can't corrupt the
-        cached entry.
-        """
-        roles = roles or []
-        key = (is_authenticated, frozenset(roles))
-        cached = self._user_cache.get(key)
-        if cached is None:
-            cached = self._build_for_user(is_authenticated, roles)
-            self._user_cache[key] = cached
-        return {section: list(items) for section, items in cached.items()}
+    Memoized on ``(is_authenticated, frozenset(roles))`` — the only inputs
+    that vary the output — because this runs on every page render. Callers
+    get a fresh shallow structure so mutating the result can't corrupt the
+    cached entry.
+    """
+    roles = roles or []
+    key = (is_authenticated, frozenset(roles))
+    cached = self._user_cache.get(key)
+    if cached is None:
+        cached = self._build_for_user(is_authenticated, roles)
+        self._user_cache[key] = cached
+    return {section: list(items) for section, items in cached.items()}
 
-    def _build_for_user(
-        self, is_authenticated: bool, roles: list[str]
-    ) -> dict[str, list[dict]]:
-        result: dict[str, list[dict]] = {s.value: [] for s in MenuSection}
-        for item in self.all_items:
-            if item.requires_auth and not is_authenticated:
-                continue
-            if item.roles and not any(r in item.roles for r in roles):
-                continue
-            result[item.section.value].append(
-                {
-                    "label": item.label,
-                    "url": item.url,
-                    "icon": item.icon,
-                    "method": item.method,
-                    "group": item.group,
-                }
-            )
-        return result
+
+def _build_for_user(self, is_authenticated: bool, roles: list[str]) -> dict[str, list[dict]]:
+    result: dict[str, list[dict]] = {s.value: [] for s in MenuSection}
+    for item in self.all_items:
+        if item.requires_auth and not is_authenticated:
+            continue
+        if item.roles and not any(r in item.roles for r in roles):
+            continue
+        result[item.section.value].append(
+            {
+                "label": item.label,
+                "url": item.url,
+                "icon": item.icon,
+                "method": item.method,
+                "group": item.group,
+            }
+        )
+    return result
 ```
 
 The per-call `list(items)` copy is deliberate: it keeps the item dicts shared (cheap) while making the lists private to the caller, so an accidental `.append()` downstream cannot poison every subsequent request.
