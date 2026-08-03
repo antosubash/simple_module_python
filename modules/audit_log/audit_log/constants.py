@@ -12,7 +12,9 @@ API_PREFIX: Final = "/api/audit_log"
 VIEW_PREFIX: Final = "/audit_log"
 
 MENU_LABEL: Final = "Audit Log"
-MENU_URL: Final = VIEW_PREFIX
+# Trailing slash: the browse route is registered at "/" under VIEW_PREFIX, so
+# linking to the bare prefix costs a 307 round trip on every navigation.
+MENU_URL: Final = f"{VIEW_PREFIX}/"
 MENU_ICON: Final = "scroll-text"
 MENU_ORDER: Final = 210
 

@@ -20,7 +20,9 @@ SCOPE_ID_MAX_LENGTH = 64
 LOCALE_NAMESPACE = "feature_flags"
 
 MENU_LABEL = "Feature Flags"
-MENU_URL = "/feature_flags"
+# Trailing slash: the browse route is registered at "/" under the view
+# prefix, so linking to the bare prefix costs a 307 on every navigation.
+MENU_URL = "/feature_flags/"
 MENU_ICON = "flag"
 MENU_ORDER = 110
 

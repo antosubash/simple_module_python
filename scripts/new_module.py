@@ -27,16 +27,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _templates_contracts import contracts_init, schemas_py
 from _templates_endpoints import api_py, views_py
 from _templates_js import package_json, tsconfig_json
+from _templates_module import module_py, services_py, settings_py
 from _templates_py import (
     ScaffoldContext,
     deps_py,
+    license_txt,
     locales_en_json,
     models_py,
-    module_py,
     package_init,
     pyproject_toml,
+    readme_md,
     service_py,
-    services_py,
 )
 from _templates_tests import test_module_py
 from _templates_tsx import browse_tsx, create_tsx, edit_tsx
@@ -94,11 +95,14 @@ def scaffold_module(name: str) -> None:
     print(f"Scaffolding module '{name}'...")
 
     create_file(module_dir / "pyproject.toml", pyproject_toml(ctx))
+    create_file(module_dir / "README.md", readme_md(ctx))
+    create_file(module_dir / "LICENSE", license_txt(ctx))
     create_file(module_dir / "package.json", package_json(ctx))
     create_file(module_dir / "tsconfig.json", tsconfig_json(ctx))
     create_file(src_dir / "__init__.py", package_init(ctx))
     create_file(src_dir / "py.typed", "")
     create_file(src_dir / "module.py", module_py(ctx))
+    create_file(src_dir / "settings.py", settings_py(ctx))
     create_file(src_dir / "services.py", services_py(ctx))
     create_file(src_dir / "models.py", models_py(ctx))
     create_file(src_dir / "contracts" / "__init__.py", contracts_init(ctx))
@@ -134,7 +138,11 @@ def update_host_pyproject(name: str) -> None:
     """Add the new module as a dependency in host/pyproject.toml."""
     host_toml = ROOT / "host" / "pyproject.toml"
     content = host_toml.read_text()
-    pkg = name.replace("_", "-")
+    # Must match the distribution name the module's own pyproject.toml declares
+    # (``simple_module_<name>``, see _templates_py.pyproject_toml). Writing the
+    # bare module name here produces a dependency uv cannot resolve to the
+    # workspace member, and `uv sync` fails with "not a workspace member".
+    pkg = f"simple_module_{name}"
 
     if f'"{pkg}"' in content:
         print(f"  host/pyproject.toml already contains {pkg}, skipping")

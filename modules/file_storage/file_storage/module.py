@@ -82,7 +82,7 @@ class FileStorageModule(ModuleBase):
         registry.add(
             MenuItem(
                 label=constants.MODULE_DISPLAY_NAME,
-                url=constants.ROUTE_PREFIX_VIEW,
+                url=f"{constants.ROUTE_PREFIX_VIEW}/",
                 icon=constants.MENU_ICON,
                 order=constants.MENU_ORDER,
                 section=MenuSection.SIDEBAR,

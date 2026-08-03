@@ -22,9 +22,8 @@ from inertia import (
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
 from simple_module_core.exceptions import NotFoundError
 from starlette.exceptions import HTTPException
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from starlette.responses import Response
-from starlette.types import Scope
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from simple_module_hosting._error_handlers import (
@@ -42,6 +41,7 @@ from simple_module_hosting.middleware import (
     TenantMiddleware,
 )
 from simple_module_hosting.settings import Settings
+from simple_module_hosting.static_files import PrecompressedStaticFiles
 
 if TYPE_CHECKING:
     from simple_module_core.menu import MenuRegistry
@@ -49,27 +49,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable"
+# Below this, gzip framing costs more than it saves. Starlette's own default.
+COMPRESSION_MIN_BYTES = 500
 
-
-class ImmutableStaticFiles(StaticFiles):
-    """StaticFiles that marks Vite's content-hashed build assets immutable.
-
-    Vite emits files under ``dist/assets/`` with a content hash in the filename
-    (e.g. ``main-3YbShAJ4.js``), so the bytes for a given URL never change —
-    browsers can cache them indefinitely and skip even the revalidation
-    round-trip. The default StaticFiles only sets ETag/Last-Modified, forcing a
-    conditional GET per asset on every visit. Non-hashed paths (the manifest,
-    etc.) keep the default behaviour.
-    """
-
-    async def get_response(self, path: str, scope: Scope) -> Response:
-        response = await super().get_response(path, scope)
-        # StaticFiles hands us an OS-separator path (backslashes on Windows), so
-        # normalize before matching the forward-slash asset prefix.
-        if response.status_code == 200 and path.replace("\\", "/").startswith("dist/assets/"):
-            response.headers["Cache-Control"] = _IMMUTABLE_CACHE_CONTROL
-        return response
+# Re-exported for back-compat: static-file serving now lives in static_files.
+ImmutableStaticFiles = PrecompressedStaticFiles
 
 
 def register_exception_handlers(app: FastAPI, modules: list) -> None:
@@ -126,6 +110,13 @@ def install_middleware(
         )
     else:
         app.add_middleware(SecurityHeadersMiddleware)
+    # Compress response bodies. Added here so it sits inside CorrelationId and
+    # RequestLogging (which set headers and read request state) but outside
+    # everything that produces a body — including the /static mount, where it
+    # matters most: the built CSS is ~139 KB raw and ~21 KB gzipped, and the
+    # JS bundle compresses about 3x. Uncompressed assets dominated cold page
+    # load, several times larger than anything on the server request path.
+    app.add_middleware(GZipMiddleware, minimum_size=COMPRESSION_MIN_BYTES)
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
     # Outermost: rewrite scheme/client from X-Forwarded-* before anything else

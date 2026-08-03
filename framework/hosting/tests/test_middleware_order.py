@@ -2,12 +2,15 @@
 
 CLAUDE.md spells out the pipeline:
 
-    CorrelationId → RequestLogging → Security → Session → <module>
+    CorrelationId → RequestLogging → GZip → Security → Session → <module>
                   → Tenant (opt-in) → Locale → InertiaLayoutData → app
 
 Tenant/Locale must see ``request.state.user`` set by AuthMiddleware so
 DB queries get filtered correctly; CorrelationId must wrap everything so
-every log line carries its id. Order matters and a swap is the kind of
+every log line carries its id. GZip sits inside the observability pair so
+those still see every request, but outside everything that produces a body
+— including the /static mount, which is where compression pays off most.
+Order matters and a swap is the kind of
 regression that breaks production without breaking any happy-path test.
 ``app.user_middleware`` lists middlewares in execution order (Starlette
 LIFOs ``add_middleware`` calls, FastAPI surfaces them already reversed).
@@ -22,6 +25,7 @@ from simple_module_hosting.settings import Settings
 _EXPECTED_MULTI_TENANT = (
     "CorrelationIdMiddleware",
     "RequestLoggingMiddleware",
+    "GZipMiddleware",
     "SecurityHeadersMiddleware",
     "SessionMiddleware",
     "AuthMiddleware",
@@ -33,6 +37,7 @@ _EXPECTED_MULTI_TENANT = (
 _EXPECTED_SINGLE_TENANT = (
     "CorrelationIdMiddleware",
     "RequestLoggingMiddleware",
+    "GZipMiddleware",
     "SecurityHeadersMiddleware",
     "SessionMiddleware",
     "AuthMiddleware",

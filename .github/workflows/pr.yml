@@ -209,6 +209,98 @@ jobs:
             api.log
             vite.log
 
+  # Guards the asset-delivery wins from docs/perf/2026-08-02-baseline.md:
+  # response compression (~70% of transfer) and chunk grouping (55 -> 13
+  # requests on cold load). Both are invisible to every other job — the app
+  # renders identically either way, just slower, so only a browser measuring
+  # the built bundle catches a regression.
+  #
+  # Runs against the PRODUCTION build deliberately: chunk groups only apply to
+  # `vite build`, and non-dev environments are what reference the built
+  # manifest. Asserts on structure (request count, compression ratio), never on
+  # milliseconds, so shared-runner noise cannot make it flaky.
+  #
+  # The other three guards (compression headers, canonical menu URLs, dialect
+  # branch selection) are plain pytest and already run in `python-tests`.
+  perf-guards:
+    name: Perf guards (Playwright)
+    runs-on: ubuntu-latest
+    env:
+      # SQLite keeps the job self-contained — these guards measure asset
+      # delivery, which does not depend on row volumes.
+      SM_DATABASE_URL: sqlite+aiosqlite:///./app.db
+      PERF_BASE_URL: http://localhost:8000
+      PERF_BUILD: ci-prod
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - run: make install
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+      - name: Install Playwright chromium
+        run: |
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
+            uv run --project host playwright install-deps chromium
+          else
+            uv run --project host playwright install --with-deps chromium
+          fi
+      - run: make gen-pages
+      - run: make build
+      - run: uv run --project host alembic -c host/alembic.ini upgrade heads
+      # The production config lives on THIS step only, never job-wide. Under
+      # SM_ENVIRONMENT=production the simple_module_test pytest plugin fails to
+      # import — it builds BackgroundTasksSettings() eagerly and those reject a
+      # localhost broker — so exporting it job-wide stops pytest from starting
+      # at all. The server needs it; the test process must not see it.
+      - name: Start API
+        env:
+          # A non-dev environment is what makes the host serve the built
+          # manifest instead of pointing at the Vite dev server.
+          SM_ENVIRONMENT: production
+          SM_SECRET_KEY: ci-perf-secret-key-not-a-real-secret-000000000000
+          SM_USERS_RESET_PASSWORD_TOKEN_SECRET: ci-perf-reset-secret-000000000000000000
+          SM_USERS_VERIFICATION_TOKEN_SECRET: ci-perf-verify-secret-00000000000000000
+          SM_USERS_BOOTSTRAP_EMAIL: admin@example.com
+          SM_USERS_BOOTSTRAP_PASSWORD: admin
+          # Keycloak excluded (SM020: one auth provider). BackgroundTasks
+          # excluded because its DB-hydrated settings reject a localhost broker
+          # under SM_ENVIRONMENT=production.
+          SM_MODULES_ENABLED: '["Auth","Users","Dashboard","Permissions","Settings","FileStorage","FeatureFlags","AuditLog","Branding"]'
+        run: |
+          uv run --project host uvicorn host.main:app --port 8000 > api.log 2>&1 &
+          echo $! > api.pid
+      - name: Wait for API
+        run: |
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8000/health > /dev/null && echo "api ready" && exit 0
+            sleep 1
+          done
+          echo "api did not come up in time"; cat api.log || true; exit 1
+      - name: Verify built assets are being served
+        run: |
+          # If this regresses to the Vite dev path the guards would measure the
+          # wrong bundle and pass vacuously.
+          curl -sf http://localhost:8000/users/login | grep -q '/static/dist/assets/' \
+            || { echo "server is not serving built assets"; exit 1; }
+      - run: uv run pytest -m "perf and e2e" tests/perf/test_page_load.py tests/perf/test_asset_integrity.py -v -s
+      - name: Upload server log on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: perf-guards-api-log
+          path: api.log
+
   file-size-check:
     name: File size (300-line cap)
     runs-on: ubuntu-latest
@@ -252,6 +344,7 @@ jobs:
       - js-tests
       - js-build
       - e2e-smoke
+      - perf-guards
       - file-size-check
       - package-build
     if: always()

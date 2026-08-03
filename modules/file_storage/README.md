@@ -26,8 +26,9 @@ From another module, inject the service via its dependency:
 ```python
 from fastapi import Depends, File, UploadFile
 
-from file_storage.deps import get_file_storage_service   # type: ignore[import-not-found]
-from file_storage.service import FileStorageService      # type: ignore[import-not-found]
+from file_storage.deps import get_file_storage_service  # type: ignore[import-not-found]
+from file_storage.service import FileStorageService  # type: ignore[import-not-found]
+
 
 async def attach_receipt(
     upload: UploadFile = File(...),
