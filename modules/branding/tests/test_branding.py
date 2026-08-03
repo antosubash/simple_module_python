@@ -274,3 +274,26 @@ async def test_manage_view_offers_the_registered_packs(
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["props"]["designPacks"] == [{"value": "gca", "label": "Canopy Atlas"}]
+
+
+def test_current_projects_every_settings_field() -> None:
+    """``current()`` builds BrandingOut field by field, so a newly added
+    setting is silently dropped unless it is wired in there too — which is
+    exactly how ``design_pack`` first shipped returning empty after a 200."""
+    from branding.service import BrandingService
+
+    settings = BrandingSettings(
+        app_name="Acme",
+        primary_color="#ff0000",
+        design_pack="gca",
+        logo_file_id="abc-123",
+        favicon_file_id="def-456",
+    )
+    app = SimpleNamespace(state=SimpleNamespace(branding=SimpleNamespace(settings=settings)))
+    out = BrandingService(app, db=None).current()  # type: ignore[arg-type]
+
+    assert out.app_name == "Acme"
+    assert out.primary_color == "#ff0000"
+    assert out.design_pack == "gca"
+    assert out.logo_url == "/api/file-storage/files/abc-123/download"
+    assert out.favicon_url == "/api/file-storage/files/def-456/download"

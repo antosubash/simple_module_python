@@ -31,6 +31,7 @@ class BrandingService:
         return BrandingOut(
             app_name=settings.app_name,
             primary_color=settings.primary_color,
+            design_pack=settings.design_pack,
             logo_url=file_url(settings.logo_file_id),
             favicon_url=file_url(settings.favicon_file_id),
         )
