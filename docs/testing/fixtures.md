@@ -34,6 +34,7 @@ The workhorse. Creates a fresh in-memory DB, runs `CREATE TABLE` for every modul
 from decimal import Decimal
 from orders.models import Order
 
+
 @pytest.mark.asyncio
 async def test_create_order(db_session):
     order = Order(customer_email="a@b.c", total=Decimal("1"))
@@ -108,13 +109,12 @@ The admin has `*` permission (via `DEFAULT_ROLE_PERMISSIONS["admin"]`), so it by
 @pytest.mark.asyncio
 async def test_non_admin_denied(client, db_session):
     from users.admin.service import UserService
+
     svc = UserService(db_session)
     await svc.create(email="u@e.com", password="x", roles=["viewer"])
     await db_session.commit()
 
-    login = await client.post(
-        "/users/login", data={"email": "u@e.com", "password": "x"}
-    )
+    login = await client.post("/users/login", data={"email": "u@e.com", "password": "x"})
     assert login.status_code in (200, 303)
 
     r = await client.post("/api/orders", json={...})
@@ -132,6 +132,7 @@ Adding your own fixtures at module level:
 import pytest
 from orders.service import OrderService
 
+
 @pytest.fixture
 def order_service(db_session):
     return OrderService(db_session)
@@ -147,14 +148,15 @@ FastAPI dependency overrides work as usual:
 @pytest.mark.asyncio
 async def test_with_mock_mailer(app, authenticated_client):
     from users.deps import _mailer
+
     captured = []
+
     def fake_mailer():
         return type("Mailer", (), {"send": lambda *a: captured.append(a)})()
+
     app.dependency_overrides[_mailer] = fake_mailer
 
-    await authenticated_client.post(
-        "/users/admin/invite", data={"email": "x@y.z"}
-    )
+    await authenticated_client.post("/users/admin/invite", data={"email": "x@y.z"})
     assert len(captured) == 1
 ```
 
@@ -166,6 +168,7 @@ Use `freezegun`:
 
 ```python
 from freezegun import freeze_time
+
 
 @pytest.mark.asyncio
 async def test_order_timestamps(db_session):
@@ -197,15 +200,16 @@ async def test_webhook_delivery(httpx_mock, db_session):
 Standard pytest:
 
 ```python
-@pytest.mark.parametrize("status,expected", [
-    ("pending", 200),
-    ("shipped", 200),
-    ("invalid", 422),
-])
+@pytest.mark.parametrize(
+    "status,expected",
+    [
+        ("pending", 200),
+        ("shipped", 200),
+        ("invalid", 422),
+    ],
+)
 @pytest.mark.asyncio
 async def test_status_transitions(authenticated_client, status, expected):
-    r = await authenticated_client.patch(
-        "/api/orders/1", json={"status": status}
-    )
+    r = await authenticated_client.patch("/api/orders/1", json={"status": status})
     assert r.status_code == expected
 ```

@@ -17,9 +17,9 @@ Celery + Redis task queue with persistent history, an admin UI for monitoring + 
 # modules/orders/orders/tasks.py
 from celery import shared_task
 
+
 @shared_task(name="orders.send_receipt")
-def send_receipt(order_id: int) -> None:
-    ...
+def send_receipt(order_id: int) -> None: ...
 ```
 
 That's it. Celery's `autodiscover_tasks(packages, related_name="tasks")` finds it at worker startup — no extra registration. From request code:
@@ -41,9 +41,10 @@ A module schedules recurring work the same way it registers tasks — by shippin
 from celery import shared_task
 from celery.schedules import crontab
 
+
 @shared_task(name="invoices.generate_recurring")
-def generate_recurring() -> int:
-    ...
+def generate_recurring() -> int: ...
+
 
 # Discovered by build_celery and merged into the beat schedule.
 BEAT_SCHEDULE = {
@@ -94,8 +95,11 @@ All require `background_tasks.view`; retry additionally needs `background_tasks.
 ```python
 from background_tasks.contracts.events import TaskFailed, TaskRetried
 from background_tasks.contracts.schemas import (
-    TaskExecutionListItem, TaskExecutionDetail, TaskExecutionListResponse,
-    WorkerInfo, WorkerSnapshot,
+    TaskExecutionListItem,
+    TaskExecutionDetail,
+    TaskExecutionListResponse,
+    WorkerInfo,
+    WorkerSnapshot,
 )
 ```
 

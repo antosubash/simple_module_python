@@ -72,12 +72,13 @@ orders = "orders.module:OrdersModule"
 # modules/orders/orders/module.py
 from simple_module_core.module import ModuleBase, ModuleMeta
 
+
 class OrdersModule(ModuleBase):
     meta = ModuleMeta(
-        name="Orders",                    # PascalCase, must be unique
+        name="Orders",  # PascalCase, must be unique
         route_prefix="/api/orders",
         view_prefix="/orders",
-        depends_on=[],                    # other module names (PascalCase)
+        depends_on=[],  # other module names (PascalCase)
     )
 ```
 

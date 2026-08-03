@@ -53,7 +53,7 @@ When you scaffold a module with `smpy create-module`, the *first* autogenerate r
 
 revision = "..."
 down_revision = "..."
-branch_labels = ("orders",)     # ← add this
+branch_labels = ("orders",)  # ← add this
 depends_on = None
 ```
 
@@ -133,8 +133,7 @@ For long-running backfills on big tables, break into batches and run outside Ale
 
 ```python
 # scripts/backfill_orders_total.py
-async def backfill(batch_size=1000):
-    ...
+async def backfill(batch_size=1000): ...
 ```
 
 ## Migration drift in monorepos

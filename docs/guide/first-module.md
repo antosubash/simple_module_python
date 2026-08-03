@@ -25,6 +25,7 @@ from sqlmodel import Field
 
 Base = create_module_base("orders")
 
+
 class Order(Base, AuditMixin, SoftDeleteMixin, table=True):
     __tablename__ = "orders_order"
 
@@ -48,12 +49,15 @@ from datetime import datetime
 from pydantic import ConfigDict
 from sqlmodel import Field, SQLModel
 
+
 class OrderCreate(SQLModel):
     customer_email: str = Field(min_length=1, max_length=200)
     total: Decimal = Field(ge=0)
 
+
 class OrderUpdate(SQLModel):
     status: str | None = Field(default=None, max_length=20)
+
 
 class OrderOut(SQLModel):
     model_config = ConfigDict(from_attributes=True)
@@ -96,6 +100,7 @@ from sqlmodel import select
 from orders.contracts.schemas import OrderCreate, OrderOut, OrderUpdate
 from orders.models import Order
 
+
 class OrderService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -103,7 +108,7 @@ class OrderService:
     async def create(self, data: OrderCreate) -> OrderOut:
         order = Order(**data.model_dump())
         self.session.add(order)
-        await self.session.flush()        # get the DB-assigned id
+        await self.session.flush()  # get the DB-assigned id
         return OrderOut.model_validate(order)
 
     async def list(self) -> list[OrderOut]:
@@ -134,6 +139,7 @@ from simple_module_core.permissions import PermissionRegistry
 from orders.endpoints.api import router as api_router
 from orders.endpoints.views import router as view_router
 
+
 class OrdersModule(ModuleBase):
     meta = ModuleMeta(
         name="Orders",
@@ -143,9 +149,15 @@ class OrdersModule(ModuleBase):
     )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group("Orders", [
-            "orders.view", "orders.create", "orders.edit", "orders.delete",
-        ])
+        registry.add_group(
+            "Orders",
+            [
+                "orders.view",
+                "orders.create",
+                "orders.edit",
+                "orders.delete",
+            ],
+        )
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
@@ -159,9 +171,7 @@ class OrdersModule(ModuleBase):
             )
         )
 
-    def register_routes(
-        self, api_router: APIRouter, view_router: APIRouter
-    ) -> None:
+    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from orders.endpoints.api import router as api
         from orders.endpoints.views import router as views
 
@@ -184,6 +194,7 @@ from orders.deps import OrderServiceDep
 
 router = APIRouter(tags=["orders"])
 
+
 @router.get(
     "",
     dependencies=[Depends(RequiresPermission("orders.view"))],
@@ -191,14 +202,13 @@ router = APIRouter(tags=["orders"])
 async def list_orders(service: OrderServiceDep) -> list[OrderOut]:
     return await service.list()
 
+
 @router.post(
     "",
     status_code=201,
     dependencies=[Depends(RequiresPermission("orders.create"))],
 )
-async def create_order(
-    data: OrderCreate, service: OrderServiceDep
-) -> OrderOut:
+async def create_order(data: OrderCreate, service: OrderServiceDep) -> OrderOut:
     return await service.create(data)
 ```
 
@@ -271,6 +281,7 @@ Keys flatten at boot: `orders.menu.orders`, `orders.browse.title`, etc. See [Int
 ```python
 # modules/orders/tests/test_orders.py
 import pytest
+
 
 @pytest.mark.asyncio
 async def test_create_and_list_orders(authenticated_client):

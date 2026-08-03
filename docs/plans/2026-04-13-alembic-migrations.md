@@ -327,9 +327,11 @@ async def _check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") 
     head = script.get_current_head()
 
     async with engine.connect() as conn:
+
         def _get_current(sync_conn):
             ctx = MigrationContext.configure(sync_conn)
             return ctx.get_current_revision()
+
         current = await conn.run_sync(_get_current)
 
     is_current = current == head
@@ -640,10 +642,7 @@ class MigrationDiagnostics:
             Diagnostic(
                 level=DiagnosticLevel.ERROR,
                 code="SM009",
-                message=(
-                    f"Database at revision {current_revision!r}, "
-                    f"expected {head_revision!r}"
-                ),
+                message=(f"Database at revision {current_revision!r}, expected {head_revision!r}"),
                 module_name="migrations",
                 suggestion="Run: make migrate",
             )
@@ -724,9 +723,7 @@ def run_diagnostics(
             )
         )
         if module_tables is not None and migrated_tables is not None:
-            diagnostics.extend(
-                migration_diag.check_table_coverage(module_tables, migrated_tables)
-            )
+            diagnostics.extend(migration_diag.check_table_coverage(module_tables, migrated_tables))
 
     return diagnostics
 ```
@@ -736,7 +733,12 @@ def run_diagnostics(
 In `framework/core/src/simple_module_core/__init__.py`, add to imports:
 
 ```python
-from simple_module_core.diagnostics import DiagnosticLevel, MigrationDiagnostics, print_diagnostics, run_diagnostics
+from simple_module_core.diagnostics import (
+    DiagnosticLevel,
+    MigrationDiagnostics,
+    print_diagnostics,
+    run_diagnostics,
+)
 ```
 
 And add `"MigrationDiagnostics"` to `__all__`.
@@ -774,20 +776,18 @@ Note: The module-level diagnostics stay as-is. The migration diagnostics run ins
 After `app.state.migration = await _check_migrations(app.state.db.engine)`, add:
 
 ```python
-        if app.state.settings.is_development:
-            from simple_module_db.base import all_module_bases
-            from simple_module_core.diagnostics import MigrationDiagnostics, print_diagnostics
+if app.state.settings.is_development:
+    from simple_module_db.base import all_module_bases
+    from simple_module_core.diagnostics import MigrationDiagnostics, print_diagnostics
 
-            module_tables = {
-                t.name for base in all_module_bases for t in base.metadata.tables.values()
-            }
-            mig_diag = MigrationDiagnostics()
-            mig_diagnostics = mig_diag.check_table_coverage(
-                module_tables=module_tables,
-                migrated_tables=module_tables,  # TODO: extract from migration scripts
-            )
-            if mig_diagnostics:
-                print_diagnostics(mig_diagnostics)
+    module_tables = {t.name for base in all_module_bases for t in base.metadata.tables.values()}
+    mig_diag = MigrationDiagnostics()
+    mig_diagnostics = mig_diag.check_table_coverage(
+        module_tables=module_tables,
+        migrated_tables=module_tables,  # TODO: extract from migration scripts
+    )
+    if mig_diagnostics:
+        print_diagnostics(mig_diagnostics)
 ```
 
 **Step 4: Run full test suite**

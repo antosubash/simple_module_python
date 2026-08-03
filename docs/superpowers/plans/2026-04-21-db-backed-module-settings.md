@@ -262,16 +262,14 @@ class SettingsStore:
         for item in items:
             if not item.key.startswith(prefix):
                 continue
-            field_name = item.key[len(prefix):]
+            field_name = item.key[len(prefix) :]
             # Skip nested keys — namespaces are flat for module settings.
             if "." in field_name:
                 continue
             out[field_name] = (item.value, item.value_type)
         return out
 
-    async def set_override(
-        self, package: str, field: str, value: str, value_type: str
-    ) -> None:
+    async def set_override(self, package: str, field: str, value: str, value_type: str) -> None:
         await self._service.upsert_scoped(
             SettingScope.SYSTEM,
             SYSTEM_SCOPE_ID,
@@ -556,7 +554,9 @@ def app() -> FastAPI:
     app = FastAPI()
     app.state.settings = SettingsServices(
         settings=SettingsSettings(),
-        registry=__import__("settings.contracts.registry", fromlist=["SettingsRegistry"]).SettingsRegistry(),
+        registry=__import__(
+            "settings.contracts.registry", fromlist=["SettingsRegistry"]
+        ).SettingsRegistry(),
         module_registry=ModuleSettingsRegistry(),
     )
     return app
@@ -818,7 +818,10 @@ async def test_apply_changes_updates_app_state_and_fires_event(app_and_bus, db_s
 
     store = SettingsStore(SettingService(db_session))
     new_settings = await apply_changes_and_reload(
-        app, bus, store, package="users",
+        app,
+        bus,
+        store,
+        package="users",
         changes={"allow_signup": True, "smtp_port": 587},
     )
 
@@ -840,7 +843,10 @@ async def test_apply_changes_validation_error_rolls_back(app_and_bus, db_session
 
     with pytest.raises(ValidationError):
         await apply_changes_and_reload(
-            app, bus, store, package="users",
+            app,
+            bus,
+            store,
+            package="users",
             changes={"smtp_port": "not-an-int"},  # fails pydantic int coercion
         )
 
@@ -855,7 +861,11 @@ async def test_apply_changes_unknown_package_raises(app_and_bus, db_session):
 
     with pytest.raises(KeyError):
         await apply_changes_and_reload(
-            app, bus, store, package="unknown", changes={"x": 1},
+            app,
+            bus,
+            store,
+            package="unknown",
+            changes={"x": 1},
         )
 ```
 
@@ -1191,9 +1201,10 @@ This hooks `HostSettings` into the existing `ModuleSettingsRegistry` so the admi
 async def test_host_settings_registered_as_host_package(app):
     registry = app.state.settings.module_registry
     assert registry.get("host").__name__ == "HostSettings"
-    assert isinstance(app.state.host.settings, __import__(
-        "simple_module_hosting.host_settings", fromlist=["HostSettings"]
-    ).HostSettings)
+    assert isinstance(
+        app.state.host.settings,
+        __import__("simple_module_hosting.host_settings", fromlist=["HostSettings"]).HostSettings,
+    )
 ```
 
 - [ ] **Step 2: Run and confirm failure**
@@ -1206,23 +1217,25 @@ Expected: FAIL — no "host" entry.
 Modify `framework/hosting/simple_module_hosting/app_builder.py` after Phase 4 (module settings registration, ~line 172):
 
 ```python
-    # ── Phase 4: Module settings ───────────────────────────
-    for mod in modules:
-        mod.register_settings(app)
+# ── Phase 4: Module settings ───────────────────────────
+for mod in modules:
+    mod.register_settings(app)
 
-    # Register host-level settings under package="host" (DB-backed). The
-    # Settings module must already have run register_settings (topo order
-    # should put it early; its meta.depends_on = [] so it's scheduled first
-    # among leaves).
-    from dataclasses import dataclass
-    from simple_module_hosting.host_settings import HostSettings
-    from settings.registration import register_module_settings
+# Register host-level settings under package="host" (DB-backed). The
+# Settings module must already have run register_settings (topo order
+# should put it early; its meta.depends_on = [] so it's scheduled first
+# among leaves).
+from dataclasses import dataclass
+from simple_module_hosting.host_settings import HostSettings
+from settings.registration import register_module_settings
 
-    @dataclass
-    class _HostServices:
-        settings: HostSettings
 
-    register_module_settings(app, "host", HostSettings, lambda s: _HostServices(settings=s))
+@dataclass
+class _HostServices:
+    settings: HostSettings
+
+
+register_module_settings(app, "host", HostSettings, lambda s: _HostServices(settings=s))
 ```
 
 Note: we create the dataclass inline to avoid yet another tiny module. If lint flags it, extract to `framework/hosting/simple_module_hosting/_host_services.py`.
@@ -1276,6 +1289,7 @@ async def test_lifespan_hydrates_host_settings_from_db(app, db_session):
     await store.set_override("host", "multi_tenant", "true", "bool")
 
     from simple_module_hosting._hydrate_step import hydrate_all
+
     await hydrate_all(app, store)
 
     assert app.state.host.settings.multi_tenant is True
@@ -1318,9 +1332,7 @@ async def hydrate_all(app: FastAPI, store: SettingsStore) -> None:
             hydrated = await hydrate_settings(cls, store, package)
         except Exception:
             # One bad override shouldn't prevent boot — log and keep defaults.
-            logger.exception(
-                "Hydrating %s failed; falling back to defaults", package
-            )
+            logger.exception("Hydrating %s failed; falling back to defaults", package)
             continue
         services = getattr(app.state, package, None)
         if services is None:
@@ -1464,15 +1476,17 @@ Keep the `@model_validator` for placeholder token secrets — it now runs on DB-
 Open `modules/users/users/module.py`. Find `register_settings` and rewrite it as:
 
 ```python
-    def register_settings(self, app: FastAPI) -> None:
-        from users.services import UsersServices  # or whatever the dataclass is called
-        from users.settings import UsersSettings
-        from settings.registration import register_module_settings
+def register_settings(self, app: FastAPI) -> None:
+    from users.services import UsersServices  # or whatever the dataclass is called
+    from users.settings import UsersSettings
+    from settings.registration import register_module_settings
 
-        register_module_settings(
-            app, "users", UsersSettings,
-            lambda s: UsersServices(settings=s),
-        )
+    register_module_settings(
+        app,
+        "users",
+        UsersSettings,
+        lambda s: UsersServices(settings=s),
+    )
 ```
 
 If `UsersServices` doesn't exist as a standalone dataclass, look at the existing `register_settings` and use the same factory signature.
@@ -1535,6 +1549,7 @@ from pydantic import Field
 
 # ...
 
+
 class BackgroundTasksSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
@@ -1589,16 +1604,20 @@ Same pattern as 3.2. Group S3 fields: `json_schema_extra={"group": "S3"}`. Group
 - [ ] **Step 1: Strip env config; add group metadata**
 
 ```python
-    model_config = SettingsConfigDict(extra="ignore")
+model_config = SettingsConfigDict(extra="ignore")
 
-    backend: str = constants.DEFAULT_BACKEND
-    fs_root_path: str = Field(default=constants.DEFAULT_FS_ROOT, json_schema_extra={"group": "Filesystem"})
-    s3_bucket: str = Field(default="", json_schema_extra={"group": "S3"})
-    s3_region: str = Field(default="", json_schema_extra={"group": "S3"})
-    s3_access_key_id: str = Field(default="", json_schema_extra={"group": "S3"})
-    s3_secret_access_key: str = Field(default="", json_schema_extra={"group": "S3"})
-    s3_endpoint_url: str = Field(default="", json_schema_extra={"group": "S3"})
-    s3_presign_ttl_seconds: int = Field(default=constants.DEFAULT_PRESIGN_TTL_SECONDS, json_schema_extra={"group": "S3"})
+backend: str = constants.DEFAULT_BACKEND
+fs_root_path: str = Field(
+    default=constants.DEFAULT_FS_ROOT, json_schema_extra={"group": "Filesystem"}
+)
+s3_bucket: str = Field(default="", json_schema_extra={"group": "S3"})
+s3_region: str = Field(default="", json_schema_extra={"group": "S3"})
+s3_access_key_id: str = Field(default="", json_schema_extra={"group": "S3"})
+s3_secret_access_key: str = Field(default="", json_schema_extra={"group": "S3"})
+s3_endpoint_url: str = Field(default="", json_schema_extra={"group": "S3"})
+s3_presign_ttl_seconds: int = Field(
+    default=constants.DEFAULT_PRESIGN_TTL_SECONDS, json_schema_extra={"group": "S3"}
+)
 ```
 
 - [ ] **Step 2: Update `register_settings` to use the helper**
@@ -1720,9 +1739,16 @@ def test_collect_exposes_type_requires_restart_group():
 
     app.state.demo = _DemoServices()
     app.state.sm = Services(
-        settings=None, db=None, event_bus=None, menu_registry=None,
-        permissions=None, feature_flags=None, health_registry=None,
-        i18n_registry=None, inertia_config=None, modules=(),
+        settings=None,
+        db=None,
+        event_bus=None,
+        menu_registry=None,
+        permissions=None,
+        feature_flags=None,
+        health_registry=None,
+        i18n_registry=None,
+        inertia_config=None,
+        modules=(),
     )
 
     views = collect_module_settings(app)
@@ -1764,6 +1790,7 @@ Extend `_field_view` to read the type (via `value_type_for_field` from `hydrate.
 
 ```python
 from settings.hydrate import value_type_for_field
+
 
 def _field_view(name: str, settings: BaseSettings, prefix: str) -> ModuleSettingField:
     info = type(settings).model_fields[name]
@@ -1855,14 +1882,10 @@ async def test_put_validation_error_surfaces_422(authenticated_client, app):
 
 @pytest.mark.asyncio
 async def test_delete_field_resets_to_default(authenticated_client, app):
-    await authenticated_client.put(
-        "/api/settings/modules/host", json={"multi_tenant": True}
-    )
+    await authenticated_client.put("/api/settings/modules/host", json={"multi_tenant": True})
     assert app.state.host.settings.multi_tenant is True
 
-    resp = await authenticated_client.delete(
-        "/api/settings/modules/host/multi_tenant"
-    )
+    resp = await authenticated_client.delete("/api/settings/modules/host/multi_tenant")
     assert resp.status_code == 204
     assert app.state.host.settings.multi_tenant is False  # back to default
 
@@ -1939,9 +1962,9 @@ async def update_module(
         raise HTTPException(404, f"Unknown module: {package}")
 
     from settings._module_settings import _SECRET_PATTERNS  # reuse secret regex
+
     cleaned = {
-        k: v for k, v in body.items()
-        if not (_SECRET_PATTERNS.search(k) and v == _MASK_SENTINEL)
+        k: v for k, v in body.items() if not (_SECRET_PATTERNS.search(k) and v == _MASK_SENTINEL)
     }
     if not cleaned:
         return {"ok": True, "changed": []}
@@ -1979,11 +2002,13 @@ async def reset_field(
 
     # Re-hydrate from DB (now missing the override) and reassign.
     from settings.hydrate import hydrate_settings
+
     hydrated = await hydrate_settings(cls, store, package)
     services = getattr(request.app.state, package)
     services.settings = hydrated
 
     from settings.contracts.events import SettingsReloaded
+
     await request.app.state.sm.event_bus.publish(
         SettingsReloaded(package=package, changed=(field,))
     )

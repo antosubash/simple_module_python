@@ -43,6 +43,7 @@ Boot regenerates it too; mid-session adds need the manual call before HMR sees t
 def _serialize_principal(user: UserContext) -> dict:
     return {"id": user.id, "name": user.name, "email": user.email, "roles": user.roles}
 
+
 class AuthModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
         app.state.principal_serializer = _serialize_principal
@@ -58,6 +59,7 @@ from fastapi import APIRouter
 from simple_module_hosting.inertia_deps import InertiaDep
 
 router = APIRouter()
+
 
 @router.get("/")
 async def list_orders(inertia: InertiaDep, service: OrdersServiceDep):

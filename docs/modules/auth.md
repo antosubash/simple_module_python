@@ -53,9 +53,11 @@ from auth.deps import CurrentUser, require_permission
 
 router = APIRouter()
 
+
 @router.get("/me")
 async def me(user: CurrentUser) -> dict:
     return {"email": user.email, "roles": user.roles}
+
 
 @router.delete(
     "/orders/{order_id}",

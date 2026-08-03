@@ -21,6 +21,7 @@ from orders.deps import OrderServiceDep
 
 router = APIRouter()
 
+
 @router.get("")
 async def browse(inertia: InertiaDep, service: OrderServiceDep):
     orders: list[OrderOut] = await service.list()
@@ -80,10 +81,9 @@ Inertia expects a redirect response (302/303) after a successful mutation:
 # modules/orders/orders/endpoints/views.py
 from fastapi.responses import RedirectResponse
 
+
 @router.post("")
-async def create(
-    data: OrderCreate, inertia: InertiaDep, service: OrderServiceDep
-):
+async def create(data: OrderCreate, inertia: InertiaDep, service: OrderServiceDep):
     order = await service.create(data)
     return RedirectResponse(f"/orders/{order.id}", status_code=303)
 ```

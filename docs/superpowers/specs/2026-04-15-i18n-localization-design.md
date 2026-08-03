@@ -138,6 +138,7 @@ Interpolation placeholders use `{name}` syntax (consistent between frontend and 
 ```python
 # framework/core/simple_module_core/i18n.py
 
+
 class I18nRegistry:
     """Merged view of all module locale JSON files, keyed by locale."""
 
@@ -192,7 +193,7 @@ from babel.plural import PluralRule
 from babel import Locale
 
 rule = Locale.parse(locale).plural_form  # Callable[[int|float], str]
-category = rule(params["count"])          # "zero" | "one" | ... | "other"
+category = rule(params["count"])  # "zero" | "one" | ... | "other"
 pluralized_key = f"{key}_{category}"
 ```
 
@@ -209,6 +210,7 @@ pluralized_key = f"{key}_{category}"
 
    ```python
    async def get_translator(request: Request) -> Translator: ...
+
 
    TranslatorDep = Annotated[Translator, Depends(get_translator)]
    ```
@@ -243,7 +245,7 @@ pluralized_key = f"{key}_{category}"
 ```python
 # In Settings (pydantic-settings model):
 i18n_default_locale: str = "en"
-i18n_supported_locales: list[str] = ["en"]   # comma-separated in env
+i18n_supported_locales: list[str] = ["en"]  # comma-separated in env
 i18n_cookie_name: str = "locale"
 ```
 
@@ -401,6 +403,7 @@ Scaffolded `module.py` includes:
 ```python
 def locale_dirs(self) -> dict[str, Path]:
     from importlib.resources import files
+
     return {"orders": files(__package__) / "locales"}
 ```
 

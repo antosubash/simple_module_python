@@ -72,33 +72,31 @@ Expected: FAIL — `oauth_microsoft_*` attributes don't exist / `json_schema_ext
 In `modules/users/users/settings.py`, replace the current block (the comment + `oauth_google_*` / `oauth_github_*` / `oauth_oidc_*` fields, lines ~87–100) with:
 
 ```python
-    # OAuth / OIDC providers — configured via the admin settings UI
-    # (/settings/modules → Users). Credentials live in the DB-backed settings
-    # store and hydrate after boot; secret fields are masked in the UI (the
-    # same treatment the SMTP password gets). Provider changes apply live via
-    # the SettingsReloaded event — no restart (see users/module.py).
-    oauth_google_client_id: str = Field(default="", json_schema_extra={"group": "Google OAuth"})
-    oauth_google_client_secret: str = Field(default="", json_schema_extra={"group": "Google OAuth"})
-    oauth_github_client_id: str = Field(default="", json_schema_extra={"group": "GitHub OAuth"})
-    oauth_github_client_secret: str = Field(default="", json_schema_extra={"group": "GitHub OAuth"})
-    # Generic OIDC — any provider that exposes a discovery URL
-    # (Keycloak, Authentik, Auth0, Zitadel, ...).
-    oauth_oidc_client_id: str = Field(default="", json_schema_extra={"group": "OIDC"})
-    oauth_oidc_client_secret: str = Field(default="", json_schema_extra={"group": "OIDC"})
-    oauth_oidc_discovery_url: str = Field(default="", json_schema_extra={"group": "OIDC"})
-    oauth_oidc_display_name: str = Field(default="OIDC", json_schema_extra={"group": "OIDC"})
-    # Microsoft Entra ID / Microsoft accounts. tenant: "common" (any work/school
-    # or personal account), "organizations" (work/school only), or a tenant GUID
-    # to restrict sign-in to a single Entra tenant.
-    oauth_microsoft_client_id: str = Field(
-        default="", json_schema_extra={"group": "Microsoft OAuth"}
-    )
-    oauth_microsoft_client_secret: str = Field(
-        default="", json_schema_extra={"group": "Microsoft OAuth"}
-    )
-    oauth_microsoft_tenant: str = Field(
-        default="common", json_schema_extra={"group": "Microsoft OAuth"}
-    )
+# OAuth / OIDC providers — configured via the admin settings UI
+# (/settings/modules → Users). Credentials live in the DB-backed settings
+# store and hydrate after boot; secret fields are masked in the UI (the
+# same treatment the SMTP password gets). Provider changes apply live via
+# the SettingsReloaded event — no restart (see users/module.py).
+oauth_google_client_id: str = Field(default="", json_schema_extra={"group": "Google OAuth"})
+oauth_google_client_secret: str = Field(default="", json_schema_extra={"group": "Google OAuth"})
+oauth_github_client_id: str = Field(default="", json_schema_extra={"group": "GitHub OAuth"})
+oauth_github_client_secret: str = Field(default="", json_schema_extra={"group": "GitHub OAuth"})
+# Generic OIDC — any provider that exposes a discovery URL
+# (Keycloak, Authentik, Auth0, Zitadel, ...).
+oauth_oidc_client_id: str = Field(default="", json_schema_extra={"group": "OIDC"})
+oauth_oidc_client_secret: str = Field(default="", json_schema_extra={"group": "OIDC"})
+oauth_oidc_discovery_url: str = Field(default="", json_schema_extra={"group": "OIDC"})
+oauth_oidc_display_name: str = Field(default="OIDC", json_schema_extra={"group": "OIDC"})
+# Microsoft Entra ID / Microsoft accounts. tenant: "common" (any work/school
+# or personal account), "organizations" (work/school only), or a tenant GUID
+# to restrict sign-in to a single Entra tenant.
+oauth_microsoft_client_id: str = Field(default="", json_schema_extra={"group": "Microsoft OAuth"})
+oauth_microsoft_client_secret: str = Field(
+    default="", json_schema_extra={"group": "Microsoft OAuth"}
+)
+oauth_microsoft_tenant: str = Field(
+    default="common", json_schema_extra={"group": "Microsoft OAuth"}
+)
 ```
 
 Notes:
@@ -507,11 +505,10 @@ to:
 Replace the button-list assignment (current line ~178) `state.oauth_providers = enabled_provider_names(s)` with:
 
 ```python
-        state.oauth_clients = build_client_map(s)
-        state.oauth_providers = [
-            {"name": p.name, "display_name": p.display_name}
-            for p in state.oauth_clients.values()
-        ]
+state.oauth_clients = build_client_map(s)
+state.oauth_providers = [
+    {"name": p.name, "display_name": p.display_name} for p in state.oauth_clients.values()
+]
 ```
 
 - [ ] **Step 6: Remove `enabled_provider_names`**
@@ -622,32 +619,31 @@ Expected: FAIL — publishing the event has no effect (no subscriber yet); the "
 In `modules/users/users/module.py`, add this method to the `UsersModule` class (place it after `register_settings`). Keep the `EventBus`/`FastAPI` types behind `TYPE_CHECKING` — `FastAPI` is already imported there; add `EventBus` to that block:
 
 ```python
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
-        """Rebuild the OAuth client cache when the users settings reload.
+def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    """Rebuild the OAuth client cache when the users settings reload.
 
-        Routes mount at construction (before DB hydration), so the cache is the
-        single source of truth at request time. Rebuilding it here lets an admin
-        add/remove a provider via the settings UI without a restart.
-        """
-        if app is None:
+    Routes mount at construction (before DB hydration), so the cache is the
+    single source of truth at request time. Rebuilding it here lets an admin
+    add/remove a provider via the settings UI without a restart.
+    """
+    if app is None:
+        return
+
+    import importlib
+
+    settings_reloaded = importlib.import_module("settings.contracts.events").SettingsReloaded
+    from users.oauth.providers import build_client_map
+
+    async def _rebuild_oauth_clients(event) -> None:
+        if event.package != "users":
             return
+        state = app.state.users
+        state.oauth_clients = build_client_map(state.settings)
+        state.oauth_providers = [
+            {"name": p.name, "display_name": p.display_name} for p in state.oauth_clients.values()
+        ]
 
-        import importlib
-
-        settings_reloaded = importlib.import_module("settings.contracts.events").SettingsReloaded
-        from users.oauth.providers import build_client_map
-
-        async def _rebuild_oauth_clients(event) -> None:
-            if event.package != "users":
-                return
-            state = app.state.users
-            state.oauth_clients = build_client_map(state.settings)
-            state.oauth_providers = [
-                {"name": p.name, "display_name": p.display_name}
-                for p in state.oauth_clients.values()
-            ]
-
-        bus.subscribe(settings_reloaded, _rebuild_oauth_clients)
+    bus.subscribe(settings_reloaded, _rebuild_oauth_clients)
 ```
 
 Add the `EventBus` import to the `TYPE_CHECKING` block at the top of the file:

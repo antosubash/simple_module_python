@@ -22,6 +22,7 @@ modules/orders/orders/
 import importlib.resources
 from pathlib import Path
 
+
 class OrdersModule(ModuleBase):
     def locale_dirs(self) -> dict[str, Path]:
         # key = namespace, value = directory holding <lang>.json files
@@ -100,6 +101,7 @@ Inject `TranslatorDep` (from `simple_module_hosting.i18n_deps`) into an endpoint
 
 ```python
 from simple_module_hosting.i18n_deps import TranslatorDep
+
 
 async def create(t: TranslatorDep):
     raise HTTPException(404, t.t("orders.errors.not_found", id=order_id))

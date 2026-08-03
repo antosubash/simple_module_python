@@ -49,12 +49,12 @@ from permissions.deps import RequiresPermission
 
 router = APIRouter()
 
+
 @router.delete(
     "/orders/{order_id}",
     dependencies=[Depends(RequiresPermission("orders.delete"))],
 )
-async def delete_order(order_id: int) -> None:
-    ...
+async def delete_order(order_id: int) -> None: ...
 ```
 
 `RequiresPermission(permission)` takes a **single** permission key and 403s unless the request's user holds it, considering:
@@ -69,8 +69,13 @@ For something tied to *only* role membership (no direct grants), use `auth.deps.
 
 ```python
 from permissions.contracts.schemas import (
-    PermissionGroupOut, RoleOut, RolePermissionsOut, RolePermissionsUpdate,
-    UserOut, UserPermissionsOut, UserPermissionsUpdate,
+    PermissionGroupOut,
+    RoleOut,
+    RolePermissionsOut,
+    RolePermissionsUpdate,
+    UserOut,
+    UserPermissionsOut,
+    UserPermissionsUpdate,
 )
 ```
 

@@ -33,11 +33,16 @@ Pluggable file storage with two shipped backends — local filesystem and S3-com
 
 ```python
 from file_storage.contracts import (
-    StoredFileOut, StoredFileListOut,
-    FileUploaded, FileDeleted,
+    StoredFileOut,
+    StoredFileListOut,
+    FileUploaded,
+    FileDeleted,
     StorageBackend,
-    StorageError, StorageNotFoundError, StorageBackendError,
-    NotSupportedError, ConfigurationError,
+    StorageError,
+    StorageNotFoundError,
+    StorageBackendError,
+    NotSupportedError,
+    ConfigurationError,
 )
 ```
 
@@ -102,6 +107,7 @@ Implement the `StorageBackend` protocol:
 ```python
 from file_storage.contracts import StorageBackend, StoredFile
 
+
 class GcsBackend(StorageBackend):
     backend_id = "gcs"
     supports_presigned_url = True
@@ -142,12 +148,12 @@ Subscribe from any other module's `register_event_handlers`:
 ```python
 from file_storage.contracts import FileUploaded
 
+
 class MyModule(ModuleBase):
     def register_event_handlers(self, bus):
         bus.subscribe(FileUploaded, self._on_uploaded)
 
-    async def _on_uploaded(self, event: FileUploaded) -> None:
-        ...
+    async def _on_uploaded(self, event: FileUploaded) -> None: ...
 ```
 
 ## Inertia pages

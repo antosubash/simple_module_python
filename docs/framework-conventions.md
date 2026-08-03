@@ -29,10 +29,10 @@ Every `ModuleBase` subclass **must** declare a `meta` class attribute:
 ```python
 class OrdersModule(ModuleBase):
     meta = ModuleMeta(
-        name="Orders",                    # PascalCase, unique
-        route_prefix="/api/orders",       # mounted on the API router
-        view_prefix="/orders",            # mounted on the view router
-        depends_on=["Products"],          # strict load order
+        name="Orders",  # PascalCase, unique
+        route_prefix="/api/orders",  # mounted on the API router
+        view_prefix="/orders",  # mounted on the view router
+        depends_on=["Products"],  # strict load order
         version="1.0.0",
     )
 ```
@@ -144,19 +144,23 @@ from sqlmodel import Field
 
 Base = create_module_base("orders")
 
+
 class Order(Base, AuditMixin, table=True):
     __tablename__ = "orders_order"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=200)
 
+
 # modules/orders/orders/contracts/schemas.py
 from pydantic import ConfigDict
 from sqlmodel import Field, SQLModel
+
 
 class OrderOut(SQLModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     name: str
+
 
 class OrderCreate(SQLModel):
     name: str = Field(min_length=1, max_length=200)
@@ -228,9 +232,15 @@ Use `InertiaDep` from `simple_module_hosting.inertia_deps` — it attaches the s
 Modules declare permissions in `register_permissions(registry)` grouped by a name prefix:
 
 ```python
-registry.add_group("Orders", [
-    "orders.view", "orders.create", "orders.edit", "orders.delete",
-])
+registry.add_group(
+    "Orders",
+    [
+        "orders.view",
+        "orders.create",
+        "orders.edit",
+        "orders.delete",
+    ],
+)
 ```
 
 Enforce with the `RequiresPermission` dependency:
@@ -349,6 +359,7 @@ Modules ship translations as JSON under `<package>/locales/<lang>.json` and decl
 import importlib.resources
 from pathlib import Path
 
+
 class OrdersModule(ModuleBase):
     def locale_dirs(self) -> dict[str, Path]:
         return {"orders": Path(str(importlib.resources.files(__package__) / "locales"))}
@@ -373,7 +384,7 @@ t('orders.greeting', { name: user.name })       // frontend
 ```
 
 ```python
-t.t("orders.greeting", name=user.name)           # backend
+t.t("orders.greeting", name=user.name)  # backend
 ```
 
 Missing placeholders are left verbatim (`"Hello, {name}"`) rather than raising.

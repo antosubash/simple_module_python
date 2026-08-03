@@ -47,6 +47,7 @@ Documented invariants on every `PrincipalResolver`:
 from dataclasses import dataclass, field
 from auth.contracts.resolver import PrincipalResolver
 
+
 @dataclass
 class AuthState:
     principal_resolvers: list[PrincipalResolver] = field(default_factory=list)
@@ -57,6 +58,7 @@ class AuthState:
 ```python
 def register_settings(self, app: FastAPI) -> None:
     from auth.state import AuthState
+
     app.state.auth = AuthState()
 ```
 
@@ -88,9 +90,7 @@ if user_ctx is None:
             try:
                 user_ctx = await resolver(request)
             except Exception:
-                logger.exception(
-                    "Principal resolver %r raised; treating as no-match", resolver
-                )
+                logger.exception("Principal resolver %r raised; treating as no-match", resolver)
                 continue
             if user_ctx is not None:
                 break
@@ -124,6 +124,7 @@ No other change is visible to session-cookie users. The resolver chain is empty 
 # In a downstream module's on_startup
 from auth import PrincipalResolver, UserContext
 
+
 async def my_pat_resolver(request: Request) -> UserContext | None:
     header = request.headers.get("Authorization")
     if not header or not header.startswith("Bearer "):
@@ -137,6 +138,7 @@ async def my_pat_resolver(request: Request) -> UserContext | None:
     if user is None or not user.is_active or user.disabled_at is not None:
         return None
     return UserContext.from_user(user)
+
 
 # in on_startup:
 app.state.auth.principal_resolvers.append(my_pat_resolver)

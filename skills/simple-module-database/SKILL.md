@@ -17,8 +17,9 @@ from simple_module_db.mixins import AuditMixin
 
 Base = create_module_base("orders")
 
+
 class Order(Base, AuditMixin, table=True):
-    __tablename__ = "orders_order"   # module-name prefix; required
+    __tablename__ = "orders_order"  # module-name prefix; required
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=200)
 ```
@@ -70,9 +71,9 @@ A pending-writes flag is set by an `after_flush` listener and by inspecting `ses
 async def create_order(session: AsyncSession, payload: OrderCreate) -> Order:
     order = Order(name=payload.name)
     session.add(order)
-    await session.flush()    # order.id is now populated
+    await session.flush()  # order.id is now populated
     audit_log.record(order_id=order.id)
-    return order             # the dependency commits when the request returns
+    return order  # the dependency commits when the request returns
 ```
 
 ## Pitfalls

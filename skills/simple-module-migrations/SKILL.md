@@ -37,8 +37,8 @@ from simple_module_db import (
     render_item,
 )
 
-target_metadata = build_module_metadata()      # imports every installed module's <pkg>.models
-include_object  = make_include_object(target_metadata)
+target_metadata = build_module_metadata()  # imports every installed module's <pkg>.models
+include_object = make_include_object(target_metadata)
 process_revision_directives = make_process_revision_directives(target_metadata)
 # context.configure(..., render_item=render_item)
 ```
@@ -74,7 +74,7 @@ Each new module's first revision should set a `branch_labels` tuple matching the
 # host/migrations/versions/70786227af4c_add_audit_log_tables.py
 revision = "70786227af4c"
 down_revision = "41cf2c53660e"
-branch_labels = ("audit_log",)     # ← add by hand on this first revision
+branch_labels = ("audit_log",)  # ← add by hand on this first revision
 depends_on = None
 ```
 

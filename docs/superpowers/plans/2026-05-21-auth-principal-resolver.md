@@ -655,62 +655,60 @@ from starlette.responses import JSONResponse, RedirectResponse
 **(b)** Replace the body of `__call__` from the `session = scope["session"]` line through the end of the `if user_ctx is None and not is_public:` block with the version below. The DB-load fast path, `request.state.user` assignment, and `current_user_id` ContextVar lifecycle stay exactly as they were.
 
 ```python
-        session = scope["session"]
-        raw_user_id = session.get(_SESSION_USER_ID_KEY)
+session = scope["session"]
+raw_user_id = session.get(_SESSION_USER_ID_KEY)
 
-        user_ctx: UserContext | None = None
-        if raw_user_id:
-            user_id_str = str(raw_user_id)
-            # Fast path — rebuild from the signed session cookie.
-            user_ctx = UserContext.from_session_dict(session.get(SESSION_USER_CTX_KEY))
-            if user_ctx is None or user_ctx.id != user_id_str:
-                try:
-                    user_uuid = uuid.UUID(user_id_str)
-                except (ValueError, TypeError):
-                    logger.warning("Invalid user_id in session: %r", raw_user_id)
-                    session.pop(_SESSION_USER_ID_KEY, None)
-                    session.pop(SESSION_USER_CTX_KEY, None)
-                    user_ctx = None
-                else:
-                    user_ctx = await self._load_user(scope, user_uuid)
-                    if user_ctx is None:
-                        # User was deleted / disabled since session creation.
-                        session.pop(_SESSION_USER_ID_KEY, None)
-                        session.pop(SESSION_USER_CTX_KEY, None)
-                    else:
-                        session[SESSION_USER_CTX_KEY] = user_ctx.to_session_dict()
-
-        # Fall-through: registered principal resolvers (PAT, API key, ...).
-        # The session-cookie path above is authoritative; resolvers only run
-        # when no session-authenticated user was resolved.
-        if user_ctx is None:
-            auth_state = getattr(scope["app"].state, "auth", None)
-            resolvers = getattr(auth_state, "principal_resolvers", ()) if auth_state else ()
-            if resolvers:
-                request = Request(scope)
-                for resolver in resolvers:
-                    try:
-                        user_ctx = await resolver(request)
-                    except Exception:
-                        logger.exception(
-                            "Principal resolver %r raised; treating as no-match",
-                            resolver,
-                        )
-                        continue
-                    if user_ctx is not None:
-                        break
-
-        if user_ctx is None and not is_public:
-            if path.startswith("/api/"):
-                response = JSONResponse(
-                    {"detail": "Not authenticated"}, status_code=401
-                )
+user_ctx: UserContext | None = None
+if raw_user_id:
+    user_id_str = str(raw_user_id)
+    # Fast path — rebuild from the signed session cookie.
+    user_ctx = UserContext.from_session_dict(session.get(SESSION_USER_CTX_KEY))
+    if user_ctx is None or user_ctx.id != user_id_str:
+        try:
+            user_uuid = uuid.UUID(user_id_str)
+        except (ValueError, TypeError):
+            logger.warning("Invalid user_id in session: %r", raw_user_id)
+            session.pop(_SESSION_USER_ID_KEY, None)
+            session.pop(SESSION_USER_CTX_KEY, None)
+            user_ctx = None
+        else:
+            user_ctx = await self._load_user(scope, user_uuid)
+            if user_ctx is None:
+                # User was deleted / disabled since session creation.
+                session.pop(_SESSION_USER_ID_KEY, None)
+                session.pop(SESSION_USER_CTX_KEY, None)
             else:
-                request = Request(scope)
-                session[_SESSION_NEXT_KEY] = str(request.url)
-                response = RedirectResponse(_LOGIN_REDIRECT, status_code=302)
-            await response(scope, receive, send)
-            return
+                session[SESSION_USER_CTX_KEY] = user_ctx.to_session_dict()
+
+# Fall-through: registered principal resolvers (PAT, API key, ...).
+# The session-cookie path above is authoritative; resolvers only run
+# when no session-authenticated user was resolved.
+if user_ctx is None:
+    auth_state = getattr(scope["app"].state, "auth", None)
+    resolvers = getattr(auth_state, "principal_resolvers", ()) if auth_state else ()
+    if resolvers:
+        request = Request(scope)
+        for resolver in resolvers:
+            try:
+                user_ctx = await resolver(request)
+            except Exception:
+                logger.exception(
+                    "Principal resolver %r raised; treating as no-match",
+                    resolver,
+                )
+                continue
+            if user_ctx is not None:
+                break
+
+if user_ctx is None and not is_public:
+    if path.startswith("/api/"):
+        response = JSONResponse({"detail": "Not authenticated"}, status_code=401)
+    else:
+        request = Request(scope)
+        session[_SESSION_NEXT_KEY] = str(request.url)
+        response = RedirectResponse(_LOGIN_REDIRECT, status_code=302)
+    await response(scope, receive, send)
+    return
 ```
 
 (Everything after this block — the `if user_ctx is not None:` setting `request.state.user` and managing `current_user_id` — stays exactly as today.)
@@ -788,9 +786,7 @@ async def app_with_pat_resolver(app):
 @pytest.fixture
 async def pat_client(app_with_pat_resolver) -> AsyncGenerator[httpx.AsyncClient, None]:
     transport = httpx.ASGITransport(app=app_with_pat_resolver)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://testserver"
-    ) as c:
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
         yield c
 
 
@@ -822,9 +818,7 @@ async def test_invalid_bearer_token_returns_401_on_api_path(pat_client):
 @pytest.mark.anyio
 async def test_no_auth_header_on_api_returns_401(pat_client):
     """No Authorization header on a private /api/* path → 401 JSON."""
-    resp = await pat_client.get(
-        "/api/users/admin/users", follow_redirects=False
-    )
+    resp = await pat_client.get("/api/users/admin/users", follow_redirects=False)
     assert resp.status_code == 401
     assert resp.json() == {"detail": "Not authenticated"}
 

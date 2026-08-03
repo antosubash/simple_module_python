@@ -456,9 +456,11 @@ def _build_app(provider, *, principal_resolvers=None):
     @app.get("/{path:path}")
     async def catch_all(request: Request, path: str = ""):
         user = getattr(request.state, "user", None)
-        return JSONResponse({
-            "user": user.to_session_dict() if user else None,
-        })
+        return JSONResponse(
+            {
+                "user": user.to_session_dict() if user else None,
+            }
+        )
 
     app.add_middleware(AuthMiddleware)
     app.add_middleware(SessionMiddleware, secret_key=SECRET)
@@ -492,42 +494,32 @@ async def test_unauthenticated_browser_redirects_to_login(unauthenticated_app):
 
 
 async def test_unauthenticated_api_returns_401(unauthenticated_app):
-    async with httpx.AsyncClient(
-        app=unauthenticated_app, base_url="http://test"
-    ) as c:
+    async with httpx.AsyncClient(app=unauthenticated_app, base_url="http://test") as c:
         resp = await c.get("/api/protected")
     assert resp.status_code == 401
     assert resp.json()["detail"] == "Not authenticated"
 
 
 async def test_unauthenticated_bearer_returns_401(unauthenticated_app):
-    async with httpx.AsyncClient(
-        app=unauthenticated_app, base_url="http://test"
-    ) as c:
+    async with httpx.AsyncClient(app=unauthenticated_app, base_url="http://test") as c:
         resp = await c.get("/some/page", headers={"Authorization": "Bearer bad"})
     assert resp.status_code == 401
 
 
 async def test_public_paths_skip_auth(unauthenticated_app):
-    async with httpx.AsyncClient(
-        app=unauthenticated_app, base_url="http://test"
-    ) as c:
+    async with httpx.AsyncClient(app=unauthenticated_app, base_url="http://test") as c:
         resp = await c.get("/stub/login")
     assert resp.status_code == 200
 
 
 async def test_framework_public_paths_skip_auth(unauthenticated_app):
-    async with httpx.AsyncClient(
-        app=unauthenticated_app, base_url="http://test"
-    ) as c:
+    async with httpx.AsyncClient(app=unauthenticated_app, base_url="http://test") as c:
         resp = await c.get("/health")
     assert resp.status_code == 200
 
 
 async def test_root_is_public(unauthenticated_app):
-    async with httpx.AsyncClient(
-        app=unauthenticated_app, base_url="http://test"
-    ) as c:
+    async with httpx.AsyncClient(app=unauthenticated_app, base_url="http://test") as c:
         resp = await c.get("/")
     assert resp.status_code == 200
 
@@ -555,9 +547,7 @@ async def test_resolver_exception_is_logged_and_skipped():
         raise RuntimeError("boom")
 
     app = _build_app(_StubProvider(user=None), principal_resolvers=[bad_resolver])
-    async with httpx.AsyncClient(
-        app=app, base_url="http://test", follow_redirects=False
-    ) as c:
+    async with httpx.AsyncClient(app=app, base_url="http://test", follow_redirects=False) as c:
         resp = await c.get("/protected/page")
     assert resp.status_code == 302
 ```
@@ -633,9 +623,7 @@ class AuthMiddleware:
         )
         if not is_public:
             prefix_paths, exact_paths = provider.get_public_paths()
-            is_public = (
-                any(path.startswith(p) for p in prefix_paths) or path in exact_paths
-            )
+            is_public = any(path.startswith(p) for p in prefix_paths) or path in exact_paths
 
         request = Request(scope)
         user_ctx = await provider.resolve_user(request)
@@ -655,15 +643,11 @@ class AuthMiddleware:
 
         if user_ctx is None and not is_public:
             if path.startswith("/api/") or provider.is_bearer_request(request):
-                response = JSONResponse(
-                    {"detail": "Not authenticated"}, status_code=401
-                )
+                response = JSONResponse({"detail": "Not authenticated"}, status_code=401)
             else:
                 session = scope.get("session", {})
                 session[_SESSION_NEXT_KEY] = str(request.url)
-                response = RedirectResponse(
-                    provider.get_login_url(request), status_code=302
-                )
+                response = RedirectResponse(provider.get_login_url(request), status_code=302)
             await response(scope, receive, send)
             return
 
@@ -1013,11 +997,7 @@ class UsersAuthProvider:
 
             session_factory = scope["app"].state.sm.db.session_factory
             async with session_factory() as db_session:
-                stmt = (
-                    select(User)
-                    .where(User.id == user_id)
-                    .options(selectinload(User.roles))
-                )
+                stmt = select(User).where(User.id == user_id).options(selectinload(User.roles))
                 user = (await db_session.execute(stmt)).scalar_one_or_none()
                 if user is None or not user.is_active or user.disabled_at is not None:
                     return None
@@ -1211,38 +1191,37 @@ In `framework/core/simple_module_core/diagnostics/_module.py`, add to the `run()
 Add the new method to `ModuleDiagnostics`:
 
 ```python
-    def _check_auth_provider_conflict(self, modules: list[ModuleBase]) -> list[Diagnostic]:
-        """SM020/SM021: exactly one auth provider module must be installed."""
-        providers = [m for m in modules if getattr(m, "_is_auth_provider", False)]
-        diags: list[Diagnostic] = []
-        if len(providers) > 1:
-            names = ", ".join(m.meta.name for m in providers)
-            diags.append(
-                Diagnostic(
-                    level=DiagnosticLevel.ERROR,
-                    code="SM020",
-                    message=f"Multiple auth provider modules installed: {names}",
-                    module_name=providers[0].meta.name,
-                    suggestion=(
-                        "Install only one auth provider "
-                        "(e.g. 'users' OR 'keycloak', not both)"
-                    ),
-                )
+def _check_auth_provider_conflict(self, modules: list[ModuleBase]) -> list[Diagnostic]:
+    """SM020/SM021: exactly one auth provider module must be installed."""
+    providers = [m for m in modules if getattr(m, "_is_auth_provider", False)]
+    diags: list[Diagnostic] = []
+    if len(providers) > 1:
+        names = ", ".join(m.meta.name for m in providers)
+        diags.append(
+            Diagnostic(
+                level=DiagnosticLevel.ERROR,
+                code="SM020",
+                message=f"Multiple auth provider modules installed: {names}",
+                module_name=providers[0].meta.name,
+                suggestion=(
+                    "Install only one auth provider (e.g. 'users' OR 'keycloak', not both)"
+                ),
             )
-        elif len(providers) == 0:
-            diags.append(
-                Diagnostic(
-                    level=DiagnosticLevel.WARNING,
-                    code="SM021",
-                    message="No auth provider module installed",
-                    module_name="(none)",
-                    suggestion=(
-                        "Install an auth provider module "
-                        "(e.g. 'simple-module-users' or 'simple-module-keycloak')"
-                    ),
-                )
+        )
+    elif len(providers) == 0:
+        diags.append(
+            Diagnostic(
+                level=DiagnosticLevel.WARNING,
+                code="SM021",
+                message="No auth provider module installed",
+                module_name="(none)",
+                suggestion=(
+                    "Install an auth provider module "
+                    "(e.g. 'simple-module-users' or 'simple-module-keycloak')"
+                ),
             )
-        return diags
+        )
+    return diags
 ```
 
 - [ ] **Step 4: Add `_is_auth_provider = True` to UsersModule**
@@ -1594,11 +1573,7 @@ class KeycloakModule(ModuleBase):
             provider.jwks_cache = state.jwks_cache
 
     def locale_dirs(self) -> dict[str, Path]:
-        return {
-            "keycloak": Path(
-                str(importlib.resources.files(__package__) / "locales")
-            )
-        }
+        return {"keycloak": Path(str(importlib.resources.files(__package__) / "locales"))}
 ```
 
 - [ ] **Step 7: Update root pyproject.toml**
@@ -2362,9 +2337,7 @@ class KeycloakAuthProvider:
             session_factory = request.app.state.sm.db.session_factory
             sub = claims["sub"]
             async with session_factory() as db:
-                stmt = select(KeycloakUserCache).where(
-                    KeycloakUserCache.keycloak_sub == sub
-                )
+                stmt = select(KeycloakUserCache).where(KeycloakUserCache.keycloak_sub == sub)
                 row = (await db.execute(stmt)).scalar_one_or_none()
                 if row is None:
                     import uuid as uuid_mod
@@ -2780,9 +2753,7 @@ async def token_login(body: TokenRequest, request: Request, db: AsyncSession = D
 
 
 @router.post("/token/refresh", response_model=TokenResponse)
-async def token_refresh(
-    body: RefreshRequest, request: Request, db: AsyncSession = Depends(get_db)
-):
+async def token_refresh(body: RefreshRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """Exchange a refresh token for a new token pair (rotation)."""
     try:
         token_uuid = uuid_mod.UUID(body.refresh_token)
@@ -2807,9 +2778,7 @@ async def token_refresh(
 
 
 @router.delete("/token")
-async def token_revoke(
-    body: RefreshRequest, db: AsyncSession = Depends(get_db)
-):
+async def token_revoke(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
     """Revoke a refresh token (mobile logout)."""
     try:
         token_uuid = uuid_mod.UUID(body.refresh_token)
@@ -2863,8 +2832,9 @@ async def _create_token_pair(
 In `modules/users/users/module.py`, inside `register_routes`, add:
 
 ```python
-        from users.auth_local.token_api import router as token_router
-        api_router.include_router(token_router)
+from users.auth_local.token_api import router as token_router
+
+api_router.include_router(token_router)
 ```
 
 - [ ] **Step 6: Generate migration for refresh_token table**

@@ -14,11 +14,13 @@ from dataclasses import dataclass
 from decimal import Decimal
 from simple_module_core.events import Event
 
+
 @dataclass
 class OrderPlaced(Event):
     order_id: int
     customer_email: str
     total: Decimal
+
 
 @dataclass
 class OrderCancelled(Event):
@@ -67,12 +69,14 @@ class OrderService:
     async def place(self, data: OrderCreate) -> Order:
         order = Order(**data.model_dump())
         self.session.add(order)
-        await self.session.flush()   # need the id
-        await self.bus.publish(OrderPlaced(
-            order_id=order.id,
-            customer_email=order.customer_email,
-            total=order.total,
-        ))
+        await self.session.flush()  # need the id
+        await self.bus.publish(
+            OrderPlaced(
+                order_id=order.id,
+                customer_email=order.customer_email,
+                total=order.total,
+            )
+        )
         return order
 ```
 
@@ -83,8 +87,10 @@ Get the bus as a FastAPI dependency:
 from fastapi import Depends, Request
 from simple_module_core.events import EventBus
 
+
 def _event_bus(request: Request) -> EventBus:
     return request.app.state.sm.event_bus
+
 
 EventBusDep = Annotated[EventBus, Depends(_event_bus)]
 ```
@@ -97,14 +103,17 @@ The bus (backed by `pyee`'s `AsyncIOEventEmitter`) keys handlers by the **exact*
 @dataclass
 class OrderEvent(Event): ...
 
+
 @dataclass
 class OrderPlaced(OrderEvent): ...
+
 
 @dataclass
 class OrderCancelled(OrderEvent): ...
 
-bus.subscribe(OrderEvent, audit_handler)     # receives only OrderEvent, NOT subclasses
-bus.subscribe(OrderPlaced, specific_handler) # receives only OrderPlaced
+
+bus.subscribe(OrderEvent, audit_handler)  # receives only OrderEvent, NOT subclasses
+bus.subscribe(OrderPlaced, specific_handler)  # receives only OrderPlaced
 ```
 
 If you want a handler to see several event types, subscribe it to each one explicitly.
@@ -122,8 +131,10 @@ If you need durable delivery across processes, handlers should enqueue a Celery 
 def register_event_handlers(self, bus: EventBus) -> None:
     bus.subscribe(OrderPlaced, self._enqueue_invoice)
 
+
 async def _enqueue_invoice(self, event: OrderPlaced) -> None:
     from invoices.tasks import create_invoice_task
+
     create_invoice_task.delay(event.order_id)
 ```
 
@@ -135,9 +146,7 @@ Subscribe a spy in a test fixture:
 @pytest.mark.asyncio
 async def test_place_order_publishes_event(db_session, app):
     received: list[OrderPlaced] = []
-    app.state.sm.event_bus.subscribe(
-        OrderPlaced, lambda e: received.append(e)
-    )
+    app.state.sm.event_bus.subscribe(OrderPlaced, lambda e: received.append(e))
 
     service = OrderService(db_session, app.state.sm.event_bus)
     await service.place(OrderCreate(customer_email="a@b.c", total=Decimal("1")))

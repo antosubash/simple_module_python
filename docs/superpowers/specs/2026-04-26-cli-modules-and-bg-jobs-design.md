@@ -53,32 +53,52 @@ Each file has one responsibility and stays under the 300-line cap. Existing comm
 # cli/catalog.py
 from dataclasses import dataclass
 
+
 @dataclass(frozen=True)
 class ModuleEntry:
-    name: str             # "background_tasks" — snake_case key
-    package: str          # "simple_module_background_tasks"
-    display: str          # "Background Tasks"
-    requires: tuple[str, ...] = ()   # other catalog keys
-    recipe: str | None = None        # key into RECIPES, or None
+    name: str  # "background_tasks" — snake_case key
+    package: str  # "simple_module_background_tasks"
+    display: str  # "Background Tasks"
+    requires: tuple[str, ...] = ()  # other catalog keys
+    recipe: str | None = None  # key into RECIPES, or None
+
 
 CATALOG: dict[str, ModuleEntry] = {
-    "auth":             ModuleEntry("auth",             "simple_module_auth",             "Auth"),
-    "users":            ModuleEntry("users",            "simple_module_users",            "Users",            requires=("auth",)),
-    "permissions":      ModuleEntry("permissions",      "simple_module_permissions",      "Permissions",      requires=("auth", "users")),
-    "dashboard":        ModuleEntry("dashboard",        "simple_module_dashboard",        "Dashboard",        requires=("users", "products")),
-    "settings":         ModuleEntry("settings",         "simple_module_settings",         "Settings"),
-    "feature_flags":    ModuleEntry("feature_flags",    "simple_module_feature_flags",    "Feature Flags"),
-    "file_storage":     ModuleEntry("file_storage",     "simple_module_file_storage",     "File Storage",     requires=("settings",)),
-    "products":         ModuleEntry("products",         "simple_module_products",         "Products"),
-    "datasets":         ModuleEntry("datasets",         "simple_module_datasets",         "Datasets",         requires=("file_storage", "background_tasks")),
-    "background_tasks": ModuleEntry("background_tasks", "simple_module_background_tasks", "Background Tasks", requires=("users",), recipe="background_tasks"),
+    "auth": ModuleEntry("auth", "simple_module_auth", "Auth"),
+    "users": ModuleEntry("users", "simple_module_users", "Users", requires=("auth",)),
+    "permissions": ModuleEntry(
+        "permissions", "simple_module_permissions", "Permissions", requires=("auth", "users")
+    ),
+    "dashboard": ModuleEntry(
+        "dashboard", "simple_module_dashboard", "Dashboard", requires=("users", "products")
+    ),
+    "settings": ModuleEntry("settings", "simple_module_settings", "Settings"),
+    "feature_flags": ModuleEntry("feature_flags", "simple_module_feature_flags", "Feature Flags"),
+    "file_storage": ModuleEntry(
+        "file_storage", "simple_module_file_storage", "File Storage", requires=("settings",)
+    ),
+    "products": ModuleEntry("products", "simple_module_products", "Products"),
+    "datasets": ModuleEntry(
+        "datasets",
+        "simple_module_datasets",
+        "Datasets",
+        requires=("file_storage", "background_tasks"),
+    ),
+    "background_tasks": ModuleEntry(
+        "background_tasks",
+        "simple_module_background_tasks",
+        "Background Tasks",
+        requires=("users",),
+        recipe="background_tasks",
+    ),
 }
 
 PRESETS: dict[str, tuple[str, ...]] = {
-    "minimal":  ("users",),
+    "minimal": ("users",),
     "standard": ("users", "dashboard", "permissions"),
-    "full":     tuple(CATALOG),
+    "full": tuple(CATALOG),
 }
+
 
 def expand_deps(selected: Iterable[str]) -> tuple[list[str], list[tuple[str, str]]]:
     """Return (resolved_topo_order, auto_added_pairs).
@@ -129,6 +149,7 @@ from typing import Protocol
 from dataclasses import dataclass
 from pathlib import Path
 
+
 @dataclass
 class ScaffoldCtx:
     name: str
@@ -136,8 +157,10 @@ class ScaffoldCtx:
     tenancy: bool
     selected: tuple[str, ...]
 
+
 class Recipe(Protocol):
     def apply(self, target: Path, ctx: ScaffoldCtx) -> None: ...
+
 
 RECIPES: dict[str, Recipe] = {
     "background_tasks": BackgroundTasksRecipe(),
@@ -174,6 +197,7 @@ The `_optional/` segment is filtered out by `_apply_template_files` so it's not 
 ```python
 from background_tasks.celery_app import build_celery
 from background_tasks.settings import BackgroundTasksSettings
+
 celery = build_celery(BackgroundTasksSettings())
 ```
 

@@ -80,10 +80,13 @@ The Inertia view endpoint (`GET /dashboard`) passes all stats as page props:
 @router.get("/")
 async def dashboard(inertia: InertiaDep, t: TranslatorDep, db: ...) -> InertiaResponse:
     stats = await fetch_dashboard_stats(db, request)
-    return await inertia.render("Dashboard/Home", {
-        "welcome": t.t("dashboard.home.welcome_message"),
-        **stats,
-    })
+    return await inertia.render(
+        "Dashboard/Home",
+        {
+            "welcome": t.t("dashboard.home.welcome_message"),
+            **stats,
+        },
+    )
 ```
 
 ### Section 5: Frontend — Home.tsx (rewritten)
