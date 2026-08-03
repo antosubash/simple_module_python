@@ -1,5 +1,6 @@
 """SimpleModule Core - Module system, menu, permissions, events, and diagnostics."""
 
+from simple_module_core.design_packs import DesignPack, DesignPackRegistry
 from simple_module_core.diagnostics import (
     DiagnosticLevel,
     MigrationDiagnostics,
@@ -28,7 +29,6 @@ from simple_module_core.feature_flags import (
     is_flag_enabled,
     require_flag,
 )
-from simple_module_core.design_packs import DesignPack, DesignPackRegistry
 from simple_module_core.health import HealthCheck, HealthCheckResult, HealthRegistry, HealthStatus
 from simple_module_core.i18n import I18nRegistry, Translator
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection

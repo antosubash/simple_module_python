@@ -14,7 +14,7 @@ from __future__ import annotations
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from branding.constants import HEX_COLOR_RE, clean_app_name
+from branding.constants import DESIGN_PACK_RE, HEX_COLOR_RE, clean_app_name
 
 DEFAULT_APP_NAME = "SimpleModule"
 
@@ -28,6 +28,7 @@ class BrandingSettings(BaseSettings):
     primary_color: str = ""  # "" = use the theme default; otherwise "#rrggbb"
     logo_file_id: str = ""  # file_storage UUID, "" = no custom logo
     favicon_file_id: str = ""  # file_storage UUID, "" = no custom favicon
+    design_pack: str = ""  # "" = base tokens only; else a registered pack slug
 
     @field_validator("app_name")
     @classmethod
@@ -40,3 +41,13 @@ class BrandingSettings(BaseSettings):
         if value and not HEX_COLOR_RE.match(value):
             raise ValueError("primary_color must be a #rrggbb hex string or empty")
         return value.lower()
+
+    @field_validator("design_pack")
+    @classmethod
+    def _valid_design_pack(cls, value: str) -> str:
+        # Shape only. Whether an installed module actually provides this pack
+        # is checked in the update endpoint, where the registry on app.state
+        # is reachable.
+        if value and not DESIGN_PACK_RE.match(value):
+            raise ValueError("design_pack must be a lowercase slug or empty")
+        return value

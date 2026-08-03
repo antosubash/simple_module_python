@@ -9,6 +9,7 @@ import httpx
 import pytest
 from branding.settings import BrandingSettings
 from branding.shared_props import branding_payload, branding_shared_props
+from simple_module_core.design_packs import DesignPack
 
 # ── Unit: settings validation ──────────────────────────────────────────
 
@@ -54,6 +55,7 @@ def test_branding_payload_unset() -> None:
     assert payload == {
         "appName": "SimpleModule",
         "primaryColor": None,
+        "designPack": None,
         "logoUrl": None,
         "faviconUrl": None,
     }
@@ -201,3 +203,74 @@ def test_page_constant_matches_view_literal() -> None:
 
     assert constants._PAGE_MANAGE == "Branding/Manage"
     assert f'"{constants._PAGE_MANAGE}"' in inspect.getsource(views.manage)
+
+
+# ── Design pack ────────────────────────────────────────────────────────
+
+
+def test_settings_design_pack_validation() -> None:
+    assert BrandingSettings(design_pack="").design_pack == ""
+    assert BrandingSettings(design_pack="gca").design_pack == "gca"
+    # The value is interpolated into a CSS class name, so anything that isn't
+    # class-safe has to be rejected at the source.
+    for bad in ("GCA", "gca root", "gca_root", "-gca"):
+        with pytest.raises(ValueError):
+            BrandingSettings(design_pack=bad)
+
+
+def test_branding_payload_carries_the_design_pack() -> None:
+    settings = SimpleNamespace(
+        app_name="Acme",
+        primary_color="",
+        logo_file_id="",
+        favicon_file_id="",
+        design_pack="gca",
+    )
+    assert branding_payload(settings)["designPack"] == "gca"
+
+
+def test_branding_payload_design_pack_unset_is_none() -> None:
+    settings = SimpleNamespace(
+        app_name="Acme",
+        primary_color="",
+        logo_file_id="",
+        favicon_file_id="",
+        design_pack="",
+    )
+    assert branding_payload(settings)["designPack"] is None
+
+
+async def test_design_pack_round_trips(app, authenticated_client: httpx.AsyncClient) -> None:
+    app.state.design_packs.register(DesignPack(value="gca", label="Canopy Atlas"))
+    resp = await authenticated_client.put("/api/branding/", json={"design_pack": "gca"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["design_pack"] == "gca"
+    assert app.state.branding.settings.design_pack == "gca"
+
+
+async def test_update_rejects_an_unregistered_design_pack(
+    authenticated_client: httpx.AsyncClient,
+) -> None:
+    # Shape-valid but no installed module provides it, so the site would get a
+    # root class with no stylesheet behind it.
+    resp = await authenticated_client.put("/api/branding/", json={"design_pack": "nope"})
+    assert resp.status_code == 422, resp.text
+
+
+async def test_design_pack_can_be_cleared(app, authenticated_client: httpx.AsyncClient) -> None:
+    app.state.design_packs.register(DesignPack(value="gca", label="Canopy Atlas"))
+    await authenticated_client.put("/api/branding/", json={"design_pack": "gca"})
+    resp = await authenticated_client.put("/api/branding/", json={"design_pack": ""})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["design_pack"] == ""
+
+
+async def test_manage_view_offers_the_registered_packs(
+    app, authenticated_client: httpx.AsyncClient
+) -> None:
+    app.state.design_packs.register(DesignPack(value="gca", label="Canopy Atlas"))
+    resp = await authenticated_client.get(
+        "/branding/", headers={"X-Inertia": "true", "X-Inertia-Version": ""}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["props"]["designPacks"] == [{"value": "gca", "label": "Canopy Atlas"}]

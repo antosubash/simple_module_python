@@ -30,6 +30,11 @@ PERM_MANAGE: Final = "branding.manage"
 # A #rrggbb hex colour (single source of truth for both the settings and the
 # update-DTO validators).
 HEX_COLOR_RE: Final = re.compile(r"^#[0-9a-fA-F]{6}$")
+# A design-pack slug. Must stay class-safe: the site root class is
+# f"{design_pack}-root". Kept here so the settings and update-DTO
+# validators share one definition. Whether the pack is *installed* is a
+# separate check in the endpoint, which can reach the registry.
+DESIGN_PACK_RE: Final = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 MAX_APP_NAME_LEN: Final = 60
 
 # Image upload guard-rails (enforced before handing the file to file_storage).

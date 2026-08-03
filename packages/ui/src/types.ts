@@ -9,6 +9,8 @@ export interface MenuItem {
 export interface BrandingShared {
   appName: string;
   primaryColor: string | null;
+  /** Selected design pack slug; the site root class is `${designPack}-root`. */
+  designPack: string | null;
   logoUrl: string | null;
   faviconUrl: string | null;
 }

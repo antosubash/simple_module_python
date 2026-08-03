@@ -232,3 +232,43 @@ def wire_module_routes(app: FastAPI, module) -> None:
                 )
     app.include_router(api_router)
     app.include_router(view_router)
+
+
+def run_module_registrations(
+    modules: list,
+    *,
+    app: FastAPI,
+    event_bus,
+    menu_registry,
+    perm_registry,
+    ff_registry,
+    health_registry,
+    public_route_registry,
+    design_pack_registry,
+    register_event_handlers,
+) -> None:
+    """Phase 5: let every module contribute to the framework registries.
+
+    Extracted from ``create_app`` so adding a registry does not push that file
+    past the 300-line cap. Modules are visited in dependency order, which the
+    caller has already established.
+    """
+    for mod in modules:
+        mod.register_menu_items(menu_registry)
+        mod.register_permissions(perm_registry)
+        mod.register_feature_flags(ff_registry)
+        register_event_handlers(mod, event_bus, app)
+        mod.register_health_checks(health_registry)
+        mod.register_public_routes(public_route_registry)
+        mod.register_design_packs(design_pack_registry)
+
+    logger.info(
+        "Registered %d menu items, %d permissions, %d feature flags, "
+        "%d health checks, %d public routes, %d design packs",
+        len(menu_registry.all_items),
+        len(perm_registry.all_permissions),
+        len(ff_registry.all_flags),
+        len(health_registry.all_checks),
+        len(public_route_registry.routes),
+        len(design_pack_registry.all()),
+    )

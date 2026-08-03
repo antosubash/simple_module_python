@@ -10,8 +10,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
-from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
 from simple_module_core.design_packs import DesignPackRegistry
+from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
 from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagRegistry
@@ -31,6 +31,7 @@ from simple_module_hosting._phase_helpers import (
     install_middleware,
     mount_module_static_dirs,
     register_exception_handlers,
+    run_module_registrations,
     wire_module_routes,
 )
 from simple_module_hosting.health import router as health_router
@@ -231,29 +232,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             print_diagnostics(settings_diagnostics)
 
     # ── Phase 5: Module registrations ──────────────────────
-    for mod in modules:
-        mod.register_menu_items(menu_registry)
-        mod.register_permissions(perm_registry)
-        mod.register_feature_flags(ff_registry)
-        _register_event_handlers(mod, event_bus, app)
-        mod.register_health_checks(health_registry)
-        mod.register_public_routes(public_route_registry)
-        mod.register_design_packs(design_pack_registry)
+    run_module_registrations(
+        modules,
+        app=app,
+        event_bus=event_bus,
+        menu_registry=menu_registry,
+        perm_registry=perm_registry,
+        ff_registry=ff_registry,
+        health_registry=health_registry,
+        public_route_registry=public_route_registry,
+        design_pack_registry=design_pack_registry,
+        register_event_handlers=_register_event_handlers,
+    )
 
     attach_public_routes(app, settings, public_route_registry)
     # Read by the branding module to offer the packs installed modules ship.
     app.state.design_packs = design_pack_registry
-
-    logger.info(
-        "Registered %d menu items, %d permissions, %d feature flags, "
-        "%d health checks, %d public routes, %d design packs",
-        len(menu_registry.all_items),
-        len(perm_registry.all_permissions),
-        len(ff_registry.all_flags),
-        len(health_registry.all_checks),
-        len(public_route_registry.routes),
-        len(design_pack_registry.all()),
-    )
 
     # ── Phase 6: Initialize database ───────────────────────
     db_state = init_db(

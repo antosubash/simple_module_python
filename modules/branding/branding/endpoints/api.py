@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from file_storage.deps import get_file_storage_service
 from file_storage.service import FileStorageService
 from simple_module_hosting.permissions import RequiresPermission
@@ -34,9 +34,35 @@ async def get_branding(service: BrandingServiceDep) -> BrandingOut:
     return service.current()
 
 
+def _check_design_pack(request: Request, changes: dict) -> None:
+    """Reject a pack no installed module provides.
+
+    The DTO validator only enforces the slug shape. A shape-valid but unknown
+    value would put a root class on the site with no stylesheet behind it, so
+    the site would silently lose its theme. Clearing the pack ("") is always
+    allowed, which is why this only fires on a truthy value.
+    """
+    pack = changes.get("design_pack")
+    if not pack:
+        return
+    registry = getattr(request.app.state, "design_packs", None)
+    known = registry.values() if registry is not None else set()
+    if pack not in known:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Unknown design pack {pack!r}. "
+                f"Installed: {sorted(known) if known else 'none'}."
+            ),
+        )
+
+
 @router.put("/", response_model=BrandingOut, dependencies=[_MANAGE])
-async def update_branding(data: BrandingUpdate, service: BrandingServiceDep) -> BrandingOut:
+async def update_branding(
+    data: BrandingUpdate, service: BrandingServiceDep, request: Request
+) -> BrandingOut:
     changes = {k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None}
+    _check_design_pack(request, changes)
     if not changes:
         return service.current()
     return await service.apply(changes)

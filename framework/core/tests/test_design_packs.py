@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from simple_module_core.design_packs import DesignPack, DesignPackRegistry
 
 
