@@ -25,7 +25,6 @@ from simple_module_db.session import init_db
 from simple_module_hosting._host_services import _HostServices
 from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._phase_helpers import (
-    ImmutableStaticFiles,
     attach_public_routes,
     check_settings_registration,
     install_middleware,
@@ -38,6 +37,7 @@ from simple_module_hosting.host_settings import HostSettings
 from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types
 from simple_module_hosting.migrations import check_migrations
 from simple_module_hosting.settings import Settings
+from simple_module_hosting.static_files import PrecompressedStaticFiles
 
 logger = logging.getLogger(__name__)
 
@@ -277,9 +277,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     static_dir = _PROJECT_ROOT / "host" / _STATIC_DIR_NAME
     if static_dir.is_dir():
-        app.mount(
-            _STATIC_MOUNT_PATH, ImmutableStaticFiles(directory=static_dir), name=_STATIC_DIR_NAME
-        )
+        static = PrecompressedStaticFiles(directory=static_dir)
+        app.mount(_STATIC_MOUNT_PATH, static, name=_STATIC_DIR_NAME)
 
     mount_module_static_dirs(app, modules)
 

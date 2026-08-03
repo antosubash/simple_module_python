@@ -9,6 +9,7 @@ instead of the endpoint returning a 5xx.
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -23,12 +24,21 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+# The four independent inspect broadcasts, issued concurrently.
+_PROBES = ("ping", "stats", "active_queues", "active")
+
+
 class WorkerInspector:
     """Synchronous adapter; call from async code via ``asyncio.to_thread``."""
 
     def __init__(self, celery: Celery, *, timeout: float = 1.0) -> None:
         self.celery = celery
         self.timeout = timeout
+
+    def _probe(self, name: str) -> dict:
+        """Run one inspect broadcast on its own handle. ``None`` means nobody replied."""
+        inspect = self.celery.control.inspect(timeout=self.timeout)
+        return getattr(inspect, name)() or {}
 
     def snapshot(self) -> WorkerSnapshot:
         polled_at = datetime.now(UTC)
@@ -48,12 +58,24 @@ class WorkerInspector:
                 error=str(exc),
             )
 
-        inspect = self.celery.control.inspect(timeout=self.timeout)
+        # Each inspect call broadcasts and then waits the *full* timeout for
+        # replies — it cannot know whether a slow worker is still coming. Run
+        # sequentially that is 4 x timeout, so with the broker up and no
+        # workers this page took ~4s: precisely the state an admin opens it to
+        # diagnose. The four probes are independent, so issue them together
+        # and the page costs one timeout instead of four.
+        #
+        # Each gets its own inspect handle rather than sharing one across
+        # threads. Results are still merged by hostname afterwards, so a
+        # worker that answers some probes but not others (a degraded worker)
+        # is still reported.
         try:
-            ping = inspect.ping() or {}
-            stats = inspect.stats() or {}
-            queues = inspect.active_queues() or {}
-            active = inspect.active() or {}
+            with ThreadPoolExecutor(max_workers=len(_PROBES)) as pool:
+                futures = {name: pool.submit(self._probe, name) for name in _PROBES}
+                ping = futures["ping"].result()
+                stats = futures["stats"].result()
+                queues = futures["active_queues"].result()
+                active = futures["active"].result()
         except (OperationalError, RedisError, ConnectionError, OSError) as exc:
             logger.info("inspect() failed mid-call: %s", exc)
             return WorkerSnapshot(

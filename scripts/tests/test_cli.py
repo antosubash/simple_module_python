@@ -20,7 +20,7 @@ class TestMainCLI:
 
         assert (workspace / "modules" / "orders" / "pyproject.toml").exists()
         assert (workspace / "modules" / "orders" / "orders" / "module.py").exists()
-        assert '"orders"' in (workspace / "host" / "pyproject.toml").read_text()
+        assert '"simple_module_orders"' in (workspace / "host" / "pyproject.toml").read_text()
         assert "Scaffolding module 'orders'" in capsys.readouterr().out
 
     def test_main_exits_on_invalid_name(self, monkeypatch: pytest.MonkeyPatch):

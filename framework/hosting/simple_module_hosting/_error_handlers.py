@@ -27,6 +27,13 @@ async def render_error_page(request: Request, status_code: int, message: str) ->
     config: InertiaConfig = request.app.state.sm.inertia_config
     try:
         inertia = Inertia(request, config)
+        # This builds its own Inertia instead of going through get_inertia, so
+        # the share step has to be repeated here. Without it the error page
+        # renders raw translation keys (host.error.not_found_title) and loses
+        # auth/menus, so a signed-in user's 404 has no layout.
+        shared = getattr(request.state, "inertia_shared", None)
+        if shared:
+            inertia.share(**shared)
         response = await inertia.render("Error", {"status": status_code, "message": message})
         response.status_code = status_code
         return response

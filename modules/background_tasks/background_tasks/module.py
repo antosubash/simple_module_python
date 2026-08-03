@@ -71,7 +71,7 @@ class BackgroundTasksModule(ModuleBase):
         registry.add(
             MenuItem(
                 label=MENU_LABEL,
-                url=VIEW_PREFIX,
+                url=f"{VIEW_PREFIX}/",
                 icon=MENU_ICON,
                 order=MENU_ORDER,
                 section=MenuSection.SIDEBAR,

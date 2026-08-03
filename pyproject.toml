@@ -29,6 +29,11 @@ dev = [
     "moto[s3]>=5",
     "tomlkit>=0.13",
     "pytest-httpx>=0.36.2",
+    # Test-only: builds real brotli payloads for the pre-compressed static-file
+    # tests. The build itself compresses with Node's zlib, so nothing at runtime
+    # needs this. Declared explicitly because it was otherwise only present as a
+    # transitive dep of locust's geventhttpclient.
+    "brotli>=1.1",
 ]
 
 [tool.ruff]
@@ -111,7 +116,7 @@ invalid-assignment = "ignore"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["framework/cli/tests", "framework/core/tests", "framework/db/tests", "framework/hosting/tests", "framework/testing/tests", "host/tests", "modules/auth/tests", "modules/dashboard/tests", "modules/users/tests", "modules/permissions/tests", "modules/background_tasks/tests", "modules/file_storage/tests", "modules/settings/tests", "modules/feature_flags/tests", "modules/keycloak/tests", "modules/audit_log/tests", "modules/branding/tests", "scripts/tests", "tests/integration", "tests/e2e", "tests/benchmarks"]
+testpaths = ["framework/cli/tests", "framework/core/tests", "framework/db/tests", "framework/hosting/tests", "framework/testing/tests", "host/tests", "modules/auth/tests", "modules/dashboard/tests", "modules/users/tests", "modules/permissions/tests", "modules/background_tasks/tests", "modules/file_storage/tests", "modules/settings/tests", "modules/feature_flags/tests", "modules/keycloak/tests", "modules/audit_log/tests", "modules/branding/tests", "scripts/tests", "tests/integration", "tests/e2e", "tests/benchmarks", "tests/perf"]
 markers = [
     "e2e: end-to-end tests requiring a live browser",
     "perf: performance benchmarks (opt-in; run via `make bench`)",
