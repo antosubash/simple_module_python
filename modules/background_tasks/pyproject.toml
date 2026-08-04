@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_background_tasks"
-version = "0.0.25"
+version = "0.0.26"
 description = "Celery + Redis task queue with admin UI for monitoring and retrying failed/stuck tasks"
 readme = "README.md"
 license = "MIT"
@@ -21,10 +21,10 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "simple_module_core==0.0.25",
-    "simple_module_db==0.0.25",
-    "simple_module_hosting==0.0.25",
-    "simple_module_settings==0.0.25",
+    "simple_module_core==0.0.26",
+    "simple_module_db==0.0.26",
+    "simple_module_hosting==0.0.26",
+    "simple_module_settings==0.0.26",
     "celery[redis]>=5.4",
     "redis>=5",
 ]

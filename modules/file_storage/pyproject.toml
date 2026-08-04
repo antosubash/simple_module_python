@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_file_storage"
-version = "0.0.25"
+version = "0.0.26"
 description = "Pluggable file upload + storage (local or S3 via extras) module for simple_module apps"
 readme = "README.md"
 license = "MIT"
@@ -21,10 +21,10 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "simple_module_core==0.0.25",
-    "simple_module_db==0.0.25",
-    "simple_module_hosting==0.0.25",
-    "simple_module_settings==0.0.25",
+    "simple_module_core==0.0.26",
+    "simple_module_db==0.0.26",
+    "simple_module_hosting==0.0.26",
+    "simple_module_settings==0.0.26",
     "aiofiles>=23",
 ]
 
