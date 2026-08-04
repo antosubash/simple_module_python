@@ -48,6 +48,7 @@ def test_collect_exposes_type_requires_restart_group():
         feature_flags=None,  # type: ignore[arg-type]
         health_registry=None,  # type: ignore[arg-type]
         public_routes=None,  # type: ignore[arg-type]
+        design_packs=None,  # type: ignore[arg-type]
         i18n_registry=None,  # type: ignore[arg-type]
         inertia_config=None,  # type: ignore[arg-type]
         modules=(_DemoModule(),),  # type: ignore[arg-type]
