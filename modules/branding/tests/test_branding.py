@@ -54,6 +54,7 @@ def test_branding_payload_unset() -> None:
     assert payload == {
         "appName": "SimpleModule",
         "primaryColor": None,
+        "designPack": None,
         "logoUrl": None,
         "faviconUrl": None,
     }

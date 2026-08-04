@@ -15,6 +15,7 @@ import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedL
 import type { SharedProps } from '@simple-module-py/ui/types';
 import { type ChangeEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { DesignPackField, type DesignPackOption } from '../components/DesignPackField';
 
 const DEFAULT_SWATCH = '#10b981';
 type ImageKind = 'logo' | 'favicon';
@@ -92,11 +93,17 @@ function ImageField({
 
 function Manage() {
   const { t } = useT();
-  const { auth, branding } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  // ``designPacks`` is a page prop, not a shared one: the choices depend on
+  // which modules the host has installed, so only the view can supply them.
+  const page = usePage<{ props: SharedProps }>().props as unknown as SharedProps & {
+    designPacks?: DesignPackOption[];
+  };
+  const { auth, branding } = page;
   const canManage = auth?.permissions?.includes('branding.manage');
 
   const [appName, setAppName] = useState(branding?.appName ?? '');
   const [color, setColor] = useState(branding?.primaryColor ?? '');
+  const [designPack, setDesignPack] = useState(branding?.designPack ?? '');
   const [busy, setBusy] = useState(false);
 
   async function run(work: () => Promise<Response>, errorMsg: string) {
@@ -119,7 +126,11 @@ function Manage() {
         fetch('/api/branding/', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ app_name: appName, primary_color: color }),
+          body: JSON.stringify({
+            app_name: appName,
+            primary_color: color,
+            design_pack: designPack,
+          }),
         }),
       t(keys.branding.manage.error_toast),
     );
@@ -202,6 +213,13 @@ function Manage() {
                   {t(keys.branding.manage.primary_color_help)}
                 </p>
               </div>
+
+              <DesignPackField
+                options={page.designPacks ?? []}
+                value={designPack}
+                onChange={setDesignPack}
+                disabled={!canManage || busy}
+              />
 
               <ImageField
                 label={t(keys.branding.manage.logo_label)}

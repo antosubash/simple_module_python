@@ -9,6 +9,10 @@ export interface MenuItem {
 export interface BrandingShared {
   appName: string;
   primaryColor: string | null;
+  // Slug of the site-wide design pack, or null for base tokens only. The
+  // public site wraps its document in `${designPack}-root`, which is the hook
+  // the owning module's stylesheet selects on.
+  designPack: string | null;
   logoUrl: string | null;
   faviconUrl: string | null;
 }

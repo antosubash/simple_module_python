@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from file_storage.deps import get_file_storage_service
 from file_storage.service import FileStorageService
 from simple_module_hosting.permissions import RequiresPermission
@@ -29,16 +29,41 @@ def _validate_image(file: UploadFile) -> None:
         )
 
 
+def _validate_design_pack(request: Request, changes: dict) -> None:
+    """Reject a pack slug no installed module registered.
+
+    Clearing (``""``) is always allowed. Accepting an unknown slug would put
+    ``"<slug>-root"`` on the public document with no stylesheet behind it: the
+    site would look unchanged and nothing in the UI would explain why.
+
+    The registry lives on ``app.state`` rather than in the DTO because only the
+    running app knows which modules are installed. A host older than the
+    registry has no packs to offer, so every non-empty slug is unknown there.
+    """
+    pack = changes.get("design_pack")
+    if not pack:
+        return
+    registry = getattr(request.app.state, "design_packs", None)
+    if registry is None or not registry.has(pack):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown design pack {pack!r} — no installed module provides it.",
+        )
+
+
 @router.get("/", response_model=BrandingOut, dependencies=[_MANAGE])
 async def get_branding(service: BrandingServiceDep) -> BrandingOut:
     return service.current()
 
 
 @router.put("/", response_model=BrandingOut, dependencies=[_MANAGE])
-async def update_branding(data: BrandingUpdate, service: BrandingServiceDep) -> BrandingOut:
+async def update_branding(
+    request: Request, data: BrandingUpdate, service: BrandingServiceDep
+) -> BrandingOut:
     changes = {k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None}
     if not changes:
         return service.current()
+    _validate_design_pack(request, changes)
     return await service.apply(changes)
 
 
