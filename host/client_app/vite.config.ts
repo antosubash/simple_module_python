@@ -4,9 +4,9 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig, type Plugin } from 'vite';
-import { compressAssets } from './compress-assets';
+import { compressAssets } from './compress-assets.ts';
 
-const projectRoot = path.resolve(__dirname, '../..');
+const projectRoot = path.resolve(import.meta.dirname, '../..');
 
 // ANALYZE=1 npm run build emits host/static/dist/stats.html — a sunburst of
 // every chunk and its constituent modules. Open it to chase bundle bloat.
@@ -26,7 +26,7 @@ const analyzeBundle = process.env.ANALYZE === '1';
 //      every bare specifier the module's pages can import.
 //   3. A glob pattern for optimizeDeps.entries, so Vite's dependency
 //      scanner walks the pages and discovers their imports.
-const manifestPath = path.resolve(__dirname, 'modules.manifest.json');
+const manifestPath = path.resolve(import.meta.dirname, 'modules.manifest.json');
 const moduleFsAllow: string[] = [];
 const moduleOptimizeEntries: string[] = [];
 const modulePkgJsonPaths: string[] = [];
@@ -146,7 +146,7 @@ export default defineConfig(({ command }) => ({
     ...(analyzeBundle
       ? [
           visualizer({
-            filename: path.resolve(__dirname, '../static/dist/stats.html'),
+            filename: path.resolve(import.meta.dirname, '../static/dist/stats.html'),
             template: 'sunburst',
             gzipSize: true,
             brotliSize: true,
@@ -190,12 +190,12 @@ export default defineConfig(({ command }) => ({
       },
     },
   },
-  root: __dirname,
+  root: import.meta.dirname,
   build: {
     outDir: '../static/dist',
     manifest: true,
     rollupOptions: {
-      input: path.resolve(__dirname, 'main.tsx'),
+      input: path.resolve(import.meta.dirname, 'main.tsx'),
       output: {
         // Default splitting produced 40 chunks under 2 KB holding 32 KB
         // between them — 40 HTTP requests for a rounding error of code. The
