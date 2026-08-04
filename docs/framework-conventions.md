@@ -300,6 +300,37 @@ which `AuthMiddleware` consults on every request. See
 [`docs/framework/public-routes.md`](framework/public-routes.md) for match kinds
 and resolution order.
 
+### Design packs (site-wide look)
+
+A *design pack* is a stylesheet a module ships that restyles the public site by
+overriding the base design tokens beneath a `<value>-root` class. A module
+advertises the packs it provides via `register_design_packs`:
+
+```python
+def register_design_packs(self, registry):
+    registry.register(DesignPack(value="gca", label="Canopy Atlas"))
+```
+
+The host aggregates them into one `DesignPackRegistry` and publishes it at
+`app.state.design_packs` (also `app.state.sm.design_packs`). Branding reads it
+twice: its admin page builds the pack dropdown from it, and `PUT /api/branding/`
+rejects a slug no installed module registered.
+
+**Registering advertises the pack; it does not load the stylesheet.** The CSS
+still reaches the bundle through the host's `styles.css` importing it by package
+specifier. The registry exists so an administrator can't select a pack nothing
+provides — that would put a class on the document with no rules behind it and
+silently do nothing.
+
+Slugs must match `^[a-z0-9][a-z0-9-]*$` (they become a CSS class fragment) and
+are unique across modules — a collision raises at boot rather than letting
+whichever stylesheet loaded last win.
+
+The selected pack is a **branding setting**, not a per-page property: one site
+has one look. It reaches the frontend as `branding.designPack` in shared props,
+and applies to the public site only — putting the pack class on the admin would
+restyle the editor chrome along with it.
+
 ## Events
 
 Base class: `Event` from `simple_module_core.events`. Subclass per domain event:
