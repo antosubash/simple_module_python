@@ -6,6 +6,7 @@ import re
 from typing import Final
 
 from file_storage.constants import PATH_FILE_DOWNLOAD, ROUTE_PREFIX_API
+from simple_module_core.design_packs import SLUG_RE
 
 VIEW_PREFIX: Final = "/branding"
 # Trailing slash: the browse route is registered at "/" under VIEW_PREFIX, so
@@ -31,6 +32,14 @@ PERM_MANAGE: Final = "branding.manage"
 # update-DTO validators).
 HEX_COLOR_RE: Final = re.compile(r"^#[0-9a-fA-F]{6}$")
 MAX_APP_NAME_LEN: Final = 60
+
+# A design-pack slug. Aliased from the framework's own pattern so branding and
+# DesignPack can never disagree about what a valid slug is.
+DESIGN_PACK_RE: Final = SLUG_RE
+DESIGN_PACK_ERROR: Final = (
+    "design_pack must be a lowercase slug (letters, digits and dashes, "
+    "not starting with a dash) or empty"
+)
 
 # Image upload guard-rails (enforced before handing the file to file_storage).
 MAX_IMAGE_BYTES: Final = 2 * 1024 * 1024  # 2 MB

@@ -27,6 +27,7 @@ def branding_payload(settings: BrandingSettings) -> dict:
     return {
         "appName": settings.app_name,
         "primaryColor": settings.primary_color or None,
+        "designPack": settings.design_pack or None,
         "logoUrl": file_url(settings.logo_file_id),
         "faviconUrl": file_url(settings.favicon_file_id),
     }

@@ -12,6 +12,7 @@ register_feature_flags
 register_event_handlers
 register_health_checks
 register_public_routes
+register_design_packs
 register_exception_handlers
 register_middleware
 register_routes

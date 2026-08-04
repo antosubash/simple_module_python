@@ -1,5 +1,6 @@
 """SimpleModule Core - Module system, menu, permissions, events, and diagnostics."""
 
+from simple_module_core.design_packs import DesignPack, DesignPackRegistry
 from simple_module_core.diagnostics import (
     DiagnosticLevel,
     MigrationDiagnostics,
@@ -40,6 +41,8 @@ from simple_module_core.versioning import FRAMEWORK_API_VERSION, check_framework
 __all__ = [
     "FRAMEWORK_API_VERSION",
     "CircularDependencyError",
+    "DesignPack",
+    "DesignPackRegistry",
     "DiagnosticLevel",
     "Event",
     "EventBus",

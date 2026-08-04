@@ -14,7 +14,12 @@ from __future__ import annotations
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from branding.constants import HEX_COLOR_RE, clean_app_name
+from branding.constants import (
+    DESIGN_PACK_ERROR,
+    DESIGN_PACK_RE,
+    HEX_COLOR_RE,
+    clean_app_name,
+)
 
 DEFAULT_APP_NAME = "SimpleModule"
 
@@ -28,6 +33,7 @@ class BrandingSettings(BaseSettings):
     primary_color: str = ""  # "" = use the theme default; otherwise "#rrggbb"
     logo_file_id: str = ""  # file_storage UUID, "" = no custom logo
     favicon_file_id: str = ""  # file_storage UUID, "" = no custom favicon
+    design_pack: str = ""  # "" = base tokens only; otherwise a registered slug
 
     @field_validator("app_name")
     @classmethod
@@ -40,3 +46,14 @@ class BrandingSettings(BaseSettings):
         if value and not HEX_COLOR_RE.match(value):
             raise ValueError("primary_color must be a #rrggbb hex string or empty")
         return value.lower()
+
+    @field_validator("design_pack")
+    @classmethod
+    def _valid_pack_slug(cls, value: str) -> str:
+        # Shape only — whether a module still provides this pack is checked in
+        # the endpoint. These settings are also hydrated from the DB at boot,
+        # where a pack whose module has since been uninstalled must degrade to
+        # an unstyled site rather than refuse to start.
+        if value and not DESIGN_PACK_RE.match(value):
+            raise ValueError(DESIGN_PACK_ERROR)
+        return value

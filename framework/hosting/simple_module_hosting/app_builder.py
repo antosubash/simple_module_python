@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from simple_module_core.design_packs import DesignPackRegistry
 from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
 from simple_module_core.discovery import discover_modules, topological_sort
 from simple_module_core.events import EventBus
@@ -22,7 +23,6 @@ from simple_module_core.services import Services
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 
-from simple_module_hosting._host_services import _HostServices
 from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._phase_helpers import (
     attach_public_routes,
@@ -30,10 +30,10 @@ from simple_module_hosting._phase_helpers import (
     install_middleware,
     mount_module_static_dirs,
     register_exception_handlers,
+    register_host_settings,
     wire_module_routes,
 )
 from simple_module_hosting.health import router as health_router
-from simple_module_hosting.host_settings import HostSettings
 from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types
 from simple_module_hosting.migrations import check_migrations
 from simple_module_hosting.settings import Settings
@@ -165,6 +165,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     event_bus = EventBus()
     health_registry = HealthRegistry()
     public_route_registry = PublicRouteRegistry()
+    design_pack_registry = DesignPackRegistry()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -203,25 +204,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     for mod in modules:
         mod.register_settings(app)
 
-    # Register host-level settings under package="host" (DB-backed). The
-    # Settings module must already have run register_settings (topo order
-    # puts it early; its meta.depends_on = [] so it's among the first).
-    # When the Settings module isn't enabled, there's no registry to
-    # register against — skip quietly.
-    #
-    # We resolve `settings.registration` via importlib rather than a plain
-    # `from settings.registration import ...`: the SM009 coupling check is
-    # AST-based and forbids any static import of a plugin package name
-    # from within framework/* code. Dynamic resolution keeps the framework
-    # AST plugin-free while still hitting the real helper at runtime.
-    if hasattr(app.state, "settings"):
-        import importlib
-
-        _register_module_settings = importlib.import_module(
-            "settings.registration"
-        ).register_module_settings
-
-        _register_module_settings(app, "host", HostSettings, lambda s: _HostServices(settings=s))
+    register_host_settings(app)
 
     if settings.is_development:
         settings_diagnostics = check_settings_registration(app, modules)
@@ -236,17 +219,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         _register_event_handlers(mod, event_bus, app)
         mod.register_health_checks(health_registry)
         mod.register_public_routes(public_route_registry)
+        mod.register_design_packs(design_pack_registry)
 
     attach_public_routes(app, settings, public_route_registry)
 
+    # Branding reads the packs off app.state directly: its API validates a
+    # submitted slug before persisting it, and its view builds the dropdown.
+    app.state.design_packs = design_pack_registry
+
     logger.info(
         "Registered %d menu items, %d permissions, %d feature flags, "
-        "%d health checks, %d public routes",
+        "%d health checks, %d public routes, %d design packs",
         len(menu_registry.all_items),
         len(perm_registry.all_permissions),
         len(ff_registry.all_flags),
         len(health_registry.all_checks),
         len(public_route_registry.routes),
+        len(design_pack_registry.all()),
     )
 
     # ── Phase 6: Initialize database ───────────────────────
@@ -291,6 +280,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         feature_flags=ff_registry,
         health_registry=health_registry,
         public_routes=public_route_registry,
+        design_packs=design_pack_registry,
         i18n_registry=i18n_registry,
         inertia_config=inertia_config,
         modules=tuple(modules),

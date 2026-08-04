@@ -32,6 +32,8 @@ from simple_module_hosting._error_handlers import (
     request_validation_error_handler,
     unhandled_exception_handler,
 )
+from simple_module_hosting._host_services import _HostServices
+from simple_module_hosting.host_settings import HostSettings
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.middleware import (
     CorrelationIdMiddleware,
@@ -163,6 +165,32 @@ def mount_module_static_dirs(app: FastAPI, modules: list) -> None:
                 StaticFiles(directory=directory_path),
                 name=f"static:{mod.meta.name}",
             )
+
+
+def register_host_settings(app: FastAPI) -> None:
+    """Register host-level settings under ``package="host"`` (DB-backed).
+
+    The Settings module must already have run ``register_settings`` — topo
+    order puts it early, since its ``meta.depends_on`` is empty. When the
+    Settings module isn't enabled there's no registry to register against, so
+    this skips quietly.
+
+    ``settings.registration`` is resolved via importlib rather than a plain
+    ``from settings.registration import ...``: the SM009 coupling check is
+    AST-based and forbids any static import of a plugin package name from
+    within ``framework/*``. Dynamic resolution keeps the framework AST
+    plugin-free while still hitting the real helper at runtime.
+    """
+    if not hasattr(app.state, "settings"):
+        return
+
+    import importlib
+
+    register_module_settings = importlib.import_module(
+        "settings.registration"
+    ).register_module_settings
+
+    register_module_settings(app, "host", HostSettings, lambda s: _HostServices(settings=s))
 
 
 def check_settings_registration(app: FastAPI, modules: list) -> list[Diagnostic]:

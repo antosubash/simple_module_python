@@ -125,6 +125,28 @@ class TestModuleNewHooks:
         assert reg.matches("GET", "/api/with-public/datasets/9/tilejson")
         assert not reg.matches("PATCH", "/api/with-public/datasets/9/tilejson")
 
+    async def test_register_design_packs_default_noop(self):
+        from simple_module_core.design_packs import DesignPackRegistry
+
+        mod = DummyModule()
+        reg = DesignPackRegistry()
+        mod.register_design_packs(reg)
+        assert reg.all() == []
+
+    async def test_register_design_packs_override(self):
+        from simple_module_core.design_packs import DesignPack, DesignPackRegistry
+
+        class ModWithPack(ModuleBase):
+            meta = ModuleMeta(name="WithPack")
+
+            def register_design_packs(self, registry):
+                registry.register(DesignPack(value="with-pack", label="With Pack"))
+
+        reg = DesignPackRegistry()
+        ModWithPack().register_design_packs(reg)
+        assert reg.has("with-pack")
+        assert [p.label for p in reg.all()] == ["With Pack"]
+
 
 class TestModuleAssetHooks:
     async def test_template_dirs_default_empty(self):
