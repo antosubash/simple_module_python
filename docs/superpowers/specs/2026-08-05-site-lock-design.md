@@ -23,10 +23,12 @@ request.
 - `AuthMiddleware` (`modules/auth/auth/middleware.py`) resolves the user via
   the single registered `AuthProvider`, then redirects unauthenticated browser
   requests to the provider's login URL and returns 401 JSON for `/api/*`.
-- Public paths come from two places only: the `_FRAMEWORK_PUBLIC_*` constants
-  in the auth middleware, and `provider.get_public_paths()`. **There is no
-  registry a third module can add to** — this is what rules out mounting a
-  normal view route for the gate page without first extending the auth module.
+- Public paths come from three places: the `_FRAMEWORK_PUBLIC_*` constants in
+  the auth middleware, the method-aware `app.state.public_routes` registry fed
+  by the `register_public_routes` module hook, and the legacy
+  `provider.get_public_paths()`. A module *could* therefore mount a normal
+  gated view route — but the design below does not need to, because the
+  middleware runs *before* `AuthMiddleware` and so never reaches that check.
 - DB-backed per-module settings go through
   `settings.registration.register_module_settings(app, package, cls, factory)`,
   hydrate at startup, and hot-swap through
@@ -50,8 +52,9 @@ Settled during brainstorming:
 3. **Logged-in admins always bypass** the gate — this is the lockout escape
    hatch, chosen over shipping a CLI command.
 4. **Self-contained middleware-rendered gate page**, not an Inertia `.tsx` page.
-   This avoids extending the auth module with a public-paths registry, and
-   means a locked site serves exactly one page and leaks nothing else.
+   A locked site then serves exactly one page and leaks nothing else — no
+   menus, no branding, no JS bundle — and the gate keeps working even if the
+   frontend build is broken.
 
 ## Design
 
