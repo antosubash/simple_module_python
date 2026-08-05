@@ -1,7 +1,6 @@
 {
   "extends": "@simple-module-py/tsconfig/base.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@simple-module-py/ui/*": ["./src/*"]

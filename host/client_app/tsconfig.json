@@ -1,7 +1,10 @@
 {
   "extends": "@simple-module-py/tsconfig/base.json",
   "compilerOptions": {
-    "baseUrl": ".",
+    // vite.config.ts imports ./compress-assets.ts with an explicit extension so
+    // Vite's native (Node type-stripping) config loader can resolve it — that
+    // loader does no extension guessing. Legal here because base.json sets noEmit.
+    "allowImportingTsExtensions": true,
     "paths": {
       "@/*": ["./*"],
       "@simple-module-py/ui/*": ["../../packages/ui/src/*"]
