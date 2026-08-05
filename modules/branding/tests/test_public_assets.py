@@ -183,3 +183,18 @@ async def test_the_asset_response_cannot_be_rendered_as_a_document(
 
     assert resp.headers["content-disposition"] == "attachment"
     assert resp.headers["x-content-type-options"] == "nosniff"
+
+
+async def test_the_prehydration_shell_carries_the_branded_favicon(
+    stored_logo: StoredFile,
+    app,
+    authenticated_client: httpx.AsyncClient,
+) -> None:
+    # Without a server-rendered <link rel="icon"> the browser paints the
+    # default favicon and only swaps once React hydrates — a visible flicker
+    # on every full page load, most obviously on the sign-in page.
+    app.state.branding.settings.favicon_file_id = str(stored_logo.id)
+
+    page = await authenticated_client.get("/branding/", follow_redirects=False)
+
+    assert f'rel="icon" href="/api/branding/favicon?v={stored_logo.id}"' in page.text
