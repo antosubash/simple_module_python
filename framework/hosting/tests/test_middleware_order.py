@@ -7,7 +7,13 @@ CLAUDE.md spells out the pipeline:
 
 Tenant/Locale must see ``request.state.user`` set by AuthMiddleware so
 DB queries get filtered correctly; CorrelationId must wrap everything so
-every log line carries its id. GZip sits inside the observability pair so
+every log line carries its id. SiteLock must precede AuthMiddleware: it gates
+anonymous visitors itself, and if Auth ran first they would be redirected to
+the login page — revealing that a login form exists on a site that is meant
+to be fully hidden. That inversion breaks the feature without failing any
+site_lock unit test, which is why the order is pinned here.
+
+GZip sits inside the observability pair so
 those still see every request, but outside everything that produces a body
 — including the /static mount, which is where compression pays off most.
 Order matters and a swap is the kind of
@@ -28,6 +34,7 @@ _EXPECTED_MULTI_TENANT = (
     "GZipMiddleware",
     "SecurityHeadersMiddleware",
     "SessionMiddleware",
+    "SiteLockMiddleware",
     "AuthMiddleware",
     "TenantMiddleware",
     "LocaleMiddleware",
@@ -40,6 +47,7 @@ _EXPECTED_SINGLE_TENANT = (
     "GZipMiddleware",
     "SecurityHeadersMiddleware",
     "SessionMiddleware",
+    "SiteLockMiddleware",
     "AuthMiddleware",
     "LocaleMiddleware",
     "InertiaLayoutDataMiddleware",

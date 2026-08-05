@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import typer
+from simple_module_cli.catalog import CATALOG
 from simple_module_cli.wizard import run_wizard
 from typer.testing import CliRunner
 
@@ -52,7 +53,12 @@ def test_wizard_full_preset_includes_background_tasks() -> None:
 
 
 def test_wizard_custom_picks_only_yes_answers() -> None:
-    answers = ["", "", "4"] + ["n"] * 7 + ["y", ""]
+    # The custom path prompts once per catalog module, in CATALOG order.
+    # Derive the answers from CATALOG rather than hardcoding a count: a
+    # hardcoded sequence silently shifts onto the wrong module the next time
+    # one is added, which is how this test broke when `site_lock` landed.
+    picks = ["y" if name == "background_tasks" else "n" for name in CATALOG]
+    answers = ["", "", "4", *picks, ""]
     _, _, selected, out = _drive(answers)
     assert set(selected) == {"background_tasks", "users", "auth"}
     assert "Added users (required by background_tasks)" in out

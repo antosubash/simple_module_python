@@ -183,6 +183,7 @@ export default defineConfig({
             { text: "branding", link: "/modules/branding" },
             { text: "background_tasks", link: "/modules/background_tasks" },
             { text: "audit_log", link: "/modules/audit_log" },
+            { text: "site_lock", link: "/modules/site_lock" },
             { text: "dashboard", link: "/modules/dashboard" },
           ],
         },
