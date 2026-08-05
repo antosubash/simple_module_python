@@ -10,23 +10,11 @@ from simple_module_hosting.permissions import RequiresPermission
 from branding import constants
 from branding.contracts.schemas import BrandingOut, BrandingUpdate
 from branding.deps import BrandingServiceDep
+from branding.images import validate_image
 
 router = APIRouter()
 
 _MANAGE = Depends(RequiresPermission(constants.PERM_MANAGE))
-
-
-def _validate_image(file: UploadFile) -> None:
-    if file.content_type not in constants.ALLOWED_IMAGE_TYPES:
-        raise HTTPException(
-            status_code=415,
-            detail=f"Unsupported image type {file.content_type!r}.",
-        )
-    if file.size is not None and file.size > constants.MAX_IMAGE_BYTES:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Image exceeds {constants.MAX_IMAGE_BYTES} bytes.",
-        )
 
 
 def _validate_design_pack(request: Request, changes: dict) -> None:
@@ -73,7 +61,7 @@ async def upload_logo(
     file: UploadFile,
     storage: FileStorageService = Depends(get_file_storage_service),
 ) -> BrandingOut:
-    _validate_image(file)
+    await validate_image(file)
     stored = await storage.upload(file)
     return await service.set_logo(str(stored.id))
 
@@ -84,7 +72,7 @@ async def upload_favicon(
     file: UploadFile,
     storage: FileStorageService = Depends(get_file_storage_service),
 ) -> BrandingOut:
-    _validate_image(file)
+    await validate_image(file)
     stored = await storage.upload(file)
     return await service.set_favicon(str(stored.id))
 

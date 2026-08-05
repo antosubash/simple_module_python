@@ -50,7 +50,23 @@ Programmatically, the current branding is available on every page through the
   (SYSTEM scope) — there is no branding database table. They hydrate into
   `app.state.branding.settings` at boot and hot-swap on save.
 - **Images.** Logo and favicon uploads are stored through the `file_storage`
-  module (referenced by UUID) and served from its download endpoint.
+  module (referenced by UUID). Branding serves them back from its own
+  **anonymous** routes, `GET /api/branding/logo` and `GET /api/branding/favicon`
+  — `file_storage`'s download endpoint requires `file-storage.download`, which
+  no logged-out visitor has, and the sign-in page is exactly where the logo
+  must appear. Only the two ids currently held in branding settings are served,
+  so this is not a way to read arbitrary files. Uploading and clearing on those
+  same paths stay behind `branding.manage` (the exemption is GET-only).
+- **Caching.** The published URL carries `?v=<file id>`; a replaced image is a
+  new `file_storage` id, so the URL is content-addressed. Versioned requests
+  are served `public, max-age=31536000, immutable`; a request without a usable
+  version gets `public, max-age=3600` so it self-corrects, and a 404 is never
+  cached.
+- **Upload validation.** PNG, JPEG, WEBP, GIF and ICO up to 2 MB. The declared
+  content-type is caller-controlled, so the first bytes are also checked
+  against each format's magic number — a payload renamed `logo.png` is
+  rejected. SVG is excluded on purpose: it is an XML document that can carry
+  `<script>`, so serving one from the app's origin would be stored XSS.
 - **Delivery.** A registered Inertia shared-props provider injects a `branding`
   block into every page's shared props (authenticated *and* guest), which the
   frontend reads for the name, logo, favicon and colour.
@@ -59,6 +75,9 @@ Programmatically, the current branding is available on every page through the
 
 - `branding.view` — view the branding admin page.
 - `branding.manage` — change branding (name, colour, logo, favicon).
+
+The logo and favicon **GET** routes are anonymous by design (registered through
+the `register_public_routes` hook); everything else requires a permission.
 
 ## Dependencies
 

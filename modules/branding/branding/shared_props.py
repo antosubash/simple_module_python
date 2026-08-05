@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from branding.constants import FILE_DOWNLOAD_URL
+from branding.constants import ASSET_VERSION_QUERY_KEY, FAVICON_URL, LOGO_URL
 
 if TYPE_CHECKING:
     from starlette.requests import Request
@@ -17,9 +17,15 @@ if TYPE_CHECKING:
     from branding.settings import BrandingSettings
 
 
-def file_url(file_id: str) -> str | None:
-    """Build the file_storage download URL for a stored file id (or None)."""
-    return FILE_DOWNLOAD_URL.format(file_id=file_id) if file_id else None
+def asset_url(base: str, file_id: str) -> str | None:
+    """Version a public branding asset URL with the stored file id (or None).
+
+    Points at branding's own anonymous route rather than file_storage's
+    permission-gated download, so the image also loads for a logged-out
+    visitor. Replacing an image stores a *new* file, so the id doubles as a
+    content-address: the URL changes, and caches invalidate for free.
+    """
+    return f"{base}?{ASSET_VERSION_QUERY_KEY}={file_id}" if file_id else None
 
 
 def branding_payload(settings: BrandingSettings) -> dict:
@@ -28,8 +34,8 @@ def branding_payload(settings: BrandingSettings) -> dict:
         "appName": settings.app_name,
         "primaryColor": settings.primary_color or None,
         "designPack": settings.design_pack or None,
-        "logoUrl": file_url(settings.logo_file_id),
-        "faviconUrl": file_url(settings.favicon_file_id),
+        "logoUrl": asset_url(LOGO_URL, settings.logo_file_id),
+        "faviconUrl": asset_url(FAVICON_URL, settings.favicon_file_id),
     }
 
 

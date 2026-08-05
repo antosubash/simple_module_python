@@ -20,6 +20,13 @@ import { DesignPackField, type DesignPackOption } from '../components/DesignPack
 const DEFAULT_SWATCH = '#10b981';
 type ImageKind = 'logo' | 'favicon';
 
+/**
+ * Mirrors the server allow-list in `branding/images.py`. SVG is absent on
+ * purpose — it is an XML document that can carry <script>, so the server
+ * rejects it; offering it in the picker would only produce a 415.
+ */
+const ACCEPTED_IMAGE_TYPES = 'image/png,image/jpeg,image/webp,image/gif,image/x-icon';
+
 async function readError(res: Response): Promise<string> {
   try {
     const body = await res.json();
@@ -62,7 +69,7 @@ function ImageField({
           <input
             ref={inputRef}
             type="file"
-            accept="image/*"
+            accept={ACCEPTED_IMAGE_TYPES}
             className="hidden"
             onChange={(e: ChangeEvent<HTMLInputElement>) => {
               const file = e.target.files?.[0];

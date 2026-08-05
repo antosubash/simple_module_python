@@ -5,9 +5,9 @@ from __future__ import annotations
 import re
 from typing import Final
 
-from file_storage.constants import PATH_FILE_DOWNLOAD, ROUTE_PREFIX_API
 from simple_module_core.design_packs import SLUG_RE
 
+ROUTE_PREFIX: Final = "/api/branding"
 VIEW_PREFIX: Final = "/branding"
 # Trailing slash: the browse route is registered at "/" under VIEW_PREFIX, so
 # linking to the bare prefix costs a 307 round trip on every navigation.
@@ -41,24 +41,29 @@ DESIGN_PACK_ERROR: Final = (
     "not starting with a dash) or empty"
 )
 
-# Image upload guard-rails (enforced before handing the file to file_storage).
-MAX_IMAGE_BYTES: Final = 2 * 1024 * 1024  # 2 MB
-ALLOWED_IMAGE_TYPES: Final = frozenset(
-    {
-        "image/png",
-        "image/jpeg",
-        "image/svg+xml",
-        "image/webp",
-        "image/gif",
-        "image/x-icon",
-        "image/vnd.microsoft.icon",
-    }
-)
+# Image upload guard-rails live in branding.images (allow-list, size ceiling and
+# magic-number sniffing), which owns the whole "is this really an image?" question.
 
-# file_storage download URL, derived from file_storage's own route constants
-# (branding depends on FileStorage) so it tracks any route change. The
-# ``{file_id}`` placeholder is filled per stored-file id.
-FILE_DOWNLOAD_URL: Final = ROUTE_PREFIX_API + PATH_FILE_DOWNLOAD
+# ── Public asset routes ────────────────────────────────────────────────
+# Branding serves its own logo and favicon instead of linking file_storage's
+# download route, which is gated by ``file-storage.download``. No logged-out
+# request carries that permission, and the sign-in page, the public landing
+# page and every ``<link rel="icon">`` are exactly where the logo has to show.
+# Only the two ids currently stored in branding settings are served here, so
+# this is not a way to read arbitrary files out of file_storage.
+PATH_LOGO: Final = "/logo"
+PATH_FAVICON: Final = "/favicon"
+LOGO_URL: Final = ROUTE_PREFIX + PATH_LOGO
+FAVICON_URL: Final = ROUTE_PREFIX + PATH_FAVICON
+
+# Cache policy, mirroring IIASA.GeoWiki's BrandingImageCache. The published URL
+# carries ``?v=<file_id>``, and a replaced image is a *new* file_storage id — so
+# a versioned request is content-addressed and safe to pin for a year. A request
+# without a usable version must never be immutable: that same URL can serve new
+# bytes later, so it gets a short cache and self-corrects.
+ASSET_VERSION_QUERY_KEY: Final = "v"
+ASSET_MAX_AGE_VERSIONED: Final = 365 * 24 * 60 * 60
+ASSET_MAX_AGE_UNVERSIONED: Final = 60 * 60
 
 
 def clean_app_name(value: str) -> str:

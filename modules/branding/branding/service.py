@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from branding.constants import PACKAGE
+from branding.constants import FAVICON_URL, LOGO_URL, PACKAGE
 from branding.contracts.schemas import BrandingOut
-from branding.shared_props import file_url
+from branding.shared_props import asset_url
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -32,8 +32,8 @@ class BrandingService:
             app_name=settings.app_name,
             primary_color=settings.primary_color,
             design_pack=settings.design_pack,
-            logo_url=file_url(settings.logo_file_id),
-            favicon_url=file_url(settings.favicon_file_id),
+            logo_url=asset_url(LOGO_URL, settings.logo_file_id),
+            favicon_url=asset_url(FAVICON_URL, settings.favicon_file_id),
         )
 
     async def apply(self, changes: dict[str, Any]) -> BrandingOut:
