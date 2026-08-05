@@ -62,6 +62,10 @@ Programmatically, the current branding is available on every page through the
   are served `public, max-age=31536000, immutable`; a request without a usable
   version gets `public, max-age=3600` so it self-corrects, and a 404 is never
   cached.
+- **Lifecycle.** Replacing or clearing an image deletes the file it stopped
+  referencing, so repeated logo tweaks don't leave orphans in `file_storage`.
+  Cleanup is best effort: the setting change has already been persisted, so a
+  storage fault is logged rather than failing an otherwise-successful rebrand.
 - **Upload validation.** PNG, JPEG, WEBP, GIF and ICO up to 2 MB. The declared
   content-type is caller-controlled, so the first bytes are also checked
   against each format's magic number — a payload renamed `logo.png` is
