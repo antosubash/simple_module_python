@@ -15,6 +15,7 @@ import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedL
 import type { SharedProps } from '@simple-module-py/ui/types';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { BannerField, type BannerSeverity } from '../components/BannerField';
 import { DesignPackField, type DesignPackOption } from '../components/DesignPackField';
 import { ImageField } from '../components/ImageField';
 
@@ -47,6 +48,10 @@ function Manage() {
   const [appName, setAppName] = useState(branding?.appName ?? '');
   const [color, setColor] = useState(branding?.primaryColor ?? '');
   const [designPack, setDesignPack] = useState(branding?.designPack ?? '');
+  const [bannerMessage, setBannerMessage] = useState(branding?.banner?.message ?? '');
+  const [bannerSeverity, setBannerSeverity] = useState<BannerSeverity>(
+    (branding?.banner?.severity as BannerSeverity) ?? 'info',
+  );
   const [busy, setBusy] = useState(false);
 
   async function run(work: () => Promise<Response>, errorMsg: string) {
@@ -73,6 +78,8 @@ function Manage() {
             app_name: appName,
             primary_color: color,
             design_pack: designPack,
+            banner_message: bannerMessage,
+            banner_severity: bannerSeverity,
           }),
         }),
       t(keys.branding.manage.error_toast),
@@ -156,6 +163,14 @@ function Manage() {
                   {t(keys.branding.manage.primary_color_help)}
                 </p>
               </div>
+
+              <BannerField
+                message={bannerMessage}
+                severity={bannerSeverity}
+                onMessageChange={setBannerMessage}
+                onSeverityChange={setBannerSeverity}
+                disabled={!canManage || busy}
+              />
 
               <DesignPackField
                 options={page.designPacks ?? []}

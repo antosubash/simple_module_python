@@ -59,6 +59,8 @@ def test_branding_payload_unset() -> None:
         # None = no dark variant uploaded; the frontend falls back to logoUrl.
         "logoDarkUrl": None,
         "faviconUrl": None,
+        # None, not an empty dict — no message means render no bar at all.
+        "banner": None,
     }
 
 

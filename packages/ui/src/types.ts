@@ -21,6 +21,8 @@ export interface BrandingShared {
    */
   logoDarkUrl: string | null;
   faviconUrl: string | null;
+  /** Site-wide announcement, or `null` when no message is set. */
+  banner: { message: string; severity: string } | null;
 }
 
 export interface SharedProps {

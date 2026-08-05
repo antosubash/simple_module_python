@@ -33,6 +33,34 @@ PERM_MANAGE: Final = "branding.manage"
 HEX_COLOR_RE: Final = re.compile(r"^#[0-9a-fA-F]{6}$")
 MAX_APP_NAME_LEN: Final = 60
 
+# ── Site-wide announcement banner ──────────────────────────────────────
+# An empty message hides the banner entirely; severity drives its colour.
+MAX_BANNER_MESSAGE_LEN: Final = 500
+BANNER_SEVERITY_INFO: Final = "info"
+BANNER_SEVERITIES: Final = (BANNER_SEVERITY_INFO, "warning", "danger")
+BANNER_SEVERITY_ERROR: Final = f"banner_severity must be one of {', '.join(BANNER_SEVERITIES)}"
+
+
+def normalize_banner_severity(value: str | None) -> str:
+    """Coerce a severity to a known value, falling back to ``info``.
+
+    Used by the *settings* validator rather than the DTO: settings hydrate from
+    the DB, where a hand-edited or since-removed severity must degrade to a
+    readable banner instead of refusing to boot. The update DTO rejects unknown
+    values outright so the API gives a clear 422.
+    """
+    candidate = (value or "").strip().lower()
+    return candidate if candidate in BANNER_SEVERITIES else BANNER_SEVERITY_INFO
+
+
+def clean_banner_message(value: str) -> str:
+    """Trim + bound the banner text (shared by the settings and update DTO)."""
+    cleaned = value.strip()
+    if len(cleaned) > MAX_BANNER_MESSAGE_LEN:
+        raise ValueError(f"banner_message must be at most {MAX_BANNER_MESSAGE_LEN} characters")
+    return cleaned
+
+
 # A design-pack slug. Aliased from the framework's own pattern so branding and
 # DesignPack can never disagree about what a valid slug is.
 DESIGN_PACK_RE: Final = SLUG_RE

@@ -3,6 +3,7 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Menu, X } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
 import { LocaleSwitcher } from '../components/LocaleSwitcher';
@@ -19,6 +20,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <BrandingHead />
+      <BrandingBanner />
       <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl backdrop-saturate-150">
         <div className="mx-auto max-w-6xl px-4 py-3 sm:px-8 sm:py-3.5">
           <div className="flex items-center justify-between">

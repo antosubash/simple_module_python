@@ -44,6 +44,13 @@ def branding_payload(settings: BrandingSettings) -> dict:
         # deployment with a single logo keeps its current appearance.
         "logoDarkUrl": asset_url(LOGO_DARK_URL, settings.logo_dark_file_id),
         "faviconUrl": asset_url(FAVICON_URL, settings.favicon_file_id),
+        # None when no message is set, so the frontend renders nothing at all
+        # rather than an empty bar.
+        "banner": (
+            {"message": settings.banner_message, "severity": settings.banner_severity}
+            if settings.banner_message
+            else None
+        ),
     }
 
 

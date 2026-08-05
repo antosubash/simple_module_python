@@ -49,6 +49,8 @@ class BrandingService:
             logo_url=asset_url(LOGO_URL, settings.logo_file_id),
             logo_dark_url=asset_url(LOGO_DARK_URL, settings.logo_dark_file_id),
             favicon_url=asset_url(FAVICON_URL, settings.favicon_file_id),
+            banner_message=settings.banner_message,
+            banner_severity=settings.banner_severity,
         )
 
     async def apply(self, changes: dict[str, Any]) -> BrandingOut:

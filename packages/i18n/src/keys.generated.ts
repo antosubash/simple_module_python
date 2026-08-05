@@ -113,6 +113,12 @@ export const keys = {
     manage: {
       app_name_help: 'branding.manage.app_name_help',
       app_name_label: 'branding.manage.app_name_label',
+      banner_help: 'branding.manage.banner_help',
+      banner_label: 'branding.manage.banner_label',
+      banner_placeholder: 'branding.manage.banner_placeholder',
+      banner_severity_danger: 'branding.manage.banner_severity_danger',
+      banner_severity_info: 'branding.manage.banner_severity_info',
+      banner_severity_warning: 'branding.manage.banner_severity_warning',
       description: 'branding.manage.description',
       design_pack_empty: 'branding.manage.design_pack_empty',
       design_pack_help: 'branding.manage.design_pack_help',
