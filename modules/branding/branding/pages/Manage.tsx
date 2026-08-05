@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { BannerField, type BannerSeverity } from '../components/BannerField';
 import { DesignPackField, type DesignPackOption } from '../components/DesignPackField';
 import { ImageField } from '../components/ImageField';
+import { PresetField, type PresetOption } from '../components/PresetField';
 
 const DEFAULT_SWATCH = '#10b981';
 /** Matches the upload/clear route segments under `/api/branding/`. */
@@ -41,6 +42,7 @@ function Manage() {
   // which modules the host has installed, so only the view can supply them.
   const page = usePage<{ props: SharedProps }>().props as unknown as SharedProps & {
     designPacks?: DesignPackOption[];
+    presets?: PresetOption[];
   };
   const { auth, branding } = page;
   const canManage = auth?.permissions?.includes('branding.manage');
@@ -93,6 +95,12 @@ function Manage() {
       t(keys.branding.manage.upload_error_toast),
     );
   };
+
+  const applyPreset = (key: string) =>
+    run(
+      () => fetch(`/api/branding/presets/${key}`, { method: 'POST' }),
+      t(keys.branding.manage.error_toast),
+    );
 
   const removeImage = (kind: ImageKind) =>
     run(
@@ -163,6 +171,13 @@ function Manage() {
                   {t(keys.branding.manage.primary_color_help)}
                 </p>
               </div>
+
+              <PresetField
+                options={page.presets ?? []}
+                activeColor={color}
+                onApply={applyPreset}
+                disabled={!canManage || busy}
+              />
 
               <BannerField
                 message={bannerMessage}

@@ -12,6 +12,8 @@
     "design_pack_empty": "No installed module provides a design pack.",
     "logo_label": "Logo",
     "logo_help": "Square PNG or WEBP works best, up to 2 MB. Replaces the default badge in the sidebar.",
+    "preset_label": "Presets",
+    "preset_help": "Applies a ready-made colour scheme straight away. Your app name, images and banner are left alone.",
     "banner_label": "Announcement banner",
     "banner_help": "Shown across the top of every page, signed-in or not. Leave empty to hide it.",
     "banner_placeholder": "e.g. Scheduled maintenance on Sunday 02:00–04:00 UTC",

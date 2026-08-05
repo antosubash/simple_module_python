@@ -79,6 +79,9 @@ DESIGN_PACK_ERROR: Final = (
 # page and every ``<link rel="icon">`` are exactly where the logo has to show.
 # Only the two ids currently stored in branding settings are served here, so
 # this is not a way to read arbitrary files out of file_storage.
+#: One-click look. ``{key}`` names a preset from ``branding.presets``.
+PATH_PRESET: Final = "/presets/{key}"
+
 PATH_LOGO: Final = "/logo"
 PATH_LOGO_DARK: Final = "/logo-dark"
 PATH_FAVICON: Final = "/favicon"

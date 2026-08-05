@@ -131,6 +131,8 @@ export const keys = {
       logo_dark_label: 'branding.manage.logo_dark_label',
       logo_help: 'branding.manage.logo_help',
       logo_label: 'branding.manage.logo_label',
+      preset_help: 'branding.manage.preset_help',
+      preset_label: 'branding.manage.preset_label',
       preview_title: 'branding.manage.preview_title',
       primary_color_help: 'branding.manage.primary_color_help',
       primary_color_label: 'branding.manage.primary_color_label',

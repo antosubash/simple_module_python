@@ -96,6 +96,8 @@ export default {
     'branding.manage.logo_dark_label': '',
     'branding.manage.logo_help': '',
     'branding.manage.logo_label': '',
+    'branding.manage.preset_help': '',
+    'branding.manage.preset_label': '',
     'branding.manage.preview_title': '',
     'branding.manage.primary_color_help': '',
     'branding.manage.primary_color_label': '',
