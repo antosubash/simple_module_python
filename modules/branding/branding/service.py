@@ -83,6 +83,14 @@ class BrandingService:
         The setting change has already been persisted and is what the admin
         asked for, so a storage fault (or a hand-edited, non-UUID setting) must
         be logged rather than turned into a 500 on a successful rebrand.
+
+        The realistic failures are fully contained: a missing row raises before
+        any write, and a failed backend delete is already suppressed inside
+        ``file_storage`` (the row stays flagged for a janitor). Swallowing here
+        cannot rescue a *flush* failure, though — that leaves the shared request
+        session dirty and the commit at request end would surface it anyway.
+        Reaping in the same session is the deliberate trade: it keeps the delete
+        atomic with the settings write instead of orphaning on a late rollback.
         """
         if self.storage is None:
             return

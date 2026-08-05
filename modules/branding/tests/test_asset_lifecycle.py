@@ -130,6 +130,10 @@ async def test_a_failed_cleanup_does_not_fail_the_rebrand(
     # The setting change already succeeded and is what the admin asked for. A
     # storage blip while reaping the old file must not surface as a 500 on an
     # otherwise-successful rebrand.
+    #
+    # Covers a fault raised before any DB write — which is every realistic case
+    # (missing row, bad UUID, backend error). A failure *during* flush is out of
+    # reach by design; see BrandingService._reap.
     await _upload(authenticated_client, "logo")
 
     async def boom(self: FileStorageService, file_id: uuid.UUID) -> StoredFile:
