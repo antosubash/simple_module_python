@@ -13,7 +13,7 @@ import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import type { SharedProps } from '@simple-module-py/ui/types';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { BannerField, type BannerSeverity } from '../components/BannerField';
 import { DesignPackField, type DesignPackOption } from '../components/DesignPackField';
@@ -56,6 +56,25 @@ function Manage() {
     (branding?.banner?.severity as BannerSeverity) ?? 'info',
   );
   const [busy, setBusy] = useState(false);
+
+  // Applying a preset changes branding on the *server*; `router.reload()` brings
+  // the new shared props back, but useState only seeds on mount, so without this
+  // the fields would keep showing the pre-preset values until a full page load.
+  // Depend on the primitives rather than the `branding` object: its identity
+  // changes on every reload, which would otherwise wipe out in-progress typing.
+  const propAppName = branding?.appName ?? '';
+  const propColor = branding?.primaryColor ?? '';
+  const propDesignPack = branding?.designPack ?? '';
+  const propBannerMessage = branding?.banner?.message ?? '';
+  const propBannerSeverity = (branding?.banner?.severity as BannerSeverity) ?? 'info';
+
+  useEffect(() => {
+    setAppName(propAppName);
+    setColor(propColor);
+    setDesignPack(propDesignPack);
+    setBannerMessage(propBannerMessage);
+    setBannerSeverity(propBannerSeverity);
+  }, [propAppName, propColor, propDesignPack, propBannerMessage, propBannerSeverity]);
 
   async function run(work: () => Promise<Response>, errorMsg: string) {
     setBusy(true);
