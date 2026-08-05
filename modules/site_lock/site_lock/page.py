@@ -31,7 +31,7 @@ def safe_next(raw: str | None) -> str:
     """
     if not raw or not raw.startswith("/"):
         return "/"
-    if raw.startswith("//") or raw.startswith("/\\"):
+    if raw.startswith(("//", "/\\")):
         return "/"
     if "\r" in raw or "\n" in raw:
         return "/"

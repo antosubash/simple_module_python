@@ -15,6 +15,7 @@ simple_module_python ships with eleven first-party modules. Each is a regular Py
 | [`background_tasks`](/modules/background_tasks) | `users` | Celery + Redis workers, persistent task history, retry, stuck-task sweep, live worker dashboard. |
 | [`audit_log`](/modules/audit_log) | `users` | Automatic field-level audit trail for SQLModel entities, with an admin UI to browse change history. |
 | [`dashboard`](/modules/dashboard) | `users` | Authenticated landing page with system overview (user counts, module list, health checks). |
+| [`site_lock`](/modules/site_lock) | `settings`, `auth` | Optional site-wide shared-password gate for staging / pre-launch sites. Off by default. |
 
 ## How modules are wired in
 
