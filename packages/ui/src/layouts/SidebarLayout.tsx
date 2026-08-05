@@ -22,6 +22,7 @@ import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
 import { BrandingMark } from '../components/BrandingMark';
 import { NavIcon } from '../components/NavIcon';
+import { darkSurfaceLogo } from '../lib/brand';
 import type { MenuItem, SharedProps } from '../types';
 
 function groupMenuItems(items: MenuItem[]): { group: string; items: MenuItem[] }[] {
@@ -71,6 +72,10 @@ export function SidebarLayout({
   const currentUrl = page.url;
   const appName = branding?.appName ?? theme.mobileTitleLabel;
   const logoUrl = branding?.logoUrl ?? null;
+  // The sidebar and mobile bar are near-black whatever the theme, so they take
+  // the dark logo variant when one exists. The footer sits on `bg-background`
+  // and follows the theme, so it keeps the primary logo.
+  const darkLogoUrl = darkSurfaceLogo(branding);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = () => setSidebarOpen(false);
 
@@ -109,7 +114,7 @@ export function SidebarLayout({
           <Link href="/dashboard/" className="flex items-center gap-2">
             <BrandingMark
               appName={appName}
-              logoUrl={logoUrl}
+              logoUrl={darkLogoUrl}
               accentColor={theme.accentColor}
               size="sm"
             />
@@ -135,7 +140,7 @@ export function SidebarLayout({
             <Link href="/dashboard/" className="flex items-center gap-2.5 group">
               <BrandingMark
                 appName={appName}
-                logoUrl={logoUrl}
+                logoUrl={darkLogoUrl}
                 accentColor={theme.accentColor}
                 size="md"
               />

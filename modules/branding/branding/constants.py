@@ -52,8 +52,10 @@ DESIGN_PACK_ERROR: Final = (
 # Only the two ids currently stored in branding settings are served here, so
 # this is not a way to read arbitrary files out of file_storage.
 PATH_LOGO: Final = "/logo"
+PATH_LOGO_DARK: Final = "/logo-dark"
 PATH_FAVICON: Final = "/favicon"
 LOGO_URL: Final = ROUTE_PREFIX + PATH_LOGO
+LOGO_DARK_URL: Final = ROUTE_PREFIX + PATH_LOGO_DARK
 FAVICON_URL: Final = ROUTE_PREFIX + PATH_FAVICON
 
 # Cache policy, mirroring IIASA.GeoWiki's BrandingImageCache. The published URL

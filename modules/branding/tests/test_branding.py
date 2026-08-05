@@ -56,6 +56,8 @@ def test_branding_payload_unset() -> None:
         "primaryColor": None,
         "designPack": None,
         "logoUrl": None,
+        # None = no dark variant uploaded; the frontend falls back to logoUrl.
+        "logoDarkUrl": None,
         "faviconUrl": None,
     }
 

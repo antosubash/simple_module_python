@@ -9,7 +9,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from branding.constants import ASSET_VERSION_QUERY_KEY, FAVICON_URL, LOGO_URL
+from branding.constants import (
+    ASSET_VERSION_QUERY_KEY,
+    FAVICON_URL,
+    LOGO_DARK_URL,
+    LOGO_URL,
+)
 
 if TYPE_CHECKING:
     from starlette.requests import Request
@@ -35,6 +40,9 @@ def branding_payload(settings: BrandingSettings) -> dict:
         "primaryColor": settings.primary_color or None,
         "designPack": settings.design_pack or None,
         "logoUrl": asset_url(LOGO_URL, settings.logo_file_id),
+        # None when unset — the frontend falls back to ``logoUrl``, so a
+        # deployment with a single logo keeps its current appearance.
+        "logoDarkUrl": asset_url(LOGO_DARK_URL, settings.logo_dark_file_id),
         "faviconUrl": asset_url(FAVICON_URL, settings.favicon_file_id),
     }
 

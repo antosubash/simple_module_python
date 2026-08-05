@@ -66,6 +66,22 @@ async def upload_logo(
     return await service.set_logo(str(stored.id))
 
 
+@router.post(constants.PATH_LOGO_DARK, response_model=BrandingOut, dependencies=[_MANAGE])
+async def upload_logo_dark(
+    service: BrandingServiceDep,
+    file: UploadFile,
+    storage: FileStorageService = Depends(get_file_storage_service),
+) -> BrandingOut:
+    await validate_image(file)
+    stored = await storage.upload(file)
+    return await service.set_logo_dark(str(stored.id))
+
+
+@router.delete(constants.PATH_LOGO_DARK, response_model=BrandingOut, dependencies=[_MANAGE])
+async def clear_logo_dark(service: BrandingServiceDep) -> BrandingOut:
+    return await service.clear_logo_dark()
+
+
 @router.post("/favicon", response_model=BrandingOut, dependencies=[_MANAGE])
 async def upload_favicon(
     service: BrandingServiceDep,

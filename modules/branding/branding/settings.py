@@ -32,6 +32,10 @@ class BrandingSettings(BaseSettings):
     app_name: str = DEFAULT_APP_NAME
     primary_color: str = ""  # "" = use the theme default; otherwise "#rrggbb"
     logo_file_id: str = ""  # file_storage UUID, "" = no custom logo
+    # Variant for the app's always-dark surfaces (sidebar, mobile bar). Unset
+    # falls back to ``logo_file_id``, so a deployment that only ever uploads one
+    # logo behaves exactly as before.
+    logo_dark_file_id: str = ""
     favicon_file_id: str = ""  # file_storage UUID, "" = no custom favicon
     design_pack: str = ""  # "" = base tokens only; otherwise a registered slug
 

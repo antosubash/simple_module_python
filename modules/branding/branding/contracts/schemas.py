@@ -21,6 +21,8 @@ class BrandingOut(SQLModel):
     primary_color: str = ""
     design_pack: str = ""
     logo_url: str | None = None
+    #: Variant for dark surfaces; ``None`` means "fall back to ``logo_url``".
+    logo_dark_url: str | None = None
     favicon_url: str | None = None
 
 

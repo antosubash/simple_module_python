@@ -12,7 +12,7 @@ import logging
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from branding.constants import FAVICON_URL, LOGO_URL, PACKAGE
+from branding.constants import FAVICON_URL, LOGO_DARK_URL, LOGO_URL, PACKAGE
 from branding.contracts.schemas import BrandingOut
 from branding.shared_props import asset_url
 
@@ -47,6 +47,7 @@ class BrandingService:
             primary_color=settings.primary_color,
             design_pack=settings.design_pack,
             logo_url=asset_url(LOGO_URL, settings.logo_file_id),
+            logo_dark_url=asset_url(LOGO_DARK_URL, settings.logo_dark_file_id),
             favicon_url=asset_url(FAVICON_URL, settings.favicon_file_id),
         )
 
@@ -94,6 +95,12 @@ class BrandingService:
 
     async def set_logo(self, file_id: str) -> BrandingOut:
         return await self._swap_asset("logo_file_id", file_id)
+
+    async def set_logo_dark(self, file_id: str) -> BrandingOut:
+        return await self._swap_asset("logo_dark_file_id", file_id)
+
+    async def clear_logo_dark(self) -> BrandingOut:
+        return await self._swap_asset("logo_dark_file_id", "")
 
     async def set_favicon(self, file_id: str) -> BrandingOut:
         return await self._swap_asset("favicon_file_id", file_id)

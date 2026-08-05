@@ -13,19 +13,17 @@ import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import type { SharedProps } from '@simple-module-py/ui/types';
-import { type ChangeEvent, useRef, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { DesignPackField, type DesignPackOption } from '../components/DesignPackField';
+import { ImageField } from '../components/ImageField';
 
 const DEFAULT_SWATCH = '#10b981';
-type ImageKind = 'logo' | 'favicon';
+/** Matches the upload/clear route segments under `/api/branding/`. */
+type ImageKind = 'logo' | 'logo-dark' | 'favicon';
 
-/**
- * Mirrors the server allow-list in `branding/images.py`. SVG is absent on
- * purpose — it is an XML document that can carry <script>, so the server
- * rejects it; offering it in the picker would only produce a 415.
- */
-const ACCEPTED_IMAGE_TYPES = 'image/png,image/jpeg,image/webp,image/gif,image/x-icon';
+/** The sidebar is near-black, so preview the dark variant against it. */
+const DARK_PREVIEW = 'bg-app-sidebar';
 
 async function readError(res: Response): Promise<string> {
   try {
@@ -34,68 +32,6 @@ async function readError(res: Response): Promise<string> {
   } catch {
     return res.statusText;
   }
-}
-
-function ImageField({
-  label,
-  help,
-  url,
-  onUpload,
-  onRemove,
-  disabled,
-}: {
-  label: string;
-  help: string;
-  url: string | null;
-  onUpload: (file: File) => void;
-  onRemove: () => void;
-  disabled: boolean;
-}) {
-  const { t } = useT();
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      <div className="flex items-center gap-4">
-        <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border bg-muted">
-          {url ? (
-            <img src={url} alt={label} className="h-full w-full object-contain" />
-          ) : (
-            <span className="text-xs text-muted-foreground">—</span>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <input
-            ref={inputRef}
-            type="file"
-            accept={ACCEPTED_IMAGE_TYPES}
-            className="hidden"
-            onChange={(e: ChangeEvent<HTMLInputElement>) => {
-              const file = e.target.files?.[0];
-              if (file) onUpload(file);
-              e.target.value = '';
-            }}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={disabled}
-            onClick={() => inputRef.current?.click()}
-          >
-            {url ? t(keys.branding.manage.replace_button) : t(keys.branding.manage.upload_button)}
-          </Button>
-          {url && (
-            <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={onRemove}>
-              {t(keys.branding.manage.remove_button)}
-            </Button>
-          )}
-        </div>
-      </div>
-      <p className="text-xs text-muted-foreground">{help}</p>
-    </div>
-  );
 }
 
 function Manage() {
@@ -235,6 +171,15 @@ function Manage() {
                 onUpload={(file) => uploadImage('logo', file)}
                 onRemove={() => removeImage('logo')}
                 disabled={!canManage || busy}
+              />
+              <ImageField
+                label={t(keys.branding.manage.logo_dark_label)}
+                help={t(keys.branding.manage.logo_dark_help)}
+                url={branding?.logoDarkUrl ?? null}
+                onUpload={(file) => uploadImage('logo-dark', file)}
+                onRemove={() => removeImage('logo-dark')}
+                disabled={!canManage || busy}
+                previewClassName={DARK_PREVIEW}
               />
               <ImageField
                 label={t(keys.branding.manage.favicon_label)}

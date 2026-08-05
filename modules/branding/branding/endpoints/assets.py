@@ -94,6 +94,14 @@ async def serve_logo(
     return await _serve(request, storage, "logo_file_id")
 
 
+@router.get(constants.PATH_LOGO_DARK, response_model=None)
+async def serve_logo_dark(
+    request: Request,
+    storage: FileStorageService = Depends(get_file_storage_service),
+) -> RedirectResponse | StreamingResponse:
+    return await _serve(request, storage, "logo_dark_file_id")
+
+
 @router.get(constants.PATH_FAVICON, response_model=None)
 async def serve_favicon(
     request: Request,

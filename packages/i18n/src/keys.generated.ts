@@ -121,6 +121,8 @@ export const keys = {
       error_toast: 'branding.manage.error_toast',
       favicon_help: 'branding.manage.favicon_help',
       favicon_label: 'branding.manage.favicon_label',
+      logo_dark_help: 'branding.manage.logo_dark_help',
+      logo_dark_label: 'branding.manage.logo_dark_label',
       logo_help: 'branding.manage.logo_help',
       logo_label: 'branding.manage.logo_label',
       preview_title: 'branding.manage.preview_title',

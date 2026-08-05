@@ -55,7 +55,7 @@ class BrandingModule(ModuleBase):
         are ``exact`` + GET-only, so uploading and clearing the same paths stay
         behind ``branding.manage``.
         """
-        for path in (constants.LOGO_URL, constants.FAVICON_URL):
+        for path in (constants.LOGO_URL, constants.LOGO_DARK_URL, constants.FAVICON_URL):
             registry.add(path, methods=["GET"], kind="exact")
 
     def register_menu_items(self, registry: MenuRegistry) -> None:

@@ -86,6 +86,8 @@ export default {
     'branding.manage.error_toast': '',
     'branding.manage.favicon_help': '',
     'branding.manage.favicon_label': '',
+    'branding.manage.logo_dark_help': '',
+    'branding.manage.logo_dark_label': '',
     'branding.manage.logo_help': '',
     'branding.manage.logo_label': '',
     'branding.manage.preview_title': '',

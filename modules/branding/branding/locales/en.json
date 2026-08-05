@@ -12,6 +12,8 @@
     "design_pack_empty": "No installed module provides a design pack.",
     "logo_label": "Logo",
     "logo_help": "Square PNG or WEBP works best, up to 2 MB. Replaces the default badge in the sidebar.",
+    "logo_dark_label": "Logo (dark backgrounds)",
+    "logo_dark_help": "Optional variant for the sidebar, which stays dark in every theme. Leave empty to reuse the main logo.",
     "favicon_label": "Favicon",
     "favicon_help": "Small icon shown in the browser tab. PNG, WEBP or ICO, up to 2 MB.",
     "upload_button": "Upload",

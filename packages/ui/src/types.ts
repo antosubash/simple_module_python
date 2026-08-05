@@ -14,6 +14,12 @@ export interface BrandingShared {
   // the owning module's stylesheet selects on.
   designPack: string | null;
   logoUrl: string | null;
+  /**
+   * Logo variant for the app's always-dark surfaces (the sidebar and mobile
+   * bar), where a dark-ink primary logo would be invisible. `null` means none
+   * was uploaded — callers fall back to `logoUrl` via `darkSurfaceLogo`.
+   */
+  logoDarkUrl: string | null;
   faviconUrl: string | null;
 }
 

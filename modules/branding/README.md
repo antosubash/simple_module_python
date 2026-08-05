@@ -2,8 +2,9 @@
 
 Customisable application branding for [simple_module_python](https://github.com/antosubash/simple_module_python) apps.
 
-An administrator can set the **application name**, **logo**, **favicon** and
-**primary brand colour** from the admin UI (`/branding`), and those values are
+An administrator can set the **application name**, **logo** (plus an optional
+**dark-background variant**), **favicon** and **primary brand colour** from the
+admin UI (`/branding`), and those values are
 applied everywhere the framework would otherwise show the default identity —
 the sidebar/header logo and name, the browser tab title, the favicon, and the
 primary accent colour.
@@ -41,8 +42,10 @@ modules to be installed too.
    favicon. Changes apply immediately across the app.
 
 Programmatically, the current branding is available on every page through the
-`branding` Inertia shared prop (`appName`, `primaryColor`, `logoUrl`,
-`faviconUrl`).
+`branding` Inertia shared prop (`appName`, `primaryColor`, `designPack`,
+`logoUrl`, `logoDarkUrl`, `faviconUrl`). For a dark surface use
+`darkSurfaceLogo(branding)` from `@simple-module-py/ui/lib/brand`, which applies
+the `logoDarkUrl → logoUrl` fallback in one place.
 
 ## How it works
 
@@ -62,6 +65,12 @@ Programmatically, the current branding is available on every page through the
   are served `public, max-age=31536000, immutable`; a request without a usable
   version gets `public, max-age=3600` so it self-corrects, and a 404 is never
   cached.
+- **Dark-background logo.** The sidebar and mobile bar sit on a near-black
+  surface in every theme, while the sign-in card and public page are light — so
+  a single logo cannot read on both. Uploading a *Logo (dark backgrounds)*
+  variant swaps it in on those surfaces only. It is optional: with none set the
+  shared prop reports `logoDarkUrl: null` and the frontend falls back to
+  `logoUrl`, so single-logo deployments look exactly as they did.
 - **Lifecycle.** Replacing or clearing an image deletes the file it stopped
   referencing, so repeated logo tweaks don't leave orphans in `file_storage`.
   Cleanup is best effort: the setting change has already been persisted, so a
