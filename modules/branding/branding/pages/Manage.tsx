@@ -17,6 +17,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { BannerField, type BannerSeverity } from '../components/BannerField';
 import { DesignPackField, type DesignPackOption } from '../components/DesignPackField';
+import { FooterCard, type FooterPayload } from '../components/FooterCard';
 import { ImageField } from '../components/ImageField';
 import { PresetField, type PresetOption } from '../components/PresetField';
 
@@ -95,6 +96,17 @@ function Manage() {
       t(keys.branding.manage.upload_error_toast),
     );
   };
+
+  const saveFooter = (payload: FooterPayload) =>
+    run(
+      () =>
+        fetch('/api/branding/footer', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }),
+      t(keys.branding.manage.error_toast),
+    );
 
   const applyPreset = (key: string) =>
     run(
@@ -225,6 +237,13 @@ function Manage() {
               </Button>
             </CardContent>
           </Card>
+
+          <FooterCard
+            initial={branding?.footer ?? null}
+            disabled={!canManage || busy}
+            busy={busy}
+            onSave={saveFooter}
+          />
 
           <Card>
             <CardHeader>

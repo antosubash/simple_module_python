@@ -8,6 +8,7 @@ from file_storage.service import FileStorageService
 from simple_module_hosting.permissions import RequiresPermission
 
 from branding import constants
+from branding.contracts.footer import FooterConfig
 from branding.contracts.schemas import BrandingOut, BrandingUpdate
 from branding.deps import BrandingServiceDep
 from branding.images import validate_image
@@ -65,6 +66,18 @@ async def upload_logo(
     await validate_image(file)
     stored = await storage.upload(file)
     return await service.set_logo(str(stored.id))
+
+
+@router.get(constants.PATH_FOOTER, response_model=FooterConfig, dependencies=[_MANAGE])
+async def get_footer(service: BrandingServiceDep) -> FooterConfig:
+    return service.current_footer()
+
+
+@router.put(constants.PATH_FOOTER, response_model=FooterConfig, dependencies=[_MANAGE])
+async def update_footer(data: FooterConfig, service: BrandingServiceDep) -> FooterConfig:
+    # Whole-object replace, as in the reference — a partial merge into nested
+    # link lists has no obvious semantics.
+    return await service.set_footer(data)
 
 
 @router.post(constants.PATH_PRESET, response_model=BrandingOut, dependencies=[_MANAGE])

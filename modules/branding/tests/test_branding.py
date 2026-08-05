@@ -61,6 +61,8 @@ def test_branding_payload_unset() -> None:
         "faviconUrl": None,
         # None, not an empty dict — no message means render no bar at all.
         "banner": None,
+        # None keeps the framework's built-in footer.
+        "footer": None,
     }
 
 

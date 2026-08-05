@@ -43,7 +43,10 @@ modules to be installed too.
 
 Programmatically, the current branding is available on every page through the
 `branding` Inertia shared prop (`appName`, `primaryColor`, `designPack`,
-`logoUrl`, `logoDarkUrl`, `faviconUrl`). For a dark surface use
+`logoUrl`, `logoDarkUrl`, `faviconUrl`, `banner`, `footer`). `banner` and
+`footer` are `null` when unconfigured, which is what makes the frontend fall
+back to rendering nothing and to the framework footer respectively. For a dark
+surface use
 `darkSurfaceLogo(branding)` from `@simple-module-py/ui/lib/brand`, which applies
 the `logoDarkUrl → logoUrl` fallback in one place.
 
@@ -65,6 +68,22 @@ the `logoDarkUrl → logoUrl` fallback in one place.
   are served `public, max-age=31536000, immutable`; a request without a usable
   version gets `public, max-age=3600` so it self-corrects, and a 404 is never
   cached.
+- **Announcement banner.** A message plus a severity (`info` / `warning` /
+  `danger`) rendered above every shell — app, public and auth — because an
+  outage notice is most useful to people who cannot sign in. An empty message
+  hides it. Severity colours are semantic, not brand-tinted: a warning wearing
+  the deployment's accent colour stops reading as a warning.
+- **Presets.** One-click looks (`POST /api/branding/presets/{key}`), applied
+  through the ordinary update path so every validator still runs. A preset only
+  ever sets *appearance* (`PRESET_FIELDS` — primary colour, design pack); it
+  can never overwrite the app name, an uploaded logo or a live banner, and
+  `BrandingPreset` rejects any other field at construction.
+- **Configurable footer.** Tagline, copyright owner, caption, up to 6 columns
+  of 8 links, and up to 8 social links (`PUT /api/branding/footer`, whole-object
+  replace). Link URLs are restricted to http(s) or a single-leading-slash app
+  path — `javascript:` and `data:` are refused, and `//host` is treated as the
+  off-site absolute URL it is rather than a path. With nothing configured the
+  framework's built-in footer renders unchanged.
 - **Dark-background logo.** The sidebar and mobile bar sit on a near-black
   surface in every theme, while the sign-in card and public page are light — so
   a single logo cannot read on both. Uploading a *Logo (dark backgrounds)*

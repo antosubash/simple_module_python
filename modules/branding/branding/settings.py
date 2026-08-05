@@ -43,6 +43,14 @@ class BrandingSettings(BaseSettings):
     design_pack: str = ""  # "" = base tokens only; otherwise a registered slug
     banner_message: str = ""  # "" = no site-wide banner
     banner_severity: str = BANNER_SEVERITY_INFO
+    # Configurable footer. The two lists are JSON blobs because the shared
+    # settings store holds strings; branding.footer owns (de)serialising them,
+    # leniently, so a malformed row degrades to "no configured footer".
+    footer_tagline: str = ""
+    footer_copyright_owner: str = ""
+    footer_note: str = ""
+    footer_columns: str = ""
+    footer_social_links: str = ""
 
     @field_validator("app_name")
     @classmethod

@@ -115,7 +115,12 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1">{children}</main>
 
-      <BrandingFooter appName={appName} logoUrl={logoUrl} variant="public" />
+      <BrandingFooter
+        appName={appName}
+        logoUrl={logoUrl}
+        variant="public"
+        footer={branding?.footer ?? null}
+      />
     </div>
   );
 }
