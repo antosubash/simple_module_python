@@ -84,15 +84,21 @@ if (fs.existsSync(manifestPath)) {
 type ModuleAsset = { package_name: string; package: string };
 const moduleAliases: { find: string; replacement: string }[] = [];
 const assetsPath = path.resolve(__dirname, 'modules.assets.json');
-if (fs.existsSync(assetsPath)) {
-  const assets = JSON.parse(fs.readFileSync(assetsPath, 'utf-8')) as Record<string, ModuleAsset>;
-  for (const entry of Object.values(assets)) {
-    moduleAliases.push({ find: `#module/${entry.package_name}`, replacement: entry.package });
-    if (!moduleFsAllow.includes(entry.package)) moduleFsAllow.push(entry.package);
-  }
-  // Longest `find` first, so `#module/gis` cannot shadow `#module/gis_extra`.
-  moduleAliases.sort((a, b) => b.find.length - a.find.length);
+let moduleAssets: Record<string, ModuleAsset> = {};
+try {
+  moduleAssets = JSON.parse(fs.readFileSync(assetsPath, 'utf-8'));
+} catch {
+  // Absent until `smpy gen-pages` runs — proceed with no aliases.
 }
+for (const entry of Object.values(moduleAssets)) {
+  moduleAliases.push({ find: `#module/${entry.package_name}`, replacement: entry.package });
+  if (!moduleFsAllow.includes(entry.package)) moduleFsAllow.push(entry.package);
+}
+// Keep the alias list in a stable, longest-first order. Vite matches a string
+// `find` on exact equality or a `/`-bounded prefix, so `#module/gis` could not
+// swallow `#module/gis_extra` in any order — this is just determinism, not a
+// correctness fix.
+moduleAliases.sort((a, b) => b.find.length - a.find.length);
 const fakeWorkspaceImporter = path.join(fsRoot, 'package.json');
 
 // CJS-only deps like `clsx`, `tailwind-merge`, `class-variance-authority`

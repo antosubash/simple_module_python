@@ -114,7 +114,7 @@ class TestScannerRobustness:
 
         assert check_module_css(_mod(), tmp_path) == []
 
-    def test_comments_stripped_before_scanning(self, tmp_path):
+    def test_commented_out_construct_is_not_a_finding(self, tmp_path):
         """A commented-out @theme is not a finding."""
         from simple_module_core.diagnostics._css import check_module_css
 
@@ -123,7 +123,7 @@ class TestScannerRobustness:
         assert check_module_css(_mod(), tmp_path) == []
 
     def test_comment_does_not_shift_line_numbers(self, tmp_path):
-        """Stripping comments must preserve newlines, or line numbers drift."""
+        """Newlines inside a skipped comment must still be counted."""
         from simple_module_core.diagnostics._css import check_module_css
 
         (tmp_path / "styles.css").write_text("/* a\n   multi-line\n   comment */\n@theme {\n}\n")
@@ -144,6 +144,58 @@ class TestScannerRobustness:
         from simple_module_core.diagnostics._css import check_module_css
 
         assert check_module_css(_mod(), tmp_path) == []
+
+    def test_open_brace_in_a_string_does_not_hide_later_findings(self, tmp_path):
+        """A brace inside a string must not desync the depth counter.
+
+        An icon-font rule like `content: "{"` used to leave the scanner
+        permanently one level deep, so every later top-level construct read as
+        nested — silently swallowing the very @theme SM022 exists to catch.
+        """
+        from simple_module_core.diagnostics._css import check_module_css
+
+        (tmp_path / "styles.css").write_text('.icon { content: "{"; }\n@theme {\n  --a: 1;\n}\n')
+
+        diags = check_module_css(_mod(), tmp_path)
+
+        assert [d.code for d in diags] == ["SM022"]
+        assert diags[0].file.endswith("styles.css:2")
+
+    def test_close_brace_in_a_string_is_not_a_finding(self, tmp_path):
+        """A closing brace inside a string must not end the block early."""
+        from simple_module_core.diagnostics._css import check_module_css
+
+        (tmp_path / "theme.css").write_text(':root {\n  --icon-close: "}";\n}\n')
+
+        assert check_module_css(_mod(), tmp_path) == []
+
+    def test_escaped_quote_in_a_string(self, tmp_path):
+        """A backslash-escaped quote does not terminate the string."""
+        from simple_module_core.diagnostics._css import check_module_css
+
+        (tmp_path / "theme.css").write_text(':root {\n  --q: "a\\"{b";\n}\n')
+
+        assert check_module_css(_mod(), tmp_path) == []
+
+    def test_single_quoted_strings_handled(self, tmp_path):
+        from simple_module_core.diagnostics._css import check_module_css
+
+        (tmp_path / "styles.css").write_text(
+            ".icon { content: '{'; }\n@utility tab-4 {\n  tab-size: 4;\n}\n"
+        )
+
+        assert [d.code for d in check_module_css(_mod(), tmp_path)] == ["SM022"]
+
+    def test_brace_inside_a_comment_is_not_structural(self, tmp_path):
+        """An unbalanced brace in a comment must not shift depth either."""
+        from simple_module_core.diagnostics._css import check_module_css
+
+        (tmp_path / "styles.css").write_text("/* } { */\n@theme {\n  --a: 1;\n}\n")
+
+        diags = check_module_css(_mod(), tmp_path)
+
+        assert [d.code for d in diags] == ["SM022"]
+        assert diags[0].file.endswith("styles.css:2")
 
     def test_import_statement_allowed_in_either_file(self, tmp_path):
         """A statement at-rule ending in ; is not a rule block."""

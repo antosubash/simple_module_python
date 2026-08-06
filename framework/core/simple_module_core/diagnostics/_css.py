@@ -22,7 +22,6 @@ preprocessing, say) is out of scope.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -37,13 +36,6 @@ STYLES_CSS = "styles.css"
 # Constructs that only do anything unlayered, so they belong in theme.css.
 THEME_ONLY_AT_RULES = ("@theme", "@custom-variant", "@utility")
 
-_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
-
-
-def _strip_comments(text: str) -> str:
-    """Blank out comments, preserving newlines so line numbers stay accurate."""
-    return _COMMENT.sub(lambda m: "\n" * m.group(0).count("\n"), text)
-
 
 def _top_level_preludes(text: str) -> list[tuple[str, int]]:
     """Return ``(prelude, line_number)`` for every top-level construct.
@@ -52,30 +44,78 @@ def _top_level_preludes(text: str) -> list[tuple[str, int]]:
     or a whole statement at-rule terminated by ``;`` at depth 0. Anything
     nested inside braces is skipped, which is what keeps a rule inside
     ``@layer components { ... }`` from being mistaken for a top-level one.
+
+    Comments and quoted strings are consumed inline rather than pre-stripped,
+    because a brace inside either is not structural. ``content: "{"`` in an
+    icon-font rule would otherwise desynchronise the depth counter for the
+    whole rest of the file — every later top-level construct would be read as
+    nested and silently skipped.
     """
     out: list[tuple[str, int]] = []
     depth = 0
     buf: list[str] = []
     line = 1
     buf_line = 1
-    for ch in text:
+    quote: str | None = None
+    i = 0
+    n = len(text)
+
+    def flush() -> None:
+        prelude = "".join(buf).strip()
+        if prelude:
+            out.append((prelude, buf_line))
+
+    while i < n:
+        ch = text[i]
+
+        if quote is not None:
+            # Inside a string nothing is structural. Escapes are consumed
+            # whole so a trailing \" doesn't look like the closing quote.
+            if ch == "\\" and i + 1 < n:
+                if depth == 0 and buf:
+                    buf.append(text[i : i + 2])
+                if text[i + 1] == "\n":
+                    line += 1
+                i += 2
+                continue
+            if ch == quote:
+                quote = None
+            if depth == 0 and buf:
+                buf.append(ch)
+            if ch == "\n":
+                line += 1
+            i += 1
+            continue
+
+        if ch == "/" and i + 1 < n and text[i + 1] == "*":
+            end = text.find("*/", i + 2)
+            end = n if end == -1 else end + 2
+            line += text.count("\n", i, end)
+            i = end
+            continue
+
+        if ch in "\"'":
+            quote = ch
+            if depth == 0:
+                if not buf:
+                    buf_line = line
+                buf.append(ch)
+            i += 1
+            continue
+
         if ch == "{":
             if depth == 0:
-                prelude = "".join(buf).strip()
-                if prelude:
-                    out.append((prelude, buf_line))
-                buf = []
+                flush()
+                buf.clear()
             depth += 1
         elif ch == "}":
             depth = max(0, depth - 1)
             if depth == 0:
-                buf = []
+                buf.clear()
         elif depth == 0:
             if ch == ";":
-                prelude = "".join(buf).strip()
-                if prelude:
-                    out.append((prelude, buf_line))
-                buf = []
+                flush()
+                buf.clear()
             elif buf:
                 buf.append(ch)
             elif not ch.isspace():
@@ -84,8 +124,10 @@ def _top_level_preludes(text: str) -> list[tuple[str, int]]:
                 # blank lines preceded it.
                 buf_line = line
                 buf.append(ch)
+
         if ch == "\n":
             line += 1
+        i += 1
     return out
 
 
@@ -106,7 +148,7 @@ def check_module_css(mod: ModuleBase, src_dir: Path) -> list[Diagnostic]:
 
     styles = src_dir / STYLES_CSS
     if styles.is_file():
-        for prelude, line in _top_level_preludes(_strip_comments(styles.read_text("utf-8"))):
+        for prelude, line in _top_level_preludes(styles.read_text("utf-8")):
             at_rule = prelude.split()[0].lower() if prelude.split() else ""
             if at_rule in THEME_ONLY_AT_RULES:
                 diagnostics.append(
@@ -128,7 +170,7 @@ def check_module_css(mod: ModuleBase, src_dir: Path) -> list[Diagnostic]:
 
     theme = src_dir / THEME_CSS
     if theme.is_file():
-        for prelude, line in _top_level_preludes(_strip_comments(theme.read_text("utf-8"))):
+        for prelude, line in _top_level_preludes(theme.read_text("utf-8")):
             if prelude.startswith("@") or _is_root_selector(prelude):
                 continue
             diagnostics.append(

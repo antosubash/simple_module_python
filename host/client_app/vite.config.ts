@@ -78,7 +78,10 @@ for (const entry of Object.values(moduleAssets)) {
   moduleAliases.push({ find: `#module/${entry.package_name}`, replacement: entry.package });
   if (!moduleFsAllow.includes(entry.package)) moduleFsAllow.push(entry.package);
 }
-// Longest `find` first, so `#module/gis` cannot shadow `#module/gis_extra`.
+// Keep the alias list in a stable, longest-first order. Vite matches a string
+// `find` on exact equality or a `/`-bounded prefix, so `#module/gis` could not
+// swallow `#module/gis_extra` in any order — this is just determinism, not a
+// correctness fix.
 moduleAliases.sort((a, b) => b.find.length - a.find.length);
 
 // Gather every bare specifier a module's pages might import. We include
