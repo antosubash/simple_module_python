@@ -37,6 +37,22 @@ class TestFrameworkVersionSubstitution:
         assert "==None" not in pyproject and "==*" not in pyproject
 
 
+class TestStandaloneCi:
+    async def test_ci_has_frontend_job_and_dev_extra_has_cli(self, tmp_path):
+        from simple_module_cli.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-my-feature"
+        create_module(dest, name="MyFeature", standalone=True)
+
+        ci = (dest / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        assert "npm run typecheck" in ci
+        assert "smpy module verify" in ci
+        pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
+        assert "simple_module_cli" in pyproject
+        gitignore = (dest / ".gitignore").read_text(encoding="utf-8")
+        assert ".smpy/" in gitignore
+
+
 class TestSamplePage:
     async def test_scaffold_ships_index_page_and_view(self, tmp_path):
         from simple_module_cli.scaffolding import create_module

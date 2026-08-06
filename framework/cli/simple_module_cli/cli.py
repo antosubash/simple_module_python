@@ -133,6 +133,9 @@ def create_module(
     typer.echo(f"  cd {target}")
     typer.echo("  uv sync --extra dev")
     typer.echo("  uv run pytest")
+    typer.echo("  npm install")
+    typer.echo("  npm run typecheck")
+    typer.echo("  uv run smpy module verify")
 
 
 discover_and_mount(app)

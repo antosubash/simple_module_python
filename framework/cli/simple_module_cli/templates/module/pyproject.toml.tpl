@@ -21,6 +21,8 @@ dev = [
     # Shared fixtures (fake_event_bus, build_test_app, etc.) for testing
     # modules in isolation. The pytest11 entry_point auto-registers them.
     "simple_module_test>=0.1,<1.0",
+    # `smpy module verify` / `smpy module build` for out-of-tree frontend work.
+    "simple_module_cli>=0.1,<1.0",
 ]
 
 [build-system]
