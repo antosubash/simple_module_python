@@ -26,7 +26,7 @@ features:
     link: /guide/first-module
     linkText: Build a module
   - title: Use a bundled module
-    details: Ten first-party modules ship with the framework — auth, users, keycloak, permissions, settings, file_storage, background_tasks, feature_flags, audit_log, dashboard.
+    details: Eleven first-party modules ship with the framework — auth, users, keycloak, permissions, settings, file_storage, background_tasks, feature_flags, audit_log, dashboard, site_lock.
     link: /modules/
     linkText: Browse modules
   - title: Operate it in production

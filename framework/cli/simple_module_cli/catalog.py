@@ -57,6 +57,12 @@ CATALOG: dict[str, ModuleEntry] = {
         requires=("users",),
         recipe="background_tasks",
     ),
+    "site_lock": ModuleEntry(
+        "site_lock",
+        "simple_module_site_lock",
+        "Site Lock",
+        requires=("auth", "settings"),
+    ),
 }
 
 
