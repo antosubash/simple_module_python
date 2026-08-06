@@ -36,7 +36,14 @@ class S3Backend:
     backend_id = constants.BackendId.S3
     supports_presigned_url = True
 
-    def __init__(self, *, bucket: str, region: str, client_kwargs: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        *,
+        bucket: str,
+        region: str,
+        client_kwargs: dict[str, Any],
+        presign_client_kwargs: dict[str, Any] | None = None,
+    ) -> None:
         try:
             import aioboto3
         except ImportError as exc:
@@ -49,9 +56,17 @@ class S3Backend:
         self.bucket = bucket
         self.region = region
         self.client_kwargs = client_kwargs
+        # Presigning may need to sign against a different host than the one we
+        # connect to — the signature is bound to the host in the URL, so a URL
+        # signed for an internal endpoint is invalid at the public one. Falls
+        # back to the same kwargs when no public endpoint is configured.
+        self.presign_client_kwargs = presign_client_kwargs or client_kwargs
 
     def _client(self):
         return self._session.client("s3", **self.client_kwargs)
+
+    def _presign_client(self):
+        return self._session.client("s3", **self.presign_client_kwargs)
 
     async def put(
         self,
@@ -116,7 +131,7 @@ class S3Backend:
 
     async def presigned_get_url(self, key: str, ttl_seconds: int) -> str:
         try:
-            async with self._client() as client:
+            async with self._presign_client() as client:
                 return await client.generate_presigned_url(
                     "get_object",
                     Params={"Bucket": self.bucket, "Key": key},
@@ -139,18 +154,57 @@ def _is_not_found(exc: Exception) -> bool:
     } and "404" in str(exc)
 
 
+def _build_botocore_config(settings: FileStorageSettings):
+    """Assemble a ``botocore.config.Config``, or ``None`` when all defaults.
+
+    Addressing style and signature version are reachable *only* through this
+    object — they are not client kwargs — which is why non-AWS providers could
+    not be configured before. Returning ``None`` for an all-default setup keeps
+    botocore's own negotiation intact rather than freezing it.
+    """
+    try:
+        from botocore.config import Config
+    except ImportError as exc:  # pragma: no cover - aioboto3 always brings botocore
+        raise ConfigurationError(
+            "S3 backend requires the 'botocore' package (installed with aioboto3)."
+        ) from exc
+
+    config_kwargs: dict[str, Any] = {}
+    if settings.s3_addressing_style != constants.AddressingStyle.AUTO:
+        config_kwargs["s3"] = {"addressing_style": settings.s3_addressing_style}
+    if settings.s3_signature_version:
+        config_kwargs["signature_version"] = settings.s3_signature_version
+    return Config(**config_kwargs) if config_kwargs else None
+
+
 @register_backend(constants.BackendId.S3)
 def _build(settings: FileStorageSettings) -> S3Backend:
-    if not settings.s3_bucket or not settings.s3_region:
-        raise ConfigurationError("S3 backend requires s3_bucket and s3_region.")
-    client_kwargs: dict[str, Any] = {"region_name": settings.s3_region}
+    if not settings.s3_bucket:
+        raise ConfigurationError("S3 backend requires s3_bucket.")
+
+    region = settings.s3_region or constants.DEFAULT_S3_REGION
+    client_kwargs: dict[str, Any] = {"region_name": region}
     if settings.s3_endpoint_url:
         client_kwargs["endpoint_url"] = settings.s3_endpoint_url
     if settings.s3_access_key_id and settings.s3_secret_access_key:
         client_kwargs["aws_access_key_id"] = settings.s3_access_key_id
         client_kwargs["aws_secret_access_key"] = settings.s3_secret_access_key
+    if not settings.s3_verify_ssl:
+        client_kwargs["verify"] = False
+    config = _build_botocore_config(settings)
+    if config is not None:
+        client_kwargs["config"] = config
+
+    presign_client_kwargs = client_kwargs
+    if settings.s3_public_endpoint_url:
+        presign_client_kwargs = {
+            **client_kwargs,
+            "endpoint_url": settings.s3_public_endpoint_url,
+        }
+
     return S3Backend(
         bucket=settings.s3_bucket,
-        region=settings.s3_region,
+        region=region,
         client_kwargs=client_kwargs,
+        presign_client_kwargs=presign_client_kwargs,
     )

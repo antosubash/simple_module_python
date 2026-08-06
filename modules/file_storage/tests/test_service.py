@@ -194,6 +194,65 @@ async def test_download_dispatches_on_backend_capability(tmp_path, db_session: A
     assert download2.url.startswith("https://signed/")
 
 
+async def test_upload_stores_file_under_configured_prefix(tmp_path, db_session: AsyncSession):
+    settings = _settings(tmp_path, key_prefix="media")
+    svc = FileStorageService(db_session, FilesystemBackend(root=tmp_path), settings)
+
+    out = await svc.upload(_upload("note.txt", b"hello", "text/plain"))
+
+    assert out.key.startswith("media/")
+    assert await _drain((await svc.download(out.id)).body) == b"hello"
+
+
+async def test_prefix_applies_to_the_filesystem_backend_on_disk(tmp_path, db_session: AsyncSession):
+    settings = _settings(tmp_path, key_prefix="media")
+    svc = FileStorageService(db_session, FilesystemBackend(root=tmp_path), settings)
+
+    await svc.upload(_upload("note.txt", b"hello", "text/plain"))
+
+    assert list(tmp_path.rglob("media/**/*.txt")), f"no file under media/ in {tmp_path}"
+
+
+async def test_blank_prefix_preserves_the_legacy_root_layout(tmp_path, db_session: AsyncSession):
+    svc = FileStorageService(db_session, FilesystemBackend(root=tmp_path), _settings(tmp_path))
+
+    out = await svc.upload(_upload("note.txt", b"hello", "text/plain"))
+
+    assert out.key[:4].isdigit()  # starts with the year, as before
+
+
+async def test_existing_files_keep_resolving_after_prefix_changes(
+    tmp_path, db_session: AsyncSession
+):
+    """The reason the prefix is baked into the stored key rather than applied
+    transparently by the backend: editing it must not orphan stored objects."""
+    backend = FilesystemBackend(root=tmp_path)
+
+    before = await FileStorageService(db_session, backend, _settings(tmp_path)).upload(
+        _upload("old.txt", b"old bytes", "text/plain")
+    )
+
+    # Operator sets a prefix in the settings UI, and later changes it again.
+    for prefix in ("media", "files"):
+        svc = FileStorageService(db_session, backend, _settings(tmp_path, key_prefix=prefix))
+        assert await _drain((await svc.download(before.id)).body) == b"old bytes"
+
+        new = await svc.upload(_upload("new.txt", b"new bytes", "text/plain"))
+        assert new.key.startswith(f"{prefix}/")
+        assert await _drain((await svc.download(new.id)).body) == b"new bytes"
+
+
+async def test_delete_removes_the_prefixed_object(tmp_path, db_session: AsyncSession):
+    settings = _settings(tmp_path, key_prefix="media")
+    backend = FilesystemBackend(root=tmp_path)
+    svc = FileStorageService(db_session, backend, settings)
+
+    out = await svc.upload(_upload("note.txt", b"hello", "text/plain"))
+    await svc.delete(out.id)
+
+    assert await backend.exists(out.key) is False
+
+
 async def _drain(stream: AsyncIterator[bytes]) -> bytes:
     out = b""
     async for chunk in stream:
