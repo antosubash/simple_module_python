@@ -270,16 +270,24 @@ def create_module(
     display_name = to_pascal_case(name)
     slug = to_kebab_case(name)
     package_name = to_snake_case(name)
+    substitutions = {
+        "{{MODULE_NAME}}": display_name,
+        "{{MODULE_SLUG}}": slug,
+        "{{PACKAGE_NAME}}": package_name,
+        "{{PACKAGE_NAME_UPPER}}": package_name.upper(),
+        # npm-side pin for @simple-module-py/* devDependencies; "*" when the
+        # caller skips pinning (mirrors _should_pin_framework_version).
+        "{{FRAMEWORK_VERSION}}": (
+            framework_version
+            if framework_version is not None and _should_pin_framework_version(framework_version)
+            else "*"
+        ),
+    }
     try:
         _apply_template_files(
             _resolve_template_root("module", template_root),
             dest,
-            substitutions={
-                "{{MODULE_NAME}}": display_name,
-                "{{MODULE_SLUG}}": slug,
-                "{{PACKAGE_NAME}}": package_name,
-                "{{PACKAGE_NAME_UPPER}}": package_name.upper(),
-            },
+            substitutions=substitutions,
             path_rewrites={_PACKAGE_PATH_TOKEN: package_name},
         )
         if not include_ci:
