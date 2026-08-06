@@ -13,7 +13,12 @@
 @source "../../modules/*/*/**/*.{ts,tsx}";
 /* The second `*` above matches any directory under modules/<name>/, not just
  * the Python package — so a module's sibling tests/ would be scanned too and
- * test-only classes would land in the production bundle. */
+ * test-only classes would land in the production bundle.
+ *
+ * Consequence: a module's Python package must not itself be named `tests`
+ * (i.e. modules/tests/tests/), or this line would exclude the package too. No
+ * glob can tell a package directory from a sibling, and `tests` is not a
+ * viable package name anyway — it collides with pytest collection. */
 @source not "../../modules/*/tests/**";
 
 body {

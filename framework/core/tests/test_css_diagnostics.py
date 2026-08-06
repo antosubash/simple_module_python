@@ -220,6 +220,41 @@ class TestScannerRobustness:
 
         assert [d.code for d in check_module_css(_mod(), tmp_path)] == ["SM022"]
 
+    def test_stray_quote_does_not_eat_a_brace_on_its_own_line(self, tmp_path):
+        """The unmatched-quote case, with the closing brace on the SAME line.
+
+        Bounding strings at newlines was not enough: the `}` here sits on the
+        stray quote's own line, so it was consumed as string content and the
+        depth counter stayed desynced for the rest of the file. A quote only
+        opens a string if its partner appears before the line ends.
+        """
+        from simple_module_core.diagnostics._css import check_module_css
+
+        (tmp_path / "styles.css").write_text(
+            ".icon { background: url(it's.png); }\n@theme {\n  --a: 1;\n}\n"
+        )
+
+        diags = check_module_css(_mod(), tmp_path)
+
+        assert [d.code for d in diags] == ["SM022"]
+        assert diags[0].file.endswith("styles.css:2")
+
+    def test_multiline_quoted_value_is_not_a_finding(self, tmp_path):
+        """grid-template-areas spreads several complete strings over lines."""
+        from simple_module_core.diagnostics._css import check_module_css
+
+        (tmp_path / "styles.css").write_text(
+            "@layer components {\n"
+            "  .g {\n"
+            "    grid-template-areas:\n"
+            '      "a b"\n'
+            '      "c d";\n'
+            "  }\n"
+            "}\n"
+        )
+
+        assert check_module_css(_mod(), tmp_path) == []
+
     def test_escaped_newline_continues_a_string(self, tmp_path):
         """A backslash-escaped newline is the one way a string spans lines."""
         from simple_module_core.diagnostics._css import check_module_css

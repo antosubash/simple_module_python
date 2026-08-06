@@ -50,13 +50,19 @@ def _top_level_preludes(text: str) -> list[tuple[str, int]]:
     icon-font rule would otherwise desynchronise the depth counter for the
     whole rest of the file — every later top-level construct would be read as
     nested and silently skipped.
+
+    A quote only opens a string when its partner is found before the line
+    ends, which is the rule CSS itself applies (a string cannot contain a raw
+    newline). Treating every quote as an opener is what makes an *unmatched*
+    one dangerous: the lone apostrophe in ``url(it's.png); }`` would swallow
+    the closing brace on that same line and desync the counter permanently.
+    An unmatched quote is therefore just an ordinary character.
     """
     out: list[tuple[str, int]] = []
     depth = 0
     buf: list[str] = []
     line = 1
     buf_line = 1
-    quote: str | None = None
     i = 0
     n = len(text)
 
@@ -65,37 +71,25 @@ def _top_level_preludes(text: str) -> list[tuple[str, int]]:
         if prelude:
             out.append((prelude, buf_line))
 
+    def string_end(start: int, quote: str) -> int | None:
+        """Index just past the closing quote, or None if it never closes."""
+        j = start + 1
+        while j < n:
+            c = text[j]
+            if c == "\\":
+                # An escape consumes the next character whole — including a
+                # newline, the one way a CSS string legitimately spans lines.
+                j += 2
+                continue
+            if c == "\n":
+                return None
+            if c == quote:
+                return j + 1
+            j += 1
+        return None
+
     while i < n:
         ch = text[i]
-
-        if quote is not None:
-            # Inside a string nothing is structural. Escapes are consumed
-            # whole so a trailing \" doesn't look like the closing quote,
-            # and so an escaped newline continues the string.
-            if ch == "\\" and i + 1 < n:
-                if depth == 0 and buf:
-                    buf.append(text[i : i + 2])
-                if text[i + 1] == "\n":
-                    line += 1
-                i += 2
-                continue
-            if ch == "\n":
-                # A CSS string cannot contain a raw newline — an unescaped one
-                # ends it. Honouring that bounds the blast radius of a stray
-                # quote to a single line. Without it, one unterminated string
-                # (a typo, or the lone apostrophe in an unquoted
-                # url(data:image/svg+xml,...it's...) token) would swallow every
-                # brace for the rest of the file and silently disable the lint.
-                quote = None
-                line += 1
-                i += 1
-                continue
-            if ch == quote:
-                quote = None
-            if depth == 0 and buf:
-                buf.append(ch)
-            i += 1
-            continue
 
         if ch == "/" and i + 1 < n and text[i + 1] == "*":
             end = text.find("*/", i + 2)
@@ -105,13 +99,16 @@ def _top_level_preludes(text: str) -> list[tuple[str, int]]:
             continue
 
         if ch in "\"'":
-            quote = ch
-            if depth == 0:
-                if not buf:
-                    buf_line = line
-                buf.append(ch)
-            i += 1
-            continue
+            end = string_end(i, ch)
+            if end is not None:
+                if depth == 0:
+                    if not buf:
+                        buf_line = line
+                    buf.append(text[i:end])
+                line += text.count("\n", i, end)
+                i = end
+                continue
+            # Unmatched: fall through and treat it as an ordinary character.
 
         if ch == "{":
             if depth == 0:
