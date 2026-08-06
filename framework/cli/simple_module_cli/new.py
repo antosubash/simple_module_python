@@ -141,6 +141,7 @@ def new_project(
         typer.echo('  make migration msg="initial schema"')
         typer.echo("  make migrate")
         typer.echo("  make dev")
+        typer.echo("  make docker-up   # or run the full stack in containers")
         if "background_tasks" in resolved:
             typer.echo("  docker compose up -d redis worker beat   # background jobs")
         return
@@ -168,6 +169,7 @@ def new_project(
     # errors once a second module ships its own migration branch label.
     subprocess.run([*_ALEMBIC, "upgrade", "heads"], cwd=host_dir, check=False)
     typer.echo("\nSetup complete. Run `make dev` in the new directory.")
+    typer.echo("To run the full stack in containers instead: make docker-up")
     if "background_tasks" in resolved:
         typer.echo("For background jobs, also run: docker compose up -d redis worker beat")
 

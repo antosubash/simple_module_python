@@ -22,6 +22,7 @@ from typing import Any
 from simple_module_cli._env import set_env_key
 from simple_module_cli.case import to_kebab_case, to_pascal_case
 from simple_module_cli.catalog import CATALOG, PRESETS, expand_deps
+from simple_module_cli.docker_assets import scaffold_docker_assets
 from simple_module_cli.recipes import RECIPES, ScaffoldCtx
 from simple_module_cli.scaffolding import (
     SAFE_PRESERVED_NAMES,
@@ -141,6 +142,15 @@ def create_app_project(
     env_path = target / ".env.example"
     env_text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
     env_text = set_env_key(env_text, "SM_SECRET_KEY", _secrets.token_urlsafe(32))
+    if "users" in resolved:
+        # UsersSettings refuses its placeholder token secrets when
+        # SM_ENVIRONMENT=production — the mode the compose containers run
+        # in — so generate real ones, same as SM_SECRET_KEY above.
+        for key in (
+            "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",
+            "SM_USERS_VERIFICATION_TOKEN_SECRET",
+        ):
+            env_text = set_env_key(env_text, key, _secrets.token_urlsafe(32))
     env_text = set_env_key(env_text, "SM_DATABASE_URL", _db_url(db, to_kebab_case(name), flat=flat))
     env_text = set_env_key(env_text, "SM_MULTI_TENANT", "true" if tenancy else "false")
     env_path.write_text(env_text, encoding="utf-8")
@@ -175,6 +185,8 @@ def create_app_project(
         recipe_key = CATALOG[mod_name].recipe
         if recipe_key is not None and recipe_key in RECIPES:
             RECIPES[recipe_key].apply(target, ctx)
+
+    scaffold_docker_assets(target, ctx, flat=flat)
 
     return host_dir, preserved
 

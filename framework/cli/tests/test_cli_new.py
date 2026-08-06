@@ -71,6 +71,21 @@ def test_sm_new_writes_generated_secret_key(tmp_path: Path) -> None:
     assert len(secret_line.split("=", 1)[1]) >= 20
 
 
+def test_sm_new_writes_generated_users_token_secrets(tmp_path: Path) -> None:
+    # UsersSettings refuses its placeholder token secrets in production —
+    # the mode the scaffold's compose containers boot in.
+    runner = CliRunner()
+    target = tmp_path / "my-app"
+    runner.invoke(
+        app,
+        ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
+    )
+    env_text = (target / ".env.example").read_text()
+    for key in ("SM_USERS_RESET_PASSWORD_TOKEN_SECRET", "SM_USERS_VERIFICATION_TOKEN_SECRET"):
+        line = next(ln for ln in env_text.splitlines() if ln.startswith(f"{key}="))
+        assert len(line.split("=", 1)[1]) >= 20
+
+
 def test_create_app_project_with_selected_kwarg(tmp_path: Path) -> None:
     from simple_module_cli.app_project import create_app_project
 
@@ -104,7 +119,8 @@ def test_create_app_project_runs_recipe_for_background_tasks(tmp_path: Path) -> 
     assert (target / "scripts" / "run_worker.py").is_file()
     assert (target / "docker-compose.yml").is_file()
     assert (target / "docker" / "host.Dockerfile").is_file()
-    assert (target / "docker" / "worker.Dockerfile").is_file()
+    # worker/beat reuse the app image — no separate worker Dockerfile.
+    assert not (target / "docker" / "worker.Dockerfile").exists()
     makefile_text = (target / "Makefile").read_text()
     assert "worker:" in makefile_text
 

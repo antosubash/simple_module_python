@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+- Every `smpy new` scaffold now ships Docker assets by default: a multi-stage
+  `docker/host.Dockerfile` (uv + Node builder that runs `gen-pages` before the
+  Vite build, slim non-root runtime that applies migrations on start), a
+  `docker-compose.yml` matched to the `--db` choice (`app` on a SQLite named
+  volume, or `postgres` + `app` — migration histories are dialect-frozen at
+  autogenerate time, so containers run the same DB the migrations were
+  generated against), plus `redis`/`worker`/`beat` reusing the app image when
+  `background_tasks` is selected, a `.dockerignore`, and `make docker-up` /
+  `docker-build` / `docker-down` targets. Previously Docker files only
+  appeared with `background_tasks`, and their frontend stage couldn't build
+  real apps (no `gen-pages` step). The separate `worker.Dockerfile` is gone;
+  worker/beat run the same image with a celery command. `smpy new` also
+  generates real `SM_USERS_*_TOKEN_SECRET` values into `.env.example` so the
+  production-mode containers pass `UsersSettings` boot validation.
+
 ### Fixed
 - Vite's dev-mode dependency pre-bundling now resolves cross-package bare
   imports (e.g. `maplibre-gl`, `pmtiles`) from module pages whose importers sit
