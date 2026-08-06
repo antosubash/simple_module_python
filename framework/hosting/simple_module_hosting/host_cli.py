@@ -37,7 +37,7 @@ def gen_pages(
         ),
     ] = Path("client_app"),
 ) -> None:
-    """Regenerate client_app/modules.{manifest.json,generated.ts,generated.css}."""
+    """Regenerate client_app/modules.{manifest.json,generated.ts,generated.css,assets.json}."""
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     if not host_dir.is_dir():
         typer.echo(f"ERROR: client_app directory not found at {host_dir}", err=True)
@@ -47,7 +47,7 @@ def gen_pages(
     typer.echo(
         f"Module pages manifest: {len(modules)} module(s) "
         f"→ {written['manifest'].name}, {written['generated'].name}, "
-        f"{written['css'].name} in {host_dir}"
+        f"{written['css'].name}, {written['assets'].name} in {host_dir}"
     )
 
 
