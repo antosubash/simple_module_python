@@ -70,7 +70,8 @@ def _top_level_preludes(text: str) -> list[tuple[str, int]]:
 
         if quote is not None:
             # Inside a string nothing is structural. Escapes are consumed
-            # whole so a trailing \" doesn't look like the closing quote.
+            # whole so a trailing \" doesn't look like the closing quote,
+            # and so an escaped newline continues the string.
             if ch == "\\" and i + 1 < n:
                 if depth == 0 and buf:
                     buf.append(text[i : i + 2])
@@ -78,12 +79,21 @@ def _top_level_preludes(text: str) -> list[tuple[str, int]]:
                     line += 1
                 i += 2
                 continue
+            if ch == "\n":
+                # A CSS string cannot contain a raw newline — an unescaped one
+                # ends it. Honouring that bounds the blast radius of a stray
+                # quote to a single line. Without it, one unterminated string
+                # (a typo, or the lone apostrophe in an unquoted
+                # url(data:image/svg+xml,...it's...) token) would swallow every
+                # brace for the rest of the file and silently disable the lint.
+                quote = None
+                line += 1
+                i += 1
+                continue
             if ch == quote:
                 quote = None
             if depth == 0 and buf:
                 buf.append(ch)
-            if ch == "\n":
-                line += 1
             i += 1
             continue
 

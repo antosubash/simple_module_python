@@ -11,6 +11,10 @@
  * keeps .py files out of the scan. */
 @source "./**/*.{ts,tsx}";
 @source "../../modules/*/*/**/*.{ts,tsx}";
+/* The second `*` above matches any directory under modules/<name>/, not just
+ * the Python package — so a module's sibling tests/ would be scanned too and
+ * test-only classes would land in the production bundle. */
+@source not "../../modules/*/tests/**";
 
 body {
   margin: 0;

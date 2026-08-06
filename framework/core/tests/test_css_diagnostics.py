@@ -186,6 +186,48 @@ class TestScannerRobustness:
 
         assert [d.code for d in check_module_css(_mod(), tmp_path)] == ["SM022"]
 
+    def test_unterminated_string_does_not_swallow_the_file(self, tmp_path):
+        """A stray quote must not disable the lint for everything after it.
+
+        A CSS string cannot contain a raw newline, so an unterminated one ends
+        at end-of-line. Without that bound, a single typo'd quote left the
+        scanner permanently "inside a string" and every later brace stopped
+        counting — silently hiding the rest of the file's findings.
+        """
+        from simple_module_core.diagnostics._css import check_module_css
+
+        (tmp_path / "styles.css").write_text(
+            '.a { color: red; }\n.b {\n  content: "unterminated;\n}\n@theme {\n  --b: 1;\n}\n'
+        )
+
+        diags = check_module_css(_mod(), tmp_path)
+
+        assert [d.code for d in diags] == ["SM022"]
+        assert diags[0].file.endswith("styles.css:5")
+
+    def test_apostrophe_in_unquoted_url_does_not_swallow_the_file(self, tmp_path):
+        """An unquoted url() token may hold a lone apostrophe, e.g. inline SVG."""
+        from simple_module_core.diagnostics._css import check_module_css
+
+        (tmp_path / "styles.css").write_text(
+            ".icon {\n"
+            "  background: url(data:image/svg+xml,<text>it's here</text>);\n"
+            "}\n"
+            "@theme {\n"
+            "  --a: 1;\n"
+            "}\n"
+        )
+
+        assert [d.code for d in check_module_css(_mod(), tmp_path)] == ["SM022"]
+
+    def test_escaped_newline_continues_a_string(self, tmp_path):
+        """A backslash-escaped newline is the one way a string spans lines."""
+        from simple_module_core.diagnostics._css import check_module_css
+
+        (tmp_path / "theme.css").write_text(':root {\n  --a: "x\\\n  y";\n}\n')
+
+        assert check_module_css(_mod(), tmp_path) == []
+
     def test_brace_inside_a_comment_is_not_structural(self, tmp_path):
         """An unbalanced brace in a comment must not shift depth either."""
         from simple_module_core.diagnostics._css import check_module_css
