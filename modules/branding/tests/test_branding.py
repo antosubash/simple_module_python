@@ -56,7 +56,13 @@ def test_branding_payload_unset() -> None:
         "primaryColor": None,
         "designPack": None,
         "logoUrl": None,
+        # None = no dark variant uploaded; the frontend falls back to logoUrl.
+        "logoDarkUrl": None,
         "faviconUrl": None,
+        # None, not an empty dict — no message means render no bar at all.
+        "banner": None,
+        # None keeps the framework's built-in footer.
+        "footer": None,
     }
 
 
@@ -70,8 +76,11 @@ def test_branding_payload_set() -> None:
     payload = branding_payload(s)
     assert payload["appName"] == "Acme"
     assert payload["primaryColor"] == "#ff0000"
-    assert payload["logoUrl"] == "/api/file-storage/files/abc-123/download"
-    assert payload["faviconUrl"] == "/api/file-storage/files/def-456/download"
+    # Branding's own anonymous route, not file_storage's permission-gated
+    # download — a logged-out visitor has to be able to load these. ``?v=`` is
+    # the stored file id, which changes on every replace, so caches self-bust.
+    assert payload["logoUrl"] == "/api/branding/logo?v=abc-123"
+    assert payload["faviconUrl"] == "/api/branding/favicon?v=def-456"
 
 
 def test_provider_returns_empty_when_state_absent() -> None:
@@ -175,10 +184,12 @@ async def test_logo_upload_sets_logo_url(
 
     resp = await authenticated_client.post(
         "/api/branding/logo",
-        files={"file": ("logo.png", b"\x89PNG\r\n", "image/png")},
+        # A full 8-byte PNG signature: uploads are now magic-number checked, so
+        # a truncated stub would be rejected as content-type spoofing.
+        files={"file": ("logo.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, "image/png")},
     )
     assert resp.status_code == 200, resp.text
-    assert resp.json()["logo_url"] == f"/api/file-storage/files/{fake_id}/download"
+    assert resp.json()["logo_url"] == f"/api/branding/logo?v={fake_id}"
     assert app.state.branding.settings.logo_file_id == str(fake_id)
 
     # Clearing removes it.

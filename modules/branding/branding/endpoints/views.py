@@ -8,6 +8,7 @@ from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
 
 from branding import constants
+from branding.presets import BUILTIN_PRESETS
 
 router = APIRouter()
 
@@ -34,5 +35,12 @@ async def manage(request: Request, inertia: InertiaDep) -> InertiaResponse:
     # test asserts the literal matches constants._PAGE_MANAGE.
     return await inertia.render(
         "Branding/Manage",
-        {"designPacks": [{"value": p.value, "label": p.label} for p in packs]},
+        {
+            "designPacks": [{"value": p.value, "label": p.label} for p in packs],
+            # Built into the module rather than registry-backed, so unlike the
+            # packs these never depend on what is installed.
+            "presets": [
+                {"key": p.key, "label": p.label, "swatch": p.swatch} for p in BUILTIN_PRESETS
+            ],
+        },
     )

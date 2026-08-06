@@ -6,11 +6,15 @@ from pydantic import field_validator
 from sqlmodel import Field, SQLModel
 
 from branding.constants import (
+    BANNER_SEVERITIES,
+    BANNER_SEVERITY_ERROR,
     DESIGN_PACK_ERROR,
     DESIGN_PACK_RE,
     HEX_COLOR_RE,
     MAX_APP_NAME_LEN,
+    MAX_BANNER_MESSAGE_LEN,
     clean_app_name,
+    clean_banner_message,
 )
 
 
@@ -21,7 +25,11 @@ class BrandingOut(SQLModel):
     primary_color: str = ""
     design_pack: str = ""
     logo_url: str | None = None
+    #: Variant for dark surfaces; ``None`` means "fall back to ``logo_url``".
+    logo_dark_url: str | None = None
     favicon_url: str | None = None
+    banner_message: str = ""
+    banner_severity: str = ""
 
 
 class BrandingUpdate(SQLModel):
@@ -30,6 +38,25 @@ class BrandingUpdate(SQLModel):
     app_name: str | None = Field(default=None, max_length=MAX_APP_NAME_LEN)
     primary_color: str | None = Field(default=None)
     design_pack: str | None = Field(default=None)
+    banner_message: str | None = Field(default=None, max_length=MAX_BANNER_MESSAGE_LEN)
+    banner_severity: str | None = Field(default=None)
+
+    @field_validator("banner_message")
+    @classmethod
+    def _bounded_banner(cls, value: str | None) -> str | None:
+        return None if value is None else clean_banner_message(value)
+
+    @field_validator("banner_severity")
+    @classmethod
+    def _known_severity(cls, value: str | None) -> str | None:
+        # Strict here, unlike the settings validator: a typo'd severity should
+        # be a clear 422 rather than silently becoming "info".
+        if value is None:
+            return None
+        candidate = value.strip().lower()
+        if candidate not in BANNER_SEVERITIES:
+            raise ValueError(BANNER_SEVERITY_ERROR)
+        return candidate
 
     @field_validator("app_name")
     @classmethod

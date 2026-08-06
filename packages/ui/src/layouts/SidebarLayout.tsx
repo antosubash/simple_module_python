@@ -1,28 +1,21 @@
 import { Link, usePage } from '@inertiajs/react';
-import { Avatar, AvatarFallback } from '@simple-module-py/ui/components/ui/avatar';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@simple-module-py/ui/components/ui/dropdown-menu';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@simple-module-py/ui/components/ui/tooltip';
-import { ChevronsUpDown } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
 import { BrandingMark } from '../components/BrandingMark';
 import { NavIcon } from '../components/NavIcon';
+import { darkSurfaceLogo } from '../lib/brand';
 import type { MenuItem, SharedProps } from '../types';
+import { SidebarUserMenu } from './SidebarUserMenu';
 
 function groupMenuItems(items: MenuItem[]): { group: string; items: MenuItem[] }[] {
   const groups: { group: string; items: MenuItem[] }[] = [];
@@ -71,6 +64,10 @@ export function SidebarLayout({
   const currentUrl = page.url;
   const appName = branding?.appName ?? theme.mobileTitleLabel;
   const logoUrl = branding?.logoUrl ?? null;
+  // The sidebar and mobile bar are near-black whatever the theme, so they take
+  // the dark logo variant when one exists. The footer sits on `bg-background`
+  // and follows the theme, so it keeps the primary logo.
+  const darkLogoUrl = darkSurfaceLogo(branding);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = () => setSidebarOpen(false);
 
@@ -79,6 +76,7 @@ export function SidebarLayout({
   return (
     <TooltipProvider>
       <BrandingHead />
+      <BrandingBanner />
       <div className="min-h-screen bg-background">
         {/* Mobile top bar */}
         <div
@@ -109,7 +107,7 @@ export function SidebarLayout({
           <Link href="/dashboard/" className="flex items-center gap-2">
             <BrandingMark
               appName={appName}
-              logoUrl={logoUrl}
+              logoUrl={darkLogoUrl}
               accentColor={theme.accentColor}
               size="sm"
             />
@@ -135,7 +133,7 @@ export function SidebarLayout({
             <Link href="/dashboard/" className="flex items-center gap-2.5 group">
               <BrandingMark
                 appName={appName}
-                logoUrl={logoUrl}
+                logoUrl={darkLogoUrl}
                 accentColor={theme.accentColor}
                 size="md"
               />
@@ -205,86 +203,27 @@ export function SidebarLayout({
           </nav>
 
           {/* User section — avatar row opens a dropdown with Profile / Logout / etc. */}
-          {auth?.user &&
-            (() => {
-              // UserContext.from_user defaults ``name`` to ``email`` when no
-              // full_name is set, so guard against rendering the email twice.
-              const hasDistinctName = auth.user.name && auth.user.name !== auth.user.email;
-              return (
-                <div className="px-3 py-3 border-t border-white/[0.06]">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className={`flex w-full items-center gap-3 px-2 py-2 rounded-lg text-left ${theme.hoverBg} transition-colors`}
-                      >
-                        <Avatar className="ring-2 ring-primary-500/20">
-                          <AvatarFallback className={`${theme.avatarBg} text-white text-xs`}>
-                            {(auth.user.name || auth.user.email)?.charAt(0)?.toUpperCase() || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          {hasDistinctName ? (
-                            <>
-                              <p className="text-sm font-medium text-white truncate">
-                                {auth.user.name}
-                              </p>
-                              <p className={`text-xs truncate ${theme.mutedTextClass}`}>
-                                {auth.user.email}
-                              </p>
-                            </>
-                          ) : (
-                            <p className="text-sm font-medium text-white truncate">
-                              {auth.user.email}
-                            </p>
-                          )}
-                        </div>
-                        <ChevronsUpDown
-                          className={`w-4 h-4 shrink-0 ${theme.mutedTextClass}`}
-                          aria-hidden="true"
-                        />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent side="top" align="start" className="w-56">
-                      <DropdownMenuLabel className="font-normal">
-                        {hasDistinctName ? (
-                          <>
-                            <p className="text-sm font-medium truncate">{auth.user.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {auth.user.email}
-                            </p>
-                          </>
-                        ) : (
-                          <p className="text-sm font-medium truncate">{auth.user.email}</p>
-                        )}
-                      </DropdownMenuLabel>
-                      {menus?.userDropdown && menus.userDropdown.length > 0 && (
-                        <DropdownMenuSeparator />
-                      )}
-                      {menus?.userDropdown?.map((item) => (
-                        <DropdownMenuItem key={item.url} asChild onSelect={closeSidebar}>
-                          <Link
-                            href={item.url}
-                            method={item.method === 'post' ? 'post' : 'get'}
-                            as={item.method === 'post' ? 'button' : 'a'}
-                            className="flex w-full items-center gap-2"
-                          >
-                            <NavIcon name={item.icon} />
-                            {item.label}
-                          </Link>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              );
-            })()}
+          {auth?.user && (
+            <SidebarUserMenu
+              user={auth.user}
+              items={menus?.userDropdown ?? []}
+              avatarBg={theme.avatarBg}
+              hoverBg={theme.hoverBg}
+              mutedTextClass={theme.mutedTextClass}
+              onNavigate={closeSidebar}
+            />
+          )}
         </aside>
 
         {/* Main content */}
         <main className="flex min-h-screen flex-col lg:ml-64">
           <div className="flex-1">{children}</div>
-          <BrandingFooter appName={appName} logoUrl={logoUrl} variant="app" />
+          <BrandingFooter
+            appName={appName}
+            logoUrl={logoUrl}
+            variant="app"
+            footer={branding?.footer ?? null}
+          />
         </main>
       </div>
     </TooltipProvider>

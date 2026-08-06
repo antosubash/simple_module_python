@@ -14,6 +14,7 @@ from fastapi import APIRouter, FastAPI
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.public_routes import PublicRouteRegistry
 
 from branding import constants
 from branding.constants import MENU_URL
@@ -22,8 +23,8 @@ from branding.constants import MENU_URL
 class BrandingModule(ModuleBase):
     meta = ModuleMeta(
         name="Branding",
-        route_prefix="/api/branding",
-        view_prefix="/branding",
+        route_prefix=constants.ROUTE_PREFIX,
+        view_prefix=constants.VIEW_PREFIX,
         depends_on=[constants._MODULE_SETTINGS, constants._MODULE_FILE_STORAGE],
     )
 
@@ -46,6 +47,17 @@ class BrandingModule(ModuleBase):
             [constants.PERM_VIEW, constants.PERM_MANAGE],
         )
 
+    def register_public_routes(self, registry: PublicRouteRegistry) -> None:
+        """Let a logged-out visitor fetch the logo and favicon.
+
+        Guests meet the brand on the sign-in page, the public landing page and
+        every ``<link rel="icon">``, so these two GETs must not 401. The rules
+        are ``exact`` + GET-only, so uploading and clearing the same paths stay
+        behind ``branding.manage``.
+        """
+        for path in (constants.LOGO_URL, constants.LOGO_DARK_URL, constants.FAVICON_URL):
+            registry.add(path, methods=["GET"], kind="exact")
+
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
             MenuItem(
@@ -61,9 +73,13 @@ class BrandingModule(ModuleBase):
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from branding.endpoints.api import router as api
+        from branding.endpoints.assets import router as assets
         from branding.endpoints.views import router as views
 
         api_router.include_router(api)
+        # Anonymous logo/favicon routes — a guest sees them on the sign-in and
+        # public pages, so they carry no permission dependency.
+        api_router.include_router(assets)
         view_router.include_router(views)
 
     async def on_startup(self, app: FastAPI) -> None:

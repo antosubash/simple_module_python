@@ -6,6 +6,20 @@ export interface MenuItem {
   group?: string;
 }
 
+export interface FooterLinkShared {
+  label: string;
+  href: string;
+}
+
+/** Admin-configured footer; `null` keeps the framework's built-in one. */
+export interface FooterShared {
+  tagline: string;
+  copyrightOwner: string;
+  note: string;
+  columns: { title: string; links: FooterLinkShared[] }[];
+  socialLinks: FooterLinkShared[];
+}
+
 export interface BrandingShared {
   appName: string;
   primaryColor: string | null;
@@ -14,7 +28,16 @@ export interface BrandingShared {
   // the owning module's stylesheet selects on.
   designPack: string | null;
   logoUrl: string | null;
+  /**
+   * Logo variant for the app's always-dark surfaces (the sidebar and mobile
+   * bar), where a dark-ink primary logo would be invisible. `null` means none
+   * was uploaded — callers fall back to `logoUrl` via `darkSurfaceLogo`.
+   */
+  logoDarkUrl: string | null;
   faviconUrl: string | null;
+  /** Site-wide announcement, or `null` when no message is set. */
+  banner: { message: string; severity: string } | null;
+  footer: FooterShared | null;
 }
 
 export interface SharedProps {
