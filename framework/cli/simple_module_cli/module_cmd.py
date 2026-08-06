@@ -60,3 +60,15 @@ def verify_command(
 ) -> None:
     """Build this module's frontend inside a throwaway scaffolded host."""
     run_verify(read_module_info(Path.cwd()), fresh=fresh)
+
+
+@module_app.command("build")
+def build_command(
+    fresh: bool = typer.Option(
+        False, "--fresh", help="Rebuild the cached .smpy/verify-host from scratch."
+    ),
+) -> None:
+    """Bundle <pkg>/assets_src/ into <pkg>/static/dist/ for static_mounts()."""
+    from simple_module_cli._module_build import run_build
+
+    run_build(read_module_info(Path.cwd()), fresh=fresh)
