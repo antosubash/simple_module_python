@@ -27,6 +27,14 @@ def run_verify(info: ModuleInfo, *, fresh: bool = False, runner=subprocess.run) 
     client_app = host / "client_app"
     uv, npm = require_binary("uv"), require_binary("npm")
     steps: tuple[tuple[str, list[str], Path], ...] = (
+        # The module's own node_modules first: esbuild resolves the module
+        # tsconfig's `extends` (@simple-module-py/tsconfig) from there when
+        # compiling pages out of the editable checkout.
+        *(
+            (("npm install (module)", [npm, "install"], info.root),)
+            if (info.root / "package.json").is_file()
+            else ()
+        ),
         ("uv sync", [uv, "sync"], host),
         ("npm install", [npm, "install"], client_app),
         (

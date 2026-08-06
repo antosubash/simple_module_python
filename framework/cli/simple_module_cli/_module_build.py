@@ -80,13 +80,13 @@ export default defineConfig({{
 
 
 def _warn_missing_force_include(info: ModuleInfo) -> None:
-    """static/dist is gitignored — without force-include the wheel silently omits it."""
+    """static/dist is gitignored — without an artifacts entry the wheel silently omits it."""
     pyproject = (info.root / "pyproject.toml").read_text(encoding="utf-8")
     if f"{info.package_name}/static/dist" not in pyproject:
         typer.echo(
-            "warning: pyproject.toml has no force-include for "
-            f'"{info.package_name}/static/dist" — the built bundle will NOT ship in the wheel. '
-            "Add under [tool.hatch.build.targets.wheel.force-include]:\n"
-            f'  "{info.package_name}/static/dist" = "{info.package_name}/static/dist"',
+            "warning: pyproject.toml does not ship "
+            f'"{info.package_name}/static/dist" — the built bundle will NOT be in the wheel. '
+            "Add under [tool.hatch.build.targets.wheel]:\n"
+            f'  artifacts = ["{info.package_name}/static/dist/"]',
             err=True,
         )

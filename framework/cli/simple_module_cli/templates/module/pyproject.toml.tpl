@@ -31,12 +31,15 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["{{PACKAGE_NAME}}"]
+# Ship the built frontend bundle inside the wheel when present. static/dist/
+# is gitignored, so it needs an explicit artifacts entry — run
+# `smpy module build` before `uv build` to populate it. (artifacts, unlike
+# force-include, tolerates the directory not existing yet, so a fresh
+# scaffold/clone still `uv sync`s.)
+artifacts = ["{{PACKAGE_NAME}}/static/dist/"]
 
-# Ship the built frontend bundle + per-module JS dep manifest inside the wheel.
-# static/dist/ is gitignored, so force-include picks up the working-tree build
-# during `uv build` — run your bundler (vite/esbuild) first. package.json lives
-# at the module root so npm workspaces see it; copying it into <pkg>/ lets the
-# host discover JS deps via importlib.resources after a pip install.
+# package.json lives at the module root so npm workspaces see it; copying it
+# into <pkg>/ lets the host discover JS deps via importlib.resources after a
+# pip install.
 [tool.hatch.build.targets.wheel.force-include]
-"{{PACKAGE_NAME}}/static/dist" = "{{PACKAGE_NAME}}/static/dist"
 "package.json" = "{{PACKAGE_NAME}}/package.json"

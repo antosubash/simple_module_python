@@ -68,4 +68,4 @@ class TestRunBuild:
         stripped = MODULE_PYPROJECT.split("[tool.hatch")[0]
         (module_root / "pyproject.toml").write_text(stripped, encoding="utf-8")
         run_build(read_module_info(module_root), runner=ok_runner([]))
-        assert "force-include" in capsys.readouterr().err
+        assert "artifacts" in capsys.readouterr().err

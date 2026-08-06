@@ -112,6 +112,26 @@ class TestRunVerify:
         assert calls[idx["sync"]][1] == host
         assert calls[idx["install"]][1] == f"{host}/client_app"
 
+    async def test_module_npm_install_runs_first_when_package_json_exists(self, module_root):
+        """The module's own node_modules must exist before the host build:
+        esbuild resolves the module tsconfig's `extends` from there when pages
+        compile out of the editable checkout."""
+        from simple_module_cli._module_host import read_module_info
+        from simple_module_cli.module_cmd import run_verify
+
+        (module_root / "package.json").write_text("{}", encoding="utf-8")
+        calls: list[tuple[str, str]] = []
+
+        def fake_runner(cmd, cwd=None, **kwargs):
+            calls.append((" ".join(str(c) for c in cmd), str(cwd)))
+            return subprocess.CompletedProcess(cmd, 0)
+
+        run_verify(read_module_info(module_root), runner=fake_runner)
+
+        first_cmd, first_cwd = calls[0]
+        assert "npm" in first_cmd and "install" in first_cmd
+        assert first_cwd == str(module_root)
+
     async def test_failing_step_exits_nonzero_and_stops(self, module_root):
         from simple_module_cli._module_host import read_module_info
         from simple_module_cli.module_cmd import run_verify
