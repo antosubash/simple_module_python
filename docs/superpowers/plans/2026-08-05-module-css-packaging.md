@@ -47,30 +47,57 @@ they are checked before any code is written.
 **Files:**
 - Create (throwaway): `$CLAUDE_JOB_DIR/tmp/css-spike/`
 
-- [ ] **Step 1: Build a minimal Tailwind 4.2.4 spike**
+- [x] **Step 1: Build a minimal Tailwind 4.2.4 spike**
 
 Create a scratch Vite project that imports a CSS file from outside its root via
 a `resolve.alias`, and `@source`s a directory by absolute path. Put a class in
 the aliased CSS and a utility class in a `.tsx` under the absolute `@source`
 dir.
 
-- [ ] **Step 2: Run the build and inspect output CSS**
+- [x] **Step 2: Run the build and inspect output CSS**
 
 Confirm two things independently:
 1. The aliased `@import` resolved (the module CSS rule appears in output).
 2. The absolute `@source` scanned (the utility from that dir appears in output).
 
-- [ ] **Step 3: Record the result**
+- [x] **Step 3: Record the result**
 
 If the absolute `@source` fails, the `@source` section switches to alias
 specifiers too, and Task 3's emission changes accordingly. If the alias
 `@import` fails, stop — the design needs revisiting.
 
-- [ ] **Step 4: Note whether `fs.allow` was needed**
+- [x] **Step 4: Note whether `fs.allow` was needed**
 
 Run the dev server against a file outside the root without `fs.allow` and see
 whether the CSS still resolves. `@import` is inlined at transform time, so it
 may not need whitelisting.
+
+#### Findings (2026-08-06)
+
+Verified against the versions actually installed in this repo:
+`@tailwindcss/vite` **4.2.4**, `tailwindcss` **4.2.4**, `vite` **8.0.10**.
+
+Both load-bearing claims hold, so **the design proceeds unchanged**:
+
+| Claim | Result |
+|---|---|
+| `resolve.alias` governs CSS `@import` | ✅ `@import "#module/spikemod/styles.css" layer(components)` resolved to a directory outside the Vite root and emitted as `@layer components{.spike-module-rule{color:#639}}` |
+| Absolute `@source` scans | ✅ `@source "/abs/outside-src"` scanned a `.tsx` outside the root; `.p-7{padding:calc(var(--spacing) * 7)}` was emitted |
+
+Two further results beyond what the plan asked for:
+
+- **The unlayered/layered split works as designed.** `theme.css` imported
+  without a `layer()` clause registered `--color-spikebrand:#123456` as a real
+  design token, while `styles.css` imported with `layer(components)` landed
+  inside `@layer components`. The whole chain composes: a token defined in a
+  module's `theme.css` produced a working `text-spikebrand` utility for a class
+  used only in an absolute-`@source`d file outside the root.
+- **`server.fs.allow` is NOT needed for module CSS.** The dev server, with no
+  `fs.allow` entry for the external directory, served `/app.css?direct`
+  (HTTP 200) containing all three signals. `@import` is inlined at transform
+  time rather than served as a URL, confirming the spec's hypothesis. Task 4
+  still pushes each package dir onto `moduleFsAllow` — harmless, and it remains
+  genuinely required for `.tsx` *pages*, which are served as URLs.
 
 ---
 
