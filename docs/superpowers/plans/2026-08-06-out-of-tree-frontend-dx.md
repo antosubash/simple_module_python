@@ -769,6 +769,7 @@ Register in `cli.py` next to the other groups (after the `skills` add_typer):
 
 ```python
 from simple_module_cli.module_cmd import module_app
+
 ...
 app.add_typer(module_app, name="module")
 ```
@@ -821,8 +822,10 @@ class TestRunVerify:
         assert any("gen-pages" in c for c in joined)
         assert any("run build" in c for c in joined)
         # order: sync < install < gen-pages < build
-        idx = {key: next(i for i, c in enumerate(joined) if key in c)
-               for key in ("sync", "install", "gen-pages", "run build")}
+        idx = {
+            key: next(i for i, c in enumerate(joined) if key in c)
+            for key in ("sync", "install", "gen-pages", "run build")
+        }
         assert idx["sync"] < idx["install"] < idx["gen-pages"] < idx["run build"]
         # npm steps run in client_app, uv steps in the host root
         host = str(module_root / ".smpy" / "verify-host")
@@ -880,7 +883,15 @@ def run_verify(info, *, fresh: bool = False, runner=subprocess.run) -> None:
         ("npm install", [npm, "install"], client_app),
         (
             "gen-pages",
-            [uv, "run", "python", "-m", "simple_module_hosting", "gen-pages", "--host-dir=client_app"],
+            [
+                uv,
+                "run",
+                "python",
+                "-m",
+                "simple_module_hosting",
+                "gen-pages",
+                "--host-dir=client_app",
+            ],
             host,
         ),
         ("frontend build (tsc + vite)", [npm, "run", "build"], client_app),
@@ -895,7 +906,9 @@ def run_verify(info, *, fresh: bool = False, runner=subprocess.run) -> None:
 
 @module_app.command("verify")
 def verify_command(
-    fresh: bool = typer.Option(False, "--fresh", help="Rebuild the cached .smpy/verify-host from scratch."),
+    fresh: bool = typer.Option(
+        False, "--fresh", help="Rebuild the cached .smpy/verify-host from scratch."
+    ),
 ) -> None:
     """Build this module's frontend inside a throwaway scaffolded host."""
     run_verify(read_module_info(Path.cwd()), fresh=fresh)
@@ -1116,7 +1129,9 @@ Register in `module_cmd.py`:
 ```python
 @module_app.command("build")
 def build_command(
-    fresh: bool = typer.Option(False, "--fresh", help="Rebuild the cached .smpy/verify-host from scratch."),
+    fresh: bool = typer.Option(
+        False, "--fresh", help="Rebuild the cached .smpy/verify-host from scratch."
+    ),
 ) -> None:
     """Bundle <pkg>/assets_src/ into <pkg>/static/dist/ for static_mounts()."""
     from simple_module_cli._module_build import run_build
