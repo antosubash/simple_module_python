@@ -22,6 +22,7 @@ from simple_module_cli.new import new_project
 from simple_module_cli.package_update import package_update
 from simple_module_cli.plugins import discover_and_mount
 from simple_module_cli.scaffolding import create_host as _create_host
+from simple_module_cli.module_cmd import module_app
 from simple_module_cli.scaffolding import create_module as _create_module
 from simple_module_cli.scaffolding import is_inside_existing_repo, resolve_framework_version
 from simple_module_cli.skills_cmd import app as skills_app
@@ -35,6 +36,7 @@ app = typer.Typer(
 app.command("new")(new_project)
 app.command("package-update")(package_update)
 app.add_typer(skills_app, name="skills")
+app.add_typer(module_app, name="module")
 
 
 @app.command("create-host")
