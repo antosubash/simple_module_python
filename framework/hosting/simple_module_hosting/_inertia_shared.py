@@ -12,20 +12,25 @@ from starlette.types import Scope
 logger = logging.getLogger(__name__)
 
 _I18N_SESSION_LOCALE_KEY = "__i18n_locale"
+_I18N_SESSION_AUDIENCE_KEY = "__i18n_audience"
 _INERTIA_HEADER = "x-inertia"
 _INERTIA_HEADER_TRUE = "true"
 
 
-def build_i18n_block(scope: Scope, request: Request) -> dict:
+def build_i18n_block(scope: Scope, request: Request, *, is_authenticated: bool = True) -> dict:
     """Assemble the ``i18n`` shared-props block for the current request.
 
     Rules:
 
     * No registry / no locale → serve an empty English block and log once.
     * Inertia XHR partials (``X-Inertia: true``) reuse the client-side
-      cached messages; send ``messages: None`` unless the locale differs
-      from what was last served on this session.
+      cached messages; send ``messages: None`` unless the locale — or the
+      audience, see below — differs from what was last served this session.
     * Full page loads and locale transitions ship the complete dict.
+    * Anonymous visitors receive the public snapshot: catalogs of modules
+      declaring ``i18n_audience="admin"`` are withheld (issue #248). A login
+      or logout mid-session counts as a change so the freshly-authenticated
+      client isn't left holding the anonymous catalog (or vice versa).
     """
     # Test fixtures sometimes build a bare FastAPI with a partial app.state.sm
     # stub (e.g. permissions-only, no i18n); guard both lookups to keep them usable.
@@ -42,6 +47,7 @@ def build_i18n_block(scope: Scope, request: Request) -> dict:
         return {"locale": "en", "supportedLocales": ["en"], "messages": {}}
 
     is_inertia = Headers(scope=scope).get(_INERTIA_HEADER) == _INERTIA_HEADER_TRUE
+    audience = "full" if is_authenticated else "public"
     session_dict = scope.get("session")
     # When the session is absent (pre-session-middleware routes, WebSocket
     # upgrades), treat locale as "unchanged" so Inertia XHR requests still
@@ -52,13 +58,22 @@ def build_i18n_block(scope: Scope, request: Request) -> dict:
         locale_changed = last_locale != locale
         if locale_changed:
             session_dict[_I18N_SESSION_LOCALE_KEY] = locale
+        last_audience = session_dict.get(_I18N_SESSION_AUDIENCE_KEY)
+        audience_changed = last_audience != audience
+        if audience_changed:
+            session_dict[_I18N_SESSION_AUDIENCE_KEY] = audience
     else:
         locale_changed = False
-    send_messages = (not is_inertia) or locale_changed
+        audience_changed = False
+    send_messages = (not is_inertia) or locale_changed or audience_changed
     return {
         "locale": locale,
         "supportedLocales": registry.available_locales(),
-        "messages": registry.messages_snapshot(locale) if send_messages else None,
+        "messages": (
+            registry.messages_snapshot(locale, include_admin=is_authenticated)
+            if send_messages
+            else None
+        ),
     }
 
 

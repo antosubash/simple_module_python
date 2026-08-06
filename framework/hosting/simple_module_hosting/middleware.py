@@ -256,7 +256,7 @@ class InertiaLayoutDataMiddleware:
         all_perms = self.permission_registry.all_permissions
         frontend_permissions = expand_permissions(resolved, all_perms) if is_authenticated else []
 
-        i18n_block = build_i18n_block(scope, request)
+        i18n_block = build_i18n_block(scope, request, is_authenticated=is_authenticated)
 
         principal_serializer: PrincipalSerializer | None = getattr(
             scope["app"].state, "principal_serializer", None

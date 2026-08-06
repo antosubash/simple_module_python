@@ -29,6 +29,7 @@ class FeatureFlagsModule(ModuleBase):
         name="FeatureFlags",
         route_prefix="/api/feature_flags",
         view_prefix="/feature_flags",
+        i18n_audience="admin",
     )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:

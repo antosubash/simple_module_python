@@ -26,6 +26,9 @@ class BrandingModule(ModuleBase):
         route_prefix=constants.ROUTE_PREFIX,
         view_prefix=constants.VIEW_PREFIX,
         depends_on=[constants._MODULE_SETTINGS, constants._MODULE_FILE_STORAGE],
+        # Branding's public contribution (site name, colors, design pack) rides
+        # the shared-props provider, not i18n keys — the catalog is admin forms.
+        i18n_audience="admin",
     )
 
     def register_settings(self, app: FastAPI) -> None:
