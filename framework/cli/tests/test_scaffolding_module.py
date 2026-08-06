@@ -197,14 +197,14 @@ class TestCreateModule:
             assert "jobs" in parsed, f"{wf} has no jobs: key"
 
     async def test_scaffold_has_pages_dir(self, tmp_path):
-        """Gap 2b: modules intended to ship TSX pages get a pages/ dir from day one."""
+        """Gap 2b: modules ship a pages/ dir with a working sample page from day one."""
         from simple_module_cli.scaffolding import create_module
 
         dest = tmp_path / "simple-module-widget"
         create_module(dest, name="Widget")
         pages_dir = dest / "widget" / "pages"
         assert pages_dir.is_dir()
-        assert (pages_dir / ".gitkeep").is_file()
+        assert (pages_dir / "Index.tsx").is_file()
 
     async def test_pyproject_force_includes_static_dist(self, tmp_path):
         """Gap 2b: pyproject.toml must ship <pkg>/static/dist/ inside the wheel."""
