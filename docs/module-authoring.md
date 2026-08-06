@@ -243,6 +243,10 @@ Modules may ship TSX pages in `my_module/pages/*.tsx`. On host boot (and on
 - `client_app/modules.manifest.json` — machine-readable paths
 - `client_app/modules.generated.ts` — per-module `import.meta.glob`
   calls with absolute paths resolved via `importlib.resources`
+- `client_app/modules.generated.css` — Tailwind `@source` entries, plus an
+  `@import` per module-shipped stylesheet (see [Styling](#styling))
+- `client_app/modules.assets.json` — the per-module asset record that
+  `vite.config.ts` builds its `#module/<pkg>` aliases from
 
 Vite's `server.fs.allow` is extended to cover each installed module's
 package root, so pages shipped inside a wheel work for the dev server and
@@ -262,6 +266,82 @@ class MyModule(ModuleBase):
 ```
 
 The host mounts each entry as `StaticFiles` during boot.
+
+## Styling
+
+A module may ship two optional stylesheets beside its `pages/` directory.
+Both are auto-detected exactly the way `pages/` is — there is no hook to
+override and nothing to register:
+
+```
+my_module/
+├── module.py
+├── theme.css     # optional — @theme tokens, @custom-variant, @font-face
+├── styles.css    # optional — component rules, keyframes, vendor CSS
+└── pages/
+```
+
+`smpy host gen-pages` emits an `@import` for each into
+`client_app/modules.generated.css`:
+
+```css
+@import "#module/my_module/theme.css";
+@import "#module/my_module/styles.css" layer(components);
+```
+
+**Nothing needs to be added to the host's `styles.css` by hand.** The
+`#module/<pkg>` specifier is a Vite alias built from `modules.assets.json`,
+so it resolves identically whether the module is a workspace member or
+installed from a wheel — and no generated file ends up containing a
+`../../../.venv/lib/python3.12/site-packages/...` path that would break the
+next time the interpreter version changes.
+
+Imports are emitted in module discovery order, which is topological by
+`ModuleMeta.depends_on`. A module that depends on another can therefore
+override its dependency's styles.
+
+### Which file does what
+
+The split is not cosmetic — it is what makes the cascade rules structural
+rather than merely documented.
+
+| | `theme.css` | `styles.css` |
+|---|---|---|
+| Imported | unlayered | `layer(components)` |
+| For | `@theme`, `@custom-variant`, `@utility`, `@font-face`, `:root` tokens | component rules, keyframes, vendor CSS |
+| Beats a Tailwind utility? | yes | no |
+
+Tailwind v4 expands `@import "tailwindcss"` into
+`@layer theme, base, components, utilities`, and **unlayered CSS beats every
+layered rule**. So a module shipping a bare `.card { padding: 0 }` unlayered
+would silently override `p-4` on that element. But `@theme` blocks *must* be
+unlayered to register design tokens at all — a `@theme` inside a layer is
+inert. One file cannot satisfy both constraints, so each file gets one job.
+
+`make doctor` catches the two ways to get this wrong: **SM022** flags
+`@theme`/`@custom-variant`/`@utility` sitting in `styles.css` (where they do
+nothing), and **SM023** flags an unlayered rule in `theme.css` (where it
+outranks every utility). Both are warnings — the CSS is legal either way, it
+just cascades in a way you probably did not intend.
+
+### Cascade order
+
+```
+design-system @theme  <  module theme.css  <  app @theme overrides
+```
+
+A module normally *adds* tokens (`--color-map-water`); when it deliberately
+redefines a design-system token it wins, and the consuming app still has the
+final word from its own `@theme` block below the generated import.
+
+### Packaging
+
+**No packaging change is required.** The module wheel template already
+declares `[tool.hatch.build.targets.wheel] packages = ["my_module"]`, and
+Hatch includes every file under the package directory — `.css` along with
+`.tsx`. The `force-include` block is only needed for artifacts that live
+*outside* the package dir (`package.json`) or that are gitignored
+(`static/dist`).
 
 ## Templates
 

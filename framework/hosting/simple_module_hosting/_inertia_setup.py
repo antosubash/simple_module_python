@@ -30,20 +30,25 @@ def branding_head(request: Request) -> dict:
     """Branding metadata for the root template's ``<head>``.
 
     Reads the optional branding module's settings off ``app.state`` by name
-    (duck-typed, never imported) so the static ``<title>`` and ``theme-color``
-    are already branded *before* React hydrates. Degrades to the framework
-    default when branding isn't installed. Only plain settings strings are
-    surfaced here — the favicon is applied client-side by ``BrandingHead`` via
-    Inertia's ``<Head>``, keeping file_storage's download-route shape out of
-    framework code.
+    (duck-typed, never imported) so the ``<title>``, ``theme-color`` and
+    favicon are already branded *before* React hydrates — otherwise the browser
+    paints the default favicon and only swaps on hydration, a visible flicker on
+    every full page load. Degrades to the framework default when branding isn't
+    installed.
+
+    The favicon URL is read from the module rather than assembled here: branding
+    owns its route shape, and framework code must not reach into a plugin
+    (SM009). ``BrandingHead`` still applies it client-side too, so a favicon
+    changed at runtime updates without a reload.
     """
     services = getattr(request.app.state, "branding", None)
     settings = getattr(services, "settings", None)
     if settings is None:
-        return {"app_name": _DEFAULT_APP_NAME, "theme_color": None}
+        return {"app_name": _DEFAULT_APP_NAME, "theme_color": None, "favicon_url": None}
     return {
         "app_name": getattr(settings, "app_name", "") or _DEFAULT_APP_NAME,
         "theme_color": getattr(settings, "primary_color", "") or None,
+        "favicon_url": getattr(services, "favicon_url", None),
     }
 
 

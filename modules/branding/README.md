@@ -2,8 +2,9 @@
 
 Customisable application branding for [simple_module_python](https://github.com/antosubash/simple_module_python) apps.
 
-An administrator can set the **application name**, **logo**, **favicon** and
-**primary brand colour** from the admin UI (`/branding`), and those values are
+An administrator can set the **application name**, **logo** (plus an optional
+**dark-background variant**), **favicon** and **primary brand colour** from the
+admin UI (`/branding`), and those values are
 applied everywhere the framework would otherwise show the default identity —
 the sidebar/header logo and name, the browser tab title, the favicon, and the
 primary accent colour.
@@ -41,8 +42,13 @@ modules to be installed too.
    favicon. Changes apply immediately across the app.
 
 Programmatically, the current branding is available on every page through the
-`branding` Inertia shared prop (`appName`, `primaryColor`, `logoUrl`,
-`faviconUrl`).
+`branding` Inertia shared prop (`appName`, `primaryColor`, `designPack`,
+`logoUrl`, `logoDarkUrl`, `faviconUrl`, `banner`, `footer`). `banner` and
+`footer` are `null` when unconfigured, which is what makes the frontend fall
+back to rendering nothing and to the framework footer respectively. For a dark
+surface use
+`darkSurfaceLogo(branding)` from `@simple-module-py/ui/lib/brand`, which applies
+the `logoDarkUrl → logoUrl` fallback in one place.
 
 ## How it works
 
@@ -50,7 +56,49 @@ Programmatically, the current branding is available on every page through the
   (SYSTEM scope) — there is no branding database table. They hydrate into
   `app.state.branding.settings` at boot and hot-swap on save.
 - **Images.** Logo and favicon uploads are stored through the `file_storage`
-  module (referenced by UUID) and served from its download endpoint.
+  module (referenced by UUID). Branding serves them back from its own
+  **anonymous** routes, `GET /api/branding/logo` and `GET /api/branding/favicon`
+  — `file_storage`'s download endpoint requires `file-storage.download`, which
+  no logged-out visitor has, and the sign-in page is exactly where the logo
+  must appear. Only the two ids currently held in branding settings are served,
+  so this is not a way to read arbitrary files. Uploading and clearing on those
+  same paths stay behind `branding.manage` (the exemption is GET-only).
+- **Caching.** The published URL carries `?v=<file id>`; a replaced image is a
+  new `file_storage` id, so the URL is content-addressed. Versioned requests
+  are served `public, max-age=31536000, immutable`; a request without a usable
+  version gets `public, max-age=3600` so it self-corrects, and a 404 is never
+  cached.
+- **Announcement banner.** A message plus a severity (`info` / `warning` /
+  `danger`) rendered above every shell — app, public and auth — because an
+  outage notice is most useful to people who cannot sign in. An empty message
+  hides it. Severity colours are semantic, not brand-tinted: a warning wearing
+  the deployment's accent colour stops reading as a warning.
+- **Presets.** One-click looks (`POST /api/branding/presets/{key}`), applied
+  through the ordinary update path so every validator still runs. A preset only
+  ever sets *appearance* (`PRESET_FIELDS` — primary colour, design pack); it
+  can never overwrite the app name, an uploaded logo or a live banner, and
+  `BrandingPreset` rejects any other field at construction.
+- **Configurable footer.** Tagline, copyright owner, caption, up to 6 columns
+  of 8 links, and up to 8 social links (`PUT /api/branding/footer`, whole-object
+  replace). Link URLs are restricted to http(s) or a single-leading-slash app
+  path — `javascript:` and `data:` are refused, and `//host` is treated as the
+  off-site absolute URL it is rather than a path. With nothing configured the
+  framework's built-in footer renders unchanged.
+- **Dark-background logo.** The sidebar and mobile bar sit on a near-black
+  surface in every theme, while the sign-in card and public page are light — so
+  a single logo cannot read on both. Uploading a *Logo (dark backgrounds)*
+  variant swaps it in on those surfaces only. It is optional: with none set the
+  shared prop reports `logoDarkUrl: null` and the frontend falls back to
+  `logoUrl`, so single-logo deployments look exactly as they did.
+- **Lifecycle.** Replacing or clearing an image deletes the file it stopped
+  referencing, so repeated logo tweaks don't leave orphans in `file_storage`.
+  Cleanup is best effort: the setting change has already been persisted, so a
+  storage fault is logged rather than failing an otherwise-successful rebrand.
+- **Upload validation.** PNG, JPEG, WEBP, GIF and ICO up to 2 MB. The declared
+  content-type is caller-controlled, so the first bytes are also checked
+  against each format's magic number — a payload renamed `logo.png` is
+  rejected. SVG is excluded on purpose: it is an XML document that can carry
+  `<script>`, so serving one from the app's origin would be stored XSS.
 - **Delivery.** A registered Inertia shared-props provider injects a `branding`
   block into every page's shared props (authenticated *and* guest), which the
   frontend reads for the name, logo, favicon and colour.
@@ -59,6 +107,9 @@ Programmatically, the current branding is available on every page through the
 
 - `branding.view` — view the branding admin page.
 - `branding.manage` — change branding (name, colour, logo, favicon).
+
+The logo and favicon **GET** routes are anonymous by design (registered through
+the `register_public_routes` hook); everything else requires a permission.
 
 ## Dependencies
 

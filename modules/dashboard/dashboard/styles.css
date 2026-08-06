@@ -1,0 +1,18 @@
+/* Dashboard module component styles.
+ *
+ * Picked up automatically by `smpy host gen-pages`, which emits
+ *   @import "#module/dashboard/styles.css" layer(components);
+ * into host/client_app/modules.generated.css. Nothing needs to be added to
+ * the host's styles.css by hand.
+ *
+ * Rules here live in layer(components) and therefore always lose to a
+ * Tailwind utility, so a consuming app can still override any of this with
+ * a class on the element. Design tokens belong in theme.css instead — a
+ * @theme block is inert inside a cascade layer.
+ */
+@layer components {
+  .dashboard-stat-grid {
+    display: grid;
+    gap: var(--spacing, 0.25rem);
+  }
+}

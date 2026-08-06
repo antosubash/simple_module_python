@@ -13,12 +13,20 @@ import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import type { SharedProps } from '@simple-module-py/ui/types';
-import { type ChangeEvent, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { BannerField, type BannerSeverity } from '../components/BannerField';
 import { DesignPackField, type DesignPackOption } from '../components/DesignPackField';
+import { FooterCard, type FooterPayload } from '../components/FooterCard';
+import { ImageField } from '../components/ImageField';
+import { PresetField, type PresetOption } from '../components/PresetField';
 
 const DEFAULT_SWATCH = '#10b981';
-type ImageKind = 'logo' | 'favicon';
+/** Matches the upload/clear route segments under `/api/branding/`. */
+type ImageKind = 'logo' | 'logo-dark' | 'favicon';
+
+/** The sidebar is near-black, so preview the dark variant against it. */
+const DARK_PREVIEW = 'bg-app-sidebar';
 
 async function readError(res: Response): Promise<string> {
   try {
@@ -29,74 +37,13 @@ async function readError(res: Response): Promise<string> {
   }
 }
 
-function ImageField({
-  label,
-  help,
-  url,
-  onUpload,
-  onRemove,
-  disabled,
-}: {
-  label: string;
-  help: string;
-  url: string | null;
-  onUpload: (file: File) => void;
-  onRemove: () => void;
-  disabled: boolean;
-}) {
-  const { t } = useT();
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      <div className="flex items-center gap-4">
-        <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border bg-muted">
-          {url ? (
-            <img src={url} alt={label} className="h-full w-full object-contain" />
-          ) : (
-            <span className="text-xs text-muted-foreground">—</span>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e: ChangeEvent<HTMLInputElement>) => {
-              const file = e.target.files?.[0];
-              if (file) onUpload(file);
-              e.target.value = '';
-            }}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={disabled}
-            onClick={() => inputRef.current?.click()}
-          >
-            {url ? t(keys.branding.manage.replace_button) : t(keys.branding.manage.upload_button)}
-          </Button>
-          {url && (
-            <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={onRemove}>
-              {t(keys.branding.manage.remove_button)}
-            </Button>
-          )}
-        </div>
-      </div>
-      <p className="text-xs text-muted-foreground">{help}</p>
-    </div>
-  );
-}
-
 function Manage() {
   const { t } = useT();
   // ``designPacks`` is a page prop, not a shared one: the choices depend on
   // which modules the host has installed, so only the view can supply them.
   const page = usePage<{ props: SharedProps }>().props as unknown as SharedProps & {
     designPacks?: DesignPackOption[];
+    presets?: PresetOption[];
   };
   const { auth, branding } = page;
   const canManage = auth?.permissions?.includes('branding.manage');
@@ -104,7 +51,30 @@ function Manage() {
   const [appName, setAppName] = useState(branding?.appName ?? '');
   const [color, setColor] = useState(branding?.primaryColor ?? '');
   const [designPack, setDesignPack] = useState(branding?.designPack ?? '');
+  const [bannerMessage, setBannerMessage] = useState(branding?.banner?.message ?? '');
+  const [bannerSeverity, setBannerSeverity] = useState<BannerSeverity>(
+    (branding?.banner?.severity as BannerSeverity) ?? 'info',
+  );
   const [busy, setBusy] = useState(false);
+
+  // Applying a preset changes branding on the *server*; `router.reload()` brings
+  // the new shared props back, but useState only seeds on mount, so without this
+  // the fields would keep showing the pre-preset values until a full page load.
+  // Depend on the primitives rather than the `branding` object: its identity
+  // changes on every reload, which would otherwise wipe out in-progress typing.
+  const propAppName = branding?.appName ?? '';
+  const propColor = branding?.primaryColor ?? '';
+  const propDesignPack = branding?.designPack ?? '';
+  const propBannerMessage = branding?.banner?.message ?? '';
+  const propBannerSeverity = (branding?.banner?.severity as BannerSeverity) ?? 'info';
+
+  useEffect(() => {
+    setAppName(propAppName);
+    setColor(propColor);
+    setDesignPack(propDesignPack);
+    setBannerMessage(propBannerMessage);
+    setBannerSeverity(propBannerSeverity);
+  }, [propAppName, propColor, propDesignPack, propBannerMessage, propBannerSeverity]);
 
   async function run(work: () => Promise<Response>, errorMsg: string) {
     setBusy(true);
@@ -130,6 +100,8 @@ function Manage() {
             app_name: appName,
             primary_color: color,
             design_pack: designPack,
+            banner_message: bannerMessage,
+            banner_severity: bannerSeverity,
           }),
         }),
       t(keys.branding.manage.error_toast),
@@ -143,6 +115,23 @@ function Manage() {
       t(keys.branding.manage.upload_error_toast),
     );
   };
+
+  const saveFooter = (payload: FooterPayload) =>
+    run(
+      () =>
+        fetch('/api/branding/footer', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }),
+      t(keys.branding.manage.error_toast),
+    );
+
+  const applyPreset = (key: string) =>
+    run(
+      () => fetch(`/api/branding/presets/${key}`, { method: 'POST' }),
+      t(keys.branding.manage.error_toast),
+    );
 
   const removeImage = (kind: ImageKind) =>
     run(
@@ -214,6 +203,21 @@ function Manage() {
                 </p>
               </div>
 
+              <PresetField
+                options={page.presets ?? []}
+                activeColor={color}
+                onApply={applyPreset}
+                disabled={!canManage || busy}
+              />
+
+              <BannerField
+                message={bannerMessage}
+                severity={bannerSeverity}
+                onMessageChange={setBannerMessage}
+                onSeverityChange={setBannerSeverity}
+                disabled={!canManage || busy}
+              />
+
               <DesignPackField
                 options={page.designPacks ?? []}
                 value={designPack}
@@ -230,6 +234,15 @@ function Manage() {
                 disabled={!canManage || busy}
               />
               <ImageField
+                label={t(keys.branding.manage.logo_dark_label)}
+                help={t(keys.branding.manage.logo_dark_help)}
+                url={branding?.logoDarkUrl ?? null}
+                onUpload={(file) => uploadImage('logo-dark', file)}
+                onRemove={() => removeImage('logo-dark')}
+                disabled={!canManage || busy}
+                previewClassName={DARK_PREVIEW}
+              />
+              <ImageField
                 label={t(keys.branding.manage.favicon_label)}
                 help={t(keys.branding.manage.favicon_help)}
                 url={branding?.faviconUrl ?? null}
@@ -243,6 +256,13 @@ function Manage() {
               </Button>
             </CardContent>
           </Card>
+
+          <FooterCard
+            initial={branding?.footer ?? null}
+            disabled={!canManage || busy}
+            busy={busy}
+            onSave={saveFooter}
+          />
 
           <Card>
             <CardHeader>

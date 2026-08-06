@@ -9,7 +9,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from branding.constants import FILE_DOWNLOAD_URL
+from branding.constants import (
+    ASSET_VERSION_QUERY_KEY,
+    FAVICON_URL,
+    LOGO_DARK_URL,
+    LOGO_URL,
+)
 
 if TYPE_CHECKING:
     from starlette.requests import Request
@@ -17,9 +22,36 @@ if TYPE_CHECKING:
     from branding.settings import BrandingSettings
 
 
-def file_url(file_id: str) -> str | None:
-    """Build the file_storage download URL for a stored file id (or None)."""
-    return FILE_DOWNLOAD_URL.format(file_id=file_id) if file_id else None
+def asset_url(base: str, file_id: str) -> str | None:
+    """Version a public branding asset URL with the stored file id (or None).
+
+    Points at branding's own anonymous route rather than file_storage's
+    permission-gated download, so the image also loads for a logged-out
+    visitor. Replacing an image stores a *new* file, so the id doubles as a
+    content-address: the URL changes, and caches invalidate for free.
+    """
+    return f"{base}?{ASSET_VERSION_QUERY_KEY}={file_id}" if file_id else None
+
+
+def footer_payload(settings: BrandingSettings) -> dict | None:
+    """The camelCase footer block, or ``None`` when nothing is configured.
+
+    ``None`` lets the frontend keep its built-in framework footer, so a
+    deployment that never touches this looks exactly as it did.
+    """
+    from branding.footer import loads
+
+    columns = loads(settings.footer_columns)
+    social = loads(settings.footer_social_links)
+    if not (columns or social or settings.footer_tagline or settings.footer_copyright_owner):
+        return None
+    return {
+        "tagline": settings.footer_tagline,
+        "copyrightOwner": settings.footer_copyright_owner,
+        "note": settings.footer_note,
+        "columns": columns,
+        "socialLinks": social,
+    }
 
 
 def branding_payload(settings: BrandingSettings) -> dict:
@@ -28,8 +60,19 @@ def branding_payload(settings: BrandingSettings) -> dict:
         "appName": settings.app_name,
         "primaryColor": settings.primary_color or None,
         "designPack": settings.design_pack or None,
-        "logoUrl": file_url(settings.logo_file_id),
-        "faviconUrl": file_url(settings.favicon_file_id),
+        "logoUrl": asset_url(LOGO_URL, settings.logo_file_id),
+        # None when unset — the frontend falls back to ``logoUrl``, so a
+        # deployment with a single logo keeps its current appearance.
+        "logoDarkUrl": asset_url(LOGO_DARK_URL, settings.logo_dark_file_id),
+        "faviconUrl": asset_url(FAVICON_URL, settings.favicon_file_id),
+        # None when no message is set, so the frontend renders nothing at all
+        # rather than an empty bar.
+        "banner": (
+            {"message": settings.banner_message, "severity": settings.banner_severity}
+            if settings.banner_message
+            else None
+        ),
+        "footer": footer_payload(settings),
     }
 
 
