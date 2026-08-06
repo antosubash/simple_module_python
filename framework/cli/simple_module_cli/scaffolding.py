@@ -15,12 +15,19 @@ stay in hosting).
 
 from __future__ import annotations
 
-import importlib.resources
 import logging
 import shutil
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 
+# The template engine lives in _templating.py; the private names are imported
+# here because long-standing tests monkeypatch them on this module.
+from simple_module_cli._templating import (
+    _PACKAGE_PATH_TOKEN,
+    _apply_template_files,
+    _require_empty_dest,
+    _resolve_template_root,
+)
 from simple_module_cli.case import (
     to_kebab_case,
     to_pascal_case,
@@ -43,9 +50,6 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
-
-_TEMPLATES_PACKAGE = "simple_module_cli.templates"
-_PACKAGE_PATH_TOKEN = "__PACKAGE__"
 
 # Pre-existing entries we tolerate at a scaffold target — typical leftovers
 # from ``git init`` / ``gh repo create`` / IDE setup.
@@ -96,71 +100,6 @@ def _should_pin_framework_version(version: str | None) -> bool:
     rule, so the two paths can't drift. See GH #195 / #206.
     """
     return bool(version) and version != "*"
-
-
-def _iter_template_files(template_root: Path):
-    """Yield every file under ``template_root``. Skips ``_optional/`` paths."""
-    for path in template_root.rglob("*"):
-        if not path.is_file():
-            continue
-        if "_optional" in path.relative_to(template_root).parts:
-            continue
-        yield path
-
-
-def _require_empty_dest(dest: Path, *, preserve_existing: frozenset[str] = frozenset()) -> None:
-    """Refuse a non-empty destination unless every top-level entry is allowed.
-
-    ``preserve_existing`` is matched against the *name* of each top-level entry,
-    so callers can permit common pre-existing files (``.git``, ``README.md``,
-    ...) without silently overwriting unrelated user content.
-    """
-    if dest.exists():
-        unexpected = sorted(p.name for p in dest.iterdir() if p.name not in preserve_existing)
-        if unexpected:
-            raise FileExistsError(
-                f"Destination {dest} exists and contains files that would collide "
-                f"with the scaffold: {', '.join(unexpected)}. "
-                "Move them aside or choose another path."
-            )
-    dest.mkdir(parents=True, exist_ok=True)
-
-
-def _resolve_template_root(subdir: str, override: Path | None) -> Path:
-    if override is not None:
-        return Path(override)
-    return Path(str(importlib.resources.files(_TEMPLATES_PACKAGE) / subdir))
-
-
-def _apply_template_files(
-    src_root: Path,
-    dest: Path,
-    substitutions: Mapping[str, str],
-    *,
-    path_rewrites: Mapping[str, str] | None = None,
-    preserve_existing: frozenset[str] = frozenset(),
-) -> list[Path]:
-    """Write template files into ``dest``; return paths skipped to preserve the user's copy."""
-    preserved: list[Path] = []
-    for src in _iter_template_files(src_root):
-        rel_str = str(src.relative_to(src_root))
-        for old, new in (path_rewrites or {}).items():
-            rel_str = rel_str.replace(old, new)
-        rel_str = rel_str.removesuffix(".tpl")
-        target = dest / rel_str
-        top = Path(rel_str).parts[0] if rel_str else ""
-        if top in preserve_existing and target.exists():
-            preserved.append(target)
-            continue
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if src.suffix == ".tpl":
-            text = src.read_text(encoding="utf-8")
-            for placeholder, value in substitutions.items():
-                text = text.replace(placeholder, value)
-            target.write_text(text, encoding="utf-8")
-        else:
-            shutil.copy2(src, target)
-    return preserved
 
 
 def create_workspace(
