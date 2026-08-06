@@ -1,7 +1,13 @@
 @import "../../packages/ui/src/styles/globals.css";
 @import "./modules.generated.css";
 
-/* App-level source scanning — host code + in-repo module pages.
- * Wheel-installed modules are covered by modules.generated.css. */
+/* App-level source scanning — host code + in-repo modules.
+ * Wheel-installed modules are covered by modules.generated.css.
+ *
+ * The module glob deliberately covers the whole package, not just pages/:
+ * shared components, hooks and Puck blocks carry Tailwind classes too, and
+ * scanning pages/ alone meant such a class only reached the bundle when some
+ * other scanned file happened to use it as well. The {ts,tsx} filter is what
+ * keeps .py files out of the scan. */
 @source "./**/*.{ts,tsx}";
-@source "../../modules/*/*/pages/**/*.{ts,tsx}";
+@source "../../modules/*/*/**/*.{ts,tsx}";

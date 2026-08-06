@@ -53,6 +53,34 @@ for (const pagesDir of Object.values(manifest)) {
   }
 }
 
+// Per-module aliases, so generated CSS can say
+//   @import "#module/gis/styles.css"
+// instead of a ../../../.venv/lib/python3.12/site-packages/gis/styles.css
+// path that breaks the moment the interpreter version changes.
+//
+// `@tailwindcss/vite` builds its CSS import resolver with
+// `createResolver({ ...config.resolve, ... })`, so `resolve.alias` governs
+// CSS `@import` as well as JS — verified against @tailwindcss/vite 4.2.4.
+//
+// Read from modules.assets.json rather than modules.manifest.json: the
+// manifest is keyed off `pages/`, so a module shipping only CSS never
+// appears in it.
+type ModuleAsset = { package_name: string; package: string };
+const moduleAliases: { find: string; replacement: string }[] = [];
+const assetsPath = path.resolve(import.meta.dirname, 'modules.assets.json');
+let moduleAssets: Record<string, ModuleAsset> = {};
+try {
+  moduleAssets = JSON.parse(fs.readFileSync(assetsPath, 'utf-8'));
+} catch {
+  // Absent until `smpy gen-pages` runs — proceed with no aliases.
+}
+for (const entry of Object.values(moduleAssets)) {
+  moduleAliases.push({ find: `#module/${entry.package_name}`, replacement: entry.package });
+  if (!moduleFsAllow.includes(entry.package)) moduleFsAllow.push(entry.package);
+}
+// Longest `find` first, so `#module/gis` cannot shadow `#module/gis_extra`.
+moduleAliases.sort((a, b) => b.find.length - a.find.length);
+
 // Gather every bare specifier a module's pages might import. We include
 // both `dependencies` (deps the module ships its own copy of) and
 // `peerDependencies` (deps the host is expected to provide, e.g.
@@ -161,6 +189,9 @@ export default defineConfig(({ command }) => ({
   // feed Vite the per-module tsconfigs.
   resolve: {
     tsconfigPaths: true,
+    // `#module/<pkg>` -> that module's package directory. Consumed by the
+    // @import lines in modules.generated.css.
+    alias: moduleAliases,
     // Force every importer (host, workspace module, wheel-installed module)
     // to resolve to one React copy — without it, plugin-react's Fast
     // Refresh preamble check fires in a realm where its global was never

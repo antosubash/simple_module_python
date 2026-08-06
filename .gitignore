@@ -45,6 +45,7 @@ docs/.vitepress/dist/
 host/client_app/modules.manifest.json
 host/client_app/modules.generated.ts
 host/client_app/modules.generated.css
+host/client_app/modules.assets.json
 
 # Worktrees
 .worktrees/
