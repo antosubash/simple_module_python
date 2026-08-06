@@ -81,3 +81,49 @@ class TestEnsureVerifyHost:
         marker.write_text("x", encoding="utf-8")
         ensure_verify_host(info, fresh=True)
         assert not marker.exists()
+
+
+class TestRunVerify:
+    async def test_runs_steps_in_order_and_succeeds(self, module_root):
+        from simple_module_cli._module_host import read_module_info
+        from simple_module_cli.module_cmd import run_verify
+
+        calls: list[tuple[str, str]] = []
+
+        def fake_runner(cmd, cwd=None, **kwargs):
+            calls.append((" ".join(str(c) for c in cmd), str(cwd)))
+            return subprocess.CompletedProcess(cmd, 0)
+
+        run_verify(read_module_info(module_root), runner=fake_runner)
+
+        joined = [c for c, _ in calls]
+        assert any("sync" in c for c in joined)
+        assert any("npm" in c and "install" in c for c in joined)
+        assert any("gen-pages" in c for c in joined)
+        assert any("run build" in c for c in joined)
+        # order: sync < install < gen-pages < build
+        idx = {
+            key: next(i for i, c in enumerate(joined) if key in c)
+            for key in ("sync", "install", "gen-pages", "run build")
+        }
+        assert idx["sync"] < idx["install"] < idx["gen-pages"] < idx["run build"]
+        # npm steps run in client_app, uv steps in the host root
+        host = str(module_root / ".smpy" / "verify-host")
+        assert calls[idx["sync"]][1] == host
+        assert calls[idx["install"]][1] == f"{host}/client_app"
+
+    async def test_failing_step_exits_nonzero_and_stops(self, module_root):
+        from simple_module_cli._module_host import read_module_info
+        from simple_module_cli.module_cmd import run_verify
+
+        calls = []
+
+        def failing_runner(cmd, cwd=None, **kwargs):
+            calls.append(cmd)
+            rc = 1 if any("install" in str(c) for c in cmd) else 0
+            return subprocess.CompletedProcess(cmd, rc)
+
+        with pytest.raises(typer.Exit) as excinfo:
+            run_verify(read_module_info(module_root), runner=failing_runner)
+        assert excinfo.value.exit_code == 1
+        assert len(calls) == 2  # uv sync + npm install, nothing after the failure
