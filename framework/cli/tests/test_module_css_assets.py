@@ -151,6 +151,26 @@ class TestCssEmission:
 
         assert "@import" not in css
 
+    async def test_output_is_formatter_clean(self, tmp_path):
+        """No doubled blank lines, exactly one trailing newline.
+
+        `biome ci .` lints the whole tree, and `modules.generated.css` is
+        untracked but not exempt — so a stray blank line here fails `make lint`
+        for anyone who has run `gen-pages`.
+        """
+        from simple_module_hosting.assets import render_modules_css
+
+        for entry in (
+            _assets(tmp_path, styles_css=tmp_path / "gis" / "styles.css"),
+            _assets(tmp_path, pages_dir=tmp_path / "gis" / "pages"),
+        ):
+            css = render_modules_css([entry], in_repo=lambda _p: False)
+            assert "\n\n\n" not in css, f"doubled blank line in:\n{css!r}"
+            assert css.endswith("\n") and not css.endswith("\n\n"), repr(css[-20:])
+
+        empty = render_modules_css([], in_repo=lambda _p: False)
+        assert "\n\n\n" not in empty and empty.endswith("\n")
+
     async def test_no_relative_paths_anywhere(self, tmp_path):
         """The whole point of aliases: generated @import lines never use ../.."""
         from simple_module_core import discover_modules

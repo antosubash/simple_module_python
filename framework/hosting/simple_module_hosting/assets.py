@@ -94,8 +94,7 @@ _CSS_HEADER = """\
  * theme.css is imported unlayered so its @theme blocks register as design
  * tokens; styles.css is imported into layer(components) so a module rule can
  * never outrank a Tailwind utility.
- */
-"""
+ */"""
 
 
 def render_modules_css(
