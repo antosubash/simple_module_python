@@ -9,7 +9,7 @@ class TestModuleTsconfig:
         from simple_module_cli.scaffolding import create_module
 
         dest = tmp_path / "simple-module-my-feature"
-        create_module(dest, name="MyFeature")
+        create_module(dest, name="MyFeature", standalone=False)
 
         tsconfig = (dest / "tsconfig.json").read_text(encoding="utf-8")
         assert "../../node_modules/@simple-module-py/ui/src/*" in tsconfig
@@ -35,3 +35,39 @@ class TestFrameworkVersionSubstitution:
         create_module(dest, name="MyFeature")  # framework_version=None
         pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
         assert "==None" not in pyproject and "==*" not in pyproject
+
+
+class TestStandaloneOverlay:
+    async def test_standalone_tsconfig_uses_local_node_modules(self, tmp_path):
+        from simple_module_cli.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-my-feature"
+        create_module(dest, name="MyFeature", standalone=True)
+
+        tsconfig = (dest / "tsconfig.json").read_text(encoding="utf-8")
+        assert "./node_modules/@simple-module-py/ui/src/*" in tsconfig
+        assert "../../node_modules" not in tsconfig
+
+    async def test_standalone_package_json_has_devdeps_and_typecheck(self, tmp_path):
+        from simple_module_cli.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-my-feature"
+        create_module(dest, name="MyFeature", standalone=True, framework_version="0.0.27")
+
+        pkg = (dest / "package.json").read_text(encoding="utf-8")
+        assert '"typecheck": "tsc --noEmit"' in pkg
+        assert '"@simple-module-py/ui": "0.0.27"' in pkg
+        assert '"@simple-module-py/tsconfig": "0.0.27"' in pkg
+        assert '"typescript"' in pkg
+
+    async def test_in_repo_keeps_workspace_configs(self, tmp_path):
+        from simple_module_cli.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-my-feature"
+        create_module(dest, name="MyFeature", standalone=False)
+
+        tsconfig = (dest / "tsconfig.json").read_text(encoding="utf-8")
+        assert "../../node_modules/@simple-module-py/ui/src/*" in tsconfig
+        pkg = (dest / "package.json").read_text(encoding="utf-8")
+        assert "typecheck" not in pkg
+        assert not (dest / ".github").exists()

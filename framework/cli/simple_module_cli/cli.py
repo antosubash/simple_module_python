@@ -104,10 +104,11 @@ def create_module(
     slug = to_kebab_case(name)
     package = slug.replace("-", "_")
     target = dest or Path.cwd() / f"simple_module_{package}"
-    # An in-repo module (the documented modules/* layout) gets no .github/: those
-    # nested workflows never run and publish.yml is a PyPI footgun. --standalone
-    # forces them for a module that lives in its own repo. See GH #210.
-    include_ci = standalone or not is_inside_existing_repo(target)
+    # An in-repo module (the documented modules/* layout) gets no .github/ and
+    # keeps the workspace JS configs: nested workflows never run and publish.yml
+    # is a PyPI footgun. --standalone forces the standalone layout for a module
+    # that lives in its own repo. See GH #210.
+    standalone_mode = standalone or not is_inside_existing_repo(target)
     try:
         # Pin framework deps to the installed framework version so the module
         # resolves against the app that created it (the template's >=1.0,<2.0
@@ -116,14 +117,14 @@ def create_module(
             target,
             name=name,
             framework_version=resolve_framework_version(),
-            include_ci=include_ci,
+            standalone=standalone_mode,
         )
     except FileExistsError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(code=1) from exc
 
     typer.echo(f"Created module 'simple_module_{package}' at {target}")
-    if not include_ci:
+    if not standalone_mode:
         typer.echo(
             "Skipped .github/ workflows: this module is inside an existing repo, "
             "where nested workflows never run. Use --standalone to emit them."

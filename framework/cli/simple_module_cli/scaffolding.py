@@ -248,7 +248,7 @@ def create_module(
     template_root: Path | None = None,
     *,
     framework_version: str | None = None,
-    include_ci: bool = True,
+    standalone: bool = True,
 ) -> Path:
     """Scaffold a module package at ``dest``.
 
@@ -258,11 +258,15 @@ def create_module(
     workspace that created it). Left as ``None`` (or the ``"*"`` sentinel), the
     template's ranges are kept verbatim. See GH #195.
 
-    When ``include_ci`` is False, the scaffolded ``.github/`` (CI + PyPI publish
+    When ``standalone`` is False, the scaffolded ``.github/`` (CI + PyPI publish
     workflows) is omitted. Those nested workflows never run inside an existing
     host repo (GitHub only reads the repo-root ``.github/``) and ``publish.yml``
     is a footgun there, so callers creating an *in-repo* module pass
-    ``include_ci=False``. See GH #210.
+    ``standalone=False``. See GH #210.
+
+    ``standalone=True`` additionally overlays ``_optional/standalone/`` (npm
+    devDependencies + a tsconfig that resolves ``@simple-module-py/ui`` from the
+    repo's own ``node_modules``) so the module type-checks outside a workspace.
     """
     dest = Path(dest)
     existed_before = dest.exists()
@@ -284,13 +288,24 @@ def create_module(
         ),
     }
     try:
+        base_root = _resolve_template_root("module", template_root)
         _apply_template_files(
-            _resolve_template_root("module", template_root),
+            base_root,
             dest,
             substitutions=substitutions,
             path_rewrites={_PACKAGE_PATH_TOKEN: package_name},
         )
-        if not include_ci:
+        if standalone:
+            # Overlay standalone-only JS configs over the workspace defaults
+            # (the base pass skips _optional/; an explicit root iterates it —
+            # same pattern as recipes.py).
+            _apply_template_files(
+                base_root / "_optional" / "standalone",
+                dest,
+                substitutions=substitutions,
+                path_rewrites={_PACKAGE_PATH_TOKEN: package_name},
+            )
+        else:
             shutil.rmtree(dest / ".github", ignore_errors=True)
         if _should_pin_framework_version(framework_version):
             pin_framework_deps(dest / "pyproject.toml", framework_version)
