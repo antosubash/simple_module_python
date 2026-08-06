@@ -98,6 +98,21 @@ def _top_level_preludes(text: str) -> list[tuple[str, int]]:
             i = end
             continue
 
+        if ch == "\\" and i + 1 < n:
+            # CSS escapes apply outside strings too — Tailwind leans on this
+            # heavily (`.mt-\[773px\]`). Consuming the pair keeps an escaped
+            # quote from being mistaken for a string opener, which is also
+            # what stops `\'` repeated across a long line from making
+            # string_end re-scan that line once per quote (quadratic).
+            if depth == 0:
+                if not buf:
+                    buf_line = line
+                buf.append(text[i : i + 2])
+            if text[i + 1] == "\n":
+                line += 1
+            i += 2
+            continue
+
         if ch in "\"'":
             end = string_end(i, ch)
             if end is not None:
