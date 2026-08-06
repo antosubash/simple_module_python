@@ -63,8 +63,15 @@ modules/<name>/<name>/
 ├── endpoints/api.py # REST (JSON)
 ├── endpoints/views.py # Inertia view endpoints
 ├── pages/*.tsx      # auto-discovered by Vite via modules.generated.ts
+├── theme.css        # optional — @theme tokens; imported UNLAYERED
+├── styles.css       # optional — component rules; imported into layer(components)
 └── locales/<lang>.json
 ```
+Both CSS files are optional and auto-detected; `gen-pages` emits an
+`@import "#module/<pkg>/..."` for each, so nothing is added to the host's
+`styles.css` by hand. The split is load-bearing: a `@theme` block inside a
+cascade layer is inert, while unlayered CSS beats every Tailwind utility —
+hence `SM022`/`SM023`. See `docs/module-authoring.md` § Styling.
 
 **Lifecycle hooks** (in `framework/core/simple_module_core/module.py`) — all no-op by default; subclasses override as needed:
 `register_settings` → `register_menu_items` / `register_permissions` / `register_feature_flags` / `register_event_handlers` / `register_health_checks` / `register_public_routes` → `register_exception_handlers` → `register_middleware` → `register_routes(api_router, view_router)` → async `on_startup` / `on_shutdown` (reverse order). `register_public_routes(registry)` lets a module exempt anonymous/read-only routes (STAC/OGC, webhooks) from `AuthMiddleware`; rules are method-aware (`registry.add_regex(r"…/tilejson$", methods={"GET"})`), so a GET read route can be public while sibling POST/PATCH mutations under the same prefix stay gated. See [docs/framework/public-routes.md](docs/framework/public-routes.md).
@@ -94,7 +101,7 @@ Standard mixins in `simple_module_db.mixins`: `AuditMixin`, `SoftDeleteMixin` (b
 
 ## Diagnostic codes
 
-Meaningful codes when reading `make doctor` output: `SM001` missing meta (error), `SM003` orphan page / `SM004` phantom render (warn), `SM007` module overrides no hooks (info), `SM008` duplicate name (error), `SM009` framework→plugin import (error), `SM010` DB revision behind head (error), `SM011` module table not in migration history (warn), `SM012` `register_settings` overridden but nothing on `app.state.<module>` (warn, fires at dev boot only), `SM013`–`SM016` locale issues, `SM017` module ships `.tsx` pages but is missing `package.json`/`tsconfig.json` (warn), `SM018` Inertia `router.{post,patch,put,delete}()` in a page targets a JSON `/api/*` endpoint (warn — Inertia rejects non-Inertia responses), `SM019` module registers view routes (non-empty `view_prefix` + overrides `register_routes`) but overrides neither `register_menu_items` nor `register_permissions` (warn — pages exist with no sidebar entry and no role-editor visibility; admins can't reach them through the UI). Modules whose views are sub-pages of another module typically register permissions to stay discoverable in the role editor without needing their own sidebar entry. `SM020` multiple auth provider modules installed (error), `SM021` no auth provider module installed (warn). In production, errors fail boot.
+Meaningful codes when reading `make doctor` output: `SM001` missing meta (error), `SM003` orphan page / `SM004` phantom render (warn), `SM007` module overrides no hooks (info), `SM008` duplicate name (error), `SM009` framework→plugin import (error), `SM010` DB revision behind head (error), `SM011` module table not in migration history (warn), `SM012` `register_settings` overridden but nothing on `app.state.<module>` (warn, fires at dev boot only), `SM013`–`SM016` locale issues, `SM017` module ships `.tsx` pages but is missing `package.json`/`tsconfig.json` (warn), `SM018` Inertia `router.{post,patch,put,delete}()` in a page targets a JSON `/api/*` endpoint (warn — Inertia rejects non-Inertia responses), `SM019` module registers view routes (non-empty `view_prefix` + overrides `register_routes`) but overrides neither `register_menu_items` nor `register_permissions` (warn — pages exist with no sidebar entry and no role-editor visibility; admins can't reach them through the UI). Modules whose views are sub-pages of another module typically register permissions to stay discoverable in the role editor without needing their own sidebar entry. `SM020` multiple auth provider modules installed (error), `SM021` no auth provider module installed (warn), `SM022` `@theme`/`@custom-variant`/`@utility` in a module's `styles.css`, where `layer(components)` makes them inert (warn), `SM023` an unlayered rule in a module's `theme.css`, which outranks every Tailwind utility (warn). In production, errors fail boot.
 
 ## Tests & fixtures
 

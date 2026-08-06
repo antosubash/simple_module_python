@@ -117,7 +117,7 @@ Two further results beyond what the plan asked for:
     — preserves input (discovery) order; includes a module if it has **any** of
     pages/theme/styles.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 """Tests for module CSS asset discovery and emission."""
@@ -195,12 +195,12 @@ class TestComputeModuleAssets:
         assert names == [n for n in discovery_order if n in set(names)]
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest framework/cli/tests/test_module_css_assets.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'simple_module_hosting.assets'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 """Per-module frontend asset discovery (pages + CSS).
@@ -271,12 +271,12 @@ def compute_module_assets(modules: Sequence[ModuleBase]) -> list[ModuleAssets]:
     return result
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `uv run pytest framework/cli/tests/test_module_css_assets.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add framework/hosting/simple_module_hosting/assets.py framework/cli/tests/test_module_css_assets.py
@@ -300,7 +300,7 @@ git commit -m "feat(hosting): discover per-module theme.css/styles.css assets"
   - `render_assets_json(assets) -> str`
   - `write_module_pages_manifest` returns an extra `"assets"` key.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 class TestCssEmission:
@@ -388,13 +388,13 @@ class TestCssEmission:
         assert all(isinstance(v, str) for v in data.values())
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest framework/cli/tests/test_module_css_assets.py -v`
 Expected: FAIL — `render_modules_css` / `render_assets_json` undefined, and
 `written` has no `"assets"` key.
 
-- [ ] **Step 3: Implement the emitters in `assets.py`**
+- [x] **Step 3: Implement the emitters in `assets.py`**
 
 ```python
 ALIAS_PREFIX = "#module"
@@ -431,9 +431,7 @@ def render_modules_css(
         if e.pages_dir and not in_repo(e.pages_dir)
     ]
     theme_lines = [
-        f'@import "{ALIAS_PREFIX}/{e.package_name}/{THEME_CSS}";'
-        for e in assets
-        if e.theme_css
+        f'@import "{ALIAS_PREFIX}/{e.package_name}/{THEME_CSS}";' for e in assets if e.theme_css
     ]
     style_lines = [
         f'@import "{ALIAS_PREFIX}/{e.package_name}/{STYLES_CSS}" layer(components);'
@@ -473,7 +471,7 @@ def render_assets_json(assets: Sequence[ModuleAssets]) -> str:
 Add `import json` and `from collections.abc import Callable, Sequence` at the
 top of `assets.py`.
 
-- [ ] **Step 4: Rewire `manifest.py`**
+- [x] **Step 4: Rewire `manifest.py`**
 
 Replace the CSS-emission block in `write_module_pages_manifest` with calls to
 the new renderers, add the `modules.assets.json` write, and include `"assets"`
@@ -481,25 +479,23 @@ in the returned dict. Delete the now-unused `_GENERATED_CSS_HEADER`. Keep
 `_is_in_repo_module` and pass it as the `in_repo` callable:
 
 ```python
-    assets = compute_module_assets(modules)
-    css_text = render_modules_css(
-        assets, in_repo=lambda p: _is_in_repo_module(p, repo_root)
-    )
-    assets_path = output_dir / "modules.assets.json"
-    wrote_assets = _write_if_changed(assets_path, render_assets_json(assets))
+assets = compute_module_assets(modules)
+css_text = render_modules_css(assets, in_repo=lambda p: _is_in_repo_module(p, repo_root))
+assets_path = output_dir / "modules.assets.json"
+wrote_assets = _write_if_changed(assets_path, render_assets_json(assets))
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `uv run pytest framework/cli/tests/test_module_css_assets.py framework/cli/tests/test_module_pages_manifest.py -v`
 Expected: PASS (both files — the existing manifest tests must not regress)
 
-- [ ] **Step 6: Check the file-size cap**
+- [x] **Step 6: Check the file-size cap**
 
 Run: `uv run python scripts/check_file_size.py`
 Expected: PASS — `manifest.py` must still be under 300 lines.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add framework/hosting/simple_module_hosting/ framework/cli/tests/test_module_css_assets.py
@@ -521,7 +517,7 @@ git commit -m "feat(hosting): emit aliased module CSS imports and modules.assets
 - Produces: a `#module/<package_name>` alias per module, resolvable from CSS
   and TSX alike.
 
-- [ ] **Step 1: Read `modules.assets.json` in `vite.config.ts`**
+- [x] **Step 1: Read `modules.assets.json` in `vite.config.ts`**
 
 Add alongside the existing manifest read, leaving that read intact:
 
@@ -548,25 +544,25 @@ if (fs.existsSync(assetsPath)) {
 }
 ```
 
-- [ ] **Step 2: Register the aliases**
+- [x] **Step 2: Register the aliases**
 
 In the existing `resolve:` block, add `alias: moduleAliases,` beside
 `tsconfigPaths` and `dedupe`.
 
-- [ ] **Step 3: Widen the in-repo `@source` glob**
+- [x] **Step 3: Widen the in-repo `@source` glob**
 
 In both `styles.css` files, change
 `@source "../../modules/*/*/pages/**/*.{ts,tsx}";` to
 `@source "../../modules/*/*/**/*.{ts,tsx}";` so `.ts`/`.tsx` outside `pages/`
 is scanned. The `{ts,tsx}` filter keeps `.py` out.
 
-- [ ] **Step 4: Mirror steps 1-2 into the scaffold template**
+- [x] **Step 4: Mirror steps 1-2 into the scaffold template**
 
 Apply the same edits to
 `framework/cli/simple_module_cli/templates/host/client_app/vite.config.ts` so
 new `smpy new` apps get aliases from the start.
 
-- [ ] **Step 5: Verify the templates still typecheck and the app builds**
+- [x] **Step 5: Verify the templates still typecheck and the app builds**
 
 Run: `npx tsc --noEmit -p host/client_app/tsconfig.json`
 Expected: PASS
@@ -574,7 +570,7 @@ Expected: PASS
 Run: `npm run build`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add host/client_app framework/cli/simple_module_cli/templates/host/client_app
@@ -592,7 +588,7 @@ task that actually proves the feature.
 - Create: `modules/dashboard/dashboard/styles.css`
 - Test: `framework/cli/tests/test_module_css_build.py`
 
-- [ ] **Step 1: Add a real stylesheet to an in-repo module**
+- [x] **Step 1: Add a real stylesheet to an in-repo module**
 
 ```css
 /* Dashboard module styles. Imported into layer(components) by
@@ -605,7 +601,7 @@ task that actually proves the feature.
 }
 ```
 
-- [ ] **Step 2: Write the failing build test**
+- [x] **Step 2: Write the failing build test**
 
 ```python
 """Proves module-shipped CSS survives a real Tailwind build."""
@@ -630,16 +626,14 @@ class TestModuleCssReachesBundle:
             check=True,
             capture_output=True,
         )
-        subprocess.run(
-            ["npm", "run", "build"], cwd=REPO_ROOT, check=True, capture_output=True
-        )
+        subprocess.run(["npm", "run", "build"], cwd=REPO_ROOT, check=True, capture_output=True)
         built = list((REPO_ROOT / "host" / "static" / "dist" / "assets").glob("*.css"))
         assert built, "no CSS emitted by the build"
         combined = "\n".join(p.read_text(encoding="utf-8") for p in built)
         assert "dashboard-stat-grid" in combined
 ```
 
-- [ ] **Step 3: Run it and watch it fail, then pass**
+- [x] **Step 3: Run it and watch it fail, then pass**
 
 Run: `uv run pytest framework/cli/tests/test_module_css_build.py -v`
 
@@ -647,7 +641,7 @@ Before Tasks 3-4 land this fails on the missing class. After they land it
 passes. If it fails *after*, the alias did not resolve — re-check Task 1's
 findings before changing the emitter.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add modules/dashboard/dashboard/styles.css framework/cli/tests/test_module_css_build.py
@@ -669,7 +663,7 @@ git commit -m "test(client): assert module-shipped CSS reaches the built bundle"
 - Produces: `check_module_css(mod: ModuleBase, src_dir: Path) -> list[Diagnostic]`,
   called exactly like the existing `check_js_workspace_files(mod, src_dir)`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 """SM022/SM023 — module CSS placed in the wrong file."""
@@ -706,18 +700,14 @@ class TestModuleCssDiagnostics:
         """:root custom-property blocks are legitimate in theme.css."""
         from simple_module_core.diagnostics._css import check_module_css
 
-        (tmp_path / "theme.css").write_text(
-            "@theme {\n  --a: 1;\n}\n:root {\n  --b: 2;\n}\n"
-        )
+        (tmp_path / "theme.css").write_text("@theme {\n  --a: 1;\n}\n:root {\n  --b: 2;\n}\n")
         assert check_module_css(self._mod(), tmp_path) == []
 
     def test_nested_at_rule_not_flagged(self, tmp_path):
         """Only top-level constructs count — brace depth is tracked."""
         from simple_module_core.diagnostics._css import check_module_css
 
-        (tmp_path / "styles.css").write_text(
-            "@layer components {\n  .x { color: red; }\n}\n"
-        )
+        (tmp_path / "styles.css").write_text("@layer components {\n  .x { color: red; }\n}\n")
         assert check_module_css(self._mod(), tmp_path) == []
 
     def test_comments_stripped_before_scanning(self, tmp_path):
@@ -740,12 +730,12 @@ class TestModuleCssDiagnostics:
         assert check_module_css(self._mod(), tmp_path) == []
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest framework/core/tests/test_css_diagnostics.py -v`
 Expected: FAIL — no module `simple_module_core.diagnostics._css`
 
-- [ ] **Step 3: Implement `_css.py`**
+- [x] **Step 3: Implement `_css.py`**
 
 A line-oriented scan tracking brace depth, comments stripped first. No CSS
 parser dependency — this catches the ordinary mistake, not pathological input.
@@ -754,23 +744,23 @@ parser dependency — this catches the ordinary mistake, not pathological input.
 constructs that must live in `theme.css`; `theme.css` may additionally hold
 `@font-face`, `@import`, `@charset` and `:root` blocks.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `uv run pytest framework/core/tests/test_css_diagnostics.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Wire into `ModuleDiagnostics.run`**
+- [x] **Step 5: Wire into `ModuleDiagnostics.run`**
 
 Add `diagnostics.extend(check_module_css(mod, src_dir))` to the file-based
 check loop, and the import at the top of `_module.py`.
 
-- [ ] **Step 6: Verify the whole diagnostic suite and `make doctor`**
+- [x] **Step 6: Verify the whole diagnostic suite and `make doctor`**
 
 Run: `uv run pytest framework/core/tests/ -v`
 Run: `make doctor`
 Expected: PASS, and `make doctor` reports no new findings for in-repo modules.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add framework/core/simple_module_core/diagnostics framework/core/tests/test_css_diagnostics.py
@@ -786,7 +776,7 @@ git commit -m "feat(doctor): add SM022/SM023 for misplaced module CSS"
 - Modify: `CLAUDE.md`
 - Modify: `framework/cli/simple_module_cli/templates/module/README.md.tpl`
 
-- [ ] **Step 1: Add a "Styling" section to `docs/module-authoring.md`**
+- [x] **Step 1: Add a "Styling" section to `docs/module-authoring.md`**
 
 Cover: the two-file convention; that `@theme` goes in `theme.css` and component
 rules in `styles.css`; why (unlayered CSS beats every layered rule, and a
@@ -794,23 +784,23 @@ layered `@theme` is inert); the cascade order DS theme < module theme < app
 overrides; and that no packaging change is needed because Hatch already ships
 files under the package dir.
 
-- [ ] **Step 2: Update `CLAUDE.md`**
+- [x] **Step 2: Update `CLAUDE.md`**
 
 Add `theme.css` / `styles.css` to the module-layout tree, and add SM022/SM023
 to the diagnostic-code list.
 
-- [ ] **Step 3: Mention the convention in the scaffold README template**
+- [x] **Step 3: Mention the convention in the scaffold README template**
 
 One short paragraph — the scaffold deliberately does *not* create empty CSS
 files, so the README is where authors learn the convention exists.
 
-- [ ] **Step 4: Run the full check**
+- [x] **Step 4: Run the full check**
 
 Run: `make ci-python-lint`
 Run: `make test-py`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs CLAUDE.md framework/cli/simple_module_cli/templates/module/README.md.tpl
