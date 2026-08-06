@@ -252,8 +252,13 @@ Vite's `server.fs.allow` is extended to cover each installed module's
 package root, so pages shipped inside a wheel work for the dev server and
 production build alike.
 
-For production builds, ship a pre-bundled `my_module/static/dist/` inside
-the wheel and expose it via `ModuleBase.static_mounts()`:
+**Inertia pages never need pre-bundling.** The consuming host's Vite build
+compiles `pages/*.tsx` straight out of the installed wheel (via the
+`#module/<pkg>` aliases + `server.fs.allow`). `static/dist/` +
+`static_mounts()` exist only for assets *outside* that pipeline — vendor JS,
+standalone widgets, images. Build them with `smpy module build` (see
+[Developing out-of-tree](#developing-out-of-tree)) and expose them via
+`ModuleBase.static_mounts()`:
 
 ```python
 from importlib.resources import files
@@ -339,9 +344,62 @@ final word from its own `@theme` block below the generated import.
 **No packaging change is required.** The module wheel template already
 declares `[tool.hatch.build.targets.wheel] packages = ["my_module"]`, and
 Hatch includes every file under the package directory — `.css` along with
-`.tsx`. The `force-include` block is only needed for artifacts that live
-*outside* the package dir (`package.json`) or that are gitignored
-(`static/dist`).
+`.tsx`. Only two extras need declaring: `package.json` lives *outside* the
+package dir (a `force-include` maps it in), and `static/dist` is gitignored
+(an `artifacts` entry ships it when present without failing the build when
+it isn't).
+
+## Developing out-of-tree
+
+A module in its own repo has no host around it — these are the three
+commands that close the gap. All of them run from the module repo root.
+
+### Type-checking
+
+`smpy create-module` scaffolds a `package.json` whose devDependencies pin
+`@simple-module-py/ui`, `@simple-module-py/tsconfig` and
+`@simple-module-py/i18n` to the framework version that created the module
+(all three are published to npm in lockstep with the PyPI packages), and a
+`tsconfig.json` that resolves `@simple-module-py/ui/*` from your own
+`node_modules`. So:
+
+```bash
+npm install          # once; commit package-lock.json and use `npm ci` in CI
+npm run typecheck    # tsc --noEmit over your pages
+```
+
+### `smpy module verify` — does my frontend actually build?
+
+`tsc` alone cannot tell you whether your pages and `theme.css`/`styles.css`
+survive a real host build (Vite import resolution, Tailwind scanning, the
+`#module/<pkg>` alias plumbing). `verify` answers that by scaffolding a
+throwaway host into `.smpy/verify-host/` (cached, gitignored), installing
+your module into it as an editable path dependency, and running the host's
+real `gen-pages` + `npm run build`:
+
+```bash
+uv run smpy module verify          # warm re-runs reuse the cached host
+uv run smpy module verify --fresh  # nuke and rebuild the cached host
+```
+
+The scaffolded CI workflow runs it on every push. The verify host pins the
+framework version you develop against, so a green verify ≈ your module
+building inside a freshly scaffolded host of that version. It needs `uv`,
+`npm`, and network access to PyPI + npm on first run.
+
+### `smpy module build` — static_mounts() assets
+
+If (and only if) your module ships assets outside the Inertia page pipeline,
+put an entry file at `<pkg>/assets_src/index.ts` and run:
+
+```bash
+uv run smpy module build
+```
+
+It bundles `assets_src/` into `<pkg>/static/dist/` (IIFE, via the verify
+host's Vite toolchain — your repo needs no bundler devDependency). The
+scaffolded `pyproject.toml` already ships `static/dist` in the wheel via a
+hatch `artifacts` entry; the command warns if that entry has been removed.
 
 ## Templates
 
