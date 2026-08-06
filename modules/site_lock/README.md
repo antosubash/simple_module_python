@@ -8,6 +8,38 @@ that a login form exists.
 **Off by default.** Installing this module changes nothing until an operator
 turns it on.
 
+## Install
+
+Add the package to your host and re-sync — discovery picks it up from the
+`simple_module` entry point, no host code changes:
+
+```toml
+# host/pyproject.toml
+dependencies = ["simple_module_site_lock"]
+```
+
+```bash
+uv sync --all-packages
+```
+
+Or scaffold a new app with it selected: `smpy new --modules site_lock`.
+
+## Usage
+
+1. Sign in as an admin and open **Settings → Modules → SiteLock**.
+2. Set `password` (and optionally `message`), tick `enabled`, and **Save**.
+   Saving with a blank password is refused — the error appears on the
+   `enabled` field and nothing is persisted.
+3. Anyone without the password now gets the gate page at `/__unlock` on every
+   URL. They enter the password once and are returned to where they were
+   heading.
+4. To lift the gate, untick `enabled` and save. To rotate the password, set a
+   new one — every already-unlocked visitor is logged back out of the gate.
+
+Keep your own session alive while you do this: an admin with a live session
+skips the gate, which is what lets you undo a mistake (see
+[Admin bypass](#admin-bypass-and-the-lockout-you-can-still-cause) below).
+
 ## How it works
 
 The module installs a single middleware that runs *before* `AuthMiddleware`.
@@ -47,6 +79,13 @@ Everything else is gated. Requests under `/api/`, and any request carrying an
 `Authorization` header, get `403 {"detail": "Site is locked"}` rather than a
 redirect — a `401` would invite an auth flow that cannot succeed while the
 site is locked. Browser requests get a `302` to the gate.
+
+That includes the login API itself, so while the gate is on there is no
+programmatic way in: CI smoke tests, uptime monitors, mobile clients and
+webhook senders all get `403` no matter what credentials they hold. Only a
+browser that has passed the gate (or an admin holding a live session) can
+reach anything. Pause those integrations before enabling the gate, or point
+uptime checks at `/health`, which stays open.
 
 ## Admin bypass, and the lockout you can still cause
 
