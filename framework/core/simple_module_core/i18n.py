@@ -78,7 +78,7 @@ class I18nRegistry:
     def __init__(self, default_locale: str, supported_locales: list[str]) -> None:
         self.default_locale = default_locale
         self.supported_locales = list(supported_locales)
-        self._sources: list[tuple[str, Path]] = []
+        self._sources: list[tuple[str, Path, str]] = []
         self._messages: dict[str, dict[str, str]] = {}
         # Immutable views into ``_messages`` — handed out by ``messages()`` to
         # avoid a per-call dict copy. Rebuilt whenever ``load()`` runs.
@@ -88,15 +88,22 @@ class I18nRegistry:
         # avoids per-request dict copies that used to dominate allocations on the
         # Inertia render path.
         self._message_snapshots: dict[str, dict[str, str]] = {}
+        self._public_snapshots: dict[str, dict[str, str]] = {}
         self._available_locales: tuple[str, ...] = ()
         self._available_locales_list: list[str] = []
         self._empty_view: MappingProxyType[str, str] = MappingProxyType({})
         self._empty_snapshot: dict[str, str] = {}
         self._loaded = False
 
-    def add_source(self, namespace: str, locale_dir: Path) -> None:
-        """Queue a module's locale directory for loading under a namespace."""
-        self._sources.append((namespace, Path(locale_dir)))
+    def add_source(self, namespace: str, locale_dir: Path, *, audience: str = "public") -> None:
+        """Queue a module's locale directory for loading under a namespace.
+
+        ``audience="admin"`` keeps the namespace out of the public snapshot
+        (:meth:`messages_snapshot` with ``include_admin=False``) so catalogs
+        for login-gated UI aren't shipped to anonymous visitors. Server-side
+        lookups (:meth:`messages`) always see every namespace.
+        """
+        self._sources.append((namespace, Path(locale_dir), audience))
 
     def load(self) -> None:
         """Read and flatten all registered JSON files.
@@ -105,8 +112,11 @@ class I18nRegistry:
         warning but do not raise. Malformed JSON raises ValueError.
         """
         self._messages = {locale: {} for locale in self.supported_locales}
+        public_messages: dict[str, dict[str, str]] = {
+            locale: {} for locale in self.supported_locales
+        }
 
-        for namespace, locale_dir in self._sources:
+        for namespace, locale_dir, audience in self._sources:
             for locale in self.supported_locales:
                 path = locale_dir / f"{locale}.json"
                 if not path.is_file():
@@ -124,6 +134,8 @@ class I18nRegistry:
                     raise ValueError(f"{path} must contain a JSON object at the top level")
                 flat = flatten_messages(raw, prefix=namespace)
                 self._messages[locale].update(flat)
+                if audience != "admin":
+                    public_messages[locale].update(flat)
 
         # Cache the derived views now that loading is complete. Downstream
         # (middleware, translator, switcher) reads these on every request.
@@ -131,8 +143,10 @@ class I18nRegistry:
             locale: MappingProxyType(msgs) for locale, msgs in self._messages.items()
         }
         # Plain-dict snapshots for serialization callers. ``dict(msgs)`` runs
-        # once here rather than on every Inertia render.
+        # once here rather than on every Inertia render. The public variant
+        # (admin namespaces excluded) is what anonymous visitors receive.
         self._message_snapshots = {locale: dict(msgs) for locale, msgs in self._messages.items()}
+        self._public_snapshots = public_messages
         self._available_locales = tuple(locale for locale, msgs in self._messages.items() if msgs)
         self._available_locales_list = list(self._available_locales)
         self._loaded = True
@@ -165,7 +179,7 @@ class I18nRegistry:
             return self._empty_view
         return MappingProxyType(raw)
 
-    def messages_snapshot(self, locale: str) -> dict[str, str]:
+    def messages_snapshot(self, locale: str, *, include_admin: bool = True) -> dict[str, str]:
         """Plain-dict snapshot for callers that JSON-serialize the result.
 
         Built once at :meth:`load` time and handed out by reference on every
@@ -173,12 +187,17 @@ class I18nRegistry:
         corrupts subsequent responses. Used by the Inertia shared-props builder
         where it sits on the request hot path; prior to this method,
         ``dict(messages(locale))`` per request was the top own-code allocator.
+
+        ``include_admin=False`` returns the variant without ``audience="admin"``
+        namespaces — what anonymous visitors are served.
         """
-        snapshot = self._message_snapshots.get(locale)
+        pool = self._message_snapshots if include_admin else self._public_snapshots
+        snapshot = pool.get(locale)
         if snapshot is not None:
             return snapshot
         # Fallback for tests that skip ``load()``: synthesize the snapshot on
-        # demand from whatever ``_messages`` holds.
+        # demand from whatever ``_messages`` holds (audience information only
+        # exists for sources that went through ``load()``).
         raw = self._messages.get(locale)
         if raw is None:
             return self._empty_snapshot

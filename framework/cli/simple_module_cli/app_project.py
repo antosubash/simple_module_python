@@ -211,7 +211,7 @@ def _scaffold_sample_module(target: Path) -> None:
         sample_dest,
         name=_SAMPLE_MODULE_NAME,
         framework_version=_FRAMEWORK_VERSION,
-        include_ci=False,
+        standalone=False,
     )
     _seed_static_dist_placeholder(sample_dest / _SAMPLE_MODULE_NAME / "static" / "dist")
 

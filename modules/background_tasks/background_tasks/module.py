@@ -41,6 +41,7 @@ class BackgroundTasksModule(ModuleBase):
         route_prefix=API_PREFIX,
         view_prefix=VIEW_PREFIX,
         depends_on=[_MODULE_USERS],
+        i18n_audience="admin",
     )
 
     def register_settings(self, app: FastAPI) -> None:

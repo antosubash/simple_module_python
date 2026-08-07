@@ -65,6 +65,29 @@ class TestI18nRegistry:
         reg.load()
         assert sorted(reg.available_locales()) == ["en", "es"]
 
+    def test_admin_sources_are_excluded_from_the_public_snapshot(self, tmp_path: Path) -> None:
+        """Anonymous visitors must not download catalogs for login-gated UI."""
+        self._write_locale(tmp_path / "pages", "en", {"title": "Pages"})
+        self._write_locale(tmp_path / "settings", "en", {"form": {"key": "Key"}})
+        reg = I18nRegistry(default_locale="en", supported_locales=["en"])
+        reg.add_source("pages", tmp_path / "pages")
+        reg.add_source("settings", tmp_path / "settings", audience="admin")
+        reg.load()
+        assert reg.messages_snapshot("en", include_admin=False) == {"pages.title": "Pages"}
+        # The full snapshot and server-side lookups still see everything.
+        assert reg.messages_snapshot("en") == {
+            "pages.title": "Pages",
+            "settings.form.key": "Key",
+        }
+        assert reg.messages("en")["settings.form.key"] == "Key"
+
+    def test_public_snapshot_defaults_to_everything(self, tmp_path: Path) -> None:
+        self._write_locale(tmp_path / "p", "en", {"title": "Products"})
+        reg = I18nRegistry(default_locale="en", supported_locales=["en"])
+        reg.add_source("products", tmp_path / "p")
+        reg.load()
+        assert reg.messages_snapshot("en", include_admin=False) == reg.messages_snapshot("en")
+
     def test_missing_locale_file_is_warning_not_error(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:

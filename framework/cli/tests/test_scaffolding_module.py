@@ -197,26 +197,30 @@ class TestCreateModule:
             assert "jobs" in parsed, f"{wf} has no jobs: key"
 
     async def test_scaffold_has_pages_dir(self, tmp_path):
-        """Gap 2b: modules intended to ship TSX pages get a pages/ dir from day one."""
+        """Gap 2b: modules ship a pages/ dir with a working sample page from day one."""
         from simple_module_cli.scaffolding import create_module
 
         dest = tmp_path / "simple-module-widget"
         create_module(dest, name="Widget")
         pages_dir = dest / "widget" / "pages"
         assert pages_dir.is_dir()
-        assert (pages_dir / ".gitkeep").is_file()
+        assert (pages_dir / "Index.tsx").is_file()
 
-    async def test_pyproject_force_includes_static_dist(self, tmp_path):
-        """Gap 2b: pyproject.toml must ship <pkg>/static/dist/ inside the wheel."""
+    async def test_pyproject_ships_static_dist_when_present(self, tmp_path):
+        """Gap 2b: pyproject.toml must ship <pkg>/static/dist/ inside the wheel.
+
+        Declared via hatch ``artifacts`` (not force-include): the built JS is
+        gitignored so it needs an explicit directive, but the directory must be
+        allowed to not exist yet — force-include fails the editable build on a
+        fresh scaffold/clone, which broke `uv sync` before any bundle is built.
+        """
         from simple_module_cli.scaffolding import create_module
 
         dest = tmp_path / "simple-module-widget"
         create_module(dest, name="Widget")
         pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
 
-        # The built JS is normally gitignored, but hatch needs an explicit
-        # directive to copy it into the wheel at build time.
-        assert "force-include" in pyproject
+        assert 'artifacts = ["widget/static/dist/"]' in pyproject
         assert "widget/static/dist" in pyproject
 
     async def test_module_py_mounts_static_dist_conditionally(self, tmp_path):

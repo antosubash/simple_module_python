@@ -7,12 +7,14 @@ from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
 from simple_module_core import ModuleBase, ModuleMeta
+from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 
 
 class {{MODULE_NAME}}Module(ModuleBase):
     meta = ModuleMeta(
         name="{{MODULE_NAME}}",
         route_prefix="/api/{{MODULE_SLUG}}",
+        view_prefix="/{{MODULE_SLUG}}",
         depends_on=[],
         version="0.1.0",
         requires_framework=">=1.0,<2.0",
@@ -20,8 +22,20 @@ class {{MODULE_NAME}}Module(ModuleBase):
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from {{PACKAGE_NAME}}.endpoints.api import router as api
+        from {{PACKAGE_NAME}}.endpoints.views import router as views
 
         api_router.include_router(api)
+        view_router.include_router(views)
+
+    def register_menu_items(self, registry: MenuRegistry) -> None:
+        registry.add(
+            MenuItem(
+                label="{{MODULE_NAME}}",
+                url="/{{MODULE_SLUG}}",
+                order=50,
+                section=MenuSection.SIDEBAR,
+            )
+        )
 
     def register_settings(self, app: FastAPI) -> None:
         from {{PACKAGE_NAME}}.services import {{MODULE_NAME}}Services
