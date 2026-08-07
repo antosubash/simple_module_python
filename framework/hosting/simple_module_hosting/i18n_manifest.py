@@ -44,8 +44,9 @@ def build_i18n_registry(
     extra_sources: list[tuple[str, str, Path]] = []
 
     for mod in modules:
+        audience = getattr(mod.meta, "i18n_audience", "public")
         for namespace, locale_dir in mod.locale_dirs().items():
-            registry.add_source(namespace, locale_dir)
+            registry.add_source(namespace, locale_dir, audience=audience)
 
     host_locales = project_root / "host" / "locales"
     if host_locales.is_dir():

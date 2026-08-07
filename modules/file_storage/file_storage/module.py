@@ -29,6 +29,7 @@ class FileStorageModule(ModuleBase):
         # Needs Settings to run first so register_module_settings can reach
         # app.state.settings.module_registry during register_settings.
         depends_on=[constants._MODULE_SETTINGS],
+        i18n_audience="admin",
     )
 
     def register_settings(self, app: FastAPI) -> None:

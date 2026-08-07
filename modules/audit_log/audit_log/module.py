@@ -32,6 +32,7 @@ class AuditLogModule(ModuleBase):
         route_prefix=API_PREFIX,
         view_prefix=VIEW_PREFIX,
         depends_on=[_MODULE_USERS],
+        i18n_audience="admin",
     )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:

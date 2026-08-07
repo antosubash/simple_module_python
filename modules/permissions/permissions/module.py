@@ -22,6 +22,7 @@ class PermissionsModule(ModuleBase):
         route_prefix="/api/permissions",
         view_prefix="/permissions",
         depends_on=[_MODULE_AUTH, _MODULE_USERS],
+        i18n_audience="admin",
     )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:

@@ -22,6 +22,7 @@ class DashboardModule(ModuleBase):
         route_prefix="/api/dashboard",
         view_prefix="/dashboard",
         depends_on=[_MODULE_USERS],
+        i18n_audience="admin",
     )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:

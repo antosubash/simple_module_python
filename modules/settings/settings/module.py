@@ -30,6 +30,7 @@ class SettingsModule(ModuleBase):
         name=MODULE_NAME,
         route_prefix=API_PREFIX,
         view_prefix=VIEW_PREFIX,
+        i18n_audience="admin",
     )
 
     def register_settings(self, app: FastAPI) -> None:

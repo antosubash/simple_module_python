@@ -64,6 +64,89 @@ def test_inertia_shared_props_reflect_cookie_locale() -> None:
     assert body["i18n"]["messages"] == {"hello": "Hola"}
 
 
+def _build_audience_app(tmp_path) -> FastAPI:
+    """App with a *loaded* registry (public + admin sources) and header-driven auth.
+
+    ``X-Test-Auth: 1`` marks the request authenticated, so one client session
+    can flip auth state mid-session — the login/logout transition the i18n
+    block must react to.
+    """
+    import json
+    from types import SimpleNamespace
+
+    for ns, data in (
+        ("pages", {"title": "Pages"}),
+        ("settings", {"key": "Key"}),
+    ):
+        (tmp_path / ns).mkdir(exist_ok=True)
+        (tmp_path / ns / "en.json").write_text(json.dumps(data))
+    reg = I18nRegistry(default_locale="en", supported_locales=["en"])
+    reg.add_source("pages", tmp_path / "pages")
+    reg.add_source("settings", tmp_path / "settings", audience="admin")
+    reg.load()
+
+    app = FastAPI()
+    app.state.sm = SimpleNamespace(i18n_registry=reg)
+
+    @app.get("/shared")
+    def shared(request: Request) -> JSONResponse:
+        return JSONResponse(request.state.inertia_shared)
+
+    app.add_middleware(
+        InertiaLayoutDataMiddleware,
+        menu_registry=MenuRegistry(),
+        permission_registry=PermissionRegistry(),
+    )
+    app.add_middleware(
+        LocaleMiddleware,
+        supported_locales=["en"],
+        default_locale="en",
+    )
+
+    class _HeaderAuth:
+        def __init__(self, app_):
+            self.app = app_
+
+        async def __call__(self, scope, receive, send):
+            if scope["type"] == "http":
+                request = Request(scope)
+                if request.headers.get("X-Test-Auth") == "1":
+                    request.state.user = SimpleNamespace(roles=[])
+            await self.app(scope, receive, send)
+
+    app.add_middleware(_HeaderAuth)
+    app.add_middleware(SessionMiddleware, secret_key="test-secret")
+    return app
+
+
+def test_anonymous_visitors_receive_only_public_catalogs(tmp_path) -> None:
+    client = TestClient(_build_audience_app(tmp_path))
+    body = client.get("/shared").json()
+    assert body["i18n"]["messages"] == {"pages.title": "Pages"}
+
+
+def test_authenticated_users_receive_admin_catalogs_too(tmp_path) -> None:
+    client = TestClient(_build_audience_app(tmp_path))
+    body = client.get("/shared", headers={"X-Test-Auth": "1"}).json()
+    assert body["i18n"]["messages"] == {"pages.title": "Pages", "settings.key": "Key"}
+
+
+def test_login_mid_session_reships_messages_on_an_inertia_partial(tmp_path) -> None:
+    """An Inertia partial normally skips messages — but not right after login,
+    or the freshly-authenticated client would keep the anonymous catalog."""
+    client = TestClient(_build_audience_app(tmp_path))
+    client.get("/shared")  # anonymous full load seeds the session audience
+    body = client.get("/shared", headers={"X-Test-Auth": "1", "X-Inertia": "true"}).json()
+    assert body["i18n"]["messages"] == {"pages.title": "Pages", "settings.key": "Key"}
+
+
+def test_inertia_partial_with_unchanged_audience_still_skips_messages(tmp_path) -> None:
+    client = TestClient(_build_audience_app(tmp_path))
+    client.get("/shared")
+    body = client.get("/shared", headers={"X-Inertia": "true"}).json()
+    assert body["i18n"]["messages"] is None
+
+
 def test_inertia_shared_props_fallback_when_registry_missing(
     caplog,
 ) -> None:

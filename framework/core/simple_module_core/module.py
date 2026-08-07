@@ -35,6 +35,15 @@ class ModuleMeta:
     installed ``simple_module_core.FRAMEWORK_API_VERSION`` does not satisfy it.
     When ``None``, no compatibility check is performed (legacy modules).
     """
+    i18n_audience: str = "public"
+    """Who this module's locale catalog is shipped to: ``"public"`` or ``"admin"``.
+
+    ``"public"`` (the default) ships the catalog in every Inertia payload.
+    ``"admin"`` ships it only to authenticated users — declare it on modules
+    whose UI sits entirely behind login (settings, permissions, dashboards) so
+    anonymous visitors don't download admin form labels on every public page.
+    The catalog is always available server-side (``Translator``) either way.
+    """
 
 
 class ModuleBase(ABC):
