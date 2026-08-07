@@ -88,14 +88,14 @@ For Postgres, scaffold with `--db postgres` (or pick Postgres in the wizard) and
 SM_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/myapp
 ```
 
-A `docker-compose.yml` is only generated when you include the `background_tasks` module; it brings up `postgres` (db `simple_module`, user `sm`/`sm`) on `:5432`, `redis` on `:6379`, and the `host`/`worker`/`beat` services:
+Every scaffold ships a `docker-compose.yml` that matches your `--db` choice (a migration history is dialect-frozen at autogenerate time, so containers must run the same database the migrations were generated against). With `--db postgres` it brings up `postgres` (db named after your app, user `postgres`/`postgres`) on `:5432` and the `app` service; the default SQLite scaffold runs the `app` container alone with the database on a named volume. Including the `background_tasks` module adds `redis` on `:6379` plus `worker`/`beat` services that reuse the app image. With `--db postgres`, the container also doubles as a local dev database:
 
 ```bash
 docker compose up -d postgres
 make migrate
 ```
 
-Without `background_tasks`, bring your own Postgres (or stay on the default SQLite). See [Configuration](/guide/configuration) for the full list of env vars.
+Or run the whole stack in containers — `make docker-up` builds the image (`docker/host.Dockerfile`), applies migrations on start, and serves on `:8000` with `SM_ENVIRONMENT=production`. See [Configuration](/guide/configuration) for the full list of env vars.
 
 ## Create the first admin
 

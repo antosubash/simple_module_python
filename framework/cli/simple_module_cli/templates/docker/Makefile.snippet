@@ -1,0 +1,13 @@
+# --- docker --------------------------------------------------------------
+.PHONY: docker-build docker-up docker-down
+
+docker-build:               ## Build the app image
+	docker compose build
+
+docker-up:                  ## Run the full stack in containers
+	@test -f .env || cp .env.example .env
+	docker compose up --build
+
+docker-down:                ## Stop the compose stack
+	docker compose down
+# --- end docker ----------------------------------------------------------

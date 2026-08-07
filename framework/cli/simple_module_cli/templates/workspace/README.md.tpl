@@ -35,6 +35,23 @@ make dev
 
 The API listens on http://localhost:8000 and Vite on http://localhost:5050.
 
+## Running in Docker
+
+The scaffold ships `docker/host.Dockerfile`, a `docker-compose.yml`, and a
+`.dockerignore`:
+
+```bash
+make docker-up     # build the image and run the full stack in containers
+make docker-down   # stop it
+```
+
+The container builds the frontend, applies migrations on start, and serves
+on http://localhost:8000 with `SM_ENVIRONMENT=production`. The compose
+services match the database you scaffolded with: SQLite apps run the app
+container alone (DB on a named volume), `--db postgres` apps also get a
+`postgres` service you can reuse as a local dev database
+(`docker compose up -d postgres`).
+
 ## Adding a module
 
 ```bash

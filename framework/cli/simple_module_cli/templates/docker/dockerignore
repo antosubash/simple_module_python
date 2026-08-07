@@ -1,0 +1,16 @@
+# Kept out of the image build context. Deliberately narrow: modules'
+# static/dist placeholders must stay in (hatch force-include needs them).
+.git
+.venv
+node_modules
+**/node_modules
+__pycache__
+**/__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+*.db
+*.sqlite3
+.env
+host/static/dist
+static/dist

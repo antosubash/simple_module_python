@@ -35,7 +35,7 @@ myapp/
         └── … (see "Anatomy of a module" below)
 ```
 
-`smpy new --flat` skips the workspace wrapper and the sample `hello` module, emitting a single-host layout (`main.py`, `client_app/`, `migrations/` at the top level) — use it when the app only consumes published modules and never authors its own. `smpy new --preset minimal` ships fewer pre-installed modules. A `docker-compose.yml` is added only when the `background_tasks` module is included.
+`smpy new --flat` skips the workspace wrapper and the sample `hello` module, emitting a single-host layout (`main.py`, `client_app/`, `migrations/` at the top level) — use it when the app only consumes published modules and never authors its own. `smpy new --preset minimal` ships fewer pre-installed modules. Every scaffold also ships Docker assets by default: a `docker/host.Dockerfile`, a `docker-compose.yml` matched to your `--db` choice (`app` on a SQLite volume, or `postgres` + `app`; plus `redis`/`worker`/`beat` when `background_tasks` is included), a `.dockerignore`, and `make docker-up` / `docker-build` / `docker-down` targets.
 
 ## Bundled modules
 

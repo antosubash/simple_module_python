@@ -26,6 +26,11 @@ Dev UI + API together (when you have a `client_app/` alongside this file):
 make dev    # if you ship a Makefile; otherwise run vite + uvicorn in two shells
 ```
 
+Apps scaffolded by `smpy new` also ship Docker assets — `make docker-up`
+builds `docker/host.Dockerfile` and runs the full stack from
+`docker-compose.yml` (services match your `--db` choice), applying
+migrations on container start.
+
 ## Adding a module
 
 ```bash

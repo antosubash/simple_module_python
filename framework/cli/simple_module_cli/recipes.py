@@ -49,36 +49,25 @@ def _optional_template_root(name: str) -> Path:
 
 
 class BackgroundTasksRecipe:
-    """Lays down run_worker.py + compose + Dockerfiles + Make targets."""
+    """Lays down run_worker.py + broker env keys + Make targets.
+
+    The compose services (redis/worker/beat) and the shared app image come
+    from the default Docker assets every scaffold gets — see
+    :mod:`simple_module_cli.docker_assets`.
+    """
 
     def apply(self, target: Path, ctx: ScaffoldCtx) -> None:
         templates = _optional_template_root("background_tasks")
 
         run_worker_dest = target / "scripts" / "run_worker.py"
-        compose_dest = target / "docker-compose.yml"
-        host_dockerfile_dest = target / "docker" / "host.Dockerfile"
-        worker_dockerfile_dest = target / "docker" / "worker.Dockerfile"
-
-        for path in (
-            run_worker_dest,
-            compose_dest,
-            host_dockerfile_dest,
-            worker_dockerfile_dest,
-        ):
-            if path.exists():
-                raise FileExistsError(
-                    f"{path} already exists — refusing to clobber. "
-                    "Remove the file or run `smpy new` against an empty directory."
-                )
+        if run_worker_dest.exists():
+            raise FileExistsError(
+                f"{run_worker_dest} already exists — refusing to clobber. "
+                "Remove the file or run `smpy new` against an empty directory."
+            )
 
         run_worker_dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(templates / "run_worker.py", run_worker_dest)
-
-        shutil.copy2(templates / "docker-compose.yml", compose_dest)
-
-        host_dockerfile_dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(templates / "host.Dockerfile", host_dockerfile_dest)
-        shutil.copy2(templates / "worker.Dockerfile", worker_dockerfile_dest)
 
         env_path = target / ".env.example"
         env_text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
