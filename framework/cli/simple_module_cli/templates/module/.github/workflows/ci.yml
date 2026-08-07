@@ -30,3 +30,36 @@ jobs:
 
       - name: Tests
         run: uv run pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: latest
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install project + dev deps
+        run: uv sync --extra dev
+
+      # npm install (not ci) so the job works before the first lockfile commit;
+      # commit package-lock.json and switch to `npm ci` for reproducible builds.
+      - name: Install JS deps
+        run: npm install
+
+      - name: Typecheck frontend
+        run: npm run typecheck
+
+      # Scaffolds a throwaway host under .smpy/verify-host/ and runs the real
+      # Vite + Tailwind build against this module's pages and CSS.
+      - name: Verify frontend builds against a scaffolded host
+        run: uv run smpy module verify

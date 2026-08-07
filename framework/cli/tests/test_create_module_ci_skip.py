@@ -9,22 +9,22 @@ module scaffolded inside an existing repo/host gets no ``.github/`` by default.
 from __future__ import annotations
 
 
-class TestCreateModuleIncludeCi:
-    async def test_include_ci_false_omits_github(self, tmp_path):
+class TestCreateModuleStandalone:
+    async def test_standalone_false_omits_github(self, tmp_path):
         from simple_module_cli.scaffolding import create_module
 
         dest = tmp_path / "simple-module-orders"
-        create_module(dest, name="Orders", include_ci=False)
+        create_module(dest, name="Orders", standalone=False)
 
         assert not (dest / ".github").exists()
         # The rest of the package is still scaffolded.
         assert (dest / "orders" / "module.py").is_file()
 
-    async def test_include_ci_true_default_ships_github(self, tmp_path):
+    async def test_standalone_true_default_ships_github(self, tmp_path):
         from simple_module_cli.scaffolding import create_module
 
         dest = tmp_path / "simple-module-orders"
-        create_module(dest, name="Orders")  # include_ci defaults to True
+        create_module(dest, name="Orders")  # standalone defaults to True
 
         assert (dest / ".github" / "workflows" / "ci.yml").is_file()
         assert (dest / ".github" / "workflows" / "publish.yml").is_file()
