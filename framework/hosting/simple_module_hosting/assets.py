@@ -13,9 +13,22 @@ A module may ship two optional stylesheets beside its ``pages/`` directory:
   utility: a module shipping a bare ``.card { padding: 0 }`` would otherwise
   silently beat ``p-4``.
 
-Both are referenced through a per-module Vite alias (``#module/<pkg>``) rather
-than a filesystem path, so the generated CSS never contains something like
-``../../../.venv/lib/python3.12/site-packages/<pkg>/styles.css``.
+Both are referenced by **absolute** filesystem path, exactly as the ``@source``
+lines in the same file already are.
+
+This used to emit a per-module Vite alias (``#module/<pkg>/styles.css``) to
+avoid a relative path like ``../../../.venv/lib/python3.12/site-packages/<pkg>``
+— but that objection only ever applied to *relative* paths, and the alias made
+this generated file depend on the host resolving it. ``vite.config.ts`` is
+scaffold output: it is written once into an app and then owned and edited
+there, so it is versioned independently of these Python packages. A host
+scaffolded before the alias existed never receives it, and a Python-only
+dependency bump would emit specifiers that host cannot resolve, failing the
+build with ``Can't resolve '#module/<pkg>/styles.css'`` — naming something that
+appears nowhere in the app's own sources (GH issue #253).
+
+Absolute paths keep the generated CSS self-contained: it resolves under any
+``vite.config.ts``, old or new, with no alias configured at all.
 """
 
 from __future__ import annotations
@@ -33,7 +46,6 @@ logger = logging.getLogger(__name__)
 
 THEME_CSS = "theme.css"
 STYLES_CSS = "styles.css"
-ALIAS_PREFIX = "#module"
 
 
 @dataclass(frozen=True)
@@ -109,19 +121,18 @@ def render_modules_css(
     ``styles.css``, so emitting an absolute one too would just duplicate it.
     ``@import`` is emitted for *every* module, in-repo and wheel alike, because
     there is no static-glob equivalent for CSS.
+
+    Every path is absolute, so nothing here depends on the host's
+    ``vite.config.ts`` — see the module docstring for why that matters.
     """
     source_lines = [
         f'@source "{e.pages_dir.as_posix()}/**/*.{{ts,tsx}}";'
         for e in assets
         if e.pages_dir and not in_repo(e.pages_dir)
     ]
-    theme_lines = [
-        f'@import "{ALIAS_PREFIX}/{e.package_name}/{THEME_CSS}";' for e in assets if e.theme_css
-    ]
+    theme_lines = [f'@import "{e.theme_css.as_posix()}";' for e in assets if e.theme_css]
     style_lines = [
-        f'@import "{ALIAS_PREFIX}/{e.package_name}/{STYLES_CSS}" layer(components);'
-        for e in assets
-        if e.styles_css
+        f'@import "{e.styles_css.as_posix()}" layer(components);' for e in assets if e.styles_css
     ]
 
     out = [_CSS_HEADER]

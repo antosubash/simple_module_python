@@ -69,18 +69,25 @@ if (fs.existsSync(manifestPath)) {
   }
 }
 
-// Per-module aliases, so generated CSS can say
-//   @import "#module/gis/styles.css"
-// instead of a ../../../.venv/lib/python3.12/site-packages/gis/styles.css
-// path that breaks the moment the interpreter version changes.
+// Two things come out of modules.assets.json.
+//
+// 1. `server.fs.allow` entries. The dev server must be allowed to read each
+//    module's package dir. Read from modules.assets.json rather than
+//    modules.manifest.json because the manifest is keyed off `pages/`, so a
+//    module shipping only CSS never appears in it.
+//
+// 2. A convenience `#module/<pkg>` alias. This is NOT required by
+//    `modules.generated.css` — that file imports module stylesheets by
+//    absolute path, so it resolves with no alias configured at all. Emitting
+//    an alias there made a generated file depend on this hand-owned config,
+//    and since `vite.config.ts` is scaffolded once and then owned by the app,
+//    a Python-only version bump broke every host scaffolded earlier
+//    (GH issue #253). The alias stays because it costs nothing and lets a
+//    module's own CSS/TS reference a sibling module by package name.
 //
 // `@tailwindcss/vite` builds its CSS import resolver with
 // `createResolver({ ...config.resolve, ... })`, so `resolve.alias` governs
 // CSS `@import` as well as JS — verified against @tailwindcss/vite 4.2.4.
-//
-// Read from modules.assets.json rather than modules.manifest.json: the
-// manifest is keyed off `pages/`, so a module shipping only CSS never
-// appears in it.
 type ModuleAsset = { package_name: string; package: string };
 const moduleAliases: { find: string; replacement: string }[] = [];
 const assetsPath = path.resolve(__dirname, 'modules.assets.json');
@@ -231,8 +238,8 @@ export default defineConfig({
   plugins: [moduleBareImportResolver(), react(), tailwindcss()],
   root: __dirname,
   resolve: {
-    // `#module/<pkg>` -> that module's package directory. Consumed by the
-    // @import lines in modules.generated.css.
+    // `#module/<pkg>` -> that module's package directory. Optional sugar for
+    // hand-written imports; modules.generated.css does not rely on it.
     alias: moduleAliases,
     dedupe: [...REACT_CORE_DEPS, '@simple-module-py/ui', '@simple-module-py/i18n'],
   },

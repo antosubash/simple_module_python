@@ -1,10 +1,10 @@
 """Proves module-shipped CSS survives a real Tailwind build.
 
 Every unit test around `render_modules_css` can stay green while Tailwind
-emits nothing at all — the generated `@import` only pays off if Vite resolves
-the `#module/<pkg>` alias and Tailwind keeps the rule. This is the one
-assertion that exercises that whole chain, so it drives a genuine build
-rather than inspecting the generated text.
+emits nothing at all — the generated `@import` only pays off if Tailwind
+resolves the path and keeps the rule. This is the one assertion that exercises
+that whole chain, so it drives a genuine build rather than inspecting the
+generated text.
 
 Skipped where a build is impossible: CI's `python-tests` job installs Python
 deps only (`make install-py`), so `node_modules` is absent there. The JS jobs
@@ -36,7 +36,7 @@ class TestModuleCssReachesBundle:
 
         `.dashboard-stat-grid` is declared in modules/dashboard/dashboard/styles.css
         and referenced by no TSX anywhere, so it can only reach the bundle via the
-        generated `@import "#module/dashboard/styles.css"`.
+        generated `@import` of that stylesheet.
         """
         subprocess.run(
             [
@@ -57,7 +57,8 @@ class TestModuleCssReachesBundle:
         generated = (REPO_ROOT / "host/client_app/modules.generated.css").read_text(
             encoding="utf-8"
         )
-        assert '@import "#module/dashboard/styles.css" layer(components);' in generated, (
+        dashboard_css = REPO_ROOT / "modules/dashboard/dashboard/styles.css"
+        assert f'@import "{dashboard_css.as_posix()}" layer(components);' in generated, (
             f"gen-pages did not emit the dashboard stylesheet import:\n{generated}"
         )
 

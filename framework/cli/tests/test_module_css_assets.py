@@ -105,15 +105,13 @@ class TestCssEmission:
         """theme.css imports unlayered; styles.css imports into layer(components)."""
         from simple_module_hosting.assets import render_modules_css
 
-        entry = _assets(
-            tmp_path,
-            theme_css=tmp_path / "gis" / "theme.css",
-            styles_css=tmp_path / "gis" / "styles.css",
-        )
+        theme = tmp_path / "gis" / "theme.css"
+        styles = tmp_path / "gis" / "styles.css"
+        entry = _assets(tmp_path, theme_css=theme, styles_css=styles)
         css = render_modules_css([entry], in_repo=lambda _p: False)
 
-        assert '@import "#module/gis/theme.css";' in css
-        assert '@import "#module/gis/styles.css" layer(components);' in css
+        assert f'@import "{theme.as_posix()}";' in css
+        assert f'@import "{styles.as_posix()}" layer(components);' in css
         # Tokens must be declared before the rules that consume them.
         assert css.index("theme.css") < css.index("styles.css")
 
@@ -121,17 +119,18 @@ class TestCssEmission:
         """@source is wheel-only; @import is emitted for every module."""
         from simple_module_hosting.assets import render_modules_css
 
+        styles = tmp_path / "local" / "styles.css"
         entry = _assets(
             tmp_path,
             name="Local",
             package_name="local",
             pages_dir=tmp_path / "local" / "pages",
-            styles_css=tmp_path / "local" / "styles.css",
+            styles_css=styles,
         )
         css = render_modules_css([entry], in_repo=lambda _p: True)
 
         assert "@source" not in css, "in-repo pages are covered by the static glob"
-        assert '@import "#module/local/styles.css" layer(components);' in css
+        assert f'@import "{styles.as_posix()}" layer(components);' in css
 
     async def test_source_emitted_for_wheel_modules(self, tmp_path):
         """A wheel-installed module gets an absolute @source glob."""
@@ -154,9 +153,11 @@ class TestCssEmission:
     async def test_output_is_formatter_clean(self, tmp_path):
         """No doubled blank lines, exactly one trailing newline.
 
-        `biome ci .` lints the whole tree, and `modules.generated.css` is
-        untracked but not exempt — so a stray blank line here fails `make lint`
-        for anyone who has run `gen-pages`.
+        `modules.generated.css` is excluded from `biome ci .` (it is generated,
+        and its absolute paths make its formatting machine-dependent — whether
+        a line exceeds biome's 100-char `lineWidth` depends on where the repo
+        happens to live). Nothing enforces tidiness here but this test, and a
+        file humans read when debugging a missing style should stay readable.
         """
         from simple_module_hosting.assets import render_modules_css
 
@@ -171,18 +172,34 @@ class TestCssEmission:
         empty = render_modules_css([], in_repo=lambda _p: False)
         assert "\n\n\n" not in empty and empty.endswith("\n")
 
-    async def test_no_relative_paths_anywhere(self, tmp_path):
-        """The whole point of aliases: generated @import lines never use ../.."""
+    async def test_generated_css_is_self_contained(self, tmp_path):
+        """Every emitted path resolves without any host `vite.config.ts` help.
+
+        Regression guard for GH issue #253. `modules.generated.css` is
+        regenerated from the installed Python packages, but `vite.config.ts` is
+        scaffold output owned by the app — so anything here that needs a host
+        alias to resolve breaks every host scaffolded before that alias
+        existed, on a Python-only version bump.
+
+        Absolute, on-disk paths are the invariant that makes the two files
+        independently versionable.
+        """
         from simple_module_core import discover_modules
         from simple_module_hosting.manifest import write_module_pages_manifest
 
         written = write_module_pages_manifest(discover_modules(), tmp_path)
         css = written["css"].read_text(encoding="utf-8")
 
-        for line in css.splitlines():
-            if line.startswith("@import"):
-                assert "../" not in line, f"@import must not use a relative path: {line}"
-                assert '"#module/' in line, f"@import must use the alias prefix: {line}"
+        imports = [ln for ln in css.splitlines() if ln.startswith("@import")]
+        assert imports, "expected at least one module stylesheet import"
+        for line in imports:
+            target = Path(line.split('"')[1])
+            assert target.is_absolute(), f"@import must be absolute: {line}"
+            assert "../" not in line, f"@import must not use a relative path: {line}"
+            assert not line.split('"')[1].startswith("#"), (
+                f"@import must not use an alias the host has to define: {line}"
+            )
+            assert target.is_file(), f"@import points at a file that does not exist: {line}"
 
 
 class TestAssetsManifest:
