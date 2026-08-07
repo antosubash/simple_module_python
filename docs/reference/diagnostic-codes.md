@@ -30,6 +30,10 @@ The framework runs a set of static checks over installed modules at app boot. Th
 | `SM019` | WARNING | Module declares a non-empty `view_prefix` and overrides `register_routes` but registers neither menu items nor permissions — admins can't reach the pages from the sidebar or grant access from the role editor. | Add `register_menu_items` for a sidebar entry, or `register_permissions` to surface the module in the role editor (sub-pages of another module typically just register permissions). |
 | `SM020` | ERROR | More than one auth-provider module is installed (e.g. both `users` and `keycloak`). | Install exactly one auth provider. |
 | `SM021` | WARNING | No auth-provider module is installed. | Install an auth provider (e.g. `simple-module-users` or `simple-module-keycloak`). |
+| `SM022` | WARNING | A module's `styles.css` contains a top-level `@theme`, `@custom-variant` or `@utility` block. That file is imported into `layer(components)`, where those at-rules are inert. | Move the block to the module's `theme.css`, which is imported unlayered so its tokens actually register. |
+| `SM023` | WARNING | A module's `theme.css` contains an unlayered plain rule (anything but an at-rule or a `:root`-style selector). Unlayered CSS outranks every Tailwind utility. | Move the rule to the module's `styles.css`, which is imported into `layer(components)` so utilities still win. |
+
+`SM022`/`SM023` are the two halves of the same invariant: a module's optional [`theme.css` is imported unlayered and `styles.css` into `layer(components)`](/module-authoring#styling), and CSS put in the wrong one silently does nothing (or silently wins everything).
 
 ## When diagnostics fire
 

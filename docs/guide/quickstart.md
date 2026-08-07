@@ -17,7 +17,7 @@ smpy new myapp --yes
 cd myapp
 ```
 
-`--yes` accepts the defaults (SQLite, no multi-tenancy, the `standard` preset: `auth`, `users`, `dashboard`, `permissions`). The CLI runs `uv sync`, `npm install`, and `alembic upgrade head` for you.
+`--yes` accepts the defaults (SQLite, no multi-tenancy, the `standard` preset: `auth`, `users`, `dashboard`, `permissions`). The CLI runs `uv sync`, `npm install`, and `alembic upgrade heads` for you.
 
 For an interactive run with prompts, drop the `--yes`. For a preset + extras: `smpy new myapp --preset standard --with background_tasks,file_storage --yes`.
 

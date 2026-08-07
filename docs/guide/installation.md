@@ -58,7 +58,7 @@ smpy new myapp --preset standard --with background_tasks,file_storage
 
 Dependencies between modules are resolved automatically — e.g. `users` always pulls in `auth`, and `file_storage` pulls in `settings`. The `settings` module ships only in the `full` preset (or when added explicitly with `--with settings`).
 
-After scaffolding, `smpy new` runs `uv sync`, `npm install`, and `alembic upgrade head` for you (skip with `--no-install` if you'd rather drive that yourself).
+After scaffolding, `smpy new` runs `uv sync`, `npm install`, and `alembic upgrade heads` for you (skip with `--no-install` if you'd rather drive that yourself).
 
 ## Boot it
 
