@@ -273,6 +273,53 @@ class MyModule(ModuleBase):
 
 The host mounts each entry as `StaticFiles` during boot.
 
+### Importing another module's TS/TSX
+
+Use the sibling's **npm package name** — the `name` in its `package.json`:
+
+```tsx
+import { BlockRegistry } from '@simple-module-py/pagebuilder/components/blockRegistry';
+```
+
+The host builds that alias from `modules.assets.json` and points it at the
+sibling's **Python package directory** (`my_module/`). So everything after the
+package name is a path *inside* that package — `components/…`, `pages/…`,
+mirroring the layout in [Anatomy of a module package](#anatomy-of-a-module-package).
+
+That anchor is forced rather than chosen, and it is worth understanding because
+the obvious alternative silently half-works:
+
+| | wheel install | workspace / editable |
+|---|---|---|
+| Python package | `site-packages/foo/` | `modules/foo/foo/` |
+| `package.json` | `site-packages/foo/package.json` | `modules/foo/package.json` |
+| module root | **does not exist** | `modules/foo/` |
+
+A wheel ships `site-packages/foo/**` and nothing above it — Hatch force-includes
+the module-root `package.json` *into* the package. The source-tree module root
+therefore does not survive installation, and the Python package directory is the
+only anchor both layouts share.
+
+This means the shape npm gives you for a workspace member is the wrong one:
+
+```tsx
+// ✅ same file in both layouts
+import x from '@simple-module-py/foo/components/Widget';
+
+// ❌ workspace-only. npm symlinks @simple-module-py/foo -> modules/foo/, so
+//    this happens to resolve in a checkout and breaks once foo is wheel-installed.
+import x from '@simple-module-py/foo/foo/components/Widget';
+```
+
+Declare the sibling in your `package.json` `peerDependencies` so the dependency
+is explicit. Nothing pre-bundles it — it resolves to source, not to a
+node_modules package.
+
+Note this is the one part of module frontend wiring that *does* depend on the
+host's `vite.config.ts`, because the import lives in your source rather than in
+a generated file. Apps scaffolded before this shipped need the alias block added
+— see the CHANGELOG entry for the diff.
+
 ## Styling
 
 A module may ship two optional stylesheets beside its `pages/` directory.

@@ -2,41 +2,15 @@
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 
-def _make_importable_module(tmp_path: Path, pkg_name: str, klass_name: str):
-    """Create a real importable package on disk and return a ModuleBase bound to it.
-
-    ``get_module_package_name`` derives the package from the class's
-    ``__module__``, and ``compute_module_assets`` then resolves that package
-    via ``importlib.resources.files``. So the package has to genuinely exist
-    on ``sys.path`` — a mock won't exercise the code path we care about.
-    """
-    from simple_module_core import ModuleBase, ModuleMeta
-
-    pkg = tmp_path / pkg_name
-    pkg.mkdir(parents=True, exist_ok=True)
-    (pkg / "__init__.py").write_text("", encoding="utf-8")
-    if str(tmp_path) not in sys.path:
-        sys.path.insert(0, str(tmp_path))
-    sys.modules.pop(pkg_name, None)
-
-    klass = type(
-        klass_name,
-        (ModuleBase,),
-        {"meta": ModuleMeta(name=klass_name), "__module__": f"{pkg_name}.module"},
-    )
-    return klass(), pkg
-
-
 class TestComputeModuleAssets:
-    async def test_detects_theme_and_styles(self, tmp_path):
+    async def test_detects_theme_and_styles(self, make_importable_module):
         """A module shipping theme.css/styles.css has both detected."""
         from simple_module_hosting.assets import compute_module_assets
 
-        mod, pkg = _make_importable_module(tmp_path, "styled_mod", "Styled")
+        mod, pkg = make_importable_module("styled_mod", "Styled")
         (pkg / "pages").mkdir()
         (pkg / "theme.css").write_text("@theme { --color-x: red; }\n", encoding="utf-8")
         (pkg / "styles.css").write_text(".x { color: red; }\n", encoding="utf-8")
@@ -50,11 +24,11 @@ class TestComputeModuleAssets:
         assert entry.styles_css is not None and entry.styles_css.name == "styles.css"
         assert entry.pages_dir is not None
 
-    async def test_css_only_module_is_included(self, tmp_path):
+    async def test_css_only_module_is_included(self, make_importable_module):
         """A module with CSS but no pages/ still appears — the manifest.json gap."""
         from simple_module_hosting.assets import compute_module_assets
 
-        mod, pkg = _make_importable_module(tmp_path, "cssonly_mod", "CssOnly")
+        mod, pkg = make_importable_module("cssonly_mod", "CssOnly")
         (pkg / "styles.css").write_text(".y { color: blue; }\n", encoding="utf-8")
 
         result = compute_module_assets([mod])
@@ -64,11 +38,11 @@ class TestComputeModuleAssets:
         assert result[0].theme_css is None
         assert result[0].styles_css is not None
 
-    async def test_module_with_no_assets_is_omitted(self, tmp_path):
+    async def test_module_with_no_assets_is_omitted(self, make_importable_module):
         """A module contributing nothing frontend-ish is skipped, not an error."""
         from simple_module_hosting.assets import compute_module_assets
 
-        mod, _pkg = _make_importable_module(tmp_path, "headless_mod", "Headless")
+        mod, _pkg = make_importable_module("headless_mod", "Headless")
 
         assert compute_module_assets([mod]) == []
 
@@ -220,7 +194,15 @@ class TestAssetsManifest:
         entry = data["Dashboard"]
         assert entry["package_name"] == "dashboard"
         assert entry["package"].endswith("dashboard")
-        assert set(entry) == {"package_name", "package", "pages", "theme", "styles"}
+        assert entry["npm_name"] == "@simple-module-py/dashboard"
+        assert set(entry) == {
+            "package_name",
+            "package",
+            "pages",
+            "theme",
+            "styles",
+            "npm_name",
+        }
 
     async def test_manifest_json_shape_unchanged(self, tmp_path):
         """modules.manifest.json stays {name: pages_dir} for downstream vite configs.

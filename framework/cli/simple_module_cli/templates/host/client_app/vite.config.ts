@@ -69,7 +69,7 @@ if (fs.existsSync(manifestPath)) {
   }
 }
 
-// Two things come out of modules.assets.json.
+// Three things come out of modules.assets.json.
 //
 // 1. `server.fs.allow` entries. The dev server must be allowed to read each
 //    module's package dir. Read from modules.assets.json rather than
@@ -82,14 +82,22 @@ if (fs.existsSync(manifestPath)) {
 //    an alias there made a generated file depend on this hand-owned config,
 //    and since `vite.config.ts` is scaffolded once and then owned by the app,
 //    a Python-only version bump broke every host scaffolded earlier
-//    (GH issue #253). The alias stays because it costs nothing and lets a
-//    module's own CSS/TS reference a sibling module by package name.
+//    (GH issue #253). The alias stays because it costs nothing.
+//
+// 3. An `<npm_name>` alias per module, so one module can import another's
+//    TS/TSX by package name. Aimed at the module's *Python package* dir —
+//    a wheel ships `site-packages/foo/**` and nothing above it, so the
+//    source-tree module root is not a target both layouts have. Needed in
+//    both: a wheel module is never in node_modules, and npm symlinks a
+//    workspace member onto the module root, one level too high.
+//    See docs/module-authoring.md § Importing another module's TS/TSX.
 //
 // `@tailwindcss/vite` builds its CSS import resolver with
 // `createResolver({ ...config.resolve, ... })`, so `resolve.alias` governs
 // CSS `@import` as well as JS — verified against @tailwindcss/vite 4.2.4.
-type ModuleAsset = { package_name: string; package: string };
+type ModuleAsset = { package_name: string; package: string; npm_name?: string | null };
 const moduleAliases: { find: string; replacement: string }[] = [];
+const moduleNpmNames = new Set<string>();
 const assetsPath = path.resolve(__dirname, 'modules.assets.json');
 let moduleAssets: Record<string, ModuleAsset> = {};
 try {
@@ -99,6 +107,10 @@ try {
 }
 for (const entry of Object.values(moduleAssets)) {
   moduleAliases.push({ find: `#module/${entry.package_name}`, replacement: entry.package });
+  if (entry.npm_name) {
+    moduleAliases.push({ find: entry.npm_name, replacement: entry.package });
+    moduleNpmNames.add(entry.npm_name);
+  }
   if (!moduleFsAllow.includes(entry.package)) moduleFsAllow.push(entry.package);
 }
 // Keep the alias list in a stable, longest-first order. Vite matches a string
@@ -176,6 +188,10 @@ function collectOptimizeIncludes(): string[] {
     for (const block of [pkg.dependencies, pkg.peerDependencies]) {
       for (const name of Object.keys(block ?? {})) {
         if (name.startsWith('@types/')) continue;
+        // A sibling module declared as a dep/peer dep is not a node_modules
+        // package — it is aliased to a source directory above. Pre-bundling
+        // it would point the optimizer at raw .tsx with no entry point.
+        if (moduleNpmNames.has(name)) continue;
         const nested = findPackageJSON(name);
         if (!nested) continue;
         const nestedPkg = readPackageJSON(nested);

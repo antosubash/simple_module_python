@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 
 THEME_CSS = "theme.css"
 STYLES_CSS = "styles.css"
+PACKAGE_JSON = "package.json"
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,39 @@ class ModuleAssets:
     pages_dir: Path | None
     theme_css: Path | None
     styles_css: Path | None
+    npm_name: str | None = None
+
+
+def find_npm_name(pkg_root: Path) -> str | None:
+    """Return the module's npm package name, or ``None`` if it ships no JS.
+
+    Two install layouts put ``package.json`` in different places:
+
+    * **wheel** — Hatch force-includes the module-root ``package.json`` *into*
+      the Python package, so it lands at ``site-packages/<pkg>/package.json``.
+    * **editable / workspace** — it stays at the source-tree module root,
+      ``modules/<name>/package.json``, one level above the Python package.
+
+    The parent candidate is accepted only when that directory also holds a
+    ``pyproject.toml``. Without that guard a wheel-installed module would
+    happily read ``site-packages/package.json`` — some unrelated file that
+    happens to sit there — and alias the module onto a stranger's name.
+    """
+    candidates = [pkg_root / PACKAGE_JSON]
+    parent = pkg_root.parent
+    if (parent / "pyproject.toml").is_file():
+        candidates.append(parent / PACKAGE_JSON)
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        try:
+            name = json.loads(candidate.read_text(encoding="utf-8")).get("name")
+        except (OSError, ValueError):
+            logger.debug("Module package.json at %s is unreadable — ignoring", candidate)
+            continue
+        if isinstance(name, str) and name:
+            return name
+    return None
 
 
 def compute_module_assets(modules: Sequence[ModuleBase]) -> list[ModuleAssets]:
@@ -90,6 +124,7 @@ def compute_module_assets(modules: Sequence[ModuleBase]) -> list[ModuleAssets]:
             pages_dir=pages_dir.resolve() if pages_dir.is_dir() else None,
             theme_css=theme.resolve() if theme.is_file() else None,
             styles_css=styles.resolve() if styles.is_file() else None,
+            npm_name=find_npm_name(pkg_root),
         )
         if entry.pages_dir or entry.theme_css or entry.styles_css:
             result.append(entry)
@@ -157,6 +192,13 @@ def render_assets_json(assets: Sequence[ModuleAssets]) -> str:
     manifest's value shape would break every downstream app at once. This file
     is purely additive, and also covers CSS-only modules that never appear in
     the pages manifest because they ship no ``pages/``.
+
+    ``npm_name`` is what lets one module import another's TS/TSX by package
+    name. The host aliases it onto ``package`` — the module's *Python package
+    directory* — and that target is forced, not chosen: a wheel contains only
+    ``site-packages/<pkg>/**``, so the source-tree module root simply does not
+    exist once installed. Anchoring the npm name there is the only mapping
+    that can mean the same thing in both layouts. See ``find_npm_name``.
     """
     payload = {
         e.name: {
@@ -165,6 +207,7 @@ def render_assets_json(assets: Sequence[ModuleAssets]) -> str:
             "pages": e.pages_dir.as_posix() if e.pages_dir else None,
             "theme": e.theme_css.as_posix() if e.theme_css else None,
             "styles": e.styles_css.as_posix() if e.styles_css else None,
+            "npm_name": e.npm_name,
         }
         for e in assets
     }

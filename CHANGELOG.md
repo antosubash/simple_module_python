@@ -44,6 +44,41 @@ All notable changes to this project are documented in this file. The format is b
   `#module/<pkg>` alias for hand-written imports, but nothing generated depends
   on it any more (GH issue #253).
 
+### Added
+- A module can now import another module's TS/TSX by npm package name:
+  `import x from '@simple-module-py/pagebuilder/components/blockRegistry'`.
+  Nothing in Node's own resolution made this work — a wheel-installed module is
+  not an npm workspace member, so it never lands in `node_modules` at all;
+  a workspace member *is* symlinked, but onto the source-tree module root, one
+  level above the Python package, so subpaths landed somewhere nonexistent.
+
+  `gen-pages` now records each module's `npm_name` in `modules.assets.json`,
+  and the host aliases it onto the module's **Python package directory**. That
+  anchor is forced, not chosen: a wheel ships `site-packages/<pkg>/**` and
+  nothing above it, so the module root does not survive installation and the
+  package directory is the only anchor both layouts share. The practical
+  consequence is that the subpath is relative to the *package*:
+
+  ```tsx
+  import x from '@simple-module-py/foo/components/Widget';      // ✅ both layouts
+  import x from '@simple-module-py/foo/foo/components/Widget';  // ❌ workspace-only
+  ```
+
+  If you previously hand-rolled this alias against the module root, drop the
+  duplicated path segment. **Existing hosts need a `vite.config.ts` change** —
+  unlike the CSS fix above, the import lives in module source rather than a
+  generated file, so it cannot be made self-contained. In the loop over
+  `modules.assets.json` entries, add:
+
+  ```ts
+  if (entry.npm_name) {
+    moduleAliases.push({ find: entry.npm_name, replacement: entry.package });
+  }
+  ```
+
+  and skip those names when collecting `optimizeDeps.include` — they resolve to
+  source directories, not to pre-bundlable packages (GH issue #253).
+
 ## [0.0.27] — 2026-08-06
 
 ### Known issue

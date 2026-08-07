@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig, type Plugin } from 'vite';
 import { compressAssets } from './compress-assets.ts';
+import { loadModuleAssets } from './module-assets.ts';
 
 const projectRoot = path.resolve(import.meta.dirname, '../..');
 
@@ -12,84 +13,17 @@ const projectRoot = path.resolve(import.meta.dirname, '../..');
 // every chunk and its constituent modules. Open it to chase bundle bloat.
 const analyzeBundle = process.env.ANALYZE === '1';
 
-// Load the module pages manifest written by the Python host at boot.
-// Each entry points at an absolute pages/ directory — typically inside a
-// pip-installed module wheel under .venv/.../site-packages/. From each
-// pages dir we derive three things:
-//   1. The parent directory, for server.fs.allow (so Vite can serve the
-//      files from outside the workspace root).
-//   2. The module's package.json. Two install modes ship it in different
-//      places: wheels embed it next to the Python package (one level up
-//      from pages/, force-included by Hatch), while editable/workspace
-//      installs leave it at the source-tree module root (two levels up).
-//      We accept either. Its `dependencies` + `peerDependencies` declare
-//      every bare specifier the module's pages can import.
-//   3. A glob pattern for optimizeDeps.entries, so Vite's dependency
-//      scanner walks the pages and discovers their imports.
-const manifestPath = path.resolve(import.meta.dirname, 'modules.manifest.json');
-const moduleFsAllow: string[] = [];
-const moduleOptimizeEntries: string[] = [];
-const modulePkgJsonPaths: string[] = [];
-const modulePagesPrefixes: string[] = [];
-let manifest: Record<string, string> = {};
-try {
-  manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-} catch {
-  // Manifest absent (smpy gen-pages hasn't run yet) — proceed with empty set.
-}
-for (const pagesDir of Object.values(manifest)) {
-  const pkgDir = path.dirname(pagesDir);
-  moduleFsAllow.push(pkgDir);
-  moduleOptimizeEntries.push(path.join(pagesDir, '**/*.tsx'));
-  modulePagesPrefixes.push(pagesDir + path.sep);
-  for (const candidate of [
-    path.join(pkgDir, 'package.json'),
-    path.join(path.dirname(pkgDir), 'package.json'),
-  ]) {
-    if (fs.existsSync(candidate)) {
-      modulePkgJsonPaths.push(candidate);
-      break;
-    }
-  }
-}
-
-// Two things come out of modules.assets.json.
-//
-// 1. `server.fs.allow` entries. The dev server must be allowed to read each
-//    module's package dir. Read from modules.assets.json rather than
-//    modules.manifest.json because the manifest is keyed off `pages/`, so a
-//    module shipping only CSS never appears in it.
-//
-// 2. A convenience `#module/<pkg>` alias. This is NOT required by
-//    `modules.generated.css` — that file imports module stylesheets by
-//    absolute path, so it resolves with no alias configured at all. Emitting
-//    an alias there made a generated file depend on this hand-owned config,
-//    and since `vite.config.ts` is scaffolded once and then owned by the app,
-//    a Python-only version bump broke every host scaffolded earlier
-//    (GH issue #253). The alias stays because it costs nothing and lets a
-//    module's own CSS/TS reference a sibling module by package name.
-//
-// `@tailwindcss/vite` builds its CSS import resolver with
-// `createResolver({ ...config.resolve, ... })`, so `resolve.alias` governs
-// CSS `@import` as well as JS — verified against @tailwindcss/vite 4.2.4.
-type ModuleAsset = { package_name: string; package: string };
-const moduleAliases: { find: string; replacement: string }[] = [];
-const assetsPath = path.resolve(import.meta.dirname, 'modules.assets.json');
-let moduleAssets: Record<string, ModuleAsset> = {};
-try {
-  moduleAssets = JSON.parse(fs.readFileSync(assetsPath, 'utf-8'));
-} catch {
-  // Absent until `smpy gen-pages` runs — proceed with no aliases.
-}
-for (const entry of Object.values(moduleAssets)) {
-  moduleAliases.push({ find: `#module/${entry.package_name}`, replacement: entry.package });
-  if (!moduleFsAllow.includes(entry.package)) moduleFsAllow.push(entry.package);
-}
-// Keep the alias list in a stable, longest-first order. Vite matches a string
-// `find` on exact equality or a `/`-bounded prefix, so `#module/gis` could not
-// swallow `#module/gis_extra` in any order — this is just determinism, not a
-// correctness fix.
-moduleAliases.sort((a, b) => b.find.length - a.find.length);
+// Everything the installed modules contribute to this build — fs.allow entries,
+// dep-scan globs, package.json paths, and the `#module/<pkg>` + npm-name
+// aliases. See ./module-assets.ts for why each exists.
+const {
+  fsAllow: moduleFsAllow,
+  optimizeEntries: moduleOptimizeEntries,
+  pkgJsonPaths: modulePkgJsonPaths,
+  pagesPrefixes: modulePagesPrefixes,
+  aliases: moduleAliases,
+  npmNames: moduleNpmNames,
+} = loadModuleAssets(import.meta.dirname);
 
 // Gather every bare specifier a module's pages might import. We include
 // both `dependencies` (deps the module ships its own copy of) and
@@ -109,7 +43,12 @@ function collectModuleDecls(): string[] {
     }
     for (const block of [pkg.dependencies, pkg.peerDependencies]) {
       for (const dep of Object.keys(block ?? {})) {
-        if (!dep.startsWith('@types/')) decls.add(dep);
+        if (dep.startsWith('@types/')) continue;
+        // A sibling module declared as a dep/peer dep is not a node_modules
+        // package — it is aliased to a source directory above. Pre-bundling
+        // it would point the optimizer at raw .tsx with no entry point.
+        if (moduleNpmNames.has(dep)) continue;
+        decls.add(dep);
       }
     }
   }
