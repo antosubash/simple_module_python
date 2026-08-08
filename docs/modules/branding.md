@@ -50,7 +50,7 @@ Registered through the [`register_public_routes`](/framework/public-routes) hook
 | `GET /api/branding/logo-dark` | The dark-background variant (`404` when unset) |
 | `GET /api/branding/favicon` | The configured favicon (`404` when unset) |
 
-Branding serves these itself rather than linking `file_storage`'s download route, which is gated by `file-storage.download` — no logged-out visitor carries that permission, and the sign-in page, the public landing page and every `<link rel="icon">` are exactly where the logo has to appear. Each route resolves **only** the id currently held in branding settings and streams that one file, so it is not a way to read arbitrary files out of `file_storage`.
+Branding serves these itself rather than linking `file_storage`'s download route, which is gated by `file_storage.download` — no logged-out visitor carries that permission, and the sign-in page, the public landing page and every `<link rel="icon">` are exactly where the logo has to appear. Each route resolves **only** the id currently held in branding settings and streams that one file, so it is not a way to read arbitrary files out of `file_storage`.
 
 Responses carry `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`. Both are ignored for subresource loads (`<img>`, `<link rel="icon">`) but stop a direct visit rendering the bytes as a document at the app's own origin.
 
@@ -126,9 +126,11 @@ Enforced in the API before the upload reaches `file_storage`:
 
 - **Max size:** 2 MB (`413` otherwise).
 - **Allowed types:** `image/png`, `image/jpeg`, `image/webp`, `image/gif`, `image/x-icon` / `image/vnd.microsoft.icon` (`415` otherwise).
-- **Magic-number check:** the first bytes must match the declared format's signature (`415` otherwise).
+- **Magic-number check:** the first bytes must match the signature of *one of* the allowed formats (`415` otherwise).
 
-The declared `Content-Type` on a multipart part is chosen by the caller, so it is a claim rather than a fact — `payload.html` renamed `logo.png` would otherwise be stored and later served back under an `image/*` type. The signature check is what makes the type real.
+The declared `Content-Type` on a multipart part is chosen by the caller, so it is a claim rather than a fact — `payload.html` renamed `logo.png` would otherwise be stored and later served back under an `image/*` type. The signature check is what rules that out.
+
+Note the exact property: the bytes must look like **some** allowed image format, not like the one the caller declared. A genuine PNG uploaded as `image/jpeg` passes and is stored as `image/jpeg`. That mismatch is harmless here — every allowed format is a raster or icon the browser renders inertly — and the check still does the job it exists for, which is keeping non-images out of the store.
 
 **SVG is excluded on purpose.** It is an XML document that can carry `<script>`, so serving one back from the app's own origin would be stored XSS. The `attachment` + `nosniff` headers on the asset route defend in depth, but the narrower allow-list is what actually keeps executable markup out of the store.
 

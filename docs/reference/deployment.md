@@ -34,6 +34,12 @@ make docker-up   # builds the image, applies migrations, serves on :8000
 
 The compose file pins `SM_ENVIRONMENT=production` for the app service — a container has no Vite dev server, so development mode would emit asset tags pointing at nothing.
 
+::: warning `SM_ENVIRONMENT=production` doesn't make the default stack production-ready
+A default (SQLite) scaffold's compose file also pins `SM_DATABASE_URL=sqlite+aiosqlite:////app/data/app.db`, which fails the second item in the checklist above. That stack is for local and demo runs — a real deployment wants a `--db postgres` scaffold.
+
+The reason it isn't just a URL swap: a migration history is **dialect-frozen at autogenerate time** (`sa.false()` renders as `DEFAULT 0` under SQLite, which Postgres rejects), so containers must run the same dialect the migrations were generated against. Moving an existing SQLite scaffold to Postgres means regenerating migrations against Postgres, not editing one env var.
+:::
+
 ### Why the image has one builder stage
 
 The obvious split — a Python stage and a Node stage — **cannot work here**. The Vite build imports `modules.generated.{ts,css}`, which `gen-pages` emits by inspecting the *installed Python modules*. A Node-only stage has no venv and no entry points, so it can't generate those files and the frontend build fails for any app with module pages.
