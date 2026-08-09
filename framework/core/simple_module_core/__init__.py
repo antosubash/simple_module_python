@@ -8,8 +8,11 @@ from simple_module_core.diagnostics import (
     run_diagnostics,
 )
 from simple_module_core.discovery import (
+    DEFAULT_AUTH_PROVIDER,
     discover_modules,
     get_module_package_name,
+    resolve_auth_provider,
+    select_auth_provider,
     topological_sort,
 )
 from simple_module_core.events import Event, EventBus
@@ -39,6 +42,7 @@ from simple_module_core.services import Services
 from simple_module_core.versioning import FRAMEWORK_API_VERSION, check_framework_compatibility
 
 __all__ = [
+    "DEFAULT_AUTH_PROVIDER",
     "FRAMEWORK_API_VERSION",
     "CircularDependencyError",
     "DesignPack",
@@ -77,6 +81,8 @@ __all__ = [
     "is_flag_enabled",
     "print_diagnostics",
     "require_flag",
+    "resolve_auth_provider",
     "run_diagnostics",
+    "select_auth_provider",
     "topological_sort",
 ]

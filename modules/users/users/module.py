@@ -21,6 +21,9 @@ if TYPE_CHECKING:
     from simple_module_core.events import EventBus
 
 _MODULE_DEPENDENCY_AUTH = "Auth"
+# register_settings() goes through settings.registration.register_module_settings,
+# which reads app.state.settings — so Settings must register first.
+_MODULE_DEPENDENCY_SETTINGS = "Settings"
 
 # Menu URLs
 _URL_USERS_ADMIN = "/users/admin"
@@ -38,7 +41,7 @@ class UsersModule(ModuleBase):
         name="Users",
         route_prefix="/api/users",
         view_prefix="/users",
-        depends_on=[_MODULE_DEPENDENCY_AUTH],
+        depends_on=[_MODULE_DEPENDENCY_AUTH, _MODULE_DEPENDENCY_SETTINGS],
     )
     _is_auth_provider = True
 

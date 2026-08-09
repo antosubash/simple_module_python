@@ -6,12 +6,16 @@ import logging
 from collections.abc import Sequence
 from importlib.metadata import entry_points
 
+from simple_module_core.dotenv import env_str, load_dotenv_into_environ
 from simple_module_core.exceptions import CircularDependencyError, InvalidModuleError
 from simple_module_core.module import ModuleBase, ModuleMeta
 
 logger = logging.getLogger(__name__)
 
 ENTRY_POINT_GROUP = "simple_module"
+
+DEFAULT_AUTH_PROVIDER = "users"
+"""Auth provider activated when several are installed — see select_auth_provider."""
 
 
 def get_module_package_name(module: ModuleBase) -> str:
@@ -119,6 +123,67 @@ def discover_modules(
 
     check_framework_compatibility(modules)
     return modules
+
+
+def resolve_auth_provider() -> str:
+    """Return the configured auth provider name, honoring ``.env``.
+
+    For tools that run outside the host process (``make doctor``, ``smpy host
+    gen-pages``) and so have no ``BootstrapSettings`` to read from. The host
+    passes ``settings.auth_provider`` to :func:`select_auth_provider` instead.
+    """
+    load_dotenv_into_environ()
+    return env_str("SM_AUTH_PROVIDER", DEFAULT_AUTH_PROVIDER)
+
+
+def select_auth_provider(
+    modules: Sequence[ModuleBase],
+    preferred: str = DEFAULT_AUTH_PROVIDER,
+    *,
+    strict: bool = False,
+) -> list[ModuleBase]:
+    """Drop every auth provider except ``preferred`` when several are installed.
+
+    ``users`` and ``keycloak`` both claim ``app.state.auth.auth_provider``, so
+    only one can be active — that's what SM020 reports. A dev workspace has
+    both installed (``uv sync --all-packages`` installs every member), which
+    would otherwise fail the boot on a fresh clone. Selecting one here keeps
+    the alternative provider installed and testable but inert.
+
+    Nothing is dropped when fewer than two providers are present — a host that
+    installs only ``keycloak`` keeps it whatever ``preferred`` says.
+
+    A ``preferred`` that names none of the installed providers is a
+    misconfiguration (typically a typo). Leaving every provider mounted means
+    two modules write ``app.state.auth.auth_provider`` and the topological
+    order silently decides the winner, so this always warns, and with
+    ``strict`` raises :class:`InvalidModuleError`. Callers in production
+    should pass ``strict=True``: SM020 would catch this, but diagnostics run
+    in development only, so nothing else reports it in a deployed app.
+    """
+    providers = [m for m in modules if getattr(m, "_is_auth_provider", False)]
+    if len(providers) < 2:
+        return list(modules)
+
+    installed = ", ".join(m.meta.name for m in providers)
+    keep = next((m for m in providers if m.meta.name.lower() == preferred.lower()), None)
+    if keep is None:
+        msg = (
+            f"SM_AUTH_PROVIDER={preferred!r} matches none of the installed auth "
+            f"providers ({installed}); all of them stay mounted and the last one "
+            "registered wins"
+        )
+        if strict:
+            raise InvalidModuleError(msg)
+        logger.warning("%s — set it to one of the names above", msg)
+        return list(modules)
+
+    logger.info(
+        "Auth provider '%s' active (SM_AUTH_PROVIDER); skipping also-installed: %s",
+        keep.meta.name,
+        ", ".join(m.meta.name for m in providers if m is not keep),
+    )
+    return [m for m in modules if m is keep or not getattr(m, "_is_auth_provider", False)]
 
 
 def topological_sort(modules: Sequence[ModuleBase]) -> list[ModuleBase]:

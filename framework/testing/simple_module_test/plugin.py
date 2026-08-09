@@ -27,6 +27,7 @@ from simple_module_test.fixtures import (  # noqa: F401
     db_session,
     db_state,
     engine,
+    pinned_auth_provider,
     settings,
 )
 

@@ -11,6 +11,7 @@ from typing import Literal
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
 _PLACEHOLDER_SECRET_KEY = "change-me-in-production"
@@ -46,6 +47,14 @@ class BootstrapSettings(BaseSettings):
 
     modules_enabled: list[str] | None = None
 
+    auth_provider: str = DEFAULT_AUTH_PROVIDER
+    """Which auth provider module to activate (``SM_AUTH_PROVIDER``).
+
+    ``users`` and ``keycloak`` both provide authentication and only one may be
+    active at a time. When both are installed this picks the winner; the other
+    is skipped at discovery. Ignored when only one is installed.
+    """
+
     auth_public_paths: list[str] = []
     """Host-level anonymous-access path prefixes (``SM_AUTH_PUBLIC_PATHS``).
 
@@ -54,6 +63,19 @@ class BootstrapSettings(BaseSettings):
     ``PublicRouteRegistry`` at boot. Modules should prefer the
     ``register_public_routes`` hook, which is method-aware.
     """
+
+    @field_validator("auth_provider", mode="after")
+    @classmethod
+    def _normalize_auth_provider(cls, value: str) -> str:
+        """Strip whitespace; treat blank as unset.
+
+        ``SM_AUTH_PROVIDER=`` in a ``.env`` yields ``''``, which matches no
+        installed provider and would mount all of them. The out-of-process
+        readers (``make doctor``, ``gen-pages``) go through
+        ``resolve_auth_provider``, which already falls back on blank — without
+        this they and the host would disagree about the active provider.
+        """
+        return value.strip() or DEFAULT_AUTH_PROVIDER
 
     @field_validator("trusted_proxy", mode="after")
     @classmethod

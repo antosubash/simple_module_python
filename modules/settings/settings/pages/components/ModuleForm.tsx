@@ -78,7 +78,7 @@ export function ModuleForm({ module: m }: Props) {
       const body = await resp.json();
       const fieldErrs: Record<string, string> = {};
       for (const d of body.detail ?? []) {
-        if (d.loc && d.loc.length) fieldErrs[d.loc[d.loc.length - 1]] = d.msg;
+        if (d.loc?.length) fieldErrs[d.loc[d.loc.length - 1]] = d.msg;
       }
       setErrors(fieldErrs);
     } else if (resp.ok) {
