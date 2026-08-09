@@ -13,9 +13,22 @@ A module may ship two optional stylesheets beside its ``pages/`` directory:
   utility: a module shipping a bare ``.card { padding: 0 }`` would otherwise
   silently beat ``p-4``.
 
-Both are referenced through a per-module Vite alias (``#module/<pkg>``) rather
-than a filesystem path, so the generated CSS never contains something like
-``../../../.venv/lib/python3.12/site-packages/<pkg>/styles.css``.
+Both are referenced by **absolute** filesystem path, exactly as the ``@source``
+lines in the same file already are.
+
+This used to emit a per-module Vite alias (``#module/<pkg>/styles.css``) to
+avoid a relative path like ``../../../.venv/lib/python3.12/site-packages/<pkg>``
+— but that objection only ever applied to *relative* paths, and the alias made
+this generated file depend on the host resolving it. ``vite.config.ts`` is
+scaffold output: it is written once into an app and then owned and edited
+there, so it is versioned independently of these Python packages. A host
+scaffolded before the alias existed never receives it, and a Python-only
+dependency bump would emit specifiers that host cannot resolve, failing the
+build with ``Can't resolve '#module/<pkg>/styles.css'`` — naming something that
+appears nowhere in the app's own sources (GH issue #253).
+
+Absolute paths keep the generated CSS self-contained: it resolves under any
+``vite.config.ts``, old or new, with no alias configured at all.
 """
 
 from __future__ import annotations
@@ -33,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 THEME_CSS = "theme.css"
 STYLES_CSS = "styles.css"
-ALIAS_PREFIX = "#module"
+PACKAGE_JSON = "package.json"
 
 
 @dataclass(frozen=True)
@@ -46,6 +59,39 @@ class ModuleAssets:
     pages_dir: Path | None
     theme_css: Path | None
     styles_css: Path | None
+    npm_name: str | None = None
+
+
+def find_npm_name(pkg_root: Path) -> str | None:
+    """Return the module's npm package name, or ``None`` if it ships no JS.
+
+    Two install layouts put ``package.json`` in different places:
+
+    * **wheel** — Hatch force-includes the module-root ``package.json`` *into*
+      the Python package, so it lands at ``site-packages/<pkg>/package.json``.
+    * **editable / workspace** — it stays at the source-tree module root,
+      ``modules/<name>/package.json``, one level above the Python package.
+
+    The parent candidate is accepted only when that directory also holds a
+    ``pyproject.toml``. Without that guard a wheel-installed module would
+    happily read ``site-packages/package.json`` — some unrelated file that
+    happens to sit there — and alias the module onto a stranger's name.
+    """
+    candidates = [pkg_root / PACKAGE_JSON]
+    parent = pkg_root.parent
+    if (parent / "pyproject.toml").is_file():
+        candidates.append(parent / PACKAGE_JSON)
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        try:
+            name = json.loads(candidate.read_text(encoding="utf-8")).get("name")
+        except (OSError, ValueError):
+            logger.debug("Module package.json at %s is unreadable — ignoring", candidate)
+            continue
+        if isinstance(name, str) and name:
+            return name
+    return None
 
 
 def compute_module_assets(modules: Sequence[ModuleBase]) -> list[ModuleAssets]:
@@ -78,6 +124,7 @@ def compute_module_assets(modules: Sequence[ModuleBase]) -> list[ModuleAssets]:
             pages_dir=pages_dir.resolve() if pages_dir.is_dir() else None,
             theme_css=theme.resolve() if theme.is_file() else None,
             styles_css=styles.resolve() if styles.is_file() else None,
+            npm_name=find_npm_name(pkg_root),
         )
         if entry.pages_dir or entry.theme_css or entry.styles_css:
             result.append(entry)
@@ -109,19 +156,18 @@ def render_modules_css(
     ``styles.css``, so emitting an absolute one too would just duplicate it.
     ``@import`` is emitted for *every* module, in-repo and wheel alike, because
     there is no static-glob equivalent for CSS.
+
+    Every path is absolute, so nothing here depends on the host's
+    ``vite.config.ts`` — see the module docstring for why that matters.
     """
     source_lines = [
         f'@source "{e.pages_dir.as_posix()}/**/*.{{ts,tsx}}";'
         for e in assets
         if e.pages_dir and not in_repo(e.pages_dir)
     ]
-    theme_lines = [
-        f'@import "{ALIAS_PREFIX}/{e.package_name}/{THEME_CSS}";' for e in assets if e.theme_css
-    ]
+    theme_lines = [f'@import "{e.theme_css.as_posix()}";' for e in assets if e.theme_css]
     style_lines = [
-        f'@import "{ALIAS_PREFIX}/{e.package_name}/{STYLES_CSS}" layer(components);'
-        for e in assets
-        if e.styles_css
+        f'@import "{e.styles_css.as_posix()}" layer(components);' for e in assets if e.styles_css
     ]
 
     out = [_CSS_HEADER]
@@ -146,6 +192,13 @@ def render_assets_json(assets: Sequence[ModuleAssets]) -> str:
     manifest's value shape would break every downstream app at once. This file
     is purely additive, and also covers CSS-only modules that never appear in
     the pages manifest because they ship no ``pages/``.
+
+    ``npm_name`` is what lets one module import another's TS/TSX by package
+    name. The host aliases it onto ``package`` — the module's *Python package
+    directory* — and that target is forced, not chosen: a wheel contains only
+    ``site-packages/<pkg>/**``, so the source-tree module root simply does not
+    exist once installed. Anchoring the npm name there is the only mapping
+    that can mean the same thing in both layouts. See ``find_npm_name``.
     """
     payload = {
         e.name: {
@@ -154,6 +207,7 @@ def render_assets_json(assets: Sequence[ModuleAssets]) -> str:
             "pages": e.pages_dir.as_posix() if e.pages_dir else None,
             "theme": e.theme_css.as_posix() if e.theme_css else None,
             "styles": e.styles_css.as_posix() if e.styles_css else None,
+            "npm_name": e.npm_name,
         }
         for e in assets
     }
