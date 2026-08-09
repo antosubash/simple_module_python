@@ -168,14 +168,16 @@ class TestCreateApp:
         (tmp_path / "host" / "templates").mkdir(parents=True)
         (tmp_path / "host" / "templates" / "index.html").write_text("<html></html>")
 
-        # Every installed module, Keycloak included: both auth providers are
-        # entry points in the dev workspace and create_app is expected to
-        # activate one (SM_AUTH_PROVIDER) rather than fail the boot on SM020.
-        app = create_app(Settings())
+        # No modules_enabled allowlist: both auth providers are entry points in
+        # the dev workspace, and create_app is expected to activate the named
+        # one rather than fail the boot on SM020. auth_provider is passed
+        # explicitly so an SM_AUTH_PROVIDER in the developer's .env can't
+        # decide which provider this asserts on.
+        app = create_app(Settings(auth_provider="users"))
 
         sm = app.state.sm
-        assert [m.meta.name for m in sm.modules].count("Keycloak") == 0
         assert isinstance(sm, Services)
+        assert [m.meta.name for m in sm.modules].count("Keycloak") == 0
         assert sm.settings is not None
         assert sm.db is not None
         assert sm.event_bus is not None

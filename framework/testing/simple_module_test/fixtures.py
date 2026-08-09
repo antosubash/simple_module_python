@@ -22,18 +22,48 @@ from __future__ import annotations
 
 import contextlib
 import importlib
-from collections.abc import AsyncGenerator
+import os
+from collections.abc import AsyncGenerator, Iterator
 from functools import lru_cache
 
 import httpx
 import pytest
-from simple_module_core.discovery import discover_modules
+from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER, discover_modules
 from simple_module_db.base import all_module_bases
 from simple_module_db.session import DatabaseState, init_db
 from simple_module_hosting.settings import Settings
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from simple_module_test.session_cookie import forge_session_cookie
+
+_AUTH_PROVIDER_ENV = "SM_AUTH_PROVIDER"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def pinned_auth_provider() -> Iterator[str]:
+    """Pin ``SM_AUTH_PROVIDER`` to the local-account provider for the suite.
+
+    ``Settings`` reads the repo's ``.env``, and the README tells anyone running
+    Keycloak locally to put ``SM_AUTH_PROVIDER=keycloak`` there. Nearly every
+    test that boots an app expects the ``users`` provider — ``/users/login``,
+    the admin pages, the seeded admin in ``authenticated_client`` — and the
+    ``Settings(...)`` construction sites are spread across module conftests,
+    so pinning it on each one would be a losing game.
+
+    The real environment outranks ``.env`` in pydantic-settings, so setting it
+    here covers every construction site at once. A test that wants a different
+    provider can still ``monkeypatch.setenv`` or pass ``auth_provider=`` to
+    ``Settings`` directly.
+    """
+    previous = os.environ.get(_AUTH_PROVIDER_ENV)
+    os.environ[_AUTH_PROVIDER_ENV] = DEFAULT_AUTH_PROVIDER
+    try:
+        yield DEFAULT_AUTH_PROVIDER
+    finally:
+        if previous is None:
+            os.environ.pop(_AUTH_PROVIDER_ENV, None)
+        else:
+            os.environ[_AUTH_PROVIDER_ENV] = previous
 
 
 @pytest.fixture
@@ -44,6 +74,11 @@ def settings() -> Settings:
     (and the ``X-Tenant-ID`` header paths they rely on) keep working.
     Individual tests that want the tenant middleware absent construct
     their own ``Settings(multi_tenant=False, ...)`` in the test body.
+
+    ``auth_provider`` is pinned for the same reason as the rest: a developer
+    running Keycloak locally has ``SM_AUTH_PROVIDER=keycloak`` in ``.env``,
+    which would otherwise swap the auth provider out from under every test
+    that expects ``/users/login``.
     """
     return Settings(
         database_url="sqlite+aiosqlite:///:memory:",
@@ -51,6 +86,7 @@ def settings() -> Settings:
         secret_key="test-secret-key",
         multi_tenant=True,
         tenant_header="X-Tenant-ID",
+        auth_provider="users",
     )
 
 

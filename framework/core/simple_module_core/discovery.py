@@ -139,6 +139,8 @@ def resolve_auth_provider() -> str:
 def select_auth_provider(
     modules: Sequence[ModuleBase],
     preferred: str = DEFAULT_AUTH_PROVIDER,
+    *,
+    strict: bool = False,
 ) -> list[ModuleBase]:
     """Drop every auth provider except ``preferred`` when several are installed.
 
@@ -149,16 +151,31 @@ def select_auth_provider(
     the alternative provider installed and testable but inert.
 
     Nothing is dropped when fewer than two providers are present — a host that
-    installs only ``keycloak`` keeps it whatever ``preferred`` says — nor when
-    ``preferred`` names none of them, since that's real misconfiguration and
-    SM020 states it better than a silent pick would.
+    installs only ``keycloak`` keeps it whatever ``preferred`` says.
+
+    A ``preferred`` that names none of the installed providers is a
+    misconfiguration (typically a typo). Leaving every provider mounted means
+    two modules write ``app.state.auth.auth_provider`` and the topological
+    order silently decides the winner, so this always warns, and with
+    ``strict`` raises :class:`InvalidModuleError`. Callers in production
+    should pass ``strict=True``: SM020 would catch this, but diagnostics run
+    in development only, so nothing else reports it in a deployed app.
     """
     providers = [m for m in modules if getattr(m, "_is_auth_provider", False)]
     if len(providers) < 2:
         return list(modules)
 
+    installed = ", ".join(m.meta.name for m in providers)
     keep = next((m for m in providers if m.meta.name.lower() == preferred.lower()), None)
     if keep is None:
+        msg = (
+            f"SM_AUTH_PROVIDER={preferred!r} matches none of the installed auth "
+            f"providers ({installed}); all of them stay mounted and the last one "
+            "registered wins"
+        )
+        if strict:
+            raise InvalidModuleError(msg)
+        logger.warning("%s — set it to one of the names above", msg)
         return list(modules)
 
     logger.info(

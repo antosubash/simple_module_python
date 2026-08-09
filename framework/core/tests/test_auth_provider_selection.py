@@ -11,6 +11,7 @@ from simple_module_core.discovery import (
     resolve_auth_provider,
     select_auth_provider,
 )
+from simple_module_core.exceptions import InvalidModuleError
 from simple_module_core.module import ModuleBase, ModuleMeta
 
 
@@ -59,10 +60,32 @@ class TestSelectAuthProvider:
         """SM021 territory — nothing to select, and nothing to drop."""
         assert _names(select_auth_provider([FakeDashboard()])) == ["Dashboard"]
 
-    def test_unknown_preference_leaves_the_conflict_for_sm020(self):
+    def test_unknown_preference_keeps_every_provider(self):
         """Naming a provider that isn't installed must not silently pick one."""
         result = select_auth_provider([FakeUsers(), FakeKeycloak()], "oidc")
         assert _names(result) == ["Users", "Keycloak"]
+
+    def test_unknown_preference_warns(self, caplog):
+        """SM020 only runs in development — a typo must not pass in silence."""
+        with caplog.at_level(logging.WARNING, logger="simple_module_core.discovery"):
+            select_auth_provider([FakeUsers(), FakeKeycloak()], "keycloack")
+        warnings = [r for r in caplog.records if r.levelno >= logging.WARNING]
+        assert warnings, "an unrecognised provider name logged nothing"
+        assert "keycloack" in warnings[0].getMessage()
+
+    def test_unknown_preference_raises_when_strict(self):
+        """Production boots strict, where mounting both providers is not viable."""
+        with pytest.raises(InvalidModuleError, match="keycloack"):
+            select_auth_provider([FakeUsers(), FakeKeycloak()], "keycloack", strict=True)
+
+    def test_strict_is_quiet_on_a_valid_selection(self):
+        result = select_auth_provider([FakeUsers(), FakeKeycloak()], "users", strict=True)
+        assert _names(result) == ["Users"]
+
+    def test_strict_ignores_a_mismatch_when_only_one_is_installed(self):
+        """Nothing is ambiguous with a single provider, so strict must not raise."""
+        result = select_auth_provider([FakeKeycloak()], "oidc", strict=True)
+        assert _names(result) == ["Keycloak"]
 
     def test_selection_is_logged(self, caplog):
         with caplog.at_level(logging.INFO, logger="simple_module_core.discovery"):

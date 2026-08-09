@@ -122,7 +122,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     # Two auth providers can be installed at once (they are in this workspace);
     # only the configured one is activated. See select_auth_provider / SM020.
-    modules = select_auth_provider(modules, settings.auth_provider)
+    # Strict outside development: diagnostics don't run there, so an
+    # unrecognised name would otherwise mount both providers unreported.
+    modules = select_auth_provider(
+        modules, settings.auth_provider, strict=not settings.is_development
+    )
     modules = topological_sort(modules)
     logger.info(
         "Loaded %d module(s): %s",

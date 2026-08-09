@@ -64,6 +64,19 @@ class BootstrapSettings(BaseSettings):
     ``register_public_routes`` hook, which is method-aware.
     """
 
+    @field_validator("auth_provider", mode="after")
+    @classmethod
+    def _normalize_auth_provider(cls, value: str) -> str:
+        """Strip whitespace; treat blank as unset.
+
+        ``SM_AUTH_PROVIDER=`` in a ``.env`` yields ``''``, which matches no
+        installed provider and would mount all of them. The out-of-process
+        readers (``make doctor``, ``gen-pages``) go through
+        ``resolve_auth_provider``, which already falls back on blank — without
+        this they and the host would disagree about the active provider.
+        """
+        return value.strip() or DEFAULT_AUTH_PROVIDER
+
     @field_validator("trusted_proxy", mode="after")
     @classmethod
     def _normalize_trusted_proxy(cls, value: str | None) -> str | None:
