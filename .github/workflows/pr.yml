@@ -125,6 +125,12 @@ jobs:
       - run: make install-js
       - run: make gen-pages
       - run: make build
+      # These drive a real gen-pages + vite build to prove module-shipped CSS
+      # and cross-module npm-name imports actually resolve. They self-skip
+      # without node_modules, so the `Python tests` job (make install-py only)
+      # silently skips them — this is the one job that can really run them.
+      - name: Module asset build guards
+        run: uv run pytest framework/cli/tests/test_module_css_build.py
 
   e2e-smoke:
     name: E2E smoke (Playwright)

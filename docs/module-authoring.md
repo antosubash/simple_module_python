@@ -246,15 +246,16 @@ Modules may ship TSX pages in `my_module/pages/*.tsx`. On host boot (and on
 - `client_app/modules.generated.css` — Tailwind `@source` entries, plus an
   `@import` per module-shipped stylesheet (see [Styling](#styling))
 - `client_app/modules.assets.json` — the per-module asset record that
-  `vite.config.ts` builds its `#module/<pkg>` aliases from
+  `vite.config.ts` builds its `server.fs.allow` entries (and the optional
+  `#module/<pkg>` aliases) from
 
 Vite's `server.fs.allow` is extended to cover each installed module's
 package root, so pages shipped inside a wheel work for the dev server and
 production build alike.
 
 **Inertia pages never need pre-bundling.** The consuming host's Vite build
-compiles `pages/*.tsx` straight out of the installed wheel (via the
-`#module/<pkg>` aliases + `server.fs.allow`). `static/dist/` +
+compiles `pages/*.tsx` straight out of the installed wheel (via
+`modules.generated.ts` + `server.fs.allow`). `static/dist/` +
 `static_mounts()` exist only for assets *outside* that pipeline — vendor JS,
 standalone widgets, images. Build them with `smpy module build` (see
 [Developing out-of-tree](#developing-out-of-tree)) and expose them via
@@ -271,6 +272,53 @@ class MyModule(ModuleBase):
 ```
 
 The host mounts each entry as `StaticFiles` during boot.
+
+### Importing another module's TS/TSX
+
+Use the sibling's **npm package name** — the `name` in its `package.json`:
+
+```tsx
+import { BlockRegistry } from '@simple-module-py/pagebuilder/components/blockRegistry';
+```
+
+The host builds that alias from `modules.assets.json` and points it at the
+sibling's **Python package directory** (`my_module/`). So everything after the
+package name is a path *inside* that package — `components/…`, `pages/…`,
+mirroring the layout in [Anatomy of a module package](#anatomy-of-a-module-package).
+
+That anchor is forced rather than chosen, and it is worth understanding because
+the obvious alternative silently half-works:
+
+| | wheel install | workspace / editable |
+|---|---|---|
+| Python package | `site-packages/foo/` | `modules/foo/foo/` |
+| `package.json` | `site-packages/foo/package.json` | `modules/foo/package.json` |
+| module root | **does not exist** | `modules/foo/` |
+
+A wheel ships `site-packages/foo/**` and nothing above it — Hatch force-includes
+the module-root `package.json` *into* the package. The source-tree module root
+therefore does not survive installation, and the Python package directory is the
+only anchor both layouts share.
+
+This means the shape npm gives you for a workspace member is the wrong one:
+
+```tsx
+// ✅ same file in both layouts
+import x from '@simple-module-py/foo/components/Widget';
+
+// ❌ workspace-only. npm symlinks @simple-module-py/foo -> modules/foo/, so
+//    this happens to resolve in a checkout and breaks once foo is wheel-installed.
+import x from '@simple-module-py/foo/foo/components/Widget';
+```
+
+Declare the sibling in your `package.json` `peerDependencies` so the dependency
+is explicit. Nothing pre-bundles it — it resolves to source, not to a
+node_modules package.
+
+Note this is the one part of module frontend wiring that *does* depend on the
+host's `vite.config.ts`, because the import lives in your source rather than in
+a generated file. Apps scaffolded before this shipped need the alias block added
+— see the CHANGELOG entry for the diff.
 
 ## Styling
 
@@ -290,16 +338,25 @@ my_module/
 `client_app/modules.generated.css`:
 
 ```css
-@import "#module/my_module/theme.css";
-@import "#module/my_module/styles.css" layer(components);
+@import "/abs/path/to/site-packages/my_module/theme.css";
+@import "/abs/path/to/site-packages/my_module/styles.css" layer(components);
 ```
 
-**Nothing needs to be added to the host's `styles.css` by hand.** The
-`#module/<pkg>` specifier is a Vite alias built from `modules.assets.json`,
-so it resolves identically whether the module is a workspace member or
-installed from a wheel — and no generated file ends up containing a
-`../../../.venv/lib/python3.12/site-packages/...` path that would break the
-next time the interpreter version changes.
+**Nothing needs to be added to the host's `styles.css` by hand, and nothing
+needs to be added to its `vite.config.ts` either.** The paths are absolute —
+resolved through `importlib.resources`, exactly like the `@source` entries in
+the same file — so they resolve identically whether the module is a workspace
+member or installed from a wheel, under any host config.
+
+That last part is load-bearing. `modules.generated.css` is regenerated from
+whatever Python packages are installed, but `vite.config.ts` is *scaffold
+output*: written into an app once and then owned and edited there. The two are
+versioned independently, so anything the generated file emits must resolve
+without host cooperation. Emitting a `#module/<pkg>` alias specifier instead
+broke exactly this way — upgrading the Python packages alone made the build
+fail on a specifier the app had never written ([#253]).
+
+[#253]: https://github.com/antosubash/simple_module_python/issues/253
 
 Imports are emitted in module discovery order, which is topological by
 `ModuleMeta.depends_on`. A module that depends on another can therefore
@@ -372,7 +429,7 @@ npm run typecheck    # tsc --noEmit over your pages
 
 `tsc` alone cannot tell you whether your pages and `theme.css`/`styles.css`
 survive a real host build (Vite import resolution, Tailwind scanning, the
-`#module/<pkg>` alias plumbing). `verify` answers that by scaffolding a
+`gen-pages` CSS emission). `verify` answers that by scaffolding a
 throwaway host into `.smpy/verify-host/` (cached, gitignored), installing
 your module into it as an editable path dependency, and running the host's
 real `gen-pages` + `npm run build`:

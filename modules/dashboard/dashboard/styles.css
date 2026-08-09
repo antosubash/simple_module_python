@@ -1,9 +1,9 @@
 /* Dashboard module component styles.
  *
- * Picked up automatically by `smpy host gen-pages`, which emits
- *   @import "#module/dashboard/styles.css" layer(components);
+ * Picked up automatically by `smpy host gen-pages`, which emits an
+ *   @import "<abs path to this file>" layer(components);
  * into host/client_app/modules.generated.css. Nothing needs to be added to
- * the host's styles.css by hand.
+ * the host's styles.css — or its vite.config.ts — by hand.
  *
  * Rules here live in layer(components) and therefore always lose to a
  * Tailwind utility, so a consuming app can still override any of this with
