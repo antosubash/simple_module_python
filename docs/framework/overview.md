@@ -92,4 +92,4 @@ This is how the `auth.user` shared prop is built: framework middleware calls wha
 - [Lifecycle hooks](/framework/lifecycle) — the lifecycle hooks in call order with examples.
 - [Middleware pipeline](/framework/middleware) — execution order and how to slot your own in.
 - [Settings & app.state](/framework/settings) — framework vs. module state.
-- [Bundled modules](/modules/) — the ten first-party modules and what each one ships.
+- [Bundled modules](/modules/) — the twelve first-party modules and what each one ships.

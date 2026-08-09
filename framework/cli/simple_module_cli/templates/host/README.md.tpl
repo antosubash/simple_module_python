@@ -14,7 +14,7 @@ cp .env.example .env
 # First time only — initialize the migration history for the modules you
 # picked. Inspect the generated file, then apply it.
 alembic revision --autogenerate -m "initial schema"
-alembic upgrade head
+alembic upgrade heads
 
 # Run the API
 python main.py
@@ -39,7 +39,7 @@ uv add simple_module_my_module
 
 # 2) generate & apply the migration (new tables + any schema changes)
 alembic revision --autogenerate -m "add my-module"
-alembic upgrade head
+alembic upgrade heads
 
 # 3) restart the host — the module's routes, menu items, permissions,
 #    feature flags, events, and health checks register automatically

@@ -200,7 +200,7 @@ installed or a module's models change:
 pip install simple_module_my_module
 alembic revision --autogenerate -m "add my-module"
 # review the generated file
-alembic upgrade head
+alembic upgrade heads
 ```
 
 The host's `env.py` (scaffolded from the framework's template) calls:

@@ -44,6 +44,7 @@ meta = ModuleMeta(
     view_prefix="/orders",  # where the view router mounts
     depends_on=["Products"],  # hard ordering requirements
     version="1.0.0",  # semver for the module
+    i18n_audience="public",  # who gets this module's locale catalog
 )
 ```
 
@@ -71,6 +72,16 @@ A list of other modules' `meta.name` values that **must be loaded first**. The f
 ### `version`
 
 Semver string. Used in diagnostic/boot logging to help operators correlate deployed module versions with bug reports. Unless a module declares `requires_framework`, it is not parsed for automated version-range checks.
+
+### `requires_framework`
+
+Optional PEP 440 specifier (e.g. `">=1.0,<2.0"`) for the framework API version the module supports. When set, the module is rejected at boot if the installed `simple_module_core.FRAMEWORK_API_VERSION` doesn't satisfy it. When `None` (the default), no compatibility check runs. See [module authoring](/module-authoring).
+
+### `i18n_audience`
+
+Who the module's locale catalog is shipped to — `"public"` (the default) or `"admin"`.
+
+Catalogs ride the Inertia shared props on full page loads, so a module whose UI sits entirely behind login can declare `i18n_audience="admin"` and stop anonymous visitors downloading admin form labels on every public page. The catalog is shipped as soon as the user authenticates, and server-side `Translator` lookups always see every namespace either way. See [Internationalization → Audience](/framework/i18n#audience).
 
 ## The `simple_module` group
 
