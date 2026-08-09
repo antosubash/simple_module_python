@@ -168,15 +168,13 @@ class TestCreateApp:
         (tmp_path / "host" / "templates").mkdir(parents=True)
         (tmp_path / "host" / "templates" / "index.html").write_text("<html></html>")
 
-        # Exclude Keycloak — both ``users`` and ``keycloak`` are installed as
-        # entry points in the dev workspace. SM020 fires if both are present
-        # because the app is only meant to run with one auth provider.
-        from simple_module_core.discovery import discover_modules
-
-        all_names = [m.meta.name for m in discover_modules() if m.meta.name != "Keycloak"]
-        app = create_app(Settings(modules_enabled=all_names))
+        # Every installed module, Keycloak included: both auth providers are
+        # entry points in the dev workspace and create_app is expected to
+        # activate one (SM_AUTH_PROVIDER) rather than fail the boot on SM020.
+        app = create_app(Settings())
 
         sm = app.state.sm
+        assert [m.meta.name for m in sm.modules].count("Keycloak") == 0
         assert isinstance(sm, Services)
         assert sm.settings is not None
         assert sm.db is not None

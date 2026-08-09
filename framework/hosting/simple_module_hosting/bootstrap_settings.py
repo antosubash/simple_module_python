@@ -11,6 +11,7 @@ from typing import Literal
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
 _PLACEHOLDER_SECRET_KEY = "change-me-in-production"
@@ -45,6 +46,14 @@ class BootstrapSettings(BaseSettings):
     log_format: Literal["json", "text"] = "json"
 
     modules_enabled: list[str] | None = None
+
+    auth_provider: str = DEFAULT_AUTH_PROVIDER
+    """Which auth provider module to activate (``SM_AUTH_PROVIDER``).
+
+    ``users`` and ``keycloak`` both provide authentication and only one may be
+    active at a time. When both are installed this picks the winner; the other
+    is skipped at discovery. Ignored when only one is installed.
+    """
 
     auth_public_paths: list[str] = []
     """Host-level anonymous-access path prefixes (``SM_AUTH_PUBLIC_PATHS``).

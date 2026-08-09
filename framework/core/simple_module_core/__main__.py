@@ -25,7 +25,12 @@ from simple_module_core.diagnostics import (
     print_diagnostics,
     run_diagnostics,
 )
-from simple_module_core.discovery import discover_modules, topological_sort
+from simple_module_core.discovery import (
+    discover_modules,
+    resolve_auth_provider,
+    select_auth_provider,
+    topological_sort,
+)
 from simple_module_core.dotenv import parse_dotenv
 from simple_module_core.exceptions import InvalidModuleError
 
@@ -99,6 +104,10 @@ def main() -> int:
     if not modules:
         print("No modules discovered. Is the project installed (`uv sync --all-packages`)?")
         return 0
+
+    # Mirror the host: only the configured auth provider is active, so doctor
+    # reports on the same module set the app actually boots with.
+    modules = select_auth_provider(modules, resolve_auth_provider())
 
     # Topological sort surfaces CircularDependencyError early.
     modules = topological_sort(modules)

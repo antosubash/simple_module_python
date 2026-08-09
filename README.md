@@ -117,6 +117,7 @@ Local deployments only need one env var — everything else has sensible default
 | `SM_ENVIRONMENT` | `development` | No — any value other than `development`, `test`, `testing` triggers strict discovery and placeholder-secret checks |
 | `SM_SECRET_KEY` | `change-me-in-production` | No in dev; **must** be overridden in production |
 | `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only — Vite HMR origin |
+| `SM_AUTH_PROVIDER` | `users` | No — `users` or `keycloak`. Only read when both are installed; see [Auth providers](#auth-providers-users-or-keycloak) |
 
 Power users can still override the following bootstrap knobs via env if needed: `SM_DB_POOL_SIZE`, `SM_DB_MAX_OVERFLOW`, `SM_DB_POOL_PRE_PING`, `SM_DB_POOL_RECYCLE`, `SM_DEBUG`, `SM_LOG_LEVEL`, `SM_LOG_FORMAT`, `SM_MODULES_ENABLED`. These are needed before the DB connection is open.
 
@@ -159,6 +160,47 @@ The frontend uses an emerald + teal design system mirrored as Tailwind 4 tokens.
 The 300-line file cap (enforced by CI) usually pushes you to factor row-level components into `pages/components/` — see `modules/users/users/components/UserRow.tsx` and `modules/dashboard/dashboard/pages/components/doctor-data.ts` for the pattern.
 
 ## User management
+
+### Auth providers: users **or** keycloak, never both
+
+This repo ships two authentication providers, and **exactly one can be active at a time**:
+
+| Module | What it does |
+|---|---|
+| `users` (default) | Local accounts — password login, invites, signup, roles, an admin UI |
+| `keycloak` | Delegates authentication to a Keycloak realm over OIDC |
+
+Both claim the same slot (`app.state.auth.auth_provider`), so running them together
+is a misconfiguration, not a supported combination. Installing both and activating
+neither is reported as `SM020` (error — fails boot); installing neither is `SM021`.
+
+`uv sync --all-packages` installs *every* workspace member, so a dev clone has both
+packages on disk. The host therefore activates one and skips the other rather than
+failing on `SM020`, and **`users` is the default** — `keycloak` is installed but inert
+until you ask for it. To switch:
+
+```bash
+# .env
+SM_AUTH_PROVIDER=keycloak
+```
+
+Then re-run `make gen-pages` so the frontend manifest picks up the active provider's
+pages (`make dev` does this for you), and configure the realm under
+`/settings/modules`. Switching back is the same knob set to `users`.
+
+Two caveats when running Keycloak:
+
+- `dashboard`, `permissions`, `audit_log`, and `background_tasks` declare a
+  dependency on the `Users` **module** and import from the `users` package, so
+  `simple_module_users` still has to be installed even though it is inactive. A
+  host that wants Keycloak *and* none of the local-account machinery should leave
+  those modules out of its own dependency list.
+- The local-account flows (`/users/login`, invites, signup, the sections below)
+  belong to the `users` module and are gone while Keycloak is active — Keycloak's
+  realm owns login, logout, and user administration instead.
+
+Only one provider is ever discovered, so nothing here changes if you install just one
+of the two: a host that ships only `keycloak` keeps it regardless of `SM_AUTH_PROVIDER`.
 
 ### Creating the first admin
 

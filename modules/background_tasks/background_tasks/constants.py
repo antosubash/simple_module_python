@@ -18,6 +18,9 @@ TABLE_TASK_EXECUTION = f"{TABLE_PREFIX}task_execution"
 
 # ── Module dependencies ─────────────────────────────────────────
 _MODULE_USERS = "Users"
+# register_settings() calls settings.registration.register_module_settings,
+# which reads app.state.settings — so Settings must register first.
+_MODULE_SETTINGS = "Settings"
 
 # ── Env / settings ──────────────────────────────────────────────
 ENV_PREFIX = "SM_BG_TASKS_"

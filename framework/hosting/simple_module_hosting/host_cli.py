@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from simple_module_core import discover_modules
+from simple_module_core import discover_modules, resolve_auth_provider, select_auth_provider
 
 from simple_module_hosting.manifest import (
     collect_module_js_deps,
@@ -42,7 +42,9 @@ def gen_pages(
     if not host_dir.is_dir():
         typer.echo(f"ERROR: client_app directory not found at {host_dir}", err=True)
         raise typer.Exit(code=1)
-    modules = discover_modules()
+    # Skip the auth provider the host won't boot — its pages would otherwise
+    # ship in the bundle with no view endpoint able to render them.
+    modules = select_auth_provider(discover_modules(), resolve_auth_provider())
     written = write_module_pages_manifest(modules, host_dir)
     typer.echo(
         f"Module pages manifest: {len(modules)} module(s) "
@@ -70,7 +72,7 @@ def sync_js_deps(
         typer.echo(f"ERROR: client_app directory not found at {host_client_app}", err=True)
         raise typer.Exit(code=1)
 
-    modules = discover_modules()
+    modules = select_auth_provider(discover_modules(), resolve_auth_provider())
     by_module = collect_module_js_deps(modules)
     if not by_module:
         typer.echo("No module JS dependencies declared.")

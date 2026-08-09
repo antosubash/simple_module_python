@@ -12,7 +12,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from simple_module_core.design_packs import DesignPackRegistry
 from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
-from simple_module_core.discovery import discover_modules, topological_sort
+from simple_module_core.discovery import discover_modules, select_auth_provider, topological_sort
 from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagRegistry
 from simple_module_core.health import HealthRegistry
@@ -120,6 +120,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         enabled=settings.modules_enabled,
         strict=not settings.is_development,
     )
+    # Two auth providers can be installed at once (they are in this workspace);
+    # only the configured one is activated. See select_auth_provider / SM020.
+    modules = select_auth_provider(modules, settings.auth_provider)
     modules = topological_sort(modules)
     logger.info(
         "Loaded %d module(s): %s",
