@@ -50,6 +50,33 @@ class TestComputeModuleAssets:
         assert entry.styles_css is not None and entry.styles_css.name == "styles.css"
         assert entry.pages_dir is not None
 
+    async def test_detects_components_dir(self, tmp_path):
+        """A module shipping components/ has it detected — its widgets carry
+        Tailwind classes the build has to scan just like a page's."""
+        from simple_module_hosting.assets import compute_module_assets
+
+        mod, pkg = _make_importable_module(tmp_path, "widget_mod", "Widgets")
+        (pkg / "components").mkdir()
+
+        result = compute_module_assets([mod])
+
+        assert len(result) == 1
+        assert result[0].components_dir is not None
+        assert result[0].components_dir.name == "components"
+
+    async def test_components_only_module_is_included(self, tmp_path):
+        """A module with only components/ (no pages/, no css) still appears."""
+        from simple_module_hosting.assets import compute_module_assets
+
+        mod, pkg = _make_importable_module(tmp_path, "conly_mod", "ComponentsOnly")
+        (pkg / "components").mkdir()
+
+        result = compute_module_assets([mod])
+
+        assert [e.name for e in result] == ["ComponentsOnly"]
+        assert result[0].components_dir is not None
+        assert result[0].pages_dir is None
+
     async def test_css_only_module_is_included(self, tmp_path):
         """A module with CSS but no pages/ still appears — the manifest.json gap."""
         from simple_module_hosting.assets import compute_module_assets
@@ -94,6 +121,7 @@ def _assets(tmp_path: Path, **overrides):
         "package_name": "gis",
         "package_dir": tmp_path / "gis",
         "pages_dir": None,
+        "components_dir": None,
         "theme_css": None,
         "styles_css": None,
     }
@@ -141,6 +169,34 @@ class TestCssEmission:
         css = render_modules_css([_assets(tmp_path, pages_dir=pages)], in_repo=lambda _p: False)
 
         assert f'@source "{pages.as_posix()}/**/*.{{ts,tsx}}";' in css
+
+    async def test_components_source_emitted_for_wheel_modules(self, tmp_path):
+        """A wheel module's components/ gets its own absolute @source glob.
+
+        This is the class scanning a widget's ``lg:flex`` depends on. Emitting
+        the resolved path via ``as_posix`` (not a hand-written
+        ``.venv/lib/python3.x/...`` line) is what keeps the build working on a
+        Windows ``.venv/Lib/site-packages`` layout too.
+        """
+        from simple_module_hosting.assets import render_modules_css
+
+        components = tmp_path / "gis" / "components"
+        css = render_modules_css(
+            [_assets(tmp_path, components_dir=components)], in_repo=lambda _p: False
+        )
+
+        assert f'@source "{components.as_posix()}/**/*.{{ts,tsx}}";' in css
+
+    async def test_components_source_skips_in_repo(self, tmp_path):
+        """In-repo module components are already covered by the host's static glob."""
+        from simple_module_hosting.assets import render_modules_css
+
+        css = render_modules_css(
+            [_assets(tmp_path, components_dir=tmp_path / "gis" / "components")],
+            in_repo=lambda _p: True,
+        )
+
+        assert "@source" not in css
 
     async def test_module_without_css_emits_no_import(self, tmp_path):
         """Pages-only modules contribute @source but no @import."""
@@ -203,7 +259,7 @@ class TestAssetsManifest:
         entry = data["Dashboard"]
         assert entry["package_name"] == "dashboard"
         assert entry["package"].endswith("dashboard")
-        assert set(entry) == {"package_name", "package", "pages", "theme", "styles"}
+        assert set(entry) == {"package_name", "package", "pages", "components", "theme", "styles"}
 
     async def test_manifest_json_shape_unchanged(self, tmp_path):
         """modules.manifest.json stays {name: pages_dir} for downstream vite configs.

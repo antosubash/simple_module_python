@@ -44,6 +44,7 @@ class ModuleAssets:
     package_name: str
     package_dir: Path
     pages_dir: Path | None
+    components_dir: Path | None
     theme_css: Path | None
     styles_css: Path | None
 
@@ -69,6 +70,7 @@ def compute_module_assets(modules: Sequence[ModuleBase]) -> list[ModuleAssets]:
             )
             continue
         pages_dir = pkg_root / "pages"
+        components_dir = pkg_root / "components"
         theme = pkg_root / THEME_CSS
         styles = pkg_root / STYLES_CSS
         entry = ModuleAssets(
@@ -76,10 +78,11 @@ def compute_module_assets(modules: Sequence[ModuleBase]) -> list[ModuleAssets]:
             package_name=pkg_name,
             package_dir=pkg_root.resolve(),
             pages_dir=pages_dir.resolve() if pages_dir.is_dir() else None,
+            components_dir=components_dir.resolve() if components_dir.is_dir() else None,
             theme_css=theme.resolve() if theme.is_file() else None,
             styles_css=styles.resolve() if styles.is_file() else None,
         )
-        if entry.pages_dir or entry.theme_css or entry.styles_css:
+        if entry.pages_dir or entry.components_dir or entry.theme_css or entry.styles_css:
             result.append(entry)
     return result
 
@@ -104,16 +107,26 @@ def render_modules_css(
 ) -> str:
     """Render the contents of ``modules.generated.css``.
 
-    ``@source`` is emitted only for wheel-installed modules — in-repo module
-    pages are already covered by the static ``@source`` glob in the host's
-    ``styles.css``, so emitting an absolute one too would just duplicate it.
+    ``@source`` is emitted for a wheel-installed module's ``pages/`` **and**
+    ``components/`` — both hold ``.tsx`` carrying Tailwind classes (a widget's
+    ``lg:flex`` is as real as a page's), and neither is covered by the host's
+    static glob, which only reaches in-repo ``modules/*``. In-repo modules are
+    skipped here because that static glob already covers them; emitting an
+    absolute path too would just duplicate it.
+
+    These are absolute ``as_posix()`` paths, so the same generated file works on
+    POSIX and Windows — unlike a hand-written ``.venv/lib/python3.x/...`` line,
+    which silently matches nothing on a Windows ``.venv/Lib/site-packages``
+    layout and drops every widget class from the build.
+
     ``@import`` is emitted for *every* module, in-repo and wheel alike, because
     there is no static-glob equivalent for CSS.
     """
     source_lines = [
-        f'@source "{e.pages_dir.as_posix()}/**/*.{{ts,tsx}}";'
+        f'@source "{d.as_posix()}/**/*.{{ts,tsx}}";'
         for e in assets
-        if e.pages_dir and not in_repo(e.pages_dir)
+        for d in (e.pages_dir, e.components_dir)
+        if d and not in_repo(d)
     ]
     theme_lines = [
         f'@import "{ALIAS_PREFIX}/{e.package_name}/{THEME_CSS}";' for e in assets if e.theme_css
@@ -152,6 +165,7 @@ def render_assets_json(assets: Sequence[ModuleAssets]) -> str:
             "package_name": e.package_name,
             "package": e.package_dir.as_posix(),
             "pages": e.pages_dir.as_posix() if e.pages_dir else None,
+            "components": e.components_dir.as_posix() if e.components_dir else None,
             "theme": e.theme_css.as_posix() if e.theme_css else None,
             "styles": e.styles_css.as_posix() if e.styles_css else None,
         }
