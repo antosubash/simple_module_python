@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_settings"
-version = "0.0.29"
+version = "0.0.30"
 description = "Runtime settings UI — modules plug their own settings panels into a shared admin view"
 readme = "README.md"
 license = "MIT"
@@ -21,9 +21,9 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "simple_module_core==0.0.29",
-    "simple_module_db==0.0.29",
-    "simple_module_hosting==0.0.29",
+    "simple_module_core==0.0.30",
+    "simple_module_db==0.0.30",
+    "simple_module_hosting==0.0.30",
     "typer>=0.12",
 ]
 
