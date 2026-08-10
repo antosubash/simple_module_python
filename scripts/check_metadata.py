@@ -1,6 +1,10 @@
-"""Enforce per-package metadata rules across all 17 published packages.
+"""Enforce per-package metadata rules across every published package.
 
 Rules:
+  * Every package under framework/* and modules/* must appear in the
+    publish-pypi matrix of `.github/workflows/release.yml` (and vice versa) —
+    a workspace package missing from the matrix builds a wheel on every
+    release and then silently never reaches PyPI.
   * Every `pyproject.toml` under framework/* and modules/* must have:
       - name starting with "simple_module_"
       - non-placeholder description (not "Add your description here" or empty)
@@ -24,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -31,6 +36,13 @@ import tomlkit
 
 CANONICAL_REPO = "https://github.com/antosubash/simple_module_python"
 PLACEHOLDER_DESCRIPTIONS = {"", "Add your description here"}
+RELEASE_WORKFLOW = Path(".github/workflows/release.yml")
+
+# The publish-pypi job body: every line after the job key until the next
+# sibling job (a line indented exactly two spaces).
+_PUBLISH_JOB_RE = re.compile(r"^  publish-pypi:\n(?P<body>(?:(?!^  \S).*\n)*)", re.M)
+# The flat `package:` list inside that job's build matrix.
+_MATRIX_RE = re.compile(r"^ +package:\n(?P<items>(?: +- \S+\n)+)", re.M)
 
 
 def check_python_package(pyproject: Path) -> list[str]:
@@ -128,6 +140,60 @@ def discover_npm_packages(root: Path) -> list[Path]:
     return found
 
 
+def parse_publish_matrix(workflow: Path) -> list[str]:
+    """Return the distribution names in the release workflow's publish-pypi matrix.
+
+    Parsed with a targeted regex rather than a YAML dependency — the block is a
+    flat list in a file we own. A parse miss raises instead of returning an
+    empty list, so a workflow reshuffle fails loudly here rather than quietly
+    reporting that every package is unpublished.
+    """
+    text = workflow.read_text(encoding="utf-8")
+    job = _PUBLISH_JOB_RE.search(text)
+    if job is None:
+        raise ValueError(f"{workflow}: no 'publish-pypi:' job found")
+    matrix = _MATRIX_RE.search(job.group("body"))
+    if matrix is None:
+        raise ValueError(f"{workflow}: publish-pypi job has no 'package:' matrix list")
+    return [line.split("- ", 1)[1].strip() for line in matrix.group("items").splitlines()]
+
+
+def check_release_matrix(root: Path) -> list[str]:
+    """Cross-check discovered workspace packages against the publish-pypi matrix.
+
+    Catches the failure mode where a new module ships, builds, and is offered
+    by the CLI, but was never added to the release matrix — so `pip install`
+    of it 404s forever. Hit twice already: simple_module_branding, then
+    simple_module_site_lock.
+    """
+    workflow = root / RELEASE_WORKFLOW
+    if not workflow.exists():
+        # main() also runs against partial trees (tests, scaffolded apps);
+        # only enforce the matrix where a release workflow actually exists.
+        return []
+
+    published = set(parse_publish_matrix(workflow))
+    packaged = set()
+    for pyproject in discover_python_packages(root):
+        data = tomlkit.parse(pyproject.read_text(encoding="utf-8"))
+        name = str(data.get("project", {}).get("name", ""))
+        if name:
+            packaged.add(name)
+
+    errors: list[str] = []
+    for name in sorted(packaged - published):
+        errors.append(
+            f"{RELEASE_WORKFLOW}: '{name}' is a workspace package but is missing from the "
+            "publish-pypi matrix — it would build on release and never reach PyPI"
+        )
+    for name in sorted(published - packaged):
+        errors.append(
+            f"{RELEASE_WORKFLOW}: publish-pypi matrix lists '{name}', which is not a "
+            "workspace package — that release job fails with no matching artifact"
+        )
+    return errors
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -144,6 +210,7 @@ def main(argv: list[str] | None = None) -> int:
         all_errors.extend(check_python_package(pyproject))
     for pkg in discover_npm_packages(root):
         all_errors.extend(check_npm_package(pkg))
+    all_errors.extend(check_release_matrix(root))
 
     if all_errors:
         for e in all_errors:
