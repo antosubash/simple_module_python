@@ -125,6 +125,7 @@ jobs:
           - simple_module_keycloak
           - simple_module_permissions
           - simple_module_settings
+          - simple_module_site_lock
           - simple_module_users
     environment:
       name: pypi
