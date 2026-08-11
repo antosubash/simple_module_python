@@ -9,7 +9,7 @@ strings below match what ``pages/*.tsx`` declare.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from inertia import InertiaResponse
 from pydantic import ValidationError
 from simple_module_hosting.inertia_deps import InertiaDep
@@ -26,6 +26,7 @@ from settings.constants import (
     VIEW_CREATE_PATH,
     VIEW_EDIT_PATH,
     VIEW_MODULES_PATH,
+    VIEW_STORE_PATH,
 )
 from settings.contracts.schemas import SettingCreate, SettingUpdate
 from settings.deps import get_setting_service
@@ -36,16 +37,25 @@ _PAGE_CREATE = "Settings/Create"
 _PAGE_EDIT = "Settings/Edit"
 _PAGE_MODULES_EDIT = "Settings/ModulesEdit"
 
-_REDIRECT_SETTINGS = "/settings"
+# Row-level actions return to the raw store they were performed in, not to
+# the module forms that now own the section root.
+_REDIRECT_SETTINGS = "/settings/store"
+_REDIRECT_MODULES = "/settings/"
 
 router = APIRouter()
 
 
-@router.get("/", response_model=None)
+@router.get(VIEW_STORE_PATH, response_model=None)
 async def browse(
     inertia: InertiaDep,
     service: SettingService = Depends(get_setting_service),
 ) -> InertiaResponse:
+    """The raw key/value store.
+
+    Moved off the section root: it is a database view, and an admin who clicks
+    "Settings" is nearly always after a module's form, not a table of rows
+    keyed by dotted strings.
+    """
     items = await service.list_all()
     return await inertia.render(
         _PAGE_BROWSE,
@@ -53,9 +63,38 @@ async def browse(
     )
 
 
+@router.get(VIEW_MODULES_PATH, response_model=None)
+async def modules_redirect() -> RedirectResponse:
+    """The per-module forms moved to the section root; keep old links alive."""
+    return RedirectResponse(_REDIRECT_MODULES, status_code=308)
+
+
 @router.get(VIEW_CREATE_PATH, response_model=None)
-async def create_view(inertia: InertiaDep) -> InertiaResponse:
-    return await inertia.render(_PAGE_CREATE)
+async def create_view(request: Request, inertia: InertiaDep) -> InertiaResponse:
+    return await inertia.render(_PAGE_CREATE, {"known_keys": _known_keys(request)})
+
+
+def _known_keys(request: Request) -> list[dict[str, str]]:
+    """Every ``<package>.<field>`` a module actually reads, for autocomplete.
+
+    The key field is free text, and a typo produces a row that looks saved and
+    is silently never read — the failure gives no feedback at all. Suggesting
+    the registered keys makes the common case unmissable without forbidding
+    the uncommon one: keys outside this list stay valid, since a module can
+    read settings the settings module cannot enumerate.
+    """
+    suggestions: list[dict[str, str]] = []
+    for view in collect_module_settings(request.app):
+        for field in view.fields:
+            suggestions.append(
+                {
+                    "key": f"{view.package}.{field.name}",
+                    "type": field.type,
+                    "description": field.description,
+                    "module": view.module_name,
+                }
+            )
+    return sorted(suggestions, key=lambda s: s["key"])
 
 
 @router.get(VIEW_EDIT_PATH, response_model=None)
@@ -73,7 +112,9 @@ async def edit_view(
 # ── Form actions (POST/PUT/DELETE → redirect) ─────────────────
 
 
-@router.post("/", response_model=None)
+# Posts to the store collection, which is where the rows live now that the
+# section root renders the module forms.
+@router.post(VIEW_STORE_PATH, response_model=None)
 async def create_action(
     request: Request,
     service: SettingService = Depends(get_setting_service),
@@ -111,14 +152,89 @@ async def delete_action(
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 
 
-@router.get(VIEW_MODULES_PATH, response_model=None)
-async def modules_view(request: Request, inertia: InertiaDep) -> InertiaResponse:
+@router.get("/", response_model=None)
+async def modules_view(
+    request: Request,
+    inertia: InertiaDep,
+    service: SettingService = Depends(get_setting_service),
+) -> InertiaResponse:
     """Read-only view of every module's pydantic ``BaseSettings`` instance.
 
     Auto-discovered from ``app.state.sm.modules``; secrets are masked server-side.
+    Each field also reports where its live value came from — a stored override,
+    an ``SM_*`` env var, or the field default — so a setting that "isn't taking
+    effect" explains itself.
     """
-    views = collect_module_settings(request.app)
+    overrides = await _overrides_by_package(request, service)
+    views = collect_module_settings(request.app, overrides)
     return await inertia.render(
         _PAGE_MODULES_EDIT,
-        {PROP_MODULES: serialize(views)},
+        {
+            PROP_MODULES: serialize(views),
+            # Which packages can be connection-tested, so the page only offers
+            # the button where something is actually reachable.
+            "testable": _testable_packages(request),
+        },
     )
+
+
+async def _overrides_by_package(
+    request: Request, service: SettingService
+) -> dict[str, frozenset[str]]:
+    """Map package -> field names carrying a stored override."""
+    from settings.store import SettingsStore
+
+    store = SettingsStore(service)
+    packages = {v.package for v in collect_module_settings(request.app)}
+    return {pkg: frozenset(await store.get_overrides(pkg)) for pkg in packages}
+
+
+def _testable_packages(request: Request) -> list[str]:
+    """Packages whose module registered at least one health check.
+
+    "Test connection" is just that module's health checks run on demand —
+    reusing the registry means settings never learns what an SMTP or an S3
+    connection is.
+    """
+    registry = request.app.state.sm.health_registry
+    owners = {c.module for c in registry.all_checks if c.module}
+    return sorted(
+        {
+            _package_of_module(mod)
+            for mod in getattr(request.app.state.sm, "modules", ())
+            if mod.meta.name in owners
+        }
+    )
+
+
+def _package_of_module(mod: object) -> str:
+    return type(mod).__module__.split(".", 1)[0]
+
+
+@router.post("/test-connection/{package}", response_model=None)
+async def test_connection(package: str, request: Request) -> dict:
+    """Run one module's health checks now and report each result.
+
+    Returns 200 with per-check results even when a check fails: an admin
+    testing a connection expects to read the failure, not to get an error
+    status with the reason buried.
+    """
+    modules = getattr(request.app.state.sm, "modules", ())
+    owner = next((m for m in modules if _package_of_module(m) == package), None)
+    if owner is None:
+        raise HTTPException(status_code=404, detail=f"Unknown module package: {package}")
+
+    checks = [c for c in request.app.state.sm.health_registry.all_checks if c.module == owner.meta.name]
+    if not checks:
+        raise HTTPException(status_code=404, detail=f"{owner.meta.name} has no connection to test")
+
+    results = []
+    for check in checks:
+        try:
+            outcome = await check.check()
+            results.append(
+                {"name": check.name, "status": outcome.status.value, "detail": outcome.detail or ""}
+            )
+        except Exception as exc:
+            results.append({"name": check.name, "status": "unhealthy", "detail": str(exc)})
+    return {"module": owner.meta.name, "checks": results}

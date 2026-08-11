@@ -48,6 +48,12 @@ VIEW_PREFIX: Final = "/settings"
 VIEW_CREATE_PATH: Final = "/create"
 VIEW_EDIT_PATH: Final = "/{setting_id}/edit"
 VIEW_MODULES_PATH: Final = "/modules"
+"""Legacy path for the per-module forms. Those now live at the section root;
+this redirects, so existing links and bookmarks keep working."""
+
+VIEW_STORE_PATH: Final = "/store"
+"""Raw key/value store. Demoted from the section root: it is a database view,
+and an admin looking for "settings" almost always wants the module forms."""
 API_BY_ID_PATH: Final = "/{setting_id}"
 API_BY_KEY_PATH: Final = "/by-key/{key}"
 API_RESOLVE_PATH: Final = "/resolve/{key}"

@@ -204,6 +204,18 @@ class UsersModule(ModuleBase):
             return name or default_app_name()
 
         state.mailer = build_mailer(s, _app_name)
+
+        # Registered here rather than in register_health_checks because the
+        # check needs the app to re-read DB-hydrated settings on every run.
+        # The owner is passed explicitly since the boot-time set_owner window
+        # has long closed by startup.
+        from simple_module_core.health import HealthCheck
+
+        from users.health import CHECK_MAILER, build_mailer_check
+
+        app.state.sm.health_registry.add(
+            HealthCheck(name=CHECK_MAILER, check=build_mailer_check(app), module=self.meta.name)
+        )
         state.rate_limiter = LoginRateLimiter(
             max_failures=s.login_rate_limit_failures,
             window_seconds=s.login_rate_limit_window_seconds,
