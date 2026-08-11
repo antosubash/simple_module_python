@@ -111,3 +111,45 @@ def test_page_renders_no_raw_i18n_keys(
         f"{leaked_placeholders}. i18next is configured with single-brace "
         "delimiters; a mismatch here leaves the variable literal in the output."
     )
+
+
+def test_dashboard_translated_immediately_after_login(
+    page: Page, e2e_username: str, e2e_password: str
+) -> None:
+    """The catalogue must be live on the page login lands on, with no reload.
+
+    The parametrised test above cannot catch this: it does ``page.goto(path)``
+    after logging in, and a full page load re-bootstraps i18n from scratch —
+    the path that always worked. The broken path is the client-side Inertia
+    navigation login performs, where the *audience* changes while the locale
+    does not.
+
+    Anonymous visitors get a public catalogue with admin-only modules withheld.
+    Signing in ships the fuller one, but the client dropped it (it only adopted
+    a catalogue when the *locale* changed), and even once adopted, react-i18next
+    re-rendered nothing because it binds to no resource-store events by default.
+    Net effect: every admin screen showed raw keys — "dashboard.home.title" as
+    the page heading — until the user happened to hard-refresh.
+
+    So: log in, then assert on whatever the app navigated to, touching nothing.
+    """
+    page.goto("/")
+    _login(page, e2e_username, e2e_password)
+
+    # No goto() here — that is the whole point.
+    page.wait_for_load_state("networkidle")
+
+    heading = page.get_by_role("heading", level=1).first.inner_text()
+    assert heading.strip(), "dashboard rendered no h1 after login"
+    assert "." not in heading, (
+        f"dashboard heading rendered a raw i18n key after login: {heading!r}. "
+        "The catalogue that arrived with the post-login navigation was not "
+        "applied — see packages/i18n (react.bindI18nStore) and "
+        "host/client_app/i18n.ts (adopt any non-null messages payload)."
+    )
+
+    body = page.locator("body").inner_text()
+    catalogue = _translation_keys(page)
+    if catalogue:
+        leaked = sorted(set(_DOTTED_TOKEN.findall(body)) & catalogue)
+        assert not leaked, f"dashboard rendered untranslated keys immediately after login: {leaked}"
