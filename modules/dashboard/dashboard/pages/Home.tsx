@@ -48,14 +48,30 @@ function Home() {
   // The server cannot filter these links per user — the stats payload is
   // process-wide cached — so reachability is decided here against the menus
   // the middleware already filtered for this session.
-  const reachableUrls = new Set(
-    [
-      ...(menus?.sidebar ?? []),
-      ...(menus?.adminSidebar ?? []),
-      ...(menus?.navbar ?? []),
-      ...(menus?.userDropdown ?? []),
-    ].map((item) => item.url.replace(/\/+$/, '')),
-  );
+  const menuUrls = [
+    ...(menus?.sidebar ?? []),
+    ...(menus?.adminSidebar ?? []),
+    ...(menus?.navbar ?? []),
+    ...(menus?.userDropdown ?? []),
+  ].map((item) => item.url);
+
+  /**
+   * The menu entry this module's tile should open, or '' when the user has
+   * none.
+   *
+   * Matching the view prefix exactly is not enough: a module often mounts its
+   * landing screen below its own prefix (Users is `/users`, its menu entry is
+   * `/users/admin`), and an exact match leaves those tiles permanently inert
+   * for admins who can in fact open them. So fall back to the first menu entry
+   * that lives under the prefix.
+   */
+  function menuTarget(url: string): string {
+    if (!url) return '';
+    const prefix = url.replace(/\/+$/, '');
+    const exact = menuUrls.find((menuUrl) => menuUrl.replace(/\/+$/, '') === prefix);
+    if (exact) return exact;
+    return menuUrls.find((menuUrl) => menuUrl.startsWith(`${prefix}/`)) ?? '';
+  }
 
   const healthLabels: Record<string, string> = {
     healthy: t(keys.dashboard.home.health.healthy),
@@ -110,16 +126,19 @@ function Home() {
                 System
               </SectionTitle>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                {props.system_info.modules.map((m) => (
-                  <ModuleTile
-                    key={m.name}
-                    name={m.name}
-                    url={m.url}
-                    health={m.health}
-                    healthLabel={healthLabels[m.health]}
-                    reachable={!!m.url && reachableUrls.has(m.url.replace(/\/+$/, ''))}
-                  />
-                ))}
+                {props.system_info.modules.map((m) => {
+                  const target = menuTarget(m.url);
+                  return (
+                    <ModuleTile
+                      key={m.name}
+                      name={m.name}
+                      url={target}
+                      health={m.health}
+                      healthLabel={healthLabels[m.health]}
+                      reachable={!!target}
+                    />
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

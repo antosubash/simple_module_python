@@ -31,6 +31,7 @@ import {
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { Download, FileBox, Trash2 } from 'lucide-react';
+import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { type ContentTypeFacet, FileFilterBar } from './components/FileFilterBar';
 import { UploadDropzone } from './components/UploadDropzone';
@@ -85,18 +86,25 @@ function Browse() {
 
   const isFiltered = !!(filters?.q || filters?.content_type);
 
-  function navigate(next: { q: string; content_type: string }, page = 1) {
+  const navigate = useCallback((next: { q: string; content_type: string }, target = 1) => {
     const params: Record<string, string> = {};
     if (next.q) params.q = next.q;
     if (next.content_type) params.content_type = next.content_type;
-    if (page > 1) params.page = String(page);
+    if (target > 1) params.page = String(target);
     router.get(ROUTES.VIEW_BROWSE, params, { preserveState: true, preserveScroll: true });
-  }
+  }, []);
 
   // Changing a filter always returns to page 1 — page 4 of the previous
   // filter rarely exists under the new one, and an empty page reads as
   // "no results".
-  const applyFilters = (next: { q: string; content_type: string }) => navigate(next, 1);
+  //
+  // Stable identity matters: the filter bar debounces on this callback, so a
+  // fresh one each render would clear and restart the timer on every upload
+  // progress event and the search would never fire while a file is in flight.
+  const applyFilters = useCallback(
+    (next: { q: string; content_type: string }) => navigate(next, 1),
+    [navigate],
+  );
 
   const currentFilters = { q: filters?.q ?? '', content_type: filters?.content_type ?? '' };
   const totalPages = Math.max(1, Math.ceil(pagination.total / pagination.perPage));

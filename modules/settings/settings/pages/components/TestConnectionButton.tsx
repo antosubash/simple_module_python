@@ -2,6 +2,7 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { CheckCircle2, PlugZap, XCircle } from 'lucide-react';
 import { useState } from 'react';
+import { ROUTES } from '../routes';
 
 interface CheckResult {
   name: string;
@@ -28,7 +29,7 @@ export function TestConnectionButton({ pkg }: { pkg: string }) {
     setError(null);
     setResults(null);
     try {
-      const resp = await fetch(`/settings/test-connection/${pkg}`, { method: 'POST' });
+      const resp = await fetch(ROUTES.testConnection(pkg), { method: 'POST' });
       if (!resp.ok) throw new Error(resp.statusText);
       const body = await resp.json();
       setResults(body.checks ?? []);

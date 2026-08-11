@@ -72,6 +72,10 @@ function Edit() {
   );
 
   const [form, setForm] = useState<FormState>(initial);
+  // What is currently persisted. Starts at the server's values and advances
+  // per section as each save lands, so "unsaved changes" stays truthful even
+  // when only part of a save succeeded.
+  const [baseline, setBaseline] = useState<FormState>(initial);
   const [isActive, setIsActive] = useState(user.is_active);
   const [isVerified, setIsVerified] = useState(user.is_verified);
   const [saving, setSaving] = useState(false);
@@ -83,11 +87,12 @@ function Edit() {
   // values against a record that has already moved on.
   useEffect(() => {
     setForm(initial);
+    setBaseline(initial);
     setError(null);
   }, [initial]);
 
-  const detailsDirty = form.email !== initial.email || form.fullName !== initial.fullName;
-  const rolesDirty = !sameRoles(form.roles, initial.roles);
+  const detailsDirty = form.email !== baseline.email || form.fullName !== baseline.fullName;
+  const rolesDirty = !sameRoles(form.roles, baseline.roles);
   const dirty = detailsDirty || rolesDirty;
 
   // One dirty state is only honest if leaving with unsaved changes is hard to
@@ -113,6 +118,12 @@ function Edit() {
     try {
       // Only the parts that changed — sending roles untouched would rewrite
       // every assignment's audit trail for an edit that never touched them.
+      //
+      // The baseline advances per section as each one lands. If details save
+      // and roles then fail, the page must stop calling the details edit
+      // "unsaved" — it is already persisted, and saying otherwise invites the
+      // admin to redo work or distrust the indicator entirely. Reloading
+      // instead would throw away the role edit they still have pending.
       if (detailsDirty) {
         const resp = await fetch(`/api/users/admin/${user.id}`, {
           method: 'PATCH',
@@ -124,6 +135,7 @@ function Edit() {
           setError(typeof body?.detail === 'string' ? body.detail : 'Failed to update details');
           return;
         }
+        setBaseline((prev) => ({ ...prev, email: form.email, fullName: form.fullName }));
       }
       if (rolesDirty) {
         const resp = await fetch(`/api/users/admin/${user.id}/roles`, {
@@ -132,9 +144,14 @@ function Edit() {
           body: JSON.stringify({ role_names: form.roles }),
         });
         if (!resp.ok) {
-          setError('Failed to update roles');
+          setError(
+            detailsDirty
+              ? 'Details were saved, but the roles update failed. Try saving again.'
+              : 'Failed to update roles',
+          );
           return;
         }
+        setBaseline((prev) => ({ ...prev, roles: form.roles }));
       }
       toast.success('Changes saved');
       router.reload();
@@ -199,7 +216,9 @@ function Edit() {
           <Button asChild variant="outline">
             <Link href="/users/admin">Back to Users</Link>
           </Button>
-          <Button variant="ghost" onClick={() => setForm(initial)} disabled={!dirty || saving}>
+          {/* Back to what is persisted, not to what the page loaded with —
+              discarding must not visually undo a section that already saved. */}
+          <Button variant="ghost" onClick={() => setForm(baseline)} disabled={!dirty || saving}>
             Discard
           </Button>
           <Button onClick={handleSave} disabled={!dirty || saving}>

@@ -44,7 +44,11 @@ async def liveness() -> dict:
 @router.get("/health/ready")
 async def readiness(request: Request) -> dict:
     registry: HealthRegistry = request.app.state.sm.health_registry
-    checks = registry.all_checks
+    # Probe-safe checks only. Readiness is polled on a timer, and a check that
+    # opens an SMTP session or hits S3 on that schedule gets rate-limited and
+    # makes this endpoint's latency someone else's problem. Those dependencies
+    # are not readiness signals anyway — the app serves pages without them.
+    checks = registry.probe_checks
 
     if not checks:
         return {_KEY_STATUS: _STATUS_HEALTHY, _KEY_CHECKS: {}}

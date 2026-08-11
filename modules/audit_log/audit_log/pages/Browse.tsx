@@ -34,6 +34,8 @@ interface AuditEntryRead {
   user_id: string | null;
   /** Display name resolved from user_id, or null for deleted/system actors. */
   actor: string | null;
+  /** Where the acting user's record lives, from the audit-link registry. */
+  actor_url: string | null;
   entity: EntityRef;
   correlation_id: string | null;
   created_at: string;

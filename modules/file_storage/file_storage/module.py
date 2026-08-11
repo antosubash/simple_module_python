@@ -138,5 +138,12 @@ class FileStorageModule(ModuleBase):
         from file_storage.health import CHECK_BACKEND, build_backend_check
 
         app.state.sm.health_registry.add(
-            HealthCheck(name=CHECK_BACKEND, check=build_backend_check(app), module=self.meta.name)
+            HealthCheck(
+                name=CHECK_BACKEND,
+                check=build_backend_check(app),
+                module=self.meta.name,
+                # On demand only: an S3 request per readiness probe is billed
+                # traffic and ties probe latency to the provider.
+                probe=False,
+            )
         )

@@ -90,7 +90,28 @@ class TestBulkInvite:
 
         emails = [f"bulk{i}@example.com" for i in range(MAX_ADDRESSES + 5)]
         resp = await authenticated_client.post(_URL, json={"emails": emails, "role_names": []})
-        assert len(resp.json()["results"]) == MAX_ADDRESSES
+        invited = [r for r in resp.json()["results"] if r["status"] != "failed"]
+        assert len(invited) == MAX_ADDRESSES
+
+    async def test_addresses_over_the_cap_are_reported_not_dropped(
+        self, authenticated_client: httpx.AsyncClient
+    ):
+        """Silent truncation reports "100 invites sent" while 5 people are
+        never contacted, with nothing on screen saying so."""
+        from users.admin.bulk_invite import MAX_ADDRESSES
+
+        emails = [f"over{i}@example.com" for i in range(MAX_ADDRESSES + 5)]
+        resp = await authenticated_client.post(_URL, json={"emails": emails, "role_names": []})
+        results = resp.json()["results"]
+
+        assert len(results) == MAX_ADDRESSES + 5, "every submitted address needs an outcome"
+        overflow = {r["email"]: r for r in results[-5:]}
+        assert set(overflow) == {
+            f"over{i}@example.com" for i in range(MAX_ADDRESSES, MAX_ADDRESSES + 5)
+        }
+        for result in overflow.values():
+            assert result["status"] == "failed"
+            assert "limit" in result["detail"]
 
     async def test_requires_authentication(self, client: httpx.AsyncClient):
         resp = await client.post(

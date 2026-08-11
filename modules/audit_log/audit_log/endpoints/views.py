@@ -18,7 +18,7 @@ from audit_log.constants import (
     PERM_VIEW,
 )
 from audit_log.deps import AuditLogServiceDep
-from audit_log.resolve import entity_link, resolve_actors
+from audit_log.resolve import actor_link, entity_link, resolve_actors
 
 router = APIRouter()
 
@@ -76,6 +76,11 @@ async def browse(
     for item in result.items:
         payload = item.model_dump(mode="json")
         payload["actor"] = actors.get(item.user_id or "")
+        # Where a user record lives is the users module's business, and it
+        # already declares it through register_audit_links. Going through the
+        # registry means this link cannot drift from the entity links in the
+        # next column, and it disappears cleanly if users isn't installed.
+        payload["actor_url"] = actor_link(links, item.user_id) if item.user_id else None
         payload["entity"] = entity_link(links, item.entity_type, item.entity_id)
         items.append(payload)
 

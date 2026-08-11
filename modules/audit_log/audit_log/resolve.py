@@ -61,6 +61,23 @@ async def resolve_actors(db: AsyncSession, user_ids: list[str | None]) -> dict[s
     return resolved
 
 
+USER_ENTITY_TYPE = "users_user"
+"""The table an audit actor is a row of. Actors are user ids, so their link
+comes from the same registry entry as any other reference to that table."""
+
+
+def actor_link(registry: AuditLinkRegistry, user_id: str) -> str | None:
+    """URL for the acting user's record, or ``None`` when nothing claims it.
+
+    Deliberately routed through the registry rather than hardcoding the users
+    module's route: the users module already declares where its rows live, and
+    duplicating that here would 404 the moment it moves its prefix — or when
+    the module isn't installed at all.
+    """
+    link = registry.get(USER_ENTITY_TYPE)
+    return link.url_for(user_id) if link else None
+
+
 def entity_link(registry: AuditLinkRegistry, entity_type: str, entity_id: str) -> dict[str, Any]:
     """Return ``{"url", "label"}`` for one entity reference.
 

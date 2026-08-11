@@ -35,6 +35,22 @@ class SettingsStore:
             out[field_name] = (item.value, item.value_type)
         return out
 
+    async def all_override_fields(self) -> dict[str, frozenset[str]]:
+        """Return ``{package: {field_name, ...}}`` for every stored override.
+
+        One query for the whole screen. ``get_overrides`` re-reads the entire
+        SYSTEM scope per package, so calling it in a loop over the installed
+        modules is one full read per module for the same rows.
+        """
+        items = await self._service.list_by_scope(SettingScope.SYSTEM, SYSTEM_SCOPE_ID)
+        out: dict[str, set[str]] = {}
+        for item in items:
+            package, sep, field_name = item.key.partition(".")
+            if not sep or not field_name or "." in field_name:
+                continue
+            out.setdefault(package, set()).add(field_name)
+        return {package: frozenset(fields) for package, fields in out.items()}
+
     async def set_override(self, package: str, field: str, value: str, value_type: str) -> None:
         await self._service.upsert_scoped(
             SettingScope.SYSTEM,

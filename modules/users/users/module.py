@@ -214,7 +214,14 @@ class UsersModule(ModuleBase):
         from users.health import CHECK_MAILER, build_mailer_check
 
         app.state.sm.health_registry.add(
-            HealthCheck(name=CHECK_MAILER, check=build_mailer_check(app), module=self.meta.name)
+            HealthCheck(
+                name=CHECK_MAILER,
+                check=build_mailer_check(app),
+                module=self.meta.name,
+                # On demand only: this authenticates against the mail provider,
+                # which must not happen on a readiness-probe timer.
+                probe=False,
+            )
         )
         state.rate_limiter = LoginRateLimiter(
             max_failures=s.login_rate_limit_failures,

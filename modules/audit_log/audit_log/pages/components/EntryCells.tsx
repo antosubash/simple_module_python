@@ -14,6 +14,8 @@ export interface AuditEntryRef {
   user_id: string | null;
   /** Display name resolved from user_id, or null for deleted/system actors. */
   actor: string | null;
+  /** Where the acting user's record lives, from the audit-link registry. */
+  actor_url: string | null;
   entity: EntityRef;
 }
 
@@ -52,9 +54,14 @@ export function ActorCell({ entry }: { entry: AuditEntryRef }) {
   const { t } = useT();
   if (!entry.user_id) return <>{t(keys.audit_log.changes.system_user)}</>;
   if (entry.actor) {
+    // No registered link (users module absent) still shows the name — it is
+    // the useful part; the link is a convenience on top.
+    if (!entry.actor_url) {
+      return <span title={entry.user_id}>{entry.actor}</span>;
+    }
     return (
       <Link
-        href={`/users/admin/${entry.user_id}`}
+        href={entry.actor_url}
         className="text-primary-700 hover:underline"
         title={entry.user_id}
       >

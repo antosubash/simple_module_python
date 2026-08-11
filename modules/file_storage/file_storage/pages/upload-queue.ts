@@ -86,10 +86,20 @@ export function useUploadQueue() {
         else failed.push(file.name);
       }
 
-      if (uploaded > 0) router.reload({ only: ['files', 'pagination', 'content_types'] });
-      // Completed rows disappear once the reloaded table can show the real
-      // record; failures stay until dismissed so they can't go unnoticed.
-      setJobs((current) => current.filter((j) => j.status === 'error'));
+      // Completed rows disappear once the reloaded table can *show* the real
+      // record — dropping them before the reply lands leaves a gap where the
+      // table still holds the pre-upload list, and a first upload into an
+      // empty bucket flashes "No files yet". Failures stay until dismissed so
+      // they can't go unnoticed.
+      const clearFinished = () => setJobs((current) => current.filter((j) => j.status === 'error'));
+      if (uploaded > 0) {
+        router.reload({
+          only: ['files', 'pagination', 'content_types'],
+          onFinish: clearFinished,
+        });
+      } else {
+        clearFinished();
+      }
       return { uploaded, failed };
     },
     [upload],

@@ -8,10 +8,13 @@ not discard the other nineteen.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 
 from fastapi import APIRouter, Depends, Request
 from simple_module_core.events import EventBus
+from simple_module_db.deps import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from users.admin.service import UserService
 from users.contracts.events import UserInvited
@@ -42,6 +45,9 @@ async def admin_bulk_invite(
     request: Request,
     bus: EventBus = Depends(get_event_bus),
     service: UserService = Depends(get_user_service),
+    # The same request-scoped session the service was built from, taken through
+    # the dependency rather than off the service's private attribute.
+    db: AsyncSession = Depends(get_db),
     mailer=Depends(get_mailer),
 ) -> BulkInviteResponse:
     """Invite every address in *data*, all sharing the same roles."""
@@ -56,14 +62,19 @@ async def admin_bulk_invite(
     # address twice should not create two invites for it.
     seen: set[str] = set()
     ordered: list[str] = []
-    for raw in data.emails[:MAX_ADDRESSES]:
+    for raw in data.emails:
         email = str(raw).strip().lower()
         if email and email not in seen:
             seen.add(email)
             ordered.append(email)
 
+    # Anything past the cap is reported, never silently dropped: truncating in
+    # silence tells the admin "100 invites sent" while 50 people are never
+    # contacted, and nothing on screen says otherwise.
+    accepted, overflow = ordered[:MAX_ADDRESSES], ordered[MAX_ADDRESSES:]
+
     results: list[BulkInviteResult] = []
-    for email in ordered:
+    for email in accepted:
         try:
             user, token = await service.invite(email, None, data.role_names, invited_by=invited_by)
         except Exception as exc:
@@ -71,6 +82,15 @@ async def admin_bulk_invite(
             # anything else is logged so the admin's summary stays short.
             logger.info("bulk invite failed for %s: %s", email, exc)
             results.append(BulkInviteResult(email=email, status=STATUS_FAILED, detail=str(exc)))
+            # Clear any failed transaction state before touching the session
+            # again. A real DB error (an IntegrityError from a concurrent
+            # signup, say) otherwise leaves every remaining address dying with
+            # PendingRollbackError — one bad row turning into total failure,
+            # the opposite of the partial success this endpoint promises.
+            # Safe to discard: the user manager commits each invite as it goes,
+            # so already-succeeded addresses are durable, not pending here.
+            with contextlib.suppress(Exception):
+                await db.rollback()
             continue
 
         if delivers:
@@ -107,5 +127,14 @@ async def admin_bulk_invite(
                 invited_by=(str(invited_by.id) if invited_by else None),
             )
         )
+
+    results.extend(
+        BulkInviteResult(
+            email=email,
+            status=STATUS_FAILED,
+            detail=f"Not attempted — over the {MAX_ADDRESSES}-address limit for one submit",
+        )
+        for email in overflow
+    )
 
     return BulkInviteResponse(results=results)

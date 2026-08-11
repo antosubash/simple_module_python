@@ -122,7 +122,11 @@ def _get_module_info(app: FastAPI, health_checks: list[dict[str, str]]) -> list[
 
 async def _run_health_checks(app: FastAPI) -> list[dict[str, str]]:
     registry = app.state.sm.health_registry
-    checks = registry.all_checks
+    # Same reasoning as the readiness probe: this runs on every dashboard load
+    # (behind a 30s cache), which is still far too often to be authenticating
+    # against a mail provider. Modules whose only checks are on-demand simply
+    # report no health on their tile, which is honest — nothing is watching.
+    checks = registry.probe_checks
     if not checks:
         return []
 

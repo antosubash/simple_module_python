@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 
-from audit_log.resolve import entity_link, resolve_actors
+from audit_log.resolve import actor_link, entity_link, resolve_actors
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from sqlalchemy.ext.asyncio import AsyncSession
 from users.models import User
@@ -37,6 +37,17 @@ class TestEntityLink:
         reg = AuditLinkRegistry()
         reg.register(AuditLink(entity_type="files_file", url_template="/f/{id}"))
         assert entity_link(reg, "files_file", "z")["label"] == "files_file"
+
+
+class TestActorLink:
+    def test_uses_the_registered_users_route(self):
+        """Hardcoding /users/admin/{id} here would 404 the moment the users
+        module moved its prefix, and duplicate what the registry owns."""
+        assert actor_link(_registry(), "a91") == "/users/admin/a91"
+
+    def test_none_when_no_module_claims_users(self):
+        """The audit log still renders without the users module installed."""
+        assert actor_link(AuditLinkRegistry(), "a91") is None
 
 
 class TestResolveActors:
