@@ -23,6 +23,7 @@ from simple_module_core.services import Services
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 
+from simple_module_hosting._db_health import register_database_check
 from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._phase_helpers import (
     attach_public_routes,
@@ -245,6 +246,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         pool_recycle=settings.db_pool_recycle,
     )
     register_listeners(db_state)
+    # The host's own readiness signal, and the only probe-safe check in a
+    # default install — module checks reach third parties and are on-demand.
+    register_database_check(health_registry, db_state)
 
     # ── Phase 7: Inertia + exception handlers ──────────────
     inertia_config = setup_inertia(app, settings, modules, _PROJECT_ROOT)

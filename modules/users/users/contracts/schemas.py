@@ -7,7 +7,14 @@ from datetime import datetime
 
 from fastapi_users.schemas import CreateUpdateDictModel
 from pydantic import ConfigDict, EmailStr
-from sqlmodel import SQLModel
+from sqlmodel import Field, SQLModel
+
+MAX_BULK_INVITE_BODY_ADDRESSES = 1000
+"""Hard ceiling on the address list one bulk-invite body may carry.
+
+Distinct from ``bulk_invite.MAX_ADDRESSES`` (how many invites one submit may
+actually mint): this bounds the work and the response, both of which are one
+entry per submitted address."""
 
 # NOTE on EmailStr: only *input* schemas (UserCreate/UserUpdate/UserInvite) use
 # EmailStr — that is where an email must be format-validated. Response schemas
@@ -60,11 +67,17 @@ class UserInvite(SQLModel):
 class UserBulkInvite(SQLModel):
     """Invite several addresses in one submit, all sharing the same roles."""
 
-    emails: list[str]
+    emails: list[str] = Field(max_length=MAX_BULK_INVITE_BODY_ADDRESSES)
     """Raw addresses, validated one at a time by the endpoint rather than by
     ``list[EmailStr]`` here: a single typo in a pasted column would otherwise
     422 the whole submit, and the caller would get an error naming a list index
-    instead of the per-address outcomes this endpoint exists to report."""
+    instead of the per-address outcomes this endpoint exists to report.
+
+    The length bound is on the *body*, not the invite cap: the endpoint reports
+    an outcome for every address it is handed, so an unbounded list means
+    unbounded per-address validation and an equally unbounded response. Set far
+    above the invite cap so the "over the limit" outcomes stay visible for any
+    plausible paste."""
     role_names: list[str] = []
 
 

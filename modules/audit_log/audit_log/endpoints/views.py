@@ -79,7 +79,8 @@ async def browse(
         # Where a user record lives is the users module's business, and it
         # already declares it through register_audit_links. Going through the
         # registry means this link cannot drift from the entity links in the
-        # next column, and it disappears cleanly if users isn't installed.
+        # next column, and it degrades to plain text if no module claims the
+        # users table.
         payload["actor_url"] = actor_link(links, item.user_id) if item.user_id else None
         payload["entity"] = entity_link(links, item.entity_type, item.entity_id)
         items.append(payload)

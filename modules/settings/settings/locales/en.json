@@ -70,7 +70,7 @@
     },
     "test_connection": "Test connection",
     "testing": "Testing…",
-    "env_var_hint": "Environment variable read when no stored override exists",
+    "env_var_hint": "Environment variable name for this field, used by \"smpy settings import-from-env\"",
     "source_db": "Stored override",
     "source_db_hint": "A stored setting supplies this value",
     "source_db_over_env": "Stored (shadows env)",

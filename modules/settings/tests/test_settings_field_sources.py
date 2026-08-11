@@ -57,16 +57,37 @@ class TestModulesView:
         assert resp.status_code == 200
 
     def test_env_var_presence_is_detected(self, monkeypatch: pytest.MonkeyPatch):
-        """A deployment that sets the env var must not read as 'Default'."""
+        """A class that really reads env must not read as 'Default'."""
+        from pydantic_settings import BaseSettings, SettingsConfigDict
+        from settings._module_settings import _field_view
+
+        class _EnvBacked(BaseSettings):
+            model_config = SettingsConfigDict(env_prefix="SM_DEMO_", extra="ignore")
+
+            host: str = "localhost"
+
+        assert _field_view("host", _EnvBacked(), "SM_DEMO_").env_set is False
+        monkeypatch.setenv("SM_DEMO_HOST", "mail.example.com")
+        view = _field_view("host", _EnvBacked(), "SM_DEMO_")
+        assert view.env_set is True
+        assert view.source == "env"
+        # The claim has to be true, not just consistent with the label.
+        assert view.value == "mail.example.com"
+
+    def test_unread_env_var_is_not_claimed_as_the_source(self, monkeypatch: pytest.MonkeyPatch):
+        """Module settings declare no ``env_prefix`` — they come from defaults
+        plus DB overrides — so a leftover ``SM_*`` var changes nothing. Badging
+        it "From environment" would invert the question this screen answers."""
         from file_storage.settings import FileStorageSettings
         from settings._module_settings import _field_view
 
-        instance = FileStorageSettings()
-        name = _first_field(instance)
+        name = _first_field(FileStorageSettings())
+        monkeypatch.setenv(f"SM_FILE_STORAGE_{name.upper()}", "definitely-not-a-backend")
 
+        instance = FileStorageSettings()
+        assert getattr(instance, name) != "definitely-not-a-backend"
         assert _field_view(name, instance, "SM_FILE_STORAGE_").env_set is False
-        monkeypatch.setenv(f"SM_FILE_STORAGE_{name.upper()}", "x")
-        assert _field_view(name, instance, "SM_FILE_STORAGE_").env_set is True
+        assert _field_view(name, instance, "SM_FILE_STORAGE_").source == "default"
 
     def test_overrides_mark_their_fields(self):
         from file_storage.settings import FileStorageSettings

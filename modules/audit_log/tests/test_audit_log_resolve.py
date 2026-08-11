@@ -45,8 +45,15 @@ class TestActorLink:
         module moved its prefix, and duplicate what the registry owns."""
         assert actor_link(_registry(), "a91") == "/users/admin/a91"
 
-    def test_none_when_no_module_claims_users(self):
-        """The audit log still renders without the users module installed."""
+    def test_none_when_the_users_table_is_unclaimed(self):
+        """A registry without a users_user entry yields no link rather than a
+        guessed one.
+
+        Not a claim that audit_log runs without the users module — it imports
+        `users.models` at module scope and declares the dependency. This covers
+        a users module that ships no audit link, and any registry built before
+        registration has run.
+        """
         assert actor_link(AuditLinkRegistry(), "a91") is None
 
 

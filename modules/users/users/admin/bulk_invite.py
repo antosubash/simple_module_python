@@ -42,7 +42,19 @@ exists to produce."""
 
 
 def _invite_link(request: Request, token: str) -> str:
-    base = str(request.base_url).rstrip("/")
+    """Build the accept URL the admin will hand to the invitee.
+
+    Uses the module's configured ``base_url`` — the same value both mailers
+    build their links from — rather than ``request.base_url``. Behind a reverse
+    proxy without ``SM_TRUSTED_PROXY``, the request's own base URL is the
+    internal origin (``http://10.0.0.5:8000``), and this link is *only* ever
+    surfaced when mail could not be delivered, i.e. exactly when the admin has
+    to pass it on by hand. Falls back to the request when the module's settings
+    are unavailable, so the link is never simply missing.
+    """
+    services = getattr(request.app.state, "users", None)
+    configured = getattr(getattr(services, "settings", None), "base_url", "")
+    base = str(configured or request.base_url).rstrip("/")
     return f"{base}/users/invite/accept?token={token}"
 
 

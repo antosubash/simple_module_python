@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from '@simple-module-py/ui/components/ui/select';
 import { Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export interface ContentTypeFacet {
   value: string;
@@ -41,13 +41,27 @@ function families(facets: ContentTypeFacet[]): ContentTypeFacet[] {
 export function FileFilterBar({ search, contentType, facets, onChange }: Props) {
   const { t } = useT();
   const [draft, setDraft] = useState(search);
+  // The last query this box asked the server for. Adopting `search` blindly
+  // loses keystrokes: typing "report" fires the debounce at "repo", and when
+  // that reply lands mid-word it would push "repo" back into the input and
+  // swallow the rest. Ignoring the echo of our own request leaves the draft
+  // alone while still adopting navigations we did not initiate — Back/Forward,
+  // or a link carrying ?q=.
+  const requested = useRef(search);
 
-  // Debounced so each keystroke isn't a round trip; the server value winning
-  // on change keeps Back/Forward navigation in sync with the box.
-  useEffect(() => setDraft(search), [search]);
+  useEffect(() => {
+    if (search === requested.current) return;
+    requested.current = search;
+    setDraft(search);
+  }, [search]);
+
+  // Debounced so each keystroke isn't a round trip.
   useEffect(() => {
     if (draft === search) return;
-    const timeout = setTimeout(() => onChange({ q: draft, content_type: contentType }), 300);
+    const timeout = setTimeout(() => {
+      requested.current = draft;
+      onChange({ q: draft, content_type: contentType });
+    }, 300);
     return () => clearTimeout(timeout);
   }, [draft, search, contentType, onChange]);
 
@@ -67,9 +81,12 @@ export function FileFilterBar({ search, contentType, facets, onChange }: Props) 
       </div>
       <Select
         value={contentType || TYPE_ALL}
-        onValueChange={(value) =>
-          onChange({ q: draft, content_type: value === TYPE_ALL ? '' : value })
-        }
+        onValueChange={(value) => {
+          // Carries the current draft, so record it as requested for the same
+          // reason the debounce does.
+          requested.current = draft;
+          onChange({ q: draft, content_type: value === TYPE_ALL ? '' : value });
+        }}
       >
         <SelectTrigger className="w-full sm:w-64">
           <SelectValue placeholder={t(keys.file_storage.filters.type_label)} />

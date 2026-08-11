@@ -73,8 +73,11 @@ def actor_link(registry: AuditLinkRegistry, user_id: str) -> str | None:
 
     Deliberately routed through the registry rather than hardcoding the users
     module's route: the users module already declares where its rows live, and
-    duplicating that here would 404 the moment it moves its prefix — or when
-    the module isn't installed at all.
+    duplicating that here would 404 the moment it moves its prefix, or silently
+    disagree with the entity link rendered in the next column.
+
+    ``None`` when nothing claims the users table — this module depends on
+    ``users`` for its models, but not on ``users`` having registered a link.
     """
     link = registry.get(USER_ENTITY_TYPE)
     return link.url_for(user_id) if link else None

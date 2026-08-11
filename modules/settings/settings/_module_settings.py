@@ -43,7 +43,14 @@ class ModuleSettingField:
     requires_restart: bool
     group: str | None
     env_set: bool = False
-    """The field's ``SM_*`` env var is present in the process environment."""
+    """This field is genuinely env-readable *and* its env var is set.
+
+    Deliberately not "the ``SM_*`` label below is present in ``os.environ``".
+    Module settings classes declare no ``env_prefix`` — they are constructed
+    from pydantic defaults and hydrated from the DB — so their ``SM_*`` vars
+    are never consulted. Reporting a leftover ``SM_USERS_SMTP_HOST`` as the
+    live source would invert the very question this screen answers.
+    """
     db_override: bool = False
     """A stored setting overrides this field."""
 
@@ -52,10 +59,11 @@ class ModuleSettingField:
         """Where the live value came from: ``db``, ``env`` or ``default``.
 
         Mirrors the precedence in ``hydrate_settings``: DB overrides are passed
-        to the constructor explicitly, so they beat env, which pydantic reads
-        for anything left unset, which in turn beats the field default. Showing
-        this is the difference between "why is this not taking effect" being a
-        five-minute question and an afternoon.
+        to the constructor explicitly, so they beat anything pydantic reads for
+        fields left unset, which in turn beats the field default. ``env`` only
+        appears for settings classes that actually declare an ``env_prefix``;
+        see :attr:`env_set`. Showing this is the difference between "why is
+        this not taking effect" being a five-minute question and an afternoon.
         """
         if self.db_override:
             return "db"
@@ -114,6 +122,24 @@ def _resolve_default(info) -> Any:
     return None
 
 
+def _env_readable_var(settings: BaseSettings, name: str) -> str | None:
+    """Env var pydantic would actually read for ``name``, or ``None``.
+
+    ``env_var`` on the view is a *label* — the ``SM_<PACKAGE>_<FIELD>`` name the
+    ``smpy settings import-from-env`` CLI looks for, kept from before settings
+    moved into the DB. It is not evidence that pydantic reads it: every settings
+    class on this screen declares ``SettingsConfigDict(extra="ignore")`` with no
+    ``env_prefix``, so ``SM_FILE_STORAGE_BACKEND`` has no effect on
+    ``FileStorageSettings()``. Deriving env-readability from the class's own
+    ``env_prefix`` keeps the "From environment" badge honest — and starts
+    working by itself for any settings class that does declare one.
+    """
+    env_prefix = str(type(settings).model_config.get("env_prefix") or "")
+    if not env_prefix:
+        return None
+    return f"{env_prefix}{name.upper()}"
+
+
 def _field_view(
     name: str,
     settings: BaseSettings,
@@ -127,6 +153,7 @@ def _field_view(
     extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
     default = _resolve_default(info)
     env_var = f"{prefix}{name.upper()}"
+    live_env_var = _env_readable_var(settings, name)
     return ModuleSettingField(
         name=name,
         env_var=env_var,
@@ -137,7 +164,7 @@ def _field_view(
         type=value_type_for_field(cls, name),
         requires_restart=bool(extra.get("requires_restart", False)),
         group=extra.get("group"),
-        env_set=env_var in os.environ,
+        env_set=live_env_var is not None and live_env_var in os.environ,
         db_override=name in overridden,
     )
 
