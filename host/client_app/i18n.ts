@@ -2,8 +2,8 @@
  * Initial wiring for @simple-module-py/i18n inside the Inertia app.
  *
  * Reads {locale, messages} from Inertia shared props and calls
- * configureI18n on boot; on every successful navigation, checks whether
- * the active locale changed and updates the i18next resources.
+ * configureI18n on boot; on every successful navigation, adopts whatever
+ * catalog the server chose to send (see `subscribeI18nToNavigation`).
  */
 
 import type { PageProps } from '@inertiajs/core';
@@ -25,10 +25,7 @@ export function bootI18nFromInitialPage(props: PageProps): void {
     return;
   }
   configureI18n({ locale: i18n.locale, messages: i18n.messages ?? {} });
-  activeLocale = i18n.locale;
 }
-
-let activeLocale: string | null = null;
 
 export function subscribeI18nToNavigation(): () => void {
   return router.on('success', (event) => {
@@ -42,7 +39,6 @@ export function subscribeI18nToNavigation(): () => void {
     // rendered raw keys ("dashboard.home.title") until a hard refresh.
     if (i18n.messages) {
       updateI18n({ locale: i18n.locale, messages: i18n.messages });
-      activeLocale = i18n.locale;
     }
   });
 }

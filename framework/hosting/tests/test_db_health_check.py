@@ -2,8 +2,12 @@
 
 Module-contributed checks reach third parties and are on-demand, so without
 this one `/health/ready` would answer "healthy" from an empty check set — a
-green light proving nothing — and the dashboard's per-module health dot would
-have no data source at all.
+green light proving nothing.
+
+It does *not* feed the dashboard's per-module health dot: that maps a check to
+a tile by `HealthCheck.module`, and this one is owned by the host ("Host"),
+which names no module. With every bundled module check now `probe=False`, the
+dots are blank by design — nothing is polling those dependencies.
 """
 
 from __future__ import annotations
@@ -32,6 +36,5 @@ class TestDatabaseHealthCheck:
         assert (await check.check()).status is HealthStatus.HEALTHY
 
     async def test_probe_checks_is_not_empty(self, app) -> None:
-        """The dashboard health dot and readiness both read probe_checks; an
-        always-empty list makes both features inert."""
+        """Readiness reads probe_checks; an always-empty list makes it inert."""
         assert app.state.sm.health_registry.probe_checks

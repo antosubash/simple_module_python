@@ -169,7 +169,17 @@ async def admin_bulk_invite(
         # and rolling back to clear the transaction — cannot take their work
         # with it, which is what makes the "nothing durable is pending"
         # assumption in the failure branch above actually hold.
-        await db.commit()
+        #
+        # Guarded: the invite itself is already committed, so a handler writing
+        # something the DB rejects must not 500 the request and discard every
+        # per-address result collected so far — that is exactly the total
+        # failure this endpoint exists to avoid.
+        try:
+            await db.commit()
+        except Exception as exc:
+            logger.warning("post-invite handler commit failed for %s: %s", email, exc)
+            with contextlib.suppress(Exception):
+                await db.rollback()
 
     results.extend(
         BulkInviteResult(

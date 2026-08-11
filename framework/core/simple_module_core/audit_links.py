@@ -1,17 +1,18 @@
 """Audit-link registry — modules teach the audit log how to reach their records.
 
-An audit entry stores the table name and primary key of the row that changed
-(``files_file``, ``a91f3c2b…``). That is enough to prove what happened and
-useless for doing anything about it: the reader has an id and no way to open
-the record it names.
+An audit entry stores the *model class name* and primary key of the row that
+changed (``StoredFile``, ``a91f3c2b…`` — ``snapshot_changes`` records
+``type(obj).__name__``, never ``__tablename__``). That is enough to prove what
+happened and useless for doing anything about it: the reader has an id and no
+way to open the record it names.
 
 A module declares where its rows live via
 :meth:`~simple_module_core.module.ModuleBase.register_audit_links`; the host
 collects them into one registry at boot and stores it on
-``app.state.audit_links``.
+``app.state.sm.audit_links``.
 
-**The registry maps table names to URL templates, nothing more.** It does not
-verify the row exists or that the reader may open it — following a link to a
+**The registry maps model class names to URL templates, nothing more.** It does
+not verify the row exists or that the reader may open it — following a link to a
 deleted record lands on that screen's own 404, and permissions are enforced by
 the target route as usual.
 """

@@ -46,10 +46,13 @@ class ModuleSettingField:
     """This field is genuinely env-readable *and* its env var is set.
 
     Deliberately not "the ``SM_*`` label below is present in ``os.environ``".
-    Module settings classes declare no ``env_prefix`` — they are constructed
-    from pydantic defaults and hydrated from the DB — so their ``SM_*`` vars
-    are never consulted. Reporting a leftover ``SM_USERS_SMTP_HOST`` as the
-    live source would invert the very question this screen answers.
+    The bundled module settings classes declare no ``env_prefix`` — they are
+    constructed from pydantic defaults and hydrated from the DB — so their
+    ``SM_*`` vars are never consulted. Reporting a leftover
+    ``SM_USERS_SMTP_HOST`` as the live source would invert the very question
+    this screen answers. Classes that *do* declare one (the host's ``Settings``
+    with ``SM_``, and anything from the module scaffold) report ``env`` for
+    real, because for them pydantic really does read it.
     """
     db_override: bool = False
     """A stored setting overrides this field."""
@@ -127,12 +130,14 @@ def _env_readable_var(settings: BaseSettings, name: str) -> str | None:
 
     ``env_var`` on the view is a *label* — the ``SM_<PACKAGE>_<FIELD>`` name the
     ``smpy settings import-from-env`` CLI looks for, kept from before settings
-    moved into the DB. It is not evidence that pydantic reads it: every settings
-    class on this screen declares ``SettingsConfigDict(extra="ignore")`` with no
-    ``env_prefix``, so ``SM_FILE_STORAGE_BACKEND`` has no effect on
+    moved into the DB. It is not evidence that pydantic reads it: the bundled
+    module settings classes declare ``SettingsConfigDict(extra="ignore")`` with
+    no ``env_prefix``, so ``SM_FILE_STORAGE_BACKEND`` has no effect on
     ``FileStorageSettings()``. Deriving env-readability from the class's own
-    ``env_prefix`` keeps the "From environment" badge honest — and starts
-    working by itself for any settings class that does declare one.
+    ``env_prefix`` keeps the "From environment" badge honest, and works as-is
+    for the classes that do declare one — the host's ``Settings`` (``SM_``) and
+    every module built from the scaffold, whose template ships
+    ``env_prefix="SM_<PACKAGE>_"``.
     """
     env_prefix = str(type(settings).model_config.get("env_prefix") or "")
     if not env_prefix:

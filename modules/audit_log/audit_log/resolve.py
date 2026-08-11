@@ -63,12 +63,16 @@ async def resolve_actors(db: AsyncSession, user_ids: list[str | None]) -> dict[s
     return resolved
 
 
-USER_ENTITY_TYPE = "User"
+USER_ENTITY_TYPE = User.__name__
 """The model an audit actor is a row of.
 
 The audit trail records ``type(obj).__name__``, so registry keys are class
 names — not ``__tablename__``. Actors are user ids, so their link comes from
-the same registry entry as any other reference to that model."""
+the same registry entry as any other reference to that model.
+
+Derived from the class rather than spelled ``"User"``: the users module keys
+its own registration off ``User.__name__`` too, so a rename moves both ends
+together instead of silently unlinking every actor cell."""
 
 
 def actor_link(registry: AuditLinkRegistry, user_id: str) -> str | None:

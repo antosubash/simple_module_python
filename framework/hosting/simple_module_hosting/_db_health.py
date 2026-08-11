@@ -9,6 +9,10 @@ contribute checks for third-party services, and those are ``probe=False``
 (polling an SMTP login every 10s earns a rate-limit), so without this the
 readiness endpoint would answer "healthy" from an empty check set — a green
 light that proves nothing.
+
+It is owned by the host, not a module, so it deliberately does not light up any
+tile on the dashboard's per-module health strip — those are keyed by
+``HealthCheck.module``.
 """
 
 from __future__ import annotations
