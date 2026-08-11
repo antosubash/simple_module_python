@@ -25,9 +25,7 @@ def build_mailer_check(app: FastAPI):
         services = getattr(app.state, "users", None)
         mailer = getattr(services, "mailer", None)
         if mailer is None:
-            return HealthCheckResult(
-                status=HealthStatus.UNHEALTHY, detail="No mailer configured"
-            )
+            return HealthCheckResult(status=HealthStatus.UNHEALTHY, detail="No mailer configured")
 
         verify = getattr(mailer, "verify_connection", None)
         if verify is None:

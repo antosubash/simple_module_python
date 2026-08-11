@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from inertia import InertiaResponse
 from simple_module_hosting.inertia_deps import InertiaDep
 from starlette.responses import RedirectResponse
 
+from users.auth_local.invite_preview import preview_invite
 from users.bootstrap import resolve_bootstrap_credentials
+from users.manager import UserManager, get_user_manager
 
 router = APIRouter()
 
@@ -95,8 +97,20 @@ async def verify_page(inertia: InertiaDep, token: str = "") -> InertiaResponse:
 
 
 @router.get("/invite/accept", response_model=None)
-async def accept_invite_page(inertia: InertiaDep, token: str = "") -> InertiaResponse:
-    return await inertia.render(_PAGE_ACCEPT_INVITE, {"token": token})
+async def accept_invite_page(
+    inertia: InertiaDep,
+    user_manager: UserManager = Depends(get_user_manager),
+    token: str = "",
+) -> InertiaResponse:
+    """Show who the invite is for and what it grants, before asking for a password."""
+    invite = await preview_invite(token, user_manager)
+    return await inertia.render(
+        _PAGE_ACCEPT_INVITE,
+        {
+            "token": token,
+            "invite": invite,
+        },
+    )
 
 
 @router.get("/me", response_model=None)

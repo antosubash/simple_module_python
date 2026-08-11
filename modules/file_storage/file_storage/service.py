@@ -202,9 +202,7 @@ class FileStorageService:
         showing are the ones actually in the bucket.
         """
         query = select(StoredFile.content_type, func.count().label("n"))
-        for clause in self._filter_clauses(
-            created_by=created_by, search=None, content_type=None
-        ):
+        for clause in self._filter_clauses(created_by=created_by, search=None, content_type=None):
             query = query.where(clause)
         query = query.group_by(StoredFile.content_type).order_by(StoredFile.content_type)
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 import logging
 import os
 from collections.abc import AsyncGenerator
@@ -34,6 +33,7 @@ from simple_module_hosting._phase_helpers import (
     register_host_settings,
     wire_module_routes,
 )
+from simple_module_hosting._registrations import run_module_registrations
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types
 from simple_module_hosting.migrations import check_migrations
@@ -79,22 +79,6 @@ def _resolve_project_root() -> Path:
 
 
 _PROJECT_ROOT = _resolve_project_root()
-
-
-def _register_event_handlers(mod, event_bus: EventBus, app: FastAPI) -> None:
-    """Dispatch to ``mod.register_event_handlers`` with or without ``app``.
-
-    Back-compat shim for modules that still override the one-arg form
-    ``(self, bus)``; passing ``app=`` to those crashes.
-    """
-    sig = inspect.signature(mod.register_event_handlers)
-    accepts_app = "app" in sig.parameters or any(
-        p.kind is inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
-    )
-    if accepts_app:
-        mod.register_event_handlers(event_bus, app=app)
-    else:
-        mod.register_event_handlers(event_bus)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -221,20 +205,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             print_diagnostics(settings_diagnostics)
 
     # ── Phase 5: Module registrations ──────────────────────
-    for mod in modules:
-        mod.register_menu_items(menu_registry)
-        mod.register_permissions(perm_registry)
-        mod.register_feature_flags(ff_registry)
-        _register_event_handlers(mod, event_bus, app)
-        health_registry.set_owner(mod.meta.name)
-        mod.register_health_checks(health_registry)
-        mod.register_public_routes(public_route_registry)
-        mod.register_design_packs(design_pack_registry)
-        mod.register_audit_links(audit_link_registry)
-
-    # Stop attributing to the last module in the loop — anything registered
-    # after this point belongs to no module in particular.
-    health_registry.set_owner("")
+    run_module_registrations(
+        modules,
+        app=app,
+        event_bus=event_bus,
+        menu_registry=menu_registry,
+        perm_registry=perm_registry,
+        ff_registry=ff_registry,
+        health_registry=health_registry,
+        public_route_registry=public_route_registry,
+        design_pack_registry=design_pack_registry,
+        audit_link_registry=audit_link_registry,
+    )
 
     attach_public_routes(app, settings, public_route_registry)
 

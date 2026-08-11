@@ -6,12 +6,20 @@ import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
 
+interface InvitePreview {
+  email: string;
+  roles: string[];
+  already_accepted: boolean;
+}
+
 interface Props {
   token: string;
+  /** null when the token cannot be read — expired, tampered, or absent. */
+  invite: InvitePreview | null;
 }
 
 function AcceptInvite() {
-  const { token: initialToken } = usePage<{ props: Props }>().props as unknown as Props;
+  const { token: initialToken, invite } = usePage<{ props: Props }>().props as unknown as Props;
   const urlToken =
     typeof window !== 'undefined'
       ? (new URLSearchParams(window.location.search).get('token') ?? '')
@@ -56,13 +64,39 @@ function AcceptInvite() {
   return (
     <AuthCardShell>
       <Head title="Accept Invite" />
+      {/* Who the invite is for, and what it grants. Without this the card asks
+          for a password while identifying neither — a forwarded link, or an
+          invite addressed to the wrong person, is indistinguishable from the
+          right one. */}
       <div className="flex items-start gap-3 rounded-xl border border-primary-200 bg-primary-50 p-3 text-sm text-primary-800">
         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-        <div>
-          <p className="font-semibold">You've been invited</p>
+        <div className="min-w-0">
+          <p className="font-semibold">
+            {invite ? `You've been invited as ${invite.email}` : "You've been invited"}
+          </p>
           <p className="mt-0.5">Pick a password and you'll be signed in.</p>
+          {invite && invite.roles.length > 0 && (
+            <p className="mt-1.5 flex flex-wrap items-center gap-1">
+              <span className="text-xs text-primary-700">Access:</span>
+              {invite.roles.map((role) => (
+                <span
+                  key={role}
+                  className="rounded-full border border-primary-200 bg-white/60 px-2 py-0.5 text-[11px] font-semibold"
+                >
+                  {role}
+                </span>
+              ))}
+            </p>
+          )}
         </div>
       </div>
+
+      {invite?.already_accepted && (
+        <p className="mt-3 rounded-lg bg-amber-50 p-2.5 text-sm text-amber-900">
+          This invite has already been used. Sign in instead, or use "Forgot password" if you don't
+          have your password.
+        </p>
+      )}
       <h1 className="mt-5 mb-1.5 text-[22px] font-bold tracking-tight font-[var(--font-display)] text-foreground">
         Set your password
       </h1>

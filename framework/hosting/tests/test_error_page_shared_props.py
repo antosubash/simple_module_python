@@ -67,7 +67,9 @@ class TestErrorPageSharedProps:
         """The page shows this id so a support report can be joined to the logs."""
         resp = await authenticated_client.get(_MISSING_PATH)
         props = _inertia_page(resp.text)["props"]
-        assert props.get("correlation_id"), f"no correlation_id on error page; props={sorted(props)}"
+        assert props.get("correlation_id"), (
+            f"no correlation_id on error page; props={sorted(props)}"
+        )
         # Must be the same id the response header advertises, or quoting it
         # back would point support at a different request.
         assert props["correlation_id"] == resp.headers.get("x-correlation-id")

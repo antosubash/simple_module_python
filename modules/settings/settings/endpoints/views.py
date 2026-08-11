@@ -224,7 +224,9 @@ async def test_connection(package: str, request: Request) -> dict:
     if owner is None:
         raise HTTPException(status_code=404, detail=f"Unknown module package: {package}")
 
-    checks = [c for c in request.app.state.sm.health_registry.all_checks if c.module == owner.meta.name]
+    checks = [
+        c for c in request.app.state.sm.health_registry.all_checks if c.module == owner.meta.name
+    ]
     if not checks:
         raise HTTPException(status_code=404, detail=f"{owner.meta.name} has no connection to test")
 

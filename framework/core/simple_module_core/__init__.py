@@ -45,9 +45,9 @@ from simple_module_core.versioning import FRAMEWORK_API_VERSION, check_framework
 __all__ = [
     "DEFAULT_AUTH_PROVIDER",
     "FRAMEWORK_API_VERSION",
-    "CircularDependencyError",
     "AuditLink",
     "AuditLinkRegistry",
+    "CircularDependencyError",
     "DesignPack",
     "DesignPackRegistry",
     "DiagnosticLevel",

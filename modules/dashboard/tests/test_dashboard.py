@@ -99,7 +99,9 @@ class TestDashboardStatsEndpoint:
         resp = await client.get(_STATS_URL, follow_redirects=False)
         assert resp.status_code in (302, 401, 403)
 
-    async def test_module_entries_carry_a_link_target(self, authenticated_client: httpx.AsyncClient):
+    async def test_module_entries_carry_a_link_target(
+        self, authenticated_client: httpx.AsyncClient
+    ):
         """Tiles were inert; each one now needs its module's own screen."""
         resp = await authenticated_client.get(_STATS_URL)
         modules = {m["name"]: m for m in resp.json()["system_info"]["modules"]}
@@ -113,9 +115,7 @@ class TestDashboardStatsEndpoint:
         for mod in resp.json()["system_info"]["modules"]:
             assert mod["url"] == "" or mod["url"].startswith("/"), mod
 
-    async def test_every_module_entry_reports_health(
-        self, authenticated_client: httpx.AsyncClient
-    ):
+    async def test_every_module_entry_reports_health(self, authenticated_client: httpx.AsyncClient):
         resp = await authenticated_client.get(_STATS_URL)
         for mod in resp.json()["system_info"]["modules"]:
             assert mod["health"] in ("", "healthy", "degraded", "unhealthy"), mod

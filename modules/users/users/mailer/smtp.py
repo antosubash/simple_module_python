@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import importlib.resources
 from email.message import EmailMessage
 from typing import TYPE_CHECKING
@@ -86,12 +87,11 @@ class SmtpMailer:
             if self._username:
                 await client.login(self._username, self._password or "")
         finally:
-            # noop() before quit keeps a server that dislikes an abrupt close
-            # from logging this probe as an error.
-            try:
+            # A failure hanging up says nothing about whether the credentials
+            # work, which is the only question being asked — so it must not
+            # mask the login error this block is unwinding.
+            with contextlib.suppress(Exception):
                 await client.quit()
-            except Exception:
-                pass
 
     async def _send(self, to: str, subject: str, body: str) -> None:
         message = EmailMessage()

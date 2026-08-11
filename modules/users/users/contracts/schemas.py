@@ -57,6 +57,35 @@ class UserInvite(SQLModel):
     role_names: list[str] = []
 
 
+class UserBulkInvite(SQLModel):
+    """Invite several addresses in one submit, all sharing the same roles."""
+
+    emails: list[EmailStr]
+    role_names: list[str] = []
+
+
+class BulkInviteResult(SQLModel):
+    """Outcome for a single address in a bulk invite.
+
+    Per-address rather than all-or-nothing: one already-registered address in
+    a pasted list of twenty should not discard the other nineteen.
+    """
+
+    email: str
+    status: str
+    """``"sent"`` — mail dispatched. ``"link"`` — created, but the configured
+    mailer cannot deliver, so ``link`` carries the URL. ``"failed"`` — see
+    ``detail``."""
+    detail: str = ""
+    link: str | None = None
+    """One-time accept URL. Populated only when the mailer cannot deliver;
+    otherwise the token stays out of the response entirely."""
+
+
+class BulkInviteResponse(SQLModel):
+    results: list[BulkInviteResult]
+
+
 class UserAdminCreate(SQLModel):
     email: EmailStr
     password: str
