@@ -1,4 +1,4 @@
-import { type TaskStatus, TASK_STATUS } from '../constants';
+import { TASK_STATUS, type TaskStatus } from '../constants';
 import { statusLabel } from './ExecutionRow';
 
 export type StatusCounts = Partial<Record<TaskStatus, number>>;

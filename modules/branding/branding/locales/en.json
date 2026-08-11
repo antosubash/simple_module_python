@@ -47,6 +47,8 @@
     "preview_title": "Preview",
     "saved_toast": "Branding updated",
     "error_toast": "Could not update branding",
-    "upload_error_toast": "Could not upload image"
+    "upload_error_toast": "Could not upload image",
+    "preview_no_banner": "No banner set",
+    "preview_button": "Action"
   }
 }

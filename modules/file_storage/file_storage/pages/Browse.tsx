@@ -71,7 +71,12 @@ function formatBytes(n: number): string {
 
 function Browse() {
   const page = usePage<{ props: Props }>();
-  const { files, pagination, filters, content_types: contentTypes } = page.props as unknown as Props;
+  const {
+    files,
+    pagination,
+    filters,
+    content_types: contentTypes,
+  } = page.props as unknown as Props;
   const { t } = useT();
   const { can } = usePermissions();
   const canUpload = can(PERMISSIONS.UPLOAD);
@@ -139,11 +144,7 @@ function Browse() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <UploadProgressRows
-                jobs={jobs}
-                onDismiss={dismiss}
-                columnCount={COLUMN_COUNT}
-              />
+              <UploadProgressRows jobs={jobs} onDismiss={dismiss} columnCount={COLUMN_COUNT} />
               {files.map((file) => (
                 <TableRow key={file.id}>
                   <TableCell className="sm:px-6 font-medium">{file.filename}</TableCell>
