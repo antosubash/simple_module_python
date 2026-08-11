@@ -6,12 +6,12 @@ import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
-import { Switch } from '@simple-module-py/ui/components/ui/switch';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { Check, KeyRound, Link2, Package, Search, ShieldCheck } from 'lucide-react';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { PermissionRow } from './components/PermissionRow';
 
 type Group = { name: string; permissions: string[] };
 type UserProp = { id: string; email: string; full_name: string | null };
@@ -21,17 +21,18 @@ type Props = {
   roles: string[];
   direct: string[];
   inherited: string[];
+  /** Permission key -> roles granting it, so a row can name its source. */
+  inherited_by: Record<string, string[]>;
   groups: Group[];
 };
 
-function UserEdit({ user, roles, direct, inherited, groups }: Props) {
+function UserEdit({ user, roles, direct, inherited, inherited_by: inheritedBy, groups }: Props) {
   const { t } = useT();
   const { data, setData, put, processing, isDirty, reset } = useForm<{ permissions: string[] }>({
     permissions: direct,
   });
   const [q, setQ] = useState('');
 
-  const inheritedSet = useMemo(() => new Set(inherited), [inherited]);
   const directSet = useMemo(() => new Set(data.permissions), [data.permissions]);
   const effectiveSet = useMemo(
     () => new Set([...data.permissions, ...inherited]),
@@ -172,43 +173,18 @@ function UserEdit({ user, roles, direct, inherited, groups }: Props) {
                       </span>
                     </div>
                     <div className="grid sm:grid-cols-2">
-                      {group.permissions.map((key, i) => {
-                        const fromRole = inheritedSet.has(key);
-                        const checked = directSet.has(key);
-                        return (
-                          <label
-                            key={key}
-                            htmlFor={`perm-${key}`}
-                            className={`flex items-center gap-2.5 px-4 py-3 cursor-pointer ${
-                              i % 2 === 0 ? 'sm:border-r sm:border-border' : ''
-                            } ${i < lastRowStart ? 'border-b border-border' : ''}`}
-                            title={
-                              fromRole ? t(keys.permissions.user_edit.inherited_hint) : undefined
-                            }
-                          >
-                            <Switch
-                              id={`perm-${key}`}
-                              checked={checked}
-                              onCheckedChange={(c) => toggle(key, c === true)}
-                            />
-                            <code
-                              className={`rounded bg-secondary px-2 py-0.5 font-mono text-[12px] ${
-                                fromRole && !checked ? 'text-muted-foreground' : 'text-foreground'
-                              }`}
-                            >
-                              {key}
-                            </code>
-                            {fromRole && (
-                              <Badge
-                                variant="outline"
-                                className="border-blue-200 bg-blue-50 text-blue-700 text-[10px] py-0 px-1.5"
-                              >
-                                {t(keys.permissions.user_edit.inherited_badge)}
-                              </Badge>
-                            )}
-                          </label>
-                        );
-                      })}
+                      {group.permissions.map((key, i) => (
+                        <PermissionRow
+                          key={key}
+                          permissionKey={key}
+                          direct={directSet.has(key)}
+                          viaRoles={inheritedBy[key] ?? []}
+                          onToggle={toggle}
+                          className={`${i % 2 === 0 ? 'sm:border-r sm:border-border' : ''} ${
+                            i < lastRowStart ? 'border-b border-border' : ''
+                          }`}
+                        />
+                      ))}
                     </div>
                   </Card>
                 );

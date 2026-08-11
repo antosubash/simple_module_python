@@ -99,6 +99,7 @@ async def edit_user(
             "roles": assignment.roles,
             "direct": assignment.direct,
             "inherited": assignment.inherited,
+            "inherited_by": assignment.inherited_by,
             "groups": [g.model_dump(mode="json") for g in groups],
         },
     )
