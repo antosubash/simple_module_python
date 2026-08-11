@@ -13,7 +13,7 @@
     "scope_system": "System (all tenants)",
     "go": "View",
     "viewing_label": "Viewing",
-    "scope_other": "Other tenant…",
+    "scope_custom": "Other tenant…",
     "cancel": "Cancel"
   },
   "table": {

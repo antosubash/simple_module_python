@@ -114,3 +114,52 @@ class TestMenuRegistryAdvanced:
         result = reg.get_for_user(is_authenticated=True)
         groups = [i["group"] for i in result["sidebar"]]
         assert groups == ["Administration", "System"]
+
+
+class TestPermissionFiltering:
+    """An entry that 403s on click is worse than no entry at all.
+
+    Roles alone could not express this: hard-coding ``roles=["admin"]`` hides
+    the screen from a custom role that legitimately holds the permission, while
+    still showing it to admin-adjacent roles that cannot open it.
+    """
+
+    async def test_entry_hidden_without_the_permission(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Settings", url="/settings/", permissions=["settings.view"]))
+        result = reg.get_for_user(is_authenticated=True, permissions=["users.manage"])
+        assert result["sidebar"] == []
+
+    async def test_entry_shown_with_the_permission(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Settings", url="/settings/", permissions=["settings.view"]))
+        result = reg.get_for_user(is_authenticated=True, permissions=["settings.view"])
+        assert [i["label"] for i in result["sidebar"]] == ["Settings"]
+
+    async def test_permission_granted_by_a_custom_role_is_enough(self):
+        """No role check involved — holding the key is what matters."""
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Settings", url="/settings/", permissions=["settings.view"]))
+        result = reg.get_for_user(
+            is_authenticated=True, roles=["auditor"], permissions=["settings.view"]
+        )
+        assert len(result["sidebar"]) == 1
+
+    async def test_all_declared_permissions_are_required(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="X", url="/x", permissions=["a.view", "a.manage"]))
+        assert reg.get_for_user(is_authenticated=True, permissions=["a.view"])["sidebar"] == []
+        both = reg.get_for_user(is_authenticated=True, permissions=["a.view", "a.manage"])
+        assert len(both["sidebar"]) == 1
+
+    async def test_no_declared_permissions_means_no_check(self):
+        """Existing entries must keep working without opting in."""
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Home", url="/"))
+        assert len(reg.get_for_user(is_authenticated=True, permissions=[])["sidebar"]) == 1
+
+    async def test_omitting_permissions_entirely_hides_gated_entries(self):
+        """A caller that passes no permissions holds none — fail closed."""
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Settings", url="/settings/", permissions=["settings.view"]))
+        assert reg.get_for_user(is_authenticated=True)["sidebar"] == []

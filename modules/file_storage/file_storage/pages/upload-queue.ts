@@ -90,8 +90,13 @@ export function useUploadQueue() {
       // record — dropping them before the reply lands leaves a gap where the
       // table still holds the pre-upload list, and a first upload into an
       // empty bucket flashes "No files yet". Failures stay until dismissed so
-      // they can't go unnoticed.
-      const clearFinished = () => setJobs((current) => current.filter((j) => j.status === 'error'));
+      // they can't go unnoticed, and anything still uploading stays too — a
+      // second batch dropped while this reload is in flight must not have its
+      // progress rows swept away by the first batch's cleanup.
+      const clearFinished = () =>
+        setJobs((current) =>
+          current.filter((j) => j.status === 'error' || j.status === 'uploading'),
+        );
       if (uploaded > 0) {
         router.reload({
           only: ['files', 'pagination', 'content_types'],

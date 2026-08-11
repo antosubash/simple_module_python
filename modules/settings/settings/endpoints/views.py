@@ -17,7 +17,7 @@ from simple_module_hosting.inertia_utils import redirect_back_with_errors, valid
 from simple_module_hosting.permissions import RequiresPermission
 from starlette.responses import RedirectResponse
 
-from settings._module_settings import collect_module_settings, serialize
+from settings._module_settings import _package_of, collect_module_settings, serialize
 from settings.constants import (
     ERR_SETTING_NOT_FOUND,
     PERM_CREATE,
@@ -223,15 +223,11 @@ def _testable_packages(request: Request) -> list[str]:
     owners = {c.module for c in registry.all_checks if c.module}
     return sorted(
         {
-            _package_of_module(mod)
+            _package_of(mod)
             for mod in getattr(request.app.state.sm, "modules", ())
             if mod.meta.name in owners
         }
     )
-
-
-def _package_of_module(mod: object) -> str:
-    return type(mod).__module__.split(".", 1)[0]
 
 
 @router.post(
@@ -251,7 +247,7 @@ async def test_connection(package: str, request: Request) -> dict:
     status with the reason buried.
     """
     modules = getattr(request.app.state.sm, "modules", ())
-    owner = next((m for m in modules if _package_of_module(m) == package), None)
+    owner = next((m for m in modules if _package_of(m) == package), None)
     if owner is None:
         raise HTTPException(status_code=404, detail=f"Unknown module package: {package}")
 

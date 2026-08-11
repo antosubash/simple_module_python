@@ -22,6 +22,7 @@ from settings.constants import (
     MODULE_NAME,
     MODULE_PACKAGE,
     PERM_GROUP,
+    PERM_VIEW,
     TABLE_SETTING,
     VIEW_PREFIX,
 )
@@ -69,6 +70,9 @@ class SettingsModule(ModuleBase):
                 order=MENU_ORDER,
                 section=MenuSection.SIDEBAR,
                 group="System",
+                # Mirrors the view router's guard, so the entry is not offered
+                # to accounts whose click would 403.
+                permissions=[PERM_VIEW],
             )
         )
 

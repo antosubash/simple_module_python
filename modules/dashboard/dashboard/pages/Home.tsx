@@ -48,12 +48,16 @@ function Home() {
   // The server cannot filter these links per user — the stats payload is
   // process-wide cached — so reachability is decided here against the menus
   // the middleware already filtered for this session.
+  // POST entries (Logout) are excluded: the tile renders a GET link, so
+  // adopting one as a module's target hands the user a 405.
   const menuUrls = [
     ...(menus?.sidebar ?? []),
     ...(menus?.adminSidebar ?? []),
     ...(menus?.navbar ?? []),
     ...(menus?.userDropdown ?? []),
-  ].map((item) => item.url);
+  ]
+    .filter((item) => (item.method ?? 'get') === 'get')
+    .map((item) => item.url);
 
   /**
    * The menu entry this module's tile should open, or '' when the user has

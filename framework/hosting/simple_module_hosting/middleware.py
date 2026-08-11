@@ -274,6 +274,9 @@ class InertiaLayoutDataMiddleware:
             "menus": self.menu_registry.get_for_user(
                 is_authenticated=is_authenticated,
                 roles=roles,
+                # Already expanded above (wildcards resolved), which is exactly
+                # what the menu filter needs to drop entries that would 403.
+                permissions=frontend_permissions,
             ),
             "i18n": i18n_block,
         }

@@ -149,7 +149,7 @@ export default {
     'feature_flags.browse.empty_description': '',
     'feature_flags.browse.empty_title': '',
     'feature_flags.browse.go': '',
-    'feature_flags.browse.scope_other': '',
+    'feature_flags.browse.scope_custom': '',
     'feature_flags.browse.scope_system': '',
     'feature_flags.browse.tenant_id_label': '',
     'feature_flags.browse.tenant_id_placeholder': '',

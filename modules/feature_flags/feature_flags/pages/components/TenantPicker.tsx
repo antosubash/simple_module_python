@@ -73,7 +73,7 @@ export function TenantPicker({ tenantId, tenants, onSelect }: Props) {
               </SelectItem>
             ))}
             <SelectSeparator />
-            <SelectItem value={CUSTOM}>{t(keys.feature_flags.browse.scope_other)}</SelectItem>
+            <SelectItem value={CUSTOM}>{t(keys.feature_flags.browse.scope_custom)}</SelectItem>
           </SelectContent>
         </Select>
       </div>

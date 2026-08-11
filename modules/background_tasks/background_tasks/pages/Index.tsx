@@ -78,7 +78,9 @@ function Index() {
 
   async function handleRetry(execution: Execution) {
     const created = await retryExecution(execution);
-    if (created) router.reload({ only: ['executions', 'pagination'] });
+    // status_counts feeds the strip above the table — a retry moves a row out
+    // of "failed", so leaving it out of the reload leaves the tile lying.
+    if (created) router.reload({ only: ['executions', 'pagination', 'status_counts'] });
   }
 
   return (

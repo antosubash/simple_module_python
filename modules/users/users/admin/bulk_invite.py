@@ -63,7 +63,11 @@ async def admin_bulk_invite(
 
     # Absent attribute means "assume it delivers" — a third-party mailer must
     # never leak invite tokens into the response just by not declaring itself.
-    delivers = getattr(mailer, "delivers_email", True)
+    # No mailer at all delivers nothing, though: defaulting that to True sends
+    # every address down the send path, where the AttributeError surfaces to
+    # the admin as a raw "'NoneType' object has no attribute 'send_invite'".
+    # This matches what the page's ``mailer_delivers`` prop already reports.
+    delivers = mailer is not None and getattr(mailer, "delivers_email", True)
 
     # Preserve submit order but drop repeats: pasting a list with the same
     # address twice should not create two invites for it. A malformed address
