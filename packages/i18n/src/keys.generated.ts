@@ -165,6 +165,11 @@ export const keys = {
     home: {
       description: 'dashboard.home.description',
       description_body: 'dashboard.home.description_body',
+      health: {
+        degraded: 'dashboard.home.health.degraded',
+        healthy: 'dashboard.home.health.healthy',
+        unhealthy: 'dashboard.home.health.unhealthy',
+      },
       stats: {
         active_users: 'dashboard.home.stats.active_users',
         modules: 'dashboard.home.stats.modules',
@@ -267,6 +272,8 @@ export const keys = {
   },
   host: {
     error: {
+      correlation_id_copy: 'host.error.correlation_id_copy',
+      correlation_id_label: 'host.error.correlation_id_label',
       forbidden_description: 'host.error.forbidden_description',
       forbidden_title: 'host.error.forbidden_title',
       generic_description: 'host.error.generic_description',

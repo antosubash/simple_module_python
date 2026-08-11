@@ -98,3 +98,24 @@ class TestDashboardStatsEndpoint:
     async def test_stats_requires_authentication(self, client: httpx.AsyncClient):
         resp = await client.get(_STATS_URL, follow_redirects=False)
         assert resp.status_code in (302, 401, 403)
+
+    async def test_module_entries_carry_a_link_target(self, authenticated_client: httpx.AsyncClient):
+        """Tiles were inert; each one now needs its module's own screen."""
+        resp = await authenticated_client.get(_STATS_URL)
+        modules = {m["name"]: m for m in resp.json()["system_info"]["modules"]}
+        assert modules["Dashboard"]["url"] == "/dashboard/"
+
+    async def test_view_less_modules_get_an_empty_url(
+        self, authenticated_client: httpx.AsyncClient
+    ):
+        """A module with no view_prefix must not be linked to a route that 404s."""
+        resp = await authenticated_client.get(_STATS_URL)
+        for mod in resp.json()["system_info"]["modules"]:
+            assert mod["url"] == "" or mod["url"].startswith("/"), mod
+
+    async def test_every_module_entry_reports_health(
+        self, authenticated_client: httpx.AsyncClient
+    ):
+        resp = await authenticated_client.get(_STATS_URL)
+        for mod in resp.json()["system_info"]["modules"]:
+            assert mod["health"] in ("", "healthy", "degraded", "unhealthy"), mod

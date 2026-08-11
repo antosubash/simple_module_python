@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { CopyableId } from '@simple-module-py/ui/components/CopyableId';
 import { ErrorScreen } from '@simple-module-py/ui/components/ErrorScreen';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Home, LifeBuoy } from 'lucide-react';
@@ -7,9 +8,10 @@ import { Home, LifeBuoy } from 'lucide-react';
 interface Props {
   status: number;
   message: string;
+  correlation_id?: string;
 }
 
-function ErrorPage({ status, message }: Props) {
+function ErrorPage({ status, message, correlation_id }: Props) {
   const { t } = useT();
 
   const titles: Record<number, string> = {
@@ -36,7 +38,26 @@ function ErrorPage({ status, message }: Props) {
   return (
     <>
       <Head title="Error" />
-      <ErrorScreen hero={status} title={title} description={description} accent={accents[status]}>
+      <ErrorScreen
+        hero={status}
+        title={title}
+        description={description}
+        accent={accents[status]}
+        details={
+          correlation_id ? (
+            <div className="mt-5 flex flex-col items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">
+                {t(keys.host.error.correlation_id_label)}
+              </span>
+              <CopyableId
+                value={correlation_id}
+                title={t(keys.host.error.correlation_id_copy)}
+                className="px-2 py-1 text-[13px]"
+              />
+            </div>
+          ) : undefined
+        }
+      >
         <Button asChild className="gap-1.5">
           <Link href="/">
             <Home className="h-4 w-4" />

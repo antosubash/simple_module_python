@@ -61,6 +61,17 @@ class TestErrorPageSharedProps:
         props = _inertia_page((await authenticated_client.get(_MISSING_PATH)).text)["props"]
         assert props["status"] == _NOT_FOUND
 
+    async def test_error_page_carries_correlation_id(
+        self, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        """The page shows this id so a support report can be joined to the logs."""
+        resp = await authenticated_client.get(_MISSING_PATH)
+        props = _inertia_page(resp.text)["props"]
+        assert props.get("correlation_id"), f"no correlation_id on error page; props={sorted(props)}"
+        # Must be the same id the response header advertises, or quoting it
+        # back would point support at a different request.
+        assert props["correlation_id"] == resp.headers.get("x-correlation-id")
+
     async def test_anonymous_error_page_still_renders(self, client: httpx.AsyncClient) -> None:
         """An unauthenticated 404 must not blow up on missing shared state."""
         resp = await client.get("/health/definitely-not-real")

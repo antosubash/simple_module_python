@@ -224,9 +224,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         mod.register_permissions(perm_registry)
         mod.register_feature_flags(ff_registry)
         _register_event_handlers(mod, event_bus, app)
+        health_registry.set_owner(mod.meta.name)
         mod.register_health_checks(health_registry)
         mod.register_public_routes(public_route_registry)
         mod.register_design_packs(design_pack_registry)
+
+    # Stop attributing to the last module in the loop — anything registered
+    # after this point belongs to no module in particular.
+    health_registry.set_owner("")
 
     attach_public_routes(app, settings, public_route_registry)
 

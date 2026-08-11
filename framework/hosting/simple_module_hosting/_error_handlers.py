@@ -34,7 +34,18 @@ async def render_error_page(request: Request, status_code: int, message: str) ->
         shared = getattr(request.state, "inertia_shared", None)
         if shared:
             inertia.share(**shared)
-        response = await inertia.render("Error", {"status": status_code, "message": message})
+        # The correlation id is the only handle a user has on their own failed
+        # request — without it a support report is just "it broke". It is already
+        # on every log line for this request, so quoting it back makes the page
+        # and the logs joinable.
+        response = await inertia.render(
+            "Error",
+            {
+                "status": status_code,
+                "message": message,
+                "correlation_id": getattr(request.state, "correlation_id", "") or "",
+            },
+        )
         response.status_code = status_code
         return response
     except InertiaVersionConflictException as exc:

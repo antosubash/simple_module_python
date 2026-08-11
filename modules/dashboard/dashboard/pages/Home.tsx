@@ -5,12 +5,18 @@ import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { StatCard } from '@simple-module-py/ui/components/StatCard';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import type { SharedProps } from '@simple-module-py/ui/types';
 import { Activity, Box, Stethoscope, Users } from 'lucide-react';
 import { DemoPlaceholders } from './components/DemoPlaceholders';
+import { ModuleTile } from './components/ModuleTile';
 
 interface SystemModule {
   name: string;
   status: 'loaded';
+  /** The module's own screen, or '' when it ships no views. */
+  url: string;
+  /** Worst health status across the module's checks; '' when it registers none. */
+  health: '' | 'healthy' | 'degraded' | 'unhealthy';
 }
 
 interface HealthCheck {
@@ -32,10 +38,30 @@ interface Props {
 }
 
 function Home() {
-  const props = usePage<{ props: Props }>().props as unknown as Props;
+  const page = usePage();
+  const props = page.props as unknown as Props;
+  const { menus } = page.props as unknown as SharedProps;
   const { t } = useT();
 
   const unhealthy = props.system_info.health_checks.filter((c) => c.status !== 'healthy').length;
+
+  // The server cannot filter these links per user — the stats payload is
+  // process-wide cached — so reachability is decided here against the menus
+  // the middleware already filtered for this session.
+  const reachableUrls = new Set(
+    [
+      ...(menus?.sidebar ?? []),
+      ...(menus?.adminSidebar ?? []),
+      ...(menus?.navbar ?? []),
+      ...(menus?.userDropdown ?? []),
+    ].map((item) => item.url.replace(/\/+$/, '')),
+  );
+
+  const healthLabels: Record<string, string> = {
+    healthy: t(keys.dashboard.home.health.healthy),
+    degraded: t(keys.dashboard.home.health.degraded),
+    unhealthy: t(keys.dashboard.home.health.unhealthy),
+  };
 
   return (
     <>
@@ -85,15 +111,14 @@ function Home() {
               </SectionTitle>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                 {props.system_info.modules.map((m) => (
-                  <div
+                  <ModuleTile
                     key={m.name}
-                    className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2"
-                  >
-                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-muted-foreground">
-                      <Box className="h-3.5 w-3.5" aria-hidden="true" />
-                    </span>
-                    <span className="font-mono text-xs text-foreground truncate">{m.name}</span>
-                  </div>
+                    name={m.name}
+                    url={m.url}
+                    health={m.health}
+                    healthLabel={healthLabels[m.health]}
+                    reachable={!!m.url && reachableUrls.has(m.url.replace(/\/+$/, ''))}
+                  />
                 ))}
               </div>
             </CardContent>
