@@ -1,7 +1,7 @@
 import { keys, useT } from '@simple-module-py/i18n';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 export interface KnownKey {
   key: string;
@@ -33,6 +33,15 @@ const MAX_SUGGESTIONS = 8;
 export function KeyField({ value, onChange, knownKeys, error }: Props) {
   const { t } = useT();
   const [focused, setFocused] = useState(false);
+  // Cleared on unmount so the blur timer cannot fire into a dead component
+  // when the admin navigates away within its 150ms window.
+  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (blurTimer.current) clearTimeout(blurTimer.current);
+    },
+    [],
+  );
 
   const matches = useMemo(() => {
     const needle = value.trim().toLowerCase();
@@ -54,7 +63,10 @@ export function KeyField({ value, onChange, knownKeys, error }: Props) {
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => setFocused(true)}
           // Delayed so a click on a suggestion lands before the list unmounts.
-          onBlur={() => setTimeout(() => setFocused(false), 150)}
+          onBlur={() => {
+            if (blurTimer.current) clearTimeout(blurTimer.current);
+            blurTimer.current = setTimeout(() => setFocused(false), 150);
+          }}
           required
           autoComplete="off"
           placeholder={t(keys.settings.form.key_placeholder)}

@@ -30,6 +30,12 @@ interface SystemInfo {
   health_checks: HealthCheck[];
 }
 
+/** Does `menuUrl` sit at, or below, the route prefix `owner`? */
+function isUnder(menuUrl: string, owner: string): boolean {
+  const normalized = menuUrl.replace(/\/+$/, '');
+  return normalized === owner || normalized.startsWith(`${owner}/`);
+}
+
 interface Props {
   total_users: number;
   active_users_7d: number;
@@ -59,6 +65,12 @@ function Home() {
     .filter((item) => (item.method ?? 'get') === 'get')
     .map((item) => item.url);
 
+  // Every module's own prefix, so the fallback below can tell "this entry is
+  // mine" from "this entry belongs to a module mounted deeper than me".
+  const modulePrefixes = props.system_info.modules
+    .map((m) => m.url.replace(/\/+$/, ''))
+    .filter(Boolean);
+
   /**
    * The menu entry this module's tile should open, or '' when the user has
    * none.
@@ -67,14 +79,23 @@ function Home() {
    * landing screen below its own prefix (Users is `/users`, its menu entry is
    * `/users/admin`), and an exact match leaves those tiles permanently inert
    * for admins who can in fact open them. So fall back to the first menu entry
-   * that lives under the prefix.
+   * that lives under the prefix — but only if no *other* module owns a longer
+   * prefix of that entry, or a module mounted at `/admin` would adopt the
+   * background-tasks entry at `/admin/background-tasks` and link its tile to
+   * somebody else's screen.
    */
   function menuTarget(url: string): string {
     if (!url) return '';
     const prefix = url.replace(/\/+$/, '');
     const exact = menuUrls.find((menuUrl) => menuUrl.replace(/\/+$/, '') === prefix);
     if (exact) return exact;
-    return menuUrls.find((menuUrl) => menuUrl.startsWith(`${prefix}/`)) ?? '';
+    return (
+      menuUrls.find(
+        (menuUrl) =>
+          isUnder(menuUrl, prefix) &&
+          !modulePrefixes.some((other) => other.length > prefix.length && isUnder(menuUrl, other)),
+      ) ?? ''
+    );
   }
 
   const healthLabels: Record<string, string> = {

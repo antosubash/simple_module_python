@@ -213,7 +213,11 @@ function Browse() {
                   </TableCell>
                 </TableRow>
               ))}
-              {files.length === 0 && jobs.length === 0 && (
+              {/* `total` is filter-aware, so this still covers "no matches".
+                  Dropping it would claim the bucket is empty whenever a page
+                  past the last one renders — e.g. after deleting the only row
+                  on page 2, or following a stale ?page= link. */}
+              {files.length === 0 && jobs.length === 0 && pagination.total === 0 && (
                 <TableRow>
                   <TableCell colSpan={COLUMN_COUNT} className="h-40">
                     <Empty>

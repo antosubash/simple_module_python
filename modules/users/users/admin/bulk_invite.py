@@ -152,6 +152,12 @@ async def admin_bulk_invite(
                 invited_by=(str(invited_by.id) if invited_by else None),
             )
         )
+        # Handlers are awaited inline and may write through this same
+        # request-scoped session. Commit again so a *later* address failing —
+        # and rolling back to clear the transaction — cannot take their work
+        # with it, which is what makes the "nothing durable is pending"
+        # assumption in the failure branch above actually hold.
+        await db.commit()
 
     results.extend(
         BulkInviteResult(

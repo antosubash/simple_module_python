@@ -3,7 +3,7 @@ import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AccountStatusCard } from './components/AccountStatusCard';
 import { DangerZone } from './components/DangerZone';
@@ -37,6 +37,8 @@ interface FormState {
   fullName: string;
   roles: string[];
 }
+
+const LEAVE_WARNING = 'You have unsaved changes on this user. Leave without saving?';
 
 function sameRoles(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
@@ -95,13 +97,26 @@ function Edit() {
   const rolesDirty = !sameRoles(form.roles, baseline.roles);
   const dirty = detailsDirty || rolesDirty;
 
+  // Set while this page is driving its own visit (the post-save reload), so
+  // the guard below doesn't prompt about changes that were just persisted —
+  // React has not re-rendered with the advanced baseline at that point.
+  const savingRef = useRef(false);
+
   // One dirty state is only honest if leaving with unsaved changes is hard to
-  // do by accident.
+  // do by accident. `beforeunload` alone is not enough: it never fires for an
+  // Inertia visit, and "Back to Users", "Cancel" and every sidebar link are
+  // Inertia visits — i.e. every ordinary way of leaving this page.
   useEffect(() => {
     if (!dirty) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
+    const stopListening = router.on('before', () =>
+      savingRef.current ? true : window.confirm(LEAVE_WARNING),
+    );
+    return () => {
+      window.removeEventListener('beforeunload', warn);
+      stopListening();
+    };
   }, [dirty]);
 
   const toggleRole = (roleName: string) =>
@@ -115,6 +130,7 @@ function Edit() {
   async function handleSave() {
     setSaving(true);
     setError(null);
+    savingRef.current = true;
     try {
       // Only the parts that changed — sending roles untouched would rewrite
       // every assignment's audit trail for an edit that never touched them.
@@ -159,6 +175,7 @@ function Edit() {
       setError('An error occurred');
     } finally {
       setSaving(false);
+      savingRef.current = false;
     }
   }
 
