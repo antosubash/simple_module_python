@@ -16,27 +16,25 @@ from users.models import User
 
 def _registry() -> AuditLinkRegistry:
     reg = AuditLinkRegistry()
-    reg.register(
-        AuditLink(entity_type="users_user", url_template="/users/admin/{id}", label="User")
-    )
+    reg.register(AuditLink(entity_type="User", url_template="/users/admin/{id}", label="User"))
     return reg
 
 
 class TestEntityLink:
     def test_registered_table_resolves_to_a_url(self):
-        ref = entity_link(_registry(), "users_user", "a91")
+        ref = entity_link(_registry(), "User", "a91")
         assert ref == {"url": "/users/admin/a91", "label": "User"}
 
     def test_unclaimed_table_renders_unlinked(self):
         """Join rows and blob stores have no screen — the id still shows."""
-        ref = entity_link(_registry(), "permissions_user_permission", "x1")
+        ref = entity_link(_registry(), "UserPermission", "x1")
         assert ref["url"] is None
-        assert ref["label"] == "permissions_user_permission"
+        assert ref["label"] == "UserPermission"
 
     def test_missing_label_falls_back_to_the_table_name(self):
         reg = AuditLinkRegistry()
-        reg.register(AuditLink(entity_type="files_file", url_template="/f/{id}"))
-        assert entity_link(reg, "files_file", "z")["label"] == "files_file"
+        reg.register(AuditLink(entity_type="StoredFile", url_template="/f/{id}"))
+        assert entity_link(reg, "StoredFile", "z")["label"] == "StoredFile"
 
 
 class TestActorLink:
@@ -46,7 +44,7 @@ class TestActorLink:
         assert actor_link(_registry(), "a91") == "/users/admin/a91"
 
     def test_none_when_the_users_table_is_unclaimed(self):
-        """A registry without a users_user entry yields no link rather than a
+        """A registry without a User entry yields no link rather than a
         guessed one.
 
         Not a claim that audit_log runs without the users module — it imports

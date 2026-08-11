@@ -23,7 +23,6 @@ from settings.constants import (
     MODULE_PACKAGE,
     PERM_GROUP,
     PERM_VIEW,
-    TABLE_SETTING,
     VIEW_PREFIX,
 )
 
@@ -80,9 +79,12 @@ class SettingsModule(ModuleBase):
         registry.add_group(PERM_GROUP, list(ALL_PERMISSIONS))
 
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
+        from settings.models import Setting
+
         registry.register(
             AuditLink(
-                entity_type=TABLE_SETTING,
+                # Class name, not __tablename__ — see AuditLink.entity_type.
+                entity_type=Setting.__name__,
                 url_template=f"{VIEW_PREFIX}/{{id}}/edit",
                 label="Setting",
             )

@@ -73,11 +73,12 @@ class BackgroundTasksModule(ModuleBase):
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
         from simple_module_core.audit_links import AuditLink
 
-        from background_tasks.constants import TABLE_TASK_EXECUTION
+        from background_tasks.models import TaskExecution
 
         registry.register(
             AuditLink(
-                entity_type=TABLE_TASK_EXECUTION,
+                # Class name, not __tablename__ — see AuditLink.entity_type.
+                entity_type=TaskExecution.__name__,
                 url_template=f"{VIEW_PREFIX}/{{id}}",
                 label="Task execution",
             )

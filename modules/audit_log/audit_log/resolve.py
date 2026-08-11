@@ -63,9 +63,12 @@ async def resolve_actors(db: AsyncSession, user_ids: list[str | None]) -> dict[s
     return resolved
 
 
-USER_ENTITY_TYPE = "users_user"
-"""The table an audit actor is a row of. Actors are user ids, so their link
-comes from the same registry entry as any other reference to that table."""
+USER_ENTITY_TYPE = "User"
+"""The model an audit actor is a row of.
+
+The audit trail records ``type(obj).__name__``, so registry keys are class
+names — not ``__tablename__``. Actors are user ids, so their link comes from
+the same registry entry as any other reference to that model."""
 
 
 def actor_link(registry: AuditLinkRegistry, user_id: str) -> str | None:

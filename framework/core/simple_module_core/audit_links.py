@@ -25,15 +25,19 @@ _ID_PLACEHOLDER = "{id}"
 
 @dataclass(frozen=True)
 class AuditLink:
-    """Where the records of one audited table can be viewed.
+    """Where the records of one audited model can be viewed.
 
     Args:
-        entity_type: The audited table name, matching ``AuditEntry.entity_type``
-            (e.g. ``"users_user"``).
+        entity_type: The **model class name**, matching
+            ``AuditEntry.entity_type`` (e.g. ``"User"``, not ``"users_user"``).
+            ``snapshot_changes`` records ``type(obj).__name__``, so keying this
+            off ``__tablename__`` silently never matches — and because an
+            unmatched lookup falls back to showing ``entity_type`` as the
+            label, a table-name key looks like it worked.
         url_template: Path containing ``{id}``, substituted with the entity id
             (e.g. ``"/admin/users/{id}/edit"``).
         label: Human-readable name for the entity kind, shown instead of the
-            raw table name (e.g. ``"User"``).
+            raw class name (e.g. ``"User account"``).
     """
 
     entity_type: str

@@ -98,9 +98,13 @@ class UsersModule(ModuleBase):
         registry.map_role(USER_ROLE_NAME, [PERM_USERS_SELF_PROFILE])
 
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
+        from users.models import User
+
         registry.register(
             AuditLink(
-                entity_type="users_user",
+                # The model class name — what snapshot_changes records. Keying
+                # this off __tablename__ ("users_user") silently never matches.
+                entity_type=User.__name__,
                 url_template=f"{_URL_USERS_ADMIN}/{{id}}",
                 label="User",
             )
