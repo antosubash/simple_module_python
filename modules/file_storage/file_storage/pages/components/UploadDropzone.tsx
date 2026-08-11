@@ -1,37 +1,32 @@
-import { router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Upload } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { toast } from 'sonner';
 
-import { ROUTES } from '../constants';
+interface Props {
+  /** Hands the files to the page's upload queue, which reports progress. */
+  onFiles: (files: FileList) => Promise<{ uploaded: number; failed: string[] }>;
+  busy: boolean;
+}
 
-export function UploadDropzone() {
+export function UploadDropzone({ onFiles, busy }: Props) {
   const { t } = useT();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
-    setBusy(true);
     try {
-      for (const file of Array.from(files)) {
-        const form = new FormData();
-        form.append('file', file);
-        const resp = await fetch(ROUTES.API_UPLOAD, {
-          method: 'POST',
-          body: form,
-        });
-        if (!resp.ok) {
-          toast.error(t(keys.file_storage.toasts.upload_failed));
-        } else {
-          toast.success(t(keys.file_storage.toasts.uploaded, { name: file.name }));
-        }
+      const { uploaded, failed } = await onFiles(files);
+      if (uploaded > 0) {
+        toast.success(t(keys.file_storage.toasts.uploaded_count, { count: uploaded }));
       }
-      router.reload({ only: ['files', 'pagination'] });
+      // Failures also leave a row on screen; the toast is for the case where
+      // the user has already scrolled away from the table.
+      for (const name of failed) {
+        toast.error(t(keys.file_storage.toasts.upload_failed_named, { name }));
+      }
     } finally {
-      setBusy(false);
       if (inputRef.current) inputRef.current.value = '';
     }
   }

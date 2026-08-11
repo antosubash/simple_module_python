@@ -7,7 +7,12 @@
     "empty_title": "No files yet",
     "empty_description": "Upload your first file to get started.",
     "count_one": "{count} file",
-    "count_other": "{count} files"
+    "count_other": "{count} files",
+    "no_match_title": "No matching files",
+    "no_match_description": "No files match the current search or type filter.",
+    "previous": "Previous",
+    "next": "Next",
+    "page_of": "Page {page} of {total}"
   },
   "table": {
     "filename": "Name",
@@ -31,12 +36,24 @@
     "uploaded": "\"{name}\" uploaded",
     "upload_failed": "Upload failed",
     "deleted": "\"{name}\" deleted",
-    "delete_failed": "Failed to delete file"
+    "delete_failed": "Failed to delete file",
+    "uploaded_count_one": "{count} file uploaded",
+    "uploaded_count_other": "{count} files uploaded",
+    "upload_failed_named": "\"{name}\" failed to upload"
   },
   "errors": {
     "not_found": "File not found",
     "too_large": "File exceeds the maximum allowed size",
     "bad_type": "This file type is not allowed",
     "backend_error": "Storage backend error"
+  },
+  "filters": {
+    "search_placeholder": "Search files by name…",
+    "type_label": "Type",
+    "type_all": "All types"
+  },
+  "upload": {
+    "in_progress": "Uploading {name}",
+    "dismiss": "Dismiss"
   }
 }

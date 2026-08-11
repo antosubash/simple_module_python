@@ -24,9 +24,19 @@ _PER_PAGE = 20
 async def browse(
     inertia: InertiaDep,
     page: int = 1,
+    q: str = "",
+    content_type: str = "",
     service: FileStorageService = Depends(get_file_storage_service),
 ) -> InertiaResponse:
-    items, total = await service.list_files(page=page, per_page=_PER_PAGE)
+    items, total = await service.list_files(
+        page=page,
+        per_page=_PER_PAGE,
+        search=q or None,
+        content_type=content_type or None,
+    )
+    # Facets ignore the active filters so the dropdown keeps offering the
+    # other types — a filter that hides its own alternatives is a dead end.
+    facets = await service.content_type_facets()
     # The page name is hard-coded as a literal here (rather than via
     # ``constants.PAGE_BROWSE``) so the SM003/SM004 diagnostics — which do
     # static AST analysis and cannot resolve attribute access — pair this
@@ -37,5 +47,7 @@ async def browse(
         {
             "files": [item.model_dump(mode="json") for item in items],
             "pagination": {"page": page, "perPage": _PER_PAGE, "total": total},
+            "filters": {"q": q, "content_type": content_type},
+            "content_types": facets,
         },
     )
