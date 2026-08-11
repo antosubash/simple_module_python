@@ -1,5 +1,6 @@
 """SimpleModule Core - Module system, menu, permissions, events, and diagnostics."""
 
+from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_core.design_packs import DesignPack, DesignPackRegistry
 from simple_module_core.diagnostics import (
     DiagnosticLevel,
@@ -45,6 +46,8 @@ __all__ = [
     "DEFAULT_AUTH_PROVIDER",
     "FRAMEWORK_API_VERSION",
     "CircularDependencyError",
+    "AuditLink",
+    "AuditLinkRegistry",
     "DesignPack",
     "DesignPackRegistry",
     "DiagnosticLevel",

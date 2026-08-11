@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.design_packs import DesignPackRegistry
 from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
 from simple_module_core.discovery import discover_modules, select_auth_provider, topological_sort
@@ -173,6 +174,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     health_registry = HealthRegistry()
     public_route_registry = PublicRouteRegistry()
     design_pack_registry = DesignPackRegistry()
+    audit_link_registry = AuditLinkRegistry()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -228,6 +230,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         mod.register_health_checks(health_registry)
         mod.register_public_routes(public_route_registry)
         mod.register_design_packs(design_pack_registry)
+        mod.register_audit_links(audit_link_registry)
 
     # Stop attributing to the last module in the loop — anything registered
     # after this point belongs to no module in particular.
@@ -293,6 +296,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         health_registry=health_registry,
         public_routes=public_route_registry,
         design_packs=design_pack_registry,
+        audit_links=audit_link_registry,
         i18n_registry=i18n_registry,
         inertia_config=inertia_config,
         modules=tuple(modules),

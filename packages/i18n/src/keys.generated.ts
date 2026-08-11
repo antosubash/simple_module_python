@@ -19,6 +19,7 @@ export const keys = {
       title: 'audit_log.browse.title',
     },
     changes: {
+      deleted_user: 'audit_log.changes.deleted_user',
       fields_set: 'audit_log.changes.fields_set',
       no_changes: 'audit_log.changes.no_changes',
       show_less: 'audit_log.changes.show_less',

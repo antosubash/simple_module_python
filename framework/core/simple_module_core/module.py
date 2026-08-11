@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
 
+    from simple_module_core.audit_links import AuditLinkRegistry
     from simple_module_core.design_packs import DesignPackRegistry
     from simple_module_core.events import EventBus
     from simple_module_core.feature_flags import FeatureFlagRegistry
@@ -161,6 +162,28 @@ class ModuleBase(ABC):
         reaches the bundle through the host's ``styles.css``. Slugs are unique
         across modules; a collision raises at boot. Called once, in dependency
         order.
+        """
+
+    def register_audit_links(self, registry: AuditLinkRegistry) -> None:
+        """Declare where this module's audited records can be viewed.
+
+        An audit entry stores a table name and a primary key, which tells the
+        reader what changed but gives them no way to open it. Override this
+        hook to make your module's rows reachable from the audit log::
+
+            def register_audit_links(self, registry):
+                registry.register(
+                    AuditLink(
+                        entity_type="users_user",
+                        url_template="/admin/users/{id}/edit",
+                        label="User",
+                    )
+                )
+
+        ``entity_type`` is the ``__tablename__`` the rows are audited under.
+        Registering only supplies the URL — the target route still enforces
+        its own permissions, so linking never widens access. Called once at
+        boot, in dependency order.
         """
 
     def register_middleware(self, app: FastAPI) -> None:

@@ -6,6 +6,7 @@ import importlib.resources
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
+from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
@@ -21,6 +22,7 @@ from settings.constants import (
     MODULE_NAME,
     MODULE_PACKAGE,
     PERM_GROUP,
+    TABLE_SETTING,
     VIEW_PREFIX,
 )
 
@@ -72,6 +74,15 @@ class SettingsModule(ModuleBase):
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(PERM_GROUP, list(ALL_PERMISSIONS))
+
+    def register_audit_links(self, registry: AuditLinkRegistry) -> None:
+        registry.register(
+            AuditLink(
+                entity_type=TABLE_SETTING,
+                url_template=f"{VIEW_PREFIX}/{{id}}/edit",
+                label="Setting",
+            )
+        )
 
     def locale_dirs(self) -> dict[str, Path]:
         base = Path(str(importlib.resources.files(__package__) / "locales"))

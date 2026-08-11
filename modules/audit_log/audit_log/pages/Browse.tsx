@@ -1,5 +1,6 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { CopyableId } from '@simple-module-py/ui/components/CopyableId';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
@@ -24,6 +25,12 @@ interface Change {
   new?: unknown;
 }
 
+interface EntityRef {
+  /** null when no module claims this table — the id renders unlinked. */
+  url: string | null;
+  label: string;
+}
+
 interface AuditEntryRead {
   id: string;
   entity_type: string;
@@ -31,6 +38,9 @@ interface AuditEntryRead {
   action: 'created' | 'updated' | 'deleted' | 'soft_deleted';
   changes: Change[];
   user_id: string | null;
+  /** Display name resolved from user_id, or null for deleted/system actors. */
+  actor: string | null;
+  entity: EntityRef;
   correlation_id: string | null;
   created_at: string;
 }
@@ -96,6 +106,56 @@ function ChangesList({ entry }: { entry: AuditEntryRead }) {
         </button>
       )}
     </div>
+  );
+}
+
+/**
+ * Entity kind and id. The id is a link when the owning module registered one,
+ * and always copyable — quoting an id into a ticket is the other thing people
+ * do with this column.
+ */
+function EntityCell({ entry }: { entry: AuditEntryRead }) {
+  const label = entry.entity?.label ?? entry.entity_type;
+  const url = entry.entity?.url ?? null;
+  const shortId = entry.entity_id.length > 12 ? `${entry.entity_id.slice(0, 8)}…` : entry.entity_id;
+
+  return (
+    <div className="flex items-baseline gap-1.5">
+      <span className="text-sm font-medium">{label}</span>
+      {url ? (
+        <Link href={url} className="font-mono text-xs text-primary-700 hover:underline">
+          {shortId}
+        </Link>
+      ) : (
+        <CopyableId value={entry.entity_id} label={shortId} />
+      )}
+    </div>
+  );
+}
+
+/** Who acted: display name where the account still exists, raw id otherwise. */
+function ActorCell({ entry }: { entry: AuditEntryRead }) {
+  const { t } = useT();
+  if (!entry.user_id) return <>{t(keys.audit_log.changes.system_user)}</>;
+  if (entry.actor) {
+    return (
+      <Link
+        href={`/users/admin/${entry.user_id}`}
+        className="text-primary-700 hover:underline"
+        title={entry.user_id}
+      >
+        {entry.actor}
+      </Link>
+    );
+  }
+  // The account is gone. The id is still the truthful record of who acted,
+  // so show it rather than pretending the action had no author.
+  return (
+    <CopyableId
+      value={entry.user_id}
+      label={`${entry.user_id.slice(0, 8)}…`}
+      title={t(keys.audit_log.changes.deleted_user)}
+    />
   );
 }
 
@@ -193,13 +253,10 @@ function Browse() {
                       </Badge>
                     </TableCell>
                     <TableCell className="sm:px-6">
-                      <span className="font-medium text-sm">{entry.entity_type}</span>
-                      <span className="ml-1 font-mono text-xs text-muted-foreground">
-                        {entry.entity_id}
-                      </span>
+                      <EntityCell entry={entry} />
                     </TableCell>
                     <TableCell className="sm:px-6 hidden sm:table-cell text-sm text-muted-foreground">
-                      {entry.user_id ?? t(keys.audit_log.changes.system_user)}
+                      <ActorCell entry={entry} />
                     </TableCell>
                     <TableCell className="sm:px-6 hidden md:table-cell">
                       <ChangesList entry={entry} />

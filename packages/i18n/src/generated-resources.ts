@@ -13,6 +13,7 @@ export default {
     'audit_log.browse.previous': '',
     'audit_log.browse.showing': '',
     'audit_log.browse.title': '',
+    'audit_log.changes.deleted_user': '',
     'audit_log.changes.fields_set': '',
     'audit_log.changes.no_changes': '',
     'audit_log.changes.show_less': '',
