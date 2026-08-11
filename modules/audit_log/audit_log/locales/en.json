@@ -39,6 +39,6 @@
     "show_less": "Show less",
     "system_user": "System",
     "no_changes": "—",
-    "deleted_user": "This account no longer exists"
+    "unresolved_user": "No matching account for this id"
   }
 }

@@ -102,8 +102,10 @@ async def admin_add_people_page(
         {
             "roles": await _roles_payload(request.app),
             # Drives the copy-link panel: when nothing can be delivered, the
-            # invite mode has to hand the link back instead.
-            "mailer_delivers": bool(getattr(mailer, "delivers_email", True)),
+            # invite mode has to hand the link back instead. No mailer at all
+            # delivers nothing — promising delivery there would be the one
+            # answer that is certainly wrong.
+            "mailer_delivers": bool(mailer is not None and getattr(mailer, "delivers_email", True)),
         },
     )
 

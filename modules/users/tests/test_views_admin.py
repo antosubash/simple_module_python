@@ -155,6 +155,21 @@ class TestAdminAddPeoplePage:
         assert "mailer_delivers" in resp.json()["props"]
 
     @pytest.mark.anyio
+    async def test_no_mailer_does_not_promise_delivery(self, admin_client, app):
+        """With nothing able to send, the page must offer the copy-link panel —
+        claiming delivery is the one answer that is certainly wrong."""
+        original = app.state.users.mailer
+        app.state.users.mailer = None
+        try:
+            resp = await admin_client.get(
+                "/users/admin/add",
+                headers={"X-Inertia": "true", "Accept": "application/json"},
+            )
+            assert resp.json()["props"]["mailer_delivers"] is False
+        finally:
+            app.state.users.mailer = original
+
+    @pytest.mark.anyio
     async def test_add_page_requires_auth(self, anon_client):
         resp = await anon_client.get("/users/admin/add", follow_redirects=False)
         assert resp.status_code == 302

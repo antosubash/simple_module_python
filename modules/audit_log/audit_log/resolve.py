@@ -51,7 +51,9 @@ async def resolve_actors(db: AsyncSession, user_ids: list[str | None]) -> dict[s
         return {}
 
     rows = (
-        await db.execute(select(User.id, User.email, User.full_name).where(User.id.in_(parsed)))
+        await db.execute(
+            select(User.id, User.email, User.full_name).where(User.id.in_(list(parsed)))
+        )
     ).all()
 
     resolved: dict[str, str] = {}

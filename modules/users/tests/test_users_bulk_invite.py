@@ -77,6 +77,41 @@ class TestBulkInvite:
         assert resp.status_code == 200, resp.text
         assert all(r["status"] in ("sent", "link") for r in resp.json()["results"])
 
+    async def test_roles_survive_a_later_failure(self, authenticated_client: httpx.AsyncClient):
+        """A failure mid-list must not roll back an earlier invite's roles.
+
+        ``invite`` only flushes its role rows; the rollback that clears failed
+        transaction state used to take them with it, so the person invited just
+        before a duplicate address ended up with none of the chosen roles.
+        """
+        await authenticated_client.post(
+            _URL, json={"emails": ["dupe@example.com"], "role_names": []}
+        )
+        resp = await authenticated_client.post(
+            _URL,
+            json={"emails": ["kept@example.com", "dupe@example.com"], "role_names": ["admin"]},
+        )
+        assert resp.status_code == 200, resp.text
+
+        listing = await authenticated_client.get("/api/users/admin")
+        users = {u["email"]: u for u in listing.json()}
+        assert users["kept@example.com"]["roles"] == ["admin"]
+
+    async def test_a_malformed_address_does_not_reject_the_submit(
+        self, authenticated_client: httpx.AsyncClient
+    ):
+        """A typo in one line of a pasted column used to 422 the whole body,
+        leaving the admin with a generic error and no idea which line."""
+        resp = await authenticated_client.post(
+            _URL,
+            json={"emails": ["good@example.com", "not-an-address"], "role_names": []},
+        )
+        assert resp.status_code == 200, resp.text
+        by_email = {r["email"]: r for r in resp.json()["results"]}
+        assert by_email["good@example.com"]["status"] in ("sent", "link")
+        assert by_email["not-an-address"]["status"] == "failed"
+        assert "valid email" in by_email["not-an-address"]["detail"]
+
     async def test_empty_list_is_accepted_and_does_nothing(
         self, authenticated_client: httpx.AsyncClient
     ):

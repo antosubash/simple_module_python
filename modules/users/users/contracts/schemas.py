@@ -60,7 +60,11 @@ class UserInvite(SQLModel):
 class UserBulkInvite(SQLModel):
     """Invite several addresses in one submit, all sharing the same roles."""
 
-    emails: list[EmailStr]
+    emails: list[str]
+    """Raw addresses, validated one at a time by the endpoint rather than by
+    ``list[EmailStr]`` here: a single typo in a pasted column would otherwise
+    422 the whole submit, and the caller would get an error naming a list index
+    instead of the per-address outcomes this endpoint exists to report."""
     role_names: list[str] = []
 
 

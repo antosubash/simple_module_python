@@ -69,13 +69,16 @@ export function ActorCell({ entry }: { entry: AuditEntryRef }) {
       </Link>
     );
   }
-  // The account is gone. The id is still the truthful record of who acted,
-  // so show it rather than pretending the action had no author.
+  // The id did not resolve to an account. Show it anyway — it is still the
+  // truthful record of who acted — but do not claim to know why. A deleted
+  // account and an id from another id space (`celery-worker-1`, which
+  // resolve_actors skips by design and which never named an account at all)
+  // are indistinguishable from here, so the copy stays neutral.
   return (
     <CopyableId
       value={entry.user_id}
       label={short(entry.user_id)}
-      title={t(keys.audit_log.changes.deleted_user)}
+      title={t(keys.audit_log.changes.unresolved_user)}
     />
   );
 }

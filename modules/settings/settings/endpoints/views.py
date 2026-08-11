@@ -20,7 +20,10 @@ from starlette.responses import RedirectResponse
 from settings._module_settings import collect_module_settings, serialize
 from settings.constants import (
     ERR_SETTING_NOT_FOUND,
+    PERM_CREATE,
+    PERM_DELETE,
     PERM_EDIT,
+    PERM_VIEW,
     PROP_ERROR,
     PROP_MODULES,
     PROP_SETTING,
@@ -44,7 +47,12 @@ _PAGE_MODULES_EDIT = "Settings/ModulesEdit"
 _REDIRECT_SETTINGS = "/settings/store"
 _REDIRECT_MODULES = "/settings/"
 
-router = APIRouter()
+# Every screen in this section reads configuration: module field values,
+# their env var names, and now which of the two is in force. The matching JSON
+# API (``/api/settings/...``) has always required ``settings.view``, so leaving
+# these unguarded let any signed-in account read the same data by asking for
+# the page instead. Mutating routes add their own stricter guard on top.
+router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_VIEW))])
 
 
 @router.get(VIEW_STORE_PATH, response_model=None)
@@ -116,7 +124,11 @@ async def edit_view(
 
 # Posts to the store collection, which is where the rows live now that the
 # section root renders the module forms.
-@router.post(VIEW_STORE_PATH, response_model=None)
+@router.post(
+    VIEW_STORE_PATH,
+    response_model=None,
+    dependencies=[Depends(RequiresPermission(PERM_CREATE))],
+)
 async def create_action(
     request: Request,
     service: SettingService = Depends(get_setting_service),
@@ -130,7 +142,11 @@ async def create_action(
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 
 
-@router.put("/{setting_id}", response_model=None)
+@router.put(
+    "/{setting_id}",
+    response_model=None,
+    dependencies=[Depends(RequiresPermission(PERM_EDIT))],
+)
 async def update_action(
     setting_id: int,
     request: Request,
@@ -145,7 +161,11 @@ async def update_action(
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 
 
-@router.delete("/{setting_id}", response_model=None)
+@router.delete(
+    "/{setting_id}",
+    response_model=None,
+    dependencies=[Depends(RequiresPermission(PERM_DELETE))],
+)
 async def delete_action(
     setting_id: int,
     service: SettingService = Depends(get_setting_service),
