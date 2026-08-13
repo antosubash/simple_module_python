@@ -12,6 +12,7 @@ import contextlib
 import logging
 
 from fastapi import APIRouter, Depends, Request
+from fastapi_users.exceptions import UserAlreadyExists
 from pydantic import EmailStr, TypeAdapter, ValidationError
 from simple_module_core.events import EventBus
 from simple_module_db.deps import get_db
@@ -39,6 +40,21 @@ _EMAIL = TypeAdapter(EmailStr)
 model: pydantic would reject the whole body over one typo, and the caller would
 get a 422 naming an index rather than the per-address outcomes this endpoint
 exists to produce."""
+
+
+def _failure_detail(exc: Exception) -> str:
+    """Human-readable reason for one address failing.
+
+    ``str(UserAlreadyExists())`` is the empty string — fastapi-users carries the
+    meaning in the exception *type*, not its message. Passing that straight
+    through renders the single most common failure as a bare red address with no
+    reason beside it, which is exactly the question the per-address results exist
+    to answer. The final fallback names the exception class rather than leaving
+    the cell blank: a class name is a poor message, but it is still a lead.
+    """
+    if isinstance(exc, UserAlreadyExists):
+        return "Already registered"
+    return str(exc) or type(exc).__name__
 
 
 def _invite_link(request: Request, token: str) -> str:
@@ -118,7 +134,9 @@ async def admin_bulk_invite(
             # Already-registered is the common case and reads fine as-is;
             # anything else is logged so the admin's summary stays short.
             logger.info("bulk invite failed for %s: %s", email, exc)
-            results.append(BulkInviteResult(email=email, status=STATUS_FAILED, detail=str(exc)))
+            results.append(
+                BulkInviteResult(email=email, status=STATUS_FAILED, detail=_failure_detail(exc))
+            )
             # Clear any failed transaction state before touching the session
             # again. A real DB error (an IntegrityError from a concurrent
             # signup, say) otherwise leaves every remaining address dying with

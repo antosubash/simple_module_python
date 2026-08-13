@@ -57,6 +57,24 @@ class TestBulkInvite:
         assert by_email["taken@example.com"]["status"] == "failed"
         assert by_email["fresh@example.com"]["status"] in ("sent", "link")
 
+    async def test_a_failure_always_carries_a_reason(self, authenticated_client: httpx.AsyncClient):
+        """Every failed row must say why.
+
+        ``str(UserAlreadyExists())`` is empty — the reason lives in the type, not
+        the message — so passing it through rendered an address in red with a
+        blank reason beside it. Asserting the status alone is what let that ship.
+        """
+        await authenticated_client.post(
+            _URL, json={"emails": ["why@example.com"], "role_names": []}
+        )
+        resp = await authenticated_client.post(
+            _URL, json={"emails": ["why@example.com"], "role_names": []}
+        )
+        result = resp.json()["results"][0]
+        assert result["status"] == "failed"
+        assert result["detail"], "a failed address must explain itself"
+        assert "already" in result["detail"].lower()
+
     async def test_console_mailer_hands_back_a_copyable_link(
         self, authenticated_client: httpx.AsyncClient
     ):
