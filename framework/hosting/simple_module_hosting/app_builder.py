@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 import logging
 import os
 from collections.abc import AsyncGenerator
@@ -10,6 +9,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.design_packs import DesignPackRegistry
 from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
 from simple_module_core.discovery import discover_modules, select_auth_provider, topological_sort
@@ -23,6 +23,7 @@ from simple_module_core.services import Services
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 
+from simple_module_hosting._db_health import register_database_check
 from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._phase_helpers import (
     attach_public_routes,
@@ -33,6 +34,7 @@ from simple_module_hosting._phase_helpers import (
     register_host_settings,
     wire_module_routes,
 )
+from simple_module_hosting._registrations import run_module_registrations
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types
 from simple_module_hosting.migrations import check_migrations
@@ -78,22 +80,6 @@ def _resolve_project_root() -> Path:
 
 
 _PROJECT_ROOT = _resolve_project_root()
-
-
-def _register_event_handlers(mod, event_bus: EventBus, app: FastAPI) -> None:
-    """Dispatch to ``mod.register_event_handlers`` with or without ``app``.
-
-    Back-compat shim for modules that still override the one-arg form
-    ``(self, bus)``; passing ``app=`` to those crashes.
-    """
-    sig = inspect.signature(mod.register_event_handlers)
-    accepts_app = "app" in sig.parameters or any(
-        p.kind is inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
-    )
-    if accepts_app:
-        mod.register_event_handlers(event_bus, app=app)
-    else:
-        mod.register_event_handlers(event_bus)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -173,6 +159,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     health_registry = HealthRegistry()
     public_route_registry = PublicRouteRegistry()
     design_pack_registry = DesignPackRegistry()
+    audit_link_registry = AuditLinkRegistry()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -219,14 +206,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             print_diagnostics(settings_diagnostics)
 
     # ── Phase 5: Module registrations ──────────────────────
-    for mod in modules:
-        mod.register_menu_items(menu_registry)
-        mod.register_permissions(perm_registry)
-        mod.register_feature_flags(ff_registry)
-        _register_event_handlers(mod, event_bus, app)
-        mod.register_health_checks(health_registry)
-        mod.register_public_routes(public_route_registry)
-        mod.register_design_packs(design_pack_registry)
+    run_module_registrations(
+        modules,
+        app=app,
+        event_bus=event_bus,
+        menu_registry=menu_registry,
+        perm_registry=perm_registry,
+        ff_registry=ff_registry,
+        health_registry=health_registry,
+        public_route_registry=public_route_registry,
+        design_pack_registry=design_pack_registry,
+        audit_link_registry=audit_link_registry,
+    )
 
     attach_public_routes(app, settings, public_route_registry)
 
@@ -255,6 +246,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         pool_recycle=settings.db_pool_recycle,
     )
     register_listeners(db_state)
+    # The host's own readiness signal, and the only probe-safe check in a
+    # default install — module checks reach third parties and are on-demand.
+    register_database_check(health_registry, db_state)
 
     # ── Phase 7: Inertia + exception handlers ──────────────
     inertia_config = setup_inertia(app, settings, modules, _PROJECT_ROOT)
@@ -288,6 +282,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         health_registry=health_registry,
         public_routes=public_route_registry,
         design_packs=design_pack_registry,
+        audit_links=audit_link_registry,
         i18n_registry=i18n_registry,
         inertia_config=inertia_config,
         modules=tuple(modules),

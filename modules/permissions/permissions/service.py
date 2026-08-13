@@ -176,6 +176,7 @@ class PermissionService:
             roles=sorted(role_names),
             direct=sorted(direct),
             inherited=sorted(inherited),
+            inherited_by=self._resolve_role_sources(role_names),
         )
 
     async def set_user_permissions(
@@ -212,6 +213,7 @@ class PermissionService:
             roles=sorted(role_names),
             direct=sorted(wanted),
             inherited=sorted(inherited),
+            inherited_by=self._resolve_role_sources(role_names),
         )
 
     # ── Effective-permissions resolution ───────────────────────
@@ -228,6 +230,24 @@ class PermissionService:
                 return set(self.registry.all_permissions)
             resolved.update(perms)
         return resolved
+
+    def _resolve_role_sources(self, role_names: list[str]) -> dict[str, list[str]]:
+        """Map each inherited permission key to the roles that grant it.
+
+        "Inherited" alone doesn't tell an admin what to change — they need to
+        know *which* role to edit. Two roles can grant the same key, so the
+        value is a list.
+        """
+        from simple_module_core.permissions import WILDCARD
+
+        role_map = self.registry.role_map
+        sources: dict[str, list[str]] = {}
+        for name in sorted(role_names):
+            perms = role_map.get(name, [])
+            keys = self.registry.all_permissions if WILDCARD in perms else perms
+            for key in keys:
+                sources.setdefault(key, []).append(name)
+        return sources
 
     async def resolve_effective_permissions(self, user_id: uuid.UUID) -> set[str]:
         """Return every permission key the user holds (role-inherited + direct)."""

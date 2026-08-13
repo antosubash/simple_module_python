@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from simple_module_db.session import DatabaseState
     from simple_module_hosting.settings import Settings
 
+    from simple_module_core.audit_links import AuditLinkRegistry
     from simple_module_core.design_packs import DesignPackRegistry
     from simple_module_core.events import EventBus
     from simple_module_core.feature_flags import FeatureFlagRegistry
@@ -44,6 +45,7 @@ class Services:
     health_registry: HealthRegistry
     public_routes: PublicRouteRegistry
     design_packs: DesignPackRegistry
+    audit_links: AuditLinkRegistry
     i18n_registry: I18nRegistry
     inertia_config: InertiaConfig
     modules: tuple[ModuleBase, ...]

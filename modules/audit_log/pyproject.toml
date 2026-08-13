@@ -24,6 +24,10 @@ dependencies = [
     "simple_module_core==0.0.30",
     "simple_module_db==0.0.30",
     "simple_module_hosting==0.0.30",
+    # ``audit_log.resolve`` imports ``users.models`` to turn a stored actor id
+    # into a name, so the users package is a hard install requirement — not
+    # just the runtime ``depends_on`` the module meta already declares.
+    "simple_module_users==0.0.30",
 ]
 
 [project.entry-points.simple_module]
@@ -49,3 +53,4 @@ packages = ["audit_log"]
 simple_module_core = { workspace = true }
 simple_module_db = { workspace = true }
 simple_module_hosting = { workspace = true }
+simple_module_users = { workspace = true }

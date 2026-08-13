@@ -41,8 +41,8 @@ async def fetch_dashboard_stats(db: AsyncSession, app: FastAPI) -> dict:
 
         total_users = await _count_users(db)
         active_users_7d = await _count_active_users(db, days=7)
-        modules_list = _get_module_info(app)
         health_checks = await _run_health_checks(app)
+        modules_list = _get_module_info(app, health_checks)
 
         result = {
             "total_users": total_users,
@@ -82,23 +82,63 @@ async def _count_active_users(db: AsyncSession, *, days: int) -> int:
     return result.scalar_one()
 
 
-def _get_module_info(app: FastAPI) -> list[dict[str, str]]:
+# Worst-first: a module's tile reports the worst state among its checks, so a
+# single unhealthy check is never hidden behind a healthy sibling.
+_HEALTH_SEVERITY = {
+    HealthStatus.HEALTHY.value: 0,
+    HealthStatus.DEGRADED.value: 1,
+    HealthStatus.UNHEALTHY.value: 2,
+}
+
+
+def _get_module_info(app: FastAPI, health_checks: list[dict[str, str]]) -> list[dict[str, str]]:
     # Reads from the module list discovered once at startup, avoiding
     # expensive entry-point rescans on every request.
-    return [{"name": m.meta.name, "status": "loaded"} for m in app.state.sm.modules]
+    worst: dict[str, str] = {}
+    for check in health_checks:
+        owner = check.get("module") or ""
+        if not owner:
+            continue
+        current = worst.get(owner)
+        if current is None or _HEALTH_SEVERITY.get(check["status"], 0) > _HEALTH_SEVERITY.get(
+            current, 0
+        ):
+            worst[owner] = check["status"]
+
+    # `url` is the module's own screen. It is deliberately NOT filtered by the
+    # caller's permissions here: this whole payload is process-wide cached for
+    # 30s, so anything user-specific would leak across sessions. The page gates
+    # each link against the per-user `menus` prop instead.
+    return [
+        {
+            "name": m.meta.name,
+            "status": "loaded",
+            "url": f"{m.meta.view_prefix}/" if m.meta.view_prefix else "",
+            "health": worst.get(m.meta.name, ""),
+        }
+        for m in app.state.sm.modules
+    ]
 
 
 async def _run_health_checks(app: FastAPI) -> list[dict[str, str]]:
     registry = app.state.sm.health_registry
-    checks = registry.all_checks
+    # Same reasoning as the readiness probe: this runs on every dashboard load
+    # (behind a 30s cache), which is still far too often to be authenticating
+    # against a mail provider. Modules whose only checks are on-demand simply
+    # report no health on their tile, which is honest — nothing is watching.
+    checks = registry.probe_checks
     if not checks:
         return []
 
     async def _run_one(check: HealthCheck) -> dict[str, str]:
         try:
             result = await check.check()
-            return {"name": check.name, "status": result.status.value}
+            return {"name": check.name, "status": result.status.value, "module": check.module}
         except Exception:
-            return {"name": check.name, "status": HealthStatus.UNHEALTHY.value}
+            return {
+                "name": check.name,
+                "status": HealthStatus.UNHEALTHY.value,
+                "module": check.module,
+            }
 
     return list(await asyncio.gather(*[_run_one(c) for c in checks]))

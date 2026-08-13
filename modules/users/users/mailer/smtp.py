@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import importlib.resources
 from email.message import EmailMessage
 from typing import TYPE_CHECKING
@@ -70,6 +71,27 @@ class SmtpMailer:
         template = _template_env.get_template("invite.txt")
         body = template.render(link=link, invited_by_name=invited_by_name, app_name=app)
         await self._send(email, f"{invited_by_name} invited you to {app}", body)
+
+    async def verify_connection(self) -> None:
+        """Open an SMTP session and authenticate, then hang up.
+
+        Deliberately stops short of sending anything: an admin checking their
+        mailer config should not put a stray message in someone's inbox. This
+        catches the failures that actually happen — wrong host or port, TLS
+        mismatch, bad credentials — and raises whatever aiosmtplib raises so
+        the caller can show the real reason.
+        """
+        client = aiosmtplib.SMTP(hostname=self._host, port=self._port, use_tls=self._use_tls)
+        await client.connect()
+        try:
+            if self._username:
+                await client.login(self._username, self._password or "")
+        finally:
+            # A failure hanging up says nothing about whether the credentials
+            # work, which is the only question being asked — so it must not
+            # mask the login error this block is unwinding.
+            with contextlib.suppress(Exception):
+                await client.quit()
 
     async def _send(self, to: str, subject: str, body: str) -> None:
         message = EmailMessage()

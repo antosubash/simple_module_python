@@ -146,12 +146,16 @@ class FileStorageService:
         page: int = 1,
         per_page: int = 20,
         created_by: str | None = None,
+        search: str | None = None,
+        content_type: str | None = None,
     ) -> tuple[list[StoredFileOut], int]:
         base = select(StoredFile)
         count_q = select(func.count()).select_from(StoredFile)
-        if created_by is not None:
-            base = base.where(StoredFile.created_by == created_by)
-            count_q = count_q.where(StoredFile.created_by == created_by)
+        for clause in self._filter_clauses(
+            created_by=created_by, search=search, content_type=content_type
+        ):
+            base = base.where(clause)
+            count_q = count_q.where(clause)
 
         total = (await self.db.execute(count_q)).scalar() or 0
         result = await self.db.execute(
@@ -162,6 +166,48 @@ class FileStorageService:
         rows = result.scalars().all()
         items = [StoredFileOut.model_validate(_to_out_dict(r)) for r in rows]
         return items, total
+
+    @staticmethod
+    def _filter_clauses(
+        *,
+        created_by: str | None,
+        search: str | None,
+        content_type: str | None,
+    ) -> list:
+        """Build the WHERE clauses shared by the page query and its count.
+
+        Kept in one place so a filter can never narrow the rows without also
+        narrowing the total — the bug that shows up as a pager offering page 3
+        of an empty search.
+        """
+        clauses = []
+        if created_by is not None:
+            clauses.append(StoredFile.created_by == created_by)
+        if search:
+            clauses.append(StoredFile.filename.ilike(f"%{search}%"))
+        if content_type:
+            # A trailing "/" means a whole family ("image/"), anything else is
+            # an exact type ("application/pdf"). Families are what make the
+            # filter usable when a bucket holds nine kinds of image.
+            if content_type.endswith("/"):
+                clauses.append(StoredFile.content_type.ilike(f"{content_type}%"))
+            else:
+                clauses.append(StoredFile.content_type == content_type)
+        return clauses
+
+    async def content_type_facets(self, *, created_by: str | None = None) -> list[dict]:
+        """Distinct content types present, with counts, for the filter dropdown.
+
+        Offering the full IANA list would be noise; the only types worth
+        showing are the ones actually in the bucket.
+        """
+        query = select(StoredFile.content_type, func.count().label("n"))
+        for clause in self._filter_clauses(created_by=created_by, search=None, content_type=None):
+            query = query.where(clause)
+        query = query.group_by(StoredFile.content_type).order_by(StoredFile.content_type)
+
+        rows = (await self.db.execute(query)).all()
+        return [{"value": str(row[0]), "count": int(row[1])} for row in rows]
 
     async def get(self, file_id: uuid.UUID) -> StoredFile:
         row = await self.db.get(StoredFile, file_id)

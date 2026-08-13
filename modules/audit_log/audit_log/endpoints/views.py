@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from inertia import InertiaResponse
+from simple_module_db.deps import get_db
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from audit_log.constants import (
     DEFAULT_PAGE_SIZE,
@@ -16,6 +18,7 @@ from audit_log.constants import (
     PERM_VIEW,
 )
 from audit_log.deps import AuditLogServiceDep
+from audit_log.resolve import actor_link, entity_link, resolve_actors
 
 router = APIRouter()
 
@@ -36,8 +39,10 @@ def _safe_int(raw: str | None, default: int) -> int:
     dependencies=[Depends(RequiresPermission(PERM_VIEW))],
 )
 async def browse(
+    request: Request,
     inertia: InertiaDep,
     service: AuditLogServiceDep,
+    db: AsyncSession = Depends(get_db),
     entity_type: str | None = Query(default=None),
     entity_id: str | None = Query(default=None),
     action: str | None = Query(default=None),
@@ -62,10 +67,28 @@ async def browse(
     )
     entity_types = await service.distinct_entity_types()
 
+    # Resolve ids for display only — the stored row keeps the bare id, which
+    # is what makes it a durable record.
+    actors = await resolve_actors(db, [item.user_id for item in result.items])
+    links = request.app.state.sm.audit_links
+
+    items = []
+    for item in result.items:
+        payload = item.model_dump(mode="json")
+        payload["actor"] = actors.get(item.user_id or "")
+        # Where a user record lives is the users module's business, and it
+        # already declares it through register_audit_links. Going through the
+        # registry means this link cannot drift from the entity links in the
+        # next column, and it degrades to plain text if no module claims the
+        # users table.
+        payload["actor_url"] = actor_link(links, item.user_id) if item.user_id else None
+        payload["entity"] = entity_link(links, item.entity_type, item.entity_id)
+        items.append(payload)
+
     return await inertia.render(
         PAGE_BROWSE,
         {
-            "items": [item.model_dump(mode="json") for item in result.items],
+            "items": items,
             "total": result.total,
             "page": result.page,
             "page_size": result.page_size,

@@ -31,6 +31,7 @@ class TestServices:
         assert s.health_registry is _SENTINEL_HEALTH
         assert s.public_routes is _SENTINEL_PUBLIC_ROUTES
         assert s.design_packs is _SENTINEL_DESIGN_PACKS
+        assert s.audit_links is _SENTINEL_AUDIT_LINKS
         assert s.i18n_registry is _SENTINEL_I18N
         assert s.inertia_config is _SENTINEL_INERTIA
         assert s.modules == ()
@@ -45,6 +46,7 @@ _SENTINEL_FLAGS = object()
 _SENTINEL_HEALTH = object()
 _SENTINEL_PUBLIC_ROUTES = object()
 _SENTINEL_DESIGN_PACKS = object()
+_SENTINEL_AUDIT_LINKS = object()
 _SENTINEL_I18N = object()
 _SENTINEL_INERTIA = object()
 
@@ -61,6 +63,7 @@ def _make_services() -> Services:
         health_registry=_SENTINEL_HEALTH,  # type: ignore[arg-type]
         public_routes=_SENTINEL_PUBLIC_ROUTES,  # type: ignore[arg-type]
         design_packs=_SENTINEL_DESIGN_PACKS,  # type: ignore[arg-type]
+        audit_links=_SENTINEL_AUDIT_LINKS,  # type: ignore[arg-type]
         i18n_registry=_SENTINEL_I18N,  # type: ignore[arg-type]
         inertia_config=_SENTINEL_INERTIA,  # type: ignore[arg-type]
         modules=(),

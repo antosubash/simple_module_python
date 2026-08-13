@@ -15,13 +15,16 @@ import {
 import { Textarea } from '@simple-module-py/ui/components/ui/textarea';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import type React from 'react';
+import { KeyField, type KnownKey } from './components/KeyField';
 import ValueInput, { VALUE_TYPES, type ValueType } from './components/ValueInput';
 import { ROUTES } from './routes';
 
 const SCOPES = ['system', 'tenant', 'user'] as const;
 type Scope = (typeof SCOPES)[number];
 
-function Create() {
+type Props = { known_keys?: KnownKey[] };
+
+function Create({ known_keys }: Props) {
   const { t } = useT();
   const { data, setData, post, processing, errors } = useForm({
     scope: 'system' as Scope,
@@ -83,19 +86,18 @@ function Create() {
                 {errors.scope_id && <p className="text-xs text-destructive">{errors.scope_id}</p>}
               </div>
 
-              <div className="space-y-2 sm:col-span-2">
-                <Label className="text-sm font-medium text-muted-foreground">
-                  {t(keys.settings.form.key_label)}
-                </Label>
-                <Input
-                  value={data.key}
-                  onChange={(e) => setData('key', e.target.value)}
-                  required
-                  placeholder={t(keys.settings.form.key_placeholder)}
-                  className="font-mono"
-                />
-                {errors.key && <p className="text-xs text-destructive">{errors.key}</p>}
-              </div>
+              <KeyField
+                value={data.key}
+                knownKeys={known_keys ?? []}
+                error={errors.key}
+                onChange={(key, type) => {
+                  setData((prev) => ({
+                    ...prev,
+                    key,
+                    ...(type ? { value_type: type as ValueType } : {}),
+                  }));
+                }}
+              />
 
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-muted-foreground">

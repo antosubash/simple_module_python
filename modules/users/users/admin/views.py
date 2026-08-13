@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from inertia import InertiaResponse
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
+from starlette.responses import RedirectResponse
 
 from users.admin.service import UserService
 from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
@@ -18,8 +19,7 @@ from users.roles_cache import get_roles_cache
 router = APIRouter()
 
 _PAGE_ADMIN_INDEX = "Users/Users/Index"
-_PAGE_ADMIN_INVITE = "Users/Users/Invite"
-_PAGE_ADMIN_CREATE = "Users/Users/Create"
+_PAGE_ADMIN_ADD = "Users/Users/AddPeople"
 _PAGE_ADMIN_EDIT = "Users/Users/Edit"
 
 
@@ -81,20 +81,43 @@ async def admin_index(
 
 
 @router.get(
+    "/admin/add",
+    response_model=None,
+    dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
+)
+async def admin_add_people_page(
+    request: Request,
+    inertia: InertiaDep,
+) -> InertiaResponse:
+    """One screen for both ways of adding people, chosen by a mode switch.
+
+    Create and invite were separate pages reached from separate buttons, which
+    made an admin decide between them before seeing what either involved. They
+    take almost the same inputs and differ in one respect — who sets the
+    password — so the choice belongs inside the form.
+    """
+    mailer = getattr(getattr(request.app.state, "users", None), "mailer", None)
+    return await inertia.render(
+        _PAGE_ADMIN_ADD,
+        {
+            "roles": await _roles_payload(request.app),
+            # Drives the copy-link panel: when nothing can be delivered, the
+            # invite mode has to hand the link back instead. No mailer at all
+            # delivers nothing — promising delivery there would be the one
+            # answer that is certainly wrong.
+            "mailer_delivers": bool(mailer is not None and getattr(mailer, "delivers_email", True)),
+        },
+    )
+
+
+@router.get(
     "/admin/invite",
     response_model=None,
     dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
 )
-async def admin_invite_page(
-    request: Request,
-    inertia: InertiaDep,
-) -> InertiaResponse:
-    return await inertia.render(
-        _PAGE_ADMIN_INVITE,
-        {
-            "roles": await _roles_payload(request.app),
-        },
-    )
+async def admin_invite_redirect() -> RedirectResponse:
+    """Old invite URL — the flow merged into /users/admin/add."""
+    return RedirectResponse("/users/admin/add?mode=invite", status_code=307)
 
 
 @router.get(
@@ -102,16 +125,9 @@ async def admin_invite_page(
     response_model=None,
     dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
 )
-async def admin_create_page(
-    request: Request,
-    inertia: InertiaDep,
-) -> InertiaResponse:
-    return await inertia.render(
-        _PAGE_ADMIN_CREATE,
-        {
-            "roles": await _roles_payload(request.app),
-        },
-    )
+async def admin_create_redirect() -> RedirectResponse:
+    """Old create URL — the flow merged into /users/admin/add."""
+    return RedirectResponse("/users/admin/add?mode=create", status_code=307)
 
 
 @router.get(

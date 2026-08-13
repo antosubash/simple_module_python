@@ -6,6 +6,7 @@ Each module stores a services dataclass on ``app.state.<package>`` whose
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from typing import Any
@@ -41,6 +42,37 @@ class ModuleSettingField:
     type: str
     requires_restart: bool
     group: str | None
+    env_set: bool = False
+    """This field is genuinely env-readable *and* its env var is set.
+
+    Deliberately not "the ``SM_*`` label below is present in ``os.environ``".
+    The bundled module settings classes declare no ``env_prefix`` — they are
+    constructed from pydantic defaults and hydrated from the DB — so their
+    ``SM_*`` vars are never consulted. Reporting a leftover
+    ``SM_USERS_SMTP_HOST`` as the live source would invert the very question
+    this screen answers. Classes that *do* declare one (the host's ``Settings``
+    with ``SM_``, and anything from the module scaffold) report ``env`` for
+    real, because for them pydantic really does read it.
+    """
+    db_override: bool = False
+    """A stored setting overrides this field."""
+
+    @property
+    def source(self) -> str:
+        """Where the live value came from: ``db``, ``env`` or ``default``.
+
+        Mirrors the precedence in ``hydrate_settings``: DB overrides are passed
+        to the constructor explicitly, so they beat anything pydantic reads for
+        fields left unset, which in turn beats the field default. ``env`` only
+        appears for settings classes that actually declare an ``env_prefix``;
+        see :attr:`env_set`. Showing this is the difference between "why is
+        this not taking effect" being a five-minute question and an afternoon.
+        """
+        if self.db_override:
+            return "db"
+        if self.env_set:
+            return "env"
+        return "default"
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,16 +125,43 @@ def _resolve_default(info) -> Any:
     return None
 
 
-def _field_view(name: str, settings: BaseSettings, prefix: str) -> ModuleSettingField:
+def _env_readable_var(settings: BaseSettings, name: str) -> str | None:
+    """Env var pydantic would actually read for ``name``, or ``None``.
+
+    ``env_var`` on the view is a *label* — the ``SM_<PACKAGE>_<FIELD>`` name the
+    ``smpy settings import-from-env`` CLI looks for, kept from before settings
+    moved into the DB. It is not evidence that pydantic reads it: the bundled
+    module settings classes declare ``SettingsConfigDict(extra="ignore")`` with
+    no ``env_prefix``, so ``SM_FILE_STORAGE_BACKEND`` has no effect on
+    ``FileStorageSettings()``. Deriving env-readability from the class's own
+    ``env_prefix`` keeps the "From environment" badge honest, and works as-is
+    for the classes that do declare one — the host's ``Settings`` (``SM_``) and
+    every module built from the scaffold, whose template ships
+    ``env_prefix="SM_<PACKAGE>_"``.
+    """
+    env_prefix = str(type(settings).model_config.get("env_prefix") or "")
+    if not env_prefix:
+        return None
+    return f"{env_prefix}{name.upper()}"
+
+
+def _field_view(
+    name: str,
+    settings: BaseSettings,
+    prefix: str,
+    overridden: frozenset[str] = frozenset(),
+) -> ModuleSettingField:
     cls = type(settings)
     info = cls.model_fields[name]
     raw_value = getattr(settings, name)
     secret = is_secret_field(name)
     extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
     default = _resolve_default(info)
+    env_var = f"{prefix}{name.upper()}"
+    live_env_var = _env_readable_var(settings, name)
     return ModuleSettingField(
         name=name,
-        env_var=f"{prefix}{name.upper()}",
+        env_var=env_var,
         value=_mask(raw_value) if secret else raw_value,
         default=_mask(default) if secret else default,
         description=info.description or "",
@@ -110,16 +169,26 @@ def _field_view(name: str, settings: BaseSettings, prefix: str) -> ModuleSetting
         type=value_type_for_field(cls, name),
         requires_restart=bool(extra.get("requires_restart", False)),
         group=extra.get("group"),
+        env_set=live_env_var is not None and live_env_var in os.environ,
+        db_override=name in overridden,
     )
 
 
-def collect_module_settings(app: FastAPI) -> list[ModuleSettingsView]:
+def collect_module_settings(
+    app: FastAPI,
+    overrides: dict[str, frozenset[str]] | None = None,
+) -> list[ModuleSettingsView]:
     """Return a sorted, serializable view of every module's BaseSettings.
 
     Folds in both ``app.state.sm.modules`` (plugin modules) and additional
     packages registered via ``app.state.settings.module_registry`` (e.g.
     ``"host"``) that aren't backed by a ``ModuleBase`` instance.
+
+    ``overrides`` maps package -> field names carrying a stored override. It
+    is passed in rather than read here because fetching it is async and this
+    function is not; callers without it get ``db_override=False`` throughout.
     """
+    by_package = overrides or {}
     views: list[ModuleSettingsView] = []
     seen: set[str] = set()
 
@@ -128,7 +197,7 @@ def collect_module_settings(app: FastAPI) -> list[ModuleSettingsView]:
         settings = _extract_settings(app, package)
         if settings is None:
             continue
-        views.append(_build_view(mod.meta.name, package, settings))
+        views.append(_build_view(mod.meta.name, package, settings, by_package))
         seen.add(package)
 
     settings_services = getattr(app.state, "settings", None)
@@ -140,16 +209,24 @@ def collect_module_settings(app: FastAPI) -> list[ModuleSettingsView]:
             settings = _extract_settings(app, package)
             if settings is None:
                 continue
-            views.append(_build_view(package.title(), package, settings))
+            views.append(_build_view(package.title(), package, settings, by_package))
             seen.add(package)
 
     views.sort(key=lambda v: v.module_name)
     return views
 
 
-def _build_view(module_name: str, package: str, settings: BaseSettings) -> ModuleSettingsView:
+def _build_view(
+    module_name: str,
+    package: str,
+    settings: BaseSettings,
+    overrides: dict[str, frozenset[str]] | None = None,
+) -> ModuleSettingsView:
     prefix = env_prefix_for(package)
-    fields = [_field_view(name, settings, prefix) for name in type(settings).model_fields]
+    overridden = (overrides or {}).get(package, frozenset())
+    fields = [
+        _field_view(name, settings, prefix, overridden) for name in type(settings).model_fields
+    ]
     return ModuleSettingsView(
         module_name=module_name,
         package=package,
@@ -178,6 +255,9 @@ def serialize(views: list[ModuleSettingsView]) -> list[dict[str, Any]]:
                     "type": f.type,
                     "requires_restart": f.requires_restart,
                     "group": f.group,
+                    "env_set": f.env_set,
+                    "db_override": f.db_override,
+                    "source": f.source,
                 }
                 for f in v.fields
             ],

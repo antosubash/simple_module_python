@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends
+from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
@@ -95,6 +96,19 @@ class UsersModule(ModuleBase):
             [PERM_USERS_MANAGE, PERM_USERS_SELF_PROFILE],
         )
         registry.map_role(USER_ROLE_NAME, [PERM_USERS_SELF_PROFILE])
+
+    def register_audit_links(self, registry: AuditLinkRegistry) -> None:
+        from users.models import User
+
+        registry.register(
+            AuditLink(
+                # The model class name — what snapshot_changes records. Keying
+                # this off __tablename__ ("users_user") silently never matches.
+                entity_type=User.__name__,
+                url_template=f"{_URL_USERS_ADMIN}/{{id}}",
+                label="User",
+            )
+        )
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         # Admin-only user management
@@ -194,6 +208,25 @@ class UsersModule(ModuleBase):
             return name or default_app_name()
 
         state.mailer = build_mailer(s, _app_name)
+
+        # Registered here rather than in register_health_checks because the
+        # check needs the app to re-read DB-hydrated settings on every run.
+        # The owner is passed explicitly since the boot-time set_owner window
+        # has long closed by startup.
+        from simple_module_core.health import HealthCheck
+
+        from users.health import CHECK_MAILER, build_mailer_check
+
+        app.state.sm.health_registry.add(
+            HealthCheck(
+                name=CHECK_MAILER,
+                check=build_mailer_check(app),
+                module=self.meta.name,
+                # On demand only: this authenticates against the mail provider,
+                # which must not happen on a readiness-probe timer.
+                probe=False,
+            )
+        )
         state.rate_limiter = LoginRateLimiter(
             max_failures=s.login_rate_limit_failures,
             window_seconds=s.login_rate_limit_window_seconds,

@@ -48,6 +48,9 @@ class FeatureFlagsModule(ModuleBase):
                 order=MENU_ORDER,
                 section=MenuSection.SIDEBAR,
                 group="Administration",
+                # Mirrors the view router's guard. Without it the entry shows
+                # for every signed-in account and 403s on click.
+                permissions=[PERM_FEATURE_FLAGS_VIEW],
             )
         )
 

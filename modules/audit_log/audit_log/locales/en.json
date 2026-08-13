@@ -38,6 +38,7 @@
     "show_more": "Show {count} more…",
     "show_less": "Show less",
     "system_user": "System",
-    "no_changes": "—"
+    "no_changes": "—",
+    "unresolved_user": "No matching account for this id"
   }
 }

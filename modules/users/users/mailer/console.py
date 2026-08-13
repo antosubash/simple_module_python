@@ -12,6 +12,15 @@ logger = logging.getLogger("users.mailer")
 
 
 class ConsoleMailer:
+    delivers_email = False
+    """Nothing leaves the process — links only reach the log.
+
+    Callers that need the recipient to actually receive something (the bulk
+    invite screen) read this to decide whether to surface the one-time link
+    in the UI instead. Absence of the attribute means "assume it delivers",
+    so a third-party mailer never leaks tokens by omission.
+    """
+
     def __init__(self, base_url: str, app_name_provider: AppNameProvider | None = None) -> None:
         self._base = base_url.rstrip("/")
         from users.mailer import default_app_name

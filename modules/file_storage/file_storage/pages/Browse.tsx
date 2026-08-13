@@ -31,9 +31,15 @@ import {
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { Download, FileBox, Trash2 } from 'lucide-react';
+import { useCallback } from 'react';
 import { toast } from 'sonner';
+import { type ContentTypeFacet, FileFilterBar } from './components/FileFilterBar';
 import { UploadDropzone } from './components/UploadDropzone';
+import { UploadProgressRows } from './components/UploadProgressRows';
 import { PERMISSIONS, ROUTES, UNKNOWN_UPLOADER } from './constants';
+import { useUploadQueue } from './upload-queue';
+
+const COLUMN_COUNT = 5;
 
 interface StoredFile {
   id: string;
@@ -53,6 +59,8 @@ interface Pagination {
 interface Props {
   files: StoredFile[];
   pagination: Pagination;
+  filters: { q: string; content_type: string };
+  content_types: ContentTypeFacet[];
 }
 
 function formatBytes(n: number): string {
@@ -64,18 +72,49 @@ function formatBytes(n: number): string {
 
 function Browse() {
   const page = usePage<{ props: Props }>();
-  const { files, pagination } = page.props as unknown as Props;
+  const {
+    files,
+    pagination,
+    filters,
+    content_types: contentTypes,
+  } = page.props as unknown as Props;
   const { t } = useT();
   const { can } = usePermissions();
   const canUpload = can(PERMISSIONS.UPLOAD);
   const canDelete = can(PERMISSIONS.DELETE);
+  const { jobs, start, dismiss, busy } = useUploadQueue();
+
+  const isFiltered = !!(filters?.q || filters?.content_type);
+
+  const navigate = useCallback((next: { q: string; content_type: string }, target = 1) => {
+    const params: Record<string, string> = {};
+    if (next.q) params.q = next.q;
+    if (next.content_type) params.content_type = next.content_type;
+    if (target > 1) params.page = String(target);
+    router.get(ROUTES.VIEW_BROWSE, params, { preserveState: true, preserveScroll: true });
+  }, []);
+
+  // Changing a filter always returns to page 1 — page 4 of the previous
+  // filter rarely exists under the new one, and an empty page reads as
+  // "no results".
+  //
+  // Stable identity matters: the filter bar debounces on this callback, so a
+  // fresh one each render would clear and restart the timer on every upload
+  // progress event and the search would never fire while a file is in flight.
+  const applyFilters = useCallback(
+    (next: { q: string; content_type: string }) => navigate(next, 1),
+    [navigate],
+  );
+
+  const currentFilters = { q: filters?.q ?? '', content_type: filters?.content_type ?? '' };
+  const totalPages = Math.max(1, Math.ceil(pagination.total / pagination.perPage));
 
   function handleDelete(file: StoredFile) {
     fetch(ROUTES.apiFile(file.id), { method: 'DELETE' })
       .then((resp) => {
         if (!resp.ok) throw new Error('delete failed');
         toast.success(t(keys.file_storage.toasts.deleted, { name: file.filename }));
-        router.reload({ only: ['files', 'pagination'] });
+        router.reload({ only: ['files', 'pagination', 'content_types'] });
       })
       .catch(() => toast.error(t(keys.file_storage.toasts.delete_failed)));
   }
@@ -86,8 +125,15 @@ function Browse() {
       <PageShell
         title={t(keys.file_storage.browse.title)}
         description={t(keys.file_storage.browse.description)}
-        actions={canUpload ? <UploadDropzone /> : undefined}
+        actions={canUpload ? <UploadDropzone onFiles={start} busy={busy} /> : undefined}
       >
+        <FileFilterBar
+          search={filters?.q ?? ''}
+          contentType={filters?.content_type ?? ''}
+          facets={contentTypes ?? []}
+          onChange={applyFilters}
+        />
+
         <Card>
           <Table>
             <TableHeader>
@@ -106,6 +152,7 @@ function Browse() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              <UploadProgressRows jobs={jobs} onDismiss={dismiss} columnCount={COLUMN_COUNT} />
               {files.map((file) => (
                 <TableRow key={file.id}>
                   <TableCell className="sm:px-6 font-medium">{file.filename}</TableCell>
@@ -166,16 +213,29 @@ function Browse() {
                   </TableCell>
                 </TableRow>
               ))}
-              {files.length === 0 && pagination.total === 0 && (
+              {/* `total` is filter-aware, so this still covers "no matches".
+                  Dropping it would claim the bucket is empty whenever a page
+                  past the last one renders — e.g. after deleting the only row
+                  on page 2, or following a stale ?page= link. */}
+              {files.length === 0 && jobs.length === 0 && pagination.total === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-40">
+                  <TableCell colSpan={COLUMN_COUNT} className="h-40">
                     <Empty>
                       <EmptyMedia variant="icon">
                         <FileBox className="size-5 text-primary-300" />
                       </EmptyMedia>
-                      <EmptyTitle>{t(keys.file_storage.browse.empty_title)}</EmptyTitle>
+                      {/* "Nothing uploaded yet" is wrong — and discouraging —
+                          when the bucket is full and the filter is just too
+                          narrow. */}
+                      <EmptyTitle>
+                        {isFiltered
+                          ? t(keys.file_storage.browse.no_match_title)
+                          : t(keys.file_storage.browse.empty_title)}
+                      </EmptyTitle>
                       <EmptyDescription>
-                        {t(keys.file_storage.browse.empty_description)}
+                        {isFiltered
+                          ? t(keys.file_storage.browse.no_match_description)
+                          : t(keys.file_storage.browse.empty_description)}
                       </EmptyDescription>
                     </Empty>
                   </TableCell>
@@ -184,6 +244,33 @@ function Browse() {
             </TableBody>
           </Table>
         </Card>
+
+        {totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.page <= 1}
+              onClick={() => navigate(currentFilters, pagination.page - 1)}
+            >
+              {t(keys.file_storage.browse.previous)}
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              {t(keys.file_storage.browse.page_of, {
+                page: pagination.page,
+                total: totalPages,
+              })}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.page >= totalPages}
+              onClick={() => navigate(currentFilters, pagination.page + 1)}
+            >
+              {t(keys.file_storage.browse.next)}
+            </Button>
+          </div>
+        )}
       </PageShell>
     </>
   );

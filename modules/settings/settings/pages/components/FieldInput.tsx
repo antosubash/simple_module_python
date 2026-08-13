@@ -12,6 +12,12 @@ export type FieldMeta = {
   requires_restart: boolean;
   group: string | null;
   env_var: string;
+  /** The field's SM_* env var is present in the process environment. */
+  env_set?: boolean;
+  /** A stored setting overrides this field. */
+  db_override?: boolean;
+  /** Where the live value came from. Mirrors hydrate_settings' precedence. */
+  source?: 'db' | 'env' | 'default';
 };
 
 type Props = {

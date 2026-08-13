@@ -16,6 +16,7 @@ import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedL
 import { ScrollText } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { ActorCell, EntityCell, type EntityRef } from './components/EntryCells';
 import { ALL, FilterBar, type FilterState } from './components/FilterBar';
 
 interface Change {
@@ -31,6 +32,11 @@ interface AuditEntryRead {
   action: 'created' | 'updated' | 'deleted' | 'soft_deleted';
   changes: Change[];
   user_id: string | null;
+  /** Display name resolved from user_id, or null for deleted/system actors. */
+  actor: string | null;
+  /** Where the acting user's record lives, from the audit-link registry. */
+  actor_url: string | null;
+  entity: EntityRef;
   correlation_id: string | null;
   created_at: string;
 }
@@ -193,13 +199,10 @@ function Browse() {
                       </Badge>
                     </TableCell>
                     <TableCell className="sm:px-6">
-                      <span className="font-medium text-sm">{entry.entity_type}</span>
-                      <span className="ml-1 font-mono text-xs text-muted-foreground">
-                        {entry.entity_id}
-                      </span>
+                      <EntityCell entry={entry} />
                     </TableCell>
                     <TableCell className="sm:px-6 hidden sm:table-cell text-sm text-muted-foreground">
-                      {entry.user_id ?? t(keys.audit_log.changes.system_user)}
+                      <ActorCell entry={entry} />
                     </TableCell>
                     <TableCell className="sm:px-6 hidden md:table-cell">
                       <ChangesList entry={entry} />

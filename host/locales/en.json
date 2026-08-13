@@ -32,6 +32,8 @@
     "server_error_title": "Server Error",
     "server_error_description": "Something went wrong on our end. Please try again later.",
     "go_home": "Go Home",
-    "go_back": "Go Back"
+    "go_back": "Go Back",
+    "correlation_id_label": "Reference this ID if you contact support",
+    "correlation_id_copy": "Copy reference ID"
   }
 }

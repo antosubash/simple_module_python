@@ -10,12 +10,11 @@
     "viewing_tenant": "Viewing overrides for tenant \"{tenant_id}\". Tenant overrides beat the system value.",
     "tenant_id_label": "Tenant ID",
     "tenant_id_placeholder": "e.g. acme",
-    "scope_label": "Scope",
     "scope_system": "System (all tenants)",
-    "scope_tenant": "Specific tenant",
     "go": "View",
-    "back_to_system": "Back to system view",
-    "tenants_with_overrides": "Tenants with overrides"
+    "viewing_label": "Viewing",
+    "scope_custom": "Other tenant…",
+    "cancel": "Cancel"
   },
   "table": {
     "name": "Flag",

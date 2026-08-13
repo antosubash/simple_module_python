@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
+from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
@@ -68,6 +69,20 @@ class BackgroundTasksModule(ModuleBase):
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(PERM_GROUP, [PERM_VIEW, PERM_MANAGE])
+
+    def register_audit_links(self, registry: AuditLinkRegistry) -> None:
+        from simple_module_core.audit_links import AuditLink
+
+        from background_tasks.models import TaskExecution
+
+        registry.register(
+            AuditLink(
+                # Class name, not __tablename__ — see AuditLink.entity_type.
+                entity_type=TaskExecution.__name__,
+                url_template=f"{VIEW_PREFIX}/{{id}}",
+                label="Task execution",
+            )
+        )
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(

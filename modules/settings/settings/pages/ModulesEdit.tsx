@@ -9,9 +9,13 @@ import { useMemo, useState } from 'react';
 import { ModuleForm, type ModuleView } from './components/ModuleForm';
 import { ROUTES } from './routes';
 
-type Props = { modules: ModuleView[] };
+type Props = {
+  modules: ModuleView[];
+  /** Packages whose module registered health checks, so "Test connection" applies. */
+  testable?: string[];
+};
 
-function ModulesEdit({ modules }: Props) {
+function ModulesEdit({ modules, testable = [] }: Props) {
   const { t } = useT();
   const [selected, setSelected] = useState(modules[0]?.package);
   const [q, setQ] = useState('');
@@ -92,7 +96,7 @@ function ModulesEdit({ modules }: Props) {
         <main className="flex-1 overflow-y-auto p-6">
           {current ? (
             <Card className="border-border p-6">
-              <ModuleForm module={current} />
+              <ModuleForm module={current} testable={testable.includes(current.package)} />
             </Card>
           ) : (
             <p className="text-muted-foreground">{t(keys.settings.modules.empty_title)}</p>

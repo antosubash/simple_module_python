@@ -49,13 +49,16 @@
     "roles_label": "Roles",
     "no_roles": "No roles assigned",
     "empty": "No permissions have been registered by any installed module.",
-    "inherited_badge": "inherited",
-    "inherited_hint": "Already granted via a role the user holds.",
+    "inherited_hint": "Granted by role: {roles}. Turning the switch off here will not revoke it — edit the role instead.",
     "submit_button": "Save changes",
     "reset_button": "Discard",
     "cancel_link": "Back",
     "direct_summary": "Direct",
-    "effective_summary": "Effective"
+    "effective_summary": "Effective",
+    "via_role": "via {role}",
+    "effective_yes": "This user has this permission",
+    "effective_no": "This user does not have this permission",
+    "direct_toggle_label": "Grant {key} directly to this user"
   },
   "errors": {
     "role_not_found": "Role not found.",

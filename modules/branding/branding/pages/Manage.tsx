@@ -16,6 +16,7 @@ import type { SharedProps } from '@simple-module-py/ui/types';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { BannerField, type BannerSeverity } from '../components/BannerField';
+import { BrandingPreview } from '../components/BrandingPreview';
 import { DesignPackField, type DesignPackOption } from '../components/DesignPackField';
 import { FooterCard, type FooterPayload } from '../components/FooterCard';
 import { ImageField } from '../components/ImageField';
@@ -264,30 +265,16 @@ function Manage() {
             onSave={saveFooter}
           />
 
-          <Card>
-            <CardHeader>
-              <CardTitle>{t(keys.branding.manage.preview_title)}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-3 rounded-lg border p-4">
-                <div
-                  className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg text-white"
-                  style={{ backgroundColor: color || DEFAULT_SWATCH }}
-                >
-                  {branding?.logoUrl ? (
-                    <img
-                      src={branding.logoUrl}
-                      alt={appName}
-                      className="h-full w-full object-contain"
-                    />
-                  ) : (
-                    <span className="font-bold">{(appName.trim()[0] ?? 'S').toUpperCase()}</span>
-                  )}
-                </div>
-                <span className="font-semibold">{appName || 'SimpleModule'}</span>
-              </div>
-            </CardContent>
-          </Card>
+          <BrandingPreview
+            appName={appName}
+            color={color}
+            defaultColor={DEFAULT_SWATCH}
+            logoUrl={branding?.logoUrl ?? null}
+            logoDarkUrl={branding?.logoDarkUrl ?? null}
+            bannerMessage={bannerMessage}
+            bannerSeverity={bannerSeverity}
+            menuItems={page.menus?.sidebar ?? []}
+          />
         </div>
       </PageShell>
     </>

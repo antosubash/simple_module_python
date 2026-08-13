@@ -6,6 +6,7 @@ import importlib.resources
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
+from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
@@ -21,6 +22,7 @@ from settings.constants import (
     MODULE_NAME,
     MODULE_PACKAGE,
     PERM_GROUP,
+    PERM_VIEW,
     VIEW_PREFIX,
 )
 
@@ -67,11 +69,26 @@ class SettingsModule(ModuleBase):
                 order=MENU_ORDER,
                 section=MenuSection.SIDEBAR,
                 group="System",
+                # Mirrors the view router's guard, so the entry is not offered
+                # to accounts whose click would 403.
+                permissions=[PERM_VIEW],
             )
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(PERM_GROUP, list(ALL_PERMISSIONS))
+
+    def register_audit_links(self, registry: AuditLinkRegistry) -> None:
+        from settings.models import Setting
+
+        registry.register(
+            AuditLink(
+                # Class name, not __tablename__ — see AuditLink.entity_type.
+                entity_type=Setting.__name__,
+                url_template=f"{VIEW_PREFIX}/{{id}}/edit",
+                label="Setting",
+            )
+        )
 
     def locale_dirs(self) -> dict[str, Path]:
         base = Path(str(importlib.resources.files(__package__) / "locales"))

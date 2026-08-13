@@ -3,7 +3,10 @@
 // UploadDropzone.tsx are declared here so the JSX has no magic strings.
 
 export const ROUTES = {
-  VIEW_BROWSE: '/file-storage',
+  // Trailing slash matches the mounted route (and the sidebar entry). Without
+  // it every filter keystroke and page click pays a 307 round trip through
+  // Starlette's redirect_slashes before the real request.
+  VIEW_BROWSE: '/file-storage/',
   API_UPLOAD: '/api/file-storage/upload',
   API_LIST: '/api/file-storage/files',
   apiFile: (id: string) => `/api/file-storage/files/${id}`,

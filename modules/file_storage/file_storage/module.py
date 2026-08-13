@@ -129,3 +129,21 @@ class FileStorageModule(ModuleBase):
                 settings.s3_region,
                 settings.s3_endpoint_url or "(default)",
             )
+
+        # Registered here, not in register_health_checks: the backend does not
+        # exist until this hook builds it, and the check must follow later
+        # settings changes rather than pinning the boot-time instance.
+        from simple_module_core.health import HealthCheck
+
+        from file_storage.health import CHECK_BACKEND, build_backend_check
+
+        app.state.sm.health_registry.add(
+            HealthCheck(
+                name=CHECK_BACKEND,
+                check=build_backend_check(app),
+                module=self.meta.name,
+                # On demand only: an S3 request per readiness probe is billed
+                # traffic and ties probe latency to the provider.
+                probe=False,
+            )
+        )

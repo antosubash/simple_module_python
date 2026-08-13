@@ -10,6 +10,7 @@ from fastapi_users import exceptions as fa_exceptions
 from simple_module_core.events import EventBus
 from simple_module_hosting.permissions import RequiresPermission
 
+from users.admin.bulk_invite import bulk_router
 from users.admin.service import UserService
 from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
 from users.contracts.events import (
@@ -39,6 +40,10 @@ admin_router = APIRouter(
     dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
     tags=["users-admin"],
 )
+
+# Bulk invite lives in its own module (this file is near the 300-line cap) but
+# mounts here so it inherits the users.manage guard above.
+admin_router.include_router(bulk_router)
 
 
 @admin_router.get("", response_model=list[UserListItem])

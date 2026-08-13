@@ -10,7 +10,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@simple-module-py/ui/components/ui/empty';
-import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Switch } from '@simple-module-py/ui/components/ui/switch';
 import {
   Table,
@@ -23,8 +22,8 @@ import {
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { Flag, RotateCcw } from 'lucide-react';
-import { useState } from 'react';
 import { toast } from 'sonner';
+import { TenantPicker } from './components/TenantPicker';
 
 interface FeatureFlag {
   name: string;
@@ -55,7 +54,6 @@ function Browse() {
   const { t } = useT();
   const { can } = usePermissions();
   const canManage = can('feature_flags.manage');
-  const [tenantInput, setTenantInput] = useState(tenant_id ?? '');
 
   function handleToggle(flag: FeatureFlag, next: boolean) {
     router.post(
@@ -86,10 +84,6 @@ function Browse() {
     );
   }
 
-  function visitTenant(value: string) {
-    router.visit(buildPath(value.trim() || null));
-  }
-
   return (
     <>
       <Head title="Feature Flags" />
@@ -98,51 +92,11 @@ function Browse() {
         description={t(keys.feature_flags.browse.description)}
       >
         <Card className="mb-4 p-4">
-          <form
-            className="flex flex-wrap items-end gap-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              visitTenant(tenantInput);
-            }}
-          >
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-sm font-medium mb-1" htmlFor="tenant_id">
-                {t(keys.feature_flags.browse.tenant_id_label)}
-              </label>
-              <Input
-                id="tenant_id"
-                value={tenantInput}
-                onChange={(e) => setTenantInput(e.target.value)}
-                placeholder={t(keys.feature_flags.browse.tenant_id_placeholder)}
-              />
-            </div>
-            <Button type="submit" variant="default">
-              {t(keys.feature_flags.browse.go)}
-            </Button>
-            {tenant_id && (
-              <Button type="button" variant="ghost" onClick={() => visitTenant('')}>
-                {t(keys.feature_flags.browse.back_to_system)}
-              </Button>
-            )}
-          </form>
-          {tenants.length > 0 && (
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-muted-foreground">
-                {t(keys.feature_flags.browse.tenants_with_overrides)}:
-              </span>
-              {tenants.map((tid) => (
-                <Button
-                  key={tid}
-                  type="button"
-                  size="sm"
-                  variant={tid === tenant_id ? 'default' : 'outline'}
-                  onClick={() => visitTenant(tid)}
-                >
-                  {tid}
-                </Button>
-              ))}
-            </div>
-          )}
+          <TenantPicker
+            tenantId={tenant_id}
+            tenants={tenants}
+            onSelect={(next) => router.visit(buildPath(next))}
+          />
           <p className="mt-3 text-sm text-muted-foreground">
             {tenant_id
               ? t(keys.feature_flags.browse.viewing_tenant, { tenant_id })

@@ -23,6 +23,7 @@ import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedL
 import { Activity, Search, ServerCog } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ExecutionRow, statusLabel } from './components/ExecutionRow';
+import { type StatusCounts, StatusStrip } from './components/StatusStrip';
 import { STATUS_ORDER, VIEW_BASE } from './constants';
 import { type Execution, retryExecution } from './retry';
 
@@ -36,6 +37,7 @@ interface Props {
   executions: Execution[];
   pagination: Pagination;
   filters: { status: string; task_name: string };
+  status_counts: StatusCounts;
 }
 
 const STATUS_ALL = '__all__';
@@ -53,6 +55,7 @@ function Index() {
     executions,
     pagination,
     filters: initialFilters,
+    status_counts: statusCounts,
   } = usePage<{ props: Props }>().props as unknown as Props;
 
   const { can } = usePermissions();
@@ -75,7 +78,9 @@ function Index() {
 
   async function handleRetry(execution: Execution) {
     const created = await retryExecution(execution);
-    if (created) router.reload({ only: ['executions', 'pagination'] });
+    // status_counts feeds the strip above the table — a retry moves a row out
+    // of "failed", so leaving it out of the reload leaves the tile lying.
+    if (created) router.reload({ only: ['executions', 'pagination', 'status_counts'] });
   }
 
   return (
@@ -85,6 +90,12 @@ function Index() {
         title="Background Tasks"
         description="Monitor task executions and retry failed or stuck jobs."
       >
+        <StatusStrip
+          counts={statusCounts ?? {}}
+          active={initialFilters.status ?? ''}
+          onSelect={(status) => pushFilters({ status, task_name: search }, 1)}
+        />
+
         <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />

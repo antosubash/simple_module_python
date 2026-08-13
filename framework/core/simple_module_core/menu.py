@@ -30,6 +30,15 @@ class MenuItem:
     requires_auth: bool = True
     roles: list[str] = field(default_factory=list)
     """Empty list = visible to all authenticated users."""
+    permissions: list[str] = field(default_factory=list)
+    """Permission keys required to see this entry. Empty = no permission check.
+
+    Declare the same permission the target route enforces. Roles alone cannot
+    express this: a custom role holding ``settings.view`` should see Settings,
+    and hard-coding ``roles=["admin"]`` would hide it from them while still
+    showing it to any admin-adjacent role that cannot actually open it. An
+    entry that 403s on click is worse than no entry at all.
+    """
     method: MenuItemMethod = "get"
     """HTTP method used when the item is activated. ``"post"`` renders as an
     Inertia form submission so the target endpoint can be POST-only (e.g. logout)."""
@@ -69,18 +78,28 @@ class MenuRegistry:
         *,
         is_authenticated: bool,
         roles: list[str] | None = None,
+        permissions: list[str] | None = None,
     ) -> dict[str, list[dict]]:
-        """Return menu items grouped by section, filtered by auth/roles.
+        """Return menu items grouped by section, filtered by auth/roles/permissions.
+
+        ``permissions`` is the caller's already-expanded permission list (no
+        wildcards). Items declaring permissions the caller lacks are dropped,
+        so the sidebar never offers a screen that will 403 on click.
 
         Returns a dict ready to be serialized into Inertia shared props.
         """
         roles = roles or []
+        granted = set(permissions or [])
         result: dict[str, list[dict]] = {s.value: [] for s in MenuSection}
 
         for item in self.all_items:
             if item.requires_auth and not is_authenticated:
                 continue
             if item.roles and not any(r in item.roles for r in roles):
+                continue
+            # All declared permissions must be held: an entry naming several is
+            # asking for all of them, matching how route guards compose.
+            if item.permissions and not granted.issuperset(item.permissions):
                 continue
             result[item.section.value].append(
                 {

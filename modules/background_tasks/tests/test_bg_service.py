@@ -99,6 +99,46 @@ class TestList:
         assert [i.task_name for i in resp.items] == ["orders.send_receipt"]
 
 
+class TestStatusCounts:
+    """Feeds the failed/stuck ops strip above the executions table."""
+
+    async def test_counts_are_grouped_by_status(
+        self, db_session: AsyncSession, service: BackgroundTaskService
+    ):
+        for status in (TaskStatus.FAILED, TaskStatus.FAILED, TaskStatus.SUCCESS):
+            db_session.add(_make_row(status=status))
+        await db_session.flush()
+
+        counts = await service.status_counts()
+        assert counts[TaskStatus.FAILED.value] == 2
+        assert counts[TaskStatus.SUCCESS.value] == 1
+
+    async def test_empty_table_yields_no_counts(self, service: BackgroundTaskService):
+        assert await service.status_counts() == {}
+
+    async def test_search_narrows_the_counts(
+        self, db_session: AsyncSession, service: BackgroundTaskService
+    ):
+        """The strip must describe the same rows the table is paging through."""
+        db_session.add(_make_row(task_name="orders.send_receipt", status=TaskStatus.FAILED))
+        db_session.add(_make_row(task_name="users.sync", status=TaskStatus.FAILED))
+        await db_session.flush()
+
+        counts = await service.status_counts(task_name="receipt")
+        assert counts == {TaskStatus.FAILED.value: 1}
+
+    async def test_counts_keys_are_plain_strings(
+        self, db_session: AsyncSession, service: BackgroundTaskService
+    ):
+        """Postgres hands back the enum, SQLite a str — the page needs one shape."""
+        db_session.add(_make_row(status=TaskStatus.STUCK))
+        await db_session.flush()
+
+        counts = await service.status_counts()
+        assert all(type(key) is str for key in counts)
+        assert "stuck" in counts
+
+
 class TestGet:
     async def test_returns_none_for_missing_id(self, service: BackgroundTaskService):
         assert await service.get(uuid.uuid4()) is None

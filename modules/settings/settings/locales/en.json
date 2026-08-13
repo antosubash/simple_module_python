@@ -39,7 +39,8 @@
     "value_label": "Value",
     "value_placeholder": "Enter a value",
     "description_label": "Description",
-    "description_placeholder": "Optional description"
+    "description_placeholder": "Optional description",
+    "key_unknown_warning": "No installed module declares this key. It will be stored, but nothing will read it unless a module looks it up."
   },
   "create": {
     "title": "New Setting",
@@ -66,6 +67,16 @@
       "value": "Value",
       "default": "Default",
       "description": "Description"
-    }
+    },
+    "test_connection": "Test connection",
+    "testing": "Testing…",
+    "env_var_hint": "Environment variable name for this field, used by \"smpy settings import-from-env\"",
+    "source_db": "Stored override",
+    "source_db_hint": "A stored setting supplies this value",
+    "source_db_over_env": "Stored (shadows env)",
+    "source_db_shadows_env": "A stored setting overrides {env_var}; the environment value is ignored",
+    "source_env": "From environment",
+    "source_env_hint": "{env_var} is set in this deployment",
+    "source_default": "Default"
   }
 }

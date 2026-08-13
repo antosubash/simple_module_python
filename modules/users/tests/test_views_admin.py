@@ -129,23 +129,58 @@ class TestHasPermissionsModuleFlag:
 
 
 # ---------------------------------------------------------------------------
-# Admin create page
+# Admin add-people page (create + invite merged behind a mode switch)
 # ---------------------------------------------------------------------------
 
 
-class TestAdminCreatePage:
+class TestAdminAddPeoplePage:
     @pytest.mark.anyio
-    async def test_create_page_renders_with_roles(self, admin_client):
+    async def test_add_page_renders_with_roles(self, admin_client):
         resp = await admin_client.get(
-            "/users/admin/create",
+            "/users/admin/add",
             headers={"X-Inertia": "true", "Accept": "application/json"},
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["component"] == "Users/Users/Create"
+        assert data["component"] == "Users/Users/AddPeople"
         assert "roles" in data["props"]
 
     @pytest.mark.anyio
-    async def test_create_page_requires_auth(self, anon_client):
-        resp = await anon_client.get("/users/admin/create", follow_redirects=False)
+    async def test_add_page_reports_whether_mail_can_be_delivered(self, admin_client):
+        """Drives the copy-link panel — the page has to know before submitting."""
+        resp = await admin_client.get(
+            "/users/admin/add",
+            headers={"X-Inertia": "true", "Accept": "application/json"},
+        )
+        assert "mailer_delivers" in resp.json()["props"]
+
+    @pytest.mark.anyio
+    async def test_no_mailer_does_not_promise_delivery(self, admin_client, app):
+        """With nothing able to send, the page must offer the copy-link panel —
+        claiming delivery is the one answer that is certainly wrong."""
+        original = app.state.users.mailer
+        app.state.users.mailer = None
+        try:
+            resp = await admin_client.get(
+                "/users/admin/add",
+                headers={"X-Inertia": "true", "Accept": "application/json"},
+            )
+            assert resp.json()["props"]["mailer_delivers"] is False
+        finally:
+            app.state.users.mailer = original
+
+    @pytest.mark.anyio
+    async def test_add_page_requires_auth(self, anon_client):
+        resp = await anon_client.get("/users/admin/add", follow_redirects=False)
         assert resp.status_code == 302
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        ("old_path", "mode"),
+        [("/users/admin/create", "create"), ("/users/admin/invite", "invite")],
+    )
+    async def test_old_urls_redirect_into_the_right_mode(self, admin_client, old_path, mode):
+        """Existing links must land on the merged form with their mode preselected."""
+        resp = await admin_client.get(old_path, follow_redirects=False)
+        assert resp.status_code == 307
+        assert resp.headers["location"] == f"/users/admin/add?mode={mode}"

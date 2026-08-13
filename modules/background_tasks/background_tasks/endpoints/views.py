@@ -37,10 +37,12 @@ async def index(
         page=page,
         per_page=PER_PAGE,
     )
+    counts = await service.status_counts(task_name=task_name or None)
     return await inertia.render(
         "BackgroundTasks/Index",
         {
             "executions": [i.model_dump(mode="json") for i in response.items],
+            "status_counts": {s.value: counts.get(s.value, 0) for s in TaskStatus},
             "pagination": {
                 "page": response.page,
                 "per_page": response.per_page,

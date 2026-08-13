@@ -20,6 +20,7 @@ from audit_log.constants import (
     MENU_URL,
     MODULE_NAME,
     PERM_GROUP,
+    PERM_VIEW,
     VIEW_PREFIX,
 )
 
@@ -51,6 +52,9 @@ class AuditLogModule(ModuleBase):
                 order=MENU_ORDER,
                 section=MenuSection.SIDEBAR,
                 group="System",
+                # Mirrors the view route's guard — the same ungated-menu bug
+                # this module already shipped before the filter existed.
+                permissions=[PERM_VIEW],
             )
         )
 

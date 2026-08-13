@@ -82,6 +82,26 @@ class BackgroundTaskService:
             task_name=task_name,
         )
 
+    async def status_counts(self, *, task_name: str | None = None) -> dict[str, int]:
+        """Count executions per status for the ops strip above the table.
+
+        Deliberately ignores the status filter — the strip is how the operator
+        picks a status, so it has to keep showing the ones they aren't looking
+        at. It does honour ``task_name`` so the counts describe the same
+        result set the table is paging through.
+
+        Statuses with no rows are omitted; callers fill in zeros.
+        """
+        query = select(TaskExecution.status, func.count().label("n"))
+        if task_name:
+            query = query.where(TaskExecution.task_name.ilike(f"%{task_name}%"))
+        query = query.group_by(TaskExecution.status)
+
+        rows = (await self.db.execute(query)).all()
+        # `status` is a TaskStatus (StrEnum) on Postgres but comes back as a
+        # plain str on SQLite; normalise so the JSON keys match either way.
+        return {str(getattr(row[0], "value", row[0])): int(row[1]) for row in rows}
+
     async def get(self, execution_id: uuid.UUID) -> TaskExecutionDetail | None:
         row = await self.db.get(TaskExecution, execution_id)
         if row is None:

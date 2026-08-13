@@ -1,6 +1,8 @@
 import { router } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import { FieldInput, type FieldMeta } from './FieldInput';
+import { FieldSource } from './FieldSource';
+import { TestConnectionButton } from './TestConnectionButton';
 
 export type ModuleView = {
   module_name: string;
@@ -10,7 +12,11 @@ export type ModuleView = {
   fields: FieldMeta[];
 };
 
-type Props = { module: ModuleView };
+type Props = {
+  module: ModuleView;
+  /** True when this module registered health checks worth running on demand. */
+  testable?: boolean;
+};
 
 function notEqual(a: unknown, b: unknown): boolean {
   if (a === b) return false;
@@ -20,7 +26,7 @@ function notEqual(a: unknown, b: unknown): boolean {
   return true;
 }
 
-export function ModuleForm({ module: m }: Props) {
+export function ModuleForm({ module: m, testable = false }: Props) {
   const initial = useMemo(() => {
     const o: Record<string, unknown> = {};
     for (const f of m.fields) o[f.name] = f.value;
@@ -99,14 +105,17 @@ export function ModuleForm({ module: m }: Props) {
           <h2 className="text-xl font-semibold">{m.module_name}</h2>
           <p className="text-xs font-mono text-muted-foreground">{m.package}</p>
         </div>
-        <button
-          type="button"
-          disabled={!dirty || busy}
-          onClick={onSave}
-          className="rounded bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
-        >
-          {busy ? 'Saving…' : 'Save'}
-        </button>
+        <div className="flex items-start gap-2">
+          {testable && <TestConnectionButton pkg={m.package} />}
+          <button
+            type="button"
+            disabled={!dirty || busy}
+            onClick={onSave}
+            className="rounded bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+          >
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+        </div>
       </header>
 
       {Object.entries(grouped).map(([group, fields]) => (
@@ -128,6 +137,7 @@ export function ModuleForm({ module: m }: Props) {
                       Requires restart
                     </span>
                   )}
+                  <FieldSource field={f} />
                 </div>
                 <div>
                   <FieldInput

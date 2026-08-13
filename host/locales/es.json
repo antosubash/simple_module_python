@@ -32,6 +32,8 @@
     "server_error_title": "Error del servidor",
     "server_error_description": "Algo salió mal de nuestro lado. Por favor, inténtalo de nuevo más tarde.",
     "go_home": "Ir al inicio",
-    "go_back": "Volver"
+    "go_back": "Volver",
+    "correlation_id_label": "Menciona este ID si contactas con soporte",
+    "correlation_id_copy": "Copiar ID de referencia"
   }
 }

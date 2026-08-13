@@ -15,6 +15,11 @@
     },
     "welcome_card_title": "Welcome",
     "welcome_message": "Welcome to SimpleModule",
-    "description_body": "This is a modular monolith built with FastAPI, Inertia.js, and React. Each module provides its own pages, API endpoints, and database schema."
+    "description_body": "This is a modular monolith built with FastAPI, Inertia.js, and React. Each module provides its own pages, API endpoints, and database schema.",
+    "health": {
+      "healthy": "Healthy",
+      "degraded": "Degraded",
+      "unhealthy": "Unhealthy"
+    }
   }
 }
