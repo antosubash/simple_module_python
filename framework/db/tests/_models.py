@@ -27,3 +27,14 @@ class _TenantSoftItem(_TenantBase, MultiTenantMixin, SoftDeleteMixin, table=True
     __tablename__ = "mt_test_soft_item"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=100)
+
+
+_TxnBase = create_module_base("txn_test")
+
+
+class _TxnThing(_TxnBase, table=True):  # ty: ignore[unsupported-base]
+    """Plain table for exercising when the request's unit of work commits."""
+
+    __tablename__ = "txn_test_thing"
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(max_length=100)

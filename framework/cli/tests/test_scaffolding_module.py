@@ -19,7 +19,7 @@ class TestCreateModule:
             "my_feature/module.py",
             "my_feature/endpoints/__init__.py",
             "my_feature/endpoints/api.py",
-            "tests/test_module.py",
+            "tests/test_my_feature.py",
             ".gitignore",
             "README.md",
         ]:
@@ -29,6 +29,27 @@ class TestCreateModule:
         # `--import-mode=importlib`, having one in two modules makes
         # pytest try to register `tests.conftest` as a plugin twice.
         assert not (dest / "tests" / "__init__.py").exists()
+
+    async def test_test_file_basename_is_unique_per_module(self, tmp_path):
+        """Two modules in one workspace must not ship same-named test files.
+
+        Without `tests/__init__.py`, pytest's default `prepend` import mode
+        derives a test module's name from its basename alone. Two modules both
+        shipping `tests/test_module.py` therefore collide at collection with
+        "import file mismatch", and a root-level `pytest` — which is what the
+        scaffold's own `make test` runs — reports errors instead of tests.
+        """
+        from simple_module_cli.scaffolding import create_module
+
+        alpha = create_module(tmp_path / "alpha", name="Alpha")
+        beta = create_module(tmp_path / "beta", name="Beta")
+
+        alpha_tests = [p.name for p in (alpha / "tests").glob("test_*.py")]
+        beta_tests = [p.name for p in (beta / "tests").glob("test_*.py")]
+
+        assert alpha_tests == ["test_alpha.py"]
+        assert beta_tests == ["test_beta.py"]
+        assert not set(alpha_tests) & set(beta_tests)
 
     async def test_pyproject_declares_entry_point_and_deps(self, tmp_path):
         """pyproject.toml sets the entry_point and pins the framework API range."""

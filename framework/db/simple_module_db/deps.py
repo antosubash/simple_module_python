@@ -2,26 +2,34 @@
 
 from __future__ import annotations
 
-import logging
 import time
 from collections.abc import AsyncGenerator
 
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from simple_module_db.listeners import SESSION_HAS_WRITES_KEY
-
-_db_logger = logging.getLogger("simple_module.db")
+from simple_module_db.transaction import (
+    SESSION_START_KEY,
+    finalize_session,
+    register_request_session,
+    rollback_session,
+)
 
 
 async def get_db(request: Request) -> AsyncGenerator[AsyncSession, None]:
     """Yield an async database session, auto-closing on exit.
 
     Commits only when the session has pending writes (``new``, ``dirty``,
-    or ``deleted`` objects). Read-only handlers still open an implicit
-    transaction but exit via ``rollback`` — that's one round-trip
-    cheaper than ``commit`` and keeps read-only queries from showing up
-    as writes in query logs / ``pg_stat_statements``.
+    or ``deleted`` objects); read-only handlers exit via ``rollback``.
+
+    The commit itself normally happens in
+    :class:`~simple_module_db.transaction.CommitBeforeResponseMiddleware`,
+    which fires while the response is still in the server's hands. The
+    finalize below is the fallback for when that middleware isn't in the
+    stack, and a no-op when it already ran — FastAPI runs this exit code
+    *after* the response has been delivered, so a client that immediately
+    reads back what it just wrote would otherwise race the commit and lose
+    (GH #257).
 
     Usage in FastAPI endpoints::
 
@@ -30,33 +38,12 @@ async def get_db(request: Request) -> AsyncGenerator[AsyncSession, None]:
             ...
     """
     factory = request.app.state.sm.db.session_factory
-    start = time.perf_counter()
     async with factory() as session:
+        session.info[SESSION_START_KEY] = time.perf_counter()
+        register_request_session(request.scope, session)
         try:
             yield session
-            # ``has_writes`` is set by the after_flush listener and
-            # survives the flush emptying session.new/.dirty/.deleted.
-            has_pending = bool(
-                session.info.get(SESSION_HAS_WRITES_KEY)
-                or session.new
-                or session.dirty
-                or session.deleted
-            )
-            if has_pending:
-                await session.commit()
-                op, log_message = "commit", "db.session.commit"
-                log = _db_logger.info
-            else:
-                await session.rollback()
-                op, log_message = "read_only_rollback", "db.session.read_only"
-                log = _db_logger.debug
-            duration_ms = round((time.perf_counter() - start) * 1000, 2)
-            log(log_message, extra={"operation": op, "db_duration_ms": duration_ms})
+            await finalize_session(session)
         except Exception:
-            await session.rollback()
-            duration_ms = round((time.perf_counter() - start) * 1000, 2)
-            _db_logger.warning(
-                "db.session.rollback",
-                extra={"operation": "rollback", "db_duration_ms": duration_ms},
-            )
+            await rollback_session(session)
             raise

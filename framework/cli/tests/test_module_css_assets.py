@@ -24,6 +24,20 @@ class TestComputeModuleAssets:
         assert entry.styles_css is not None and entry.styles_css.name == "styles.css"
         assert entry.pages_dir is not None
 
+    async def test_detects_components_dir(self, make_importable_module):
+        """components/ is discovered so its widget classes reach Tailwind."""
+        from simple_module_hosting.assets import compute_module_assets
+
+        mod, pkg = make_importable_module("widget_mod", "Widget")
+        (pkg / "components").mkdir()
+
+        result = compute_module_assets([mod])
+
+        assert [e.name for e in result] == ["Widget"]
+        assert result[0].components_dir is not None
+        assert result[0].components_dir.name == "components"
+        assert result[0].pages_dir is None
+
     async def test_css_only_module_is_included(self, make_importable_module):
         """A module with CSS but no pages/ still appears — the manifest.json gap."""
         from simple_module_hosting.assets import compute_module_assets
@@ -115,6 +129,43 @@ class TestCssEmission:
 
         assert f'@source "{pages.as_posix()}/**/*.{{ts,tsx}}";' in css
 
+    async def test_source_emitted_for_wheel_module_components(self, tmp_path):
+        """A wheel module's components/ is scanned too, not just its pages/.
+
+        Widgets ship under components/. Omitting them left the host to
+        hand-write a `.venv`-relative @source, which cannot be spelled
+        portably — Windows uses `Lib/site-packages`, POSIX
+        `lib/python3.x/site-packages` — and Tailwind drops a non-matching glob
+        silently, so every widget class vanished from the build on Windows.
+        """
+        from simple_module_hosting.assets import render_modules_css
+
+        pages = tmp_path / "gis" / "pages"
+        components = tmp_path / "gis" / "components"
+        entry = _assets(tmp_path, pages_dir=pages, components_dir=components)
+        css = render_modules_css([entry], in_repo=lambda _p: False)
+
+        assert f'@source "{pages.as_posix()}/**/*.{{ts,tsx}}";' in css
+        assert f'@source "{components.as_posix()}/**/*.{{ts,tsx}}";' in css
+
+    async def test_components_only_module_still_emits_source(self, tmp_path):
+        """A module shipping widgets but no pages/ or CSS is not skipped."""
+        from simple_module_hosting.assets import render_modules_css
+
+        components = tmp_path / "gis" / "components"
+        css = render_modules_css(
+            [_assets(tmp_path, components_dir=components)], in_repo=lambda _p: False
+        )
+
+        assert f'@source "{components.as_posix()}/**/*.{{ts,tsx}}";' in css
+
+    async def test_in_repo_components_are_not_sourced(self, tmp_path):
+        """In-repo components are already covered by the host's static glob."""
+        from simple_module_hosting.assets import render_modules_css
+
+        entry = _assets(tmp_path, components_dir=tmp_path / "local" / "components")
+        assert "@source" not in render_modules_css([entry], in_repo=lambda _p: True)
+
     async def test_module_without_css_emits_no_import(self, tmp_path):
         """Pages-only modules contribute @source but no @import."""
         from simple_module_hosting.assets import render_modules_css
@@ -199,6 +250,7 @@ class TestAssetsManifest:
             "package_name",
             "package",
             "pages",
+            "components",
             "theme",
             "styles",
             "npm_name",

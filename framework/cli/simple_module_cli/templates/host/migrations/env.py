@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from logging.config import fileConfig
+from pathlib import Path
 
 from alembic import context
 from simple_module_db import (
@@ -19,6 +20,7 @@ from simple_module_db import (
 )
 from simple_module_hosting.settings import Settings
 from sqlalchemy import engine_from_config, pool
+from sqlalchemy.engine import make_url
 
 logger = logging.getLogger("alembic.env")
 
@@ -35,9 +37,21 @@ process_revision_directives = make_process_revision_directives(target_metadata)
 
 
 def _get_url() -> str:
-    """Read database URL from settings, convert async to sync driver."""
+    """Read database URL from settings, convert async to sync driver.
+
+    The resolved URL is logged because ``Settings`` reads ``.env`` relative to
+    the *current working directory*: run alembic from the wrong cwd and it
+    silently falls back to the default SQLite file while the app talks to the
+    configured database. Printing the target — password masked — turns that
+    into something you notice on the first migration instead of a schema that
+    lives in a database nobody reads.
+    """
     settings = Settings()
-    return settings.database_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
+    url = settings.database_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
+    logger.info(
+        "Migrating %s (cwd=%s)", make_url(url).render_as_string(hide_password=True), Path.cwd()
+    )
+    return url
 
 
 def run_migrations_offline() -> None:

@@ -54,12 +54,18 @@ sync-module-deps:
 
 # `upgrade heads` (plural) applies every per-module branch head; `upgrade head`
 # (singular) errors once a second module adds its own migration branch label.
+#
+# These run from the repo root, not `cd host`, so alembic and `make dev-api`
+# share the same cwd — and therefore the same .env, SM_DATABASE_URL and SQLite
+# path. BootstrapSettings reads `.env` relative to the cwd, so running from
+# host/ silently migrates the default SQLite DB while the app uses the
+# configured one.
 migrate:
-	cd host && uv run alembic upgrade heads
+	uv run --project host alembic -c host/alembic.ini upgrade heads
 
 migration:
 	@test -n "$(msg)" || (echo 'Usage: make migration msg="describe the change"' && exit 1)
-	cd host && uv run alembic revision --autogenerate -m "$(msg)"
+	uv run --project host alembic -c host/alembic.ini revision --autogenerate -m "$(msg)"
 
 kill:
 	@-pkill -f "uvicorn main:app" 2>/dev/null

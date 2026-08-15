@@ -47,6 +47,8 @@ logger = logging.getLogger(__name__)
 THEME_CSS = "theme.css"
 STYLES_CSS = "styles.css"
 PACKAGE_JSON = "package.json"
+PAGES_DIR = "pages"
+COMPONENTS_DIR = "components"
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,7 @@ class ModuleAssets:
     theme_css: Path | None
     styles_css: Path | None
     npm_name: str | None = None
+    components_dir: Path | None = None
 
 
 def find_npm_name(pkg_root: Path) -> str | None:
@@ -114,7 +117,8 @@ def compute_module_assets(modules: Sequence[ModuleBase]) -> list[ModuleAssets]:
                 "Module '%s': package %s not importable — skipping", mod.meta.name, pkg_name
             )
             continue
-        pages_dir = pkg_root / "pages"
+        pages_dir = pkg_root / PAGES_DIR
+        components_dir = pkg_root / COMPONENTS_DIR
         theme = pkg_root / THEME_CSS
         styles = pkg_root / STYLES_CSS
         entry = ModuleAssets(
@@ -125,8 +129,9 @@ def compute_module_assets(modules: Sequence[ModuleBase]) -> list[ModuleAssets]:
             theme_css=theme.resolve() if theme.is_file() else None,
             styles_css=styles.resolve() if styles.is_file() else None,
             npm_name=find_npm_name(pkg_root),
+            components_dir=components_dir.resolve() if components_dir.is_dir() else None,
         )
-        if entry.pages_dir or entry.theme_css or entry.styles_css:
+        if entry.pages_dir or entry.theme_css or entry.styles_css or entry.components_dir:
             result.append(entry)
     return result
 
@@ -157,13 +162,23 @@ def render_modules_css(
     ``@import`` is emitted for *every* module, in-repo and wheel alike, because
     there is no static-glob equivalent for CSS.
 
+    Both ``pages/`` and ``components/`` are scanned. A wheel module's widgets
+    live under ``components/``, and leaving them out meant every host had to
+    hand-write a ``@source`` pointing into ``.venv`` — which cannot be written
+    portably: POSIX venvs nest under ``lib/python3.x/site-packages`` while
+    Windows uses ``Lib/site-packages``. Tailwind accepts a glob that matches
+    nothing without complaint, so the hand-written POSIX path silently dropped
+    every widget class on Windows. Emitting the resolved absolute path here
+    works on both. See GH #258.
+
     Every path is absolute, so nothing here depends on the host's
     ``vite.config.ts`` — see the module docstring for why that matters.
     """
     source_lines = [
-        f'@source "{e.pages_dir.as_posix()}/**/*.{{ts,tsx}}";'
+        f'@source "{d.as_posix()}/**/*.{{ts,tsx}}";'
         for e in assets
-        if e.pages_dir and not in_repo(e.pages_dir)
+        for d in (e.pages_dir, e.components_dir)
+        if d and not in_repo(d)
     ]
     theme_lines = [f'@import "{e.theme_css.as_posix()}";' for e in assets if e.theme_css]
     style_lines = [
@@ -205,6 +220,7 @@ def render_assets_json(assets: Sequence[ModuleAssets]) -> str:
             "package_name": e.package_name,
             "package": e.package_dir.as_posix(),
             "pages": e.pages_dir.as_posix() if e.pages_dir else None,
+            "components": e.components_dir.as_posix() if e.components_dir else None,
             "theme": e.theme_css.as_posix() if e.theme_css else None,
             "styles": e.styles_css.as_posix() if e.styles_css else None,
             "npm_name": e.npm_name,

@@ -132,6 +132,13 @@ def make_process_revision_directives(
     not strictly required (dropping the table drops the index) but it keeps
     autogen output readable.
 
+    The injection is idempotent, and has to be: a dialect that *can* reflect
+    expression-based indexes (PostgreSQL) already emits the index itself, so
+    re-adding it unconditionally produced a migration with two identical
+    ``create_index`` calls that failed on first run with ``DuplicateTable``.
+    Any index already named in the op tree — at any nesting depth — is left
+    alone, which keeps this dialect-agnostic rather than special-casing SQLite.
+
     Call as::
 
         context.configure(
@@ -164,10 +171,34 @@ def _index_is_expression_based(index: Index) -> bool:
     return any(not isinstance(expr, Column) for expr in index.expressions)
 
 
-def _inject_create_index_after_create_table(upgrade_ops, expression_indexes) -> None:
-    existing_index_names = {
-        getattr(op, "index_name", None) for op in upgrade_ops.ops if isinstance(op, CreateIndexOp)
+def _iter_ops_recursive(container):
+    """Yield every op under ``container``, descending into nested op groups.
+
+    Autogenerate does not emit a flat op list: index operations for a table are
+    grouped inside a ``ModifyTableOps`` container alongside the top-level
+    ``CreateTableOp``/``DropTableOp``. A dedup check that only looks at
+    ``container.ops`` therefore sees no ``CreateIndexOp`` at all and re-injects
+    an index the dialect already emitted — which is exactly how a dialect that
+    *can* reflect expression-based indexes (PostgreSQL) ended up with a
+    duplicate ``CREATE INDEX`` in its initial migration.
+    """
+    for op in container.ops:
+        yield op
+        if hasattr(op, "ops"):
+            yield from _iter_ops_recursive(op)
+
+
+def _existing_index_names(container, op_type) -> set[str | None]:
+    """Names of every ``op_type`` index op already present anywhere under ``container``."""
+    return {
+        getattr(op, "index_name", None)
+        for op in _iter_ops_recursive(container)
+        if isinstance(op, op_type)
     }
+
+
+def _inject_create_index_after_create_table(upgrade_ops, expression_indexes) -> None:
+    existing_index_names = _existing_index_names(upgrade_ops, CreateIndexOp)
     new_ops: list = []
     for op in upgrade_ops.ops:
         new_ops.append(op)
@@ -188,9 +219,7 @@ def _inject_create_index_after_create_table(upgrade_ops, expression_indexes) -> 
 
 
 def _inject_drop_index_before_drop_table(downgrade_ops, expression_indexes) -> None:
-    existing_drop_names = {
-        getattr(op, "index_name", None) for op in downgrade_ops.ops if isinstance(op, DropIndexOp)
-    }
+    existing_drop_names = _existing_index_names(downgrade_ops, DropIndexOp)
     new_ops: list = []
     for op in downgrade_ops.ops:
         if isinstance(op, DropTableOp):

@@ -13,10 +13,12 @@ from simple_module_db.migrations import (
 from simple_module_db.mixins import AuditMixin, MultiTenantMixin, SoftDeleteMixin, VersionedMixin
 from simple_module_db.provider import DatabaseProvider, detect_provider
 from simple_module_db.session import DatabaseState, init_db
+from simple_module_db.transaction import CommitBeforeResponseMiddleware, finalize_session
 
 __all__ = [
     "AuditMixin",
     "AuditRecord",
+    "CommitBeforeResponseMiddleware",
     "DatabaseProvider",
     "DatabaseState",
     "MultiTenantMixin",
@@ -27,6 +29,7 @@ __all__ = [
     "create_module_base",
     "current_tenant_id",
     "detect_provider",
+    "finalize_session",
     "get_db",
     "init_db",
     "make_include_object",
