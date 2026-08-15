@@ -51,32 +51,52 @@ def _elapsed_ms(session: AsyncSession) -> float:
     return round((time.perf_counter() - start) * 1000, 2) if start else 0.0
 
 
-def _claim(session: AsyncSession) -> bool:
-    """Return True if this caller is the one that gets to finalize ``session``."""
-    if session.info.get(_FINALIZED_KEY):
-        return False
+def _has_pending(session: AsyncSession) -> bool:
+    """Whether ``session`` holds work that still needs committing.
+
+    ``has_writes`` is stamped by the after_flush listener and survives the flush
+    emptying ``session.new``/``.dirty``/``.deleted`` — the raw collections alone
+    would report a flushed-but-uncommitted write as read-only.
+    """
+    return bool(
+        session.info.get(SESSION_HAS_WRITES_KEY) or session.new or session.dirty or session.deleted
+    )
+
+
+def _settle(session: AsyncSession) -> None:
+    """Mark the session finalized and clear the pending-write marker.
+
+    Clearing matters: the marker is sticky, so without this a later finalize
+    would try to re-commit a session whose work has already landed.
+    """
     session.info[_FINALIZED_KEY] = True
-    return True
+    session.info.pop(SESSION_HAS_WRITES_KEY, None)
 
 
 async def finalize_session(session: AsyncSession) -> None:
-    """Commit ``session`` if it has pending writes, else roll it back. Idempotent.
+    """Commit ``session`` if it has pending writes, else roll it back.
+
+    Safe to call more than once, and deliberately **re-armable** rather than
+    one-shot. Work can still be done after the response has started — Starlette
+    runs ``BackgroundTasks`` once the body is sent, and a ``StreamingResponse``
+    writes its body after ``http.response.start`` — and both share this request's
+    session. A one-shot claim would let the middleware's commit consume the
+    session and then silently drop those later writes: they would flush and
+    never commit. So each call commits whatever is pending *at that moment*, and
+    ``get_db``'s exit code still runs afterwards to catch the rest.
 
     Read-only handlers exit via ``rollback`` — one round-trip cheaper than
     ``commit``, and it keeps read-only queries from showing up as writes in
-    query logs / ``pg_stat_statements``.
+    query logs / ``pg_stat_statements``. A repeat call with nothing new pending
+    returns immediately rather than paying for a second rollback.
 
     On commit failure the session is rolled back before the error propagates,
     so the caller never has to reason about a half-finalized session.
     """
-    if not _claim(session):
-        return
-    # ``has_writes`` is set by the after_flush listener and survives the flush
-    # emptying session.new/.dirty/.deleted.
-    has_pending = bool(
-        session.info.get(SESSION_HAS_WRITES_KEY) or session.new or session.dirty or session.deleted
-    )
-    if not has_pending:
+    if not _has_pending(session):
+        if session.info.get(_FINALIZED_KEY):
+            return
+        _settle(session)
         await session.rollback()
         logger.debug(
             "db.session.read_only",
@@ -88,6 +108,10 @@ async def finalize_session(session: AsyncSession) -> None:
     except Exception:
         await session.rollback()
         raise
+    finally:
+        # Settled either way: a failed commit must not be retried by the
+        # fallback finalize in get_db's exit code.
+        _settle(session)
     logger.info(
         "db.session.commit",
         extra={"operation": "commit", "db_duration_ms": _elapsed_ms(session)},
@@ -95,9 +119,10 @@ async def finalize_session(session: AsyncSession) -> None:
 
 
 async def rollback_session(session: AsyncSession) -> None:
-    """Roll ``session`` back and mark it finalized. Idempotent."""
-    if not _claim(session):
+    """Roll ``session`` back and drop its pending work. Idempotent."""
+    if session.info.get(_FINALIZED_KEY) and not _has_pending(session):
         return
+    _settle(session)
     await session.rollback()
     logger.warning(
         "db.session.rollback",
@@ -151,6 +176,12 @@ class CommitBeforeResponseMiddleware:
                 return
             if message["type"] == "http.response.start" and sessions:
                 try:
+                    # A request normally has exactly one session (FastAPI caches
+                    # the dependency). With several — Depends(get_db,
+                    # use_cache=False) — a failure part-way leaves the earlier
+                    # commits durable while the client sees a 500. There is no
+                    # cross-session atomicity to recover here short of two-phase
+                    # commit; the log line below is what makes it diagnosable.
                     for session in sessions:
                         await finalize_session(session)
                 except Exception:

@@ -18,7 +18,8 @@ from types import SimpleNamespace
 import httpx
 import pytest
 from _models import _TxnBase, _TxnThing
-from fastapi import Depends, FastAPI
+from fastapi import BackgroundTasks, Depends, FastAPI
+from fastapi.responses import StreamingResponse
 from simple_module_db.deps import get_db
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
@@ -138,21 +139,79 @@ class TestCommitBeforeResponse:
         async with db_state.session_factory() as session:
             assert (await session.execute(select(_TxnThing))).scalars().all() == []
 
-    async def test_commit_failure_becomes_a_500(self, db_state, monkeypatch):
+    async def test_commit_failure_becomes_a_500_and_persists_nothing(self, db_state, monkeypatch):
         """A commit that blows up at response.start replaces the response rather
-        than shipping a 201 for work that never landed."""
-        from simple_module_db import transaction
+        than shipping a 201 for work that never landed.
 
-        async def explode(session):
+        The failure is injected at ``AsyncSession.commit`` rather than at
+        ``finalize_session``: stubbing the finalizer would bypass its bookkeeping,
+        leaving get_db's fallback free to commit the row the test claims was
+        lost — the assertion would pass while the guarantee was broken.
+        """
+
+        async def explode(self, *args, **kwargs):
             raise RuntimeError("commit failed")
 
-        monkeypatch.setattr(transaction, "finalize_session", explode)
+        monkeypatch.setattr(AsyncSession, "commit", explode)
 
         async with await _client(_build_app(db_state)) as client:
             response = await client.post("/things", params={"name": "nope"})
 
         assert response.status_code == 500
         assert response.json() == {"detail": "Internal Server Error"}
+
+        monkeypatch.undo()
+        async with db_state.session_factory() as session:
+            assert (await session.execute(select(_TxnThing))).scalars().all() == []
+
+    async def test_background_task_writes_still_commit(self, db_state):
+        """Starlette runs BackgroundTasks after the body is sent, on this same
+        session. Finalizing at response.start must not consume the session and
+        strand them — they flushed but never committed, losing writes silently."""
+        app = _build_app(db_state)
+
+        @app.post("/with-task", status_code=202)
+        async def with_task(bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+            db.add(_TxnThing(name="before-response"))
+            await db.flush()
+
+            async def task():
+                db.add(_TxnThing(name="from-background-task"))
+                await db.flush()
+
+            bg.add_task(task)
+            return {"ok": True}
+
+        async with await _client(app) as client:
+            assert (await client.post("/with-task")).status_code == 202
+
+        async with db_state.session_factory() as session:
+            names = sorted(t.name for t in (await session.execute(select(_TxnThing))).scalars())
+        assert names == ["before-response", "from-background-task"]
+
+    async def test_streaming_response_body_writes_still_commit(self, db_state):
+        """A StreamingResponse writes its body *after* response.start, so work
+        done while streaming lands after the middleware's commit."""
+        app = _build_app(db_state)
+
+        @app.get("/stream")
+        async def stream(db: AsyncSession = Depends(get_db)):
+            db.add(_TxnThing(name="before-stream"))
+            await db.flush()
+
+            async def body():
+                yield b"chunk"
+                db.add(_TxnThing(name="during-stream"))
+                await db.flush()
+
+            return StreamingResponse(body())
+
+        async with await _client(app) as client:
+            assert (await client.get("/stream")).status_code == 200
+
+        async with db_state.session_factory() as session:
+            names = sorted(t.name for t in (await session.execute(select(_TxnThing))).scalars())
+        assert names == ["before-stream", "during-stream"]
 
     async def test_still_commits_without_the_middleware(self, db_state):
         """get_db keeps its own fallback finalize, so the dependency works
