@@ -13,9 +13,9 @@ import {
   TableRow,
 } from '@simple-module-py/ui/components/ui/table';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import { ScrollText } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { BrowseEmpty } from './components/BrowseEmpty';
 import { ActorCell, EntityCell, type EntityRef } from './components/EntryCells';
 import { ALL, FilterBar, type FilterState } from './components/FilterBar';
 
@@ -162,15 +162,7 @@ function Browse() {
         />
 
         {items.length === 0 ? (
-          <Card className="border-border">
-            <div className="flex flex-col items-center gap-2 py-16 text-muted-foreground">
-              <ScrollText className="size-8" />
-              <h2 className="text-base font-semibold text-foreground font-[var(--font-display)]">
-                {t(keys.audit_log.browse.empty_title)}
-              </h2>
-              <p className="text-sm">{t(keys.audit_log.browse.empty_description)}</p>
-            </div>
-          </Card>
+          <BrowseEmpty applied={filters} onClear={handleClear} />
         ) : (
           <Card className="border-border overflow-hidden p-0">
             <Table>

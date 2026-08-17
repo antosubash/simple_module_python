@@ -1,5 +1,6 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { EmptyState } from '@simple-module-py/ui/components/EmptyState';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import {
   AlertDialog,
@@ -14,12 +15,6 @@ import {
 } from '@simple-module-py/ui/components/ui/alert-dialog';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
-import {
-  Empty,
-  EmptyDescription,
-  EmptyMedia,
-  EmptyTitle,
-} from '@simple-module-py/ui/components/ui/empty';
 import {
   Table,
   TableBody,
@@ -117,6 +112,21 @@ function Browse() {
         router.reload({ only: ['files', 'pagination', 'content_types'] });
       })
       .catch(() => toast.error(t(keys.file_storage.toasts.delete_failed)));
+  }
+
+  // What the empty table offers to do next. A filter is the user's own doing,
+  // so undoing it comes first; otherwise this is a second dropzone rather than
+  // a ref to the header's — it owns its hidden input, so the duplicate costs
+  // nothing and puts the affordance where the user is already looking.
+  let emptyAction: React.ReactNode;
+  if (isFiltered) {
+    emptyAction = (
+      <Button variant="outline" onClick={() => applyFilters({ q: '', content_type: '' })}>
+        {t(keys.file_storage.browse.clear_filters)}
+      </Button>
+    );
+  } else if (canUpload) {
+    emptyAction = <UploadDropzone onFiles={start} busy={busy} />;
   }
 
   return (
@@ -218,26 +228,25 @@ function Browse() {
                   past the last one renders — e.g. after deleting the only row
                   on page 2, or following a stale ?page= link. */}
               {files.length === 0 && jobs.length === 0 && pagination.total === 0 && (
-                <TableRow>
+                <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={COLUMN_COUNT} className="h-40">
-                    <Empty>
-                      <EmptyMedia variant="icon">
-                        <FileBox className="size-5 text-primary-300" />
-                      </EmptyMedia>
-                      {/* "Nothing uploaded yet" is wrong — and discouraging —
-                          when the bucket is full and the filter is just too
-                          narrow. */}
-                      <EmptyTitle>
-                        {isFiltered
+                    {/* "Nothing uploaded yet" is wrong — and discouraging —
+                        when the bucket is full and the filter is just too
+                        narrow. */}
+                    <EmptyState
+                      icon={FileBox}
+                      title={
+                        isFiltered
                           ? t(keys.file_storage.browse.no_match_title)
-                          : t(keys.file_storage.browse.empty_title)}
-                      </EmptyTitle>
-                      <EmptyDescription>
-                        {isFiltered
+                          : t(keys.file_storage.browse.empty_title)
+                      }
+                      description={
+                        isFiltered
                           ? t(keys.file_storage.browse.no_match_description)
-                          : t(keys.file_storage.browse.empty_description)}
-                      </EmptyDescription>
-                    </Empty>
+                          : t(keys.file_storage.browse.empty_description)
+                      }
+                      action={emptyAction}
+                    />
                   </TableCell>
                 </TableRow>
               )}

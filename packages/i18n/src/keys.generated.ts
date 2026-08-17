@@ -10,10 +10,13 @@ export const keys = {
       updated: 'audit_log.actions.updated',
     },
     browse: {
+      clear_filters: 'audit_log.browse.clear_filters',
       description: 'audit_log.browse.description',
       empty_description: 'audit_log.browse.empty_description',
       empty_title: 'audit_log.browse.empty_title',
       next: 'audit_log.browse.next',
+      no_match_description: 'audit_log.browse.no_match_description',
+      no_match_title: 'audit_log.browse.no_match_title',
       previous: 'audit_log.browse.previous',
       showing: 'audit_log.browse.showing',
       title: 'audit_log.browse.title',
@@ -235,6 +238,7 @@ export const keys = {
       download: 'file_storage.actions.download',
     },
     browse: {
+      clear_filters: 'file_storage.browse.clear_filters',
       count: 'file_storage.browse.count',
       count_one: 'file_storage.browse.count_one',
       count_other: 'file_storage.browse.count_other',
