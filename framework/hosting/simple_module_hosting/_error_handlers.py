@@ -23,6 +23,22 @@ logger = logging.getLogger(__name__)
 _INERTIA_ERROR_STATUSES = frozenset({403, 404, 500})
 
 
+def _wants_json(request: Request) -> bool:
+    """API callers get JSON error bodies; browser-shaped requests get the page.
+
+    ``/api/*`` is the documented prefix for every module's JSON surface
+    (``ModuleMeta.route_prefix``), so path alone decides there. Elsewhere an
+    explicit ``Accept: application/json`` (without ``text/html`` — a browser
+    navigation sends both) opts a fetch caller into JSON. The default
+    ``*/*`` keeps the rendered Inertia page.
+    """
+    path = request.url.path
+    if path == "/api" or path.startswith("/api/"):
+        return True
+    accept = request.headers.get("accept", "")
+    return "application/json" in accept and "text/html" not in accept
+
+
 async def render_error_page(request: Request, status_code: int, message: str) -> Response:
     config: InertiaConfig = request.app.state.sm.inertia_config
     try:
@@ -59,13 +75,15 @@ async def render_error_page(request: Request, status_code: int, message: str) ->
 
 
 async def http_exception_handler(request: Request, exc: HTTPException) -> Response:
-    if exc.status_code in _INERTIA_ERROR_STATUSES:
+    if exc.status_code in _INERTIA_ERROR_STATUSES and not _wants_json(request):
         detail = str(exc.detail) if exc.detail else ""
         return await render_error_page(request, exc.status_code, detail)
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 async def not_found_error_handler(request: Request, exc: NotFoundError) -> Response:
+    if _wants_json(request):
+        return JSONResponse(status_code=404, content={"detail": str(exc)})
     return await render_error_page(request, 404, str(exc))
 
 
@@ -83,4 +101,6 @@ async def request_validation_error_handler(
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> Response:
     logger.exception("Unhandled exception: %s", exc)
+    if _wants_json(request):
+        return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
     return await render_error_page(request, 500, "")
