@@ -300,6 +300,41 @@ which `AuthMiddleware` consults on every request. See
 [`docs/framework/public-routes.md`](framework/public-routes.md) for match kinds
 and resolution order.
 
+### CSP sources (external assets)
+
+The host ships a strict Content-Security-Policy. A module whose frontend loads
+an asset from another origin — a font CDN, a tile server — declares it via
+`register_csp_sources`, and the host folds the origins into both the dev
+(Vite-widened) and production policies:
+
+```python
+def register_csp_sources(self, registry):
+    registry.add("style-src", "https://rsms.me")
+    registry.add("font-src", "https://rsms.me")
+```
+
+Only fetch directives are extendable (`style-src`, `font-src`, `img-src`,
+`connect-src`, …) — never `default-src`, `base-uri`, `form-action`, or
+`frame-ancestors`, which belong to the host operator. Sources are validated
+single tokens; an invalid declaration raises at boot.
+
+### CSRF (opt-in token check)
+
+The framework baseline is `SameSite=Lax` on the session cookie. Modules that
+want defence in depth opt into a session-bound token check per router:
+
+```python
+from simple_module_hosting.csrf import RequiresCsrf, get_csrf_token
+
+router = APIRouter(dependencies=[Depends(RequiresCsrf())])
+# expose the token to the frontend as a view prop:
+{"csrf_token": get_csrf_token(request)}
+```
+
+Callers echo the token back as `X-CSRF-Token` on `POST`/`PUT`/`PATCH`/`DELETE`;
+safe methods are never checked, and apps without `SessionMiddleware` (bare
+test apps) are exempt.
+
 ### Design packs (site-wide look)
 
 A *design pack* is a stylesheet a module ships that restyles the public site by
