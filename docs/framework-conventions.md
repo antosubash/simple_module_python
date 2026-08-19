@@ -335,6 +335,21 @@ Callers echo the token back as `X-CSRF-Token` on `POST`/`PUT`/`PATCH`/`DELETE`;
 safe methods are never checked, and apps without `SessionMiddleware` (bare
 test apps) are exempt.
 
+### Error responses (HTML vs JSON)
+
+403/404/500 are content-negotiated. Requests under `/api/*` — the documented
+prefix for every module's JSON surface — or with an explicit
+`Accept: application/json` get a JSON body:
+
+```json
+{ "detail": "Permission required: pagebuilder.edit" }
+```
+
+Browser-shaped requests (navigations, Inertia visits, `Accept: */*`) get the
+rendered Inertia error page, which carries the layout, i18n copy, and the
+request's correlation id. Module endpoint code doesn't opt in or out — raise
+`HTTPException` as usual and the handler picks the right shape.
+
 ### Design packs (site-wide look)
 
 A *design pack* is a stylesheet a module ships that restyles the public site by
