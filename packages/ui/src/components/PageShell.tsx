@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useReportPageHeading } from './page-heading';
 
 interface PageShellProps {
   title: string;
@@ -16,6 +17,9 @@ export function PageShell({
   actions,
   maxWidth = 'screen-xl',
 }: PageShellProps) {
+  // The shell's breadcrumb names the page from this, so it can never disagree
+  // with the heading rendered below.
+  useReportPageHeading(title);
   const widthClass = maxWidth === 'full' ? '' : 'max-w-screen-xl mx-auto';
   return (
     <div className={`px-4 py-6 sm:px-6 sm:py-7 lg:px-8 ${widthClass}`}>
