@@ -29,6 +29,24 @@ function findNodeModulesRoot(start: string): string {
 }
 const fsRoot = findNodeModulesRoot(__dirname);
 
+// The backend reads SM_VITE_DEV_URL from the project .env; deriving the dev
+// server's port and origin from the same value keeps the two sides from
+// drifting apart. Process env wins for one-off overrides; the documented
+// default stays http://localhost:5050.
+function viteDevUrl(): string {
+  if (process.env.SM_VITE_DEV_URL) return process.env.SM_VITE_DEV_URL;
+  try {
+    const env = fs.readFileSync(path.join(fsRoot, '.env'), 'utf8');
+    const match = env.match(/^SM_VITE_DEV_URL\s*=\s*(\S+)\s*$/m);
+    if (match) return match[1].replace(/^['"]|['"]$/g, '');
+  } catch {
+    // no .env yet (fresh checkout) — fall through to the default
+  }
+  return 'http://localhost:5050';
+}
+const devUrl = viteDevUrl();
+const devPort = Number(new URL(devUrl).port || '5050');
+
 // Load the module pages manifest written by the Python host at boot.
 // Each entry points at an absolute pages/ directory — typically inside a
 // pip-installed module wheel. Vite needs these in server.fs.allow so the
@@ -281,9 +299,9 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5050,
+    port: devPort,
     strictPort: true,
-    origin: 'http://localhost:5050',
+    origin: devUrl,
     fs: {
       allow: [fsRoot, ...moduleFsAllow],
     },
