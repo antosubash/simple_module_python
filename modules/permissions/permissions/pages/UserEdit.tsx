@@ -70,6 +70,8 @@ function UserEdit({ user, roles, direct, inherited, inherited_by: inheritedBy, g
       <PageShell
         title={t(keys.permissions.user_edit.title, { email: user.email })}
         description={user.full_name || t(keys.permissions.user_edit.description)}
+        // Reached from the user editor; belongs under Users despite the path.
+        section="/users/admin"
         actions={
           <>
             <Button asChild variant="ghost">

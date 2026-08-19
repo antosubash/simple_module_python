@@ -19,6 +19,13 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 interface Heading {
   title: string;
   url: string;
+  /**
+   * Url of the sidebar section this page belongs to, for pages whose own path
+   * sits outside it — permissions screens live under `/permissions/...` but
+   * are reached from, and belong to, Users. Resolved against the *visible*
+   * menu, so a section the viewer cannot open is simply not shown.
+   */
+  section?: string;
 }
 
 const HeadingValue = createContext<Heading | null>(null);
@@ -39,11 +46,17 @@ export function usePageHeading(currentUrl: string): string | null {
   return heading && heading.url === currentUrl ? heading.title : null;
 }
 
+/** The section url this page declared, if any. */
+export function usePageSection(currentUrl: string): string | null {
+  const heading = useContext(HeadingValue);
+  return heading && heading.url === currentUrl ? (heading.section ?? null) : null;
+}
+
 /** Report this page's heading to the shell. No-op outside a provider. */
-export function useReportPageHeading(title: string): void {
+export function useReportPageHeading(title: string, section?: string): void {
   const setHeading = useContext(HeadingSetter);
   const url = usePage().url;
-  const next = useMemo(() => ({ title, url }), [title, url]);
+  const next = useMemo(() => ({ title, url, section }), [title, url, section]);
   useEffect(() => {
     setHeading?.(next);
   }, [setHeading, next]);

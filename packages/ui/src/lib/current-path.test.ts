@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { isUnder, toPath } from './current-path';
+import { isUnder, samePath, toPath } from './current-path';
+
+describe('samePath', () => {
+  it('ignores trailing slashes, which menu urls are inconsistent about', () => {
+    expect(samePath('/file-storage/', '/file-storage')).toBe(true);
+    expect(samePath('/users/admin', '/users/admin')).toBe(true);
+  });
+
+  it('normalises an absolute url against a path', () => {
+    expect(samePath('http://localhost:8300/users/admin', '/users/admin')).toBe(true);
+  });
+
+  it('does not equate a parent with its child', () => {
+    expect(samePath('/users', '/users/admin')).toBe(false);
+  });
+});
 
 describe('toPath', () => {
   it('reduces an absolute page url to its path', () => {

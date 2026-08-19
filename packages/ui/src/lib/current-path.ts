@@ -19,6 +19,22 @@ export function toPath(url: string): string {
   }
 }
 
+/** Path with any trailing slashes removed, so `/files/` and `/files` compare equal. */
+function trimmed(url: string): string {
+  return toPath(url).replace(/\/+$/, '');
+}
+
+/**
+ * Whether two urls name the same page.
+ *
+ * Menu urls in this app are not consistent about trailing slashes
+ * (`/users/admin` but `/file-storage/`), so an exact string compare makes
+ * matching depend on which spelling a caller happened to use.
+ */
+export function samePath(a: string, b: string): boolean {
+  return trimmed(a) === trimmed(b);
+}
+
 /**
  * Whether `url` is inside `sectionUrl`.
  *
@@ -26,8 +42,8 @@ export function toPath(url: string): string {
  * still claim `/users/admin`. Trailing slashes on either side are irrelevant.
  */
 export function isUnder(url: string, sectionUrl: string): boolean {
-  const path = toPath(url).replace(/\/+$/, '');
-  const section = toPath(sectionUrl).replace(/\/+$/, '');
+  const path = trimmed(url);
+  const section = trimmed(sectionUrl);
   if (section === '') return path === '';
   return path === section || path.startsWith(`${section}/`);
 }

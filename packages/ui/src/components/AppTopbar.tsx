@@ -7,11 +7,11 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@simple-module-py/ui/components/ui/breadcrumb';
-import { isUnder, toPath } from '../lib/current-path';
+import { isUnder, samePath, toPath } from '../lib/current-path';
 import type { MenuItem } from '../types';
 import { CommandPalette } from './CommandPalette';
 import { LocaleSwitcher } from './LocaleSwitcher';
-import { usePageHeading } from './page-heading';
+import { usePageHeading, usePageSection } from './page-heading';
 
 interface AppTopbarProps {
   navItems: MenuItem[];
@@ -34,6 +34,12 @@ export function activeSection(items: MenuItem[], url: string): MenuItem | null {
   return best;
 }
 
+/** Resolve a declared section url against the menu the viewer can actually see. */
+export function findSection(items: MenuItem[], sectionUrl: string | null): MenuItem | null {
+  if (!sectionUrl) return null;
+  return items.find((item) => samePath(item.url, sectionUrl)) ?? null;
+}
+
 /**
  * The bar above every app screen: where you are, and how to get anywhere else.
  *
@@ -43,8 +49,12 @@ export function activeSection(items: MenuItem[], url: string): MenuItem | null {
  * the heading that is about to be rendered directly beneath it.
  */
 export function AppTopbar({ navItems, accountItems, currentUrl }: AppTopbarProps) {
-  const section = activeSection(navItems, currentUrl);
   const heading = usePageHeading(currentUrl);
+  const declared = usePageSection(currentUrl);
+  // Url match first; a declared section only fills the gap for pages that sit
+  // outside their section's path. Looked up in the menu the viewer can see, so
+  // it never offers a parent they'd be refused at.
+  const section = activeSection(navItems, currentUrl) ?? findSection(navItems, declared);
   // Only a genuine sub-page earns a second crumb — on a section's own index the
   // heading and the section name are the same word, and "Users / Users" is noise.
   const leaf = heading && heading !== section?.label ? heading : null;

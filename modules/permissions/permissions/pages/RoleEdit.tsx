@@ -68,6 +68,9 @@ function RoleEdit({ role, assigned, groups }: Props) {
       <PageShell
         title={t(keys.permissions.edit.title, { role: role.name })}
         description={role.description ?? t(keys.permissions.edit.description)}
+        // Roles are managed from the Users screen's Roles tab; this path sits
+        // outside /users, so the shell is told where the page belongs.
+        section="/users/admin"
         actions={
           <>
             <Button

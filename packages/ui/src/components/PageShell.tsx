@@ -8,6 +8,12 @@ interface PageShellProps {
   actions?: React.ReactNode;
   /** Restrict the inner content to a comfortable reading width. */
   maxWidth?: 'full' | 'screen-xl';
+  /**
+   * Url of the sidebar section this page belongs to. Only needed when the
+   * page's own path sits outside it — otherwise the section is matched from
+   * the url and this is redundant.
+   */
+  section?: string;
 }
 
 export function PageShell({
@@ -16,10 +22,11 @@ export function PageShell({
   children,
   actions,
   maxWidth = 'screen-xl',
+  section,
 }: PageShellProps) {
   // The shell's breadcrumb names the page from this, so it can never disagree
   // with the heading rendered below.
-  useReportPageHeading(title);
+  useReportPageHeading(title, section);
   const widthClass = maxWidth === 'full' ? '' : 'max-w-screen-xl mx-auto';
   return (
     <div className={`px-4 py-6 sm:px-6 sm:py-7 lg:px-8 ${widthClass}`}>
