@@ -19,7 +19,7 @@ from typing import Annotated
 
 import typer
 
-from simple_module_cli.add_cmd import add_module
+from simple_module_cli.add_cmd import add_module, run_add
 from simple_module_cli.case import to_kebab_case
 from simple_module_cli.module_cmd import module_app
 from simple_module_cli.new import new_project
@@ -59,6 +59,14 @@ def create_host(
             help="Comma-separated module names to declare as deps (e.g. Auth,Dashboard).",
         ),
     ] = "",
+    git_module: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--git-module",
+            help="git+URL[@ref][#subdirectory=dir] module source; repeatable. "
+            "Multi-module repos need an explicit #subdirectory here.",
+        ),
+    ] = None,
 ) -> None:
     """Scaffold a new SimpleModule host project at ./<NAME>."""
     target = dest or Path.cwd() / name
@@ -78,6 +86,10 @@ def create_host(
     except FileExistsError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(code=1) from exc
+
+    # create-host is non-interactive: multi-module repos need #subdirectory.
+    for spec in git_module or []:
+        run_add(spec, pyproject=target / "pyproject.toml", no_sync=True, assume_yes=True)
 
     typer.echo(f"Created host '{name}' at {target}")
     if selected:

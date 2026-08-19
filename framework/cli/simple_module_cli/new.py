@@ -10,6 +10,7 @@ from typing import Annotated
 
 import typer
 
+from simple_module_cli.add_cmd import run_add
 from simple_module_cli.app_project import create_app_project
 from simple_module_cli.case import InvalidScaffoldNameError, to_kebab_case, validate_scaffold_name
 from simple_module_cli.catalog import PRESETS, expand_deps
@@ -77,6 +78,13 @@ def new_project(
             ),
         ),
     ] = False,
+    git_module: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--git-module",
+            help="git+URL[@ref][#subdirectory=dir] module source; repeatable.",
+        ),
+    ] = None,
 ) -> None:
     """Scaffold a new SimpleModule app, optionally with background jobs."""
     try:
@@ -91,6 +99,7 @@ def new_project(
     extra_list = [m.strip() for m in extra.split(",") if m.strip()]
     flag_driven = preset is not None or bool(extra_list)
 
+    wizard_git: list[str] = []
     if yes or flag_driven:
         chosen = list(PRESETS[(preset or Preset.standard).value]) + extra_list
         try:
@@ -103,7 +112,7 @@ def new_project(
         db_final, tenancy_final = db.value, tenancy
     else:
         try:
-            db_final, tenancy_final, resolved = run_wizard(
+            db_final, tenancy_final, resolved, wizard_git = run_wizard(
                 default_db=db.value, default_tenancy=tenancy
             )
         except typer.Abort:
@@ -122,6 +131,16 @@ def new_project(
     except FileExistsError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(code=1) from exc
+
+    # Git-sourced modules land in the host pyproject before the install
+    # phase below, so its single `uv sync` covers them too.
+    for spec in [*(git_module or []), *wizard_git]:
+        run_add(
+            spec,
+            pyproject=host_dir / "pyproject.toml",
+            no_sync=True,
+            assume_yes=yes,
+        )
 
     typer.echo(f"Created app '{name}' at {target}")
     typer.echo(f"Modules: {', '.join(resolved)}")
