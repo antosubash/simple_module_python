@@ -2,6 +2,8 @@
 
 Built-in commands:
   smpy new
+  smpy add
+  smpy update
   smpy create-host
   smpy create-module
   smpy skills add / list / update
@@ -17,6 +19,7 @@ from typing import Annotated
 
 import typer
 
+from simple_module_cli.add_cmd import add_module
 from simple_module_cli.case import to_kebab_case
 from simple_module_cli.module_cmd import module_app
 from simple_module_cli.new import new_project
@@ -34,6 +37,7 @@ app = typer.Typer(
 )
 
 app.command("new")(new_project)
+app.command("add")(add_module)
 app.command("package-update")(package_update)
 app.add_typer(skills_app, name="skills")
 app.add_typer(module_app, name="module")
