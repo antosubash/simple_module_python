@@ -162,3 +162,121 @@ def pick_latest_tag(tags: Iterable[str], constraint: str | None) -> str | None:
         if best is None or _cmp(ver, best[1:]) > 0:
             best = tag
     return best
+
+
+# --- remote resolution + clone scanning ---
+
+
+@dataclass(frozen=True)
+class RefInfo:
+    kind: Literal["tag", "branch", "rev", "default"]
+    value: str | None
+
+
+@dataclass(frozen=True)
+class FoundModule:
+    dist_name: str
+    version: str
+    subdirectory: str | None
+    ships_models: bool
+    framework_range: str | None
+
+
+def _default_git_runner(args: list[str], cwd: Path | None = None) -> str:
+    result = subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True)
+    return result.stdout
+
+
+def list_remote_refs(
+    url: str, *, run: GitRunner = _default_git_runner
+) -> tuple[set[str], set[str]]:
+    out = run(["ls-remote", "--tags", "--heads", url])
+    tags: set[str] = set()
+    branches: set[str] = set()
+    for line in out.splitlines():
+        parts = line.split("\t")
+        if len(parts) != 2:
+            continue
+        ref = parts[1].removesuffix("^{}")
+        if ref.startswith("refs/tags/"):
+            tags.add(ref.removeprefix("refs/tags/"))
+        elif ref.startswith("refs/heads/"):
+            branches.add(ref.removeprefix("refs/heads/"))
+    return tags, branches
+
+
+def classify_ref(url: str, ref: str | None, *, run: GitRunner = _default_git_runner) -> RefInfo:
+    if ref is None:
+        return RefInfo("default", None)
+    tags, branches = list_remote_refs(url, run=run)
+    if ref in tags:
+        return RefInfo("tag", ref)
+    if ref in branches:
+        return RefInfo("branch", ref)
+    return RefInfo("rev", ref)
+
+
+def shallow_clone(
+    url: str, ref_info: RefInfo, dest: Path, *, run: GitRunner = _default_git_runner
+) -> Path:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    base = ["clone", "--depth", "1", "--quiet"]
+    if ref_info.kind in ("tag", "branch") and ref_info.value:
+        run([*base, "--branch", ref_info.value, url, str(dest)])
+    elif ref_info.kind == "rev" and ref_info.value:
+        # --branch can't take a SHA; fetch the rev into a fresh clone instead.
+        run([*base, url, str(dest)])
+        run(["fetch", "--depth", "1", "origin", ref_info.value], cwd=dest)
+        run(["checkout", "--quiet", "FETCH_HEAD"], cwd=dest)
+    else:
+        run([*base, url, str(dest)])
+    return dest
+
+
+_SKIP_DIRS = {".git", "node_modules", ".venv", "__pycache__", "dist", "build"}
+
+
+def _framework_range(deps: list[str]) -> str | None:
+    for dep in deps:
+        text = str(dep).strip()
+        if text.replace("-", "_").startswith("simple_module_core"):
+            for i, ch in enumerate(text):
+                if ch in "<>=!~":
+                    return text[i:].strip()
+    return None
+
+
+def scan_modules(repo_root: Path) -> list[FoundModule]:
+    """Find every package in the clone declaring the simple_module entry point."""
+    candidates: list[Path] = []
+    for pattern in ("pyproject.toml", "*/pyproject.toml", "*/*/pyproject.toml"):
+        candidates.extend(sorted(repo_root.glob(pattern)))
+    found: list[FoundModule] = []
+    for pyproject in candidates:
+        rel_parts = pyproject.relative_to(repo_root).parts
+        if any(part in _SKIP_DIRS for part in rel_parts):
+            continue
+        try:
+            data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+        except (OSError, tomllib.TOMLDecodeError):
+            continue
+        project = data.get("project") or {}
+        entry_points = project.get("entry-points") or {}
+        if "simple_module" not in entry_points or "name" not in project:
+            continue
+        pkg_root = pyproject.parent
+        subdirectory = None if pkg_root == repo_root else "/".join(rel_parts[:-1])
+        ships_models = any(
+            not any(part in _SKIP_DIRS for part in p.relative_to(pkg_root).parts)
+            for p in pkg_root.glob("*/models.py")
+        )
+        found.append(
+            FoundModule(
+                dist_name=str(project["name"]),
+                version=str(project.get("version", "0")),
+                subdirectory=subdirectory,
+                ships_models=ships_models,
+                framework_range=_framework_range(project.get("dependencies") or []),
+            )
+        )
+    return found
