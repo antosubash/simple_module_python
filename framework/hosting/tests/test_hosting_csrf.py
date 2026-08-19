@@ -40,51 +40,51 @@ def _app(*, with_session: bool = True) -> FastAPI:
 
 
 @pytest.fixture
-async def client():
+async def csrf_client():
     transport = httpx.ASGITransport(app=_app())
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
 
 
 class TestRequiresCsrf:
-    async def test_token_endpoint_returns_a_token(self, client: httpx.AsyncClient) -> None:
-        resp = await client.get("/token")
+    async def test_token_endpoint_returns_a_token(self, csrf_client: httpx.AsyncClient) -> None:
+        resp = await csrf_client.get("/token")
         assert resp.status_code == 200
         assert resp.json()["token"]
 
-    async def test_safe_method_needs_no_token(self, client: httpx.AsyncClient) -> None:
-        assert (await client.get("/things")).status_code == 200
+    async def test_safe_method_needs_no_token(self, csrf_client: httpx.AsyncClient) -> None:
+        assert (await csrf_client.get("/things")).status_code == 200
 
-    async def test_post_without_token_is_403(self, client: httpx.AsyncClient) -> None:
-        resp = await client.post("/things")
+    async def test_post_without_token_is_403(self, csrf_client: httpx.AsyncClient) -> None:
+        resp = await csrf_client.post("/things")
         assert resp.status_code == 403
         assert CSRF_HEADER in resp.json()["detail"]
 
-    async def test_post_with_wrong_token_is_403(self, client: httpx.AsyncClient) -> None:
-        await client.get("/token")  # establish a session token
-        resp = await client.post("/things", headers={CSRF_HEADER: "forged"})
+    async def test_post_with_wrong_token_is_403(self, csrf_client: httpx.AsyncClient) -> None:
+        await csrf_client.get("/token")  # establish a session token
+        resp = await csrf_client.post("/things", headers={CSRF_HEADER: "forged"})
         assert resp.status_code == 403
 
     async def test_post_with_non_ascii_token_is_403_not_500(
-        self, client: httpx.AsyncClient
+        self, csrf_client: httpx.AsyncClient
     ) -> None:
         """Header values are latin-1: a non-ASCII token must be rejected as
         403, not explode in str compare_digest (TypeError → 500)."""
-        await client.get("/token")
+        await csrf_client.get("/token")
         # raw latin-1 bytes: httpx's str path refuses non-ASCII, but a raw
         # client on the wire can send it and starlette will decode it
-        resp = await client.post("/things", headers=[(CSRF_HEADER.encode(), b"caf\xe9-token")])
+        resp = await csrf_client.post("/things", headers=[(CSRF_HEADER.encode(), b"caf\xe9-token")])
         assert resp.status_code == 403
 
-    async def test_post_with_token_succeeds(self, client: httpx.AsyncClient) -> None:
-        token = (await client.get("/token")).json()["token"]
-        resp = await client.post("/things", headers={CSRF_HEADER: token})
+    async def test_post_with_token_succeeds(self, csrf_client: httpx.AsyncClient) -> None:
+        token = (await csrf_client.get("/token")).json()["token"]
+        resp = await csrf_client.post("/things", headers={CSRF_HEADER: token})
         assert resp.status_code == 200
         assert resp.json() == {"created": True}
 
-    async def test_token_is_stable_within_a_session(self, client: httpx.AsyncClient) -> None:
-        first = (await client.get("/token")).json()["token"]
-        second = (await client.get("/token")).json()["token"]
+    async def test_token_is_stable_within_a_session(self, csrf_client: httpx.AsyncClient) -> None:
+        first = (await csrf_client.get("/token")).json()["token"]
+        second = (await csrf_client.get("/token")).json()["token"]
         assert first == second
 
 

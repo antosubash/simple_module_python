@@ -9,7 +9,8 @@ Exits with status 1 if any ERROR-level diagnostics are reported.
 
 i18n checks are included when ``SM_I18N_SUPPORTED_LOCALES`` is set in env
 (or ``.env``). Host-level ``host/locales/`` and shared ``packages/ui/locales/``
-are picked up relative to ``SM_PROJECT_ROOT`` (or the current working dir).
+are picked up relative to the project root (``SM_PROJECT_ROOT``, else the
+directory of the discovered ``.env``, else the current working dir).
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ from simple_module_core.discovery import (
     select_auth_provider,
     topological_sort,
 )
-from simple_module_core.dotenv import parse_dotenv
+from simple_module_core.dotenv import find_env_file, parse_dotenv
 from simple_module_core.exceptions import InvalidModuleError
 
 
@@ -64,7 +65,11 @@ def _load_i18n_settings_from_env() -> tuple[list[str], str] | tuple[None, None]:
 
 def _discover_extra_locale_sources() -> list[tuple[str, str, Path]]:
     """Return ``[(reporter, namespace, path), ...]`` for host + ui locale dirs."""
-    root = Path(os.environ.get("SM_PROJECT_ROOT") or Path.cwd())
+    # Anchor on the same project root the `.env` was loaded from
+    # (`parse_dotenv` walks up from the cwd) — resolving against the bare cwd
+    # here would look for `host/locales` in the wrong directory whenever
+    # doctor runs from a subdirectory.
+    root = find_env_file().parent
     out: list[tuple[str, str, Path]] = []
     host_locales = root / "host" / "locales"
     if host_locales.is_dir():

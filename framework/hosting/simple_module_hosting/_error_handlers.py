@@ -28,11 +28,16 @@ def _wants_json(request: Request) -> bool:
 
     A request that explicitly accepts ``text/html`` is a browser navigation —
     and those reach ``/api/*`` too (OAuth login links, file-download hrefs) —
-    so it always gets the rendered page. Otherwise ``/api/*``, the documented
-    prefix for every module's JSON surface (``ModuleMeta.route_prefix``),
-    gets JSON — a bare ``fetch()`` sends ``Accept: */*`` — as does an
-    explicit ``Accept: application/json`` anywhere else.
+    so it always gets the rendered page. So does an Inertia visit
+    (``X-Inertia`` header), whatever its Accept — an Inertia client can only
+    consume Inertia-protocol responses, never a bare JSON body. Otherwise
+    ``/api/*``, the documented prefix for every module's JSON surface
+    (``ModuleMeta.route_prefix``), gets JSON — a bare ``fetch()`` sends
+    ``Accept: */*`` — as does an explicit ``Accept: application/json``
+    anywhere else.
     """
+    if request.headers.get("x-inertia"):
+        return False
     accept = request.headers.get("accept", "")
     if "text/html" in accept:
         return False
@@ -81,7 +86,13 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> Respon
     if exc.status_code in _INERTIA_ERROR_STATUSES and not _wants_json(request):
         detail = str(exc.detail) if exc.detail else ""
         return await render_error_page(request, exc.status_code, detail)
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    # Preserve exception headers (WWW-Authenticate, Retry-After, ...) the way
+    # FastAPI's stock handler does.
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=getattr(exc, "headers", None),
+    )
 
 
 async def not_found_error_handler(request: Request, exc: NotFoundError) -> Response:

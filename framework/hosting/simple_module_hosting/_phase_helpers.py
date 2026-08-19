@@ -73,22 +73,20 @@ def register_exception_handlers(app: FastAPI, modules: list) -> None:
         mod.register_exception_handlers(app)
 
 
-def build_csp(settings: Settings, csp_registry: CspSourceRegistry | None = None) -> str:
+def build_csp(settings: Settings, csp_registry: CspSourceRegistry) -> str:
     """Choose the CSP for this boot and fold in module-declared sources.
 
     Development gets the Vite-widened policy; production the strict default.
     ``csp_registry`` carries origins modules declared via
     ``register_csp_sources`` (e.g. an external font host) — merged here so
-    both variants honor them.
+    both variants honor them. An empty registry leaves the policy unchanged.
     """
     base = (
         SecurityHeadersMiddleware.dev_csp(settings.vite_dev_url)
         if settings.is_development
-        else SecurityHeadersMiddleware.default_csp()
+        else SecurityHeadersMiddleware.DEFAULT_CSP
     )
-    if csp_registry is not None:
-        return csp_registry.extend_policy(base)
-    return base
+    return csp_registry.extend_policy(base)
 
 
 def install_middleware(

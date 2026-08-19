@@ -59,7 +59,9 @@ class RequiresCsrf:
         router = APIRouter(dependencies=[Depends(RequiresCsrf())])
     """
 
-    def __call__(self, request: Request) -> None:
+    async def __call__(self, request: Request) -> None:
+        # async so FastAPI awaits it inline — a sync dependency would take a
+        # threadpool hop on every mutation request for a microsecond check.
         if request.method not in _UNSAFE_METHODS:
             return
         session = request.scope.get("session")

@@ -26,12 +26,13 @@ def _absolutize_sqlite_url(url: str, *, anchor: Path) -> str:
     root" by convention, but SQLAlchemy resolves it against the process cwd
     — correct in the web process (which chdirs) and silently wrong in every
     CLI run from a subdirectory. Absolute paths (``:////...``), ``:memory:``,
-    and non-sqlite URLs pass through untouched.
+    SQLite URI-mode paths (``file:...?uri=true``), and non-sqlite URLs pass
+    through untouched.
     """
     if not url.startswith("sqlite"):
         return url
     scheme, sep, rest = url.partition(":///")
-    if not sep or not rest or rest.startswith(("/", ":memory:")):
+    if not sep or not rest or rest.startswith(("/", ":memory:", "file:")):
         return url
     path_part, query_sep, query = rest.partition("?")
     resolved = (anchor / path_part).resolve()
@@ -46,11 +47,13 @@ class BootstrapSettings(BaseSettings):
     def __init__(self, **values: Any) -> None:
         # Discover the project `.env` per instantiation (a handful of stat
         # calls), never at import time: a process may import this module and
-        # only later chdir or set SM_PROJECT_ROOT, and the env-file choice
-        # must always agree with the sqlite anchor in
-        # `_anchor_relative_sqlite_path`, which also discovers live.
-        values.setdefault("_env_file", find_env_file())
+        # only later chdir or set SM_PROJECT_ROOT. The same discovered path
+        # anchors relative sqlite paths below, so the env values and the
+        # sqlite anchor can never come from two different projects.
+        env_file = values.setdefault("_env_file", find_env_file())
         super().__init__(**values)
+        anchor = Path(env_file).parent if isinstance(env_file, (str, Path)) else Path.cwd()
+        self.database_url = _absolutize_sqlite_url(self.database_url, anchor=anchor)
 
     database_url: str = "sqlite+aiosqlite:///./app.db"
     db_pool_size: int = 10
@@ -93,15 +96,6 @@ class BootstrapSettings(BaseSettings):
     ``PublicRouteRegistry`` at boot. Modules should prefer the
     ``register_public_routes`` hook, which is method-aware.
     """
-
-    @field_validator("database_url", mode="after")
-    @classmethod
-    def _anchor_relative_sqlite_path(cls, value: str) -> str:
-        # `find_env_file().parent` is the project root: $SM_PROJECT_ROOT when
-        # set, else the directory of the discovered `.env`, else the cwd
-        # (Path(".env").parent resolves against it) — always the same file
-        # `__init__` just loaded, so values and anchor can't split-brain.
-        return _absolutize_sqlite_url(value, anchor=find_env_file().parent)
 
     @field_validator("auth_provider", mode="after")
     @classmethod

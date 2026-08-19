@@ -35,8 +35,10 @@ _EXTENDABLE_DIRECTIVES = frozenset(
 
 # A source is a scheme, an origin (optionally with scheme/wildcard/port), or
 # a data-ish scheme keyword. One token — anything that could smuggle a second
-# token or terminate the clause (whitespace, ";", quotes) is rejected.
-_SOURCE_RE = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:(?://)?)?(?:\*\.)?[^\s;'\"*]*$")
+# token or terminate/extend the clause (whitespace, ";", ",", quotes) is
+# rejected, and a wildcard prefix must be followed by a real host (`*.` alone
+# is not a source).
+_SOURCE_RE = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:(?://)?)?(?:(?:\*\.)?[^\s;,'\"*]+)?$")
 
 # CSP3 fallback chains: when a directive is absent from a policy, the browser
 # consults these directives in order (ending at ``default-src``). A clause we
@@ -83,10 +85,6 @@ class CspSourceRegistry:
     def __bool__(self) -> bool:
         return bool(self._sources)
 
-    @property
-    def sources(self) -> dict[str, tuple[str, ...]]:
-        return {directive: tuple(items) for directive, items in self._sources.items()}
-
     def extend_policy(self, policy: str) -> str:
         """Fold the registered sources into an existing policy string.
 
@@ -114,6 +112,15 @@ class CspSourceRegistry:
                 order.append(directive)
             bucket = directives[directive]
             bucket.extend(e for e in extras if e not in bucket)
+        # The -elem variants *shadow* their base directive once present: with
+        # `script-src-elem` already in the policy, a module's `script-src`
+        # addition would never reach <script> elements — the very load the
+        # module declared it for. Mirror base-directive extras into an
+        # existing -elem clause so the declaration keeps its meaning.
+        for elem, base in (("script-src-elem", "script-src"), ("style-src-elem", "style-src")):
+            if base in self._sources and elem in directives:
+                bucket = directives[elem]
+                bucket.extend(e for e in self._sources[base] if e not in bucket)
         return "; ".join(f"{d} {' '.join(directives[d])}".rstrip() for d in order)
 
     @staticmethod

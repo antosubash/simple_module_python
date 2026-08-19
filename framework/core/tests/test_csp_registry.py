@@ -70,9 +70,27 @@ class TestRegistry:
 
     def test_injection_shaped_sources_rejected(self) -> None:
         reg = CspSourceRegistry()
-        for bad in ("https://x; script-src *", "https://x 'unsafe-eval'", "", "'*'"):
+        for bad in (
+            "https://x; script-src *",
+            "https://x 'unsafe-eval'",
+            "",
+            "'*'",
+            "https://a.example,https://b.example",  # comma would smuggle a 2nd policy
+            "*.",  # wildcard with no host
+        ):
             with pytest.raises(CspSourceError):
                 reg.add("style-src", bad)
+
+    def test_base_directive_extras_reach_existing_elem_clause(self) -> None:
+        """`script-src-elem` shadows `script-src` once present: without the
+        mirror, a module's script-src origin never reaches <script> elements —
+        the very load it declared the origin for."""
+        reg = CspSourceRegistry()
+        reg.add("script-src", "https://cdn.example.com")
+        policy = "default-src 'self'; script-src 'self'; script-src-elem 'self' 'unsafe-inline'"
+        out = reg.extend_policy(policy)
+        assert "script-src 'self' https://cdn.example.com" in out
+        assert "script-src-elem 'self' 'unsafe-inline' https://cdn.example.com" in out
 
 
 class TestHook:

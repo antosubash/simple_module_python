@@ -70,7 +70,7 @@ class SecurityHeadersMiddleware:
     or behind plain-HTTP loopbacks where HSTS would lock users out).
     """
 
-    _DEFAULT_CSP = (
+    DEFAULT_CSP = (
         "default-src 'self'; "
         # Inertia embeds the initial page blob inline; Vite injects a React
         # Refresh shim at boot. Both require 'unsafe-inline' for scripts.
@@ -92,16 +92,6 @@ class SecurityHeadersMiddleware:
         "form-action 'self'"
     )
     _DEFAULT_HSTS = "max-age=31536000; includeSubDomains"
-
-    @classmethod
-    def default_csp(cls) -> str:
-        """The strict production Content-Security-Policy.
-
-        Public accessor so boot code (``build_csp``) folds module-declared
-        sources into the same policy this middleware would send by default,
-        without reaching into the private constant.
-        """
-        return cls._DEFAULT_CSP
 
     @staticmethod
     def dev_csp(vite_dev_url: str) -> str:
@@ -133,7 +123,7 @@ class SecurityHeadersMiddleware:
         self,
         app: ASGIApp,
         *,
-        content_security_policy: str | None = _DEFAULT_CSP,
+        content_security_policy: str | None = DEFAULT_CSP,
         strict_transport_security: str | None = _DEFAULT_HSTS,
     ) -> None:
         self.app = app

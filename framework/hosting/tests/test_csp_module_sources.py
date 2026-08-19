@@ -61,8 +61,8 @@ class TestBuildCsp:
         assert "https://rsms.me" in csp
         assert "localhost:5050" not in csp  # no dev widening in prod
 
-    def test_no_registry_keeps_existing_policies(self, settings: Settings) -> None:
-        dev = build_csp(settings, None)
+    def test_empty_registry_keeps_existing_policies(self, settings: Settings) -> None:
+        dev = build_csp(settings, CspSourceRegistry())
         assert dev is not None
         assert "https://fonts.googleapis.com" in dev
         assert "https://rsms.me" not in dev

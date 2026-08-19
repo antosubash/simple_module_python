@@ -40,7 +40,7 @@ def test_vite_config_derives_port_from_env_url(tmp_path: Path) -> None:
     # port and origin both come from the derived URL — no literal pin left
     assert re.search(r"port:\s*5050\b", text) is None
     assert re.search(r"origin:\s*'http://localhost:5050'", text) is None
-    assert "viteDevUrl" in text
+    assert "viteDevServer" in text
     assert "strictPort: true" in text  # still fail fast on a taken port
 
     helper = (config.parent / "vite.dev-url.ts").read_text(encoding="utf-8")

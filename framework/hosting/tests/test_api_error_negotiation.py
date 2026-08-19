@@ -17,7 +17,10 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 
-def _request(path: str, accept: str = "*/*", method: str = "GET") -> Request:
+def _request(path: str, accept: str = "*/*", method: str = "GET", inertia: bool = False) -> Request:
+    headers = [(b"accept", accept.encode())]
+    if inertia:
+        headers.append((b"x-inertia", b"true"))
     return Request(
         {
             "type": "http",
@@ -29,7 +32,7 @@ def _request(path: str, accept: str = "*/*", method: str = "GET") -> Request:
             "scheme": "http",
             "server": ("testserver", 80),
             "client": ("testclient", 1234),
-            "headers": [(b"accept", accept.encode())],
+            "headers": headers,
         }
     )
 
@@ -65,6 +68,22 @@ class TestHandlerNegotiation:
         browser_accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
         assert not _wants_json(_request("/api/users/auth/github/login", accept=browser_accept))
         assert _wants_json(_request("/api/users/auth/github/login"))  # bare fetch: */*
+
+    def test_inertia_visit_never_gets_bare_json(self) -> None:
+        """An Inertia client can only consume Inertia-protocol responses —
+        the X-Inertia header must keep the rendered page even when the visit
+        also advertises Accept: application/json or targets /api/*."""
+        assert not _wants_json(_request("/api/x", accept="application/json", inertia=True))
+        assert not _wants_json(_request("/pagebuilder/", accept="application/json", inertia=True))
+
+    async def test_json_error_keeps_exception_headers(self) -> None:
+        """WWW-Authenticate / Retry-After set on the HTTPException must reach
+        the JSON response, matching FastAPI's stock handler."""
+        resp = await http_exception_handler(
+            _request("/api/things"),
+            HTTPException(status_code=401, detail="nope", headers={"WWW-Authenticate": "Bearer"}),
+        )
+        assert resp.headers["www-authenticate"] == "Bearer"
 
 
 class TestClientNegotiation:

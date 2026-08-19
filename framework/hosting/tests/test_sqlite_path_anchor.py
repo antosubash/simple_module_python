@@ -40,6 +40,11 @@ class TestAbsolutize:
         url = "sqlite+aiosqlite:///:memory:"
         assert _absolutize_sqlite_url(url, anchor=tmp_path) == url
 
+    def test_uri_mode_untouched(self, tmp_path: Path) -> None:
+        """SQLite URI-mode paths (shared in-memory DBs) are not file paths."""
+        url = "sqlite+aiosqlite:///file:shared?mode=memory&cache=shared&uri=true"
+        assert _absolutize_sqlite_url(url, anchor=tmp_path) == url
+
     def test_bare_scheme_untouched(self, tmp_path: Path) -> None:
         url = "sqlite+aiosqlite://"
         assert _absolutize_sqlite_url(url, anchor=tmp_path) == url
