@@ -69,6 +69,23 @@ class TestHandlerNegotiation:
         assert not _wants_json(_request("/api/users/auth/github/login", accept=browser_accept))
         assert _wants_json(_request("/api/users/auth/github/login"))  # bare fetch: */*
 
+    def test_json_preferring_accept_with_html_fallback_gets_json(self) -> None:
+        """`application/json, text/html;q=0.5` is an API client keeping an
+        html fallback — q-values decide, mentioning text/html must not."""
+        assert _wants_json(_request("/pagebuilder/", accept="application/json, text/html;q=0.5"))
+        assert _wants_json(_request("/api/x", accept="application/json, text/html;q=0.1"))
+
+    def test_html_q_zero_is_not_browser_shaped(self) -> None:
+        """`text/html;q=0` explicitly rules html out (RFC 9110)."""
+        assert _wants_json(_request("/api/x", accept="text/html;q=0"))
+
+    def test_browser_accept_still_wins_over_wildcard_json(self) -> None:
+        """Real browser Accept lists text/html explicitly; */* covering json
+        does not outrank it."""
+        assert not _wants_json(
+            _request("/api/x", accept="text/html,application/xml;q=0.9,*/*;q=0.8")
+        )
+
     def test_inertia_visit_never_gets_bare_json(self) -> None:
         """An Inertia client can only consume Inertia-protocol responses —
         the X-Inertia header must keep the rendered page even when the visit

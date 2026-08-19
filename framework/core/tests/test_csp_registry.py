@@ -92,6 +92,19 @@ class TestRegistry:
         assert "script-src 'self' https://cdn.example.com" in out
         assert "script-src-elem 'self' 'unsafe-inline' https://cdn.example.com" in out
 
+    def test_child_src_extras_reach_existing_frame_and_worker_clauses(self) -> None:
+        """`frame-src` and `worker-src` shadow `child-src` once present (the
+        host default policy ships both): without the mirror, a module's
+        child-src origin would never apply to frames or workers — the loads
+        the fallback chain says child-src governs."""
+        reg = CspSourceRegistry()
+        reg.add("child-src", "https://embed.example")
+        policy = "default-src 'self'; frame-src 'self'; worker-src 'self' blob:"
+        out = reg.extend_policy(policy)
+        assert "frame-src 'self' https://embed.example" in out
+        assert "worker-src 'self' blob: https://embed.example" in out
+        assert "child-src 'self' https://embed.example" in out  # new clause, seeded
+
 
 class TestHook:
     def test_register_csp_sources_is_a_noop_by_default(self) -> None:

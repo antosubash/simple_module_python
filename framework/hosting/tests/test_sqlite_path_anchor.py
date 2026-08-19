@@ -110,21 +110,42 @@ class TestFindEnvFile:
         sub.mkdir()
         monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
         monkeypatch.chdir(sub)
-        # inner repo has none; outer is off-limits
-        assert find_env_file() == Path(".env")
+        # inner repo has none; outer is off-limits — and the boundary dir is
+        # the project root, so relative sqlite paths anchor there (the file
+        # need not exist for its parent to serve as the anchor)
+        assert find_env_file() == inner / ".env"
 
     def test_walk_stops_at_scaffold_boundary(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """A fresh scaffold has `.env.example` before any `.git` exists — it
         must bound the walk the same way, or a scaffold nested inside another
-        checkout silently boots with the outer project's `.env`."""
+        checkout silently boots with the outer project's `.env`. The scaffold
+        root also becomes the anchor: `smpy users create-admin` run from
+        `host/` before `cp .env.example .env` must hit the same sqlite file
+        as `make dev` run from the root."""
         (tmp_path / ".env").write_text("SM_X=outer\n", encoding="utf-8")
         scaffold = tmp_path / "demo_app"
         scaffold.mkdir()
         (scaffold / ".env.example").write_text("SM_X=example\n", encoding="utf-8")
         sub = scaffold / "host"
         sub.mkdir()
+        monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
+        monkeypatch.chdir(sub)
+        assert find_env_file() == scaffold / ".env"
+
+    def test_walk_never_probes_world_writable_ancestor(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An `.env` in a shared scratch dir (/tmp-style, world-writable) must
+        not be picked up as an ancestor: any local user could have planted it,
+        and discovery merges every key of the found file into os.environ."""
+        shared = tmp_path / "shared"
+        shared.mkdir()
+        shared.chmod(0o1777)
+        (shared / ".env").write_text("SM_SECRET_KEY=planted\n", encoding="utf-8")
+        sub = shared / "proj" / "host"
+        sub.mkdir(parents=True)
         monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
         monkeypatch.chdir(sub)
         assert find_env_file() == Path(".env")

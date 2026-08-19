@@ -61,6 +61,6 @@ async def test_get_unknown_id_returns_404(authenticated_client: httpx.AsyncClien
     import uuid
 
     resp = await authenticated_client.get(f"{constants.ROUTE_PREFIX_API}/files/{uuid.uuid4()}")
-    # Framework converts 4xx/5xx HTTPException into an Inertia error page;
-    # status code is preserved but the body is HTML.
+    # /api/* requests without a browser Accept get a JSON {"detail": ...}
+    # body; only browser-shaped requests receive the Inertia error page.
     assert resp.status_code == 404

@@ -28,6 +28,10 @@ def find_env_file() -> Path:
     the web process chdirs to the workspace root so this finds ``./.env``
     immediately, while a CLI invoked from ``host/`` or ``modules/<name>/``
     finds the same file its app uses instead of silently loading nothing.
+    When the walk hits a project-root marker (``.git`` / ``.env.example``)
+    without finding a ``.env``, the returned path is ``<root>/.env`` — it may
+    not exist, but its *parent* still anchors relative sqlite paths at the
+    project root (a fresh scaffold has ``.env.example`` before any ``.env``).
     Falls back to a cwd-relative ``Path(".env")`` when nothing is found.
 
     This is the one .env-resolution convention for the whole ecosystem: the
@@ -43,6 +47,13 @@ def find_env_file() -> Path:
     for candidate in (current, *current.parents[:_ENV_WALK_LIMIT]):
         if candidate == home:
             break
+        # Never probe a shared world-writable ancestor (/tmp, /var/tmp):
+        # its `.env` could belong to anyone — including another local user —
+        # and callers merge every key of the discovered file into os.environ.
+        # The starting cwd itself is exempt: running *from* such a directory
+        # keeps the pre-existing "load the cwd's .env" behavior via the fallback.
+        if candidate != current and _is_world_writable_dir(candidate):
+            break
         env = candidate / ".env"
         if env.is_file():
             return env
@@ -50,9 +61,21 @@ def find_env_file() -> Path:
         # one, or a nested checkout (a git worktree, a repo inside another
         # repo, a fresh scaffold — which ships `.env.example` before any
         # `.git` exists) would silently load the *outer* project's `.env`.
+        # The boundary directory IS the project root, so anchor there: a
+        # fresh scaffold with only `.env.example` must still resolve
+        # relative sqlite paths against its root, not the caller's cwd.
         if (candidate / ".git").exists() or (candidate / ".env.example").is_file():
-            break
+            return candidate / ".env"
     return Path(".env")
+
+
+def _is_world_writable_dir(path: Path) -> bool:
+    """True for shared scratch dirs like ``/tmp`` (world-writable, sticky or not)."""
+    try:
+        mode = path.stat().st_mode
+    except OSError:
+        return False
+    return bool(mode & 0o002)
 
 
 def parse_dotenv(path: Path | None = None) -> dict[str, str]:

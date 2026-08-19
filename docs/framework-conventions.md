@@ -347,10 +347,12 @@ documented prefix for every module's JSON surface — or with an explicit
 
 Browser-shaped requests get the rendered Inertia error page, which carries
 the layout, i18n copy, and the request's correlation id. "Browser-shaped"
-means the request accepts `text/html` — navigations and Inertia visits do,
-and that wins even under `/api/*` (OAuth login links and file-download
-`<a>` hrefs are real navigations to API paths); a bare `fetch()` sends
-`Accept: */*` and gets JSON there. Module endpoint code doesn't opt in or
+means the request lists `text/html` in its Accept header without preferring
+JSON over it (q-values decide: `application/json, text/html;q=0.5` still
+gets JSON, and `text/html;q=0` rules html out) — navigations and Inertia
+visits qualify, and that wins even under `/api/*` (OAuth login links and
+file-download `<a>` hrefs are real navigations to API paths); a bare
+`fetch()` sends `Accept: */*` and gets JSON there. Module endpoint code doesn't opt in or
 out — raise `HTTPException` as usual and the handler picks the right shape.
 
 ### Design packs (site-wide look)

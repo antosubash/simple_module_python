@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { loadEnv } from 'vite';
 
@@ -15,7 +16,11 @@ export function findEnvDir(start: string): string {
   const explicitRoot = process.env.SM_PROJECT_ROOT;
   if (explicitRoot) return explicitRoot;
   let dir = start;
+  const home = os.homedir();
   for (let i = 0; i < 5; i++) {
+    // Never treat $HOME (or anything above it) as the project — a stray
+    // ~/.env must not steer the dev server (same rule as the backend).
+    if (dir === home) break;
     if (fs.existsSync(path.join(dir, '.env')) || fs.existsSync(path.join(dir, '.env.example'))) {
       return dir;
     }

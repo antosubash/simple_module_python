@@ -112,15 +112,23 @@ class CspSourceRegistry:
                 order.append(directive)
             bucket = directives[directive]
             bucket.extend(e for e in extras if e not in bucket)
-        # The -elem variants *shadow* their base directive once present: with
-        # `script-src-elem` already in the policy, a module's `script-src`
-        # addition would never reach <script> elements — the very load the
-        # module declared it for. Mirror base-directive extras into an
-        # existing -elem clause so the declaration keeps its meaning.
-        for elem, base in (("script-src-elem", "script-src"), ("style-src-elem", "style-src")):
-            if base in self._sources and elem in directives:
-                bucket = directives[elem]
-                bucket.extend(e for e in self._sources[base] if e not in bucket)
+        # A more-specific directive *shadows* its fallback chain once present:
+        # with `script-src-elem` already in the policy, a module's
+        # `script-src` addition would never reach <script> elements — the
+        # very load the module declared it for. The same shadowing applies to
+        # every pair `_FALLBACK_CHAINS` encodes (an existing `frame-src` or
+        # `worker-src` clause shadows a module's `child-src` extras, and
+        # `worker-src` shadows `script-src` too). Mirror base-directive
+        # extras into each present shadowing clause so the declaration keeps
+        # exactly the meaning the fallback would have given it.
+        for shadowing, chain in _FALLBACK_CHAINS.items():
+            if shadowing not in directives:
+                continue
+            bucket = directives[shadowing]
+            for base in chain:
+                extras = self._sources.get(base)
+                if extras:
+                    bucket.extend(e for e in extras if e not in bucket)
         return "; ".join(f"{d} {' '.join(directives[d])}".rstrip() for d in order)
 
     @staticmethod

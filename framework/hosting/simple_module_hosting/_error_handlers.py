@@ -18,9 +18,34 @@ from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import Response
 
+from simple_module_hosting._inertia_shared import _INERTIA_HEADER
+
 logger = logging.getLogger(__name__)
 
 _INERTIA_ERROR_STATUSES = frozenset({403, 404, 500})
+
+
+def _explicit_accept_q(accept: str, media_type: str) -> float:
+    """Quality the Accept header gives ``media_type`` by explicit listing.
+
+    Only exact entries count (no ``*/*`` / ``type/*`` wildcards) — the
+    negotiation below cares whether the caller *named* html or json, and at
+    what preference. Malformed q-values fall back to 1.0 per RFC 9110.
+    """
+    for part in accept.split(","):
+        media, _, params = part.partition(";")
+        if media.strip().lower() != media_type:
+            continue
+        q = 1.0
+        for param in params.split(";"):
+            name, _, value = param.partition("=")
+            if name.strip().lower() == "q":
+                try:
+                    q = float(value.strip())
+                except ValueError:
+                    q = 1.0
+        return q
+    return 0.0
 
 
 def _wants_json(request: Request) -> bool:
@@ -28,23 +53,27 @@ def _wants_json(request: Request) -> bool:
 
     A request that explicitly accepts ``text/html`` is a browser navigation —
     and those reach ``/api/*`` too (OAuth login links, file-download hrefs) —
-    so it always gets the rendered page. So does an Inertia visit
-    (``X-Inertia`` header), whatever its Accept — an Inertia client can only
-    consume Inertia-protocol responses, never a bare JSON body. Otherwise
-    ``/api/*``, the documented prefix for every module's JSON surface
-    (``ModuleMeta.route_prefix``), gets JSON — a bare ``fetch()`` sends
-    ``Accept: */*`` — as does an explicit ``Accept: application/json``
-    anywhere else.
+    so it always gets the rendered page, unless the caller *prefers* JSON via
+    q-values (``application/json, text/html;q=0.5`` is an API client keeping
+    an html fallback, and ``text/html;q=0`` rules html out entirely). So does
+    an Inertia visit (``X-Inertia`` header), whatever its Accept — an Inertia
+    client can only consume Inertia-protocol responses, never a bare JSON
+    body. Otherwise ``/api/*``, the documented prefix for every module's
+    JSON surface (``ModuleMeta.route_prefix``), gets JSON — a bare
+    ``fetch()`` sends ``Accept: */*`` — as does an explicit
+    ``Accept: application/json`` anywhere else.
     """
-    if request.headers.get("x-inertia"):
+    if request.headers.get(_INERTIA_HEADER):
         return False
     accept = request.headers.get("accept", "")
-    if "text/html" in accept:
+    html_q = _explicit_accept_q(accept, "text/html")
+    json_q = _explicit_accept_q(accept, "application/json")
+    if html_q > 0 and html_q >= json_q:
         return False
     path = request.url.path
     if path == "/api" or path.startswith("/api/"):
         return True
-    return "application/json" in accept
+    return json_q > 0
 
 
 async def render_error_page(request: Request, status_code: int, message: str) -> Response:
