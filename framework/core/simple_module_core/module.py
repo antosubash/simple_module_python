@@ -11,13 +11,13 @@ if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
 
     from simple_module_core.audit_links import AuditLinkRegistry
+    from simple_module_core.csp import CspSourceRegistry
     from simple_module_core.design_packs import DesignPackRegistry
     from simple_module_core.events import EventBus
     from simple_module_core.feature_flags import FeatureFlagRegistry
     from simple_module_core.health import HealthRegistry
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.permissions import PermissionRegistry
-    from simple_module_core.csp import CspSourceRegistry
     from simple_module_core.public_routes import PublicRouteRegistry
 
 

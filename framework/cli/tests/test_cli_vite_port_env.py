@@ -34,15 +34,15 @@ def _scaffold(tmp_path: Path) -> Path:
     return tmp_path / "viteportapp" / "host" / "client_app" / "vite.config.ts"
 
 
-def test_vite_config_reads_sm_vite_dev_url(tmp_path: Path) -> None:
-    text = _scaffold(tmp_path).read_text(encoding="utf-8")
-    assert "SM_VITE_DEV_URL" in text
+def test_vite_config_derives_port_from_env_url(tmp_path: Path) -> None:
+    config = _scaffold(tmp_path)
+    text = config.read_text(encoding="utf-8")
     # port and origin both come from the derived URL — no literal pin left
     assert re.search(r"port:\s*5050\b", text) is None
     assert re.search(r"origin:\s*'http://localhost:5050'", text) is None
+    assert "viteDevUrl" in text
     assert "strictPort: true" in text  # still fail fast on a taken port
 
-
-def test_vite_config_keeps_5050_as_fallback_only(tmp_path: Path) -> None:
-    text = _scaffold(tmp_path).read_text(encoding="utf-8")
-    assert "http://localhost:5050" in text  # the documented default remains
+    helper = (config.parent / "vite.dev-url.ts").read_text(encoding="utf-8")
+    assert "SM_VITE_DEV_URL" in helper
+    assert "http://localhost:5050" in helper  # the documented default remains

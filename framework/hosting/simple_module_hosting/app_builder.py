@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from simple_module_core import CspSourceRegistry
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.design_packs import DesignPackRegistry
 from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
@@ -34,7 +35,6 @@ from simple_module_hosting._phase_helpers import (
     register_host_settings,
     wire_module_routes,
 )
-from simple_module_core import CspSourceRegistry
 from simple_module_hosting._registrations import run_module_registrations
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types

@@ -58,6 +58,7 @@ class TestHandlerNegotiation:
         )
         assert isinstance(resp, JSONResponse)
 
+
 class TestClientNegotiation:
     async def test_api_404_is_json(self, authenticated_client: httpx.AsyncClient) -> None:
         resp = await authenticated_client.get("/api/definitely/not/a/route")

@@ -3,6 +3,7 @@ import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { type Plugin, defineConfig } from 'vite';
+import { viteDevPort, viteDevUrl } from './vite.dev-url';
 
 // Force every importer (host, workspace module, wheel-installed module)
 // to resolve to one React copy + a single Inertia hook context. Without
@@ -29,23 +30,8 @@ function findNodeModulesRoot(start: string): string {
 }
 const fsRoot = findNodeModulesRoot(__dirname);
 
-// The backend reads SM_VITE_DEV_URL from the project .env; deriving the dev
-// server's port and origin from the same value keeps the two sides from
-// drifting apart. Process env wins for one-off overrides; the documented
-// default stays http://localhost:5050.
-function viteDevUrl(): string {
-  if (process.env.SM_VITE_DEV_URL) return process.env.SM_VITE_DEV_URL;
-  try {
-    const env = fs.readFileSync(path.join(fsRoot, '.env'), 'utf8');
-    const match = env.match(/^SM_VITE_DEV_URL\s*=\s*(\S+)\s*$/m);
-    if (match) return match[1].replace(/^['"]|['"]$/g, '');
-  } catch {
-    // no .env yet (fresh checkout) — fall through to the default
-  }
-  return 'http://localhost:5050';
-}
-const devUrl = viteDevUrl();
-const devPort = Number(new URL(devUrl).port || '5050');
+const devUrl = viteDevUrl(fsRoot);
+const devPort = viteDevPort(devUrl);
 
 // Load the module pages manifest written by the Python host at boot.
 // Each entry points at an absolute pages/ directory — typically inside a

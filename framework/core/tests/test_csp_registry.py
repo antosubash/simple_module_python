@@ -25,7 +25,9 @@ class TestRegistry:
         reg = CspSourceRegistry()
         reg.add("style-src", "https://rsms.me")
         out = reg.extend_policy(_POLICY)
-        assert "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://rsms.me" in out
+        assert (
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://rsms.me" in out
+        )
 
     def test_duplicate_and_already_present_sources_are_not_repeated(self) -> None:
         reg = CspSourceRegistry()

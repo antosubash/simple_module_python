@@ -76,7 +76,7 @@ def _absolutize_sqlite_url(url: str, *, anchor: Path) -> str:
     if not url.startswith("sqlite"):
         return url
     scheme, sep, rest = url.partition(":///")
-    if not sep or not rest or rest.startswith("/") or rest.startswith(":memory:"):
+    if not sep or not rest or rest.startswith(("/", ":memory:")):
         return url
     path_part, query_sep, query = rest.partition("?")
     resolved = (anchor / path_part).resolve()
