@@ -93,6 +93,16 @@ class SecurityHeadersMiddleware:
     )
     _DEFAULT_HSTS = "max-age=31536000; includeSubDomains"
 
+    @classmethod
+    def default_csp(cls) -> str:
+        """The strict production Content-Security-Policy.
+
+        Public accessor so boot code (``build_csp``) folds module-declared
+        sources into the same policy this middleware would send by default,
+        without reaching into the private constant.
+        """
+        return cls._DEFAULT_CSP
+
     @staticmethod
     def dev_csp(vite_dev_url: str) -> str:
         """Build a dev CSP that whitelists the Vite dev server.

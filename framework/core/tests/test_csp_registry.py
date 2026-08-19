@@ -46,6 +46,18 @@ class TestRegistry:
         out = reg.extend_policy(_POLICY)
         assert "connect-src 'self' https://api.example.com" in out
 
+    def test_missing_elem_directive_inherits_its_fallback_clause(self) -> None:
+        """style-src-elem falls back to style-src (not default-src): a fresh
+        clause must inherit style-src's sources, or creating it would silently
+        drop 'unsafe-inline' and the font origins from element styles."""
+        reg = CspSourceRegistry()
+        reg.add("style-src-elem", "https://rsms.me")
+        out = reg.extend_policy(_POLICY)
+        assert (
+            "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com https://rsms.me"
+            in out
+        )
+
     def test_empty_registry_returns_policy_unchanged(self) -> None:
         reg = CspSourceRegistry()
         assert reg.extend_policy(_POLICY) == _POLICY

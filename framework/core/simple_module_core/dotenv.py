@@ -14,6 +14,46 @@ from pathlib import Path
 BOOL_LITERALS_TRUE = frozenset({"1", "true", "t", "yes", "y", "on"})
 BOOL_LITERALS_FALSE = frozenset({"0", "false", "f", "no", "n", "off"})
 
+# How many parent directories to probe for a `.env` above the cwd. One level
+# covers the workspace layout (`host/` → root); a couple more cover running
+# from `modules/<name>/`. Bounded so an unrelated `.env` far up the tree
+# (e.g. in $HOME) is never picked up by accident.
+_ENV_WALK_LIMIT = 4
+
+
+def find_env_file() -> Path:
+    """Locate the project ``.env`` regardless of which subdirectory runs us.
+
+    ``$SM_PROJECT_ROOT/.env`` wins when set. Otherwise walk up from the cwd:
+    the web process chdirs to the workspace root so this finds ``./.env``
+    immediately, while a CLI invoked from ``host/`` or ``modules/<name>/``
+    finds the same file its app uses instead of silently loading nothing.
+    Falls back to a cwd-relative ``Path(".env")`` when nothing is found.
+
+    This is the one .env-resolution convention for the whole ecosystem: the
+    settings layer (``BootstrapSettings``) and every out-of-process tool
+    (diagnostics CLI, worker entrypoints, users bootstrap) resolve through
+    here, so they can never disagree about which file is in effect.
+    """
+    explicit = os.environ.get("SM_PROJECT_ROOT")
+    if explicit:
+        return Path(explicit) / ".env"
+    current = Path.cwd()
+    home = Path.home()
+    for candidate in (current, *current.parents[:_ENV_WALK_LIMIT]):
+        if candidate == home:
+            break
+        env = candidate / ".env"
+        if env.is_file():
+            return env
+        # A `.git` or `.env.example` marks a project root: never ascend past
+        # one, or a nested checkout (a git worktree, a repo inside another
+        # repo, a fresh scaffold — which ships `.env.example` before any
+        # `.git` exists) would silently load the *outer* project's `.env`.
+        if (candidate / ".git").exists() or (candidate / ".env.example").is_file():
+            break
+    return Path(".env")
+
 
 def parse_dotenv(path: Path | None = None) -> dict[str, str]:
     """Parse a ``.env`` file into a dict. Empty dict if the file is missing.
@@ -23,12 +63,11 @@ def parse_dotenv(path: Path | None = None) -> dict[str, str]:
     values — keep the file simple. Does *not* mutate ``os.environ``; the
     caller decides whether to merge.
 
-    Without ``path``, looks up ``$SM_PROJECT_ROOT/.env`` (falling back to
-    ``$CWD/.env``) — the convention used by every tool in this repo.
+    Without ``path``, resolves via :func:`find_env_file` — the convention
+    used by every tool in this repo.
     """
     if path is None:
-        root = Path(os.environ.get("SM_PROJECT_ROOT") or Path.cwd())
-        path = root / ".env"
+        path = find_env_file()
     if not path.is_file():
         return {}
     parsed: dict[str, str] = {}

@@ -26,17 +26,20 @@ _INERTIA_ERROR_STATUSES = frozenset({403, 404, 500})
 def _wants_json(request: Request) -> bool:
     """API callers get JSON error bodies; browser-shaped requests get the page.
 
-    ``/api/*`` is the documented prefix for every module's JSON surface
-    (``ModuleMeta.route_prefix``), so path alone decides there. Elsewhere an
-    explicit ``Accept: application/json`` (without ``text/html`` — a browser
-    navigation sends both) opts a fetch caller into JSON. The default
-    ``*/*`` keeps the rendered Inertia page.
+    A request that explicitly accepts ``text/html`` is a browser navigation —
+    and those reach ``/api/*`` too (OAuth login links, file-download hrefs) —
+    so it always gets the rendered page. Otherwise ``/api/*``, the documented
+    prefix for every module's JSON surface (``ModuleMeta.route_prefix``),
+    gets JSON — a bare ``fetch()`` sends ``Accept: */*`` — as does an
+    explicit ``Accept: application/json`` anywhere else.
     """
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        return False
     path = request.url.path
     if path == "/api" or path.startswith("/api/"):
         return True
-    accept = request.headers.get("accept", "")
-    return "application/json" in accept and "text/html" not in accept
+    return "application/json" in accept
 
 
 async def render_error_page(request: Request, status_code: int, message: str) -> Response:
@@ -90,13 +93,14 @@ async def not_found_error_handler(request: Request, exc: NotFoundError) -> Respo
 async def request_validation_error_handler(
     request: Request, exc: RequestValidationError
 ) -> Response:
-    """Return an Inertia error page for browser requests with invalid params."""
-    accept = request.headers.get("accept", "")
-    if "text/html" in accept:
-        return await render_error_page(
-            request, 422, "The requested URL contains invalid parameters."
-        )
-    return JSONResponse(status_code=422, content={"detail": jsonable_encoder(exc.errors())})
+    """Return an Inertia error page for browser requests with invalid params.
+
+    Same negotiation rule as 403/404/500 (``_wants_json``), so one request
+    never sees two different error shapes depending on the error class.
+    """
+    if _wants_json(request):
+        return JSONResponse(status_code=422, content={"detail": jsonable_encoder(exc.errors())})
+    return await render_error_page(request, 422, "The requested URL contains invalid parameters.")
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> Response:

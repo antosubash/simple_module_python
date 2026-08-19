@@ -65,9 +65,18 @@ class RequiresCsrf:
         session = request.scope.get("session")
         if session is None:
             return  # no session mounted — nothing to bind a token to
-        expected = get_csrf_token(request)
+        # Read (never mint) the token here: a rejected request must not mutate
+        # the session or re-issue the cookie. Compare as bytes — str
+        # compare_digest raises TypeError on non-ASCII input, and header
+        # values are attacker-controlled latin-1, which would turn a bad
+        # token into a 500 instead of a 403.
+        expected = session.get(_SESSION_KEY, "")
         provided = request.headers.get(CSRF_HEADER, "")
-        if not provided or not secrets.compare_digest(provided, expected):
+        if (
+            not provided
+            or not expected
+            or not secrets.compare_digest(provided.encode("utf-8"), expected.encode("utf-8"))
+        ):
             raise HTTPException(
                 status_code=403,
                 detail=(

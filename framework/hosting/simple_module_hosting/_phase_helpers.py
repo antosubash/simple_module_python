@@ -46,6 +46,7 @@ from simple_module_hosting.settings import Settings
 from simple_module_hosting.static_files import PrecompressedStaticFiles
 
 if TYPE_CHECKING:
+    from simple_module_core.csp import CspSourceRegistry
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.permissions import PermissionRegistry
 
@@ -72,7 +73,7 @@ def register_exception_handlers(app: FastAPI, modules: list) -> None:
         mod.register_exception_handlers(app)
 
 
-def build_csp(settings: Settings, csp_registry=None) -> str | None:
+def build_csp(settings: Settings, csp_registry: CspSourceRegistry | None = None) -> str:
     """Choose the CSP for this boot and fold in module-declared sources.
 
     Development gets the Vite-widened policy; production the strict default.
@@ -83,9 +84,9 @@ def build_csp(settings: Settings, csp_registry=None) -> str | None:
     base = (
         SecurityHeadersMiddleware.dev_csp(settings.vite_dev_url)
         if settings.is_development
-        else SecurityHeadersMiddleware._DEFAULT_CSP
+        else SecurityHeadersMiddleware.default_csp()
     )
-    if csp_registry:
+    if csp_registry is not None:
         return csp_registry.extend_policy(base)
     return base
 
@@ -96,7 +97,7 @@ def install_middleware(
     modules: list,
     menu_registry: MenuRegistry,
     perm_registry: PermissionRegistry,
-    csp_registry=None,
+    csp_registry: CspSourceRegistry,
 ) -> None:
     """Install the full middleware pipeline.
 
@@ -121,19 +122,14 @@ def install_middleware(
         mod.register_middleware(app)
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
     # In dev, relax CSP so the browser can fetch @vite/client, main.tsx, and
-    # the HMR WebSocket from the Vite origin. HSTS is also suppressed because
-    # dev runs over plain HTTP on loopback.
+    # the HMR WebSocket from the Vite origin (build_csp picks the variant).
+    # HSTS is suppressed in dev because it runs over plain HTTP on loopback.
+    security_kwargs: dict[str, str | None] = {
+        "content_security_policy": build_csp(settings, csp_registry)
+    }
     if settings.is_development:
-        app.add_middleware(
-            SecurityHeadersMiddleware,
-            content_security_policy=build_csp(settings, csp_registry),
-            strict_transport_security=None,
-        )
-    else:
-        app.add_middleware(
-            SecurityHeadersMiddleware,
-            content_security_policy=build_csp(settings, csp_registry),
-        )
+        security_kwargs["strict_transport_security"] = None
+    app.add_middleware(SecurityHeadersMiddleware, **security_kwargs)
     # Compress response bodies. Added here so it sits inside CorrelationId and
     # RequestLogging (which set headers and read request state) but outside
     # everything that produces a body — including the /static mount, where it

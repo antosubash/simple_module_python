@@ -30,7 +30,9 @@ function findNodeModulesRoot(start: string): string {
 }
 const fsRoot = findNodeModulesRoot(__dirname);
 
-const devUrl = viteDevUrl(fsRoot);
+// Walks up from client_app to the directory holding the project .env itself —
+// fsRoot tracks node_modules, which (in flat mode) is NOT where .env lives.
+const devUrl = viteDevUrl(__dirname);
 const devPort = viteDevPort(devUrl);
 
 // Load the module pages manifest written by the Python host at boot.

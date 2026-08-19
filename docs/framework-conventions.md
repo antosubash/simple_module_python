@@ -337,18 +337,21 @@ test apps) are exempt.
 
 ### Error responses (HTML vs JSON)
 
-403/404/500 are content-negotiated. Requests under `/api/*` — the documented
-prefix for every module's JSON surface — or with an explicit
+403/404/422/500 are content-negotiated. Requests under `/api/*` — the
+documented prefix for every module's JSON surface — or with an explicit
 `Accept: application/json` get a JSON body:
 
 ```json
 { "detail": "Permission required: pagebuilder.edit" }
 ```
 
-Browser-shaped requests (navigations, Inertia visits, `Accept: */*`) get the
-rendered Inertia error page, which carries the layout, i18n copy, and the
-request's correlation id. Module endpoint code doesn't opt in or out — raise
-`HTTPException` as usual and the handler picks the right shape.
+Browser-shaped requests get the rendered Inertia error page, which carries
+the layout, i18n copy, and the request's correlation id. "Browser-shaped"
+means the request accepts `text/html` — navigations and Inertia visits do,
+and that wins even under `/api/*` (OAuth login links and file-download
+`<a>` hrefs are real navigations to API paths); a bare `fetch()` sends
+`Accept: */*` and gets JSON there. Module endpoint code doesn't opt in or
+out — raise `HTTPException` as usual and the handler picks the right shape.
 
 ### Design packs (site-wide look)
 

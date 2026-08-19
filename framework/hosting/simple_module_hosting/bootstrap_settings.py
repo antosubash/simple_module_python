@@ -7,61 +7,16 @@ These values stay in ``.env`` — all other settings live in the DB.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
+from simple_module_core.dotenv import find_env_file
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
 _PLACEHOLDER_SECRET_KEY = "change-me-in-production"
-
-# How many parent directories to probe for a `.env` above the cwd. One level
-# covers the workspace layout (`host/` → root); a couple more cover running
-# from `modules/<name>/`. Bounded so an unrelated `.env` far up the tree
-# (e.g. in $HOME) is never picked up by accident.
-_ENV_WALK_LIMIT = 4
-
-
-def _discover_env_file() -> Path | str:
-    """Locate the project ``.env`` regardless of which subdirectory runs us.
-
-    ``SM_PROJECT_ROOT`` wins when set (the convention every out-of-process
-    tool in this repo already follows — see ``simple_module_core.dotenv``).
-    Otherwise walk up from the cwd: the web process chdirs to the workspace
-    root so this finds ``./.env`` immediately, while a CLI invoked from
-    ``host/`` or ``modules/<name>/`` finds the same file its app uses
-    instead of silently loading nothing.
-    """
-    explicit = os.environ.get("SM_PROJECT_ROOT")
-    if explicit:
-        return Path(explicit) / ".env"
-    current = Path.cwd()
-    home = Path.home()
-    for candidate in (current, *current.parents[:_ENV_WALK_LIMIT]):
-        if candidate == home:
-            break
-        env = candidate / ".env"
-        if env.is_file():
-            return env
-        # A `.git` marks the repository root: never ascend past it, or a
-        # nested checkout (a git worktree, a repo inside another repo)
-        # would silently load the *outer* project's `.env`.
-        if (candidate / ".git").exists():
-            break
-    return ".env"
-
-
-def _project_anchor(env_file: Path | str) -> Path:
-    """Directory that relative sqlite paths are written against."""
-    explicit = os.environ.get("SM_PROJECT_ROOT")
-    if explicit:
-        return Path(explicit)
-    if isinstance(env_file, Path):
-        return env_file.parent
-    return Path.cwd()
 
 
 def _absolutize_sqlite_url(url: str, *, anchor: Path) -> str:
@@ -83,13 +38,19 @@ def _absolutize_sqlite_url(url: str, *, anchor: Path) -> str:
     return f"{scheme}:///{resolved}{query_sep}{query}"
 
 
-_ENV_FILE = _discover_env_file()
-
-
 class BootstrapSettings(BaseSettings):
     """Pre-DB bootstrap environment knobs."""
 
-    model_config = SettingsConfigDict(env_prefix="SM_", env_file=_ENV_FILE, extra="ignore")
+    model_config = SettingsConfigDict(env_prefix="SM_", env_file=".env", extra="ignore")
+
+    def __init__(self, **values: Any) -> None:
+        # Discover the project `.env` per instantiation (a handful of stat
+        # calls), never at import time: a process may import this module and
+        # only later chdir or set SM_PROJECT_ROOT, and the env-file choice
+        # must always agree with the sqlite anchor in
+        # `_anchor_relative_sqlite_path`, which also discovers live.
+        values.setdefault("_env_file", find_env_file())
+        super().__init__(**values)
 
     database_url: str = "sqlite+aiosqlite:///./app.db"
     db_pool_size: int = 10
@@ -136,7 +97,11 @@ class BootstrapSettings(BaseSettings):
     @field_validator("database_url", mode="after")
     @classmethod
     def _anchor_relative_sqlite_path(cls, value: str) -> str:
-        return _absolutize_sqlite_url(value, anchor=_project_anchor(_ENV_FILE))
+        # `find_env_file().parent` is the project root: $SM_PROJECT_ROOT when
+        # set, else the directory of the discovered `.env`, else the cwd
+        # (Path(".env").parent resolves against it) — always the same file
+        # `__init__` just loaded, so values and anchor can't split-brain.
+        return _absolutize_sqlite_url(value, anchor=find_env_file().parent)
 
     @field_validator("auth_provider", mode="after")
     @classmethod

@@ -8,8 +8,10 @@ happens to be — from ``host/`` the same URL silently pointed at
 
 The settings layer now anchors relative sqlite paths on the project root
 (``SM_PROJECT_ROOT``, else the directory of the discovered ``.env``), and
-discovers the ``.env`` by walking up from the cwd, so subdirectory
-invocations see the same database as the app.
+discovers the ``.env`` by walking up from the cwd — via the shared
+``simple_module_core.dotenv.find_env_file``, so ``parse_dotenv`` consumers
+(diagnostics CLI, worker entrypoints, users bootstrap) resolve the same file
+— so subdirectory invocations see the same database as the app.
 """
 
 from __future__ import annotations
@@ -17,10 +19,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from simple_module_hosting.bootstrap_settings import (
-    _absolutize_sqlite_url,
-    _discover_env_file,
-)
+from simple_module_core.dotenv import find_env_file
+from simple_module_hosting.bootstrap_settings import _absolutize_sqlite_url
 
 
 class TestAbsolutize:
@@ -53,7 +53,7 @@ class TestAbsolutize:
         assert url == f"sqlite+aiosqlite:///{tmp_path / 'app.db'}?mode=ro"
 
 
-class TestDiscoverEnvFile:
+class TestFindEnvFile:
     def test_walks_up_from_subdirectory(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -62,7 +62,7 @@ class TestDiscoverEnvFile:
         host.mkdir()
         monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
         monkeypatch.chdir(host)
-        assert _discover_env_file() == tmp_path / ".env"
+        assert find_env_file() == tmp_path / ".env"
 
     def test_cwd_env_wins_over_parent(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -73,7 +73,7 @@ class TestDiscoverEnvFile:
         (host / ".env").write_text("SM_X=child\n", encoding="utf-8")
         monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
         monkeypatch.chdir(host)
-        assert _discover_env_file() == host / ".env"
+        assert find_env_file() == host / ".env"
 
     def test_project_root_env_var_wins(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -82,7 +82,7 @@ class TestDiscoverEnvFile:
         root.mkdir()
         monkeypatch.setenv("SM_PROJECT_ROOT", str(root))
         monkeypatch.chdir(tmp_path)
-        assert _discover_env_file() == root / ".env"
+        assert find_env_file() == root / ".env"
 
     def test_no_env_anywhere_falls_back_to_plain_name(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -91,7 +91,7 @@ class TestDiscoverEnvFile:
         deep.mkdir(parents=True)
         monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
         monkeypatch.chdir(deep)
-        assert _discover_env_file() == ".env"
+        assert find_env_file() == Path(".env")
 
     def test_walk_stops_at_repo_boundary(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -105,7 +105,24 @@ class TestDiscoverEnvFile:
         sub.mkdir()
         monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
         monkeypatch.chdir(sub)
-        assert _discover_env_file() == ".env"  # inner repo has none; outer is off-limits
+        # inner repo has none; outer is off-limits
+        assert find_env_file() == Path(".env")
+
+    def test_walk_stops_at_scaffold_boundary(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A fresh scaffold has `.env.example` before any `.git` exists — it
+        must bound the walk the same way, or a scaffold nested inside another
+        checkout silently boots with the outer project's `.env`."""
+        (tmp_path / ".env").write_text("SM_X=outer\n", encoding="utf-8")
+        scaffold = tmp_path / "demo_app"
+        scaffold.mkdir()
+        (scaffold / ".env.example").write_text("SM_X=example\n", encoding="utf-8")
+        sub = scaffold / "host"
+        sub.mkdir()
+        monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
+        monkeypatch.chdir(sub)
+        assert find_env_file() == Path(".env")
 
 
 class TestSettingsIntegration:
@@ -123,3 +140,17 @@ class TestSettingsIntegration:
 
         s = Settings(database_url="sqlite+aiosqlite:///:memory:")
         assert s.database_url == "sqlite+aiosqlite:///:memory:"
+
+    def test_env_file_discovered_per_instantiation(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The .env is discovered when Settings is built, not when the module
+        was first imported — SM_PROJECT_ROOT set after import must load that
+        project's .env, so env values and the sqlite anchor can't come from
+        two different projects."""
+        from simple_module_hosting.settings import Settings
+
+        (tmp_path / ".env").write_text("SM_SECRET_KEY=from-late-project\n", encoding="utf-8")
+        monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+        s = Settings(database_url="sqlite+aiosqlite:///:memory:")
+        assert s.secret_key == "from-late-project"

@@ -38,6 +38,20 @@ _EXTENDABLE_DIRECTIVES = frozenset(
 # token or terminate the clause (whitespace, ";", quotes) is rejected.
 _SOURCE_RE = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:(?://)?)?(?:\*\.)?[^\s;'\"*]*$")
 
+# CSP3 fallback chains: when a directive is absent from a policy, the browser
+# consults these directives in order (ending at ``default-src``). A clause we
+# append for a previously-absent directive must be seeded from the nearest
+# clause the policy already has along this chain — seeding with a bare
+# ``'self'`` would *narrow* the policy (e.g. a fresh ``style-src-elem`` clause
+# cuts off the fallback to ``style-src`` and silently drops its
+# ``'unsafe-inline'`` and font origins).
+_FALLBACK_CHAINS: dict[str, tuple[str, ...]] = {
+    "script-src-elem": ("script-src", "default-src"),
+    "style-src-elem": ("style-src", "default-src"),
+    "frame-src": ("child-src", "default-src"),
+    "worker-src": ("child-src", "script-src", "default-src"),
+}
+
 
 class CspSourceError(ValueError):
     """Invalid CSP directive or source declared by a module."""
@@ -78,26 +92,34 @@ class CspSourceRegistry:
 
         Existing clauses keep their order and gain only sources they don't
         already list. A directive absent from the policy is appended as a new
-        clause seeded with ``'self'`` — without it the new clause would
-        *narrow* the policy, since the browser stops falling back to
-        ``default-src`` once the directive exists at all.
+        clause seeded from the clause the browser would otherwise have fallen
+        back to (per ``_FALLBACK_CHAINS``, ending at ``default-src``) —
+        without that seed the new clause would *narrow* the policy, since the
+        browser stops consulting the fallback once the directive exists.
         """
         if not self._sources:
             return policy
-        clauses = [c.strip() for c in policy.split(";") if c.strip()]
-        seen_directives: set[str] = set()
-        out: list[str] = []
-        for clause in clauses:
+        directives: dict[str, list[str]] = {}
+        order: list[str] = []
+        for clause in policy.split(";"):
+            clause = clause.strip()
+            if not clause:
+                continue
             directive, _, rest = clause.partition(" ")
-            extras = self._sources.get(directive)
-            if extras:
-                seen_directives.add(directive)
-                existing = rest.split()
-                merged = existing + [e for e in extras if e not in existing]
-                out.append(f"{directive} {' '.join(merged)}")
-            else:
-                out.append(clause)
+            directives[directive] = rest.split()
+            order.append(directive)
         for directive, extras in self._sources.items():
-            if directive not in seen_directives:
-                out.append(f"{directive} 'self' {' '.join(extras)}")
-        return "; ".join(out)
+            if directive not in directives:
+                directives[directive] = list(self._seed_sources(directive, directives))
+                order.append(directive)
+            bucket = directives[directive]
+            bucket.extend(e for e in extras if e not in bucket)
+        return "; ".join(f"{d} {' '.join(directives[d])}".rstrip() for d in order)
+
+    @staticmethod
+    def _seed_sources(directive: str, directives: dict[str, list[str]]) -> list[str]:
+        """Sources a brand-new clause inherits from its CSP fallback chain."""
+        for fallback in (*_FALLBACK_CHAINS.get(directive, ()), "default-src"):
+            if fallback in directives:
+                return directives[fallback]
+        return ["'self'"]

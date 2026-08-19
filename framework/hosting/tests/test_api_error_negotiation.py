@@ -11,7 +11,7 @@ browser-shaped requests keep the rendered page.
 from __future__ import annotations
 
 import httpx
-from simple_module_hosting._error_handlers import http_exception_handler
+from simple_module_hosting._error_handlers import _wants_json, http_exception_handler
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -57,6 +57,14 @@ class TestHandlerNegotiation:
             HTTPException(status_code=403, detail="nope"),
         )
         assert isinstance(resp, JSONResponse)
+
+    def test_browser_navigation_to_api_path_keeps_html_page(self) -> None:
+        """OAuth login links and file-download hrefs are real ``<a>``
+        navigations under /api/*; a browser Accept (text/html) must keep the
+        rendered error page rather than dumping raw JSON in the tab."""
+        browser_accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        assert not _wants_json(_request("/api/users/auth/github/login", accept=browser_accept))
+        assert _wants_json(_request("/api/users/auth/github/login"))  # bare fetch: */*
 
 
 class TestClientNegotiation:

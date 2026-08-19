@@ -65,6 +65,17 @@ class TestRequiresCsrf:
         resp = await client.post("/things", headers={CSRF_HEADER: "forged"})
         assert resp.status_code == 403
 
+    async def test_post_with_non_ascii_token_is_403_not_500(
+        self, client: httpx.AsyncClient
+    ) -> None:
+        """Header values are latin-1: a non-ASCII token must be rejected as
+        403, not explode in str compare_digest (TypeError → 500)."""
+        await client.get("/token")
+        # raw latin-1 bytes: httpx's str path refuses non-ASCII, but a raw
+        # client on the wire can send it and starlette will decode it
+        resp = await client.post("/things", headers=[(CSRF_HEADER.encode(), b"caf\xe9-token")])
+        assert resp.status_code == 403
+
     async def test_post_with_token_succeeds(self, client: httpx.AsyncClient) -> None:
         token = (await client.get("/token")).json()["token"]
         resp = await client.post("/things", headers={CSRF_HEADER: token})
