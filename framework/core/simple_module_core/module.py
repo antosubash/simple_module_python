@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from simple_module_core.health import HealthRegistry
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.csp import CspSourceRegistry
     from simple_module_core.public_routes import PublicRouteRegistry
 
 
@@ -146,6 +147,23 @@ class ModuleBase(ABC):
         Rules are method-aware, so a GET read route nested under a prefix that
         also carries POST/PATCH mutations can be exempted without opening the
         mutations. Called once at boot, in dependency order.
+        """
+
+    def register_csp_sources(self, registry: CspSourceRegistry) -> None:
+        """Declare external origins this module's frontend loads assets from.
+
+        The host ships a strict Content-Security-Policy; a module whose
+        pages pull a stylesheet, font, or API from another origin must
+        declare it here or the browser blocks the request::
+
+            def register_csp_sources(self, registry):
+                registry.add("style-src", "https://rsms.me")
+                registry.add("font-src", "https://rsms.me")
+
+        Only fetch directives can be extended (never default-src,
+        base-uri, form-action, frame-ancestors), and each source must be a
+        single origin/scheme token — invalid declarations raise at boot.
+        Called once, in dependency order.
         """
 
     def register_design_packs(self, registry: DesignPackRegistry) -> None:

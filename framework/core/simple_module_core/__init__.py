@@ -1,6 +1,7 @@
 """SimpleModule Core - Module system, menu, permissions, events, and diagnostics."""
 
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
+from simple_module_core.csp import CspSourceError, CspSourceRegistry
 from simple_module_core.design_packs import DesignPack, DesignPackRegistry
 from simple_module_core.diagnostics import (
     DiagnosticLevel,
@@ -72,6 +73,8 @@ __all__ = [
     "NotFoundError",
     "PermissionRegistry",
     "PublicRoute",
+    "CspSourceError",
+    "CspSourceRegistry",
     "PublicRouteRegistry",
     "Services",
     "Translator",

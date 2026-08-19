@@ -72,12 +72,31 @@ def register_exception_handlers(app: FastAPI, modules: list) -> None:
         mod.register_exception_handlers(app)
 
 
+def build_csp(settings: Settings, csp_registry=None) -> str | None:
+    """Choose the CSP for this boot and fold in module-declared sources.
+
+    Development gets the Vite-widened policy; production the strict default.
+    ``csp_registry`` carries origins modules declared via
+    ``register_csp_sources`` (e.g. an external font host) — merged here so
+    both variants honor them.
+    """
+    base = (
+        SecurityHeadersMiddleware.dev_csp(settings.vite_dev_url)
+        if settings.is_development
+        else SecurityHeadersMiddleware._DEFAULT_CSP
+    )
+    if csp_registry:
+        return csp_registry.extend_policy(base)
+    return base
+
+
 def install_middleware(
     app: FastAPI,
     settings: Settings,
     modules: list,
     menu_registry: MenuRegistry,
     perm_registry: PermissionRegistry,
+    csp_registry=None,
 ) -> None:
     """Install the full middleware pipeline.
 
@@ -107,11 +126,14 @@ def install_middleware(
     if settings.is_development:
         app.add_middleware(
             SecurityHeadersMiddleware,
-            content_security_policy=SecurityHeadersMiddleware.dev_csp(settings.vite_dev_url),
+            content_security_policy=build_csp(settings, csp_registry),
             strict_transport_security=None,
         )
     else:
-        app.add_middleware(SecurityHeadersMiddleware)
+        app.add_middleware(
+            SecurityHeadersMiddleware,
+            content_security_policy=build_csp(settings, csp_registry),
+        )
     # Compress response bodies. Added here so it sits inside CorrelationId and
     # RequestLogging (which set headers and read request state) but outside
     # everything that produces a body — including the /static mount, where it

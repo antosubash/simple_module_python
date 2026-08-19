@@ -26,6 +26,7 @@ def run_module_registrations(
     public_route_registry,
     design_pack_registry,
     audit_link_registry,
+    csp_registry=None,
 ) -> None:
     """Invoke each module's registration hooks, in dependency order.
 
@@ -45,6 +46,8 @@ def run_module_registrations(
         mod.register_public_routes(public_route_registry)
         mod.register_design_packs(design_pack_registry)
         mod.register_audit_links(audit_link_registry)
+        if csp_registry is not None:
+            mod.register_csp_sources(csp_registry)
 
     health_registry.set_owner("")
 

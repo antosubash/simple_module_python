@@ -34,6 +34,7 @@ from simple_module_hosting._phase_helpers import (
     register_host_settings,
     wire_module_routes,
 )
+from simple_module_core import CspSourceRegistry
 from simple_module_hosting._registrations import run_module_registrations
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types
@@ -206,6 +207,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             print_diagnostics(settings_diagnostics)
 
     # ── Phase 5: Module registrations ──────────────────────
+    csp_registry = CspSourceRegistry()
     run_module_registrations(
         modules,
         app=app,
@@ -217,6 +219,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         public_route_registry=public_route_registry,
         design_pack_registry=design_pack_registry,
         audit_link_registry=audit_link_registry,
+        csp_registry=csp_registry,
     )
 
     attach_public_routes(app, settings, public_route_registry)
@@ -257,7 +260,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_exception_handlers(app, modules)
 
     # ── Phase 8: Middleware pipeline ───────────────────────
-    install_middleware(app, settings, modules, menu_registry, perm_registry)
+    install_middleware(
+        app, settings, modules, menu_registry, perm_registry, csp_registry=csp_registry
+    )
 
     # ── Phase 9: Routes, health, static files ──────────────
     for mod in modules:
