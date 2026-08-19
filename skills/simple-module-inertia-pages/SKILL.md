@@ -87,6 +87,8 @@ await fetch("/api/orders", {
 
 `SM018` warns when it spots Inertia `router.{post,patch,put,delete}()` targeting `/api/*` paths.
 
+Two things to know about that `fetch()` path: errors from `/api/*` come back as JSON (`{"detail": ...}`) rather than the HTML error page, so read `resp.json().detail` for the real reason; and if the module's router opted into `RequiresCsrf`, include the token from the view's props as an `X-CSRF-Token` header or the mutation is rejected with 403.
+
 ## Other gotchas
 
 - **Translated strings in props built at module scope.** `const labels = { title: t("orders.title") }` freezes against the first render's locale — build per-request translations inside the handler or via shared props.
