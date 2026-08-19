@@ -110,6 +110,9 @@ function Detail() {
                     Retry task
                   </Button>
                 }
+                taskName={execution.task_name}
+                args={execution.args ?? []}
+                kwargs={execution.kwargs ?? {}}
                 onConfirm={handleRetry}
               />
             )}

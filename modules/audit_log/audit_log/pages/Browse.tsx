@@ -16,6 +16,7 @@ import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedL
 import type React from 'react';
 import { useState } from 'react';
 import { BrowseEmpty } from './components/BrowseEmpty';
+import { CorrelationBanner, CorrelationLink } from './components/Correlation';
 import { ActorCell, EntityCell, type EntityRef } from './components/EntryCells';
 import { ALL, FilterBar, type FilterState } from './components/FilterBar';
 
@@ -45,6 +46,8 @@ interface Filters {
   entity_type: string | null;
   action: string | null;
   user_id: string | null;
+  /** Set only by the per-row "Related" pivot — it has no control in FilterBar. */
+  correlation_id: string | null;
   from_date: string | null;
   to_date: string | null;
 }
@@ -118,11 +121,15 @@ function Browse() {
     toDate: filters.to_date ?? '',
   });
 
-  function navigate(next: FilterState, nextPage = 1) {
+  // Correlation rides alongside the FilterState rather than inside it: there is
+  // no control for it in FilterBar, so it survives an Apply and is dropped only
+  // when something asks for it to be.
+  function navigate(next: FilterState, nextPage = 1, correlationId = filters.correlation_id) {
     const p: Record<string, string> = {};
     if (next.entityType && next.entityType !== ALL) p.entity_type = next.entityType;
     if (next.action && next.action !== ALL) p.action = next.action;
     if (next.userId) p.user_id = next.userId;
+    if (correlationId) p.correlation_id = correlationId;
     if (next.fromDate) p.from_date = next.fromDate;
     if (next.toDate) p.to_date = next.toDate;
     if (nextPage > 1) p.page = String(nextPage);
@@ -130,16 +137,25 @@ function Browse() {
     router.visit(`/audit_log?${new URLSearchParams(p).toString()}`);
   }
 
+  const CLEARED: FilterState = {
+    entityType: ALL,
+    action: ALL,
+    userId: '',
+    fromDate: '',
+    toDate: '',
+  };
+
   function handleClear() {
-    const cleared: FilterState = {
-      entityType: ALL,
-      action: ALL,
-      userId: '',
-      fromDate: '',
-      toDate: '',
-    };
-    setState(cleared);
-    navigate(cleared);
+    setState(CLEARED);
+    navigate(CLEARED, 1, null);
+  }
+
+  // Pivoting to an action drops the other filters on purpose — the question
+  // being asked is "what else did this request touch", and answering it through
+  // a filter that already excluded some of those rows would answer it wrongly.
+  function handleCorrelationSelect(id: string) {
+    setState(CLEARED);
+    navigate(CLEARED, 1, id);
   }
 
   const totalPages = Math.ceil(total / page_size);
@@ -160,6 +176,10 @@ function Browse() {
           onSubmit={() => navigate(state)}
           onClear={handleClear}
         />
+
+        {filters.correlation_id && (
+          <CorrelationBanner count={total} onClear={() => navigate(state, 1, null)} />
+        )}
 
         {items.length === 0 ? (
           <BrowseEmpty applied={filters} onClear={handleClear} />
@@ -182,8 +202,16 @@ function Browse() {
               <TableBody>
                 {items.map((entry) => (
                   <TableRow key={entry.id} className="hover:bg-secondary/40">
-                    <TableCell className="sm:px-6 whitespace-nowrap text-sm tabular-nums text-muted-foreground">
-                      {new Date(entry.created_at).toLocaleString()}
+                    <TableCell className="sm:px-6 whitespace-nowrap align-top text-sm tabular-nums text-muted-foreground">
+                      <div className="flex flex-col">
+                        <span>{new Date(entry.created_at).toLocaleString()}</span>
+                        {entry.correlation_id && !filters.correlation_id && (
+                          <CorrelationLink
+                            correlationId={entry.correlation_id}
+                            onSelect={handleCorrelationSelect}
+                          />
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="sm:px-6">
                       <Badge variant="outline" className={ACTION_BADGE[entry.action] ?? ''}>

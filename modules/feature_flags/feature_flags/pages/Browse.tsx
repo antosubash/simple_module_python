@@ -22,8 +22,10 @@ import {
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { Flag, RotateCcw } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { TenantPicker } from './components/TenantPicker';
+import { type PendingToggle, ToggleConfirmDialog } from './components/ToggleConfirmDialog';
 
 interface FeatureFlag {
   name: string;
@@ -55,17 +57,23 @@ function Browse() {
   const { can } = usePermissions();
   const canManage = can('feature_flags.manage');
 
-  function handleToggle(flag: FeatureFlag, next: boolean) {
+  // The switch stages the change; the confirm is what writes it. The Switch
+  // stays bound to the server value, so cancelling leaves it where it was
+  // without needing to undo anything.
+  const [pending, setPending] = useState<PendingToggle | null>(null);
+
+  function handleToggle({ name, next }: PendingToggle) {
+    setPending(null);
     router.post(
-      actionUrl(flag.name, 'toggle', tenant_id),
+      actionUrl(name, 'toggle', tenant_id),
       { enabled: next },
       {
         preserveScroll: true,
         onSuccess: () =>
           toast.success(
             next
-              ? t(keys.feature_flags.toasts.enabled, { name: flag.name })
-              : t(keys.feature_flags.toasts.disabled, { name: flag.name }),
+              ? t(keys.feature_flags.toasts.enabled, { name })
+              : t(keys.feature_flags.toasts.disabled, { name }),
           ),
         onError: () => toast.error(t(keys.feature_flags.toasts.toggle_failed)),
       },
@@ -166,7 +174,9 @@ function Browse() {
                     <div className="flex items-center gap-3">
                       <Switch
                         checked={flag.enabled}
-                        onCheckedChange={(checked) => handleToggle(flag, checked === true)}
+                        onCheckedChange={(checked) =>
+                          setPending({ name: flag.name, next: checked === true })
+                        }
                         disabled={!canManage}
                         aria-label={flag.name}
                       />
@@ -231,6 +241,13 @@ function Browse() {
             </TableBody>
           </Table>
         </Card>
+
+        <ToggleConfirmDialog
+          pending={pending}
+          tenantId={tenant_id}
+          onConfirm={handleToggle}
+          onCancel={() => setPending(null)}
+        />
       </PageShell>
     </>
   );

@@ -13,7 +13,13 @@ from background_tasks.constants import TaskStatus
 
 
 class TaskExecutionListItem(SQLModel):
-    """Compact row for the admin listing table."""
+    """Compact row for the admin listing table.
+
+    Carries ``args``/``kwargs`` even though the table never renders them: the
+    retry confirm opens straight from a row and has to show the payload it is
+    about to re-enqueue. Re-running a bad payload just fails the same way, so
+    the operator needs to read it *before* confirming, not on a second page.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -22,6 +28,8 @@ class TaskExecutionListItem(SQLModel):
     task_name: str
     status: TaskStatus
     queue: str
+    args: list[Any] = []
+    kwargs: dict[str, Any] = {}
     retries: int
     worker: str | None = None
     queued_at: datetime | None = None

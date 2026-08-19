@@ -9,6 +9,7 @@ export interface AppliedFilters {
   entity_type: string | null;
   action: string | null;
   user_id: string | null;
+  correlation_id: string | null;
   from_date: string | null;
   to_date: string | null;
 }
@@ -70,6 +71,8 @@ export function BrowseEmpty({ applied, onClear }: BrowseEmptyProps) {
     applied.action &&
       `${t(keys.audit_log.filters.action_label)}: ${actionLabel(t, applied.action)}`,
     applied.user_id && `${t(keys.audit_log.filters.user_label)}: ${applied.user_id}`,
+    applied.correlation_id &&
+      `${t(keys.audit_log.correlation.view_related)}: ${applied.correlation_id}`,
     applied.from_date && `${t(keys.audit_log.filters.from_date_label)}: ${applied.from_date}`,
     applied.to_date && `${t(keys.audit_log.filters.to_date_label)}: ${applied.to_date}`,
   ].filter(Boolean);

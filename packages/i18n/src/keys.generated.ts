@@ -29,6 +29,13 @@ export const keys = {
       system_user: 'audit_log.changes.system_user',
       unresolved_user: 'audit_log.changes.unresolved_user',
     },
+    correlation: {
+      banner_clear: 'audit_log.correlation.banner_clear',
+      banner_description: 'audit_log.correlation.banner_description',
+      banner_title: 'audit_log.correlation.banner_title',
+      view_related: 'audit_log.correlation.view_related',
+      view_related_title: 'audit_log.correlation.view_related_title',
+    },
     filters: {
       action_all: 'audit_log.filters.action_all',
       action_label: 'audit_log.filters.action_label',
@@ -210,6 +217,15 @@ export const keys = {
       viewing_label: 'feature_flags.browse.viewing_label',
       viewing_system: 'feature_flags.browse.viewing_system',
       viewing_tenant: 'feature_flags.browse.viewing_tenant',
+    },
+    confirm: {
+      cancel: 'feature_flags.confirm.cancel',
+      disable_action: 'feature_flags.confirm.disable_action',
+      disable_title: 'feature_flags.confirm.disable_title',
+      enable_action: 'feature_flags.confirm.enable_action',
+      enable_title: 'feature_flags.confirm.enable_title',
+      scope_system: 'feature_flags.confirm.scope_system',
+      scope_tenant: 'feature_flags.confirm.scope_tenant',
     },
     table: {
       actions: 'feature_flags.table.actions',

@@ -66,6 +66,9 @@ export function ExecutionRow({ execution, canRetry, onRetry }: Props) {
                 <RefreshCcw />
               </Button>
             }
+            taskName={execution.task_name}
+            args={execution.args ?? []}
+            kwargs={execution.kwargs ?? {}}
             onConfirm={() => onRetry(execution)}
           />
         ) : (

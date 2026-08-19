@@ -36,6 +36,13 @@
     "deleted": "Deleted",
     "soft_deleted": "Archived"
   },
+  "correlation": {
+    "view_related": "Related",
+    "view_related_title": "Show every entry from this same request",
+    "banner_title": "One action, {count} entries",
+    "banner_description": "Everything recorded by a single request.",
+    "banner_clear": "Show all entries"
+  },
   "changes": {
     "fields_set": "{count} fields set",
     "show_more": "Show {count} more…",

@@ -24,7 +24,8 @@ import { useEffect, useState } from 'react';
 import { ExecutionRow, statusLabel } from './components/ExecutionRow';
 import { type StatusCounts, StatusStrip } from './components/StatusStrip';
 import { TasksEmptyRow, type WorkerPresence } from './components/TasksEmpty';
-import { STATUS_ORDER, VIEW_BASE } from './constants';
+import { WorkerHealthBanner } from './components/WorkerHealthBanner';
+import { STATUS_ORDER, TASK_STATUS, VIEW_BASE } from './constants';
 import { type Execution, retryExecution } from './retry';
 
 interface Pagination {
@@ -72,6 +73,12 @@ function Index() {
   const statusValue = initialFilters.status || STATUS_ALL;
   const isFiltered = !!search || statusValue !== STATUS_ALL;
 
+  // Work that is supposed to be moving. Counting `running` too is deliberate:
+  // a row stuck in "running" with no worker alive means the worker died holding
+  // it, which is exactly as wrong as an unattended queue.
+  const backlog =
+    (statusCounts?.[TASK_STATUS.PENDING] ?? 0) + (statusCounts?.[TASK_STATUS.RUNNING] ?? 0);
+
   function clearFilters() {
     setSearch('');
     pushFilters({ status: STATUS_ALL, task_name: '' }, 1);
@@ -107,6 +114,8 @@ function Index() {
           active={initialFilters.status ?? ''}
           onSelect={(status) => pushFilters({ status, task_name: search }, 1)}
         />
+
+        <WorkerHealthBanner backlog={backlog} />
 
         <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-sm">
