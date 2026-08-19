@@ -29,6 +29,7 @@ from simple_module_cli.scaffolding import create_host as _create_host
 from simple_module_cli.scaffolding import create_module as _create_module
 from simple_module_cli.scaffolding import is_inside_existing_repo, resolve_framework_version
 from simple_module_cli.skills_cmd import app as skills_app
+from simple_module_cli.update_cmd import update_modules
 
 app = typer.Typer(
     help="SimpleModule developer CLI.",
@@ -38,6 +39,7 @@ app = typer.Typer(
 
 app.command("new")(new_project)
 app.command("add")(add_module)
+app.command("update")(update_modules)
 app.command("package-update")(package_update)
 app.add_typer(skills_app, name="skills")
 app.add_typer(module_app, name="module")
