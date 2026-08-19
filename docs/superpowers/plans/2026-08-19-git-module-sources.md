@@ -440,17 +440,13 @@ def _uri(repo: Path) -> str:
 
 class TestRefs:
     def test_list_remote_refs(self, make_git_module_repo) -> None:
-        repo = make_git_module_repo(
-            [("simple_module_blog", "0.1.0", None, False)], tags=["v0.1.0"]
-        )
+        repo = make_git_module_repo([("simple_module_blog", "0.1.0", None, False)], tags=["v0.1.0"])
         tags, branches = list_remote_refs(_uri(repo))
         assert "v0.1.0" in tags
         assert "main" in branches
 
     def test_classify_tag_branch_rev_default(self, make_git_module_repo) -> None:
-        repo = make_git_module_repo(
-            [("simple_module_blog", "0.1.0", None, False)], tags=["v0.1.0"]
-        )
+        repo = make_git_module_repo([("simple_module_blog", "0.1.0", None, False)], tags=["v0.1.0"])
         url = _uri(repo)
         assert classify_ref(url, None) == RefInfo("default", None)
         assert classify_ref(url, "v0.1.0") == RefInfo("tag", "v0.1.0")
@@ -473,9 +469,7 @@ class TestCloneAndScan:
         assert mod.framework_range == ">=0.1,<1.0"
 
     def test_clone_at_tag(self, make_git_module_repo, tmp_path) -> None:
-        repo = make_git_module_repo(
-            [("simple_module_blog", "0.1.0", None, False)], tags=["v0.1.0"]
-        )
+        repo = make_git_module_repo([("simple_module_blog", "0.1.0", None, False)], tags=["v0.1.0"])
         dest = tmp_path / "clone2"
         shallow_clone(_uri(repo), RefInfo("tag", "v0.1.0"), dest)
         assert (dest / "pyproject.toml").is_file()
@@ -521,9 +515,7 @@ class FoundModule:
 
 
 def _default_git_runner(args: list[str], cwd: Path | None = None) -> str:
-    result = subprocess.run(
-        ["git", *args], cwd=cwd, check=True, capture_output=True, text=True
-    )
+    result = subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True)
     return result.stdout
 
 
@@ -545,9 +537,7 @@ def list_remote_refs(
     return tags, branches
 
 
-def classify_ref(
-    url: str, ref: str | None, *, run: GitRunner = _default_git_runner
-) -> RefInfo:
+def classify_ref(url: str, ref: str | None, *, run: GitRunner = _default_git_runner) -> RefInfo:
     if ref is None:
         return RefInfo("default", None)
     tags, branches = list_remote_refs(url, run=run)
@@ -699,7 +689,7 @@ def test_write_dependency_adds_and_replaces(tmp_path: Path) -> None:
     assert write_dependency(doc, "simple_module_blog", ">=0.3.0,<1.0") is True
     save_pyproject(p, doc)
     out = p.read_text(encoding="utf-8")
-    assert 'simple_module_blog>=0.3.0,<1.0' in out
+    assert "simple_module_blog>=0.3.0,<1.0" in out
     assert out.count("simple_module_blog") == 1
     assert "# keep" in out  # tomlkit round-trip preserves comments
 
@@ -973,9 +963,7 @@ def _recorder():
 
 
 def test_add_single_module_from_git(make_git_module_repo, host_pyproject) -> None:
-    repo = make_git_module_repo(
-        [("simple_module_blog", "0.2.0", None, True)], tags=["v0.2.0"]
-    )
+    repo = make_git_module_repo([("simple_module_blog", "0.2.0", None, True)], tags=["v0.2.0"])
     calls, runner = _recorder()
     added = run_add(
         f"git+{repo.as_uri()}@v0.2.0",
@@ -1060,9 +1048,7 @@ def test_add_repo_without_entry_point_fails_with_hint(
     assert host_pyproject.read_text(encoding="utf-8") == HOST
 
 
-def test_first_git_add_prints_security_notice(
-    make_git_module_repo, host_pyproject, capsys
-) -> None:
+def test_first_git_add_prints_security_notice(make_git_module_repo, host_pyproject, capsys) -> None:
     repo = make_git_module_repo([("simple_module_blog", "0.1.0", None, False)])
     _, runner = _recorder()
     run_add(f"git+{repo.as_uri()}", pyproject=host_pyproject, exec_runner=runner)
@@ -1213,9 +1199,7 @@ def _choose(
         return chosen
     if assume_yes:
         names = ", ".join(m.dist_name for m in found)
-        raise _fail(
-            f"repo contains multiple modules ({names}); pick with --module a,b or --all"
-        )
+        raise _fail(f"repo contains multiple modules ({names}); pick with --module a,b or --all")
     return [
         m
         for m in found
@@ -1236,9 +1220,7 @@ def post_install(
         exec_runner(["uv", "run", "smpy", "host", "gen-pages"], project_dir)
         exec_runner(["uv", "run", "smpy", "host", "sync-js-deps"], project_dir)
     for dist in dists:
-        code = exec_runner(
-            ["uv", "run", "python", "-c", _ENTRYPOINT_CHECK, dist], project_dir
-        )
+        code = exec_runner(["uv", "run", "python", "-c", _ENTRYPOINT_CHECK, dist], project_dir)
         if code != 0:
             raise _fail(
                 f"{dist} installed but exposes no [project.entry-points.simple_module] "
@@ -1321,9 +1303,7 @@ def run_add(
             if parsed.git.subdirectory
             else parsed.git.url
         )
-        raise _fail(
-            f"{where} has no package declaring [project.entry-points.simple_module]"
-        )
+        raise _fail(f"{where} has no package declaring [project.entry-points.simple_module]")
     chosen = _choose(found, select=select, all_modules=all_modules, assume_yes=assume_yes)
     if not chosen:
         raise _fail("no modules selected")
@@ -1359,9 +1339,7 @@ def run_add(
 def add_module(
     spec: Annotated[
         str,
-        typer.Argument(
-            help="PyPI requirement, git+URL[@ref][#subdirectory=dir], or local path."
-        ),
+        typer.Argument(help="PyPI requirement, git+URL[@ref][#subdirectory=dir], or local path."),
     ],
     module: Annotated[
         str,
@@ -1378,9 +1356,7 @@ def add_module(
         bool,
         typer.Option("--no-sync", help="Write pyproject only; skip uv sync / gen-pages."),
     ] = False,
-    yes: Annotated[
-        bool, typer.Option("--yes", "-y", help="Never prompt (fail instead).")
-    ] = False,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Never prompt (fail instead).")] = False,
 ) -> None:
     """Add a module dependency from PyPI, a git repo, or a local path."""
     pyproject = path if path.name == "pyproject.toml" else path / "pyproject.toml"
@@ -1554,9 +1530,7 @@ def test_branch_pin_relocks_and_labels_dev_mode(tmp_path: Path, capsys) -> None:
         encoding="utf-8",
     )
     calls, runner = _recorder()
-    run_sources_update(
-        p, only=None, dry_run=False, git_runner=_git_stub([]), exec_runner=runner
-    )
+    run_sources_update(p, only=None, dry_run=False, git_runner=_git_stub([]), exec_runner=runner)
     assert ["uv", "lock", "--upgrade-package", "simple_module_blog"] in calls
     assert "dev-mode" in capsys.readouterr().out
 
@@ -1724,6 +1698,7 @@ Group-tag note: with per-module constraints the safe shared tag is the *minimum*
 
 ```python
 from simple_module_cli.update_cmd import update_modules
+
 ...
 app.command("update")(update_modules)
 ```
@@ -1761,18 +1736,16 @@ git commit -m "feat(cli): smpy update — group-wise git tag updates for module 
 In `wizard.py`, after the module selection and before the final `Proceed?` confirm, insert:
 
 ```python
-    git_specs: list[str] = []
-    if typer.confirm("Add modules from a git URL?", default=False):
-        while True:
-            url = typer.prompt(
-                "git+URL (blank to finish)", default="", show_default=False
-            ).strip()
-            if not url:
-                break
-            if not url.startswith("git+"):
-                typer.echo("Spec must start with git+ (e.g. git+https://github.com/x/repo)")
-                continue
-            git_specs.append(url)
+git_specs: list[str] = []
+if typer.confirm("Add modules from a git URL?", default=False):
+    while True:
+        url = typer.prompt("git+URL (blank to finish)", default="", show_default=False).strip()
+        if not url:
+            break
+        if not url.startswith("git+"):
+            typer.echo("Spec must start with git+ (e.g. git+https://github.com/x/repo)")
+            continue
+        git_specs.append(url)
 ```
 
 and change the return to `return db, tenancy, resolved, git_specs`.
@@ -1799,9 +1772,7 @@ def _drive(answers: list[str]):
 
     @wrapper_app.command()
     def wrapper() -> None:
-        db, tenancy, selected, git_specs = run_wizard(
-            default_db="sqlite", default_tenancy=False
-        )
+        db, tenancy, selected, git_specs = run_wizard(default_db="sqlite", default_tenancy=False)
         captured.update(db=db, selected=selected, git_specs=git_specs)
 
     runner = CliRunner()
@@ -1811,9 +1782,7 @@ def _drive(answers: list[str]):
 
 
 def test_wizard_collects_git_specs() -> None:
-    captured = _drive(
-        ["", "", "", "y", "git+https://github.com/x/repo@v1.0.0", "", ""]
-    )
+    captured = _drive(["", "", "", "y", "git+https://github.com/x/repo@v1.0.0", "", ""])
     assert captured["git_specs"] == ["git+https://github.com/x/repo@v1.0.0"]
 
 
@@ -1839,13 +1808,13 @@ Expected: PASS after Steps 1–2 (the git tests were written before running — 
 In `new.py`: add the option
 
 ```python
-    git_module: Annotated[
-        list[str] | None,
-        typer.Option(
-            "--git-module",
-            help="git+URL[@ref][#subdirectory=dir] module source; repeatable.",
-        ),
-    ] = None,
+git_module: Annotated[
+    list[str] | None,
+    typer.Option(
+        "--git-module",
+        help="git+URL[@ref][#subdirectory=dir] module source; repeatable.",
+    ),
+] = (None,)
 ```
 
 The wizard branch becomes:
@@ -1895,12 +1864,8 @@ from simple_module_cli.cli import app
 from typer.testing import CliRunner
 
 
-def test_new_with_git_module_writes_source(
-    tmp_path: Path, make_git_module_repo
-) -> None:
-    repo = make_git_module_repo(
-        [("simple_module_blog", "0.2.0", None, False)], tags=["v0.2.0"]
-    )
+def test_new_with_git_module_writes_source(tmp_path: Path, make_git_module_repo) -> None:
+    repo = make_git_module_repo([("simple_module_blog", "0.2.0", None, False)], tags=["v0.2.0"])
     runner = CliRunner()
     result = runner.invoke(
         app,

@@ -18,8 +18,10 @@ def _host(tmp_path: Path, url: str) -> Path:
         '    "simple_module_dashboard>=0.1",\n'
         "]\n\n"
         "[tool.uv.sources]\n"
-        f'simple_module_blog = {{ git = "{url}", tag = "v0.1.0", subdirectory = "modules/blog" }}\n'
-        f'simple_module_comments = {{ git = "{url}", tag = "v0.1.0", subdirectory = "modules/comments" }}\n',
+        f'simple_module_blog = {{ git = "{url}", tag = "v0.1.0", '
+        'subdirectory = "modules/blog" }\n'
+        f'simple_module_comments = {{ git = "{url}", tag = "v0.1.0", '
+        'subdirectory = "modules/comments" }\n',
         encoding="utf-8",
     )
     return p
@@ -74,7 +76,7 @@ def test_dry_run_writes_nothing(tmp_path: Path) -> None:
 
 def test_only_limits_to_that_group(tmp_path: Path) -> None:
     p = _host(tmp_path, "https://github.com/x/mods")
-    calls, runner = _recorder()
+    _calls, runner = _recorder()
     run_sources_update(
         p,
         only="simple_module_blog",
@@ -117,7 +119,7 @@ def test_branch_pin_relocks_and_labels_dev_mode(tmp_path: Path, capsys) -> None:
 def test_no_newer_tag_is_a_quiet_noop(tmp_path: Path, capsys) -> None:
     p = _host(tmp_path, "https://github.com/x/mods")
     before = p.read_text(encoding="utf-8")
-    calls, runner = _recorder()
+    _calls, runner = _recorder()
     run_sources_update(
         p, only=None, dry_run=False, git_runner=_git_stub(["v0.1.0"]), exec_runner=runner
     )

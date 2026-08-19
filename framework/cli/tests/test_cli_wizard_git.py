@@ -13,7 +13,7 @@ def _drive(answers: list[str]) -> dict:
 
     @wrapper_app.command()
     def wrapper() -> None:
-        db, tenancy, selected, git_specs = run_wizard(default_db="sqlite", default_tenancy=False)
+        db, _tenancy, selected, git_specs = run_wizard(default_db="sqlite", default_tenancy=False)
         captured.update(db=db, selected=selected, git_specs=git_specs)
 
     runner = CliRunner()

@@ -8,7 +8,10 @@ import pytest
 import typer
 from simple_module_cli.add_cmd import run_add
 
-HOST = '[project]\nname = "myhost"\nversion = "0.1.0"\ndependencies = ["simple_module_core>=0.1,<1.0"]\n'
+HOST = (
+    '[project]\nname = "myhost"\nversion = "0.1.0"\n'
+    'dependencies = ["simple_module_core>=0.1,<1.0"]\n'
+)
 
 
 @pytest.fixture
