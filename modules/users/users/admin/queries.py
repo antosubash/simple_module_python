@@ -14,6 +14,15 @@ from users.manager import UserManager
 from users.models import Role, User, UserRole
 
 
+def _contains_pattern(term: str) -> str:
+    """Contains-match LIKE pattern with metacharacters escaped, so a literal
+    ``%`` or ``_`` in a search term matches as text, not as a wildcard.
+    Pair with ``ilike(..., escape="\\\\")``.
+    """
+    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
 class _UserServiceBase:
     def __init__(
         self,
@@ -98,6 +107,10 @@ class _UserServiceBase:
         entities) + one batched roles query — avoids hydrating full User+Role
         ORM graphs, which dominated this endpoint's CPU under load.
         """
+        # Clamp here, not in the endpoints: the admin view takes these params
+        # raw, and a page<=0 would reach SQL as a negative OFFSET.
+        page = max(page, 1)
+        per_page = max(1, min(per_page, 200))
         stmt = select(
             User.id,
             User.email,
@@ -114,11 +127,11 @@ class _UserServiceBase:
         conditions = []
 
         if search:
-            pattern = f"%{search}%"
+            pattern = _contains_pattern(search)
             conditions.append(
                 or_(
-                    User.email.ilike(pattern),
-                    User.full_name.ilike(pattern),
+                    User.email.ilike(pattern, escape="\\"),
+                    User.full_name.ilike(pattern, escape="\\"),
                 )
             )
 

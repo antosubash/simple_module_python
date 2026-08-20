@@ -49,7 +49,7 @@ async def index(
     request: Request,
     status: TaskStatus | None = Query(default=None),
     task_name: str = Query(default="", alias="q"),
-    page: int = Query(default=1, ge=1),
+    page: int = Query(default=1),
     service: BackgroundTaskService = Depends(get_background_task_service),
 ) -> InertiaResponse:
     response = await service.list(

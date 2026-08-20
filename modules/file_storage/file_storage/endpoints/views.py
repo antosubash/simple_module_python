@@ -25,11 +25,16 @@ _PER_PAGE = 20
 )
 async def browse(
     inertia: InertiaDep,
-    page: int = Query(default=1, ge=1),
+    page: int = Query(default=1),
     q: str = "",
     content_type: str = "",
     service: FileStorageService = Depends(get_file_storage_service),
 ) -> InertiaResponse:
+    # A user-supplied page below 1 (0, negative, a hand-edited ?page=) must
+    # clamp to the first page rather than reject — mirrors the past-the-end
+    # clamp below so no value of ?page= can produce a raw validation-error
+    # page for a browser-facing route.
+    page = max(page, 1)
     items, total = await service.list_files(
         page=page,
         per_page=_PER_PAGE,
