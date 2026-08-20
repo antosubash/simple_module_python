@@ -50,6 +50,11 @@ async def admin_index(
     clean_status, clean_verified, clean_sort, clean_order = sanitize_list_filters(
         status, verified, sort, order
     )
+    # Clamp before building filters, with the same bounds the service applies
+    # internally — the pagination prop must echo the values the query actually
+    # ran with, or ?page=0 renders page-1 rows labelled "Page 0".
+    page = max(page, 1)
+    per_page = max(1, min(per_page, 200))
     filters = {
         "per_page": per_page,
         "search": q,

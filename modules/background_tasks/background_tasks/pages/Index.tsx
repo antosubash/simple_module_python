@@ -90,7 +90,10 @@ function Index() {
   const skipNextDebounceRef = useRef(false);
 
   function clearFilters() {
-    skipNextDebounceRef.current = true;
+    // Only arm the skip when resetting `search` will actually fire the
+    // effect — if the box is already empty the effect never runs for the
+    // clear, and an armed flag would swallow the user's next keystroke.
+    if (search !== '') skipNextDebounceRef.current = true;
     setSearch('');
     pushFilters({ status: STATUS_ALL, task_name: '' }, 1);
   }
