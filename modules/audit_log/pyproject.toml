@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_audit_log"
-version = "0.0.30"
+version = "0.0.31"
 description = "Automatic field-level audit trail for all SQLModel entities"
 readme = "README.md"
 license = "MIT"
@@ -21,13 +21,13 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "simple_module_core==0.0.30",
-    "simple_module_db==0.0.30",
-    "simple_module_hosting==0.0.30",
+    "simple_module_core==0.0.31",
+    "simple_module_db==0.0.31",
+    "simple_module_hosting==0.0.31",
     # ``audit_log.resolve`` imports ``users.models`` to turn a stored actor id
     # into a name, so the users package is a hard install requirement — not
     # just the runtime ``depends_on`` the module meta already declares.
-    "simple_module_users==0.0.30",
+    "simple_module_users==0.0.31",
 ]
 
 [project.entry-points.simple_module]

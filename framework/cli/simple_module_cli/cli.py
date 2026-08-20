@@ -2,6 +2,8 @@
 
 Built-in commands:
   smpy new
+  smpy add
+  smpy update
   smpy create-host
   smpy create-module
   smpy skills add / list / update
@@ -17,6 +19,7 @@ from typing import Annotated
 
 import typer
 
+from simple_module_cli.add_cmd import add_module, run_add
 from simple_module_cli.case import to_kebab_case
 from simple_module_cli.module_cmd import module_app
 from simple_module_cli.new import new_project
@@ -26,6 +29,7 @@ from simple_module_cli.scaffolding import create_host as _create_host
 from simple_module_cli.scaffolding import create_module as _create_module
 from simple_module_cli.scaffolding import is_inside_existing_repo, resolve_framework_version
 from simple_module_cli.skills_cmd import app as skills_app
+from simple_module_cli.update_cmd import update_modules
 
 app = typer.Typer(
     help="SimpleModule developer CLI.",
@@ -34,6 +38,8 @@ app = typer.Typer(
 )
 
 app.command("new")(new_project)
+app.command("add")(add_module)
+app.command("update")(update_modules)
 app.command("package-update")(package_update)
 app.add_typer(skills_app, name="skills")
 app.add_typer(module_app, name="module")
@@ -53,6 +59,14 @@ def create_host(
             help="Comma-separated module names to declare as deps (e.g. Auth,Dashboard).",
         ),
     ] = "",
+    git_module: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--git-module",
+            help="git+URL[@ref][#subdirectory=dir] module source; repeatable. "
+            "Multi-module repos need an explicit #subdirectory here.",
+        ),
+    ] = None,
 ) -> None:
     """Scaffold a new SimpleModule host project at ./<NAME>."""
     target = dest or Path.cwd() / name
@@ -72,6 +86,10 @@ def create_host(
     except FileExistsError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(code=1) from exc
+
+    # create-host is non-interactive: multi-module repos need #subdirectory.
+    for spec in git_module or []:
+        run_add(spec, pyproject=target / "pyproject.toml", no_sync=True, assume_yes=True)
 
     typer.echo(f"Created host '{name}' at {target}")
     if selected:

@@ -8,15 +8,16 @@ This is the full reference. See [Configuration](/guide/configuration) for a narr
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SM_DATABASE_URL` | `sqlite+aiosqlite:///./app.db` | **Required in production.** Async URL: `postgresql+asyncpg://user:pw@host:5432/db` or `sqlite+aiosqlite:///./app.db`. |
+| `SM_DATABASE_URL` | `sqlite+aiosqlite:///./app.db` | **Required in production.** Async URL: `postgresql+asyncpg://user:pw@host:5432/db` or `sqlite+aiosqlite:///./app.db`. Relative sqlite paths resolve against the project root (the `.env` location), not the process cwd — CLI tools run from `host/` hit the same file as the app. |
 | `SM_ENVIRONMENT` | `development` | `development` and `testing` are the only non-prod values (placeholder-secret check is skipped for both). Any value other than `development` triggers strict module discovery. |
 | `SM_SECRET_KEY` | `change-me-in-production` | **Must** be overridden in production — session cookie signing key. |
 | `SM_DEBUG` | `false` | Enables debug mode (tracebacks in HTTP responses). |
 | `SM_LOG_LEVEL` | `INFO` | `DEBUG`/`INFO`/`WARNING`/`ERROR`. |
 | `SM_LOG_FORMAT` | `json` | `text` for readable dev logs, `json` for structured logs in prod. |
 | `SM_MODULES_ENABLED` | unset | Comma-separated allow-list to disable modules without uninstalling them. |
-| `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only — where the Vite HMR client connects. |
-| `SM_VITE_PORT` | `5050` | Dev only — port the Vite dev server binds to (read by `vite.config.ts`). If you change it, set `SM_VITE_DEV_URL` to match so the backend points the HMR client at the right origin. |
+| `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only — where the Vite HMR client connects. Freshly scaffolded apps also derive the Vite dev server's port and origin from this one value (via `client_app/vite.dev-url.ts`), so changing it here is the whole move. |
+| `SM_VITE_PORT` | `5050` | Dev only — port this repo's own host `vite.config.ts` binds to. If you change it, set `SM_VITE_DEV_URL` to match so the backend points the HMR client at the right origin. New scaffolds don't need it — they read `SM_VITE_DEV_URL` directly. |
+| `SM_PROJECT_ROOT` | unset | Overrides project-root discovery: where the `.env` is looked up and what relative sqlite paths resolve against. Normally unnecessary — settings walk up from the cwd (stopping at repo boundaries and `$HOME`) to find the `.env` on their own. |
 | `SM_AUTH_PUBLIC_PATHS` | `[]` | JSON array of host-level anonymous-access path prefixes. Escape hatch for exposing a route without a session when no module owns it; modules should prefer the method-aware `register_public_routes` hook. |
 
 ## DB connection pool

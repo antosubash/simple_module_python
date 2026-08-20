@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from simple_module_core import CspSourceRegistry
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.design_packs import DesignPackRegistry
 from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
@@ -68,6 +69,10 @@ def _resolve_project_root() -> Path:
     Falls back to ``parents[3]`` for the in-tree dev loop only when the walk
     finds nothing — which still keeps ``framework/`` users working without
     setting the env var explicitly.
+
+    Compare ``simple_module_core.dotenv.find_env_file``: both honor
+    ``SM_PROJECT_ROOT`` first, but this anchors the static/i18n root while
+    that anchors which ``.env`` loads — different sentinels, kept separate.
     """
     override = os.environ.get(_ENV_PROJECT_ROOT)
     if override:
@@ -206,6 +211,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             print_diagnostics(settings_diagnostics)
 
     # ── Phase 5: Module registrations ──────────────────────
+    csp_registry = CspSourceRegistry()
     run_module_registrations(
         modules,
         app=app,
@@ -217,6 +223,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         public_route_registry=public_route_registry,
         design_pack_registry=design_pack_registry,
         audit_link_registry=audit_link_registry,
+        csp_registry=csp_registry,
     )
 
     attach_public_routes(app, settings, public_route_registry)
@@ -257,7 +264,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_exception_handlers(app, modules)
 
     # ── Phase 8: Middleware pipeline ───────────────────────
-    install_middleware(app, settings, modules, menu_registry, perm_registry)
+    install_middleware(
+        app, settings, modules, menu_registry, perm_registry, csp_registry=csp_registry
+    )
 
     # ── Phase 9: Routes, health, static files ──────────────
     for mod in modules:

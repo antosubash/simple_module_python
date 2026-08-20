@@ -7,20 +7,68 @@ These values stay in ``.env`` — all other settings live in the DB.
 
 from __future__ import annotations
 
-from typing import Literal
+from pathlib import Path
+from typing import Any, Literal
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
+from simple_module_core.dotenv import find_env_file
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
 _PLACEHOLDER_SECRET_KEY = "change-me-in-production"
+
+
+def _absolutize_sqlite_url(url: str, *, anchor: Path) -> str:
+    """Rewrite a relative sqlite path to an absolute one under ``anchor``.
+
+    ``sqlite+aiosqlite:///./host/app.db`` means "relative to the project
+    root" by convention, but SQLAlchemy resolves it against the process cwd
+    — correct in the web process (which chdirs) and silently wrong in every
+    CLI run from a subdirectory. Absolute paths (``:////...``), ``:memory:``,
+    SQLite URI-mode paths (``file:...?uri=true``), and non-sqlite URLs pass
+    through untouched.
+    """
+    if not url.startswith("sqlite"):
+        return url
+    scheme, sep, rest = url.partition(":///")
+    if not sep or not rest or rest.startswith(("/", ":memory:", "file:")):
+        return url
+    path_part, query_sep, query = rest.partition("?")
+    resolved = (anchor / path_part).resolve()
+    return f"{scheme}:///{resolved}{query_sep}{query}"
 
 
 class BootstrapSettings(BaseSettings):
     """Pre-DB bootstrap environment knobs."""
 
     model_config = SettingsConfigDict(env_prefix="SM_", env_file=".env", extra="ignore")
+
+    def __init__(self, **values: Any) -> None:
+        # Discover the project `.env` per instantiation (a handful of stat
+        # calls), never at import time: a process may import this module and
+        # only later chdir or set SM_PROJECT_ROOT. Only when the caller
+        # hasn't already decided — a plain `dict.setdefault(k, find_env_file())`
+        # would evaluate find_env_file() unconditionally as part of the call,
+        # even when `_env_file` is already in `values`, paying for a walk it
+        # throws away. This also has to preserve pydantic-settings' documented
+        # `_env_file=None` idiom ("load no .env file at all") rather than
+        # silently overriding it.
+        if "_env_file" not in values:
+            values["_env_file"] = find_env_file()
+        env_file = values["_env_file"]
+        super().__init__(**values)
+        # Anchor discovery is independent of whether an env file is loaded:
+        # a caller passing `_env_file=None` still needs relative sqlite paths
+        # anchored at the discovered project root, not the process cwd —
+        # otherwise that idiom would silently point sqlite at whatever
+        # directory happened to be cwd. The same discovered path anchors
+        # relative sqlite paths below, so the env values and the sqlite
+        # anchor can never come from two different projects.
+        anchor = (
+            Path(env_file).parent if isinstance(env_file, (str, Path)) else find_env_file().parent
+        )
+        self.database_url = _absolutize_sqlite_url(self.database_url, anchor=anchor)
 
     database_url: str = "sqlite+aiosqlite:///./app.db"
     db_pool_size: int = 10

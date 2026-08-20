@@ -36,6 +36,9 @@ class TestAuthProviderSetting:
         """
         monkeypatch.setattr(os, "environ", dict(os.environ))
         monkeypatch.delenv("SM_AUTH_PROVIDER", raising=False)
+        # Settings discovers the .env via find_env_file: SM_PROJECT_ROOT
+        # exported in the developer's shell would beat the chdir isolation.
+        monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
         monkeypatch.chdir(tmp_path)
 
     def test_defaults_to_users(self):

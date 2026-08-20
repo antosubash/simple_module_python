@@ -3,7 +3,8 @@
 CLAUDE.md spells out the pipeline:
 
     CorrelationId → RequestLogging → GZip → Security → Session → <module>
-                  → Tenant (opt-in) → Locale → InertiaLayoutData → app
+                  → Tenant (opt-in) → Locale → InertiaLayoutData
+                  → CommitBeforeResponse → app
 
 Tenant/Locale must see ``request.state.user`` set by AuthMiddleware so
 DB queries get filtered correctly; CorrelationId must wrap everything so
@@ -12,6 +13,11 @@ anonymous visitors itself, and if Auth ran first they would be redirected to
 the login page — revealing that a login form exists on a site that is meant
 to be fully hidden. That inversion breaks the feature without failing any
 site_lock unit test, which is why the order is pinned here.
+
+CommitBeforeResponse is innermost so its send-wrapper is the first to see
+``http.response.start`` — that is what makes the request's DB work commit
+before any byte reaches the client (GH #257). Anything added inside it would
+run after the commit.
 
 GZip sits inside the observability pair so
 those still see every request, but outside everything that produces a body
@@ -39,6 +45,7 @@ _EXPECTED_MULTI_TENANT = (
     "TenantMiddleware",
     "LocaleMiddleware",
     "InertiaLayoutDataMiddleware",
+    "CommitBeforeResponseMiddleware",
 )
 
 _EXPECTED_SINGLE_TENANT = (
@@ -51,6 +58,7 @@ _EXPECTED_SINGLE_TENANT = (
     "AuthMiddleware",
     "LocaleMiddleware",
     "InertiaLayoutDataMiddleware",
+    "CommitBeforeResponseMiddleware",
 )
 
 

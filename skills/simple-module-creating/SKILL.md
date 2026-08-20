@@ -99,6 +99,7 @@ In execution order — all no-op by default:
 | `register_event_handlers(bus)` | `bus.subscribe(EventCls, handler)` |
 | `register_health_checks(registry)` | Module-owned health probes |
 | `register_public_routes(registry)` | Exempt routes from auth via `add_prefix` / `add_regex` (method-aware) |
+| `register_csp_sources(registry)` | Whitelist external asset origins in the CSP (`registry.add("style-src", "https://rsms.me")`) — fetch directives only, validated at boot |
 | `register_exception_handlers(app)` | Module-specific error mapping |
 | `register_middleware(app)` | LIFO — module middleware sorted last wraps outermost |
 | `register_routes(api_router, view_router)` | `include_router(...)` your two routers |

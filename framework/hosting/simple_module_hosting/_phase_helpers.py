@@ -21,6 +21,7 @@ from inertia import (
 )
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
 from simple_module_core.exceptions import NotFoundError
+from simple_module_db import CommitBeforeResponseMiddleware
 from starlette.exceptions import HTTPException
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -46,6 +47,7 @@ from simple_module_hosting.settings import Settings
 from simple_module_hosting.static_files import PrecompressedStaticFiles
 
 if TYPE_CHECKING:
+    from simple_module_core.csp import CspSourceRegistry
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.permissions import PermissionRegistry
 
@@ -72,19 +74,41 @@ def register_exception_handlers(app: FastAPI, modules: list) -> None:
         mod.register_exception_handlers(app)
 
 
+def build_csp(settings: Settings, csp_registry: CspSourceRegistry) -> str:
+    """Choose the CSP for this boot and fold in module-declared sources.
+
+    Development gets the Vite-widened policy; production the strict default.
+    ``csp_registry`` carries origins modules declared via
+    ``register_csp_sources`` (e.g. an external font host) — merged here so
+    both variants honor them. An empty registry leaves the policy unchanged.
+    """
+    base = (
+        SecurityHeadersMiddleware.dev_csp(settings.vite_dev_url)
+        if settings.is_development
+        else SecurityHeadersMiddleware.DEFAULT_CSP
+    )
+    return csp_registry.extend_policy(base)
+
+
 def install_middleware(
     app: FastAPI,
     settings: Settings,
     modules: list,
     menu_registry: MenuRegistry,
     perm_registry: PermissionRegistry,
+    csp_registry: CspSourceRegistry,
 ) -> None:
     """Install the full middleware pipeline.
 
     Order matters: last added = first executed. Execution order:
     (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging
-    → Security → Session → [module] → (Tenant, if multi_tenant) → Locale → Inertia.
+    → Security → Session → [module] → (Tenant, if multi_tenant) → Locale
+    → Inertia → CommitBeforeResponse.
     """
+    # Added first, so it is innermost and its send-wrapper is the first to see
+    # the response: the request's DB work commits before any byte reaches the
+    # client, instead of in get_db's post-response exit code (GH #257).
+    app.add_middleware(CommitBeforeResponseMiddleware)
     app.add_middleware(
         InertiaLayoutDataMiddleware,
         menu_registry=menu_registry,
@@ -102,16 +126,14 @@ def install_middleware(
         mod.register_middleware(app)
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
     # In dev, relax CSP so the browser can fetch @vite/client, main.tsx, and
-    # the HMR WebSocket from the Vite origin. HSTS is also suppressed because
-    # dev runs over plain HTTP on loopback.
+    # the HMR WebSocket from the Vite origin (build_csp picks the variant).
+    # HSTS is suppressed in dev because it runs over plain HTTP on loopback.
+    security_kwargs: dict[str, str | None] = {
+        "content_security_policy": build_csp(settings, csp_registry)
+    }
     if settings.is_development:
-        app.add_middleware(
-            SecurityHeadersMiddleware,
-            content_security_policy=SecurityHeadersMiddleware.dev_csp(settings.vite_dev_url),
-            strict_transport_security=None,
-        )
-    else:
-        app.add_middleware(SecurityHeadersMiddleware)
+        security_kwargs["strict_transport_security"] = None
+    app.add_middleware(SecurityHeadersMiddleware, **security_kwargs)
     # Compress response bodies. Added here so it sits inside CorrelationId and
     # RequestLogging (which set headers and read request state) but outside
     # everything that produces a body — including the /static mount, where it
