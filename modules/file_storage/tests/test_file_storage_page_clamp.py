@@ -43,3 +43,20 @@ class TestPageBelowOneClamps:
         assert body["component"] == constants.PAGE_BROWSE
         assert body["props"]["pagination"]["page"] == 1
         assert [f["filename"] for f in body["props"]["files"]] == ["hello.txt"]
+
+
+class TestJsonApiKeepsStrictBounds:
+    """The JSON API is the deliberate counterpart to the view's clamp: API
+    callers get a 422 for out-of-range paging instead of silent correction —
+    and never a negative OFFSET reaching the database."""
+
+    @pytest.mark.parametrize("page", [0, -1])
+    async def test_rejects_non_positive_page(
+        self,
+        page: int,
+        authenticated_client: httpx.AsyncClient,
+    ) -> None:
+        resp = await authenticated_client.get(
+            f"{constants.ROUTE_PREFIX_API}{constants.PATH_FILES}", params={"page": page}
+        )
+        assert resp.status_code == 422
