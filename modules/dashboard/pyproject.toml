@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_dashboard"
-version = "0.0.30"
+version = "0.0.31"
 description = "Admin landing page and sidebar menu host for authenticated users of a simple_module app"
 readme = "README.md"
 license = "MIT"
@@ -21,10 +21,10 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "simple_module_core==0.0.30",
-    "simple_module_db==0.0.30",
-    "simple_module_hosting==0.0.30",
-    "simple_module_users==0.0.30",
+    "simple_module_core==0.0.31",
+    "simple_module_db==0.0.31",
+    "simple_module_hosting==0.0.31",
+    "simple_module_users==0.0.31",
 ]
 
 [project.entry-points.simple_module]
