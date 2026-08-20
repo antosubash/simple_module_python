@@ -16,6 +16,7 @@ from pydantic_settings import BaseSettings
 
 from settings.env_vars import env_prefix_for
 from settings.hydrate import value_type_for_field
+from settings.service import SettingService
 
 # We intentionally DON'T match the bare word "token" (would mask
 # `verification_token_lifetime_seconds` — just an int) or "key" alone (would
@@ -234,6 +235,19 @@ def _build_view(
         class_name=type(settings).__name__,
         fields=fields,
     )
+
+
+async def overrides_by_package(service: SettingService) -> dict[str, frozenset[str]]:
+    """Map package -> field names carrying a stored override.
+
+    Reads the SYSTEM scope once and buckets by key prefix. Packages with no
+    overrides are simply absent, which :func:`collect_module_settings` already
+    treats as "nothing overridden". Shared by both the Inertia view and the
+    JSON API so the two never drift on what "overridden" means.
+    """
+    from settings.store import SettingsStore
+
+    return await SettingsStore(service).all_override_fields()
 
 
 def serialize(views: list[ModuleSettingsView]) -> list[dict[str, Any]]:

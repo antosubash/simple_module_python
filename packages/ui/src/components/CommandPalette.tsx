@@ -62,8 +62,12 @@ export function CommandPalette({ navItems, accountItems }: CommandPaletteProps) 
   }
   // Account actions render through the same loop as every other group —
   // folded in last so they keep sorting after Navigation, matching where
-  // "log out" otherwise lives, behind the avatar dropdown.
-  if (accountItems.length > 0) groups.Account = accountItems;
+  // "log out" otherwise lives, behind the avatar dropdown. Merged rather than
+  // assigned: a nav item whose own `group` happens to be "Account" must not
+  // silently vanish from the palette.
+  if (accountItems.length > 0) {
+    groups.Account = [...(groups.Account ?? []), ...accountItems];
+  }
 
   return (
     <>

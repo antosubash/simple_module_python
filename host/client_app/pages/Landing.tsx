@@ -234,9 +234,11 @@ function Landing() {
               Ready to ship modules?
             </h3>
             <p className="mt-1 text-sm text-white/85">
-              {signupOpen
-                ? 'Sign up for the admin UI, or hack on the framework directly.'
-                : 'Sign in to the admin UI, or hack on the framework directly.'}
+              {auth?.isAuthenticated
+                ? 'Head to the dashboard, or hack on the framework directly.'
+                : signupOpen
+                  ? 'Sign up for the admin UI, or hack on the framework directly.'
+                  : 'Sign in to the admin UI, or hack on the framework directly.'}
             </p>
           </div>
           <div className="flex shrink-0 gap-2">
@@ -245,7 +247,7 @@ function Landing() {
               variant="secondary"
               className="bg-white text-primary-700 hover:bg-white/90"
             >
-              <a href={cta.href}>{cta.label}</a>
+              <a href={primaryHref}>{auth?.isAuthenticated ? 'Open Dashboard' : cta.label}</a>
             </Button>
             <Button
               asChild

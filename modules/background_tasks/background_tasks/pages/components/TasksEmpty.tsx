@@ -1,7 +1,9 @@
 import { Link } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { EmptyState } from '@simple-module-py/ui/components/EmptyState';
 import { TableEmptyRow } from '@simple-module-py/ui/components/TableEmptyRow';
 import { Button } from '@simple-module-py/ui/components/ui/button';
+import type { TFunction } from 'i18next';
 import { Activity, type LucideIcon, PlugZap, ServerCog, ServerOff } from 'lucide-react';
 import { VIEW_BASE } from '../constants';
 import { diagnoseWorkerHealth } from '../worker-health';
@@ -35,7 +37,7 @@ interface EmptyCopy {
  * messages. A filtered-empty list is handled by the caller — the fleet is not
  * why those rows are missing.
  */
-function emptyCopy(presence: WorkerPresence | null): EmptyCopy {
+function emptyCopy(t: TFunction, presence: WorkerPresence | null): EmptyCopy {
   const state = presence
     ? diagnoseWorkerHealth({
         brokerReachable: presence.broker_reachable,
@@ -45,39 +47,38 @@ function emptyCopy(presence: WorkerPresence | null): EmptyCopy {
   if (state === 'broker_unreachable') {
     return {
       icon: PlugZap,
-      title: "Can't reach the broker",
-      description:
-        'Nothing can be queued or executed until the broker is back. Tasks are not being lost — they are not being accepted.',
+      title: t(keys.background_tasks.tasks_empty.broker_unreachable_title),
+      description: t(keys.background_tasks.tasks_empty.broker_unreachable_description),
     };
   }
   if (state === 'no_workers_online') {
     return {
       icon: ServerOff,
-      title: 'No worker is running',
-      description:
-        'The broker is up, but nothing is consuming the queue. Tasks enqueued now will wait rather than run.',
+      title: t(keys.background_tasks.tasks_empty.no_workers_title),
+      description: t(keys.background_tasks.tasks_empty.no_workers_description),
     };
   }
   return {
     icon: Activity,
-    title: 'No task has run yet',
-    description: 'Registered tasks appear here the first time they execute.',
+    title: t(keys.background_tasks.tasks_empty.healthy_title),
+    description: t(keys.background_tasks.tasks_empty.healthy_description),
   };
 }
 
 /** The executions table's empty row, in whichever of its four states applies. */
 export function TasksEmptyRow({ filtered, columnCount, presence, onClear }: TasksEmptyRowProps) {
-  const copy = emptyCopy(presence);
+  const { t } = useT();
+  const copy = emptyCopy(t, presence);
   return (
     <TableEmptyRow columnCount={columnCount}>
       {filtered ? (
         <EmptyState
           icon={Activity}
-          title="No tasks match these filters"
-          description="Executions exist outside the current search and status filter."
+          title={t(keys.background_tasks.tasks_empty.filtered_title)}
+          description={t(keys.background_tasks.tasks_empty.filtered_description)}
           action={
             <Button variant="outline" onClick={onClear}>
-              Clear filters
+              {t(keys.background_tasks.tasks_empty.clear_filters)}
             </Button>
           }
         />
@@ -90,7 +91,7 @@ export function TasksEmptyRow({ filtered, columnCount, presence, onClear }: Task
             <Button variant="outline" asChild>
               <Link href={`${VIEW_BASE}/workers`}>
                 <ServerCog className="mr-2 size-4" />
-                View workers
+                {t(keys.background_tasks.worker_health.view_workers)}
               </Link>
             </Button>
           }

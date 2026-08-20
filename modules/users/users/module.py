@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib.resources
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends
@@ -152,6 +154,10 @@ class UsersModule(ModuleBase):
                 method="post",
             )
         )
+
+    def locale_dirs(self) -> dict[str, Path]:
+        base = Path(str(importlib.resources.files(__package__) / "locales"))
+        return {"users": base}
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from users.admin.api import admin_router

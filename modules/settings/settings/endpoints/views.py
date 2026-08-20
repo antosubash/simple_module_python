@@ -19,7 +19,12 @@ from simple_module_hosting.inertia_utils import redirect_back_with_errors, valid
 from simple_module_hosting.permissions import RequiresPermission
 from starlette.responses import RedirectResponse
 
-from settings._module_settings import _package_of, collect_module_settings, serialize
+from settings._module_settings import (
+    _package_of,
+    collect_module_settings,
+    overrides_by_package,
+    serialize,
+)
 from settings.constants import (
     ERR_SETTING_NOT_FOUND,
     PERM_CREATE,
@@ -189,7 +194,7 @@ async def modules_view(
     an ``SM_*`` env var, or the field default — so a setting that "isn't taking
     effect" explains itself.
     """
-    overrides = await _overrides_by_package(service)
+    overrides = await overrides_by_package(service)
     views = collect_module_settings(request.app, overrides)
     return await inertia.render(
         _PAGE_MODULES_EDIT,
@@ -200,18 +205,6 @@ async def modules_view(
             "testable": _testable_packages(request),
         },
     )
-
-
-async def _overrides_by_package(service: SettingService) -> dict[str, frozenset[str]]:
-    """Map package -> field names carrying a stored override.
-
-    Reads the SYSTEM scope once and buckets by key prefix. Packages with no
-    overrides are simply absent, which ``collect_module_settings`` already
-    treats as "nothing overridden".
-    """
-    from settings.store import SettingsStore
-
-    return await SettingsStore(service).all_override_fields()
 
 
 def _testable_packages(request: Request) -> list[str]:

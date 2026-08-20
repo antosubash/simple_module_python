@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from inertia import InertiaResponse
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
@@ -25,7 +25,7 @@ _PER_PAGE = 20
 )
 async def browse(
     inertia: InertiaDep,
-    page: int = 1,
+    page: int = Query(default=1, ge=1),
     q: str = "",
     content_type: str = "",
     service: FileStorageService = Depends(get_file_storage_service),

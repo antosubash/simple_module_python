@@ -53,5 +53,24 @@
   "toasts": {
     "retried": "Task \"{name}\" re-enqueued",
     "retry_failed": "Failed to retry task"
+  },
+  "worker_health": {
+    "broker_unreachable_title": "Broker unreachable",
+    "broker_unreachable_detail": "Nothing can be queued or run until the broker is back. The counts below are the last state written to the database.",
+    "no_workers_title_one": "{count} task waiting, no worker running",
+    "no_workers_title_other": "{count} tasks waiting, no worker running",
+    "no_workers_detail": "The broker is up but nothing is consuming the queue, so this backlog will not move on its own.",
+    "view_workers": "View workers"
+  },
+  "tasks_empty": {
+    "filtered_title": "No tasks match these filters",
+    "filtered_description": "Executions exist outside the current search and status filter.",
+    "clear_filters": "Clear filters",
+    "broker_unreachable_title": "Can't reach the broker",
+    "broker_unreachable_description": "Nothing can be queued or executed until the broker is back. Tasks are not being lost — they are not being accepted.",
+    "no_workers_title": "No worker is running",
+    "no_workers_description": "The broker is up, but nothing is consuming the queue. Tasks enqueued now will wait rather than run.",
+    "healthy_title": "No task has run yet",
+    "healthy_description": "Registered tasks appear here the first time they execute."
   }
 }

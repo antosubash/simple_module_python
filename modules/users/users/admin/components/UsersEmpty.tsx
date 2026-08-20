@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { EmptyState } from '@simple-module-py/ui/components/EmptyState';
 import { TableEmptyRow } from '@simple-module-py/ui/components/TableEmptyRow';
 import { Button } from '@simple-module-py/ui/components/ui/button';
@@ -6,18 +7,13 @@ import { Plus, UserPlus, Users } from 'lucide-react';
 
 const ADD_PEOPLE_URL = '/users/admin/add';
 
-// Shared between SoloAccountPrompt and UsersEmptyRow's unfiltered branch —
-// both are the same "no other users yet" prompt, just wrapped differently
-// (a standalone card above the table vs. the table's own empty row), so the
-// copy and call-to-action are declared once here instead of twice.
-const INVITE_DESCRIPTION = 'Invite teammates by email, or create accounts with passwords you set.';
-
 function AddPeopleAction() {
+  const { t } = useT();
   return (
     <Button asChild className="gap-1.5">
       <Link href={ADD_PEOPLE_URL}>
         <Plus className="h-4 w-4" />
-        Add people
+        {t(keys.users.empty.add_people)}
       </Link>
     </Button>
   );
@@ -33,12 +29,13 @@ function AddPeopleAction() {
  * hiding it would cost the admin the only route to their own record.
  */
 export function SoloAccountPrompt() {
+  const { t } = useT();
   return (
     <EmptyState
       className="mb-4 rounded-xl border border-dashed border-border bg-card"
       icon={UserPlus}
-      title="You're the only account"
-      description={INVITE_DESCRIPTION}
+      title={t(keys.users.empty.solo_title)}
+      description={t(keys.users.empty.invite_description)}
       action={<AddPeopleAction />}
     />
   );
@@ -59,24 +56,25 @@ interface UsersEmptyRowProps {
  * actions — clear the filter, or add the first person.
  */
 export function UsersEmptyRow({ filtered, columnCount, onClear }: UsersEmptyRowProps) {
+  const { t } = useT();
   return (
     <TableEmptyRow columnCount={columnCount}>
       {filtered ? (
         <EmptyState
           icon={Users}
-          title="No users match these filters"
-          description="Nobody in this workspace fits the current search and filters."
+          title={t(keys.users.empty.filtered_title)}
+          description={t(keys.users.empty.filtered_description)}
           action={
             <Button variant="outline" onClick={onClear}>
-              Clear filters
+              {t(keys.users.empty.clear_filters)}
             </Button>
           }
         />
       ) : (
         <EmptyState
           icon={UserPlus}
-          title="No users yet"
-          description={INVITE_DESCRIPTION}
+          title={t(keys.users.empty.empty_title)}
+          description={t(keys.users.empty.invite_description)}
           action={<AddPeopleAction />}
         />
       )}

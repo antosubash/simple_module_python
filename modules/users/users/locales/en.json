@@ -1,0 +1,11 @@
+{
+  "empty": {
+    "solo_title": "You're the only account",
+    "invite_description": "Invite teammates by email, or create accounts with passwords you set.",
+    "add_people": "Add people",
+    "filtered_title": "No users match these filters",
+    "filtered_description": "Nobody in this workspace fits the current search and filters.",
+    "clear_filters": "Clear filters",
+    "empty_title": "No users yet"
+  }
+}

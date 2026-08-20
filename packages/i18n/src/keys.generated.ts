@@ -117,9 +117,29 @@ export const keys = {
       view: 'background_tasks.table.view',
       worker: 'background_tasks.table.worker',
     },
+    tasks_empty: {
+      broker_unreachable_description: 'background_tasks.tasks_empty.broker_unreachable_description',
+      broker_unreachable_title: 'background_tasks.tasks_empty.broker_unreachable_title',
+      clear_filters: 'background_tasks.tasks_empty.clear_filters',
+      filtered_description: 'background_tasks.tasks_empty.filtered_description',
+      filtered_title: 'background_tasks.tasks_empty.filtered_title',
+      healthy_description: 'background_tasks.tasks_empty.healthy_description',
+      healthy_title: 'background_tasks.tasks_empty.healthy_title',
+      no_workers_description: 'background_tasks.tasks_empty.no_workers_description',
+      no_workers_title: 'background_tasks.tasks_empty.no_workers_title',
+    },
     toasts: {
       retried: 'background_tasks.toasts.retried',
       retry_failed: 'background_tasks.toasts.retry_failed',
+    },
+    worker_health: {
+      broker_unreachable_detail: 'background_tasks.worker_health.broker_unreachable_detail',
+      broker_unreachable_title: 'background_tasks.worker_health.broker_unreachable_title',
+      no_workers_detail: 'background_tasks.worker_health.no_workers_detail',
+      no_workers_title: 'background_tasks.worker_health.no_workers_title',
+      no_workers_title_one: 'background_tasks.worker_health.no_workers_title_one',
+      no_workers_title_other: 'background_tasks.worker_health.no_workers_title_other',
+      view_workers: 'background_tasks.worker_health.view_workers',
     },
   },
   branding: {
@@ -509,6 +529,17 @@ export const keys = {
     },
     switcher: {
       label: 'ui.switcher.label',
+    },
+  },
+  users: {
+    empty: {
+      add_people: 'users.empty.add_people',
+      clear_filters: 'users.empty.clear_filters',
+      empty_title: 'users.empty.empty_title',
+      filtered_description: 'users.empty.filtered_description',
+      filtered_title: 'users.empty.filtered_title',
+      invite_description: 'users.empty.invite_description',
+      solo_title: 'users.empty.solo_title',
     },
   },
 } as const;

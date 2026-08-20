@@ -1,44 +1,26 @@
 import { Link } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { InlineBanner } from '@simple-module-py/ui/components/InlineBanner';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { ServerCrash, ServerOff } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { API_BASE, VIEW_BASE, type WorkerSnapshot } from '../constants';
-import { diagnoseWorkerHealth } from '../worker-health';
+import { diagnoseWorkerHealth, type WorkerHealthState } from '../worker-health';
 
 interface Props {
   /** Tasks queued or already running — the backlog whose fate is in question. */
   backlog: number;
 }
 
-interface Problem {
-  icon: typeof ServerOff;
-  title: string;
-  detail: string;
-}
+/** The diagnosed states that actually render a banner — `healthy` renders nothing. */
+type BannerState = Exclude<WorkerHealthState, 'healthy'>;
 
-function diagnose(snapshot: WorkerSnapshot, backlog: number): Problem | null {
+function diagnose(snapshot: WorkerSnapshot): BannerState | null {
   const state = diagnoseWorkerHealth({
     brokerReachable: snapshot.broker_reachable,
     onlineWorkerCount: snapshot.workers.filter((w) => w.online).length,
   });
-  if (state === 'broker_unreachable') {
-    return {
-      icon: ServerCrash,
-      title: 'Broker unreachable',
-      detail:
-        'Nothing can be queued or run until the broker is back. The counts below are the last state written to the database.',
-    };
-  }
-  if (state === 'no_workers_online') {
-    return {
-      icon: ServerOff,
-      title: `${backlog} task${backlog === 1 ? '' : 's'} waiting, no worker running`,
-      detail:
-        'The broker is up but nothing is consuming the queue, so this backlog will not move on its own.',
-    };
-  }
-  return null;
+  return state === 'healthy' ? null : state;
 }
 
 /**
@@ -56,11 +38,12 @@ function diagnose(snapshot: WorkerSnapshot, backlog: number): Problem | null {
  * diagnosis about the broker.
  */
 export function WorkerHealthBanner({ backlog }: Props) {
-  const [problem, setProblem] = useState<Problem | null>(null);
+  const { t } = useT();
+  const [state, setState] = useState<BannerState | null>(null);
 
   useEffect(() => {
     if (backlog <= 0) {
-      setProblem(null);
+      setState(null);
       return;
     }
     const controller = new AbortController();
@@ -69,25 +52,37 @@ export function WorkerHealthBanner({ backlog }: Props) {
       signal: controller.signal,
     })
       .then((res) => (res.ok ? (res.json() as Promise<WorkerSnapshot>) : null))
-      .then((snapshot) => snapshot && setProblem(diagnose(snapshot, backlog)))
+      .then((snapshot) => snapshot && setState(diagnose(snapshot)))
       .catch(() => {
         /* offline, aborted, or forbidden — say nothing rather than guess */
       });
     return () => controller.abort();
   }, [backlog]);
 
-  if (!problem) return null;
+  if (!state) return null;
+
+  const isBrokerUnreachable = state === 'broker_unreachable';
 
   return (
     <InlineBanner
-      icon={problem.icon}
+      icon={isBrokerUnreachable ? ServerCrash : ServerOff}
       tone="warning"
       align="start"
-      title={problem.title}
-      description={problem.detail}
+      title={
+        isBrokerUnreachable
+          ? t(keys.background_tasks.worker_health.broker_unreachable_title)
+          : t(keys.background_tasks.worker_health.no_workers_title, { count: backlog })
+      }
+      description={
+        isBrokerUnreachable
+          ? t(keys.background_tasks.worker_health.broker_unreachable_detail)
+          : t(keys.background_tasks.worker_health.no_workers_detail)
+      }
       action={
         <Button variant="outline" size="sm" asChild>
-          <Link href={`${VIEW_BASE}/workers`}>View workers</Link>
+          <Link href={`${VIEW_BASE}/workers`}>
+            {t(keys.background_tasks.worker_health.view_workers)}
+          </Link>
         </Button>
       }
     />

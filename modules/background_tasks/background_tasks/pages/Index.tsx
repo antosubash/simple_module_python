@@ -20,7 +20,7 @@ import {
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { Search, ServerCog } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ExecutionRow, statusLabel } from './components/ExecutionRow';
 import { type StatusCounts, StatusStrip } from './components/StatusStrip';
 import { TasksEmptyRow, type WorkerPresence } from './components/TasksEmpty';
@@ -83,7 +83,14 @@ function Index() {
   const backlog =
     (statusCounts?.[TASK_STATUS.PENDING] ?? 0) + (statusCounts?.[TASK_STATUS.RUNNING] ?? 0);
 
+  // Set right before an explicit clear resets `search`, so the debounce
+  // effect below — which would otherwise see `search` change and reschedule
+  // a navigation using the still-stale `statusValue` prop — skips that one
+  // run instead of re-applying the status filter `clearFilters` just cleared.
+  const skipNextDebounceRef = useRef(false);
+
   function clearFilters() {
+    skipNextDebounceRef.current = true;
     setSearch('');
     pushFilters({ status: STATUS_ALL, task_name: '' }, 1);
   }
@@ -91,6 +98,10 @@ function Index() {
   // Debounce search: any change from the server-provided value kicks off a
   // page-1 navigation 300ms after the user stops typing.
   useEffect(() => {
+    if (skipNextDebounceRef.current) {
+      skipNextDebounceRef.current = false;
+      return;
+    }
     if (search === (initialFilters.task_name ?? '')) return;
     const timeout = setTimeout(
       () => pushFilters({ status: statusValue, task_name: search }, 1),
