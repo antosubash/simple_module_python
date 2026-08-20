@@ -23,6 +23,18 @@ export interface FilterState {
   toDate: string;
 }
 
+/** The filters the server actually queried with — not the unapplied form
+ * state above. Shared by Browse (which receives it as props) and BrowseEmpty
+ * (which summarizes it) so the two can't drift apart field-for-field. */
+export interface AppliedFilters {
+  entity_type: string | null;
+  action: string | null;
+  user_id: string | null;
+  correlation_id: string | null;
+  from_date: string | null;
+  to_date: string | null;
+}
+
 interface FilterBarProps {
   state: FilterState;
   entity_types: string[];

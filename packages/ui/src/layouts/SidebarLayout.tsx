@@ -20,6 +20,12 @@ import { darkSurfaceLogo } from '../lib/brand';
 import type { MenuItem, SharedProps } from '../types';
 import { SidebarUserMenu } from './SidebarUserMenu';
 
+// A stable reference for "no items" — `menus?.[key] ?? []` would otherwise
+// mint a fresh empty array every render, and that array flows into
+// CommandPalette's `useMemo([navItems, accountItems])`, defeating it on every
+// render where a menu is absent instead of only when its contents change.
+const NO_ITEMS: MenuItem[] = [];
+
 function groupMenuItems(items: MenuItem[]): { group: string; items: MenuItem[] }[] {
   const groups: { group: string; items: MenuItem[] }[] = [];
   const indexByGroup = new Map<string, number>();
@@ -81,7 +87,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = () => setSidebarOpen(false);
 
-  const menuItems = menus?.[menuKey] ?? [];
+  const menuItems = menus?.[menuKey] ?? NO_ITEMS;
   const declaredSection = usePageSection(currentUrl);
   // Same "which entry does this page belong to" resolution AppTopbar uses for
   // the breadcrumb, so the sidebar highlight and the breadcrumb never disagree.
@@ -230,7 +236,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
           {auth?.user && (
             <SidebarUserMenu
               user={auth.user}
-              items={menus?.userDropdown ?? []}
+              items={menus?.userDropdown ?? NO_ITEMS}
               avatarBg={theme.avatarBg}
               hoverBg={theme.hoverBg}
               mutedTextClass={theme.mutedTextClass}
@@ -243,7 +249,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
         <main className="flex min-h-screen flex-col lg:ml-64">
           <AppTopbar
             navItems={menuItems}
-            accountItems={menus?.userDropdown ?? []}
+            accountItems={menus?.userDropdown ?? NO_ITEMS}
             currentUrl={currentUrl}
             activeMenuItem={active}
           />

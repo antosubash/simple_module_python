@@ -3,17 +3,7 @@ import { EmptyState } from '@simple-module-py/ui/components/EmptyState';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { ScrollText, SearchX } from 'lucide-react';
-import { ACTIONS } from './FilterBar';
-
-/** The filters the server actually queried with — not the unapplied form state. */
-export interface AppliedFilters {
-  entity_type: string | null;
-  action: string | null;
-  user_id: string | null;
-  correlation_id: string | null;
-  from_date: string | null;
-  to_date: string | null;
-}
+import { ACTIONS, type AppliedFilters } from './FilterBar';
 
 export function hasActiveFilters(applied: AppliedFilters): boolean {
   return Object.values(applied).some(Boolean);

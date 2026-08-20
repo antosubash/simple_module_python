@@ -268,5 +268,5 @@ async def test_connection(package: str, request: Request) -> dict:
         except Exception as exc:
             return {"name": check.name, "status": "unhealthy", "detail": str(exc)}
 
-    results = list(await asyncio.gather(*[_run_one(c) for c in checks]))
+    results = await asyncio.gather(*[_run_one(c) for c in checks])
     return {"module": owner.meta.name, "checks": results}

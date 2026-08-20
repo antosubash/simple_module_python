@@ -133,7 +133,11 @@ function Index() {
           onSelect={(status) => pushFilters({ status, task_name: search }, 1)}
         />
 
-        <WorkerHealthBanner backlog={backlog} />
+        {/* `statusCounts` (and therefore `backlog`) is scoped to the active
+            search/status filter — a narrowed view can read zero backlog while
+            the real fleet-wide queue is still stuck, so only trust it as a
+            health signal when nothing is filtering it. */}
+        {!isFiltered && <WorkerHealthBanner backlog={backlog} />}
 
         <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-sm">

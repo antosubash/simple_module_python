@@ -69,7 +69,8 @@ async def admin_index(
     # that page just got deleted) must be clamped and re-queried — otherwise
     # the client gets an empty `users` list with a nonzero `total`, which
     # renders a blank table instead of the last real page.
-    total_pages = max(1, math.ceil(total / per_page)) if per_page > 0 else 1
+    # per_page is already clamped to >= 1 above, so this can't divide by zero.
+    total_pages = max(1, math.ceil(total / per_page))
     if page > total_pages:
         page = total_pages
         users, total = await service.list_users(page=page, **filters)

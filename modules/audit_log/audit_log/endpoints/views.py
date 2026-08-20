@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -56,17 +57,26 @@ async def browse(
     # Sanitize pagination — never raise a validation error for bad values.
     page_int = max(_safe_int(page, 1), 1)
     page_size_int = max(1, min(_safe_int(page_size, DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE))
-    result = await service.list_entries(
-        entity_type=entity_type,
-        entity_id=entity_id,
-        action=action,
-        user_id=user_id,
-        correlation_id=correlation_id,
-        from_date=from_date,
-        to_date=to_date,
-        page=page_int,
-        page_size=page_size_int,
-    )
+    list_kwargs = {
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "action": action,
+        "user_id": user_id,
+        "correlation_id": correlation_id,
+        "from_date": from_date,
+        "to_date": to_date,
+        "page_size": page_size_int,
+    }
+    result = await service.list_entries(page=page_int, **list_kwargs)
+    # A page requested past the end (a stale ?page= link, or a correlation
+    # pivot whose result set shrank between load and click) must be clamped
+    # and re-queried — otherwise the client gets an empty `items` list with a
+    # nonzero `total`, which renders the correlation banner ("N entries") right
+    # above an empty-state saying nothing matches.
+    total_pages = max(1, math.ceil(result.total / page_size_int))
+    if page_int > total_pages:
+        page_int = total_pages
+        result = await service.list_entries(page=page_int, **list_kwargs)
     entity_types = await service.distinct_entity_types()
 
     # Resolve ids for display only — the stored row keeps the bare id, which

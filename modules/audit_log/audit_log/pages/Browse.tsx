@@ -18,7 +18,7 @@ import { useState } from 'react';
 import { BrowseEmpty } from './components/BrowseEmpty';
 import { CorrelationBanner, CorrelationLink } from './components/Correlation';
 import { ActorCell, EntityCell, type EntityRef } from './components/EntryCells';
-import { ALL, FilterBar, type FilterState } from './components/FilterBar';
+import { ALL, type AppliedFilters, FilterBar, type FilterState } from './components/FilterBar';
 
 interface Change {
   field: string;
@@ -42,23 +42,15 @@ interface AuditEntryRead {
   created_at: string;
 }
 
-interface Filters {
-  entity_type: string | null;
-  action: string | null;
-  user_id: string | null;
-  /** Set only by the per-row "Related" pivot — it has no control in FilterBar. */
-  correlation_id: string | null;
-  from_date: string | null;
-  to_date: string | null;
-}
-
 interface Props {
   items: AuditEntryRead[];
   total: number;
   page: number;
   page_size: number;
   entity_types: string[];
-  filters: Filters;
+  /** `correlation_id` is set only by the per-row "Related" pivot — it has no
+   * control in FilterBar. */
+  filters: AppliedFilters;
 }
 
 const ACTION_BADGE: Record<string, string> = {
@@ -108,6 +100,14 @@ function ChangesList({ entry }: { entry: AuditEntryRead }) {
   );
 }
 
+const CLEARED: FilterState = {
+  entityType: ALL,
+  action: ALL,
+  userId: '',
+  fromDate: '',
+  toDate: '',
+};
+
 function Browse() {
   const { items, total, page, page_size, entity_types, filters } = usePage<{ props: Props }>()
     .props as unknown as Props;
@@ -136,14 +136,6 @@ function Browse() {
     if (page_size !== 50) p.page_size = String(page_size);
     router.visit(`/audit_log?${new URLSearchParams(p).toString()}`);
   }
-
-  const CLEARED: FilterState = {
-    entityType: ALL,
-    action: ALL,
-    userId: '',
-    fromDate: '',
-    toDate: '',
-  };
 
   function handleClear() {
     setState(CLEARED);
