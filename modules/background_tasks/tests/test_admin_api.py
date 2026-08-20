@@ -61,6 +61,19 @@ class TestListExecutions:
         names = [i["task_name"] for i in resp.json()["items"]]
         assert names == ["demo.bad"]
 
+    async def test_search_matches_like_metacharacters_literally(
+        self, app, authenticated_client: httpx.AsyncClient
+    ):
+        """A literal "_" or "%" in the search must match as text, not wildcard."""
+        await _seed_failed(app, task_name="cleanup_old")
+        await _seed_failed(app, task_name="cleanupXold")
+
+        resp = await authenticated_client.get(
+            f"{ADMIN_BASE}/executions", params={"task_name": "cleanup_old"}
+        )
+        assert resp.status_code == 200
+        assert [i["task_name"] for i in resp.json()["items"]] == ["cleanup_old"]
+
     async def test_page_past_the_end_clamps_instead_of_reporting_zero(
         self, app, authenticated_client: httpx.AsyncClient
     ):

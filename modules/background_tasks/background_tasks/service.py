@@ -24,6 +24,15 @@ if TYPE_CHECKING:
     from celery import Celery
 
 
+def _contains_pattern(term: str) -> str:
+    """Contains-match LIKE pattern with metacharacters escaped, so a literal
+    ``%`` or ``_`` in a search term matches as text, not as a wildcard —
+    task names are full of underscores. Pair with ``ilike(..., escape="\\\\")``.
+    """
+    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
 class BackgroundTaskService:
     """List, fetch, and retry task executions.
 
@@ -59,7 +68,9 @@ class BackgroundTaskService:
         if status is not None:
             conditions.append(TaskExecution.status == status)
         if task_name:
-            conditions.append(TaskExecution.task_name.ilike(f"%{task_name}%"))
+            conditions.append(
+                TaskExecution.task_name.ilike(_contains_pattern(task_name), escape="\\")
+            )
 
         # A window-function total lets us fetch the page and the count in a
         # single round trip. SQLAlchemy's ``AsyncSession`` serialises calls on
@@ -113,7 +124,9 @@ class BackgroundTaskService:
         """
         query = select(TaskExecution.status, func.count().label("n"))
         if task_name:
-            query = query.where(TaskExecution.task_name.ilike(f"%{task_name}%"))
+            query = query.where(
+                TaskExecution.task_name.ilike(_contains_pattern(task_name), escape="\\")
+            )
         query = query.group_by(TaskExecution.status)
 
         rows = (await self.db.execute(query)).all()

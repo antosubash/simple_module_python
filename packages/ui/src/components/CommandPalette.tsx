@@ -8,7 +8,7 @@ import {
   CommandList,
 } from '@simple-module-py/ui/components/ui/command';
 import { Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { MenuItem } from '../types';
 import { NavIcon } from './NavIcon';
 
@@ -54,20 +54,23 @@ export function CommandPalette({ navItems, accountItems }: CommandPaletteProps) 
     else router.visit(item.url);
   };
 
-  const groups: Record<string, MenuItem[]> = {};
-  for (const item of navItems) {
-    const key = groupOf(item);
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(item);
-  }
-  // Account actions render through the same loop as every other group —
-  // folded in last so they keep sorting after Navigation, matching where
-  // "log out" otherwise lives, behind the avatar dropdown. Merged rather than
-  // assigned: a nav item whose own `group` happens to be "Account" must not
-  // silently vanish from the palette.
-  if (accountItems.length > 0) {
-    groups.Account = [...(groups.Account ?? []), ...accountItems];
-  }
+  const groups = useMemo(() => {
+    const bucketed: Record<string, MenuItem[]> = {};
+    for (const item of navItems) {
+      const key = groupOf(item);
+      if (!bucketed[key]) bucketed[key] = [];
+      bucketed[key].push(item);
+    }
+    // Account actions render through the same loop as every other group —
+    // folded in last so they keep sorting after Navigation, matching where
+    // "log out" otherwise lives, behind the avatar dropdown. Merged rather
+    // than assigned: a nav item whose own `group` happens to be "Account"
+    // must not silently vanish from the palette.
+    if (accountItems.length > 0) {
+      bucketed.Account = [...(bucketed.Account ?? []), ...accountItems];
+    }
+    return bucketed;
+  }, [navItems, accountItems]);
 
   return (
     <>

@@ -60,6 +60,9 @@ export function AppTopbar({ navItems, accountItems, currentUrl }: AppTopbarProps
   const section = activeSection(navItems, currentUrl) ?? findSection(navItems, declared);
   // Only a genuine sub-page earns a second crumb — on a section's own index the
   // heading and the section name are the same word, and "Users / Users" is noise.
+  // This is a naming convention, not a guarantee: a sub-page whose title equals
+  // its section's menu label would collapse to one crumb too. Title your
+  // sub-pages more specifically than their section.
   const leaf = heading && heading !== section?.label ? heading : null;
 
   return (
