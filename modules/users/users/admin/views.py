@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -49,16 +50,24 @@ async def admin_index(
     clean_status, clean_verified, clean_sort, clean_order = sanitize_list_filters(
         status, verified, sort, order
     )
-    users, total = await service.list_users(
-        page=page,
-        per_page=per_page,
-        search=q,
-        status=clean_status,
-        role_name=role or None,
-        verified=clean_verified,
-        sort=clean_sort,
-        order=clean_order,
-    )
+    filters = {
+        "per_page": per_page,
+        "search": q,
+        "status": clean_status,
+        "role_name": role or None,
+        "verified": clean_verified,
+        "sort": clean_sort,
+        "order": clean_order,
+    }
+    users, total = await service.list_users(page=page, **filters)
+    # A page requested past the end (a stale ?page= link, or the last row on
+    # that page just got deleted) must be clamped and re-queried — otherwise
+    # the client gets an empty `users` list with a nonzero `total`, which
+    # renders a blank table instead of the last real page.
+    total_pages = max(1, math.ceil(total / per_page)) if per_page > 0 else 1
+    if page > total_pages:
+        page = total_pages
+        users, total = await service.list_users(page=page, **filters)
     roles = await service.list_roles()
     aggregates = await service.count_user_states()
     return await inertia.render(

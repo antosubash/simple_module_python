@@ -12,9 +12,11 @@ from simple_module_db.migrations import (
 )
 from simple_module_db.mixins import AuditMixin, MultiTenantMixin, SoftDeleteMixin, VersionedMixin
 from simple_module_db.provider import DatabaseProvider, detect_provider
+from simple_module_db.search import LIKE_ESCAPE_CHAR, like_contains_pattern
 from simple_module_db.session import DatabaseState, init_db
 
 __all__ = [
+    "LIKE_ESCAPE_CHAR",
     "AuditMixin",
     "AuditRecord",
     "DatabaseProvider",
@@ -29,6 +31,7 @@ __all__ = [
     "detect_provider",
     "get_db",
     "init_db",
+    "like_contains_pattern",
     "make_include_object",
     "make_process_revision_directives",
     "render_item",

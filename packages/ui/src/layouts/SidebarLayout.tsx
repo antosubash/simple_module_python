@@ -245,6 +245,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
             navItems={menuItems}
             accountItems={menus?.userDropdown ?? []}
             currentUrl={currentUrl}
+            activeMenuItem={active}
           />
           <div className="flex-1">{children}</div>
           <BrandingFooter

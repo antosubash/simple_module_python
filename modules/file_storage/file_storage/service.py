@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import UploadFile
+from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -186,8 +187,9 @@ class FileStorageService:
         if search:
             # Escape LIKE metacharacters so a literal "%" or "_" in a
             # filename search is matched as text, not treated as a wildcard.
-            escaped_search = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            clauses.append(StoredFile.filename.ilike(f"%{escaped_search}%", escape="\\"))
+            clauses.append(
+                StoredFile.filename.ilike(like_contains_pattern(search), escape=LIKE_ESCAPE_CHAR)
+            )
         if content_type:
             # A trailing "/" means a whole family ("image/"), anything else is
             # an exact type ("application/pdf"). Families are what make the

@@ -58,16 +58,27 @@ async def index(
         page=page,
         per_page=PER_PAGE,
     )
-    counts = await service.status_counts(task_name=task_name or None)
     # A filtered-empty list says nothing about the fleet, so don't pay to poll
     # it: the screen already knows to blame the filter.
     unfiltered_and_empty = response.total == 0 and not task_name and status is None
+    # `_worker_presence` polls the broker over a thread, not the DB session
+    # `status_counts` uses — the two don't share state, so run them
+    # concurrently instead of paying the ~1s inspect timeout serially on top
+    # of the count query.
+    if unfiltered_and_empty:
+        counts, presence = await asyncio.gather(
+            service.status_counts(task_name=task_name or None),
+            _worker_presence(request),
+        )
+    else:
+        counts = await service.status_counts(task_name=task_name or None)
+        presence = None
     return await inertia.render(
         "BackgroundTasks/Index",
         {
             "executions": [i.model_dump(mode="json") for i in response.items],
             "status_counts": {s.value: counts.get(s.value, 0) for s in TaskStatus},
-            "worker_presence": await _worker_presence(request) if unfiltered_and_empty else None,
+            "worker_presence": presence,
             "pagination": {
                 "page": response.page,
                 "per_page": response.per_page,

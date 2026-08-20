@@ -35,12 +35,8 @@ async def browse(
     # clamp below so no value of ?page= can produce a raw validation-error
     # page for a browser-facing route.
     page = max(page, 1)
-    items, total = await service.list_files(
-        page=page,
-        per_page=_PER_PAGE,
-        search=q or None,
-        content_type=content_type or None,
-    )
+    filters = {"per_page": _PER_PAGE, "search": q or None, "content_type": content_type or None}
+    items, total = await service.list_files(page=page, **filters)
     # A page requested past the end (e.g. reloading after deleting the last
     # row on that page, or a stale ?page= link) must be clamped and
     # re-queried — otherwise the client gets an empty `files` list with a
@@ -49,12 +45,7 @@ async def browse(
     total_pages = max(1, math.ceil(total / _PER_PAGE))
     if page > total_pages:
         page = total_pages
-        items, total = await service.list_files(
-            page=page,
-            per_page=_PER_PAGE,
-            search=q or None,
-            content_type=content_type or None,
-        )
+        items, total = await service.list_files(page=page, **filters)
     # Facets ignore the active filters so the dropdown keeps offering the
     # other types — a filter that hides its own alternatives is a dead end.
     facets = await service.content_type_facets()

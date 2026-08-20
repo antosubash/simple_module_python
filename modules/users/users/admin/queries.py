@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 
+from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -12,15 +13,6 @@ from users.contracts.schemas import RoleListItem, UserListItem
 from users.exceptions import UserNotFoundError
 from users.manager import UserManager
 from users.models import Role, User, UserRole
-
-
-def _contains_pattern(term: str) -> str:
-    """Contains-match LIKE pattern with metacharacters escaped, so a literal
-    ``%`` or ``_`` in a search term matches as text, not as a wildcard.
-    Pair with ``ilike(..., escape="\\\\")``.
-    """
-    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    return f"%{escaped}%"
 
 
 class _UserServiceBase:
@@ -127,11 +119,11 @@ class _UserServiceBase:
         conditions = []
 
         if search:
-            pattern = _contains_pattern(search)
+            pattern = like_contains_pattern(search)
             conditions.append(
                 or_(
-                    User.email.ilike(pattern, escape="\\"),
-                    User.full_name.ilike(pattern, escape="\\"),
+                    User.email.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
+                    User.full_name.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
                 )
             )
 

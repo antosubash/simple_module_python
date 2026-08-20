@@ -17,6 +17,13 @@ interface AppTopbarProps {
   navItems: MenuItem[];
   accountItems: MenuItem[];
   currentUrl: string;
+  /**
+   * Pre-resolved active section, when the caller already computed it (the
+   * sidebar needs the same answer to highlight its own entry, and walking
+   * `navItems` twice for one render is wasted work). Falls back to resolving
+   * it locally when omitted, so other callers don't have to.
+   */
+  activeMenuItem?: MenuItem | null;
 }
 
 /**
@@ -51,13 +58,16 @@ export function findSection(items: MenuItem[], sectionUrl: string | null): MenuI
  * second 56px strip under it would spend a tenth of a phone screen restating
  * the heading that is about to be rendered directly beneath it.
  */
-export function AppTopbar({ navItems, accountItems, currentUrl }: AppTopbarProps) {
+export function AppTopbar({ navItems, accountItems, currentUrl, activeMenuItem }: AppTopbarProps) {
   const heading = usePageHeading(currentUrl);
   const declared = usePageSection(currentUrl);
   // Url match first; a declared section only fills the gap for pages that sit
   // outside their section's path. Looked up in the menu the viewer can see, so
   // it never offers a parent they'd be refused at.
-  const section = activeSection(navItems, currentUrl) ?? findSection(navItems, declared);
+  const section =
+    activeMenuItem !== undefined
+      ? activeMenuItem
+      : (activeSection(navItems, currentUrl) ?? findSection(navItems, declared));
   // Only a genuine sub-page earns a second crumb — on a section's own index the
   // heading and the section name are the same word, and "Users / Users" is noise.
   // This is a naming convention, not a guarantee: a sub-page whose title equals

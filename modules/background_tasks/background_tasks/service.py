@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, status
 from simple_module_core.events import EventBus
+from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from sqlalchemy import Row, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,15 +23,6 @@ from background_tasks.models import TaskExecution
 
 if TYPE_CHECKING:
     from celery import Celery
-
-
-def _contains_pattern(term: str) -> str:
-    """Contains-match LIKE pattern with metacharacters escaped, so a literal
-    ``%`` or ``_`` in a search term matches as text, not as a wildcard —
-    task names are full of underscores. Pair with ``ilike(..., escape="\\\\")``.
-    """
-    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    return f"%{escaped}%"
 
 
 class BackgroundTaskService:
@@ -69,7 +61,9 @@ class BackgroundTaskService:
             conditions.append(TaskExecution.status == status)
         if task_name:
             conditions.append(
-                TaskExecution.task_name.ilike(_contains_pattern(task_name), escape="\\")
+                TaskExecution.task_name.ilike(
+                    like_contains_pattern(task_name), escape=LIKE_ESCAPE_CHAR
+                )
             )
 
         # A window-function total lets us fetch the page and the count in a
@@ -125,7 +119,9 @@ class BackgroundTaskService:
         query = select(TaskExecution.status, func.count().label("n"))
         if task_name:
             query = query.where(
-                TaskExecution.task_name.ilike(_contains_pattern(task_name), escape="\\")
+                TaskExecution.task_name.ilike(
+                    like_contains_pattern(task_name), escape=LIKE_ESCAPE_CHAR
+                )
             )
         query = query.group_by(TaskExecution.status)
 
