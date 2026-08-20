@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from fastapi import APIRouter, Depends
 from inertia import InertiaResponse
 from simple_module_hosting.inertia_deps import InertiaDep
@@ -34,6 +36,20 @@ async def browse(
         search=q or None,
         content_type=content_type or None,
     )
+    # A page requested past the end (e.g. reloading after deleting the last
+    # row on that page, or a stale ?page= link) must be clamped and
+    # re-queried — otherwise the client gets an empty `files` list with a
+    # nonzero `total`, which satisfies neither the "no results" empty state
+    # nor the "more than one page" pager condition and renders a blank table.
+    total_pages = max(1, math.ceil(total / _PER_PAGE))
+    if page > total_pages:
+        page = total_pages
+        items, total = await service.list_files(
+            page=page,
+            per_page=_PER_PAGE,
+            search=q or None,
+            content_type=content_type or None,
+        )
     # Facets ignore the active filters so the dropdown keeps offering the
     # other types — a filter that hides its own alternatives is a dead end.
     facets = await service.content_type_facets()

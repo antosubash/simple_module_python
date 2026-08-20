@@ -9,6 +9,8 @@ strings below match what ``pages/*.tsx`` declare.
 
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from inertia import InertiaResponse
 from pydantic import ValidationError
@@ -257,13 +259,21 @@ async def test_connection(package: str, request: Request) -> dict:
     if not checks:
         raise HTTPException(status_code=404, detail=f"{owner.meta.name} has no connection to test")
 
-    results = []
-    for check in checks:
+    # Run independently of one another — a module can register several checks
+    # (e.g. SMTP + primary storage + backup storage), and sequentially awaiting
+    # each one would block the request for the sum of their latencies instead
+    # of the slowest one, the same reasoning dashboard.stats._run_health_checks
+    # already applies to probe checks.
+    async def _run_one(check) -> dict:
         try:
             outcome = await check.check()
-            results.append(
-                {"name": check.name, "status": outcome.status.value, "detail": outcome.detail or ""}
-            )
+            return {
+                "name": check.name,
+                "status": outcome.status.value,
+                "detail": outcome.detail or "",
+            }
         except Exception as exc:
-            results.append({"name": check.name, "status": "unhealthy", "detail": str(exc)})
+            return {"name": check.name, "status": "unhealthy", "detail": str(exc)}
+
+    results = list(await asyncio.gather(*[_run_one(c) for c in checks]))
     return {"module": owner.meta.name, "checks": results}

@@ -3,6 +3,7 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
+import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { useState } from 'react';
 
 interface Props {
@@ -38,7 +39,7 @@ function ResetPassword() {
     })
       .then(async (res) => {
         if (res.status === 200 || res.status === 204) {
-          router.visit('/users/login');
+          router.visit(LOGIN_PATH);
         } else {
           const data = await res.json().catch(() => ({}));
           const detail =

@@ -184,7 +184,10 @@ class FileStorageService:
         if created_by is not None:
             clauses.append(StoredFile.created_by == created_by)
         if search:
-            clauses.append(StoredFile.filename.ilike(f"%{search}%"))
+            # Escape LIKE metacharacters so a literal "%" or "_" in a
+            # filename search is matched as text, not treated as a wildcard.
+            escaped_search = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            clauses.append(StoredFile.filename.ilike(f"%{escaped_search}%", escape="\\"))
         if content_type:
             # A trailing "/" means a whole family ("image/"), anything else is
             # an exact type ("application/pdf"). Families are what make the
