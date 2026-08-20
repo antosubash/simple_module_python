@@ -177,9 +177,7 @@ function Browse() {
           onClear={handleClear}
         />
 
-        {filters.correlation_id && (
-          <CorrelationBanner count={total} onClear={() => navigate(state, 1, null)} />
-        )}
+        {filters.correlation_id && <CorrelationBanner count={total} onClear={handleClear} />}
 
         {items.length === 0 ? (
           <BrowseEmpty applied={filters} onClear={handleClear} />

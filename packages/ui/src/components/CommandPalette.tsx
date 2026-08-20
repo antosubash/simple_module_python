@@ -60,6 +60,10 @@ export function CommandPalette({ navItems, accountItems }: CommandPaletteProps) 
     if (!groups[key]) groups[key] = [];
     groups[key].push(item);
   }
+  // Account actions render through the same loop as every other group —
+  // folded in last so they keep sorting after Navigation, matching where
+  // "log out" otherwise lives, behind the avatar dropdown.
+  if (accountItems.length > 0) groups.Account = accountItems;
 
   return (
     <>
@@ -96,20 +100,6 @@ export function CommandPalette({ navItems, accountItems }: CommandPaletteProps) 
               ))}
             </CommandGroup>
           ))}
-          {accountItems.length > 0 && (
-            <CommandGroup heading="Account">
-              {accountItems.map((item) => (
-                <CommandItem
-                  key={item.url}
-                  value={`account ${item.label}`}
-                  onSelect={() => go(item)}
-                >
-                  <NavIcon name={item.icon} />
-                  {item.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          )}
         </CommandList>
       </CommandDialog>
     </>

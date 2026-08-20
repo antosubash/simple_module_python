@@ -11,7 +11,9 @@ import {
 } from '@simple-module-py/ui/components/ui/select';
 
 export const ALL = '__all__';
-const ACTIONS = ['created', 'updated', 'deleted', 'soft_deleted'] as const;
+/** Exported so other panels (the empty-state filter summary) name the same
+ * set of actions instead of hand-copying it and risking drift. */
+export const ACTIONS = ['created', 'updated', 'deleted', 'soft_deleted'] as const;
 
 export interface FilterState {
   entityType: string;

@@ -7,7 +7,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@simple-module-py/ui/components/ui/breadcrumb';
-import { isUnder, samePath, toPath } from '../lib/current-path';
+import { isUnder, samePath, trimmed } from '../lib/current-path';
 import type { MenuItem } from '../types';
 import { CommandPalette } from './CommandPalette';
 import { LocaleSwitcher } from './LocaleSwitcher';
@@ -29,7 +29,10 @@ export function activeSection(items: MenuItem[], url: string): MenuItem | null {
   let best: MenuItem | null = null;
   for (const item of items) {
     if (!isUnder(url, item.url)) continue;
-    if (!best || toPath(item.url).length > toPath(best.url).length) best = item;
+    // Compare the same normalized (trailing-slash-trimmed) path that isUnder
+    // itself matched on — comparing raw string length here would let a lone
+    // trailing slash outweigh a real path segment and pick the wrong item.
+    if (!best || trimmed(item.url).length > trimmed(best.url).length) best = item;
   }
   return best;
 }

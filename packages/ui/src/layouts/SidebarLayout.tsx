@@ -8,7 +8,7 @@ import {
 } from '@simple-module-py/ui/components/ui/tooltip';
 import type React from 'react';
 import { useState } from 'react';
-import { AppTopbar } from '../components/AppTopbar';
+import { AppTopbar, activeSection, findSection } from '../components/AppTopbar';
 import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
@@ -17,7 +17,6 @@ import { LocaleSwitcher } from '../components/LocaleSwitcher';
 import { NavIcon } from '../components/NavIcon';
 import { PageHeadingProvider, usePageSection } from '../components/page-heading';
 import { darkSurfaceLogo } from '../lib/brand';
-import { isUnder } from '../lib/current-path';
 import type { MenuItem, SharedProps } from '../types';
 import { SidebarUserMenu } from './SidebarUserMenu';
 
@@ -84,12 +83,19 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
 
   const menuItems = menus?.[menuKey] ?? [];
   const declaredSection = usePageSection(currentUrl);
+  // Same "which entry does this page belong to" resolution AppTopbar uses for
+  // the breadcrumb, so the sidebar highlight and the breadcrumb never disagree.
+  const active = activeSection(menuItems, currentUrl) ?? findSection(menuItems, declaredSection);
 
   return (
     <TooltipProvider>
       <BrandingHead />
       <BrandingBanner />
-      <div className="min-h-screen bg-background">
+      {/* --app-chrome-h names the height of the bar above the content — the
+          topbar on lg, the mobile bar below it, both h-14 and mutually
+          exclusive. Pages that must fill the viewport subtract it instead of
+          hardcoding the pixel value. */}
+      <div className="min-h-screen bg-background [--app-chrome-h:3.5rem]">
         {/* Mobile top bar */}
         <div
           className={`sticky top-0 z-40 flex h-14 items-center gap-3 ${theme.sidebarBg} px-4 lg:hidden`}
@@ -192,9 +198,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
                   </div>
                 )}
                 {group.items.map((item, index) => {
-                  const isActive =
-                    isUnder(currentUrl, item.url) ||
-                    (!!declaredSection && isUnder(declaredSection, item.url));
+                  const isActive = active?.url === item.url;
                   return (
                     <Tooltip key={item.url}>
                       <TooltipTrigger asChild>

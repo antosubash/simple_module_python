@@ -3,6 +3,7 @@ import { EmptyState } from '@simple-module-py/ui/components/EmptyState';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { ScrollText, SearchX } from 'lucide-react';
+import { ACTIONS } from './FilterBar';
 
 /** The filters the server actually queried with — not the unapplied form state. */
 export interface AppliedFilters {
@@ -18,22 +19,21 @@ export function hasActiveFilters(applied: AppliedFilters): boolean {
   return Object.values(applied).some(Boolean);
 }
 
-/** Spelled out rather than indexed: `t` needs a literal key, not a computed string. */
-const ACTION_LABELS = {
-  created: keys.audit_log.actions.created,
-  updated: keys.audit_log.actions.updated,
-  deleted: keys.audit_log.actions.deleted,
-  soft_deleted: keys.audit_log.actions.soft_deleted,
-} as const;
-
-/** The translated action name, falling back to the raw value for anything unmapped. */
+/**
+ * The translated action name, falling back to the raw value for anything
+ * unmapped. Checked against FilterBar's own `ACTIONS` list — the same set
+ * that drives its dropdown — so a new action added there is translated here
+ * too, instead of silently falling back until this file is remembered.
+ */
 function actionLabel(
-  t: (key: (typeof ACTION_LABELS)[keyof typeof ACTION_LABELS]) => string,
+  t: (key: (typeof keys.audit_log.actions)[ActionKey]) => string,
   action: string,
 ): string {
-  const key = ACTION_LABELS[action as keyof typeof ACTION_LABELS];
-  return key ? t(key) : action;
+  const known = (ACTIONS as readonly string[]).includes(action);
+  return known ? t(keys.audit_log.actions[action as ActionKey]) : action;
 }
+
+type ActionKey = (typeof ACTIONS)[number];
 
 interface BrowseEmptyProps {
   applied: AppliedFilters;

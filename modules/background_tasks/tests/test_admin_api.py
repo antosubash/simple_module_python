@@ -61,6 +61,25 @@ class TestListExecutions:
         names = [i["task_name"] for i in resp.json()["items"]]
         assert names == ["demo.bad"]
 
+    async def test_page_past_the_end_clamps_instead_of_reporting_zero(
+        self, app, authenticated_client: httpx.AsyncClient
+    ):
+        """A stale bookmark or a manually-edited ?page= must not look empty.
+
+        The listing's total rides along on a window-function column that only
+        comes back on a row that's actually returned, so a page past the last
+        one — for example after rows were retried away — could previously
+        report ``total=0`` even though matching rows exist on an earlier page.
+        """
+        await _seed_failed(app, task_name="demo.a")
+
+        resp = await authenticated_client.get(f"{ADMIN_BASE}/executions", params={"page": 9})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total"] == 1
+        assert body["page"] == 1
+        assert [i["task_name"] for i in body["items"]] == ["demo.a"]
+
 
 class TestGetExecution:
     async def test_returns_detail(self, app, authenticated_client: httpx.AsyncClient):

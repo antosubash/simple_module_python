@@ -36,10 +36,9 @@ function ModulesEdit({ modules, testable = [] }: Props) {
   return (
     <>
       <Head title="Modules" />
-      {/* Master/detail pane sized against the chrome above it. Both bars are
-          h-14 and mutually exclusive — the topbar on lg, the mobile bar below
-          it — so 56px is exact at every width. */}
-      <div className="flex h-[calc(100vh-56px)] bg-background">
+      {/* Master/detail pane fills the viewport minus the chrome above it,
+          whose height the layout publishes as --app-chrome-h. */}
+      <div className="flex h-[calc(100vh-var(--app-chrome-h))] bg-background">
         <aside className="w-72 shrink-0 border-r border-border bg-secondary/30 overflow-y-auto">
           <div className="p-3">
             <div className="relative">

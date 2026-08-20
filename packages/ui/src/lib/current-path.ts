@@ -20,7 +20,7 @@ export function toPath(url: string): string {
 }
 
 /** Path with any trailing slashes removed, so `/files/` and `/files` compare equal. */
-function trimmed(url: string): string {
+export function trimmed(url: string): string {
   return toPath(url).replace(/\/+$/, '');
 }
 

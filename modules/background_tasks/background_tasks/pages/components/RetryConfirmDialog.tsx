@@ -10,6 +10,7 @@ import {
   AlertDialogTrigger,
 } from '@simple-module-py/ui/components/ui/alert-dialog';
 import type { ReactNode } from 'react';
+import { useMemo } from 'react';
 
 interface Props {
   trigger: ReactNode;
@@ -31,6 +32,11 @@ function format(value: unknown): string {
 export function RetryConfirmDialog({ trigger, onConfirm, taskName, args, kwargs }: Props) {
   const hasArgs = args.length > 0;
   const hasKwargs = Object.keys(kwargs).length > 0;
+  // One dialog is mounted per retryable row (up to a full page of them), so
+  // this is re-evaluated on every re-render of the row above it — memoize
+  // rather than re-stringify a payload that hasn't changed.
+  const formattedArgs = useMemo(() => (hasArgs ? format(args) : ''), [hasArgs, args]);
+  const formattedKwargs = useMemo(() => (hasKwargs ? format(kwargs) : ''), [hasKwargs, kwargs]);
 
   return (
     <AlertDialog>
@@ -51,13 +57,13 @@ export function RetryConfirmDialog({ trigger, onConfirm, taskName, args, kwargs 
             {hasArgs && (
               <div className="flex gap-2">
                 <dt className="shrink-0 text-muted-foreground">args:</dt>
-                <dd className="min-w-0 break-all">{format(args)}</dd>
+                <dd className="min-w-0 break-all">{formattedArgs}</dd>
               </div>
             )}
             {hasKwargs && (
               <div className="flex gap-2">
                 <dt className="shrink-0 text-muted-foreground">kwargs:</dt>
-                <dd className="min-w-0 break-all">{format(kwargs)}</dd>
+                <dd className="min-w-0 break-all">{formattedKwargs}</dd>
               </div>
             )}
           </dl>
