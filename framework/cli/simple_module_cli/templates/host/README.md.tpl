@@ -36,6 +36,8 @@ migrations on container start.
 ```bash
 # 1) install the module package (e.g. from PyPI)
 uv add simple_module_my_module
+# or straight from a git repo (any host, private included):
+smpy add git+https://github.com/you/your-module@v1.2.0
 
 # 2) generate & apply the migration (new tables + any schema changes)
 alembic revision --autogenerate -m "add my-module"

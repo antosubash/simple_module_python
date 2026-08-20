@@ -7,6 +7,7 @@ how the factory below gets shared.
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -43,3 +44,76 @@ def make_importable_module(tmp_path: Path):
         return klass(), pkg
 
     return _make
+
+
+def _git(repo: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", *args],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        env={
+            "GIT_AUTHOR_NAME": "t",
+            "GIT_AUTHOR_EMAIL": "t@t",
+            "GIT_COMMITTER_NAME": "t",
+            "GIT_COMMITTER_EMAIL": "t@t",
+            "HOME": str(repo),
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+            "GIT_CONFIG_SYSTEM": "/dev/null",
+        },
+    )
+
+
+def _write_module_pkg(root: Path, dist_name: str, version: str, *, models: bool) -> None:
+    pkg = dist_name.replace("-", "_")
+    (root / pkg).mkdir(parents=True)
+    (root / pkg / "__init__.py").write_text("", encoding="utf-8")
+    (root / pkg / "module.py").write_text("class M:\n    pass\n", encoding="utf-8")
+    if models:
+        (root / pkg / "models.py").write_text("# tables\n", encoding="utf-8")
+    (root / "pyproject.toml").write_text(
+        f'[project]\nname = "{dist_name}"\nversion = "{version}"\n'
+        f'dependencies = ["simple_module_core>=0.1,<1.0"]\n\n'
+        f"[project.entry-points.simple_module]\n"
+        f'{pkg} = "{pkg}.module:M"\n',
+        encoding="utf-8",
+    )
+
+
+@pytest.fixture
+def make_git_module_repo(tmp_path: Path):
+    """Factory: build a local git repo holding one or more module packages.
+
+    ``modules`` is a list of ``(dist_name, version, subdir_or_None,
+    ships_models)`` tuples; ``tags`` are created at HEAD. Returns the repo
+    path — use ``git+`` + ``.as_uri()`` to feed it to `smpy add` specs.
+    """
+
+    counter = {"n": 0}
+
+    def factory(
+        modules: list[tuple[str, str, str | None, bool]],
+        *,
+        tags: list[str] | None = None,
+        extra_pyproject_dirs: list[str] | None = None,
+    ) -> Path:
+        counter["n"] += 1
+        repo = tmp_path / f"repo{counter['n']}"
+        repo.mkdir()
+        for dist_name, version, subdir, models in modules:
+            root = repo / subdir if subdir else repo
+            root.mkdir(parents=True, exist_ok=True)
+            _write_module_pkg(root, dist_name, version, models=models)
+        for d in extra_pyproject_dirs or []:
+            (repo / d).mkdir(parents=True, exist_ok=True)
+            (repo / d / "pyproject.toml").write_text(
+                '[project]\nname = "not-a-module"\nversion = "0"\n', encoding="utf-8"
+            )
+        _git(repo, "init", "-q", "-b", "main")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-q", "-m", "init")
+        for tag in tags or []:
+            _git(repo, "tag", tag)
+        return repo
+
+    return factory

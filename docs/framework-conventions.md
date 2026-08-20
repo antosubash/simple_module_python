@@ -54,6 +54,8 @@ The framework calls `discover_modules()` at app-build time. No manual wiring in 
 
 In production (`SM_ENVIRONMENT != development`) discovery runs in **strict mode**: any entry-point load failure or structural error (missing `meta`, wrong base class) raises `InvalidModuleError` at boot. In development, errors are logged and the module is skipped.
 
+Discovery is source-agnostic: a module installed from PyPI, a git repo (`smpy add git+…`), or a local path is found identically. Modules distributed via git release by tagging: repo-wide lockstep `vX.Y.Z` tags where the tag version equals every contained package's declared version. Hosts pin one ref per repo; `smpy update` moves all modules from the same repo together.
+
 ## Middleware pipeline
 
 Starlette's `add_middleware` is **LIFO** — the last middleware added is the first executed on a request. The framework installs middleware in this order inside `create_app`:

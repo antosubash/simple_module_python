@@ -1,7 +1,8 @@
 # Module authoring guide
 
 This is the reference for authoring a module that is installable from PyPI
-and assembled into a host by the `smpy create-host` scaffold. It describes the
+**or any git repo** and assembled into a host by the `smpy create-host`
+scaffold. It describes the
 contract a module must follow, the env-var conventions, the migration
 workflow the host developer uses, and the API-version / semver rules.
 
@@ -33,6 +34,43 @@ GitHub only runs workflows from the repository-root `.github/workflows/`, so a
 nested per-module one never runs, and `publish.yml` would be a publish footgun.
 Pass `--standalone` to force the workflows for a module destined for its own
 repo. See GH #210.
+
+## Distributing via git
+
+A module does not need PyPI. Any git repo whose package declares
+`[project.entry-points.simple_module]` is installable:
+
+```bash
+smpy add git+https://github.com/you/your-module@v1.2.0
+```
+
+This writes a normal named dependency plus a `[tool.uv.sources]` redirect
+into the host's `pyproject.toml`, runs `uv sync`, regenerates the module
+pages manifest, and verifies the entry point. `uv.lock` pins the exact
+commit SHA, so builds stay reproducible.
+
+**Release tags.** Tag releases `vX.Y.Z` where the version matches the
+package's `pyproject.toml` — the tag is the release. `smpy update` finds the
+newest tag satisfying the host's declared range and rewrites the pin.
+Branch pins (`@main`) are dev-mode: they re-lock to the newest SHA on
+update and are labeled as such.
+
+**Multi-module repos.** A repo may carry several modules (the `modules/*`
+monorepo layout). `smpy add git+URL` without `#subdirectory` scans the repo
+and offers a picker (`--module a,b` / `--all` non-interactively). All
+modules installed from one repo share one pinned ref, and `smpy update`
+moves them together — tag the repo as a unit.
+
+**What the repo must contain.** The scaffold from `smpy create-module
+--standalone` is already correct: the entry point, `package.json` and
+`pages/` force-included into the wheel, and a `v*`-triggered publish
+workflow (optional for git-only distribution). Frontend assets need no npm
+publishing — the host aliases the module's npm name onto its installed
+package directory.
+
+**Private repos.** Authentication is git's job: SSH keys, credential
+helpers, or tokens in CI. If `git clone` works in your shell, `smpy add`
+and `uv sync` work too.
 
 ### Service types: concrete class, not Protocol
 
