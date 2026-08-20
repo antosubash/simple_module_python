@@ -29,11 +29,20 @@ export function findEnvDir(start: string): string {
   const explicitRoot = process.env.SM_PROJECT_ROOT;
   if (explicitRoot) return explicitRoot;
   let dir = start;
-  const home = os.homedir();
+  // os.homedir() throws when $HOME is unset and the UID has no passwd entry
+  // (rootless containers, some CI sandboxes) — mirror the backend's
+  // find_env_file(), which catches the equivalent Path.home() failure and
+  // just skips the home-boundary check rather than crashing Vite's config load.
+  let home: string | null;
+  try {
+    home = os.homedir();
+  } catch {
+    home = null;
+  }
   for (let i = 0; i < 5; i++) {
     // Never treat $HOME (or anything above it) as the project — a stray
     // ~/.env must not steer the dev server (same rule as the backend).
-    if (dir === home) break;
+    if (home !== null && dir === home) break;
     if (dir !== start && isWorldWritableDir(dir)) break;
     if (fs.existsSync(path.join(dir, '.env')) || fs.existsSync(path.join(dir, '.env.example'))) {
       return dir;
@@ -56,7 +65,10 @@ export function viteDevServer(startDir: string): { origin: string; port: number 
   // (quotes, inline comments, `export` prefixes), and a real process env var
   // wins over the file — the same precedence as pydantic-settings.
   const env = loadEnv(process.env.NODE_ENV ?? 'development', findEnvDir(startDir), 'SM_');
-  const raw = env.SM_VITE_DEV_URL ?? 'http://localhost:5050';
+  // `??` alone only falls back on null/undefined: a blank `SM_VITE_DEV_URL=`
+  // in `.env` parses as an empty string, which is neither, and would reach
+  // `new URL('')` below. Treat a blank value the same as an unset one.
+  const raw = env.SM_VITE_DEV_URL || 'http://localhost:5050';
   let url: URL;
   try {
     url = new URL(raw);
