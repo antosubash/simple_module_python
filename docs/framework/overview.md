@@ -20,7 +20,7 @@ What actually happens when you run `uvicorn main:app`:
    `Settings`, `DatabaseState` (engines per provider), `EventBus`, `MenuRegistry`, `PermissionRegistry`, `FeatureFlagRegistry`, `HealthRegistry`, `I18nRegistry`. They are bundled into a frozen `Services` dataclass and attached to `app.state.sm`.
 3. **Discovery** — `discover_modules()` reads Python entry points under the `simple_module` group, imports each one, validates it's a `ModuleBase` subclass with a non-null `meta`, and topologically sorts by `ModuleMeta.depends_on`.
 4. **Lifecycle hooks run in sorted order**. For each module, in this order:
-   `register_settings` → `register_menu_items` → `register_permissions` → `register_feature_flags` → `register_event_handlers` → `register_health_checks` → `register_public_routes` → `register_design_packs` → `register_exception_handlers` → `register_middleware` → `register_routes(api_router, view_router)`.
+   `register_settings` → `register_menu_items` → `register_permissions` → `register_feature_flags` → `register_event_handlers` → `register_health_checks` → `register_public_routes` → `register_csp_sources` → `register_design_packs` → `register_exception_handlers` → `register_middleware` → `register_routes(api_router, view_router)`.
 5. **Middleware is installed** — framework middleware first, then whatever modules registered. See [Middleware pipeline](/framework/middleware).
 6. **Routers mount** — `api_router` at `/api`, `view_router` at `/`. Each module's sub-routers were attached via `register_routes`.
 7. **Lifespan `on_startup`** — each module's async `on_startup` runs in dependency order. This is where background workers, warm caches, or remote-service health probes start.

@@ -93,11 +93,11 @@ Emits a structured log line per request with method, path, status, duration, and
 
 ### `SecurityHeadersMiddleware`
 
-Sets conservative defaults: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: SAMEORIGIN`, `X-XSS-Protection: 0` (the legacy auditor is disabled in favour of CSP), plus a default CSP and — outside development — HSTS. In development the CSP is widened for the Vite dev origin and HSTS is suppressed. Override on a per-route basis with your own response headers.
+Sets conservative defaults: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: SAMEORIGIN`, `X-XSS-Protection: 0` (the legacy auditor is disabled in favour of CSP), plus a default CSP and — outside development — HSTS. In development the CSP is widened for the Vite dev origin and HSTS is suppressed. Modules that load assets from an external origin extend the policy through the [`register_csp_sources`](lifecycle.md#register_csp_sourcesregistry) hook; both the dev and production variants honor those origins. Override on a per-route basis with your own response headers.
 
 ### `SessionMiddleware`
 
-Starlette's built-in signed-cookie sessions. Cookie name is `session`; attributes are `HttpOnly`, `SameSite=Lax`. `SameSite=Lax` is the CSRF defence: browsers don't attach the cookie to cross-site POST/PUT/DELETE, so a forged form submission from another origin is unauthenticated.
+Starlette's built-in signed-cookie sessions. Cookie name is `session`; attributes are `HttpOnly`, `SameSite=Lax`. `SameSite=Lax` is the baseline CSRF defence: browsers don't attach the cookie to cross-site POST/PUT/DELETE, so a forged form submission from another origin is unauthenticated. Modules wanting defence in depth opt into the session-bound token check in `simple_module_hosting.csrf` — `RequiresCsrf` as a router dependency, `get_csrf_token(request)` exposed as a view prop, and callers echoing it as `X-CSRF-Token` on unsafe methods.
 
 ### `TenantMiddleware` *(opt-in)*
 

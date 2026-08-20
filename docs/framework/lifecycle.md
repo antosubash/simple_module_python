@@ -12,6 +12,7 @@ register_feature_flags
 register_event_handlers
 register_health_checks
 register_public_routes
+register_csp_sources
 register_design_packs
 register_exception_handlers
 register_middleware
@@ -128,6 +129,24 @@ async def _check_db(self) -> HealthCheckResult: ...
 
 Each check returns a `HealthCheckResult(status=HealthStatus.HEALTHY | DEGRADED | UNHEALTHY, detail=...)`. The `/health/ready` endpoint runs all checks concurrently and reports the worst status (a raising check counts as `UNHEALTHY`).
 
+## `register_csp_sources(registry)`
+
+Whitelist external origins your frontend loads assets from — a font CDN, a
+tile server, an analytics endpoint. The host ships a strict
+Content-Security-Policy; without a declaration the browser blocks the request.
+
+```python
+def register_csp_sources(self, registry) -> None:
+    registry.add("style-src", "https://rsms.me")
+    registry.add("font-src", "https://rsms.me")
+```
+
+Only fetch directives (`style-src`, `font-src`, `img-src`, `connect-src`, …)
+can be extended — never `default-src`, `base-uri`, `form-action`, or
+`frame-ancestors`, which belong to the host operator. Each source must be a
+single origin/scheme token; invalid declarations raise at boot. The origins
+land in both the development (Vite-widened) and production policies.
+
 ## `register_exception_handlers(app)`
 
 Register FastAPI exception handlers scoped to your module's exceptions:
@@ -214,6 +233,7 @@ class OrdersModule(ModuleBase):
     def register_event_handlers(self, bus, app=None): ...
     def register_health_checks(self, registry): ...
     def register_public_routes(self, registry): ...
+    def register_csp_sources(self, registry): ...
     def register_exception_handlers(self, app): ...
     def register_middleware(self, app): ...
     def register_routes(self, api_router, view_router): ...

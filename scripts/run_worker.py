@@ -14,12 +14,22 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from simple_module_core.dotenv import load_dotenv_into_environ
+from simple_module_core.dotenv import find_env_file, load_dotenv_into_environ
 
-# Match the precedence uvicorn gives the web process: load ``host/.env`` into
-# the environment before importing settings, so the worker doesn't fall back
-# to SQLite defaults when celery is launched outside the host's cwd.
-load_dotenv_into_environ(Path(__file__).resolve().parent.parent / "host" / ".env")
+# Match the precedence uvicorn gives the web process: load the repo-root
+# ``.env`` into the environment before importing settings, so the worker
+# doesn't fall back to defaults when celery is launched outside the repo cwd.
+# Go through the shared resolution convention (SM_PROJECT_ROOT, then a
+# bounded walk-up) so this worker and the web process can never disagree
+# about which file is in effect. Only fall back to the hardcoded
+# repo-root guess — ``.env`` next to ``.env.example``, not under ``host/``
+# — when find_env_file() couldn't resolve anything more specific than a
+# bare, nonexistent ``./.env`` (e.g. celery launched from an unrelated cwd
+# with SM_PROJECT_ROOT unset).
+_env_file = find_env_file()
+if _env_file == Path(".env") and not _env_file.is_file():
+    _env_file = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv_into_environ(_env_file)
 
 from background_tasks.celery_app import build_celery  # noqa: E402
 from background_tasks.settings import BackgroundTasksSettings  # noqa: E402
