@@ -37,15 +37,25 @@ def find_env_file() -> Path:
     This is the one .env-resolution convention for the whole ecosystem: the
     settings layer (``BootstrapSettings``) and every out-of-process tool
     (diagnostics CLI, worker entrypoints, users bootstrap) resolve through
-    here, so they can never disagree about which file is in effect.
+    here, so they can never disagree about which file is in effect. Compare
+    ``app_builder._resolve_project_root`` in the hosting package — a
+    separate walk that anchors the static/i18n root instead; the two are
+    kept distinct on purpose (see that function's docstring).
     """
     explicit = os.environ.get("SM_PROJECT_ROOT")
     if explicit:
         return Path(explicit) / ".env"
     current = Path.cwd()
-    home = Path.home()
+    try:
+        home: Path | None = Path.home()
+    except RuntimeError:
+        # $HOME unset and no passwd entry for the UID (rootless containers,
+        # some CI sandboxes) — Path.home() can't resolve. Skip the
+        # home-boundary check rather than crash; the walk is still bounded
+        # by _ENV_WALK_LIMIT and the world-writable-dir guard below.
+        home = None
     for candidate in (current, *current.parents[:_ENV_WALK_LIMIT]):
-        if candidate == home:
+        if home is not None and candidate == home:
             break
         # Never probe a shared world-writable ancestor (/tmp, /var/tmp):
         # its `.env` could belong to anyone — including another local user —

@@ -79,6 +79,22 @@ class TestHandlerNegotiation:
         """`text/html;q=0` explicitly rules html out (RFC 9110)."""
         assert _wants_json(_request("/api/x", accept="text/html;q=0"))
 
+    def test_html_q_zero_on_view_path_with_json_mentioned_gets_json(self) -> None:
+        """`text/html;q=0` must rule the page out globally, not just under
+        /api/*: a view path with html explicitly excluded and json named
+        (even at q=0, i.e. both technically "not acceptable") must never
+        render the html page — json is the only thing on offer."""
+        assert _wants_json(
+            _request("/pagebuilder/", accept="text/html;q=0, application/json;q=0.5")
+        )
+        assert _wants_json(_request("/pagebuilder/", accept="text/html;q=0, application/json;q=0"))
+
+    def test_html_q_zero_on_view_path_with_json_unmentioned_keeps_html_fallback(self) -> None:
+        """When json isn't named at all, there's nothing else to offer — the
+        pre-existing html fallback survives on a view path even though html
+        was explicitly excluded."""
+        assert not _wants_json(_request("/pagebuilder/", accept="text/html;q=0"))
+
     def test_browser_accept_still_wins_over_wildcard_json(self) -> None:
         """Real browser Accept lists text/html explicitly; */* covering json
         does not outrank it."""

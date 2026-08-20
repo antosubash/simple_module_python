@@ -40,6 +40,16 @@ def get_csrf_token(request: Request) -> str:
 
     Returns ``""`` when no session is mounted so view code can pass it
     straight into page props without a None check.
+
+    Concurrent cold requests on the same not-yet-issued session (e.g. two
+    tabs opened in the same instant) can each read no token, mint their own,
+    and race to write it back — whichever ``Set-Cookie`` lands last wins, so
+    the loser's freshly-rendered token can end up mismatched with the
+    session that's actually stored. This is inherent to signed-cookie
+    sessions: each request deserializes and mutates its own private copy,
+    there's no shared server-side store to lock. It self-heals on the very
+    next render (that request reads the now-settled token), so it's not
+    worth adding a server-side token store just to close this window.
     """
     session = request.scope.get("session")
     if session is None:

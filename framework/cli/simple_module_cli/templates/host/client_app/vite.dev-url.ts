@@ -12,6 +12,19 @@ import { loadEnv } from 'vite';
 // (SM_PROJECT_ROOT override, then a bounded walk-up stopping at a repo
 // boundary) so both sides read the same file, whatever directory
 // node_modules landed in.
+// Shared scratch dirs like /tmp are world-writable: a `.env` sitting there
+// could belong to another local user. Mirrors the backend's
+// `_is_world_writable_dir` guard. The starting dir is exempt — running
+// *from* such a directory keeps the pre-existing "load the cwd's .env"
+// fallback behavior.
+function isWorldWritableDir(dir: string): boolean {
+  try {
+    return (fs.statSync(dir).mode & 0o002) !== 0;
+  } catch {
+    return false;
+  }
+}
+
 export function findEnvDir(start: string): string {
   const explicitRoot = process.env.SM_PROJECT_ROOT;
   if (explicitRoot) return explicitRoot;
@@ -21,12 +34,16 @@ export function findEnvDir(start: string): string {
     // Never treat $HOME (or anything above it) as the project — a stray
     // ~/.env must not steer the dev server (same rule as the backend).
     if (dir === home) break;
+    if (dir !== start && isWorldWritableDir(dir)) break;
     if (fs.existsSync(path.join(dir, '.env')) || fs.existsSync(path.join(dir, '.env.example'))) {
       return dir;
     }
     // A `.git` marks a project root — never ascend past one, or a nested
-    // checkout would read the outer project's .env (same rule as the backend).
-    if (fs.existsSync(path.join(dir, '.git'))) break;
+    // checkout would read the outer project's .env (same rule as the
+    // backend). The boundary directory IS the project root, so return it
+    // directly rather than falling through to `start` — matching the
+    // Python twin (`find_env_file`), which anchors at the boundary too.
+    if (fs.existsSync(path.join(dir, '.git'))) return dir;
     const parent = path.dirname(dir);
     if (parent === dir) break;
     dir = parent;

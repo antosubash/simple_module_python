@@ -47,12 +47,27 @@ class BootstrapSettings(BaseSettings):
     def __init__(self, **values: Any) -> None:
         # Discover the project `.env` per instantiation (a handful of stat
         # calls), never at import time: a process may import this module and
-        # only later chdir or set SM_PROJECT_ROOT. The same discovered path
-        # anchors relative sqlite paths below, so the env values and the
-        # sqlite anchor can never come from two different projects.
-        env_file = values.setdefault("_env_file", find_env_file())
+        # only later chdir or set SM_PROJECT_ROOT. Only when the caller
+        # hasn't already decided — a plain `dict.setdefault(k, find_env_file())`
+        # would evaluate find_env_file() unconditionally as part of the call,
+        # even when `_env_file` is already in `values`, paying for a walk it
+        # throws away. This also has to preserve pydantic-settings' documented
+        # `_env_file=None` idiom ("load no .env file at all") rather than
+        # silently overriding it.
+        if "_env_file" not in values:
+            values["_env_file"] = find_env_file()
+        env_file = values["_env_file"]
         super().__init__(**values)
-        anchor = Path(env_file).parent if isinstance(env_file, (str, Path)) else Path.cwd()
+        # Anchor discovery is independent of whether an env file is loaded:
+        # a caller passing `_env_file=None` still needs relative sqlite paths
+        # anchored at the discovered project root, not the process cwd —
+        # otherwise that idiom would silently point sqlite at whatever
+        # directory happened to be cwd. The same discovered path anchors
+        # relative sqlite paths below, so the env values and the sqlite
+        # anchor can never come from two different projects.
+        anchor = (
+            Path(env_file).parent if isinstance(env_file, (str, Path)) else find_env_file().parent
+        )
         self.database_url = _absolutize_sqlite_url(self.database_url, anchor=anchor)
 
     database_url: str = "sqlite+aiosqlite:///./app.db"

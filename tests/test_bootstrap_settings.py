@@ -15,6 +15,29 @@ def test_bootstrap_reads_from_env(monkeypatch):
     assert bs.environment == "development"
 
 
+def test_env_file_none_anchors_sqlite_at_project_root_not_cwd(tmp_path, monkeypatch):
+    """`_env_file=None` is pydantic-settings' documented idiom for "load no
+    .env file at all" — but relative sqlite paths must still anchor at the
+    project root discovered by find_env_file(), not the process cwd, or a
+    CLI run from a subdirectory (e.g. host/) would create app.db there
+    instead of at the project root.
+    """
+    project_root = tmp_path
+    (project_root / ".git").mkdir()
+    workdir = project_root / "host"
+    workdir.mkdir()
+    monkeypatch.chdir(workdir)
+    monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
+    monkeypatch.setenv("SM_DATABASE_URL", "sqlite+aiosqlite:///./app.db")
+    monkeypatch.setenv("SM_SECRET_KEY", "x" * 48)
+    monkeypatch.setenv("SM_ENVIRONMENT", "development")
+
+    bs = BootstrapSettings(_env_file=None)
+
+    expected = (project_root / "app.db").resolve()
+    assert bs.database_url == f"sqlite+aiosqlite:///{expected}"
+
+
 def test_bootstrap_placeholder_secret_blocks_production(monkeypatch):
     monkeypatch.setenv("SM_ENVIRONMENT", "production")
     monkeypatch.setenv("SM_SECRET_KEY", "change-me-in-production")

@@ -69,6 +69,10 @@ def _resolve_project_root() -> Path:
     Falls back to ``parents[3]`` for the in-tree dev loop only when the walk
     finds nothing — which still keeps ``framework/`` users working without
     setting the env var explicitly.
+
+    Compare ``simple_module_core.dotenv.find_env_file``: both honor
+    ``SM_PROJECT_ROOT`` first, but this anchors the static/i18n root while
+    that anchors which ``.env`` loads — different sentinels, kept separate.
     """
     override = os.environ.get(_ENV_PROJECT_ROOT)
     if override:
