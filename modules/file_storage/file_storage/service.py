@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import UploadFile
-from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
+from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern, like_prefix_pattern
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -195,7 +195,11 @@ class FileStorageService:
             # an exact type ("application/pdf"). Families are what make the
             # filter usable when a bucket holds nine kinds of image.
             if content_type.endswith("/"):
-                clauses.append(StoredFile.content_type.ilike(f"{content_type}%"))
+                clauses.append(
+                    StoredFile.content_type.ilike(
+                        like_prefix_pattern(content_type), escape=LIKE_ESCAPE_CHAR
+                    )
+                )
             else:
                 clauses.append(StoredFile.content_type == content_type)
         return clauses

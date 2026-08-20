@@ -223,3 +223,13 @@ class TestAdminAddPeoplePage:
         resp = await admin_client.get(old_path, follow_redirects=False)
         assert resp.status_code == 307
         assert resp.headers["location"] == f"/users/admin/add?mode={mode}"
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize("old_path", ["/users/admin/create", "/users/admin/invite"])
+    async def test_old_urls_require_auth(self, anon_client, old_path):
+        """The legacy aliases must stay gated behind the same permission as
+        the page they redirect to — an anonymous caller must not reach the
+        redirect (and learn the target route exists) before being sent to
+        log in."""
+        resp = await anon_client.get(old_path, follow_redirects=False)
+        assert resp.status_code == 302
