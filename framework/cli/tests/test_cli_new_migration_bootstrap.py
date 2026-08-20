@@ -46,10 +46,10 @@ def test_bootstrap_initial_migration_runs_autogenerate_when_versions_empty(
         "host/alembic.ini",
     ]
     assert cmd[7:9] == ["revision", "--autogenerate"]
-    # GH #262: from the project root, never host/. BootstrapSettings resolves
-    # .env against the cwd, and the scaffolded default URL is root-relative
-    # (./host/app.db) — bootstrapping from host/ writes host/host/app.db, which
-    # neither the app nor `make migrate` ever reads.
+    # From the project root, never host/ — the same cwd `make migrate` and the
+    # app use, so every relative path in the scaffold means one thing. GH #262
+    # is now defended in depth (find_env_file walks up, relative sqlite anchors
+    # to the project root); this keeps the bootstrap from being the odd one out.
     assert cwd == tmp_path
 
 

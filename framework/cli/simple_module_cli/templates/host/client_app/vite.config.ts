@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { type Plugin, defineConfig } from 'vite';
 import { loadModuleAssets } from './module-assets';
+import { viteDevServer } from './vite.dev-url';
 
 // Force every importer (host, workspace module, wheel-installed module)
 // to resolve to one React copy + a single Inertia hook context. Without
@@ -29,6 +30,10 @@ function findNodeModulesRoot(start: string): string {
   return start;
 }
 const fsRoot = findNodeModulesRoot(__dirname);
+
+// Walks up from client_app to the directory holding the project .env itself —
+// fsRoot tracks node_modules, which (in flat mode) is NOT where .env lives.
+const { origin: devUrl, port: devPort } = viteDevServer(__dirname);
 
 const {
   fsAllow: moduleFsAllow,
@@ -201,9 +206,9 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5050,
+    port: devPort,
     strictPort: true,
-    origin: 'http://localhost:5050',
+    origin: devUrl,
     fs: {
       allow: [fsRoot, ...moduleFsAllow],
     },

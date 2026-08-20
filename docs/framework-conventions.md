@@ -54,6 +54,8 @@ The framework calls `discover_modules()` at app-build time. No manual wiring in 
 
 In production (`SM_ENVIRONMENT != development`) discovery runs in **strict mode**: any entry-point load failure or structural error (missing `meta`, wrong base class) raises `InvalidModuleError` at boot. In development, errors are logged and the module is skipped.
 
+Discovery is source-agnostic: a module installed from PyPI, a git repo (`smpy add git+…`), or a local path is found identically. Modules distributed via git release by tagging: repo-wide lockstep `vX.Y.Z` tags where the tag version equals every contained package's declared version. Hosts pin one ref per repo; `smpy update` moves all modules from the same repo together.
+
 ## Middleware pipeline
 
 Starlette's `add_middleware` is **LIFO** — the last middleware added is the first executed on a request. The framework installs middleware in this order inside `create_app`:
@@ -308,6 +310,61 @@ every module's rules into one `PublicRouteRegistry` (plus host-level
 which `AuthMiddleware` consults on every request. See
 [`docs/framework/public-routes.md`](framework/public-routes.md) for match kinds
 and resolution order.
+
+### CSP sources (external assets)
+
+The host ships a strict Content-Security-Policy. A module whose frontend loads
+an asset from another origin — a font CDN, a tile server — declares it via
+`register_csp_sources`, and the host folds the origins into both the dev
+(Vite-widened) and production policies:
+
+```python
+def register_csp_sources(self, registry):
+    registry.add("style-src", "https://rsms.me")
+    registry.add("font-src", "https://rsms.me")
+```
+
+Only fetch directives are extendable (`style-src`, `font-src`, `img-src`,
+`connect-src`, …) — never `default-src`, `base-uri`, `form-action`, or
+`frame-ancestors`, which belong to the host operator. Sources are validated
+single tokens; an invalid declaration raises at boot.
+
+### CSRF (opt-in token check)
+
+The framework baseline is `SameSite=Lax` on the session cookie. Modules that
+want defence in depth opt into a session-bound token check per router:
+
+```python
+from simple_module_hosting.csrf import RequiresCsrf, get_csrf_token
+
+router = APIRouter(dependencies=[Depends(RequiresCsrf())])
+# expose the token to the frontend as a view prop:
+{"csrf_token": get_csrf_token(request)}
+```
+
+Callers echo the token back as `X-CSRF-Token` on `POST`/`PUT`/`PATCH`/`DELETE`;
+safe methods are never checked, and apps without `SessionMiddleware` (bare
+test apps) are exempt.
+
+### Error responses (HTML vs JSON)
+
+403/404/422/500 are content-negotiated. Requests under `/api/*` — the
+documented prefix for every module's JSON surface — or with an explicit
+`Accept: application/json` get a JSON body:
+
+```json
+{ "detail": "Permission required: pagebuilder.edit" }
+```
+
+Browser-shaped requests get the rendered Inertia error page, which carries
+the layout, i18n copy, and the request's correlation id. "Browser-shaped"
+means the request lists `text/html` in its Accept header without preferring
+JSON over it (q-values decide: `application/json, text/html;q=0.5` still
+gets JSON, and `text/html;q=0` rules html out) — navigations and Inertia
+visits qualify, and that wins even under `/api/*` (OAuth login links and
+file-download `<a>` hrefs are real navigations to API paths); a bare
+`fetch()` sends `Accept: */*` and gets JSON there. Module endpoint code doesn't opt in or
+out — raise `HTTPException` as usual and the handler picks the right shape.
 
 ### Design packs (site-wide look)
 

@@ -15,7 +15,7 @@ def _drive(answers: list[str]) -> tuple[str, bool, list[str], str]:
 
     @wrapper_app.command()
     def wrapper() -> None:
-        db, tenancy, selected = run_wizard(default_db="sqlite", default_tenancy=False)
+        db, tenancy, selected, _git_specs = run_wizard(default_db="sqlite", default_tenancy=False)
         captured["db"] = db
         captured["tenancy"] = tenancy
         captured["selected"] = selected
@@ -27,7 +27,7 @@ def _drive(answers: list[str]) -> tuple[str, bool, list[str], str]:
 
 
 def test_wizard_standard_preset_default_path() -> None:
-    db, tenancy, selected, out = _drive(["", "", "", ""])
+    db, tenancy, selected, out = _drive(["", "", "", "", ""])
     assert db == "sqlite"
     assert tenancy is False
     assert "users" in selected and "dashboard" in selected and "permissions" in selected
@@ -36,18 +36,18 @@ def test_wizard_standard_preset_default_path() -> None:
 
 
 def test_wizard_postgres_with_tenancy() -> None:
-    db, tenancy, _selected, _out = _drive(["postgres", "y", "", ""])
+    db, tenancy, _selected, _out = _drive(["postgres", "y", "", "", ""])
     assert db == "postgres"
     assert tenancy is True
 
 
 def test_wizard_minimal_preset() -> None:
-    _, _, selected, _ = _drive(["", "", "1", ""])
+    _, _, selected, _ = _drive(["", "", "1", "", ""])
     assert set(selected) == {"users", "auth"}
 
 
 def test_wizard_full_preset_includes_background_tasks() -> None:
-    _, _, selected, _ = _drive(["", "", "3", ""])
+    _, _, selected, _ = _drive(["", "", "3", "", ""])
     assert "background_tasks" in selected
     assert len(selected) >= 7
 
@@ -58,7 +58,7 @@ def test_wizard_custom_picks_only_yes_answers() -> None:
     # hardcoded sequence silently shifts onto the wrong module the next time
     # one is added, which is how this test broke when `site_lock` landed.
     picks = ["y" if name == "background_tasks" else "n" for name in CATALOG]
-    answers = ["", "", "4", *picks, ""]
+    answers = ["", "", "4", *picks, "", ""]
     _, _, selected, out = _drive(answers)
     assert set(selected) == {"background_tasks", "users", "auth"}
     assert "Added users (required by background_tasks)" in out
@@ -78,6 +78,6 @@ def test_wizard_aborts_on_confirm_no() -> None:
             raise
 
     runner = CliRunner()
-    result = runner.invoke(wrapper_app, [], input="\n".join(["", "", "", "n"]) + "\n")
+    result = runner.invoke(wrapper_app, [], input="\n".join(["", "", "", "", "n"]) + "\n")
     assert result.exit_code != 0
     assert captured.get("aborted") is True

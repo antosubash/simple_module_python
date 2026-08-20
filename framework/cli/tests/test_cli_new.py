@@ -214,7 +214,7 @@ def test_sm_new_interactive_full_preset(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
         ["new", "demo", "--no-install", "--dest", str(target)],
-        input="\n".join(["", "", "3", ""]) + "\n",
+        input="\n".join(["", "", "3", "", ""]) + "\n",
     )
     assert result.exit_code == 0, result.output
     assert (target / "docker-compose.yml").is_file()
