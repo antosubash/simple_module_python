@@ -1,9 +1,10 @@
 import { Link } from '@inertiajs/react';
+import { InlineBanner } from '@simple-module-py/ui/components/InlineBanner';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import { Card } from '@simple-module-py/ui/components/ui/card';
 import { ServerCrash, ServerOff } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { API_BASE, VIEW_BASE, type WorkerSnapshot } from '../constants';
+import { diagnoseWorkerHealth } from '../worker-health';
 
 interface Props {
   /** Tasks queued or already running — the backlog whose fate is in question. */
@@ -17,7 +18,11 @@ interface Problem {
 }
 
 function diagnose(snapshot: WorkerSnapshot, backlog: number): Problem | null {
-  if (!snapshot.broker_reachable) {
+  const state = diagnoseWorkerHealth({
+    brokerReachable: snapshot.broker_reachable,
+    onlineWorkerCount: snapshot.workers.filter((w) => w.online).length,
+  });
+  if (state === 'broker_unreachable') {
     return {
       icon: ServerCrash,
       title: 'Broker unreachable',
@@ -25,7 +30,7 @@ function diagnose(snapshot: WorkerSnapshot, backlog: number): Problem | null {
         'Nothing can be queued or run until the broker is back. The counts below are the last state written to the database.',
     };
   }
-  if (snapshot.workers.every((w) => !w.online)) {
+  if (state === 'no_workers_online') {
     return {
       icon: ServerOff,
       title: `${backlog} task${backlog === 1 ? '' : 's'} waiting, no worker running`,
@@ -72,20 +77,19 @@ export function WorkerHealthBanner({ backlog }: Props) {
   }, [backlog]);
 
   if (!problem) return null;
-  const Icon = problem.icon;
 
   return (
-    <Card className="mb-4 flex flex-row items-start justify-between gap-3 border-amber-300 bg-amber-50 px-4 py-3 dark:bg-amber-950/30">
-      <div className="flex items-start gap-2.5">
-        <Icon className="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden="true" />
-        <div>
-          <p className="text-sm font-medium text-amber-900 dark:text-amber-200">{problem.title}</p>
-          <p className="text-xs text-amber-800/80 dark:text-amber-200/70">{problem.detail}</p>
-        </div>
-      </div>
-      <Button variant="outline" size="sm" asChild className="shrink-0">
-        <Link href={`${VIEW_BASE}/workers`}>View workers</Link>
-      </Button>
-    </Card>
+    <InlineBanner
+      icon={problem.icon}
+      tone="warning"
+      align="start"
+      title={problem.title}
+      description={problem.detail}
+      action={
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`${VIEW_BASE}/workers`}>View workers</Link>
+        </Button>
+      }
+    />
   );
 }

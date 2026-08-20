@@ -1,9 +1,10 @@
 import { Link } from '@inertiajs/react';
 import { EmptyState } from '@simple-module-py/ui/components/EmptyState';
+import { TableEmptyRow } from '@simple-module-py/ui/components/TableEmptyRow';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import { TableCell, TableRow } from '@simple-module-py/ui/components/ui/table';
 import { Activity, type LucideIcon, PlugZap, ServerCog, ServerOff } from 'lucide-react';
 import { VIEW_BASE } from '../constants';
+import { diagnoseWorkerHealth } from '../worker-health';
 
 export interface WorkerPresence {
   broker_reachable: boolean;
@@ -35,7 +36,13 @@ interface EmptyCopy {
  * why those rows are missing.
  */
 function emptyCopy(presence: WorkerPresence | null): EmptyCopy {
-  if (presence && !presence.broker_reachable) {
+  const state = presence
+    ? diagnoseWorkerHealth({
+        brokerReachable: presence.broker_reachable,
+        onlineWorkerCount: presence.worker_count,
+      })
+    : 'healthy';
+  if (state === 'broker_unreachable') {
     return {
       icon: PlugZap,
       title: "Can't reach the broker",
@@ -43,7 +50,7 @@ function emptyCopy(presence: WorkerPresence | null): EmptyCopy {
         'Nothing can be queued or executed until the broker is back. Tasks are not being lost — they are not being accepted.',
     };
   }
-  if (presence && presence.worker_count === 0) {
+  if (state === 'no_workers_online') {
     return {
       icon: ServerOff,
       title: 'No worker is running',
@@ -62,35 +69,33 @@ function emptyCopy(presence: WorkerPresence | null): EmptyCopy {
 export function TasksEmptyRow({ filtered, columnCount, presence, onClear }: TasksEmptyRowProps) {
   const copy = emptyCopy(presence);
   return (
-    <TableRow className="hover:bg-transparent">
-      <TableCell colSpan={columnCount} className="h-40">
-        {filtered ? (
-          <EmptyState
-            icon={Activity}
-            title="No tasks match these filters"
-            description="Executions exist outside the current search and status filter."
-            action={
-              <Button variant="outline" onClick={onClear}>
-                Clear filters
-              </Button>
-            }
-          />
-        ) : (
-          <EmptyState
-            icon={copy.icon}
-            title={copy.title}
-            description={copy.description}
-            action={
-              <Button variant="outline" asChild>
-                <Link href={`${VIEW_BASE}/workers`}>
-                  <ServerCog className="mr-2 size-4" />
-                  View workers
-                </Link>
-              </Button>
-            }
-          />
-        )}
-      </TableCell>
-    </TableRow>
+    <TableEmptyRow columnCount={columnCount}>
+      {filtered ? (
+        <EmptyState
+          icon={Activity}
+          title="No tasks match these filters"
+          description="Executions exist outside the current search and status filter."
+          action={
+            <Button variant="outline" onClick={onClear}>
+              Clear filters
+            </Button>
+          }
+        />
+      ) : (
+        <EmptyState
+          icon={copy.icon}
+          title={copy.title}
+          description={copy.description}
+          action={
+            <Button variant="outline" asChild>
+              <Link href={`${VIEW_BASE}/workers`}>
+                <ServerCog className="mr-2 size-4" />
+                View workers
+              </Link>
+            </Button>
+          }
+        />
+      )}
+    </TableEmptyRow>
   );
 }

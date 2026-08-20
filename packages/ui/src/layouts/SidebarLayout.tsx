@@ -92,13 +92,14 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
       <BrandingHead />
       <BrandingBanner />
       {/* --app-chrome-h names the height of the bar above the content — the
-          topbar on lg, the mobile bar below it, both h-14 and mutually
-          exclusive. Pages that must fill the viewport subtract it instead of
-          hardcoding the pixel value. */}
+          topbar on lg, the mobile bar below it, both mutually exclusive.
+          Both bars size themselves off this one variable (h-[var(--app-chrome-h)])
+          instead of a hardcoded `h-14`, so they cannot drift out of sync with
+          each other or with pages that subtract it to fill the viewport. */}
       <div className="min-h-screen bg-background [--app-chrome-h:3.5rem]">
         {/* Mobile top bar */}
         <div
-          className={`sticky top-0 z-40 flex h-14 items-center gap-3 ${theme.sidebarBg} px-4 lg:hidden`}
+          className={`sticky top-0 z-40 flex h-[var(--app-chrome-h)] items-center gap-3 ${theme.sidebarBg} px-4 lg:hidden`}
         >
           <Button
             variant="ghost"

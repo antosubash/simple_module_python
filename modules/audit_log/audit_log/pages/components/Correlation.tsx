@@ -1,6 +1,6 @@
 import { keys, useT } from '@simple-module-py/i18n';
+import { InlineBanner } from '@simple-module-py/ui/components/InlineBanner';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import { Card } from '@simple-module-py/ui/components/ui/card';
 import { GitMerge, X } from 'lucide-react';
 
 /**
@@ -35,22 +35,17 @@ export function CorrelationLink({
 export function CorrelationBanner({ count, onClear }: { count: number; onClear: () => void }) {
   const { t } = useT();
   return (
-    <Card className="mb-4 flex flex-row items-center justify-between gap-3 border-primary/30 bg-primary/5 px-4 py-3">
-      <div className="flex items-start gap-2.5">
-        <GitMerge className="mt-0.5 size-4 shrink-0 text-primary-600" aria-hidden="true" />
-        <div>
-          <p className="text-sm font-medium">
-            {t(keys.audit_log.correlation.banner_title, { count })}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {t(keys.audit_log.correlation.banner_description)}
-          </p>
-        </div>
-      </div>
-      <Button variant="outline" size="sm" onClick={onClear} className="shrink-0 gap-1.5">
-        <X className="size-3.5" aria-hidden="true" />
-        {t(keys.audit_log.correlation.banner_clear)}
-      </Button>
-    </Card>
+    <InlineBanner
+      icon={GitMerge}
+      tone="info"
+      title={t(keys.audit_log.correlation.banner_title, { count })}
+      description={t(keys.audit_log.correlation.banner_description)}
+      action={
+        <Button variant="outline" size="sm" onClick={onClear} className="gap-1.5">
+          <X className="size-3.5" aria-hidden="true" />
+          {t(keys.audit_log.correlation.banner_clear)}
+        </Button>
+      }
+    />
   );
 }

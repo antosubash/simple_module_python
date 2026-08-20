@@ -2,6 +2,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { EmptyState } from '@simple-module-py/ui/components/EmptyState';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
+import { TableEmptyRow } from '@simple-module-py/ui/components/TableEmptyRow';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -228,27 +229,25 @@ function Browse() {
                   past the last one renders — e.g. after deleting the only row
                   on page 2, or following a stale ?page= link. */}
               {files.length === 0 && jobs.length === 0 && pagination.total === 0 && (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={COLUMN_COUNT} className="h-40">
-                    {/* "Nothing uploaded yet" is wrong — and discouraging —
-                        when the bucket is full and the filter is just too
-                        narrow. */}
-                    <EmptyState
-                      icon={FileBox}
-                      title={
-                        isFiltered
-                          ? t(keys.file_storage.browse.no_match_title)
-                          : t(keys.file_storage.browse.empty_title)
-                      }
-                      description={
-                        isFiltered
-                          ? t(keys.file_storage.browse.no_match_description)
-                          : t(keys.file_storage.browse.empty_description)
-                      }
-                      action={emptyAction}
-                    />
-                  </TableCell>
-                </TableRow>
+                <TableEmptyRow columnCount={COLUMN_COUNT}>
+                  {/* "Nothing uploaded yet" is wrong — and discouraging —
+                      when the bucket is full and the filter is just too
+                      narrow. */}
+                  <EmptyState
+                    icon={FileBox}
+                    title={
+                      isFiltered
+                        ? t(keys.file_storage.browse.no_match_title)
+                        : t(keys.file_storage.browse.empty_title)
+                    }
+                    description={
+                      isFiltered
+                        ? t(keys.file_storage.browse.no_match_description)
+                        : t(keys.file_storage.browse.empty_description)
+                    }
+                    action={emptyAction}
+                  />
+                </TableEmptyRow>
               )}
             </TableBody>
           </Table>

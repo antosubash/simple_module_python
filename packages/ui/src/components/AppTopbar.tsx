@@ -63,7 +63,7 @@ export function AppTopbar({ navItems, accountItems, currentUrl }: AppTopbarProps
   const leaf = heading && heading !== section?.label ? heading : null;
 
   return (
-    <header className="sticky top-0 z-20 hidden h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-card px-6 lg:flex">
+    <header className="sticky top-0 z-20 hidden h-[var(--app-chrome-h)] shrink-0 items-center justify-between gap-4 border-b border-border bg-card px-6 lg:flex">
       <Breadcrumb>
         <BreadcrumbList className="text-[13px]">
           {section ? (

@@ -71,7 +71,11 @@ function Index() {
   const [search, setSearch] = useState(initialFilters.task_name ?? '');
   const totalPages = Math.ceil(pagination.total / pagination.per_page);
   const statusValue = initialFilters.status || STATUS_ALL;
-  const isFiltered = !!search || statusValue !== STATUS_ALL;
+  // Derived from the server-confirmed filters, not the live `search` input:
+  // `workerPresence` reflects the last committed request, so mixing it with
+  // unsubmitted local state would flash the wrong empty-state copy during the
+  // debounce window between a keystroke and the resulting navigation.
+  const isFiltered = !!(initialFilters.task_name ?? '') || statusValue !== STATUS_ALL;
 
   // Work that is supposed to be moving. Counting `running` too is deliberate:
   // a row stuck in "running" with no worker alive means the worker died holding

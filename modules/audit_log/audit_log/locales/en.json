@@ -39,7 +39,8 @@
   "correlation": {
     "view_related": "Related",
     "view_related_title": "Show every entry from this same request",
-    "banner_title": "One action, {count} entries",
+    "banner_title_one": "One action, {count} entry",
+    "banner_title_other": "One action, {count} entries",
     "banner_description": "Everything recorded by a single request.",
     "banner_clear": "Show all entries"
   },

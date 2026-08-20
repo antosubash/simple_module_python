@@ -67,7 +67,8 @@ def _declared_path(constant: str) -> str:
 
 
 @pytest.mark.parametrize(
-    ("constant", "route"), [("LOGIN_PATH", "login"), ("REGISTER_PATH", "register")]
+    ("constant", "route"),
+    [("LOGIN_PATH", "login"), ("REGISTER_PATH", "register"), ("USERS_ADMIN_PATH", "admin")],
 )
 def test_auth_route_constants_track_the_users_view_prefix(constant: str, route: str) -> None:
     """Derived, not hardcoded: if the module's view prefix moves, this fails.

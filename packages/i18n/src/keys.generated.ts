@@ -33,6 +33,8 @@ export const keys = {
       banner_clear: 'audit_log.correlation.banner_clear',
       banner_description: 'audit_log.correlation.banner_description',
       banner_title: 'audit_log.correlation.banner_title',
+      banner_title_one: 'audit_log.correlation.banner_title_one',
+      banner_title_other: 'audit_log.correlation.banner_title_other',
       view_related: 'audit_log.correlation.view_related',
       view_related_title: 'audit_log.correlation.view_related_title',
     },

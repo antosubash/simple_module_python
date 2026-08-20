@@ -3,7 +3,7 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { PublicLayout } from '@simple-module-py/ui/layouts/PublicLayout';
-import { LOGIN_PATH, REGISTER_PATH } from '@simple-module-py/ui/lib/auth-routes';
+import { authCta } from '@simple-module-py/ui/lib/auth-routes';
 import type { SharedProps } from '@simple-module-py/ui/types';
 import {
   BookOpen,
@@ -40,11 +40,8 @@ function Landing() {
   // visitor onward, an anonymous one to signup when it is open, and to sign-in
   // otherwise; a closed instance never advertises an account it won't create.
   const signupOpen = signup?.allowed ?? false;
-  const primaryHref = auth?.isAuthenticated
-    ? '/dashboard/'
-    : signupOpen
-      ? REGISTER_PATH
-      : LOGIN_PATH;
+  const cta = authCta(signupOpen);
+  const primaryHref = auth?.isAuthenticated ? '/dashboard/' : cta.href;
 
   const features = [
     {
@@ -248,9 +245,7 @@ function Landing() {
               variant="secondary"
               className="bg-white text-primary-700 hover:bg-white/90"
             >
-              <a href={signupOpen ? REGISTER_PATH : LOGIN_PATH}>
-                {signupOpen ? 'Sign up' : 'Sign in'}
-              </a>
+              <a href={cta.href}>{cta.label}</a>
             </Button>
             <Button
               asChild
