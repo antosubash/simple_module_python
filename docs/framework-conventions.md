@@ -77,7 +77,7 @@ InertiaLayoutDataMiddleware
 
 ```
 (ProxyHeaders) → CorrelationId → RequestLogging → SecurityHeaders → Session
-  → <modules> → Tenant → Locale → InertiaLayoutData → app
+  → <modules> → Tenant → Locale → InertiaLayoutData → CommitBeforeResponse → app
 ```
 
 `ProxyHeaders` is installed only when `SM_TRUSTED_PROXY` is set (uvicorn's
@@ -193,7 +193,16 @@ Each request opens one session:
 - Read-only requests exit via rollback — cheaper, and keeps the session out of write-side profiling.
 - Exceptions always rollback.
 
-Service code should not call `session.commit()` directly. Flush for intermediate reads if you need DB-assigned values, then let the dependency commit.
+Service code should not call `session.commit()` directly. Flush for intermediate reads if you need DB-assigned values, then let the framework commit.
+
+The commit lands in `CommitBeforeResponseMiddleware`, which intercepts the ASGI
+`http.response.start` message — the last point still inside the request. That is
+what makes create-then-immediately-use work: FastAPI runs a `yield` dependency's
+exit code after the response has been delivered, so committing there let a
+follow-up request open a fresh session and 404 on a row that was already
+returned to the client (GH #257). `get_db` still finalizes in its own exit code
+when the middleware is absent, and the session is finalized exactly once either
+way.
 
 ## Inertia
 

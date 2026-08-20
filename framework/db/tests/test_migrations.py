@@ -188,6 +188,49 @@ class TestProcessRevisionDirectives:
         index_ops = [op for op in directives[0].upgrade_ops.ops if isinstance(op, CreateIndexOp)]
         assert len(index_ops) == 1
 
+    def test_does_not_double_inject_when_nested_in_modify_table_ops(self):
+        """Autogenerate does not hand us a flat op list: index ops for a table
+        arrive inside a ``ModifyTableOps`` group next to the ``CreateTableOp``.
+        A dedup check that only scans the top level sees no ``CreateIndexOp``
+        there and re-injects the index PostgreSQL already emitted, producing a
+        migration that dies with ``DuplicateTable`` on its first run."""
+        from alembic.operations.ops import CreateIndexOp, ModifyTableOps
+        from simple_module_db.migrations import make_process_revision_directives
+
+        meta = self._build_meta()
+        idx = next(iter(meta.tables["things"].indexes))
+        nested = ModifyTableOps("things", ops=[CreateIndexOp.from_index(idx)])
+        directives = self._build_directives("things", nested)
+        make_process_revision_directives(meta)(None, None, directives)
+
+        assert self._count_index_ops(directives[0].upgrade_ops, CreateIndexOp) == 1
+
+    def test_does_not_double_inject_drop_nested_in_modify_table_ops(self):
+        """Same nesting applies to the downgrade: the reflected ``DropIndexOp``
+        sits inside a ``ModifyTableOps`` group before the ``DropTableOp``."""
+        from alembic.operations.ops import DropIndexOp, ModifyTableOps
+        from simple_module_db.migrations import make_process_revision_directives
+
+        meta = self._build_meta()
+        directives = self._build_directives("things")
+        directives[0].downgrade_ops.ops.insert(
+            0, ModifyTableOps("things", ops=[DropIndexOp("ix_things_email_lower", "things")])
+        )
+        make_process_revision_directives(meta)(None, None, directives)
+
+        assert self._count_index_ops(directives[0].downgrade_ops, DropIndexOp) == 1
+
+    @staticmethod
+    def _count_index_ops(container, op_type) -> int:
+        """Count ``op_type`` ops anywhere under ``container``, nesting included."""
+        total = 0
+        for op in container.ops:
+            if isinstance(op, op_type):
+                total += 1
+            if hasattr(op, "ops"):
+                total += TestProcessRevisionDirectives._count_index_ops(op, op_type)
+        return total
+
     def test_ignores_column_based_indexes(self):
         """Plain column indexes are already handled correctly by autogenerate;
         the hook must not touch them."""

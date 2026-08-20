@@ -21,6 +21,7 @@ from inertia import (
 )
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
 from simple_module_core.exceptions import NotFoundError
+from simple_module_db import CommitBeforeResponseMiddleware
 from starlette.exceptions import HTTPException
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -101,8 +102,13 @@ def install_middleware(
 
     Order matters: last added = first executed. Execution order:
     (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging
-    → Security → Session → [module] → (Tenant, if multi_tenant) → Locale → Inertia.
+    → Security → Session → [module] → (Tenant, if multi_tenant) → Locale
+    → Inertia → CommitBeforeResponse.
     """
+    # Added first, so it is innermost and its send-wrapper is the first to see
+    # the response: the request's DB work commits before any byte reaches the
+    # client, instead of in get_db's post-response exit code (GH #257).
+    app.add_middleware(CommitBeforeResponseMiddleware)
     app.add_middleware(
         InertiaLayoutDataMiddleware,
         menu_registry=menu_registry,

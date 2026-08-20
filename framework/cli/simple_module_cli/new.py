@@ -21,6 +21,24 @@ __all__ = ["new_project"]
 _ALEMBIC = ("uv", "run", "alembic")
 
 
+def _alembic_argv(target: Path, host_dir: Path) -> list[str]:
+    """Alembic argv to run **from the project root** (``target``).
+
+    Never from ``host/``. ``find_env_file`` and the relative-sqlite anchoring
+    in ``BootstrapSettings`` now make the resolved database cwd-independent,
+    so this is no longer what stands between the scaffold and GH #262 — but
+    the bootstrap should still run where ``make migrate`` and the app run.
+    Matching cwds keeps every relative path in the scaffold (the ini, the
+    ``.env`` walk's starting point, the sqlite file) meaning one thing.
+
+    In the flat ``create-host`` layout the host *is* the project root, so the
+    ini path collapses to ``alembic.ini``.
+    """
+    if host_dir == target:
+        return [*_ALEMBIC, "-c", "alembic.ini"]
+    return ["uv", "run", "--project", "host", "alembic", "-c", "host/alembic.ini"]
+
+
 class Db(StrEnum):
     sqlite = "sqlite"
     postgres = "postgres"
@@ -183,27 +201,30 @@ def new_project(
             )
             return
 
-    _bootstrap_initial_migration(host_dir)
+    alembic = _alembic_argv(target, host_dir)
+    _bootstrap_initial_migration(target, host_dir, alembic)
     # `heads` (plural) applies every per-module branch head; `head` (singular)
     # errors once a second module ships its own migration branch label.
-    subprocess.run([*_ALEMBIC, "upgrade", "heads"], cwd=host_dir, check=False)
+    subprocess.run([*alembic, "upgrade", "heads"], cwd=target, check=False)
     typer.echo("\nSetup complete. Run `make dev` in the new directory.")
     typer.echo("To run the full stack in containers instead: make docker-up")
     if "background_tasks" in resolved:
         typer.echo("For background jobs, also run: docker compose up -d redis worker beat")
 
 
-def _bootstrap_initial_migration(host_dir: Path) -> None:
+def _bootstrap_initial_migration(target: Path, host_dir: Path, alembic: list[str]) -> None:
     """Autogenerate the baseline migration if the scaffold ships none.
 
     Without a real revision, ``alembic upgrade head`` is a silent no-op
     against an empty schema — the bundled modules' tables never exist.
+
+    Runs from ``target`` (the project root) — see :func:`_alembic_argv`.
     """
     versions_dir = host_dir / "migrations" / "versions"
     if any(p.name != "__init__.py" for p in versions_dir.glob("*.py")):
         return
     subprocess.run(
-        [*_ALEMBIC, "revision", "--autogenerate", "-m", "initial schema"],
-        cwd=host_dir,
+        [*alembic, "revision", "--autogenerate", "-m", "initial schema"],
+        cwd=target,
         check=False,
     )
