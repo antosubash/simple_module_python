@@ -13,10 +13,10 @@ Prefix is always `SM_`. These are the pre-DB knobs read by `simple_module_hostin
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SM_DATABASE_URL` | `sqlite+aiosqlite:///./app.db` | **Required in production.** Async URL. Postgres: `postgresql+asyncpg://…` |
+| `SM_DATABASE_URL` | `sqlite+aiosqlite:///./app.db` | **Required in production.** Async URL. Postgres: `postgresql+asyncpg://…` Relative sqlite paths resolve against the project root (the `.env` location), not the cwd. |
 | `SM_ENVIRONMENT` | `development` | Any value other than `development`, `test`, `testing` triggers strict discovery + placeholder-secret checks. |
 | `SM_SECRET_KEY` | `change-me-in-production` | **Must** be overridden in production — session cookie signing key. |
-| `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only — where the Vite HMR client connects. |
+| `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only — where the Vite HMR client connects. Scaffolded apps derive the Vite dev server's port and origin from this same value, so it's the single knob for moving off 5050. |
 | `SM_DEBUG` | `false` | Enables debug mode (shows tracebacks in HTTP responses). |
 | `SM_LOG_LEVEL` | `INFO` | `DEBUG`/`INFO`/`WARNING`/`ERROR` |
 | `SM_LOG_FORMAT` | `json` | `json` (structured) or `text`. |

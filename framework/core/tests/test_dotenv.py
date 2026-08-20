@@ -7,10 +7,14 @@ here is hard to debug because it manifests as "the setting just isn't there".
 
 from __future__ import annotations
 
+import pathlib
+from pathlib import Path
+
 import pytest
 from simple_module_core.dotenv import (
     env_bool,
     env_str,
+    find_env_file,
     load_dotenv_into_environ,
     parse_dotenv,
 )
@@ -71,6 +75,23 @@ class TestParseDotenv:
         monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
         monkeypatch.chdir(tmp_path)
         assert parse_dotenv() == {"CWD_KEY": "present"}
+
+
+class TestFindEnvFile:
+    def test_home_lookup_failure_skips_boundary_check(self, tmp_path, monkeypatch):
+        """``Path.home()`` raises ``RuntimeError`` when ``$HOME`` is unset and
+        the UID has no passwd entry (rootless containers). ``find_env_file``
+        must not propagate that — it just skips the home-boundary check and
+        keeps walking.
+        """
+
+        def _raise_runtime_error() -> Path:
+            raise RuntimeError("no home directory for this uid")
+
+        monkeypatch.setattr(pathlib.Path, "home", staticmethod(_raise_runtime_error))
+        monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
+        monkeypatch.chdir(tmp_path)
+        assert find_env_file() == Path(".env")
 
 
 class TestLoadDotenvIntoEnviron:

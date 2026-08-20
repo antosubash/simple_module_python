@@ -444,6 +444,43 @@ package dir (a `force-include` maps it in), and `static/dist` is gitignored
 (an `artifacts` entry ships it when present without failing the build when
 it isn't).
 
+## External asset origins (CSP)
+
+The host ships a strict Content-Security-Policy. If your pages load anything
+from another origin — a font CDN, a tile server, a third-party API — declare
+it, or the browser blocks the request and your feature silently breaks in
+every host:
+
+```python
+def register_csp_sources(self, registry):
+    registry.add("style-src", "https://rsms.me")
+    registry.add("font-src", "https://rsms.me")
+```
+
+Only fetch directives can be extended; each source must be a single
+origin/scheme token, validated at boot. See
+[docs/framework/lifecycle.md](framework/lifecycle.md#register_csp_sourcesregistry).
+
+## CSRF on mutation endpoints
+
+The framework's baseline CSRF defence is `SameSite=Lax` on the session
+cookie — plain Inertia forms need nothing extra. For defence in depth on a
+module's JSON mutation surface, opt into the framework's session-bound token
+check instead of rolling your own:
+
+```python
+from simple_module_hosting.csrf import RequiresCsrf, get_csrf_token
+
+router = APIRouter(dependencies=[Depends(RequiresCsrf())])
+
+# expose the token to your pages as a view prop:
+await inertia.render("MyModule/Page", {"csrf_token": get_csrf_token(request)})
+```
+
+Frontend callers echo the token back as `X-CSRF-Token` on
+`POST`/`PUT`/`PATCH`/`DELETE`. Safe methods are never checked, and bare test
+apps without `SessionMiddleware` are exempt, so unit tests need no ceremony.
+
 ## Developing out-of-tree
 
 A module in its own repo has no host around it — these are the three

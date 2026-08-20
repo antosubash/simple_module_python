@@ -76,9 +76,18 @@ export function useProductSchema() {
 
 **Why:** `t()` resolves once when the schema is constructed. Module-scope construction = first-render-locale-only forever, no matter what the user switches to.
 
-### 6. CSRF: rely on `SameSite=Lax`, don't add a token header
+### 6. CSRF: `SameSite=Lax` is the baseline; opt in for defence in depth
 
-There is no CSRF token middleware. Starlette's default `SameSite=Lax` session cookie isn't attached to cross-site POST/PUT/DELETE, so forged form-submits are unauthenticated. Page-side `fetch()` calls don't need a token header.
+Starlette's default `SameSite=Lax` session cookie isn't attached to cross-site POST/PUT/DELETE, so forged form-submits are unauthenticated — plain Inertia forms need nothing extra. A module that wants a real token check on its JSON mutations uses the framework primitive instead of rolling its own:
+
+```python
+from simple_module_hosting.csrf import RequiresCsrf, get_csrf_token
+
+router = APIRouter(dependencies=[Depends(RequiresCsrf())])
+# expose get_csrf_token(request) as a view prop; fetch() callers echo it as X-CSRF-Token
+```
+
+Safe methods are never checked, and bare test apps without `SessionMiddleware` are exempt.
 
 ### 7. Don't call `session.commit()` in service code
 
@@ -93,6 +102,10 @@ Locale-related diagnostics: SM013 (missing file), SM014 (missing keys vs default
 ### 9. Don't re-enable the silenced ty rules
 
 Projects using the `ty` type checker should globally suppress `unresolved-attribute`, `unsupported-operator`, `unknown-argument`, `no-matching-overload`, `invalid-argument-type`, and `invalid-assignment` in `pyproject.toml`. SQLModel runtime-instruments fields as SQLAlchemy attributes, so the type checker can't see what's there (and `model_config = ConfigDict(...)` clashes with ty's internal `SQLModelConfig` type, which `invalid-assignment` covers). Real bugs surface in tests.
+
+### 10. Declare external asset origins with `register_csp_sources`
+
+The host CSP blocks any origin you don't declare — a font CDN or tile server your pages load from will silently fail in every host. Declare it in the hook: `registry.add("style-src", "https://rsms.me")`. Fetch directives only (never `default-src` / `base-uri` / `form-action` / `frame-ancestors`); single-token sources, validated at boot.
 
 ## Related skills
 

@@ -7,7 +7,7 @@ description: Use when a module needs to contribute menu items, permissions, feat
 
 Four cross-cutting registries are populated during boot from each module's `register_*` hook. They turn the modular monolith into something more than a bag of routers: navigation aggregates, permission checks expand consistently, features can be toggled per tenant, and modules emit/consume events without importing each other.
 
-All four are populated in **Phase 5** of `app_builder.build_app`, in this per-module order: `register_menu_items` → `register_permissions` → `register_feature_flags` → `register_event_handlers` → `register_health_checks` → `register_public_routes`. (The last two — health checks and anonymous-route exemptions — are also registries but out of scope here; see **simple-module-creating**.) Each is constructed once in Phase 3 and stashed on `app.state.sm` (as `menu_registry`, `permissions`, `feature_flags`, `event_bus`, …) only **after** all module hooks have run.
+All four are populated in **Phase 5** of `app_builder.build_app`, in this per-module order: `register_menu_items` → `register_permissions` → `register_feature_flags` → `register_event_handlers` → `register_health_checks` → `register_public_routes` → `register_csp_sources`. (The last three — health checks, anonymous-route exemptions, and CSP sources — are also registries but out of scope here; see **simple-module-creating**.) Each is constructed once in Phase 3 and stashed on `app.state.sm` (as `menu_registry`, `permissions`, `feature_flags`, `event_bus`, …) only **after** all module hooks have run.
 
 ## Menu — `register_menu_items(registry: MenuRegistry)`
 
