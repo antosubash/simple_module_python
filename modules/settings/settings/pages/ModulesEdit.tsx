@@ -36,7 +36,9 @@ function ModulesEdit({ modules, testable = [] }: Props) {
   return (
     <>
       <Head title="Modules" />
-      <div className="flex h-[calc(100vh-64px)] bg-background">
+      {/* Master/detail pane fills the viewport minus the chrome above it,
+          whose height the layout publishes as --app-chrome-h. */}
+      <div className="flex h-[calc(100vh-var(--app-chrome-h))] bg-background">
         <aside className="w-72 shrink-0 border-r border-border bg-secondary/30 overflow-y-auto">
           <div className="p-3">
             <div className="relative">

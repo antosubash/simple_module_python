@@ -52,8 +52,12 @@ export function LocaleSwitcher() {
     form.submit();
   };
 
+  // Just the control — no wrapper. It used to carry the sidebar header's
+  // padding and bottom rule, which travelled with it to the topbar and the
+  // public nav and painted a stray border in both. Placement belongs to
+  // whoever is doing the placing.
   return (
-    <div className="flex justify-end px-3 py-2 border-b border-white/[0.06]">
+    <>
       <form ref={formRef} method="POST" action="/i18n/set-locale" style={{ display: 'none' }}>
         <input type="hidden" name="locale" value="" readOnly />
       </form>
@@ -76,6 +80,6 @@ export function LocaleSwitcher() {
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-    </div>
+    </>
   );
 }

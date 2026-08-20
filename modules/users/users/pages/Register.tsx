@@ -3,6 +3,7 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
+import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -62,7 +63,7 @@ function Register() {
           </div>
         </div>
         <a
-          href="/users/login"
+          href={LOGIN_PATH}
           className="mt-4 block text-center text-sm font-semibold text-primary-700 hover:text-primary-800"
         >
           Back to log in
@@ -149,7 +150,7 @@ function Register() {
 
       <p className="mt-5 text-center text-xs text-muted-foreground">
         Already have an account?{' '}
-        <a href="/users/login" className="font-semibold text-primary-700 hover:text-primary-800">
+        <a href={LOGIN_PATH} className="font-semibold text-primary-700 hover:text-primary-800">
           Log in
         </a>
       </p>

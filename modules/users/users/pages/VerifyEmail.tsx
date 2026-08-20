@@ -1,6 +1,7 @@
 import { Head, usePage } from '@inertiajs/react';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
+import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -67,7 +68,7 @@ function VerifyEmail() {
       title: 'Email verified!',
       description: 'Your account is now active.',
       body: (
-        <a href="/users/login">
+        <a href={LOGIN_PATH}>
           <Button className="w-full">Log in</Button>
         </a>
       ),
@@ -78,7 +79,7 @@ function VerifyEmail() {
       title: 'Already verified',
       description: 'This account is already verified — you can log in.',
       body: (
-        <a href="/users/login">
+        <a href={LOGIN_PATH}>
           <Button className="w-full">Log in</Button>
         </a>
       ),
@@ -90,7 +91,7 @@ function VerifyEmail() {
       description: errorMsg || 'Verification link expired or invalid.',
       body: (
         <a
-          href="/users/login"
+          href={LOGIN_PATH}
           className="text-center text-sm font-semibold text-primary-700 hover:text-primary-800"
         >
           Back to log in

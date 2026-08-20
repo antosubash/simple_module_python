@@ -1,8 +1,10 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { PublicLayout } from '@simple-module-py/ui/layouts/PublicLayout';
+import { authCta } from '@simple-module-py/ui/lib/auth-routes';
+import type { SharedProps } from '@simple-module-py/ui/types';
 import {
   BookOpen,
   Copy,
@@ -31,6 +33,15 @@ $ make dev
 
 function Landing() {
   const { t } = useT();
+  const { auth, signup } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+
+  // Every public CTA used to point at /auth/login, which is the JSON API prefix
+  // and has no page — so both "Get started" and "Sign up" 404'd. Send a signed-in
+  // visitor onward, an anonymous one to signup when it is open, and to sign-in
+  // otherwise; a closed instance never advertises an account it won't create.
+  const signupOpen = signup?.allowed ?? false;
+  const cta = authCta(signupOpen);
+  const primaryHref = auth?.isAuthenticated ? '/dashboard/' : cta.href;
 
   const features = [
     {
@@ -94,7 +105,7 @@ function Landing() {
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-3">
             <Button asChild size="lg" className="w-full gap-2 sm:w-auto">
-              <a href="/auth/login">
+              <a href={primaryHref}>
                 <Rocket className="h-4 w-4" aria-hidden="true" />
                 {t(keys.host.landing.cta_get_started)}
               </a>
@@ -223,7 +234,11 @@ function Landing() {
               Ready to ship modules?
             </h3>
             <p className="mt-1 text-sm text-white/85">
-              Sign up for the admin UI, or hack on the framework directly.
+              {auth?.isAuthenticated
+                ? 'Head to the dashboard, or hack on the framework directly.'
+                : signupOpen
+                  ? 'Sign up for the admin UI, or hack on the framework directly.'
+                  : 'Sign in to the admin UI, or hack on the framework directly.'}
             </p>
           </div>
           <div className="flex shrink-0 gap-2">
@@ -232,7 +247,7 @@ function Landing() {
               variant="secondary"
               className="bg-white text-primary-700 hover:bg-white/90"
             >
-              <a href="/auth/login">Sign up</a>
+              <a href={primaryHref}>{auth?.isAuthenticated ? 'Open Dashboard' : cta.label}</a>
             </Button>
             <Button
               asChild

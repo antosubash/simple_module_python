@@ -3,7 +3,7 @@ import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { TableCell, TableRow } from '@simple-module-py/ui/components/ui/table';
 import { RefreshCcw } from 'lucide-react';
-import { RETRYABLE_STATUSES, STATUS_BADGE_VARIANT, VIEW_BASE } from '../constants';
+import { formatTs, RETRYABLE_STATUSES, STATUS_BADGE_VARIANT, VIEW_BASE } from '../constants';
 import type { Execution } from '../retry';
 import { RetryConfirmDialog } from './RetryConfirmDialog';
 
@@ -50,7 +50,7 @@ export function ExecutionRow({ execution, canRetry, onRetry }: Props) {
         {execution.queue}
       </TableCell>
       <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-        {execution.queued_at ? new Date(execution.queued_at).toLocaleString() : '—'}
+        {formatTs(execution.queued_at)}
       </TableCell>
       <TableCell className="hidden sm:table-cell text-sm tabular-nums">
         {formatDuration(execution.started_at, execution.finished_at)}
@@ -66,6 +66,9 @@ export function ExecutionRow({ execution, canRetry, onRetry }: Props) {
                 <RefreshCcw />
               </Button>
             }
+            taskName={execution.task_name}
+            args={execution.args ?? []}
+            kwargs={execution.kwargs ?? {}}
             onConfirm={() => onRetry(execution)}
           />
         ) : (

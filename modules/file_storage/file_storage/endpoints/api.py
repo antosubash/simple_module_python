@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import RedirectResponse, StreamingResponse
 from simple_module_core.events import EventBus
 from simple_module_hosting.i18n_deps import TranslatorDep
@@ -75,8 +75,10 @@ async def upload_file(
     dependencies=[Depends(RequiresPermission(constants.Permission.DOWNLOAD))],
 )
 async def list_files(
-    page: int = 1,
-    per_page: int = 20,
+    # Strict bounds, matching the background_tasks admin API: JSON callers get
+    # a 422 for out-of-range paging, while the Inertia views clamp instead.
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=200),
     service: FileStorageService = Depends(get_file_storage_service),
 ) -> StoredFileListOut:
     items, total = await service.list_files(page=page, per_page=per_page)

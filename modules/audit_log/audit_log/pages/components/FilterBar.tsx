@@ -11,7 +11,9 @@ import {
 } from '@simple-module-py/ui/components/ui/select';
 
 export const ALL = '__all__';
-const ACTIONS = ['created', 'updated', 'deleted', 'soft_deleted'] as const;
+/** Exported so other panels (the empty-state filter summary) name the same
+ * set of actions instead of hand-copying it and risking drift. */
+export const ACTIONS = ['created', 'updated', 'deleted', 'soft_deleted'] as const;
 
 export interface FilterState {
   entityType: string;
@@ -19,6 +21,18 @@ export interface FilterState {
   userId: string;
   fromDate: string;
   toDate: string;
+}
+
+/** The filters the server actually queried with — not the unapplied form
+ * state above. Shared by Browse (which receives it as props) and BrowseEmpty
+ * (which summarizes it) so the two can't drift apart field-for-field. */
+export interface AppliedFilters {
+  entity_type: string | null;
+  action: string | null;
+  user_id: string | null;
+  correlation_id: string | null;
+  from_date: string | null;
+  to_date: string | null;
 }
 
 interface FilterBarProps {

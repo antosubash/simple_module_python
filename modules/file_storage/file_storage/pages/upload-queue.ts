@@ -18,8 +18,15 @@ function nextId(): string {
   return `upload-${counter}`;
 }
 
+// Files in a batch have no ordering dependency on one another, so uploading
+// strictly one at a time makes a 10-file drop take the sum of every file's
+// duration. A small worker pool instead bounds the batch to roughly the
+// slowest file's duration without opening enough simultaneous connections to
+// swamp the server or the browser's per-origin connection limit.
+const UPLOAD_CONCURRENCY = 4;
+
 /**
- * Uploads files one at a time, reporting byte progress per file.
+ * Uploads files with bounded concurrency, reporting byte progress per file.
  *
  * Uses XMLHttpRequest rather than fetch deliberately: fetch exposes no upload
  * progress events in any current browser, and a large file uploading behind a
@@ -80,11 +87,17 @@ export function useUploadQueue() {
 
       let uploaded = 0;
       const failed: string[] = [];
-      for (const [index, file] of list.entries()) {
-        const ok = await upload(queued[index], file);
-        if (ok) uploaded += 1;
-        else failed.push(file.name);
-      }
+      let next = 0;
+      const worker = async () => {
+        while (next < list.length) {
+          const index = next;
+          next += 1;
+          const ok = await upload(queued[index], list[index]);
+          if (ok) uploaded += 1;
+          else failed.push(list[index].name);
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(UPLOAD_CONCURRENCY, list.length) }, worker));
 
       // Completed rows disappear once the reloaded table can *show* the real
       // record — dropping them before the reply lands leaves a gap where the

@@ -61,6 +61,7 @@ class AuditLogService:
         entity_id: str | None = None,
         action: str | None = None,
         user_id: str | None = None,
+        correlation_id: str | None = None,
         from_date: datetime | None = None,
         to_date: datetime | None = None,
         page: int = 1,
@@ -78,6 +79,11 @@ class AuditLogService:
             conditions.append(AuditEntry.action == action)
         if user_id:
             conditions.append(AuditEntry.user_id == user_id)
+        # One request that touched four entities writes four rows sharing a
+        # correlation id. Filtering on it is what turns those back into a
+        # single action instead of four unrelated-looking events.
+        if correlation_id:
+            conditions.append(AuditEntry.correlation_id == correlation_id)
         if from_date:
             conditions.append(AuditEntry.created_at >= from_date)
         if to_date:

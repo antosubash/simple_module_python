@@ -9,6 +9,8 @@ strings below match what ``pages/*.tsx`` declare.
 
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from inertia import InertiaResponse
 from pydantic import ValidationError
@@ -17,7 +19,12 @@ from simple_module_hosting.inertia_utils import redirect_back_with_errors, valid
 from simple_module_hosting.permissions import RequiresPermission
 from starlette.responses import RedirectResponse
 
-from settings._module_settings import _package_of, collect_module_settings, serialize
+from settings._module_settings import (
+    _package_of,
+    collect_module_settings,
+    overrides_by_package,
+    serialize,
+)
 from settings.constants import (
     ERR_SETTING_NOT_FOUND,
     PERM_CREATE,
@@ -187,7 +194,7 @@ async def modules_view(
     an ``SM_*`` env var, or the field default — so a setting that "isn't taking
     effect" explains itself.
     """
-    overrides = await _overrides_by_package(service)
+    overrides = await overrides_by_package(service)
     views = collect_module_settings(request.app, overrides)
     return await inertia.render(
         _PAGE_MODULES_EDIT,
@@ -198,18 +205,6 @@ async def modules_view(
             "testable": _testable_packages(request),
         },
     )
-
-
-async def _overrides_by_package(service: SettingService) -> dict[str, frozenset[str]]:
-    """Map package -> field names carrying a stored override.
-
-    Reads the SYSTEM scope once and buckets by key prefix. Packages with no
-    overrides are simply absent, which ``collect_module_settings`` already
-    treats as "nothing overridden".
-    """
-    from settings.store import SettingsStore
-
-    return await SettingsStore(service).all_override_fields()
 
 
 def _testable_packages(request: Request) -> list[str]:
@@ -257,13 +252,21 @@ async def test_connection(package: str, request: Request) -> dict:
     if not checks:
         raise HTTPException(status_code=404, detail=f"{owner.meta.name} has no connection to test")
 
-    results = []
-    for check in checks:
+    # Run independently of one another — a module can register several checks
+    # (e.g. SMTP + primary storage + backup storage), and sequentially awaiting
+    # each one would block the request for the sum of their latencies instead
+    # of the slowest one, the same reasoning dashboard.stats._run_health_checks
+    # already applies to probe checks.
+    async def _run_one(check) -> dict:
         try:
             outcome = await check.check()
-            results.append(
-                {"name": check.name, "status": outcome.status.value, "detail": outcome.detail or ""}
-            )
+            return {
+                "name": check.name,
+                "status": outcome.status.value,
+                "detail": outcome.detail or "",
+            }
         except Exception as exc:
-            results.append({"name": check.name, "status": "unhealthy", "detail": str(exc)})
+            return {"name": check.name, "status": "unhealthy", "detail": str(exc)}
+
+    results = await asyncio.gather(*[_run_one(c) for c in checks])
     return {"module": owner.meta.name, "checks": results}

@@ -8,14 +8,23 @@ import {
 } from '@simple-module-py/ui/components/ui/tooltip';
 import type React from 'react';
 import { useState } from 'react';
+import { AppTopbar, activeSection, findSection } from '../components/AppTopbar';
 import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
 import { BrandingMark } from '../components/BrandingMark';
+import { LocaleSwitcher } from '../components/LocaleSwitcher';
 import { NavIcon } from '../components/NavIcon';
+import { PageHeadingProvider, usePageSection } from '../components/page-heading';
 import { darkSurfaceLogo } from '../lib/brand';
 import type { MenuItem, SharedProps } from '../types';
 import { SidebarUserMenu } from './SidebarUserMenu';
+
+// A stable reference for "no items" — `menus?.[key] ?? []` would otherwise
+// mint a fresh empty array every render, and that array flows into
+// CommandPalette's `useMemo([navItems, accountItems])`, defeating it on every
+// render where a menu is absent instead of only when its contents change.
+const NO_ITEMS: MenuItem[] = [];
 
 function groupMenuItems(items: MenuItem[]): { group: string; items: MenuItem[] }[] {
   const groups: { group: string; items: MenuItem[] }[] = [];
@@ -52,13 +61,20 @@ interface SidebarLayoutProps {
   footerNavSlot?: React.ReactNode;
 }
 
-export function SidebarLayout({
-  children,
-  menuKey,
-  theme,
-  headerSlot,
-  footerNavSlot,
-}: SidebarLayoutProps) {
+/**
+ * Thin wrapper so the shell itself sits *inside* the heading provider — the
+ * sidebar reads the section a page declares, which it cannot do from the same
+ * component that renders the provider.
+ */
+export function SidebarLayout(props: SidebarLayoutProps) {
+  return (
+    <PageHeadingProvider>
+      <SidebarShell {...props} />
+    </PageHeadingProvider>
+  );
+}
+
+function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: SidebarLayoutProps) {
   const page = usePage<{ props: SharedProps }>();
   const { auth, menus, branding } = page.props as unknown as SharedProps;
   const currentUrl = page.url;
@@ -71,16 +87,25 @@ export function SidebarLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = () => setSidebarOpen(false);
 
-  const menuItems = menus?.[menuKey] ?? [];
+  const menuItems = menus?.[menuKey] ?? NO_ITEMS;
+  const declaredSection = usePageSection(currentUrl);
+  // Same "which entry does this page belong to" resolution AppTopbar uses for
+  // the breadcrumb, so the sidebar highlight and the breadcrumb never disagree.
+  const active = activeSection(menuItems, currentUrl) ?? findSection(menuItems, declaredSection);
 
   return (
     <TooltipProvider>
       <BrandingHead />
       <BrandingBanner />
-      <div className="min-h-screen bg-background">
+      {/* --app-chrome-h names the height of the bar above the content — the
+          topbar on lg, the mobile bar below it, both mutually exclusive.
+          Both bars size themselves off this one variable (h-[var(--app-chrome-h)])
+          instead of a hardcoded `h-14`, so they cannot drift out of sync with
+          each other or with pages that subtract it to fill the viewport. */}
+      <div className="min-h-screen bg-background [--app-chrome-h:3.5rem]">
         {/* Mobile top bar */}
         <div
-          className={`sticky top-0 z-40 flex h-14 items-center gap-3 ${theme.sidebarBg} px-4 lg:hidden`}
+          className={`sticky top-0 z-40 flex h-[var(--app-chrome-h)] items-center gap-3 ${theme.sidebarBg} px-4 lg:hidden`}
         >
           <Button
             variant="ghost"
@@ -112,6 +137,11 @@ export function SidebarLayout({
               size="sm"
             />
           </Link>
+          {/* The topbar that normally carries this is desktop-only, so the
+              mobile bar keeps the locale control rather than losing it. */}
+          <div className="ml-auto">
+            <LocaleSwitcher />
+          </div>
         </div>
 
         {/* Mobile overlay */}
@@ -175,7 +205,7 @@ export function SidebarLayout({
                   </div>
                 )}
                 {group.items.map((item, index) => {
-                  const isActive = currentUrl.startsWith(item.url);
+                  const isActive = active?.url === item.url;
                   return (
                     <Tooltip key={item.url}>
                       <TooltipTrigger asChild>
@@ -206,7 +236,7 @@ export function SidebarLayout({
           {auth?.user && (
             <SidebarUserMenu
               user={auth.user}
-              items={menus?.userDropdown ?? []}
+              items={menus?.userDropdown ?? NO_ITEMS}
               avatarBg={theme.avatarBg}
               hoverBg={theme.hoverBg}
               mutedTextClass={theme.mutedTextClass}
@@ -217,6 +247,12 @@ export function SidebarLayout({
 
         {/* Main content */}
         <main className="flex min-h-screen flex-col lg:ml-64">
+          <AppTopbar
+            navItems={menuItems}
+            accountItems={menus?.userDropdown ?? NO_ITEMS}
+            currentUrl={currentUrl}
+            activeMenuItem={active}
+          />
           <div className="flex-1">{children}</div>
           <BrandingFooter
             appName={appName}

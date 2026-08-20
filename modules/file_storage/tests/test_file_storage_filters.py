@@ -78,6 +78,21 @@ async def test_trailing_slash_selects_a_whole_family(tmp_path, db_session: Async
     assert total == 2
 
 
+async def test_content_type_family_filter_escapes_like_metacharacters(
+    tmp_path, db_session: AsyncSession
+):
+    """A `content_type` family prefix ending in ``/`` is embedded in an ILIKE
+    pattern; a literal ``%`` or ``_`` in it must not be treated as a wildcard,
+    or a crafted value like ``"%/"`` broadens the match to everything with a
+    slash instead of narrowing it to nothing."""
+    svc = _service(tmp_path, db_session)
+    await _seed(svc)
+
+    items, total = await svc.list_files(content_type="%/")
+    assert items == []
+    assert total == 0
+
+
 async def test_search_and_type_filters_combine(tmp_path, db_session: AsyncSession):
     svc = _service(tmp_path, db_session)
     await _seed(svc)

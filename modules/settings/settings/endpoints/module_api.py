@@ -17,6 +17,7 @@ from settings._module_settings import (
     SECRET_MASK,
     collect_module_settings,
     is_secret_field,
+    overrides_by_package,
     serialize,
 )
 from settings.constants import MODULE_PACKAGE, PERM_DELETE, PERM_EDIT, PERM_VIEW
@@ -47,8 +48,15 @@ def _strip_mask_sentinels(changes: dict[str, Any]) -> dict[str, Any]:
 
 
 @router.get("", dependencies=_VIEW)
-async def list_modules(request: Request) -> dict[str, Any]:
-    views = collect_module_settings(request.app)
+async def list_modules(
+    request: Request,
+    service: SettingService = Depends(get_setting_service),
+) -> dict[str, Any]:
+    # Match the Inertia ModulesEdit view: without the overrides map, every
+    # field's `source`/`db_override` would report env/default even when a
+    # stored override is actually in force.
+    overrides = await overrides_by_package(service)
+    views = collect_module_settings(request.app, overrides)
     return {"modules": serialize(views)}
 
 

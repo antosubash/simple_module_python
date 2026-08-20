@@ -13,8 +13,10 @@ import {
 } from '@simple-module-py/ui/components/ui/alert-dialog';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
+import { Input } from '@simple-module-py/ui/components/ui/input';
+import { Label } from '@simple-module-py/ui/components/ui/label';
 import { Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { toast } from 'sonner';
 
 interface Props {
@@ -25,6 +27,13 @@ interface Props {
 
 export function DangerZone({ userId, email, isSelf }: Props) {
   const [deleting, setDeleting] = useState(false);
+  // Deleting a user is unrecoverable and the row it starts from looks like
+  // every other row, so the confirm asks for the address to be typed out.
+  // Reading it back is the part that catches "wrong person" — a second click
+  // never would.
+  const [typed, setTyped] = useState('');
+  const confirmId = useId();
+  const confirmed = typed.trim().toLowerCase() === email.toLowerCase();
 
   const handleDelete = () => {
     setDeleting(true);
@@ -56,7 +65,7 @@ export function DangerZone({ userId, email, isSelf }: Props) {
             <p className="text-sm text-muted-foreground">
               Permanently delete this user. This cannot be undone.
             </p>
-            <AlertDialog>
+            <AlertDialog onOpenChange={(open) => !open && setTyped('')}>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" className="gap-1.5" disabled={deleting}>
                   <Trash2 className="h-3.5 w-3.5" />
@@ -67,13 +76,27 @@ export function DangerZone({ userId, email, isSelf }: Props) {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete {email}?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This permanently removes the account and all of its access. This action cannot
-                    be undone.
+                    Removes the account, its roles and its sessions. Audit entries stay, attributed
+                    to a deleted user. This cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
+                <div className="grid gap-2">
+                  <Label htmlFor={confirmId} className="text-sm font-normal">
+                    Type <span className="font-medium text-foreground">{email}</span> to confirm
+                  </Label>
+                  <Input
+                    id={confirmId}
+                    value={typed}
+                    onChange={(e) => setTyped(e.target.value)}
+                    autoComplete="off"
+                    placeholder={email}
+                  />
+                </div>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+                  <AlertDialogAction disabled={!confirmed} onClick={handleDelete}>
+                    Delete user
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>

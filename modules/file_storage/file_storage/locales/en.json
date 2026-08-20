@@ -10,6 +10,7 @@
     "count_other": "{count} files",
     "no_match_title": "No matching files",
     "no_match_description": "No files match the current search or type filter.",
+    "clear_filters": "Clear filters",
     "previous": "Previous",
     "next": "Next",
     "page_of": "Page {page} of {total}"

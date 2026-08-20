@@ -64,13 +64,15 @@ export function CreateUserFields({
             type="password"
             value={password}
             onChange={(e) => onPasswordChange(e.target.value)}
+            placeholder="At least 8 characters"
             required
             autoComplete="new-password"
             className="pl-9"
           />
         </div>
         <p className="text-xs text-muted-foreground">
-          The account is active and verified immediately — share the password securely.
+          Must be at least 8 characters and not all numbers. The account is active and verified
+          immediately — share the password securely.
         </p>
       </div>
     </>

@@ -30,6 +30,15 @@
     "system_value": "System: {value}",
     "clear_override": "Clear override"
   },
+  "confirm": {
+    "enable_title": "Enable \"{name}\"?",
+    "disable_title": "Disable \"{name}\"?",
+    "scope_system": "This changes the value for every tenant, immediately.",
+    "scope_tenant": "This sets an override for tenant \"{tenant_id}\" only. Other tenants keep following the system value.",
+    "enable_action": "Enable",
+    "disable_action": "Disable",
+    "cancel": "Cancel"
+  },
   "toasts": {
     "enabled": "\"{name}\" enabled",
     "disabled": "\"{name}\" disabled",

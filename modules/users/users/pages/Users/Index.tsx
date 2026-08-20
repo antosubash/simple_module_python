@@ -8,7 +8,6 @@ import { Input } from '@simple-module-py/ui/components/ui/input';
 import {
   Table,
   TableBody,
-  TableCell,
   TableHead,
   TableHeader,
   TableRow,
@@ -29,6 +28,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type Filters, IndexFilters } from '../../admin/components/IndexFilters';
 import { type RoleItem, RolesTab } from '../../admin/components/RolesTab';
 import { type UserListItem, UserRow } from '../../admin/components/UserRow';
+import { SoloAccountPrompt, UsersEmptyRow } from '../../admin/components/UsersEmpty';
 
 interface Pagination {
   page: number;
@@ -59,6 +59,9 @@ const DEFAULT_FILTERS: Filters = {
 };
 
 const HEAD_CLASS = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground';
+
+/** Member, Role, Status, Last seen, row actions — the empty row spans all of them. */
+const COLUMN_COUNT = 5;
 
 function SortIcon({ col, filters }: { col: Filters['sort']; filters: Filters }) {
   if (filters.sort !== col) return null;
@@ -122,6 +125,25 @@ function Index() {
   }, [search, initialQuery, navigate]);
 
   const totalPages = Math.ceil(pagination.total / pagination.per_page);
+
+  // Sort column and direction are deliberately excluded: reordering an empty
+  // list leaves it empty for the same reason it already was, so counting them
+  // here would turn "no users yet" into a misleading "no matches".
+  const isFiltered =
+    !!search ||
+    filters.status !== DEFAULT_FILTERS.status ||
+    filters.role !== DEFAULT_FILTERS.role ||
+    filters.verified !== DEFAULT_FILTERS.verified;
+
+  const clearFilters = useCallback(() => {
+    setSearch('');
+    navigate({
+      q: '',
+      status: DEFAULT_FILTERS.status,
+      role: DEFAULT_FILTERS.role,
+      verified: DEFAULT_FILTERS.verified,
+    });
+  }, [navigate]);
 
   return (
     <PageShell
@@ -187,6 +209,8 @@ function Index() {
             />
           </div>
 
+          {pagination.total === 1 && !isFiltered && <SoloAccountPrompt />}
+
           <Card className="border-border overflow-hidden p-0">
             <Table>
               <TableHeader className="bg-secondary/40">
@@ -221,14 +245,11 @@ function Index() {
                   <UserRow key={user.id} user={user} />
                 ))}
                 {users.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-32 text-center">
-                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                        <Users className="size-8" />
-                        <p>{search ? `No users match "${search}"` : 'No users yet'}</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                  <UsersEmptyRow
+                    filtered={isFiltered}
+                    columnCount={COLUMN_COUNT}
+                    onClear={clearFilters}
+                  />
                 )}
               </TableBody>
             </Table>

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib.resources
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends
@@ -65,6 +67,15 @@ class UsersModule(ModuleBase):
         from users.provider import UsersAuthProvider
 
         app.state.auth.auth_provider = UsersAuthProvider()
+
+        # The public shell renders a "Sign up" link only when signup is open —
+        # /users/register 404s otherwise. Registered here (not in the view
+        # layer) so it is set before the first request is served.
+        from simple_module_hosting.shared_props import register_inertia_shared_provider
+
+        from users.shared_props import users_shared_props
+
+        register_inertia_shared_provider(app, users_shared_props)
 
     def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
         """Rebuild the OAuth client cache when the users settings reload.
@@ -143,6 +154,10 @@ class UsersModule(ModuleBase):
                 method="post",
             )
         )
+
+    def locale_dirs(self) -> dict[str, Path]:
+        base = Path(str(importlib.resources.files(__package__) / "locales"))
+        return {"users": base}
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from users.admin.api import admin_router

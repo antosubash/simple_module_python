@@ -13,18 +13,19 @@ import {
 import {
   Table,
   TableBody,
-  TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from '@simple-module-py/ui/components/ui/table';
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import { Activity, Search, ServerCog } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Search, ServerCog } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { ExecutionRow, statusLabel } from './components/ExecutionRow';
 import { type StatusCounts, StatusStrip } from './components/StatusStrip';
-import { STATUS_ORDER, VIEW_BASE } from './constants';
+import { TasksEmptyRow, type WorkerPresence } from './components/TasksEmpty';
+import { WorkerHealthBanner } from './components/WorkerHealthBanner';
+import { STATUS_ORDER, TASK_STATUS, VIEW_BASE } from './constants';
 import { type Execution, retryExecution } from './retry';
 
 interface Pagination {
@@ -38,7 +39,12 @@ interface Props {
   pagination: Pagination;
   filters: { status: string; task_name: string };
   status_counts: StatusCounts;
+  /** Null unless the unfiltered list came back empty — see the index view. */
+  worker_presence: WorkerPresence | null;
 }
+
+/** Task, Status, Queue, Queued, Duration, Worker, Actions. */
+const COLUMN_COUNT = 7;
 
 const STATUS_ALL = '__all__';
 
@@ -56,6 +62,7 @@ function Index() {
     pagination,
     filters: initialFilters,
     status_counts: statusCounts,
+    worker_presence: workerPresence,
   } = usePage<{ props: Props }>().props as unknown as Props;
 
   const { can } = usePermissions();
@@ -64,10 +71,40 @@ function Index() {
   const [search, setSearch] = useState(initialFilters.task_name ?? '');
   const totalPages = Math.ceil(pagination.total / pagination.per_page);
   const statusValue = initialFilters.status || STATUS_ALL;
+  // Derived from the server-confirmed filters, not the live `search` input:
+  // `workerPresence` reflects the last committed request, so mixing it with
+  // unsubmitted local state would flash the wrong empty-state copy during the
+  // debounce window between a keystroke and the resulting navigation.
+  const isFiltered = !!(initialFilters.task_name ?? '') || statusValue !== STATUS_ALL;
+
+  // Work that is supposed to be moving. Counting `running` too is deliberate:
+  // a row stuck in "running" with no worker alive means the worker died holding
+  // it, which is exactly as wrong as an unattended queue.
+  const backlog =
+    (statusCounts?.[TASK_STATUS.PENDING] ?? 0) + (statusCounts?.[TASK_STATUS.RUNNING] ?? 0);
+
+  // Set right before an explicit clear resets `search`, so the debounce
+  // effect below — which would otherwise see `search` change and reschedule
+  // a navigation using the still-stale `statusValue` prop — skips that one
+  // run instead of re-applying the status filter `clearFilters` just cleared.
+  const skipNextDebounceRef = useRef(false);
+
+  function clearFilters() {
+    // Only arm the skip when resetting `search` will actually fire the
+    // effect — if the box is already empty the effect never runs for the
+    // clear, and an armed flag would swallow the user's next keystroke.
+    if (search !== '') skipNextDebounceRef.current = true;
+    setSearch('');
+    pushFilters({ status: STATUS_ALL, task_name: '' }, 1);
+  }
 
   // Debounce search: any change from the server-provided value kicks off a
   // page-1 navigation 300ms after the user stops typing.
   useEffect(() => {
+    if (skipNextDebounceRef.current) {
+      skipNextDebounceRef.current = false;
+      return;
+    }
     if (search === (initialFilters.task_name ?? '')) return;
     const timeout = setTimeout(
       () => pushFilters({ status: statusValue, task_name: search }, 1),
@@ -95,6 +132,12 @@ function Index() {
           active={initialFilters.status ?? ''}
           onSelect={(status) => pushFilters({ status, task_name: search }, 1)}
         />
+
+        {/* `statusCounts` (and therefore `backlog`) is scoped to the active
+            search/status filter — a narrowed view can read zero backlog while
+            the real fleet-wide queue is still stuck, so only trust it as a
+            health signal when nothing is filtering it. */}
+        {!isFiltered && <WorkerHealthBanner backlog={backlog} />}
 
         <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-sm">
@@ -150,18 +193,12 @@ function Index() {
                 <ExecutionRow key={e.id} execution={e} canRetry={canRetry} onRetry={handleRetry} />
               ))}
               {executions.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="h-32 text-center">
-                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                      <Activity className="size-8" />
-                      <p>
-                        {search
-                          ? `No tasks match "${search}"`
-                          : 'No task executions yet. Tasks appear here as soon as modules enqueue work.'}
-                      </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                <TasksEmptyRow
+                  filtered={isFiltered}
+                  columnCount={COLUMN_COUNT}
+                  presence={workerPresence ?? null}
+                  onClear={clearFilters}
+                />
               )}
             </TableBody>
           </Table>

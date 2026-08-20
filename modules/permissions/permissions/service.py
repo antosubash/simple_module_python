@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
+from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -136,18 +137,15 @@ class PermissionService:
         return list(result.scalars().all())
 
     async def list_users_with_counts(
-        self,
-        *,
-        limit: int = 50,
-        search: str | None = None,
+        self, *, limit: int = 50, search: str | None = None
     ) -> list[tuple[UserOut, int]]:
         """Users who have at least one direct grant, plus an optional search."""
         from users.models import User
 
         stmt = select(User).limit(limit)
         if search:
-            pattern = f"%{search}%"
-            stmt = stmt.where(User.email.ilike(pattern) | User.full_name.ilike(pattern))
+            p, esc = like_contains_pattern(search), LIKE_ESCAPE_CHAR
+            stmt = stmt.where(User.email.ilike(p, esc) | User.full_name.ilike(p, esc))
         stmt = stmt.order_by(User.email)
 
         users_result = await self.db.execute(stmt)

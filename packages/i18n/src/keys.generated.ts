@@ -10,10 +10,13 @@ export const keys = {
       updated: 'audit_log.actions.updated',
     },
     browse: {
+      clear_filters: 'audit_log.browse.clear_filters',
       description: 'audit_log.browse.description',
       empty_description: 'audit_log.browse.empty_description',
       empty_title: 'audit_log.browse.empty_title',
       next: 'audit_log.browse.next',
+      no_match_description: 'audit_log.browse.no_match_description',
+      no_match_title: 'audit_log.browse.no_match_title',
       previous: 'audit_log.browse.previous',
       showing: 'audit_log.browse.showing',
       title: 'audit_log.browse.title',
@@ -25,6 +28,15 @@ export const keys = {
       show_more: 'audit_log.changes.show_more',
       system_user: 'audit_log.changes.system_user',
       unresolved_user: 'audit_log.changes.unresolved_user',
+    },
+    correlation: {
+      banner_clear: 'audit_log.correlation.banner_clear',
+      banner_description: 'audit_log.correlation.banner_description',
+      banner_title: 'audit_log.correlation.banner_title',
+      banner_title_one: 'audit_log.correlation.banner_title_one',
+      banner_title_other: 'audit_log.correlation.banner_title_other',
+      view_related: 'audit_log.correlation.view_related',
+      view_related_title: 'audit_log.correlation.view_related_title',
     },
     filters: {
       action_all: 'audit_log.filters.action_all',
@@ -105,9 +117,29 @@ export const keys = {
       view: 'background_tasks.table.view',
       worker: 'background_tasks.table.worker',
     },
+    tasks_empty: {
+      broker_unreachable_description: 'background_tasks.tasks_empty.broker_unreachable_description',
+      broker_unreachable_title: 'background_tasks.tasks_empty.broker_unreachable_title',
+      clear_filters: 'background_tasks.tasks_empty.clear_filters',
+      filtered_description: 'background_tasks.tasks_empty.filtered_description',
+      filtered_title: 'background_tasks.tasks_empty.filtered_title',
+      healthy_description: 'background_tasks.tasks_empty.healthy_description',
+      healthy_title: 'background_tasks.tasks_empty.healthy_title',
+      no_workers_description: 'background_tasks.tasks_empty.no_workers_description',
+      no_workers_title: 'background_tasks.tasks_empty.no_workers_title',
+    },
     toasts: {
       retried: 'background_tasks.toasts.retried',
       retry_failed: 'background_tasks.toasts.retry_failed',
+    },
+    worker_health: {
+      broker_unreachable_detail: 'background_tasks.worker_health.broker_unreachable_detail',
+      broker_unreachable_title: 'background_tasks.worker_health.broker_unreachable_title',
+      no_workers_detail: 'background_tasks.worker_health.no_workers_detail',
+      no_workers_title: 'background_tasks.worker_health.no_workers_title',
+      no_workers_title_one: 'background_tasks.worker_health.no_workers_title_one',
+      no_workers_title_other: 'background_tasks.worker_health.no_workers_title_other',
+      view_workers: 'background_tasks.worker_health.view_workers',
     },
   },
   branding: {
@@ -208,6 +240,15 @@ export const keys = {
       viewing_system: 'feature_flags.browse.viewing_system',
       viewing_tenant: 'feature_flags.browse.viewing_tenant',
     },
+    confirm: {
+      cancel: 'feature_flags.confirm.cancel',
+      disable_action: 'feature_flags.confirm.disable_action',
+      disable_title: 'feature_flags.confirm.disable_title',
+      enable_action: 'feature_flags.confirm.enable_action',
+      enable_title: 'feature_flags.confirm.enable_title',
+      scope_system: 'feature_flags.confirm.scope_system',
+      scope_tenant: 'feature_flags.confirm.scope_tenant',
+    },
     table: {
       actions: 'feature_flags.table.actions',
       clear_override: 'feature_flags.table.clear_override',
@@ -235,6 +276,7 @@ export const keys = {
       download: 'file_storage.actions.download',
     },
     browse: {
+      clear_filters: 'file_storage.browse.clear_filters',
       count: 'file_storage.browse.count',
       count_one: 'file_storage.browse.count_one',
       count_other: 'file_storage.browse.count_other',
@@ -487,6 +529,17 @@ export const keys = {
     },
     switcher: {
       label: 'ui.switcher.label',
+    },
+  },
+  users: {
+    empty: {
+      add_people: 'users.empty.add_people',
+      clear_filters: 'users.empty.clear_filters',
+      empty_title: 'users.empty.empty_title',
+      filtered_description: 'users.empty.filtered_description',
+      filtered_title: 'users.empty.filtered_title',
+      invite_description: 'users.empty.invite_description',
+      solo_title: 'users.empty.solo_title',
     },
   },
 } as const;

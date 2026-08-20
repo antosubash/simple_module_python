@@ -4,6 +4,9 @@
     "description": "Track all entity changes across the system.",
     "empty_title": "No audit entries",
     "empty_description": "Changes to entities will appear here automatically.",
+    "no_match_title": "No entries match these filters",
+    "no_match_description": "Entries exist outside the current filters.",
+    "clear_filters": "Clear filters",
     "showing": "Showing {from}–{to} of {total} entries",
     "previous": "Previous",
     "next": "Next"
@@ -32,6 +35,14 @@
     "updated": "Updated",
     "deleted": "Deleted",
     "soft_deleted": "Archived"
+  },
+  "correlation": {
+    "view_related": "Related",
+    "view_related_title": "Show every entry from this same request",
+    "banner_title_one": "One action, {count} entry",
+    "banner_title_other": "One action, {count} entries",
+    "banner_description": "Everything recorded by a single request.",
+    "banner_clear": "Show all entries"
   },
   "changes": {
     "fields_set": "{count} fields set",

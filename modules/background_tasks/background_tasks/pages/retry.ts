@@ -11,6 +11,9 @@ export interface Execution {
   task_name: string;
   status: TaskStatus;
   queue: string;
+  // Shown by the retry confirm before it re-enqueues them — see the list schema.
+  args: unknown[];
+  kwargs: Record<string, unknown>;
   retries: number;
   worker: string | null;
   queued_at: string | null;

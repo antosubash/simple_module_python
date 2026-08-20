@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import UploadFile
+from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern, like_prefix_pattern
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -184,13 +185,21 @@ class FileStorageService:
         if created_by is not None:
             clauses.append(StoredFile.created_by == created_by)
         if search:
-            clauses.append(StoredFile.filename.ilike(f"%{search}%"))
+            # Escape LIKE metacharacters so a literal "%" or "_" in a
+            # filename search is matched as text, not treated as a wildcard.
+            clauses.append(
+                StoredFile.filename.ilike(like_contains_pattern(search), escape=LIKE_ESCAPE_CHAR)
+            )
         if content_type:
             # A trailing "/" means a whole family ("image/"), anything else is
             # an exact type ("application/pdf"). Families are what make the
             # filter usable when a bucket holds nine kinds of image.
             if content_type.endswith("/"):
-                clauses.append(StoredFile.content_type.ilike(f"{content_type}%"))
+                clauses.append(
+                    StoredFile.content_type.ilike(
+                        like_prefix_pattern(content_type), escape=LIKE_ESCAPE_CHAR
+                    )
+                )
             else:
                 clauses.append(StoredFile.content_type == content_type)
         return clauses

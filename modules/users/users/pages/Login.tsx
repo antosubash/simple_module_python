@@ -3,6 +3,7 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
+import { REGISTER_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 
@@ -155,10 +156,7 @@ function Login() {
       {allow_signup && (
         <p className="mt-5 text-center text-xs text-muted-foreground">
           Don't have an account?{' '}
-          <a
-            href="/users/register"
-            className="font-semibold text-primary-700 hover:text-primary-800"
-          >
+          <a href={REGISTER_PATH} className="font-semibold text-primary-700 hover:text-primary-800">
             Sign up
           </a>
         </p>

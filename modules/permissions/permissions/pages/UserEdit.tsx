@@ -7,6 +7,7 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { USERS_ADMIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { Check, KeyRound, Link2, Package, Search, ShieldCheck } from 'lucide-react';
 import type React from 'react';
 import { useMemo, useState } from 'react';
@@ -70,10 +71,12 @@ function UserEdit({ user, roles, direct, inherited, inherited_by: inheritedBy, g
       <PageShell
         title={t(keys.permissions.user_edit.title, { email: user.email })}
         description={user.full_name || t(keys.permissions.user_edit.description)}
+        // Reached from the user editor; belongs under Users despite the path.
+        section={USERS_ADMIN_PATH}
         actions={
           <>
             <Button asChild variant="ghost">
-              <Link href="/users/admin">{t(keys.permissions.user_edit.cancel_link)}</Link>
+              <Link href={USERS_ADMIN_PATH}>{t(keys.permissions.user_edit.cancel_link)}</Link>
             </Button>
             <Button
               type="button"

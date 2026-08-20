@@ -52,6 +52,10 @@ export interface SharedProps {
     navbar: MenuItem[];
     userDropdown: MenuItem[];
   };
+  // Injected by the users module's shared-props provider. Absent when no local
+  // auth provider is installed (e.g. a Keycloak-only deployment), which reads
+  // the same as "closed" — the host isn't the one taking signups.
+  signup?: { allowed: boolean };
   // Injected by the branding module's shared-props provider (optional: the
   // module may not be installed).
   branding?: BrandingShared;

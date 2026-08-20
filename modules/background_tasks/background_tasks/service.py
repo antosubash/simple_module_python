@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, status
 from simple_module_core.events import EventBus
-from sqlalchemy import func, select
+from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
+from sqlalchemy import Row, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from background_tasks.constants import RETRYABLE_STATUSES, TaskStatus
@@ -54,24 +56,46 @@ class BackgroundTaskService:
         page = max(page, 1)
         per_page = max(1, min(per_page, 200))
 
+        conditions = []
+        if status is not None:
+            conditions.append(TaskExecution.status == status)
+        if task_name:
+            conditions.append(
+                TaskExecution.task_name.ilike(
+                    like_contains_pattern(task_name), escape=LIKE_ESCAPE_CHAR
+                )
+            )
+
         # A window-function total lets us fetch the page and the count in a
         # single round trip. SQLAlchemy's ``AsyncSession`` serialises calls on
         # one connection, so ``asyncio.gather`` wouldn't help here.
-        total_col = func.count().over().label("_total")
-        query = select(TaskExecution, total_col)
-        if status is not None:
-            query = query.where(TaskExecution.status == status)
-        if task_name:
-            query = query.where(TaskExecution.task_name.ilike(f"%{task_name}%"))
-        query = (
-            query.order_by(TaskExecution.queued_at.desc().nulls_last())
-            .offset((page - 1) * per_page)
-            .limit(per_page)
-        )
+        async def fetch(p: int) -> tuple[Sequence[Row[tuple[TaskExecution, int]]], int]:
+            total_col = func.count().over().label("_total")
+            query = (
+                select(TaskExecution, total_col)
+                .where(*conditions)
+                .order_by(TaskExecution.queued_at.desc().nulls_last())
+                .offset((p - 1) * per_page)
+                .limit(per_page)
+            )
+            rows = (await self.db.execute(query)).all()
+            return rows, (int(rows[0][1]) if rows else 0)
 
-        result = (await self.db.execute(query)).all()
-        items = [TaskExecutionListItem.model_validate(row[0]) for row in result]
-        total = int(result[0][1]) if result else 0
+        rows, total = await fetch(page)
+        if not rows and page > 1:
+            # The window-function total only rides along on a row that's
+            # actually returned, so a page past the end (stale bookmark, a
+            # manually-edited ?page=) can't self-report the real total — it
+            # looks identical to "there are no rows at all". Count for real,
+            # clamp to the last valid page, and refetch so callers never see
+            # a false "nothing exists" for a query that has rows elsewhere.
+            count_query = select(func.count()).select_from(TaskExecution).where(*conditions)
+            real_total = int((await self.db.execute(count_query)).scalar_one())
+            if real_total:
+                page = max(1, -(-real_total // per_page))  # ceil division
+                rows, total = await fetch(page)
+
+        items = [TaskExecutionListItem.model_validate(row[0]) for row in rows]
 
         return TaskExecutionListResponse(
             items=items,
@@ -94,7 +118,11 @@ class BackgroundTaskService:
         """
         query = select(TaskExecution.status, func.count().label("n"))
         if task_name:
-            query = query.where(TaskExecution.task_name.ilike(f"%{task_name}%"))
+            query = query.where(
+                TaskExecution.task_name.ilike(
+                    like_contains_pattern(task_name), escape=LIKE_ESCAPE_CHAR
+                )
+            )
         query = query.group_by(TaskExecution.status)
 
         rows = (await self.db.execute(query)).all()

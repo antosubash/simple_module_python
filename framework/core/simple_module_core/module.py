@@ -185,20 +185,24 @@ class ModuleBase(ABC):
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
         """Declare where this module's audited records can be viewed.
 
-        An audit entry stores a table name and a primary key, which tells the
-        reader what changed but gives them no way to open it. Override this
-        hook to make your module's rows reachable from the audit log::
+        An audit entry stores a model class name and a primary key, which
+        tells the reader what changed but gives them no way to open it.
+        Override this hook to make your module's rows reachable from the audit
+        log::
 
             def register_audit_links(self, registry):
                 registry.register(
                     AuditLink(
-                        entity_type="users_user",
+                        entity_type=User.__name__,
                         url_template="/admin/users/{id}/edit",
                         label="User",
                     )
                 )
 
-        ``entity_type`` is the ``__tablename__`` the rows are audited under.
+        ``entity_type`` is the **model class name** the rows are audited under
+        (``"User"``), not the ``__tablename__`` (``"users_user"``):
+        ``snapshot_changes`` records ``type(obj).__name__``, so a table-name
+        key silently never matches.
         Registering only supplies the URL — the target route still enforces
         its own permissions, so linking never widens access. Called once at
         boot, in dependency order.

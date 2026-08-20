@@ -7,11 +7,13 @@ import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
 import { LocaleSwitcher } from '../components/LocaleSwitcher';
+import { LOGIN_PATH, REGISTER_PATH } from '../lib/auth-routes';
 import { BRAND_ACCENT, BRAND_DEFAULT_APP_NAME, BRAND_REPO_URL } from '../lib/brand';
 import type { SharedProps } from '../types';
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
-  const { auth, branding } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const { auth, branding, signup } = usePage<{ props: SharedProps }>()
+    .props as unknown as SharedProps;
   const [menuOpen, setMenuOpen] = useState(false);
   const appName = branding?.appName ?? BRAND_DEFAULT_APP_NAME;
   const logoUrl = branding?.logoUrl ?? null;
@@ -72,12 +74,14 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                 </Button>
               ) : (
                 <>
-                  <Button asChild variant="ghost" size="sm">
-                    <a href="/auth/login">Log in</a>
+                  <Button asChild variant={signup?.allowed ? 'ghost' : 'default'} size="sm">
+                    <a href={LOGIN_PATH}>Log in</a>
                   </Button>
-                  <Button asChild size="sm">
-                    <a href="/auth/login">Sign up</a>
-                  </Button>
+                  {signup?.allowed && (
+                    <Button asChild size="sm">
+                      <a href={REGISTER_PATH}>Sign up</a>
+                    </Button>
+                  )}
                 </>
               )}
             </div>
@@ -100,11 +104,17 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                 </Button>
               ) : (
                 <>
-                  <Button asChild className="w-full">
-                    <a href="/auth/login">Sign up</a>
-                  </Button>
-                  <Button asChild variant="outline" className="w-full">
-                    <a href="/auth/login">Log in</a>
+                  {signup?.allowed && (
+                    <Button asChild className="w-full">
+                      <a href={REGISTER_PATH}>Sign up</a>
+                    </Button>
+                  )}
+                  <Button
+                    asChild
+                    variant={signup?.allowed ? 'outline' : 'default'}
+                    className="w-full"
+                  >
+                    <a href={LOGIN_PATH}>Log in</a>
                   </Button>
                 </>
               )}

@@ -59,6 +59,45 @@ class TestAdminIndexFilters:
         assert props["filters"]["sort"] == "email"
         assert props["filters"]["order"] == "asc"
 
+    @pytest.mark.anyio
+    async def test_page_past_the_end_clamps_to_last_page(self, admin_client, users_db):
+        """A stale/hand-edited ?page= beyond the last page must clamp and
+        return the last page's rows, not an empty list with a nonzero total —
+        the same bug class background_tasks and file_storage fix for their
+        own admin listings."""
+        from test_api_admin import _make_user
+
+        await _make_user(users_db, email="clamp-a@x.com")
+        await _make_user(users_db, email="clamp-b@x.com")
+
+        resp = await admin_client.get(
+            "/users/admin?page=999&per_page=1",
+            headers={"X-Inertia": "true", "Accept": "application/json"},
+        )
+        assert resp.status_code == 200
+        props = resp.json()["props"]
+        assert props["users"], "expected the clamped last page to carry rows"
+        assert props["pagination"]["page"] < 999
+        assert props["pagination"]["total"] >= 2
+
+    @pytest.mark.anyio
+    async def test_pagination_prop_echoes_clamped_values(self, admin_client, users_db):
+        """The pagination prop must carry the values the query actually ran
+        with — ?page=0 renders page-1 rows and must not be labelled page 0,
+        and an oversized per_page is bounded to what the service fetched."""
+        from test_api_admin import _make_user
+
+        await _make_user(users_db, email="clamp-c@x.com")
+
+        resp = await admin_client.get(
+            "/users/admin?page=0&per_page=1000",
+            headers={"X-Inertia": "true", "Accept": "application/json"},
+        )
+        assert resp.status_code == 200
+        pagination = resp.json()["props"]["pagination"]
+        assert pagination["page"] == 1
+        assert pagination["per_page"] == 200
+
 
 # ---------------------------------------------------------------------------
 # has_permissions_module flag on admin edit page
@@ -184,3 +223,13 @@ class TestAdminAddPeoplePage:
         resp = await admin_client.get(old_path, follow_redirects=False)
         assert resp.status_code == 307
         assert resp.headers["location"] == f"/users/admin/add?mode={mode}"
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize("old_path", ["/users/admin/create", "/users/admin/invite"])
+    async def test_old_urls_require_auth(self, anon_client, old_path):
+        """The legacy aliases must stay gated behind the same permission as
+        the page they redirect to — an anonymous caller must not reach the
+        redirect (and learn the target route exists) before being sent to
+        log in."""
+        resp = await anon_client.get(old_path, follow_redirects=False)
+        assert resp.status_code == 302

@@ -13,11 +13,12 @@ import {
   TableRow,
 } from '@simple-module-py/ui/components/ui/table';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import { ScrollText } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { BrowseEmpty } from './components/BrowseEmpty';
+import { CorrelationBanner, CorrelationLink } from './components/Correlation';
 import { ActorCell, EntityCell, type EntityRef } from './components/EntryCells';
-import { ALL, FilterBar, type FilterState } from './components/FilterBar';
+import { ALL, type AppliedFilters, FilterBar, type FilterState } from './components/FilterBar';
 
 interface Change {
   field: string;
@@ -41,21 +42,15 @@ interface AuditEntryRead {
   created_at: string;
 }
 
-interface Filters {
-  entity_type: string | null;
-  action: string | null;
-  user_id: string | null;
-  from_date: string | null;
-  to_date: string | null;
-}
-
 interface Props {
   items: AuditEntryRead[];
   total: number;
   page: number;
   page_size: number;
   entity_types: string[];
-  filters: Filters;
+  /** `correlation_id` is set only by the per-row "Related" pivot — it has no
+   * control in FilterBar. */
+  filters: AppliedFilters;
 }
 
 const ACTION_BADGE: Record<string, string> = {
@@ -105,6 +100,14 @@ function ChangesList({ entry }: { entry: AuditEntryRead }) {
   );
 }
 
+const CLEARED: FilterState = {
+  entityType: ALL,
+  action: ALL,
+  userId: '',
+  fromDate: '',
+  toDate: '',
+};
+
 function Browse() {
   const { items, total, page, page_size, entity_types, filters } = usePage<{ props: Props }>()
     .props as unknown as Props;
@@ -118,11 +121,15 @@ function Browse() {
     toDate: filters.to_date ?? '',
   });
 
-  function navigate(next: FilterState, nextPage = 1) {
+  // Correlation rides alongside the FilterState rather than inside it: there is
+  // no control for it in FilterBar, so it survives an Apply and is dropped only
+  // when something asks for it to be.
+  function navigate(next: FilterState, nextPage = 1, correlationId = filters.correlation_id) {
     const p: Record<string, string> = {};
     if (next.entityType && next.entityType !== ALL) p.entity_type = next.entityType;
     if (next.action && next.action !== ALL) p.action = next.action;
     if (next.userId) p.user_id = next.userId;
+    if (correlationId) p.correlation_id = correlationId;
     if (next.fromDate) p.from_date = next.fromDate;
     if (next.toDate) p.to_date = next.toDate;
     if (nextPage > 1) p.page = String(nextPage);
@@ -131,15 +138,16 @@ function Browse() {
   }
 
   function handleClear() {
-    const cleared: FilterState = {
-      entityType: ALL,
-      action: ALL,
-      userId: '',
-      fromDate: '',
-      toDate: '',
-    };
-    setState(cleared);
-    navigate(cleared);
+    setState(CLEARED);
+    navigate(CLEARED, 1, null);
+  }
+
+  // Pivoting to an action drops the other filters on purpose — the question
+  // being asked is "what else did this request touch", and answering it through
+  // a filter that already excluded some of those rows would answer it wrongly.
+  function handleCorrelationSelect(id: string) {
+    setState(CLEARED);
+    navigate(CLEARED, 1, id);
   }
 
   const totalPages = Math.ceil(total / page_size);
@@ -161,16 +169,12 @@ function Browse() {
           onClear={handleClear}
         />
 
+        {filters.correlation_id && total > 0 && (
+          <CorrelationBanner count={total} onClear={handleClear} />
+        )}
+
         {items.length === 0 ? (
-          <Card className="border-border">
-            <div className="flex flex-col items-center gap-2 py-16 text-muted-foreground">
-              <ScrollText className="size-8" />
-              <h2 className="text-base font-semibold text-foreground font-[var(--font-display)]">
-                {t(keys.audit_log.browse.empty_title)}
-              </h2>
-              <p className="text-sm">{t(keys.audit_log.browse.empty_description)}</p>
-            </div>
-          </Card>
+          <BrowseEmpty applied={filters} onClear={handleClear} />
         ) : (
           <Card className="border-border overflow-hidden p-0">
             <Table>
@@ -190,8 +194,16 @@ function Browse() {
               <TableBody>
                 {items.map((entry) => (
                   <TableRow key={entry.id} className="hover:bg-secondary/40">
-                    <TableCell className="sm:px-6 whitespace-nowrap text-sm tabular-nums text-muted-foreground">
-                      {new Date(entry.created_at).toLocaleString()}
+                    <TableCell className="sm:px-6 whitespace-nowrap align-top text-sm tabular-nums text-muted-foreground">
+                      <div className="flex flex-col">
+                        <span>{new Date(entry.created_at).toLocaleString()}</span>
+                        {entry.correlation_id && !filters.correlation_id && (
+                          <CorrelationLink
+                            correlationId={entry.correlation_id}
+                            onSelect={handleCorrelationSelect}
+                          />
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="sm:px-6">
                       <Badge variant="outline" className={ACTION_BADGE[entry.action] ?? ''}>
