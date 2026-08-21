@@ -145,8 +145,18 @@ class I18nRegistry:
         # Plain-dict snapshots for serialization callers. ``dict(msgs)`` runs
         # once here rather than on every Inertia render. The public variant
         # (admin namespaces excluded) is what anonymous visitors receive.
-        self._message_snapshots = {locale: dict(msgs) for locale, msgs in self._messages.items()}
-        self._public_snapshots = public_messages
+        #
+        # Each non-default locale layers over the default one, so a key it has
+        # not translated yet resolves to the default language instead of
+        # reaching the browser missing. The client cannot recover on its own:
+        # i18next is initialised with ``fallbackLng`` equal to the active
+        # locale, so an absent key renders as the raw dotted key — a partially
+        # translated locale would put "dashboard.home.health" on screen. The
+        # server-side ``Translator`` has always fallen back this way; this
+        # makes the payload behave the same, and makes partial translations a
+        # safe, incremental state to be in.
+        self._message_snapshots = self._layered_snapshots(self._messages)
+        self._public_snapshots = self._layered_snapshots(public_messages)
         self._available_locales = tuple(locale for locale, msgs in self._messages.items() if msgs)
         self._available_locales_list = list(self._available_locales)
         self._loaded = True
@@ -161,6 +171,18 @@ class I18nRegistry:
         if self._loaded:
             return self._available_locales_list
         return [locale for locale, msgs in self._messages.items() if msgs]
+
+    def _layered_snapshots(
+        self, messages: dict[str, dict[str, str]]
+    ) -> dict[str, dict[str, str]]:
+        """Snapshot per locale, each layered over the default locale's."""
+        base = messages.get(self.default_locale, {})
+        return {
+            locale: dict(msgs)
+            if locale == self.default_locale
+            else {**base, **msgs}  # translated entries win; the rest read as default
+            for locale, msgs in messages.items()
+        }
 
     def messages(self, locale: str) -> Mapping[str, str]:
         """Flat dotted-key map for the given locale. Empty mapping if unknown.
