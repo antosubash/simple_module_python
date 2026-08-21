@@ -45,8 +45,32 @@ async def admin_overview(request: Request, inertia: InertiaDep) -> InertiaRespon
 
     AuthMiddleware has already rejected anonymous visitors by this point; the
     check below is the authorisation half, which it does not do.
+
+    Admission mirrors what the page renders: anyone with at least one entry in
+    the admin sidebar can open it. Gating on the ``admin`` role alone was
+    inconsistent — the sidebar is filtered by roles *and* permissions, so a
+    custom role holding, say, ``settings.view`` reaches ``/admin/settings/``,
+    sees the AdminLayout badge pointing here, and would be met with a 403 for
+    a page that would have listed the one tool they can use.
+
+    Admins are admitted regardless, so an install with no admin modules still
+    reaches the page's own empty state rather than a 403.
     """
     user = getattr(request.state, "user", None)
-    if user is None or not is_admin(getattr(user, "roles", None)):
+    if user is None:
+        raise HTTPException(status_code=403, detail="Administrator access required")
+    if not (is_admin(getattr(user, "roles", None)) or _has_admin_entries(request)):
         raise HTTPException(status_code=403, detail="Administrator access required")
     return await inertia.render("Admin", {})
+
+
+def _has_admin_entries(request: Request) -> bool:
+    """Whether the viewer has any admin sidebar entry.
+
+    Read from the shared props ``InertiaLayoutDataMiddleware`` already built
+    for this request, so admission and rendering cannot disagree — recomputing
+    the filter here is how the two drift apart.
+    """
+    shared = getattr(request.state, "inertia_shared", None) or {}
+    menus = shared.get("menus") or {}
+    return bool(menus.get("adminSidebar"))
