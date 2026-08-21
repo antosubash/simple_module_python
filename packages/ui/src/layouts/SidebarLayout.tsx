@@ -7,7 +7,7 @@ import {
   TooltipTrigger,
 } from '@simple-module-py/ui/components/ui/tooltip';
 import type React from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AppTopbar, activeSection, findSection } from '../components/AppTopbar';
 import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
@@ -88,6 +88,19 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
   const closeSidebar = () => setSidebarOpen(false);
 
   const menuItems = menus?.[menuKey] ?? NO_ITEMS;
+  // ⌘K reaches everything the viewer can open, not just the shell they are
+  // standing in. Both sidebars are already filtered by roles and permissions,
+  // so this widens reach without offering anything they cannot use — whereas
+  // indexing only `menuKey` made every admin screen unreachable from the app
+  // shell the moment they moved to their own sidebar.
+  const paletteItems = useMemo(() => {
+    const primary = menus?.sidebar ?? NO_ITEMS;
+    const admin = menus?.adminSidebar ?? NO_ITEMS;
+    const seen = new Set<string>();
+    return [...primary, ...admin].filter((item) =>
+      seen.has(item.url) ? false : (seen.add(item.url), true),
+    );
+  }, [menus?.sidebar, menus?.adminSidebar]);
   const declaredSection = usePageSection(currentUrl);
   // Same "which entry does this page belong to" resolution AppTopbar uses for
   // the breadcrumb, so the sidebar highlight and the breadcrumb never disagree.
@@ -248,7 +261,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
         {/* Main content */}
         <main className="flex min-h-screen flex-col lg:ml-64">
           <AppTopbar
-            navItems={menuItems}
+            navItems={paletteItems}
             accountItems={menus?.userDropdown ?? NO_ITEMS}
             currentUrl={currentUrl}
             activeMenuItem={active}
