@@ -1,4 +1,37 @@
 {
+  "admin": {
+    "title": "Administración",
+    "description": "Gestiona usuarios, accesos, apariencia y configuración del sistema.",
+    "empty": "No hay herramientas de administración disponibles para tu cuenta.",
+    "overview": "Resumen"
+  },
+  "error": {
+    "correlation_id_copy": "Copiar ID de referencia",
+    "correlation_id_label": "Menciona este ID si contactas con soporte",
+    "forbidden_description": "No tienes permiso para acceder a esta página.",
+    "forbidden_title": "Prohibido",
+    "generic_description": "Ocurrió un error inesperado.",
+    "generic_title": "Error",
+    "go_back": "Volver",
+    "go_home": "Ir al inicio",
+    "invalid_request_description": "La dirección que seguiste contiene parámetros que no pudimos leer.",
+    "invalid_request_title": "Solicitud no válida",
+    "maintenance_description": "Estamos haciendo algunos cambios y volveremos en breve. Gracias por tu paciencia.",
+    "maintenance_title": "En mantenimiento",
+    "not_found_description": "La página que buscas no existe o ha sido movida.",
+    "not_found_title": "Página no encontrada",
+    "rate_limited_description": "Has hecho muchas solicitudes en poco tiempo. Espera un momento e inténtalo de nuevo.",
+    "rate_limited_title": "Demasiadas solicitudes",
+    "server_error_description": "Algo salió mal de nuestro lado. Por favor, inténtalo de nuevo más tarde.",
+    "server_error_title": "Error del servidor",
+    "session_expired_description": "Se cerró tu sesión tras un periodo de inactividad. Inicia sesión de nuevo para continuar donde lo dejaste.",
+    "session_expired_title": "Sesión caducada",
+    "sign_in": "Iniciar sesión",
+    "unauthorized_description": "Debes iniciar sesión para ver esta página.",
+    "unauthorized_title": "Inicio de sesión requerido",
+    "unavailable_description": "El servicio no está disponible temporalmente. Inténtalo de nuevo en unos momentos.",
+    "unavailable_title": "Servicio no disponible"
+  },
   "landing": {
     "badge": "v0.1 · Python 3.12 · experimental",
     "hero_title_line1": "Monolitos modulares para Python —",
@@ -38,19 +71,9 @@
     "cta_body_signin": "Inicia sesión en la interfaz de administración, o trabaja directamente sobre el framework.",
     "cta_github": "GitHub →"
   },
-  "error": {
-    "generic_title": "Error",
-    "generic_description": "Ocurrió un error inesperado.",
-    "forbidden_title": "Prohibido",
-    "forbidden_description": "No tienes permiso para acceder a esta página.",
-    "not_found_title": "Página no encontrada",
-    "not_found_description": "La página que buscas no existe o ha sido movida.",
-    "server_error_title": "Error del servidor",
-    "server_error_description": "Algo salió mal de nuestro lado. Por favor, inténtalo de nuevo más tarde.",
-    "go_home": "Ir al inicio",
-    "go_back": "Volver",
-    "correlation_id_label": "Menciona este ID si contactas con soporte",
-    "correlation_id_copy": "Copiar ID de referencia",
-    "head_title": "Error"
+  "offline": {
+    "title": "Sin conexión",
+    "description": "Es posible que los cambios no se guarden hasta que se restablezca la conexión.",
+    "restored": "Conexión restablecida"
   }
 }

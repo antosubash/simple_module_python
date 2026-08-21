@@ -172,9 +172,7 @@ class I18nRegistry:
             return self._available_locales_list
         return [locale for locale, msgs in self._messages.items() if msgs]
 
-    def _layered_snapshots(
-        self, messages: dict[str, dict[str, str]]
-    ) -> dict[str, dict[str, str]]:
+    def _layered_snapshots(self, messages: dict[str, dict[str, str]]) -> dict[str, dict[str, str]]:
         """Snapshot per locale, each layered over the default locale's."""
         base = messages.get(self.default_locale, {})
         return {

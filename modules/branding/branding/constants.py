@@ -8,7 +8,7 @@ from typing import Final
 from simple_module_core.design_packs import SLUG_RE
 
 ROUTE_PREFIX: Final = "/api/branding"
-VIEW_PREFIX: Final = "/branding"
+VIEW_PREFIX: Final = "/admin/branding"
 # Trailing slash: the browse route is registered at "/" under VIEW_PREFIX, so
 # linking to the bare prefix costs a 307 round trip on every navigation.
 MENU_URL: Final = f"{VIEW_PREFIX}/"
@@ -81,7 +81,6 @@ DESIGN_PACK_ERROR: Final = (
 # this is not a way to read arbitrary files out of file_storage.
 #: One-click look. ``{key}`` names a preset from ``branding.presets``.
 PATH_PRESET: Final = "/presets/{key}"
-PATH_FOOTER: Final = "/footer"
 
 PATH_LOGO: Final = "/logo"
 PATH_LOGO_DARK: Final = "/logo-dark"

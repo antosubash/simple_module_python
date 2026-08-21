@@ -5,6 +5,7 @@ import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { StatCard } from '@simple-module-py/ui/components/StatCard';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { isUnder, samePath, trimmed } from '@simple-module-py/ui/lib/current-path';
 import type { SharedProps } from '@simple-module-py/ui/types';
 import { Activity, Box, Stethoscope, Users } from 'lucide-react';
 import { DemoPlaceholders } from './components/DemoPlaceholders';
@@ -15,6 +16,9 @@ interface SystemModule {
   status: 'loaded';
   /** The module's own screen, or '' when it ships no views. */
   url: string;
+  /** Second mount point for a module that is only partly administrative
+   * (`ModuleMeta.admin_view_prefix`), or '' when it declares none. */
+  admin_url: string;
   /** Worst health status across the module's checks; '' when it registers none. */
   health: '' | 'healthy' | 'degraded' | 'unhealthy';
 }
@@ -28,12 +32,6 @@ interface SystemInfo {
   modules: SystemModule[];
   python_version: string;
   health_checks: HealthCheck[];
-}
-
-/** Does `menuUrl` sit at, or below, the route prefix `owner`? */
-function isUnder(menuUrl: string, owner: string): boolean {
-  const normalized = menuUrl.replace(/\/+$/, '');
-  return normalized === owner || normalized.startsWith(`${owner}/`);
 }
 
 interface Props {
@@ -68,7 +66,8 @@ function Home() {
   // Every module's own prefix, so the fallback below can tell "this entry is
   // mine" from "this entry belongs to a module mounted deeper than me".
   const modulePrefixes = props.system_info.modules
-    .map((m) => m.url.replace(/\/+$/, ''))
+    .flatMap((m) => [m.url, m.admin_url])
+    .map((url) => trimmed(url))
     .filter(Boolean);
 
   /**
@@ -76,19 +75,48 @@ function Home() {
    * none.
    *
    * Matching the view prefix exactly is not enough: a module often mounts its
-   * landing screen below its own prefix (Users is `/users`, its menu entry is
-   * `/users/admin`), and an exact match leaves those tiles permanently inert
-   * for admins who can in fact open them. So fall back to the first menu entry
-   * that lives under the prefix — but only if no *other* module owns a longer
-   * prefix of that entry, or a module mounted at `/admin` would adopt the
-   * background-tasks entry at `/admin/background-tasks` and link its tile to
-   * somebody else's screen.
+   * landing screen below its own prefix (background_tasks is
+   * `/admin/background-tasks`, its menu entry is `/admin/background-tasks/`),
+   * and an exact match leaves those tiles permanently inert for admins who can
+   * in fact open them. So fall back to the first menu entry that lives under
+   * the prefix — but only if no *other* module owns a longer prefix of that
+   * entry, or a module mounted at `/admin` would adopt the background-tasks
+   * entry and link its tile to somebody else's screen.
+   *
+   * A module that is only partly administrative mounts its admin screens
+   * outside its own `view_prefix` (Users serves sign-in at `/users` and
+   * management at `/admin/users`), so both prefixes are searched.
+   *
+   * Every exact match is tried before any under-prefix guess, rather than
+   * exhausting one prefix before the other. Searching the admin prefix first
+   * outright sent the Dashboard tile to Doctor: dashboard owns both
+   * `/dashboard` and `/admin/doctor`, and its own screen is the one the tile
+   * is for. An exact hit is unambiguous evidence of "this is the module's
+   * landing screen", so it beats a guess on either prefix — which also keeps
+   * the Users tile on `/admin/users` rather than falling through to
+   * `/users/me` and opening the viewer's own profile.
    */
-  function menuTarget(url: string): string {
-    if (!url) return '';
-    const prefix = url.replace(/\/+$/, '');
-    const exact = menuUrls.find((menuUrl) => menuUrl.replace(/\/+$/, '') === prefix);
-    if (exact) return exact;
+  function menuTarget(url: string, adminUrl: string): string {
+    for (const candidate of [url, adminUrl]) {
+      const hit = candidate ? exactMenu(candidate) : '';
+      if (hit) return hit;
+    }
+    for (const candidate of [adminUrl, url]) {
+      const hit = candidate ? menuUnderPrefix(candidate) : '';
+      if (hit) return hit;
+    }
+    return '';
+  }
+
+  function exactMenu(url: string): string {
+    const prefix = trimmed(url);
+    if (!prefix) return '';
+    return menuUrls.find((menuUrl) => samePath(menuUrl, prefix)) ?? '';
+  }
+
+  function menuUnderPrefix(url: string): string {
+    const prefix = trimmed(url);
+    if (!prefix) return '';
     return (
       menuUrls.find(
         (menuUrl) =>
@@ -163,7 +191,7 @@ function Home() {
               </SectionTitle>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                 {props.system_info.modules.map((m) => {
-                  const target = menuTarget(m.url);
+                  const target = menuTarget(m.url, m.admin_url);
                   return (
                     <ModuleTile
                       key={m.name}

@@ -273,7 +273,8 @@
     "status_disabled": "disabled",
     "status_invited": "invited",
     "status_active": "active",
-    "sso_badge": "SSO"
+    "sso_badge": "SSO",
+    "edit_aria": "Edit {email}"
   },
   "role_picker": {
     "default_label": "Roles"

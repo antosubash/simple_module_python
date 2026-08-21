@@ -6,7 +6,7 @@ import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { Textarea } from '@simple-module-py/ui/components/ui/textarea';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import type React from 'react';
 import ValueInput, { type ValueType } from './components/ValueInput';
 import { ROUTES } from './routes';
@@ -128,5 +128,5 @@ function Edit({ setting }: Props) {
   );
 }
 
-Edit.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Edit.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default Edit;

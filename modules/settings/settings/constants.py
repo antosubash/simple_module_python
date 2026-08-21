@@ -44,7 +44,7 @@ ALL_VALUE_TYPES: Final = (
 
 # ── Routing ──────────────────────────────────────────────────────────
 API_PREFIX: Final = "/api/settings"
-VIEW_PREFIX: Final = "/settings"
+VIEW_PREFIX: Final = "/admin/settings"
 VIEW_CREATE_PATH: Final = "/create"
 VIEW_EDIT_PATH: Final = "/{setting_id}/edit"
 VIEW_MODULES_PATH: Final = "/modules"

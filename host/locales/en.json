@@ -1,4 +1,37 @@
 {
+  "admin": {
+    "title": "Administration",
+    "description": "Manage users, access, appearance and system configuration.",
+    "empty": "No admin tools are available to your account.",
+    "overview": "Overview"
+  },
+  "error": {
+    "correlation_id_copy": "Copy reference ID",
+    "correlation_id_label": "Reference this ID if you contact support",
+    "forbidden_description": "You don't have permission to access this page.",
+    "forbidden_title": "Forbidden",
+    "generic_description": "An unexpected error occurred.",
+    "generic_title": "Error",
+    "go_back": "Go Back",
+    "go_home": "Go Home",
+    "invalid_request_description": "The address you followed contains parameters we couldn't read.",
+    "invalid_request_title": "Invalid request",
+    "maintenance_description": "We're making some changes and will be back shortly. Thanks for your patience.",
+    "maintenance_title": "Down for maintenance",
+    "not_found_description": "The page you're looking for doesn't exist or has been moved.",
+    "not_found_title": "Page Not Found",
+    "rate_limited_description": "You've made a lot of requests in a short time. Wait a moment and try again.",
+    "rate_limited_title": "Too many requests",
+    "server_error_description": "Something went wrong on our end. Please try again later.",
+    "server_error_title": "Server Error",
+    "session_expired_description": "You were signed out after a period of inactivity. Sign in again to pick up where you left off.",
+    "session_expired_title": "Session expired",
+    "sign_in": "Sign in",
+    "unauthorized_description": "You need to be signed in to view this page.",
+    "unauthorized_title": "Sign in required",
+    "unavailable_description": "The service is temporarily unavailable. Please try again shortly.",
+    "unavailable_title": "Service unavailable"
+  },
   "landing": {
     "badge": "v0.1 · Python 3.12 · experimental",
     "hero_title_line1": "Modular monoliths for Python —",
@@ -38,19 +71,9 @@
     "cta_body_signin": "Sign in to the admin UI, or hack on the framework directly.",
     "cta_github": "GitHub →"
   },
-  "error": {
-    "generic_title": "Error",
-    "generic_description": "An unexpected error occurred.",
-    "forbidden_title": "Forbidden",
-    "forbidden_description": "You don't have permission to access this page.",
-    "not_found_title": "Page Not Found",
-    "not_found_description": "The page you're looking for doesn't exist or has been moved.",
-    "server_error_title": "Server Error",
-    "server_error_description": "Something went wrong on our end. Please try again later.",
-    "go_home": "Go Home",
-    "go_back": "Go Back",
-    "correlation_id_label": "Reference this ID if you contact support",
-    "correlation_id_copy": "Copy reference ID",
-    "head_title": "Error"
+  "offline": {
+    "title": "You're offline",
+    "description": "Changes may not be saved until your connection returns.",
+    "restored": "Back online"
   }
 }

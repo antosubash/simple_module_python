@@ -15,6 +15,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import exceptions as fu_exceptions
+from simple_module_core.redirect_safety import SESSION_NEXT_KEY
 
 from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
 from users.constants import SESSION_USER_ID_KEY
@@ -111,6 +112,9 @@ async def login(
     login_response = await auth_backend.login(strategy, user)
     # Bridge the session cookie — AuthMiddleware reads this to identify the user
     request.session[SESSION_USER_ID_KEY] = str(user.id)
+    # The deep link has served its purpose; leaving it would send the *next*
+    # plain visit to /users/login off to a stale destination.
+    request.session.pop(SESSION_NEXT_KEY, None)
     return login_response
 
 
@@ -166,6 +170,10 @@ async def accept_invite(
     await user_manager.on_after_login(user, request, response)
     login_response = await auth_backend.login(strategy, user)
     request.session[SESSION_USER_ID_KEY] = str(user.id)
+    # Invite acceptance routes the user itself, so a deep link stashed by an
+    # earlier bounce is stale here — drop it rather than leave it to fire on
+    # some later visit to the login page.
+    request.session.pop(SESSION_NEXT_KEY, None)
     return login_response
 
 

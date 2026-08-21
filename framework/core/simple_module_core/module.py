@@ -28,6 +28,18 @@ class ModuleMeta:
     name: str
     route_prefix: str = ""
     view_prefix: str = ""
+    admin_view_prefix: str = ""
+    """Mount point for admin-only view routes, e.g. ``"/admin/users"``.
+
+    A module gets exactly one ``view_prefix``, which is a problem for modules
+    that are only *partly* administrative: ``users`` serves ``/users/login``
+    and the user-management CRUD from the same package, and those belong in
+    different places in the URL space. Declaring this gives such a module a
+    second view router mounted here, populated by ``register_admin_routes``.
+
+    Modules that are administrative end to end don't need it — they just point
+    ``view_prefix`` at ``/admin/...`` directly.
+    """
     depends_on: list[str] = field(default_factory=list)
     version: str = "1.0.0"
     requires_framework: str | None = None
@@ -110,6 +122,19 @@ class ModuleBase(ABC):
         view_router: APIRouter,
     ) -> None:
         """Register API endpoints and Inertia view routes."""
+
+    def register_admin_routes(self, admin_router: APIRouter) -> None:
+        """Register admin-only view routes, mounted at ``meta.admin_view_prefix``.
+
+        Only needed by modules that serve both public and administrative
+        pages — see ``ModuleMeta.admin_view_prefix``. A module whose views are
+        all administrative should point ``view_prefix`` at ``/admin/...`` and
+        keep using ``register_routes``.
+
+        Nothing here is gated automatically: the prefix is a URL convention,
+        not a permission. Guard these routes with the same dependencies you
+        would use anywhere else.
+        """
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         """Contribute menu items visible in the UI."""

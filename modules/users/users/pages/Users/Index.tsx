@@ -13,7 +13,7 @@ import {
   TableRow,
 } from '@simple-module-py/ui/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@simple-module-py/ui/components/ui/tabs';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { ArrowDown, ArrowUp, Plus, Search, ShieldCheck, Users } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type Filters, IndexFilters } from '../../admin/components/IndexFilters';
@@ -98,7 +98,7 @@ function Index() {
       if (sort !== 'email') params.sort = sort;
       if (order !== 'asc') params.order = order;
       if (page > 1) params.page = String(page);
-      router.get('/users/admin', params, { preserveState: true, preserveScroll: true });
+      router.get('/admin/users/', params, { preserveState: true, preserveScroll: true });
     },
     [search, filters],
   );
@@ -146,7 +146,7 @@ function Index() {
         // One entry point: invite-vs-create is a choice inside the form, not
         // a choice between two buttons made before seeing either.
         <Button asChild className="gap-1.5">
-          <Link href="/users/admin/add">
+          <Link href="/admin/users/add">
             <Plus className="h-4 w-4" />
             {t(keys.users.index.add_people)}
           </Link>
@@ -277,5 +277,5 @@ function Index() {
   );
 }
 
-Index.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Index.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default Index;

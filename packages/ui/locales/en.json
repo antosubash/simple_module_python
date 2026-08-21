@@ -6,6 +6,9 @@
     "go_home_button": "Go Home",
     "http_badge": "HTTP {code}"
   },
+  "nav": {
+    "admin": "Administration"
+  },
   "switcher": {
     "label": "Change language"
   },
@@ -17,9 +20,10 @@
     "hours_ago": "{count}h ago"
   },
   "nav_groups": {
-    "administration": "Administration",
-    "system": "System",
-    "content": "Content"
+    "access": "Access",
+    "appearance": "Appearance",
+    "content": "Content",
+    "system": "System"
   },
   "command_palette": {
     "trigger": "Search",

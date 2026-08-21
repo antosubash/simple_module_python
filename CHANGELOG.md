@@ -28,6 +28,26 @@ All notable changes to this project are documented in this file. The format is b
   production-mode containers pass `UsersSettings` boot validation.
 
 ### Fixed
+- Public pages no longer reload the whole document when a visitor clicks a link
+  in authored content. A simple_module app is client-rendered — the root
+  template ships `<div id="app"></div>` empty — so a navigation that creates a
+  new document paints a blank white body until the bundle has booted. Admin
+  screens were never affected because the shell navigates with Inertia's
+  `<Link>`, but pagebuilder widgets and their markdown/rich-text fields render
+  author-entered URLs as plain `<a href>`, and there is no component to swap for
+  a `<Link>` when the anchor comes out of a markdown parser. A downstream site
+  measured ~330ms of blank viewport per click on a throttled connection.
+  `@simple-module-py/ui` now exports `startSpaLinkInterception()`, a delegated
+  click handler that routes same-origin page links through Inertia whatever
+  produced the anchor; the `smpy new` app template calls it. It deliberately
+  leaves alone anything Inertia cannot render — other origins, non-http schemes,
+  paths that look like a file, in-page anchors, `download`/`target`/
+  `rel="external"`/`data-native-link`, and anchors inside a Puck editor surface
+  — and falls back to a hard navigation if a visit returns without an
+  `x-inertia` header, so a media download can never be replaced by an error
+  modal. **Existing apps must add the one-line call to their own
+  `host/client_app/app.tsx`**, which is scaffold output and so is not upgraded
+  for them.
 - `smpy gen-pages` now emits module stylesheet `@import` lines as **absolute
   paths** instead of `#module/<pkg>` alias specifiers. The alias only resolved
   if the host's `vite.config.ts` defined a matching `resolve.alias` — but that

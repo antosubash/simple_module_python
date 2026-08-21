@@ -13,7 +13,6 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 from branding.constants import FAVICON_URL, LOGO_DARK_URL, LOGO_URL, PACKAGE
-from branding.contracts.footer import FooterConfig
 from branding.contracts.schemas import BrandingOut
 from branding.shared_props import asset_url
 
@@ -66,34 +65,6 @@ class BrandingService:
         bus = self.app.state.sm.event_bus
         await apply_changes_and_reload(self.app, bus, store, package=PACKAGE, changes=changes)
         return self.current()
-
-    def current_footer(self) -> FooterConfig:
-        """The stored footer, parsed. Unusable JSON reads as an empty footer."""
-        from branding.footer import loads
-
-        s = self.app.state.branding.settings
-        return FooterConfig(
-            tagline=s.footer_tagline,
-            copyright_owner=s.footer_copyright_owner,
-            note=s.footer_note,
-            columns=loads(s.footer_columns),
-            social_links=loads(s.footer_social_links),
-        )
-
-    async def set_footer(self, config: FooterConfig) -> FooterConfig:
-        """Replace the whole footer (matching the reference's update semantics)."""
-        from branding.footer import dumps
-
-        await self.apply(
-            {
-                "footer_tagline": config.tagline,
-                "footer_copyright_owner": config.copyright_owner,
-                "footer_note": config.note,
-                "footer_columns": dumps([c.model_dump() for c in config.columns]),
-                "footer_social_links": dumps([link.model_dump() for link in config.social_links]),
-            }
-        )
-        return self.current_footer()
 
     async def _swap_asset(self, field: str, file_id: str) -> BrandingOut:
         """Point *field* at *file_id* ("" to clear) and reap what it replaced.

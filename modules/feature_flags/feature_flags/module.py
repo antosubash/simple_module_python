@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
+from simple_module_core.menu import MenuItem, MenuRegistry
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 
@@ -19,6 +19,7 @@ from feature_flags.constants import (
     MENU_URL,
     PERM_FEATURE_FLAGS_MANAGE,
     PERM_FEATURE_FLAGS_VIEW,
+    VIEW_PREFIX,
 )
 
 _logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ class FeatureFlagsModule(ModuleBase):
     meta = ModuleMeta(
         name="FeatureFlags",
         route_prefix="/api/feature_flags",
-        view_prefix="/feature_flags",
+        view_prefix=VIEW_PREFIX,
         i18n_audience="admin",
     )
 
@@ -47,9 +48,8 @@ class FeatureFlagsModule(ModuleBase):
                 url=MENU_URL,
                 icon=MENU_ICON,
                 order=MENU_ORDER,
-                section=MenuSection.SIDEBAR,
-                group="Administration",
-                group_key="ui.nav_groups.administration",
+                group="System",
+                group_key="ui.nav_groups.system",
                 # Mirrors the view router's guard. Without it the entry shows
                 # for every signed-in account and 403s on click.
                 permissions=[PERM_FEATURE_FLAGS_VIEW],

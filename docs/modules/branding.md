@@ -1,8 +1,8 @@
 # branding
 
-White-labels the application. An administrator sets the **app name**, **logo** (plus an optional dark-background variant), **favicon**, **primary colour**, **[design pack](/framework-conventions#design-packs-site-wide-look)**, a site-wide **announcement banner**, and a **configurable footer** — from an admin page, with no code change or redeploy.
+White-labels the application. An administrator sets the **app name**, **logo** (plus an optional dark-background variant), **favicon**, **primary colour**, **[design pack](/framework-conventions#design-packs-site-wide-look)**, and a site-wide **announcement banner** — from an admin page, with no code change or redeploy.
 
-Values persist in the shared [settings](/modules/settings) store (there is no branding table) and reach **every** Inertia page — authenticated *and* guest — through a registered shared-props provider, so the frontend can render the name, swap the logo/favicon, apply the brand colour, and show the banner and footer everywhere.
+Values persist in the shared [settings](/modules/settings) store (there is no branding table) and reach **every** Inertia page — authenticated *and* guest — through a registered shared-props provider, so the frontend can render the name, swap the logo/favicon, apply the brand colour, and show the banner everywhere. Footer content is owned by the framework site layouts, not branding.
 
 ## ModuleMeta
 
@@ -10,7 +10,7 @@ Values persist in the shared [settings](/modules/settings) store (there is no br
 |---|---|
 | `name` | `Branding` |
 | `route_prefix` | `/api/branding` |
-| `view_prefix` | `/branding` |
+| `view_prefix` | `/admin/branding` |
 | `depends_on` | `["Settings", "FileStorage"]` |
 | `i18n_audience` | `"admin"` |
 
@@ -27,8 +27,6 @@ Every JSON endpoint — including the reads — requires `branding.manage`; they
 | `GET /api/branding/` | → `BrandingOut` |
 | `PUT /api/branding/` | `BrandingUpdate` → `BrandingOut` |
 | `POST /api/branding/presets/{key}` | → `BrandingOut` (`404` for an unknown key) |
-| `GET /api/branding/footer` | → `FooterConfig` |
-| `PUT /api/branding/footer` | `FooterConfig` → `FooterConfig` (whole-object replace) |
 | `POST /api/branding/logo` | `multipart` (field `file`) → `BrandingOut` |
 | `POST /api/branding/logo-dark` | `multipart` (field `file`) → `BrandingOut` |
 | `POST /api/branding/favicon` | `multipart` (field `file`) → `BrandingOut` |
@@ -36,7 +34,7 @@ Every JSON endpoint — including the reads — requires `branding.manage`; they
 | `DELETE /api/branding/logo-dark` | → `BrandingOut` (dark logo cleared) |
 | `DELETE /api/branding/favicon` | → `BrandingOut` (favicon cleared) |
 
-`PUT /` only touches the text fields (`app_name`, `primary_color`, `design_pack`, `banner_message`, `banner_severity`); images are set and cleared through their dedicated upload/delete routes, and the footer through `PUT /footer`. A `design_pack` slug that no installed module registered is rejected with `422` — accepting it would put `"<slug>-root"` on the document with no stylesheet behind it, so the site would look unchanged with nothing in the UI explaining why.
+`PUT /` only touches the text fields (`app_name`, `primary_color`, `design_pack`, `banner_message`, `banner_severity`); images are set and cleared through their dedicated upload/delete routes. A `design_pack` slug that no installed module registered is rejected with `422` — accepting it would put `"<slug>-root"` on the document with no stylesheet behind it, so the site would look unchanged with nothing in the UI explaining why.
 
 Uploads are validated **before** the bytes reach `file_storage`: an unsupported or unconvincing type returns `415`, an oversized image `413` (see [Image guard-rails](#image-guard-rails)).
 
@@ -60,7 +58,7 @@ When `file_storage` is backed by S3-compatible storage, the route returns a `302
 
 | Method + path | Inertia component | Permission |
 |---|---|---|
-| `GET /branding/` | `Branding/Manage` | `branding.view` |
+| `GET /admin/branding/` | `Branding/Manage` | `branding.view` |
 
 Current branding reaches the page through the shared `branding` prop. The endpoint passes only what the shared prop *can't* carry: `designPacks` (which packs the installed modules registered) and `presets` (the built-in list, with swatches).
 
@@ -79,16 +77,12 @@ An unversioned URL can serve new bytes later, so it must never be immutable; the
 
 ```python
 from branding.contracts import BrandingOut, BrandingUpdate
-from branding.contracts.footer import FooterConfig, FooterColumn, FooterLink
 ```
 
 | Class | Purpose |
 |---|---|
 | `BrandingOut` | Current branding with images resolved to URLs: `app_name`, `primary_color`, `design_pack`, `logo_url`, `logo_dark_url`, `favicon_url`, `banner_message`, `banner_severity`. |
 | `BrandingUpdate` | Editable text fields, all optional: `app_name`, `primary_color`, `design_pack`, `banner_message`, `banner_severity`. |
-| `FooterConfig` | The whole footer: `tagline`, `copyright_owner`, `note`, `columns`, `social_links`. |
-| `FooterColumn` | A titled group: `title` + `links`. |
-| `FooterLink` | One `label` + `href`. |
 
 `BrandingUpdate` is the strict one. An unknown `banner_severity` is a clear `422` here, while the settings validator normalises it to `info` — settings hydrate from the DB, where a hand-edited row must degrade to a readable banner rather than stop the app from booting. `design_pack` and `primary_color` are shape-checked in the DTO for the same reason: a malformed value becomes a `422` instead of a `500` when `BrandingSettings` re-validates.
 
@@ -110,15 +104,8 @@ DB-backed via `register_module_settings`; pydantic defaults seed at boot. Edited
 | `favicon_file_id` | `""` | UUID of the favicon; `""` ⇒ no custom favicon. |
 | `banner_message` | `""` | Site-wide announcement text (≤ 500 chars); `""` ⇒ no banner. |
 | `banner_severity` | `"info"` | One of `info`, `warning`, `danger`. Unknown values normalise to `info`. |
-| `footer_tagline` | `""` | Footer tagline line. |
-| `footer_copyright_owner` | `""` | Name in the copyright line. |
-| `footer_note` | `""` | Small footer caption. |
-| `footer_columns` | `""` | JSON blob of `FooterColumn` entries (see [Configurable footer](#configurable-footer)). |
-| `footer_social_links` | `""` | JSON blob of `FooterLink` entries. |
 
 `app_name` rejects control characters, not just blanks: the name is used in HTML titles and — critically — email `Subject` headers, where an embedded CR/LF would survive a bare `strip()` and then raise, breaking every transactional email.
-
-The two footer lists are strings because the settings store holds strings; `branding.footer` owns (de)serialising them, leniently, so a malformed row degrades to "no configured footer" rather than an error. Each blob is capped at 8 000 characters so a single setting row can't grow unbounded.
 
 ### Image guard-rails
 
@@ -160,23 +147,6 @@ A message plus a severity, rendered above every shell — app, public and auth �
 
 Severity colours are semantic, not brand-tinted: a warning wearing the deployment's accent colour stops reading as a warning.
 
-## Configurable footer
-
-Whole-object replace via `PUT /api/branding/footer` — a partial merge into nested link lists has no obvious semantics.
-
-| Limit | Value |
-|---|---|
-| Columns | 6 |
-| Links per column | 8 |
-| Social links | 8 |
-| Link label / column title | 40 chars |
-| Link URL | 500 chars |
-| Tagline / copyright / note | 200 chars |
-
-Link URLs are restricted to `http(s)` or a single-leading-slash app path. This is the security-relevant part: these are authored by an admin and rendered into an anchor on *every* page, including guest ones, so the scheme allow-list is what keeps a `javascript:` URL out of the document. `//host` is a protocol-relative absolute URL rather than a path, so it falls through to the scheme check and is rejected.
-
-With nothing configured the shared prop reports `footer: null` and the framework's built-in footer renders unchanged.
-
 ## Dark-background logo
 
 The sidebar and mobile bar sit on a near-black surface in every theme, while the sign-in card and public page are light — so a single logo cannot read on both. Uploading a *Logo (dark backgrounds)* variant swaps it in on those surfaces only.
@@ -196,19 +166,12 @@ On startup the module registers a shared-props provider (`register_inertia_share
     "logoUrl": "/api/branding/logo?v=<file id>",
     "logoDarkUrl": "/api/branding/logo-dark?v=<file id>",
     "faviconUrl": "/api/branding/favicon?v=<file id>",
-    "banner": { "message": "Maintenance at 22:00 UTC", "severity": "warning" },
-    "footer": {
-      "tagline": "Maps for everyone",
-      "copyrightOwner": "Acme Corp",
-      "note": "",
-      "columns": [{ "title": "Product", "links": [{ "label": "Docs", "href": "/docs" }] }],
-      "socialLinks": [{ "label": "GitHub", "href": "https://github.com/acme" }]
-    }
+    "banner": { "message": "Maintenance at 22:00 UTC", "severity": "warning" }
   }
 }
 ```
 
-`primaryColor` and `designPack` are `null` when unset; the three image URLs are `null` when no file is configured. `banner` is `null` when no message is set, so the frontend renders nothing at all rather than an empty bar, and `footer` is `null` when nothing is configured, so the built-in framework footer stays.
+`primaryColor` and `designPack` are `null` when unset; the three image URLs are `null` when no file is configured. `banner` is `null` when no message is set, so the frontend renders nothing at all rather than an empty bar.
 
 The provider is defensive — it returns `{}` if branding state isn't mounted yet, so a half-booted app never errors a render. Because changes go through the settings store, a save hot-reloads `app.state.branding.settings`; the next render reflects the new values without a restart.
 
@@ -217,17 +180,17 @@ The provider is defensive — it returns `{}` if branding state isn't mounted ye
 | Code | Granted to | Purpose |
 |---|---|---|
 | `branding.view` | `admin` | open the Branding admin page (`/branding`) |
-| `branding.manage` | `admin` | read + write branding via the API (name, colour, design pack, banner, footer, image upload/clear) |
+| `branding.manage` | `admin` | read + write branding via the API (name, colour, design pack, banner, image upload/clear) |
 
 ## Menu
 
 | Label | URL | Icon | Section | Group | Order | Roles |
 |---|---|---|---|---|---|---|
-| `Branding` | `/branding/` | `palette` | `SIDEBAR` | `Administration` | `115` | `["admin"]` |
+| `Branding` | `/admin/branding/` | `palette` | `ADMIN_SIDEBAR` | `Appearance` | `105` | `["admin"]` |
 
 ## Inertia pages
 
-- `Branding/Manage.tsx` — the admin editor: app name, colour and design pack, preset picker, logo / dark logo / favicon upload and clear, banner editor, footer editor, and a live preview.
+- `Branding/Manage.tsx` — the admin editor: app name, colour and design pack, preset picker, logo / dark logo / favicon upload and clear, banner editor, and a live preview.
 
 ## Locales
 

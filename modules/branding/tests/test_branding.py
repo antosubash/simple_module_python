@@ -61,8 +61,6 @@ def test_branding_payload_unset() -> None:
         "faviconUrl": None,
         # None, not an empty dict — no message means render no bar at all.
         "banner": None,
-        # None keeps the framework's built-in footer.
-        "footer": None,
     }
 
 
@@ -106,6 +104,14 @@ async def test_get_branding_returns_defaults(authenticated_client: httpx.AsyncCl
     assert body["logo_url"] is None
 
 
+@pytest.mark.parametrize("method", ["GET", "PUT"])
+async def test_footer_routes_are_not_part_of_branding(
+    authenticated_client: httpx.AsyncClient, method: str
+) -> None:
+    response = await authenticated_client.request(method, "/api/branding/footer", json={})
+    assert response.status_code == 404
+
+
 async def test_update_persists_and_hot_swaps(app, authenticated_client: httpx.AsyncClient) -> None:
     resp = await authenticated_client.put(
         "/api/branding/",
@@ -129,18 +135,24 @@ async def test_update_persists_and_hot_swaps(app, authenticated_client: httpx.As
 async def test_root_template_reflects_branding(
     app, authenticated_client: httpx.AsyncClient
 ) -> None:
-    """The pre-hydration HTML shell carries the branded title + theme-color."""
+    """The pre-hydration HTML shell carries the branded title + theme-color.
+
+    The title carries an ``inertia`` attribute so the head manager replaces it
+    after hydration instead of appending a second one beside it — asserted on
+    the text rather than the exact markup so that attribute can change without
+    failing a branding test that is not about it.
+    """
     # Default name before any change.
-    default_page = await authenticated_client.get("/branding/", follow_redirects=False)
+    default_page = await authenticated_client.get("/admin/branding/", follow_redirects=False)
     assert default_page.status_code == 200, default_page.text
-    assert "<title>SimpleModule</title>" in default_page.text
+    assert ">SimpleModule</title>" in default_page.text
 
     await authenticated_client.put(
         "/api/branding/",
         json={"app_name": "Acme Corp", "primary_color": "#1A7DD1"},
     )
-    page = await authenticated_client.get("/branding/", follow_redirects=False)
-    assert "<title>Acme Corp</title>" in page.text
+    page = await authenticated_client.get("/admin/branding/", follow_redirects=False)
+    assert ">Acme Corp</title>" in page.text
     assert '<meta name="theme-color" content="#1a7dd1" />' in page.text
 
 

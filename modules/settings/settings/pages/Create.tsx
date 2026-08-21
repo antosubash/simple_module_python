@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@simple-module-py/ui/components/ui/select';
 import { Textarea } from '@simple-module-py/ui/components/ui/textarea';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import type React from 'react';
 import { KeyField, type KnownKey } from './components/KeyField';
 import ValueInput, { VALUE_TYPES, type ValueType } from './components/ValueInput';
@@ -160,5 +160,5 @@ function Create({ known_keys }: Props) {
   );
 }
 
-Create.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Create.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default Create;

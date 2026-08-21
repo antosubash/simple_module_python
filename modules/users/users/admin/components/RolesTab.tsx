@@ -64,7 +64,7 @@ export function RolesTab({ roles }: { roles: RoleItem[] }) {
                     </div>
                     <Button asChild variant="ghost" size="icon-sm">
                       <Link
-                        href={`/permissions/roles/${role.id}/edit`}
+                        href={`/admin/permissions/roles/${role.id}/edit`}
                         aria-label={t(keys.users.roles_tab.edit_role)}
                       >
                         <Pencil />

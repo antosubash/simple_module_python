@@ -46,12 +46,12 @@ _DOTTED_TOKEN = re.compile(r"\b[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+\b")
 _PAGES = [
     ("Dashboard", "/dashboard/"),
     ("Files", "/file-storage/"),
-    ("Users", "/users/admin"),
-    ("Feature Flags", "/feature_flags/"),
-    ("Branding", "/branding/"),
+    ("Users", "/admin/users/"),
+    ("Feature Flags", "/admin/feature-flags/"),
+    ("Branding", "/admin/branding/"),
     ("Background Tasks", "/admin/background-tasks/"),
-    ("Settings", "/settings/"),
-    ("Audit Log", "/audit_log/"),
+    ("Settings", "/admin/settings/"),
+    ("Audit Log", "/admin/audit-log/"),
 ]
 
 

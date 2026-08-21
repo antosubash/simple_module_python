@@ -26,7 +26,7 @@ export function RolesCard({ roles, selected, onToggle, userId, hasPermissionsMod
         <RolePicker roles={roles} selected={selected} onToggle={onToggle} label="" />
         {hasPermissionsModule && (
           <Link
-            href={`/permissions/users/${userId}/edit`}
+            href={`/admin/permissions/users/${userId}/edit`}
             className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary-700 hover:text-primary-800"
           >
             <ShieldCheck className="size-4" />

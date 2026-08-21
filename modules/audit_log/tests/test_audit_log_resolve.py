@@ -16,14 +16,14 @@ from users.models import User
 
 def _registry() -> AuditLinkRegistry:
     reg = AuditLinkRegistry()
-    reg.register(AuditLink(entity_type="User", url_template="/users/admin/{id}", label="User"))
+    reg.register(AuditLink(entity_type="User", url_template="/admin/users/{id}", label="User"))
     return reg
 
 
 class TestEntityLink:
     def test_registered_table_resolves_to_a_url(self):
         ref = entity_link(_registry(), "User", "a91")
-        assert ref == {"url": "/users/admin/a91", "label": "User"}
+        assert ref == {"url": "/admin/users/a91", "label": "User"}
 
     def test_unclaimed_table_renders_unlinked(self):
         """Join rows and blob stores have no screen — the id still shows."""
@@ -69,7 +69,7 @@ class TestActorLink:
     def test_uses_the_registered_users_route(self):
         """Hardcoding /users/admin/{id} here would 404 the moment the users
         module moved its prefix, and duplicate what the registry owns."""
-        assert actor_link(_registry(), "a91") == "/users/admin/a91"
+        assert actor_link(_registry(), "a91") == "/admin/users/a91"
 
     def test_none_when_the_users_table_is_unclaimed(self):
         """A registry without a User entry yields no link rather than a

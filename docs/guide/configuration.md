@@ -3,7 +3,7 @@
 Runtime configuration has **two** sources, in order of precedence:
 
 1. **Environment variables** (`SM_*`) — read at boot, before the DB connection is open. Use for bootstrap plumbing (DB URL, secret key, feature-flag overrides for tests).
-2. **DB-backed settings** — edited from `/settings/modules` at runtime. Use for everything else: SMTP creds, storage backends, module-specific toggles.
+2. **DB-backed settings** — edited from `/admin/settings/` at runtime. Use for everything else: SMTP creds, storage backends, module-specific toggles.
 
 Most deployments only need `SM_DATABASE_URL` and `SM_SECRET_KEY` in the environment — everything else is configurable from the admin UI.
 
@@ -23,7 +23,7 @@ Prefix is always `SM_`. These are the pre-DB knobs read by `simple_module_hostin
 | `SM_MODULES_ENABLED` | unset (all enabled) | Comma-separated allow-list to disable modules without uninstalling them. |
 | `SM_AUTH_PUBLIC_PATHS` | `[]` | JSON array of anonymous-access path prefixes — a host-level escape hatch. Modules should prefer the `register_public_routes` hook. |
 
-Multi-tenancy (`multi_tenant`, `tenant_header`) and i18n (`i18n_default_locale`, `i18n_supported_locales`, `i18n_cookie_name`) are **DB-backed host settings** now, not env vars — edit them under `host` at `/settings/modules`. (`smpy new --tenancy` still writes `SM_MULTI_TENANT=true` into `.env.example` as a scaffold convenience, and tests can override these.)
+Multi-tenancy (`multi_tenant`, `tenant_header`) and i18n (`i18n_default_locale`, `i18n_supported_locales`, `i18n_cookie_name`) are **DB-backed host settings** now, not env vars — edit them under `host` at `/admin/settings/`. (`smpy new --tenancy` still writes `SM_MULTI_TENANT=true` into `.env.example` as a scaffold convenience, and tests can override these.)
 
 ## Database bootstrap knobs
 
@@ -38,7 +38,7 @@ Only change if you know what you're doing — these must be set *before* the DB 
 
 ## Internationalization
 
-These are **DB-backed host settings** (under `host` in `/settings/modules`), not env vars.
+These are **DB-backed host settings** (under `host` in `/admin/settings/`), not env vars.
 
 | Setting | Default | Notes |
 |---|---|---|
@@ -48,7 +48,7 @@ These are **DB-backed host settings** (under `host` in `/settings/modules`), not
 
 ## Users module
 
-Only the first-boot **bootstrap seed** is read from the env (prefix `SM_USERS_*`). Signup policy, mailer, SMTP creds, and base URL all moved to the DB-backed settings store — edit them under `users` at `/settings/modules`.
+Only the first-boot **bootstrap seed** is read from the env (prefix `SM_USERS_*`). Signup policy, mailer, SMTP creds, and base URL all moved to the DB-backed settings store — edit them under `users` at `/admin/settings/`.
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -61,7 +61,7 @@ DB-backed users settings (defaults): `allow_signup=false`, `mailer=console` (or 
 
 ## Background tasks (Celery)
 
-The broker/result settings are DB-backed (under `background_tasks` in `/settings/modules`) with the defaults below. The generated `docker-compose.yml` sets `SM_BG_TASKS_BROKER_URL` / `SM_BG_TASKS_RESULT_BACKEND` on the `worker` and `beat` containers so they reach the in-container `redis` service.
+The broker/result settings are DB-backed (under `background_tasks` in `/admin/settings/`) with the defaults below. The generated `docker-compose.yml` sets `SM_BG_TASKS_BROKER_URL` / `SM_BG_TASKS_RESULT_BACKEND` on the `worker` and `beat` containers so they reach the in-container `redis` service.
 
 | Setting | Default | Notes |
 |---|---|---|
@@ -78,7 +78,7 @@ uv run smpy settings import-from-env
 
 This is idempotent — it only seeds keys that don't have a DB override yet.
 
-From then on, edit at `/settings/modules` (requires the `settings.manage` permission). Changes apply immediately; no restart needed.
+From then on, edit at `/admin/settings/` (requires the `settings.manage` permission). Changes apply immediately; no restart needed.
 
 ## Per-module settings convention
 

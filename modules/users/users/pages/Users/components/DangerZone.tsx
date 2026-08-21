@@ -43,7 +43,7 @@ export function DangerZone({ userId, email, isSelf }: Props) {
       .then(async (res) => {
         if (res.ok) {
           toast.success(t(keys.users.danger_zone.toast_deleted));
-          router.visit('/users/admin');
+          router.visit('/admin/users/');
           return; // navigating away — leave `deleting` set
         }
         const data = await res.json().catch(() => ({}));

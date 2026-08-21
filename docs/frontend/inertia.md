@@ -149,6 +149,55 @@ createInertiaApp({
 
 `resolvePage` lives in `host/client_app/pages.ts` (hand-written). It builds a page-key → loader map from `moduleGlobs` (the `import.meta.glob` calls in the generated `modules.generated.ts`) plus the host's own `./pages/**/*.tsx` glob, mapping a page key (e.g. `"Orders/Browse"`) to a dynamic import of the matching `.tsx` file.
 
+
+## Link navigation
+
+The app is client-rendered: the root template ships `<div id="app"></div>` empty
+and `app.tsx` fills it. So a navigation that creates a **new document** shows a
+blank white page until the bundle has booted — which is what a plain
+`<a href="/somewhere">` does.
+
+Admin screens use Inertia's `<Link>` and are fine. The problem is authored
+content: pagebuilder widgets, and the markdown and rich-text fields inside them,
+turn author-entered URLs into plain anchors. An anchor that comes out of a
+markdown parser has no component to swap for a `<Link>`.
+
+`app.tsx` therefore calls `startSpaLinkInterception()` once, before the first
+render:
+
+```tsx
+import { startSpaLinkInterception } from "@simple-module-py/ui/lib/spa-links";
+
+setup({ el, App, props }) {
+  startSpaLinkInterception();
+  createRoot(el).render(<App {...props} />);
+}
+```
+
+It delegates one `click` listener on the document and routes same-origin page
+links through `router.visit()`, whatever produced the anchor. It runs in the
+bubble phase, so a `<Link>` — which cancels the event itself — is already
+`defaultPrevented` and is left alone rather than visited twice.
+
+The bias is towards **not** interfering. These keep the browser's own behaviour:
+
+| Left alone | Why |
+| --- | --- |
+| Another origin, or a non-http scheme (`mailto:`, `tel:`) | Not ours to route |
+| A path whose last segment looks like a file (`/media/report.pdf`) | Inertia would request it expecting a page and raise its error modal over the download |
+| `#`, `#section`, or a link to the current path | The browser scrolls correctly; `href="#"` is also what an unfilled pagebuilder nav row holds |
+| `download`, `target` other than `_self`, `rel="external"` | The author asked for it |
+| `data-native-link` | Explicit opt-out for anything the rules miss |
+| Anything inside `[data-puck-preview]` / `[data-puck-component]` | A Puck editor rendering without an iframe puts the edited page's real anchors in the admin document |
+| Modified clicks (⌘/ctrl/shift/alt) and non-left buttons | Open-in-new-tab must keep working |
+
+As a backstop, a visit that comes back **without** an `x-inertia` header is
+handed to the browser as a hard navigation, so a URL that turns out not to be a
+page still resolves instead of raising the error modal.
+
+`smpy new` wires this into the app template. An app scaffolded before this
+landed owns its own `app.tsx` and must add the call itself.
+
 ## CSRF
 
 There is no explicit CSRF token middleware. Protection comes from `SameSite=Lax` on the session cookie:

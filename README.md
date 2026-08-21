@@ -45,7 +45,7 @@ make migrate
 make dev
 ```
 
-Hit `http://localhost:8000` — you land on the public page. `/users/login` is the email+password login, `/dashboard/` is the authenticated home, and `/dashboard/doctor` is the admin-only "smpy doctor" panel (static checks, migrations, dev server, modules).
+Hit `http://localhost:8000` — you land on the public page. `/users/login` is the email+password login, `/dashboard/` is the authenticated home, and `/admin/doctor/` is the admin-only "smpy doctor" panel (static checks, migrations, dev server, modules).
 
 ## Create a new module
 
@@ -109,7 +109,7 @@ docs/
 
 ## Configuration
 
-Local deployments only need one env var — everything else has sensible defaults and is managed in the admin UI at `/settings/modules`.
+Local deployments only need one env var — everything else has sensible defaults and is managed in the admin UI at `/admin/settings/`.
 
 | Variable | Default | Required |
 |---|---|---|
@@ -186,7 +186,7 @@ SM_AUTH_PROVIDER=keycloak
 
 Then re-run `make gen-pages` so the frontend manifest picks up the active provider's
 pages (`make dev` does this for you), and configure the realm under
-`/settings/modules`. Switching back is the same knob set to `users`.
+`/admin/settings/`. Switching back is the same knob set to `users`.
 
 Two caveats when running Keycloak:
 
@@ -221,7 +221,7 @@ The auto-bootstrap is idempotent — it only creates the user if the `users_user
 
 ### Inviting users
 
-1. Log in as admin and navigate to `/users/admin/invite`.
+1. Log in as admin and navigate to `/admin/users/add`.
 2. Fill in the invitee's email and optionally a full name and role(s). Click **Send invite**.
 3. With the default `console` mailer, the invite link is logged to stdout (`tail -f` the server log). Copy the link and send it to the user. With `smtp`, the email is delivered automatically.
 4. The invitee opens the link (`/users/invite/accept?token=…`), sets a password, and is immediately logged in.

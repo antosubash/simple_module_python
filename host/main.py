@@ -18,6 +18,7 @@ from simple_module_hosting.logging import setup_logging  # noqa: E402
 
 from host.routes import router as host_router  # noqa: E402
 from host.routes_i18n import router as i18n_router  # noqa: E402
+from host.routes_legacy import router as legacy_router  # noqa: E402
 
 settings = Settings()
 
@@ -29,6 +30,9 @@ setup_logging(
 app = create_app(settings)
 app.include_router(host_router)
 app.include_router(i18n_router)
+# Mounted last: its catch-all {path:path} routes must not shadow a real
+# route that happens to share a legacy prefix.
+app.include_router(legacy_router)
 
 if __name__ == "__main__":
     import uvicorn

@@ -11,7 +11,7 @@ import importlib.resources
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
+from simple_module_core.menu import MenuItem, MenuRegistry
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRouteRegistry
@@ -68,10 +68,8 @@ class BrandingModule(ModuleBase):
                 label_key="branding.nav.branding",
                 url=MENU_URL,
                 icon="palette",
-                order=115,
-                section=MenuSection.SIDEBAR,
-                group="Administration",
-                group_key="ui.nav_groups.administration",
+                group="Appearance",
+                group_key="ui.nav_groups.appearance",
                 roles=["admin"],
             )
         )

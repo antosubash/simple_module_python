@@ -6,11 +6,24 @@ from dataclasses import dataclass, field
 
 WILDCARD = "*"
 
+ADMIN_ROLE = "admin"
+"""The one role name the framework itself knows.
+
+Everything else about roles is module-owned, but the framework needs this to
+resolve the wildcard grant below and to decide who can still reach the app
+while maintenance mode is on.
+"""
+
 # Default role→permission mapping. Admin gets all permissions via the wildcard.
 # Additional mappings are added at registration time via PermissionRegistry.map_role.
 DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
-    "admin": [WILDCARD],
+    ADMIN_ROLE: [WILDCARD],
 }
+
+
+def is_admin(roles: list[str] | None) -> bool:
+    """Whether ``roles`` carries the framework's admin role."""
+    return bool(roles) and ADMIN_ROLE in roles
 
 
 @dataclass
@@ -111,7 +124,7 @@ class PermissionRegistry:
         other roles get none. Override for richer mapping.
         """
         if role_permission_map is None:
-            if "admin" in roles:
+            if is_admin(roles):
                 return set(self.all_permissions)
             return set()
 

@@ -8,7 +8,8 @@ The default auth provider + user-management module: email/password login, OAuth/
 |---|---|
 | `name` | `Users` |
 | `route_prefix` | `/api/users` |
-| `view_prefix` | `/users` |
+| `view_prefix` | `/users` (sign-in, self-service) |
+| `admin_view_prefix` | `/admin/users` (management CRUD) |
 | `depends_on` | `["Auth"]` |
 
 ## Auth flow
@@ -60,7 +61,7 @@ The module is built on [`fastapi-users`](https://fastapi-users.github.io/) for p
 | `PATCH /api/users/admin/{user_id}/verify` | → `UserListItem` (mark verified; idempotent) |
 | `POST /api/users/admin/{user_id}/reset-password-link` | → `PasswordResetLink` (`409` for external/SSO users) |
 
-`POST /api/users/admin` creates an **active + verified** user directly — no invite email, no verification flow; the admin sets the password. It returns `409` if the email is already taken and `400` for an invalid password. The matching admin UI (Create form, Edit details card, and a delete "danger zone") lives under `/users/admin` — see [View routes](#view-routes) and [Inertia pages](#inertia-pages).
+`POST /api/users/admin` creates an **active + verified** user directly — no invite email, no verification flow; the admin sets the password. It returns `409` if the email is already taken and `400` for an invalid password. The matching admin UI (Create form, Edit details card, and a delete "danger zone") lives under `/admin/users/` — see [View routes](#view-routes) and [Inertia pages](#inertia-pages).
 
 ### View routes
 
@@ -207,7 +208,7 @@ Everything else is DB-backed (initial values are pydantic defaults; edit at `/se
 
 | Label | URL | Icon | Section | Group | Order | Roles |
 |---|---|---|---|---|---|---|
-| `Users` | `/users/admin` | `users` | `SIDEBAR` | `Administration` | `100` | `["admin"]` |
+| `Users` | `/admin/users/` | `users` | `ADMIN_SIDEBAR` | `Access` | `100` | `["admin"]` |
 | `Profile` | `/users/me` | `user` | `USER_DROPDOWN` | — | `990` | _logged-in_ |
 | `Logout` | `/users/logout` (POST) | `log-out` | `USER_DROPDOWN` | — | `999` | _logged-in_ |
 

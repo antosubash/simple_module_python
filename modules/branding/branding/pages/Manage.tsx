@@ -11,14 +11,13 @@ import {
 } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import type { SharedProps } from '@simple-module-py/ui/types';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { BannerField, type BannerSeverity } from '../components/BannerField';
 import { BrandingPreview } from '../components/BrandingPreview';
 import { DesignPackField, type DesignPackOption } from '../components/DesignPackField';
-import { FooterCard, type FooterPayload } from '../components/FooterCard';
 import { ImageField } from '../components/ImageField';
 import { PresetField, type PresetOption } from '../components/PresetField';
 
@@ -116,17 +115,6 @@ function Manage() {
       t(keys.branding.manage.upload_error_toast),
     );
   };
-
-  const saveFooter = (payload: FooterPayload) =>
-    run(
-      () =>
-        fetch('/api/branding/footer', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        }),
-      t(keys.branding.manage.error_toast),
-    );
 
   const applyPreset = (key: string) =>
     run(
@@ -258,13 +246,6 @@ function Manage() {
             </CardContent>
           </Card>
 
-          <FooterCard
-            initial={branding?.footer ?? null}
-            disabled={!canManage || busy}
-            busy={busy}
-            onSave={saveFooter}
-          />
-
           <BrandingPreview
             appName={appName}
             color={color}
@@ -281,6 +262,6 @@ function Manage() {
   );
 }
 
-Manage.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Manage.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 
 export default Manage;

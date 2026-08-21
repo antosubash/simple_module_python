@@ -19,7 +19,7 @@ import {
   TableRow,
 } from '@simple-module-py/ui/components/ui/table';
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { Search, ServerCog } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ExecutionRow } from './components/ExecutionRow';
@@ -253,5 +253,5 @@ function Index() {
   );
 }
 
-Index.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Index.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default Index;

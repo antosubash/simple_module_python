@@ -3,7 +3,7 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import type React from 'react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -20,7 +20,7 @@ interface Props {
   mailer_delivers: boolean;
 }
 
-const USERS_INDEX = '/users/admin';
+const USERS_INDEX = '/admin/users/';
 
 function initialMode(): Mode {
   if (typeof window === 'undefined') return 'invite';
@@ -222,5 +222,5 @@ function AddPeople() {
   );
 }
 
-AddPeople.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+AddPeople.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default AddPeople;

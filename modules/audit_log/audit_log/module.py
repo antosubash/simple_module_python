@@ -51,7 +51,7 @@ class AuditLogModule(ModuleBase):
                 url=MENU_URL,
                 icon=MENU_ICON,
                 order=MENU_ORDER,
-                section=MenuSection.SIDEBAR,
+                section=MenuSection.ADMIN_SIDEBAR,
                 group="System",
                 group_key="ui.nav_groups.system",
                 # Mirrors the view route's guard — the same ungated-menu bug

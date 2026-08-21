@@ -38,10 +38,11 @@ function Login() {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const nextUrl =
-    typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('next') || login_redirect_url
-      : login_redirect_url;
+  // Server-decided, deliberately. The post-login destination used to be read
+  // from `?next=` here, which let any crafted login link bounce the user to an
+  // arbitrary URL after signing in. AuthMiddleware now stashes the target in
+  // the session and the view sanitises it, so this prop is already safe.
+  const nextUrl = login_redirect_url;
 
   const submitLogin = (username: string, pwd: string) => {
     setError(null);
