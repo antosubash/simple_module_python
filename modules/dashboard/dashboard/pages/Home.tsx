@@ -5,6 +5,7 @@ import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { StatCard } from '@simple-module-py/ui/components/StatCard';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { isUnder, samePath, trimmed } from '@simple-module-py/ui/lib/current-path';
 import type { SharedProps } from '@simple-module-py/ui/types';
 import { Activity, Box, Stethoscope, Users } from 'lucide-react';
 import { DemoPlaceholders } from './components/DemoPlaceholders';
@@ -31,12 +32,6 @@ interface SystemInfo {
   modules: SystemModule[];
   python_version: string;
   health_checks: HealthCheck[];
-}
-
-/** Does `menuUrl` sit at, or below, the route prefix `owner`? */
-function isUnder(menuUrl: string, owner: string): boolean {
-  const normalized = menuUrl.replace(/\/+$/, '');
-  return normalized === owner || normalized.startsWith(`${owner}/`);
 }
 
 interface Props {
@@ -72,7 +67,7 @@ function Home() {
   // mine" from "this entry belongs to a module mounted deeper than me".
   const modulePrefixes = props.system_info.modules
     .flatMap((m) => [m.url, m.admin_url])
-    .map((url) => url.replace(/\/+$/, ''))
+    .map((url) => trimmed(url))
     .filter(Boolean);
 
   /**
@@ -114,13 +109,13 @@ function Home() {
   }
 
   function exactMenu(url: string): string {
-    const prefix = url.replace(/\/+$/, '');
+    const prefix = trimmed(url);
     if (!prefix) return '';
-    return menuUrls.find((menuUrl) => menuUrl.replace(/\/+$/, '') === prefix) ?? '';
+    return menuUrls.find((menuUrl) => samePath(menuUrl, prefix)) ?? '';
   }
 
   function menuUnderPrefix(url: string): string {
-    const prefix = url.replace(/\/+$/, '');
+    const prefix = trimmed(url);
     if (!prefix) return '';
     return (
       menuUrls.find(
