@@ -33,27 +33,6 @@ def asset_url(base: str, file_id: str) -> str | None:
     return f"{base}?{ASSET_VERSION_QUERY_KEY}={file_id}" if file_id else None
 
 
-def footer_payload(settings: BrandingSettings) -> dict | None:
-    """The camelCase footer block, or ``None`` when nothing is configured.
-
-    ``None`` lets the frontend keep its built-in framework footer, so a
-    deployment that never touches this looks exactly as it did.
-    """
-    from branding.footer import loads
-
-    columns = loads(settings.footer_columns)
-    social = loads(settings.footer_social_links)
-    if not (columns or social or settings.footer_tagline or settings.footer_copyright_owner):
-        return None
-    return {
-        "tagline": settings.footer_tagline,
-        "copyrightOwner": settings.footer_copyright_owner,
-        "note": settings.footer_note,
-        "columns": columns,
-        "socialLinks": social,
-    }
-
-
 def branding_payload(settings: BrandingSettings) -> dict:
     """The camelCase branding block shared with the frontend."""
     return {
@@ -72,7 +51,6 @@ def branding_payload(settings: BrandingSettings) -> dict:
             if settings.banner_message
             else None
         ),
-        "footer": footer_payload(settings),
     }
 
 

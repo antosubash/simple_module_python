@@ -6,20 +6,6 @@ export interface MenuItem {
   group?: string;
 }
 
-export interface FooterLinkShared {
-  label: string;
-  href: string;
-}
-
-/** Admin-configured footer; `null` keeps the framework's built-in one. */
-export interface FooterShared {
-  tagline: string;
-  copyrightOwner: string;
-  note: string;
-  columns: { title: string; links: FooterLinkShared[] }[];
-  socialLinks: FooterLinkShared[];
-}
-
 export interface BrandingShared {
   appName: string;
   primaryColor: string | null;
@@ -37,7 +23,6 @@ export interface BrandingShared {
   faviconUrl: string | null;
   /** Site-wide announcement, or `null` when no message is set. */
   banner: { message: string; severity: string } | null;
-  footer: FooterShared | null;
 }
 
 export interface SharedProps {

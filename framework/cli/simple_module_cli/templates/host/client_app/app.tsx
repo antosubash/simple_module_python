@@ -1,5 +1,6 @@
 import { createInertiaApp, router } from '@inertiajs/react';
 import { configureI18n, updateI18n } from '@simple-module-py/i18n';
+import { startSpaLinkInterception } from '@simple-module-py/ui/lib/spa-links';
 import { createRoot } from 'react-dom/client';
 import { resolvePage } from './pages';
 
@@ -28,6 +29,11 @@ createInertiaApp({
         activeLocale = block.locale;
       }
     });
+    // Authored content (pagebuilder widgets, markdown and rich-text fields)
+    // renders author-entered URLs as plain <a href>, which the browser would
+    // follow with a full document load. This app is client-rendered, so that
+    // means a blank page until the bundle boots. Route them through Inertia.
+    startSpaLinkInterception();
     createRoot(el).render(<App {...props} />);
   },
   progress: {
