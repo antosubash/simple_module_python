@@ -90,23 +90,38 @@ function Home() {
    *
    * A module that is only partly administrative mounts its admin screens
    * outside its own `view_prefix` (Users serves sign-in at `/users` and
-   * management at `/admin/users`), so both prefixes are searched — admin
-   * first, since that is the screen the tile is for. Without it the Users
-   * tile falls through to `/users/me` and opens the viewer's own profile.
+   * management at `/admin/users`), so both prefixes are searched.
+   *
+   * Every exact match is tried before any under-prefix guess, rather than
+   * exhausting one prefix before the other. Searching the admin prefix first
+   * outright sent the Dashboard tile to Doctor: dashboard owns both
+   * `/dashboard` and `/admin/doctor`, and its own screen is the one the tile
+   * is for. An exact hit is unambiguous evidence of "this is the module's
+   * landing screen", so it beats a guess on either prefix — which also keeps
+   * the Users tile on `/admin/users` rather than falling through to
+   * `/users/me` and opening the viewer's own profile.
    */
   function menuTarget(url: string, adminUrl: string): string {
+    for (const candidate of [url, adminUrl]) {
+      const hit = candidate ? exactMenu(candidate) : '';
+      if (hit) return hit;
+    }
     for (const candidate of [adminUrl, url]) {
-      const hit = candidate ? resolveUnderPrefix(candidate) : '';
+      const hit = candidate ? menuUnderPrefix(candidate) : '';
       if (hit) return hit;
     }
     return '';
   }
 
-  function resolveUnderPrefix(url: string): string {
+  function exactMenu(url: string): string {
     const prefix = url.replace(/\/+$/, '');
     if (!prefix) return '';
-    const exact = menuUrls.find((menuUrl) => menuUrl.replace(/\/+$/, '') === prefix);
-    if (exact) return exact;
+    return menuUrls.find((menuUrl) => menuUrl.replace(/\/+$/, '') === prefix) ?? '';
+  }
+
+  function menuUnderPrefix(url: string): string {
+    const prefix = url.replace(/\/+$/, '');
+    if (!prefix) return '';
     return (
       menuUrls.find(
         (menuUrl) =>
