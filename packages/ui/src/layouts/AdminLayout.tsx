@@ -14,9 +14,15 @@ const THEME = {
   mobileTitleLabel: 'Admin',
 } as const;
 
+// A link, not a label: the section root is the one admin destination with no
+// sidebar entry of its own, and the badge is where a user looks for "home"
+// within a section.
 const adminBadge = (
   <div className="px-3 pt-4 pb-2">
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-red-500/10 border border-red-500/20">
+    <Link
+      href="/admin"
+      className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-red-500/10 border border-red-500/20 transition-colors hover:bg-red-500/20"
+    >
       <svg
         aria-hidden="true"
         className="w-4 h-4 text-red-400"
@@ -34,7 +40,7 @@ const adminBadge = (
       <span className="text-xs font-semibold text-red-400 uppercase tracking-wider">
         Admin Panel
       </span>
-    </div>
+    </Link>
   </div>
 );
 

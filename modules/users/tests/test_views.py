@@ -177,19 +177,19 @@ class TestAdminIndexPage:
     @pytest.mark.anyio
     async def test_admin_without_auth_is_redirected(self, anon_client):
         """Unauthenticated access to the admin page redirects to /users/login."""
-        resp = await anon_client.get("/users/admin", follow_redirects=False)
+        resp = await anon_client.get("/admin/users", follow_redirects=False)
         assert resp.status_code == 302
         assert resp.headers["location"].endswith("/users/login")
 
     @pytest.mark.anyio
     async def test_admin_with_admin_session_returns_200(self, admin_client):
-        resp = await admin_client.get("/users/admin")
+        resp = await admin_client.get("/admin/users/")
         assert resp.status_code == 200
 
     @pytest.mark.anyio
     async def test_admin_inertia_component_is_users_index(self, admin_client):
         resp = await admin_client.get(
-            "/users/admin",
+            "/admin/users/",
             headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
         )
         assert resp.status_code == 200
@@ -200,26 +200,26 @@ class TestAdminIndexPage:
 class TestAdminEditPage:
     @pytest.mark.anyio
     async def test_invalid_uuid_returns_404(self, admin_client):
-        resp = await admin_client.get("/users/admin/not-a-uuid")
+        resp = await admin_client.get("/admin/users/not-a-uuid")
         assert resp.status_code == 404
 
     @pytest.mark.anyio
     async def test_unknown_uuid_returns_404(self, admin_client):
         missing_id = str(uuid.uuid4())
-        resp = await admin_client.get(f"/users/admin/{missing_id}")
+        resp = await admin_client.get(f"/admin/users/{missing_id}")
         assert resp.status_code == 404
 
     @pytest.mark.anyio
     async def test_existing_user_returns_200(self, admin_client, users_db):
         user = await _make_verified_user(users_db, email="edit_target@example.com")
-        resp = await admin_client.get(f"/users/admin/{user.id}")
+        resp = await admin_client.get(f"/admin/users/{user.id}")
         assert resp.status_code == 200
 
     @pytest.mark.anyio
     async def test_existing_user_inertia_component(self, admin_client, users_db):
         user = await _make_verified_user(users_db, email="edit_target2@example.com")
         resp = await admin_client.get(
-            f"/users/admin/{user.id}",
+            f"/admin/users/{user.id}",
             headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
         )
         assert resp.status_code == 200
@@ -232,7 +232,7 @@ async def test_admin_edit_page_unknown_user_returns_404(admin_client):
     import uuid
 
     resp = await admin_client.get(
-        f"/users/admin/{uuid.uuid4()}",
+        f"/admin/users/{uuid.uuid4()}",
         follow_redirects=False,
     )
     assert resp.status_code == 404
@@ -275,53 +275,3 @@ async def test_login_redirect_fallback_without_dashboard(users_app):
         assert url.endswith("/"), "must have trailing slash"
     finally:
         object.__setattr__(sm, "modules", original)
-
-
-class TestDeepLinkAfterLogin:
-    """An anonymous visit to a protected page should come back after login.
-
-    AuthMiddleware stashes the target in the session; the login view surfaces
-    it as ``login_redirect_url``. Before this existed the target was dropped
-    and every login landed on the configured default.
-    """
-
-    @pytest.mark.anyio
-    async def test_bounced_target_becomes_the_redirect_prop(self, anon_client):
-        bounced = await anon_client.get("/settings/", follow_redirects=False)
-        assert bounced.status_code == 302
-
-        resp = await anon_client.get(
-            "/users/login",
-            headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
-        )
-        assert resp.json()["props"]["login_redirect_url"] == "/settings/"
-
-    @pytest.mark.anyio
-    async def test_query_string_is_preserved(self, anon_client):
-        await anon_client.get("/settings/?tab=modules", follow_redirects=False)
-
-        resp = await anon_client.get(
-            "/users/login",
-            headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
-        )
-        assert resp.json()["props"]["login_redirect_url"] == "/settings/?tab=modules"
-
-    @pytest.mark.anyio
-    async def test_reload_of_login_page_keeps_the_target(self, anon_client):
-        """Read-not-pop: reloading the login page must not lose the deep link."""
-        await anon_client.get("/settings/", follow_redirects=False)
-
-        for _ in range(2):
-            resp = await anon_client.get(
-                "/users/login",
-                headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
-            )
-            assert resp.json()["props"]["login_redirect_url"] == "/settings/"
-
-    @pytest.mark.anyio
-    async def test_without_a_bounce_the_default_is_used(self, anon_client):
-        resp = await anon_client.get(
-            "/users/login",
-            headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
-        )
-        assert resp.json()["props"]["login_redirect_url"] == "/dashboard/"

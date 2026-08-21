@@ -109,7 +109,7 @@ async def test_applying_a_preset_requires_the_manage_permission(
 async def test_the_manage_page_lists_the_presets(
     authenticated_client: httpx.AsyncClient,
 ) -> None:
-    page = await authenticated_client.get("/branding/", follow_redirects=False)
+    page = await authenticated_client.get("/admin/branding/", follow_redirects=False)
 
     assert page.status_code == 200, page.status_code
     assert "presets" in page.text

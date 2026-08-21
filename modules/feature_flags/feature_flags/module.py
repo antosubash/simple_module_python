@@ -19,6 +19,7 @@ from feature_flags.constants import (
     MENU_URL,
     PERM_FEATURE_FLAGS_MANAGE,
     PERM_FEATURE_FLAGS_VIEW,
+    VIEW_PREFIX,
 )
 
 _logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ class FeatureFlagsModule(ModuleBase):
     meta = ModuleMeta(
         name="FeatureFlags",
         route_prefix="/api/feature_flags",
-        view_prefix="/feature_flags",
+        view_prefix=VIEW_PREFIX,
         i18n_audience="admin",
     )
 
@@ -46,8 +47,8 @@ class FeatureFlagsModule(ModuleBase):
                 url=MENU_URL,
                 icon=MENU_ICON,
                 order=MENU_ORDER,
-                section=MenuSection.SIDEBAR,
-                group="Administration",
+                section=MenuSection.ADMIN_SIDEBAR,
+                group="System",
                 # Mirrors the view router's guard. Without it the entry shows
                 # for every signed-in account and 403s on click.
                 permissions=[PERM_FEATURE_FLAGS_VIEW],

@@ -91,7 +91,6 @@ async def oidc_callback(request: Request):
     # Sanitised on the way out as well as in: this value lands in a
     # Location header, and defence in depth costs one call.
     next_url = (
-        safe_next_or_none(request.session.pop(SESSION_NEXT_KEY, None))
-        or s.login_redirect_url
+        safe_next_or_none(request.session.pop(SESSION_NEXT_KEY, None)) or s.login_redirect_url
     )
     return RedirectResponse(next_url, status_code=303)

@@ -20,7 +20,7 @@ class PermissionsModule(ModuleBase):
     meta = ModuleMeta(
         name="Permissions",
         route_prefix="/api/permissions",
-        view_prefix="/permissions",
+        view_prefix="/admin/permissions",
         depends_on=[_MODULE_AUTH, _MODULE_USERS],
         i18n_audience="admin",
     )

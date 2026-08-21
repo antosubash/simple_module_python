@@ -21,7 +21,7 @@ from permissions.service import PermissionService
 
 router = APIRouter()
 
-_ADMIN_URL = "/users/admin"
+_ADMIN_URL = "/admin/users"
 
 
 @router.get("/", response_model=None)

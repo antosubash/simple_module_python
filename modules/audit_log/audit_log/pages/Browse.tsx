@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@simple-module-py/ui/components/ui/table';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import type React from 'react';
 import { useState } from 'react';
 import { BrowseEmpty } from './components/BrowseEmpty';
@@ -256,5 +256,5 @@ function Browse() {
   );
 }
 
-Browse.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Browse.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default Browse;

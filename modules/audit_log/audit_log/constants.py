@@ -9,7 +9,7 @@ MODULE_PACKAGE: Final = "audit_log"
 LOCALE_NAMESPACE: Final = MODULE_PACKAGE
 
 API_PREFIX: Final = "/api/audit_log"
-VIEW_PREFIX: Final = "/audit_log"
+VIEW_PREFIX: Final = "/admin/audit-log"
 
 MENU_LABEL: Final = "Audit Log"
 # Trailing slash: the browse route is registered at "/" under VIEW_PREFIX, so

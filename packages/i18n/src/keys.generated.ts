@@ -318,6 +318,12 @@ export const keys = {
     },
   },
   host: {
+    admin: {
+      description: 'host.admin.description',
+      empty: 'host.admin.empty',
+      overview: 'host.admin.overview',
+      title: 'host.admin.title',
+    },
     error: {
       correlation_id_copy: 'host.error.correlation_id_copy',
       correlation_id_label: 'host.error.correlation_id_label',

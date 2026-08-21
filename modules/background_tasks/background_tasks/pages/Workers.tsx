@@ -3,7 +3,7 @@ import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { ageOf, isStale, relativeAgeLabel } from '@simple-module-py/ui/lib/relative-time';
 import { ArrowLeft, RefreshCw, ServerCrash, ServerOff } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -182,5 +182,5 @@ function Workers() {
   );
 }
 
-Workers.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Workers.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default Workers;

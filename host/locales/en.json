@@ -1,26 +1,9 @@
 {
-  "landing": {
-    "badge": "v0.1 · Python 3.12 · experimental",
-    "hero_title_line1": "Modular monoliths for Python —",
-    "hero_title_line2": "without the boilerplate.",
-    "hero_subtitle": "Each feature ships its own SQLModel tables, FastAPI endpoints, and React pages. Plugin modules compose at boot — no microservice tax, no API-client glue.",
-    "cta_dashboard": "Open Dashboard",
-    "cta_get_started": "Start your project",
-    "cta_docs": "Read the docs",
-    "features": {
-      "module_system_title": "Discovered at boot",
-      "module_system_description": "Python entry points register every ModuleBase subclass. No reflection, no manual wiring.",
-      "auth_title": "Built-in auth",
-      "auth_description": "Email + cookie sessions via fastapi-users. Roles & permissions register with the module.",
-      "schema_title": "Per-module schema",
-      "schema_description": "PostgreSQL → schema per module. SQLite → prefixed tables. Each module owns its data.",
-      "inertia_title": "Inertia + React",
-      "inertia_description": "Browse / Create / Edit pages ship inside each module. Vite HMR for the frontend, async FastAPI for the backend.",
-      "diagnostics_title": "make doctor",
-      "diagnostics_description": "Static analyzer catches orphan pages, framework coupling, and migration drift before boot.",
-      "devtools_title": "Async SQLModel",
-      "devtools_description": "SQLAlchemy async + Pydantic + Alembic. Generate migrations per module."
-    }
+  "admin": {
+    "title": "Administration",
+    "description": "Manage users, access, appearance and system configuration.",
+    "empty": "No admin tools are available to your account.",
+    "overview": "Overview"
   },
   "error": {
     "correlation_id_copy": "Copy reference ID",
@@ -48,6 +31,29 @@
     "unauthorized_title": "Sign in required",
     "unavailable_description": "The service is temporarily unavailable. Please try again shortly.",
     "unavailable_title": "Service unavailable"
+  },
+  "landing": {
+    "badge": "v0.1 · Python 3.12 · experimental",
+    "hero_title_line1": "Modular monoliths for Python —",
+    "hero_title_line2": "without the boilerplate.",
+    "hero_subtitle": "Each feature ships its own SQLModel tables, FastAPI endpoints, and React pages. Plugin modules compose at boot — no microservice tax, no API-client glue.",
+    "cta_dashboard": "Open Dashboard",
+    "cta_get_started": "Start your project",
+    "cta_docs": "Read the docs",
+    "features": {
+      "module_system_title": "Discovered at boot",
+      "module_system_description": "Python entry points register every ModuleBase subclass. No reflection, no manual wiring.",
+      "auth_title": "Built-in auth",
+      "auth_description": "Email + cookie sessions via fastapi-users. Roles & permissions register with the module.",
+      "schema_title": "Per-module schema",
+      "schema_description": "PostgreSQL → schema per module. SQLite → prefixed tables. Each module owns its data.",
+      "inertia_title": "Inertia + React",
+      "inertia_description": "Browse / Create / Edit pages ship inside each module. Vite HMR for the frontend, async FastAPI for the backend.",
+      "diagnostics_title": "make doctor",
+      "diagnostics_description": "Static analyzer catches orphan pages, framework coupling, and migration drift before boot.",
+      "devtools_title": "Async SQLModel",
+      "devtools_description": "SQLAlchemy async + Pydantic + Alembic. Generate migrations per module."
+    }
   },
   "offline": {
     "title": "You're offline",

@@ -22,7 +22,7 @@ async def test_dashboard_index_renders_for_admin(authenticated_client):
 @pytest.mark.anyio
 async def test_dashboard_doctor_renders_for_admin(authenticated_client):
     """The doctor sub-page mirrors the same route shape."""
-    resp = await authenticated_client.get("/dashboard/doctor", follow_redirects=False)
+    resp = await authenticated_client.get("/admin/doctor/", follow_redirects=False)
     assert resp.status_code == 200, resp.text
     assert "data-page" in resp.text
 
@@ -30,7 +30,7 @@ async def test_dashboard_doctor_renders_for_admin(authenticated_client):
 @pytest.mark.anyio
 async def test_settings_index_renders_for_admin(authenticated_client):
     """The section root now leads with the per-module forms."""
-    resp = await authenticated_client.get("/settings/", follow_redirects=False)
+    resp = await authenticated_client.get("/admin/settings/", follow_redirects=False)
     assert resp.status_code == 200, resp.text
     assert "data-page" in resp.text
 
@@ -38,7 +38,7 @@ async def test_settings_index_renders_for_admin(authenticated_client):
 @pytest.mark.anyio
 async def test_settings_store_renders_for_admin(authenticated_client):
     """The raw key/value store moved off the root but stays reachable."""
-    resp = await authenticated_client.get("/settings/store", follow_redirects=False)
+    resp = await authenticated_client.get("/admin/settings/store", follow_redirects=False)
     assert resp.status_code == 200, resp.text
     assert "data-page" in resp.text
 
@@ -46,9 +46,9 @@ async def test_settings_store_renders_for_admin(authenticated_client):
 @pytest.mark.anyio
 async def test_settings_modules_url_still_resolves(authenticated_client):
     """Existing links and bookmarks to /settings/modules must not break."""
-    resp = await authenticated_client.get("/settings/modules", follow_redirects=False)
+    resp = await authenticated_client.get("/admin/settings/modules", follow_redirects=False)
     assert resp.status_code == 308, resp.text
-    assert resp.headers["location"].endswith("/settings/")
+    assert resp.headers["location"].endswith("/admin/settings/")
 
 
 @pytest.mark.anyio

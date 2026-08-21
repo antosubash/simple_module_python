@@ -91,9 +91,9 @@ class BackgroundTasksModule(ModuleBase):
                 url=f"{VIEW_PREFIX}/",
                 icon=MENU_ICON,
                 order=MENU_ORDER,
-                section=MenuSection.SIDEBAR,
+                section=MenuSection.ADMIN_SIDEBAR,
                 roles=["admin"],
-                group="Administration",
+                group="System",
             )
         )
 

@@ -20,7 +20,7 @@ class TestAdminIndexFilters:
         await users_db.commit()
 
         resp = await admin_client.get(
-            "/users/admin?status=disabled",
+            "/admin/users/?status=disabled",
             headers={"X-Inertia": "true", "Accept": "application/json"},
         )
         assert resp.status_code == 200
@@ -35,7 +35,7 @@ class TestAdminIndexFilters:
     @pytest.mark.anyio
     async def test_filters_defaults_in_props(self, admin_client):
         resp = await admin_client.get(
-            "/users/admin",
+            "/admin/users/",
             headers={"X-Inertia": "true", "Accept": "application/json"},
         )
         assert resp.status_code == 200
@@ -50,7 +50,7 @@ class TestAdminIndexFilters:
     @pytest.mark.anyio
     async def test_invalid_filter_values_are_ignored(self, admin_client):
         resp = await admin_client.get(
-            "/users/admin?status=bad&sort=invalid&order=sideways",
+            "/admin/users/?status=bad&sort=invalid&order=sideways",
             headers={"X-Inertia": "true", "Accept": "application/json"},
         )
         assert resp.status_code == 200
@@ -71,7 +71,7 @@ class TestAdminIndexFilters:
         await _make_user(users_db, email="clamp-b@x.com")
 
         resp = await admin_client.get(
-            "/users/admin?page=999&per_page=1",
+            "/admin/users/?page=999&per_page=1",
             headers={"X-Inertia": "true", "Accept": "application/json"},
         )
         assert resp.status_code == 200
@@ -90,7 +90,7 @@ class TestAdminIndexFilters:
         await _make_user(users_db, email="clamp-c@x.com")
 
         resp = await admin_client.get(
-            "/users/admin?page=0&per_page=1000",
+            "/admin/users/?page=0&per_page=1000",
             headers={"X-Inertia": "true", "Accept": "application/json"},
         )
         assert resp.status_code == 200
@@ -131,7 +131,7 @@ class TestHasPermissionsModuleFlag:
         )
         try:
             resp = await admin_client.get(
-                f"/users/admin/{user.id}",
+                f"/admin/users/{user.id}",
                 headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
             )
         finally:
@@ -156,7 +156,7 @@ class TestHasPermissionsModuleFlag:
         )
         try:
             resp = await admin_client.get(
-                f"/users/admin/{user.id}",
+                f"/admin/users/{user.id}",
                 headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
             )
         finally:
@@ -176,7 +176,7 @@ class TestAdminAddPeoplePage:
     @pytest.mark.anyio
     async def test_add_page_renders_with_roles(self, admin_client):
         resp = await admin_client.get(
-            "/users/admin/add",
+            "/admin/users/add",
             headers={"X-Inertia": "true", "Accept": "application/json"},
         )
         assert resp.status_code == 200
@@ -188,7 +188,7 @@ class TestAdminAddPeoplePage:
     async def test_add_page_reports_whether_mail_can_be_delivered(self, admin_client):
         """Drives the copy-link panel — the page has to know before submitting."""
         resp = await admin_client.get(
-            "/users/admin/add",
+            "/admin/users/add",
             headers={"X-Inertia": "true", "Accept": "application/json"},
         )
         assert "mailer_delivers" in resp.json()["props"]
@@ -201,7 +201,7 @@ class TestAdminAddPeoplePage:
         app.state.users.mailer = None
         try:
             resp = await admin_client.get(
-                "/users/admin/add",
+                "/admin/users/add",
                 headers={"X-Inertia": "true", "Accept": "application/json"},
             )
             assert resp.json()["props"]["mailer_delivers"] is False
@@ -210,22 +210,22 @@ class TestAdminAddPeoplePage:
 
     @pytest.mark.anyio
     async def test_add_page_requires_auth(self, anon_client):
-        resp = await anon_client.get("/users/admin/add", follow_redirects=False)
+        resp = await anon_client.get("/admin/users/add", follow_redirects=False)
         assert resp.status_code == 302
 
     @pytest.mark.anyio
     @pytest.mark.parametrize(
         ("old_path", "mode"),
-        [("/users/admin/create", "create"), ("/users/admin/invite", "invite")],
+        [("/admin/users/create", "create"), ("/admin/users/invite", "invite")],
     )
     async def test_old_urls_redirect_into_the_right_mode(self, admin_client, old_path, mode):
         """Existing links must land on the merged form with their mode preselected."""
         resp = await admin_client.get(old_path, follow_redirects=False)
         assert resp.status_code == 307
-        assert resp.headers["location"] == f"/users/admin/add?mode={mode}"
+        assert resp.headers["location"] == f"/admin/users/add?mode={mode}"
 
     @pytest.mark.anyio
-    @pytest.mark.parametrize("old_path", ["/users/admin/create", "/users/admin/invite"])
+    @pytest.mark.parametrize("old_path", ["/admin/users/create", "/admin/users/invite"])
     async def test_old_urls_require_auth(self, anon_client, old_path):
         """The legacy aliases must stay gated behind the same permission as
         the page they redirect to — an anonymous caller must not reach the

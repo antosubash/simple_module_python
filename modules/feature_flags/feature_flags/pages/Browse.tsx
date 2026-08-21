@@ -20,7 +20,7 @@ import {
   TableRow,
 } from '@simple-module-py/ui/components/ui/table';
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { Flag, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -43,7 +43,9 @@ interface Props {
 }
 
 function buildPath(tenantId: string | null) {
-  return tenantId ? `/feature_flags?tenant_id=${encodeURIComponent(tenantId)}` : '/feature_flags';
+  return tenantId
+    ? `/admin/feature-flags?tenant_id=${encodeURIComponent(tenantId)}`
+    : '/feature_flags';
 }
 
 function actionUrl(name: string, action: 'toggle' | 'clear', tenantId: string | null) {
@@ -253,5 +255,5 @@ function Browse() {
   );
 }
 
-Browse.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Browse.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default Browse;

@@ -78,7 +78,7 @@ export function UserRow({ user }: { user: UserListItem }) {
       </TableCell>
       <TableCell className="text-right">
         <Button asChild variant="ghost" size="icon-sm">
-          <Link href={`/users/admin/${user.id}`}>
+          <Link href={`/admin/users/${user.id}`}>
             <Pencil />
           </Link>
         </Button>

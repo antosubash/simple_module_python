@@ -11,7 +11,7 @@ import {
 } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import type { SharedProps } from '@simple-module-py/ui/types';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -262,6 +262,6 @@ function Manage() {
   );
 }
 
-Manage.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Manage.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 
 export default Manage;

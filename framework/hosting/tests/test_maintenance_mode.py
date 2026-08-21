@@ -47,10 +47,12 @@ def _build_app(
         ]
     )
 
+    class _HostSettings:
+        maintenance_mode = enabled
+        maintenance_message = message
+
     class _HostState:
-        class settings:
-            maintenance_mode = enabled
-            maintenance_message = message
+        settings = _HostSettings()
 
     app.state.host = _HostState()
 

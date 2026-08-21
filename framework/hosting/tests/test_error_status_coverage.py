@@ -20,9 +20,7 @@ from simple_module_hosting._error_handlers import (
     _login_url,
 )
 
-_ERROR_PAGE = (
-    Path(__file__).resolve().parents[3] / "host" / "client_app" / "pages" / "Error.tsx"
-)
+_ERROR_PAGE = Path(__file__).resolve().parents[3] / "host" / "client_app" / "pages" / "Error.tsx"
 
 
 def _statuses_with_copy() -> set[int]:
@@ -98,10 +96,9 @@ class TestRenderFallback:
         """``app.state.sm`` is missing while the app is still assembling. That
         lookup used to sit outside the try, so the documented JSON fallback
         never ran and the error page raised while reporting an error."""
+        from simple_module_hosting._error_handlers import render_error_page
         from starlette.applications import Starlette
         from starlette.requests import Request
-
-        from simple_module_hosting._error_handlers import render_error_page
 
         app = Starlette()
         request = Request(

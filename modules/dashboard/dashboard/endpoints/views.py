@@ -16,6 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dashboard.stats import fetch_dashboard_stats
 
 router = APIRouter()
+# Doctor is an operator tool, not part of the dashboard proper — it is
+# mounted at /admin/doctor via register_admin_routes.
+admin_router = APIRouter()
 
 _PAGE_HOME = "Dashboard/Home"
 _PAGE_DOCTOR = "Dashboard/Doctor"
@@ -39,7 +42,7 @@ async def dashboard(
     )
 
 
-@router.get("/doctor", response_model=None)
+@admin_router.get("/", response_model=None)
 async def doctor(
     request: Request,
     inertia: InertiaDep,

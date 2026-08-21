@@ -11,9 +11,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, FastAPI
+from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
-from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from inertia import (
     InertiaVersionConflictException,
@@ -35,6 +34,7 @@ from simple_module_hosting._error_handlers import (
 )
 from simple_module_hosting._host_services import _HostServices
 from simple_module_hosting._inertia_cache import InertiaCacheMiddleware
+from simple_module_hosting._module_routes import wire_module_routes
 from simple_module_hosting.host_settings import HostSettings
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.maintenance import MaintenanceMiddleware
@@ -266,35 +266,4 @@ def check_settings_registration(app: FastAPI, modules: list) -> list[Diagnostic]
     return diagnostics
 
 
-def wire_module_routes(app: FastAPI, module) -> None:
-    """Attach a module's API + view routers to ``app`` using its Meta prefixes.
-
-    The single canonical implementation so ``create_app`` and the test harness
-    in ``simple_module_test`` stay in lockstep if ``ModuleBase`` ever gains
-    a new router type.
-
-    Bare-prefix view routes (``view_prefix="/foo"`` + ``@router.get("/")``)
-    are also mounted at the trailing-slash-less form ``"/foo"``. Without this,
-    FastAPI's ``redirect_slashes=True`` fires a 307 to ``"/foo/"``, which
-    clients like httpx strip ``X-Inertia`` from on follow — turning every
-    Inertia navigation into a broken HTML response. Cloning the route at the
-    bare-prefix path serves the same handler directly, no redirect.
-    """
-    api_router = APIRouter(prefix=module.meta.route_prefix, tags=[module.meta.name])
-    view_router = APIRouter(prefix=module.meta.view_prefix, tags=[f"{module.meta.name} Views"])
-    module.register_routes(api_router, view_router)
-    if module.meta.view_prefix:
-        bare_target = f"{module.meta.view_prefix}/"
-        for route in list(view_router.routes):
-            if isinstance(route, APIRoute) and route.path == bare_target:
-                view_router.add_api_route(
-                    "",
-                    route.endpoint,
-                    methods=list(route.methods or {"GET"}),
-                    response_model=route.response_model,
-                    include_in_schema=False,
-                    dependencies=route.dependencies,
-                    name=f"{route.name}__bare",
-                )
-    app.include_router(api_router)
-    app.include_router(view_router)
+__all__ = ["wire_module_routes"]

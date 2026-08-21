@@ -67,7 +67,7 @@ class SettingsModule(ModuleBase):
                 url=MENU_URL,
                 icon=MENU_ICON,
                 order=MENU_ORDER,
-                section=MenuSection.SIDEBAR,
+                section=MenuSection.ADMIN_SIDEBAR,
                 group="System",
                 # Mirrors the view router's guard, so the entry is not offered
                 # to accounts whose click would 403.

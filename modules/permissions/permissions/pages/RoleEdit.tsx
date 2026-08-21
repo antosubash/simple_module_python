@@ -6,7 +6,7 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Switch } from '@simple-module-py/ui/components/ui/switch';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { USERS_ADMIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { Check, Package, Search } from 'lucide-react';
 import type React from 'react';
@@ -92,7 +92,7 @@ function RoleEdit({ role, assigned, groups }: Props) {
               {t(keys.permissions.edit.submit_button)}
             </Button>
             <Button asChild variant="ghost">
-              <Link href="/users/admin">{t(keys.permissions.edit.cancel_link)}</Link>
+              <Link href="/admin/users/">{t(keys.permissions.edit.cancel_link)}</Link>
             </Button>
           </>
         }
@@ -196,5 +196,5 @@ function RoleEdit({ role, assigned, groups }: Props) {
   );
 }
 
-RoleEdit.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+RoleEdit.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default RoleEdit;

@@ -15,10 +15,9 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import exceptions as fu_exceptions
-
-from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY
 
+from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
 from users.constants import SESSION_USER_ID_KEY
 from users.contracts.schemas import (
     AcceptInviteRequest,
