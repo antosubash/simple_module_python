@@ -81,8 +81,8 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
   const appName = branding?.appName ?? theme.mobileTitleLabel;
   const logoUrl = branding?.logoUrl ?? null;
   // The sidebar and mobile bar are near-black whatever the theme, so they take
-  // the dark logo variant when one exists. The footer sits on `bg-background`
-  // and follows the theme, so it keeps the primary logo.
+  // the dark logo variant when one exists. The layout footer follows the theme,
+  // so it keeps the primary logo.
   const darkLogoUrl = darkSurfaceLogo(branding);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = () => setSidebarOpen(false);
@@ -254,12 +254,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
             activeMenuItem={active}
           />
           <div className="flex-1">{children}</div>
-          <BrandingFooter
-            appName={appName}
-            logoUrl={logoUrl}
-            variant="app"
-            footer={branding?.footer ?? null}
-          />
+          <BrandingFooter appName={appName} logoUrl={logoUrl} variant="app" />
         </main>
       </div>
     </TooltipProvider>
