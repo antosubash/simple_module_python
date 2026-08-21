@@ -1,7 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -231,7 +231,7 @@ function Edit() {
         <div className="flex items-center gap-2">
           {dirty && <span className="text-xs text-muted-foreground">Unsaved changes</span>}
           <Button asChild variant="outline">
-            <Link href="/users/admin">Back to Users</Link>
+            <Link href="/admin/users/">Back to Users</Link>
           </Button>
           {/* Back to what is persisted, not to what the page loaded with —
               discarding must not visually undo a section that already saved. */}
@@ -291,5 +291,5 @@ function Edit() {
   );
 }
 
-Edit.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Edit.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default Edit;

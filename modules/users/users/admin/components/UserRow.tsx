@@ -78,8 +78,11 @@ export function UserRow({ user }: { user: UserListItem }) {
       </TableCell>
       <TableCell className="text-right">
         <Button asChild variant="ghost" size="icon-sm">
-          <Link href={`/users/admin/${user.id}`}>
-            <Pencil />
+          {/* Named per row, not just "Edit": a screen-reader user tabbing the
+              table hears one indistinguishable "Edit" per row otherwise, with
+              no way to tell which account they are about to open. */}
+          <Link href={`/admin/users/${user.id}`} aria-label={`Edit ${user.email}`}>
+            <Pencil aria-hidden="true" />
           </Link>
         </Button>
       </TableCell>

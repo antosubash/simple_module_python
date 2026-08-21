@@ -6,7 +6,7 @@ import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { USERS_ADMIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { Check, KeyRound, Link2, Package, Search, ShieldCheck } from 'lucide-react';
 import type React from 'react';
@@ -58,7 +58,7 @@ function UserEdit({ user, roles, direct, inherited, inherited_by: inheritedBy, g
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    put(`/permissions/users/${user.id}`, {
+    put(`/admin/permissions/users/${user.id}`, {
       preserveScroll: true,
       onSuccess: () => toast.success(t(keys.permissions.toasts.saved)),
       onError: () => toast.error(t(keys.permissions.toasts.save_failed)),
@@ -200,5 +200,5 @@ function UserEdit({ user, roles, direct, inherited, inherited_by: inheritedBy, g
   );
 }
 
-UserEdit.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+UserEdit.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default UserEdit;

@@ -10,7 +10,7 @@ Values persist in the shared [settings](/modules/settings) store (there is no br
 |---|---|
 | `name` | `Branding` |
 | `route_prefix` | `/api/branding` |
-| `view_prefix` | `/branding` |
+| `view_prefix` | `/admin/branding` |
 | `depends_on` | `["Settings", "FileStorage"]` |
 | `i18n_audience` | `"admin"` |
 
@@ -58,7 +58,7 @@ When `file_storage` is backed by S3-compatible storage, the route returns a `302
 
 | Method + path | Inertia component | Permission |
 |---|---|---|
-| `GET /branding/` | `Branding/Manage` | `branding.view` |
+| `GET /admin/branding/` | `Branding/Manage` | `branding.view` |
 
 Current branding reaches the page through the shared `branding` prop. The endpoint passes only what the shared prop *can't* carry: `designPacks` (which packs the installed modules registered) and `presets` (the built-in list, with swatches).
 
@@ -186,7 +186,7 @@ The provider is defensive — it returns `{}` if branding state isn't mounted ye
 
 | Label | URL | Icon | Section | Group | Order | Roles |
 |---|---|---|---|---|---|---|
-| `Branding` | `/branding/` | `palette` | `SIDEBAR` | `Administration` | `115` | `["admin"]` |
+| `Branding` | `/admin/branding/` | `palette` | `ADMIN_SIDEBAR` | `Appearance` | `105` | `["admin"]` |
 
 ## Inertia pages
 

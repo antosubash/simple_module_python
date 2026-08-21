@@ -7,7 +7,34 @@ in the views module would manifest only when a real user clicked the link.
 
 from __future__ import annotations
 
+import httpx
 import pytest
+from simple_module_test.fixtures import forge_session_cookie
+
+
+@pytest.fixture
+async def plain_user_client(app):
+    """A signed-in account holding no admin role — Doctor exposes migration
+    status, module list and system info, so this must not be enough to see it."""
+    from users.models import User
+
+    async with app.state.sm.db.session_factory() as session:
+        user = User(
+            email="plain-doctor@example.com",
+            hashed_password="x",
+            is_active=True,
+            is_verified=True,
+        )
+        session.add(user)
+        await session.commit()
+        user_id = str(user.id)
+
+    signed = forge_session_cookie(app.state.sm.settings.secret_key, {"user_id": user_id})
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://testserver", cookies={"session": signed}
+    ) as client:
+        yield client
 
 
 @pytest.mark.anyio
@@ -22,15 +49,22 @@ async def test_dashboard_index_renders_for_admin(authenticated_client):
 @pytest.mark.anyio
 async def test_dashboard_doctor_renders_for_admin(authenticated_client):
     """The doctor sub-page mirrors the same route shape."""
-    resp = await authenticated_client.get("/dashboard/doctor", follow_redirects=False)
+    resp = await authenticated_client.get("/admin/doctor/", follow_redirects=False)
     assert resp.status_code == 200, resp.text
     assert "data-page" in resp.text
 
 
 @pytest.mark.anyio
+async def test_dashboard_doctor_rejects_a_non_admin(plain_user_client: httpx.AsyncClient):
+    """A signed-in account with no admin role must not reach the doctor panel."""
+    resp = await plain_user_client.get("/admin/doctor/", follow_redirects=False)
+    assert resp.status_code == 403, resp.text[:400]
+
+
+@pytest.mark.anyio
 async def test_settings_index_renders_for_admin(authenticated_client):
     """The section root now leads with the per-module forms."""
-    resp = await authenticated_client.get("/settings/", follow_redirects=False)
+    resp = await authenticated_client.get("/admin/settings/", follow_redirects=False)
     assert resp.status_code == 200, resp.text
     assert "data-page" in resp.text
 
@@ -38,7 +72,7 @@ async def test_settings_index_renders_for_admin(authenticated_client):
 @pytest.mark.anyio
 async def test_settings_store_renders_for_admin(authenticated_client):
     """The raw key/value store moved off the root but stays reachable."""
-    resp = await authenticated_client.get("/settings/store", follow_redirects=False)
+    resp = await authenticated_client.get("/admin/settings/store", follow_redirects=False)
     assert resp.status_code == 200, resp.text
     assert "data-page" in resp.text
 
@@ -46,9 +80,9 @@ async def test_settings_store_renders_for_admin(authenticated_client):
 @pytest.mark.anyio
 async def test_settings_modules_url_still_resolves(authenticated_client):
     """Existing links and bookmarks to /settings/modules must not break."""
-    resp = await authenticated_client.get("/settings/modules", follow_redirects=False)
+    resp = await authenticated_client.get("/admin/settings/modules", follow_redirects=False)
     assert resp.status_code == 308, resp.text
-    assert resp.headers["location"].endswith("/settings/")
+    assert resp.headers["location"].endswith("/admin/settings/")
 
 
 @pytest.mark.anyio

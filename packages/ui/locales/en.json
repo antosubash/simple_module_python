@@ -5,6 +5,9 @@
     "reload_button": "Reload Page",
     "go_home_button": "Go Home"
   },
+  "nav": {
+    "admin": "Administration"
+  },
   "switcher": {
     "label": "Change language"
   }

@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@simple-module-py/ui/components/ui/table';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { Box, Plus, Settings as SettingsIcon } from 'lucide-react';
 import type React from 'react';
 import type { ValueType } from './components/ValueInput';
@@ -153,5 +153,5 @@ function Browse({ settings }: Props) {
   );
 }
 
-Browse.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Browse.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default Browse;

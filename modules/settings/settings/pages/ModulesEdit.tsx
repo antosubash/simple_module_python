@@ -2,7 +2,7 @@ import { Head } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { Box, Search } from 'lucide-react';
 import type React from 'react';
 import { useMemo, useState } from 'react';
@@ -109,5 +109,5 @@ function ModulesEdit({ modules, testable = [] }: Props) {
   );
 }
 
-ModulesEdit.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+ModulesEdit.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default ModulesEdit;

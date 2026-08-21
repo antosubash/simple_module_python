@@ -38,6 +38,7 @@ from settings.constants import (
     VIEW_CREATE_PATH,
     VIEW_EDIT_PATH,
     VIEW_MODULES_PATH,
+    VIEW_PREFIX,
     VIEW_STORE_PATH,
 )
 from settings.contracts.schemas import SettingCreate, SettingUpdate
@@ -50,9 +51,11 @@ _PAGE_EDIT = "Settings/Edit"
 _PAGE_MODULES_EDIT = "Settings/ModulesEdit"
 
 # Row-level actions return to the raw store they were performed in, not to
-# the module forms that now own the section root.
-_REDIRECT_SETTINGS = "/settings/store"
-_REDIRECT_MODULES = "/settings/"
+# the module forms that now own the section root. Built from VIEW_PREFIX so
+# they follow the section if it moves again — spelled out, they silently sent
+# users to the pre-/admin paths after the move.
+_REDIRECT_SETTINGS = f"{VIEW_PREFIX}{VIEW_STORE_PATH}"
+_REDIRECT_MODULES = f"{VIEW_PREFIX}/"
 
 # Every screen in this section reads configuration: module field values,
 # their env var names, and now which of the two is in force. The matching JSON

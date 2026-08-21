@@ -50,7 +50,7 @@ class AuditLogModule(ModuleBase):
                 url=MENU_URL,
                 icon=MENU_ICON,
                 order=MENU_ORDER,
-                section=MenuSection.SIDEBAR,
+                section=MenuSection.ADMIN_SIDEBAR,
                 group="System",
                 # Mirrors the view route's guard — the same ungated-menu bug
                 # this module already shipped before the filter existed.

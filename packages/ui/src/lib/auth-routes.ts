@@ -31,4 +31,4 @@ export function authCta(signupOpen: boolean): { href: string; label: string } {
  * literal per call site keeps those declarations from drifting apart from
  * each other if the route ever moves.
  */
-export const USERS_ADMIN_PATH = '/users/admin';
+export const USERS_ADMIN_PATH = '/admin/users/';

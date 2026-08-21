@@ -33,8 +33,8 @@ pytestmark = [pytest.mark.perf, pytest.mark.e2e]
 
 ROUTES = (
     ("dashboard", "/dashboard/"),
-    ("users_admin", "/users/admin"),
-    ("audit_log", "/audit_log/"),
+    ("users_admin", "/admin/users/"),
+    ("audit_log", "/admin/audit-log/"),
 )
 _SETTLE_MS = 1200
 # A 500px block inserted at the top of the body shifts essentially the whole

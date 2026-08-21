@@ -195,6 +195,6 @@ async def test_the_prehydration_shell_carries_the_branded_favicon(
     # on every full page load, most obviously on the sign-in page.
     app.state.branding.settings.favicon_file_id = str(stored_logo.id)
 
-    page = await authenticated_client.get("/branding/", follow_redirects=False)
+    page = await authenticated_client.get("/admin/branding/", follow_redirects=False)
 
     assert f'rel="icon" href="/api/branding/favicon?v={stored_logo.id}"' in page.text

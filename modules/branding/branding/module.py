@@ -67,9 +67,9 @@ class BrandingModule(ModuleBase):
                 label="Branding",
                 url=MENU_URL,
                 icon="palette",
-                order=115,
-                section=MenuSection.SIDEBAR,
-                group="Administration",
+                order=105,
+                section=MenuSection.ADMIN_SIDEBAR,
+                group="Appearance",
                 roles=["admin"],
             )
         )

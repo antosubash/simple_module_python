@@ -1,6 +1,6 @@
 """E2E smoke test for the Audit Log admin UI.
 
-Drives a real browser to /audit_log, verifies the page renders with data
+Drives a real browser to /admin/audit-log, verifies the page renders with data
 captured by the framework's audit listener, and confirms a freshly-created
 Setting produces an audit entry with a resolved (non-empty) entity_id —
 the regression test for the two-phase capture fix.
@@ -31,7 +31,7 @@ def test_audit_log_renders_with_data(page: Page, e2e_username: str, e2e_password
     page.goto("/")
     _login(page, e2e_username, e2e_password)
 
-    page.goto("/audit_log")
+    page.goto("/admin/audit-log/")
 
     expect(page.get_by_role("heading", name="Audit Log")).to_be_visible()
 
@@ -95,7 +95,7 @@ def test_audit_log_filter_by_entity_type(page: Page, e2e_username: str, e2e_pass
     page.goto("/")
     _login(page, e2e_username, e2e_password)
 
-    page.goto("/audit_log?entity_type=User&action=updated")
+    page.goto("/admin/audit-log/?entity_type=User&action=updated")
 
     expect(page.get_by_role("heading", name="Audit Log")).to_be_visible()
 

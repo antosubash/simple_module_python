@@ -114,6 +114,10 @@ def _get_module_info(app: FastAPI, health_checks: list[dict[str, str]]) -> list[
             "name": m.meta.name,
             "status": "loaded",
             "url": f"{m.meta.view_prefix}/" if m.meta.view_prefix else "",
+            # A partly-administrative module (users) mounts its management
+            # screens outside its own view_prefix, so the tile cannot find
+            # them by prefix alone — ship the second mount point too.
+            "admin_url": (f"{m.meta.admin_view_prefix}/" if m.meta.admin_view_prefix else ""),
             "health": worst.get(m.meta.name, ""),
         }
         for m in app.state.sm.modules

@@ -11,7 +11,7 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 
 _MODULE_USERS = "Users"
 _URL_DASHBOARD = "/dashboard/"
-_URL_DOCTOR = "/dashboard/doctor"
+_URL_DOCTOR = "/admin/doctor/"
 _ICON_DASHBOARD = "home"
 _ICON_DOCTOR = "stethoscope"
 
@@ -21,6 +21,8 @@ class DashboardModule(ModuleBase):
         name="Dashboard",
         route_prefix="/api/dashboard",
         view_prefix="/dashboard",
+        # The dashboard itself is an app screen; Doctor is an admin one.
+        admin_view_prefix="/admin/doctor",
         depends_on=[_MODULE_USERS],
         i18n_audience="admin",
     )
@@ -31,6 +33,11 @@ class DashboardModule(ModuleBase):
 
         api_router.include_router(api)
         view_router.include_router(views)
+
+    def register_admin_routes(self, admin_router: APIRouter) -> None:
+        from dashboard.endpoints.views import admin_router as doctor_views
+
+        admin_router.include_router(doctor_views)
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
@@ -47,8 +54,12 @@ class DashboardModule(ModuleBase):
                 label="Doctor",
                 url=_URL_DOCTOR,
                 icon=_ICON_DOCTOR,
-                order=90,
+                order=220,
                 section=MenuSection.ADMIN_SIDEBAR,
+                group="System",
+                # Mirrors the view route's admin-only guard — without it the
+                # entry shows for every signed-in account and 403s on click.
+                roles=["admin"],
             )
         )
 

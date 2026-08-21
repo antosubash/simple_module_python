@@ -29,7 +29,7 @@ def test_breadcrumb_names_the_section_on_sub_pages(
     page.goto("/")
     _login(page, e2e_username, e2e_password)
 
-    page.goto("/users/admin/add")
+    page.goto("/admin/users/add")
     crumb = page.get_by_role("navigation", name="breadcrumb")
     expect(crumb.get_by_role("link", name="Users")).to_be_visible()
     expect(crumb.get_by_text("Add people")).to_be_visible()
@@ -46,7 +46,7 @@ def test_command_palette_opens_filters_and_navigates(
     expect(palette).to_be_visible()
     palette.fill("Audit")
     page.keyboard.press("Enter")
-    page.wait_for_url("**/audit_log**", timeout=10_000)
+    page.wait_for_url("**/admin/audit-log**", timeout=10_000)
 
     # Reopen and close with Escape — no navigation this time.
     page.keyboard.press("Control+k")
@@ -78,5 +78,5 @@ def test_user_search_treats_like_metacharacters_literally(
     page.goto("/")
     _login(page, e2e_username, e2e_password)
 
-    page.goto("/users/admin?q=_")
+    page.goto("/admin/users/?q=_")
     expect(page.get_by_text("No users match these filters")).to_be_visible()

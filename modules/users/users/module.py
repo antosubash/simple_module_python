@@ -29,7 +29,7 @@ _MODULE_DEPENDENCY_AUTH = "Auth"
 _MODULE_DEPENDENCY_SETTINGS = "Settings"
 
 # Menu URLs
-_URL_USERS_ADMIN = "/users/admin"
+_URL_USERS_ADMIN = "/admin/users/"
 _URL_USERS_ME = "/users/me"
 _URL_USERS_LOGOUT = "/users/logout"
 
@@ -44,6 +44,10 @@ class UsersModule(ModuleBase):
         name="Users",
         route_prefix="/api/users",
         view_prefix="/users",
+        # Sign-in and self-service stay on /users; the management CRUD
+        # belongs with the other admin screens. One view_prefix cannot
+        # express both, hence the second router.
+        admin_view_prefix="/admin/users",
         depends_on=[_MODULE_DEPENDENCY_AUTH, _MODULE_DEPENDENCY_SETTINGS],
     )
     _is_auth_provider = True
@@ -116,7 +120,7 @@ class UsersModule(ModuleBase):
                 # The model class name — what snapshot_changes records. Keying
                 # this off __tablename__ ("users_user") silently never matches.
                 entity_type=User.__name__,
-                url_template=f"{_URL_USERS_ADMIN}/{{id}}",
+                url_template=f"{_URL_USERS_ADMIN}{{id}}",
                 label="User",
             )
         )
@@ -129,9 +133,9 @@ class UsersModule(ModuleBase):
                 url=_URL_USERS_ADMIN,
                 icon=_ICON_USERS,
                 order=100,
-                section=MenuSection.SIDEBAR,
+                section=MenuSection.ADMIN_SIDEBAR,
                 roles=[ADMIN_ROLE_NAME],
-                group="Administration",
+                group="Access",
             )
         )
         # Self-service: profile + logout live in the user dropdown.
@@ -161,7 +165,6 @@ class UsersModule(ModuleBase):
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from users.admin.api import admin_router
-        from users.admin.views import router as admin_views
         from users.auth_local import api as auth_local_api
         from users.auth_local.token_api import router as token_router
         from users.auth_local.views import router as auth_views
@@ -198,7 +201,11 @@ class UsersModule(ModuleBase):
         register_oauth_routes(api_router)
 
         view_router.include_router(auth_views)
-        view_router.include_router(admin_views)
+
+    def register_admin_routes(self, admin_router: APIRouter) -> None:
+        from users.admin.views import router as admin_views
+
+        admin_router.include_router(admin_views)
 
     async def on_startup(self, app: FastAPI) -> None:
         """Build the mailer, rate limiter, and apply production cookie params."""
