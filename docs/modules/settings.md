@@ -13,7 +13,7 @@ Two distinct surfaces:
 |---|---|
 | `name` | `Settings` |
 | `route_prefix` | `/api/settings` |
-| `view_prefix` | `/settings` |
+| `view_prefix` | `/admin/settings` |
 | `depends_on` | _(none)_ |
 
 ## Public API for module authors
