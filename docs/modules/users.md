@@ -208,7 +208,7 @@ Everything else is DB-backed (initial values are pydantic defaults; edit at `/se
 
 | Label | URL | Icon | Section | Group | Order | Roles |
 |---|---|---|---|---|---|---|
-| `Users` | `/admin/users/` | `users` | `SIDEBAR` | `Administration` | `100` | `["admin"]` |
+| `Users` | `/admin/users/` | `users` | `ADMIN_SIDEBAR` | `Access` | `100` | `["admin"]` |
 | `Profile` | `/users/me` | `user` | `USER_DROPDOWN` | — | `990` | _logged-in_ |
 | `Logout` | `/users/logout` (POST) | `log-out` | `USER_DROPDOWN` | — | `999` | _logged-in_ |
 

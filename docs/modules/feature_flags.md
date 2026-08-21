@@ -113,7 +113,7 @@ Unique constraint on `(scope, scope_id, name)`. The `scope_id=""` (instead of `N
 
 | Label | URL | Icon | Section | Group | Order |
 |---|---|---|---|---|---|
-| `Feature Flags` | `/admin/feature-flags` | `flag` | `SIDEBAR` | `Administration` | `110` |
+| `Feature Flags` | `/admin/feature-flags` | `flag` | `ADMIN_SIDEBAR` | `System` | `110` |
 
 ## Inertia pages
 

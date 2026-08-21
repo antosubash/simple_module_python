@@ -120,7 +120,7 @@ There is no write permission — the trail is append-only and written by the fra
 
 | Label | URL | Icon | Section | Group | Order |
 |---|---|---|---|---|---|
-| `Audit Log` | `/admin/audit-log` | `scroll-text` | `SIDEBAR` | `System` | `210` |
+| `Audit Log` | `/admin/audit-log` | `scroll-text` | `ADMIN_SIDEBAR` | `System` | `210` |
 
 ## Inertia pages
 
