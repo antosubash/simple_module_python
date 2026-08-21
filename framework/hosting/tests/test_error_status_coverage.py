@@ -148,3 +148,82 @@ class TestRenderFallback:
 
         assert resp.status_code == 500
         assert b"kaboom" in resp.body
+
+
+class TestExceptionHeadersSurvive:
+    """An ``HTTPException``'s headers must reach the caller on the rendered page
+    too, not only on the JSON body.
+
+    Widening ``_INERTIA_ERROR_STATUSES`` to cover 401/429/503 moved exactly the
+    statuses whose headers carry meaning — ``WWW-Authenticate``, ``Retry-After``
+    — onto the page-rendering branch. If that branch drops them, the framework
+    quietly stops honouring a contract its own comment still claims.
+    """
+
+    @staticmethod
+    def _request(app, headers: list[tuple[bytes, bytes]] | None = None):
+        from starlette.requests import Request
+
+        return Request(
+            {
+                "type": "http",
+                "http_version": "1.1",
+                "method": "GET",
+                "path": "/gated",
+                "raw_path": b"/gated",
+                "query_string": b"",
+                "scheme": "http",
+                "server": ("testserver", 80),
+                "client": ("testclient", 1234),
+                "headers": headers or [],
+                "app": app,
+            }
+        )
+
+    async def test_render_fallback_carries_the_headers(self) -> None:
+        """Even the half-built-app JSON fallback keeps them."""
+        from simple_module_hosting._error_handlers import render_error_page
+        from starlette.applications import Starlette
+
+        resp = await render_error_page(
+            self._request(Starlette()),
+            429,
+            "slow down",
+            {"Retry-After": "60"},
+        )
+
+        assert resp.status_code == 429
+        assert resp.headers["Retry-After"] == "60"
+
+    async def test_http_exception_handler_forwards_them_to_the_page(self) -> None:
+        from simple_module_hosting._error_handlers import http_exception_handler
+        from starlette.applications import Starlette
+        from starlette.exceptions import HTTPException
+
+        # Accept: text/html makes this browser-shaped, so it takes the
+        # page-rendering branch rather than the JSON one.
+        request = self._request(Starlette(), [(b"accept", b"text/html")])
+        exc = HTTPException(
+            status_code=401,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+        resp = await http_exception_handler(request, exc)
+
+        assert resp.status_code == 401
+        assert resp.headers["WWW-Authenticate"] == "Bearer"
+
+    async def test_json_branch_still_carries_them(self) -> None:
+        """The pre-existing behaviour this must not regress."""
+        from simple_module_hosting._error_handlers import http_exception_handler
+        from starlette.applications import Starlette
+        from starlette.exceptions import HTTPException
+
+        request = self._request(Starlette(), [(b"accept", b"application/json")])
+        exc = HTTPException(429, "Too many", headers={"Retry-After": "30"})
+
+        resp = await http_exception_handler(request, exc)
+
+        assert resp.status_code == 429
+        assert resp.headers["Retry-After"] == "30"

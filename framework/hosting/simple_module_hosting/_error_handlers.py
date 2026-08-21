@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -108,7 +109,20 @@ def _wants_json(request: Request) -> bool:
     return is_api or bool(json_q)
 
 
-async def render_error_page(request: Request, status_code: int, message: str) -> Response:
+async def render_error_page(
+    request: Request,
+    status_code: int,
+    message: str,
+    headers: Mapping[str, str] | None = None,
+) -> Response:
+    """Render the Inertia error page for *status_code*.
+
+    ``headers`` carries an ``HTTPException``'s own headers through to the
+    response. A rendered page is still the same status as the JSON body it
+    replaces, so ``WWW-Authenticate`` on a 401 and ``Retry-After`` on a
+    429/503 have to survive the switch — widening the set of statuses that
+    render a page must not quietly narrow what those responses carry.
+    """
     try:
         # Inside the try, not above it: this lookup is exactly the kind of
         # thing that is missing when the app is half-built, and an error page
@@ -139,6 +153,7 @@ async def render_error_page(request: Request, status_code: int, message: str) ->
             },
         )
         response.status_code = status_code
+        _apply_headers(response, headers)
         return response
     except InertiaVersionConflictException as exc:
         return await inertia_version_conflict_exception_handler(request, exc)
@@ -146,20 +161,36 @@ async def render_error_page(request: Request, status_code: int, message: str) ->
         # Fallback if Inertia rendering itself fails (e.g. missing session)
         logger.exception("Error page rendering failed, falling back to JSON")
         return JSONResponse(
-            status_code=status_code, content={"detail": message or "Internal Server Error"}
+            status_code=status_code,
+            content={"detail": message or "Internal Server Error"},
+            headers=dict(headers) if headers else None,
         )
 
 
+def _apply_headers(response: Response, headers: Mapping[str, str] | None) -> None:
+    """Copy exception headers onto an already-built response.
+
+    Set rather than appended: these are single-valued response headers, and
+    a duplicate ``Retry-After`` is worse than none.
+    """
+    if not headers:
+        return
+    for key, value in headers.items():
+        response.headers[key] = value
+
+
 async def http_exception_handler(request: Request, exc: HTTPException) -> Response:
+    # Preserve exception headers (WWW-Authenticate, Retry-After, ...) the way
+    # FastAPI's stock handler does — on the rendered page as well as the JSON
+    # body, since both answer with the same status.
+    headers = getattr(exc, "headers", None)
     if exc.status_code in _INERTIA_ERROR_STATUSES and not _wants_json(request):
         detail = str(exc.detail) if exc.detail else ""
-        return await render_error_page(request, exc.status_code, detail)
-    # Preserve exception headers (WWW-Authenticate, Retry-After, ...) the way
-    # FastAPI's stock handler does.
+        return await render_error_page(request, exc.status_code, detail, headers)
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
-        headers=getattr(exc, "headers", None),
+        headers=headers,
     )
 
 

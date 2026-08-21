@@ -15,6 +15,9 @@ interface SystemModule {
   status: 'loaded';
   /** The module's own screen, or '' when it ships no views. */
   url: string;
+  /** Second mount point for a module that is only partly administrative
+   * (`ModuleMeta.admin_view_prefix`), or '' when it declares none. */
+  admin_url: string;
   /** Worst health status across the module's checks; '' when it registers none. */
   health: '' | 'healthy' | 'degraded' | 'unhealthy';
 }
@@ -68,7 +71,8 @@ function Home() {
   // Every module's own prefix, so the fallback below can tell "this entry is
   // mine" from "this entry belongs to a module mounted deeper than me".
   const modulePrefixes = props.system_info.modules
-    .map((m) => m.url.replace(/\/+$/, ''))
+    .flatMap((m) => [m.url, m.admin_url])
+    .map((url) => url.replace(/\/+$/, ''))
     .filter(Boolean);
 
   /**
@@ -76,17 +80,31 @@ function Home() {
    * none.
    *
    * Matching the view prefix exactly is not enough: a module often mounts its
-   * landing screen below its own prefix (Users is `/users`, its menu entry is
-   * `/users/admin`), and an exact match leaves those tiles permanently inert
-   * for admins who can in fact open them. So fall back to the first menu entry
-   * that lives under the prefix — but only if no *other* module owns a longer
-   * prefix of that entry, or a module mounted at `/admin` would adopt the
-   * background-tasks entry at `/admin/background-tasks` and link its tile to
-   * somebody else's screen.
+   * landing screen below its own prefix (background_tasks is
+   * `/admin/background-tasks`, its menu entry is `/admin/background-tasks/`),
+   * and an exact match leaves those tiles permanently inert for admins who can
+   * in fact open them. So fall back to the first menu entry that lives under
+   * the prefix — but only if no *other* module owns a longer prefix of that
+   * entry, or a module mounted at `/admin` would adopt the background-tasks
+   * entry and link its tile to somebody else's screen.
+   *
+   * A module that is only partly administrative mounts its admin screens
+   * outside its own `view_prefix` (Users serves sign-in at `/users` and
+   * management at `/admin/users`), so both prefixes are searched — admin
+   * first, since that is the screen the tile is for. Without it the Users
+   * tile falls through to `/users/me` and opens the viewer's own profile.
    */
-  function menuTarget(url: string): string {
-    if (!url) return '';
+  function menuTarget(url: string, adminUrl: string): string {
+    for (const candidate of [adminUrl, url]) {
+      const hit = candidate ? resolveUnderPrefix(candidate) : '';
+      if (hit) return hit;
+    }
+    return '';
+  }
+
+  function resolveUnderPrefix(url: string): string {
     const prefix = url.replace(/\/+$/, '');
+    if (!prefix) return '';
     const exact = menuUrls.find((menuUrl) => menuUrl.replace(/\/+$/, '') === prefix);
     if (exact) return exact;
     return (
@@ -152,7 +170,7 @@ function Home() {
               </SectionTitle>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                 {props.system_info.modules.map((m) => {
-                  const target = menuTarget(m.url);
+                  const target = menuTarget(m.url, m.admin_url);
                   return (
                     <ModuleTile
                       key={m.name}

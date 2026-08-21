@@ -201,7 +201,7 @@ class TestAuditLogViewInvalidParams:
     ):
         """View endpoint should clamp bad pagination values, never 422."""
         resp = await authenticated_client.get(
-            "/audit_log/",
+            "/admin/audit-log/",
             params=params,
             follow_redirects=False,
         )

@@ -131,7 +131,7 @@ async def admin_add_people_page(
     dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
 )
 async def admin_invite_redirect() -> RedirectResponse:
-    """Old invite URL — the flow merged into /users/admin/add."""
+    """Old invite URL — the flow merged into /admin/users/add."""
     return RedirectResponse("/admin/users/add?mode=invite", status_code=307)
 
 
@@ -141,7 +141,7 @@ async def admin_invite_redirect() -> RedirectResponse:
     dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
 )
 async def admin_create_redirect() -> RedirectResponse:
-    """Old create URL — the flow merged into /users/admin/add."""
+    """Old create URL — the flow merged into /admin/users/add."""
     return RedirectResponse("/admin/users/add?mode=create", status_code=307)
 
 

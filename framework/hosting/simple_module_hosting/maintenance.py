@@ -30,6 +30,11 @@ _ALWAYS_OPEN_PREFIXES = (
     "/i18n/",
 )
 
+# Both representations of the 503 advertise the same retry window, so it is
+# stated once. An hour is a guess by construction — the switch carries no
+# end time — but a client that backs off for an hour beats one that hammers.
+_RETRY_AFTER = {"Retry-After": "3600"}
+
 __all__ = ["MaintenanceMiddleware"]
 
 
@@ -115,8 +120,6 @@ class MaintenanceMiddleware:
             return JSONResponse(
                 status_code=503,
                 content={"detail": message or "Service temporarily unavailable"},
-                headers={"Retry-After": "3600"},
+                headers=_RETRY_AFTER,
             )
-        response = await render_error_page(request, 503, message)
-        response.headers["Retry-After"] = "3600"
-        return response
+        return await render_error_page(request, 503, message, _RETRY_AFTER)

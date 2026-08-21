@@ -18,6 +18,7 @@ import { NavIcon } from '../components/NavIcon';
 import { PageHeadingProvider, usePageSection } from '../components/page-heading';
 import { darkSurfaceLogo } from '../lib/brand';
 import type { MenuItem, SharedProps } from '../types';
+import { AdminSectionLink } from './AdminSectionLink';
 import { SidebarUserMenu } from './SidebarUserMenu';
 
 // A stable reference for "no items" — `menus?.[key] ?? []` would otherwise
@@ -93,14 +94,20 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
   // so this widens reach without offering anything they cannot use — whereas
   // indexing only `menuKey` made every admin screen unreachable from the app
   // shell the moment they moved to their own sidebar.
-  const paletteItems = useMemo(() => {
-    const primary = menus?.sidebar ?? NO_ITEMS;
-    const admin = menus?.adminSidebar ?? NO_ITEMS;
-    const seen = new Set<string>();
-    return [...primary, ...admin].filter((item) =>
-      seen.has(item.url) ? false : (seen.add(item.url), true),
-    );
-  }, [menus?.sidebar, menus?.adminSidebar]);
+  // Keyed by url so a module that somehow contributes the same destination to
+  // both sections is listed once. MenuRegistry buckets each item into exactly
+  // one section, so this is a cheap invariant guard rather than a live case.
+  const paletteItems = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          [...(menus?.sidebar ?? NO_ITEMS), ...(menus?.adminSidebar ?? NO_ITEMS)].map(
+            (item) => [item.url, item] as const,
+          ),
+        ).values(),
+      ),
+    [menus?.sidebar, menus?.adminSidebar],
+  );
   const declaredSection = usePageSection(currentUrl);
   // Same "which entry does this page belong to" resolution AppTopbar uses for
   // the breadcrumb, so the sidebar highlight and the breadcrumb never disagree.
@@ -242,6 +249,13 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
                 })}
               </div>
             ))}
+            {menuKey === 'sidebar' && (
+              <AdminSectionLink
+                adminItems={menus?.adminSidebar ?? NO_ITEMS}
+                className={theme.inactiveClass}
+                onNavigate={closeSidebar}
+              />
+            )}
             {footerNavSlot}
           </nav>
 

@@ -401,6 +401,7 @@ export default {
     'ui.errors.generic_title': '',
     'ui.errors.go_home_button': '',
     'ui.errors.reload_button': '',
+    'ui.nav.admin': '',
     'ui.switcher.label': '',
     'users.empty.add_people': '',
     'users.empty.clear_filters': '',

@@ -43,9 +43,13 @@ interface Props {
 }
 
 function buildPath(tenantId: string | null) {
+  // Trailing slash: the browse route is registered at "/" under the module's
+  // view prefix, and `_clone_bare_prefix_route` cannot alias a bare prefix for
+  // routes contributed via `include_router` — so the bare form costs a 307 on
+  // every navigation. Matches MENU_URL in constants.py.
   return tenantId
-    ? `/admin/feature-flags?tenant_id=${encodeURIComponent(tenantId)}`
-    : '/admin/feature-flags';
+    ? `/admin/feature-flags/?tenant_id=${encodeURIComponent(tenantId)}`
+    : '/admin/feature-flags/';
 }
 
 function actionUrl(name: string, action: 'toggle' | 'clear', tenantId: string | null) {

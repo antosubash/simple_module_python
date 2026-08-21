@@ -92,9 +92,6 @@ function useStatusCopy(status: number, maintenance: boolean): StatusCopy {
   );
 }
 
-/** Statuses where "sign in" is the remedy, not "go home". */
-const SIGN_IN_STATUSES = new Set([401, 419]);
-
 function ErrorPage({ status, message, correlation_id, login_url, maintenance }: Props) {
   const { t } = useT();
   const copy = useStatusCopy(status, Boolean(maintenance));
@@ -102,7 +99,11 @@ function ErrorPage({ status, message, correlation_id, login_url, maintenance }: 
   // A server-supplied message wins over the canned description — it is the
   // specific reason, where the table only knows the status class.
   const description = message || copy.description;
-  const showSignIn = SIGN_IN_STATUSES.has(status) && Boolean(login_url);
+  // The server already decided this: `login_url` is sent only for the
+  // statuses in `_SIGN_IN_STATUSES` and is null otherwise. Re-deriving the
+  // list here would mean editing it in two languages, where missing one
+  // silently hides the button rather than failing.
+  const showSignIn = Boolean(login_url);
 
   return (
     <>

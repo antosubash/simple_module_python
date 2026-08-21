@@ -9,7 +9,8 @@ configured through the settings UI work and take effect without a restart.
 
 Why a custom handler rather than ``fastapi_users.get_oauth_router``: the stock
 ``/callback`` returns 204; Inertia needs the browser to land on a real page, so
-``/callback`` returns a 303 redirect to ``login_redirect_url`` with the auth
+``/callback`` returns a 303 redirect to the stashed deep link (or
+``login_redirect_url``) with the auth
 cookie attached. Find-or-create + email-association go through
 ``UserManager.oauth_callback``. State CSRF uses Starlette's signed session
 cookie.
@@ -22,6 +23,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi_users import exceptions as fu_exceptions
+from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from starlette.responses import RedirectResponse
 
 from users.constants import OAUTH_REGISTRATION_REQUEST_FLAG
@@ -117,7 +119,15 @@ def register_oauth_routes(api_router: APIRouter) -> None:
         login_response = await auth_backend.login(strategy, user)
         await user_manager.on_after_login(user, request, login_response)
 
-        redirect_url = request.app.state.users.settings.login_redirect_url
+        # Honour the deep link AuthMiddleware stashed before bouncing this
+        # visitor to login, exactly as the password and Keycloak paths do.
+        # Popped, not read: leaving it would send some later, unrelated visit
+        # to /users/login off to a stale destination. Re-sanitised on the way
+        # out because the value lands in a Location header.
+        redirect_url = (
+            safe_next_or_none(request.session.pop(SESSION_NEXT_KEY, None))
+            or request.app.state.users.settings.login_redirect_url
+        )
         redirect = RedirectResponse(redirect_url, status_code=303)
         for key, value in login_response.headers.items():
             if key.lower() == "set-cookie":

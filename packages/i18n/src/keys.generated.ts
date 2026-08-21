@@ -536,6 +536,9 @@ export const keys = {
       go_home_button: 'ui.errors.go_home_button',
       reload_button: 'ui.errors.reload_button',
     },
+    nav: {
+      admin: 'ui.nav.admin',
+    },
     switcher: {
       label: 'ui.switcher.label',
     },

@@ -107,6 +107,28 @@ class TestDashboardStatsEndpoint:
         modules = {m["name"]: m for m in resp.json()["system_info"]["modules"]}
         assert modules["Dashboard"]["url"] == "/dashboard/"
 
+    async def test_partly_admin_modules_carry_their_admin_mount(
+        self, authenticated_client: httpx.AsyncClient
+    ):
+        """Users serves sign-in at /users and management at /admin/users.
+
+        The tile's job is to open the management screen, which no longer lives
+        under the module's own ``view_prefix`` — without the second mount point
+        in the payload the tile falls through to the first menu entry under
+        ``/users`` (the viewer's own profile) and opens the wrong page.
+        """
+        resp = await authenticated_client.get(_STATS_URL)
+        modules = {m["name"]: m for m in resp.json()["system_info"]["modules"]}
+        assert modules["Users"]["url"] == "/users/"
+        assert modules["Users"]["admin_url"] == "/admin/users/"
+
+    async def test_modules_without_an_admin_mount_report_an_empty_admin_url(
+        self, authenticated_client: httpx.AsyncClient
+    ):
+        resp = await authenticated_client.get(_STATS_URL)
+        for mod in resp.json()["system_info"]["modules"]:
+            assert mod["admin_url"] == "" or mod["admin_url"].startswith("/"), mod
+
     async def test_view_less_modules_get_an_empty_url(
         self, authenticated_client: httpx.AsyncClient
     ):
