@@ -10,6 +10,7 @@ import { CreateUserFields } from './components/CreateUserFields';
 import { InviteFields } from './components/InviteFields';
 import { type InviteResult, InviteResults } from './components/InviteResults';
 import { type Role, RolePicker } from './components/RolePicker';
+import { isPlausibleEmail, parseInviteEmails } from './invite-emails';
 
 type Mode = 'invite' | 'create';
 
@@ -57,11 +58,9 @@ function AddPeople() {
       prev.includes(roleName) ? prev.filter((r) => r !== roleName) : [...prev, roleName],
     );
 
-  /** Split a pasted block on commas, semicolons, and any whitespace. */
-  const parsedEmails = emails
-    .split(/[\s,;]+/)
-    .map((value) => value.trim())
-    .filter(Boolean);
+  const parsedEmails = parseInviteEmails(emails);
+  const invalidEmails = parsedEmails.filter((value) => !isPlausibleEmail(value));
+  const validEmailCount = parsedEmails.length - invalidEmails.length;
 
   async function submitInvite() {
     const resp = await fetch('/api/users/admin/invite/bulk', {
@@ -124,7 +123,9 @@ function AddPeople() {
   }
 
   const canSubmit =
-    mode === 'invite' ? parsedEmails.length > 0 : email.trim() !== '' && password !== '';
+    mode === 'invite'
+      ? validEmailCount > 0 && invalidEmails.length === 0
+      : email.trim() !== '' && password !== '';
 
   return (
     <PageShell
@@ -169,7 +170,8 @@ function AddPeople() {
               <InviteFields
                 emails={emails}
                 onEmailsChange={setEmails}
-                count={parsedEmails.length}
+                count={validEmailCount}
+                invalidEmails={invalidEmails}
                 mailerDelivers={mailerDelivers}
               />
             ) : (
@@ -195,7 +197,7 @@ function AddPeople() {
                 {loading
                   ? 'Working…'
                   : mode === 'invite'
-                    ? `Send ${parsedEmails.length || ''} invite${parsedEmails.length === 1 ? '' : 's'}`.trim()
+                    ? `Send ${validEmailCount || ''} invite${validEmailCount === 1 ? '' : 's'}`.trim()
                     : 'Create user'}
               </Button>
             </div>

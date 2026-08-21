@@ -12,5 +12,7 @@
   "devDependencies": {
     "@simple-module-py/tsconfig": "*"
   },
-  "dependencies": {}
+  "dependencies": {
+    "sonner": "^2.0.7"
+  }
 }

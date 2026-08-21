@@ -15,6 +15,8 @@ export default defineConfig({
       'packages/**/*.test.tsx',
       'host/client_app/**/*.test.ts',
       'host/client_app/**/*.test.tsx',
+      'modules/**/tests-js/**/*.test.ts',
+      'modules/**/tests-js/**/*.test.tsx',
     ],
   },
 });

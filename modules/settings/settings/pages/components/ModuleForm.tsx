@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { FieldInput, type FieldMeta } from './FieldInput';
 import { FieldSource } from './FieldSource';
 import { TestConnectionButton } from './TestConnectionButton';
@@ -88,6 +89,7 @@ export function ModuleForm({ module: m, testable = false }: Props) {
       }
       setErrors(fieldErrs);
     } else if (resp.ok) {
+      toast.success('Settings saved');
       router.reload({ only: ['modules'] });
     }
     setBusy(false);

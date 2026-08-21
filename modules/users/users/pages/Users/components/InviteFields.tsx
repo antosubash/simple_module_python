@@ -5,12 +5,19 @@ import { Info } from 'lucide-react';
 interface Props {
   emails: string;
   onEmailsChange: (value: string) => void;
-  /** Addresses parsed out of the box so far. */
+  /** Valid addresses parsed out of the box so far. */
   count: number;
+  invalidEmails: string[];
   mailerDelivers: boolean;
 }
 
-export function InviteFields({ emails, onEmailsChange, count, mailerDelivers }: Props) {
+export function InviteFields({
+  emails,
+  onEmailsChange,
+  count,
+  invalidEmails,
+  mailerDelivers,
+}: Props) {
   return (
     <div className="space-y-2">
       <Label htmlFor="emails" className="text-sm font-medium text-muted-foreground">
@@ -31,6 +38,14 @@ export function InviteFields({ emails, onEmailsChange, count, mailerDelivers }: 
       <p className="text-xs text-muted-foreground">
         One per line, or separated by commas. {count > 0 && `${count} recognised.`}
       </p>
+
+      {invalidEmails.length > 0 && (
+        <p role="alert" className="text-xs text-destructive">
+          {invalidEmails.length === 1
+            ? `${invalidEmails[0]} is not a valid email address.`
+            : `${invalidEmails.length} addresses are not valid email addresses.`}
+        </p>
+      )}
 
       {!mailerDelivers && (
         <p className="flex items-start gap-1.5 rounded-md bg-amber-50 p-2 text-xs text-amber-900">

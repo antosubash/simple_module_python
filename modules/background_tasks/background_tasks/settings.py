@@ -63,8 +63,18 @@ class BackgroundTasksSettings(BaseSettings):
     stuck_sweep_interval_seconds: int = DEFAULT_STUCK_SWEEP_INTERVAL_SECONDS
     purge_interval_seconds: int = DEFAULT_PURGE_INTERVAL_SECONDS
 
-    retention_days: int = DEFAULT_RETENTION_DAYS
-    max_retries: int = DEFAULT_MAX_RETRIES
+    retention_days: int = Field(
+        default=DEFAULT_RETENTION_DAYS,
+        ge=1,
+        le=3650,
+        description="Days to keep terminal task execution records (1-3650).",
+    )
+    max_retries: int = Field(
+        default=DEFAULT_MAX_RETRIES,
+        ge=0,
+        le=100,
+        description="Configured retry ceiling; individual tasks define their own policies (0-100).",
+    )
 
     @model_validator(mode="after")
     def _forbid_localhost_broker_in_production(self) -> BackgroundTasksSettings:
