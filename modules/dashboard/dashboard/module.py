@@ -36,6 +36,7 @@ class DashboardModule(ModuleBase):
         registry.add(
             MenuItem(
                 label="Dashboard",
+                label_key="dashboard.nav.dashboard",
                 url=_URL_DASHBOARD,
                 icon=_ICON_DASHBOARD,
                 order=10,
@@ -45,6 +46,7 @@ class DashboardModule(ModuleBase):
         registry.add(
             MenuItem(
                 label="Doctor",
+                label_key="dashboard.nav.doctor",
                 url=_URL_DOCTOR,
                 icon=_ICON_DOCTOR,
                 order=90,

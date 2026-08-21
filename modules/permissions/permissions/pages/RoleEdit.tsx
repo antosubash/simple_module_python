@@ -65,7 +65,7 @@ function RoleEdit({ role, assigned, groups }: Props) {
 
   return (
     <>
-      <Head title="Edit Role" />
+      <Head title={t(keys.permissions.edit.head_title)} />
       <PageShell
         title={t(keys.permissions.edit.title, { role: role.name })}
         description={role.description ?? t(keys.permissions.edit.description)}
@@ -102,7 +102,7 @@ function RoleEdit({ role, assigned, groups }: Props) {
             <div className="relative max-w-sm flex-1 min-w-[240px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
-                placeholder="Filter modules…"
+                placeholder={t(keys.permissions.filters.modules_placeholder)}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 className="pl-9"
@@ -186,7 +186,7 @@ function RoleEdit({ role, assigned, groups }: Props) {
                 <Badge variant="outline" className="border-border bg-secondary">
                   {data.permissions.length} / {totalRegistered}
                 </Badge>
-                <span>permissions enabled</span>
+                <span>{t(keys.permissions.edit.permissions_enabled)}</span>
               </div>
             </div>
           )}

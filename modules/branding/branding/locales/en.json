@@ -49,6 +49,10 @@
     "error_toast": "Could not update branding",
     "upload_error_toast": "Could not upload image",
     "preview_no_banner": "No banner set",
-    "preview_button": "Action"
+    "preview_button": "Action",
+    "banner_severity_label": "Banner severity"
+  },
+  "nav": {
+    "branding": "Branding"
   }
 }

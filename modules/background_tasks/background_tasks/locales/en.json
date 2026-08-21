@@ -7,7 +7,11 @@
     "count_other": "{count} tasks",
     "empty_title": "No task executions yet",
     "empty_description": "Tasks appear here as soon as modules enqueue work.",
-    "no_match": "No tasks match \"{query}\""
+    "no_match": "No tasks match \"{query}\"",
+    "workers_button": "Workers",
+    "previous": "Previous",
+    "next": "Next",
+    "page_of": "Page {page} of {total}"
   },
   "filters": {
     "status_label": "Status",
@@ -35,18 +39,34 @@
   },
   "detail": {
     "title": "Task execution",
+    "head_title": "Task Detail",
+    "description": "Task execution {id}",
     "back_button": "Back to tasks",
+    "retry_button": "Retry task",
     "args": "Arguments",
     "kwargs": "Keyword arguments",
     "result": "Result",
     "traceback": "Traceback",
     "meta": "Details",
+    "status": "Status",
+    "queue": "Queue",
+    "retries": "Retries",
+    "worker": "Worker",
+    "celery_id": "Celery id",
+    "queued_at": "Queued at",
+    "started_at": "Started at",
+    "finished_at": "Finished at",
+    "heartbeat": "Heartbeat",
+    "exception": "Exception",
     "retried_from": "Retried from",
     "no_traceback": "No traceback recorded."
   },
   "retry_dialog": {
-    "title": "Retry this task?",
-    "description": "A new task execution will be enqueued with the same arguments. The original row is kept for history.",
+    "title": "Retry {name}?",
+    "description": "Queues a new execution with the same arguments. The original row stays as it is, kept for history.",
+    "args_label": "args:",
+    "kwargs_label": "kwargs:",
+    "no_args": "This task takes no arguments.",
     "cancel": "Cancel",
     "confirm": "Retry task"
   },
@@ -72,5 +92,34 @@
     "no_workers_description": "The broker is up, but nothing is consuming the queue. Tasks enqueued now will wait rather than run.",
     "healthy_title": "No task has run yet",
     "healthy_description": "Registered tasks appear here the first time they execute."
+  },
+  "workers": {
+    "title": "Workers",
+    "description": "Celery workers connected to the broker.",
+    "back_button": "Back to executions",
+    "polled_at": "Polled at {ts}",
+    "updated": "Updated {age}",
+    "stale": "Stale",
+    "refresh": "Refresh",
+    "online": "Online",
+    "offline": "Offline",
+    "active": "Active",
+    "pool": "Pool",
+    "processed": "Processed",
+    "queues": "Queues",
+    "broker_unreachable_title": "Broker unreachable",
+    "no_error_reported": "No error message reported.",
+    "broker_hint_prefix": "Check the",
+    "broker_hint_suffix": "setting and confirm the broker process is running.",
+    "no_workers_title": "No workers connected",
+    "no_workers_hint_prefix": "The broker is reachable but no Celery workers are responding. Start one with",
+    "refresh_failed_status": "Failed to refresh workers (HTTP {status})",
+    "refresh_failed": "Failed to refresh workers"
+  },
+  "nav": {
+    "background_tasks": "Background Tasks"
+  },
+  "audit": {
+    "task_execution": "Task execution"
   }
 }

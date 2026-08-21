@@ -7,5 +7,17 @@
   },
   "switcher": {
     "label": "Change language"
+  },
+  "relative_time": {
+    "unknown": "unknown",
+    "just_now": "just now",
+    "seconds_ago": "{count}s ago",
+    "minutes_ago": "{count}m ago",
+    "hours_ago": "{count}h ago"
+  },
+  "nav_groups": {
+    "administration": "Administration",
+    "system": "System",
+    "content": "Content"
   }
 }

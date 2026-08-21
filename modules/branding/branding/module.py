@@ -65,11 +65,13 @@ class BrandingModule(ModuleBase):
         registry.add(
             MenuItem(
                 label="Branding",
+                label_key="branding.nav.branding",
                 url=MENU_URL,
                 icon="palette",
                 order=115,
                 section=MenuSection.SIDEBAR,
                 group="Administration",
+                group_key="ui.nav_groups.administration",
                 roles=["admin"],
             )
         )

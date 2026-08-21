@@ -1,3 +1,4 @@
+import { keys, useT } from '@simple-module-py/i18n';
 import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
@@ -16,14 +17,15 @@ interface Props {
  * own — the page owns one dirty state covering details and roles together.
  */
 export function DetailsCard({ email, fullName, onEmailChange, onFullNameChange, error }: Props) {
+  const { t } = useT();
   return (
     <Card className="border-border lg:col-span-2">
       <CardContent className="pt-5">
-        <SectionTitle>Details</SectionTitle>
+        <SectionTitle>{t(keys.users.details_card.title)}</SectionTitle>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="edit-email" className="text-sm font-medium text-muted-foreground">
-              Email
+              {t(keys.users.common.email)}
             </Label>
             <Input
               id="edit-email"
@@ -35,14 +37,14 @@ export function DetailsCard({ email, fullName, onEmailChange, onFullNameChange, 
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-full-name" className="text-sm font-medium text-muted-foreground">
-              Full name
+              {t(keys.users.common.full_name)}
             </Label>
             <Input
               id="edit-full-name"
               type="text"
               value={fullName}
               onChange={(e) => onFullNameChange(e.target.value)}
-              placeholder="Jane Doe"
+              placeholder={t(keys.users.details_card.name_placeholder)}
             />
           </div>
         </div>

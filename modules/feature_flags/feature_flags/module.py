@@ -43,11 +43,13 @@ class FeatureFlagsModule(ModuleBase):
         registry.add(
             MenuItem(
                 label=MENU_LABEL,
+                label_key="feature_flags.nav.feature_flags",
                 url=MENU_URL,
                 icon=MENU_ICON,
                 order=MENU_ORDER,
                 section=MenuSection.SIDEBAR,
                 group="Administration",
+                group_key="ui.nav_groups.administration",
                 # Mirrors the view router's guard. Without it the entry shows
                 # for every signed-in account and 403s on click.
                 permissions=[PERM_FEATURE_FLAGS_VIEW],

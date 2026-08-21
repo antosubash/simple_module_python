@@ -44,5 +44,8 @@
     "disabled": "\"{name}\" disabled",
     "cleared": "Override cleared for \"{name}\"",
     "toggle_failed": "Failed to update flag"
+  },
+  "nav": {
+    "feature_flags": "Feature Flags"
   }
 }

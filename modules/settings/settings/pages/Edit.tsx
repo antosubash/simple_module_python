@@ -40,13 +40,13 @@ function Edit({ setting }: Props) {
 
   return (
     <>
-      <Head title="Edit Setting" />
+      <Head title={t(keys.settings.edit.title)} />
       <PageShell
         title={t(keys.settings.edit.title)}
         description={`${setting.scope}.${setting.key}`}
         actions={
           <Button asChild variant="outline">
-            <Link href={ROUTES.browse}>Cancel</Link>
+            <Link href={ROUTES.browse}>{t(keys.settings.form.cancel_button)}</Link>
           </Button>
         }
       >
@@ -114,7 +114,7 @@ function Edit({ setting }: Props) {
 
               <div className="sm:col-span-2 flex justify-end gap-2">
                 <Button asChild variant="outline">
-                  <Link href={ROUTES.browse}>Cancel</Link>
+                  <Link href={ROUTES.browse}>{t(keys.settings.form.cancel_button)}</Link>
                 </Button>
                 <Button type="submit" disabled={processing}>
                   {t(keys.settings.edit.submit_button)}

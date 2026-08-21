@@ -1,4 +1,5 @@
 import { Head, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { StatCard } from '@simple-module-py/ui/components/StatCard';
@@ -71,6 +72,7 @@ function CheckRow({ check }: { check: (typeof STATIC_CHECKS)[number] }) {
 
 function Doctor() {
   const { system_info, module_count } = usePage<{ props: Props }>().props as unknown as Props;
+  const { t } = useT();
 
   const passed = STATIC_CHECKS.filter((c) => c.status === 'pass').length;
   const pending = MIGRATIONS.filter((m) => !m.applied).length;
@@ -78,14 +80,14 @@ function Doctor() {
 
   return (
     <>
-      <Head title="Doctor" />
+      <Head title={t(keys.dashboard.doctor.title)} />
       <PageShell
-        title="Doctor"
-        description="Static checks, migrations, dev server, and module health. Mirrors `make doctor` output."
+        title={t(keys.dashboard.doctor.title)}
+        description={t(keys.dashboard.doctor.description)}
         actions={
           <>
             <Button variant="outline" size="sm" className="gap-1.5">
-              <RefreshCw className="h-3.5 w-3.5" /> Re-run
+              <RefreshCw className="h-3.5 w-3.5" /> {t(keys.dashboard.doctor.rerun)}
             </Button>
             <Button size="sm" className="gap-1.5">
               <Terminal className="h-3.5 w-3.5" /> make doctor
@@ -95,23 +97,35 @@ function Doctor() {
       >
         <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard
-            label="Checks passed"
+            label={t(keys.dashboard.doctor.stat_checks_passed)}
             value={`${passed}/${STATIC_CHECKS.length}`}
             icon={CheckCircle2}
-            delta={passed === STATIC_CHECKS.length ? 'OK' : 'review'}
+            delta={
+              passed === STATIC_CHECKS.length
+                ? t(keys.dashboard.doctor.ok)
+                : t(keys.dashboard.doctor.review)
+            }
             deltaTone={passed === STATIC_CHECKS.length ? 'success' : 'warning'}
           />
-          <StatCard label="Modules" value={module_count} icon={Package} />
           <StatCard
-            label="Pending mig."
+            label={t(keys.dashboard.doctor.stat_modules)}
+            value={module_count}
+            icon={Package}
+          />
+          <StatCard
+            label={t(keys.dashboard.doctor.stat_pending_migrations)}
             value={pending}
             icon={Database}
-            delta={pending === 0 ? 'clean' : 'review'}
+            delta={pending === 0 ? t(keys.dashboard.doctor.clean) : t(keys.dashboard.doctor.review)}
             deltaTone={pending === 0 ? 'success' : 'warning'}
           />
           <StatCard
-            label="Health"
-            value={unhealthy === 0 ? 'OK' : `${unhealthy} alert`}
+            label={t(keys.dashboard.doctor.stat_health)}
+            value={
+              unhealthy === 0
+                ? t(keys.dashboard.doctor.ok)
+                : t(keys.dashboard.doctor.alert, { count: unhealthy })
+            }
             icon={Activity}
             deltaTone={unhealthy === 0 ? 'success' : 'destructive'}
           />
@@ -123,10 +137,12 @@ function Doctor() {
               <CardContent className="pt-5">
                 <SectionTitle
                   right={
-                    <span className="font-mono text-[11px] text-muted-foreground">just now</span>
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      {t(keys.dashboard.doctor.just_now)}
+                    </span>
                   }
                 >
-                  Static checks
+                  {t(keys.dashboard.doctor.static_checks)}
                 </SectionTitle>
                 <div className="-mx-1">
                   {STATIC_CHECKS.map((c) => (
@@ -142,15 +158,15 @@ function Doctor() {
                   right={
                     <div className="flex gap-2">
                       <Button variant="ghost" size="sm" className="gap-1.5">
-                        <GitBranch className="h-3.5 w-3.5" /> Generate
+                        <GitBranch className="h-3.5 w-3.5" /> {t(keys.dashboard.doctor.generate)}
                       </Button>
                       <Button variant="ghost" size="sm" className="gap-1.5">
-                        <Play className="h-3.5 w-3.5" /> Apply
+                        <Play className="h-3.5 w-3.5" /> {t(keys.dashboard.doctor.apply)}
                       </Button>
                     </div>
                   }
                 >
-                  Recent migrations
+                  {t(keys.dashboard.doctor.recent_migrations)}
                 </SectionTitle>
                 <div className="-mx-1">
                   {MIGRATIONS.map((m) => (
@@ -167,7 +183,9 @@ function Doctor() {
                       <div className="flex-1 truncate text-sm text-foreground">{m.msg}</div>
                       <span className="font-mono text-[11px] text-muted-foreground">{m.when}</span>
                       <Badge variant="outline" className={m.applied ? TONE.success : TONE.warning}>
-                        {m.applied ? 'applied' : 'pending'}
+                        {m.applied
+                          ? t(keys.dashboard.doctor.applied)
+                          : t(keys.dashboard.doctor.pending)}
                       </Badge>
                     </div>
                   ))}
@@ -177,7 +195,7 @@ function Doctor() {
 
             <Card className="border-border">
               <CardContent className="pt-5">
-                <SectionTitle>Installed modules</SectionTitle>
+                <SectionTitle>{t(keys.dashboard.doctor.installed_modules)}</SectionTitle>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {system_info.modules.map((m) => (
                     <div
@@ -191,10 +209,12 @@ function Doctor() {
                         <div className="font-mono text-[13px] font-semibold text-foreground truncate">
                           {m.name}
                         </div>
-                        <div className="font-mono text-[10px] text-muted-foreground">loaded</div>
+                        <div className="font-mono text-[10px] text-muted-foreground">
+                          {t(keys.dashboard.doctor.loaded)}
+                        </div>
                       </div>
                       <Badge variant="outline" className={TONE.success}>
-                        active
+                        {t(keys.dashboard.doctor.active)}
                       </Badge>
                     </div>
                   ))}
@@ -210,11 +230,11 @@ function Doctor() {
                   right={
                     <span className="flex items-center gap-1.5 font-mono text-[11px] text-primary-700">
                       <span className="h-2 w-2 rounded-full bg-primary-600 ring-4 ring-primary-200" />
-                      running
+                      {t(keys.dashboard.doctor.running)}
                     </span>
                   }
                 >
-                  Dev server
+                  {t(keys.dashboard.doctor.dev_server)}
                 </SectionTitle>
                 <div className="flex flex-col gap-2">
                   {DEV_SERVER.map(([k, v, tone]) => (
@@ -234,7 +254,7 @@ function Doctor() {
 
             <Card className="border-border">
               <CardContent className="pt-5">
-                <SectionTitle>Run a command</SectionTitle>
+                <SectionTitle>{t(keys.dashboard.doctor.run_command)}</SectionTitle>
                 <div className="flex flex-col gap-2 rounded-lg bg-slate-900 p-3 font-mono text-[12px] text-slate-200">
                   {['make new-module name=orders', 'make migrate', 'make doctor', 'make dev'].map(
                     (c) => (
@@ -252,7 +272,7 @@ function Doctor() {
               <CardContent className="pt-5">
                 <SectionTitle>
                   <Stethoscope className="h-4 w-4" aria-hidden="true" />
-                  Environment
+                  {t(keys.dashboard.doctor.environment)}
                 </SectionTitle>
                 <div className="flex flex-col gap-2 text-[13px]">
                   {ENV_VARS.map(([k, v]) => (

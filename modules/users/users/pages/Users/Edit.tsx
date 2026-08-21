@@ -1,4 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
@@ -11,6 +12,7 @@ import { DetailsCard } from './components/DetailsCard';
 import { MetadataCard } from './components/MetadataCard';
 import type { Role } from './components/RolePicker';
 import { RolesCard } from './components/RolesCard';
+import { useUserActions } from './components/useUserActions';
 
 interface UserListItem {
   id: string;
@@ -38,8 +40,6 @@ interface FormState {
   roles: string[];
 }
 
-const LEAVE_WARNING = 'You have unsaved changes on this user. Leave without saving?';
-
 function sameRoles(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
   const sortedB = [...b].sort();
@@ -62,6 +62,7 @@ function sameRoles(a: string[], b: string[]): boolean {
 function Edit() {
   const { user, roles, has_permissions_module, auth } = usePage<{ props: Props }>()
     .props as unknown as Props;
+  const { t } = useT();
   const isSelf = auth?.user?.id === user.id;
 
   const initial = useMemo<FormState>(
@@ -78,12 +79,9 @@ function Edit() {
   // per section as each save lands, so "unsaved changes" stays truthful even
   // when only part of a save succeeded.
   const [baseline, setBaseline] = useState<FormState>(initial);
-  const [isActive, setIsActive] = useState(user.is_active);
-  const [isVerified, setIsVerified] = useState(user.is_verified);
   const [saving, setSaving] = useState(false);
-  const [savingStatus, setSavingStatus] = useState(false);
-  const [savingVerify, setSavingVerify] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const actions = useUserActions(user.id, user.is_active, user.is_verified);
 
   // Re-seed after a server reload, or the form would keep showing pre-save
   // values against a record that has already moved on.
@@ -111,13 +109,13 @@ function Edit() {
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener('beforeunload', warn);
     const stopListening = router.on('before', () =>
-      savingRef.current ? true : window.confirm(LEAVE_WARNING),
+      savingRef.current ? true : window.confirm(t(keys.users.edit.leave_warning)),
     );
     return () => {
       window.removeEventListener('beforeunload', warn);
       stopListening();
     };
-  }, [dirty]);
+  }, [dirty, t]);
 
   const toggleRole = (roleName: string) =>
     setForm((prev) => ({
@@ -148,7 +146,9 @@ function Edit() {
         });
         if (!resp.ok) {
           const body = await resp.json().catch(() => ({}));
-          setError(typeof body?.detail === 'string' ? body.detail : 'Failed to update details');
+          setError(
+            typeof body?.detail === 'string' ? body.detail : t(keys.users.edit.error_details),
+          );
           return;
         }
         setBaseline((prev) => ({ ...prev, email: form.email, fullName: form.fullName }));
@@ -161,85 +161,43 @@ function Edit() {
         });
         if (!resp.ok) {
           setError(
-            detailsDirty
-              ? 'Details were saved, but the roles update failed. Try saving again.'
-              : 'Failed to update roles',
+            detailsDirty ? t(keys.users.edit.error_partial) : t(keys.users.edit.error_roles),
           );
           return;
         }
         setBaseline((prev) => ({ ...prev, roles: form.roles }));
       }
-      toast.success('Changes saved');
+      toast.success(t(keys.users.edit.toast_saved));
       router.reload();
     } catch {
-      setError('An error occurred');
+      setError(t(keys.users.common.error_occurred));
     } finally {
       setSaving(false);
       savingRef.current = false;
     }
   }
 
-  const patch = (url: string, onSuccess: () => void, label: string) => {
-    setSavingStatus(true);
-    fetch(url, { method: 'PATCH' })
-      .then(async (res) => {
-        if (res.ok) {
-          onSuccess();
-          toast.success(label);
-        } else {
-          toast.error(`Failed to ${label.toLowerCase()}`);
-        }
-      })
-      .catch(() => toast.error('An error occurred'))
-      .finally(() => setSavingStatus(false));
-  };
-
-  const markVerified = () => {
-    setSavingVerify(true);
-    fetch(`/api/users/admin/${user.id}/verify`, { method: 'PATCH' })
-      .then(async (res) => {
-        if (res.ok) {
-          setIsVerified(true);
-          toast.success('User marked verified');
-        } else {
-          toast.error('Failed to mark verified');
-        }
-      })
-      .catch(() => toast.error('An error occurred'))
-      .finally(() => setSavingVerify(false));
-  };
-
-  const copyResetLink = () => {
-    fetch(`/api/users/admin/${user.id}/reset-password-link`, { method: 'POST' })
-      .then(async (res) => {
-        if (res.ok) {
-          const data = await res.json();
-          await navigator.clipboard.writeText(data.link ?? data.url ?? '');
-          toast.success('Reset link copied to clipboard');
-        } else {
-          toast.error('Failed to generate reset link');
-        }
-      })
-      .catch(() => toast.error('An error occurred'));
-  };
-
   return (
     <PageShell
       title={user.email}
-      description={user.full_name ?? 'Edit user account'}
+      description={user.full_name ?? t(keys.users.edit.description_fallback)}
       actions={
         <div className="flex items-center gap-2">
-          {dirty && <span className="text-xs text-muted-foreground">Unsaved changes</span>}
+          {dirty && (
+            <span className="text-xs text-muted-foreground">
+              {t(keys.users.edit.unsaved_changes)}
+            </span>
+          )}
           <Button asChild variant="outline">
-            <Link href="/users/admin">Back to Users</Link>
+            <Link href="/users/admin">{t(keys.users.common.back_to_users)}</Link>
           </Button>
           {/* Back to what is persisted, not to what the page loaded with —
               discarding must not visually undo a section that already saved. */}
           <Button variant="ghost" onClick={() => setForm(baseline)} disabled={!dirty || saving}>
-            Discard
+            {t(keys.users.common.discard)}
           </Button>
           <Button onClick={handleSave} disabled={!dirty || saving}>
-            {saving ? 'Saving…' : 'Save changes'}
+            {saving ? t(keys.users.common.saving) : t(keys.users.common.save_changes)}
           </Button>
         </div>
       }
@@ -258,23 +216,19 @@ function Edit() {
           createdAt={user.created_at}
           lastLoginAt={user.last_login_at}
           disabledAt={user.disabled_at}
-          isVerified={isVerified}
-          savingVerify={savingVerify}
-          onMarkVerified={markVerified}
+          isVerified={actions.isVerified}
+          savingVerify={actions.savingVerify}
+          onMarkVerified={actions.markVerified}
         />
 
         <AccountStatusCard
           email={user.email}
-          isActive={isActive}
+          isActive={actions.isActive}
           isExternal={user.is_external}
-          savingStatus={savingStatus}
-          onDisable={() =>
-            patch(`/api/users/admin/${user.id}/disable`, () => setIsActive(false), 'User disabled')
-          }
-          onEnable={() =>
-            patch(`/api/users/admin/${user.id}/enable`, () => setIsActive(true), 'User enabled')
-          }
-          onCopyResetLink={copyResetLink}
+          savingStatus={actions.savingStatus}
+          onDisable={actions.disable}
+          onEnable={actions.enable}
+          onCopyResetLink={actions.copyResetLink}
         />
 
         <RolesCard

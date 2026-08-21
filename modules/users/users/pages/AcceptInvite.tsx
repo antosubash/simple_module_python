@@ -1,4 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
@@ -20,6 +21,7 @@ interface Props {
 
 function AcceptInvite() {
   const { token: initialToken, invite } = usePage<{ props: Props }>().props as unknown as Props;
+  const { t } = useT();
   const urlToken =
     typeof window !== 'undefined'
       ? (new URLSearchParams(window.location.search).get('token') ?? '')
@@ -35,7 +37,7 @@ function AcceptInvite() {
     e.preventDefault();
     setError(null);
     if (password !== confirm) {
-      setError('Passwords do not match.');
+      setError(t(keys.users.common.passwords_no_match));
       return;
     }
     setLoading(true);
@@ -51,19 +53,19 @@ function AcceptInvite() {
           const data = await res.json().catch(() => ({}));
           const detail = typeof data?.detail === 'string' ? data.detail : '';
           if (detail === 'INVITE_BAD_TOKEN') {
-            setError('Invite link has expired or is invalid. Please request a new invitation.');
+            setError(t(keys.users.accept_invite.error_bad_token));
           } else {
-            setError(detail || 'Failed to accept invite. Please try again.');
+            setError(detail || t(keys.users.accept_invite.error_failed));
           }
         }
       })
-      .catch(() => setError('An error occurred. Please try again.'))
+      .catch(() => setError(t(keys.users.common.error_try_again)))
       .finally(() => setLoading(false));
   };
 
   return (
     <AuthCardShell>
-      <Head title="Accept Invite" />
+      <Head title={t(keys.users.accept_invite.head_title)} />
       {/* Who the invite is for, and what it grants. Without this the card asks
           for a password while identifying neither — a forwarded link, or an
           invite addressed to the wrong person, is indistinguishable from the
@@ -72,12 +74,16 @@ function AcceptInvite() {
         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
         <div className="min-w-0">
           <p className="font-semibold">
-            {invite ? `You've been invited as ${invite.email}` : "You've been invited"}
+            {invite
+              ? t(keys.users.accept_invite.invited_as, { email: invite.email })
+              : t(keys.users.accept_invite.invited_generic)}
           </p>
-          <p className="mt-0.5">Pick a password and you'll be signed in.</p>
+          <p className="mt-0.5">{t(keys.users.accept_invite.pick_password)}</p>
           {invite && invite.roles.length > 0 && (
             <p className="mt-1.5 flex flex-wrap items-center gap-1">
-              <span className="text-xs text-primary-700">Access:</span>
+              <span className="text-xs text-primary-700">
+                {t(keys.users.accept_invite.access_label)}
+              </span>
               {invite.roles.map((role) => (
                 <span
                   key={role}
@@ -93,31 +99,30 @@ function AcceptInvite() {
 
       {invite?.already_accepted && (
         <p className="mt-3 rounded-lg bg-amber-50 p-2.5 text-sm text-amber-900">
-          This invite has already been used. Sign in instead, or use "Forgot password" if you don't
-          have your password.
+          {t(keys.users.accept_invite.already_used)}
         </p>
       )}
       <h1 className="mt-5 mb-1.5 text-[22px] font-bold tracking-tight font-[var(--font-display)] text-foreground">
-        Set your password
+        {t(keys.users.accept_invite.heading)}
       </h1>
       <form onSubmit={handleSubmit} className="space-y-3.5">
         <div className="space-y-1.5">
           <Label htmlFor="password" className="text-sm font-medium text-muted-foreground">
-            Password
+            {t(keys.users.common.password)}
           </Label>
           <Input
             id="password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="8+ characters"
+            placeholder={t(keys.users.common.password_placeholder)}
             required
             autoComplete="new-password"
           />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="confirm" className="text-sm font-medium text-muted-foreground">
-            Confirm password
+            {t(keys.users.common.confirm_password)}
           </Label>
           <Input
             id="confirm"
@@ -132,7 +137,7 @@ function AcceptInvite() {
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         <Button type="submit" size="lg" className="w-full" disabled={loading || !token}>
-          {loading ? 'Activating…' : 'Set password & sign in'}
+          {loading ? t(keys.users.accept_invite.submitting) : t(keys.users.accept_invite.submit)}
         </Button>
       </form>
       {token && (

@@ -106,7 +106,7 @@ function Home() {
 
   return (
     <>
-      <Head title="Dashboard" />
+      <Head title={t(keys.dashboard.home.title)} />
       <PageShell
         title={t(keys.dashboard.home.title)}
         description={t(keys.dashboard.home.description)}
@@ -121,7 +121,7 @@ function Home() {
             label={t(keys.dashboard.home.stats.active_users)}
             value={props.active_users_7d}
             icon={Activity}
-            delta="↑ 7d"
+            delta={t(keys.dashboard.home.stats.active_users_delta)}
           />
           <StatCard
             label={t(keys.dashboard.home.stats.modules)}
@@ -129,10 +129,18 @@ function Home() {
             icon={Box}
           />
           <StatCard
-            label="Health"
-            value={unhealthy === 0 ? 'OK' : `${unhealthy} alert`}
+            label={t(keys.dashboard.home.stats.health)}
+            value={
+              unhealthy === 0
+                ? t(keys.dashboard.home.health_ok)
+                : t(keys.dashboard.home.health_alert, { count: unhealthy })
+            }
             icon={Stethoscope}
-            delta={unhealthy === 0 ? 'all good' : 'see Doctor'}
+            delta={
+              unhealthy === 0
+                ? t(keys.dashboard.home.health_all_good)
+                : t(keys.dashboard.home.health_see_doctor)
+            }
             deltaTone={unhealthy === 0 ? 'success' : 'warning'}
           />
         </div>
@@ -144,11 +152,14 @@ function Home() {
                 as="h2"
                 right={
                   <span className="font-mono text-[11px] text-muted-foreground">
-                    Python {props.system_info.python_version} · {props.module_count} modules
+                    {t(keys.dashboard.home.system_meta, {
+                      version: props.system_info.python_version,
+                      count: props.module_count,
+                    })}
                   </span>
                 }
               >
-                System
+                {t(keys.dashboard.home.system_info_title)}
               </SectionTitle>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                 {props.system_info.modules.map((m) => {

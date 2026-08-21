@@ -36,6 +36,34 @@ class TestEntityLink:
         reg.register(AuditLink(entity_type="StoredFile", url_template="/f/{id}"))
         assert entity_link(reg, "StoredFile", "z")["label"] == "StoredFile"
 
+    def test_label_key_is_translated(self):
+        reg = AuditLinkRegistry()
+        reg.register(
+            AuditLink(
+                entity_type="User",
+                url_template="/users/admin/{id}",
+                label="User",
+                label_key="users.audit.user",
+            )
+        )
+        translate = {"users.audit.user": "Usuario"}.get
+        ref = entity_link(reg, "User", "a91", lambda k: translate(k, k))
+        assert ref["label"] == "Usuario"
+
+    def test_unresolved_label_key_keeps_the_literal_label(self):
+        """Translator.t() echoes a missing key back; showing it would be worse
+        than the English it replaced."""
+        reg = AuditLinkRegistry()
+        reg.register(
+            AuditLink(
+                entity_type="User",
+                url_template="/users/admin/{id}",
+                label="User",
+                label_key="users.audit.absent",
+            )
+        )
+        assert entity_link(reg, "User", "a91", lambda k: k)["label"] == "User"
+
 
 class TestActorLink:
     def test_uses_the_registered_users_route(self):

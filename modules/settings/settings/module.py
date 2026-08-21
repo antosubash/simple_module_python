@@ -64,11 +64,13 @@ class SettingsModule(ModuleBase):
         registry.add(
             MenuItem(
                 label=MENU_LABEL,
+                label_key="settings.nav.settings",
                 url=MENU_URL,
                 icon=MENU_ICON,
                 order=MENU_ORDER,
                 section=MenuSection.SIDEBAR,
                 group="System",
+                group_key="ui.nav_groups.system",
                 # Mirrors the view router's guard, so the entry is not offered
                 # to accounts whose click would 403.
                 permissions=[PERM_VIEW],
@@ -87,6 +89,7 @@ class SettingsModule(ModuleBase):
                 entity_type=Setting.__name__,
                 url_template=f"{VIEW_PREFIX}/{{id}}/edit",
                 label="Setting",
+                label_key="settings.audit.setting",
             )
         )
 

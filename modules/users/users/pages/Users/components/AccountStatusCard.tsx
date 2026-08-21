@@ -1,3 +1,4 @@
+import { keys, useT } from '@simple-module-py/i18n';
 import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import {
   AlertDialog,
@@ -34,10 +35,11 @@ export function AccountStatusCard({
   onEnable,
   onCopyResetLink,
 }: Props) {
+  const { t } = useT();
   return (
     <Card className="border-border">
       <CardContent className="pt-5">
-        <SectionTitle>Account status</SectionTitle>
+        <SectionTitle>{t(keys.users.account_status.title)}</SectionTitle>
         <div className="mb-3 flex items-center gap-2">
           <Badge
             variant="outline"
@@ -47,11 +49,11 @@ export function AccountStatusCard({
                 : 'border-border bg-secondary text-muted-foreground'
             }
           >
-            {isActive ? 'active' : 'disabled'}
+            {isActive ? t(keys.users.account_status.active) : t(keys.users.account_status.disabled)}
           </Badge>
           {isExternal && (
             <Badge variant="outline" className="border-violet-200 bg-violet-50 text-violet-700">
-              External · SSO
+              {t(keys.users.common.external_badge)}
             </Badge>
           )}
         </div>
@@ -60,25 +62,33 @@ export function AccountStatusCard({
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" disabled={savingStatus}>
-                  {savingStatus ? 'Saving…' : 'Disable account'}
+                  {savingStatus
+                    ? t(keys.users.common.saving)
+                    : t(keys.users.account_status.disable_button)}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Disable {email}?</AlertDialogTitle>
+                  <AlertDialogTitle>
+                    {t(keys.users.account_status.disable_confirm_title, { email })}
+                  </AlertDialogTitle>
                   <AlertDialogDescription>
-                    They won't be able to sign in until you re-enable the account.
+                    {t(keys.users.account_status.disable_confirm_body)}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={onDisable}>Disable</AlertDialogAction>
+                  <AlertDialogCancel>{t(keys.users.common.cancel)}</AlertDialogCancel>
+                  <AlertDialogAction onClick={onDisable}>
+                    {t(keys.users.account_status.disable_action)}
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
           ) : (
             <Button size="sm" onClick={onEnable} disabled={savingStatus}>
-              {savingStatus ? 'Saving…' : 'Enable account'}
+              {savingStatus
+                ? t(keys.users.common.saving)
+                : t(keys.users.account_status.enable_button)}
             </Button>
           )}
           {!isExternal && (
@@ -86,20 +96,23 @@ export function AccountStatusCard({
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5">
                   <Copy className="h-3.5 w-3.5" />
-                  Copy reset link
+                  {t(keys.users.account_status.copy_reset_link)}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Generate reset link for {email}?</AlertDialogTitle>
+                  <AlertDialogTitle>
+                    {t(keys.users.account_status.reset_confirm_title, { email })}
+                  </AlertDialogTitle>
                   <AlertDialogDescription>
-                    A one-time password-reset URL will be copied to your clipboard. Any previously
-                    issued reset link for this user will be invalidated.
+                    {t(keys.users.account_status.reset_confirm_body)}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={onCopyResetLink}>Generate</AlertDialogAction>
+                  <AlertDialogCancel>{t(keys.users.common.cancel)}</AlertDialogCancel>
+                  <AlertDialogAction onClick={onCopyResetLink}>
+                    {t(keys.users.account_status.reset_action)}
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
@@ -107,8 +120,7 @@ export function AccountStatusCard({
         </div>
         {isExternal && (
           <p className="mt-3 text-sm text-muted-foreground">
-            This account signs in through an external identity provider (SSO) and has no password,
-            so there's no reset link to generate.
+            {t(keys.users.account_status.external_note)}
           </p>
         )}
       </CardContent>

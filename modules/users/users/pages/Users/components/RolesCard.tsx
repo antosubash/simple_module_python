@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { ShieldCheck } from 'lucide-react';
@@ -17,10 +18,11 @@ interface Props {
  * page's single dirty state, saved with everything else.
  */
 export function RolesCard({ roles, selected, onToggle, userId, hasPermissionsModule }: Props) {
+  const { t } = useT();
   return (
     <Card className="border-border lg:col-span-2">
       <CardContent className="pt-5">
-        <SectionTitle>Roles</SectionTitle>
+        <SectionTitle>{t(keys.users.roles_card.title)}</SectionTitle>
         <RolePicker roles={roles} selected={selected} onToggle={onToggle} label="" />
         {hasPermissionsModule && (
           <Link
@@ -28,7 +30,7 @@ export function RolesCard({ roles, selected, onToggle, userId, hasPermissionsMod
             className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary-700 hover:text-primary-800"
           >
             <ShieldCheck className="size-4" />
-            Manage permissions →
+            {t(keys.users.roles_card.manage_permissions)}
           </Link>
         )}
       </CardContent>

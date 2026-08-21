@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import {
   AlertDialog,
@@ -26,6 +27,7 @@ interface Props {
 }
 
 export function DangerZone({ userId, email, isSelf }: Props) {
+  const { t } = useT();
   const [deleting, setDeleting] = useState(false);
   // Deleting a user is unrecoverable and the row it starts from looks like
   // every other row, so the confirm asks for the address to be typed out.
@@ -40,16 +42,18 @@ export function DangerZone({ userId, email, isSelf }: Props) {
     fetch(`/api/users/admin/${userId}`, { method: 'DELETE' })
       .then(async (res) => {
         if (res.ok) {
-          toast.success('User deleted');
+          toast.success(t(keys.users.danger_zone.toast_deleted));
           router.visit('/users/admin');
           return; // navigating away — leave `deleting` set
         }
         const data = await res.json().catch(() => ({}));
-        toast.error(typeof data?.detail === 'string' ? data.detail : 'Failed to delete user');
+        toast.error(
+          typeof data?.detail === 'string' ? data.detail : t(keys.users.danger_zone.toast_failed),
+        );
         setDeleting(false);
       })
       .catch(() => {
-        toast.error('An error occurred');
+        toast.error(t(keys.users.common.error_occurred));
         setDeleting(false);
       });
   };
@@ -57,32 +61,35 @@ export function DangerZone({ userId, email, isSelf }: Props) {
   return (
     <Card className="border-destructive/40 lg:col-span-2">
       <CardContent className="pt-5">
-        <SectionTitle>Danger zone</SectionTitle>
+        <SectionTitle>{t(keys.users.danger_zone.title)}</SectionTitle>
         {isSelf ? (
-          <p className="text-sm text-muted-foreground">You cannot delete your own account.</p>
+          <p className="text-sm text-muted-foreground">{t(keys.users.danger_zone.self_note)}</p>
         ) : (
           <div className="flex flex-wrap items-center gap-3">
-            <p className="text-sm text-muted-foreground">
-              Permanently delete this user. This cannot be undone.
-            </p>
+            <p className="text-sm text-muted-foreground">{t(keys.users.danger_zone.description)}</p>
             <AlertDialog onOpenChange={(open) => !open && setTyped('')}>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" className="gap-1.5" disabled={deleting}>
                   <Trash2 className="h-3.5 w-3.5" />
-                  {deleting ? 'Deleting…' : 'Delete user'}
+                  {deleting
+                    ? t(keys.users.danger_zone.deleting)
+                    : t(keys.users.danger_zone.delete_button)}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete {email}?</AlertDialogTitle>
+                  <AlertDialogTitle>
+                    {t(keys.users.danger_zone.confirm_title, { email })}
+                  </AlertDialogTitle>
                   <AlertDialogDescription>
-                    Removes the account, its roles and its sessions. Audit entries stay, attributed
-                    to a deleted user. This cannot be undone.
+                    {t(keys.users.danger_zone.confirm_body)}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="grid gap-2">
                   <Label htmlFor={confirmId} className="text-sm font-normal">
-                    Type <span className="font-medium text-foreground">{email}</span> to confirm
+                    {t(keys.users.danger_zone.confirm_prompt_prefix)}{' '}
+                    <span className="font-medium text-foreground">{email}</span>{' '}
+                    {t(keys.users.danger_zone.confirm_prompt_suffix)}
                   </Label>
                   <Input
                     id={confirmId}
@@ -93,9 +100,9 @@ export function DangerZone({ userId, email, isSelf }: Props) {
                   />
                 </div>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel>{t(keys.users.common.cancel)}</AlertDialogCancel>
                   <AlertDialogAction disabled={!confirmed} onClick={handleDelete}>
-                    Delete user
+                    {t(keys.users.danger_zone.delete_button)}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
