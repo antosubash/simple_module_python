@@ -72,6 +72,7 @@ export default function ValueInput({ valueType, value, onValueChange, required =
         onChange={(e) => onValueChange(e.target.value)}
         required={required}
         rows={6}
+        // i18n-exempt: a JSON example, shown verbatim.
         placeholder='{"key": "value"}'
         className="border rounded w-full p-2 font-mono text-sm"
       />

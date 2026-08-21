@@ -110,10 +110,10 @@ function RoleEdit({ role, assigned, groups }: Props) {
             </div>
             <div className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
               <span>
-                <strong className="font-bold tracking-tight font-[var(--font-display)] text-foreground">
-                  {data.permissions.length}
-                </strong>{' '}
-                of {totalRegistered} granted
+                {t(keys.permissions.edit.granted_summary, {
+                  granted: data.permissions.length,
+                  total: totalRegistered,
+                })}
               </span>
               <div className="h-1.5 w-32 overflow-hidden rounded-full bg-secondary">
                 <div

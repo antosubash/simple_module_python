@@ -37,7 +37,7 @@ function ErrorPage({ status, message, correlation_id }: Props) {
 
   return (
     <>
-      <Head title="Error" />
+      <Head title={t(keys.host.error.head_title)} />
       <ErrorScreen
         hero={status}
         title={title}

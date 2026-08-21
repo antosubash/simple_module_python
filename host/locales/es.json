@@ -20,7 +20,23 @@
       "diagnostics_description": "El analizador estático detecta páginas huérfanas, acoplamiento del framework y desviaciones de migración antes del arranque.",
       "devtools_title": "SQLModel async",
       "devtools_description": "SQLAlchemy async + Pydantic + Alembic. Genera migraciones por módulo."
-    }
+    },
+    "head_title": "Bienvenido",
+    "copy_command": "Copiar comando",
+    "how_it_works_eyebrow": "Cómo funciona",
+    "how_it_works_heading": "Un proceso · muchos módulos · sin pegamento.",
+    "quickstart_eyebrow": "Inicio rápido",
+    "quickstart_heading": "Una app funcionando en cinco comandos.",
+    "quickstart_body_prefix": "Abre",
+    "quickstart_body_suffix": "con usuarios, panel y permisos ya configurados. Inicia sesión con la cuenta de administrador que crees y continúa desde ahí.",
+    "module_users_description": "Email + sesiones por cookie vía fastapi-users",
+    "module_dashboard_description": "Inicio autenticado con tarjetas de módulos",
+    "module_permissions_description": "Registro de permisos por módulo",
+    "cta_heading": "¿Listo para publicar módulos?",
+    "cta_body_authenticated": "Ve al panel o trabaja directamente sobre el framework.",
+    "cta_body_signup": "Crea una cuenta para la interfaz de administración, o trabaja directamente sobre el framework.",
+    "cta_body_signin": "Inicia sesión en la interfaz de administración, o trabaja directamente sobre el framework.",
+    "cta_github": "GitHub →"
   },
   "error": {
     "generic_title": "Error",
@@ -34,6 +50,7 @@
     "go_home": "Ir al inicio",
     "go_back": "Volver",
     "correlation_id_label": "Menciona este ID si contactas con soporte",
-    "correlation_id_copy": "Copiar ID de referencia"
+    "correlation_id_copy": "Copiar ID de referencia",
+    "head_title": "Error"
   }
 }

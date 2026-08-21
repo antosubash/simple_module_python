@@ -43,7 +43,8 @@
     "select_all_group": "Select all",
     "clear_group": "Clear",
     "head_title": "Edit Role",
-    "permissions_enabled": "permissions enabled"
+    "permissions_enabled": "permissions enabled",
+    "granted_summary": "{granted} of {total} granted"
   },
   "user_edit": {
     "title": "Permissions for {email}",

@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings ci-build-packages worker beat worker-docker
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings ci-check-untranslated ci-build-packages worker beat worker-docker
 
 # Install
 install:
@@ -93,7 +93,7 @@ loadtest:                   ## Run locust against a server already on $(LOCUST_H
 loadtest-memray:            ## Start uvicorn under memray, load-test, emit flamegraph
 	scripts/loadtest_memray.sh $(LOCUST_ARGS)
 
-lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings
+lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings ci-check-untranslated
 	uv run python scripts/check_metadata.py
 	uv run python scripts/check_readmes.py
 
@@ -134,6 +134,13 @@ ci-check-file-size:
 # names are declared as named constants rather than hardcoded string literals.
 ci-check-hardcoded-strings:
 	uv run python scripts/check_hardcoded_strings.py
+
+# Fail when a .tsx renders user-visible text as a literal instead of t(keys.…).
+# Shipping locales/en.json never proved a page actually read it: SM013-SM016
+# only compare catalogs to each other, so with i18n_supported_locales=["en"]
+# they never fire and tsc is happy with hardcoded English.
+ci-check-untranslated:
+	node scripts/check_untranslated_strings.mjs
 
 # Dry-run the release build: build sdists + wheels for every workspace member
 # the same way release.yml does. Catches packaging regressions at PR time

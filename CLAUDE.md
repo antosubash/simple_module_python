@@ -97,7 +97,7 @@ Standard mixins in `simple_module_db.mixins`: `AuditMixin`, `SoftDeleteMixin` (b
 - **Framework vs plugin coupling**: `SM009` is an error if `framework/*` directly imports from a plugin module. Framework code must not reach into `modules/`.
 - **Zod schemas with translated messages** must be constructed inside a hook (`useT()`) — never at module scope, or they freeze against the first render's locale.
 - **Locales**: ship `<package>/locales/<lang>.json` and declare in `ModuleBase.locale_dirs()` with the module's lowercase name as the namespace. `{"browse": {"title": "X"}}` flattens to `<namespace>.browse.title`. Pluralize with CLDR suffixes (`_one`, `_other`, ...).
-- **No user-visible string literals in `.tsx`.** Every rendered string — JSX text, `placeholder`, `aria-label`, `<Head title>`, `toast.*()`, confirm text — goes through `t(keys.<namespace>.…)` from `@simple-module-py/i18n`. Exempt: shell commands, env-var names, and JSON examples shown as literal `<code>`. In non-component modules (a `retry.ts` helper) import the non-hook `t` and call it *inside* the function, never at module scope, or it freezes against the boot locale.
+- **No user-visible string literals in `.tsx`** — enforced by `make ci-check-untranslated`, see § CI. Every rendered string — JSX text, `placeholder`, `aria-label`, `<Head title>`, `toast.*()`, confirm text — goes through `t(keys.<namespace>.…)` from `@simple-module-py/i18n`. Exempt: shell commands, env-var names, and JSON examples shown as literal `<code>`. In non-component modules (a `retry.ts` helper) import the non-hook `t` and call it *inside* the function, never at module scope, or it freezes against the boot locale.
 - **Menu labels**: set `label_key`/`group_key` on `MenuItem` next to `label`/`group`; group headers use the shared `ui.nav_groups.*` keys. Menus are translated server-side in `MenuRegistry.get_for_user(translate=…)`, and an unresolved key falls back to the literal `label`. See [docs/framework-conventions.md](docs/framework-conventions.md) § Shared props.
 - Regenerate `packages/i18n/src/{keys.generated,generated-resources}.ts` after touching any catalog — booting the host in development does it, and `t()` only accepts keys present there.
 - **Ty (type checker) false positives** from SQLModel: `unresolved-attribute`, `unsupported-operator`, `unknown-argument`, `no-matching-overload`, `invalid-argument-type` are all globally ignored in `pyproject.toml` because SQLModel declares fields with plain Python types while runtime instruments them as SQLAlchemy attributes. Do not re-enable these rules — real bugs surface in tests.
@@ -118,7 +118,11 @@ E2E tests live in `tests/e2e/` behind the `e2e` pytest marker and run against a 
 
 ## CI
 
-`.github/workflows/pr.yml` runs Python lint / typecheck / tests, JS lint / typecheck / tests, and the 300-line file-size check as parallel jobs; `make lint` locally runs the same checks serially. Branch protection requires the aggregate `pr-checks` job.
+`.github/workflows/pr.yml` runs Python lint / typecheck / tests, JS lint / typecheck / tests, the 300-line file-size check, and the untranslated-string check as parallel jobs; `make lint` locally runs the same checks serially. Branch protection requires the aggregate `pr-checks` job.
+
+`make ci-check-untranslated` (`scripts/check_untranslated_strings.mjs`) parses every `.tsx` and fails on user-visible text rendered as a literal — JSX text, a `title`/`placeholder`/`aria-label`-style attribute, or a `toast.*()`/`confirm()` argument — including copy hidden in `cond ? 'A' : 'B'`. It parses with `@babel/parser` rather than grepping, because no regex over JSX can tell `<p>Save</p>` from `Promise<void>`. It does **not** see strings passed through a variable or a config object (`const THEME = { mobileTitleLabel: 'Admin' }`), so those still need care.
+
+To exempt a genuinely technical literal: wrap it in `<code>`/`<pre>`, or mark the line `// i18n-exempt: <reason>`; `i18n-exempt-file: <reason>` in a file's first lines skips the whole file.
 
 ## Authoritative references
 

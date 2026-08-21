@@ -142,6 +142,7 @@ function AcceptInvite() {
       </form>
       {token && (
         <p className="mt-4 text-center font-mono text-[11px] text-muted-foreground">
+          {/* i18n-exempt: a truncated token echo for support, not user copy. */}
           token={token.slice(0, 16)}…
         </p>
       )}

@@ -85,6 +85,9 @@ jobs:
           cache: "npm"
       - run: make install-js
       - run: make ci-js-lint
+      # Catches user-visible text rendered as a literal instead of t(keys.…).
+      # Shipping a locales/en.json never proved a page actually read it.
+      - run: make ci-check-untranslated
 
   js-typecheck:
     name: JS typecheck

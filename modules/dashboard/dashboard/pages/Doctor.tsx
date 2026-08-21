@@ -90,7 +90,7 @@ function Doctor() {
               <RefreshCw className="h-3.5 w-3.5" /> {t(keys.dashboard.doctor.rerun)}
             </Button>
             <Button size="sm" className="gap-1.5">
-              <Terminal className="h-3.5 w-3.5" /> make doctor
+              <Terminal className="h-3.5 w-3.5" /> <code>make doctor</code>
             </Button>
           </>
         }

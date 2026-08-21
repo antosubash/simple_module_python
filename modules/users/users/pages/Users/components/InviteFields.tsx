@@ -27,6 +27,7 @@ export function InviteFields({ emails, onEmailsChange, count, mailerDelivers }: 
         autoComplete="off"
         // Pasting a column out of a spreadsheet is the actual use case, so
         // newlines have to work as separators alongside commas.
+        // i18n-exempt: example email addresses, not prose.
         placeholder={'teammate@example.com\nanother@example.com'}
         className="font-mono text-sm"
       />
