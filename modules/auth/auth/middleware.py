@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 
+from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from simple_module_db.listeners import current_user_id
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse
@@ -26,7 +27,10 @@ _FRAMEWORK_PUBLIC_PREFIXES = (
     "/i18n/",
 )
 _FRAMEWORK_PUBLIC_EXACT = ("/",)
-_SESSION_NEXT_KEY = "next"
+
+
+def _query_suffix(request: Request) -> str:
+    return f"?{request.url.query}" if request.url.query else ""
 
 
 class AuthMiddleware:
@@ -92,9 +96,19 @@ class AuthMiddleware:
             if path.startswith("/api/") or provider.is_bearer_request(request):
                 response = JSONResponse({"detail": "Not authenticated"}, status_code=401)
             else:
+                # Stash where they were heading so the login flow can return
+                # them there. Relative, not ``str(request.url)``: the value is
+                # replayed into a ``Location`` header, and an absolute URL is
+                # both needless and an open-redirect shape. ``next_url`` also
+                # goes to the provider — session-based providers ignore it,
+                # but a redirect-based one (OIDC) needs it in the auth URL.
                 session = scope.get("session", {})
-                session[_SESSION_NEXT_KEY] = str(request.url)
-                response = RedirectResponse(provider.get_login_url(request), status_code=302)
+                next_url = safe_next_or_none(request.url.path + _query_suffix(request))
+                if next_url is not None:
+                    session[SESSION_NEXT_KEY] = next_url
+                response = RedirectResponse(
+                    provider.get_login_url(request, next_url), status_code=302
+                )
             await response(scope, receive, send)
             return
 

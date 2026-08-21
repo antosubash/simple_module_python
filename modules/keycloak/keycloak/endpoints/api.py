@@ -7,6 +7,7 @@ import secrets
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException, Request
+from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from starlette.responses import RedirectResponse
 
 if TYPE_CHECKING:
@@ -19,7 +20,6 @@ _SESSION_OIDC_STATE = "keycloak_oidc_state"
 _SESSION_OIDC_NONCE = "keycloak_oidc_nonce"
 _SESSION_USER_CTX = "user_ctx"
 _SESSION_ID_TOKEN = "keycloak_id_token"
-_SESSION_NEXT = "next"
 
 
 def _get_settings(request: Request) -> KeycloakSettings:
@@ -88,5 +88,10 @@ async def oidc_callback(request: Request):
     request.session[_SESSION_ID_TOKEN] = id_token
 
     s = _get_settings(request)
-    next_url = request.session.pop(_SESSION_NEXT, None) or s.login_redirect_url
+    # Sanitised on the way out as well as in: this value lands in a
+    # Location header, and defence in depth costs one call.
+    next_url = (
+        safe_next_or_none(request.session.pop(SESSION_NEXT_KEY, None))
+        or s.login_redirect_url
+    )
     return RedirectResponse(next_url, status_code=303)

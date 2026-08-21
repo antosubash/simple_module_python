@@ -11,6 +11,8 @@ import html
 import importlib.resources
 from string import Template
 
+from simple_module_core.redirect_safety import safe_next
+
 _TEMPLATE = Template(
     (importlib.resources.files(__package__) / "templates" / "unlock.html").read_text(
         encoding="utf-8"
@@ -21,21 +23,11 @@ _DEFAULT_MESSAGE = "This site is not public yet. Enter the password to continue.
 _ERROR_BLOCK = '<p class="error" role="alert">{message}</p>'
 
 
-def safe_next(raw: str | None) -> str:
-    """Return ``raw`` if it is a same-site absolute path, else ``/``.
-
-    Rejects protocol-relative (``//host``) and backslash-prefixed (``/\\host``)
-    targets — browsers resolve both off-site — plus anything carrying CR/LF,
-    which could otherwise be smuggled into the redirect header. Without this
-    the gate would be an open redirect.
-    """
-    if not raw or not raw.startswith("/"):
-        return "/"
-    if raw.startswith(("//", "/\\")):
-        return "/"
-    if "\r" in raw or "\n" in raw:
-        return "/"
-    return raw
+# ``safe_next`` is imported, not defined here: the implementation moved to
+# ``simple_module_core.redirect_safety`` once AuthMiddleware needed the same
+# rules. Re-exported so existing ``site_lock.page.safe_next`` callers keep
+# working.
+__all__ = ["render_unlock_page", "safe_next"]
 
 
 def render_unlock_page(
