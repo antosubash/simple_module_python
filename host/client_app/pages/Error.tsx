@@ -3,46 +3,103 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { CopyableId } from '@simple-module-py/ui/components/CopyableId';
 import { ErrorScreen } from '@simple-module-py/ui/components/ErrorScreen';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import { Home, LifeBuoy } from 'lucide-react';
+import { Home, LifeBuoy, LogIn } from 'lucide-react';
 
 interface Props {
   status: number;
   message: string;
   correlation_id?: string;
+  /** Provider-specific login URL, when an auth provider is installed. Only
+   * used by the statuses where signing in is the actual remedy. */
+  login_url?: string | null;
 }
 
-function ErrorPage({ status, message, correlation_id }: Props) {
+type Accent = 'primary' | 'warning' | 'destructive';
+
+interface StatusCopy {
+  title: string;
+  description: string;
+  accent: Accent;
+}
+
+/** One row per status, rather than three parallel Record<number, …> maps —
+ * those drift the moment a status is added to one and missed in another. */
+function useStatusCopy(status: number): StatusCopy {
   const { t } = useT();
+  const e = keys.host.error;
 
-  const titles: Record<number, string> = {
-    403: t(keys.host.error.forbidden_title),
-    404: t(keys.host.error.not_found_title),
-    500: t(keys.host.error.server_error_title),
+  const table: Record<number, StatusCopy> = {
+    401: {
+      title: t(e.unauthorized_title),
+      description: t(e.unauthorized_description),
+      accent: 'warning',
+    },
+    403: {
+      title: t(e.forbidden_title),
+      description: t(e.forbidden_description),
+      accent: 'warning',
+    },
+    404: {
+      title: t(e.not_found_title),
+      description: t(e.not_found_description),
+      accent: 'primary',
+    },
+    419: {
+      title: t(e.session_expired_title),
+      description: t(e.session_expired_description),
+      accent: 'warning',
+    },
+    422: {
+      title: t(e.invalid_request_title),
+      description: t(e.invalid_request_description),
+      accent: 'warning',
+    },
+    429: {
+      title: t(e.rate_limited_title),
+      description: t(e.rate_limited_description),
+      accent: 'warning',
+    },
+    500: {
+      title: t(e.server_error_title),
+      description: t(e.server_error_description),
+      accent: 'destructive',
+    },
+    503: {
+      title: t(e.unavailable_title),
+      description: t(e.unavailable_description),
+      accent: 'destructive',
+    },
   };
 
-  const descriptions: Record<number, string> = {
-    403: t(keys.host.error.forbidden_description),
-    404: t(keys.host.error.not_found_description),
-    500: t(keys.host.error.server_error_description),
-  };
+  return (
+    table[status] ?? {
+      title: t(e.generic_title),
+      description: t(e.generic_description),
+      accent: 'primary',
+    }
+  );
+}
 
-  const accents: Record<number, 'primary' | 'warning' | 'destructive'> = {
-    403: 'warning',
-    404: 'primary',
-    500: 'destructive',
-  };
+/** Statuses where "sign in" is the remedy, not "go home". */
+const SIGN_IN_STATUSES = new Set([401, 419]);
 
-  const title = titles[status] || t(keys.host.error.generic_title);
-  const description = message || descriptions[status] || t(keys.host.error.generic_description);
+function ErrorPage({ status, message, correlation_id, login_url }: Props) {
+  const { t } = useT();
+  const copy = useStatusCopy(status);
+
+  // A server-supplied message wins over the canned description — it is the
+  // specific reason, where the table only knows the status class.
+  const description = message || copy.description;
+  const showSignIn = SIGN_IN_STATUSES.has(status) && Boolean(login_url);
 
   return (
     <>
-      <Head title="Error" />
+      <Head title={copy.title} />
       <ErrorScreen
         hero={status}
-        title={title}
+        title={copy.title}
         description={description}
-        accent={accents[status]}
+        accent={copy.accent}
         details={
           correlation_id ? (
             <div className="mt-5 flex flex-col items-center gap-1.5">
@@ -58,7 +115,15 @@ function ErrorPage({ status, message, correlation_id }: Props) {
           ) : undefined
         }
       >
-        <Button asChild className="gap-1.5">
+        {showSignIn && (
+          <Button asChild className="gap-1.5">
+            <Link href={login_url as string}>
+              <LogIn className="h-4 w-4" />
+              {t(keys.host.error.sign_in)}
+            </Link>
+          </Button>
+        )}
+        <Button asChild variant={showSignIn ? 'outline' : 'default'} className="gap-1.5">
           <Link href="/">
             <Home className="h-4 w-4" />
             {t(keys.host.error.go_home)}

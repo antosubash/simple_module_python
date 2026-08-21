@@ -22,7 +22,30 @@ from simple_module_hosting._inertia_shared import _INERTIA_HEADER
 
 logger = logging.getLogger(__name__)
 
-_INERTIA_ERROR_STATUSES = frozenset({403, 404, 500})
+_INERTIA_ERROR_STATUSES = frozenset({401, 403, 404, 419, 422, 429, 500, 503})
+
+# Statuses whose remedy is "sign in", so the page offers that as its primary
+# action rather than sending the visitor to the landing page.
+_SIGN_IN_STATUSES = frozenset({401, 419})
+
+
+def _login_url(request: Request) -> str | None:
+    """Best-effort login URL for the sign-in statuses.
+
+    Read off ``app.state`` rather than imported: the auth provider is a plugin
+    concern and ``SM009`` forbids framework code importing ``modules/*``. An
+    app with no auth provider installed simply gets no sign-in button.
+    """
+    auth_state = getattr(request.app.state, "auth", None)
+    provider = getattr(auth_state, "auth_provider", None)
+    if provider is None:
+        return None
+    try:
+        return provider.get_login_url(request)
+    except Exception:
+        # A broken provider must not turn an error page into a second error.
+        logger.exception("Auth provider failed to supply a login URL")
+        return None
 
 
 def _explicit_accept_q(accept: str, media_type: str) -> float | None:
@@ -86,8 +109,11 @@ def _wants_json(request: Request) -> bool:
 
 
 async def render_error_page(request: Request, status_code: int, message: str) -> Response:
-    config: InertiaConfig = request.app.state.sm.inertia_config
     try:
+        # Inside the try, not above it: this lookup is exactly the kind of
+        # thing that is missing when the app is half-built, and an error page
+        # that raises while reporting an error leaves the caller with nothing.
+        config: InertiaConfig = request.app.state.sm.inertia_config
         inertia = Inertia(request, config)
         # This builds its own Inertia instead of going through get_inertia, so
         # the share step has to be repeated here. Without it the error page
@@ -106,6 +132,9 @@ async def render_error_page(request: Request, status_code: int, message: str) ->
                 "status": status_code,
                 "message": message,
                 "correlation_id": getattr(request.state, "correlation_id", "") or "",
+                "login_url": (
+                    _login_url(request) if status_code in _SIGN_IN_STATUSES else None
+                ),
             },
         )
         response.status_code = status_code

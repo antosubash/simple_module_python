@@ -4,13 +4,19 @@ CLAUDE.md spells out the pipeline:
 
     CorrelationId → RequestLogging → GZip → Security → Session → <module>
                   → Tenant (opt-in) → Locale → InertiaLayoutData
-                  → InertiaCache → CommitBeforeResponse → app
+                  → InertiaCache → Maintenance → CommitBeforeResponse → app
 
 InertiaCache sits directly inside InertiaLayoutData, the middleware that puts
 this user's auth block, permissions and menus into every Inertia payload. Being
 inside it means its send-wrapper sees the response before anything else can
 read the headers, and pairing the two keeps "what makes the payload per-user"
 and "what stops the payload being cached" from drifting apart.
+
+Maintenance sits inside InertiaCache rather than outside it. Its 503 is an
+Inertia payload carrying the same per-user auth block and menus, and it is
+produced by short-circuiting — so if it sat outside, that payload would never
+pass through the cache guard and would ship storable, which is the exact bug
+InertiaCache exists to prevent.
 
 Tenant/Locale must see ``request.state.user`` set by AuthMiddleware so
 DB queries get filtered correctly; CorrelationId must wrap everything so
@@ -19,6 +25,12 @@ anonymous visitors itself, and if Auth ran first they would be redirected to
 the login page — revealing that a login form exists on a site that is meant
 to be fully hidden. That inversion breaks the feature without failing any
 site_lock unit test, which is why the order is pinned here.
+
+Maintenance sits after InertiaLayoutData because its 503 page renders
+through Inertia and needs the shared props (auth, menus, i18n) — placed any
+further out it would render bare, with no layout and untranslated copy. It is
+also after Auth, which is what tells it whether the caller is an admin allowed
+to pass through and switch it back off.
 
 CommitBeforeResponse is innermost so its send-wrapper is the first to see
 ``http.response.start`` — that is what makes the request's DB work commit
@@ -52,6 +64,7 @@ _EXPECTED_MULTI_TENANT = (
     "LocaleMiddleware",
     "InertiaLayoutDataMiddleware",
     "InertiaCacheMiddleware",
+    "MaintenanceMiddleware",
     "CommitBeforeResponseMiddleware",
 )
 
@@ -66,6 +79,7 @@ _EXPECTED_SINGLE_TENANT = (
     "LocaleMiddleware",
     "InertiaLayoutDataMiddleware",
     "InertiaCacheMiddleware",
+    "MaintenanceMiddleware",
     "CommitBeforeResponseMiddleware",
 )
 

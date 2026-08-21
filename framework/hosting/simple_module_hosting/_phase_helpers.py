@@ -37,6 +37,7 @@ from simple_module_hosting._host_services import _HostServices
 from simple_module_hosting._inertia_cache import InertiaCacheMiddleware
 from simple_module_hosting.host_settings import HostSettings
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
+from simple_module_hosting.maintenance import MaintenanceMiddleware
 from simple_module_hosting.middleware import (
     CorrelationIdMiddleware,
     InertiaLayoutDataMiddleware,
@@ -104,12 +105,21 @@ def install_middleware(
     Order matters: last added = first executed. Execution order:
     (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging
     → Security → Session → [module] → (Tenant, if multi_tenant) → Locale
-    → Inertia → InertiaCache → CommitBeforeResponse.
+    → Inertia → InertiaCache → Maintenance → CommitBeforeResponse.
     """
     # Added first, so it is innermost and its send-wrapper is the first to see
     # the response: the request's DB work commits before any byte reaches the
     # client, instead of in get_db's post-response exit code (GH #257).
     app.add_middleware(CommitBeforeResponseMiddleware)
+    # Inside InertiaCache, so its short-circuit is still governed by it. The
+    # maintenance 503 renders through Inertia and carries this user's auth
+    # block and menus like any other payload; short-circuiting *outside* the
+    # cache guard would ship exactly the per-user payload GH #272 exists to
+    # keep out of caches. Added before Inertia so it *executes* after it: the
+    # page needs the shared props (auth, menus, i18n) to render with a layout,
+    # and auth + locale — both further out — to know who is asking and in which
+    # language to answer.
+    app.add_middleware(MaintenanceMiddleware)
     # Paired with InertiaLayoutDataMiddleware below, which is what puts this
     # user's auth, permissions and menus into every Inertia payload: this one
     # makes sure the payload that results is never stored where a page request
