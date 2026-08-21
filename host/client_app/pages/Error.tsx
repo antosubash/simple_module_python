@@ -12,6 +12,8 @@ interface Props {
   /** Provider-specific login URL, when an auth provider is installed. Only
    * used by the statuses where signing in is the actual remedy. */
   login_url?: string | null;
+  /** A planned outage, not an incident — set by MaintenanceMiddleware. */
+  maintenance?: boolean;
 }
 
 type Accent = 'primary' | 'warning' | 'destructive';
@@ -24,9 +26,19 @@ interface StatusCopy {
 
 /** One row per status, rather than three parallel Record<number, …> maps —
  * those drift the moment a status is added to one and missed in another. */
-function useStatusCopy(status: number): StatusCopy {
+function useStatusCopy(status: number, maintenance: boolean): StatusCopy {
   const { t } = useT();
   const e = keys.host.error;
+
+  if (maintenance) {
+    // A planned outage. Same 503, but "we're doing this on purpose and it
+    // will end" is a different message from "something is broken".
+    return {
+      title: t(e.maintenance_title),
+      description: t(e.maintenance_description),
+      accent: 'warning',
+    };
+  }
 
   const table: Record<number, StatusCopy> = {
     401: {
@@ -83,9 +95,9 @@ function useStatusCopy(status: number): StatusCopy {
 /** Statuses where "sign in" is the remedy, not "go home". */
 const SIGN_IN_STATUSES = new Set([401, 419]);
 
-function ErrorPage({ status, message, correlation_id, login_url }: Props) {
+function ErrorPage({ status, message, correlation_id, login_url, maintenance }: Props) {
   const { t } = useT();
-  const copy = useStatusCopy(status);
+  const copy = useStatusCopy(status, Boolean(maintenance));
 
   // A server-supplied message wins over the canned description — it is the
   // specific reason, where the table only knows the status class.

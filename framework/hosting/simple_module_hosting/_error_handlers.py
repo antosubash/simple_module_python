@@ -133,6 +133,9 @@ async def render_error_page(request: Request, status_code: int, message: str) ->
                 "message": message,
                 "correlation_id": getattr(request.state, "correlation_id", "") or "",
                 "login_url": (_login_url(request) if status_code in _SIGN_IN_STATUSES else None),
+                # Set by MaintenanceMiddleware. A planned outage reads very
+                # differently from the same status code arriving unbidden.
+                "maintenance": bool(getattr(request.state, "maintenance", False)),
             },
         )
         response.status_code = status_code

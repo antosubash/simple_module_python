@@ -53,6 +53,33 @@ class TestStatusCopyParity:
         assert status in _INERTIA_ERROR_STATUSES
 
 
+class TestErrorCopyIsReachable:
+    """Every host.error.* string must actually be rendered by something.
+
+    Adding a status's copy and forgetting to wire it leaves a key that no
+    code path can reach — the page silently shows the generic message
+    instead. That is how ``maintenance_title`` was dead on arrival: the 503
+    branch existed, but nothing ever selected the maintenance wording.
+    """
+
+    def test_every_error_key_is_referenced(self) -> None:
+        import json
+
+        locales = _ERROR_PAGE.parents[3] / "host" / "locales" / "en.json"
+        catalog = json.loads(locales.read_text(encoding="utf-8"))["error"]
+        source = _ERROR_PAGE.read_text(encoding="utf-8")
+
+        # Two spellings in the page: the `keys.host.error.x` path, and the
+        # `e.x` alias the status table uses.
+        unreferenced = sorted(
+            k for k in catalog if f"e.{k}" not in source and f"keys.host.error.{k}" not in source
+        )
+        assert not unreferenced, (
+            "host.error keys with no reference in Error.tsx — either render "
+            f"them or delete them: {unreferenced}"
+        )
+
+
 class _StubRequest:
     def __init__(self, provider: object | None) -> None:
         class _AuthState:

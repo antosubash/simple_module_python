@@ -59,6 +59,11 @@ class MaintenanceMiddleware:
             await self.app(scope, receive, send)
             return
 
+        # Distinguishes "we took the site down on purpose" from the generic
+        # 503 the page would otherwise show. The page needs the flag because
+        # the operator's message is optional — without it there would be
+        # nothing to say beyond "service unavailable".
+        request.state.maintenance = True
         message = getattr(settings, "maintenance_message", "") or ""
         response = await self._render(request, message)
         await response(scope, receive, send)
