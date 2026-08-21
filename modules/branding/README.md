@@ -43,10 +43,9 @@ modules to be installed too.
 
 Programmatically, the current branding is available on every page through the
 `branding` Inertia shared prop (`appName`, `primaryColor`, `designPack`,
-`logoUrl`, `logoDarkUrl`, `faviconUrl`, `banner`, `footer`). `banner` and
-`footer` are `null` when unconfigured, which is what makes the frontend fall
-back to rendering nothing and to the framework footer respectively. For a dark
-surface use
+`logoUrl`, `logoDarkUrl`, `faviconUrl`, `banner`). `banner` is `null` when
+unconfigured, which makes the frontend render nothing. Footer content is owned
+by the framework site layouts rather than branding. For a dark surface use
 `darkSurfaceLogo(branding)` from `@simple-module-py/ui/lib/brand`, which applies
 the `logoDarkUrl → logoUrl` fallback in one place.
 
@@ -78,12 +77,6 @@ the `logoDarkUrl → logoUrl` fallback in one place.
   ever sets *appearance* (`PRESET_FIELDS` — primary colour, design pack); it
   can never overwrite the app name, an uploaded logo or a live banner, and
   `BrandingPreset` rejects any other field at construction.
-- **Configurable footer.** Tagline, copyright owner, caption, up to 6 columns
-  of 8 links, and up to 8 social links (`PUT /api/branding/footer`, whole-object
-  replace). Link URLs are restricted to http(s) or a single-leading-slash app
-  path — `javascript:` and `data:` are refused, and `//host` is treated as the
-  off-site absolute URL it is rather than a path. With nothing configured the
-  framework's built-in footer renders unchanged.
 - **Dark-background logo.** The sidebar and mobile bar sit on a near-black
   surface in every theme, while the sign-in card and public page are light — so
   a single logo cannot read on both. Uploading a *Logo (dark backgrounds)*

@@ -61,8 +61,6 @@ def test_branding_payload_unset() -> None:
         "faviconUrl": None,
         # None, not an empty dict — no message means render no bar at all.
         "banner": None,
-        # None keeps the framework's built-in footer.
-        "footer": None,
     }
 
 
@@ -104,6 +102,14 @@ async def test_get_branding_returns_defaults(authenticated_client: httpx.AsyncCl
     body = resp.json()
     assert body["app_name"] == "SimpleModule"
     assert body["logo_url"] is None
+
+
+@pytest.mark.parametrize("method", ["GET", "PUT"])
+async def test_footer_routes_are_not_part_of_branding(
+    authenticated_client: httpx.AsyncClient, method: str
+) -> None:
+    response = await authenticated_client.request(method, "/api/branding/footer", json={})
+    assert response.status_code == 404
 
 
 async def test_update_persists_and_hot_swaps(app, authenticated_client: httpx.AsyncClient) -> None:
