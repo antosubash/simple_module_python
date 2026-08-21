@@ -42,12 +42,12 @@ function Create({ known_keys }: Props) {
 
   return (
     <>
-      <Head title="Create Setting" />
+      <Head title={t(keys.settings.create.head_title)} />
       <PageShell
         title={t(keys.settings.create.title)}
         actions={
           <Button asChild variant="outline">
-            <Link href={ROUTES.browse}>Cancel</Link>
+            <Link href={ROUTES.browse}>{t(keys.settings.form.cancel_button)}</Link>
           </Button>
         }
       >
@@ -146,7 +146,7 @@ function Create({ known_keys }: Props) {
 
               <div className="sm:col-span-2 flex justify-end gap-2">
                 <Button asChild variant="outline">
-                  <Link href={ROUTES.browse}>Cancel</Link>
+                  <Link href={ROUTES.browse}>{t(keys.settings.form.cancel_button)}</Link>
                 </Button>
                 <Button type="submit" disabled={processing}>
                   {t(keys.settings.create.submit_button)}

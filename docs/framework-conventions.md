@@ -232,6 +232,22 @@ way.
   Pick a band by audience, leave gaps of ~10 between siblings, and put module-specific user-dropdown items in the `900+` range (Profile=990, Logout=999).
 
   Sidebar items can also set `group="<Label>"` on the `MenuItem` to render under a group header. The frontend clusters consecutive items with the same group label and prints the label as a section heading; the group's position is set by the lowest-`order` item that joins it. Built-in groups are `Content`, `Administration`, and `System`. Items with no `group` (the default) render flat — Dashboard intentionally stays ungrouped above the headed groups.
+
+  **Translating menu labels.** Set `label_key` (and `group_key`) alongside `label`/`group` to name a catalog entry:
+
+  ```python
+  MenuItem(
+      label="Users",  # fallback, still required
+      label_key="users.nav.users",  # module's own namespace
+      url="/users/admin",
+      group="Administration",
+      group_key="ui.nav_groups.administration",  # shared vocabulary
+  )
+  ```
+
+  Menus are translated **on the server**, in `MenuRegistry.get_for_user(translate=…)`, so the Inertia payload carries finished text and every render site (sidebar, topbar, command palette) keeps reading `item.label`. Two consequences worth knowing: an admin-audience module's labels don't need to be in the anonymous catalog snapshot to render, and a key that resolves to nothing falls back to `label` — a missing translation degrades to English, never to a raw dotted key on screen. Both fields are optional, so modules written before them keep working unchanged.
+
+  Group headers are shared across modules, so they live in the `ui` namespace (`ui.nav_groups.administration|system|content`) rather than each module inventing its own key — otherwise one module's "Administration" could translate differently from another's and split a single header in two.
 - `i18n` — active locale and translation bundle.
 
 The framework does not know the shape of `auth.user`. The `auth` module registers a `principal_serializer: Callable[[UserContext], dict]` on `app.state.principal_serializer` during `register_settings(app)`; the middleware calls it with `request.state.user` to build the `auth.user` payload. Without a registered serializer, `auth.user` is `None` even when a user is authenticated.

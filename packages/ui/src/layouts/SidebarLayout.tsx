@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import {
   Tooltip,
@@ -76,6 +77,7 @@ export function SidebarLayout(props: SidebarLayoutProps) {
 }
 
 function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: SidebarLayoutProps) {
+  const { t } = useT();
   const page = usePage<{ props: SharedProps }>();
   const { auth, menus, branding } = page.props as unknown as SharedProps;
   const currentUrl = page.url;
@@ -131,7 +133,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
             variant="ghost"
             size="icon-sm"
             onClick={() => setSidebarOpen(true)}
-            aria-label="Open sidebar"
+            aria-label={t(keys.ui.sidebar.open)}
             className="text-sidebar-icon hover:text-white hover:bg-white/10"
           >
             <svg
@@ -168,7 +170,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
         {sidebarOpen && (
           <button
             type="button"
-            aria-label="Close sidebar"
+            aria-label={t(keys.ui.sidebar.close)}
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden cursor-default"
             onClick={closeSidebar}
           />
@@ -192,7 +194,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
               variant="ghost"
               size="icon-sm"
               onClick={closeSidebar}
-              aria-label="Close sidebar"
+              aria-label={t(keys.ui.sidebar.close)}
               className="lg:hidden text-sidebar-icon-muted hover:text-white hover:bg-white/10"
             >
               <svg

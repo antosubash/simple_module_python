@@ -1,3 +1,5 @@
+import { keys, useT } from '@simple-module-py/i18n';
+
 export interface Role {
   id: string;
   name: string;
@@ -11,12 +13,17 @@ interface Props {
 }
 
 /** Multi-select role chips, shared by both modes of the add-people form. */
-export function RolePicker({ roles, selected, onToggle, label = 'Roles' }: Props) {
+export function RolePicker({ roles, selected, onToggle, label }: Props) {
+  const { t } = useT();
   if (roles.length === 0) return null;
+
+  // Defaulted here rather than in the signature: t() cannot be called at
+  // module scope, and `label=""` must still mean "no label", not "fall back".
+  const resolvedLabel = label ?? t(keys.users.role_picker.default_label);
 
   return (
     <div className="space-y-2">
-      <span className="block text-sm font-medium text-muted-foreground">{label}</span>
+      <span className="block text-sm font-medium text-muted-foreground">{resolvedLabel}</span>
       <div className="flex flex-wrap gap-1.5">
         {roles.map((role) => {
           const active = selected.includes(role.name);

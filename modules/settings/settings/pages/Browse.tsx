@@ -48,10 +48,10 @@ function Browse({ settings }: Props) {
 
   return (
     <>
-      <Head title="Settings" />
+      <Head title={t(keys.settings.browse.title)} />
       <PageShell
         title={t(keys.settings.browse.title)}
-        description="Workspace, account, mailer, and module configuration."
+        description={t(keys.settings.browse.description)}
         actions={
           <>
             <Button asChild variant="outline" className="gap-1.5">

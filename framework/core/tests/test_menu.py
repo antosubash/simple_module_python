@@ -163,3 +163,62 @@ class TestPermissionFiltering:
         reg = MenuRegistry()
         reg.add(MenuItem(label="Settings", url="/settings/", permissions=["settings.view"]))
         assert reg.get_for_user(is_authenticated=True)["sidebar"] == []
+
+
+_CATALOG = {
+    "users.nav.users": "Usuarios",
+    "ui.nav_groups.administration": "Administración",
+}
+
+
+class TestMenuLabelTranslation:
+    """Label/group keys resolve server-side so every render site stays dumb."""
+
+    def _translate(self, key: str) -> str:
+        # Mirrors Translator.t(), which echoes the key back when it is missing.
+        return _CATALOG.get(key, key)
+
+    async def test_keys_are_translated(self):
+        reg = MenuRegistry()
+        reg.add(
+            MenuItem(
+                label="Users",
+                url="/users/admin",
+                label_key="users.nav.users",
+                group="Administration",
+                group_key="ui.nav_groups.administration",
+            )
+        )
+        item = reg.get_for_user(is_authenticated=True, translate=self._translate)["sidebar"][0]
+        assert item["label"] == "Usuarios"
+        assert item["group"] == "Administración"
+
+    async def test_missing_key_falls_back_to_the_literal_label(self):
+        """An unresolved key must not put a raw dotted key on screen."""
+        reg = MenuRegistry()
+        reg.add(
+            MenuItem(
+                label="Reports",
+                url="/reports",
+                label_key="reports.nav.absent",
+                group="Ops",
+                group_key="ui.nav_groups.absent",
+            )
+        )
+        item = reg.get_for_user(is_authenticated=True, translate=self._translate)["sidebar"][0]
+        assert item["label"] == "Reports"
+        assert item["group"] == "Ops"
+
+    async def test_items_without_keys_ship_their_literal_label(self):
+        """Third-party modules predating label_key keep working unchanged."""
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Legacy", url="/legacy", group="Tools"))
+        item = reg.get_for_user(is_authenticated=True, translate=self._translate)["sidebar"][0]
+        assert item["label"] == "Legacy"
+        assert item["group"] == "Tools"
+
+    async def test_no_translator_ships_literal_labels(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Users", url="/users/admin", label_key="users.nav.users"))
+        item = reg.get_for_user(is_authenticated=True)["sidebar"][0]
+        assert item["label"] == "Users"

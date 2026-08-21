@@ -1,6 +1,8 @@
 // Frontend mirror of background_tasks/constants.py.
 // Kept small and hand-maintained — the backend file is the source of truth.
 
+import { keys } from '@simple-module-py/i18n';
+
 export const API_BASE = '/api/background_tasks/admin';
 export const VIEW_BASE = '/admin/background-tasks';
 
@@ -58,6 +60,21 @@ export const STATUS_BADGE_VARIANT: Record<TaskStatus, 'secondary' | 'destructive
   [TASK_STATUS.REVOKED]: 'outline',
   [TASK_STATUS.RETRYING]: 'outline',
 };
+
+/**
+ * Catalog key per status. The label used to be the raw status string with its
+ * first letter capitalised, which cannot be translated — and capitalisation is
+ * not a universal way to make a word into a label anyway.
+ */
+export const STATUS_LABEL_KEY = {
+  [TASK_STATUS.PENDING]: keys.background_tasks.status.pending,
+  [TASK_STATUS.RUNNING]: keys.background_tasks.status.running,
+  [TASK_STATUS.SUCCESS]: keys.background_tasks.status.success,
+  [TASK_STATUS.FAILED]: keys.background_tasks.status.failed,
+  [TASK_STATUS.STUCK]: keys.background_tasks.status.stuck,
+  [TASK_STATUS.REVOKED]: keys.background_tasks.status.revoked,
+  [TASK_STATUS.RETRYING]: keys.background_tasks.status.retrying,
+} as const;
 
 export const STATUS_ORDER: TaskStatus[] = [
   TASK_STATUS.PENDING,

@@ -37,7 +37,7 @@ from simple_module_hosting._phase_helpers import (
 )
 from simple_module_hosting._registrations import run_module_registrations
 from simple_module_hosting.health import router as health_router
-from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types
+from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types_for_modules
 from simple_module_hosting.migrations import check_migrations
 from simple_module_hosting.settings import Settings
 from simple_module_hosting.static_files import PrecompressedStaticFiles
@@ -107,7 +107,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Production: any bad module (import error, missing meta, wrong base
     # class) fails the boot immediately with a clear message — better than
     # silently shipping a partial app. Dev keeps the lenient default.
-    modules = discover_modules(
+    installed_modules = discover_modules(
         enabled=settings.modules_enabled,
         strict=not settings.is_development,
     )
@@ -116,7 +116,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Strict outside development: diagnostics don't run there, so an
     # unrecognised name would otherwise mount both providers unreported.
     modules = select_auth_provider(
-        modules, settings.auth_provider, strict=not settings.is_development
+        installed_modules, settings.auth_provider, strict=not settings.is_development
     )
     modules = topological_sort(modules)
     logger.info(
@@ -154,7 +154,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except Exception:
             logger.exception("Failed to write module pages manifest — frontend may miss pages")
 
-        emit_frontend_types(i18n_registry, _PROJECT_ROOT)
+        emit_frontend_types_for_modules(settings, installed_modules, _PROJECT_ROOT)
 
     # ── Phase 3: Create FastAPI app ────────────────────────
     menu_registry = MenuRegistry()

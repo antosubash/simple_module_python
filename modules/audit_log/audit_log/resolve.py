@@ -16,6 +16,7 @@ Neither is stored. The audit row keeps the id it recorded.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from typing import Any
 
 from simple_module_core.audit_links import AuditLinkRegistry
@@ -90,14 +91,27 @@ def actor_link(registry: AuditLinkRegistry, user_id: str) -> str | None:
     return link.url_for(user_id) if link else None
 
 
-def entity_link(registry: AuditLinkRegistry, entity_type: str, entity_id: str) -> dict[str, Any]:
+def entity_link(
+    registry: AuditLinkRegistry,
+    entity_type: str,
+    entity_id: str,
+    translate: Callable[[str], str] | None = None,
+) -> dict[str, Any]:
     """Return ``{"url", "label"}`` for one entity reference.
 
     ``url`` is ``None`` when no module claims this table — the id still
     renders, just without a link, which is the correct outcome for tables that
     have no screen of their own (join rows, stored files).
+
+    ``translate`` resolves the link's ``label_key``; an unresolved key (the
+    Translator echoes it back) keeps the literal ``label``.
     """
     link = registry.get(entity_type)
     if link is None:
         return {"url": None, "label": entity_type}
-    return {"url": link.url_for(entity_id), "label": link.label or entity_type}
+    label = link.label or entity_type
+    if link.label_key and translate is not None:
+        translated = translate(link.label_key)
+        if translated != link.label_key:
+            label = translated
+    return {"url": link.url_for(entity_id), "label": label}

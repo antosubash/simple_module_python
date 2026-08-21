@@ -122,6 +122,7 @@ class UsersModule(ModuleBase):
                 entity_type=User.__name__,
                 url_template=f"{_URL_USERS_ADMIN}{{id}}",
                 label="User",
+                label_key="users.audit.user",
             )
         )
 
@@ -130,18 +131,21 @@ class UsersModule(ModuleBase):
         registry.add(
             MenuItem(
                 label="Users",
+                label_key="users.nav.users",
                 url=_URL_USERS_ADMIN,
                 icon=_ICON_USERS,
                 order=100,
                 section=MenuSection.ADMIN_SIDEBAR,
                 roles=[ADMIN_ROLE_NAME],
                 group="Access",
+                group_key="ui.nav_groups.access",
             )
         )
         # Self-service: profile + logout live in the user dropdown.
         registry.add(
             MenuItem(
                 label="Profile",
+                label_key="users.nav.profile",
                 url=_URL_USERS_ME,
                 icon=_ICON_USER,
                 order=990,
@@ -151,6 +155,7 @@ class UsersModule(ModuleBase):
         registry.add(
             MenuItem(
                 label="Logout",
+                label_key="users.nav.logout",
                 url=_URL_USERS_LOGOUT,
                 icon=_ICON_LOG_OUT,
                 order=999,

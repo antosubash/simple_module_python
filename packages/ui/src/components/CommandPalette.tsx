@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import {
   CommandDialog,
   CommandEmpty,
@@ -33,6 +34,7 @@ function groupOf(item: MenuItem): string {
  * dropdown.
  */
 export function CommandPalette({ navItems, accountItems }: CommandPaletteProps) {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -80,19 +82,19 @@ export function CommandPalette({ navItems, accountItems }: CommandPaletteProps) 
         className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
       >
         <Search className="size-3.5" aria-hidden="true" />
-        <span>Search</span>
+        <span>{t(keys.ui.command_palette.trigger)}</span>
         <kbd className="ml-1 font-mono text-[10px] tracking-wide opacity-70">⌘K</kbd>
       </button>
 
       <CommandDialog
         open={open}
         onOpenChange={setOpen}
-        title="Search"
-        description="Jump to any page you have access to."
+        title={t(keys.ui.command_palette.title)}
+        description={t(keys.ui.command_palette.description)}
       >
-        <CommandInput placeholder="Jump to…" />
+        <CommandInput placeholder={t(keys.ui.command_palette.placeholder)} />
         <CommandList>
-          <CommandEmpty>Nothing matches that.</CommandEmpty>
+          <CommandEmpty>{t(keys.ui.command_palette.empty)}</CommandEmpty>
           {Object.entries(groups).map(([group, items]) => (
             <CommandGroup key={group} heading={group}>
               {items.map((item) => (

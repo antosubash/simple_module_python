@@ -1,4 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
@@ -21,11 +22,11 @@ import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { Search, ServerCog } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { ExecutionRow, statusLabel } from './components/ExecutionRow';
+import { ExecutionRow } from './components/ExecutionRow';
 import { type StatusCounts, StatusStrip } from './components/StatusStrip';
 import { TasksEmptyRow, type WorkerPresence } from './components/TasksEmpty';
 import { WorkerHealthBanner } from './components/WorkerHealthBanner';
-import { STATUS_ORDER, TASK_STATUS, VIEW_BASE } from './constants';
+import { STATUS_LABEL_KEY, STATUS_ORDER, TASK_STATUS, VIEW_BASE } from './constants';
 import { type Execution, retryExecution } from './retry';
 
 interface Pagination {
@@ -65,6 +66,7 @@ function Index() {
     worker_presence: workerPresence,
   } = usePage<{ props: Props }>().props as unknown as Props;
 
+  const { t } = useT();
   const { can } = usePermissions();
   const canRetry = can('background_tasks.manage');
 
@@ -122,10 +124,10 @@ function Index() {
 
   return (
     <>
-      <Head title="Background Tasks" />
+      <Head title={t(keys.background_tasks.index.title)} />
       <PageShell
-        title="Background Tasks"
-        description="Monitor task executions and retry failed or stuck jobs."
+        title={t(keys.background_tasks.index.title)}
+        description={t(keys.background_tasks.index.description)}
       >
         <StatusStrip
           counts={statusCounts ?? {}}
@@ -143,7 +145,7 @@ function Index() {
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
-              placeholder="Search by task name…"
+              placeholder={t(keys.background_tasks.index.search_placeholder)}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -155,13 +157,15 @@ function Index() {
               onValueChange={(v) => pushFilters({ status: v, task_name: search }, 1)}
             >
               <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Status" />
+                <SelectValue placeholder={t(keys.background_tasks.filters.status_label)} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={STATUS_ALL}>All statuses</SelectItem>
+                <SelectItem value={STATUS_ALL}>
+                  {t(keys.background_tasks.filters.status_all)}
+                </SelectItem>
                 {STATUS_ORDER.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {statusLabel(s)}
+                    {t(STATUS_LABEL_KEY[s])}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -169,7 +173,7 @@ function Index() {
             <Button variant="outline" asChild>
               <Link href={`${VIEW_BASE}/workers`}>
                 <ServerCog className="mr-2 size-4" />
-                Workers
+                {t(keys.background_tasks.index.workers_button)}
               </Link>
             </Button>
           </div>
@@ -179,13 +183,23 @@ function Index() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Task</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="hidden md:table-cell">Queue</TableHead>
-                <TableHead className="hidden lg:table-cell">Queued</TableHead>
-                <TableHead className="hidden sm:table-cell">Duration</TableHead>
-                <TableHead className="hidden xl:table-cell">Worker</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t(keys.background_tasks.table.task)}</TableHead>
+                <TableHead>{t(keys.background_tasks.table.status)}</TableHead>
+                <TableHead className="hidden md:table-cell">
+                  {t(keys.background_tasks.table.queue)}
+                </TableHead>
+                <TableHead className="hidden lg:table-cell">
+                  {t(keys.background_tasks.table.queued_at)}
+                </TableHead>
+                <TableHead className="hidden sm:table-cell">
+                  {t(keys.background_tasks.table.duration)}
+                </TableHead>
+                <TableHead className="hidden xl:table-cell">
+                  {t(keys.background_tasks.table.worker)}
+                </TableHead>
+                <TableHead className="text-right">
+                  {t(keys.background_tasks.table.actions)}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -214,10 +228,13 @@ function Index() {
                 pushFilters({ status: statusValue, task_name: search }, pagination.page - 1)
               }
             >
-              Previous
+              {t(keys.background_tasks.index.previous)}
             </Button>
             <span className="text-sm text-muted-foreground">
-              Page {pagination.page} of {totalPages}
+              {t(keys.background_tasks.index.page_of, {
+                page: pagination.page,
+                total: totalPages,
+              })}
             </span>
             <Button
               variant="outline"
@@ -227,7 +244,7 @@ function Index() {
                 pushFilters({ status: statusValue, task_name: search }, pagination.page + 1)
               }
             >
-              Next
+              {t(keys.background_tasks.index.next)}
             </Button>
           </div>
         )}

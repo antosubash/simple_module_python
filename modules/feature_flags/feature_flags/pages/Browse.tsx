@@ -100,7 +100,7 @@ function Browse() {
 
   return (
     <>
-      <Head title="Feature Flags" />
+      <Head title={t(keys.feature_flags.browse.title)} />
       <PageShell
         title={t(keys.feature_flags.browse.title)}
         description={t(keys.feature_flags.browse.description)}

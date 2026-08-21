@@ -1,3 +1,4 @@
+import { keys, useT } from '@simple-module-py/i18n';
 import { CopyableId } from '@simple-module-py/ui/components/CopyableId';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AlertCircle, CheckCircle2, LinkIcon } from 'lucide-react';
@@ -24,6 +25,7 @@ interface Props {
  * live token on screen.
  */
 export function InviteResults({ results, onDismiss }: Props) {
+  const { t } = useT();
   if (results.length === 0) return null;
 
   const sent = results.filter((r) => r.status === 'sent').length;
@@ -44,14 +46,15 @@ export function InviteResults({ results, onDismiss }: Props) {
     <div className="space-y-3 rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">
-          {sent > 0 && `${sent} sent`}
+          {sent > 0 && t(keys.users.invite_results.summary_sent, { count: sent })}
           {sent > 0 && (links.length > 0 || failed.length > 0) && ' · '}
-          {links.length > 0 && `${links.length} need a link`}
+          {links.length > 0 && t(keys.users.invite_results.summary_links, { count: links.length })}
           {links.length > 0 && failed.length > 0 && ' · '}
-          {failed.length > 0 && `${failed.length} failed`}
+          {failed.length > 0 &&
+            t(keys.users.invite_results.summary_failed, { count: failed.length })}
         </h3>
         <Button type="button" variant="ghost" size="sm" onClick={onDismiss}>
-          Dismiss
+          {t(keys.users.invite_results.dismiss)}
         </Button>
       </div>
 
@@ -60,11 +63,11 @@ export function InviteResults({ results, onDismiss }: Props) {
           <div className="flex items-center justify-between">
             <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <LinkIcon className="size-3.5" />
-              These accounts exist but no mail was delivered — send each person their link.
+              {t(keys.users.invite_results.links_hint)}
             </p>
             {links.length > 1 && (
               <Button type="button" variant="outline" size="sm" onClick={copyAll}>
-                Copy all
+                {t(keys.users.invite_results.copy_all)}
               </Button>
             )}
           </div>
@@ -75,7 +78,7 @@ export function InviteResults({ results, onDismiss }: Props) {
                 <CopyableId
                   value={result.link ?? ''}
                   label={result.link ?? ''}
-                  title="Copy invite link"
+                  title={t(keys.users.invite_results.copy_link_title)}
                   className="min-w-0 flex-1"
                 />
               </li>
@@ -99,7 +102,7 @@ export function InviteResults({ results, onDismiss }: Props) {
       {sent > 0 && links.length === 0 && failed.length === 0 && (
         <p className="flex items-center gap-1.5 text-xs text-primary-700">
           <CheckCircle2 className="size-3.5" />
-          All invites delivered.
+          {t(keys.users.invite_results.all_delivered)}
         </p>
       )}
     </div>

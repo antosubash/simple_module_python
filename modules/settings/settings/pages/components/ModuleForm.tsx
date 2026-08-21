@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { useEffect, useMemo, useState } from 'react';
 import { FieldInput, type FieldMeta } from './FieldInput';
 import { FieldSource } from './FieldSource';
@@ -27,6 +28,7 @@ function notEqual(a: unknown, b: unknown): boolean {
 }
 
 export function ModuleForm({ module: m, testable = false }: Props) {
+  const { t } = useT();
   const initial = useMemo(() => {
     const o: Record<string, unknown> = {};
     for (const f of m.fields) o[f.name] = f.value;
@@ -63,12 +65,12 @@ export function ModuleForm({ module: m, testable = false }: Props) {
   const grouped = useMemo(() => {
     const g: Record<string, FieldMeta[]> = {};
     for (const f of m.fields) {
-      const key = f.group ?? 'General';
+      const key = f.group ?? t(keys.settings.modules_form.default_group);
       if (!g[key]) g[key] = [];
       g[key].push(f);
     }
     return g;
-  }, [m.fields]);
+  }, [m.fields, t]);
 
   async function onSave() {
     setBusy(true);
@@ -113,7 +115,7 @@ export function ModuleForm({ module: m, testable = false }: Props) {
             onClick={onSave}
             className="rounded bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
           >
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? t(keys.settings.modules_form.saving) : t(keys.settings.modules_form.save)}
           </button>
         </div>
       </header>
@@ -134,7 +136,7 @@ export function ModuleForm({ module: m, testable = false }: Props) {
                   )}
                   {f.requires_restart && isModified && (
                     <span className="mt-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] uppercase text-amber-900">
-                      Requires restart
+                      {t(keys.settings.modules_form.requires_restart)}
                     </span>
                   )}
                   <FieldSource field={f} />
@@ -152,7 +154,7 @@ export function ModuleForm({ module: m, testable = false }: Props) {
                       onClick={() => onReset(f.name)}
                       className="mt-1 text-xs text-primary hover:underline"
                     >
-                      Reset to default
+                      {t(keys.settings.modules_form.reset_to_default)}
                     </button>
                   )}
                   {errors[f.name] && <p className="mt-1 text-xs text-red-600">{errors[f.name]}</p>}

@@ -1,3 +1,8 @@
+/**
+ * i18n-exempt-file: dev-only placeholder UI, rendered behind
+ * `import.meta.env.DEV` with invented names and activity. Translating
+ * fixture content would be busywork a real implementation deletes.
+ */
 import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';

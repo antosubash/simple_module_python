@@ -3,12 +3,51 @@
     "generic_title": "Algo salió mal",
     "generic_description": "La página encontró un error inesperado. Intenta recargar o volver al inicio.",
     "reload_button": "Recargar página",
-    "go_home_button": "Ir al inicio"
+    "go_home_button": "Ir al inicio",
+    "http_badge": "HTTP {code}"
   },
   "nav": {
     "admin": "Administración"
   },
   "switcher": {
     "label": "Cambiar idioma"
+  },
+  "relative_time": {
+    "unknown": "desconocido",
+    "just_now": "ahora mismo",
+    "seconds_ago": "hace {count} s",
+    "minutes_ago": "hace {count} min",
+    "hours_ago": "hace {count} h"
+  },
+  "nav_groups": {
+    "access": "Acceso",
+    "appearance": "Apariencia",
+    "content": "Contenido",
+    "system": "Sistema"
+  },
+  "command_palette": {
+    "trigger": "Buscar",
+    "title": "Buscar",
+    "description": "Ve a cualquier página a la que tengas acceso.",
+    "placeholder": "Ir a…",
+    "empty": "No hay coincidencias."
+  },
+  "admin": {
+    "panel_badge": "Panel de administración",
+    "back_to_app": "Volver a la aplicación"
+  },
+  "sidebar": {
+    "open": "Abrir barra lateral",
+    "close": "Cerrar barra lateral"
+  },
+  "public_nav": {
+    "docs": "Documentación",
+    "modules": "Módulos",
+    "github": "GitHub",
+    "open_dashboard": "Abrir panel",
+    "log_in": "Iniciar sesión",
+    "sign_up": "Crear cuenta",
+    "open_menu": "Abrir menú",
+    "close_menu": "Cerrar menú"
   }
 }

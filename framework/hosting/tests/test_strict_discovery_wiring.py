@@ -74,7 +74,7 @@ def test_discover_modules_called_with_strict_mirroring_environment(monkeypatch):
     """The wiring assertion: ``app_builder`` passes ``strict=not is_development``.
 
     We don't actually run ``create_app`` in dev — that triggers Inertia setup
-    and ``emit_frontend_types``, which mutates the generated i18n type files
+    and ``emit_frontend_types_for_modules``, which mutates the generated i18n type files
     on disk because the entry-point stub yields zero modules. Asserting the
     keyword argument is sufficient to pin the wiring contract.
     """
@@ -86,10 +86,11 @@ def test_discover_modules_called_with_strict_mirroring_environment(monkeypatch):
 
     monkeypatch.setattr("simple_module_hosting.app_builder.discover_modules", _spy)
     # Block dev-mode side effects (write_module_pages_manifest +
-    # emit_frontend_types) — with zero modules they'd rewrite the
+    # emit_frontend_types_for_modules) — with zero modules they'd rewrite the
     # generated i18n files to empty.
     monkeypatch.setattr(
-        "simple_module_hosting.app_builder.emit_frontend_types", lambda *a, **kw: None
+        "simple_module_hosting.app_builder.emit_frontend_types_for_modules",
+        lambda *a, **kw: None,
     )
     import simple_module_hosting.manifest as manifest_mod
 

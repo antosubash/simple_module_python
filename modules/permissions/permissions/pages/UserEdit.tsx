@@ -67,7 +67,7 @@ function UserEdit({ user, roles, direct, inherited, inherited_by: inheritedBy, g
 
   return (
     <>
-      <Head title="Edit User" />
+      <Head title={t(keys.permissions.user_edit.head_title)} />
       <PageShell
         title={t(keys.permissions.user_edit.title, { email: user.email })}
         description={user.full_name || t(keys.permissions.user_edit.description)}
@@ -144,7 +144,7 @@ function UserEdit({ user, roles, direct, inherited, inherited_by: inheritedBy, g
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
-              placeholder="Filter modules…"
+              placeholder={t(keys.permissions.filters.modules_placeholder)}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               className="pl-9"

@@ -1,3 +1,4 @@
+import { keys, useT } from '@simple-module-py/i18n';
 import { useState } from 'react';
 
 export type FieldType = 'bool' | 'int' | 'float' | 'string' | 'json';
@@ -28,6 +29,7 @@ type Props = {
 };
 
 export function FieldInput({ field, onChange, value, id }: Props) {
+  const { t } = useT();
   const [revealed, setRevealed] = useState(false);
 
   if (field.is_secret && !revealed) {
@@ -48,7 +50,7 @@ export function FieldInput({ field, onChange, value, id }: Props) {
             onChange(field.name, ''); // start blank
           }}
         >
-          Set new value
+          {t(keys.settings.modules_form.set_new_value)}
         </button>
       </div>
     );

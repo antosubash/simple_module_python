@@ -53,7 +53,23 @@
       "diagnostics_description": "Static analyzer catches orphan pages, framework coupling, and migration drift before boot.",
       "devtools_title": "Async SQLModel",
       "devtools_description": "SQLAlchemy async + Pydantic + Alembic. Generate migrations per module."
-    }
+    },
+    "head_title": "Welcome",
+    "copy_command": "Copy command",
+    "how_it_works_eyebrow": "How it works",
+    "how_it_works_heading": "One process · many modules · zero glue.",
+    "quickstart_eyebrow": "Quickstart",
+    "quickstart_heading": "Working app in five commands.",
+    "quickstart_body_prefix": "Land on",
+    "quickstart_body_suffix": "with users, dashboard, and permissions pre-wired. Sign in with the admin account you bootstrap and go from there.",
+    "module_users_description": "Email + cookie sessions via fastapi-users",
+    "module_dashboard_description": "Authenticated home with module tiles",
+    "module_permissions_description": "Per-module permission registry",
+    "cta_heading": "Ready to ship modules?",
+    "cta_body_authenticated": "Head to the dashboard, or hack on the framework directly.",
+    "cta_body_signup": "Sign up for the admin UI, or hack on the framework directly.",
+    "cta_body_signin": "Sign in to the admin UI, or hack on the framework directly.",
+    "cta_github": "GitHub →"
   },
   "offline": {
     "title": "You're offline",

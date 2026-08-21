@@ -107,6 +107,8 @@ function ErrorPage({ status, message, correlation_id, login_url, maintenance }: 
 
   return (
     <>
+      {/* main's per-status title is already translated and more specific than
+          a single generic one, so it wins over host.error.head_title. */}
       <Head title={copy.title} />
       <ErrorScreen
         hero={status}

@@ -160,7 +160,7 @@ function Browse() {
 
   return (
     <>
-      <Head title="Audit Log" />
+      <Head title={t(keys.audit_log.browse.title)} />
       <PageShell
         title={t(keys.audit_log.browse.title)}
         description={t(keys.audit_log.browse.description)}

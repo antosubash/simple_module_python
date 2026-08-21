@@ -1,4 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
@@ -29,6 +30,7 @@ function Login() {
   const { allow_signup, dev_accounts, login_redirect_url, oauth_providers } = usePage<{
     props: Props;
   }>().props as unknown as Props;
+  const { t } = useT();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -56,18 +58,18 @@ function Login() {
         if (res.status === 204) {
           router.visit(nextUrl);
         } else if (res.status === 429) {
-          setError('Too many attempts. Please try again in a few minutes.');
+          setError(t(keys.users.login.error_rate_limited));
         } else {
           const data = await res.json().catch(() => ({}));
           const detail = typeof data?.detail === 'string' ? data.detail : '';
           if (detail === 'LOGIN_USER_NOT_VERIFIED') {
             setNeedsVerification(true);
           } else {
-            setError('Invalid email or password.');
+            setError(t(keys.users.login.error_invalid_credentials));
           }
         }
       })
-      .catch(() => setError('An error occurred. Please try again.'))
+      .catch(() => setError(t(keys.users.common.error_try_again)))
       .finally(() => setLoading(false));
   };
 
@@ -82,29 +84,29 @@ function Login() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     }).then(() => {
-      setError('Verification email resent. Please check your inbox.');
+      setError(t(keys.users.login.verification_resent));
       setNeedsVerification(false);
     });
   };
 
   return (
     <AuthCardShell>
-      <Head title="Login" />
+      <Head title={t(keys.users.login.head_title)} />
       <h1 className="mb-1.5 text-[22px] font-bold tracking-tight font-[var(--font-display)] text-foreground">
-        Welcome back
+        {t(keys.users.login.heading)}
       </h1>
-      <p className="mb-5 text-sm text-muted-foreground">Log in to your workspace.</p>
+      <p className="mb-5 text-sm text-muted-foreground">{t(keys.users.login.subtitle)}</p>
       <form onSubmit={handleSubmit} className="space-y-3.5">
         <div className="space-y-1.5">
           <Label htmlFor="email" className="text-sm font-medium text-muted-foreground">
-            Email
+            {t(keys.users.common.email)}
           </Label>
           <Input
             id="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
+            placeholder={t(keys.users.common.email_placeholder)}
             required
             autoComplete="email"
           />
@@ -112,13 +114,13 @@ function Login() {
         <div className="space-y-1.5">
           <div className="flex items-baseline justify-between">
             <Label htmlFor="password" className="text-sm font-medium text-muted-foreground">
-              Password
+              {t(keys.users.common.password)}
             </Label>
             <a
               href="/users/forgot-password"
               className="text-xs font-semibold text-primary-700 hover:text-primary-800"
             >
-              Forgot?
+              {t(keys.users.login.forgot_link)}
             </a>
           </div>
           <Input
@@ -137,28 +139,28 @@ function Login() {
           <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <div>
-              <p className="font-semibold">Verify your email</p>
+              <p className="font-semibold">{t(keys.users.login.needs_verification_title)}</p>
               <button
                 type="button"
                 onClick={handleResendVerification}
                 className="mt-0.5 underline hover:no-underline"
               >
-                Resend verification email
+                {t(keys.users.login.resend_verification)}
               </button>
             </div>
           </div>
         )}
 
         <Button type="submit" size="lg" className="w-full" disabled={loading}>
-          {loading ? 'Signing in…' : 'Log in'}
+          {loading ? t(keys.users.login.submitting) : t(keys.users.login.submit)}
         </Button>
       </form>
 
       {allow_signup && (
         <p className="mt-5 text-center text-xs text-muted-foreground">
-          Don't have an account?{' '}
+          {t(keys.users.login.no_account)}{' '}
           <a href={REGISTER_PATH} className="font-semibold text-primary-700 hover:text-primary-800">
-            Sign up
+            {t(keys.users.login.sign_up)}
           </a>
         </p>
       )}
@@ -166,7 +168,7 @@ function Login() {
       {oauth_providers && oauth_providers.length > 0 && (
         <div className="mt-5 border-t border-border pt-4">
           <p className="mb-2 text-center font-mono text-[11px] text-muted-foreground">
-            Or continue with
+            {t(keys.users.login.oauth_divider)}
           </p>
           <div className="flex flex-col gap-2">
             {oauth_providers.map((p) => (
@@ -181,7 +183,7 @@ function Login() {
       {dev_accounts && dev_accounts.length > 0 && (
         <div className="mt-5 border-t border-border pt-4">
           <p className="mb-2 text-center font-mono text-[11px] text-muted-foreground">
-            Dev quick-login
+            {t(keys.users.login.dev_divider)}
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             {dev_accounts.map((acct) => (

@@ -13,7 +13,8 @@
     "clear_filters": "Clear filters",
     "previous": "Previous",
     "next": "Next",
-    "page_of": "Page {page} of {total}"
+    "page_of": "Page {page} of {total}",
+    "head_title": "File Storage"
   },
   "table": {
     "filename": "Name",
@@ -56,5 +57,8 @@
   "upload": {
     "in_progress": "Uploading {name}",
     "dismiss": "Dismiss"
+  },
+  "nav": {
+    "files": "Files"
   }
 }

@@ -81,6 +81,7 @@ class BackgroundTasksModule(ModuleBase):
                 entity_type=TaskExecution.__name__,
                 url_template=f"{VIEW_PREFIX}/{{id}}",
                 label="Task execution",
+                label_key="background_tasks.audit.task_execution",
             )
         )
 
@@ -88,12 +89,14 @@ class BackgroundTasksModule(ModuleBase):
         registry.add(
             MenuItem(
                 label=MENU_LABEL,
+                label_key="background_tasks.nav.background_tasks",
                 url=f"{VIEW_PREFIX}/",
                 icon=MENU_ICON,
                 order=MENU_ORDER,
                 section=MenuSection.ADMIN_SIDEBAR,
                 roles=["admin"],
                 group="System",
+                group_key="ui.nav_groups.system",
             )
         )
 

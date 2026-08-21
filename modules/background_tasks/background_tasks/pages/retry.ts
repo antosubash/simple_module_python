@@ -2,6 +2,7 @@
 // same endpoint; they differ only in what they do with the result (reload
 // the list vs. navigate to the new row), so the fetch + toast live here.
 
+import { keys, t } from '@simple-module-py/i18n';
 import { toast } from 'sonner';
 import { API_BASE, type TaskStatus } from './constants';
 
@@ -36,10 +37,11 @@ export async function retryExecution(execution: {
       throw new Error(body.detail || `HTTP ${res.status}`);
     }
     const created = (await res.json()) as Execution;
-    toast.success(`Task "${execution.task_name}" re-enqueued`);
+    // Called, not captured at module scope, so it reads the live locale.
+    toast.success(t(keys.background_tasks.toasts.retried, { name: execution.task_name }));
     return created;
   } catch (err) {
-    toast.error(err instanceof Error ? err.message : 'Failed to retry task');
+    toast.error(err instanceof Error ? err.message : t(keys.background_tasks.toasts.retry_failed));
     return null;
   }
 }

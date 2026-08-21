@@ -1,3 +1,4 @@
+import { keys, useT } from '@simple-module-py/i18n';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +31,7 @@ function format(value: unknown): string {
 }
 
 export function RetryConfirmDialog({ trigger, onConfirm, taskName, args, kwargs }: Props) {
+  const { t } = useT();
   const hasArgs = args.length > 0;
   const hasKwargs = Object.keys(kwargs).length > 0;
   // One dialog is mounted per retryable row (up to a full page of them), so
@@ -43,10 +45,11 @@ export function RetryConfirmDialog({ trigger, onConfirm, taskName, args, kwargs 
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Retry {taskName}?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {t(keys.background_tasks.retry_dialog.title, { name: taskName })}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            Queues a new execution with the same arguments. The original row stays as it is, kept
-            for history.
+            {t(keys.background_tasks.retry_dialog.description)}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -56,24 +59,32 @@ export function RetryConfirmDialog({ trigger, onConfirm, taskName, args, kwargs 
           <dl className="grid gap-1.5 rounded-md bg-muted/60 p-3 font-mono text-xs">
             {hasArgs && (
               <div className="flex gap-2">
-                <dt className="shrink-0 text-muted-foreground">args:</dt>
+                <dt className="shrink-0 text-muted-foreground">
+                  {t(keys.background_tasks.retry_dialog.args_label)}
+                </dt>
                 <dd className="min-w-0 break-all">{formattedArgs}</dd>
               </div>
             )}
             {hasKwargs && (
               <div className="flex gap-2">
-                <dt className="shrink-0 text-muted-foreground">kwargs:</dt>
+                <dt className="shrink-0 text-muted-foreground">
+                  {t(keys.background_tasks.retry_dialog.kwargs_label)}
+                </dt>
                 <dd className="min-w-0 break-all">{formattedKwargs}</dd>
               </div>
             )}
           </dl>
         ) : (
-          <p className="text-xs text-muted-foreground">This task takes no arguments.</p>
+          <p className="text-xs text-muted-foreground">
+            {t(keys.background_tasks.retry_dialog.no_args)}
+          </p>
         )}
 
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>Retry task</AlertDialogAction>
+          <AlertDialogCancel>{t(keys.background_tasks.retry_dialog.cancel)}</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>
+            {t(keys.background_tasks.retry_dialog.confirm)}
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

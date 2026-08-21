@@ -1,3 +1,4 @@
+import { keys, useT } from '@simple-module-py/i18n';
 import {
   Select,
   SelectContent,
@@ -21,6 +22,7 @@ interface IndexFiltersProps {
 }
 
 export function IndexFilters({ filters, roles, onChange }: IndexFiltersProps) {
+  const { t } = useT();
   return (
     <div className="flex flex-wrap gap-2">
       <Select
@@ -28,12 +30,12 @@ export function IndexFilters({ filters, roles, onChange }: IndexFiltersProps) {
         onValueChange={(v) => onChange({ status: v as Filters['status'] })}
       >
         <SelectTrigger size="sm" className="w-32">
-          <SelectValue placeholder="Status" />
+          <SelectValue placeholder={t(keys.users.filters.status_placeholder)} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All statuses</SelectItem>
-          <SelectItem value="active">Active</SelectItem>
-          <SelectItem value="disabled">Disabled</SelectItem>
+          <SelectItem value="all">{t(keys.users.filters.status_all)}</SelectItem>
+          <SelectItem value="active">{t(keys.users.filters.status_active)}</SelectItem>
+          <SelectItem value="disabled">{t(keys.users.filters.status_disabled)}</SelectItem>
         </SelectContent>
       </Select>
 
@@ -42,10 +44,10 @@ export function IndexFilters({ filters, roles, onChange }: IndexFiltersProps) {
         onValueChange={(v) => onChange({ role: v === 'all' ? '' : v })}
       >
         <SelectTrigger size="sm" className="w-36">
-          <SelectValue placeholder="Role" />
+          <SelectValue placeholder={t(keys.users.filters.role_placeholder)} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All roles</SelectItem>
+          <SelectItem value="all">{t(keys.users.filters.role_all)}</SelectItem>
           {roles.map((r) => (
             <SelectItem key={r} value={r}>
               {r}
@@ -59,12 +61,12 @@ export function IndexFilters({ filters, roles, onChange }: IndexFiltersProps) {
         onValueChange={(v) => onChange({ verified: v as Filters['verified'] })}
       >
         <SelectTrigger size="sm" className="w-32">
-          <SelectValue placeholder="Verified" />
+          <SelectValue placeholder={t(keys.users.filters.verified_placeholder)} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All</SelectItem>
-          <SelectItem value="yes">Verified</SelectItem>
-          <SelectItem value="no">Unverified</SelectItem>
+          <SelectItem value="all">{t(keys.users.filters.verified_all)}</SelectItem>
+          <SelectItem value="yes">{t(keys.users.filters.verified_yes)}</SelectItem>
+          <SelectItem value="no">{t(keys.users.filters.verified_no)}</SelectItem>
         </SelectContent>
       </Select>
     </div>
