@@ -34,6 +34,7 @@ from simple_module_hosting._error_handlers import (
     unhandled_exception_handler,
 )
 from simple_module_hosting._host_services import _HostServices
+from simple_module_hosting._inertia_cache import InertiaCacheMiddleware
 from simple_module_hosting.host_settings import HostSettings
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.middleware import (
@@ -103,12 +104,17 @@ def install_middleware(
     Order matters: last added = first executed. Execution order:
     (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging
     → Security → Session → [module] → (Tenant, if multi_tenant) → Locale
-    → Inertia → CommitBeforeResponse.
+    → Inertia → InertiaCache → CommitBeforeResponse.
     """
     # Added first, so it is innermost and its send-wrapper is the first to see
     # the response: the request's DB work commits before any byte reaches the
     # client, instead of in get_db's post-response exit code (GH #257).
     app.add_middleware(CommitBeforeResponseMiddleware)
+    # Paired with InertiaLayoutDataMiddleware below, which is what puts this
+    # user's auth, permissions and menus into every Inertia payload: this one
+    # makes sure the payload that results is never stored where a page request
+    # can be answered with it.
+    app.add_middleware(InertiaCacheMiddleware)
     app.add_middleware(
         InertiaLayoutDataMiddleware,
         menu_registry=menu_registry,

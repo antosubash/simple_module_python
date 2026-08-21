@@ -4,7 +4,13 @@ CLAUDE.md spells out the pipeline:
 
     CorrelationId → RequestLogging → GZip → Security → Session → <module>
                   → Tenant (opt-in) → Locale → InertiaLayoutData
-                  → CommitBeforeResponse → app
+                  → InertiaCache → CommitBeforeResponse → app
+
+InertiaCache sits directly inside InertiaLayoutData, the middleware that puts
+this user's auth block, permissions and menus into every Inertia payload. Being
+inside it means its send-wrapper sees the response before anything else can
+read the headers, and pairing the two keeps "what makes the payload per-user"
+and "what stops the payload being cached" from drifting apart.
 
 Tenant/Locale must see ``request.state.user`` set by AuthMiddleware so
 DB queries get filtered correctly; CorrelationId must wrap everything so
@@ -45,6 +51,7 @@ _EXPECTED_MULTI_TENANT = (
     "TenantMiddleware",
     "LocaleMiddleware",
     "InertiaLayoutDataMiddleware",
+    "InertiaCacheMiddleware",
     "CommitBeforeResponseMiddleware",
 )
 
@@ -58,6 +65,7 @@ _EXPECTED_SINGLE_TENANT = (
     "AuthMiddleware",
     "LocaleMiddleware",
     "InertiaLayoutDataMiddleware",
+    "InertiaCacheMiddleware",
     "CommitBeforeResponseMiddleware",
 )
 
