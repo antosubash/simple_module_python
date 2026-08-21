@@ -135,18 +135,24 @@ async def test_update_persists_and_hot_swaps(app, authenticated_client: httpx.As
 async def test_root_template_reflects_branding(
     app, authenticated_client: httpx.AsyncClient
 ) -> None:
-    """The pre-hydration HTML shell carries the branded title + theme-color."""
+    """The pre-hydration HTML shell carries the branded title + theme-color.
+
+    The title carries an ``inertia`` attribute so the head manager replaces it
+    after hydration instead of appending a second one beside it — asserted on
+    the text rather than the exact markup so that attribute can change without
+    failing a branding test that is not about it.
+    """
     # Default name before any change.
     default_page = await authenticated_client.get("/admin/branding/", follow_redirects=False)
     assert default_page.status_code == 200, default_page.text
-    assert "<title>SimpleModule</title>" in default_page.text
+    assert ">SimpleModule</title>" in default_page.text
 
     await authenticated_client.put(
         "/api/branding/",
         json={"app_name": "Acme Corp", "primary_color": "#1A7DD1"},
     )
     page = await authenticated_client.get("/admin/branding/", follow_redirects=False)
-    assert "<title>Acme Corp</title>" in page.text
+    assert ">Acme Corp</title>" in page.text
     assert '<meta name="theme-color" content="#1a7dd1" />' in page.text
 
 
