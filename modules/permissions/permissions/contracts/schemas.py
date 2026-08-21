@@ -35,7 +35,7 @@ class RolePermissionsOut(SQLModel):
 class RolePermissionsUpdate(SQLModel):
     """Replace the full set of permission keys assigned to a role."""
 
-    permissions: list[str] = Field(default_factory=list)
+    permissions: list[str]
 
 
 class UserOut(SQLModel):
