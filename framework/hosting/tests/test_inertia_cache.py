@@ -101,6 +101,50 @@ class TestInertiaPayload:
         assert "accept" in _vary_fields(resp)
 
 
+class TestMatchesUpstreamDetection:
+    """``is_inertia_request`` must agree with ``fastapi-inertia``'s own check.
+
+    Upstream's ``Inertia._is_inertia_request`` is ``"X-Inertia" in
+    self._request.headers`` — presence only, any value. A stricter check here
+    (e.g. requiring the value to equal ``"true"``) would disagree with it: a
+    request the renderer treats as Inertia and answers with JSON would sail
+    through this middleware uncached, reopening the exact leak the fix closes.
+    """
+
+    def test_any_header_value_counts_as_inertia(self) -> None:
+        scope = {"type": "http", "headers": [(b"x-inertia", b"false")]}
+
+        assert is_inertia_request(scope) is True
+
+    async def test_a_non_true_value_still_gets_the_safety_headers(self) -> None:
+        """A route that mirrors upstream's own (presence-only) detection.
+
+        Unlike ``cache_client``'s app, this handler does not call
+        ``is_inertia_request`` itself — it reproduces upstream's check
+        directly, so the two are genuinely independent here.
+        """
+
+        async def page(request):
+            if "x-inertia" in request.headers:
+                response = JSONResponse({"component": "Home", "props": {}})
+            else:
+                response = HTMLResponse("<!DOCTYPE html><title>Page</title>")
+            response.headers["Cache-Control"] = _PUBLIC_CACHE
+            response.headers["ETag"] = _SHARED_ETAG
+            return response
+
+        app = Starlette(routes=[Route("/p/home", page)])
+        app.add_middleware(InertiaCacheMiddleware)
+        transport = httpx.ASGITransport(app=app)
+
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get("/p/home", headers={"X-Inertia": "false"})
+
+        assert resp.headers["content-type"].startswith("application/json")
+        assert resp.headers["cache-control"] == PAYLOAD_CACHE_CONTROL
+        assert "etag" not in resp.headers
+
+
 class TestDocumentResponse:
     async def test_document_varies_on_x_inertia(self, cache_client: httpx.AsyncClient) -> None:
         """Otherwise a cached document can be served to a client-side visit."""

@@ -38,7 +38,6 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 _SCOPE_HTTP = "http"
 _HEADER_INERTIA = b"x-inertia"
-_HEADER_INERTIA_TRUE = b"true"
 
 #: What an Inertia payload is allowed to say about its own cacheability.
 PAYLOAD_CACHE_CONTROL = "private, no-store"
@@ -60,11 +59,15 @@ def add_vary(headers: MutableHeaders, field: str = VARY_FIELD) -> None:
 
 
 def is_inertia_request(scope: Scope) -> bool:
-    """Whether this request asked for the JSON representation."""
-    return any(
-        key == _HEADER_INERTIA and value.strip().lower() == _HEADER_INERTIA_TRUE
-        for key, value in scope.get("headers", ())
-    )
+    """Whether this request asked for the JSON representation.
+
+    Mirrors ``fastapi-inertia``'s own ``Inertia._is_inertia_request`` exactly —
+    presence of the header, any value — rather than requiring it to equal
+    ``"true"``. The library renders JSON for *any* ``X-Inertia`` value, so a
+    stricter check here would disagree with it: a request the renderer treats
+    as Inertia would sail through uncached, undoing the whole fix.
+    """
+    return any(key == _HEADER_INERTIA for key, _ in scope.get("headers", ()))
 
 
 def _is_html(headers: MutableHeaders) -> bool:
