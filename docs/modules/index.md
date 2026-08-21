@@ -11,7 +11,7 @@ simple_module_python ships with twelve first-party modules. Each is a regular Py
 | [`settings`](/modules/settings) | — | DB-backed key/value store with system / tenant / user precedence; per-module pydantic settings registration; hot reload; `smpy settings` CLI. |
 | [`feature_flags`](/modules/feature_flags) | — | Runtime feature toggles with system + tenant overrides. |
 | [`file_storage`](/modules/file_storage) | `settings` | Pluggable file storage (filesystem, S3-compatible) with upload validation, presigned URLs, browse/download/delete UI. |
-| [`branding`](/modules/branding) | `settings`, `file_storage` | White-labelling — app name, logo (plus a dark-background variant), favicon, primary colour, design pack, announcement banner and configurable footer, pushed to every page via Inertia shared props. Serves the logo and favicon from anonymous routes so guests see the brand too. |
+| [`branding`](/modules/branding) | `settings`, `file_storage` | White-labelling — app name, logo (plus a dark-background variant), favicon, primary colour, design pack and announcement banner, pushed to every page via Inertia shared props. Serves the logo and favicon from anonymous routes so guests see the brand too. |
 | [`background_tasks`](/modules/background_tasks) | `users` | Celery + Redis workers, persistent task history, retry, stuck-task sweep, live worker dashboard. |
 | [`audit_log`](/modules/audit_log) | `users` | Automatic field-level audit trail for SQLModel entities, with an admin UI to browse change history. |
 | [`dashboard`](/modules/dashboard) | `users` | Authenticated landing page with system overview (user counts, module list, health checks). |
