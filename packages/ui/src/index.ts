@@ -10,5 +10,6 @@ export { AppLayout } from './layouts/AppLayout';
 export { AuthenticatedLayout } from './layouts/AuthenticatedLayout';
 export { PublicLayout } from './layouts/PublicLayout';
 export { SidebarLayout } from './layouts/SidebarLayout';
+export { shouldInterceptNavigation, startSpaLinkInterception } from './lib/spa-links';
 export { TONE, type Tone } from './lib/tone';
 export type { MenuItem, SharedProps } from './types';
