@@ -1,6 +1,7 @@
 import { createInertiaApp, router } from '@inertiajs/react';
 import { ErrorBoundary } from '@simple-module-py/ui/components/ErrorBoundary';
 import { formatTitle, setTitleAppName } from '@simple-module-py/ui/lib/app-title';
+import { startSpaLinkInterception } from '@simple-module-py/ui/lib/spa-links';
 import { useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { bootI18nFromInitialPage, subscribeI18nToNavigation } from './i18n';
@@ -29,9 +30,14 @@ createInertiaApp({
       useEffect(() => {
         const stopReset = router.on('navigate', () => boundaryRef.current?.reset());
         const stopI18n = subscribeI18nToNavigation();
+        // Authored content renders author-entered URLs as plain <a href>, which
+        // the browser follows with a full document load — a blank page until
+        // this client-rendered app boots again. Route them through Inertia.
+        const stopLinks = startSpaLinkInterception();
         return () => {
           stopReset();
           stopI18n();
+          stopLinks();
         };
       }, []);
 
