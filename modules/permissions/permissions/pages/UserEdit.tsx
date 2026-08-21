@@ -58,7 +58,7 @@ function UserEdit({ user, roles, direct, inherited, inherited_by: inheritedBy, g
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    put(`/permissions/users/${user.id}`, {
+    put(`/admin/permissions/users/${user.id}`, {
       preserveScroll: true,
       onSuccess: () => toast.success(t(keys.permissions.toasts.saved)),
       onError: () => toast.error(t(keys.permissions.toasts.save_failed)),

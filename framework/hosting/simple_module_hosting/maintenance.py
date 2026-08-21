@@ -75,9 +75,20 @@ class MaintenanceMiddleware:
 
     @staticmethod
     def _may_bypass(request: Request, scope: Scope) -> bool:
-        """Admins, and anyone heading for the auth provider's own routes."""
+        """Admins, anyone heading for the auth provider's own routes, and any
+        route a module deliberately opened to anonymous visitors."""
         user = getattr(request.state, "user", None)
         if user is not None and is_admin(getattr(user, "roles", None)):
+            return True
+
+        path: str = scope["path"]
+
+        # Module-contributed public routes (register_public_routes hook) — the
+        # same registry AuthMiddleware consults. Without this, a route a module
+        # deliberately exempted from auth (branding's logo/favicon, a webhook,
+        # a STAC/OGC read endpoint) still 503s during maintenance.
+        public_routes = getattr(scope["app"].state, "public_routes", None)
+        if public_routes is not None and public_routes.matches(request.method, path):
             return True
 
         # An admin locked out by the switch still needs the login flow. Ask the
@@ -91,7 +102,6 @@ class MaintenanceMiddleware:
         except Exception:
             logger.exception("Auth provider failed to report public paths")
             return False
-        path: str = scope["path"]
         return any(path.startswith(p) for p in prefix_paths) or path in exact_paths
 
     @staticmethod

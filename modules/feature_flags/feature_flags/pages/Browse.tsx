@@ -45,11 +45,11 @@ interface Props {
 function buildPath(tenantId: string | null) {
   return tenantId
     ? `/admin/feature-flags?tenant_id=${encodeURIComponent(tenantId)}`
-    : '/feature_flags';
+    : '/admin/feature-flags';
 }
 
 function actionUrl(name: string, action: 'toggle' | 'clear', tenantId: string | null) {
-  const base = `/feature_flags/${name}/${action}`;
+  const base = `/admin/feature-flags/${name}/${action}`;
   return tenantId ? `${base}?tenant_id=${encodeURIComponent(tenantId)}` : base;
 }
 

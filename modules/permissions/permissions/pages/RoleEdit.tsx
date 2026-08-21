@@ -54,7 +54,7 @@ function RoleEdit({ role, assigned, groups }: Props) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    put(`/permissions/roles/${role.id}`, {
+    put(`/admin/permissions/roles/${role.id}`, {
       preserveScroll: true,
       onSuccess: () => toast.success(t(keys.permissions.toasts.saved)),
       onError: () => toast.error(t(keys.permissions.toasts.save_failed)),
@@ -92,7 +92,7 @@ function RoleEdit({ role, assigned, groups }: Props) {
               {t(keys.permissions.edit.submit_button)}
             </Button>
             <Button asChild variant="ghost">
-              <Link href="/admin/users/">{t(keys.permissions.edit.cancel_link)}</Link>
+              <Link href={USERS_ADMIN_PATH}>{t(keys.permissions.edit.cancel_link)}</Link>
             </Button>
           </>
         }

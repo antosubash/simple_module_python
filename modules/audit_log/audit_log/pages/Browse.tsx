@@ -134,7 +134,7 @@ function Browse() {
     if (next.toDate) p.to_date = next.toDate;
     if (nextPage > 1) p.page = String(nextPage);
     if (page_size !== 50) p.page_size = String(page_size);
-    router.visit(`/audit_log?${new URLSearchParams(p).toString()}`);
+    router.visit(`/admin/audit-log?${new URLSearchParams(p).toString()}`);
   }
 
   function handleClear() {

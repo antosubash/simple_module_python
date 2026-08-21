@@ -19,7 +19,7 @@ itself is gone.
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from starlette.responses import RedirectResponse
 
 router = APIRouter(include_in_schema=False)
@@ -37,15 +37,16 @@ _MOVED: dict[str, str] = {
 
 
 def _register(old_prefix: str, new_prefix: str) -> None:
-    async def redirect(path: str = "") -> RedirectResponse:
+    async def redirect(request: Request, path: str = "") -> RedirectResponse:
         suffix = f"/{path}" if path else "/"
-        return RedirectResponse(f"{new_prefix}{suffix}", status_code=301)
+        # Carry the original query string across: a bookmarked filter/sort/tab
+        # URL must not silently reset just because its prefix moved.
+        query = f"?{request.url.query}" if request.url.query else ""
+        return RedirectResponse(f"{new_prefix}{suffix}{query}", status_code=301)
 
-    async def redirect_bare() -> RedirectResponse:
-        return RedirectResponse(f"{new_prefix}/", status_code=301)
-
-    # Bare form and trailing-slash form both land on the new section root.
-    router.add_api_route(old_prefix, redirect_bare, methods=["GET"], name=f"legacy{old_prefix}")
+    # Bare form and trailing-slash form both land on the new section root;
+    # ``path`` defaults to "" for the bare route, so one handler covers both.
+    router.add_api_route(old_prefix, redirect, methods=["GET"], name=f"legacy{old_prefix}")
     router.add_api_route(
         f"{old_prefix}/{{path:path}}",
         redirect,

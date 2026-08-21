@@ -33,6 +33,7 @@ def _build_app(
     message: str = "",
     user: _User | None = None,
     provider: _Provider | None = _Provider(),
+    public_routes=None,
 ) -> Starlette:
     async def ok(request):
         return PlainTextResponse("app reached")
@@ -43,6 +44,7 @@ def _build_app(
             Route("/users/login", ok),
             Route("/exact-public", ok),
             Route("/health", ok),
+            Route("/api/branding/logo", ok),
             Route("/api/thing", ok),
         ]
     )
@@ -60,6 +62,7 @@ def _build_app(
         auth_provider = provider
 
     app.state.auth = _AuthState()
+    app.state.public_routes = public_routes
 
     app.add_middleware(MaintenanceMiddleware)
     # Stands in for AuthMiddleware, which runs further out and is what puts the
@@ -179,3 +182,35 @@ async def test_only_the_exact_admin_role_bypasses(roles: list[str]) -> None:
     app = _build_app(enabled=True, user=_User(roles))
     resp = await _get(app, "/protected")
     assert resp.status_code == 503
+
+
+class TestModulePublicRoutes:
+    """A module's ``register_public_routes`` rules must also bypass the gate.
+
+    AuthMiddleware already exempts these paths from login, so a route like
+    branding's public logo/favicon GET must stay reachable during maintenance
+    too — otherwise the sign-in/maintenance page itself loses its branding.
+    """
+
+    async def test_module_public_route_stays_open(self) -> None:
+        from simple_module_core.public_routes import PublicRouteRegistry
+
+        registry = PublicRouteRegistry()
+        registry.add_exact("/api/branding/logo", methods=["GET"])
+        resp = await _get(_build_app(enabled=True, public_routes=registry), "/api/branding/logo")
+        assert resp.status_code == 200
+        assert resp.text == "app reached"
+
+    async def test_method_not_covered_by_the_rule_still_gates(self) -> None:
+        from simple_module_core.public_routes import PublicRouteRegistry
+
+        registry = PublicRouteRegistry()
+        registry.add_exact("/api/branding/logo", methods=["GET"])
+        app = _build_app(enabled=True, public_routes=registry)
+        resp = await _get(app, "/api/thing")
+        assert resp.status_code == 503
+
+    async def test_no_registry_still_gates(self) -> None:
+        """A degraded/missing registry must fail closed, same as no provider."""
+        resp = await _get(_build_app(enabled=True, public_routes=None), "/api/branding/logo")
+        assert resp.status_code == 503

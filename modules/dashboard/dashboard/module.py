@@ -57,6 +57,9 @@ class DashboardModule(ModuleBase):
                 order=220,
                 section=MenuSection.ADMIN_SIDEBAR,
                 group="System",
+                # Mirrors the view route's admin-only guard — without it the
+                # entry shows for every signed-in account and 403s on click.
+                roles=["admin"],
             )
         )
 
