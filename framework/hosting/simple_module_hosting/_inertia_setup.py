@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from inertia import InertiaConfig, inertia_dependency_factory
 from starlette.requests import Request
 
+from simple_module_hosting._inertia_json import json_safe_inertia_dependency
 from simple_module_hosting.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -184,6 +185,9 @@ def setup_inertia(
         use_flash_errors=True,
     )
 
-    inertia_dep = inertia_dependency_factory(inertia_config)
+    # Upstream's JSON branch builds a Starlette JSONResponse directly, so the
+    # encoder configured above only ever applies to full page loads. Wrap the
+    # dependency so a client-side visit encodes the same props the same way.
+    inertia_dep = json_safe_inertia_dependency(inertia_dependency_factory(inertia_config))
     app.state.inertia_dependency = inertia_dep
     return inertia_config
