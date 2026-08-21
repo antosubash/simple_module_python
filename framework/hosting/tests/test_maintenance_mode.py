@@ -91,6 +91,12 @@ async def _get(app, path: str, **kwargs) -> httpx.Response:
         return await c.get(path, **kwargs)
 
 
+async def _post(app, path: str, **kwargs) -> httpx.Response:
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+        return await c.post(path, **kwargs)
+
+
 class TestGateClosed:
     async def test_anonymous_visitor_gets_503(self) -> None:
         resp = await _get(_build_app(enabled=True), "/protected")
@@ -201,13 +207,24 @@ class TestModulePublicRoutes:
         assert resp.status_code == 200
         assert resp.text == "app reached"
 
-    async def test_method_not_covered_by_the_rule_still_gates(self) -> None:
+    async def test_uncovered_path_still_gates(self) -> None:
+        """A path with no matching rule at all is not exempted by an unrelated one."""
         from simple_module_core.public_routes import PublicRouteRegistry
 
         registry = PublicRouteRegistry()
         registry.add_exact("/api/branding/logo", methods=["GET"])
         app = _build_app(enabled=True, public_routes=registry)
         resp = await _get(app, "/api/thing")
+        assert resp.status_code == 503
+
+    async def test_wrong_method_on_a_covered_path_still_gates(self) -> None:
+        """The rule is GET-only — a POST to the same path must not bypass."""
+        from simple_module_core.public_routes import PublicRouteRegistry
+
+        registry = PublicRouteRegistry()
+        registry.add_exact("/api/branding/logo", methods=["GET"])
+        app = _build_app(enabled=True, public_routes=registry)
+        resp = await _post(app, "/api/branding/logo")
         assert resp.status_code == 503
 
     async def test_no_registry_still_gates(self) -> None:
