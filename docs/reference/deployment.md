@@ -19,6 +19,32 @@ Before serving traffic:
 
 ## Build
 
+### This repo's own app
+
+The framework repo ships a default image at the root — `./Dockerfile` — that
+builds the reference app (host + every bundled module) and serves it with
+uvicorn. It is standalone: SQLite under `/app/data`, no Postgres and no Redis
+needed to boot.
+
+```bash
+make docker-app             # build ./Dockerfile and run it on :8000
+make docker-compose-app     # same image via the `app` service in docker-compose.yml
+```
+
+`docker/entrypoint.sh` runs `alembic upgrade heads` and fills in any unset
+production secret (`SM_SECRET_KEY`, `SM_USERS_RESET_PASSWORD_TOKEN_SECRET`,
+`SM_USERS_VERIFICATION_TOKEN_SECRET`) with an ephemeral random value so a bare
+`docker run` boots — set them yourself for anything that must survive a
+restart. The checklist above still applies: that image is a demo/local target,
+not a production deployment (SQLite, ephemeral secrets).
+
+Because production refuses a localhost Celery broker, the image ships
+`SM_BG_TASKS_BROKER_URL=redis://redis:6379/0` (and `/1` for the result
+backend) — the compose hostnames. With no Redis reachable the app still serves
+every page; only task dispatch fails.
+
+### Scaffolded apps
+
 **Every `smpy new` scaffold ships its own Docker assets** — you don't write these by hand:
 
 | Path | What it is |

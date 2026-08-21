@@ -47,6 +47,57 @@ make dev
 
 Hit `http://localhost:8000` — you land on the public page. `/users/login` is the email+password login, `/dashboard/` is the authenticated home, and `/admin/doctor/` is the admin-only "smpy doctor" panel (static checks, migrations, dev server, modules).
 
+## Run it in Docker
+
+The repo ships a default image (`./Dockerfile`) that builds the host plus every
+bundled module — Python workspace, `gen-pages`, and the production Vite bundle —
+and serves it with uvicorn. It is standalone: SQLite lives inside the container
+under `/app/data`, so no Postgres and no Redis are needed to boot.
+
+```bash
+make docker-app        # build ./Dockerfile, then run it on http://localhost:8000
+```
+
+Both run targets take `SM_APP_PORT=8010` when a `make dev` already holds
+8000.
+
+or without make:
+
+```bash
+docker build -t simple-module-python .
+docker run --rm -p 8000:8000 \
+  -e SM_USERS_BOOTSTRAP_EMAIL=admin@example.com \
+  -e SM_USERS_BOOTSTRAP_PASSWORD=admin \
+  -v simple-module-python-data:/app/data \
+  simple-module-python
+```
+
+`make docker-compose-app` (or `docker compose up --build app`) runs the same
+image through compose with a named volume — independent of the shared
+dev-services stack that `worker`/`beat` use.
+
+What the entrypoint does before uvicorn binds: applies `alembic upgrade heads`
+(a fresh volume has no tables, and production fails boot on `SM010` when the DB
+is behind head), and generates an ephemeral `SM_SECRET_KEY` when none is set —
+enough to boot and log in, but sessions die on restart, so set one for anything
+real.
+
+The image runs with `SM_ENVIRONMENT=production` because it serves the built
+bundle rather than a Vite dev server. Useful overrides:
+
+| Variable | Image default | Why you'd change it |
+|---|---|---|
+| `SM_SECRET_KEY` | generated per start | Persist sessions across restarts |
+| `SM_DATABASE_URL` | `sqlite+aiosqlite:////app/data/app.db` | Point at Postgres |
+| `SM_BG_TASKS_BROKER_URL` / `_RESULT_BACKEND` | `redis://redis:6379/0` and `/1` | Reach a real Redis. Production refuses a localhost broker, so the image ships the compose hostname; with no Redis the app still serves, only task dispatch fails |
+| `SM_USERS_BOOTSTRAP_EMAIL` / `_PASSWORD` | unset | Seed the first admin while the users table is empty |
+| `SM_TRUSTED_PROXY` | unset | Set to `*` behind a TLS-terminating reverse proxy |
+
+`docker-compose.yml`'s `worker` / `beat` services still build
+`docker/worker.Dockerfile` and expect the shared `../dev-services` Postgres +
+Redis on the external `devnet` network — that's the dev-stack path, not the
+standalone one.
+
 ## Create a new module
 
 ```bash
@@ -105,6 +156,7 @@ docs/
 | `make migration msg="..."` | Autogenerate a new migration |
 | `make new-module name=<name>` | Scaffold a new module |
 | `make kill` | Stop any running dev servers (ports 8000, 5050, 5173) |
+| `make docker-build` / `docker-app` | Build the default app image / run it standalone on port 8000 |
 | `make docker-up` / `docker-down` | `docker-up` brings up the shared dev-services stack (Postgres/Redis/MinIO); `docker-down` stops only this repo's worker/beat (SQLite needs no Docker) |
 
 ## Configuration

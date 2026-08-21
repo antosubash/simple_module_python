@@ -1,4 +1,27 @@
 services:
+  # The default app — host + every bundled module — built from ./Dockerfile.
+  # Self-contained: SQLite on a named volume, no Postgres and no Redis
+  # required, so `docker compose up --build app` works with nothing else
+  # running. worker/beat below are the opt-in Celery half and still expect the
+  # shared ../dev-services stack.
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # Left unset the entrypoint generates an ephemeral key (fine for a demo,
+      # logs a warning, invalidates sessions on restart).
+      - SM_SECRET_KEY
+      # First-boot admin seed — only applied while the users table is empty.
+      # Override before exposing this to anything but localhost.
+      - SM_USERS_BOOTSTRAP_EMAIL=${SM_USERS_BOOTSTRAP_EMAIL:-admin@example.com}
+      - SM_USERS_BOOTSTRAP_PASSWORD=${SM_USERS_BOOTSTRAP_PASSWORD:-admin}
+    ports:
+      # SM_APP_PORT frees you from a host-port clash with `make dev`.
+      - "${SM_APP_PORT:-8000}:8000"
+    volumes:
+      - appdata:/app/data
+
   # Postgres + Redis now come from the shared ../dev-services stack
   # (one PostGIS + one Redis on the external `devnet` network). Start it first
   # with `make up` in ~/Repos/dev-services. This project uses:
@@ -9,7 +32,9 @@ services:
     build:
       context: .
       dockerfile: docker/worker.Dockerfile
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
       SM_BG_TASKS_BROKER_URL: redis://redis:6379/4
       SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/5
@@ -30,7 +55,9 @@ services:
     build:
       context: .
       dockerfile: docker/worker.Dockerfile
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
       SM_BG_TASKS_BROKER_URL: redis://redis:6379/4
       SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/5
@@ -52,3 +79,6 @@ services:
 networks:
   devnet:
     external: true
+
+volumes:
+  appdata:
