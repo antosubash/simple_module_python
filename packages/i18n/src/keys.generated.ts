@@ -664,6 +664,7 @@ export const keys = {
       requires_restart: 'settings.modules_form.requires_restart',
       reset_to_default: 'settings.modules_form.reset_to_default',
       save: 'settings.modules_form.save',
+      saved_toast: 'settings.modules_form.saved_toast',
       saving: 'settings.modules_form.saving',
       set_new_value: 'settings.modules_form.set_new_value',
     },
@@ -914,6 +915,9 @@ export const keys = {
     },
     invite_fields: {
       hint: 'users.invite_fields.hint',
+      invalid_email: 'users.invite_fields.invalid_email',
+      invalid_email_one: 'users.invite_fields.invalid_email_one',
+      invalid_email_other: 'users.invite_fields.invalid_email_other',
       label: 'users.invite_fields.label',
       no_mailer: 'users.invite_fields.no_mailer',
       recognised: 'users.invite_fields.recognised',

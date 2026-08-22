@@ -1,6 +1,15 @@
 import '@testing-library/jest-dom/vitest';
+import { configureI18n } from '@simple-module-py/i18n';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
+
+configureI18n({
+  locale: 'en',
+  messages: {
+    'users.invite_fields.invalid_email_one': '{email} is not a valid email address.',
+    'users.invite_fields.invalid_email_other': '{count} addresses are not valid email addresses.',
+  },
+});
 
 import { InviteFields } from '../users/pages/Users/components/InviteFields';
 import { isPlausibleEmail, parseInviteEmails } from '../users/pages/Users/invite-emails';

@@ -1,5 +1,13 @@
+import { configureI18n } from '@simple-module-py/i18n';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
+
+configureI18n({
+  locale: 'en',
+  messages: {
+    'settings.modules_form.saved_toast': 'Settings saved',
+  },
+});
 
 const mocks = vi.hoisted(() => ({
   reload: vi.fn(),

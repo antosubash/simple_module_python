@@ -91,7 +91,7 @@ export function ModuleForm({ module: m, testable = false }: Props) {
       }
       setErrors(fieldErrs);
     } else if (resp.ok) {
-      toast.success('Settings saved');
+      toast.success(t(keys.settings.modules_form.saved_toast));
       router.reload({ only: ['modules'] });
     }
     setBusy(false);

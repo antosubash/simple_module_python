@@ -45,9 +45,10 @@ export function InviteFields({
 
       {invalidEmails.length > 0 && (
         <p role="alert" className="text-xs text-destructive">
-          {invalidEmails.length === 1
-            ? `${invalidEmails[0]} is not a valid email address.`
-            : `${invalidEmails.length} addresses are not valid email addresses.`}
+          {t(keys.users.invite_fields.invalid_email, {
+            count: invalidEmails.length,
+            email: invalidEmails[0],
+          })}
         </p>
       )}
 
