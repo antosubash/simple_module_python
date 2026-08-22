@@ -1,7 +1,11 @@
 # syntax=docker/dockerfile:1.7
-# Default image for the SimpleModule reference app — the host plus every
-# bundled module (auth/users, dashboard, permissions, settings, background
-# tasks, file storage, feature flags, audit log, branding, site lock).
+# Default image for the SimpleModule reference app — the host plus the bundled
+# modules that a single web process needs (auth/users, dashboard, permissions,
+# settings, file storage, feature flags, audit log, branding, site lock).
+#
+# Background tasks are deliberately not part of it: Celery is a second process
+# plus a broker, which is the opposite of a standalone image. The worker/beat
+# services in docker-compose.yml build docker/worker.Dockerfile for that.
 #
 #   docker build -t simple-module-python .
 #   docker run --rm -p 8000:8000 simple-module-python
@@ -45,9 +49,13 @@ COPY packages/ packages/
 COPY host/client_app/package.json host/client_app/
 RUN --mount=type=cache,target=/root/.npm npm ci
 
+# --no-install-package drops the Celery module from this image: with no entry
+# point installed, discovery never sees it, so nothing here needs a broker and
+# the bundle carries none of its pages. Drop the flag (and point
+# SM_BG_TASKS_BROKER_URL at a real Redis) to run tasks from the web process.
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --all-packages --no-dev
+    uv sync --all-packages --no-dev --no-install-package simple-module-background-tasks
 
 # Page manifest + generated module imports first, then the production bundle
 # into host/static/dist (with its .vite/manifest.json and precompressed
@@ -74,12 +82,6 @@ ENV SM_ENVIRONMENT=production
 # Absolute sqlite path: /app/data is the volume mount point, so the DB is
 # cwd-independent and survives restarts whenever a volume is attached.
 ENV SM_DATABASE_URL=sqlite+aiosqlite:////app/data/app.db
-
-# Celery refuses a localhost broker in production — that would mean the web
-# container talking to its own (absent) 6379. `redis` is the compose service
-# name; without that stack the app still boots and only task *dispatch* fails.
-ENV SM_BG_TASKS_BROKER_URL=redis://redis:6379/0 \
-    SM_BG_TASKS_RESULT_BACKEND=redis://redis:6379/1
 
 # curl backs the HEALTHCHECK below.
 RUN apt-get update \

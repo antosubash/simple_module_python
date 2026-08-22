@@ -38,10 +38,13 @@ production secret (`SM_SECRET_KEY`, `SM_USERS_RESET_PASSWORD_TOKEN_SECRET`,
 restart. The checklist above still applies: that image is a demo/local target,
 not a production deployment (SQLite, ephemeral secrets).
 
-Because production refuses a localhost Celery broker, the image ships
-`SM_BG_TASKS_BROKER_URL=redis://redis:6379/0` (and `/1` for the result
-backend) — the compose hostnames. With no Redis reachable the app still serves
-every page; only task dispatch fails.
+That image carries no Celery: the build passes
+`--no-install-package simple-module-background-tasks`, so the module has no
+entry point to discover and the web process needs no broker at all. Background
+jobs are the `worker` / `beat` services in `docker-compose.yml`
+(`docker/worker.Dockerfile`), which is where a second process and a Redis
+belong. Drop that flag and set `SM_BG_TASKS_BROKER_URL` / `_RESULT_BACKEND` to
+put tasks back in the web image.
 
 ### Scaffolded apps
 

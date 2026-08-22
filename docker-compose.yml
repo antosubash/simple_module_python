@@ -1,9 +1,9 @@
 services:
-  # The default app — host + every bundled module — built from ./Dockerfile.
-  # Self-contained: SQLite on a named volume, no Postgres and no Redis
-  # required, so `docker compose up --build app` works with nothing else
-  # running. worker/beat below are the opt-in Celery half and still expect the
-  # shared ../dev-services stack.
+  # The default app, built from ./Dockerfile. Self-contained: SQLite on a
+  # named volume, no Postgres and no Redis required, so
+  # `docker compose up --build app` works with nothing else running. The image
+  # ships no Celery module — worker/beat below are the background-jobs half and
+  # still expect the shared ../dev-services stack.
   app:
     build:
       context: .

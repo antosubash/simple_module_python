@@ -89,14 +89,17 @@ bundle rather than a Vite dev server. Useful overrides:
 |---|---|---|
 | `SM_SECRET_KEY` | generated per start | Persist sessions across restarts |
 | `SM_DATABASE_URL` | `sqlite+aiosqlite:////app/data/app.db` | Point at Postgres |
-| `SM_BG_TASKS_BROKER_URL` / `_RESULT_BACKEND` | `redis://redis:6379/0` and `/1` | Reach a real Redis. Production refuses a localhost broker, so the image ships the compose hostname; with no Redis the app still serves, only task dispatch fails |
 | `SM_USERS_BOOTSTRAP_EMAIL` / `_PASSWORD` | unset | Seed the first admin while the users table is empty |
 | `SM_TRUSTED_PROXY` | unset | Set to `*` behind a TLS-terminating reverse proxy |
 
-`docker-compose.yml`'s `worker` / `beat` services still build
-`docker/worker.Dockerfile` and expect the shared `../dev-services` Postgres +
-Redis on the external `devnet` network — that's the dev-stack path, not the
-standalone one.
+**No background tasks.** The image skips installing the Celery module
+(`uv sync … --no-install-package simple-module-background-tasks`), so nothing in
+it wants a broker — a queue means a second process and a Redis, which is the
+opposite of a standalone image. `docker-compose.yml`'s `worker` / `beat`
+services cover that path: they build `docker/worker.Dockerfile` against the
+shared `../dev-services` Postgres + Redis on the external `devnet` network. To
+run tasks from the web process instead, drop the `--no-install-package` flag
+from the Dockerfile and set `SM_BG_TASKS_BROKER_URL` / `_RESULT_BACKEND`.
 
 ## Create a new module
 
