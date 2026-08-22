@@ -12,10 +12,11 @@ services:
       # Left unset the entrypoint generates an ephemeral key (fine for a demo,
       # logs a warning, invalidates sessions on restart).
       - SM_SECRET_KEY
-      # First-boot admin seed — only applied while the users table is empty.
-      # Override before exposing this to anything but localhost.
-      - SM_USERS_BOOTSTRAP_EMAIL=${SM_USERS_BOOTSTRAP_EMAIL:-admin@example.com}
-      - SM_USERS_BOOTSTRAP_PASSWORD=${SM_USERS_BOOTSTRAP_PASSWORD:-admin}
+      # First-boot admin seed, applied only while the users table is empty.
+      # Unset, the entrypoint seeds admin@example.com with a generated
+      # password and prints it — see `docker compose logs app`.
+      - SM_USERS_BOOTSTRAP_EMAIL
+      - SM_USERS_BOOTSTRAP_PASSWORD
     ports:
       # SM_APP_PORT frees you from a host-port clash with `make dev`.
       - "${SM_APP_PORT:-8000}:8000"

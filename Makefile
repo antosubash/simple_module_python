@@ -195,8 +195,6 @@ docker-build:               ## Build the default app image
 
 docker-app: docker-build    ## Run the built image standalone on http://localhost:$(SM_APP_PORT)
 	docker run --rm -p $(SM_APP_PORT):8000 \
-		-e SM_USERS_BOOTSTRAP_EMAIL=admin@example.com \
-		-e SM_USERS_BOOTSTRAP_PASSWORD=admin \
 		-v simple-module-python-data:/app/data \
 		simple-module-python
 
