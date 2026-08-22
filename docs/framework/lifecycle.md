@@ -75,11 +75,11 @@ def register_permissions(self, registry: PermissionRegistry) -> None:
     )
 ```
 
-Permissions become available in the role admin UI (`/settings/permissions`). See [Permissions](/framework/permissions).
+Permissions become available in the role admin UI (`/admin/users/` (Roles tab)). See [Permissions](/framework/permissions).
 
 ## `register_feature_flags(registry)`
 
-Declare feature flags with defaults. The admin can toggle them at `/settings/feature-flags`.
+Declare feature flags with defaults. The admin can toggle them at `/admin/feature-flags/`.
 
 ```python
 def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:

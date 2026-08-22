@@ -48,6 +48,41 @@ class TestI18nRegistry:
         reg.load()
         assert reg.messages("en") == {"products.browse.title": "Products"}
 
+    def test_snapshot_falls_back_to_the_default_locale(self, tmp_path: Path) -> None:
+        """A partially translated locale must not ship missing keys.
+
+        The client initialises i18next with ``fallbackLng`` equal to the active
+        locale, so a key absent from the payload renders as the raw dotted key
+        — "dashboard.home.health" on screen. Layering over the default locale
+        makes an untranslated key read as the default language instead, which
+        is what the server-side Translator has always done.
+        """
+        self._write_locale(tmp_path / "p", "en", {"title": "Products", "new": "Brand new"})
+        self._write_locale(tmp_path / "p", "es", {"title": "Productos"})
+        reg = I18nRegistry(default_locale="en", supported_locales=["en", "es"])
+        reg.add_source("products", tmp_path / "p")
+        reg.load()
+
+        snapshot = reg.messages_snapshot("es")
+        assert snapshot["products.title"] == "Productos"
+        assert snapshot["products.new"] == "Brand new", "untranslated key must read as English"
+
+    def test_snapshot_fallback_applies_to_the_public_variant(self, tmp_path: Path) -> None:
+        self._write_locale(tmp_path / "p", "en", {"title": "Products", "new": "Brand new"})
+        self._write_locale(tmp_path / "p", "es", {"title": "Productos"})
+        reg = I18nRegistry(default_locale="en", supported_locales=["en", "es"])
+        reg.add_source("products", tmp_path / "p", audience="public")
+        reg.load()
+        assert reg.messages_snapshot("es", include_admin=False)["products.new"] == "Brand new"
+
+    def test_default_locale_snapshot_is_untouched(self, tmp_path: Path) -> None:
+        self._write_locale(tmp_path / "p", "en", {"title": "Products"})
+        self._write_locale(tmp_path / "p", "es", {"title": "Productos"})
+        reg = I18nRegistry(default_locale="en", supported_locales=["en", "es"])
+        reg.add_source("products", tmp_path / "p")
+        reg.load()
+        assert reg.messages_snapshot("en") == {"products.title": "Products"}
+
     def test_merges_multiple_namespaces(self, tmp_path: Path) -> None:
         self._write_locale(tmp_path / "p", "en", {"title": "Products"})
         self._write_locale(tmp_path / "a", "en", {"title": "Auth"})

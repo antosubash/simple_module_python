@@ -1,15 +1,18 @@
 import { Link } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { TableCell, TableRow } from '@simple-module-py/ui/components/ui/table';
 import { RefreshCcw } from 'lucide-react';
-import { formatTs, RETRYABLE_STATUSES, STATUS_BADGE_VARIANT, VIEW_BASE } from '../constants';
+import {
+  formatTs,
+  RETRYABLE_STATUSES,
+  STATUS_BADGE_VARIANT,
+  STATUS_LABEL_KEY,
+  VIEW_BASE,
+} from '../constants';
 import type { Execution } from '../retry';
 import { RetryConfirmDialog } from './RetryConfirmDialog';
-
-function statusLabel(status: string): string {
-  return status[0].toUpperCase() + status.slice(1);
-}
 
 function formatDuration(started: string | null, finished: string | null): string {
   if (!started) return '—';
@@ -28,6 +31,7 @@ interface Props {
 }
 
 export function ExecutionRow({ execution, canRetry, onRetry }: Props) {
+  const { t } = useT();
   const retryable = RETRYABLE_STATUSES.has(execution.status) && canRetry;
   return (
     <TableRow>
@@ -43,7 +47,7 @@ export function ExecutionRow({ execution, canRetry, onRetry }: Props) {
       </TableCell>
       <TableCell>
         <Badge variant={STATUS_BADGE_VARIANT[execution.status]}>
-          {statusLabel(execution.status)}
+          {t(STATUS_LABEL_KEY[execution.status])}
         </Badge>
       </TableCell>
       <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
@@ -78,5 +82,3 @@ export function ExecutionRow({ execution, canRetry, onRetry }: Props) {
     </TableRow>
   );
 }
-
-export { statusLabel };

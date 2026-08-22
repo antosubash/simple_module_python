@@ -8,7 +8,7 @@ Automatic field-level audit trail for every SQLModel entity in the app. Each cre
 |---|---|
 | `name` | `AuditLog` |
 | `route_prefix` | `/api/audit_log` |
-| `view_prefix` | `/audit_log` |
+| `view_prefix` | `/admin/audit-log` |
 | `depends_on` | `["Users"]` |
 
 ## How capture works
@@ -120,7 +120,7 @@ There is no write permission — the trail is append-only and written by the fra
 
 | Label | URL | Icon | Section | Group | Order |
 |---|---|---|---|---|---|
-| `Audit Log` | `/audit_log` | `scroll-text` | `SIDEBAR` | `System` | `210` |
+| `Audit Log` | `/admin/audit-log` | `scroll-text` | `ADMIN_SIDEBAR` | `System` | `210` |
 
 ## Inertia pages
 

@@ -78,7 +78,7 @@ function Landing() {
 
   return (
     <>
-      <Head title="Welcome" />
+      <Head title={t(keys.host.landing.head_title)} />
       {/* Hero with mesh blobs */}
       <section className="relative overflow-hidden">
         <div
@@ -125,7 +125,7 @@ function Landing() {
             </code>
             <button
               type="button"
-              aria-label="Copy command"
+              aria-label={t(keys.host.landing.copy_command)}
               className="shrink-0 text-slate-400 transition-colors hover:text-slate-200"
             >
               <Copy className="h-3.5 w-3.5" aria-hidden="true" />
@@ -139,10 +139,10 @@ function Landing() {
         <div className="mx-auto max-w-6xl">
           <div className="mb-10 text-center">
             <span className="text-xs font-semibold uppercase tracking-[0.10em] text-primary-700">
-              How it works
+              {t(keys.host.landing.how_it_works_eyebrow)}
             </span>
             <h2 className="mt-2 text-2xl font-bold tracking-tight font-[var(--font-display)] sm:text-3xl">
-              One process · many modules · zero glue.
+              {t(keys.host.landing.how_it_works_heading)}
             </h2>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -171,24 +171,23 @@ function Landing() {
         <div className="mx-auto grid max-w-5xl items-center gap-10 lg:grid-cols-[1fr_1.2fr]">
           <div>
             <span className="text-xs font-semibold uppercase tracking-[0.10em] text-primary-700">
-              Quickstart
+              {t(keys.host.landing.quickstart_eyebrow)}
             </span>
             <h2 className="mt-2 text-2xl font-bold tracking-tight font-[var(--font-display)] sm:text-[28px]">
-              Working app in five commands.
+              {t(keys.host.landing.quickstart_heading)}
             </h2>
             <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
-              Land on{' '}
+              {t(keys.host.landing.quickstart_body_prefix)}{' '}
               <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[13px]">
                 http://localhost:8000
               </code>{' '}
-              with users, dashboard, and permissions pre-wired. Sign in with the admin account you
-              bootstrap and go from there.
+              {t(keys.host.landing.quickstart_body_suffix)}
             </p>
             <div className="mt-5 flex flex-col gap-2.5">
               {[
-                ['users', 'Email + cookie sessions via fastapi-users'],
-                ['dashboard', 'Authenticated home with module tiles'],
-                ['permissions', 'Per-module permission registry'],
+                ['users', t(keys.host.landing.module_users_description)],
+                ['dashboard', t(keys.host.landing.module_dashboard_description)],
+                ['permissions', t(keys.host.landing.module_permissions_description)],
               ].map(([n, d]) => (
                 <div key={n} className="flex items-center gap-2.5">
                   <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary-600/10 text-primary-700">
@@ -214,6 +213,7 @@ function Landing() {
               <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
               <span className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
               <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+              {/* i18n-exempt: a fake terminal titlebar — a shell path and a program name. */}
               <span className="ml-2 font-mono text-[11px] text-slate-400">~/my-app — bash</span>
             </div>
             <pre className="m-0 px-5 py-4 font-mono text-[13px] leading-7 text-slate-200">
@@ -231,14 +231,14 @@ function Landing() {
         <div className="mx-auto flex max-w-4xl flex-col items-center justify-between gap-4 rounded-3xl bg-gradient-to-br from-primary-600 to-primary-800 px-9 py-8 shadow-xl sm:flex-row">
           <div>
             <h3 className="text-xl font-bold tracking-tight text-white font-[var(--font-display)] sm:text-[22px]">
-              Ready to ship modules?
+              {t(keys.host.landing.cta_heading)}
             </h3>
             <p className="mt-1 text-sm text-white/85">
               {auth?.isAuthenticated
-                ? 'Head to the dashboard, or hack on the framework directly.'
+                ? t(keys.host.landing.cta_body_authenticated)
                 : signupOpen
-                  ? 'Sign up for the admin UI, or hack on the framework directly.'
-                  : 'Sign in to the admin UI, or hack on the framework directly.'}
+                  ? t(keys.host.landing.cta_body_signup)
+                  : t(keys.host.landing.cta_body_signin)}
             </p>
           </div>
           <div className="flex shrink-0 gap-2">
@@ -247,14 +247,18 @@ function Landing() {
               variant="secondary"
               className="bg-white text-primary-700 hover:bg-white/90"
             >
-              <a href={primaryHref}>{auth?.isAuthenticated ? 'Open Dashboard' : cta.label}</a>
+              <a href={primaryHref}>
+                {auth?.isAuthenticated ? t(keys.host.landing.cta_dashboard) : cta.label}
+              </a>
             </Button>
             <Button
               asChild
               variant="ghost"
               className="text-white hover:bg-white/10 hover:text-white"
             >
-              <a href="https://github.com/antosubash/simple_module_python">GitHub →</a>
+              <a href="https://github.com/antosubash/simple_module_python">
+                {t(keys.host.landing.cta_github)}
+              </a>
             </Button>
           </div>
         </div>

@@ -129,7 +129,7 @@ async def test_manage_page_receives_the_registered_packs(
 ) -> None:
     app.state.design_packs.register(_GCA)
 
-    page = await authenticated_client.get("/branding/", follow_redirects=False)
+    page = await authenticated_client.get("/admin/branding/", follow_redirects=False)
 
     assert page.status_code == 200, page.text
     # Inertia serialises page props into the shell's data-page attribute.

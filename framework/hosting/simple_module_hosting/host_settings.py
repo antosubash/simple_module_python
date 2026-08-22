@@ -19,6 +19,16 @@ class HostSettings(BaseSettings):
     multi_tenant: bool = False
     tenant_header: str = ""
 
+    maintenance_mode: bool = False
+    """Serve everyone but admins a 503 page.
+
+    DB-backed rather than an env var on purpose: flipping it must not need a
+    redeploy, which is exactly when you want it.
+    """
+    maintenance_message: str = ""
+    """Optional operator note shown on the maintenance page. Empty = use the
+    generic translated copy."""
+
     i18n_default_locale: str = "en"
     i18n_supported_locales: list[str] = ["en"]
     i18n_cookie_name: str = "locale"

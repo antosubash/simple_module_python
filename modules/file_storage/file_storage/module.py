@@ -83,12 +83,14 @@ class FileStorageModule(ModuleBase):
         registry.add(
             MenuItem(
                 label=constants.MODULE_DISPLAY_NAME,
+                label_key="file_storage.nav.files",
                 url=f"{constants.ROUTE_PREFIX_VIEW}/",
                 icon=constants.MENU_ICON,
                 order=constants.MENU_ORDER,
                 section=MenuSection.SIDEBAR,
                 roles=list(constants.MENU_ROLES),
                 group="Content",
+                group_key="ui.nav_groups.content",
             )
         )
 

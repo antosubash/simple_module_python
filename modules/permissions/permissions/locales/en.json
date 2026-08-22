@@ -41,7 +41,10 @@
     "cancel_link": "Back",
     "selected_summary": "Selected",
     "select_all_group": "Select all",
-    "clear_group": "Clear"
+    "clear_group": "Clear",
+    "head_title": "Edit Role",
+    "permissions_enabled": "permissions enabled",
+    "granted_summary": "{granted} of {total} granted"
   },
   "user_edit": {
     "title": "Permissions for {email}",
@@ -58,10 +61,14 @@
     "via_role": "via {role}",
     "effective_yes": "This user has this permission",
     "effective_no": "This user does not have this permission",
-    "direct_toggle_label": "Grant {key} directly to this user"
+    "direct_toggle_label": "Grant {key} directly to this user",
+    "head_title": "Edit User"
   },
   "errors": {
     "role_not_found": "Role not found.",
     "user_not_found": "User not found."
+  },
+  "filters": {
+    "modules_placeholder": "Filter modules…"
   }
 }

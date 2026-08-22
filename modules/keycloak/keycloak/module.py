@@ -49,6 +49,7 @@ class KeycloakModule(ModuleBase):
         registry.add(
             MenuItem(
                 label="Logout",
+                label_key="keycloak.nav.logout",
                 url="/keycloak/logout",
                 icon="log-out",
                 order=999,

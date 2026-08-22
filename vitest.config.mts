@@ -17,6 +17,9 @@ export default defineConfig({
       'host/client_app/**/*.test.tsx',
       'modules/**/tests-js/**/*.test.ts',
       'modules/**/tests-js/**/*.test.tsx',
+      // The lint gates are code too — a "fix" to one of their heuristics
+      // should not be able to quietly stop them detecting anything.
+      'scripts/**/*.test.mts',
     ],
   },
 });

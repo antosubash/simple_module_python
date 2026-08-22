@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import {
   Tooltip,
@@ -7,7 +8,7 @@ import {
   TooltipTrigger,
 } from '@simple-module-py/ui/components/ui/tooltip';
 import type React from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AppTopbar, activeSection, findSection } from '../components/AppTopbar';
 import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
@@ -18,6 +19,7 @@ import { NavIcon } from '../components/NavIcon';
 import { PageHeadingProvider, usePageSection } from '../components/page-heading';
 import { darkSurfaceLogo } from '../lib/brand';
 import type { MenuItem, SharedProps } from '../types';
+import { AdminSectionLink } from './AdminSectionLink';
 import { SidebarUserMenu } from './SidebarUserMenu';
 
 // A stable reference for "no items" — `menus?.[key] ?? []` would otherwise
@@ -75,6 +77,7 @@ export function SidebarLayout(props: SidebarLayoutProps) {
 }
 
 function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: SidebarLayoutProps) {
+  const { t } = useT();
   const page = usePage<{ props: SharedProps }>();
   const { auth, menus, branding } = page.props as unknown as SharedProps;
   const currentUrl = page.url;
@@ -88,6 +91,25 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
   const closeSidebar = () => setSidebarOpen(false);
 
   const menuItems = menus?.[menuKey] ?? NO_ITEMS;
+  // ⌘K reaches everything the viewer can open, not just the shell they are
+  // standing in. Both sidebars are already filtered by roles and permissions,
+  // so this widens reach without offering anything they cannot use — whereas
+  // indexing only `menuKey` made every admin screen unreachable from the app
+  // shell the moment they moved to their own sidebar.
+  // Keyed by url so a module that somehow contributes the same destination to
+  // both sections is listed once. MenuRegistry buckets each item into exactly
+  // one section, so this is a cheap invariant guard rather than a live case.
+  const paletteItems = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          [...(menus?.sidebar ?? NO_ITEMS), ...(menus?.adminSidebar ?? NO_ITEMS)].map(
+            (item) => [item.url, item] as const,
+          ),
+        ).values(),
+      ),
+    [menus?.sidebar, menus?.adminSidebar],
+  );
   const declaredSection = usePageSection(currentUrl);
   // Same "which entry does this page belong to" resolution AppTopbar uses for
   // the breadcrumb, so the sidebar highlight and the breadcrumb never disagree.
@@ -111,7 +133,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
             variant="ghost"
             size="icon-sm"
             onClick={() => setSidebarOpen(true)}
-            aria-label="Open sidebar"
+            aria-label={t(keys.ui.sidebar.open)}
             className="text-sidebar-icon hover:text-white hover:bg-white/10"
           >
             <svg
@@ -148,7 +170,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
         {sidebarOpen && (
           <button
             type="button"
-            aria-label="Close sidebar"
+            aria-label={t(keys.ui.sidebar.close)}
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden cursor-default"
             onClick={closeSidebar}
           />
@@ -172,7 +194,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
               variant="ghost"
               size="icon-sm"
               onClick={closeSidebar}
-              aria-label="Close sidebar"
+              aria-label={t(keys.ui.sidebar.close)}
               className="lg:hidden text-sidebar-icon-muted hover:text-white hover:bg-white/10"
             >
               <svg
@@ -229,6 +251,13 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
                 })}
               </div>
             ))}
+            {menuKey === 'sidebar' && (
+              <AdminSectionLink
+                adminItems={menus?.adminSidebar ?? NO_ITEMS}
+                className={theme.inactiveClass}
+                onNavigate={closeSidebar}
+              />
+            )}
             {footerNavSlot}
           </nav>
 
@@ -248,7 +277,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
         {/* Main content */}
         <main className="flex min-h-screen flex-col lg:ml-64">
           <AppTopbar
-            navItems={menuItems}
+            navItems={paletteItems}
             accountItems={menus?.userDropdown ?? NO_ITEMS}
             currentUrl={currentUrl}
             activeMenuItem={active}

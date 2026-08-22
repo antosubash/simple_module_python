@@ -1,6 +1,6 @@
 import { Link, router, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
-import { StatCard } from '@simple-module-py/ui/components/StatCard';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
@@ -13,22 +13,14 @@ import {
   TableRow,
 } from '@simple-module-py/ui/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@simple-module-py/ui/components/ui/tabs';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import {
-  ArrowDown,
-  ArrowUp,
-  Mail,
-  Plus,
-  Search,
-  ShieldCheck,
-  UserCheck,
-  Users,
-} from 'lucide-react';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
+import { ArrowDown, ArrowUp, Plus, Search, ShieldCheck, Users } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type Filters, IndexFilters } from '../../admin/components/IndexFilters';
 import { type RoleItem, RolesTab } from '../../admin/components/RolesTab';
 import { type UserListItem, UserRow } from '../../admin/components/UserRow';
 import { SoloAccountPrompt, UsersEmptyRow } from '../../admin/components/UsersEmpty';
+import { UserStats } from './components/UserStats';
 
 interface Pagination {
   page: number;
@@ -81,6 +73,7 @@ function Index() {
     roles,
     filters: serverFilters,
   } = usePage<{ props: Props }>().props as unknown as Props;
+  const { t } = useT();
 
   const filters: Filters = useMemo(
     () => ({ ...DEFAULT_FILTERS, ...serverFilters }),
@@ -105,7 +98,7 @@ function Index() {
       if (sort !== 'email') params.sort = sort;
       if (order !== 'asc') params.order = order;
       if (page > 1) params.page = String(page);
-      router.get('/users/admin', params, { preserveState: true, preserveScroll: true });
+      router.get('/admin/users/', params, { preserveState: true, preserveScroll: true });
     },
     [search, filters],
   );
@@ -147,44 +140,38 @@ function Index() {
 
   return (
     <PageShell
-      title="Users"
-      description="People with access to this workspace. Invites use the configured mailer."
+      title={t(keys.users.index.title)}
+      description={t(keys.users.index.description)}
       actions={
         // One entry point: invite-vs-create is a choice inside the form, not
         // a choice between two buttons made before seeing either.
         <Button asChild className="gap-1.5">
-          <Link href="/users/admin/add">
+          <Link href="/admin/users/add">
             <Plus className="h-4 w-4" />
-            Add people
+            {t(keys.users.index.add_people)}
           </Link>
         </Button>
       }
     >
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Members" value={pagination.total} icon={Users} />
-        <StatCard label="Active" value={aggregates.active} icon={UserCheck} />
-        <StatCard
-          label="Pending invites"
-          value={aggregates.unverified}
-          icon={Mail}
-          delta={aggregates.unverified > 0 ? 'review' : 'all set'}
-          deltaTone={aggregates.unverified > 0 ? 'warning' : 'success'}
-        />
-        <StatCard label="Roles" value={roles.length} icon={ShieldCheck} />
-      </div>
+      <UserStats
+        total={pagination.total}
+        active={aggregates.active}
+        unverified={aggregates.unverified}
+        roleCount={roles.length}
+      />
 
       <Tabs defaultValue="users" className="space-y-4">
         <TabsList>
           <TabsTrigger value="users">
             <Users className="size-4" />
-            Users
+            {t(keys.users.index.tab_users)}
             <Badge variant="secondary" className="ml-1">
               {pagination.total}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="roles">
             <ShieldCheck className="size-4" />
-            Roles
+            {t(keys.users.index.tab_roles)}
             <Badge variant="secondary" className="ml-1">
               {roles.length}
             </Badge>
@@ -196,7 +183,7 @@ function Index() {
             <div className="relative max-w-sm flex-1 min-w-[240px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name or email…"
+                placeholder={t(keys.users.index.search_placeholder)}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
@@ -221,19 +208,23 @@ function Index() {
                       className="flex items-center gap-0.5 hover:text-foreground"
                       onClick={() => toggleSort('email')}
                     >
-                      Member
+                      {t(keys.users.index.col_member)}
                       <SortIcon col="email" filters={filters} />
                     </button>
                   </TableHead>
-                  <TableHead className={`${HEAD_CLASS} hidden sm:table-cell`}>Role</TableHead>
-                  <TableHead className={`${HEAD_CLASS} hidden sm:table-cell`}>Status</TableHead>
+                  <TableHead className={`${HEAD_CLASS} hidden sm:table-cell`}>
+                    {t(keys.users.index.col_role)}
+                  </TableHead>
+                  <TableHead className={`${HEAD_CLASS} hidden sm:table-cell`}>
+                    {t(keys.users.index.col_status)}
+                  </TableHead>
                   <TableHead className={`${HEAD_CLASS} hidden lg:table-cell`}>
                     <button
                       type="button"
                       className="flex items-center gap-0.5 hover:text-foreground"
                       onClick={() => toggleSort('last_login_at')}
                     >
-                      Last seen
+                      {t(keys.users.index.col_last_seen)}
                       <SortIcon col="last_login_at" filters={filters} />
                     </button>
                   </TableHead>
@@ -263,10 +254,10 @@ function Index() {
                 disabled={pagination.page <= 1}
                 onClick={() => navigate({ page: pagination.page - 1 })}
               >
-                Previous
+                {t(keys.users.index.previous)}
               </Button>
               <span className="text-sm text-muted-foreground">
-                Page {pagination.page} of {totalPages}
+                {t(keys.users.index.page_of, { page: pagination.page, total: totalPages })}
               </span>
               <Button
                 variant="outline"
@@ -274,7 +265,7 @@ function Index() {
                 disabled={pagination.page >= totalPages}
                 onClick={() => navigate({ page: pagination.page + 1 })}
               >
-                Next
+                {t(keys.users.index.next)}
               </Button>
             </div>
           )}
@@ -286,5 +277,5 @@ function Index() {
   );
 }
 
-Index.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Index.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default Index;

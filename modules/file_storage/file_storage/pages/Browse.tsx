@@ -132,7 +132,7 @@ function Browse() {
 
   return (
     <>
-      <Head title="File Storage" />
+      <Head title={t(keys.file_storage.browse.head_title)} />
       <PageShell
         title={t(keys.file_storage.browse.title)}
         description={t(keys.file_storage.browse.description)}

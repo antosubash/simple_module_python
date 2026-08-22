@@ -18,7 +18,11 @@ from starlette.datastructures import Headers, MutableHeaders
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from simple_module_hosting._inertia_shared import build_i18n_block, merge_shared_prop_providers
+from simple_module_hosting._inertia_shared import (
+    build_i18n_block,
+    build_menu_translator,
+    merge_shared_prop_providers,
+)
 from simple_module_hosting._observability import (
     CorrelationIdMiddleware,
     RequestLoggingMiddleware,
@@ -277,6 +281,7 @@ class InertiaLayoutDataMiddleware:
                 # Already expanded above (wildcards resolved), which is exactly
                 # what the menu filter needs to drop entries that would 403.
                 permissions=frontend_permissions,
+                translate=build_menu_translator(request),
             ),
             "i18n": i18n_block,
         }

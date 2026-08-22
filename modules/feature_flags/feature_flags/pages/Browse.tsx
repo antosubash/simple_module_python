@@ -20,7 +20,7 @@ import {
   TableRow,
 } from '@simple-module-py/ui/components/ui/table';
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { Flag, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -43,11 +43,17 @@ interface Props {
 }
 
 function buildPath(tenantId: string | null) {
-  return tenantId ? `/feature_flags?tenant_id=${encodeURIComponent(tenantId)}` : '/feature_flags';
+  // Trailing slash: the browse route is registered at "/" under the module's
+  // view prefix, and `_clone_bare_prefix_route` cannot alias a bare prefix for
+  // routes contributed via `include_router` — so the bare form costs a 307 on
+  // every navigation. Matches MENU_URL in constants.py.
+  return tenantId
+    ? `/admin/feature-flags/?tenant_id=${encodeURIComponent(tenantId)}`
+    : '/admin/feature-flags/';
 }
 
 function actionUrl(name: string, action: 'toggle' | 'clear', tenantId: string | null) {
-  const base = `/feature_flags/${name}/${action}`;
+  const base = `/admin/feature-flags/${name}/${action}`;
   return tenantId ? `${base}?tenant_id=${encodeURIComponent(tenantId)}` : base;
 }
 
@@ -94,7 +100,7 @@ function Browse() {
 
   return (
     <>
-      <Head title="Feature Flags" />
+      <Head title={t(keys.feature_flags.browse.title)} />
       <PageShell
         title={t(keys.feature_flags.browse.title)}
         description={t(keys.feature_flags.browse.description)}
@@ -253,5 +259,5 @@ function Browse() {
   );
 }
 
-Browse.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Browse.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default Browse;

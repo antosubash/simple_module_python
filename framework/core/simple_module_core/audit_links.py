@@ -39,11 +39,16 @@ class AuditLink:
             (e.g. ``"/admin/users/{id}/edit"``).
         label: Human-readable name for the entity kind, shown instead of the
             raw class name (e.g. ``"User account"``).
+        label_key: Catalog key for ``label``. Empty, or unresolved, falls back
+            to ``label`` — a missing translation shows English rather than a
+            raw dotted key. Rows are rendered server-side, so the audit view
+            translates these before they reach the page.
     """
 
     entity_type: str
     url_template: str
     label: str = ""
+    label_key: str = ""
 
     def __post_init__(self) -> None:
         if _ID_PLACEHOLDER not in self.url_template:

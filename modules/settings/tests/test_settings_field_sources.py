@@ -53,7 +53,7 @@ class TestFieldSource:
 
 class TestModulesView:
     async def test_fields_carry_their_source(self, authenticated_client):
-        resp = await authenticated_client.get("/settings/", follow_redirects=False)
+        resp = await authenticated_client.get("/admin/settings/", follow_redirects=False)
         assert resp.status_code == 200
 
     def test_env_var_presence_is_detected(self, monkeypatch: pytest.MonkeyPatch):
@@ -102,18 +102,18 @@ class TestModulesView:
 
 class TestTestConnectionEndpoint:
     async def test_unknown_package_is_a_404(self, authenticated_client):
-        resp = await authenticated_client.post("/settings/test-connection/nosuchmodule")
+        resp = await authenticated_client.post("/admin/settings/test-connection/nosuchmodule")
         assert resp.status_code == 404
 
     async def test_module_without_checks_is_a_404(self, authenticated_client):
         """Only modules that registered a check can be tested."""
-        resp = await authenticated_client.post("/settings/test-connection/settings")
+        resp = await authenticated_client.post("/admin/settings/test-connection/settings")
         assert resp.status_code == 404
 
     async def test_failing_check_still_returns_200_with_the_reason(self, authenticated_client):
         """An admin testing a connection needs to read the failure, not get an
         error status with the reason buried."""
-        resp = await authenticated_client.post("/settings/test-connection/file_storage")
+        resp = await authenticated_client.post("/admin/settings/test-connection/file_storage")
         assert resp.status_code == 200, resp.text
         body = resp.json()
         assert body["checks"], body

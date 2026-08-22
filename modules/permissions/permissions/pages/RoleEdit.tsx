@@ -6,7 +6,7 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Switch } from '@simple-module-py/ui/components/ui/switch';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { USERS_ADMIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { Check, Package, Search } from 'lucide-react';
 import type React from 'react';
@@ -54,7 +54,7 @@ function RoleEdit({ role, assigned, groups }: Props) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    put(`/permissions/roles/${role.id}`, {
+    put(`/admin/permissions/roles/${role.id}`, {
       preserveScroll: true,
       onSuccess: () => toast.success(t(keys.permissions.toasts.saved)),
       onError: () => toast.error(t(keys.permissions.toasts.save_failed)),
@@ -65,7 +65,7 @@ function RoleEdit({ role, assigned, groups }: Props) {
 
   return (
     <>
-      <Head title="Edit Role" />
+      <Head title={t(keys.permissions.edit.head_title)} />
       <PageShell
         title={t(keys.permissions.edit.title, { role: role.name })}
         description={role.description ?? t(keys.permissions.edit.description)}
@@ -92,7 +92,7 @@ function RoleEdit({ role, assigned, groups }: Props) {
               {t(keys.permissions.edit.submit_button)}
             </Button>
             <Button asChild variant="ghost">
-              <Link href="/users/admin">{t(keys.permissions.edit.cancel_link)}</Link>
+              <Link href={USERS_ADMIN_PATH}>{t(keys.permissions.edit.cancel_link)}</Link>
             </Button>
           </>
         }
@@ -102,7 +102,7 @@ function RoleEdit({ role, assigned, groups }: Props) {
             <div className="relative max-w-sm flex-1 min-w-[240px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
-                placeholder="Filter modules…"
+                placeholder={t(keys.permissions.filters.modules_placeholder)}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 className="pl-9"
@@ -110,10 +110,10 @@ function RoleEdit({ role, assigned, groups }: Props) {
             </div>
             <div className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
               <span>
-                <strong className="font-bold tracking-tight font-[var(--font-display)] text-foreground">
-                  {data.permissions.length}
-                </strong>{' '}
-                of {totalRegistered} granted
+                {t(keys.permissions.edit.granted_summary, {
+                  granted: data.permissions.length,
+                  total: totalRegistered,
+                })}
               </span>
               <div className="h-1.5 w-32 overflow-hidden rounded-full bg-secondary">
                 <div
@@ -186,7 +186,7 @@ function RoleEdit({ role, assigned, groups }: Props) {
                 <Badge variant="outline" className="border-border bg-secondary">
                   {data.permissions.length} / {totalRegistered}
                 </Badge>
-                <span>permissions enabled</span>
+                <span>{t(keys.permissions.edit.permissions_enabled)}</span>
               </div>
             </div>
           )}
@@ -196,5 +196,5 @@ function RoleEdit({ role, assigned, groups }: Props) {
   );
 }
 
-RoleEdit.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+RoleEdit.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default RoleEdit;

@@ -22,12 +22,12 @@ LOCALE_NAMESPACE = "feature_flags"
 MENU_LABEL = "Feature Flags"
 # Trailing slash: the browse route is registered at "/" under the view
 # prefix, so linking to the bare prefix costs a 307 on every navigation.
-MENU_URL = "/feature_flags/"
+MENU_URL = "/admin/feature-flags/"
 MENU_ICON = "flag"
 MENU_ORDER = 110
 
 PAGE_BROWSE = "FeatureFlags/Browse"
 
 API_PREFIX = "/api/feature_flags"
-VIEW_PREFIX = "/feature_flags"
+VIEW_PREFIX = "/admin/feature-flags"
 QP_TENANT_ID = "tenant_id"

@@ -1,8 +1,9 @@
 import { Link, router, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import type React from 'react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -20,7 +21,7 @@ interface Props {
   mailer_delivers: boolean;
 }
 
-const USERS_INDEX = '/users/admin';
+const USERS_INDEX = '/admin/users/';
 
 function initialMode(): Mode {
   if (typeof window === 'undefined') return 'invite';
@@ -39,6 +40,7 @@ function initialMode(): Mode {
 function AddPeople() {
   const { roles, mailer_delivers: mailerDelivers } = usePage<{ props: Props }>()
     .props as unknown as Props;
+  const { t } = useT();
 
   const [mode, setMode] = useState<Mode>(initialMode);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
@@ -70,7 +72,11 @@ function AddPeople() {
     });
     if (!resp.ok) {
       const body = await resp.json().catch(() => ({}));
-      setError(typeof body?.detail === 'string' ? body.detail : 'Failed to send invites');
+      setError(
+        typeof body?.detail === 'string'
+          ? body.detail
+          : t(keys.users.add_people.error_invite_failed),
+      );
       return;
     }
     const body = await resp.json();
@@ -78,7 +84,7 @@ function AddPeople() {
     setResults(next);
 
     const sent = next.filter((r) => r.status === 'sent').length;
-    if (sent > 0) toast.success(`${sent} invite${sent === 1 ? '' : 's'} sent`);
+    if (sent > 0) toast.success(t(keys.users.add_people.toast_invites_sent, { count: sent }));
 
     // Only clear the box when nothing needs following up — otherwise the
     // admin loses the list they still have to act on.
@@ -101,10 +107,14 @@ function AddPeople() {
     });
     if (!resp.ok) {
       const body = await resp.json().catch(() => ({}));
-      setError(typeof body?.detail === 'string' ? body.detail : 'Failed to create user');
+      setError(
+        typeof body?.detail === 'string'
+          ? body.detail
+          : t(keys.users.add_people.error_create_failed),
+      );
       return;
     }
-    toast.success('User created');
+    toast.success(t(keys.users.add_people.toast_user_created));
     router.visit(USERS_INDEX);
   }
 
@@ -116,7 +126,7 @@ function AddPeople() {
     try {
       await (mode === 'invite' ? submitInvite() : submitCreate());
     } catch {
-      setError('An error occurred. Please try again.');
+      setError(t(keys.users.common.error_try_again));
     } finally {
       setLoading(false);
     }
@@ -127,13 +137,19 @@ function AddPeople() {
       ? validEmailCount > 0 && invalidEmails.length === 0
       : email.trim() !== '' && password !== '';
 
+  const submitLabel = loading
+    ? t(keys.users.add_people.submitting)
+    : mode === 'invite'
+      ? t(keys.users.add_people.submit_invite, { count: parsedEmails.length })
+      : t(keys.users.add_people.submit_create);
+
   return (
     <PageShell
-      title="Add people"
-      description="Invite them to set their own password, or create the account yourself."
+      title={t(keys.users.add_people.title)}
+      description={t(keys.users.add_people.description)}
       actions={
         <Button asChild variant="outline">
-          <Link href={USERS_INDEX}>Back to Users</Link>
+          <Link href={USERS_INDEX}>{t(keys.users.common.back_to_users)}</Link>
         </Button>
       }
     >
@@ -141,7 +157,7 @@ function AddPeople() {
         <CardContent className="space-y-5 pt-6">
           <div
             role="tablist"
-            aria-label="How to add people"
+            aria-label={t(keys.users.add_people.tablist_label)}
             className="inline-flex rounded-lg border border-border bg-secondary/40 p-1"
           >
             {(['invite', 'create'] as Mode[]).map((value) => (
@@ -160,7 +176,9 @@ function AddPeople() {
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {value === 'invite' ? 'Send invites' : 'Create account'}
+                {value === 'invite'
+                  ? t(keys.users.add_people.mode_invite)
+                  : t(keys.users.add_people.mode_create)}
               </button>
             ))}
           </div>
@@ -191,14 +209,10 @@ function AddPeople() {
 
             <div className="flex justify-end gap-2 pt-2">
               <Button asChild variant="outline">
-                <Link href={USERS_INDEX}>Cancel</Link>
+                <Link href={USERS_INDEX}>{t(keys.users.common.cancel)}</Link>
               </Button>
               <Button type="submit" disabled={loading || !canSubmit}>
-                {loading
-                  ? 'Working…'
-                  : mode === 'invite'
-                    ? `Send ${validEmailCount || ''} invite${validEmailCount === 1 ? '' : 's'}`.trim()
-                    : 'Create user'}
+                {submitLabel}
               </Button>
             </div>
           </form>
@@ -210,5 +224,5 @@ function AddPeople() {
   );
 }
 
-AddPeople.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+AddPeople.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default AddPeople;

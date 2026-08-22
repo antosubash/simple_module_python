@@ -4,8 +4,8 @@ A DB-backed key/value store with system / tenant / user precedence, plus a per-m
 
 Two distinct surfaces:
 
-1. **Generic key/value settings** — anything addressable by a string `key`. Useful for arbitrary config you don't want to wedge into a pydantic class. Edited at `/settings`.
-2. **Per-module pydantic settings** — each module registers a `BaseSettings` subclass via `register_module_settings`. Hydrated from the DB at boot, edited at `/settings/modules`, hot-swapped on save with a `SettingsReloaded` event so dependents (SMTP clients, Celery configs, …) can rebuild.
+1. **Generic key/value settings** — anything addressable by a string `key`. Useful for arbitrary config you don't want to wedge into a pydantic class. Edited at `/admin/settings/store`.
+2. **Per-module pydantic settings** — each module registers a `BaseSettings` subclass via `register_module_settings`. Hydrated from the DB at boot, edited at `/admin/settings/`, hot-swapped on save with a `SettingsReloaded` event so dependents (SMTP clients, Celery configs, …) can rebuild.
 
 ## ModuleMeta
 
@@ -13,7 +13,7 @@ Two distinct surfaces:
 |---|---|
 | `name` | `Settings` |
 | `route_prefix` | `/api/settings` |
-| `view_prefix` | `/settings` |
+| `view_prefix` | `/admin/settings` |
 | `depends_on` | _(none)_ |
 
 ## Public API for module authors
@@ -100,11 +100,11 @@ All write endpoints require `settings.edit` / `settings.create` / `settings.dele
 
 | Method + path | Inertia component |
 |---|---|
-| `GET /settings/` | `Settings/Browse` |
-| `GET /settings/create` | `Settings/Create` |
-| `GET /settings/{setting_id}/edit` | `Settings/Edit` |
-| `GET /settings/modules` | `Settings/ModulesEdit` |
-| `POST` / `PUT` / `DELETE /settings/...` | form actions; redirect to `/settings` |
+| `GET /admin/settings/` | `Settings/Browse` |
+| `GET /admin/settings/create` | `Settings/Create` |
+| `GET /admin/settings/{setting_id}/edit` | `Settings/Edit` |
+| `GET /admin/settings/modules` | legacy redirect → `/admin/settings/` |
+| `POST` / `PUT` / `DELETE /admin/settings/...` | form actions; redirect to `/admin/settings` |
 
 ## Public contracts
 
@@ -170,7 +170,7 @@ Unique constraint on `(scope, scope_id, key)`.
 
 | Label | URL | Icon | Section | Group | Order |
 |---|---|---|---|---|---|
-| `Settings` | `/settings` | `settings` | `SIDEBAR` | `System` | `200` |
+| `Settings` | `/admin/settings/` | `settings` | `ADMIN_SIDEBAR` | `System` | `200` |
 
 ## Events
 

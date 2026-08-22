@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@simple-module-py/ui/components/ui/table';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { Box, Plus, Settings as SettingsIcon } from 'lucide-react';
 import type React from 'react';
 import type { ValueType } from './components/ValueInput';
@@ -48,10 +48,10 @@ function Browse({ settings }: Props) {
 
   return (
     <>
-      <Head title="Settings" />
+      <Head title={t(keys.settings.browse.title)} />
       <PageShell
         title={t(keys.settings.browse.title)}
-        description="Workspace, account, mailer, and module configuration."
+        description={t(keys.settings.browse.description)}
         actions={
           <>
             <Button asChild variant="outline" className="gap-1.5">
@@ -153,5 +153,5 @@ function Browse({ settings }: Props) {
   );
 }
 
-Browse.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Browse.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default Browse;

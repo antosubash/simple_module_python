@@ -6,8 +6,9 @@ The public landing page at ``/`` is owned by the host, not this module.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from inertia import InertiaResponse
+from simple_module_core.permissions import is_admin
 from simple_module_db.deps import get_db
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
@@ -16,6 +17,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dashboard.stats import fetch_dashboard_stats
 
 router = APIRouter()
+
+
+def _require_admin(request: Request) -> None:
+    """Doctor exposes migration status, module list and system info — admin
+    only. The ``/admin`` prefix is a URL convention, not a permission, so this
+    is the guard that actually keeps a non-admin, signed-in user out."""
+    user = getattr(request.state, "user", None)
+    if user is None or not is_admin(getattr(user, "roles", None)):
+        raise HTTPException(status_code=403, detail="Administrator access required")
+
+
+# Doctor is an operator tool, not part of the dashboard proper — it is
+# mounted at /admin/doctor via register_admin_routes.
+admin_router = APIRouter(dependencies=[Depends(_require_admin)])
 
 _PAGE_HOME = "Dashboard/Home"
 _PAGE_DOCTOR = "Dashboard/Doctor"
@@ -39,7 +54,7 @@ async def dashboard(
     )
 
 
-@router.get("/doctor", response_model=None)
+@admin_router.get("/", response_model=None)
 async def doctor(
     request: Request,
     inertia: InertiaDep,

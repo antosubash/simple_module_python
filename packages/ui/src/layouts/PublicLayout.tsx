@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Menu, X } from 'lucide-react';
 import type React from 'react';
@@ -12,6 +13,7 @@ import { BRAND_ACCENT, BRAND_DEFAULT_APP_NAME, BRAND_REPO_URL } from '../lib/bra
 import type { SharedProps } from '../types';
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
+  const { t } = useT();
   const { auth, branding, signup } = usePage<{ props: SharedProps }>()
     .props as unknown as SharedProps;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -52,34 +54,34 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                 href={`${BRAND_REPO_URL}#readme`}
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
-                Docs
+                {t(keys.ui.public_nav.docs)}
               </a>
               <a
                 href={`${BRAND_REPO_URL}/tree/main/modules`}
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
-                Modules
+                {t(keys.ui.public_nav.modules)}
               </a>
               <a
                 href={BRAND_REPO_URL}
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
-                GitHub
+                {t(keys.ui.public_nav.github)}
               </a>
               <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
               <LocaleSwitcher />
               {auth?.isAuthenticated ? (
                 <Button asChild size="sm">
-                  <a href="/dashboard/">Open Dashboard</a>
+                  <a href="/dashboard/">{t(keys.ui.public_nav.open_dashboard)}</a>
                 </Button>
               ) : (
                 <>
                   <Button asChild variant={signup?.allowed ? 'ghost' : 'default'} size="sm">
-                    <a href={LOGIN_PATH}>Log in</a>
+                    <a href={LOGIN_PATH}>{t(keys.ui.public_nav.log_in)}</a>
                   </Button>
                   {signup?.allowed && (
                     <Button asChild size="sm">
-                      <a href={REGISTER_PATH}>Sign up</a>
+                      <a href={REGISTER_PATH}>{t(keys.ui.public_nav.sign_up)}</a>
                     </Button>
                   )}
                 </>
@@ -90,7 +92,9 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
               type="button"
               onClick={() => setMenuOpen((prev) => !prev)}
               className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground sm:hidden"
-              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+              aria-label={
+                menuOpen ? t(keys.ui.public_nav.close_menu) : t(keys.ui.public_nav.open_menu)
+              }
             >
               {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -100,13 +104,13 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
             <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4 sm:hidden">
               {auth?.isAuthenticated ? (
                 <Button asChild className="w-full">
-                  <a href="/dashboard/">Open Dashboard</a>
+                  <a href="/dashboard/">{t(keys.ui.public_nav.open_dashboard)}</a>
                 </Button>
               ) : (
                 <>
                   {signup?.allowed && (
                     <Button asChild className="w-full">
-                      <a href={REGISTER_PATH}>Sign up</a>
+                      <a href={REGISTER_PATH}>{t(keys.ui.public_nav.sign_up)}</a>
                     </Button>
                   )}
                   <Button
@@ -114,7 +118,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                     variant={signup?.allowed ? 'outline' : 'default'}
                     className="w-full"
                   >
-                    <a href={LOGIN_PATH}>Log in</a>
+                    <a href={LOGIN_PATH}>{t(keys.ui.public_nav.log_in)}</a>
                   </Button>
                 </>
               )}

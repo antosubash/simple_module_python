@@ -30,7 +30,7 @@ async def _roles_payload(app) -> list[dict[str, str]]:
 
 
 @router.get(
-    "/admin",
+    "/",
     response_model=None,
     dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
 )
@@ -96,7 +96,7 @@ async def admin_index(
 
 
 @router.get(
-    "/admin/add",
+    "/add",
     response_model=None,
     dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
 )
@@ -126,27 +126,27 @@ async def admin_add_people_page(
 
 
 @router.get(
-    "/admin/invite",
+    "/invite",
     response_model=None,
     dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
 )
 async def admin_invite_redirect() -> RedirectResponse:
-    """Old invite URL — the flow merged into /users/admin/add."""
-    return RedirectResponse("/users/admin/add?mode=invite", status_code=307)
+    """Old invite URL — the flow merged into /admin/users/add."""
+    return RedirectResponse("/admin/users/add?mode=invite", status_code=307)
 
 
 @router.get(
-    "/admin/create",
+    "/create",
     response_model=None,
     dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
 )
 async def admin_create_redirect() -> RedirectResponse:
-    """Old create URL — the flow merged into /users/admin/add."""
-    return RedirectResponse("/users/admin/add?mode=create", status_code=307)
+    """Old create URL — the flow merged into /admin/users/add."""
+    return RedirectResponse("/admin/users/add?mode=create", status_code=307)
 
 
 @router.get(
-    "/admin/{user_id}",
+    "/{user_id}",
     response_model=None,
     dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
 )

@@ -61,7 +61,7 @@ class TestModulesScreenRenders:
         authenticated_client: httpx.AsyncClient,
     ) -> None:
         """The reported bug: reaching the page by clicking the sidebar link."""
-        resp = await authenticated_client.get("/settings/", headers=_INERTIA)
+        resp = await authenticated_client.get("/admin/settings/", headers=_INERTIA)
 
         assert resp.status_code != _SERVER_ERROR
         assert resp.status_code == _OK
@@ -71,7 +71,7 @@ class TestModulesScreenRenders:
         app_with_path_setting: FastAPI,
         authenticated_client: httpx.AsyncClient,
     ) -> None:
-        resp = await authenticated_client.get("/settings/", headers=_INERTIA)
+        resp = await authenticated_client.get("/admin/settings/", headers=_INERTIA)
         modules = resp.json()["props"]["modules"]
 
         demo = next(m for m in modules if m["package"] == "pathdemo")
@@ -84,7 +84,7 @@ class TestModulesScreenRenders:
         authenticated_client: httpx.AsyncClient,
     ) -> None:
         """The path that always worked must keep working."""
-        resp = await authenticated_client.get("/settings/")
+        resp = await authenticated_client.get("/admin/settings/")
 
         assert resp.status_code == _OK
         assert resp.headers["content-type"].startswith("text/html")

@@ -1,3 +1,4 @@
+import { keys, useT } from '@simple-module-py/i18n';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { Textarea } from '@simple-module-py/ui/components/ui/textarea';
 import { Info } from 'lucide-react';
@@ -18,10 +19,11 @@ export function InviteFields({
   invalidEmails,
   mailerDelivers,
 }: Props) {
+  const { t } = useT();
   return (
     <div className="space-y-2">
       <Label htmlFor="emails" className="text-sm font-medium text-muted-foreground">
-        Email addresses <span className="text-destructive">*</span>
+        {t(keys.users.invite_fields.label)} <span className="text-destructive">*</span>
       </Label>
       <Textarea
         id="emails"
@@ -32,11 +34,13 @@ export function InviteFields({
         autoComplete="off"
         // Pasting a column out of a spreadsheet is the actual use case, so
         // newlines have to work as separators alongside commas.
+        // i18n-exempt: example email addresses, not prose.
         placeholder={'teammate@example.com\nanother@example.com'}
         className="font-mono text-sm"
       />
       <p className="text-xs text-muted-foreground">
-        One per line, or separated by commas. {count > 0 && `${count} recognised.`}
+        {t(keys.users.invite_fields.hint)}{' '}
+        {count > 0 && t(keys.users.invite_fields.recognised, { count })}
       </p>
 
       {invalidEmails.length > 0 && (
@@ -52,8 +56,7 @@ export function InviteFields({
           <Info className="mt-0.5 size-3.5 shrink-0" />
           {/* Being told this before submitting beats discovering it after,
               when the invite exists and the recipient has heard nothing. */}
-          This deployment logs invite mail instead of sending it. You will get a copyable link for
-          each address to pass on yourself.
+          {t(keys.users.invite_fields.no_mailer)}
         </p>
       )}
     </div>

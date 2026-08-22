@@ -51,5 +51,8 @@
     "system_user": "System",
     "no_changes": "—",
     "unresolved_user": "No matching account for this id"
+  },
+  "nav": {
+    "audit_log": "Audit Log"
   }
 }

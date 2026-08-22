@@ -48,7 +48,7 @@ describe('ModuleForm', () => {
     render(<ModuleForm module={moduleView} />);
 
     fireEvent.change(screen.getByLabelText('retention_days'), { target: { value: '30' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: /modules_form\.save$/ }));
 
     await waitFor(() => expect(mocks.success).toHaveBeenCalledWith('Settings saved'));
     expect(fetchMock).toHaveBeenCalledWith(
