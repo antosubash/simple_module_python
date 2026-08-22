@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom/vitest';
 import { configureI18n } from '@simple-module-py/i18n';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
@@ -9,17 +10,10 @@ configureI18n({
   },
 });
 
-const mocks = vi.hoisted(() => ({
-  reload: vi.fn(),
-  success: vi.fn(),
-}));
+const mocks = vi.hoisted(() => ({ reload: vi.fn() }));
 
 vi.mock('@inertiajs/react', () => ({
   router: { reload: mocks.reload },
-}));
-
-vi.mock('sonner', () => ({
-  toast: { success: mocks.success },
 }));
 
 import { ModuleForm, type ModuleView } from '../settings/pages/components/ModuleForm';
@@ -58,11 +52,12 @@ describe('ModuleForm', () => {
     fireEvent.change(screen.getByLabelText('retention_days'), { target: { value: '30' } });
     fireEvent.click(screen.getByRole('button', { name: /modules_form\.save$/ }));
 
-    await waitFor(() => expect(mocks.success).toHaveBeenCalledWith('Settings saved'));
+    await waitFor(() => expect(screen.getByRole('status')).toBeVisible());
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/settings/modules/background_tasks',
       expect.objectContaining({ body: JSON.stringify({ retention_days: 30 }) }),
     );
-    expect(mocks.reload).toHaveBeenCalledWith({ only: ['modules'] });
+    expect(mocks.reload).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent('Settings saved');
   });
 });

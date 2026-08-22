@@ -1,7 +1,6 @@
 import { router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
 import { FieldInput, type FieldMeta } from './FieldInput';
 import { FieldSource } from './FieldSource';
 import { TestConnectionButton } from './TestConnectionButton';
@@ -37,23 +36,27 @@ export function ModuleForm({ module: m, testable = false }: Props) {
   }, [m.fields]);
 
   const [values, setValues] = useState<Record<string, unknown>>(initial);
+  const [baseline, setBaseline] = useState<Record<string, unknown>>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   // Reset the edit buffer whenever the underlying module changes (package
   // switch, or server-reloaded props after a save/reset).
   useEffect(() => {
     setValues(initial);
+    setBaseline(initial);
     setErrors({});
+    setSaved(false);
   }, [initial]);
 
   const modifiedFields = useMemo(() => {
     const s = new Set<string>();
     for (const name of Object.keys(values)) {
-      if (notEqual(values[name], initial[name])) s.add(name);
+      if (notEqual(values[name], baseline[name])) s.add(name);
     }
     return s;
-  }, [values, initial]);
+  }, [values, baseline]);
 
   const defaultByName = useMemo(() => {
     const o: Record<string, unknown> = {};
@@ -75,6 +78,7 @@ export function ModuleForm({ module: m, testable = false }: Props) {
 
   async function onSave() {
     setBusy(true);
+    setSaved(false);
     setErrors({});
     const changed: Record<string, unknown> = {};
     for (const name of modifiedFields) changed[name] = values[name];
@@ -91,13 +95,16 @@ export function ModuleForm({ module: m, testable = false }: Props) {
       }
       setErrors(fieldErrs);
     } else if (resp.ok) {
-      toast.success(t(keys.settings.modules_form.saved_toast));
-      router.reload({ only: ['modules'] });
+      // Keeping the form mounted lets the confirmation remain visible instead
+      // of being discarded by an immediate Inertia reload.
+      setBaseline({ ...values });
+      setSaved(true);
     }
     setBusy(false);
   }
 
   async function onReset(name: string) {
+    setSaved(false);
     await fetch(`/api/settings/modules/${m.package}/${name}`, { method: 'DELETE' });
     router.reload({ only: ['modules'] });
   }
@@ -109,7 +116,12 @@ export function ModuleForm({ module: m, testable = false }: Props) {
           <h2 className="text-xl font-semibold">{m.module_name}</h2>
           <p className="text-xs font-mono text-muted-foreground">{m.package}</p>
         </div>
-        <div className="flex items-start gap-2">
+        <div className="flex items-center gap-2">
+          {saved && (
+            <p role="status" className="text-sm font-medium text-emerald-700">
+              {t(keys.settings.modules_form.saved_toast)}
+            </p>
+          )}
           {testable && <TestConnectionButton pkg={m.package} />}
           <button
             type="button"
@@ -148,7 +160,10 @@ export function ModuleForm({ module: m, testable = false }: Props) {
                     id={`field-${m.package}-${f.name}`}
                     field={f}
                     value={values[f.name]}
-                    onChange={(name, v) => setValues((prev) => ({ ...prev, [name]: v }))}
+                    onChange={(name, v) => {
+                      setSaved(false);
+                      setValues((prev) => ({ ...prev, [name]: v }));
+                    }}
                   />
                   {isModified && (
                     <button
