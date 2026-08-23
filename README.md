@@ -68,17 +68,20 @@ docker build -t simple-module-python .
 docker run --rm -p 8000:8000 -v simple-module-python-data:/app/data simple-module-python
 ```
 
-**Logging in.** With no `SM_USERS_BOOTSTRAP_*` set, the entrypoint seeds
-`admin@example.com` with a generated password and prints it once:
+**Logging in.** With no `SM_USERS_BOOTSTRAP_*` set, the container seeds
+**`admin@example.com` / `changeme`** — the same pair `.env.example` uses for
+local dev — and says so on every boot that uses it:
 
 ```
-entrypoint: no SM_USERS_BOOTSTRAP_PASSWORD set — first-boot admin is
-entrypoint:     admin@example.com / kQ7v-2XbnMr9
+entrypoint: WARNING - no SM_USERS_BOOTSTRAP_PASSWORD set, so the
+entrypoint: first-boot admin is the public default:
+entrypoint:     admin@example.com / changeme
 ```
 
-Pass `-e SM_USERS_BOOTSTRAP_EMAIL=… -e SM_USERS_BOOTSTRAP_PASSWORD=…` to choose
-your own. The seed only applies while the users table is empty, so on a reused
-volume the original password still stands — reset it with
+Pass `-e SM_USERS_BOOTSTRAP_EMAIL=… -e SM_USERS_BOOTSTRAP_PASSWORD=…` to seed
+your own instead, and change it before the container is reachable by anyone but
+you. The seed only applies while the users table is empty, so on a reused volume
+the existing password still stands — reset it with
 `smpy users create-admin --email … --password … --force`.
 
 `make docker-compose-app` (or `docker compose up --build app`) runs the same
@@ -98,7 +101,7 @@ bundle rather than a Vite dev server. Useful overrides:
 |---|---|---|
 | `SM_SECRET_KEY` | generated per start | Persist sessions across restarts |
 | `SM_DATABASE_URL` | `sqlite+aiosqlite:////app/data/app.db` | Point at Postgres |
-| `SM_USERS_BOOTSTRAP_EMAIL` / `_PASSWORD` | `admin@example.com` / generated | Choose the first admin's credentials instead of reading them from the log |
+| `SM_USERS_BOOTSTRAP_EMAIL` / `_PASSWORD` | `admin@example.com` / `changeme` | Seed a first admin nobody else can guess |
 | `SM_TRUSTED_PROXY` | unset | Set to `*` behind a TLS-terminating reverse proxy |
 
 **No background tasks.** The image skips installing the Celery module
