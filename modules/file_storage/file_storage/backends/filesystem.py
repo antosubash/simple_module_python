@@ -20,10 +20,14 @@ from file_storage.settings import FileStorageSettings
 class FilesystemBackend:
     """Stores objects on the local filesystem under ``root``.
 
-    Keys are sharded by their first two characters to keep any single
-    directory from accumulating millions of entries (which slows ``readdir``
-    on most filesystems). A key like ``2026/04/19/abc123.png`` is written to
-    ``<root>/20/2026/04/19/abc123.png``.
+    Keys are prefixed with their first two characters, so a key like
+    ``2026/04/19/abc123.png`` is written to ``<root>/20/2026/04/19/abc123.png``.
+
+    Note this is *not* an effective shard: every key begins with either the
+    year (``20``) or the configured ``key_prefix``, so in practice all objects
+    land in a single top-level directory and are spread only by the date
+    segments below it. Genuine sharding would need to key off the uuid, which
+    would relocate every already-stored file — so the layout stays as-is.
     """
 
     backend_id = constants.BackendId.FILESYSTEM

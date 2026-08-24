@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
+from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
@@ -52,6 +53,38 @@ class FileStorageModule(ModuleBase):
             FileStorageSettings,
             lambda s: FileStorageServices(settings=s),
         )
+
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+        """Rebuild the storage backend when file_storage settings reload.
+
+        The backend is a singleton built once in ``on_startup`` from the
+        settings of that moment. Without this, editing the bucket, endpoint, or
+        credentials in the settings UI would swap ``services.settings`` while
+        every upload kept talking to the old provider until the next restart —
+        the config would appear to save and silently do nothing.
+
+        ``key_prefix`` needs no rebuild (the service reads it per request), but
+        rebuilding on any change keeps the rule simple and construction is cheap.
+        """
+        if app is None:
+            return
+
+        import importlib
+
+        settings_reloaded = importlib.import_module("settings.contracts.events").SettingsReloaded
+        from file_storage.backends import build_backend
+
+        async def _rebuild_backend(event: settings_reloaded) -> None:
+            if event.package != constants.MODULE_NAME:
+                return
+            services = app.state.file_storage
+            services.backend = build_backend(services.settings)
+            logger.info(
+                "file_storage backend rebuilt after settings change: %s",
+                ", ".join(event.changed),
+            )
+
+        bus.subscribe(settings_reloaded, _rebuild_backend)
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from file_storage.endpoints.api import router as api
@@ -126,10 +159,13 @@ class FileStorageModule(ModuleBase):
             logger.info("file_storage filesystem backend ready at %s", root)
         elif settings.backend == constants.BackendId.S3:
             logger.info(
-                "file_storage S3 backend configured for bucket=%s region=%s endpoint=%s",
+                "file_storage S3 backend configured for bucket=%s region=%s "
+                "endpoint=%s addressing=%s prefix=%s",
                 settings.s3_bucket,
                 settings.s3_region,
                 settings.s3_endpoint_url or "(default)",
+                settings.s3_addressing_style,
+                settings.key_prefix or "(bucket root)",
             )
 
         # Registered here, not in register_health_checks: the backend does not

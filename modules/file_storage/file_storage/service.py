@@ -97,7 +97,7 @@ class FileStorageService:
                 sha.update(chunk)
                 yield chunk
 
-        key = _generate_key(upload.filename or "file")
+        key = _generate_key(upload.filename or "file", self.settings.key_prefix)
         await self.backend.put(
             key,
             _hashing_stream(),
@@ -255,11 +255,18 @@ class FileStorageService:
         return row
 
 
-def _generate_key(filename: str) -> str:
-    """Build a date-sharded, collision-proof key from the original filename."""
+def _generate_key(filename: str, prefix: str = "") -> str:
+    """Build a date-sharded, collision-proof key from the original filename.
+
+    ``prefix`` (already normalised to ``''`` or ``'a/b/'`` by the settings
+    validator) is baked into the key here, once, and then persisted on the row.
+    Backends therefore receive fully-qualified keys and never prepend anything
+    themselves — which is what lets an operator change ``key_prefix`` later
+    without orphaning a single existing object.
+    """
     today = datetime.now(UTC)
     suffix = Path(filename).suffix
-    return f"{today:%Y/%m/%d}/{uuid.uuid4().hex}{suffix}"
+    return f"{prefix}{today:%Y/%m/%d}/{uuid.uuid4().hex}{suffix}"
 
 
 def _to_out_dict(row: StoredFile) -> dict:

@@ -101,3 +101,53 @@ async def test_s3_presigned_url_format(s3_settings):
     assert url.startswith("http")
     assert "any/key.txt" in url
     assert "X-Amz-Signature" in url or "Signature" in url
+
+
+async def test_s3_roundtrip_under_a_folder_prefix(s3_settings, moto_endpoint):
+    """Prefixed keys are ordinary keys to the backend — it never prepends."""
+    key = "media/2026/04/19/abc.bin"
+    backend = build_backend(s3_settings)
+    payload = b"prefixed contents"
+    await backend.put(
+        key,
+        _bytes_stream(payload),
+        content_type="application/octet-stream",
+        size=len(payload),
+    )
+
+    assert await backend.exists(key) is True
+    assert await _drain(backend.get(key)) == payload
+
+    # The object really lives under the folder in the bucket.
+    listing = boto3.client(
+        "s3",
+        region_name=_REGION,
+        endpoint_url=moto_endpoint,
+        aws_access_key_id="test",
+        aws_secret_access_key="test",
+    ).list_objects_v2(Bucket=_BUCKET, Prefix="media/")
+    assert [obj["Key"] for obj in listing["Contents"]] == [key]
+
+    await backend.delete(key)
+    assert await backend.exists(key) is False
+
+
+async def test_s3_path_addressing_still_reaches_the_bucket(s3_settings):
+    """Path-style is what MinIO/Ceph need; prove it round-trips, not just that
+    the Config object was built."""
+    settings = s3_settings.model_copy(update={"s3_addressing_style": "path"})
+    backend = build_backend(settings)
+    payload = b"path style"
+    await backend.put(
+        "p/one.bin", _bytes_stream(payload), content_type="application/octet-stream", size=10
+    )
+    assert await _drain(backend.get("p/one.bin")) == payload
+
+
+async def test_s3_presigned_url_points_at_the_public_endpoint(s3_settings):
+    settings = s3_settings.model_copy(
+        update={"s3_public_endpoint_url": "https://files.example.com"}
+    )
+    url = await build_backend(settings).presigned_get_url("media/a.txt", ttl_seconds=300)
+    assert url.startswith("https://files.example.com")
+    assert "media/a.txt" in url

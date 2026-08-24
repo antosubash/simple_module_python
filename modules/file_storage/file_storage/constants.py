@@ -58,6 +58,20 @@ class BackendId:
     S3: Final = "s3"
 
 
+class AddressingStyle:
+    """S3 URL addressing modes, mapped straight onto botocore's values.
+
+    ``VIRTUAL`` puts the bucket in the hostname (``bucket.s3.amazonaws.com``);
+    ``PATH`` keeps it in the path (``host/bucket/key``). Providers reached by
+    IP or ``localhost`` — MinIO, Ceph — can only do path-style, since a bucket
+    hostname would not resolve. ``AUTO`` defers to botocore's own heuristic.
+    """
+
+    AUTO: Final = "auto"
+    PATH: Final = "path"
+    VIRTUAL: Final = "virtual"
+
+
 class Permission:
     UPLOAD: Final = "file_storage.upload"
     DOWNLOAD: Final = "file_storage.download"
@@ -95,6 +109,12 @@ class I18nKey:
 # ── Defaults ─────────────────────────────────────────────────────────
 DEFAULT_BACKEND: Final = BackendId.FILESYSTEM
 DEFAULT_FS_ROOT: Final = "./uploads"
+DEFAULT_KEY_PREFIX: Final = ""  # blank = bucket root, preserving legacy layout
+# Providers that ignore regions (R2, most MinIO deployments) still need *some*
+# region string for SigV4 to compute a signature, so we default rather than
+# require. ``us-east-1`` is the conventional filler.
+DEFAULT_S3_REGION: Final = "us-east-1"
+DEFAULT_ADDRESSING_STYLE: Final = AddressingStyle.AUTO
 DEFAULT_MAX_FILE_SIZE_BYTES: Final = 100 * 1024 * 1024  # 100 MB
 DEFAULT_PRESIGN_TTL_SECONDS: Final = 300  # 5 minutes
 DEFAULT_CHUNK_SIZE: Final = 64 * 1024  # 64 KB
