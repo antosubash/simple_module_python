@@ -19,6 +19,39 @@ Before serving traffic:
 
 ## Build
 
+### This repo's own app
+
+The framework repo ships a default image at the root — `./Dockerfile` — that
+builds the reference app (host + every bundled module) and serves it with
+uvicorn. It is standalone: SQLite under `/app/data`, no Postgres and no Redis
+needed to boot.
+
+```bash
+make docker-app             # build ./Dockerfile and run it on :8000
+make docker-compose-app     # same image via the `app` service in docker-compose.yml
+```
+
+`docker/entrypoint.sh` runs `alembic upgrade heads` and fills in any unset
+production secret (`SM_SECRET_KEY`, `SM_USERS_RESET_PASSWORD_TOKEN_SECRET`,
+`SM_USERS_VERIFICATION_TOKEN_SECRET`) with an ephemeral random value so a bare
+`docker run` boots — set them yourself for anything that must survive a
+restart. It also seeds `admin@example.com` / `changeme` (warning printed on
+every boot that uses it) unless `SM_USERS_BOOTSTRAP_EMAIL` / `_PASSWORD` say
+otherwise; that seed only lands while the users table is empty, so it never
+overwrites an existing account. A deployment that anyone else can reach should
+set both vars before first boot — the default password is public. The checklist above still applies: that image is a demo/local
+target, not a production deployment (SQLite, ephemeral secrets).
+
+That image carries no Celery: the build passes
+`--no-install-package simple-module-background-tasks`, so the module has no
+entry point to discover and the web process needs no broker at all. Background
+jobs are the `worker` / `beat` services in `docker-compose.yml`
+(`docker/worker.Dockerfile`), which is where a second process and a Redis
+belong. Drop that flag and set `SM_BG_TASKS_BROKER_URL` / `_RESULT_BACKEND` to
+put tasks back in the web image.
+
+### Scaffolded apps
+
 **Every `smpy new` scaffold ships its own Docker assets** — you don't write these by hand:
 
 | Path | What it is |
