@@ -136,7 +136,9 @@ Starlette's built-in signed-cookie sessions. Cookie name is `session`; attribute
 
 ### `TenantMiddleware` *(opt-in)*
 
-Resolves the tenant — first from the authenticated user's `tenant_id`, then (if the configured header is enabled, default name `X-Tenant-ID` via `SM_TENANT_HEADER`) from that request header — and sets both `request.state.tenant_id` and the `current_tenant_id` ContextVar. The `MultiTenantMixin` auto-filters SELECTs and auto-populates INSERTs using this value.
+Resolves the tenant — first from the authenticated user's `tenant_id`, then from a request header if one is configured — and sets both `request.state.tenant_id` and the `current_tenant_id` ContextVar. The `MultiTenantMixin` auto-filters SELECTs and auto-populates INSERTs using this value.
+
+Header lookup is **off unless you name a header**: `tenant_header` defaults to `""`, which the host passes through as `header=None`. `X-Tenant-ID` is the conventional name (exported as `TENANT_HEADER`) but is not a default — set `SM_TENANT_HEADER=X-Tenant-ID` to actually enable that path. Both this and `SM_MULTI_TENANT` are read from env at boot; see [Host settings](/reference/env-vars#host-settings-hostsettings) for why a DB edit cannot change them.
 
 ### `LocaleMiddleware`
 
