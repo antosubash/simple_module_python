@@ -71,9 +71,9 @@ All require authentication. Read endpoints need `feature_flags.view`; write endp
 
 | Method + path | Inertia component | Permission |
 |---|---|---|
-| `GET /feature_flags/` | `FeatureFlags/Browse` (optional `?tenant_id=...`) | `feature_flags.view` |
-| `POST /feature_flags/{name}/toggle` | _redirect_ | `feature_flags.manage` |
-| `POST /feature_flags/{name}/clear` | _redirect_ | `feature_flags.manage` |
+| `GET /admin/feature-flags/` | `FeatureFlags/Browse` (optional `?tenant_id=...`) | `feature_flags.view` |
+| `POST /admin/feature-flags/{name}/toggle` | _redirect_ | `feature_flags.manage` |
+| `POST /admin/feature-flags/{name}/clear` | _redirect_ | `feature_flags.manage` |
 
 ## Public contracts
 

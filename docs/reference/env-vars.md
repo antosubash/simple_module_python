@@ -1,6 +1,6 @@
 # Environment variables
 
-All env vars use the `SM_` prefix. Settings are loaded at boot — anything that must be **known before the DB is open** lives here. Runtime-tunable settings (SMTP creds, feature flags, storage backends) live in the DB-backed settings store and are edited from `/settings/modules`.
+All env vars use the `SM_` prefix. Settings are loaded at boot — anything that must be **known before the DB is open** lives here. Runtime-tunable settings (SMTP creds, feature flags, storage backends) live in the DB-backed settings store and are edited from `/admin/settings/`.
 
 This is the full reference. See [Configuration](/guide/configuration) for a narrative overview.
 
@@ -19,6 +19,7 @@ This is the full reference. See [Configuration](/guide/configuration) for a narr
 | `SM_VITE_PORT` | `5050` | Dev only — port this repo's own host `vite.config.ts` binds to. If you change it, set `SM_VITE_DEV_URL` to match so the backend points the HMR client at the right origin. New scaffolds don't need it — they read `SM_VITE_DEV_URL` directly. |
 | `SM_PROJECT_ROOT` | unset | Overrides project-root discovery: where the `.env` is looked up and what relative sqlite paths resolve against. Normally unnecessary — settings walk up from the cwd (stopping at repo boundaries and `$HOME`) to find the `.env` on their own. |
 | `SM_AUTH_PUBLIC_PATHS` | `[]` | JSON array of host-level anonymous-access path prefixes. Escape hatch for exposing a route without a session when no module owns it; modules should prefer the method-aware `register_public_routes` hook. |
+| `SM_TRUSTED_PROXY` | unset | Comma-separated proxy IPs / CIDRs whose `X-Forwarded-*` headers are trusted, or `*` to trust any peer (correct when the container is only reachable through one proxy). Setting it installs uvicorn's `ProxyHeadersMiddleware` outermost, so request logs record the real client IP and `request.url.scheme` reflects `X-Forwarded-Proto`. **Required behind a TLS-terminating proxy** — without it Inertia's `pushState` sees a cross-scheme URL, throws a `SecurityError`, and login breaks. Forwarded headers are never trusted by default. |
 
 ## DB connection pool
 
@@ -37,7 +38,7 @@ Pools are **per process**. With multiple `uvicorn --workers`, total connections 
 
 ## Host settings (DB-backed, not env)
 
-Multi-tenancy and i18n configuration live in the DB-backed host settings store (`HostSettings`, registered under `package="host"`), **not** in env vars. Edit them in the admin UI at `/settings/modules` under the host section. Their defaults:
+Multi-tenancy and i18n configuration live in the DB-backed host settings store (`HostSettings`, registered under `package="host"`), **not** in env vars. Edit them in the admin UI at `/admin/settings/` under the host section. Their defaults:
 
 | Setting | Default | Notes |
 |---|---|---|
@@ -49,7 +50,7 @@ Multi-tenancy and i18n configuration live in the DB-backed host settings store (
 
 ## Users module
 
-Most users settings (signup, mailer, SMTP, OAuth/OIDC credentials, rate limits) are now **DB-backed** — edit them in the admin UI at `/settings/modules` under Users, not via env vars. The env vars below are the genuine bootstrap-time exceptions read at process start.
+Most users settings (signup, mailer, SMTP, OAuth/OIDC credentials, rate limits) are now **DB-backed** — edit them in the admin UI at `/admin/settings/` under Users, not via env vars. The env vars below are the genuine bootstrap-time exceptions read at process start.
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -62,17 +63,19 @@ Most users settings (signup, mailer, SMTP, OAuth/OIDC credentials, rate limits) 
 
 ## Background tasks (Celery)
 
-Celery config (`broker_url`, `result_backend`, queue, retention, etc.) is now **DB-backed** — edit it in the admin UI at `/settings/modules` under BackgroundTasks. Defaults are `redis://localhost:6379/0` (broker) and `/1` (result backend). Because workers read the broker/backend once at process start, changing those values requires a worker restart.
+Celery config (`broker_url`, `result_backend`, queue, retention, etc.) is now **DB-backed** — edit it in the admin UI at `/admin/settings/` under BackgroundTasks. Defaults are `redis://localhost:6379/0` (broker) and `/1` (result backend). Because workers read the broker/backend once at process start, changing those values requires a worker restart.
 
-The one field still read from the environment at import time:
+Three fields are still read from the environment, because they have to work *before* any DB row exists. A stored DB value still wins once hydration runs.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SM_BG_TASKS_TASK_ALWAYS_EAGER` | `false` | Run tasks synchronously in the calling process (used by tests). |
+| `SM_BG_TASKS_BROKER_URL` | `redis://localhost:6379/0` | Read at construction. Needed in a container: the production validator rejects a `localhost` broker, so without this an app with the module installed can't boot far enough to hydrate settings — and a worker process, which never sees `app.state`, has no other source at all. |
+| `SM_BG_TASKS_RESULT_BACKEND` | `redis://localhost:6379/1` | Same reasoning as the broker. |
+| `SM_BG_TASKS_TASK_ALWAYS_EAGER` | `false` | Read at module-import time, so test suites that never run the FastAPI lifespan can still flip it. Runs tasks synchronously in the calling process. |
 
 ## File storage module
 
-File storage config is now **DB-backed** — edit it in the admin UI at `/settings/modules` under Files. The key fields and defaults:
+File storage config is now **DB-backed** — edit it in the admin UI at `/admin/settings/` under Files. The key fields and defaults:
 
 | Setting | Default | Notes |
 |---|---|---|

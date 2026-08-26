@@ -76,7 +76,7 @@ Requires `audit_log.view`. Returns `AuditEntryList`. Query filters (all optional
 
 | Method + path | Inertia component | Permission |
 |---|---|---|
-| `GET /audit_log/` | `AuditLog/Browse` | `audit_log.view` |
+| `GET /admin/audit-log/` | `AuditLog/Browse` | `audit_log.view` |
 
 The browse route takes the same filter set as the API. It additionally returns the list of distinct `entity_type` values seen so far, to populate the filter dropdown. Pagination params are sanitised rather than validated — a bad `page` / `page_size` falls back to the default instead of erroring.
 
