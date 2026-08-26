@@ -202,7 +202,7 @@ A **second** view router, for modules that serve both public and admin pages and
 ```python
 meta = ModuleMeta(
     name="Users",
-    view_prefix="/users",              # sign-in, self-service
+    view_prefix="/users",  # sign-in, self-service
     admin_view_prefix="/admin/users",  # management CRUD
 )
 
