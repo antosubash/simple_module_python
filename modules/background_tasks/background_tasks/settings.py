@@ -4,14 +4,19 @@ Values come from defaults at boot, then get hydrated from the DB by the
 hosting lifespan before module ``on_startup`` runs. Runtime changes go
 through ``settings.reload.apply_changes_and_reload``.
 
-Two of those defaults are deployment plumbing rather than module config, so
-they stay env-readable: ``SM_BG_TASKS_BROKER_URL`` and
-``SM_BG_TASKS_RESULT_BACKEND`` name the Redis a container can actually reach.
-They have to work *before* any DB row exists — the production validator below
-rejects the localhost defaults, so without them a containerised app can't
-boot far enough to hydrate settings, and a worker process (which never sees
-``app.state``) has no other source at all. A DB value still wins once
-hydration runs.
+Every field is also readable from a ``SM_BG_TASKS_``-prefixed environment
+variable, which is what ``env_prefix`` on ``model_config`` buys: the names
+match the docs, ``settings.env_vars``, the ``smpy`` docker-compose recipe and
+the worker's ``_assert_broker_isolated``. A DB value still wins once hydration
+runs, so env is the pre-hydration floor rather than an override.
+
+That floor is load-bearing for two fields in particular.
+``SM_BG_TASKS_BROKER_URL`` and ``SM_BG_TASKS_RESULT_BACKEND`` name the Redis a
+container can actually reach, and they have to work *before* any DB row
+exists: the production validator below rejects the localhost defaults, so
+without them a containerised app can't boot far enough to hydrate settings,
+and a worker process (which never sees ``app.state``) has no other source at
+all.
 
 The other env read is ``SM_ENVIRONMENT``, consulted by the
 ``@model_validator`` to refuse a localhost broker in production — that's a
@@ -30,7 +35,6 @@ import os
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from simple_module_core.dotenv import env_bool
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
 from background_tasks.constants import (
@@ -51,25 +55,21 @@ _CELERY_RESTART = {"requires_restart": True, "group": "Celery"}
 class BackgroundTasksSettings(BaseSettings):
     """Configuration for the Celery + Redis task runner."""
 
-    model_config = SettingsConfigDict(extra="ignore")
+    # Without ``env_prefix`` pydantic-settings resolves each field from its
+    # bare, case-insensitive name — so a container setting ``broker_url`` or
+    # ``retention_days`` for any other purpose silently reconfigured Celery,
+    # and the documented ``SM_BG_TASKS_*`` names did nothing (GH #283).
+    model_config = SettingsConfigDict(extra="ignore", env_prefix=ENV_PREFIX)
 
-    broker_url: str = Field(
-        default_factory=lambda: os.environ.get(f"{ENV_PREFIX}BROKER_URL", DEFAULT_BROKER_URL),
-        json_schema_extra=_CELERY_RESTART,
-    )
-    result_backend: str = Field(
-        default_factory=lambda: os.environ.get(
-            f"{ENV_PREFIX}RESULT_BACKEND", DEFAULT_RESULT_BACKEND
-        ),
-        json_schema_extra=_CELERY_RESTART,
-    )
+    broker_url: str = Field(default=DEFAULT_BROKER_URL, json_schema_extra=_CELERY_RESTART)
+    result_backend: str = Field(default=DEFAULT_RESULT_BACKEND, json_schema_extra=_CELERY_RESTART)
     task_default_queue: str = Field(default=DEFAULT_QUEUE, json_schema_extra=_CELERY_RESTART)
 
-    # Run tasks synchronously inside the calling process. Read at
-    # module-import time so tests can flip it on via ``SM_BG_TASKS_*``
-    # without going through DB-backed hydration (which never fires for
-    # suites that don't use the FastAPI lifespan).
-    task_always_eager: bool = env_bool("SM_BG_TASKS_TASK_ALWAYS_EAGER")
+    # Run tasks synchronously inside the calling process. Tests flip it on via
+    # ``SM_BG_TASKS_TASK_ALWAYS_EAGER`` or by passing it explicitly, either of
+    # which works without DB-backed hydration (which never fires for suites
+    # that don't use the FastAPI lifespan).
+    task_always_eager: bool = False
     task_eager_propagates: bool = True
 
     # A task that has been ``running`` longer than this without a heartbeat is
@@ -101,8 +101,12 @@ class BackgroundTasksSettings(BaseSettings):
             bad.append("result_backend")
         if bad:
             names = ", ".join(bad)
+            env_names = ", ".join(f"{ENV_PREFIX}{name.upper()}" for name in bad)
             raise ValueError(
                 f"{names} must not point at localhost when SM_ENVIRONMENT={env!r}. "
-                "Set these to the Redis service host (e.g. redis://redis:6379/0)."
+                f"Set {env_names} on the container to the Redis service host "
+                "(e.g. redis://redis:6379/0) — these are read before the "
+                "DB-backed settings exist, so an environment variable is the "
+                "only thing that can satisfy this at boot."
             )
         return self
