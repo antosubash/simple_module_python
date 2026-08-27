@@ -2,8 +2,14 @@
 
 Walks the project's ``pyproject.toml`` (and any ``[tool.uv.workspace]`` members),
 finds every dependency whose distribution name starts with ``simple_module_`` /
-``simple-module-``, queries PyPI for the latest non-yanked release, and rewrites
-the constraint to ``name>=<latest>``.
+``simple-module-``, queries PyPI for the latest non-yanked release, and points
+the constraint at it.
+
+The rewrite preserves the pin style you wrote: ``==0.0.32`` becomes
+``==0.0.33``, ``>=0.0.32`` becomes ``>=0.0.33``, and an upper bound that
+excludes the latest release skips the dependency instead of being dropped.
+``--loosen`` restores the older behaviour of rewriting every constraint to
+``name>=<latest>``.
 
 Dependencies whose ``[tool.uv.sources]`` entry points at a workspace member, a
 local path, a git ref, or a URL are left untouched — those aren't installed
@@ -12,11 +18,7 @@ from PyPI.
 
 from __future__ import annotations
 
-import json
 import re
-import urllib.error
-import urllib.request
-from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,17 +28,12 @@ import tomlkit
 import typer
 from tomlkit.items import Array, Table
 
+from simple_module_cli.pypi import Fetcher, default_fetcher, fetch_latest
+from simple_module_cli.requirements import parse_requirement, rewrite_requirement
+
 __all__ = ["package_update", "run_update"]
 
-Fetcher = Callable[[str], dict[str, Any]]
-
-_PYPI_URL = "https://pypi.org/pypi/{name}/json"
 _SM_PREFIX_RE = re.compile(r"^simple[_-]module[_-]", re.IGNORECASE)
-# PEP 440 release segments contain only digits + dots; any letter signals
-# a pre/post/dev release (a, b, rc, post, dev). Coarser than packaging.version
-# but `packaging` isn't a CLI dep (see test_no_framework_deps.py).
-_PRE_RELEASE_RE = re.compile(r"[a-zA-Z]")
-_REQ_OPS = ("===", "==", ">=", "<=", "!=", "~=", ">", "<")
 
 
 @dataclass(frozen=True)
@@ -60,14 +57,8 @@ def _is_sm_package(name: str) -> bool:
 
 def _dep_name(spec: str) -> str | None:
     """Extract the distribution name from a PEP 508 requirement string."""
-    base = spec.split(";", 1)[0].strip()
-    base = base.split("[", 1)[0]
-    for op in _REQ_OPS:
-        if op in base:
-            base = base.split(op, 1)[0]
-            break
-    name = base.strip()
-    return name or None
+    parsed = parse_requirement(spec)
+    return parsed.name if parsed else None
 
 
 def _is_local_source(source: Any) -> bool:
@@ -87,40 +78,6 @@ def _get_uv_section(doc: tomlkit.TOMLDocument, key: str) -> dict[str, Any] | Non
         return None
     section = uv.get(key)
     return section if isinstance(section, dict) else None
-
-
-def _fetch_latest(name: str, *, include_pre: bool, fetcher: Fetcher) -> str | None:
-    try:
-        data = fetcher(_PYPI_URL.format(name=name))
-    except (urllib.error.HTTPError, urllib.error.URLError):
-        return None
-    releases = data.get("releases") or {}
-    candidates: list[str] = []
-    for version, files in releases.items():
-        if not files:
-            continue
-        if any(f.get("yanked") for f in files):
-            continue
-        if not include_pre and _PRE_RELEASE_RE.search(version):
-            continue
-        candidates.append(version)
-    if candidates:
-        return max(candidates, key=_version_key)
-    info = data.get("info") or {}
-    return info.get("version")
-
-
-def _version_key(v: str) -> tuple[int, ...]:
-    parts: list[int] = []
-    for part in v.split("."):
-        digits = re.match(r"\d+", part)
-        parts.append(int(digits.group()) if digits else 0)
-    return tuple(parts)
-
-
-def _default_fetcher(url: str) -> dict[str, Any]:
-    with urllib.request.urlopen(url, timeout=10) as resp:
-        return json.loads(resp.read().decode("utf-8"))
 
 
 def _workspace_member_dirs(root_pyproject: Path, doc: tomlkit.TOMLDocument) -> list[Path]:
@@ -166,6 +123,7 @@ def _process_file(
     doc: tomlkit.TOMLDocument,
     *,
     cache: dict[str, str | None],
+    loosen: bool = False,
 ) -> tuple[list[Change], list[Skip], tomlkit.TOMLDocument | None]:
     project = doc.get("project")
     if not isinstance(project, (dict, Table)):
@@ -190,11 +148,13 @@ def _process_file(
         if latest is None:
             skips.append(Skip(path, name, "not found on PyPI"))
             continue
-        new_dep = f"{name}>={latest}"
-        if new_dep == dep_str.strip():
+        result = rewrite_requirement(dep_str, latest, loosen=loosen)
+        if result.spec is None:
+            if result.reason:
+                skips.append(Skip(path, name, result.reason))
             continue
-        deps[idx] = new_dep
-        changes.append(Change(path, name, dep_str.strip(), new_dep))
+        deps[idx] = result.spec
+        changes.append(Change(path, name, dep_str.strip(), result.spec))
 
     return changes, skips, doc if changes else None
 
@@ -226,6 +186,7 @@ def run_update(
     *,
     dry_run: bool = False,
     include_pre: bool = False,
+    loosen: bool = False,
     fetcher: Fetcher | None = None,
 ) -> None:
     """Programmatic entry point — separated from the Typer command for testing."""
@@ -234,7 +195,7 @@ def run_update(
         typer.echo(f"ERROR: {root} not found.", err=True)
         raise typer.Exit(code=1)
 
-    fetch = fetcher or _default_fetcher
+    fetch = fetcher or default_fetcher
     root_doc = tomlkit.parse(root.read_text(encoding="utf-8"))
     files: list[tuple[Path, tomlkit.TOMLDocument]] = [(root, root_doc)]
     for member in _workspace_member_dirs(root, root_doc):
@@ -246,7 +207,7 @@ def run_update(
     if unique_names:
         with ThreadPoolExecutor(max_workers=min(8, len(unique_names))) as pool:
             results = pool.map(
-                lambda n: (n, _fetch_latest(n, include_pre=include_pre, fetcher=fetch)),
+                lambda n: (n, fetch_latest(n, include_pre=include_pre, fetcher=fetch)),
                 unique_names,
             )
             cache = dict(results)
@@ -256,7 +217,7 @@ def run_update(
     pending: list[tuple[Path, tomlkit.TOMLDocument]] = []
 
     for file, doc in files:
-        changes, skips, new_doc = _process_file(file, doc, cache=cache)
+        changes, skips, new_doc = _process_file(file, doc, cache=cache, loosen=loosen)
         all_changes.extend(changes)
         all_skips.extend(skips)
         if new_doc is not None:
@@ -282,6 +243,20 @@ def package_update(
         bool,
         typer.Option("--include-pre", help="Include pre-release versions."),
     ] = False,
+    loosen: Annotated[
+        bool,
+        typer.Option(
+            "--loosen",
+            help="Rewrite every constraint to `>=<latest>` instead of keeping its operator.",
+        ),
+    ] = False,
 ) -> None:
-    """Update all simple_module_* dependencies to the latest PyPI versions."""
-    run_update(path, dry_run=dry_run, include_pre=include_pre)
+    """Update all simple_module_* dependencies to the latest PyPI versions.
+
+    Each constraint keeps the operator it already has — `==0.0.32` becomes
+    `==0.0.33`, `>=0.0.32` becomes `>=0.0.33` — so bumping versions never
+    silently changes a project's pinning policy. A dependency whose upper
+    bound excludes the latest release is reported and left alone. Pass
+    `--loosen` to rewrite everything to `>=<latest>` instead.
+    """
+    run_update(path, dry_run=dry_run, include_pre=include_pre, loosen=loosen)

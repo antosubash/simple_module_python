@@ -34,7 +34,7 @@ def test_updates_simple_module_deps(tmp_path: Path) -> None:
         '[project]\nname = "x"\nversion = "0.1.0"\n'
         "dependencies = [\n"
         '    "simple_module_core>=0.1",\n'
-        '    "simple_module_db>=0.1,<1.0",\n'
+        '    "simple_module_db>=0.1,<3.0",\n'
         '    "fastapi>=0.110",\n'
         "]\n",
         encoding="utf-8",
@@ -49,7 +49,7 @@ def test_updates_simple_module_deps(tmp_path: Path) -> None:
 
     out = pyproject.read_text(encoding="utf-8")
     assert "simple_module_core>=1.2.3" in out
-    assert "simple_module_db>=2.0.0" in out
+    assert "simple_module_db>=2.0.0,<3.0" in out  # upper bound preserved
     assert "fastapi>=0.110" in out  # untouched
 
 
@@ -180,3 +180,107 @@ def test_cli_command_registered() -> None:
     result = CliRunner().invoke(app, ["package-update", "--help"])
     assert result.exit_code == 0
     assert "package-update" in result.output or "Update all simple_module" in result.output
+
+
+def _write(pyproject: Path, *deps: str) -> None:
+    body = "".join(f'    "{d}",\n' for d in deps)
+    pyproject.write_text(
+        f'[project]\nname = "x"\nversion = "0"\ndependencies = [\n{body}]\n',
+        encoding="utf-8",
+    )
+
+
+def test_exact_pins_stay_exact(tmp_path: Path) -> None:
+    """The #284 regression: `package-update` bumped versions *and* pin style."""
+    pyproject = tmp_path / "pyproject.toml"
+    _write(pyproject, "simple_module_core==0.0.32", "simple_module_db===0.0.32")
+
+    pu.run_update(
+        path=pyproject,
+        dry_run=False,
+        include_pre=False,
+        fetcher=_fake_pypi({"simple_module_core": "0.0.33", "simple_module_db": "0.0.33"}),
+    )
+
+    out = pyproject.read_text(encoding="utf-8")
+    assert "simple_module_core==0.0.33" in out
+    assert "simple_module_db===0.0.33" in out
+    assert ">=" not in out
+
+
+def test_compatible_release_pin_stays_compatible(tmp_path: Path) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    _write(pyproject, "simple_module_core~=0.0.32")
+
+    pu.run_update(
+        path=pyproject,
+        dry_run=False,
+        include_pre=False,
+        fetcher=_fake_pypi({"simple_module_core": "0.0.33"}),
+    )
+
+    assert "simple_module_core~=0.0.33" in pyproject.read_text(encoding="utf-8")
+
+
+def test_loosen_flag_restores_the_old_rewrite(tmp_path: Path) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    _write(pyproject, "simple_module_core==0.0.32")
+
+    pu.run_update(
+        path=pyproject,
+        dry_run=False,
+        include_pre=False,
+        loosen=True,
+        fetcher=_fake_pypi({"simple_module_core": "0.0.33"}),
+    )
+
+    assert "simple_module_core>=0.0.33" in pyproject.read_text(encoding="utf-8")
+
+
+def test_unconstrained_dep_gets_a_lower_bound(tmp_path: Path) -> None:
+    """Nothing to preserve, so the tool's default style applies."""
+    pyproject = tmp_path / "pyproject.toml"
+    _write(pyproject, "simple_module_core")
+
+    pu.run_update(
+        path=pyproject,
+        dry_run=False,
+        include_pre=False,
+        fetcher=_fake_pypi({"simple_module_core": "0.0.33"}),
+    )
+
+    assert "simple_module_core>=0.0.33" in pyproject.read_text(encoding="utf-8")
+
+
+def test_upper_bound_excluding_latest_skips_rather_than_drops(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The old rewrite silently deleted the ceiling; now it's reported."""
+    pyproject = tmp_path / "pyproject.toml"
+    _write(pyproject, "simple_module_core>=0.1,<1.0")
+
+    pu.run_update(
+        path=pyproject,
+        dry_run=False,
+        include_pre=False,
+        fetcher=_fake_pypi({"simple_module_core": "2.0.0"}),
+    )
+
+    assert "simple_module_core>=0.1,<1.0" in pyproject.read_text(encoding="utf-8")
+    assert "excluded by <1.0" in capsys.readouterr().out
+
+
+def test_extras_and_markers_survive_the_rewrite(tmp_path: Path) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    _write(pyproject, "simple_module_core[redis]==0.0.32; python_version >= '3.12'")
+
+    pu.run_update(
+        path=pyproject,
+        dry_run=False,
+        include_pre=False,
+        fetcher=_fake_pypi({"simple_module_core": "0.0.33"}),
+    )
+
+    out = pyproject.read_text(encoding="utf-8")
+    assert "simple_module_core[redis]==0.0.33" in out
+    assert "python_version >= '3.12'" in out
