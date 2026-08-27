@@ -180,7 +180,10 @@ function Doctor() {
                       <Badge variant="outline" className={TONE.default}>
                         {m.module}
                       </Badge>
-                      <div className="flex-1 truncate text-sm text-foreground">{m.msg}</div>
+                      {/* Clips at 375px; the row offers no other way to read it. */}
+                      <div title={m.msg} className="flex-1 truncate text-sm text-foreground">
+                        {m.msg}
+                      </div>
                       <span className="font-mono text-[11px] text-muted-foreground">{m.when}</span>
                       <Badge variant="outline" className={m.applied ? TONE.success : TONE.warning}>
                         {m.applied

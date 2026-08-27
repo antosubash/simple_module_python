@@ -26,7 +26,11 @@ export function UploadProgressRows({ jobs, onDismiss, columnCount }: Props) {
               {job.status === 'error' ? (
                 <AlertCircle className="size-4 shrink-0 text-destructive" aria-hidden="true" />
               ) : null}
-              <span className="min-w-0 flex-1 truncate text-sm font-medium">{job.name}</span>
+              {/* Filenames are arbitrary-length and this row is the only place
+                  an in-flight upload is named. */}
+              <span title={job.name} className="min-w-0 flex-1 truncate text-sm font-medium">
+                {job.name}
+              </span>
               {job.status === 'error' ? (
                 <>
                   <span className="text-xs text-destructive">
