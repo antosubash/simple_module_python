@@ -51,9 +51,13 @@ export function BrandingFooter({
           />
         </div>
         <nav className="flex flex-wrap items-center gap-5 text-xs text-muted-foreground">
-          {shown.map((link) => (
+          {shown.map((link, index) => (
             <a
-              key={link.href}
+              // Index-keyed: `links` is admin-supplied and nothing enforces
+              // href uniqueness, so two rows pointing at the same target would
+              // collide on a href key. The list is static within a render.
+              // biome-ignore lint/suspicious/noArrayIndexKey: see above
+              key={index}
               href={link.href}
               className="transition-colors hover:text-foreground"
               rel="noopener noreferrer"

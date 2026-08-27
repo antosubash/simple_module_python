@@ -135,6 +135,12 @@ FOOTER_LINK_SCHEMES: Final = ("http://", "https://", "mailto:")
 FOOTER_LINK_HREF_ERROR: Final = (
     "footer link href must start with " + ", ".join(FOOTER_LINK_SCHEMES) + " or /"
 )
+#: Backslashes are rejected outright. Browsers normalise ``\`` to ``/`` in the
+#: authority position of a special-scheme URL, so ``/\evil.example.com`` reads
+#: as a site-relative path but navigates to ``https://evil.example.com`` — the
+#: exact bypass the ``//host`` rule below exists to close. No legitimate footer
+#: target needs a raw backslash; ``%5C`` still works for one in a path.
+FOOTER_LINK_BACKSLASH_ERROR: Final = "footer link href must not contain a backslash"
 
 
 def clean_footer_label(value: str) -> str:
@@ -157,6 +163,7 @@ def clean_footer_href(value: str) -> str:
     Scheme-relative ``//host`` is rejected along with everything else outside
     the allow-list: it reads as a relative path but navigates off-site, so
     allowing it would make the ``/`` rule mean something other than "this site".
+    Backslashes go with it — a browser reads ``/\\host`` the same way.
     """
     cleaned = value.strip()
     if not cleaned:
@@ -165,6 +172,8 @@ def clean_footer_href(value: str) -> str:
         raise ValueError(f"footer link href must be at most {MAX_FOOTER_LINK_HREF_LEN} characters")
     if any(ord(ch) < 0x20 for ch in cleaned):
         raise ValueError("footer link href must not contain control characters")
+    if "\\" in cleaned:
+        raise ValueError(FOOTER_LINK_BACKSLASH_ERROR)
     lowered = cleaned.lower()
     relative = cleaned.startswith("/") and not cleaned.startswith("//")
     if not relative and not lowered.startswith(FOOTER_LINK_SCHEMES):

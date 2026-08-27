@@ -22,14 +22,17 @@ __all__ = ["ParsedRequirement", "RewriteResult", "parse_requirement", "rewrite_r
 _OPS = ("===", "==", "~=", "!=", ">=", "<=", ">", "<")
 _CLAUSE_RE = re.compile(rf"\s*({'|'.join(re.escape(op) for op in _OPS)})\s*([^,]+)")
 
-#: Operators naming a floor the bump should raise. ``>`` is deliberately absent:
-#: ``>0.0.31`` is already satisfied by anything newer, and rewriting it to
-#: ``>0.0.33`` would exclude the very version being installed.
-_FLOOR_OPS = frozenset({"==", "===", "~=", ">="})
+#: Operators naming a plain floor the bump should raise. ``>`` is deliberately
+#: absent: ``>0.0.31`` is already satisfied by anything newer, and rewriting it
+#: to ``>0.0.33`` would exclude the very version being installed. ``~=`` is
+#: absent too — it carries an implicit ceiling, handled separately below.
+_FLOOR_OPS = frozenset({"==", "===", ">="})
 
-#: Operators that can exclude the latest release. Kept verbatim; if the latest
-#: version trips one, the dependency is skipped rather than silently loosened.
-_CEILING_OPS = frozenset({"<", "<=", "!="})
+#: Suffix marking a PEP 440 wildcard (``==1.4.*``, ``!=1.0.*``). These match on
+#: a *prefix* of the release segments, so they must never go through the
+#: numeric comparison — ``version_key`` maps ``*`` to 0, which would read
+#: ``1.0.*`` as ``1.0.0`` and quietly answer the wrong question.
+_WILDCARD = ".*"
 
 
 @dataclass(frozen=True)
@@ -112,15 +115,75 @@ def _render(parsed: ParsedRequirement, clauses: tuple[tuple[str, str], ...]) -> 
     return f"{parsed.name}{parsed.extras}{body}{parsed.marker}"
 
 
+def _matches_wildcard(version: str, pattern: str) -> bool:
+    """Does ``version`` fall under a PEP 440 wildcard like ``1.4.*``?"""
+    prefix = version_key(pattern[: -len(_WILDCARD)])
+    release = version_key(version)
+    return len(release) >= len(prefix) and release[: len(prefix)] == prefix
+
+
+def _compatible_band(version: str) -> str | None:
+    """The wildcard a ``~=`` clause implies, or ``None`` if it has none.
+
+    ``~=1.4`` means ``>=1.4, ==1.*``; ``~=1.4.2`` means ``>=1.4.2, ==1.4.*``.
+    A single-segment ``~=1`` is invalid PEP 440 and has no band to derive.
+    """
+    parts = version.split(".")
+    if len(parts) < 2:
+        return None
+    return ".".join(parts[:-1]) + _WILDCARD
+
+
+def _allows(op: str, version: str, latest: str) -> bool:
+    """Would this clause still be satisfied by ``latest``?
+
+    Floors (``==``/``===``/``>=``) are always "allowed": the rewrite moves them
+    *to* ``latest``, so they can't exclude it. Everything else either carries a
+    ceiling of its own or is left verbatim, and has to be checked.
+    """
+    if op in _FLOOR_OPS and not version.endswith(_WILDCARD):
+        return True
+    if version.endswith(_WILDCARD):
+        # ``==1.0.*`` allows anything under the prefix; ``!=1.0.*`` allows
+        # anything outside it.
+        inside = _matches_wildcard(latest, version)
+        return inside if op in ("==", "===") else not inside
+    if op == "~=":
+        band = _compatible_band(version)
+        return band is not None and _matches_wildcard(latest, band)
+    cmp = _compare(latest, version)
+    if op == "<":
+        return cmp < 0
+    if op == "<=":
+        return cmp <= 0
+    if op == "!=":
+        return cmp != 0
+    # ``>`` — already satisfied by anything newer than the pin.
+    return True
+
+
 def _excluded_by(parsed: ParsedRequirement, latest: str) -> str | None:
     """Return the clause that rules ``latest`` out, or ``None`` if it's allowed."""
     for op, version in parsed.clauses:
-        if op not in _CEILING_OPS:
-            continue
-        cmp = _compare(latest, version)
-        if (op == "<" and cmp >= 0) or (op == "<=" and cmp > 0) or (op == "!=" and cmp == 0):
+        if not _allows(op, version, latest):
             return f"{op}{version}"
     return None
+
+
+def _bump(op: str, version: str, latest: str) -> str:
+    """The version this clause should carry after the update.
+
+    Only a plain floor moves. A wildcard band (``==1.0.*``, ``!=1.0.*``) that
+    already allows ``latest`` is left exactly as written — narrowing it to a
+    single release would be a policy change, not a version bump. ``~=`` does
+    move, but only because ``_allows`` has already established that ``latest``
+    is inside its compatible band.
+    """
+    if version.endswith(_WILDCARD):
+        return version
+    if op in _FLOOR_OPS or op == "~=":
+        return latest
+    return version
 
 
 def rewrite_requirement(spec: str, latest: str, *, loosen: bool = False) -> RewriteResult:
@@ -144,12 +207,11 @@ def rewrite_requirement(spec: str, latest: str, *, loosen: bool = False) -> Rewr
     if blocker is not None:
         return RewriteResult(None, reason=f"{latest} excluded by {blocker}")
 
-    bumped = tuple(
-        (op, latest) if op in _FLOOR_OPS else (op, version) for op, version in parsed.clauses
-    )
+    bumped = tuple((op, _bump(op, version, latest)) for op, version in parsed.clauses)
     if bumped == parsed.clauses:
-        # Only ``>``/``<``/``!=`` clauses: already satisfied by anything newer,
-        # so raising a floor here would be inventing a constraint.
+        # Nothing here names a floor to raise — a bare ``>``/``<``/``!=``, or a
+        # wildcard band that already covers ``latest``. Rewriting either would
+        # invent a constraint the author didn't ask for.
         return RewriteResult(None)
 
     new = _render(parsed, bumped)

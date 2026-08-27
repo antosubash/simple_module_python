@@ -76,6 +76,23 @@ class TestHrefAllowList:
     def test_allowed_targets_survive(self, href: str) -> None:
         assert FooterLink(label="Link", href=href).href == href
 
+    @pytest.mark.parametrize(
+        "href",
+        [
+            "/\\evil.example.com",
+            "/\\\\evil.example.com",
+            "https://ok.example.org/a\\b",
+        ],
+    )
+    def test_backslashes_are_rejected(self, href: str) -> None:
+        """A browser reads `/\\host` as `//host` — the bypass the `//` rule closes."""
+        with pytest.raises(ValidationError, match="backslash"):
+            FooterLink(label="Click", href=href)
+
+    def test_percent_encoded_backslash_is_still_a_path(self) -> None:
+        """`%5C` is decoded after the authority is parsed, so it stays relative."""
+        assert FooterLink(label="Link", href="/%5Cfile").href == "/%5Cfile"
+
     def test_control_characters_are_rejected(self) -> None:
         with pytest.raises(ValidationError, match="control characters"):
             FooterLink(label="Link", href="https://example.org\nX")

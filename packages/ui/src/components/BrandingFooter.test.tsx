@@ -47,6 +47,22 @@ describe('BrandingFooter', () => {
     expect(screen.getByRole('link', { name: 'GitHub' })).toBeInTheDocument();
   });
 
+  test('renders two links sharing a href', () => {
+    // Nothing server-side enforces href uniqueness, so a href-keyed list would
+    // collide here and reconcile unpredictably.
+    render(
+      <BrandingFooter
+        appName="Acme"
+        links={[
+          { label: 'Docs', href: '/docs' },
+          { label: 'Handbook', href: '/docs' },
+        ]}
+      />,
+    );
+    expect(screen.getByRole('link', { name: 'Docs' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Handbook' })).toBeInTheDocument();
+  });
+
   test('renders the uploaded logo when a logoUrl is provided', () => {
     render(<BrandingFooter appName="Acme" logoUrl="/api/file-storage/files/abc/download" />);
     expect(screen.getByRole('img', { name: 'Acme' })).toHaveAttribute(
