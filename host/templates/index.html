@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+{# LocaleMiddleware resolves the locale onto request.state before any route
+   runs, so the served language and the declared one cannot drift. Hardcoding
+   "en" told assistive tech to pronounce every translated page with English
+   phonetics. Falls back when the attribute is missing — Jinja yields Undefined
+   (falsy) rather than raising, so a request that somehow bypassed the
+   middleware still renders. #}
+<html lang="{{ request.state.locale or 'en' }}">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
