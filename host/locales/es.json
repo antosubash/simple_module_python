@@ -56,6 +56,7 @@
     },
     "head_title": "Bienvenido",
     "copy_command": "Copiar comando",
+    "command_copied": "Copiado",
     "how_it_works_eyebrow": "Cómo funciona",
     "how_it_works_heading": "Un proceso · muchos módulos · sin pegamento.",
     "quickstart_eyebrow": "Inicio rápido",

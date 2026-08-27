@@ -56,6 +56,7 @@
     },
     "head_title": "Welcome",
     "copy_command": "Copy command",
+    "command_copied": "Copied",
     "how_it_works_eyebrow": "How it works",
     "how_it_works_heading": "One process · many modules · zero glue.",
     "quickstart_eyebrow": "Quickstart",

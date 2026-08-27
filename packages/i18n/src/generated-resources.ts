@@ -349,6 +349,7 @@ export default {
     'host.error.unavailable_description': '',
     'host.error.unavailable_title': '',
     'host.landing.badge': '',
+    'host.landing.command_copied': '',
     'host.landing.copy_command': '',
     'host.landing.cta_body_authenticated': '',
     'host.landing.cta_body_signin': '',

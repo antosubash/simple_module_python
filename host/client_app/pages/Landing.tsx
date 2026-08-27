@@ -7,7 +7,6 @@ import { authCta } from '@simple-module-py/ui/lib/auth-routes';
 import type { SharedProps } from '@simple-module-py/ui/types';
 import {
   BookOpen,
-  Copy,
   Database,
   LayoutTemplate,
   Package,
@@ -17,6 +16,10 @@ import {
   Sparkles,
   Stethoscope,
 } from 'lucide-react';
+import { CopyCommand } from '../components/CopyCommand';
+
+/** The one command the hero exists to hand over. */
+const INSTALL_COMMAND = 'uvx --from simple_module_cli smpy new my-app';
 
 const QUICKSTART = `# 1. install python and js deps
 $ make install
@@ -118,19 +121,7 @@ function Landing() {
             </Button>
           </div>
           {/* Terminal CTA */}
-          <div className="mx-auto mt-7 flex max-w-xl items-center gap-3 rounded-xl border border-white/[0.06] bg-slate-900 px-4 py-3 text-left font-mono text-sm shadow-lg">
-            <span className="shrink-0 text-primary-300">$</span>
-            <code className="flex-1 truncate text-slate-200">
-              uvx --from simple_module_cli smpy new my-app
-            </code>
-            <button
-              type="button"
-              aria-label={t(keys.host.landing.copy_command)}
-              className="shrink-0 text-slate-400 transition-colors hover:text-slate-200"
-            >
-              <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-          </div>
+          <CopyCommand command={INSTALL_COMMAND} />
         </div>
       </section>
 
@@ -248,7 +239,7 @@ function Landing() {
               className="bg-white text-primary-700 hover:bg-white/90"
             >
               <a href={primaryHref}>
-                {auth?.isAuthenticated ? t(keys.host.landing.cta_dashboard) : cta.label}
+                {auth?.isAuthenticated ? t(keys.host.landing.cta_dashboard) : t(cta.labelKey)}
               </a>
             </Button>
             <Button

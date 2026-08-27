@@ -459,6 +459,7 @@ export const keys = {
     },
     landing: {
       badge: 'host.landing.badge',
+      command_copied: 'host.landing.command_copied',
       copy_command: 'host.landing.copy_command',
       cta_body_authenticated: 'host.landing.cta_body_authenticated',
       cta_body_signin: 'host.landing.cta_body_signin',
