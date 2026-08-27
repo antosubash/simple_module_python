@@ -60,3 +60,28 @@ class TestAuthProviderSetting:
         """Host and out-of-process readers must land on the same name."""
         monkeypatch.setenv("SM_AUTH_PROVIDER", raw)
         assert _settings().auth_provider == resolve_auth_provider()
+
+
+class TestShimKeepsItsEnvironment:
+    """``Settings`` mixes a DB-backed class with an env-backed one.
+
+    ``HostSettings`` is a ``DbBackedSettings`` (GH #283) and comes first in
+    the MRO, so it would otherwise strip the environment source from the
+    bootstrap half — where ``SM_DATABASE_URL`` and friends are read by design,
+    before any database exists to read them from.
+    """
+
+    def test_bootstrap_fields_still_read_sm_prefixed_env(self, monkeypatch) -> None:
+        monkeypatch.setenv("SM_AUTH_PROVIDER", "keycloak")
+        monkeypatch.setenv("SM_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+
+        settings = Settings(environment="testing", secret_key="test-secret-key")
+
+        assert settings.auth_provider == "keycloak"
+        assert settings.database_url == "sqlite+aiosqlite:///:memory:"
+
+    def test_host_fields_stay_namespaced_on_the_shim(self, monkeypatch) -> None:
+        """The bare name never works, even where the shim restores env reads."""
+        monkeypatch.setenv("maintenance_mode", "true")
+
+        assert _settings().maintenance_mode is False

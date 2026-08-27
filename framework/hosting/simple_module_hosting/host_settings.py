@@ -7,13 +7,17 @@ settings. The hosting layer still reads these directly from
 
 from __future__ import annotations
 
-from pydantic import model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, model_validator
+from pydantic_settings import SettingsConfigDict
+from simple_module_core.settings_base import DbBackedSettings
 
 
-class HostSettings(BaseSettings):
+class HostSettings(DbBackedSettings):
     """DB-backed host configuration — defaults live here, overrides in DB."""
 
+    # ``DbBackedSettings`` (not ``BaseSettings``) so the DB is genuinely the
+    # only source: omitting ``env_prefix`` would leave pydantic-settings
+    # reading each field from its bare name — GH #283.
     model_config = SettingsConfigDict(extra="ignore")
 
     multi_tenant: bool = False
@@ -30,7 +34,7 @@ class HostSettings(BaseSettings):
     generic translated copy."""
 
     i18n_default_locale: str = "en"
-    i18n_supported_locales: list[str] = ["en"]
+    i18n_supported_locales: list[str] = Field(default_factory=lambda: ["en"])
     i18n_cookie_name: str = "locale"
 
     @model_validator(mode="after")
