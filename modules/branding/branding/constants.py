@@ -115,3 +115,58 @@ def clean_app_name(value: str) -> str:
     if any(ord(ch) < 0x20 for ch in cleaned):
         raise ValueError("app_name must not contain control characters")
     return cleaned
+
+
+# ── Footer links ───────────────────────────────────────────────────────
+# An empty list means "use the framework's own links" (`BRAND_FOOTER_LINKS`
+# in @simple-module-py/ui), so an existing deployment that never sets these
+# keeps the footer it has today.
+MAX_FOOTER_LINKS: Final = 6
+MAX_FOOTER_LINK_LABEL_LEN: Final = 40
+MAX_FOOTER_LINK_HREF_LEN: Final = 500
+
+#: Schemes an admin-supplied footer href may use, plus site-relative paths.
+#:
+#: This is a real allow-list, not tidiness: the href is rendered straight into
+#: an ``<a href>`` on every page of the site, signed-in or not, so
+#: ``javascript:`` (and ``data:``) would turn the branding screen into a stored
+#: XSS sink for anyone holding ``branding.manage``.
+FOOTER_LINK_SCHEMES: Final = ("http://", "https://", "mailto:")
+FOOTER_LINK_HREF_ERROR: Final = (
+    "footer link href must start with " + ", ".join(FOOTER_LINK_SCHEMES) + " or /"
+)
+
+
+def clean_footer_label(value: str) -> str:
+    """Normalise + validate a footer link's visible text."""
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError("footer link label must not be blank")
+    if len(cleaned) > MAX_FOOTER_LINK_LABEL_LEN:
+        raise ValueError(
+            f"footer link label must be at most {MAX_FOOTER_LINK_LABEL_LEN} characters"
+        )
+    if any(ord(ch) < 0x20 for ch in cleaned):
+        raise ValueError("footer link label must not contain control characters")
+    return cleaned
+
+
+def clean_footer_href(value: str) -> str:
+    """Normalise + validate a footer link's target.
+
+    Scheme-relative ``//host`` is rejected along with everything else outside
+    the allow-list: it reads as a relative path but navigates off-site, so
+    allowing it would make the ``/`` rule mean something other than "this site".
+    """
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError("footer link href must not be blank")
+    if len(cleaned) > MAX_FOOTER_LINK_HREF_LEN:
+        raise ValueError(f"footer link href must be at most {MAX_FOOTER_LINK_HREF_LEN} characters")
+    if any(ord(ch) < 0x20 for ch in cleaned):
+        raise ValueError("footer link href must not contain control characters")
+    lowered = cleaned.lower()
+    relative = cleaned.startswith("/") and not cleaned.startswith("//")
+    if not relative and not lowered.startswith(FOOTER_LINK_SCHEMES):
+        raise ValueError(FOOTER_LINK_HREF_ERROR)
+    return cleaned

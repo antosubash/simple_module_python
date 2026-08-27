@@ -2,7 +2,7 @@
 
 White-labels the application. An administrator sets the **app name**, **logo** (plus an optional dark-background variant), **favicon**, **primary colour**, **[design pack](/framework-conventions#design-packs-site-wide-look)**, and a site-wide **announcement banner** — from an admin page, with no code change or redeploy.
 
-Values persist in the shared [settings](/modules/settings) store (there is no branding table) and reach **every** Inertia page — authenticated *and* guest — through a registered shared-props provider, so the frontend can render the name, swap the logo/favicon, apply the brand colour, and show the banner everywhere. Footer content is owned by the framework site layouts, not branding.
+Values persist in the shared [settings](/modules/settings) store (there is no branding table) and reach **every** Inertia page — authenticated *and* guest — through a registered shared-props provider, so the frontend can render the name, swap the logo/favicon, apply the brand colour, show the banner and set the footer links everywhere.
 
 ## ModuleMeta
 
@@ -104,6 +104,7 @@ DB-backed via `register_module_settings`; pydantic defaults seed at boot. Edited
 | `favicon_file_id` | `""` | UUID of the favicon; `""` ⇒ no custom favicon. |
 | `banner_message` | `""` | Site-wide announcement text (≤ 500 chars); `""` ⇒ no banner. |
 | `banner_severity` | `"info"` | One of `info`, `warning`, `danger`. Unknown values normalise to `info`. |
+| `footer_links` | `[]` | Up to 6 `{label, href}` links shown in the site footer; `[]` ⇒ show the framework's own links. |
 
 `app_name` rejects control characters, not just blanks: the name is used in HTML titles and — critically — email `Subject` headers, where an embedded CR/LF would survive a bare `strip()` and then raise, breaking every transactional email.
 
@@ -147,6 +148,18 @@ A message plus a severity, rendered above every shell — app, public and auth �
 
 Severity colours are semantic, not brand-tinted: a warning wearing the deployment's accent colour stops reading as a warning.
 
+## Footer links
+
+The footer renders on every page — the app shell and the public site — so its links are outward-facing attribution on a deployed product. Setting `footer_links` replaces the framework's own *Docs / Changelog / GitHub* row, which points at `antosubash/simple_module_python`.
+
+Leaving the list empty keeps those framework links, so a deployment that never touches this looks exactly as it did. Clearing the list back to empty is how you return to them.
+
+Each `href` must be `http://`, `https://`, `mailto:` or a site-relative path beginning with a single `/`. That is an allow-list rather than tidiness: the value is rendered straight into an `<a href>` on every page, signed-in or not, so `javascript:` and `data:` would make the branding screen a stored-XSS sink for anyone holding `branding.manage`. Scheme-relative `//host` is rejected too — it reads as a relative path but navigates off-site.
+
+Labels are trimmed, non-blank, ≤ 40 characters and reject control characters, on the same reasoning as `app_name`.
+
+On the frontend, `BrandingFooter` takes an optional `links` prop and falls back to `BRAND_FOOTER_LINKS` when it is absent, `null` or empty; `SidebarLayout` and `PublicLayout` pass the shared prop through, so a host gets the override without forking either layout.
+
 ## Dark-background logo
 
 The sidebar and mobile bar sit on a near-black surface in every theme, while the sign-in card and public page are light — so a single logo cannot read on both. Uploading a *Logo (dark backgrounds)* variant swaps it in on those surfaces only.
@@ -166,12 +179,13 @@ On startup the module registers a shared-props provider (`register_inertia_share
     "logoUrl": "/api/branding/logo?v=<file id>",
     "logoDarkUrl": "/api/branding/logo-dark?v=<file id>",
     "faviconUrl": "/api/branding/favicon?v=<file id>",
-    "banner": { "message": "Maintenance at 22:00 UTC", "severity": "warning" }
+    "banner": { "message": "Maintenance at 22:00 UTC", "severity": "warning" },
+    "footerLinks": [{ "label": "Handbook", "href": "https://acme.example.org/handbook" }]
   }
 }
 ```
 
-`primaryColor` and `designPack` are `null` when unset; the three image URLs are `null` when no file is configured. `banner` is `null` when no message is set, so the frontend renders nothing at all rather than an empty bar.
+`primaryColor` and `designPack` are `null` when unset; the three image URLs are `null` when no file is configured. `banner` is `null` when no message is set, so the frontend renders nothing at all rather than an empty bar. `footerLinks` is `null` when none are configured, which is what tells the frontend to keep the framework's own links rather than render an empty row.
 
 The provider is defensive — it returns `{}` if branding state isn't mounted yet, so a half-booted app never errors a render. Because changes go through the settings store, a save hot-reloads `app.state.branding.settings`; the next render reflects the new values without a restart.
 
