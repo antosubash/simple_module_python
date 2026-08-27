@@ -11,6 +11,8 @@ export type ModuleView = {
   env_prefix: string;
   class_name: string;
   fields: FieldMeta[];
+  /** The module's own management page; when set, the generic editor links there. */
+  manage_url?: string | null;
 };
 
 type Props = {

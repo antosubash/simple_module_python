@@ -50,7 +50,9 @@
     "show_less": "Show less",
     "system_user": "System",
     "no_changes": "—",
-    "unresolved_user": "No matching account for this id"
+    "unresolved_user": "No matching account for this id",
+    "fields_set_one": "{count} field set",
+    "fields_set_other": "{count} fields set"
   },
   "nav": {
     "audit_log": "Audit Log"

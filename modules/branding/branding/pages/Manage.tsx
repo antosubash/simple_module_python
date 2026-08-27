@@ -2,13 +2,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@simple-module-py/ui/components/ui/card';
+import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
@@ -136,12 +130,10 @@ function Manage() {
         description={t(keys.branding.manage.description)}
       >
         <div className="grid gap-6 lg:grid-cols-3">
+          {/* The PageShell above already carries the title + description;
+              repeating them inside the card read as a glitch. */}
           <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>{t(keys.branding.manage.title)}</CardTitle>
-              <CardDescription>{t(keys.branding.manage.description)}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 pt-6">
               <div className="space-y-2">
                 <Label htmlFor="app_name">{t(keys.branding.manage.app_name_label)}</Label>
                 <Input

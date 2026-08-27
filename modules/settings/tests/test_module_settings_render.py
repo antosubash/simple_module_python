@@ -88,3 +88,22 @@ class TestModulesScreenRenders:
 
         assert resp.status_code == _OK
         assert resp.headers["content-type"].startswith("text/html")
+
+    async def test_dedicated_page_modules_link_instead_of_double_editing(
+        self,
+        app_with_path_setting: FastAPI,
+        authenticated_client: httpx.AsyncClient,
+    ) -> None:
+        """Branding declares its own page; generic modules don't.
+
+        The editor uses ``manage_url`` to link there instead of rendering a
+        second editor for the same fields.
+        """
+        resp = await authenticated_client.get("/admin/settings/", headers=_INERTIA)
+        modules = resp.json()["props"]["modules"]
+
+        branding = next(m for m in modules if m["package"] == "branding")
+        assert branding["manage_url"] == "/admin/branding/"
+
+        demo = next(m for m in modules if m["package"] == "pathdemo")
+        assert demo["manage_url"] is None

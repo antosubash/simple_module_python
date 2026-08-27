@@ -60,12 +60,17 @@ async def doctor(
     inertia: InertiaDep,
     db: AsyncSession = Depends(get_db),
 ) -> InertiaResponse:
-    """`make doctor` mirror — static checks, modules, dev server, env."""
+    """`make doctor` mirror — live diagnostics, migrations, modules, env."""
+    from dashboard.doctor import collect_diagnostics, environment_info, migration_overview
+
     stats = await fetch_dashboard_stats(db, request.app)
     return await inertia.render(
         _PAGE_DOCTOR,
         {
             "module_count": stats["module_count"],
             "system_info": stats["system_info"],
+            "diagnostics": collect_diagnostics(request.app),
+            "migration": migration_overview(request.app),
+            "environment": environment_info(request.app),
         },
     )

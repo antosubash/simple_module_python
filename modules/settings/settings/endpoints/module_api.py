@@ -18,8 +18,8 @@ from settings._module_settings import (
     collect_module_settings,
     is_secret_field,
     overrides_by_package,
-    serialize,
 )
+from settings._module_settings_props import serialize
 from settings.constants import MODULE_PACKAGE, PERM_DELETE, PERM_EDIT, PERM_VIEW
 from settings.contracts.events import SettingsReloaded
 from settings.deps import get_setting_service

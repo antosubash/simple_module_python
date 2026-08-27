@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from fastapi import FastAPI
-from fastapi.encoders import jsonable_encoder
 from pydantic_settings import BaseSettings
 
 from settings.env_vars import env_prefix_for
@@ -84,6 +83,9 @@ class ModuleSettingsView:
     env_prefix: str
     class_name: str
     fields: list[ModuleSettingField]
+    manage_url: str | None = None
+    """The module's own management page. When set, the generic editor renders
+    a link there instead of a second editor for the same fields."""
 
 
 def _mask(value: Any) -> Any:
@@ -194,16 +196,22 @@ def collect_module_settings(
     views: list[ModuleSettingsView] = []
     seen: set[str] = set()
 
+    settings_services = getattr(app.state, "settings", None)
+    registry = getattr(settings_services, "module_registry", None)
+
+    def _manage_url(package: str) -> str | None:
+        return registry.manage_url(package) if registry is not None else None
+
     for mod in getattr(app.state.sm, "modules", ()):
         package = _package_of(mod)
         settings = _extract_settings(app, package)
         if settings is None:
             continue
-        views.append(_build_view(mod.meta.name, package, settings, by_package))
+        views.append(
+            _build_view(mod.meta.name, package, settings, by_package, _manage_url(package))
+        )
         seen.add(package)
 
-    settings_services = getattr(app.state, "settings", None)
-    registry = getattr(settings_services, "module_registry", None)
     if registry is not None:
         for package in registry.all_packages():
             if package in seen:
@@ -211,7 +219,9 @@ def collect_module_settings(
             settings = _extract_settings(app, package)
             if settings is None:
                 continue
-            views.append(_build_view(package.title(), package, settings, by_package))
+            views.append(
+                _build_view(package.title(), package, settings, by_package, _manage_url(package))
+            )
             seen.add(package)
 
     views.sort(key=lambda v: v.module_name)
@@ -223,6 +233,7 @@ def _build_view(
     package: str,
     settings: BaseSettings,
     overrides: dict[str, frozenset[str]] | None = None,
+    manage_url: str | None = None,
 ) -> ModuleSettingsView:
     prefix = env_prefix_for(package)
     overridden = (overrides or {}).get(package, frozenset())
@@ -235,6 +246,7 @@ def _build_view(
         env_prefix=prefix,
         class_name=type(settings).__name__,
         fields=fields,
+        manage_url=manage_url,
     )
 
 
@@ -249,41 +261,3 @@ async def overrides_by_package(service: SettingService) -> dict[str, frozenset[s
     from settings.store import SettingsStore
 
     return await SettingsStore(service).all_override_fields()
-
-
-def serialize(views: list[ModuleSettingsView]) -> list[dict[str, Any]]:
-    """Convert dataclass views to plain dicts for Inertia props.
-
-    Field values arrive as whatever type the module declared — pydantic has
-    already coerced ``media_root: Path`` to a ``PosixPath``, ``timeout:
-    timedelta`` to a ``timedelta`` — and this screen reflects every installed
-    module's settings, so the set of types is open-ended by design. They are
-    encoded here rather than handed on as-is: this is the boundary where a
-    settings object stops being Python and becomes a prop.
-    """
-    return [
-        {
-            "module_name": v.module_name,
-            "package": v.package,
-            "env_prefix": v.env_prefix,
-            "class_name": v.class_name,
-            "fields": [
-                {
-                    "name": f.name,
-                    "env_var": f.env_var,
-                    "value": jsonable_encoder(f.value),
-                    "default": jsonable_encoder(f.default),
-                    "description": f.description,
-                    "is_secret": f.is_secret,
-                    "type": f.type,
-                    "requires_restart": f.requires_restart,
-                    "group": f.group,
-                    "env_set": f.env_set,
-                    "db_override": f.db_override,
-                    "source": f.source,
-                }
-                for f in v.fields
-            ],
-        }
-        for v in views
-    ]

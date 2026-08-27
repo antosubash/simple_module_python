@@ -83,7 +83,10 @@
     "source_env": "From environment",
     "source_env_hint": "{env_var} is set in this deployment",
     "source_default": "Default",
-    "head_title": "Modules"
+    "head_title": "Modules",
+    "managed_title": "Managed on its own page",
+    "managed_description": "{module} ships a purpose-built settings page; edit it there so validation and previews apply.",
+    "managed_open": "Open {module} settings"
   },
   "modules_form": {
     "save": "Save",
