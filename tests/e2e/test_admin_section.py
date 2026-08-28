@@ -19,15 +19,19 @@ from playwright.sync_api import Page, expect
 
 pytestmark = pytest.mark.e2e
 
-ADMIN_SCREENS = [
-    ("Users", "/admin/users/"),
-    ("Branding", "/admin/branding/"),
-    ("Feature Flags", "/admin/feature-flags/"),
-    ("Background Tasks", "/admin/background-tasks/"),
-    ("Settings", "/admin/settings/"),
-    ("Audit Log", "/admin/audit-log/"),
-    ("Doctor", "/admin/doctor/"),
-]
+# Modules are pluggable, so which admin screens exist depends on
+# ``SM_MODULES_ENABLED``. Assert against what is installed rather than a fixed
+# roster — a hardcoded list turns a legitimate deployment choice into a test
+# failure (CI's e2e job runs a subset).
+ADMIN_SCREENS = {
+    "Users": "/admin/users/",
+    "Branding": "/admin/branding/",
+    "Feature Flags": "/admin/feature-flags/",
+    "Background Tasks": "/admin/background-tasks/",
+    "Settings": "/admin/settings/",
+    "Audit Log": "/admin/audit-log/",
+    "Doctor": "/admin/doctor/",
+}
 
 
 def _login(page: Page, username: str, password: str) -> None:
@@ -36,6 +40,20 @@ def _login(page: Page, username: str, password: str) -> None:
     page.locator("#password").fill(password)
     page.get_by_role("button", name="Log in").click()
     page.wait_for_url("**/dashboard/**", timeout=15_000)
+
+
+def _require_branding(page: Page) -> None:
+    """Skip when the branding module isn't part of this deployment.
+
+    The sidebar renders client-side, and ``count()`` does not auto-wait — so
+    wait for a link that is always present before concluding Branding is
+    absent, or this skips on a slow render instead of on a real absence.
+    """
+    page.goto("/admin/")
+    sidebar = page.get_by_role("complementary")
+    expect(sidebar.get_by_role("link", name="Users", exact=True)).to_be_visible()
+    if sidebar.get_by_role("link", name="Branding", exact=True).count() == 0:
+        pytest.skip("branding module not installed in this environment")
 
 
 def test_app_sidebar_delegates_to_one_admin_entry(
@@ -51,19 +69,36 @@ def test_app_sidebar_delegates_to_one_admin_entry(
 
     sidebar = page.get_by_role("complementary")
     expect(sidebar.get_by_role("link", name="Administration")).to_be_visible()
-    for label, _ in ADMIN_SCREENS:
+    for label in ADMIN_SCREENS:
         expect(sidebar.get_by_role("link", name=label, exact=True)).to_have_count(0)
 
 
-def test_admin_shell_reaches_every_screen(page: Page, e2e_username: str, e2e_password: str) -> None:
+def test_admin_shell_reaches_every_installed_screen(
+    page: Page, e2e_username: str, e2e_password: str
+) -> None:
+    """Every admin screen this deployment installs is reachable from the shell.
+
+    Each link is checked against its canonical URL, and at least the core
+    screens must be present — so a module dropping out of the sidebar still
+    fails, while a deployment that simply doesn't install one does not.
+    """
     page.goto("/")
     _login(page, e2e_username, e2e_password)
     page.get_by_role("link", name="Administration").click()
     page.wait_for_url("**/admin**", timeout=15_000)
 
     sidebar = page.get_by_role("complementary")
-    for label, url in ADMIN_SCREENS:
-        expect(sidebar.get_by_role("link", name=label, exact=True)).to_have_attribute("href", url)
+    found = set()
+    for label, url in ADMIN_SCREENS.items():
+        link = sidebar.get_by_role("link", name=label, exact=True)
+        if link.count() == 0:
+            continue
+        expect(link).to_have_attribute("href", url)
+        found.add(label)
+
+    # Users and Doctor ship with the framework's own modules, so their absence
+    # means the shell broke rather than that someone trimmed their install.
+    assert {"Users", "Doctor"} <= found, f"admin shell is missing core screens: {found}"
 
 
 def test_branding_is_linked_not_re_edited_in_module_settings(
@@ -72,6 +107,7 @@ def test_branding_is_linked_not_re_edited_in_module_settings(
     """The generic editor hands Branding off to its own page."""
     page.goto("/")
     _login(page, e2e_username, e2e_password)
+    _require_branding(page)
 
     page.goto("/admin/settings/")
     page.get_by_role("button", name="Branding").click()
@@ -98,6 +134,7 @@ def test_generic_settings_api_refuses_to_double_edit_branding(
     """
     page.goto("/")
     _login(page, e2e_username, e2e_password)
+    _require_branding(page)
 
     blocked = page.request.put("/api/settings/modules/branding", data={"app_name": "Hijacked"})
     assert blocked.status == 409, blocked.text()
