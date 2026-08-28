@@ -229,6 +229,8 @@
     "label": "Email addresses",
     "hint": "One per line, or separated by commas.",
     "recognised": "{count} recognised.",
+    "invalid_email_one": "{email} is not a valid email address.",
+    "invalid_email_other": "{count} addresses are not valid email addresses.",
     "no_mailer": "This deployment logs invite mail instead of sending it. You will get a copyable link for each address to pass on yourself."
   },
   "create_fields": {

@@ -91,6 +91,7 @@
   "modules_form": {
     "save": "Save",
     "saving": "Saving…",
+    "saved_toast": "Settings saved",
     "default_group": "General",
     "requires_restart": "Requires restart",
     "reset_to_default": "Reset to default",
