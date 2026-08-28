@@ -14,6 +14,7 @@ from typing import Any
 
 from fastapi import FastAPI
 from simple_module_core.diagnostics import run_diagnostics
+from simple_module_hosting.migrations import script_directory
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,6 @@ def _relative(file: str | None) -> str | None:
         return file
 
 
-_ALEMBIC_INI = "host/alembic.ini"
 _RECENT_LIMIT = 5
 
 
@@ -80,10 +80,7 @@ def _recent_revisions(limit: int = _RECENT_LIMIT) -> list[dict[str, Any]]:
     """Newest ``limit`` alembic revisions (head first), or ``[]`` when the
     script directory isn't present (e.g. a deployment without host/)."""
     try:
-        from alembic.config import Config as AlembicConfig
-        from alembic.script import ScriptDirectory
-
-        script = ScriptDirectory.from_config(AlembicConfig(_ALEMBIC_INI))
+        script = script_directory()
         revisions = []
         for rev in script.walk_revisions():
             revisions.append(

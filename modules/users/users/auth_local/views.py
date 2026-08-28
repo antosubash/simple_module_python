@@ -63,6 +63,12 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
             "login_redirect_url": (
                 safe_next_or_none(request.session.get(SESSION_NEXT_KEY))
                 or users_settings.login_redirect_url
+                # An admin can blank the DB-backed setting via the generic
+                # module-settings editor (no non-empty validator on the
+                # field) — never hand the frontend "" as a navigation
+                # target (Inertia's router.visit("") just reloads the
+                # current page, stranding the user on /login).
+                or "/dashboard/"
             ),
             "oauth_providers": users_state.oauth_providers,
         },

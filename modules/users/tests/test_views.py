@@ -121,6 +121,19 @@ class TestLoginPage:
         )
         assert resp.json()["props"]["login_redirect_url"] == "/dashboard/"
 
+    @pytest.mark.anyio
+    async def test_login_redirect_url_falls_back_when_setting_is_blanked(self, anon_client):
+        """An admin can blank the DB-backed setting via the generic module
+        editor (no non-empty validator on the field) — the login page must
+        never hand the frontend "" as a navigation target."""
+        anon_client._transport.app.state.users.settings.login_redirect_url = ""
+
+        resp = await anon_client.get(
+            "/users/login",
+            headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
+        )
+        assert resp.json()["props"]["login_redirect_url"] == "/dashboard/"
+
 
 class TestRegisterPage:
     @pytest.mark.anyio

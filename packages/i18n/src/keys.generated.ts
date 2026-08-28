@@ -725,8 +725,10 @@ export const keys = {
     },
     nav_groups: {
       access: 'ui.nav_groups.access',
+      account: 'ui.nav_groups.account',
       appearance: 'ui.nav_groups.appearance',
       content: 'ui.nav_groups.content',
+      navigation: 'ui.nav_groups.navigation',
       system: 'ui.nav_groups.system',
     },
     public_nav: {

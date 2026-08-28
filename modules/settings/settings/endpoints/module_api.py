@@ -70,6 +70,15 @@ async def update_module(
     registry = getattr(request.app.state, MODULE_PACKAGE).module_registry
     if registry.get(package) is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown module package")
+    if registry.manage_url(package) is not None:
+        # Modules with a purpose-built settings screen (e.g. Branding) own
+        # their own validation/preview flow — the generic editor only ever
+        # links out to it (ModulesEdit.tsx), it must not also accept writes
+        # that bypass that flow.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This module has a dedicated settings page; edit it there instead.",
+        )
 
     cleaned = _strip_mask_sentinels(changes)
     if not cleaned:
@@ -102,6 +111,11 @@ async def clear_module_field(
     cls = registry.get(package)
     if cls is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown module package")
+    if registry.manage_url(package) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This module has a dedicated settings page; edit it there instead.",
+        )
     if field not in cls.model_fields:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown field")
 
