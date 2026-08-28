@@ -167,6 +167,13 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
         {sidebarOpen && (
           <button
             type="button"
+            // Out of the tab order deliberately: this backdrop is the
+            // click-outside affordance, and as a full-screen control it can
+            // show no meaningful focus ring. Keyboard users close the sidebar
+            // with the X button beside the logo, which is focusable and does
+            // carry a visible ring — so this is one less invisible tab stop,
+            // not a lost route out.
+            tabIndex={-1}
             aria-label={t(keys.ui.sidebar.close)}
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden cursor-default"
             onClick={closeSidebar}
