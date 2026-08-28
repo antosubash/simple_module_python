@@ -63,12 +63,12 @@ class TestAuthProviderSetting:
 
 
 class TestShimKeepsItsEnvironment:
-    """``Settings`` mixes a DB-backed class with an env-backed one.
+    """``Settings`` mixes ``HostSettings`` with ``BootstrapSettings``.
 
-    ``HostSettings`` is a ``DbBackedSettings`` (GH #283) and comes first in
-    the MRO, so it would otherwise strip the environment source from the
-    bootstrap half — where ``SM_DATABASE_URL`` and friends are read by design,
-    before any database exists to read them from.
+    Both halves namespace their env reads under ``SM_``, and the bootstrap
+    half's must keep working: ``SM_DATABASE_URL`` and friends are read by
+    design, before any database exists to read them from. The bare,
+    unprefixed names must not resolve on either half (GH #283).
     """
 
     def test_bootstrap_fields_still_read_sm_prefixed_env(self, monkeypatch) -> None:

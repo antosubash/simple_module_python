@@ -11,6 +11,11 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_import_from_env_writes_overrides(db_session, monkeypatch, app) -> None:
+    # The suite-wide `pinned_auth_provider` fixture sets SM_AUTH_PROVIDER, and
+    # auth_provider is a host setting now, so it would import too and make the
+    # count below about the fixture rather than about this test. Dropping it
+    # keeps the assertion exact as host gains further fields.
+    monkeypatch.delenv("SM_AUTH_PROVIDER", raising=False)
     monkeypatch.setenv("SM_USERS_ALLOW_SIGNUP", "true")
     monkeypatch.setenv("SM_USERS_SMTP_PORT", "2525")
     monkeypatch.setenv("SM_BG_TASKS_RETENTION_DAYS", "30")
@@ -32,6 +37,9 @@ async def test_import_from_env_writes_overrides(db_session, monkeypatch, app) ->
 
 @pytest.mark.asyncio
 async def test_import_ignores_unknown_env(db_session, monkeypatch, app) -> None:
+    # See the note in test_import_from_env_writes_overrides: SM_AUTH_PROVIDER
+    # is a real host setting now and would be a legitimate import.
+    monkeypatch.delenv("SM_AUTH_PROVIDER", raising=False)
     monkeypatch.setenv("SM_USERS_DOES_NOT_EXIST", "value")
 
     from settings.cli import import_from_env_impl

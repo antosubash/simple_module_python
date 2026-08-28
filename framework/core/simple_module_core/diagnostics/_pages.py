@@ -12,17 +12,62 @@ if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
 
 
+def _assignment(s: ast.stmt) -> tuple[ast.Name, ast.expr] | None:
+    """Return ``(target, value)`` for a single-target top-level assignment.
+
+    Covers both ``NAME = ...`` and the annotated ``NAME: Final = ...`` form
+    module constants are conventionally written in.
+    """
+    if isinstance(s, ast.Assign) and len(s.targets) == 1 and isinstance(s.targets[0], ast.Name):
+        return s.targets[0], s.value
+    if isinstance(s, ast.AnnAssign) and isinstance(s.target, ast.Name) and s.value is not None:
+        return s.target, s.value
+    return None
+
+
 def _module_level_str_consts(tree: ast.Module) -> dict[str, str]:
     """Return ``{name: literal}`` for top-level ``NAME = "string"`` assignments."""
-    return {
-        s.targets[0].id: s.value.value
-        for s in tree.body
-        if isinstance(s, ast.Assign)
-        and len(s.targets) == 1
-        and isinstance(s.targets[0], ast.Name)
-        and isinstance(s.value, ast.Constant)
-        and isinstance(s.value.value, str)
-    }
+    consts: dict[str, str] = {}
+    for s in tree.body:
+        assignment = _assignment(s)
+        if assignment is None:
+            continue
+        target, value = assignment
+        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            consts[target.id] = value.value
+    return consts
+
+
+def _resolve_fstring_consts(tree: ast.Module, consts: dict[str, str]) -> dict[str, str]:
+    """Resolve top-level ``NAME = f"{CONST}/lit"`` against already-known consts.
+
+    Only plain interpolations of known string constants count — a conversion,
+    format spec, or unknown name makes the value non-static, so it is skipped
+    rather than guessed at.
+    """
+    resolved: dict[str, str] = {}
+    for s in tree.body:
+        assignment = _assignment(s)
+        if assignment is None or not isinstance(assignment[1], ast.JoinedStr):
+            continue
+        target, value = assignment
+        parts: list[str] = []
+        for piece in value.values:
+            if isinstance(piece, ast.Constant) and isinstance(piece.value, str):
+                parts.append(piece.value)
+            elif (
+                isinstance(piece, ast.FormattedValue)
+                and isinstance(piece.value, ast.Name)
+                and piece.value.id in consts
+                and piece.conversion == -1
+                and piece.format_spec is None
+            ):
+                parts.append(consts[piece.value.id])
+            else:
+                break
+        else:
+            resolved[target.id] = "".join(parts)
+    return resolved
 
 
 def _iter_render_components(tree: ast.Module, consts: dict[str, str]) -> list[str]:
@@ -79,6 +124,19 @@ def find_render_calls(mod: ModuleBase, src_dir: Path) -> set[str]:
     consts: dict[str, str] = {}
     for tree in trees:
         consts.update(_module_level_str_consts(tree))
+    # Then f-string constants built from the plain ones above
+    # (``PAGE = f"{MODULE_NAME}/Browse"`` is the conventional shape). Repeat to
+    # a fixed point so a chain — ``PREFIX = f"{NAME}/sub"`` then
+    # ``PAGE = f"{PREFIX}/Browse"`` — resolves too; one pass would only learn
+    # the first hop and report the page as an SM003 orphan.
+    while True:
+        resolved: dict[str, str] = {}
+        for tree in trees:
+            resolved.update(_resolve_fstring_consts(tree, consts))
+        new = {k: v for k, v in resolved.items() if consts.get(k) != v}
+        if not new:
+            break
+        consts.update(new)
 
     prefix = f"{mod.meta.name}/"
     rendered: set[str] = set()

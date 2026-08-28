@@ -1,12 +1,52 @@
 {
-  "empty": {
-    "solo_title": "You're the only account",
-    "invite_description": "Invite teammates by email, or create accounts with passwords you set.",
-    "add_people": "Add people",
-    "filtered_title": "No users match these filters",
-    "filtered_description": "Nobody in this workspace fits the current search and filters.",
-    "clear_filters": "Clear filters",
-    "empty_title": "No users yet"
+  "accept_invite": {
+    "head_title": "Accept Invite",
+    "invited_as": "You've been invited as {email}",
+    "invited_generic": "You've been invited",
+    "pick_password": "Pick a password and you'll be signed in.",
+    "access_label": "Access:",
+    "already_used": "This invite has already been used. Sign in instead, or use \"Forgot password\" if you don't have your password.",
+    "heading": "Set your password",
+    "submit": "Set password & sign in",
+    "submitting": "Activating…",
+    "error_bad_token": "Invite link has expired or is invalid. Please request a new invitation.",
+    "error_failed": "Failed to accept invite. Please try again."
+  },
+  "account_status": {
+    "title": "Account status",
+    "active": "active",
+    "disabled": "disabled",
+    "disable_button": "Disable account",
+    "enable_button": "Enable account",
+    "disable_confirm_title": "Disable {email}?",
+    "disable_confirm_body": "They won't be able to sign in until you re-enable the account.",
+    "disable_action": "Disable",
+    "copy_reset_link": "Copy reset link",
+    "reset_confirm_title": "Generate reset link for {email}?",
+    "reset_confirm_body": "A one-time password-reset URL will be copied to your clipboard. Any previously issued reset link for this user will be invalidated.",
+    "reset_action": "Generate",
+    "external_note": "This account signs in through an external identity provider (SSO) and has no password, so there's no reset link to generate."
+  },
+  "add_people": {
+    "title": "Add people",
+    "description": "Invite them to set their own password, or create the account yourself.",
+    "tablist_label": "How to add people",
+    "mode_invite": "Send invites",
+    "mode_create": "Create account",
+    "submitting": "Working…",
+    "submit_invite": "Send {count} invite",
+    "submit_invite_one": "Send {count} invite",
+    "submit_invite_other": "Send {count} invites",
+    "submit_create": "Create user",
+    "toast_invites_sent": "{count} invite sent",
+    "toast_invites_sent_one": "{count} invite sent",
+    "toast_invites_sent_other": "{count} invites sent",
+    "toast_user_created": "User created",
+    "error_invite_failed": "Failed to send invites",
+    "error_create_failed": "Failed to create user"
+  },
+  "audit": {
+    "user": "User"
   },
   "common": {
     "email": "Email",
@@ -32,36 +72,67 @@
     "name_placeholder": "Your name",
     "external_badge": "External · SSO"
   },
-  "login": {
-    "head_title": "Login",
-    "heading": "Welcome back",
-    "subtitle": "Log in to your workspace.",
-    "forgot_link": "Forgot?",
-    "submit": "Log in",
-    "submitting": "Signing in…",
-    "no_account": "Don't have an account?",
-    "sign_up": "Sign up",
-    "oauth_divider": "Or continue with",
-    "dev_divider": "Dev quick-login",
-    "needs_verification_title": "Verify your email",
-    "resend_verification": "Resend verification email",
-    "verification_resent": "Verification email resent. Please check your inbox.",
-    "error_rate_limited": "Too many attempts. Please try again in a few minutes.",
-    "error_invalid_credentials": "Invalid email or password."
+  "create_fields": {
+    "email_placeholder": "teammate@example.com",
+    "full_name_optional": "Full name (optional)",
+    "name_placeholder": "Jane Doe",
+    "password_placeholder": "At least 8 characters",
+    "password_hint": "Must be at least 8 characters and not all numbers. The account is active and verified immediately — share the password securely."
   },
-  "register": {
-    "head_title": "Register",
-    "heading": "Create your account",
-    "subtitle_prefix": "Public signup — controlled by",
-    "submit": "Sign up",
-    "submitting": "Creating account…",
-    "have_account": "Already have an account?",
-    "success_title": "Check your inbox",
-    "success_body": "We've sent a verification link to {email}.",
-    "error_exists": "An account with this email already exists.",
-    "error_weak_password": "Password not accepted: {reason}",
-    "error_weak_password_default": "too weak",
-    "error_failed": "Registration failed. Please try again."
+  "danger_zone": {
+    "title": "Danger zone",
+    "self_note": "You cannot delete your own account.",
+    "description": "Permanently delete this user. This cannot be undone.",
+    "delete_button": "Delete user",
+    "deleting": "Deleting…",
+    "confirm_title": "Delete {email}?",
+    "confirm_body": "Removes the account, its roles and its sessions. Audit entries stay, attributed to a deleted user. This cannot be undone.",
+    "confirm_prompt_prefix": "Type",
+    "confirm_prompt_suffix": "to confirm",
+    "toast_deleted": "User deleted",
+    "toast_failed": "Failed to delete user"
+  },
+  "details_card": {
+    "title": "Details",
+    "name_placeholder": "Jane Doe"
+  },
+  "edit": {
+    "description_fallback": "Edit user account",
+    "unsaved_changes": "Unsaved changes",
+    "leave_warning": "You have unsaved changes on this user. Leave without saving?",
+    "toast_saved": "Changes saved",
+    "toast_verified": "User marked verified",
+    "toast_verify_failed": "Failed to mark verified",
+    "toast_reset_copied": "Reset link copied to clipboard",
+    "toast_reset_failed": "Failed to generate reset link",
+    "toast_disabled": "User disabled",
+    "toast_enabled": "User enabled",
+    "toast_disable_failed": "Failed to disable user",
+    "toast_enable_failed": "Failed to enable user",
+    "error_details": "Failed to update details",
+    "error_roles": "Failed to update roles",
+    "error_partial": "Details were saved, but the roles update failed. Try saving again."
+  },
+  "empty": {
+    "solo_title": "You're the only account",
+    "invite_description": "Invite teammates by email, or create accounts with passwords you set.",
+    "add_people": "Add people",
+    "filtered_title": "No users match these filters",
+    "filtered_description": "Nobody in this workspace fits the current search and filters.",
+    "clear_filters": "Clear filters",
+    "empty_title": "No users yet"
+  },
+  "filters": {
+    "status_placeholder": "Status",
+    "status_all": "All statuses",
+    "status_active": "Active",
+    "status_disabled": "Disabled",
+    "role_placeholder": "Role",
+    "role_all": "All roles",
+    "verified_placeholder": "Verified",
+    "verified_all": "All",
+    "verified_yes": "Verified",
+    "verified_no": "Unverified"
   },
   "forgot_password": {
     "head_title": "Forgot Password",
@@ -72,53 +143,6 @@
     "sent_title": "Check your inbox",
     "sent_body": "If {email} has an account, a reset link is on its way. The console mailer logs it to stdout.",
     "remembered": "Remembered?"
-  },
-  "reset_password": {
-    "head_title": "Reset Password",
-    "heading": "Reset password",
-    "subtitle": "Choose a new password and you'll be redirected to log in.",
-    "submit": "Reset password",
-    "submitting": "Resetting…",
-    "error_failed": "Reset failed. The link may have expired.",
-    "no_token": "No reset token found. Please use the link from your email."
-  },
-  "verify_email": {
-    "head_title": "Verify Email",
-    "pending_title": "Verifying your email…",
-    "pending_description": "Please wait while we verify your email address.",
-    "success_title": "Email verified!",
-    "success_description": "Your account is now active.",
-    "already_title": "Already verified",
-    "already_description": "This account is already verified — you can log in.",
-    "error_title": "Verification failed",
-    "error_description": "Verification link expired or invalid.",
-    "error_no_token": "No verification token found in this link.",
-    "error_expired": "Verification link expired or invalid. Please request a new one."
-  },
-  "accept_invite": {
-    "head_title": "Accept Invite",
-    "invited_as": "You've been invited as {email}",
-    "invited_generic": "You've been invited",
-    "pick_password": "Pick a password and you'll be signed in.",
-    "access_label": "Access:",
-    "already_used": "This invite has already been used. Sign in instead, or use \"Forgot password\" if you don't have your password.",
-    "heading": "Set your password",
-    "submit": "Set password & sign in",
-    "submitting": "Activating…",
-    "error_bad_token": "Invite link has expired or is invalid. Please request a new invitation.",
-    "error_failed": "Failed to accept invite. Please try again."
-  },
-  "profile": {
-    "head_title": "Profile",
-    "title": "Your profile",
-    "description": "Shown to teammates in audit logs and dropdowns.",
-    "account_section": "Account",
-    "upload_avatar": "Upload avatar",
-    "avatar_hint": "PNG or JPG, up to 2MB.",
-    "verified_badge": "verified",
-    "unverified_badge": "unverified",
-    "toast_updated": "Profile updated",
-    "toast_failed": "Failed to update profile"
   },
   "index": {
     "title": "Users",
@@ -141,48 +165,40 @@
     "next": "Next",
     "page_of": "Page {page} of {total}"
   },
-  "edit": {
-    "description_fallback": "Edit user account",
-    "unsaved_changes": "Unsaved changes",
-    "leave_warning": "You have unsaved changes on this user. Leave without saving?",
-    "toast_saved": "Changes saved",
-    "toast_verified": "User marked verified",
-    "toast_verify_failed": "Failed to mark verified",
-    "toast_reset_copied": "Reset link copied to clipboard",
-    "toast_reset_failed": "Failed to generate reset link",
-    "toast_disabled": "User disabled",
-    "toast_enabled": "User enabled",
-    "toast_disable_failed": "Failed to disable user",
-    "toast_enable_failed": "Failed to enable user",
-    "error_details": "Failed to update details",
-    "error_roles": "Failed to update roles",
-    "error_partial": "Details were saved, but the roles update failed. Try saving again."
+  "invite_fields": {
+    "label": "Email addresses",
+    "hint": "One per line, or separated by commas.",
+    "recognised": "{count} recognised.",
+    "invalid_email_one": "{email} is not a valid email address.",
+    "invalid_email_other": "{count} addresses are not valid email addresses.",
+    "no_mailer": "This deployment logs invite mail instead of sending it. You will get a copyable link for each address to pass on yourself."
   },
-  "add_people": {
-    "title": "Add people",
-    "description": "Invite them to set their own password, or create the account yourself.",
-    "tablist_label": "How to add people",
-    "mode_invite": "Send invites",
-    "mode_create": "Create account",
-    "submitting": "Working…",
-    "submit_invite": "Send {count} invite",
-    "submit_invite_one": "Send {count} invite",
-    "submit_invite_other": "Send {count} invites",
-    "submit_create": "Create user",
-    "toast_invites_sent": "{count} invite sent",
-    "toast_invites_sent_one": "{count} invite sent",
-    "toast_invites_sent_other": "{count} invites sent",
-    "toast_user_created": "User created",
-    "error_invite_failed": "Failed to send invites",
-    "error_create_failed": "Failed to create user"
+  "invite_results": {
+    "summary_sent": "{count} sent",
+    "summary_links": "{count} need a link",
+    "summary_failed": "{count} failed",
+    "dismiss": "Dismiss",
+    "links_hint": "These accounts exist but no mail was delivered — send each person their link.",
+    "copy_all": "Copy all",
+    "copy_link_title": "Copy invite link",
+    "all_delivered": "All invites delivered."
   },
-  "details_card": {
-    "title": "Details",
-    "name_placeholder": "Jane Doe"
-  },
-  "roles_card": {
-    "title": "Roles",
-    "manage_permissions": "Manage permissions →"
+  "login": {
+    "head_title": "Login",
+    "heading": "Welcome back",
+    "subtitle": "Log in to your workspace.",
+    "forgot_link": "Forgot?",
+    "submit": "Log in",
+    "submitting": "Signing in…",
+    "no_account": "Don't have an account?",
+    "sign_up": "Sign up",
+    "oauth_divider": "Or continue with",
+    "dev_divider": "Dev quick-login",
+    "needs_verification_title": "Verify your email",
+    "resend_verification": "Resend verification email",
+    "verification_resent": "Verification email resent. Please check your inbox.",
+    "error_rate_limited": "Too many attempts. Please try again in a few minutes.",
+    "error_invalid_credentials": "Invalid email or password."
   },
   "metadata_card": {
     "title": "Metadata",
@@ -197,68 +213,52 @@
     "no": "no",
     "mark_verified": "Mark verified"
   },
-  "account_status": {
-    "title": "Account status",
-    "active": "active",
-    "disabled": "disabled",
-    "disable_button": "Disable account",
-    "enable_button": "Enable account",
-    "disable_confirm_title": "Disable {email}?",
-    "disable_confirm_body": "They won't be able to sign in until you re-enable the account.",
-    "disable_action": "Disable",
-    "copy_reset_link": "Copy reset link",
-    "reset_confirm_title": "Generate reset link for {email}?",
-    "reset_confirm_body": "A one-time password-reset URL will be copied to your clipboard. Any previously issued reset link for this user will be invalidated.",
-    "reset_action": "Generate",
-    "external_note": "This account signs in through an external identity provider (SSO) and has no password, so there's no reset link to generate."
+  "nav": {
+    "logout": "Logout",
+    "profile": "Profile",
+    "users": "Users"
   },
-  "danger_zone": {
-    "title": "Danger zone",
-    "self_note": "You cannot delete your own account.",
-    "description": "Permanently delete this user. This cannot be undone.",
-    "delete_button": "Delete user",
-    "deleting": "Deleting…",
-    "confirm_title": "Delete {email}?",
-    "confirm_body": "Removes the account, its roles and its sessions. Audit entries stay, attributed to a deleted user. This cannot be undone.",
-    "confirm_prompt_prefix": "Type",
-    "confirm_prompt_suffix": "to confirm",
-    "toast_deleted": "User deleted",
-    "toast_failed": "Failed to delete user"
+  "profile": {
+    "head_title": "Profile",
+    "title": "Your profile",
+    "description": "Shown to teammates in audit logs and dropdowns.",
+    "account_section": "Account",
+    "upload_avatar": "Upload avatar",
+    "avatar_hint": "PNG or JPG, up to 2MB.",
+    "verified_badge": "verified",
+    "unverified_badge": "unverified",
+    "toast_updated": "Profile updated",
+    "toast_failed": "Failed to update profile"
   },
-  "invite_fields": {
-    "label": "Email addresses",
-    "hint": "One per line, or separated by commas.",
-    "recognised": "{count} recognised.",
-    "no_mailer": "This deployment logs invite mail instead of sending it. You will get a copyable link for each address to pass on yourself."
+  "register": {
+    "head_title": "Register",
+    "heading": "Create your account",
+    "subtitle_prefix": "Public signup — controlled by",
+    "submit": "Sign up",
+    "submitting": "Creating account…",
+    "have_account": "Already have an account?",
+    "success_title": "Check your inbox",
+    "success_body": "We've sent a verification link to {email}.",
+    "error_exists": "An account with this email already exists.",
+    "error_weak_password": "Password not accepted: {reason}",
+    "error_weak_password_default": "too weak",
+    "error_failed": "Registration failed. Please try again."
   },
-  "create_fields": {
-    "email_placeholder": "teammate@example.com",
-    "full_name_optional": "Full name (optional)",
-    "name_placeholder": "Jane Doe",
-    "password_placeholder": "At least 8 characters",
-    "password_hint": "Must be at least 8 characters and not all numbers. The account is active and verified immediately — share the password securely."
+  "reset_password": {
+    "head_title": "Reset Password",
+    "heading": "Reset password",
+    "subtitle": "Choose a new password and you'll be redirected to log in.",
+    "submit": "Reset password",
+    "submitting": "Resetting…",
+    "error_failed": "Reset failed. The link may have expired.",
+    "no_token": "No reset token found. Please use the link from your email."
   },
-  "invite_results": {
-    "summary_sent": "{count} sent",
-    "summary_links": "{count} need a link",
-    "summary_failed": "{count} failed",
-    "dismiss": "Dismiss",
-    "links_hint": "These accounts exist but no mail was delivered — send each person their link.",
-    "copy_all": "Copy all",
-    "copy_link_title": "Copy invite link",
-    "all_delivered": "All invites delivered."
+  "role_picker": {
+    "default_label": "Roles"
   },
-  "filters": {
-    "status_placeholder": "Status",
-    "status_all": "All statuses",
-    "status_active": "Active",
-    "status_disabled": "Disabled",
-    "role_placeholder": "Role",
-    "role_all": "All roles",
-    "verified_placeholder": "Verified",
-    "verified_all": "All",
-    "verified_yes": "Verified",
-    "verified_no": "Unverified"
+  "roles_card": {
+    "title": "Roles",
+    "manage_permissions": "Manage permissions →"
   },
   "roles_tab": {
     "empty": "No roles defined",
@@ -269,6 +269,12 @@
     "member_count_one": "{count} member",
     "member_count_other": "{count} members"
   },
+  "setup": {
+    "administrator": {
+      "title": "Create an administrator",
+      "description": "An account that can sign in and manage this install."
+    }
+  },
   "user_row": {
     "status_disabled": "disabled",
     "status_invited": "invited",
@@ -276,15 +282,17 @@
     "sso_badge": "SSO",
     "edit_aria": "Edit {email}"
   },
-  "role_picker": {
-    "default_label": "Roles"
-  },
-  "nav": {
-    "logout": "Logout",
-    "profile": "Profile",
-    "users": "Users"
-  },
-  "audit": {
-    "user": "User"
+  "verify_email": {
+    "head_title": "Verify Email",
+    "pending_title": "Verifying your email…",
+    "pending_description": "Please wait while we verify your email address.",
+    "success_title": "Email verified!",
+    "success_description": "Your account is now active.",
+    "already_title": "Already verified",
+    "already_description": "This account is already verified — you can log in.",
+    "error_title": "Verification failed",
+    "error_description": "Verification link expired or invalid.",
+    "error_no_token": "No verification token found in this link.",
+    "error_expired": "Verification link expired or invalid. Please request a new one."
   }
 }

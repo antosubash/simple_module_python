@@ -62,6 +62,9 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
             # handler clears it once login actually succeeds.
             "login_redirect_url": (
                 safe_next_or_none(request.session.get(SESSION_NEXT_KEY))
+                # Never "" — UsersSettings normalises a blanked value back to
+                # the default, so every consumer (here, Keycloak, OAuth) gets
+                # a usable target rather than each guarding for itself.
                 or users_settings.login_redirect_url
             ),
             "oauth_providers": users_state.oauth_providers,

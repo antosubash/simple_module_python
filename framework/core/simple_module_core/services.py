@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
     from simple_module_core.permissions import PermissionRegistry
     from simple_module_core.public_routes import PublicRouteRegistry
+    from simple_module_core.setup_steps import SetupRegistry
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +45,7 @@ class Services:
     feature_flags: FeatureFlagRegistry
     health_registry: HealthRegistry
     public_routes: PublicRouteRegistry
+    setup_registry: SetupRegistry
     design_packs: DesignPackRegistry
     audit_links: AuditLinkRegistry
     i18n_registry: I18nRegistry

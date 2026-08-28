@@ -14,7 +14,7 @@ The framework ships its own simpler `RequiresPermission` in `simple_module_hosti
 |---|---|
 | `name` | `Permissions` |
 | `route_prefix` | `/api/permissions` |
-| `view_prefix` | `/permissions` |
+| `view_prefix` | `/admin/permissions` |
 | `depends_on` | `["Auth", "Users"]` |
 
 ## Routes
@@ -35,11 +35,11 @@ All require authentication. Read endpoints need `permissions.view`; mutate endpo
 
 | Method + path | Inertia component / behaviour | Permission |
 |---|---|---|
-| `GET /permissions/` | _redirect to_ `/users/admin` | _login_ |
-| `GET /permissions/roles/{role_id}/edit` | `Permissions/RoleEdit` | `permissions.manage` |
-| `PUT /permissions/roles/{role_id}` | form action; redirects | `permissions.manage` |
-| `GET /permissions/users/{user_id}/edit` | `Permissions/UserEdit` | `permissions.manage` |
-| `PUT /permissions/users/{user_id}` | form action; redirects | `permissions.manage` |
+| `GET /admin/permissions/` | _redirect to_ `/admin/users/` | _login_ |
+| `GET /admin/permissions/roles/{role_id}/edit` | `Permissions/RoleEdit` | `permissions.manage` |
+| `PUT /admin/permissions/roles/{role_id}` | form action; redirects | `permissions.manage` |
+| `GET /admin/permissions/users/{user_id}/edit` | `Permissions/UserEdit` | `permissions.manage` |
+| `PUT /admin/permissions/users/{user_id}` | form action; redirects | `permissions.manage` |
 
 ## Using `RequiresPermission`
 

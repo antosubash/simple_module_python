@@ -6,12 +6,19 @@ import { Info } from 'lucide-react';
 interface Props {
   emails: string;
   onEmailsChange: (value: string) => void;
-  /** Addresses parsed out of the box so far. */
+  /** Valid addresses parsed out of the box so far. */
   count: number;
+  invalidEmails: string[];
   mailerDelivers: boolean;
 }
 
-export function InviteFields({ emails, onEmailsChange, count, mailerDelivers }: Props) {
+export function InviteFields({
+  emails,
+  onEmailsChange,
+  count,
+  invalidEmails,
+  mailerDelivers,
+}: Props) {
   const { t } = useT();
   return (
     <div className="space-y-2">
@@ -35,6 +42,15 @@ export function InviteFields({ emails, onEmailsChange, count, mailerDelivers }: 
         {t(keys.users.invite_fields.hint)}{' '}
         {count > 0 && t(keys.users.invite_fields.recognised, { count })}
       </p>
+
+      {invalidEmails.length > 0 && (
+        <p role="alert" className="text-xs text-destructive">
+          {t(keys.users.invite_fields.invalid_email, {
+            count: invalidEmails.length,
+            email: invalidEmails[0],
+          })}
+        </p>
+      )}
 
       {!mailerDelivers && (
         <p className="flex items-start gap-1.5 rounded-md bg-amber-50 p-2 text-xs text-amber-900">

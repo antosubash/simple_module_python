@@ -17,7 +17,7 @@ import httpx
 import pytest
 from simple_module_hosting.app_builder import create_app
 from simple_module_hosting.settings import Settings
-from simple_module_test.fixtures import _create_all_tables
+from simple_module_test.fixtures import _create_all_tables, _seed_setup_admin
 
 _LOGIN_PATH = "/users/login"
 
@@ -83,6 +83,9 @@ async def _client_for(settings: Settings):
     """Build an app + lifespan-started client mirroring the shared fixtures."""
     app = create_app(settings)
     await _create_all_tables(app.state.sm.db.engine)
+    # Without an administrator the setup gate redirects every request to
+    # /setup, including the login page these tests assert on.
+    await _seed_setup_admin(app)
     ctx = app.router.lifespan_context(app)
     await ctx.__aenter__()
     transport = httpx.ASGITransport(app=app)

@@ -43,9 +43,13 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     # ── Password policy ──────────────────────────────────────
 
     async def validate_password(self, password: str, user) -> None:
-        if len(password) < 8:
+        # Measured after stripping: "        " is eight characters and passed
+        # the raw length check, so a whitespace-only password was accepted
+        # everywhere this policy runs — signup, reset, and the setup wizard's
+        # unauthenticated admin-creation route. Padding is not strength.
+        if len(password.strip()) < 8:
             raise exceptions.InvalidPasswordException(
-                reason="Password must be at least 8 characters"
+                reason="Password must be at least 8 characters, not counting spaces"
             )
         if password.lower() in user.email.lower():
             raise exceptions.InvalidPasswordException(reason="Password cannot contain your email")

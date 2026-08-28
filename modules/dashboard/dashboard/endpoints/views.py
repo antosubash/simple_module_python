@@ -6,6 +6,8 @@ The public landing page at ``/`` is owned by the host, not this module.
 
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from inertia import InertiaResponse
 from simple_module_core.permissions import is_admin
@@ -60,12 +62,26 @@ async def doctor(
     inertia: InertiaDep,
     db: AsyncSession = Depends(get_db),
 ) -> InertiaResponse:
-    """`make doctor` mirror — static checks, modules, dev server, env."""
-    stats = await fetch_dashboard_stats(db, request.app)
+    """`make doctor` mirror — live diagnostics, migrations, modules, env."""
+    from dashboard.doctor import collect_diagnostics, environment_info, migration_overview
+
+    # collect_diagnostics/migration_overview do blocking filesystem walks +
+    # AST parses (module coupling/page checks, the alembic script directory) —
+    # run them off the event loop and alongside the DB stats fetch instead of
+    # serially after it, so one doctor request doesn't stall every other
+    # coroutine on this worker for the duration of a full framework scan.
+    stats, diagnostics, migration = await asyncio.gather(
+        fetch_dashboard_stats(db, request.app),
+        asyncio.to_thread(collect_diagnostics, request.app),
+        asyncio.to_thread(migration_overview, request.app),
+    )
     return await inertia.render(
         _PAGE_DOCTOR,
         {
             "module_count": stats["module_count"],
             "system_info": stats["system_info"],
+            "diagnostics": diagnostics,
+            "migration": migration,
+            "environment": environment_info(request.app),
         },
     )

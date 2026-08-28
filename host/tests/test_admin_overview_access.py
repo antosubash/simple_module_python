@@ -30,6 +30,7 @@ def host_app(app):
 
 async def _client_for(app, *, email: str, roles: list[str], permissions: list[str]):
     """Sign in an account holding exactly these roles and permissions."""
+    from sqlalchemy import select
     from users.models import User, UserRole
     from users.models.role import Role
 
@@ -38,9 +39,16 @@ async def _client_for(app, *, email: str, roles: list[str], permissions: list[st
         session.add(user)
         await session.flush()
         for role_name in roles:
-            role = Role(name=role_name)
-            session.add(role)
-            await session.flush()
+            # Get-or-create: the `app` fixture seeds an administrator so the
+            # first-run setup gate releases, and that already creates the
+            # 'admin' Role. Role.name is unique, so blindly inserting collides.
+            role = (
+                await session.execute(select(Role).where(Role.name == role_name))
+            ).scalar_one_or_none()
+            if role is None:
+                role = Role(name=role_name)
+                session.add(role)
+                await session.flush()
             session.add(UserRole(user_id=user.id, role_id=role.id))
         user_id = str(user.id)
         await session.commit()

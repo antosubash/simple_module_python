@@ -6,6 +6,16 @@ export interface MenuItem {
   group?: string;
 }
 
+/**
+ * `true` when a menu entry must be submitted rather than navigated to (e.g.
+ * logout) — visiting it with a GET would silently do nothing. Shared so the
+ * declarative (`Link` method/as props) and imperative (`router.post`/
+ * `router.visit`) call sites stay in sync as the method matrix grows.
+ */
+export function isPostMenuItem(item: MenuItem): boolean {
+  return item.method === 'post';
+}
+
 export interface BrandingShared {
   appName: string;
   primaryColor: string | null;

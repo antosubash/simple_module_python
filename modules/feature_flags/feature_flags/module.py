@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
-from simple_module_core.menu import MenuItem, MenuRegistry
+from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 
@@ -48,6 +48,7 @@ class FeatureFlagsModule(ModuleBase):
                 url=MENU_URL,
                 icon=MENU_ICON,
                 order=MENU_ORDER,
+                section=MenuSection.ADMIN_SIDEBAR,
                 group="System",
                 group_key="ui.nav_groups.system",
                 # Mirrors the view router's guard. Without it the entry shows

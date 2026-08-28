@@ -24,6 +24,7 @@ def run_module_registrations(
     ff_registry,
     health_registry,
     public_route_registry,
+    setup_registry,
     design_pack_registry,
     audit_link_registry,
     csp_registry,
@@ -44,6 +45,8 @@ def run_module_registrations(
         health_registry.set_owner(mod.meta.name)
         mod.register_health_checks(health_registry)
         mod.register_public_routes(public_route_registry)
+        setup_registry.set_owner(mod.meta.name)
+        mod.register_setup_steps(setup_registry)
         # csp before design packs — the documented lifecycle order
         # (docs/framework/lifecycle.md).
         mod.register_csp_sources(csp_registry)
@@ -51,6 +54,7 @@ def run_module_registrations(
         mod.register_audit_links(audit_link_registry)
 
     health_registry.set_owner("")
+    setup_registry.set_owner("")
 
 
 def dispatch_event_handlers(mod, event_bus, app: FastAPI) -> None:

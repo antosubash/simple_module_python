@@ -105,22 +105,23 @@ function Browse() {
         title={t(keys.feature_flags.browse.title)}
         description={t(keys.feature_flags.browse.description)}
       >
-        <Card className="mb-4 p-4">
-          <TenantPicker
-            tenantId={tenant_id}
-            tenants={tenants}
-            onSelect={(next) => router.visit(buildPath(next))}
-          />
-          <p className="mt-3 text-sm text-muted-foreground">
-            {tenant_id
-              ? t(keys.feature_flags.browse.viewing_tenant, { tenant_id })
-              : t(keys.feature_flags.browse.viewing_system)}
-          </p>
-        </Card>
-
-        <div className="mb-4 flex items-center justify-end">
+        {/* One toolbar row instead of a near-empty card: picker, its hint,
+            and the flag count share the line the table sits under. */}
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <TenantPicker
+              tenantId={tenant_id}
+              tenants={tenants}
+              onSelect={(next) => router.visit(buildPath(next))}
+            />
+            <p className="pb-2 text-sm text-muted-foreground">
+              {tenant_id
+                ? t(keys.feature_flags.browse.viewing_tenant, { tenant_id })
+                : t(keys.feature_flags.browse.viewing_system)}
+            </p>
+          </div>
           {flags.length > 0 && (
-            <p className="text-sm text-muted-foreground">
+            <p className="pb-2 text-sm text-muted-foreground">
               {t(keys.feature_flags.browse.count, { count: flags.length })}
             </p>
           )}

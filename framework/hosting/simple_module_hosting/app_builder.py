@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -21,11 +19,13 @@ from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.services import Services
+from simple_module_core.setup_steps import SetupRegistry
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 
 from simple_module_hosting._db_health import register_database_check
 from simple_module_hosting._inertia_setup import setup_inertia
+from simple_module_hosting._lifespan import build_lifespan
 from simple_module_hosting._phase_helpers import (
     attach_public_routes,
     check_settings_registration,
@@ -35,11 +35,13 @@ from simple_module_hosting._phase_helpers import (
     register_host_settings,
     wire_module_routes,
 )
+from simple_module_hosting._preapp_config import merge_host_settings
 from simple_module_hosting._registrations import run_module_registrations
+from simple_module_hosting._secret_key import assert_not_placeholder
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types_for_modules
-from simple_module_hosting.migrations import check_migrations
 from simple_module_hosting.settings import Settings
+from simple_module_hosting.setup_gate import register_migration_step
 from simple_module_hosting.static_files import PrecompressedStaticFiles
 
 logger = logging.getLogger(__name__)
@@ -101,7 +103,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
       8. Middleware pipeline (register_middleware)
       9. Routes (register_routes), health endpoints, static files
     """
-    settings = settings or Settings()
+    # ── Phase 0: Pre-app config read ───────────────────────
+    # Phases 1 and 8 below consume settings to build the module list, the
+    # i18n registry and the middleware stack. All three are constructed
+    # before the lifespan opens the DB, so the hydration that runs there
+    # cannot reach them — it can only swap what a request handler reads
+    # later. merge_host_settings folds DB-stored host overrides in first,
+    # under anything the environment sets. Without it, DB-backed host
+    # settings are silently inert at boot.
+    settings = settings or merge_host_settings()
+
+    assert_not_placeholder(settings)
 
     # ── Phase 1: Discover modules ──────────────────────────
     # Production: any bad module (import error, missing meta, wrong base
@@ -163,33 +175,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     event_bus = EventBus()
     health_registry = HealthRegistry()
     public_route_registry = PublicRouteRegistry()
+    setup_registry = SetupRegistry()
+    register_migration_step(setup_registry)
     design_pack_registry = DesignPackRegistry()
     audit_link_registry = AuditLinkRegistry()
 
-    @asynccontextmanager
-    async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-        app.state.migration = await check_migrations(app.state.sm.db.engine)
-
-        # Hydrate all registered settings from DB before any module
-        # on_startup hook runs, so startup code sees DB-backed values.
-        # Importlib keeps plugin names out of the framework AST (SM009).
-        if hasattr(app.state, "settings"):
-            import importlib
-
-            from simple_module_hosting._hydrate_step import hydrate_all
-
-            service_cls = importlib.import_module("settings.service").SettingService
-            store_cls = importlib.import_module("settings.store").SettingsStore
-
-            async with app.state.sm.db.session_factory() as session:
-                await hydrate_all(app, store_cls(service_cls(session)))
-
-        for mod in modules:
-            await mod.on_startup(app)
-        yield
-        for mod in reversed(modules):
-            await mod.on_shutdown(app)
-        await app.state.sm.db.engine.dispose()
+    lifespan = build_lifespan(modules)
 
     app = FastAPI(
         title=_APP_TITLE,
@@ -221,6 +212,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ff_registry=ff_registry,
         health_registry=health_registry,
         public_route_registry=public_route_registry,
+        setup_registry=setup_registry,
         design_pack_registry=design_pack_registry,
         audit_link_registry=audit_link_registry,
         csp_registry=csp_registry,
@@ -290,6 +282,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         feature_flags=ff_registry,
         health_registry=health_registry,
         public_routes=public_route_registry,
+        setup_registry=setup_registry,
         design_packs=design_pack_registry,
         audit_links=audit_link_registry,
         i18n_registry=i18n_registry,

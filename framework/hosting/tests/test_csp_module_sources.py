@@ -33,6 +33,7 @@ def _filled_registry() -> CspSourceRegistry:
         menu_registry=MagicMock(),
         perm_registry=MagicMock(),
         ff_registry=MagicMock(),
+        setup_registry=MagicMock(),
         health_registry=MagicMock(),
         public_route_registry=MagicMock(),
         design_pack_registry=MagicMock(),
