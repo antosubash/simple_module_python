@@ -124,10 +124,17 @@ class TestLoginPage:
     @pytest.mark.anyio
     async def test_login_redirect_url_falls_back_when_setting_is_blanked(self, anon_client):
         """An admin can blank the DB-backed setting via the generic module
-        editor (no non-empty validator on the field) — the login page must
-        never hand the frontend "" as a navigation target."""
-        anon_client._transport.app.state.users.settings.login_redirect_url = ""
+        editor — no consumer may then receive "".
 
+        Normalisation lives on the settings class (unit-tested in
+        test_settings.py), so it applies wherever the value is constructed.
+        Assigning the attribute here would bypass pydantic and test nothing,
+        so this goes through the real path.
+        """
+        from users.settings import UsersSettings
+
+        app = anon_client._transport.app
+        app.state.users.settings = UsersSettings(login_redirect_url="")
         resp = await anon_client.get(
             "/users/login",
             headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},

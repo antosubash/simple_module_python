@@ -12,13 +12,15 @@ from __future__ import annotations
 
 import os
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from simple_module_core.dotenv import env_str
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
 _PLACEHOLDER_RESET_SECRET = "dev-reset-token-secret-change-me"
 _PLACEHOLDER_VERIFY_SECRET = "dev-verify-token-secret-change-me"
+
+DEFAULT_LOGIN_REDIRECT_URL = "/dashboard/"
 
 
 class UsersSettings(BaseSettings):
@@ -33,7 +35,21 @@ class UsersSettings(BaseSettings):
     # Where the login page sends a successful sign-in. Sites without the
     # bundled ``dashboard`` module (``smpy new --preset minimal``) override
     # this to wherever their post-login landing lives.
-    login_redirect_url: str = "/dashboard/"
+    login_redirect_url: str = DEFAULT_LOGIN_REDIRECT_URL
+
+    @field_validator("login_redirect_url")
+    @classmethod
+    def _non_empty_redirect(cls, value: str) -> str:
+        """Blank is never a usable navigation target.
+
+        Nothing stops an admin clearing this in the generic module-settings
+        editor, and every consumer treats it as a destination: the login view
+        hands it to Inertia (``router.visit("")`` silently reloads the current
+        page) while the Keycloak and OAuth callbacks put it straight into a
+        ``Location`` header. Normalising here fixes all three at once —
+        hydration runs every value through this class.
+        """
+        return value.strip() or DEFAULT_LOGIN_REDIRECT_URL
 
     # Token secrets — MUST be set in production. Dev default is a deterministic
     # placeholder that's obvious in logs so it can't be mistaken for a real key.

@@ -70,7 +70,11 @@ export function DiagnosticsCard({ diagnostics }: { diagnostics: Diagnostic[] }) 
           <div className="-mx-1">
             {diagnostics.map((d) => (
               <DiagnosticRow
-                key={`${d.code}-${d.module}-${d.message}`}
+                // `file` is part of the identity: one module can raise the
+                // same code with the same file-agnostic message for two
+                // different files (e.g. two SM022 hits), and without it the
+                // rows collide on key and React drops one real finding.
+                key={`${d.code}-${d.module}-${d.file ?? ''}-${d.message}`}
                 d={d}
                 suggestionLabel={t(keys.dashboard.doctor.suggestion)}
               />

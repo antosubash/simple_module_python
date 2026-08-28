@@ -80,6 +80,34 @@ class TestSm003PageRenderResolution:
         )
         assert self._diags(src_dir, "AuditLog") == []
 
+    async def test_resolves_a_chained_fstring_constant(self, tmp_path: Path):
+        """``PREFIX = f"{NAME}/sub"`` then ``PAGE = f"{PREFIX}/Browse"``.
+
+        Resolution runs to a fixed point; a single pass would learn only
+        ``PREFIX`` and wrongly report the page as an orphan.
+        """
+        src_dir = tmp_path / "m" / "m"
+        (src_dir / "pages").mkdir(parents=True)
+        (src_dir / "pages" / "Browse.tsx").write_text("export default function B() {}")
+        (src_dir / "constants.py").write_text(
+            "from typing import Final\n"
+            'MODULE_NAME: Final = "M"\n'
+            'SECTION: Final = f"{MODULE_NAME}/admin"\n'
+            'PAGE_BROWSE: Final = f"{SECTION}/Browse"\n'
+        )
+        (src_dir / "views.py").write_text(
+            "from m.constants import PAGE_BROWSE\n"
+            "async def view(inertia):\n"
+            "    return await inertia.render(PAGE_BROWSE, {})\n"
+        )
+        # The rendered component is "M/admin/Browse" while the page file is
+        # pages/Browse.tsx, so this asserts the constant resolved at all —
+        # an unresolved chain reports Browse.tsx as an SM003 orphan.
+        from simple_module_core.diagnostics._pages import find_render_calls
+
+        mod = _FakeModule(meta=_FakeMeta(name="M"))
+        assert "admin/Browse" in find_render_calls(mod, src_dir)  # pyright: ignore[reportArgumentType]
+
     async def test_fstring_with_unknown_name_stays_flagged(self, tmp_path: Path):
         """An f-string over a runtime value is not static — don't guess."""
         src_dir = tmp_path / "m" / "m"

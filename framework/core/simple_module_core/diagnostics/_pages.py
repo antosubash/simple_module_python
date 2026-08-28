@@ -124,10 +124,19 @@ def find_render_calls(mod: ModuleBase, src_dir: Path) -> set[str]:
     consts: dict[str, str] = {}
     for tree in trees:
         consts.update(_module_level_str_consts(tree))
-    # Second pass: f-string constants built from the plain ones above
-    # (``PAGE = f"{MODULE_NAME}/Browse"`` is the conventional shape).
-    for tree in trees:
-        consts.update(_resolve_fstring_consts(tree, consts))
+    # Then f-string constants built from the plain ones above
+    # (``PAGE = f"{MODULE_NAME}/Browse"`` is the conventional shape). Repeat to
+    # a fixed point so a chain — ``PREFIX = f"{NAME}/sub"`` then
+    # ``PAGE = f"{PREFIX}/Browse"`` — resolves too; one pass would only learn
+    # the first hop and report the page as an SM003 orphan.
+    while True:
+        resolved: dict[str, str] = {}
+        for tree in trees:
+            resolved.update(_resolve_fstring_consts(tree, consts))
+        new = {k: v for k, v in resolved.items() if consts.get(k) != v}
+        if not new:
+            break
+        consts.update(new)
 
     prefix = f"{mod.meta.name}/"
     rendered: set[str] = set()
