@@ -503,6 +503,54 @@ Only fetch directives can be extended; each source must be a single
 origin/scheme token, validated at boot. See
 [docs/framework/lifecycle.md](framework/lifecycle.md#register_csp_sourcesregistry).
 
+## First-run setup steps
+
+A module can declare what an install still needs before it is usable. While
+any required step reports incomplete, `SetupMiddleware` serves the wizard at
+`/setup` instead of the app:
+
+```python
+from simple_module_core import SetupRegistry, SetupStep
+
+
+async def has_administrator(app) -> bool:
+    async with app.state.sm.db.session_factory() as session:
+        ...  # return True once satisfied
+
+
+class MyModule(ModuleBase):
+    def register_setup_steps(self, registry: SetupRegistry) -> None:
+        registry.add(
+            SetupStep(
+                id="mymodule.administrator",
+                title="Create an administrator",
+                description="An account that can sign in and manage this install.",
+                is_complete=has_administrator,
+                order=30,
+            )
+        )
+```
+
+Three things are worth knowing before you add one.
+
+**Registering nothing is a valid answer, and it is how a module opts out.** The
+`users` module contributes the "an administrator exists" step; `keycloak`
+deliberately does not, because an install using an external identity provider
+has a legitimately empty local users table and a host-level superuser count
+would hold it behind the wizard forever.
+
+**A step whose predicate raises counts as complete.** Failing closed on a
+transient database error would open an anonymous admin-creation form on a
+live install — that is failing *open* on security, so the framework fails the
+other way.
+
+**Completion is recomputed per request, not latched.** An install that loses
+its administrators can be recovered through the browser rather than needing
+shell access to the container.
+
+Set `required=False` for a step that should appear in the wizard without
+holding the install closed. `order` controls display order (lower first).
+
 ## CSRF on mutation endpoints
 
 The framework's baseline CSRF defence is `SameSite=Lax` on the session

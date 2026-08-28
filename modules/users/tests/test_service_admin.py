@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 import pytest
 
 
-def _build_service(session, users_app):
+def _build_service(session, users_app_empty):
     """Build a UserService directly (bypass FastAPI Depends)."""
     from users.admin.service import UserService
     from users.db_adapter import UserDatabaseWithRoles
@@ -18,8 +18,8 @@ def _build_service(session, users_app):
     user_db = UserDatabaseWithRoles(session, User)
     manager = UserManager(
         user_db,
-        users_app.state.users.mailer,
-        users_app.state.users.settings,
+        users_app_empty.state.users.mailer,
+        users_app_empty.state.users.settings,
     )
     return UserService(session, manager)
 
@@ -30,12 +30,12 @@ def _build_service(session, users_app):
 
 
 @pytest.mark.anyio
-async def test_list_users_status_disabled_filter(users_app):
+async def test_list_users_status_disabled_filter(users_app_empty):
     """list_users(status='disabled') returns only disabled users."""
     from fastapi_users.password import PasswordHelper
     from users.models import User
 
-    async with users_app.state.sm.db.session_factory() as session:
+    async with users_app_empty.state.sm.db.session_factory() as session:
         pw = PasswordHelper().hash("x")
         active_user = User(
             id=uuid.uuid4(),
@@ -58,7 +58,7 @@ async def test_list_users_status_disabled_filter(users_app):
         session.add(disabled_user)
         await session.flush()
 
-        svc = _build_service(session, users_app)
+        svc = _build_service(session, users_app_empty)
         items, total = await svc.list_users(status="disabled")
 
     assert total == 1
@@ -66,13 +66,13 @@ async def test_list_users_status_disabled_filter(users_app):
 
 
 @pytest.mark.anyio
-async def test_list_users_role_filter(users_app):
+async def test_list_users_role_filter(users_app_empty):
     """list_users(role_name='admin') returns only users with that role."""
     from fastapi_users.password import PasswordHelper
     from users.constants import ADMIN_ROLE_ID
     from users.models import User, UserRole
 
-    async with users_app.state.sm.db.session_factory() as session:
+    async with users_app_empty.state.sm.db.session_factory() as session:
         pw = PasswordHelper().hash("x")
         admin_user = User(
             id=uuid.uuid4(),
@@ -97,7 +97,7 @@ async def test_list_users_role_filter(users_app):
         session.add(UserRole(user_id=admin_user.id, role_id=ADMIN_ROLE_ID))
         await session.flush()
 
-        svc = _build_service(session, users_app)
+        svc = _build_service(session, users_app_empty)
         items, total = await svc.list_users(role_name="admin")
 
     assert total == 1
@@ -105,12 +105,12 @@ async def test_list_users_role_filter(users_app):
 
 
 @pytest.mark.anyio
-async def test_list_users_verified_filter(users_app):
+async def test_list_users_verified_filter(users_app_empty):
     """list_users(verified='no') returns only unverified users."""
     from fastapi_users.password import PasswordHelper
     from users.models import User
 
-    async with users_app.state.sm.db.session_factory() as session:
+    async with users_app_empty.state.sm.db.session_factory() as session:
         pw = PasswordHelper().hash("x")
         verified_user = User(
             id=uuid.uuid4(),
@@ -132,7 +132,7 @@ async def test_list_users_verified_filter(users_app):
         session.add(unverified_user)
         await session.flush()
 
-        svc = _build_service(session, users_app)
+        svc = _build_service(session, users_app_empty)
         items, total = await svc.list_users(verified="no")
 
     assert total == 1
@@ -140,7 +140,7 @@ async def test_list_users_verified_filter(users_app):
 
 
 @pytest.mark.anyio
-async def test_list_users_sort_last_login_desc_nulls_last(users_app):
+async def test_list_users_sort_last_login_desc_nulls_last(users_app_empty):
     """list_users(sort='last_login_at', order='desc') orders recent→old→never (NULLs last)."""
     from fastapi_users.password import PasswordHelper
     from users.models import User
@@ -148,7 +148,7 @@ async def test_list_users_sort_last_login_desc_nulls_last(users_app):
     recent_ts = datetime(2024, 6, 1, tzinfo=UTC)
     old_ts = datetime(2023, 1, 1, tzinfo=UTC)
 
-    async with users_app.state.sm.db.session_factory() as session:
+    async with users_app_empty.state.sm.db.session_factory() as session:
         pw = PasswordHelper().hash("x")
         user_recent = User(
             id=uuid.uuid4(),
@@ -182,7 +182,7 @@ async def test_list_users_sort_last_login_desc_nulls_last(users_app):
         session.add(user_never)
         await session.flush()
 
-        svc = _build_service(session, users_app)
+        svc = _build_service(session, users_app_empty)
         items, total = await svc.list_users(sort="last_login_at", order="desc")
 
     assert total == 3
@@ -196,12 +196,12 @@ async def test_list_users_sort_last_login_desc_nulls_last(users_app):
 
 
 @pytest.mark.anyio
-async def test_mark_verified_sets_flag_and_is_idempotent(users_app):
+async def test_mark_verified_sets_flag_and_is_idempotent(users_app_empty):
     """mark_verified sets is_verified=True and is idempotent."""
     from fastapi_users.password import PasswordHelper
     from users.models import User
 
-    async with users_app.state.sm.db.session_factory() as session:
+    async with users_app_empty.state.sm.db.session_factory() as session:
         user = User(
             id=uuid.uuid4(),
             email="unverified_mv@example.com",
@@ -213,7 +213,7 @@ async def test_mark_verified_sets_flag_and_is_idempotent(users_app):
         session.add(user)
         await session.flush()
 
-        svc = _build_service(session, users_app)
+        svc = _build_service(session, users_app_empty)
         result = await svc.mark_verified(user.id)
         assert result.is_verified is True
 
@@ -223,11 +223,11 @@ async def test_mark_verified_sets_flag_and_is_idempotent(users_app):
 
 
 @pytest.mark.anyio
-async def test_mark_verified_unknown_raises(users_app):
+async def test_mark_verified_unknown_raises(users_app_empty):
     """mark_verified raises UserNotFoundError for an unknown user_id."""
     from users.exceptions import UserNotFoundError
 
-    async with users_app.state.sm.db.session_factory() as session:
-        svc = _build_service(session, users_app)
+    async with users_app_empty.state.sm.db.session_factory() as session:
+        svc = _build_service(session, users_app_empty)
         with pytest.raises(UserNotFoundError):
             await svc.mark_verified(uuid.uuid4())

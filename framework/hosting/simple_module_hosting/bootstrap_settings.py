@@ -1,22 +1,31 @@
 """Env-only settings read before the database is available.
 
-Everything here is needed either to connect to the DB, sign session cookies,
-or configure the Python process (logging, Vite asset URLs, module allowlist).
-These values stay in ``.env`` — all other settings live in the DB.
+What is left here is what cannot come from the database without a
+chicken-and-egg problem, plus the two facts about the *process* rather than
+the deployment:
+
+- ``database_url`` opens the database, so it cannot be stored in it.
+- ``modules_enabled`` decides which modules load, and the settings module is
+  itself one of them.
+- ``environment``, ``debug`` and ``vite_dev_url`` describe how this process
+  was launched, not how the application is configured.
+
+Everything else moved to :class:`~simple_module_hosting.host_settings.HostSettings`
+and is read from the DB by ``_preapp_config.merge_host_settings`` before
+``create_app`` builds anything. Env still wins over a DB value.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import field_validator, model_validator
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
 from simple_module_core.dotenv import find_env_file
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
-_PLACEHOLDER_SECRET_KEY = "change-me-in-production"
+PLACEHOLDER_SECRET_KEY = "change-me-in-production"
 
 
 def _absolutize_sqlite_url(url: str, *, anchor: Path) -> str:
@@ -71,74 +80,13 @@ class BootstrapSettings(BaseSettings):
         self.database_url = _absolutize_sqlite_url(self.database_url, anchor=anchor)
 
     database_url: str = "sqlite+aiosqlite:///./app.db"
-    db_pool_size: int = 10
-    db_max_overflow: int = 20
-    db_pool_pre_ping: bool = True
-    db_pool_recycle: int = 1800
 
     environment: str = "development"
-    secret_key: str = _PLACEHOLDER_SECRET_KEY
+    secret_key: str = PLACEHOLDER_SECRET_KEY
     vite_dev_url: str = "http://localhost:5050"
     debug: bool = False
 
-    # Trust the X-Forwarded-* headers from a fronting reverse proxy. Unset by
-    # default (no proxy trusted). Set to ``*`` to trust any peer (correct when
-    # the container is only reachable through a single proxy), or a comma-
-    # separated list of proxy IPs / CIDRs. Drives uvicorn's
-    # ProxyHeadersMiddleware so request.url.scheme reflects X-Forwarded-Proto
-    # behind a TLS-terminating proxy — without it Inertia's pushState throws a
-    # cross-scheme SecurityError and login breaks (GH #223).
-    trusted_proxy: str | None = None
-
-    log_level: str = "INFO"
-    log_format: Literal["json", "text"] = "json"
-
     modules_enabled: list[str] | None = None
-
-    auth_provider: str = DEFAULT_AUTH_PROVIDER
-    """Which auth provider module to activate (``SM_AUTH_PROVIDER``).
-
-    ``users`` and ``keycloak`` both provide authentication and only one may be
-    active at a time. When both are installed this picks the winner; the other
-    is skipped at discovery. Ignored when only one is installed.
-    """
-
-    auth_public_paths: list[str] = []
-    """Host-level anonymous-access path prefixes (``SM_AUTH_PUBLIC_PATHS``).
-
-    An escape hatch for exposing a route without a session when no module owns
-    it. Each entry is treated as a prefix rule and seeded into the
-    ``PublicRouteRegistry`` at boot. Modules should prefer the
-    ``register_public_routes`` hook, which is method-aware.
-    """
-
-    @field_validator("auth_provider", mode="after")
-    @classmethod
-    def _normalize_auth_provider(cls, value: str) -> str:
-        """Strip whitespace; treat blank as unset.
-
-        ``SM_AUTH_PROVIDER=`` in a ``.env`` yields ``''``, which matches no
-        installed provider and would mount all of them. The out-of-process
-        readers (``make doctor``, ``gen-pages``) go through
-        ``resolve_auth_provider``, which already falls back on blank — without
-        this they and the host would disagree about the active provider.
-        """
-        return value.strip() or DEFAULT_AUTH_PROVIDER
-
-    @field_validator("trusted_proxy", mode="after")
-    @classmethod
-    def _normalize_trusted_proxy(cls, value: str | None) -> str | None:
-        """Strip surrounding whitespace; treat blank as unset.
-
-        Guards against a stray space silently defeating the feature: uvicorn
-        decides ``*``-trust by comparing the *raw* string to ``"*"`` before it
-        strips, so ``"* "`` would be parsed as a literal host that matches no
-        client — re-introducing GH #223 with no error. Blank → ``None`` so the
-        middleware isn't installed at all.
-        """
-        if value is None:
-            return None
-        return value.strip() or None
 
     @property
     def is_development(self) -> bool:
@@ -146,9 +94,24 @@ class BootstrapSettings(BaseSettings):
 
     @model_validator(mode="after")
     def _forbid_placeholder_secret_in_production(self) -> BootstrapSettings:
+        """Reject the shipped placeholder in production.
+
+        Only fires when the key was *explicitly* supplied as the placeholder.
+        An absent key is valid now — ``ensure_secret_key`` generates one and
+        persists it, so a production boot no longer fails just because nobody
+        set this, which used to happen before the operator could ever reach
+        the setup wizard.
+
+        ``model_fields_set`` is what separates the two: pydantic-settings
+        records env-sourced fields there, so an unset key leaves it out while
+        ``SM_SECRET_KEY=change-me-in-production`` puts it in. ``create_app``
+        makes the same check against the *resolved* key, covering callers that
+        build Settings themselves.
+        """
         if (
             self.environment not in NON_PROD_ENVIRONMENTS
-            and self.secret_key == _PLACEHOLDER_SECRET_KEY
+            and "secret_key" in self.model_fields_set
+            and self.secret_key == PLACEHOLDER_SECRET_KEY
         ):
             raise ValueError(
                 f"SM_SECRET_KEY must be set to a non-default value when "

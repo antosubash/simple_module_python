@@ -76,5 +76,42 @@
     "title": "You're offline",
     "description": "Changes may not be saved until your connection returns.",
     "restored": "Back online"
+  },
+  "setup": {
+    "title": "Set up your install",
+    "subtitle": "A few things before this application is ready to use.",
+    "connections": {
+      "heading": "Connections",
+      "description": "Checking the services this install depends on.",
+      "retest": "Test again",
+      "testing": "Testing…"
+    },
+    "migrations": {
+      "heading": "Database schema",
+      "behind": "The database is behind the version this code expects.",
+      "current": "The database schema is up to date.",
+      "apply": "Apply migrations",
+      "applying": "Applying…"
+    },
+    "administrator": {
+      "heading": "Create an administrator",
+      "description": "This account can sign in and manage the install.",
+      "email": "Email",
+      "password": "Password",
+      "full_name": "Full name",
+      "submit": "Create administrator",
+      "submitting": "Creating…",
+      "created": "Administrator created. Reloading…"
+    },
+    "steps": {
+      "heading": "Setup steps",
+      "complete": "Done",
+      "pending": "Pending",
+      "migrations": {
+        "title": "Apply database migrations",
+        "description": "Bring the database schema up to the version this code expects."
+      }
+    },
+    "error": "Something went wrong. See the detail above."
   }
 }

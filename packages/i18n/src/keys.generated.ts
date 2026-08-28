@@ -502,6 +502,43 @@ export const keys = {
       restored: 'host.offline.restored',
       title: 'host.offline.title',
     },
+    setup: {
+      administrator: {
+        created: 'host.setup.administrator.created',
+        description: 'host.setup.administrator.description',
+        email: 'host.setup.administrator.email',
+        full_name: 'host.setup.administrator.full_name',
+        heading: 'host.setup.administrator.heading',
+        password: 'host.setup.administrator.password',
+        submit: 'host.setup.administrator.submit',
+        submitting: 'host.setup.administrator.submitting',
+      },
+      connections: {
+        description: 'host.setup.connections.description',
+        heading: 'host.setup.connections.heading',
+        retest: 'host.setup.connections.retest',
+        testing: 'host.setup.connections.testing',
+      },
+      error: 'host.setup.error',
+      migrations: {
+        apply: 'host.setup.migrations.apply',
+        applying: 'host.setup.migrations.applying',
+        behind: 'host.setup.migrations.behind',
+        current: 'host.setup.migrations.current',
+        heading: 'host.setup.migrations.heading',
+      },
+      steps: {
+        complete: 'host.setup.steps.complete',
+        heading: 'host.setup.steps.heading',
+        migrations: {
+          description: 'host.setup.steps.migrations.description',
+          title: 'host.setup.steps.migrations.title',
+        },
+        pending: 'host.setup.steps.pending',
+      },
+      subtitle: 'host.setup.subtitle',
+      title: 'host.setup.title',
+    },
   },
   keycloak: {
     errors: {
@@ -1028,6 +1065,12 @@ export const keys = {
       member_count_other: 'users.roles_tab.member_count_other',
       no_description: 'users.roles_tab.no_description',
       system_badge: 'users.roles_tab.system_badge',
+    },
+    setup: {
+      administrator: {
+        description: 'users.setup.administrator.description',
+        title: 'users.setup.administrator.title',
+      },
     },
     user_row: {
       edit_aria: 'users.user_row.edit_aria',

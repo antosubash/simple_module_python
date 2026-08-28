@@ -45,6 +45,7 @@ _SENTINEL_PERMS = object()
 _SENTINEL_FLAGS = object()
 _SENTINEL_HEALTH = object()
 _SENTINEL_PUBLIC_ROUTES = object()
+_SENTINEL_SETUP = object()
 _SENTINEL_DESIGN_PACKS = object()
 _SENTINEL_AUDIT_LINKS = object()
 _SENTINEL_I18N = object()
@@ -62,6 +63,7 @@ def _make_services() -> Services:
         feature_flags=_SENTINEL_FLAGS,  # type: ignore[arg-type]
         health_registry=_SENTINEL_HEALTH,  # type: ignore[arg-type]
         public_routes=_SENTINEL_PUBLIC_ROUTES,  # type: ignore[arg-type]
+        setup_registry=_SENTINEL_SETUP,  # type: ignore[arg-type]
         design_packs=_SENTINEL_DESIGN_PACKS,  # type: ignore[arg-type]
         audit_links=_SENTINEL_AUDIT_LINKS,  # type: ignore[arg-type]
         i18n_registry=_SENTINEL_I18N,  # type: ignore[arg-type]

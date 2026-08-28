@@ -118,17 +118,24 @@ def _ensure_models_imported() -> list:
 
 
 @lru_cache(maxsize=1)
-def _alembic_head() -> str | None:
-    """Cached head revision — cannot change within a pytest run."""
-    from simple_module_hosting.migrations import resolve_head_revision
+def _alembic_heads() -> tuple[str, ...]:
+    """Cached head revisions — cannot change within a pytest run.
 
-    return resolve_head_revision()
+    Plural: each module's first migration sets its own ``branch_labels``, so
+    the history has one head per module and a real upgraded database carries
+    an ``alembic_version`` row for each. Stamping only one leaves the rest
+    looking un-applied, which now reads as a behind-head schema and puts every
+    test app behind the setup gate.
+    """
+    from simple_module_hosting.migrations import resolve_head_revisions
+
+    return resolve_head_revisions()
 
 
 async def _create_all_tables(engine) -> None:
     """Create all module tables in a single connection.
 
-    Also stamps the alembic_version table at head so the app's startup
+    Also stamps the alembic_version table at heads so the app's startup
     migration check (``check_migrations``) treats the test DB as current.
     Without the stamp the check would raise because ``create_all`` doesn't
     touch alembic_version.
@@ -136,7 +143,7 @@ async def _create_all_tables(engine) -> None:
     from sqlalchemy import text
 
     bases = _ensure_models_imported()
-    head = _alembic_head()
+    heads = _alembic_heads()
 
     async with engine.begin() as conn:
 
@@ -146,7 +153,7 @@ async def _create_all_tables(engine) -> None:
 
         await conn.run_sync(_sync_create_all)
 
-        if head:
+        if heads:
             await conn.execute(
                 text(
                     "CREATE TABLE IF NOT EXISTS alembic_version "
@@ -154,10 +161,11 @@ async def _create_all_tables(engine) -> None:
                 )
             )
             await conn.execute(text("DELETE FROM alembic_version"))
-            await conn.execute(
-                text("INSERT INTO alembic_version (version_num) VALUES (:v)"),
-                {"v": head},
-            )
+            for head in heads:
+                await conn.execute(
+                    text("INSERT INTO alembic_version (version_num) VALUES (:v)"),
+                    {"v": head},
+                )
 
 
 @pytest.fixture
@@ -169,14 +177,47 @@ async def db_session(db_state: DatabaseState) -> AsyncGenerator[AsyncSession, No
         yield session
 
 
-@pytest.fixture
-async def app(settings: Settings):
-    """Create a FastAPI app with tables pre-created and lifespan triggered."""
+SETUP_ADMIN_EMAIL = "admin@test"
+SETUP_ADMIN_PASSWORD = "test-password"
+
+
+async def _seed_setup_admin(application) -> None:
+    """Make the ``app`` fixture model a *configured* install.
+
+    ``SetupMiddleware`` redirects every request to ``/setup`` until an
+    administrator exists. That is right for a fresh deployment and wrong for a
+    suite asserting on ordinary pages — without this, every test using ``app``
+    gets a 302.
+
+    Seeds the same admin ``authenticated_client`` uses, so that fixture's own
+    ``create_admin`` call stays idempotent rather than creating a second one.
+
+    Skipped when the ``users`` module isn't installed: an install with no
+    local-accounts provider registers no setup step and is never gated, so
+    there is nothing to satisfy. Use ``setup_pending_app`` to exercise the gate.
+    """
+    try:
+        from users.bootstrap import create_admin
+    except ImportError:
+        return
+
+    async with application.state.sm.db.session_factory() as session:
+        await create_admin(
+            session,
+            email=SETUP_ADMIN_EMAIL,
+            password=SETUP_ADMIN_PASSWORD,
+            full_name="Test Admin",
+        )
+
+
+async def _build_app(settings: Settings, *, seed_admin: bool):
     from simple_module_hosting.app_builder import create_app
 
     application = create_app(settings)
 
     await _create_all_tables(application.state.sm.db.engine)
+    if seed_admin:
+        await _seed_setup_admin(application)
 
     # Trigger lifespan startup so app.state.migration is populated
     ctx = application.router.lifespan_context(application)
@@ -186,6 +227,23 @@ async def app(settings: Settings):
 
     # Lifespan shutdown disposes the engine
     await ctx.__aexit__(None, None, None)
+
+
+@pytest.fixture
+async def app(settings: Settings):
+    """A configured app: tables created, an admin seeded, lifespan triggered."""
+    async for application in _build_app(settings, seed_admin=True):
+        yield application
+
+
+@pytest.fixture
+async def setup_pending_app(settings: Settings):
+    """An app with no administrator, so the first-run setup gate is engaged.
+
+    The counterpart to ``app``: use this to assert on setup-mode behaviour.
+    """
+    async for application in _build_app(settings, seed_admin=False):
+        yield application
 
 
 @pytest.fixture
@@ -211,10 +269,12 @@ async def authenticated_client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
     from users.bootstrap import create_admin
 
     async with app.state.sm.db.session_factory() as session:
+        # Idempotent: the `app` fixture already seeded this same admin so the
+        # setup gate would release. This resolves its id for the cookie.
         result = await create_admin(
             session,
-            email="admin@test",
-            password="test-password",
+            email=SETUP_ADMIN_EMAIL,
+            password=SETUP_ADMIN_PASSWORD,
             full_name="Test Admin",
         )
         user_id = str(result.user.id)
