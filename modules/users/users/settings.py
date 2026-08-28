@@ -16,6 +16,7 @@ from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from simple_module_core.dotenv import env_str
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
+from simple_module_core.redirect_safety import non_empty_redirect
 
 _PLACEHOLDER_RESET_SECRET = "dev-reset-token-secret-change-me"
 _PLACEHOLDER_VERIFY_SECRET = "dev-verify-token-secret-change-me"
@@ -42,14 +43,13 @@ class UsersSettings(BaseSettings):
     def _non_empty_redirect(cls, value: str) -> str:
         """Blank is never a usable navigation target.
 
-        Nothing stops an admin clearing this in the generic module-settings
-        editor, and every consumer treats it as a destination: the login view
-        hands it to Inertia (``router.visit("")`` silently reloads the current
-        page) while the Keycloak and OAuth callbacks put it straight into a
-        ``Location`` header. Normalising here fixes all three at once —
-        hydration runs every value through this class.
+        Covers this module's consumers — the login view (which hands it to
+        Inertia, where ``router.visit("")`` silently reloads the current page)
+        and the generic OAuth callback (which puts it in a ``Location``
+        header). Keycloak has its own settings class with its own copy of this
+        field and normalises it the same way.
         """
-        return value.strip() or DEFAULT_LOGIN_REDIRECT_URL
+        return non_empty_redirect(value, default=DEFAULT_LOGIN_REDIRECT_URL)
 
     # Token secrets — MUST be set in production. Dev default is a deterministic
     # placeholder that's obvious in logs so it can't be mistaken for a real key.
