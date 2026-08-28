@@ -407,9 +407,13 @@ async def test_setup_reachable_without_auth(client_no_admin):
 
 
 async def test_create_admin_completes_setup(client_no_admin):
-    resp = await client_no_admin.post("/setup/administrator", json={
-        "email": "admin@example.com", "password": "hunter2hunter2",
-    })
+    resp = await client_no_admin.post(
+        "/setup/administrator",
+        json={
+            "email": "admin@example.com",
+            "password": "hunter2hunter2",
+        },
+    )
     assert resp.status_code == 200
     after = await client_no_admin.get("/dashboard", follow_redirects=False)
     assert after.status_code != 302
