@@ -197,8 +197,13 @@ async def test_inertia_request_gets_409_location() -> None:
     ],
 )
 async def test_exemptions_match_exactly(path: str, exempt: bool) -> None:
-    """Mirrored by attach_public_routes, where a sloppy match is an auth
-    bypass rather than a missed redirect."""
+    """This covers the *redirect* side only.
+
+    ``attach_public_routes`` applies the same exact/prefix split to decide
+    anonymous access, and that is the side where a loose match is an auth
+    bypass rather than a missed redirect — covered in
+    ``test_setup_public_routes``, not here.
+    """
     from simple_module_hosting.setup_gate import SetupMiddleware
 
     registry = SetupRegistry()
