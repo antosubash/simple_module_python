@@ -21,6 +21,7 @@ import { darkSurfaceLogo } from '../lib/brand';
 import type { MenuItem, SharedProps } from '../types';
 import { AdminSectionLink } from './AdminSectionLink';
 import { SidebarUserMenu } from './SidebarUserMenu';
+import { DEFAULT_SIDEBAR_THEME, type SidebarTheme } from './sidebar-theme';
 
 // A stable reference for "no items" — `menus?.[key] ?? []` would otherwise
 // mint a fresh empty array every render, and that array flows into
@@ -42,17 +43,6 @@ function groupMenuItems(items: MenuItem[]): { group: string; items: MenuItem[] }
     groups[idx].items.push(item);
   }
   return groups;
-}
-
-interface SidebarTheme {
-  sidebarBg: string;
-  accentColor: string;
-  avatarBg: string;
-  hoverBg: string;
-  activeClass: string;
-  inactiveClass: string;
-  mutedTextClass: string;
-  mobileTitleLabel: string;
 }
 
 interface SidebarLayoutProps {
@@ -289,3 +279,6 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
     </TooltipProvider>
   );
 }
+
+export type { SidebarTheme };
+export { DEFAULT_SIDEBAR_THEME };
