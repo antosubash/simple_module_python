@@ -156,7 +156,11 @@ async def apply_migrations(request: Request) -> dict:
     from alembic.config import Config as AlembicConfig
 
     def _upgrade() -> None:
-        command.upgrade(AlembicConfig("host/alembic.ini"), "head")
+        # "heads", not "head": each module's first migration sets its own
+        # branch_labels, so the history legitimately has several heads and
+        # "head" raises CommandError("Multiple head revisions are present").
+        # This is what `make migrate` runs.
+        command.upgrade(AlembicConfig("host/alembic.ini"), "heads")
 
     try:
         await asyncio.to_thread(_upgrade)
