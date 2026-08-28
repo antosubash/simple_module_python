@@ -26,6 +26,10 @@ _SECRET_PATTERNS = re.compile(
 )
 SECRET_MASK = "••••••••"
 
+# Value types that cannot carry credential material, so a secret-ish *name*
+# on one of them is a false positive rather than something to hide.
+_NEVER_SECRET_TYPES = frozenset({"int", "float", "bool"})
+
 
 def is_secret_field(name: str) -> bool:
     """True if a field name suggests it holds credential material."""
@@ -159,11 +163,14 @@ def _field_view(
     info = cls.model_fields[name]
     raw_value = getattr(settings, name)
     value_type = value_type_for_field(cls, name)
-    # Credential material is always a string. Without this, a numeric field
-    # whose name merely contains a secret-ish word gets masked and becomes
-    # uneditable — `reset_password_token_lifetime_seconds` is an int, but it
-    # matches on "password" the same way the real secrets do.
-    secret = value_type == "string" and is_secret_field(name)
+    # A numeric field whose name merely contains a secret-ish word was being
+    # masked and made uneditable — `reset_password_token_lifetime_seconds` is
+    # an int, but it matches on "password" exactly as the real secrets do.
+    # Phrased as "exempt the types that cannot hold a credential" rather than
+    # "mask only strings" so the failure direction is safe: an unexpected type
+    # (e.g. `str | None`, which resolves to "json") stays masked instead of
+    # silently exposing a secret.
+    secret = value_type not in _NEVER_SECRET_TYPES and is_secret_field(name)
     extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
     default = _resolve_default(info)
     env_var = f"{prefix}{name.upper()}"

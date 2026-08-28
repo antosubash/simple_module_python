@@ -152,3 +152,22 @@ class TestSecretMaskingIsTypeAware:
         field = self._field(UsersSettings, "reset_password_token_secret")
         assert field.is_secret is True
         assert field.value == SECRET_MASK
+
+    def test_an_optional_string_secret_stays_masked(self):
+        """The gate must fail safe on a type it doesn't recognise.
+
+        ``value_type_for_field`` reports "json" for any union, so a secret
+        declared ``str | None`` is not the "string" case. Exempting only the
+        types that cannot hold a credential keeps it masked; masking only
+        "string" would have silently exposed it.
+        """
+        from pydantic_settings import BaseSettings
+        from settings._module_settings import SECRET_MASK, _field_view
+
+        class _OptionalSecret(BaseSettings):
+            smtp_password: str | None = "hunter2"
+
+        field = _field_view("smtp_password", _OptionalSecret(), "SM_X_", frozenset())
+        assert field.type == "json"
+        assert field.is_secret is True
+        assert field.value == SECRET_MASK
