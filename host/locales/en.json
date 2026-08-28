@@ -106,7 +106,11 @@
     "steps": {
       "heading": "Setup steps",
       "complete": "Done",
-      "pending": "Pending"
+      "pending": "Pending",
+      "migrations": {
+        "title": "Apply database migrations",
+        "description": "Bring the database schema up to the version this code expects."
+      }
     },
     "error": "Something went wrong. See the detail above."
   }

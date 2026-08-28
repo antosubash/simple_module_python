@@ -28,15 +28,15 @@ import logging
 from fastapi import APIRouter, HTTPException, Request
 from inertia import InertiaResponse
 from pydantic import EmailStr, Field
+from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from sqlmodel import SQLModel
+
+from host.setup_payloads import connection_status, steps_payload
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/setup", tags=["setup"])
-
-_CHECK_DATABASE = "host.database"
-_CHECK_REDIS = "background_tasks.redis"
 
 _STEP_ADMINISTRATOR = "users.administrator"
 
@@ -72,58 +72,11 @@ async def _require_pending_step(request: Request, step_id: str) -> None:
         raise HTTPException(status_code=404)
 
 
-async def _run_check(request: Request, name: str) -> dict | None:
-    """Run one registered health check by name and shape it for the UI.
-
-    ``None`` when nothing registered that name — an install without the
-    background_tasks module has no Redis to reach, and listing it as a failed
-    connection would send an operator hunting for a service they don't run.
-    """
-    registry = request.app.state.sm.health_registry
-    for check in registry.all_checks:
-        if check.name != name:
-            continue
-        result = await check.check()
-        return {
-            "name": name,
-            "status": str(result.status),
-            # The reason is the point: "connection refused" and "authentication
-            # failed" need different fixes.
-            "detail": result.detail or "",
-        }
-    return None
-
-
-async def _connection_status(request: Request) -> list[dict]:
-    """Every dependency this install actually has, probed concurrently.
-
-    Concurrently because each probe carries its own connect timeout: run in
-    series, a wizard on a host where both the database and Redis are
-    unreachable waits for the sum of them before rendering anything, which is
-    exactly the case the wizard exists to diagnose.
-    """
-    results = await asyncio.gather(
-        _run_check(request, _CHECK_DATABASE),
-        _run_check(request, _CHECK_REDIS),
-    )
-    return [r for r in results if r is not None]
-
-
-def _steps_payload(registry, pending_ids: set[str]) -> list[dict]:
-    return [
-        {
-            "id": s.id,
-            "title": s.title,
-            "description": s.description,
-            "complete": s.id not in pending_ids,
-        }
-        for s in registry.all_steps
-    ]
-
-
 @router.get("", response_model=None)
 @router.get("/", response_model=None)
-async def setup_index(request: Request, inertia: InertiaDep) -> InertiaResponse:
+async def setup_index(
+    request: Request, inertia: InertiaDep, translator: TranslatorDep
+) -> InertiaResponse:
     """The wizard itself: connection status, migrations, remaining steps."""
     await _require_setup_mode(request)
 
@@ -134,8 +87,8 @@ async def setup_index(request: Request, inertia: InertiaDep) -> InertiaResponse:
     return await inertia.render(
         "Setup/Wizard",
         {
-            "checks": await _connection_status(request),
-            "steps": _steps_payload(registry, pending),
+            "checks": await connection_status(request),
+            "steps": steps_payload(registry, pending, translator.t),
             "migration": {
                 "current": migration.get("current_revision"),
                 "head": migration.get("head_revision"),
@@ -149,7 +102,7 @@ async def setup_index(request: Request, inertia: InertiaDep) -> InertiaResponse:
 async def test_connections(request: Request) -> dict:
     """Re-run the connection checks without reloading the page."""
     await _require_setup_mode(request)
-    return {"checks": await _connection_status(request)}
+    return {"checks": await connection_status(request)}
 
 
 class AdministratorIn(SQLModel):
@@ -197,8 +150,6 @@ async def apply_migrations(request: Request) -> dict:
     sharpest edge in the whole onboarding path.
     """
     await _require_setup_mode(request)
-
-    import asyncio
 
     from alembic import command
     from alembic.config import Config as AlembicConfig

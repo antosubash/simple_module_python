@@ -111,3 +111,44 @@ async def test_a_partially_upgraded_database_is_behind(tmp_path: Path) -> None:
     status = await _status(db)
 
     assert status["is_current"] is False
+
+
+async def test_pending_count_is_bounded_by_the_stamped_revision(tmp_path: Path) -> None:
+    """``pending_count`` must stop at the revision the database is stamped at,
+    not walk a behind branch's entire history back to its base.
+
+    Two branches fully migrated, one branch one revision short of its own
+    head: exactly one revision is actually missing. Before this test, the sum
+    was computed as ``len(iterate_revisions(head, None))`` — the whole chain
+    for every behind branch — so this database was reported as N-revisions-
+    behind (its branch's full length) instead of 1.
+    """
+    from alembic.config import Config as AlembicConfig
+    from alembic.script import ScriptDirectory
+    from simple_module_hosting.migrations import default_alembic_ini
+
+    heads = resolve_head_revisions()
+    script = ScriptDirectory.from_config(AlembicConfig(default_alembic_ini()))
+    behind_head = next(h for h in heads if script.get_revision(h).down_revision is not None)
+    parent = script.get_revision(behind_head).down_revision
+    other_heads = [h for h in heads if h != behind_head]
+
+    db = tmp_path / "one_behind.db"
+    engine = create_async_engine(f"sqlite+aiosqlite:///{db}")
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)")
+            )
+            for v in (parent, *other_heads):
+                await conn.execute(
+                    text("INSERT INTO alembic_version (version_num) VALUES (:v)"),
+                    {"v": v},
+                )
+    finally:
+        await engine.dispose()
+
+    status = await _status(db)
+
+    assert status["is_current"] is False
+    assert status["pending_count"] == 1

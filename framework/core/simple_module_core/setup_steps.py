@@ -50,6 +50,17 @@ class SetupStep:
     title: str
     is_complete: SetupCheckFn
     description: str = ""
+    title_key: str = ""
+    """Catalog key for ``title``, resolved against the request's locale.
+
+    Steps come from arbitrary modules, so their titles reach the wizard as
+    backend data rather than JSX literals and cannot go through ``useT()`` at
+    the call site. Same arrangement ``MenuItem`` already uses for ``label`` /
+    ``label_key``: the key wins when it resolves, the literal is the fallback,
+    and a module that ships no catalog still renders something readable.
+    """
+    description_key: str = ""
+    """Catalog key for ``description``, with the same fallback rule."""
     required: bool = True
     order: int = 100
     module: str = field(default="")

@@ -530,6 +530,10 @@ export const keys = {
       steps: {
         complete: 'host.setup.steps.complete',
         heading: 'host.setup.steps.heading',
+        migrations: {
+          description: 'host.setup.steps.migrations.description',
+          title: 'host.setup.steps.migrations.title',
+        },
         pending: 'host.setup.steps.pending',
       },
       subtitle: 'host.setup.subtitle',
@@ -1061,6 +1065,12 @@ export const keys = {
       member_count_other: 'users.roles_tab.member_count_other',
       no_description: 'users.roles_tab.no_description',
       system_badge: 'users.roles_tab.system_badge',
+    },
+    setup: {
+      administrator: {
+        description: 'users.setup.administrator.description',
+        title: 'users.setup.administrator.title',
+      },
     },
     user_row: {
       edit_aria: 'users.user_row.edit_aria',

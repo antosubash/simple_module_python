@@ -19,6 +19,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from simple_module_hosting.migrations import migration_status
+from simple_module_hosting.setup_gate import STEP_MIGRATIONS
 
 
 async def hydrate_settings_from_db(app: FastAPI) -> None:
@@ -47,22 +48,35 @@ async def hydrate_settings_from_db(app: FastAPI) -> None:
         await hydrate_all(app, store_cls(service_cls(session)))
 
 
-async def _setup_complete(app: FastAPI) -> bool:
-    """Whether the first-run wizard has finished gating this install.
+async def _is_first_run(app: FastAPI) -> bool:
+    """Whether this install has never been set up at all.
 
-    ``True`` when no registry exists — only reachable for an app built outside
-    ``create_app``, which always seeds ``host.migrations``. Note what that
-    means for the caller: because the host contributes a migration step to
-    every install, a behind-head database no longer fails the boot anywhere.
-    It puts the app into setup mode instead, on the reasoning that running the
-    migrations is one of the things the wizard exists to do. Routes whose
-    exposure depends on *why* setup is open must therefore check their own
-    step rather than "setup mode" — see ``host.routes_setup``.
+    The distinction the boot check turns on. Two very different situations both
+    leave ``host.migrations`` outstanding:
+
+    - A **fresh deployment**: nothing is configured, so the administrator step
+      is pending too. Serving the wizard is exactly right — running the
+      migrations is one of the things it exists to do.
+    - A **configured install whose schema drifted**: someone deployed code
+      ahead of the migration job. It has administrators; only the schema is
+      behind.
+
+    Treating the second as "setup mode" is wrong twice over. It serves traffic
+    against a schema the code does not match — the failure ``SM010`` exists to
+    prevent — and it re-opens ``/setup``, whose migration endpoint is
+    unauthenticated, letting an anonymous request trigger an Alembic run on a
+    live system.
+
+    So: first run means *something other than the schema* is also outstanding.
+    ``True`` when no registry exists, since an app built outside ``create_app``
+    has no steps to reason about and the old raising behaviour is the safer
+    default there.
     """
     registry = getattr(app.state.sm, "setup_registry", None)
     if not registry:
-        return True
-    return await registry.is_setup_complete(app)
+        return False
+    pending = {step.id for step in await registry.incomplete(app)}
+    return bool(pending - {STEP_MIGRATIONS})
 
 
 def build_lifespan(modules: Sequence) -> Callable:
@@ -70,13 +84,15 @@ def build_lifespan(modules: Sequence) -> Callable:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-        # Report first, decide second. A behind-head database must still boot
-        # far enough to serve the setup wizard — running the migrations is one
-        # of the things that wizard does, and check_migrations' RuntimeError
-        # would make it unreachable. Once setup is complete the original
-        # behaviour stands: a schema the code does not match fails the boot.
+        # Report first, decide second. On a genuinely fresh install a
+        # behind-head database must still boot far enough to serve the wizard —
+        # running the migrations is one of the things that wizard does, and
+        # check_migrations' RuntimeError would make it unreachable. Anywhere
+        # else the original behaviour stands: a schema the code does not match
+        # fails the boot. See _is_first_run for why those two cases cannot be
+        # told apart by "is setup complete".
         app.state.migration = await migration_status(app.state.sm.db.engine)
-        if not app.state.migration["is_current"] and await _setup_complete(app):
+        if not app.state.migration["is_current"] and not await _is_first_run(app):
             raise RuntimeError(
                 f"Database is {app.state.migration['pending_count']} revision(s) behind "
                 f"(at {app.state.migration['current_revision']!r}, head is "

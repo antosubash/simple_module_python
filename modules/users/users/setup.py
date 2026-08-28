@@ -26,7 +26,9 @@ def build_admin_step() -> SetupStep:
     return SetupStep(
         id=STEP_ADMINISTRATOR,
         title="Create an administrator",
+        title_key="users.setup.administrator.title",
         description="An account that can sign in and manage this install.",
+        description_key="users.setup.administrator.description",
         is_complete=has_administrator,
         order=30,
     )

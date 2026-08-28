@@ -101,9 +101,25 @@ async def migration_status(engine, alembic_ini_path: str | None = None) -> dict:
         current = await conn.run_sync(_get_current)
 
     missing = set(heads) - set(current)
+
+    def _pending_on_branch(head: str) -> int:
+        # Walk from the head towards the base, stopping at the first revision
+        # already recorded in `current` — everything below it is, by
+        # construction, already applied. `iterate_revisions(head, None)` walks
+        # all the way to the base, so without this break a branch that is
+        # merely one release behind counts its *entire* history as pending.
+        # A branch never migrated at all (no ancestor in `current`) falls
+        # through the loop and correctly counts its whole chain.
+        count = 0
+        for rev in script.iterate_revisions(head, None):
+            if rev.revision in current:
+                break
+            count += 1
+        return count
+
     # Count the revisions still to apply on each branch that is behind, rather
     # than the number of behind branches.
-    pending = sum(len(list(script.iterate_revisions(h, None))) for h in missing) if missing else 0
+    pending = sum(_pending_on_branch(h) for h in missing) if missing else 0
     return {
         "current_revision": ", ".join(sorted(current)) if current else None,
         "head_revision": ", ".join(sorted(heads)),

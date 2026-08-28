@@ -88,7 +88,9 @@ def register_migration_step(registry) -> None:
         SetupStep(
             id=STEP_MIGRATIONS,
             title="Apply database migrations",
+            title_key="host.setup.steps.migrations.title",
             description="Bring the database schema up to the version this code expects.",
+            description_key="host.setup.steps.migrations.description",
             is_complete=_database_migrated,
             order=20,
         )
