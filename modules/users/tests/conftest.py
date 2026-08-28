@@ -16,10 +16,17 @@ from collections.abc import AsyncGenerator
 
 import httpx
 import pytest
-from simple_module_hosting.settings import Settings
+
+# Bare import, not relative: tests/ has no __init__.py, so these are
+# top-level modules on pytest's sys.path — same mechanism as the
+# _middleware_support plugin loaded at the bottom of this file.
+from _users_app_builders import (
+    _build_users_app,
+    _make_admin_user,
+    _make_standard_user,
+)
 from simple_module_test import forge_session_cookie
 from sqlalchemy.ext.asyncio import AsyncSession
-from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
 
 
 @pytest.fixture(autouse=True)
@@ -43,115 +50,26 @@ def _isolate_users_env(monkeypatch):
 
 # ---------------------------------------------------------------------------
 # Settings helpers
-# ---------------------------------------------------------------------------
-
-
-def _users_overrides(allow_signup: bool = False) -> dict[str, tuple[str, str]]:
-    """Values seeded into the ``SettingsStore`` before the app lifespan runs."""
-    return {
-        "allow_signup": (str(allow_signup).lower(), "bool"),
-        "mailer": ("console", "string"),
-        "base_url": ("http://testserver", "string"),
-        "cookie_secure": ("false", "bool"),
-        # 32+ bytes to clear pyjwt's InsecureKeyLengthWarning for HMAC-SHA256.
-        "reset_password_token_secret": ("test-reset-secret-32-bytes-xxxxx", "string"),
-        "verification_token_secret": ("test-verify-secret-32-bytes-xxxxx", "string"),
-        "login_rate_limit_failures": ("5", "int"),
-        "login_rate_limit_window_seconds": ("300", "int"),
-        "login_rate_limit_cooldown_seconds": ("900", "int"),
-    }
-
-
-# ---------------------------------------------------------------------------
-# Full-app fixture
-# ---------------------------------------------------------------------------
-
-
-async def _setup_app_db(application) -> None:
-    """Create all tables and stamp alembic version so migration check passes."""
-
-    from simple_module_db.base import all_module_bases
-    from simple_module_hosting.migrations import resolve_head_revision
-    from sqlalchemy import text
-
-    head = resolve_head_revision()
-
-    async with application.state.sm.db.engine.begin() as conn:
-
-        def _create(sync_conn):
-            for base in all_module_bases:
-                base.metadata.create_all(sync_conn)
-
-        await conn.run_sync(_create)
-
-        if head:
-            await conn.execute(
-                text(
-                    "CREATE TABLE IF NOT EXISTS alembic_version "
-                    "(version_num VARCHAR(32) NOT NULL PRIMARY KEY)"
-                )
-            )
-            await conn.execute(text("DELETE FROM alembic_version"))
-            await conn.execute(
-                text("INSERT INTO alembic_version (version_num) VALUES (:v)"),
-                {"v": head},
-            )
-
-
-async def _seed_roles(application) -> None:
-    """Insert admin/user Role rows with deterministic UUIDs if missing."""
-    from sqlalchemy import select
-    from users.models import Role
-
-    async with application.state.sm.db.session_factory() as session:
-        existing = set((await session.execute(select(Role.name))).scalars().all())
-        if "admin" not in existing:
-            session.add(Role(id=ADMIN_ROLE_ID, name="admin", description="Administrator"))
-        if "user" not in existing:
-            session.add(Role(id=USER_ROLE_ID, name="user", description="Standard user"))
-        await session.commit()
-
-
-async def _seed_users_settings(application, *, allow_signup: bool) -> None:
-    """Write the test UsersSettings overrides to the DB before hydrate runs.
-
-    Hydrate fires inside the lifespan ``__aenter__``, so this needs to land
-    between table creation and lifespan entry.
-    """
-    from settings.service import SettingService
-    from settings.store import SettingsStore
-
-    async with application.state.sm.db.session_factory() as session:
-        store = SettingsStore(SettingService(session))
-        for field, (raw, vtype) in _users_overrides(allow_signup=allow_signup).items():
-            await store.set_override("users", field, raw, vtype)
-        await session.commit()
-
-
-async def _build_users_app(monkeypatch, *, allow_signup: bool):
-    """Build a test FastAPI app with DB created, settings seeded, lifespan started."""
-    from simple_module_hosting.app_builder import create_app
-
-    settings = Settings(
-        database_url="sqlite+aiosqlite:///:memory:",
-        environment="testing",
-        secret_key="test-secret-key",
-        multi_tenant=False,
-    )
-    application = create_app(settings)
-    await _setup_app_db(application)
-    await _seed_users_settings(application, allow_signup=allow_signup)
-
-    ctx = application.router.lifespan_context(application)
-    await ctx.__aenter__()
-    await _seed_roles(application)
-    return application, ctx
 
 
 @pytest.fixture
 async def users_app(monkeypatch):
     """Full FastAPI app with in-memory DB, seeded roles, users module active."""
     application, ctx = await _build_users_app(monkeypatch, allow_signup=False)
+    yield application
+    await ctx.__aexit__(None, None, None)
+
+
+@pytest.fixture
+async def users_app_empty(monkeypatch):
+    """``users_app`` with no seeded administrator, so the users table starts empty.
+
+    For DB-level tests that assert on absolute user counts or on behaviour
+    when no account exists yet — bootstrap-from-env, user listing. They reach
+    the app only through ``session_factory`` and never issue HTTP requests, so
+    the first-run setup gate never applies to them.
+    """
+    application, ctx = await _build_users_app(monkeypatch, allow_signup=False, seed_admin=False)
     yield application
     await ctx.__aexit__(None, None, None)
 
@@ -189,42 +107,6 @@ async def anon_client_signup(users_app_signup) -> AsyncGenerator[httpx.AsyncClie
         base_url="http://testserver",
     ) as c:
         yield c
-
-
-async def _make_admin_user(app):
-    """Seed an admin User + Role into app's DB and return the User row."""
-    from users.bootstrap import create_admin
-    from users.models import User
-
-    async with app.state.sm.db.session_factory() as session:
-        result = await create_admin(
-            session,
-            email="admin@example.com",
-            password="AdminPass1!",
-            full_name="Test Admin",
-        )
-    user: User = result.user
-    return user
-
-
-async def _make_standard_user(app, email: str = "user@example.com"):
-    """Seed a non-admin User with the standard ``user`` role.
-
-    Used by the negative-authz tests to confirm endpoints protected by
-    ``RequiresPermission(...)`` reject authenticated-but-non-admin callers.
-    """
-    from users.bootstrap import create_standard_user
-    from users.models import User
-
-    async with app.state.sm.db.session_factory() as session:
-        result = await create_standard_user(
-            session,
-            email=email,
-            password="UserPass1!",
-            full_name="Regular User",
-        )
-    user: User = result.user
-    return user
 
 
 @pytest.fixture

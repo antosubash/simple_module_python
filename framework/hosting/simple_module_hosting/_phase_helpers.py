@@ -46,6 +46,7 @@ from simple_module_hosting.middleware import (
     TenantMiddleware,
 )
 from simple_module_hosting.settings import Settings
+from simple_module_hosting.setup_gate import SetupMiddleware
 from simple_module_hosting.static_files import PrecompressedStaticFiles
 
 if TYPE_CHECKING:
@@ -105,7 +106,7 @@ def install_middleware(
     Order matters: last added = first executed. Execution order:
     (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging
     → Security → Session → [module] → (Tenant, if multi_tenant) → Locale
-    → Inertia → InertiaCache → Maintenance → CommitBeforeResponse.
+    → Inertia → InertiaCache → Setup → Maintenance → CommitBeforeResponse.
     """
     # Added first, so it is innermost and its send-wrapper is the first to see
     # the response: the request's DB work commits before any byte reaches the
@@ -120,6 +121,12 @@ def install_middleware(
     # and auth + locale — both further out — to know who is asking and in which
     # language to answer.
     app.add_middleware(MaintenanceMiddleware)
+    # Added after Maintenance so it *executes* before it: an install that has
+    # never been set up has nothing meaningful to put into maintenance mode,
+    # and the setup redirect should win. Inside InertiaCache for the same
+    # reason Maintenance is — this short-circuits, and the redirect must not
+    # be stored by any cache.
+    app.add_middleware(SetupMiddleware)
     # Paired with InertiaLayoutDataMiddleware below, which is what puts this
     # user's auth, permissions and menus into every Inertia payload: this one
     # makes sure the payload that results is never stored where a page request

@@ -38,6 +38,29 @@ def _generate() -> str:
     return secrets.token_urlsafe(_TOKEN_BYTES)
 
 
+def assert_not_placeholder(settings) -> None:
+    """Refuse to boot production still signing sessions with the shipped key.
+
+    The ``BootstrapSettings`` validator can only see whether the placeholder
+    was supplied *explicitly*. This sees the key the app will actually use,
+    whoever built the Settings object — including callers that construct it
+    themselves rather than going through ``merge_host_settings``.
+    """
+    from simple_module_core.environments import NON_PROD_ENVIRONMENTS
+
+    from simple_module_hosting.bootstrap_settings import PLACEHOLDER_SECRET_KEY
+
+    if settings.environment in NON_PROD_ENVIRONMENTS:
+        return
+    if settings.secret_key != PLACEHOLDER_SECRET_KEY:
+        return
+    raise SystemExit(
+        f"SM_SECRET_KEY is still the shipped placeholder with "
+        f"SM_ENVIRONMENT={settings.environment!r}. Leave it unset to have one "
+        "generated and stored, or set it explicitly."
+    )
+
+
 async def _fetch(conn, table: str, scope: str, scope_id: str) -> str | None:
     row = (
         await conn.execute(

@@ -12,7 +12,6 @@ from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.design_packs import DesignPackRegistry
 from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
 from simple_module_core.discovery import discover_modules, select_auth_provider, topological_sort
-from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagRegistry
 from simple_module_core.health import HealthRegistry
@@ -20,6 +19,7 @@ from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.services import Services
+from simple_module_core.setup_steps import SetupRegistry
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 
@@ -37,7 +37,7 @@ from simple_module_hosting._phase_helpers import (
 )
 from simple_module_hosting._preapp_config import merge_host_settings
 from simple_module_hosting._registrations import run_module_registrations
-from simple_module_hosting.bootstrap_settings import PLACEHOLDER_SECRET_KEY
+from simple_module_hosting._secret_key import assert_not_placeholder
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types_for_modules
 from simple_module_hosting.settings import Settings
@@ -112,18 +112,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # settings are silently inert at boot.
     settings = settings or merge_host_settings()
 
-    # The BootstrapSettings validator can only see whether the placeholder was
-    # supplied explicitly; this sees the key the app will actually sign
-    # sessions with, whoever built the Settings object.
-    if (
-        settings.environment not in NON_PROD_ENVIRONMENTS
-        and settings.secret_key == PLACEHOLDER_SECRET_KEY
-    ):
-        raise SystemExit(
-            f"SM_SECRET_KEY is still the shipped placeholder with "
-            f"SM_ENVIRONMENT={settings.environment!r}. Leave it unset to have one "
-            "generated and stored, or set it explicitly."
-        )
+    assert_not_placeholder(settings)
 
     # ── Phase 1: Discover modules ──────────────────────────
     # Production: any bad module (import error, missing meta, wrong base
@@ -185,6 +174,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     event_bus = EventBus()
     health_registry = HealthRegistry()
     public_route_registry = PublicRouteRegistry()
+    setup_registry = SetupRegistry()
     design_pack_registry = DesignPackRegistry()
     audit_link_registry = AuditLinkRegistry()
 
@@ -220,6 +210,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ff_registry=ff_registry,
         health_registry=health_registry,
         public_route_registry=public_route_registry,
+        setup_registry=setup_registry,
         design_pack_registry=design_pack_registry,
         audit_link_registry=audit_link_registry,
         csp_registry=csp_registry,
@@ -289,6 +280,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         feature_flags=ff_registry,
         health_registry=health_registry,
         public_routes=public_route_registry,
+        setup_registry=setup_registry,
         design_packs=design_pack_registry,
         audit_links=audit_link_registry,
         i18n_registry=i18n_registry,

@@ -169,14 +169,47 @@ async def db_session(db_state: DatabaseState) -> AsyncGenerator[AsyncSession, No
         yield session
 
 
-@pytest.fixture
-async def app(settings: Settings):
-    """Create a FastAPI app with tables pre-created and lifespan triggered."""
+SETUP_ADMIN_EMAIL = "admin@test"
+SETUP_ADMIN_PASSWORD = "test-password"
+
+
+async def _seed_setup_admin(application) -> None:
+    """Make the ``app`` fixture model a *configured* install.
+
+    ``SetupMiddleware`` redirects every request to ``/setup`` until an
+    administrator exists. That is right for a fresh deployment and wrong for a
+    suite asserting on ordinary pages — without this, every test using ``app``
+    gets a 302.
+
+    Seeds the same admin ``authenticated_client`` uses, so that fixture's own
+    ``create_admin`` call stays idempotent rather than creating a second one.
+
+    Skipped when the ``users`` module isn't installed: an install with no
+    local-accounts provider registers no setup step and is never gated, so
+    there is nothing to satisfy. Use ``setup_pending_app`` to exercise the gate.
+    """
+    try:
+        from users.bootstrap import create_admin
+    except ImportError:
+        return
+
+    async with application.state.sm.db.session_factory() as session:
+        await create_admin(
+            session,
+            email=SETUP_ADMIN_EMAIL,
+            password=SETUP_ADMIN_PASSWORD,
+            full_name="Test Admin",
+        )
+
+
+async def _build_app(settings: Settings, *, seed_admin: bool):
     from simple_module_hosting.app_builder import create_app
 
     application = create_app(settings)
 
     await _create_all_tables(application.state.sm.db.engine)
+    if seed_admin:
+        await _seed_setup_admin(application)
 
     # Trigger lifespan startup so app.state.migration is populated
     ctx = application.router.lifespan_context(application)
@@ -186,6 +219,23 @@ async def app(settings: Settings):
 
     # Lifespan shutdown disposes the engine
     await ctx.__aexit__(None, None, None)
+
+
+@pytest.fixture
+async def app(settings: Settings):
+    """A configured app: tables created, an admin seeded, lifespan triggered."""
+    async for application in _build_app(settings, seed_admin=True):
+        yield application
+
+
+@pytest.fixture
+async def setup_pending_app(settings: Settings):
+    """An app with no administrator, so the first-run setup gate is engaged.
+
+    The counterpart to ``app``: use this to assert on setup-mode behaviour.
+    """
+    async for application in _build_app(settings, seed_admin=False):
+        yield application
 
 
 @pytest.fixture
@@ -211,10 +261,12 @@ async def authenticated_client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
     from users.bootstrap import create_admin
 
     async with app.state.sm.db.session_factory() as session:
+        # Idempotent: the `app` fixture already seeded this same admin so the
+        # setup gate would release. This resolves its id for the cookie.
         result = await create_admin(
             session,
-            email="admin@test",
-            password="test-password",
+            email=SETUP_ADMIN_EMAIL,
+            password=SETUP_ADMIN_PASSWORD,
             full_name="Test Admin",
         )
         user_id = str(result.user.id)

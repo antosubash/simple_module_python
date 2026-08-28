@@ -11,6 +11,7 @@ from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.setup_steps import SetupRegistry
 
 from users.constants import (
     ADMIN_ROLE_NAME,
@@ -111,6 +112,12 @@ class UsersModule(ModuleBase):
             [PERM_USERS_MANAGE, PERM_USERS_SELF_PROFILE],
         )
         registry.map_role(USER_ROLE_NAME, [PERM_USERS_SELF_PROFILE])
+
+    def register_setup_steps(self, registry: SetupRegistry) -> None:
+        """Gate the app until an administrator exists — see ``users.setup``."""
+        from users.setup import build_admin_step
+
+        registry.add(build_admin_step())
 
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
         from users.models import User
