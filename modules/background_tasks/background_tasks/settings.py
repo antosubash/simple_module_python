@@ -4,14 +4,18 @@ Values come from defaults at boot, then get hydrated from the DB by the
 hosting lifespan before module ``on_startup`` runs. Runtime changes go
 through ``settings.reload.apply_changes_and_reload``.
 
-Two of those defaults are deployment plumbing rather than module config, so
-they stay env-readable: ``SM_BG_TASKS_BROKER_URL`` and
-``SM_BG_TASKS_RESULT_BACKEND`` name the Redis a container can actually reach.
-They have to work *before* any DB row exists — the production validator below
-rejects the localhost defaults, so without them a containerised app can't
-boot far enough to hydrate settings, and a worker process (which never sees
-``app.state``) has no other source at all. A DB value still wins once
-hydration runs.
+The broker and result-backend URLs are deployment plumbing rather than module
+config, so they stay env-readable through ``SM_REDIS_URL`` — one variable that
+seeds both. They have to work *before* any DB row exists: the production
+validator below rejects the localhost defaults, so without them a containerised
+app can't boot far enough to hydrate settings, and a worker process (which
+never sees ``app.state``) has no other source at all. A DB value still wins
+once hydration runs, and the two fields keep separate overrides for anyone who
+wants the broker and the backend on different Redis databases.
+
+``SM_BG_TASKS_BROKER_URL`` and ``SM_BG_TASKS_RESULT_BACKEND`` still work and
+take precedence over ``SM_REDIS_URL`` — a deployment that set them meant them —
+but log a deprecation warning.
 
 The other env read is ``SM_ENVIRONMENT``, consulted by the
 ``@model_validator`` to refuse a localhost broker in production — that's a
@@ -26,6 +30,7 @@ these values requires a worker restart.
 
 from __future__ import annotations
 
+import logging
 import os
 
 from pydantic import Field, model_validator
@@ -43,9 +48,32 @@ from background_tasks.constants import (
     DEFAULT_STUCK_AFTER_SECONDS,
     DEFAULT_STUCK_SWEEP_INTERVAL_SECONDS,
     ENV_PREFIX,
+    ENV_REDIS_URL,
 )
 
 _CELERY_RESTART = {"requires_restart": True, "group": "Celery"}
+
+logger = logging.getLogger(__name__)
+
+
+def _redis_from_env(legacy_var: str, default: str) -> str:
+    """Resolve a Celery URL from env: legacy var → ``SM_REDIS_URL`` → default.
+
+    The legacy var is checked first because a deployment that set both meant
+    the specific one. It warns rather than failing: ``smpy_gis``, ``smpy_saas``,
+    ``laco_wiki_python`` and the ``nodes-k8s`` manifests all set these, and
+    breaking them on upgrade buys nothing.
+    """
+    legacy = os.environ.get(legacy_var)
+    if legacy:
+        logger.warning(
+            "%s is deprecated; use %s instead (one URL seeds both the broker "
+            "and the result backend).",
+            legacy_var,
+            ENV_REDIS_URL,
+        )
+        return legacy
+    return os.environ.get(ENV_REDIS_URL) or default
 
 
 class BackgroundTasksSettings(BaseSettings):
@@ -54,11 +82,11 @@ class BackgroundTasksSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
     broker_url: str = Field(
-        default_factory=lambda: os.environ.get(f"{ENV_PREFIX}BROKER_URL", DEFAULT_BROKER_URL),
+        default_factory=lambda: _redis_from_env(f"{ENV_PREFIX}BROKER_URL", DEFAULT_BROKER_URL),
         json_schema_extra=_CELERY_RESTART,
     )
     result_backend: str = Field(
-        default_factory=lambda: os.environ.get(
+        default_factory=lambda: _redis_from_env(
             f"{ENV_PREFIX}RESULT_BACKEND", DEFAULT_RESULT_BACKEND
         ),
         json_schema_extra=_CELERY_RESTART,
