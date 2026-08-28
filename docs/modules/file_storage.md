@@ -75,7 +75,7 @@ Indexes on `key` (unique), `created_by`, `is_deleted`.
 
 ## Settings
 
-DB-backed via `register_module_settings`; pydantic defaults seed at boot. Live edits via `/settings/modules/file_storage`.
+DB-backed via `register_module_settings`; pydantic defaults seed at boot. Live edits under Files at `/admin/settings/`.
 
 | Field | Default | Purpose |
 |---|---|---|

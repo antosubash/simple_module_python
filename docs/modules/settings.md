@@ -24,7 +24,7 @@ The pattern (pydantic `BaseSettings` subclass + `register_module_settings` in `r
 
 - **DB hydration**: `app.state.<package>.settings` is replaced with a fresh instance built from DB overrides + pydantic defaults during the host's hydrate phase, before `on_startup` runs.
 - **Env-var migration**: `smpy settings import-from-env` scans every registered class's `env_prefix` and seeds matching `SM_*` env vars as SYSTEM-scoped rows. Idempotent.
-- **Admin editing**: registered fields appear at `/settings/modules/<package>` with type-aware inputs.
+- **Admin editing**: registered fields appear under that package at `/admin/settings/` with type-aware inputs.
 - **Hot reload**: saving via the admin UI calls `apply_changes_and_reload`, which validates the diff against the pydantic class, persists deltas, swaps the live `app.state.<package>.settings`, and publishes [`SettingsReloaded`](#events) so dependents (SMTP clients, Celery configs, …) can rebuild.
 
 ### Read settings at request time (generic K/V)
