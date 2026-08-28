@@ -53,4 +53,26 @@ def safe_next_or_none(raw: str | None) -> str | None:
     return result or None
 
 
-__all__ = ["DEFAULT_FALLBACK", "SESSION_NEXT_KEY", "safe_next", "safe_next_or_none"]
+def non_empty_redirect(value: str, *, default: str) -> str:
+    """Normalise a configured redirect destination, never returning ``""``.
+
+    Any auth provider can expose a ``login_redirect_url``-style setting, and
+    nothing stops an admin clearing it in the generic module-settings editor.
+    Every consumer treats the value as a destination — Inertia's
+    ``router.visit("")`` silently reloads the current page, and an empty
+    ``Location`` header is a broken redirect — so providers normalise on their
+    settings class, where hydration and ``apply_changes_and_reload`` both run.
+    It lives here rather than in one provider because the providers must not
+    import each other (cross-module coupling), and this is the same concern as
+    the rest of this module.
+    """
+    return value.strip() or default
+
+
+__all__ = [
+    "DEFAULT_FALLBACK",
+    "SESSION_NEXT_KEY",
+    "non_empty_redirect",
+    "safe_next",
+    "safe_next_or_none",
+]

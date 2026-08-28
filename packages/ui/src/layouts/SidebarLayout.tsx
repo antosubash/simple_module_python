@@ -21,12 +21,20 @@ import { darkSurfaceLogo } from '../lib/brand';
 import type { MenuItem, SharedProps } from '../types';
 import { AdminSectionLink } from './AdminSectionLink';
 import { SidebarUserMenu } from './SidebarUserMenu';
+import { DEFAULT_SIDEBAR_THEME, type SidebarTheme } from './sidebar-theme';
 
 // A stable reference for "no items" — `menus?.[key] ?? []` would otherwise
 // mint a fresh empty array every render, and that array flows into
 // CommandPalette's `useMemo([navItems, accountItems])`, defeating it on every
 // render where a menu is absent instead of only when its contents change.
 const NO_ITEMS: MenuItem[] = [];
+
+// The sidebar is near-black in every theme, where Button's default
+// `ring-ring/50` is effectively invisible — these icon-only toggles are
+// reachable by keyboard, so they get a light ring that actually shows
+// (WCAG 2.4.7). Text links beside them fall back to the UA outline, which
+// already reads on this surface.
+const ICON_BUTTON_FOCUS = 'focus-visible:ring-white/70 focus-visible:border-white/70';
 
 function groupMenuItems(items: MenuItem[]): { group: string; items: MenuItem[] }[] {
   const groups: { group: string; items: MenuItem[] }[] = [];
@@ -42,17 +50,6 @@ function groupMenuItems(items: MenuItem[]): { group: string; items: MenuItem[] }
     groups[idx].items.push(item);
   }
   return groups;
-}
-
-interface SidebarTheme {
-  sidebarBg: string;
-  accentColor: string;
-  avatarBg: string;
-  hoverBg: string;
-  activeClass: string;
-  inactiveClass: string;
-  mutedTextClass: string;
-  mobileTitleLabel: string;
 }
 
 interface SidebarLayoutProps {
@@ -134,7 +131,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
             size="icon-sm"
             onClick={() => setSidebarOpen(true)}
             aria-label={t(keys.ui.sidebar.open)}
-            className="text-sidebar-icon hover:text-white hover:bg-white/10"
+            className={`text-sidebar-icon hover:text-white hover:bg-white/10 ${ICON_BUTTON_FOCUS}`}
           >
             <svg
               aria-hidden="true"
@@ -170,6 +167,13 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
         {sidebarOpen && (
           <button
             type="button"
+            // Out of the tab order deliberately: this backdrop is the
+            // click-outside affordance, and as a full-screen control it can
+            // show no meaningful focus ring. Keyboard users close the sidebar
+            // with the X button beside the logo, which is focusable and does
+            // carry a visible ring — so this is one less invisible tab stop,
+            // not a lost route out.
+            tabIndex={-1}
             aria-label={t(keys.ui.sidebar.close)}
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden cursor-default"
             onClick={closeSidebar}
@@ -195,7 +199,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
               size="icon-sm"
               onClick={closeSidebar}
               aria-label={t(keys.ui.sidebar.close)}
-              className="lg:hidden text-sidebar-icon-muted hover:text-white hover:bg-white/10"
+              className={`lg:hidden text-sidebar-icon-muted hover:text-white hover:bg-white/10 ${ICON_BUTTON_FOCUS}`}
             >
               <svg
                 aria-hidden="true"
@@ -289,3 +293,6 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
     </TooltipProvider>
   );
 }
+
+export type { SidebarTheme };
+export { DEFAULT_SIDEBAR_THEME };

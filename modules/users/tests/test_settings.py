@@ -165,3 +165,30 @@ class TestTokenSecretProductionGuard:
         )
         assert s.reset_password_token_secret == "real-reset-secret"
         assert s.verification_token_secret == "real-verify-secret"
+
+
+class TestLoginRedirectUrl:
+    """A blanked ``login_redirect_url`` must never reach a consumer.
+
+    Nothing stops an admin clearing it in the generic module-settings editor,
+    and every consumer treats it as a destination — the login view hands it to
+    Inertia (``router.visit("")`` reloads the current page), while the Keycloak
+    and OAuth callbacks put it directly into a ``Location`` header. Normalising
+    on the settings class covers all three, since hydration and
+    ``apply_changes_and_reload`` both reconstruct through it.
+    """
+
+    def test_blank_falls_back_to_the_default(self):
+        from users.settings import UsersSettings
+
+        assert UsersSettings(login_redirect_url="").login_redirect_url == "/dashboard/"
+
+    def test_whitespace_only_falls_back_to_the_default(self):
+        from users.settings import UsersSettings
+
+        assert UsersSettings(login_redirect_url="   ").login_redirect_url == "/dashboard/"
+
+    def test_a_real_value_is_left_alone(self):
+        from users.settings import UsersSettings
+
+        assert UsersSettings(login_redirect_url="/home/").login_redirect_url == "/home/"

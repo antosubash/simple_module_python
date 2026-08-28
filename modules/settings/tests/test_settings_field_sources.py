@@ -120,3 +120,54 @@ class TestTestConnectionEndpoint:
         for check in body["checks"]:
             assert check["status"] in ("healthy", "degraded", "unhealthy")
             assert "detail" in check
+
+
+class TestSecretMaskingIsTypeAware:
+    """Only string fields can hold credential material.
+
+    The name-based pattern deliberately avoids the bare words "token" and
+    "key", but it cannot avoid "password" — and
+    ``reset_password_token_lifetime_seconds`` is an int that contains it.
+    Masking it made a plain duration uneditable in the admin UI, so the
+    declared type gates the match.
+    """
+
+    def _field(self, cls, name: str):
+        from settings._module_settings import _field_view
+
+        return _field_view(name, cls(), "SM_USERS_", frozenset())
+
+    def test_an_int_named_like_a_secret_is_not_masked(self):
+        from users.settings import UsersSettings
+
+        field = self._field(UsersSettings, "reset_password_token_lifetime_seconds")
+        assert field.is_secret is False
+        assert field.type == "int"
+        assert isinstance(field.value, int)
+
+    def test_a_real_string_secret_is_still_masked(self):
+        from settings._module_settings import SECRET_MASK
+        from users.settings import UsersSettings
+
+        field = self._field(UsersSettings, "reset_password_token_secret")
+        assert field.is_secret is True
+        assert field.value == SECRET_MASK
+
+    def test_an_optional_string_secret_stays_masked(self):
+        """The gate must fail safe on a type it doesn't recognise.
+
+        ``value_type_for_field`` reports "json" for any union, so a secret
+        declared ``str | None`` is not the "string" case. Exempting only the
+        types that cannot hold a credential keeps it masked; masking only
+        "string" would have silently exposed it.
+        """
+        from pydantic_settings import BaseSettings
+        from settings._module_settings import SECRET_MASK, _field_view
+
+        class _OptionalSecret(BaseSettings):
+            smtp_password: str | None = "hunter2"
+
+        field = _field_view("smtp_password", _OptionalSecret(), "SM_X_", frozenset())
+        assert field.type == "json"
+        assert field.is_secret is True
+        assert field.value == SECRET_MASK

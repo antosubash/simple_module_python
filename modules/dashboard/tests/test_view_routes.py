@@ -94,3 +94,32 @@ async def test_dashboard_index_redirects_anon_to_login(client):
     resp = await client.get("/dashboard/", follow_redirects=False)
     assert resp.status_code == 302
     assert "/users/login" in resp.headers["location"]
+
+
+@pytest.mark.anyio
+async def test_doctor_reports_real_diagnostics(authenticated_client):
+    """The doctor page ships live diagnostics, migration state and env facts.
+
+    Guards against the panel regressing to hardcoded demo data: the values
+    asserted here can only come from the running app.
+    """
+    resp = await authenticated_client.get(
+        "/admin/doctor/",
+        headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
+    )
+    assert resp.status_code == 200, resp.text
+    props = resp.json()["props"]
+
+    assert isinstance(props["diagnostics"], list)
+    for finding in props["diagnostics"]:
+        assert finding["code"].startswith("SM")
+        assert finding["level"] in {"error", "warning", "info"}
+
+    migration = props["migration"]
+    # The test fixtures stamp alembic at head, so the page must agree.
+    assert migration["is_current"] is True
+    assert migration["current_revision"] == migration["head_revision"]
+
+    env = props["environment"]
+    assert env["database"] == "sqlite"
+    assert env["default_locale"] in env["locales"]

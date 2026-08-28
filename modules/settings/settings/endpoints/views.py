@@ -23,8 +23,8 @@ from settings._module_settings import (
     _package_of,
     collect_module_settings,
     overrides_by_package,
-    serialize,
 )
+from settings._module_settings_props import serialize
 from settings.constants import (
     ERR_SETTING_NOT_FOUND,
     PERM_CREATE,

@@ -20,9 +20,11 @@ It's intentionally simple — a place for new installs to land that proves the p
 | Method + path | Inertia component | Permission |
 |---|---|---|
 | `GET /dashboard/` | `Dashboard/Home` | authenticated user (any role) |
-| `GET /dashboard/doctor` | `Dashboard/Doctor` | authenticated user (any role) |
+| `GET /admin/doctor/` | `Dashboard/Doctor` | `admin` role |
 
-`/dashboard/doctor` is a browser mirror of `make doctor` — it shows the same module list, static checks, dev-server and environment info from the stats payload. The route itself only requires login; its sidebar link is admin-only (see [Menu](#menu)).
+`/admin/doctor/` is a browser mirror of `make doctor` — it shows the same module list, static checks, dev-server and environment info from the stats payload. It is served from the module's `admin_view_prefix` (`/admin/doctor`) rather than its `view_prefix`, because dashboard owns both a public-facing screen and an admin one and a module gets only one view router.
+
+The route is guarded by an admin dependency, and its menu entry carries the matching `roles=["admin"]` — both, deliberately. The guard alone would leave the entry visible to every signed-in account and 403 on click; the menu gate alone would leave the page reachable by URL.
 
 ### API
 
@@ -49,14 +51,14 @@ The result is cached process-wide for 30 seconds. If you mutate something that s
 
 ## Menu
 
-| Label | URL | Icon | Section | Order |
-|---|---|---|---|---|
-| `Dashboard` | `/dashboard/` | `home` | `SIDEBAR` | `10` |
-| `Doctor` | `/dashboard/doctor` | `stethoscope` | `ADMIN_SIDEBAR` | `90` |
+| Label | URL | Icon | Section | Group | Order | Roles |
+|---|---|---|---|---|---|---|
+| `Dashboard` | `/dashboard/` | `home` | `SIDEBAR` | — | `10` | — |
+| `Doctor` | `/admin/doctor/` | `stethoscope` | `ADMIN_SIDEBAR` | `System` | `220` | `admin` |
 
 ## Permissions
 
-_(none registered)_ — the page is gated by authentication only, via the `users` module's `AuthMiddleware`.
+_(none registered)_ — `/dashboard/` is gated by authentication only, via the `users` module's `AuthMiddleware`. `/admin/doctor/` is gated by the `admin` role rather than a registered permission.
 
 ## Inertia pages
 
