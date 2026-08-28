@@ -29,6 +29,13 @@ import { DEFAULT_SIDEBAR_THEME, type SidebarTheme } from './sidebar-theme';
 // render where a menu is absent instead of only when its contents change.
 const NO_ITEMS: MenuItem[] = [];
 
+// The sidebar is near-black in every theme, where Button's default
+// `ring-ring/50` is effectively invisible — these icon-only toggles are
+// reachable by keyboard, so they get a light ring that actually shows
+// (WCAG 2.4.7). Text links beside them fall back to the UA outline, which
+// already reads on this surface.
+const ICON_BUTTON_FOCUS = 'focus-visible:ring-white/70 focus-visible:border-white/70';
+
 function groupMenuItems(items: MenuItem[]): { group: string; items: MenuItem[] }[] {
   const groups: { group: string; items: MenuItem[] }[] = [];
   const indexByGroup = new Map<string, number>();
@@ -124,7 +131,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
             size="icon-sm"
             onClick={() => setSidebarOpen(true)}
             aria-label={t(keys.ui.sidebar.open)}
-            className="text-sidebar-icon hover:text-white hover:bg-white/10"
+            className={`text-sidebar-icon hover:text-white hover:bg-white/10 ${ICON_BUTTON_FOCUS}`}
           >
             <svg
               aria-hidden="true"
@@ -185,7 +192,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
               size="icon-sm"
               onClick={closeSidebar}
               aria-label={t(keys.ui.sidebar.close)}
-              className="lg:hidden text-sidebar-icon-muted hover:text-white hover:bg-white/10"
+              className={`lg:hidden text-sidebar-icon-muted hover:text-white hover:bg-white/10 ${ICON_BUTTON_FOCUS}`}
             >
               <svg
                 aria-hidden="true"

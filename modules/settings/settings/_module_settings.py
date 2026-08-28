@@ -158,7 +158,12 @@ def _field_view(
     cls = type(settings)
     info = cls.model_fields[name]
     raw_value = getattr(settings, name)
-    secret = is_secret_field(name)
+    value_type = value_type_for_field(cls, name)
+    # Credential material is always a string. Without this, a numeric field
+    # whose name merely contains a secret-ish word gets masked and becomes
+    # uneditable — `reset_password_token_lifetime_seconds` is an int, but it
+    # matches on "password" the same way the real secrets do.
+    secret = value_type == "string" and is_secret_field(name)
     extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
     default = _resolve_default(info)
     env_var = f"{prefix}{name.upper()}"
@@ -170,7 +175,7 @@ def _field_view(
         default=_mask(default) if secret else default,
         description=info.description or "",
         is_secret=secret,
-        type=value_type_for_field(cls, name),
+        type=value_type,
         requires_restart=bool(extra.get("requires_restart", False)),
         group=extra.get("group"),
         env_set=live_env_var is not None and live_env_var in os.environ,

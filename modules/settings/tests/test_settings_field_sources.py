@@ -120,3 +120,35 @@ class TestTestConnectionEndpoint:
         for check in body["checks"]:
             assert check["status"] in ("healthy", "degraded", "unhealthy")
             assert "detail" in check
+
+
+class TestSecretMaskingIsTypeAware:
+    """Only string fields can hold credential material.
+
+    The name-based pattern deliberately avoids the bare words "token" and
+    "key", but it cannot avoid "password" — and
+    ``reset_password_token_lifetime_seconds`` is an int that contains it.
+    Masking it made a plain duration uneditable in the admin UI, so the
+    declared type gates the match.
+    """
+
+    def _field(self, cls, name: str):
+        from settings._module_settings import _field_view
+
+        return _field_view(name, cls(), "SM_USERS_", frozenset())
+
+    def test_an_int_named_like_a_secret_is_not_masked(self):
+        from users.settings import UsersSettings
+
+        field = self._field(UsersSettings, "reset_password_token_lifetime_seconds")
+        assert field.is_secret is False
+        assert field.type == "int"
+        assert isinstance(field.value, int)
+
+    def test_a_real_string_secret_is_still_masked(self):
+        from settings._module_settings import SECRET_MASK
+        from users.settings import UsersSettings
+
+        field = self._field(UsersSettings, "reset_password_token_secret")
+        assert field.is_secret is True
+        assert field.value == SECRET_MASK
