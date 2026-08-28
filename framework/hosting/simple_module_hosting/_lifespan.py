@@ -50,9 +50,14 @@ async def hydrate_settings_from_db(app: FastAPI) -> None:
 async def _setup_complete(app: FastAPI) -> bool:
     """Whether the first-run wizard has finished gating this install.
 
-    ``True`` when no registry exists or nothing registered a step — an install
-    with no local-accounts provider is never gated, so a behind-head database
-    there is an ordinary boot failure, not a setup task.
+    ``True`` when no registry exists — only reachable for an app built outside
+    ``create_app``, which always seeds ``host.migrations``. Note what that
+    means for the caller: because the host contributes a migration step to
+    every install, a behind-head database no longer fails the boot anywhere.
+    It puts the app into setup mode instead, on the reasoning that running the
+    migrations is one of the things the wizard exists to do. Routes whose
+    exposure depends on *why* setup is open must therefore check their own
+    step rather than "setup mode" — see ``host.routes_setup``.
     """
     registry = getattr(app.state.sm, "setup_registry", None)
     if not registry:

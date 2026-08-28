@@ -38,10 +38,14 @@ async def _setup_app_db(application) -> None:
     """Create all tables and stamp alembic version so migration check passes."""
 
     from simple_module_db.base import all_module_bases
-    from simple_module_hosting.migrations import resolve_head_revision
+    from simple_module_hosting.migrations import resolve_head_revisions
     from sqlalchemy import text
 
-    head = resolve_head_revision()
+    # Plural: each module's first migration sets its own branch_labels, so a
+    # real upgraded database carries one alembic_version row per branch.
+    # Stamping only one leaves the others looking un-applied, which reads as a
+    # behind-head schema and puts every app built here behind the setup gate.
+    heads = resolve_head_revisions()
 
     async with application.state.sm.db.engine.begin() as conn:
 
@@ -51,7 +55,7 @@ async def _setup_app_db(application) -> None:
 
         await conn.run_sync(_create)
 
-        if head:
+        if heads:
             await conn.execute(
                 text(
                     "CREATE TABLE IF NOT EXISTS alembic_version "
@@ -59,10 +63,11 @@ async def _setup_app_db(application) -> None:
                 )
             )
             await conn.execute(text("DELETE FROM alembic_version"))
-            await conn.execute(
-                text("INSERT INTO alembic_version (version_num) VALUES (:v)"),
-                {"v": head},
-            )
+            for head in heads:
+                await conn.execute(
+                    text("INSERT INTO alembic_version (version_num) VALUES (:v)"),
+                    {"v": head},
+                )
 
 
 async def _seed_roles(application) -> None:

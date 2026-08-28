@@ -3,11 +3,28 @@
 from __future__ import annotations
 
 import logging
+import os
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+_ALEMBIC_INI_RELATIVE = "host/alembic.ini"
 
-def script_directory(alembic_ini_path: str = "host/alembic.ini"):
+
+def default_alembic_ini() -> str:
+    """Locate ``alembic.ini`` without depending on the process cwd.
+
+    ``SM_PROJECT_ROOT`` is set by every host entrypoint before the app is
+    built, so anchoring to it keeps the path correct for callers that were not
+    launched from the repository root — the setup wizard's migration endpoint
+    in particular, which runs inside a request rather than at boot. Falls back
+    to the cwd-relative path when the variable is unset.
+    """
+    root = os.environ.get("SM_PROJECT_ROOT")
+    return str(Path(root) / _ALEMBIC_INI_RELATIVE) if root else _ALEMBIC_INI_RELATIVE
+
+
+def script_directory(alembic_ini_path: str | None = None):
     """Build the ``ScriptDirectory`` for ``alembic_ini_path``.
 
     Shared by every caller that needs to walk or query alembic revisions
@@ -17,22 +34,40 @@ def script_directory(alembic_ini_path: str = "host/alembic.ini"):
     from alembic.config import Config as AlembicConfig
     from alembic.script import ScriptDirectory
 
-    return ScriptDirectory.from_config(AlembicConfig(alembic_ini_path))
+    return ScriptDirectory.from_config(AlembicConfig(alembic_ini_path or default_alembic_ini()))
 
 
-def resolve_head_revision(alembic_ini_path: str = "host/alembic.ini") -> str | None:
-    """Return the current head revision string, or ``None`` if alembic
-    isn't configured at ``alembic_ini_path`` or has no revisions."""
+def resolve_head_revisions(alembic_ini_path: str | None = None) -> tuple[str, ...]:
+    """Return every head revision, or ``()`` if Alembic isn't configured here.
+
+    Plural on purpose. Each module's first migration sets its own
+    ``branch_labels``, so this project's history legitimately has several heads
+    — which is why ``make migrate`` runs ``upgrade heads``. Alembic's singular
+    ``get_current_head()`` *raises* on a multi-head history, and the caller
+    below used to swallow that as "no migrations configured", reporting every
+    database as up to date no matter what state it was actually in.
+    """
     from alembic.util.exc import CommandError
 
     try:
-        return script_directory(alembic_ini_path).get_current_head()
+        return tuple(script_directory(alembic_ini_path).get_heads())
     except (CommandError, FileNotFoundError) as exc:
         logger.debug("Alembic not available: %s", exc)
-        return None
+        return ()
 
 
-async def migration_status(engine, alembic_ini_path: str = "host/alembic.ini") -> dict:
+def resolve_head_revision(alembic_ini_path: str | None = None) -> str | None:
+    """Return a single head revision, or ``None``.
+
+    Kept for callers that only need something to stamp into
+    ``alembic_version``. Prefer :func:`resolve_head_revisions` — on a
+    multi-head history this necessarily discards the other heads.
+    """
+    heads = resolve_head_revisions(alembic_ini_path)
+    return heads[0] if heads else None
+
+
+async def migration_status(engine, alembic_ini_path: str | None = None) -> dict:
     """Report database migration state without raising.
 
     Split from ``check_migrations`` so the setup wizard can *report* a
@@ -41,6 +76,7 @@ async def migration_status(engine, alembic_ini_path: str = "host/alembic.ini") -
     """
     from alembic.runtime.migration import MigrationContext
 
+    alembic_ini_path = alembic_ini_path or default_alembic_ini()
     _no_migrations = {
         "current_revision": None,
         "head_revision": None,
@@ -48,29 +84,35 @@ async def migration_status(engine, alembic_ini_path: str = "host/alembic.ini") -
         "pending_count": 0,
     }
 
-    head = resolve_head_revision(alembic_ini_path)
-    if head is None:
+    heads = resolve_head_revisions(alembic_ini_path)
+    if not heads:
         return _no_migrations
     script = script_directory(alembic_ini_path)
 
     async with engine.connect() as conn:
 
         def _get_current(sync_conn):
+            # Plural, to match the heads above: a database upgraded across a
+            # branching history carries one alembic_version row per branch,
+            # and the singular call returns only one of them.
             ctx = MigrationContext.configure(sync_conn)
-            return ctx.get_current_revision()
+            return tuple(ctx.get_current_heads())
 
         current = await conn.run_sync(_get_current)
 
-    pending = 0 if current == head else len(list(script.iterate_revisions(head, current)))
+    missing = set(heads) - set(current)
+    # Count the revisions still to apply on each branch that is behind, rather
+    # than the number of behind branches.
+    pending = sum(len(list(script.iterate_revisions(h, None))) for h in missing) if missing else 0
     return {
-        "current_revision": current,
-        "head_revision": head,
-        "is_current": current == head,
+        "current_revision": ", ".join(sorted(current)) if current else None,
+        "head_revision": ", ".join(sorted(heads)),
+        "is_current": not missing,
         "pending_count": pending,
     }
 
 
-async def check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") -> dict:
+async def check_migrations(engine, alembic_ini_path: str | None = None) -> dict:
     """Return migration state, raising if the database is behind head.
 
     The raising behaviour is what stops a deploy from serving traffic against

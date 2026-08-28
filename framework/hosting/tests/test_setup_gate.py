@@ -190,6 +190,64 @@ async def test_never_engages_with_no_registered_steps() -> None:
     assert (await _run(SetupMiddleware(_passthrough), scope))["status"] == 200
 
 
+async def test_an_incomplete_verdict_is_never_cached() -> None:
+    """The gate must release on the very next request after setup completes.
+
+    The middleware caches its verdict to avoid a session checkout and a
+    COUNT(*) on every request of a configured install's life. Caching the
+    *negative* would strand the operator at the moment it matters: the wizard
+    creates the administrator and sends the browser to `/`, a stale negative
+    redirects that to `/setup`, and `/setup` has just started returning 404.
+    """
+    from simple_module_hosting.setup_gate import SetupMiddleware
+
+    complete = False
+
+    async def is_complete(_app) -> bool:
+        return complete
+
+    registry = SetupRegistry()
+    registry.add(SetupStep(id="users.administrator", title="admin", is_complete=is_complete))
+
+    middleware = SetupMiddleware(_passthrough)
+    scope = _scope("/dashboard")
+    scope["app"] = _app_with(registry)
+
+    assert (await _run(middleware, scope))["status"] == 302
+
+    complete = True  # what creating the administrator does
+    scope2 = _scope("/dashboard")
+    scope2["app"] = _app_with(registry)
+
+    assert (await _run(middleware, scope2))["status"] == 200, (
+        "a cached 'incomplete' verdict stranded the operator on a dead page"
+    )
+
+
+async def test_a_complete_verdict_is_cached() -> None:
+    """The half that is worth caching: a configured install should not pay for
+    the check on every request forever."""
+    from simple_module_hosting.setup_gate import SetupMiddleware
+
+    calls = 0
+
+    async def is_complete(_app) -> bool:
+        nonlocal calls
+        calls += 1
+        return True
+
+    registry = SetupRegistry()
+    registry.add(SetupStep(id="users.administrator", title="admin", is_complete=is_complete))
+
+    middleware = SetupMiddleware(_passthrough)
+    for _ in range(3):
+        scope = _scope("/dashboard")
+        scope["app"] = _app_with(registry)
+        assert (await _run(middleware, scope))["status"] == 200
+
+    assert calls == 1, f"expected the positive verdict to be reused, ran the steps {calls}x"
+
+
 async def test_inertia_request_gets_409_location() -> None:
     """Inertia's client follows a 302 with an XHR and chokes on the wizard's
     HTML; 409 + X-Inertia-Location tells it to do a full page visit."""

@@ -118,17 +118,24 @@ def _ensure_models_imported() -> list:
 
 
 @lru_cache(maxsize=1)
-def _alembic_head() -> str | None:
-    """Cached head revision — cannot change within a pytest run."""
-    from simple_module_hosting.migrations import resolve_head_revision
+def _alembic_heads() -> tuple[str, ...]:
+    """Cached head revisions — cannot change within a pytest run.
 
-    return resolve_head_revision()
+    Plural: each module's first migration sets its own ``branch_labels``, so
+    the history has one head per module and a real upgraded database carries
+    an ``alembic_version`` row for each. Stamping only one leaves the rest
+    looking un-applied, which now reads as a behind-head schema and puts every
+    test app behind the setup gate.
+    """
+    from simple_module_hosting.migrations import resolve_head_revisions
+
+    return resolve_head_revisions()
 
 
 async def _create_all_tables(engine) -> None:
     """Create all module tables in a single connection.
 
-    Also stamps the alembic_version table at head so the app's startup
+    Also stamps the alembic_version table at heads so the app's startup
     migration check (``check_migrations``) treats the test DB as current.
     Without the stamp the check would raise because ``create_all`` doesn't
     touch alembic_version.
@@ -136,7 +143,7 @@ async def _create_all_tables(engine) -> None:
     from sqlalchemy import text
 
     bases = _ensure_models_imported()
-    head = _alembic_head()
+    heads = _alembic_heads()
 
     async with engine.begin() as conn:
 
@@ -146,7 +153,7 @@ async def _create_all_tables(engine) -> None:
 
         await conn.run_sync(_sync_create_all)
 
-        if head:
+        if heads:
             await conn.execute(
                 text(
                     "CREATE TABLE IF NOT EXISTS alembic_version "
@@ -154,10 +161,11 @@ async def _create_all_tables(engine) -> None:
                 )
             )
             await conn.execute(text("DELETE FROM alembic_version"))
-            await conn.execute(
-                text("INSERT INTO alembic_version (version_num) VALUES (:v)"),
-                {"v": head},
-            )
+            for head in heads:
+                await conn.execute(
+                    text("INSERT INTO alembic_version (version_num) VALUES (:v)"),
+                    {"v": head},
+                )
 
 
 @pytest.fixture

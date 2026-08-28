@@ -29,6 +29,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from pydantic_settings import BaseSettings
+from simple_module_core.dotenv import parse_dotenv
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
@@ -148,6 +149,29 @@ def _env_var_for(field: str) -> str:
     return f"{_ENV_PREFIX}{field.upper()}"
 
 
+def _claimed_env_names(environ: dict[str, str] | None) -> set[str]:
+    """Every ``SM_*`` name the environment supplies, ``.env`` file included.
+
+    ``os.environ`` alone is not the whole environment as this app defines it.
+    ``BootstrapSettings`` deliberately reads the project ``.env`` through
+    ``_env_file`` without exporting it, and every out-of-process tool resolves
+    the same file via ``find_env_file``. A caller that has not run
+    ``load_dotenv_into_environ`` therefore has ``.env``-sourced settings that
+    are invisible to ``os.environ`` — and since DB overrides are passed as
+    init arguments, which pydantic-settings ranks above dotenv, ignoring the
+    file would silently invert the documented ``env → DB`` precedence for
+    exactly the deployments ``.env.example`` tells to use it.
+    """
+    if environ is not None:
+        return set(environ)
+    names = set(os.environ)
+    try:
+        names.update(parse_dotenv())
+    except OSError as exc:  # unreadable .env must not fail the boot
+        logger.debug("Could not read .env while ranking host settings: %s", exc)
+    return names
+
+
 def apply_host_overrides(
     overrides: dict[str, tuple[str, str]],
     *,
@@ -161,7 +185,7 @@ def apply_host_overrides(
     the environment also sets would invert the documented precedence. Dropping
     those fields here is what keeps env authoritative.
     """
-    env = os.environ if environ is None else environ
+    env = _claimed_env_names(environ)
     values: dict[str, Any] = {}
     for field, (raw, value_type) in overrides.items():
         if field not in model.model_fields:

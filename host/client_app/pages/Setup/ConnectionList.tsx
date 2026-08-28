@@ -21,13 +21,21 @@ export function ConnectionList({ initial }: { initial: CheckResult[] }) {
   const { t } = useT();
   const [checks, setChecks] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function retest() {
     setBusy(true);
+    setError(null);
     try {
       const resp = await fetch('/setup/test-connections', { method: 'POST' });
+      // A 404 here means setup completed in another tab, and the body is not
+      // the JSON this expects. Without the check, `resp.json()` throws into an
+      // unhandled rejection and the button just stops responding.
+      if (!resp.ok) throw new Error(resp.statusText || String(resp.status));
       const body = await resp.json();
       setChecks(body.checks ?? []);
+    } catch (err) {
+      setError((err as Error).message);
     } finally {
       setBusy(false);
     }
@@ -53,6 +61,8 @@ export function ConnectionList({ initial }: { initial: CheckResult[] }) {
           );
         })}
       </ul>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       <Button type="button" variant="outline" size="sm" disabled={busy} onClick={retest}>
         <PlugZap className="size-4" />

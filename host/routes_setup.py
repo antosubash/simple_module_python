@@ -11,16 +11,25 @@ before an administrator exists, and closes permanently the moment one does.
 middleware, because the middleware only *redirects* other paths to here — it
 deliberately exempts ``/setup`` itself, so these handlers are the only thing
 standing between a configured install and an open admin-creation form.
+
+``/setup/administrator`` goes further and requires *its own* step to be
+incomplete. "Some required step is incomplete" is not a safe gate for it: the
+host always registers ``host.migrations``, so a live install whose schema
+falls behind head — deploying code before the migration job runs — re-enters
+setup mode with its administrators intact, and a route gated on the weaker
+condition would let an anonymous request mint a fresh superuser there.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, HTTPException, Request
 from inertia import InertiaResponse
-from pydantic import BaseModel
+from pydantic import EmailStr, Field
 from simple_module_hosting.inertia_deps import InertiaDep
+from sqlmodel import SQLModel
 
 logger = logging.getLogger(__name__)
 
@@ -29,16 +38,47 @@ router = APIRouter(prefix="/setup", tags=["setup"])
 _CHECK_DATABASE = "host.database"
 _CHECK_REDIS = "background_tasks.redis"
 
+_STEP_ADMINISTRATOR = "users.administrator"
+
+# Mirrors ``UserManager.validate_password``. ``create_admin`` writes the hash
+# directly and never goes through the manager, so without this the one
+# unauthenticated account-creation route in the app is also the only one with
+# no password policy at all.
+_MIN_PASSWORD_LENGTH = 8
+
+
+async def _pending_step_ids(request: Request) -> set[str]:
+    """Ids of the required setup steps that are still incomplete."""
+    registry = getattr(request.app.state.sm, "setup_registry", None)
+    if not registry:
+        return set()
+    return {s.id for s in await registry.incomplete(request.app)}
+
 
 async def _require_setup_mode(request: Request) -> None:
     """404 unless the install still has incomplete required setup steps."""
-    registry = getattr(request.app.state.sm, "setup_registry", None)
-    if not registry or await registry.is_setup_complete(request.app):
+    if not await _pending_step_ids(request):
         raise HTTPException(status_code=404)
 
 
-async def _run_check(request: Request, name: str) -> dict:
-    """Run one registered health check by name and shape it for the UI."""
+async def _require_pending_step(request: Request, step_id: str) -> None:
+    """404 unless *step_id* specifically is still incomplete.
+
+    The narrow gate, for routes whose effect only makes sense while that one
+    step is outstanding — see the module docstring on why "setup mode" alone
+    is too broad for admin creation.
+    """
+    if step_id not in await _pending_step_ids(request):
+        raise HTTPException(status_code=404)
+
+
+async def _run_check(request: Request, name: str) -> dict | None:
+    """Run one registered health check by name and shape it for the UI.
+
+    ``None`` when nothing registered that name — an install without the
+    background_tasks module has no Redis to reach, and listing it as a failed
+    connection would send an operator hunting for a service they don't run.
+    """
     registry = request.app.state.sm.health_registry
     for check in registry.all_checks:
         if check.name != name:
@@ -51,14 +91,22 @@ async def _run_check(request: Request, name: str) -> dict:
             # failed" need different fixes.
             "detail": result.detail or "",
         }
-    return {"name": name, "status": "unknown", "detail": "No such check registered"}
+    return None
 
 
 async def _connection_status(request: Request) -> list[dict]:
-    return [
-        await _run_check(request, _CHECK_DATABASE),
-        await _run_check(request, _CHECK_REDIS),
-    ]
+    """Every dependency this install actually has, probed concurrently.
+
+    Concurrently because each probe carries its own connect timeout: run in
+    series, a wizard on a host where both the database and Redis are
+    unreachable waits for the sum of them before rendering anything, which is
+    exactly the case the wizard exists to diagnose.
+    """
+    results = await asyncio.gather(
+        _run_check(request, _CHECK_DATABASE),
+        _run_check(request, _CHECK_REDIS),
+    )
+    return [r for r in results if r is not None]
 
 
 def _steps_payload(registry, pending_ids: set[str]) -> list[dict]:
@@ -104,16 +152,16 @@ async def test_connections(request: Request) -> dict:
     return {"checks": await _connection_status(request)}
 
 
-class AdministratorIn(BaseModel):
-    email: str
-    password: str
+class AdministratorIn(SQLModel):
+    email: EmailStr
+    password: str = Field(min_length=_MIN_PASSWORD_LENGTH)
     full_name: str | None = None
 
 
 @router.post("/administrator")
 async def create_administrator(request: Request, payload: AdministratorIn) -> dict:
     """Create the first administrator, which is what releases the gate."""
-    await _require_setup_mode(request)
+    await _require_pending_step(request, _STEP_ADMINISTRATOR)
 
     # Imported here, not at module scope: the host must not hard-depend on the
     # users module being installed. An install with an external identity
@@ -154,13 +202,19 @@ async def apply_migrations(request: Request) -> dict:
 
     from alembic import command
     from alembic.config import Config as AlembicConfig
+    from simple_module_hosting.migrations import default_alembic_ini
+
+    # Resolved through the hosting helper rather than hardcoded: this runs
+    # inside a request, and a literal "host/alembic.ini" is only correct while
+    # the process cwd happens to be the project root.
+    ini_path = default_alembic_ini()
 
     def _upgrade() -> None:
         # "heads", not "head": each module's first migration sets its own
         # branch_labels, so the history legitimately has several heads and
         # "head" raises CommandError("Multiple head revisions are present").
         # This is what `make migrate` runs.
-        command.upgrade(AlembicConfig("host/alembic.ini"), "heads")
+        command.upgrade(AlembicConfig(ini_path), "heads")
 
     try:
         await asyncio.to_thread(_upgrade)
@@ -175,8 +229,16 @@ async def apply_migrations(request: Request) -> dict:
     return {"migration": request.app.state.migration}
 
 
-class SiteBasicsIn(BaseModel):
-    site_name: str | None = None
+class SiteBasicsIn(SQLModel):
+    """The host settings the wizard may set.
+
+    Only fields ``HostSettings`` actually declares belong here. ``site_name``
+    used to be accepted, filtered back out just before the write, and then
+    echoed in ``saved`` — so the wizard reported persisting a value that never
+    reached the database. Branding owns the site name; it is not a host
+    setting.
+    """
+
     i18n_default_locale: str | None = None
 
 
@@ -200,9 +262,7 @@ async def save_site_basics(request: Request, payload: SiteBasicsIn) -> dict:
 
     async with request.app.state.sm.db.session_factory() as session:
         store = store_cls(service_cls(session))
-        saved = {k: v for k, v in changes.items() if k != "site_name"}
-        if saved:
-            await apply_changes_and_reload_safe(request, apply_changes, store, saved)
+        await apply_changes_and_reload_safe(request, apply_changes, store, changes)
         await session.commit()
 
     return {"saved": changes}
