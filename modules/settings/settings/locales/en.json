@@ -6,7 +6,8 @@
     "empty_description": "Get started by creating your first setting.",
     "edit_link": "Edit",
     "delete_link": "Delete",
-    "delete_confirm": "Delete setting \"{key}\"? This cannot be undone."
+    "delete_confirm": "Delete setting \"{key}\"? This cannot be undone.",
+    "description": "Workspace, account, mailer, and module configuration."
   },
   "table": {
     "scope": "Scope",
@@ -40,11 +41,15 @@
     "value_placeholder": "Enter a value",
     "description_label": "Description",
     "description_placeholder": "Optional description",
-    "key_unknown_warning": "No installed module declares this key. It will be stored, but nothing will read it unless a module looks it up."
+    "key_unknown_warning": "No installed module declares this key. It will be stored, but nothing will read it unless a module looks it up.",
+    "cancel_button": "Cancel",
+    "bool_true": "true",
+    "bool_false": "false"
   },
   "create": {
     "title": "New Setting",
-    "submit_button": "Create"
+    "submit_button": "Create",
+    "head_title": "Create Setting"
   },
   "edit": {
     "title": "Edit Setting",
@@ -77,6 +82,24 @@
     "source_db_shadows_env": "A stored setting overrides {env_var}; the environment value is ignored",
     "source_env": "From environment",
     "source_env_hint": "{env_var} is set in this deployment",
-    "source_default": "Default"
+    "source_default": "Default",
+    "head_title": "Modules",
+    "managed_title": "Managed on its own page",
+    "managed_description": "{module} ships a purpose-built settings page; edit it there so validation and previews apply.",
+    "managed_open": "Open {module} settings"
+  },
+  "modules_form": {
+    "save": "Save",
+    "saving": "Saving…",
+    "default_group": "General",
+    "requires_restart": "Requires restart",
+    "reset_to_default": "Reset to default",
+    "set_new_value": "Set new value"
+  },
+  "nav": {
+    "settings": "Settings"
+  },
+  "audit": {
+    "setting": "Setting"
   }
 }

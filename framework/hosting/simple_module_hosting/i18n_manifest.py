@@ -62,6 +62,24 @@ def build_i18n_registry(
     return registry, extra_sources
 
 
+def emit_frontend_types_for_modules(
+    settings: Settings,
+    installed_modules: list[ModuleBase],
+    project_root: Path,
+) -> None:
+    """Emit the TS key union covering every *installed* module.
+
+    Deliberately not the booted module list. ``make lint`` runs
+    ``tsc -p modules/<name>`` for each module in the workspace, including the
+    auth provider this host did not activate; those pages still call
+    ``t(keys.<namespace>…)``, so their keys must be in the union even though
+    the module is inert here. The runtime registry stays filtered — an
+    inactive module's strings are typed, never served.
+    """
+    registry, _ = build_i18n_registry(settings, installed_modules, project_root)
+    emit_frontend_types(registry, project_root)
+
+
 def emit_frontend_types(registry: I18nRegistry, project_root: Path) -> None:
     """Write the TS augmentation files into @simple-module-py/i18n if present.
 

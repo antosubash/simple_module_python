@@ -1,3 +1,4 @@
+import { keys, useT } from '@simple-module-py/i18n';
 import type { ReactNode } from 'react';
 
 interface Props {
@@ -30,6 +31,7 @@ export function ErrorScreen({
   children,
   accent = 'primary',
 }: Props) {
+  const { t } = useT();
   const blob = ACCENT_COLOR[accent];
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4">
@@ -48,7 +50,7 @@ export function ErrorScreen({
             style={{ background: blob }}
             aria-hidden="true"
           />
-          HTTP {hero}
+          {t(keys.ui.errors.http_badge, { code: hero })}
         </span>
         <p
           className="bg-clip-text text-transparent font-bold leading-none tracking-tight font-[var(--font-display)]"

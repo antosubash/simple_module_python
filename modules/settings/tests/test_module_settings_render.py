@@ -61,7 +61,7 @@ class TestModulesScreenRenders:
         authenticated_client: httpx.AsyncClient,
     ) -> None:
         """The reported bug: reaching the page by clicking the sidebar link."""
-        resp = await authenticated_client.get("/settings/", headers=_INERTIA)
+        resp = await authenticated_client.get("/admin/settings/", headers=_INERTIA)
 
         assert resp.status_code != _SERVER_ERROR
         assert resp.status_code == _OK
@@ -71,7 +71,7 @@ class TestModulesScreenRenders:
         app_with_path_setting: FastAPI,
         authenticated_client: httpx.AsyncClient,
     ) -> None:
-        resp = await authenticated_client.get("/settings/", headers=_INERTIA)
+        resp = await authenticated_client.get("/admin/settings/", headers=_INERTIA)
         modules = resp.json()["props"]["modules"]
 
         demo = next(m for m in modules if m["package"] == "pathdemo")
@@ -84,7 +84,59 @@ class TestModulesScreenRenders:
         authenticated_client: httpx.AsyncClient,
     ) -> None:
         """The path that always worked must keep working."""
-        resp = await authenticated_client.get("/settings/")
+        resp = await authenticated_client.get("/admin/settings/")
 
         assert resp.status_code == _OK
         assert resp.headers["content-type"].startswith("text/html")
+
+    async def test_dedicated_page_modules_link_instead_of_double_editing(
+        self,
+        app_with_path_setting: FastAPI,
+        authenticated_client: httpx.AsyncClient,
+    ) -> None:
+        """Branding declares its own page; generic modules don't.
+
+        The editor uses ``manage_url`` to link there instead of rendering a
+        second editor for the same fields.
+        """
+        resp = await authenticated_client.get("/admin/settings/", headers=_INERTIA)
+        modules = resp.json()["props"]["modules"]
+
+        branding = next(m for m in modules if m["package"] == "branding")
+        assert branding["manage_url"] == "/admin/branding/"
+
+        demo = next(m for m in modules if m["package"] == "pathdemo")
+        assert demo["manage_url"] is None
+
+
+class TestManageUrlModulesRejectGenericWrites:
+    """The generic PUT/DELETE endpoints must not double-edit a module that
+    declares its own settings page (``manage_url``) — the UI already routes
+    around it (see ``test_dedicated_page_modules_link_instead_of_double_editing``
+    above), and the JSON API must enforce the same invariant server-side."""
+
+    async def test_put_is_rejected_for_a_manage_url_module(
+        self,
+        app_with_path_setting: FastAPI,
+        authenticated_client: httpx.AsyncClient,
+    ) -> None:
+        resp = await authenticated_client.put(
+            "/api/settings/modules/branding", json={"app_name": "Hijacked"}
+        )
+        assert resp.status_code == 409
+
+    async def test_delete_is_rejected_for_a_manage_url_module(
+        self,
+        app_with_path_setting: FastAPI,
+        authenticated_client: httpx.AsyncClient,
+    ) -> None:
+        resp = await authenticated_client.delete("/api/settings/modules/branding/app_name")
+        assert resp.status_code == 409
+
+    async def test_put_still_works_for_a_module_without_manage_url(
+        self,
+        app_with_path_setting: FastAPI,
+        authenticated_client: httpx.AsyncClient,
+    ) -> None:
+        resp = await authenticated_client.put("/api/settings/modules/pathdemo", json={"workers": 5})
+        assert resp.status_code == 200

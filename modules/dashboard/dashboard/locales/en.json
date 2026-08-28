@@ -5,7 +5,9 @@
     "stats": {
       "total_users": "Total Users",
       "active_users": "Active Users (7d)",
-      "modules": "Modules"
+      "active_users_delta": "↑ 7d",
+      "modules": "Modules",
+      "health": "Health"
     },
     "system_info_title": "System",
     "system_info": {
@@ -13,6 +15,7 @@
       "python_version": "Python Version",
       "health_checks": "Health Checks"
     },
+    "system_meta": "Python {version} · {count} modules",
     "welcome_card_title": "Welcome",
     "welcome_message": "Welcome to SimpleModule",
     "description_body": "This is a modular monolith built with FastAPI, Inertia.js, and React. Each module provides its own pages, API endpoints, and database schema.",
@@ -20,6 +23,44 @@
       "healthy": "Healthy",
       "degraded": "Degraded",
       "unhealthy": "Unhealthy"
-    }
+    },
+    "health_ok": "OK",
+    "health_alert": "{count} alert",
+    "health_all_good": "all good",
+    "health_see_doctor": "see Doctor"
+  },
+  "doctor": {
+    "title": "Doctor",
+    "description": "Live module diagnostics, migration state and environment. Mirrors `make doctor`.",
+    "rerun": "Re-run",
+    "stat_modules": "Modules",
+    "stat_health": "Health",
+    "ok": "OK",
+    "review": "review",
+    "alert": "{count} alert",
+    "recent_migrations": "Recent migrations",
+    "applied": "applied",
+    "installed_modules": "Installed modules",
+    "loaded": "loaded",
+    "active": "active",
+    "run_command": "Run a command",
+    "environment": "Environment",
+    "stat_errors": "Errors",
+    "stat_warnings": "Warnings",
+    "diagnostics": "Diagnostics",
+    "all_clear_title": "All checks pass",
+    "all_clear_hint": "No findings from the module, i18n and migration checks.",
+    "at_head": "DB at head",
+    "behind": "behind",
+    "suggestion": "Suggestion",
+    "env_mode": "Mode",
+    "env_database": "Database",
+    "env_python": "Python",
+    "env_locales": "Locales",
+    "env_revision": "Revision"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "doctor": "Doctor"
   }
 }

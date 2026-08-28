@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import {
   Tooltip,
@@ -7,7 +8,7 @@ import {
   TooltipTrigger,
 } from '@simple-module-py/ui/components/ui/tooltip';
 import type React from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AppTopbar, activeSection, findSection } from '../components/AppTopbar';
 import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
@@ -18,13 +19,22 @@ import { NavIcon } from '../components/NavIcon';
 import { PageHeadingProvider, usePageSection } from '../components/page-heading';
 import { darkSurfaceLogo } from '../lib/brand';
 import type { MenuItem, SharedProps } from '../types';
+import { AdminSectionLink } from './AdminSectionLink';
 import { SidebarUserMenu } from './SidebarUserMenu';
+import { DEFAULT_SIDEBAR_THEME, type SidebarTheme } from './sidebar-theme';
 
 // A stable reference for "no items" — `menus?.[key] ?? []` would otherwise
 // mint a fresh empty array every render, and that array flows into
 // CommandPalette's `useMemo([navItems, accountItems])`, defeating it on every
 // render where a menu is absent instead of only when its contents change.
 const NO_ITEMS: MenuItem[] = [];
+
+// The sidebar is near-black in every theme, where Button's default
+// `ring-ring/50` is effectively invisible — these icon-only toggles are
+// reachable by keyboard, so they get a light ring that actually shows
+// (WCAG 2.4.7). Text links beside them fall back to the UA outline, which
+// already reads on this surface.
+const ICON_BUTTON_FOCUS = 'focus-visible:ring-white/70 focus-visible:border-white/70';
 
 function groupMenuItems(items: MenuItem[]): { group: string; items: MenuItem[] }[] {
   const groups: { group: string; items: MenuItem[] }[] = [];
@@ -40,17 +50,6 @@ function groupMenuItems(items: MenuItem[]): { group: string; items: MenuItem[] }
     groups[idx].items.push(item);
   }
   return groups;
-}
-
-interface SidebarTheme {
-  sidebarBg: string;
-  accentColor: string;
-  avatarBg: string;
-  hoverBg: string;
-  activeClass: string;
-  inactiveClass: string;
-  mutedTextClass: string;
-  mobileTitleLabel: string;
 }
 
 interface SidebarLayoutProps {
@@ -75,6 +74,7 @@ export function SidebarLayout(props: SidebarLayoutProps) {
 }
 
 function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: SidebarLayoutProps) {
+  const { t } = useT();
   const page = usePage<{ props: SharedProps }>();
   const { auth, menus, branding } = page.props as unknown as SharedProps;
   const currentUrl = page.url;
@@ -88,6 +88,25 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
   const closeSidebar = () => setSidebarOpen(false);
 
   const menuItems = menus?.[menuKey] ?? NO_ITEMS;
+  // ⌘K reaches everything the viewer can open, not just the shell they are
+  // standing in. Both sidebars are already filtered by roles and permissions,
+  // so this widens reach without offering anything they cannot use — whereas
+  // indexing only `menuKey` made every admin screen unreachable from the app
+  // shell the moment they moved to their own sidebar.
+  // Keyed by url so a module that somehow contributes the same destination to
+  // both sections is listed once. MenuRegistry buckets each item into exactly
+  // one section, so this is a cheap invariant guard rather than a live case.
+  const paletteItems = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          [...(menus?.sidebar ?? NO_ITEMS), ...(menus?.adminSidebar ?? NO_ITEMS)].map(
+            (item) => [item.url, item] as const,
+          ),
+        ).values(),
+      ),
+    [menus?.sidebar, menus?.adminSidebar],
+  );
   const declaredSection = usePageSection(currentUrl);
   // Same "which entry does this page belong to" resolution AppTopbar uses for
   // the breadcrumb, so the sidebar highlight and the breadcrumb never disagree.
@@ -111,8 +130,8 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
             variant="ghost"
             size="icon-sm"
             onClick={() => setSidebarOpen(true)}
-            aria-label="Open sidebar"
-            className="text-sidebar-icon hover:text-white hover:bg-white/10"
+            aria-label={t(keys.ui.sidebar.open)}
+            className={`text-sidebar-icon hover:text-white hover:bg-white/10 ${ICON_BUTTON_FOCUS}`}
           >
             <svg
               aria-hidden="true"
@@ -148,7 +167,14 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
         {sidebarOpen && (
           <button
             type="button"
-            aria-label="Close sidebar"
+            // Out of the tab order deliberately: this backdrop is the
+            // click-outside affordance, and as a full-screen control it can
+            // show no meaningful focus ring. Keyboard users close the sidebar
+            // with the X button beside the logo, which is focusable and does
+            // carry a visible ring — so this is one less invisible tab stop,
+            // not a lost route out.
+            tabIndex={-1}
+            aria-label={t(keys.ui.sidebar.close)}
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden cursor-default"
             onClick={closeSidebar}
           />
@@ -172,8 +198,8 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
               variant="ghost"
               size="icon-sm"
               onClick={closeSidebar}
-              aria-label="Close sidebar"
-              className="lg:hidden text-sidebar-icon-muted hover:text-white hover:bg-white/10"
+              aria-label={t(keys.ui.sidebar.close)}
+              className={`lg:hidden text-sidebar-icon-muted hover:text-white hover:bg-white/10 ${ICON_BUTTON_FOCUS}`}
             >
               <svg
                 aria-hidden="true"
@@ -229,6 +255,13 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
                 })}
               </div>
             ))}
+            {menuKey === 'sidebar' && (
+              <AdminSectionLink
+                adminItems={menus?.adminSidebar ?? NO_ITEMS}
+                className={theme.inactiveClass}
+                onNavigate={closeSidebar}
+              />
+            )}
             {footerNavSlot}
           </nav>
 
@@ -248,7 +281,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
         {/* Main content */}
         <main className="flex min-h-screen flex-col lg:ml-64">
           <AppTopbar
-            navItems={menuItems}
+            navItems={paletteItems}
             accountItems={menus?.userDropdown ?? NO_ITEMS}
             currentUrl={currentUrl}
             activeMenuItem={active}
@@ -260,3 +293,6 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
     </TooltipProvider>
   );
 }
+
+export type { SidebarTheme };
+export { DEFAULT_SIDEBAR_THEME };

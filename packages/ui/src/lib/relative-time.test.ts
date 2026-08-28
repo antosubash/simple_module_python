@@ -1,30 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { ageOf, isStale, relativeAgeLabel, STALE_AFTER_MS } from './relative-time';
+import { ageOf, isStale, RELATIVE_AGE_KEYS, relativeAge, STALE_AFTER_MS } from './relative-time';
 
-describe('relativeAgeLabel', () => {
+// The wording lives in the ui catalog, so the unit under test here is which
+// bucket an age falls into and what count it reports — not the English.
+describe('relativeAge', () => {
   it('calls a very recent reading "just now"', () => {
-    expect(relativeAgeLabel(0)).toBe('just now');
-    expect(relativeAgeLabel(9_999)).toBe('just now');
+    expect(relativeAge(0)).toEqual({ key: RELATIVE_AGE_KEYS.justNow });
+    expect(relativeAge(9_999)).toEqual({ key: RELATIVE_AGE_KEYS.justNow });
   });
 
   it('counts seconds up to a minute', () => {
-    expect(relativeAgeLabel(10_000)).toBe('10s ago');
-    expect(relativeAgeLabel(59_000)).toBe('59s ago');
+    expect(relativeAge(10_000)).toEqual({ key: RELATIVE_AGE_KEYS.seconds, count: 10 });
+    expect(relativeAge(59_000)).toEqual({ key: RELATIVE_AGE_KEYS.seconds, count: 59 });
   });
 
   it('switches to minutes, then hours', () => {
-    expect(relativeAgeLabel(60_000)).toBe('1m ago');
-    expect(relativeAgeLabel(59 * 60_000)).toBe('59m ago');
-    expect(relativeAgeLabel(60 * 60_000)).toBe('1h ago');
-    expect(relativeAgeLabel(5 * 60 * 60_000)).toBe('5h ago');
+    expect(relativeAge(60_000)).toEqual({ key: RELATIVE_AGE_KEYS.minutes, count: 1 });
+    expect(relativeAge(59 * 60_000)).toEqual({ key: RELATIVE_AGE_KEYS.minutes, count: 59 });
+    expect(relativeAge(60 * 60_000)).toEqual({ key: RELATIVE_AGE_KEYS.hours, count: 1 });
+    expect(relativeAge(5 * 60 * 60_000)).toEqual({ key: RELATIVE_AGE_KEYS.hours, count: 5 });
   });
 
   it('never renders a negative age', () => {
-    expect(relativeAgeLabel(-5_000)).toBe('just now');
+    expect(relativeAge(-5_000)).toEqual({ key: RELATIVE_AGE_KEYS.justNow });
   });
 
   it('degrades to "unknown" rather than NaN', () => {
-    expect(relativeAgeLabel(Number.NaN)).toBe('unknown');
+    expect(relativeAge(Number.NaN)).toEqual({ key: RELATIVE_AGE_KEYS.unknown });
   });
 });
 

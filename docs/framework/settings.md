@@ -6,7 +6,7 @@ There are **three** separate settings surfaces in a running app. They serve diff
 |---|---|---|---|
 | **Framework env** (`Settings`) | `app.state.sm.settings` | No (read once at boot) | DB URL, secret key, log level, anything needed before the DB is open. |
 | **Module env** (`<Module>Env`) | `app.state.<module>.settings` | No | Module bootstrap knobs that must be resolved before DB-backed settings load. |
-| **DB-backed settings** | `settings_setting` table, edited via `/settings/modules` | Yes | Everything else: SMTP creds, storage backends, feature toggles that operators tune. |
+| **DB-backed settings** | `settings_setting` table, edited via `/admin/settings/` | Yes | Everything else: SMTP creds, storage backends, feature toggles that operators tune. |
 
 ## Framework settings
 
@@ -123,7 +123,7 @@ async def users_config(state: UsersStateDep):
 
 ## DB-backed settings
 
-After bootstrap, most configuration lives in the `settings_setting` table and is edited via the admin UI at `/settings/modules`. The CRUD layer is `SettingService` (in `settings.service`); typed reads (with USER > TENANT > SYSTEM resolution and registered defaults) go through a `SettingsAccessor` that wraps it:
+After bootstrap, most configuration lives in the `settings_setting` table and is edited via the admin UI at `/admin/settings/`. The CRUD layer is `SettingService` (in `settings.service`); typed reads (with USER > TENANT > SYSTEM resolution and registered defaults) go through a `SettingsAccessor` that wraps it:
 
 ```python
 from settings.service import SettingService

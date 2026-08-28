@@ -29,8 +29,8 @@ pytestmark = [pytest.mark.perf, pytest.mark.e2e]
 # enforces that no menu URL redirects.
 ROUTES = (
     ("dashboard", "/dashboard/"),
-    ("users_admin", "/users/admin"),
-    ("audit_log", "/audit_log/"),
+    ("users_admin", "/admin/users/"),
+    ("audit_log", "/admin/audit-log/"),
 )
 
 
@@ -111,7 +111,7 @@ def test_shared_props_payload_share(logged_in_page: Page, perf_build: str) -> No
 
     page.on("response", _on_response)
     try:
-        measure_navigation(page, lambda: _click_sidebar(page, "/audit_log/"), "audit_log")
+        measure_navigation(page, lambda: _click_sidebar(page, "/admin/audit-log/"), "audit_log")
     finally:
         page.remove_listener("response", _on_response)
 

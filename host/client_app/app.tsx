@@ -1,5 +1,6 @@
 import { createInertiaApp, router } from '@inertiajs/react';
 import { ErrorBoundary } from '@simple-module-py/ui/components/ErrorBoundary';
+import { OfflineBanner } from '@simple-module-py/ui/components/OfflineBanner';
 import { formatTitle, setTitleAppName } from '@simple-module-py/ui/lib/app-title';
 import { startSpaLinkInterception } from '@simple-module-py/ui/lib/spa-links';
 import { useEffect, useRef } from 'react';
@@ -43,6 +44,10 @@ createInertiaApp({
 
       return (
         <ErrorBoundary ref={boundaryRef}>
+          {/* Outside the page, so connectivity is reported on the error and
+              auth screens too — losing the network on the login page is when
+              an unexplained failure is most confusing. */}
+          <OfflineBanner />
           <App {...props} />
         </ErrorBoundary>
       );

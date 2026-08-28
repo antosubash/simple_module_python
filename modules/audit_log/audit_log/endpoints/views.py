@@ -8,6 +8,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Query, Request
 from inertia import InertiaResponse
 from simple_module_db.deps import get_db
+from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,6 +44,7 @@ async def browse(
     request: Request,
     inertia: InertiaDep,
     service: AuditLogServiceDep,
+    translator: TranslatorDep,
     db: AsyncSession = Depends(get_db),
     entity_type: str | None = Query(default=None),
     entity_id: str | None = Query(default=None),
@@ -94,7 +96,7 @@ async def browse(
         # next column, and it degrades to plain text if no module claims the
         # users table.
         payload["actor_url"] = actor_link(links, item.user_id) if item.user_id else None
-        payload["entity"] = entity_link(links, item.entity_type, item.entity_id)
+        payload["entity"] = entity_link(links, item.entity_type, item.entity_id, translator.t)
         items.append(payload)
 
     return await inertia.render(

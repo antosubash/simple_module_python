@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
+from simple_module_core.i18n import Translator
 from starlette.datastructures import Headers
 from starlette.requests import Request
 from starlette.types import Scope
@@ -75,6 +77,30 @@ def build_i18n_block(scope: Scope, request: Request, *, is_authenticated: bool =
             else None
         ),
     }
+
+
+def build_menu_translator(request: Request) -> Callable[[str], str] | None:
+    """Return a locale-bound translator for menu labels, or None if unavailable.
+
+    Menu labels are translated on the server rather than in the client: the
+    payload then carries finished text, so the sidebar, topbar and command
+    palette all keep rendering ``item.label`` unchanged. It also sidesteps the
+    catalog audience split — an admin-audience module's labels never have to be
+    present in the anonymous snapshot to be readable.
+
+    Mirrors ``build_i18n_block``'s defensive lookups: test fixtures build apps
+    with a partial ``app.state.sm``, and a missing registry must degrade to the
+    literal labels rather than raise on every request.
+    """
+    sm = getattr(request.app.state, "sm", None)
+    registry = getattr(sm, "i18n_registry", None) if sm is not None else None
+    locale = getattr(request.state, "locale", None)
+    if registry is None or locale is None:
+        return None
+    settings = getattr(sm, "settings", None)
+    default_locale = getattr(settings, "i18n_default_locale", "en") if settings else "en"
+    translator = Translator(registry, locale=locale, default_locale=default_locale)
+    return translator.t
 
 
 def merge_shared_prop_providers(app: Any, request: Request, shared: dict) -> None:

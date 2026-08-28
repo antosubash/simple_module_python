@@ -33,8 +33,8 @@ export default function ValueInput({ valueType, value, onValueChange, required =
         onChange={(e) => onValueChange(e.target.value)}
         className="border rounded w-full p-2"
       >
-        <option value="true">true</option>
-        <option value="false">false</option>
+        <option value="true">{t(keys.settings.form.bool_true)}</option>
+        <option value="false">{t(keys.settings.form.bool_false)}</option>
       </select>
     );
   }
@@ -72,6 +72,7 @@ export default function ValueInput({ valueType, value, onValueChange, required =
         onChange={(e) => onValueChange(e.target.value)}
         required={required}
         rows={6}
+        // i18n-exempt: a JSON example, shown verbatim.
         placeholder='{"key": "value"}'
         className="border rounded w-full p-2 font-mono text-sm"
       />

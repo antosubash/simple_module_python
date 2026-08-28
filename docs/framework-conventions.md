@@ -232,6 +232,22 @@ way.
   Pick a band by audience, leave gaps of ~10 between siblings, and put module-specific user-dropdown items in the `900+` range (Profile=990, Logout=999).
 
   Sidebar items can also set `group="<Label>"` on the `MenuItem` to render under a group header. The frontend clusters consecutive items with the same group label and prints the label as a section heading; the group's position is set by the lowest-`order` item that joins it. Built-in groups are `Content`, `Administration`, and `System`. Items with no `group` (the default) render flat — Dashboard intentionally stays ungrouped above the headed groups.
+
+  **Translating menu labels.** Set `label_key` (and `group_key`) alongside `label`/`group` to name a catalog entry:
+
+  ```python
+  MenuItem(
+      label="Users",  # fallback, still required
+      label_key="users.nav.users",  # module's own namespace
+      url="/admin/users/",
+      group="Access",
+      group_key="ui.nav_groups.access",  # shared vocabulary
+  )
+  ```
+
+  Menus are translated **on the server**, in `MenuRegistry.get_for_user(translate=…)`, so the Inertia payload carries finished text and every render site (sidebar, topbar, command palette) keeps reading `item.label`. Two consequences worth knowing: an admin-audience module's labels don't need to be in the anonymous catalog snapshot to render, and a key that resolves to nothing falls back to `label` — a missing translation degrades to English, never to a raw dotted key on screen. Both fields are optional, so modules written before them keep working unchanged.
+
+  Group headers are shared across modules, so they live in the `ui` namespace (`ui.nav_groups.access|appearance|content|system`) rather than each module inventing its own key — otherwise one module's "System" could translate differently from another's and split a single header in two. Those four are the whole vocabulary the bundled modules use; adding a fifth means adding the key to `packages/ui/locales/*.json` so every module can share it.
 - `i18n` — active locale and translation bundle.
 
 The framework does not know the shape of `auth.user`. The `auth` module registers a `principal_serializer: Callable[[UserContext], dict]` on `app.state.principal_serializer` during `register_settings(app)`; the middleware calls it with `request.state.user` to build the `auth.user` payload. Without a registered serializer, `auth.user` is `None` even when a user is authenticated.
@@ -348,9 +364,9 @@ test apps) are exempt.
 
 ### Error responses (HTML vs JSON)
 
-403/404/422/500 are content-negotiated. Requests under `/api/*` — the
-documented prefix for every module's JSON surface — or with an explicit
-`Accept: application/json` get a JSON body:
+401, 403, 404, 419, 422, 429, 500 and 503 are content-negotiated. Requests
+under `/api/*` — the documented prefix for every module's JSON surface — or
+with an explicit `Accept: application/json` get a JSON body:
 
 ```json
 { "detail": "Permission required: pagebuilder.edit" }
@@ -365,6 +381,18 @@ visits qualify, and that wins even under `/api/*` (OAuth login links and
 file-download `<a>` hrefs are real navigations to API paths); a bare
 `fetch()` sends `Accept: */*` and gets JSON there. Module endpoint code doesn't opt in or
 out — raise `HTTPException` as usual and the handler picks the right shape.
+
+Each of those statuses has its own copy on the error page, so a 429 reads as
+"too many requests" rather than a bare "an unexpected error occurred". 401 and
+419 additionally offer **sign in** as the primary action, since that is the
+actual remedy — the URL comes from the auth provider via `app.state` rather
+than an import (framework code must not reach into modules, `SM009`), so an app
+with no provider installed simply gets no button.
+
+Headers the exception carries — `WWW-Authenticate` on a 401, `Retry-After` on a
+429 or 503 — are passed through to both the rendered page and the JSON
+fallback. Those statuses are the ones whose headers mean something, so moving
+them onto the page-rendering branch would otherwise have dropped them.
 
 ### Design packs (site-wide look)
 

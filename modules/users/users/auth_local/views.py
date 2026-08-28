@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from inertia import InertiaResponse
+from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from simple_module_hosting.inertia_deps import InertiaDep
 from starlette.responses import RedirectResponse
 
@@ -55,7 +56,17 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
         {
             "allow_signup": users_settings.allow_signup,
             "dev_accounts": dev_accounts,
-            "login_redirect_url": users_settings.login_redirect_url,
+            # Where AuthMiddleware bounced them from, when it bounced them.
+            # Read, not popped: a reload of the login page must not silently
+            # downgrade the deep link to the default landing page. The POST
+            # handler clears it once login actually succeeds.
+            "login_redirect_url": (
+                safe_next_or_none(request.session.get(SESSION_NEXT_KEY))
+                # Never "" — UsersSettings normalises a blanked value back to
+                # the default, so every consumer (here, Keycloak, OAuth) gets
+                # a usable target rather than each guarding for itself.
+                or users_settings.login_redirect_url
+            ),
             "oauth_providers": users_state.oauth_providers,
         },
     )

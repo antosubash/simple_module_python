@@ -19,6 +19,39 @@ Before serving traffic:
 
 ## Build
 
+### This repo's own app
+
+The framework repo ships a default image at the root — `./Dockerfile` — that
+builds the reference app (host + every bundled module) and serves it with
+uvicorn. It is standalone: SQLite under `/app/data`, no Postgres and no Redis
+needed to boot.
+
+```bash
+make docker-app             # build ./Dockerfile and run it on :8000
+make docker-compose-app     # same image via the `app` service in docker-compose.yml
+```
+
+`docker/entrypoint.sh` runs `alembic upgrade heads` and fills in any unset
+production secret (`SM_SECRET_KEY`, `SM_USERS_RESET_PASSWORD_TOKEN_SECRET`,
+`SM_USERS_VERIFICATION_TOKEN_SECRET`) with an ephemeral random value so a bare
+`docker run` boots — set them yourself for anything that must survive a
+restart. It also seeds `admin@example.com` / `changeme` (warning printed on
+every boot that uses it) unless `SM_USERS_BOOTSTRAP_EMAIL` / `_PASSWORD` say
+otherwise; that seed only lands while the users table is empty, so it never
+overwrites an existing account. A deployment that anyone else can reach should
+set both vars before first boot — the default password is public. The checklist above still applies: that image is a demo/local
+target, not a production deployment (SQLite, ephemeral secrets).
+
+That image carries no Celery: the build passes
+`--no-install-package simple-module-background-tasks`, so the module has no
+entry point to discover and the web process needs no broker at all. Background
+jobs are the `worker` / `beat` services in `docker-compose.yml`
+(`docker/worker.Dockerfile`), which is where a second process and a Redis
+belong. Drop that flag and set `SM_BG_TASKS_BROKER_URL` / `_RESULT_BACKEND` to
+put tasks back in the web image.
+
+### Scaffolded apps
+
 **Every `smpy new` scaffold ships its own Docker assets** — you don't write these by hand:
 
 | Path | What it is |
@@ -166,6 +199,33 @@ Outside `development`/`testing` (i.e. any other `SM_ENVIRONMENT`), the app serve
 
 - **Manifest-based Inertia rendering.** In dev/testing the page loads `main.tsx` from the Vite dev server; otherwise the app reads the built Vite manifest and emits content-hashed `<script>`/`<link>` tags. At boot it normalises the raw Vite manifest (`static/dist/.vite/manifest.json`) into `static/dist/.vite/inertia-manifest.json`, re-keying the entry chunk to the path fastapi-inertia expects. If the build directory is read-only (e.g. an immutable container layer) it writes that normalised copy to a temp file instead. If **no** built manifest is found it logs a warning and leaves assets unconfigured rather than crashing — so a missing `npm run build` surfaces as broken asset URLs, not a boot failure. Build the frontend before serving production traffic.
 - **Immutable cache headers, even through Uvicorn.** The app mounts `static/` with a `StaticFiles` subclass that sets `Cache-Control: public, max-age=31536000, immutable` on anything under `/static/dist/assets/` (Vite content-hashes those filenames, so the bytes for a URL never change). Non-hashed paths keep the default `ETag`/`Last-Modified`. Fronting `/static/` with nginx (above) is still recommended for throughput, but the immutable headers are correct even when assets are served straight from the app.
+
+## Maintenance mode
+
+Serve everyone but admins a 503 page while you do something disruptive — a long migration, a data backfill, a cutover.
+
+Flip `maintenance_mode` on `HostSettings` at `/admin/settings/` under the host section. `maintenance_message` is an optional operator note shown on the page; leave it empty for generic translated copy.
+
+It is a DB-backed flag rather than an env var **on purpose**: turning maintenance on must not require a redeploy, which is exactly the moment you least want one. It also means the switch takes effect on every worker immediately, with no rollout.
+
+What stays reachable while the gate is closed:
+
+| Still served | Why |
+|---|---|
+| Admins, everywhere | Someone has to reach the settings screen to switch it back off. |
+| The auth provider's own routes | An admin who was signed *out* when the switch flipped must still be able to sign in. |
+| `/health*` | So orchestrators don't kill the pod mid-maintenance. |
+| `/static/`, `/i18n/` | Or the 503 page renders unstyled and untranslated. |
+| Module `register_public_routes` rules | Branding's logo/favicon keep the page on-brand; deliberately-public webhooks and STAC/OGC reads keep working. Method-aware, so a GET-only public rule does not let a POST through. |
+
+Everything else gets a 503 carrying `Retry-After: 3600`. The window is a guess by construction — the switch has no end time — but a client that backs off for an hour beats one that hammers.
+
+Two behaviours worth knowing before you rely on it:
+
+- **It fails open.** If the host settings can't be read, traffic passes through. A configuration gap taking the site down is the exact failure this feature would otherwise cause.
+- **It is not a security boundary.** It gates on the admin check and the public-route rules, nothing more. Use it to keep users out of a half-migrated app, not to protect anything.
+
+The 503 renders as a real maintenance page rather than the generic "service unavailable" incident copy, because the middleware marks the request as a planned outage. That distinction matters most when you set no message — which is the case where the page has nothing else to say.
 
 ## Zero-downtime deploys
 

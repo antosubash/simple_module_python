@@ -1,10 +1,11 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { ArrowLeft, RefreshCcw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { RetryConfirmDialog } from './components/RetryConfirmDialog';
@@ -12,6 +13,7 @@ import {
   formatTs,
   RETRYABLE_STATUSES,
   STATUS_BADGE_VARIANT,
+  STATUS_LABEL_KEY,
   type TaskStatus,
   VIEW_BASE,
 } from './constants';
@@ -35,10 +37,6 @@ interface Execution {
   started_at: string | null;
   finished_at: string | null;
   heartbeat_at: string | null;
-}
-
-function statusLabel(status: TaskStatus): string {
-  return status[0].toUpperCase() + status.slice(1);
 }
 
 function pretty(value: unknown): string {
@@ -80,6 +78,7 @@ function Detail() {
   const { execution } = usePage<{ props: { execution: Execution } }>().props as unknown as {
     execution: Execution;
   };
+  const { t } = useT();
   const { can } = usePermissions();
   const retryable = RETRYABLE_STATUSES.has(execution.status) && can('background_tasks.manage');
 
@@ -90,16 +89,16 @@ function Detail() {
 
   return (
     <>
-      <Head title="Task Detail" />
+      <Head title={t(keys.background_tasks.detail.head_title)} />
       <PageShell
         title={execution.task_name}
-        description={`Task execution ${execution.id}`}
+        description={t(keys.background_tasks.detail.description, { id: execution.id })}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" asChild>
               <Link href={VIEW_BASE}>
                 <ArrowLeft />
-                Back to tasks
+                {t(keys.background_tasks.detail.back_button)}
               </Link>
             </Button>
             {retryable && (
@@ -107,7 +106,7 @@ function Detail() {
                 trigger={
                   <Button size="sm">
                     <RefreshCcw />
-                    Retry task
+                    {t(keys.background_tasks.detail.retry_button)}
                   </Button>
                 }
                 taskName={execution.task_name}
@@ -121,28 +120,52 @@ function Detail() {
       >
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <Card className="p-4 lg:col-span-1">
-            <h3 className="font-semibold mb-3">Details</h3>
+            <h3 className="font-semibold mb-3">{t(keys.background_tasks.detail.meta)}</h3>
             <dl className="text-sm space-y-2">
               <div className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">Status</dt>
+                <dt className="text-muted-foreground">{t(keys.background_tasks.detail.status)}</dt>
                 <dd>
                   <Badge variant={STATUS_BADGE_VARIANT[execution.status]}>
-                    {statusLabel(execution.status)}
+                    {t(STATUS_LABEL_KEY[execution.status])}
                   </Badge>
                 </dd>
               </div>
-              <Row label="Queue" value={execution.queue} />
-              <Row label="Retries" value={String(execution.retries)} />
-              <Row label="Worker" value={execution.worker || '—'} />
-              <Row label="Celery id" value={execution.celery_task_id || '—'} mono />
-              <Row label="Queued at" value={formatTs(execution.queued_at)} />
-              <Row label="Started at" value={formatTs(execution.started_at)} />
-              <Row label="Finished at" value={formatTs(execution.finished_at)} />
-              <Row label="Heartbeat" value={formatTs(execution.heartbeat_at)} />
-              <Row label="Exception" value={execution.exception_type || '—'} />
+              <Row label={t(keys.background_tasks.detail.queue)} value={execution.queue} />
+              <Row
+                label={t(keys.background_tasks.detail.retries)}
+                value={String(execution.retries)}
+              />
+              <Row label={t(keys.background_tasks.detail.worker)} value={execution.worker || '—'} />
+              <Row
+                label={t(keys.background_tasks.detail.celery_id)}
+                value={execution.celery_task_id || '—'}
+                mono
+              />
+              <Row
+                label={t(keys.background_tasks.detail.queued_at)}
+                value={formatTs(execution.queued_at)}
+              />
+              <Row
+                label={t(keys.background_tasks.detail.started_at)}
+                value={formatTs(execution.started_at)}
+              />
+              <Row
+                label={t(keys.background_tasks.detail.finished_at)}
+                value={formatTs(execution.finished_at)}
+              />
+              <Row
+                label={t(keys.background_tasks.detail.heartbeat)}
+                value={formatTs(execution.heartbeat_at)}
+              />
+              <Row
+                label={t(keys.background_tasks.detail.exception)}
+                value={execution.exception_type || '—'}
+              />
               {execution.retried_from_id && (
                 <div className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">Retried from</dt>
+                  <dt className="text-muted-foreground">
+                    {t(keys.background_tasks.detail.retried_from)}
+                  </dt>
                   <dd>
                     <Link
                       href={`${VIEW_BASE}/${execution.retried_from_id}`}
@@ -157,24 +180,26 @@ function Detail() {
           </Card>
 
           <div className="lg:col-span-2 flex flex-col gap-4">
-            <JsonCard title="Arguments">
+            <JsonCard title={t(keys.background_tasks.detail.args)}>
               <JsonBlock value={execution.args} />
             </JsonCard>
-            <JsonCard title="Keyword arguments">
+            <JsonCard title={t(keys.background_tasks.detail.kwargs)}>
               <JsonBlock value={execution.kwargs} />
             </JsonCard>
             {execution.result !== null && (
-              <JsonCard title="Result">
+              <JsonCard title={t(keys.background_tasks.detail.result)}>
                 <JsonBlock value={execution.result} />
               </JsonCard>
             )}
-            <JsonCard title="Traceback">
+            <JsonCard title={t(keys.background_tasks.detail.traceback)}>
               {execution.traceback ? (
                 <pre className="text-xs bg-muted rounded p-3 overflow-x-auto whitespace-pre-wrap">
                   {execution.traceback}
                 </pre>
               ) : (
-                <p className="text-sm text-muted-foreground">No traceback recorded.</p>
+                <p className="text-sm text-muted-foreground">
+                  {t(keys.background_tasks.detail.no_traceback)}
+                </p>
               )}
             </JsonCard>
           </div>
@@ -184,5 +209,5 @@ function Detail() {
   );
 }
 
-Detail.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Detail.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default Detail;

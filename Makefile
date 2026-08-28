@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings ci-build-packages worker beat worker-docker
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings ci-check-untranslated ci-build-packages worker beat worker-docker
 
 # Install
 install:
@@ -93,7 +93,7 @@ loadtest:                   ## Run locust against a server already on $(LOCUST_H
 loadtest-memray:            ## Start uvicorn under memray, load-test, emit flamegraph
 	scripts/loadtest_memray.sh $(LOCUST_ARGS)
 
-lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings
+lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings ci-check-untranslated
 	uv run python scripts/check_metadata.py
 	uv run python scripts/check_readmes.py
 
@@ -134,6 +134,13 @@ ci-check-file-size:
 # names are declared as named constants rather than hardcoded string literals.
 ci-check-hardcoded-strings:
 	uv run python scripts/check_hardcoded_strings.py
+
+# Fail when a .tsx renders user-visible text as a literal instead of t(keys.…).
+# Shipping locales/en.json never proved a page actually read it: SM013-SM016
+# only compare catalogs to each other, so with i18n_supported_locales=["en"]
+# they never fire and tsc is happy with hardcoded English.
+ci-check-untranslated:
+	node scripts/check_untranslated_strings.mjs
 
 # Dry-run the release build: build sdists + wheels for every workspace member
 # the same way release.yml does. Catches packaging regressions at PR time
@@ -176,6 +183,23 @@ kill:
 	@-pkill -f "vite" 2>/dev/null
 	@-lsof -ti:8000,5050,5173 | xargs kill -9 2>/dev/null
 	@echo "Ports 8000, 5050, 5173 freed."
+
+# Docker — the default app image (./Dockerfile). Standalone: SQLite inside the
+# container, no Postgres or Redis needed. Both run targets honour SM_APP_PORT
+# so they don't collide with a `make dev` already holding 8000.
+SM_APP_PORT ?= 8000
+export SM_APP_PORT
+
+docker-build:               ## Build the default app image
+	docker build -t simple-module-python .
+
+docker-app: docker-build    ## Run the built image standalone on http://localhost:$(SM_APP_PORT)
+	docker run --rm -p $(SM_APP_PORT):8000 \
+		-v simple-module-python-data:/app/data \
+		simple-module-python
+
+docker-compose-app:         ## Same image via compose (named volume, .env-overridable)
+	docker compose up --build app
 
 # Docker — Postgres/Redis now live in the shared ../dev-services stack.
 # docker-up brings that shared stack up (idempotent, shared with other repos).

@@ -1,11 +1,19 @@
 """BackgroundTasks module settings (DB-backed).
 
-Construction no longer reads ``SM_BG_TASKS_*`` environment variables. Values
-come from pydantic defaults at boot, then get hydrated from the DB by the
+Values come from defaults at boot, then get hydrated from the DB by the
 hosting lifespan before module ``on_startup`` runs. Runtime changes go
 through ``settings.reload.apply_changes_and_reload``.
 
-The one remaining env read is ``SM_ENVIRONMENT``, consulted by the
+Two of those defaults are deployment plumbing rather than module config, so
+they stay env-readable: ``SM_BG_TASKS_BROKER_URL`` and
+``SM_BG_TASKS_RESULT_BACKEND`` name the Redis a container can actually reach.
+They have to work *before* any DB row exists — the production validator below
+rejects the localhost defaults, so without them a containerised app can't
+boot far enough to hydrate settings, and a worker process (which never sees
+``app.state``) has no other source at all. A DB value still wins once
+hydration runs.
+
+The other env read is ``SM_ENVIRONMENT``, consulted by the
 ``@model_validator`` to refuse a localhost broker in production — that's a
 host-level setting, not a background_tasks-module field.
 
@@ -34,6 +42,7 @@ from background_tasks.constants import (
     DEFAULT_RETENTION_DAYS,
     DEFAULT_STUCK_AFTER_SECONDS,
     DEFAULT_STUCK_SWEEP_INTERVAL_SECONDS,
+    ENV_PREFIX,
 )
 
 _CELERY_RESTART = {"requires_restart": True, "group": "Celery"}
@@ -44,8 +53,16 @@ class BackgroundTasksSettings(BaseSettings):
 
     model_config = SettingsConfigDict(extra="ignore")
 
-    broker_url: str = Field(default=DEFAULT_BROKER_URL, json_schema_extra=_CELERY_RESTART)
-    result_backend: str = Field(default=DEFAULT_RESULT_BACKEND, json_schema_extra=_CELERY_RESTART)
+    broker_url: str = Field(
+        default_factory=lambda: os.environ.get(f"{ENV_PREFIX}BROKER_URL", DEFAULT_BROKER_URL),
+        json_schema_extra=_CELERY_RESTART,
+    )
+    result_backend: str = Field(
+        default_factory=lambda: os.environ.get(
+            f"{ENV_PREFIX}RESULT_BACKEND", DEFAULT_RESULT_BACKEND
+        ),
+        json_schema_extra=_CELERY_RESTART,
+    )
     task_default_queue: str = Field(default=DEFAULT_QUEUE, json_schema_extra=_CELERY_RESTART)
 
     # Run tasks synchronously inside the calling process. Read at

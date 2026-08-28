@@ -12,7 +12,7 @@ import httpx
 import pytest
 from simple_module_test.fixtures import forge_session_cookie
 
-_VIEW_ROUTES = ["/settings/", "/settings/store", "/settings/create"]
+_VIEW_ROUTES = ["/admin/settings/", "/admin/settings/store", "/admin/settings/create"]
 
 
 @pytest.fixture
@@ -50,7 +50,7 @@ async def test_view_routes_reject_a_user_without_settings_view(
 async def test_the_api_and_the_screen_agree(plain_user_client: httpx.AsyncClient):
     """Same data, same answer — the gap between them was the bug."""
     api = await plain_user_client.get("/api/settings/modules", follow_redirects=False)
-    view = await plain_user_client.get("/settings/", follow_redirects=False)
+    view = await plain_user_client.get("/admin/settings/", follow_redirects=False)
     assert api.status_code in (302, 401, 403)
     assert view.status_code in (302, 401, 403)
 

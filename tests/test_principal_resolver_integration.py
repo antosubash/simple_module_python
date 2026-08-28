@@ -48,11 +48,11 @@ async def pat_client(app_with_pat_resolver) -> AsyncGenerator[httpx.AsyncClient,
 async def test_bearer_token_authenticates_against_protected_view(pat_client):
     """Valid bearer token -> 200 on a protected view path (users admin)."""
     resp = await pat_client.get(
-        "/users/admin",
+        "/admin/users/",
         headers={"Authorization": "Bearer good"},
         follow_redirects=False,
     )
-    # /users/admin is a view route; with a valid resolver the request gets
+    # /admin/users/ is a view route; with a valid resolver the request gets
     # through AuthMiddleware (200) instead of redirecting to /users/login.
     assert resp.status_code == 200
 

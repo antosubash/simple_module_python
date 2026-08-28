@@ -14,9 +14,11 @@ register_health_checks
 register_public_routes
 register_csp_sources
 register_design_packs
+register_audit_links
 register_exception_handlers
 register_middleware
 register_routes
+register_admin_routes       (only when meta.admin_view_prefix is set)
 -- on_startup (async, after middleware is installed)
 ```
 
@@ -75,11 +77,11 @@ def register_permissions(self, registry: PermissionRegistry) -> None:
     )
 ```
 
-Permissions become available in the role admin UI (`/settings/permissions`). See [Permissions](/framework/permissions).
+Permissions become available in the role admin UI (`/admin/users/` (Roles tab)). See [Permissions](/framework/permissions).
 
 ## `register_feature_flags(registry)`
 
-Declare feature flags with defaults. The admin can toggle them at `/settings/feature-flags`.
+Declare feature flags with defaults. The admin can toggle them at `/admin/feature-flags/`.
 
 ```python
 def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
@@ -99,12 +101,12 @@ if flags.is_enabled("orders.new_checkout", tenant_id=request.state.tenant_id):
     ...
 ```
 
-## `register_event_handlers(bus)`
+## `register_event_handlers(bus, app=None)`
 
 Subscribe to events on the in-process `EventBus`. Handlers can be sync or async; the bus awaits async ones.
 
 ```python
-def register_event_handlers(self, bus: EventBus) -> None:
+def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
     from orders.contracts.events import OrderPlaced
 
     bus.subscribe(OrderPlaced, self._on_order_placed)
@@ -114,6 +116,8 @@ async def _on_order_placed(self, event: OrderPlaced) -> None: ...
 ```
 
 Handlers are keyed by the exact event type and run concurrently on publish. See [Events](/framework/events).
+
+`app` is optional. Take it when a handler needs `app.state.sm.db.session_factory` to persist on the framework's engine rather than building its own. The framework inspects your signature and calls the one-argument form `(self, bus)` when that is what you declared, so modules written before `app` existed keep working unchanged.
 
 ## `register_health_checks(registry)`
 
@@ -190,6 +194,56 @@ def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None
 - `view_router` is pre-built with `prefix=ModuleMeta.view_prefix`.
 
 The framework **auto-applies** `ModuleMeta.route_prefix` / `view_prefix` — `create_app` constructs each router already prefixed (`APIRouter(prefix=module.meta.route_prefix)`), so your `include_router` calls usually pass no further prefix (add one only for a sub-grouping *inside* the module's own prefix).
+
+## `register_admin_routes(admin_router)`
+
+A **second** view router, for modules that serve both public and admin pages and so cannot express both under one `view_prefix`. Called only when `ModuleMeta.admin_view_prefix` is set; the router arrives pre-built with that prefix.
+
+```python
+meta = ModuleMeta(
+    name="Users",
+    view_prefix="/users",  # sign-in, self-service
+    admin_view_prefix="/admin/users",  # management CRUD
+)
+
+
+def register_admin_routes(self, admin_router: APIRouter) -> None:
+    from users.admin.views import router as admin_views
+
+    admin_router.include_router(admin_views)
+```
+
+A module gets exactly one view router, which is fine for a pure-admin module — it just points `view_prefix` at `/admin/...` and needs none of this. The second router exists for the cases where that doesn't work: `users` keeps `/users/login` public while its CRUD lives at `/admin/users`, and `dashboard` keeps `/dashboard/` while Doctor lives at `/admin/doctor`.
+
+Both the field and the hook are additive and default to no-op, so a module written before they existed is unaffected.
+
+> Putting a screen in the admin section means moving **three** things together: the URL (here), the menu registration (`MenuSection.ADMIN_SIDEBAR` in `register_menu_items`), and the layout the page renders in (`AdminLayout`). Change one and you get a page whose sidebar no longer lists it — a failure nothing about the diff makes obvious.
+
+## `register_audit_links(registry)`
+
+Teach the audit log how to link an entry back to the entity it describes, so a row reads as a link to the record rather than a bare type name.
+
+```python
+def register_audit_links(self, registry: AuditLinkRegistry) -> None:
+    from users.models import User
+
+    registry.register(
+        AuditLink(
+            entity_type=User.__name__,  # class name — NOT __tablename__
+            url_template="/admin/users/{id}",
+            label="User",
+            label_key="users.audit.user",
+        )
+    )
+```
+
+`entity_type` matches `AuditEntry.entity_type`, which `snapshot_changes` writes as `type(obj).__name__`. Keying it off `__tablename__` (`"users_user"`) produces a link that never matches — and nothing errors: an unmatched lookup falls back to rendering `entity_type` as a plain label, so the row still shows text while silently never becoming a link. Using `Model.__name__` rather than a string literal makes a rename impossible to get wrong.
+
+`url_template` must contain the literal `{id}` placeholder, substituted with the entity id. A template without it raises at boot rather than pointing every row at the same page.
+
+`label_key` translates the label the same way `MenuItem.label_key` does, falling back to `label` when the key resolves to nothing. Rows are rendered server-side, so the audit view translates these before they reach the page.
+
+The registry maps class names to URL templates and nothing more: it does not check that the row still exists or that the reader may open it. A link to a deleted record lands on the target screen's own 404, and permissions are enforced by the target route as usual.
 
 ## `on_startup()` / `on_shutdown()`
 

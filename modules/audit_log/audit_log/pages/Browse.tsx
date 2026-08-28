@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@simple-module-py/ui/components/ui/table';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import type React from 'react';
 import { useState } from 'react';
 import { BrowseEmpty } from './components/BrowseEmpty';
@@ -134,7 +134,11 @@ function Browse() {
     if (next.toDate) p.to_date = next.toDate;
     if (nextPage > 1) p.page = String(nextPage);
     if (page_size !== 50) p.page_size = String(page_size);
-    router.visit(`/audit_log?${new URLSearchParams(p).toString()}`);
+    // Trailing slash: the browse route is registered at "/" under
+    // VIEW_PREFIX and reaches the app via `include_router`, which
+    // `_clone_bare_prefix_route` cannot alias — the bare form costs a 307
+    // on every filter change. Matches MENU_URL in constants.py.
+    router.visit(`/admin/audit-log/?${new URLSearchParams(p).toString()}`);
   }
 
   function handleClear() {
@@ -156,7 +160,7 @@ function Browse() {
 
   return (
     <>
-      <Head title="Audit Log" />
+      <Head title={t(keys.audit_log.browse.title)} />
       <PageShell
         title={t(keys.audit_log.browse.title)}
         description={t(keys.audit_log.browse.description)}
@@ -256,5 +260,5 @@ function Browse() {
   );
 }
 
-Browse.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Browse.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default Browse;

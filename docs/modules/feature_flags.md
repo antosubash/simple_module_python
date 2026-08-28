@@ -8,7 +8,7 @@ Runtime feature toggles. Modules register named flags with a default value; an a
 |---|---|
 | `name` | `FeatureFlags` |
 | `route_prefix` | `/api/feature_flags` |
-| `view_prefix` | `/feature_flags` |
+| `view_prefix` | `/admin/feature-flags` |
 | `depends_on` | _(none)_ |
 
 ## Registering a flag
@@ -30,7 +30,7 @@ class OrdersModule(ModuleBase):
         )
 ```
 
-Once registered, the flag shows up at `/feature_flags` in the admin UI. Unregistered names return 404 from the override endpoints — flags are explicit, not free-form keys.
+Once registered, the flag shows up at `/admin/feature-flags` in the admin UI. Unregistered names return 404 from the override endpoints — flags are explicit, not free-form keys.
 
 ## Reading a flag at request time
 
@@ -71,9 +71,9 @@ All require authentication. Read endpoints need `feature_flags.view`; write endp
 
 | Method + path | Inertia component | Permission |
 |---|---|---|
-| `GET /feature_flags/` | `FeatureFlags/Browse` (optional `?tenant_id=...`) | `feature_flags.view` |
-| `POST /feature_flags/{name}/toggle` | _redirect_ | `feature_flags.manage` |
-| `POST /feature_flags/{name}/clear` | _redirect_ | `feature_flags.manage` |
+| `GET /admin/feature-flags/` | `FeatureFlags/Browse` (optional `?tenant_id=...`) | `feature_flags.view` |
+| `POST /admin/feature-flags/{name}/toggle` | _redirect_ | `feature_flags.manage` |
+| `POST /admin/feature-flags/{name}/clear` | _redirect_ | `feature_flags.manage` |
 
 ## Public contracts
 
@@ -113,7 +113,7 @@ Unique constraint on `(scope, scope_id, name)`. The `scope_id=""` (instead of `N
 
 | Label | URL | Icon | Section | Group | Order |
 |---|---|---|---|---|---|
-| `Feature Flags` | `/feature_flags` | `flag` | `SIDEBAR` | `Administration` | `110` |
+| `Feature Flags` | `/admin/feature-flags` | `flag` | `ADMIN_SIDEBAR` | `System` | `110` |
 
 ## Inertia pages
 

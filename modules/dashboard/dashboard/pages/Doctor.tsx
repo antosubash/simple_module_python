@@ -1,4 +1,5 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { StatCard } from '@simple-module-py/ui/components/StatCard';
@@ -6,20 +7,11 @@ import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
-import {
-  Activity,
-  AlertTriangle,
-  CheckCircle2,
-  Database,
-  GitBranch,
-  Package,
-  Play,
-  RefreshCw,
-  Stethoscope,
-  Terminal,
-  XCircle,
-} from 'lucide-react';
-import { DEV_SERVER, ENV_VARS, MIGRATIONS, STATIC_CHECKS, TONE } from './components/doctor-data';
+import { TONE } from '@simple-module-py/ui/lib/tone';
+import { Activity, AlertTriangle, Package, RefreshCw, Stethoscope, XCircle } from 'lucide-react';
+import type React from 'react';
+import { type Diagnostic, DiagnosticsCard } from './components/DiagnosticsCard';
+import { type Migration, MigrationsCard } from './components/MigrationsCard';
 
 interface SystemModule {
   name: string;
@@ -31,87 +23,83 @@ interface HealthCheck {
   status: 'healthy' | 'degraded' | 'unhealthy';
 }
 
+interface Environment {
+  environment: string;
+  database: string;
+  locales: string[];
+  default_locale: string;
+}
+
 interface Props {
-  total_users: number;
-  active_users_7d: number;
   module_count: number;
   system_info: {
     modules: SystemModule[];
     python_version: string;
     health_checks: HealthCheck[];
   };
-}
-
-const STATUS_VISUALS = {
-  pass: { Icon: CheckCircle2, color: 'text-primary-600', tone: TONE.success },
-  warn: { Icon: AlertTriangle, color: 'text-amber-600', tone: TONE.warning },
-  fail: { Icon: XCircle, color: 'text-red-600', tone: TONE.destructive },
-} as const;
-
-function CheckRow({ check }: { check: (typeof STATIC_CHECKS)[number] }) {
-  const { Icon, color, tone } = STATUS_VISUALS[check.status];
-  return (
-    <div className="flex items-start gap-3 border-t border-border px-1 py-3 first:border-t-0">
-      <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${color}`} aria-hidden="true" />
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold text-foreground">{check.name}</div>
-        <div className="mt-0.5 text-xs text-muted-foreground">{check.hint}</div>
-        {'file' in check && check.file && (
-          <code className="mt-1 inline-block font-mono text-[11px] text-muted-foreground">
-            {check.file}
-          </code>
-        )}
-      </div>
-      <Badge variant="outline" className={tone}>
-        {check.status}
-      </Badge>
-    </div>
-  );
+  diagnostics: Diagnostic[];
+  migration: Migration;
+  environment: Environment;
 }
 
 function Doctor() {
-  const { system_info, module_count } = usePage<{ props: Props }>().props as unknown as Props;
+  const props = usePage<{ props: Props }>().props as unknown as Props;
+  const { system_info, module_count, diagnostics, migration, environment } = props;
+  const { t } = useT();
 
-  const passed = STATIC_CHECKS.filter((c) => c.status === 'pass').length;
-  const pending = MIGRATIONS.filter((m) => !m.applied).length;
+  const errors = diagnostics.filter((d) => d.level === 'error').length;
+  const warnings = diagnostics.filter((d) => d.level === 'warning').length;
   const unhealthy = system_info.health_checks.filter((c) => c.status !== 'healthy').length;
+
+  const envRows: [string, string][] = [
+    [t(keys.dashboard.doctor.env_mode), environment.environment],
+    [t(keys.dashboard.doctor.env_database), environment.database],
+    [t(keys.dashboard.doctor.env_python), system_info.python_version],
+    [t(keys.dashboard.doctor.env_locales), environment.locales.join(', ')],
+  ];
+  if (migration.head_revision) {
+    envRows.push([t(keys.dashboard.doctor.env_revision), migration.head_revision.slice(0, 12)]);
+  }
 
   return (
     <>
-      <Head title="Doctor" />
+      <Head title={t(keys.dashboard.doctor.title)} />
       <PageShell
-        title="Doctor"
-        description="Static checks, migrations, dev server, and module health. Mirrors `make doctor` output."
+        title={t(keys.dashboard.doctor.title)}
+        description={t(keys.dashboard.doctor.description)}
         actions={
-          <>
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <RefreshCw className="h-3.5 w-3.5" /> Re-run
-            </Button>
-            <Button size="sm" className="gap-1.5">
-              <Terminal className="h-3.5 w-3.5" /> make doctor
-            </Button>
-          </>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.reload()}>
+            <RefreshCw className="h-3.5 w-3.5" /> {t(keys.dashboard.doctor.rerun)}
+          </Button>
         }
       >
         <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard
-            label="Checks passed"
-            value={`${passed}/${STATIC_CHECKS.length}`}
-            icon={CheckCircle2}
-            delta={passed === STATIC_CHECKS.length ? 'OK' : 'review'}
-            deltaTone={passed === STATIC_CHECKS.length ? 'success' : 'warning'}
-          />
-          <StatCard label="Modules" value={module_count} icon={Package} />
-          <StatCard
-            label="Pending mig."
-            value={pending}
-            icon={Database}
-            delta={pending === 0 ? 'clean' : 'review'}
-            deltaTone={pending === 0 ? 'success' : 'warning'}
+            label={t(keys.dashboard.doctor.stat_errors)}
+            value={errors}
+            icon={XCircle}
+            delta={errors === 0 ? t(keys.dashboard.doctor.ok) : t(keys.dashboard.doctor.review)}
+            deltaTone={errors === 0 ? 'success' : 'destructive'}
           />
           <StatCard
-            label="Health"
-            value={unhealthy === 0 ? 'OK' : `${unhealthy} alert`}
+            label={t(keys.dashboard.doctor.stat_warnings)}
+            value={warnings}
+            icon={AlertTriangle}
+            delta={warnings === 0 ? t(keys.dashboard.doctor.ok) : t(keys.dashboard.doctor.review)}
+            deltaTone={warnings === 0 ? 'success' : 'warning'}
+          />
+          <StatCard
+            label={t(keys.dashboard.doctor.stat_modules)}
+            value={module_count}
+            icon={Package}
+          />
+          <StatCard
+            label={t(keys.dashboard.doctor.stat_health)}
+            value={
+              unhealthy === 0
+                ? t(keys.dashboard.doctor.ok)
+                : t(keys.dashboard.doctor.alert, { count: unhealthy })
+            }
             icon={Activity}
             deltaTone={unhealthy === 0 ? 'success' : 'destructive'}
           />
@@ -119,65 +107,12 @@ function Doctor() {
 
         <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
           <div className="flex flex-col gap-4">
-            <Card className="border-border">
-              <CardContent className="pt-5">
-                <SectionTitle
-                  right={
-                    <span className="font-mono text-[11px] text-muted-foreground">just now</span>
-                  }
-                >
-                  Static checks
-                </SectionTitle>
-                <div className="-mx-1">
-                  {STATIC_CHECKS.map((c) => (
-                    <CheckRow key={c.name} check={c} />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <DiagnosticsCard diagnostics={diagnostics} />
+            <MigrationsCard migration={migration} />
 
             <Card className="border-border">
               <CardContent className="pt-5">
-                <SectionTitle
-                  right={
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" className="gap-1.5">
-                        <GitBranch className="h-3.5 w-3.5" /> Generate
-                      </Button>
-                      <Button variant="ghost" size="sm" className="gap-1.5">
-                        <Play className="h-3.5 w-3.5" /> Apply
-                      </Button>
-                    </div>
-                  }
-                >
-                  Recent migrations
-                </SectionTitle>
-                <div className="-mx-1">
-                  {MIGRATIONS.map((m) => (
-                    <div
-                      key={m.id}
-                      className="flex items-center gap-3 border-t border-border px-1 py-3 first:border-t-0"
-                    >
-                      <code className="w-14 shrink-0 font-mono text-[11px] text-muted-foreground">
-                        {m.id}
-                      </code>
-                      <Badge variant="outline" className={TONE.default}>
-                        {m.module}
-                      </Badge>
-                      <div className="flex-1 truncate text-sm text-foreground">{m.msg}</div>
-                      <span className="font-mono text-[11px] text-muted-foreground">{m.when}</span>
-                      <Badge variant="outline" className={m.applied ? TONE.success : TONE.warning}>
-                        {m.applied ? 'applied' : 'pending'}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border">
-              <CardContent className="pt-5">
-                <SectionTitle>Installed modules</SectionTitle>
+                <SectionTitle>{t(keys.dashboard.doctor.installed_modules)}</SectionTitle>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {system_info.modules.map((m) => (
                     <div
@@ -191,10 +126,12 @@ function Doctor() {
                         <div className="font-mono text-[13px] font-semibold text-foreground truncate">
                           {m.name}
                         </div>
-                        <div className="font-mono text-[10px] text-muted-foreground">loaded</div>
+                        <div className="font-mono text-[10px] text-muted-foreground">
+                          {t(keys.dashboard.doctor.loaded)}
+                        </div>
                       </div>
                       <Badge variant="outline" className={TONE.success}>
-                        active
+                        {t(keys.dashboard.doctor.active)}
                       </Badge>
                     </div>
                   ))}
@@ -206,24 +143,18 @@ function Doctor() {
           <div className="flex flex-col gap-4">
             <Card className="border-border">
               <CardContent className="pt-5">
-                <SectionTitle
-                  right={
-                    <span className="flex items-center gap-1.5 font-mono text-[11px] text-primary-700">
-                      <span className="h-2 w-2 rounded-full bg-primary-600 ring-4 ring-primary-200" />
-                      running
-                    </span>
-                  }
-                >
-                  Dev server
+                <SectionTitle>
+                  <Stethoscope className="h-4 w-4" aria-hidden="true" />
+                  {t(keys.dashboard.doctor.environment)}
                 </SectionTitle>
                 <div className="flex flex-col gap-2">
-                  {DEV_SERVER.map(([k, v, tone]) => (
+                  {envRows.map(([k, v]) => (
                     <div
                       key={k}
                       className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
                     >
                       <span className="font-mono text-[12px] text-muted-foreground">{k}</span>
-                      <Badge variant="outline" className={TONE[tone]}>
+                      <Badge variant="outline" className={`${TONE.default} font-mono`}>
                         {v}
                       </Badge>
                     </div>
@@ -234,7 +165,7 @@ function Doctor() {
 
             <Card className="border-border">
               <CardContent className="pt-5">
-                <SectionTitle>Run a command</SectionTitle>
+                <SectionTitle>{t(keys.dashboard.doctor.run_command)}</SectionTitle>
                 <div className="flex flex-col gap-2 rounded-lg bg-slate-900 p-3 font-mono text-[12px] text-slate-200">
                   {['make new-module name=orders', 'make migrate', 'make doctor', 'make dev'].map(
                     (c) => (
@@ -244,25 +175,6 @@ function Doctor() {
                       </div>
                     ),
                   )}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border">
-              <CardContent className="pt-5">
-                <SectionTitle>
-                  <Stethoscope className="h-4 w-4" aria-hidden="true" />
-                  Environment
-                </SectionTitle>
-                <div className="flex flex-col gap-2 text-[13px]">
-                  {ENV_VARS.map(([k, v]) => (
-                    <div key={k} className="flex items-center justify-between">
-                      <code className="font-mono text-[11px] text-muted-foreground">{k}</code>
-                      <Badge variant="outline" className={TONE.default}>
-                        {v}
-                      </Badge>
-                    </div>
-                  ))}
                 </div>
               </CardContent>
             </Card>

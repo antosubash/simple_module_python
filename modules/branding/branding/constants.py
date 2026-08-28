@@ -8,7 +8,7 @@ from typing import Final
 from simple_module_core.design_packs import SLUG_RE
 
 ROUTE_PREFIX: Final = "/api/branding"
-VIEW_PREFIX: Final = "/branding"
+VIEW_PREFIX: Final = "/admin/branding"
 # Trailing slash: the browse route is registered at "/" under VIEW_PREFIX, so
 # linking to the bare prefix costs a 307 round trip on every navigation.
 MENU_URL: Final = f"{VIEW_PREFIX}/"

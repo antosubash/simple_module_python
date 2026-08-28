@@ -68,7 +68,7 @@ DEFAULT_ROLE_PERMISSIONS = {
 
 Host apps customize this by:
 
-1. Editing roles in the admin UI at `/settings/permissions`.
+1. Editing roles in the admin UI at `/admin/users/` (Roles tab).
 2. Or seeding via code during `on_startup` in a custom host-level module.
 
 The framework ships only `admin: ["*"]`. The wildcard grants every declared permission.

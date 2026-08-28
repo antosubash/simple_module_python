@@ -14,13 +14,35 @@ const HOUR = 60 * MINUTE;
 /** Past this, a snapshot is old enough that it may no longer describe reality. */
 export const STALE_AFTER_MS = 60 * SECOND;
 
-export function relativeAgeLabel(ageMs: number): string {
-  if (!Number.isFinite(ageMs)) return 'unknown';
+export const RELATIVE_AGE_KEYS = {
+  unknown: 'ui.relative_time.unknown',
+  justNow: 'ui.relative_time.just_now',
+  seconds: 'ui.relative_time.seconds_ago',
+  minutes: 'ui.relative_time.minutes_ago',
+  hours: 'ui.relative_time.hours_ago',
+} as const;
+
+export type RelativeAgeKey = (typeof RELATIVE_AGE_KEYS)[keyof typeof RELATIVE_AGE_KEYS];
+
+/**
+ * Which bucket an age falls into, and the number to put in the sentence.
+ *
+ * The wording itself lives in the ui catalog: this returns a key rather than a
+ * finished string so the caller translates it with its own `t`. Bucketing is
+ * what is worth testing, and it stays a pure function.
+ */
+export interface RelativeAge {
+  key: RelativeAgeKey;
+  count?: number;
+}
+
+export function relativeAge(ageMs: number): RelativeAge {
+  if (!Number.isFinite(ageMs)) return { key: RELATIVE_AGE_KEYS.unknown };
   const age = Math.max(0, ageMs);
-  if (age < 10 * SECOND) return 'just now';
-  if (age < MINUTE) return `${Math.floor(age / SECOND)}s ago`;
-  if (age < HOUR) return `${Math.floor(age / MINUTE)}m ago`;
-  return `${Math.floor(age / HOUR)}h ago`;
+  if (age < 10 * SECOND) return { key: RELATIVE_AGE_KEYS.justNow };
+  if (age < MINUTE) return { key: RELATIVE_AGE_KEYS.seconds, count: Math.floor(age / SECOND) };
+  if (age < HOUR) return { key: RELATIVE_AGE_KEYS.minutes, count: Math.floor(age / MINUTE) };
+  return { key: RELATIVE_AGE_KEYS.hours, count: Math.floor(age / HOUR) };
 }
 
 export function isStale(ageMs: number): boolean {

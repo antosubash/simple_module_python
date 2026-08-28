@@ -1,4 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
@@ -12,6 +13,7 @@ interface Props {
 
 function ResetPassword() {
   const { token: initialToken } = usePage<{ props: Props }>().props as unknown as Props;
+  const { t } = useT();
 
   const urlToken =
     typeof window !== 'undefined'
@@ -28,7 +30,7 @@ function ResetPassword() {
     e.preventDefault();
     setError(null);
     if (password !== confirm) {
-      setError('Passwords do not match.');
+      setError(t(keys.users.common.passwords_no_match));
       return;
     }
     setLoading(true);
@@ -45,41 +47,39 @@ function ResetPassword() {
           const detail =
             typeof data?.detail === 'string'
               ? data.detail
-              : 'Reset failed. The link may have expired.';
+              : t(keys.users.reset_password.error_failed);
           setError(detail);
         }
       })
-      .catch(() => setError('An error occurred. Please try again.'))
+      .catch(() => setError(t(keys.users.common.error_try_again)))
       .finally(() => setLoading(false));
   };
 
   return (
     <AuthCardShell>
-      <Head title="Reset Password" />
+      <Head title={t(keys.users.reset_password.head_title)} />
       <h1 className="mb-1.5 text-[22px] font-bold tracking-tight font-[var(--font-display)] text-foreground">
-        Reset password
+        {t(keys.users.reset_password.heading)}
       </h1>
-      <p className="mb-5 text-sm text-muted-foreground">
-        Choose a new password and you'll be redirected to log in.
-      </p>
+      <p className="mb-5 text-sm text-muted-foreground">{t(keys.users.reset_password.subtitle)}</p>
       <form onSubmit={handleSubmit} className="space-y-3.5">
         <div className="space-y-1.5">
           <Label htmlFor="password" className="text-sm font-medium text-muted-foreground">
-            New password
+            {t(keys.users.common.new_password)}
           </Label>
           <Input
             id="password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="8+ characters"
+            placeholder={t(keys.users.common.password_placeholder)}
             required
             autoComplete="new-password"
           />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="confirm" className="text-sm font-medium text-muted-foreground">
-            Confirm password
+            {t(keys.users.common.confirm_password)}
           </Label>
           <Input
             id="confirm"
@@ -94,13 +94,11 @@ function ResetPassword() {
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         <Button type="submit" size="lg" className="w-full" disabled={loading || !token}>
-          {loading ? 'Resetting…' : 'Reset password'}
+          {loading ? t(keys.users.reset_password.submitting) : t(keys.users.reset_password.submit)}
         </Button>
       </form>
       {!token && (
-        <p className="mt-3 text-sm text-destructive">
-          No reset token found. Please use the link from your email.
-        </p>
+        <p className="mt-3 text-sm text-destructive">{t(keys.users.reset_password.no_token)}</p>
       )}
     </AuthCardShell>
   );

@@ -42,6 +42,9 @@ class BrandingModule(ModuleBase):
             constants.PACKAGE,
             BrandingSettings,
             lambda s: BrandingServices(settings=s),
+            # Branding ships its own management page; the generic module-settings
+            # editor links there instead of double-editing the same fields.
+            manage_url=MENU_URL,
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
@@ -65,11 +68,15 @@ class BrandingModule(ModuleBase):
         registry.add(
             MenuItem(
                 label="Branding",
+                label_key="branding.nav.branding",
                 url=MENU_URL,
                 icon="palette",
-                order=115,
-                section=MenuSection.SIDEBAR,
-                group="Administration",
+                # Between Access (100) and System (110) so the admin sidebar
+                # reads Access → Appearance → System.
+                order=105,
+                section=MenuSection.ADMIN_SIDEBAR,
+                group="Appearance",
+                group_key="ui.nav_groups.appearance",
                 roles=["admin"],
             )
         )

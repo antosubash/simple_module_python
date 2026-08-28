@@ -57,7 +57,11 @@ export function BannerField({
           disabled={disabled}
           onValueChange={(next) => onSeverityChange(next as BannerSeverity)}
         >
-          <SelectTrigger id="banner_severity" className="w-40" aria-label="Banner severity">
+          <SelectTrigger
+            id="banner_severity"
+            className="w-40"
+            aria-label={t(keys.branding.manage.banner_severity_label)}
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

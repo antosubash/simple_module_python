@@ -1,9 +1,10 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import { Box, Search } from 'lucide-react';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
+import { ArrowRight, Box, Search } from 'lucide-react';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { ModuleForm, type ModuleView } from './components/ModuleForm';
@@ -35,7 +36,7 @@ function ModulesEdit({ modules, testable = [] }: Props) {
 
   return (
     <>
-      <Head title="Modules" />
+      <Head title={t(keys.settings.modules.head_title)} />
       {/* Master/detail pane fills the viewport minus the chrome above it,
           whose height the layout publishes as --app-chrome-h. */}
       <div className="flex h-[calc(100vh-var(--app-chrome-h))] bg-background">
@@ -96,7 +97,29 @@ function ModulesEdit({ modules, testable = [] }: Props) {
         </aside>
 
         <main className="flex-1 overflow-y-auto p-6">
-          {current ? (
+          {current?.manage_url ? (
+            <Card className="border-border p-8">
+              {/* No second editor for these fields — the module's own page is
+                  the one place they're edited. */}
+              <div className="flex max-w-xl flex-col items-start gap-3">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary-600/10 text-primary-700">
+                  <Box className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <h2 className="text-lg font-semibold text-foreground">
+                  {t(keys.settings.modules.managed_title)}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {t(keys.settings.modules.managed_description, { module: current.module_name })}
+                </p>
+                <Button asChild className="mt-2">
+                  <Link href={current.manage_url}>
+                    {t(keys.settings.modules.managed_open, { module: current.module_name })}
+                    <ArrowRight className="ml-1.5 h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </Button>
+              </div>
+            </Card>
+          ) : current ? (
             <Card className="border-border p-6">
               <ModuleForm module={current} testable={testable.includes(current.package)} />
             </Card>
@@ -109,5 +132,5 @@ function ModulesEdit({ modules, testable = [] }: Props) {
   );
 }
 
-ModulesEdit.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+ModulesEdit.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default ModulesEdit;

@@ -5,7 +5,7 @@ import { TableEmptyRow } from '@simple-module-py/ui/components/TableEmptyRow';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Plus, UserPlus, Users } from 'lucide-react';
 
-const ADD_PEOPLE_URL = '/users/admin/add';
+const ADD_PEOPLE_URL = '/admin/users/add';
 
 function AddPeopleAction() {
   const { t } = useT();

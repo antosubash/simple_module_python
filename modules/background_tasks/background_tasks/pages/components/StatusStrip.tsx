@@ -1,5 +1,5 @@
-import { TASK_STATUS, type TaskStatus } from '../constants';
-import { statusLabel } from './ExecutionRow';
+import { useT } from '@simple-module-py/i18n';
+import { STATUS_LABEL_KEY, TASK_STATUS, type TaskStatus } from '../constants';
 
 export type StatusCounts = Partial<Record<TaskStatus, number>>;
 
@@ -29,6 +29,7 @@ const TILES: TaskStatus[] = [
 const ALARMING = new Set<TaskStatus>([TASK_STATUS.FAILED, TASK_STATUS.STUCK]);
 
 export function StatusStrip({ counts, active, onSelect }: Props) {
+  const { t } = useT();
   return (
     <div className="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
       {TILES.map((status) => {
@@ -57,7 +58,9 @@ export function StatusStrip({ counts, active, onSelect }: Props) {
             >
               {count}
             </div>
-            <div className="truncate text-[11px] text-muted-foreground">{statusLabel(status)}</div>
+            <div className="truncate text-[11px] text-muted-foreground">
+              {t(STATUS_LABEL_KEY[status])}
+            </div>
           </button>
         );
       })}
