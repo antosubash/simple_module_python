@@ -10,7 +10,7 @@ import {
 } from '@simple-module-py/ui/components/ui/command';
 import { Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { MenuItem } from '../types';
+import { isPostMenuItem, type MenuItem } from '../types';
 import { NavIcon } from './NavIcon';
 
 interface CommandPaletteProps {
@@ -18,10 +18,6 @@ interface CommandPaletteProps {
   navItems: MenuItem[];
   /** Profile / log out / anything else the user menu offers. */
   accountItems: MenuItem[];
-}
-
-function groupOf(item: MenuItem): string {
-  return item.group || 'Navigation';
 }
 
 /**
@@ -50,29 +46,30 @@ export function CommandPalette({ navItems, accountItems }: CommandPaletteProps) 
 
   const go = (item: MenuItem) => {
     setOpen(false);
-    // Menu entries carry their own method — logging out is a POST, and
-    // visiting it with a GET would silently do nothing.
-    if (item.method === 'post') router.post(item.url);
+    if (isPostMenuItem(item)) router.post(item.url);
     else router.visit(item.url);
   };
+
+  const navigationGroupLabel = t(keys.ui.nav_groups.navigation);
+  const accountGroupLabel = t(keys.ui.nav_groups.account);
 
   const groups = useMemo(() => {
     const bucketed: Record<string, MenuItem[]> = {};
     for (const item of navItems) {
-      const key = groupOf(item);
+      const key = item.group || navigationGroupLabel;
       if (!bucketed[key]) bucketed[key] = [];
       bucketed[key].push(item);
     }
     // Account actions render through the same loop as every other group —
     // folded in last so they keep sorting after Navigation, matching where
     // "log out" otherwise lives, behind the avatar dropdown. Merged rather
-    // than assigned: a nav item whose own `group` happens to be "Account"
-    // must not silently vanish from the palette.
+    // than assigned: a nav item whose own `group` happens to translate to
+    // the same label as "Account" must not silently vanish from the palette.
     if (accountItems.length > 0) {
-      bucketed.Account = [...(bucketed.Account ?? []), ...accountItems];
+      bucketed[accountGroupLabel] = [...(bucketed[accountGroupLabel] ?? []), ...accountItems];
     }
     return bucketed;
-  }, [navItems, accountItems]);
+  }, [navItems, accountItems, navigationGroupLabel, accountGroupLabel]);
 
   return (
     <>

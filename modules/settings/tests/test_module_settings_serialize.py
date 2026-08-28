@@ -20,8 +20,8 @@ import pytest
 from settings._module_settings import (
     ModuleSettingField,
     ModuleSettingsView,
-    serialize,
 )
+from settings._module_settings_props import serialize
 
 
 def _view_with(value: Any, default: Any = "") -> ModuleSettingsView:

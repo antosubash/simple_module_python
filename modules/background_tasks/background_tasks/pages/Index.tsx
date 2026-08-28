@@ -47,6 +47,9 @@ interface Props {
 /** Task, Status, Queue, Queued, Duration, Worker, Actions. */
 const COLUMN_COUNT = 7;
 
+// Same header treatment as the other admin tables (users, audit log, flags).
+const TH = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground';
+
 const STATUS_ALL = '__all__';
 
 function pushFilters(filters: { status: string; task_name: string }, page: number): void {
@@ -181,23 +184,23 @@ function Index() {
 
         <Card>
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-secondary/40">
               <TableRow>
-                <TableHead>{t(keys.background_tasks.table.task)}</TableHead>
-                <TableHead>{t(keys.background_tasks.table.status)}</TableHead>
-                <TableHead className="hidden md:table-cell">
+                <TableHead className={TH}>{t(keys.background_tasks.table.task)}</TableHead>
+                <TableHead className={TH}>{t(keys.background_tasks.table.status)}</TableHead>
+                <TableHead className={`${TH} hidden md:table-cell`}>
                   {t(keys.background_tasks.table.queue)}
                 </TableHead>
-                <TableHead className="hidden lg:table-cell">
+                <TableHead className={`${TH} hidden lg:table-cell`}>
                   {t(keys.background_tasks.table.queued_at)}
                 </TableHead>
-                <TableHead className="hidden sm:table-cell">
+                <TableHead className={`${TH} hidden sm:table-cell`}>
                   {t(keys.background_tasks.table.duration)}
                 </TableHead>
-                <TableHead className="hidden xl:table-cell">
+                <TableHead className={`${TH} hidden xl:table-cell`}>
                   {t(keys.background_tasks.table.worker)}
                 </TableHead>
-                <TableHead className="text-right">
+                <TableHead className={`${TH} text-right`}>
                   {t(keys.background_tasks.table.actions)}
                 </TableHead>
               </TableRow>
