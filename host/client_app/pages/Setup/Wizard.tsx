@@ -8,7 +8,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@simple-module-py/ui/components/ui/card';
-import { PublicLayout } from '@simple-module-py/ui/layouts/PublicLayout';
+import { BRAND_ACCENT, BRAND_DEFAULT_APP_NAME } from '@simple-module-py/ui/lib/brand';
+import type { SharedProps } from '@simple-module-py/ui/types';
 import { CheckCircle2, Circle, Database } from 'lucide-react';
 import { useState } from 'react';
 import { AdministratorForm } from './AdministratorForm';
@@ -42,10 +43,14 @@ interface WizardProps {
  */
 function Wizard() {
   const { t } = useT();
-  const { checks, steps, migration } = usePage<{ props: WizardProps }>()
-    .props as unknown as WizardProps;
+  const page = usePage<{ props: WizardProps & SharedProps }>().props as unknown as WizardProps &
+    SharedProps;
+  const { checks, steps, migration, branding } = page;
   const [migrating, setMigrating] = useState(false);
   const [migrationError, setMigrationError] = useState<string | null>(null);
+
+  const appName = branding?.appName ?? BRAND_DEFAULT_APP_NAME;
+  const brandInitial = appName.trim().charAt(0).toUpperCase() || 'S';
 
   async function applyMigrations() {
     setMigrating(true);
@@ -64,10 +69,30 @@ function Wizard() {
   }
 
   return (
-    <>
+    <div className="min-h-screen bg-background text-foreground">
       <Head title={t(keys.host.setup.title)} />
 
-      <div className="mx-auto w-full max-w-2xl space-y-6 py-10">
+      <div className="mx-auto w-full max-w-2xl space-y-6 px-4 py-12">
+        {/* No site nav here on purpose. The public shell offers "Log in",
+            which during setup points at a sign-in page that no account can
+            pass and that the gate redirects straight back here. */}
+        <div className="flex items-center gap-2.5">
+          {branding?.logoUrl ? (
+            <img
+              src={branding.logoUrl}
+              alt={appName}
+              className="h-8 w-8 rounded-lg object-contain"
+            />
+          ) : (
+            <div
+              className={`flex h-8 w-8 items-center justify-center rounded-lg ${BRAND_ACCENT} shadow-md shadow-primary-600/30`}
+            >
+              <span className="font-bold text-white text-sm">{brandInitial}</span>
+            </div>
+          )}
+          <span className="text-[15px] font-bold tracking-tight">{appName}</span>
+        </div>
+
         <header className="space-y-1">
           <h1 className="text-2xl font-semibold">{t(keys.host.setup.title)}</h1>
           <p className="text-muted-foreground">{t(keys.host.setup.subtitle)}</p>
@@ -140,10 +165,8 @@ function Wizard() {
           </CardContent>
         </Card>
       </div>
-    </>
+    </div>
   );
 }
-
-Wizard.layout = (page: React.ReactNode) => <PublicLayout>{page}</PublicLayout>;
 
 export default Wizard;
