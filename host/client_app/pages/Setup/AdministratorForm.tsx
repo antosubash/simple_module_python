@@ -4,6 +4,30 @@ import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { useState } from 'react';
 
+/** Mirrors the server's `AdministratorIn.password` rule. */
+const MIN_PASSWORD_LENGTH = 8;
+
+/**
+ * Turn a FastAPI error body into one line of text.
+ *
+ * `detail` is a string for `HTTPException`, but an array of
+ * `{loc, msg, ...}` objects for a 422 — which is exactly what a short password
+ * or a malformed address produces here. Interpolating that array straight into
+ * an Error yields "[object Object]", i.e. the one form of the message that
+ * tells the operator nothing.
+ */
+function errorMessage(body: unknown, fallback: string): string {
+  const detail = (body as { detail?: unknown })?.detail;
+  if (typeof detail === 'string' && detail) return detail;
+  if (Array.isArray(detail)) {
+    const parts = detail
+      .map((item) => (typeof item === 'string' ? item : (item as { msg?: string })?.msg))
+      .filter(Boolean);
+    if (parts.length > 0) return parts.join('; ');
+  }
+  return fallback;
+}
+
 /**
  * Creates the first administrator, which is what releases the setup gate.
  *
@@ -35,7 +59,7 @@ export function AdministratorForm() {
       });
       if (!resp.ok) {
         const body = await resp.json().catch(() => ({}));
-        throw new Error(body.detail || resp.statusText);
+        throw new Error(errorMessage(body, resp.statusText || String(resp.status)));
       }
       setDone(true);
       window.location.href = '/';
@@ -60,6 +84,7 @@ export function AdministratorForm() {
           name="password"
           type="password"
           required
+          minLength={MIN_PASSWORD_LENGTH}
           autoComplete="new-password"
         />
       </div>

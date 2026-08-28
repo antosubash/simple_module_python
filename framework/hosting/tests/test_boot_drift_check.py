@@ -73,3 +73,27 @@ async def test_migration_step_alone_never_makes_it_first_run() -> None:
     registry.add(_step(STEP_MIGRATIONS, done=False))
 
     assert await _is_first_run(_app(registry)) is False
+
+
+async def test_a_raising_step_still_counts_as_first_run() -> None:
+    """The real-world case ``test_fresh_install_is_first_run`` idealises away.
+
+    ``users.administrator`` queries a table migrations create, so on a
+    genuinely fresh database — before any migration has ever run — that
+    query raises rather than cleanly returning ``False``.
+    ``SetupRegistry.incomplete()`` treats a raising predicate as *complete*
+    (right for the steady-state gate, wrong here), so delegating to it would
+    make this indistinguishable from a configured install with a merely
+    drifted schema and fail the boot on the very first deploy. A raising
+    required step must count as pending, the same as one that returns
+    ``False`` cleanly.
+    """
+
+    async def is_complete(_app) -> bool:
+        raise RuntimeError("no such table: users_user")
+
+    registry = SetupRegistry()
+    registry.add(_step(STEP_MIGRATIONS, done=False))
+    registry.add(SetupStep(id="users.administrator", title="admin", is_complete=is_complete))
+
+    assert await _is_first_run(_app(registry)) is True

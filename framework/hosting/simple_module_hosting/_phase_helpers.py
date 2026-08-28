@@ -187,7 +187,13 @@ def attach_public_routes(app: FastAPI, settings: Settings, registry) -> None:
     # no account exists, so gating it behind auth would redirect the operator
     # to a login they cannot pass. Its own handlers 404 once setup completes,
     # which is what keeps this exemption from outliving its purpose.
-    registry.add_prefix(SETUP_PATH)
+    #
+    # Exact + trailing-slash prefix, not a bare "/setup" prefix: the latter
+    # would also hand anonymous access to any unrelated route that happens to
+    # start with those six characters ("/setup-guide"), and nothing about that
+    # route asked to be public.
+    registry.add_exact(SETUP_PATH)
+    registry.add_prefix(f"{SETUP_PATH}/")
 
     for prefix in settings.auth_public_paths:
         registry.add_prefix(prefix)

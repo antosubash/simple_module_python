@@ -104,8 +104,8 @@ class SetupRegistry:
         """``False`` when nothing registered — the gate cannot engage."""
         return bool(self._steps)
 
-    async def incomplete(self, app) -> list[SetupStep]:
-        """Return the required steps that are not yet satisfied.
+    async def _evaluate(self, app, steps: list[SetupStep]) -> list[SetupStep]:
+        """Return which of *steps* are not yet satisfied.
 
         A step whose predicate raises counts as *complete*. That direction is
         deliberate: a transient database error must not lock a working install
@@ -114,7 +114,7 @@ class SetupRegistry:
         security.
         """
         pending: list[SetupStep] = []
-        for step in self.required_steps:
+        for step in steps:
             try:
                 done = await step.is_complete(app)
             except Exception:
@@ -122,6 +122,20 @@ class SetupRegistry:
             if not done:
                 pending.append(step)
         return pending
+
+    async def incomplete(self, app) -> list[SetupStep]:
+        """Return the required steps that are not yet satisfied — the gate."""
+        return await self._evaluate(app, self.required_steps)
+
+    async def incomplete_all(self, app) -> list[SetupStep]:
+        """Return every unsatisfied step, optional ones included.
+
+        What the wizard displays, as opposed to what the gate acts on. Using
+        :meth:`incomplete` for the display would report every ``required=False``
+        step as done no matter its predicate, since that list never contains
+        them.
+        """
+        return await self._evaluate(app, self.all_steps)
 
     async def is_setup_complete(self, app) -> bool:
         return not await self.incomplete(app)

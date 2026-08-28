@@ -68,15 +68,34 @@ async def _is_first_run(app: FastAPI) -> bool:
     live system.
 
     So: first run means *something other than the schema* is also outstanding.
-    ``True`` when no registry exists, since an app built outside ``create_app``
-    has no steps to reason about and the old raising behaviour is the safer
-    default there.
+    ``False`` when no registry exists, since an app built outside
+    ``create_app`` has no steps to reason about and the old raising behaviour
+    is the safer default there.
+
+    Deliberately does not delegate to ``registry.incomplete()``: that method
+    treats a step whose predicate raises as *complete*, which is right for
+    ``SetupMiddleware``'s steady-state gate (a transient DB error must not
+    lock a working install out) but wrong here. On a genuinely fresh
+    database the non-migration steps' own tables don't exist yet — the
+    administrator check is a query against a table migrations create — so it
+    raises too, and swallowing that would make every step but the schema
+    look satisfied, exactly the "is setup complete" trap this function
+    exists to avoid. Here, a required step raising while the schema is
+    behind counts as pending: it is itself evidence the install is new.
     """
     registry = getattr(app.state.sm, "setup_registry", None)
     if not registry:
         return False
-    pending = {step.id for step in await registry.incomplete(app)}
-    return bool(pending - {STEP_MIGRATIONS})
+    for step in registry.required_steps:
+        if step.id == STEP_MIGRATIONS:
+            continue
+        try:
+            done = await step.is_complete(app)
+        except Exception:
+            return True
+        if not done:
+            return True
+    return False
 
 
 def build_lifespan(modules: Sequence) -> Callable:

@@ -81,7 +81,10 @@ async def setup_index(
     await _require_setup_mode(request)
 
     registry = request.app.state.sm.setup_registry
-    pending = {s.id for s in await registry.incomplete(request.app)}
+    # incomplete_all, not incomplete: the latter only ever walks the *required*
+    # steps, so an optional one would render with a checkmark whatever its
+    # predicate says.
+    pending = {s.id for s in await registry.incomplete_all(request.app)}
     migration = getattr(request.app.state, "migration", None) or {}
 
     return await inertia.render(

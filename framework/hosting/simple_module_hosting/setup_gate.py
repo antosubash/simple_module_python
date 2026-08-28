@@ -37,7 +37,13 @@ _VERDICT_TTL_SECONDS = 5.0
 # /static because the wizard is a real Inertia page that needs its assets, and
 # redirecting them to HTML breaks the page that reports the problem; /health
 # because an orchestrator killing the container mid-setup is not helpful.
-_EXEMPT_PREFIXES = (SETUP_PATH, "/static", "/health")
+#
+# Split exact from prefix rather than one `startswith` tuple: a bare "/setup"
+# prefix also exempts an unrelated module route like "/setup-guide", and this
+# list is mirrored by the anonymous-access rule in ``attach_public_routes`` —
+# a sloppy match there is an auth bypass, not just a missed redirect.
+_EXEMPT_EXACT = (SETUP_PATH, "/health")
+_EXEMPT_PREFIXES = (f"{SETUP_PATH}/", "/static/", "/health/")
 
 
 STEP_MIGRATIONS = "host.migrations"
@@ -141,7 +147,7 @@ class SetupMiddleware:
             return
 
         path: str = scope.get("path", "")
-        if path.startswith(_EXEMPT_PREFIXES):
+        if path in _EXEMPT_EXACT or path.startswith(_EXEMPT_PREFIXES):
             await self.app(scope, receive, send)
             return
 
