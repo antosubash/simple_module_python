@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 from urllib.error import HTTPError
 
@@ -156,17 +157,30 @@ def test_excludes_prereleases_by_default(tmp_path: Path) -> None:
     assert "simple_module_core>=2.0.0rc1" in pyproject.read_text(encoding="utf-8")
 
 
-def test_missing_pyproject_exits_nonzero(tmp_path: Path) -> None:
-    # typer >= 0.26 vendors click as ``typer._click``; the raised ``Exit``
-    # no longer inherits from ``click.exceptions.Exit``.  Catch both.
-    _exit_types: tuple[type[BaseException], ...] = (click.exceptions.Exit,)
-    try:
-        from typer._click.exceptions import Exit as _TyExit
+def _exit_exception_types() -> tuple[type[BaseException], ...]:
+    """Every ``Exit`` class this typer build might raise.
 
-        _exit_types = (*_exit_types, _TyExit)
-    except ImportError:
-        pass
-    with pytest.raises(_exit_types) as exc:
+    typer's layout is not fixed by its version number: some 0.27.1 installs
+    vendor click as ``typer._click`` (whose ``Exit`` does not inherit from
+    click's) and ship no ``typer.exceptions``, while others ship
+    ``typer.exceptions`` and no ``typer._click``. Naming either path directly
+    is what made this test pass on one machine and fail on another, so probe
+    both and keep whatever exists.
+    """
+    found: list[type[BaseException]] = [click.exceptions.Exit]
+    for module_path in ("typer._click.exceptions", "typer.exceptions"):
+        try:
+            module = importlib.import_module(module_path)
+        except ImportError:
+            continue
+        exit_cls = getattr(module, "Exit", None)
+        if isinstance(exit_cls, type) and issubclass(exit_cls, BaseException):
+            found.append(exit_cls)
+    return tuple(found)
+
+
+def test_missing_pyproject_exits_nonzero(tmp_path: Path) -> None:
+    with pytest.raises(_exit_exception_types()) as exc:
         pu.run_update(
             path=tmp_path,
             dry_run=False,
