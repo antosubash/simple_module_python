@@ -56,7 +56,10 @@ function Wizard() {
     setMigrating(true);
     setMigrationError(null);
     try {
-      const resp = await fetch('/setup/migrations', { method: 'POST' });
+      const resp = await fetch('/setup/migrations', {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+      });
       if (!resp.ok) {
         const body = await resp.json().catch(() => ({}));
         throw new Error(body.detail || resp.statusText);

@@ -27,7 +27,10 @@ export function ConnectionList({ initial }: { initial: CheckResult[] }) {
     setBusy(true);
     setError(null);
     try {
-      const resp = await fetch('/setup/test-connections', { method: 'POST' });
+      const resp = await fetch('/setup/test-connections', {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+      });
       // A 404 here means setup completed in another tab, and the body is not
       // the JSON this expects. Without the check, `resp.json()` throws into an
       // unhandled rejection and the button just stops responding.

@@ -24,10 +24,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from types import SimpleNamespace
 
 from fastapi import APIRouter, HTTPException, Request
 from inertia import InertiaResponse
-from pydantic import EmailStr, Field
+from pydantic import EmailStr
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from sqlmodel import SQLModel
@@ -40,11 +41,24 @@ router = APIRouter(prefix="/setup", tags=["setup"])
 
 _STEP_ADMINISTRATOR = "users.administrator"
 
-# Mirrors ``UserManager.validate_password``. ``create_admin`` writes the hash
-# directly and never goes through the manager, so without this the one
-# unauthenticated account-creation route in the app is also the only one with
-# no password policy at all.
-_MIN_PASSWORD_LENGTH = 8
+
+def _resolve_password_policy():
+    """Return an async ``(password, email) -> None`` that raises on a weak one.
+
+    Wraps the users module's own ``UserManager.validate_password`` so the rule
+    has exactly one definition. Raises ImportError when no local-accounts
+    provider is installed, which the caller turns into a 400.
+    """
+    from fastapi_users import exceptions as fu_exceptions
+    from users.manager import UserManager
+
+    async def validate(password: str, email: str) -> None:
+        try:
+            await UserManager.validate_password(UserManager, password, SimpleNamespace(email=email))
+        except fu_exceptions.InvalidPasswordException as exc:
+            raise HTTPException(status_code=422, detail=exc.reason) from exc
+
+    return validate
 
 
 async def _pending_step_ids(request: Request) -> set[str]:
@@ -110,7 +124,7 @@ async def test_connections(request: Request) -> dict:
 
 class AdministratorIn(SQLModel):
     email: EmailStr
-    password: str = Field(min_length=_MIN_PASSWORD_LENGTH)
+    password: str
     full_name: str | None = None
 
 
@@ -124,11 +138,21 @@ async def create_administrator(request: Request, payload: AdministratorIn) -> di
     # provider never reaches this route, because it registers no setup step.
     try:
         from users.bootstrap import create_admin
+
+        validate_password = _resolve_password_policy()
     except ImportError as exc:  # pragma: no cover - configuration error
         raise HTTPException(
             status_code=400,
             detail="No local accounts provider is installed.",
         ) from exc
+
+    # Delegated, never reimplemented. create_admin writes the hash directly and
+    # never goes through the manager, so this route is the only thing standing
+    # between an anonymous caller and a weak password on the first superuser —
+    # and a local copy of "at least 8 characters" is exactly how it drifted out
+    # of step with the real policy (which also rejects all-digit passwords and
+    # ones containing the address).
+    await validate_password(payload.password, payload.email)
 
     async with request.app.state.sm.db.session_factory() as session:
         result = await create_admin(

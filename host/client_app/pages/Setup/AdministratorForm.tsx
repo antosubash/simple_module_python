@@ -50,7 +50,12 @@ export function AdministratorForm() {
     try {
       const resp = await fetch('/setup/administrator', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // Accept: application/json matters. The host renders an Inertia error
+        // *page* for a 4xx unless the caller prefers JSON, and a bare fetch()
+        // sends Accept: */* — so without this the response body is HTML, the
+        // json() below throws, and the operator sees "Unprocessable Entity"
+        // instead of the reason the request was refused.
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
           email: form.get('email'),
           password: form.get('password'),
