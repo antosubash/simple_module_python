@@ -1,9 +1,6 @@
-"""SetupRegistry and the middleware that gates the app on it.
+"""SetupMiddleware: what a request hits while the install is not set up.
 
-The Keycloak case is the important one. Counting superusers in the host would
-be the obvious implementation and would lock every Keycloak install out of its
-own application permanently, because those installs have an empty local users
-table by design. The gate is a registry so a module can decline to contribute.
+The registry it consults is covered in ``test_setup_registry``.
 """
 
 from __future__ import annotations
@@ -21,88 +18,6 @@ def _step(step_id: str, done: bool, *, required: bool = True, order: int = 100) 
     return SetupStep(
         id=step_id, title=step_id, is_complete=is_complete, required=required, order=order
     )
-
-
-def _raising_step(step_id: str) -> SetupStep:
-    async def is_complete(_app):
-        raise RuntimeError("database went away")
-
-    return SetupStep(id=step_id, title=step_id, is_complete=is_complete)
-
-
-async def test_empty_registry_is_complete() -> None:
-    """No module contributed a step — nothing can gate the app.
-
-    This is the Keycloak path: identity lives elsewhere, so no step exists.
-    """
-    registry = SetupRegistry()
-
-    assert not registry
-    assert await registry.is_setup_complete(None)
-
-
-async def test_incomplete_step_blocks() -> None:
-    registry = SetupRegistry()
-    registry.add(_step("users.administrator", done=False))
-
-    assert not await registry.is_setup_complete(None)
-
-
-async def test_complete_step_releases() -> None:
-    registry = SetupRegistry()
-    registry.add(_step("users.administrator", done=True))
-
-    assert await registry.is_setup_complete(None)
-
-
-async def test_optional_step_never_blocks() -> None:
-    registry = SetupRegistry()
-    registry.add(_step("host.site_name", done=False, required=False))
-
-    assert await registry.is_setup_complete(None)
-
-
-async def test_raising_step_counts_as_complete() -> None:
-    """A transient DB error must not open an anonymous admin-creation form.
-
-    Failing closed here would be failing open on security: the wizard lets an
-    unauthenticated visitor create an administrator.
-    """
-    registry = SetupRegistry()
-    registry.add(_raising_step("users.administrator"))
-
-    assert await registry.is_setup_complete(None)
-
-
-async def test_incomplete_lists_only_pending_required_steps() -> None:
-    registry = SetupRegistry()
-    registry.add(_step("a", done=True))
-    registry.add(_step("b", done=False))
-    registry.add(_step("c", done=False, required=False))
-
-    pending = await registry.incomplete(None)
-
-    assert [s.id for s in pending] == ["b"]
-
-
-def test_steps_sort_by_order() -> None:
-    registry = SetupRegistry()
-    registry.add(_step("late", done=True, order=90))
-    registry.add(_step("early", done=True, order=10))
-
-    assert [s.id for s in registry.all_steps] == ["early", "late"]
-
-
-def test_owner_is_stamped() -> None:
-    registry = SetupRegistry()
-    registry.set_owner("users")
-    registry.add(_step("users.administrator", done=True))
-    registry.set_owner("")
-
-    assert registry.all_steps[0].module == "users"
-
-
-# ── Middleware ────────────────────────────────────────────────
 
 
 def _scope(path: str, headers: list | None = None) -> dict:
@@ -263,3 +178,48 @@ async def test_inertia_request_gets_409_location() -> None:
     assert result["status"] == 409
     headers = {k.lower(): v for k, v in result["headers"]}
     assert headers[b"x-inertia-location"] == b"/setup"
+
+
+@pytest.mark.parametrize(
+    "path,exempt",
+    [
+        ("/setup", True),
+        ("/setup/", True),
+        ("/setup/administrator", True),
+        ("/static/app.css", True),
+        ("/health", True),
+        ("/health/ready", True),
+        # The bypass: a bare "/setup" prefix match also exempts an unrelated
+        # module route that merely starts with those six characters.
+        ("/setup-guide", False),
+        ("/staticky", False),
+        ("/healthcheck-admin", False),
+    ],
+)
+async def test_exemptions_match_exactly(path: str, exempt: bool) -> None:
+    """Mirrored by attach_public_routes, where a sloppy match is an auth
+    bypass rather than a missed redirect."""
+    from simple_module_hosting.setup_gate import SetupMiddleware
+
+    registry = SetupRegistry()
+    registry.add(_step("users.administrator", done=False))
+    scope = _scope(path)
+    scope["app"] = _app_with(registry)
+
+    status = (await _run(SetupMiddleware(_passthrough), scope))["status"]
+
+    assert (status == 200) is exempt, f"{path} exempt={status == 200}, expected {exempt}"
+
+
+async def test_incomplete_all_includes_optional_steps() -> None:
+    """What the wizard displays, versus what the gate acts on.
+
+    incomplete() only ever walks required_steps, so using it for the display
+    renders every optional step with a checkmark whatever its predicate says.
+    """
+    registry = SetupRegistry()
+    registry.add(_step("required.done", done=True))
+    registry.add(_step("optional.pending", done=False, required=False))
+
+    assert [s.id for s in await registry.incomplete(None)] == []
+    assert [s.id for s in await registry.incomplete_all(None)] == ["optional.pending"]

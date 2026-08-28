@@ -111,3 +111,76 @@ async def test_the_stored_row_still_holds_the_real_value(db_session) -> None:
 
     assert row is not None
     assert row[0] == _REAL
+
+
+async def test_saving_the_masked_value_back_does_not_overwrite_the_secret(db_session) -> None:
+    """The hazard the masking itself created.
+
+    The admin edit form GETs the row, pre-fills its input from the response,
+    and PUTs it back. For a masked key that response carries the placeholder,
+    so an admin who opens host.secret_key and clicks Save without touching the
+    field would replace the session-signing key with a fixed, publicly-known
+    string — invalidating every session and making every future cookie
+    forgeable. Worse than the read exposure this masking was added to close.
+    """
+    from settings.contracts.schemas import SettingUpdate
+    from sqlalchemy import text
+
+    setting_id = await _seed_secret(db_session)
+    service = SettingService(db_session)
+
+    await service.update(setting_id, SettingUpdate(value=SENSITIVE_PLACEHOLDER))
+    await db_session.commit()
+
+    row = (
+        await db_session.execute(
+            text("SELECT value FROM settings_setting WHERE key = 'host.secret_key'")
+        )
+    ).first()
+
+    assert row[0] == _REAL, "the placeholder was written back over the real key"
+
+
+async def test_an_admin_can_still_set_a_real_new_secret(db_session) -> None:
+    """The guard must not freeze the key — only ignore the mask echo."""
+    from settings.contracts.schemas import SettingUpdate
+    from sqlalchemy import text
+
+    setting_id = await _seed_secret(db_session)
+    service = SettingService(db_session)
+
+    await service.update(setting_id, SettingUpdate(value="a-deliberately-rotated-key"))
+    await db_session.commit()
+
+    row = (
+        await db_session.execute(
+            text("SELECT value FROM settings_setting WHERE key = 'host.secret_key'")
+        )
+    ).first()
+
+    assert row[0] == "a-deliberately-rotated-key"
+
+
+async def test_upsert_ignores_the_placeholder_too(db_session) -> None:
+    """upsert_scoped is the path settings hydration and the CLI both use."""
+    from settings.contracts.schemas import SettingUpsert
+    from sqlalchemy import text
+
+    await _seed_secret(db_session)
+    service = SettingService(db_session)
+
+    await service.upsert_scoped(
+        SettingScope.SYSTEM,
+        SYSTEM_SCOPE_ID,
+        "host.secret_key",
+        SettingUpsert(value=SENSITIVE_PLACEHOLDER),
+    )
+    await db_session.commit()
+
+    row = (
+        await db_session.execute(
+            text("SELECT value FROM settings_setting WHERE key = 'host.secret_key'")
+        )
+    ).first()
+
+    assert row[0] == _REAL

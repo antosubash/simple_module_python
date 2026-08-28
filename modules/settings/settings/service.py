@@ -35,6 +35,28 @@ def _out(entity: Setting) -> SettingOut:
     return out
 
 
+def _is_placeholder_write(key: str, value: object) -> bool:
+    """Whether this write is the mask being echoed back, not a real new value.
+
+    The admin edit form GETs the row, pre-fills its input from the response,
+    and PUTs it back. For a masked key that response carries ``"********"``, so
+    an admin who opens ``host.secret_key`` and clicks Save — without touching
+    the field — would otherwise overwrite the session-signing key with a fixed,
+    publicly-known string, silently invalidating every session and making every
+    future cookie forgeable.
+
+    Treated as "leave it alone" rather than rejected, so the rest of the form
+    still saves and an admin who genuinely types a new key can still set one.
+    """
+    return key in SENSITIVE_KEYS and value == SENSITIVE_PLACEHOLDER
+
+
+def _drop_placeholder_write(key: str, changes: dict) -> None:
+    """Strip a masked-value echo out of an update payload, in place."""
+    if "value" in changes and _is_placeholder_write(key, changes["value"]):
+        del changes["value"]
+
+
 class SettingService:
     """Async CRUD + scope resolution for key/value settings.
 
@@ -116,7 +138,9 @@ class SettingService:
         entity = await self.db.get(Setting, setting_id)
         if entity is None:
             return None
-        for field, value in data.model_dump(exclude_unset=True).items():
+        changes = data.model_dump(exclude_unset=True)
+        _drop_placeholder_write(entity.key, changes)
+        for field, value in changes.items():
             setattr(entity, field, value)
         await self.db.flush()
         await self.db.refresh(entity)
@@ -143,7 +167,8 @@ class SettingService:
             )
             self.db.add(entity)
         else:
-            entity.value = data.value
+            if not _is_placeholder_write(key, data.value):
+                entity.value = data.value
             if data.value_type is not None:
                 entity.value_type = data.value_type.value
             # Honor explicit description=None as "clear"; skip only when unset.
