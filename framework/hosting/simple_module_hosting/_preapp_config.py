@@ -183,9 +183,18 @@ def merge_host_settings(bootstrap: BootstrapSettings | None = None) -> Settings:
     ``bootstrap`` is read from env first because it carries ``database_url``,
     which is the one value that cannot come from the database.
     """
+    from simple_module_hosting._secret_key import ensure_secret_key
+
     bootstrap = bootstrap or BootstrapSettings()
     overrides = load_host_overrides(bootstrap.database_url)
     values = apply_host_overrides(overrides)
+    # Resolved here rather than left to the field default so an install with
+    # no SM_SECRET_KEY gets a generated, persisted key instead of the shipped
+    # placeholder. Passing the explicitly-set value through keeps env winning.
+    values["secret_key"] = ensure_secret_key(
+        bootstrap.database_url,
+        env_value=bootstrap.secret_key if "secret_key" in bootstrap.model_fields_set else None,
+    )
     # database_url is passed explicitly: BootstrapSettings.__init__ resolves
     # relative sqlite paths against the discovered project root, and
     # reconstructing Settings from env alone would redo that resolution

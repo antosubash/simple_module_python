@@ -25,7 +25,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from simple_module_core.dotenv import find_env_file
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
-_PLACEHOLDER_SECRET_KEY = "change-me-in-production"
+PLACEHOLDER_SECRET_KEY = "change-me-in-production"
 
 
 def _absolutize_sqlite_url(url: str, *, anchor: Path) -> str:
@@ -82,7 +82,7 @@ class BootstrapSettings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./app.db"
 
     environment: str = "development"
-    secret_key: str = _PLACEHOLDER_SECRET_KEY
+    secret_key: str = PLACEHOLDER_SECRET_KEY
     vite_dev_url: str = "http://localhost:5050"
     debug: bool = False
 
@@ -96,13 +96,22 @@ class BootstrapSettings(BaseSettings):
     def _forbid_placeholder_secret_in_production(self) -> BootstrapSettings:
         """Reject the shipped placeholder in production.
 
-        Only fires when the key is *explicitly* the placeholder. An absent key
-        is valid now: ``ensure_secret_key`` generates one and persists it, so
-        a production boot no longer fails just because nobody set this.
+        Only fires when the key was *explicitly* supplied as the placeholder.
+        An absent key is valid now — ``ensure_secret_key`` generates one and
+        persists it, so a production boot no longer fails just because nobody
+        set this, which used to happen before the operator could ever reach
+        the setup wizard.
+
+        ``model_fields_set`` is what separates the two: pydantic-settings
+        records env-sourced fields there, so an unset key leaves it out while
+        ``SM_SECRET_KEY=change-me-in-production`` puts it in. ``create_app``
+        makes the same check against the *resolved* key, covering callers that
+        build Settings themselves.
         """
         if (
             self.environment not in NON_PROD_ENVIRONMENTS
-            and self.secret_key == _PLACEHOLDER_SECRET_KEY
+            and "secret_key" in self.model_fields_set
+            and self.secret_key == PLACEHOLDER_SECRET_KEY
         ):
             raise ValueError(
                 f"SM_SECRET_KEY must be set to a non-default value when "

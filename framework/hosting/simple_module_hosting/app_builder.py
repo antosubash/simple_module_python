@@ -12,6 +12,7 @@ from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.design_packs import DesignPackRegistry
 from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
 from simple_module_core.discovery import discover_modules, select_auth_provider, topological_sort
+from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagRegistry
 from simple_module_core.health import HealthRegistry
@@ -36,6 +37,7 @@ from simple_module_hosting._phase_helpers import (
 )
 from simple_module_hosting._preapp_config import merge_host_settings
 from simple_module_hosting._registrations import run_module_registrations
+from simple_module_hosting.bootstrap_settings import PLACEHOLDER_SECRET_KEY
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types_for_modules
 from simple_module_hosting.settings import Settings
@@ -109,6 +111,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # under anything the environment sets. Without it, DB-backed host
     # settings are silently inert at boot.
     settings = settings or merge_host_settings()
+
+    # The BootstrapSettings validator can only see whether the placeholder was
+    # supplied explicitly; this sees the key the app will actually sign
+    # sessions with, whoever built the Settings object.
+    if (
+        settings.environment not in NON_PROD_ENVIRONMENTS
+        and settings.secret_key == PLACEHOLDER_SECRET_KEY
+    ):
+        raise SystemExit(
+            f"SM_SECRET_KEY is still the shipped placeholder with "
+            f"SM_ENVIRONMENT={settings.environment!r}. Leave it unset to have one "
+            "generated and stored, or set it explicitly."
+        )
 
     # ── Phase 1: Discover modules ──────────────────────────
     # Production: any bad module (import error, missing meta, wrong base
