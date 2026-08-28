@@ -32,10 +32,12 @@ def resolve_head_revision(alembic_ini_path: str = "host/alembic.ini") -> str | N
         return None
 
 
-async def check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") -> dict:
-    """Check database migration state. Raises RuntimeError if not at head.
+async def migration_status(engine, alembic_ini_path: str = "host/alembic.ini") -> dict:
+    """Report database migration state without raising.
 
-    Returns a dict with migration status for storage on app.state.
+    Split from ``check_migrations`` so the setup wizard can *report* a
+    behind-head database and offer to fix it. The raising variant below
+    still guards ordinary boots.
     """
     from alembic.runtime.migration import MigrationContext
 
@@ -59,16 +61,29 @@ async def check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") -
 
         current = await conn.run_sync(_get_current)
 
-    if current != head:
-        pending = list(script.iterate_revisions(head, current))
-        raise RuntimeError(
-            f"Database is {len(pending)} revision(s) behind "
-            f"(at {current!r}, head is {head!r}). Run: make migrate"
-        )
-
+    pending = 0 if current == head else len(list(script.iterate_revisions(head, current)))
     return {
         "current_revision": current,
         "head_revision": head,
-        "is_current": True,
-        "pending_count": 0,
+        "is_current": current == head,
+        "pending_count": pending,
     }
+
+
+async def check_migrations(engine, alembic_ini_path: str = "host/alembic.ini") -> dict:
+    """Return migration state, raising if the database is behind head.
+
+    The raising behaviour is what stops a deploy from serving traffic against
+    a schema its code does not match. It is deliberately *not* used during
+    first-run setup — see ``_lifespan``, which tolerates a behind-head database
+    only while the setup wizard is still gating the app, since running the
+    migrations is one of the things that wizard exists to do.
+    """
+    status = await migration_status(engine, alembic_ini_path)
+    if not status["is_current"]:
+        raise RuntimeError(
+            f"Database is {status['pending_count']} revision(s) behind "
+            f"(at {status['current_revision']!r}, head is "
+            f"{status['head_revision']!r}). Run: make migrate"
+        )
+    return status

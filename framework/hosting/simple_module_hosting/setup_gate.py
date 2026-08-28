@@ -29,6 +29,43 @@ SETUP_PATH = "/setup"
 _EXEMPT_PREFIXES = (SETUP_PATH, "/static", "/health")
 
 
+STEP_MIGRATIONS = "host.migrations"
+
+
+async def _database_migrated(app) -> bool:
+    """Whether the schema is at head.
+
+    Reads ``app.state.migration``, which the lifespan populates before any
+    module starts. Defaults to ``True`` when absent so a build without Alembic
+    is never gated on a migration it does not have.
+    """
+    status = getattr(app.state, "migration", None)
+    if not status:
+        return True
+    return bool(status.get("is_current", True))
+
+
+def register_migration_step(registry) -> None:
+    """Contribute the host's own setup step: the schema must be at head.
+
+    Host-owned rather than module-owned because no module owns the schema as a
+    whole — it is the union of whatever modules are installed.
+    """
+    from simple_module_core.setup_steps import SetupStep
+
+    registry.set_owner("Host")
+    registry.add(
+        SetupStep(
+            id=STEP_MIGRATIONS,
+            title="Apply database migrations",
+            description="Bring the database schema up to the version this code expects.",
+            is_complete=_database_migrated,
+            order=20,
+        )
+    )
+    registry.set_owner("")
+
+
 class SetupMiddleware:
     """Redirect to the setup wizard until every required step is complete."""
 

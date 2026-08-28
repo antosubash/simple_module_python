@@ -67,7 +67,7 @@ async def test_lifespan_startup_forward_shutdown_reverse(monkeypatch) -> None:
         patch("simple_module_hosting.app_builder.discover_modules", return_value=instances),
         # Lives in _lifespan, not app_builder: the startup/shutdown sequence
         # was split out so app_builder stays focused on wiring.
-        patch("simple_module_hosting._lifespan.check_migrations", _no_migration_check),
+        patch("simple_module_hosting._lifespan.migration_status", _no_migration_check),
     ):
         settings = Settings(
             database_url="sqlite+aiosqlite:///:memory:",

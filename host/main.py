@@ -19,6 +19,7 @@ from simple_module_hosting.logging import setup_logging  # noqa: E402
 from host.routes import router as host_router  # noqa: E402
 from host.routes_i18n import router as i18n_router  # noqa: E402
 from host.routes_legacy import router as legacy_router  # noqa: E402
+from host.routes_setup import router as setup_router  # noqa: E402
 
 # merge_host_settings, not Settings(): log_level and the rest of the host
 # knobs live in the DB now. create_app falls back to this when passed no
@@ -34,6 +35,9 @@ setup_logging(
 app = create_app(settings)
 app.include_router(host_router)
 app.include_router(i18n_router)
+# Every /setup route 404s once setup completes, so this is inert on a
+# configured install.
+app.include_router(setup_router)
 # Mounted last: its catch-all {path:path} routes must not shadow a real
 # route that happens to share a legacy prefix.
 app.include_router(legacy_router)

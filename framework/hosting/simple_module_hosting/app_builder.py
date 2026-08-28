@@ -41,6 +41,7 @@ from simple_module_hosting._secret_key import assert_not_placeholder
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types_for_modules
 from simple_module_hosting.settings import Settings
+from simple_module_hosting.setup_gate import register_migration_step
 from simple_module_hosting.static_files import PrecompressedStaticFiles
 
 logger = logging.getLogger(__name__)
@@ -175,6 +176,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     health_registry = HealthRegistry()
     public_route_registry = PublicRouteRegistry()
     setup_registry = SetupRegistry()
+    register_migration_step(setup_registry)
     design_pack_registry = DesignPackRegistry()
     audit_link_registry = AuditLinkRegistry()
 

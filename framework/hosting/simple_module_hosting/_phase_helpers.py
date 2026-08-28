@@ -46,7 +46,7 @@ from simple_module_hosting.middleware import (
     TenantMiddleware,
 )
 from simple_module_hosting.settings import Settings
-from simple_module_hosting.setup_gate import SetupMiddleware
+from simple_module_hosting.setup_gate import SETUP_PATH, SetupMiddleware
 from simple_module_hosting.static_files import PrecompressedStaticFiles
 
 if TYPE_CHECKING:
@@ -183,6 +183,12 @@ def attach_public_routes(app: FastAPI, settings: Settings, registry) -> None:
     ``app.state.public_routes``, where ``auth.middleware.AuthMiddleware`` reads it
     on every request.
     """
+    # The setup wizard is anonymous by necessity: it is served precisely when
+    # no account exists, so gating it behind auth would redirect the operator
+    # to a login they cannot pass. Its own handlers 404 once setup completes,
+    # which is what keeps this exemption from outliving its purpose.
+    registry.add_prefix(SETUP_PATH)
+
     for prefix in settings.auth_public_paths:
         registry.add_prefix(prefix)
     app.state.public_routes = registry

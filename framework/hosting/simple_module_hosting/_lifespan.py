@@ -18,7 +18,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from simple_module_hosting.migrations import check_migrations
+from simple_module_hosting.migrations import migration_status
 
 
 async def hydrate_settings_from_db(app: FastAPI) -> None:
@@ -47,12 +47,37 @@ async def hydrate_settings_from_db(app: FastAPI) -> None:
         await hydrate_all(app, store_cls(service_cls(session)))
 
 
+async def _setup_complete(app: FastAPI) -> bool:
+    """Whether the first-run wizard has finished gating this install.
+
+    ``True`` when no registry exists or nothing registered a step — an install
+    with no local-accounts provider is never gated, so a behind-head database
+    there is an ordinary boot failure, not a setup task.
+    """
+    registry = getattr(app.state.sm, "setup_registry", None)
+    if not registry:
+        return True
+    return await registry.is_setup_complete(app)
+
+
 def build_lifespan(modules: Sequence) -> Callable:
     """Return the ``lifespan`` context manager for an app over *modules*."""
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-        app.state.migration = await check_migrations(app.state.sm.db.engine)
+        # Report first, decide second. A behind-head database must still boot
+        # far enough to serve the setup wizard — running the migrations is one
+        # of the things that wizard does, and check_migrations' RuntimeError
+        # would make it unreachable. Once setup is complete the original
+        # behaviour stands: a schema the code does not match fails the boot.
+        app.state.migration = await migration_status(app.state.sm.db.engine)
+        if not app.state.migration["is_current"] and await _setup_complete(app):
+            raise RuntimeError(
+                f"Database is {app.state.migration['pending_count']} revision(s) behind "
+                f"(at {app.state.migration['current_revision']!r}, head is "
+                f"{app.state.migration['head_revision']!r}). Run: make migrate"
+            )
+
         await hydrate_settings_from_db(app)
 
         for mod in modules:

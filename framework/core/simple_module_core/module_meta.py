@@ -51,5 +51,3 @@ class ModuleMeta:
     anonymous visitors don't download admin form labels on every public page.
     The catalog is always available server-side (``Translator``) either way.
     """
-
-
