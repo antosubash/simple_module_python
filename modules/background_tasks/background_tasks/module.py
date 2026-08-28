@@ -150,10 +150,18 @@ class BackgroundTasksModule(ModuleBase):
                 name=CHECK_REDIS,
                 check=build_redis_check(app),
                 module=self.meta.name,
-                # Redis is infrastructure this app owns, not a third-party API,
-                # so a probe-rate TCP connect is cheap and a broker the workers
-                # can't reach is a genuine readiness failure.
-                probe=True,
+                # On demand only, like the mailer and storage checks. An
+                # earlier version had this on the readiness probe, reasoning
+                # that Redis is infrastructure this app owns rather than a
+                # third party. That conflates two different questions: whether
+                # this process can serve requests, and whether the system is
+                # fully functional. Failing readiness pulls the web tier out of
+                # the load balancer, turning "background jobs are backed up"
+                # into "the site is down" — and it made /health/ready report
+                # unhealthy on every deployment without Redis, which CI caught.
+                # The wizard's connection step and the settings screen's "Test
+                # connection" both run it explicitly, which is what it is for.
+                probe=False,
             )
         )
 

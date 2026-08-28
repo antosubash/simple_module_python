@@ -16,6 +16,9 @@ from background_tasks.settings import BackgroundTasksSettings
 def test_defaults_when_env_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("SM_BG_TASKS_BROKER_URL", raising=False)
     monkeypatch.delenv("SM_BG_TASKS_RESULT_BACKEND", raising=False)
+    # SM_REDIS_URL now seeds both of these too, so leaving it set makes
+    # "env unset" untrue for any developer who exports it.
+    monkeypatch.delenv("SM_REDIS_URL", raising=False)
 
     settings = BackgroundTasksSettings()
 
@@ -53,6 +56,9 @@ def test_localhost_still_rejected_in_production(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("SM_ENVIRONMENT", "production")
     monkeypatch.delenv("SM_BG_TASKS_BROKER_URL", raising=False)
     monkeypatch.delenv("SM_BG_TASKS_RESULT_BACKEND", raising=False)
+    # SM_REDIS_URL now seeds both of these too, so leaving it set makes
+    # "env unset" untrue for any developer who exports it.
+    monkeypatch.delenv("SM_REDIS_URL", raising=False)
 
     with pytest.raises(ValueError, match="must not point at localhost"):
         BackgroundTasksSettings()

@@ -100,3 +100,22 @@ async def test_registered_at_startup(app) -> None:
     names = [c.name for c in app.state.sm.health_registry.all_checks]
 
     assert CHECK_REDIS in names
+
+
+async def test_redis_is_not_on_the_readiness_probe(app) -> None:
+    """An unreachable Redis must not make /health/ready report unhealthy.
+
+    Readiness answers "can this process serve requests", not "is every
+    dependency up". Failing it pulls the web tier out of the load balancer,
+    which turns backed-up background jobs into a full outage — and would mark
+    every Redis-less deployment permanently unready. The mailer and storage
+    checks are probe=False for the same reason.
+
+    Caught in CI, not locally: the dev machine has the shared Redis running, so
+    the aggregate stayed healthy here while every CI run went red.
+    """
+    registry = app.state.sm.health_registry
+    redis_check = next(c for c in registry.all_checks if c.name == CHECK_REDIS)
+
+    assert redis_check.probe is False
+    assert redis_check not in registry.probe_checks
