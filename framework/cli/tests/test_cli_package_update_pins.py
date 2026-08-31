@@ -215,3 +215,65 @@ class TestWildcardsAndImplicitCeilings:
         )
 
         assert "simple_module_core==1.0.*" in pyproject.read_text(encoding="utf-8")
+
+
+class TestNeverDowngrades:
+    """PyPI's latest can be *older* than what the project already asks for.
+
+    The workspace bumps its own pins ahead of the release (every module here
+    pins `simple_module_core==<next>` before that version is published), so a
+    `package-update` run in that window must not rewrite the pin backwards —
+    with exact pins preserved, `==0.0.33` → `==0.0.32` is a real downgrade the
+    following `uv sync` would install.
+    """
+
+    def test_an_exact_pin_ahead_of_pypi_is_left_alone(
+        self, tmp_path: Path, fake_pypi, write_pyproject
+    ) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        write_pyproject(pyproject, "simple_module_core==0.0.33")
+
+        pu.run_update(
+            path=pyproject,
+            dry_run=False,
+            include_pre=False,
+            fetcher=fake_pypi({"simple_module_core": "0.0.32"}),
+        )
+
+        assert "simple_module_core==0.0.33" in pyproject.read_text(encoding="utf-8")
+
+    def test_a_floor_ahead_of_pypi_is_left_alone(
+        self, tmp_path: Path, fake_pypi, write_pyproject
+    ) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        write_pyproject(pyproject, "simple_module_core>=0.0.33")
+
+        pu.run_update(
+            path=pyproject,
+            dry_run=False,
+            include_pre=False,
+            fetcher=fake_pypi({"simple_module_core": "0.0.32"}),
+        )
+
+        assert "simple_module_core>=0.0.33" in pyproject.read_text(encoding="utf-8")
+
+    def test_compatible_release_keeps_its_band_width(
+        self, tmp_path: Path, fake_pypi, write_pyproject
+    ) -> None:
+        """`~=1.4` means `==1.*`; `~=1.5.0` would mean `==1.5.*`.
+
+        Narrowing it is a pin-style change, and it freezes the dependency: the
+        next run would report 1.6.0 as "excluded by ~=1.5.0".
+        """
+        pyproject = tmp_path / "pyproject.toml"
+        write_pyproject(pyproject, "simple_module_core~=1.4")
+
+        pu.run_update(
+            path=pyproject,
+            dry_run=False,
+            include_pre=False,
+            fetcher=fake_pypi({"simple_module_core": "1.5.0"}),
+        )
+
+        assert "simple_module_core~=1.5" in pyproject.read_text(encoding="utf-8")
+        assert "~=1.5.0" not in pyproject.read_text(encoding="utf-8")

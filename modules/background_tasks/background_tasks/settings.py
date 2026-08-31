@@ -160,9 +160,11 @@ class BackgroundTasksSettings(BaseSettings):
             env_names = ", ".join(f"{ENV_PREFIX}{name.upper()}" for name in bad)
             raise ValueError(
                 f"{names} must not point at localhost when SM_ENVIRONMENT={env!r}. "
-                f"Set {env_names} on the container to the Redis service host "
-                "(e.g. redis://redis:6379/0) — these are read before the "
-                "DB-backed settings exist, so an environment variable is the "
-                "only thing that can satisfy this at boot."
+                f"Set {ENV_REDIS_URL} on the container to the Redis service host "
+                "(e.g. redis://redis:6379/0) — one URL seeds both the broker and "
+                f"the result backend. ({env_names} still override it per field, "
+                "but are deprecated.) These are read before the DB-backed "
+                "settings exist, so an environment variable is what satisfies "
+                "this at boot."
             )
         return self

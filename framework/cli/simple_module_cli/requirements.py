@@ -173,16 +173,29 @@ def _excluded_by(parsed: ParsedRequirement, latest: str) -> str | None:
 def _bump(op: str, version: str, latest: str) -> str:
     """The version this clause should carry after the update.
 
-    Only a plain floor moves. A wildcard band (``==1.0.*``, ``!=1.0.*``) that
-    already allows ``latest`` is left exactly as written — narrowing it to a
-    single release would be a policy change, not a version bump. ``~=`` does
-    move, but only because ``_allows`` has already established that ``latest``
-    is inside its compatible band.
+    Only a plain floor moves, and only *upwards*: PyPI's latest can legitimately
+    be older than what a project already asks for (a version bumped in the
+    workspace but not yet published), and rewriting ``==0.0.33`` to ``==0.0.32``
+    would force an actual downgrade on the next ``uv sync``.
+
+    A wildcard band (``==1.0.*``, ``!=1.0.*``) that already allows ``latest`` is
+    left exactly as written — narrowing it to a single release would be a policy
+    change, not a version bump. ``~=`` moves within its own width for the same
+    reason: ``~=1.4`` becomes ``~=1.5``, never ``~=1.5.0``, because the latter
+    narrows the implied band from ``==1.*`` to ``==1.5.*`` and would make the
+    next run report the following minor as excluded.
     """
     if version.endswith(_WILDCARD):
         return version
-    if op in _FLOOR_OPS or op == "~=":
-        return latest
+    if op == "~=":
+        segments = len(version.split("."))
+        parts = latest.split(".")
+        if len(parts) < segments:
+            return version
+        candidate = ".".join(parts[:segments])
+        return candidate if _compare(candidate, version) > 0 else version
+    if op in _FLOOR_OPS:
+        return latest if _compare(latest, version) > 0 else version
     return version
 
 
@@ -190,8 +203,9 @@ def rewrite_requirement(spec: str, latest: str, *, loosen: bool = False) -> Rewr
     """Point ``spec`` at ``latest``, preserving its pin style unless ``loosen``.
 
     Returns a ``RewriteResult`` whose ``spec`` is ``None`` when the requirement
-    already asks for ``latest``, when it carries no floor to raise, or when an
-    upper bound excludes ``latest`` (the last carries a ``reason``).
+    already asks for ``latest`` (or for something newer), when it carries no
+    floor to raise, or when an upper bound excludes ``latest`` (the last
+    carries a ``reason``).
     """
     parsed = parse_requirement(spec)
     if parsed is None:
