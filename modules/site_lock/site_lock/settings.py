@@ -9,14 +9,18 @@ from __future__ import annotations
 from pydantic import model_validator
 from pydantic_core import InitErrorDetails, PydanticCustomError
 from pydantic_core import ValidationError as CoreValidationError
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
+from simple_module_core.settings_base import DbBackedSettings
 
 _BLANK_PASSWORD_MSG = "password must be set before enabling the site lock"
 
 
-class SiteLockSettings(BaseSettings):
+class SiteLockSettings(DbBackedSettings):
     """Site-wide shared-password gate configuration."""
 
+    # ``DbBackedSettings`` (not ``BaseSettings``) so the DB is genuinely the
+    # only source: omitting ``env_prefix`` would leave pydantic-settings
+    # reading each field from its bare name — GH #283.
     model_config = SettingsConfigDict(extra="ignore")
 
     enabled: bool = False

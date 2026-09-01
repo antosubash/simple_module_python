@@ -1,16 +1,9 @@
 import { Toaster } from '@simple-module-py/ui/components/ui/sonner';
 import type React from 'react';
-import { SidebarLayout } from './SidebarLayout';
+import { DEFAULT_SIDEBAR_THEME, SidebarLayout } from './SidebarLayout';
 
 const THEME = {
-  sidebarBg: 'bg-app-sidebar',
-  accentColor: 'bg-gradient-to-br from-primary-400 to-primary-600',
-  avatarBg: 'bg-primary-700',
-  hoverBg: 'hover:bg-app-sidebar-hover',
-  activeClass: 'bg-primary-600/15 text-primary-300 border-l-2 border-primary-400',
-  inactiveClass:
-    'text-app-sidebar-text hover:bg-app-sidebar-hover hover:text-white border-l-2 border-transparent',
-  mutedTextClass: 'text-app-sidebar-text-muted',
+  ...DEFAULT_SIDEBAR_THEME,
   mobileTitleLabel: 'SimpleModule',
 } as const;
 

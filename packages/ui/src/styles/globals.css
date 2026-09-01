@@ -41,13 +41,6 @@
   --color-sidebar-icon: oklch(0.75 0.005 250);
   --color-sidebar-icon-muted: oklch(0.55 0.005 250);
 
-  /* Admin sidebar — deep cool red-tinted */
-  --color-admin-bg: oklch(0.13 0.02 350);
-  --color-admin-hover: oklch(0.19 0.02 350);
-  --color-admin-text: oklch(0.65 0.01 350);
-  --color-admin-text-muted: oklch(0.5 0.01 350);
-  --color-admin-text-subtle: oklch(0.55 0.01 350);
-
   /* Stat card accents — Amber */
   --color-emerald-border: oklch(0.85 0.06 85);
   --color-emerald-bg: oklch(0.96 0.03 85);

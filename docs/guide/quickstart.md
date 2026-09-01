@@ -32,7 +32,8 @@ The API and Vite dev servers start side by side. Visit:
 - `http://localhost:8000` — landing page
 - `http://localhost:8000/users/login` — sign-in screen
 - `http://localhost:8000/dashboard` — the authenticated home (log in first)
-- `http://localhost:8000/settings/modules` — the admin settings UI (log in first; only when the `settings` module is installed, e.g. the `full` preset or `--with settings`)
+- `http://localhost:8000/admin` — the admin section overview (log in as an admin; lists whichever admin screens are installed)
+- `http://localhost:8000/admin/settings/` — the admin settings UI (log in first; only when the `settings` module is installed, e.g. the `full` preset or `--with settings`)
 
 ## 4. Create an admin
 

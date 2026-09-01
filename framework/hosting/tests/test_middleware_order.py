@@ -4,7 +4,13 @@ CLAUDE.md spells out the pipeline:
 
     CorrelationId → RequestLogging → GZip → Security → Session → <module>
                   → Tenant (opt-in) → Locale → InertiaLayoutData
-                  → InertiaCache → Maintenance → CommitBeforeResponse → app
+                  → InertiaCache → Setup → Maintenance
+                  → CommitBeforeResponse → app
+
+Setup runs before Maintenance: an install that has never been set up has
+nothing meaningful to put into maintenance mode, so the setup redirect wins.
+It is inside InertiaCache for the same reason Maintenance is — it
+short-circuits, and its redirect must not be stored by any cache.
 
 InertiaCache sits directly inside InertiaLayoutData, the middleware that puts
 this user's auth block, permissions and menus into every Inertia payload. Being
@@ -64,6 +70,7 @@ _EXPECTED_MULTI_TENANT = (
     "LocaleMiddleware",
     "InertiaLayoutDataMiddleware",
     "InertiaCacheMiddleware",
+    "SetupMiddleware",
     "MaintenanceMiddleware",
     "CommitBeforeResponseMiddleware",
 )
@@ -79,6 +86,7 @@ _EXPECTED_SINGLE_TENANT = (
     "LocaleMiddleware",
     "InertiaLayoutDataMiddleware",
     "InertiaCacheMiddleware",
+    "SetupMiddleware",
     "MaintenanceMiddleware",
     "CommitBeforeResponseMiddleware",
 )

@@ -94,12 +94,57 @@ If you need a specific relative order, express it with `ModuleMeta.depends_on`. 
 
 ## Settings
 
-Framework settings live on `Settings` (`simple_module_hosting.settings`), prefix `SM_`:
+Framework settings live on `Settings` (`simple_module_hosting.settings`), which
+is `HostSettings` + `BootstrapSettings`. Both read the `SM_` prefix, but they
+differ in where the *value* comes from.
+
+`BootstrapSettings` is env-only, because it cannot be anything else:
 
 ```
-SM_DATABASE_URL, SM_ENVIRONMENT, SM_SECRET_KEY, SM_VITE_DEV_URL,
-SM_DEBUG, SM_LOG_LEVEL, SM_LOG_FORMAT, SM_MULTI_TENANT, SM_TENANT_HEADER
+SM_DATABASE_URL   opens the database, so it cannot live in it
+SM_MODULES_ENABLED decides which modules load — including the settings module
+SM_ENVIRONMENT, SM_DEBUG, SM_VITE_DEV_URL   facts about the process
+SM_SECRET_KEY     optional; unset generates and stores one
 ```
+
+`HostSettings` is DB-backed, edited at `/admin/settings`, with the env var as
+an override:
+
+```
+SM_MULTI_TENANT, SM_TENANT_HEADER, SM_I18N_*, SM_MAINTENANCE_*,
+SM_LOG_LEVEL, SM_LOG_FORMAT, SM_TRUSTED_PROXY, SM_AUTH_PROVIDER,
+SM_AUTH_PUBLIC_PATHS, SM_DB_POOL_SIZE, SM_DB_MAX_OVERFLOW,
+SM_DB_POOL_PRE_PING, SM_DB_POOL_RECYCLE
+```
+
+Precedence is **env → DB → default**, and env must keep winning: a deployment
+that sets `SM_TRUSTED_PROXY` has to behave identically after an upgrade, and an
+inverted precedence would change that with nothing raising.
+
+### The two reads
+
+Settings are read twice per boot, and the first read is the one that is easy
+to forget.
+
+`create_app` consumes settings in Phase 1 (module discovery, auth-provider
+selection, the i18n registry) and again in Phase 8 (the middleware stack).
+Both happen before the lifespan opens the database, so lifespan hydration can
+only swap what a request handler reads later — it cannot rebuild a registry or
+a middleware stack that already exists. `_preapp_config.merge_host_settings`
+therefore does one short-lived read *before* Phase 1.
+
+A consequence worth stating plainly: **an entry point that builds its own
+`Settings()` and passes it to `create_app` skips that read entirely.**
+`host/main.py` calls `merge_host_settings()` for exactly this reason. Before
+that was fixed, `HostSettings` fields consumed at build time were silently
+inert — editing `i18n_default_locale` in the admin UI wrote a row nothing read
+back.
+
+The read is tolerant by design. An unreachable database, a database that has
+not been migrated, and an empty settings table all fall back to defaults
+rather than raising: each is an ordinary first-boot state, and each is what
+the setup wizard exists to repair. Failing the boot would make the wizard
+unreachable.
 
 ### Framework state
 
@@ -108,8 +153,8 @@ once at boot. Consumers read `request.app.state.sm.<field>` — never raw `app.s
 attributes for framework-owned state.
 
 Fields: `settings`, `db`, `event_bus`, `menu_registry`, `permissions`,
-`feature_flags`, `health_registry`, `public_routes`, `i18n_registry`,
-`inertia_config`, `modules`.
+`feature_flags`, `health_registry`, `public_routes`, `setup_registry`,
+`design_packs`, `audit_links`, `i18n_registry`, `inertia_config`, `modules`.
 
 Two attributes are intentionally kept outside `Services`:
 
@@ -239,15 +284,15 @@ way.
   MenuItem(
       label="Users",  # fallback, still required
       label_key="users.nav.users",  # module's own namespace
-      url="/users/admin",
-      group="Administration",
-      group_key="ui.nav_groups.administration",  # shared vocabulary
+      url="/admin/users/",
+      group="Access",
+      group_key="ui.nav_groups.access",  # shared vocabulary
   )
   ```
 
   Menus are translated **on the server**, in `MenuRegistry.get_for_user(translate=…)`, so the Inertia payload carries finished text and every render site (sidebar, topbar, command palette) keeps reading `item.label`. Two consequences worth knowing: an admin-audience module's labels don't need to be in the anonymous catalog snapshot to render, and a key that resolves to nothing falls back to `label` — a missing translation degrades to English, never to a raw dotted key on screen. Both fields are optional, so modules written before them keep working unchanged.
 
-  Group headers are shared across modules, so they live in the `ui` namespace (`ui.nav_groups.administration|system|content`) rather than each module inventing its own key — otherwise one module's "Administration" could translate differently from another's and split a single header in two.
+  Group headers are shared across modules, so they live in the `ui` namespace (`ui.nav_groups.access|appearance|content|system`) rather than each module inventing its own key — otherwise one module's "System" could translate differently from another's and split a single header in two. Those four are the whole vocabulary the bundled modules use; adding a fifth means adding the key to `packages/ui/locales/*.json` so every module can share it.
 - `i18n` — active locale and translation bundle.
 
 The framework does not know the shape of `auth.user`. The `auth` module registers a `principal_serializer: Callable[[UserContext], dict]` on `app.state.principal_serializer` during `register_settings(app)`; the middleware calls it with `request.state.user` to build the `auth.user` payload. Without a registered serializer, `auth.user` is `None` even when a user is authenticated.
@@ -364,9 +409,9 @@ test apps) are exempt.
 
 ### Error responses (HTML vs JSON)
 
-403/404/422/500 are content-negotiated. Requests under `/api/*` — the
-documented prefix for every module's JSON surface — or with an explicit
-`Accept: application/json` get a JSON body:
+401, 403, 404, 419, 422, 429, 500 and 503 are content-negotiated. Requests
+under `/api/*` — the documented prefix for every module's JSON surface — or
+with an explicit `Accept: application/json` get a JSON body:
 
 ```json
 { "detail": "Permission required: pagebuilder.edit" }
@@ -381,6 +426,18 @@ visits qualify, and that wins even under `/api/*` (OAuth login links and
 file-download `<a>` hrefs are real navigations to API paths); a bare
 `fetch()` sends `Accept: */*` and gets JSON there. Module endpoint code doesn't opt in or
 out — raise `HTTPException` as usual and the handler picks the right shape.
+
+Each of those statuses has its own copy on the error page, so a 429 reads as
+"too many requests" rather than a bare "an unexpected error occurred". 401 and
+419 additionally offer **sign in** as the primary action, since that is the
+actual remedy — the URL comes from the auth provider via `app.state` rather
+than an import (framework code must not reach into modules, `SM009`), so an app
+with no provider installed simply gets no button.
+
+Headers the exception carries — `WWW-Authenticate` on a 401, `Retry-After` on a
+429 or 503 — are passed through to both the rendered page and the JSON
+fallback. Those statuses are the ones whose headers mean something, so moving
+them onto the page-rendering branch would otherwise have dropped them.
 
 ### Design packs (site-wide look)
 

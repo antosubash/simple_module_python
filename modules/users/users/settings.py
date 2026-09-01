@@ -12,18 +12,25 @@ from __future__ import annotations
 
 import os
 
-from pydantic import Field, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator, model_validator
+from pydantic_settings import SettingsConfigDict
 from simple_module_core.dotenv import env_str
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
+from simple_module_core.redirect_safety import non_empty_redirect
+from simple_module_core.settings_base import DbBackedSettings
 
 _PLACEHOLDER_RESET_SECRET = "dev-reset-token-secret-change-me"
 _PLACEHOLDER_VERIFY_SECRET = "dev-verify-token-secret-change-me"
 
+DEFAULT_LOGIN_REDIRECT_URL = "/dashboard/"
 
-class UsersSettings(BaseSettings):
+
+class UsersSettings(DbBackedSettings):
     """Local user management configuration."""
 
+    # ``DbBackedSettings`` (not ``BaseSettings``) so the DB is genuinely the
+    # only source: omitting ``env_prefix`` would leave pydantic-settings
+    # reading each field from its bare name — GH #283.
     model_config = SettingsConfigDict(extra="ignore")
 
     # Self-service signup
@@ -33,7 +40,20 @@ class UsersSettings(BaseSettings):
     # Where the login page sends a successful sign-in. Sites without the
     # bundled ``dashboard`` module (``smpy new --preset minimal``) override
     # this to wherever their post-login landing lives.
-    login_redirect_url: str = "/dashboard/"
+    login_redirect_url: str = DEFAULT_LOGIN_REDIRECT_URL
+
+    @field_validator("login_redirect_url")
+    @classmethod
+    def _non_empty_redirect(cls, value: str) -> str:
+        """Blank is never a usable navigation target.
+
+        Covers this module's consumers — the login view (which hands it to
+        Inertia, where ``router.visit("")`` silently reloads the current page)
+        and the generic OAuth callback (which puts it in a ``Location``
+        header). Keycloak has its own settings class with its own copy of this
+        field and normalises it the same way.
+        """
+        return non_empty_redirect(value, default=DEFAULT_LOGIN_REDIRECT_URL)
 
     # Token secrets — MUST be set in production. Dev default is a deterministic
     # placeholder that's obvious in logs so it can't be mistaken for a real key.

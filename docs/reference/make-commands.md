@@ -21,11 +21,35 @@ smpy --help
 | `smpy create-module <name>` | Scaffold a publishable module package at `./simple_module_<name>` (or `--dest <path>`). |
 | `smpy create-host <name>` | Scaffold just a host project (no sample module). Useful when you want a minimal shell that consumes published modules. |
 
+### Installing modules
+
+| Command | What |
+|---|---|
+| `smpy add <spec>` | Add a module dependency and wire it up. `<spec>` is a PyPI requirement, a `git+URL[@ref][#subdirectory=dir]`, or a local path. Writes `pyproject.toml`, then runs `uv sync` + `gen-pages` unless `--no-sync`. |
+| `smpy update [name]` | Update git-sourced modules to their newest release tag. Omit the name to update every git-sourced module; `--dry-run` previews. |
+
+`smpy add` handles a repo containing several modules: `--module a,b` picks specific dist names and `--all` takes every module it finds.
+
+Modules from one repo move **in lockstep** — one repo, one ref. `smpy update` takes every module sourced from the same URL to the same new tag, which must be a `v*` semver tag satisfying every sibling's declared dependency range. Mixing tags from one source tree is how you end up with a module built against a sibling it was never shipped with. Branch-pinned sources re-lock to the newest SHA (dev mode), rev-pinned sources are left alone, and a plain PyPI name delegates to `uv lock --upgrade-package`.
+
+Both take `--path` to point at a project root or `pyproject.toml` other than the cwd. `smpy add` takes `--yes` to fail rather than prompt, which is what you want in CI.
+
+### Authoring a module
+
+Run these from inside a module package directory:
+
+| Command | What |
+|---|---|
+| `smpy module verify` | Build this module's frontend inside a throwaway scaffolded host — catches "works in the monorepo, breaks as a wheel" before you publish. |
+| `smpy module build` | Bundle `<pkg>/assets_src/` into `<pkg>/static/dist/` for `static_mounts()`. |
+
+Both cache the scratch host under `.smpy/verify-host`; pass `--fresh` to rebuild it from scratch.
+
 ### Maintenance
 
 | Command | What |
 |---|---|
-| `smpy package-update` | Bump every `simple_module_*` dependency in `pyproject.toml` to the latest PyPI version. `--dry-run` previews the diff. |
+| `smpy package-update` | Bump every `simple_module_*` dependency in `pyproject.toml` to the latest PyPI version, keeping each constraint's operator (`==` stays `==`). `--dry-run` previews the diff; `--loosen` rewrites everything to `>=`. |
 | `smpy skills add\|list\|update` | Install or update the bundled agent skills under `.claude/skills/` for use with Claude Code. |
 
 ### Module-contributed plugins

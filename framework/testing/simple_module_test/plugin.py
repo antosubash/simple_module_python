@@ -29,6 +29,7 @@ from simple_module_test.fixtures import (  # noqa: F401
     engine,
     pinned_auth_provider,
     settings,
+    setup_pending_app,
 )
 
 

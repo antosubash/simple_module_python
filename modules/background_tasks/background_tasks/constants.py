@@ -25,6 +25,12 @@ _MODULE_SETTINGS = "Settings"
 # ── Env / settings ──────────────────────────────────────────────
 ENV_PREFIX = "SM_BG_TASKS_"
 
+# The single Redis URL an operator sets. Seeds both the broker and the result
+# backend: Celery namespaces result keys as ``celery-task-meta-*``, so sharing
+# one database is safe and is what upstream's quickstart does. The per-field
+# DB-backed overrides still allow splitting them.
+ENV_REDIS_URL = "SM_REDIS_URL"
+
 # ── Permissions ─────────────────────────────────────────────────
 PERM_GROUP = "Background Tasks"
 PERM_VIEW = "background_tasks.view"

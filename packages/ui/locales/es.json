@@ -23,7 +23,9 @@
     "access": "Acceso",
     "appearance": "Apariencia",
     "content": "Contenido",
-    "system": "Sistema"
+    "system": "Sistema",
+    "navigation": "Navegación",
+    "account": "Cuenta"
   },
   "command_palette": {
     "trigger": "Buscar",

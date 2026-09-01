@@ -1,4 +1,4 @@
-"""Fixtures shared by the module-asset tests in this directory.
+"""Fixtures shared by the tests in this directory.
 
 These test files have no ``__init__.py`` (test basenames are globally unique
 instead), so a plain helper import across files is not available — a fixture is
@@ -10,8 +10,45 @@ from __future__ import annotations
 import subprocess
 import sys
 from pathlib import Path
+from urllib.error import HTTPError
 
 import pytest
+
+
+@pytest.fixture
+def fake_pypi():
+    """Return a factory building a `package-update` fetcher stub.
+
+    Takes `{dist_name: latest_version}` and answers only for those names;
+    anything else raises the 404 the real fetcher would see. Keeps the CLI
+    tests off the network.
+    """
+
+    def factory(versions: dict[str, str]):
+        def fetcher(url: str) -> dict:
+            name = url.rsplit("/json", 1)[0].rsplit("/", 1)[1]
+            if name not in versions:
+                raise HTTPError(url, 404, "not found", {}, None)
+            latest = versions[name]
+            return {"info": {"version": latest}, "releases": {latest: [{"yanked": False}]}}
+
+        return fetcher
+
+    return factory
+
+
+@pytest.fixture
+def write_pyproject():
+    """Return a factory writing a minimal pyproject with the given deps."""
+
+    def factory(path: Path, *deps: str) -> None:
+        body = "".join(f'    "{d}",\n' for d in deps)
+        path.write_text(
+            f'[project]\nname = "x"\nversion = "0"\ndependencies = [\n{body}]\n',
+            encoding="utf-8",
+        )
+
+    return factory
 
 
 @pytest.fixture

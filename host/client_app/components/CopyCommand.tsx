@@ -23,11 +23,15 @@ export function CopyCommand({ command }: { command: string }) {
   const { t } = useT();
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mounted = useRef(true);
 
   // Clear on unmount so the reset can't fire into a gone component, and so a
   // rapid second click restarts the window rather than stacking timeouts.
+  // `mounted` guards the state updates below it for the same reason: a click
+  // right before navigating away can have `writeText` resolve after unmount.
   useEffect(
     () => () => {
+      mounted.current = false;
       if (timer.current) clearTimeout(timer.current);
     },
     [],
@@ -42,6 +46,7 @@ export function CopyCommand({ command }: { command: string }) {
       // selectable, which is the fallback either way.
       return;
     }
+    if (!mounted.current) return;
     setCopied(true);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setCopied(false), RESET_AFTER_MS);

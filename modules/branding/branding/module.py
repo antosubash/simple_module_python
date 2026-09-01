@@ -11,7 +11,7 @@ import importlib.resources
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
-from simple_module_core.menu import MenuItem, MenuRegistry
+from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRouteRegistry
@@ -42,6 +42,9 @@ class BrandingModule(ModuleBase):
             constants.PACKAGE,
             BrandingSettings,
             lambda s: BrandingServices(settings=s),
+            # Branding ships its own management page; the generic module-settings
+            # editor links there instead of double-editing the same fields.
+            manage_url=MENU_URL,
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
@@ -68,6 +71,10 @@ class BrandingModule(ModuleBase):
                 label_key="branding.nav.branding",
                 url=MENU_URL,
                 icon="palette",
+                # Between Access (100) and System (110) so the admin sidebar
+                # reads Access → Appearance → System.
+                order=105,
+                section=MenuSection.ADMIN_SIDEBAR,
                 group="Appearance",
                 group_key="ui.nav_groups.appearance",
                 roles=["admin"],

@@ -11,7 +11,7 @@ import {
 import { ChevronsUpDown } from 'lucide-react';
 import type React from 'react';
 import { NavIcon } from '../components/NavIcon';
-import type { MenuItem } from '../types';
+import { isPostMenuItem, type MenuItem } from '../types';
 
 interface SidebarUserMenuProps {
   user: { name: string; email: string; roles: string[] };
@@ -77,8 +77,8 @@ export function SidebarUserMenu({
             <DropdownMenuItem key={item.url} asChild onSelect={onNavigate}>
               <Link
                 href={item.url}
-                method={item.method === 'post' ? 'post' : 'get'}
-                as={item.method === 'post' ? 'button' : 'a'}
+                method={isPostMenuItem(item) ? 'post' : 'get'}
+                as={isPostMenuItem(item) ? 'button' : 'a'}
                 className="flex w-full items-center gap-2"
               >
                 <NavIcon name={item.icon} />

@@ -156,7 +156,7 @@ async def test_with_mock_mailer(app, authenticated_client):
 
     app.dependency_overrides[_mailer] = fake_mailer
 
-    await authenticated_client.post("/users/admin/invite", data={"email": "x@y.z"})
+    await authenticated_client.post("/api/users/admin/invite", json={"email": "x@y.z"})
     assert len(captured) == 1
 ```
 

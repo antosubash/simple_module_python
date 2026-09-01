@@ -2,13 +2,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@simple-module-py/ui/components/ui/card';
+import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
@@ -18,6 +12,7 @@ import { toast } from 'sonner';
 import { BannerField, type BannerSeverity } from '../components/BannerField';
 import { BrandingPreview } from '../components/BrandingPreview';
 import { DesignPackField, type DesignPackOption } from '../components/DesignPackField';
+import { type FooterLink, FooterLinksField } from '../components/FooterLinksField';
 import { ImageField } from '../components/ImageField';
 import { PresetField, type PresetOption } from '../components/PresetField';
 
@@ -55,6 +50,7 @@ function Manage() {
   const [bannerSeverity, setBannerSeverity] = useState<BannerSeverity>(
     (branding?.banner?.severity as BannerSeverity) ?? 'info',
   );
+  const [footerLinks, setFooterLinks] = useState<FooterLink[]>(branding?.footerLinks ?? []);
   const [busy, setBusy] = useState(false);
 
   // Applying a preset changes branding on the *server*; `router.reload()` brings
@@ -67,6 +63,10 @@ function Manage() {
   const propDesignPack = branding?.designPack ?? '';
   const propBannerMessage = branding?.banner?.message ?? '';
   const propBannerSeverity = (branding?.banner?.severity as BannerSeverity) ?? 'info';
+  // Serialised for the same reason the others are primitives: the array's
+  // identity changes on every `router.reload()`, so depending on it directly
+  // would re-seed the rows mid-edit and discard in-progress typing.
+  const propFooterLinks = JSON.stringify(branding?.footerLinks ?? []);
 
   useEffect(() => {
     setAppName(propAppName);
@@ -74,7 +74,15 @@ function Manage() {
     setDesignPack(propDesignPack);
     setBannerMessage(propBannerMessage);
     setBannerSeverity(propBannerSeverity);
-  }, [propAppName, propColor, propDesignPack, propBannerMessage, propBannerSeverity]);
+    setFooterLinks(JSON.parse(propFooterLinks) as FooterLink[]);
+  }, [
+    propAppName,
+    propColor,
+    propDesignPack,
+    propBannerMessage,
+    propBannerSeverity,
+    propFooterLinks,
+  ]);
 
   async function run(work: () => Promise<Response>, errorMsg: string) {
     setBusy(true);
@@ -102,6 +110,9 @@ function Manage() {
             design_pack: designPack,
             banner_message: bannerMessage,
             banner_severity: bannerSeverity,
+            // Blank rows are the natural state of a row you just added and
+            // haven't filled in; dropping them here beats a 422 on save.
+            footer_links: footerLinks.filter((l) => l.label.trim() && l.href.trim()),
           }),
         }),
       t(keys.branding.manage.error_toast),
@@ -136,12 +147,10 @@ function Manage() {
         description={t(keys.branding.manage.description)}
       >
         <div className="grid gap-6 lg:grid-cols-3">
+          {/* The PageShell above already carries the title + description;
+              repeating them inside the card read as a glitch. */}
           <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>{t(keys.branding.manage.title)}</CardTitle>
-              <CardDescription>{t(keys.branding.manage.description)}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 pt-6">
               <div className="space-y-2">
                 <Label htmlFor="app_name">{t(keys.branding.manage.app_name_label)}</Label>
                 <Input
@@ -204,6 +213,12 @@ function Manage() {
                 severity={bannerSeverity}
                 onMessageChange={setBannerMessage}
                 onSeverityChange={setBannerSeverity}
+                disabled={!canManage || busy}
+              />
+
+              <FooterLinksField
+                links={footerLinks}
+                onChange={setFooterLinks}
                 disabled={!canManage || busy}
               />
 

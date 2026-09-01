@@ -41,11 +41,16 @@ async def apply_changes_and_reload(
 
     services = getattr(app.state, package)
     current = services.settings
-    diff = {k: v for k, v in changes.items() if getattr(current, k) != v}
+    # Compare against the *dumped* current value, not the attribute: a field
+    # typed as a list of models (branding's ``footer_links``) holds model
+    # instances, while ``changes`` carries the plain dicts a DTO dumps to. The
+    # attribute comparison never matched those, so an unchanged list was
+    # rewritten to the store on every save.
+    merged = current.model_dump()
+    diff = {k: v for k, v in changes.items() if merged.get(k) != v}
     if not diff:
         return current
 
-    merged = current.model_dump()
     merged.update(diff)
     validated = cls(**merged)
 
