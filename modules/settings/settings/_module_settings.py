@@ -139,13 +139,16 @@ def _env_readable_var(settings: BaseSettings, name: str) -> str | None:
     ``env_var`` on the view is a *label* — the ``SM_<PACKAGE>_<FIELD>`` name the
     ``smpy settings import-from-env`` CLI looks for, kept from before settings
     moved into the DB. It is not evidence that pydantic reads it: the bundled
-    module settings classes declare ``SettingsConfigDict(extra="ignore")`` with
-    no ``env_prefix``, so ``SM_FILE_STORAGE_BACKEND`` has no effect on
-    ``FileStorageSettings()``. Deriving env-readability from the class's own
-    ``env_prefix`` keeps the "From environment" badge honest, and works as-is
-    for the classes that do declare one — the host's ``Settings`` (``SM_``) and
-    every module built from the scaffold, whose template ships
-    ``env_prefix="SM_<PACKAGE>_"``.
+    module settings classes subclass ``DbBackedSettings``, which drops the env
+    source entirely, so ``SM_FILE_STORAGE_BACKEND`` has no effect on
+    ``FileStorageSettings()``. (Until GH #283 those classes subclassed
+    ``BaseSettings`` and merely omitted ``env_prefix``, which left pydantic
+    reading each field from its *bare* name instead of not at all.) Deriving
+    env-readability from the class's own ``env_prefix`` keeps the "From
+    environment" badge honest, and works as-is for the classes that do declare
+    one — the host's ``Settings`` (``SM_``), ``BackgroundTasksSettings``
+    (``SM_BG_TASKS_``), and every module built from the scaffold, whose
+    template ships ``env_prefix="SM_<PACKAGE>_"``.
     """
     env_prefix = str(type(settings).model_config.get("env_prefix") or "")
     if not env_prefix:

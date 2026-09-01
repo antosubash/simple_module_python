@@ -15,7 +15,9 @@ wants the broker and the backend on different Redis databases.
 
 ``SM_BG_TASKS_BROKER_URL`` and ``SM_BG_TASKS_RESULT_BACKEND`` still work and
 take precedence over ``SM_REDIS_URL`` — a deployment that set them meant them —
-but log a deprecation warning.
+but log a deprecation warning. They are answered by pydantic's own env source
+now that ``env_prefix`` is set (GH #283), which is also what stops every other
+field being readable from its bare, unprefixed name.
 
 The other env read is ``SM_ENVIRONMENT``, consulted by the
 ``@model_validator`` to refuse a localhost broker in production — that's a
@@ -35,7 +37,6 @@ import os
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from simple_module_core.dotenv import env_bool
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
 from background_tasks.constants import (
@@ -56,48 +57,41 @@ _CELERY_RESTART = {"requires_restart": True, "group": "Celery"}
 logger = logging.getLogger(__name__)
 
 
-def _redis_from_env(legacy_var: str, default: str) -> str:
-    """Resolve a Celery URL from env: legacy var → ``SM_REDIS_URL`` → default.
+def _redis_from_env(default: str) -> str:
+    """``SM_REDIS_URL`` → the module default.
 
-    The legacy var is checked first because a deployment that set both meant
-    the specific one. It warns rather than failing: ``smpy_gis``, ``smpy_saas``,
-    ``laco_wiki_python`` and the ``nodes-k8s`` manifests all set these, and
-    breaking them on upgrade buys nothing.
+    ``env_prefix`` means pydantic's env source has already answered
+    ``SM_BG_TASKS_BROKER_URL`` / ``SM_BG_TASKS_RESULT_BACKEND`` by the time a
+    default is needed, so this factory is only the ``SM_REDIS_URL`` half — the
+    legacy names keep working, and keep winning, through that source instead.
     """
-    legacy = os.environ.get(legacy_var)
-    if legacy:
-        logger.warning(
-            "%s is deprecated; use %s instead (one URL seeds both the broker "
-            "and the result backend).",
-            legacy_var,
-            ENV_REDIS_URL,
-        )
-        return legacy
     return os.environ.get(ENV_REDIS_URL) or default
 
 
 class BackgroundTasksSettings(BaseSettings):
     """Configuration for the Celery + Redis task runner."""
 
-    model_config = SettingsConfigDict(extra="ignore")
+    # Without ``env_prefix`` pydantic-settings resolves each field from its
+    # bare, case-insensitive name — so a container setting ``broker_url`` or
+    # ``retention_days`` for any other purpose silently reconfigured Celery,
+    # and the documented ``SM_BG_TASKS_*`` names did nothing (GH #283).
+    model_config = SettingsConfigDict(extra="ignore", env_prefix=ENV_PREFIX)
 
     broker_url: str = Field(
-        default_factory=lambda: _redis_from_env(f"{ENV_PREFIX}BROKER_URL", DEFAULT_BROKER_URL),
+        default_factory=lambda: _redis_from_env(DEFAULT_BROKER_URL),
         json_schema_extra=_CELERY_RESTART,
     )
     result_backend: str = Field(
-        default_factory=lambda: _redis_from_env(
-            f"{ENV_PREFIX}RESULT_BACKEND", DEFAULT_RESULT_BACKEND
-        ),
+        default_factory=lambda: _redis_from_env(DEFAULT_RESULT_BACKEND),
         json_schema_extra=_CELERY_RESTART,
     )
     task_default_queue: str = Field(default=DEFAULT_QUEUE, json_schema_extra=_CELERY_RESTART)
 
-    # Run tasks synchronously inside the calling process. Read at
-    # module-import time so tests can flip it on via ``SM_BG_TASKS_*``
-    # without going through DB-backed hydration (which never fires for
-    # suites that don't use the FastAPI lifespan).
-    task_always_eager: bool = env_bool("SM_BG_TASKS_TASK_ALWAYS_EAGER")
+    # Run tasks synchronously inside the calling process. Tests flip it on via
+    # ``SM_BG_TASKS_TASK_ALWAYS_EAGER`` or by passing it explicitly, either of
+    # which works without DB-backed hydration (which never fires for suites
+    # that don't use the FastAPI lifespan).
+    task_always_eager: bool = False
     task_eager_propagates: bool = True
 
     # A task that has been ``running`` longer than this without a heartbeat is
@@ -122,6 +116,30 @@ class BackgroundTasksSettings(BaseSettings):
     )
 
     @model_validator(mode="after")
+    def _warn_on_legacy_redis_vars(self) -> BackgroundTasksSettings:
+        """Nudge deployments off the per-field names onto ``SM_REDIS_URL``.
+
+        Warns rather than failing: ``smpy_gis``, ``smpy_saas``,
+        ``laco_wiki_python`` and the ``nodes-k8s`` manifests all set these, and
+        breaking them on upgrade buys nothing. It lives here rather than in the
+        default factory because ``env_prefix`` means the env source answers
+        these names before any default is consulted, so the factory never sees
+        them.
+        """
+        for field, legacy_var in (
+            ("broker_url", f"{ENV_PREFIX}BROKER_URL"),
+            ("result_backend", f"{ENV_PREFIX}RESULT_BACKEND"),
+        ):
+            if os.environ.get(legacy_var) == getattr(self, field):
+                logger.warning(
+                    "%s is deprecated; use %s instead (one URL seeds both the "
+                    "broker and the result backend).",
+                    legacy_var,
+                    ENV_REDIS_URL,
+                )
+        return self
+
+    @model_validator(mode="after")
     def _forbid_localhost_broker_in_production(self) -> BackgroundTasksSettings:
         """Fail boot if production is still pointed at the dev default broker.
 
@@ -139,8 +157,14 @@ class BackgroundTasksSettings(BaseSettings):
             bad.append("result_backend")
         if bad:
             names = ", ".join(bad)
+            env_names = ", ".join(f"{ENV_PREFIX}{name.upper()}" for name in bad)
             raise ValueError(
                 f"{names} must not point at localhost when SM_ENVIRONMENT={env!r}. "
-                "Set these to the Redis service host (e.g. redis://redis:6379/0)."
+                f"Set {ENV_REDIS_URL} on the container to the Redis service host "
+                "(e.g. redis://redis:6379/0) — one URL seeds both the broker and "
+                f"the result backend. ({env_names} still override it per field, "
+                "but are deprecated.) These are read before the DB-backed "
+                "settings exist, so an environment variable is what satisfies "
+                "this at boot."
             )
         return self

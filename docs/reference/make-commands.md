@@ -49,7 +49,7 @@ Both cache the scratch host under `.smpy/verify-host`; pass `--fresh` to rebuild
 
 | Command | What |
 |---|---|
-| `smpy package-update` | Bump every `simple_module_*` dependency in `pyproject.toml` to the latest PyPI version. `--dry-run` previews the diff. |
+| `smpy package-update` | Bump every `simple_module_*` dependency in `pyproject.toml` to the latest PyPI version, keeping each constraint's operator (`==` stays `==`). `--dry-run` previews the diff; `--loosen` rewrites everything to `>=`. |
 | `smpy skills add\|list\|update` | Install or update the bundled agent skills under `.claude/skills/` for use with Claude Code. |
 
 ### Module-contributed plugins

@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { BannerField, type BannerSeverity } from '../components/BannerField';
 import { BrandingPreview } from '../components/BrandingPreview';
 import { DesignPackField, type DesignPackOption } from '../components/DesignPackField';
+import { type FooterLink, FooterLinksField } from '../components/FooterLinksField';
 import { ImageField } from '../components/ImageField';
 import { PresetField, type PresetOption } from '../components/PresetField';
 
@@ -49,6 +50,7 @@ function Manage() {
   const [bannerSeverity, setBannerSeverity] = useState<BannerSeverity>(
     (branding?.banner?.severity as BannerSeverity) ?? 'info',
   );
+  const [footerLinks, setFooterLinks] = useState<FooterLink[]>(branding?.footerLinks ?? []);
   const [busy, setBusy] = useState(false);
 
   // Applying a preset changes branding on the *server*; `router.reload()` brings
@@ -61,6 +63,10 @@ function Manage() {
   const propDesignPack = branding?.designPack ?? '';
   const propBannerMessage = branding?.banner?.message ?? '';
   const propBannerSeverity = (branding?.banner?.severity as BannerSeverity) ?? 'info';
+  // Serialised for the same reason the others are primitives: the array's
+  // identity changes on every `router.reload()`, so depending on it directly
+  // would re-seed the rows mid-edit and discard in-progress typing.
+  const propFooterLinks = JSON.stringify(branding?.footerLinks ?? []);
 
   useEffect(() => {
     setAppName(propAppName);
@@ -68,7 +74,15 @@ function Manage() {
     setDesignPack(propDesignPack);
     setBannerMessage(propBannerMessage);
     setBannerSeverity(propBannerSeverity);
-  }, [propAppName, propColor, propDesignPack, propBannerMessage, propBannerSeverity]);
+    setFooterLinks(JSON.parse(propFooterLinks) as FooterLink[]);
+  }, [
+    propAppName,
+    propColor,
+    propDesignPack,
+    propBannerMessage,
+    propBannerSeverity,
+    propFooterLinks,
+  ]);
 
   async function run(work: () => Promise<Response>, errorMsg: string) {
     setBusy(true);
@@ -96,6 +110,9 @@ function Manage() {
             design_pack: designPack,
             banner_message: bannerMessage,
             banner_severity: bannerSeverity,
+            // Blank rows are the natural state of a row you just added and
+            // haven't filled in; dropping them here beats a 422 on save.
+            footer_links: footerLinks.filter((l) => l.label.trim() && l.href.trim()),
           }),
         }),
       t(keys.branding.manage.error_toast),
@@ -196,6 +213,12 @@ function Manage() {
                 severity={bannerSeverity}
                 onMessageChange={setBannerMessage}
                 onSeverityChange={setBannerSeverity}
+                disabled={!canManage || busy}
+              />
+
+              <FooterLinksField
+                links={footerLinks}
+                onChange={setFooterLinks}
                 disabled={!canManage || busy}
               />
 

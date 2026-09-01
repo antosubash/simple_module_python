@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
 from simple_module_core.dotenv import env_str
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.redirect_safety import non_empty_redirect
+from simple_module_core.settings_base import DbBackedSettings
 
 DEFAULT_LOGIN_REDIRECT_URL = "/dashboard/"
 
 
-class KeycloakSettings(BaseSettings):
+class KeycloakSettings(DbBackedSettings):
     """Keycloak OIDC configuration."""
 
+    # ``DbBackedSettings`` (not ``BaseSettings``) so the DB is genuinely the
+    # only source: omitting ``env_prefix`` would leave pydantic-settings
+    # reading each field from its bare name — GH #283.
     model_config = SettingsConfigDict(extra="ignore")
 
     server_url: str = env_str("SM_KEYCLOAK_SERVER_URL", "")

@@ -140,6 +140,22 @@ smpy package-update
 
 Pass `--dry-run` first to preview the diff.
 
+Each constraint keeps the operator you wrote — `==0.0.32` becomes `==0.0.33`,
+`>=0.0.32` becomes `>=0.0.33` — so bumping versions never changes your pinning
+policy. That matters because the published module wheels pin their framework
+deps exactly: a host loosened to `>=` hands the effective version to whichever
+wheel pins hardest, rather than deciding it itself.
+
+Two consequences worth knowing:
+
+- A dependency whose upper bound excludes the latest release (`>=0.1,<1.0`
+  when 2.0.0 is out) is reported and left alone, rather than having its ceiling
+  silently dropped.
+- A dependency with no constraint at all has no pin style to preserve, so it
+  gets `>=<latest>`.
+
+Pass `--loosen` to rewrite every constraint to `>=<latest>` instead.
+
 ## Troubleshooting
 
 **`smpy: command not found`** after `uv tool install`.

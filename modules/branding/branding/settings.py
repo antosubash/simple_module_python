@@ -11,8 +11,9 @@ frontend derives a download URL from the id.
 
 from __future__ import annotations
 
-from pydantic import field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator
+from pydantic_settings import SettingsConfigDict
+from simple_module_core.settings_base import DbBackedSettings
 
 from branding.constants import (
     BANNER_SEVERITY_INFO,
@@ -23,13 +24,17 @@ from branding.constants import (
     clean_banner_message,
     normalize_banner_severity,
 )
+from branding.contracts.schemas import FooterLink, bounded_footer_links
 
 DEFAULT_APP_NAME = "SimpleModule"
 
 
-class BrandingSettings(BaseSettings):
+class BrandingSettings(DbBackedSettings):
     """Customisable application identity."""
 
+    # ``DbBackedSettings`` (not ``BaseSettings``) so the DB is genuinely the
+    # only source: omitting ``env_prefix`` would leave pydantic-settings
+    # reading each field from its bare name — GH #283.
     model_config = SettingsConfigDict(extra="ignore")
 
     app_name: str = DEFAULT_APP_NAME
@@ -43,6 +48,14 @@ class BrandingSettings(BaseSettings):
     design_pack: str = ""  # "" = base tokens only; otherwise a registered slug
     banner_message: str = ""  # "" = no site-wide banner
     banner_severity: str = BANNER_SEVERITY_INFO
+    # [] = show the framework's own links, so a deployment that never touches
+    # this keeps the footer it has today.
+    footer_links: list[FooterLink] = Field(default_factory=list)
+
+    @field_validator("footer_links")
+    @classmethod
+    def _bounded_links(cls, value: list[FooterLink]) -> list[FooterLink]:
+        return bounded_footer_links(value)
 
     @field_validator("app_name")
     @classmethod
