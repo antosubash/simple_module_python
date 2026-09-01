@@ -57,10 +57,17 @@ export function UserRow({ user }: { user: UserListItem }) {
         <div className="flex items-center gap-3">
           <Avatar initial={(user.full_name || user.email).charAt(0).toUpperCase()} />
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-foreground">
+            {/* Names and addresses are arbitrary-length user data, so the cell
+                clips on real accounts long before it does on seeded ones. */}
+            <div
+              title={user.full_name || user.email}
+              className="truncate text-sm font-semibold text-foreground"
+            >
               {user.full_name || user.email.split('@')[0]}
             </div>
-            <div className="truncate text-[12px] text-muted-foreground">{user.email}</div>
+            <div title={user.email} className="truncate text-[12px] text-muted-foreground">
+              {user.email}
+            </div>
           </div>
         </div>
       </TableCell>

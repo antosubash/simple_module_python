@@ -42,7 +42,10 @@ export function MigrationsCard({ migration }: { migration: Migration }) {
                   {mod}
                 </Badge>
               ))}
-              <div className="flex-1 truncate text-sm text-foreground">{m.message}</div>
+              {/* The message clips on narrow rows and has no other in-place recovery. */}
+              <div title={m.message} className="flex-1 truncate text-sm text-foreground">
+                {m.message}
+              </div>
               <Badge variant="outline" className={TONE.success}>
                 {t(keys.dashboard.doctor.applied)}
               </Badge>

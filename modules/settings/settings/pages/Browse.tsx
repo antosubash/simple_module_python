@@ -119,10 +119,20 @@ function Browse({ settings }: Props) {
                     <TableCell className="hidden lg:table-cell text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
                       {t(keys.settings.value_types[setting.value_type])}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-foreground max-w-[200px] truncate">
+                    {/* title= carries the full text: `max-w-[200px] truncate`
+                        hides most of a realistic value (a connection string
+                        measured 66% clipped at 1440px, not just on mobile) and
+                        the row's only other route to it is opening the editor. */}
+                    <TableCell
+                      title={setting.value}
+                      className="font-mono text-xs text-foreground max-w-[200px] truncate"
+                    >
                       {setting.value}
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell text-sm text-muted-foreground max-w-[200px] truncate">
+                    <TableCell
+                      title={setting.description ?? undefined}
+                      className="hidden lg:table-cell text-sm text-muted-foreground max-w-[200px] truncate"
+                    >
                       {setting.description ?? ''}
                     </TableCell>
                     <TableCell>
