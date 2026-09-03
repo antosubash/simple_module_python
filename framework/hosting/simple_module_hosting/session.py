@@ -22,6 +22,7 @@ the account (and its ``session_version``) on every request.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from typing import Any
 
 from starlette.middleware.sessions import SessionMiddleware as _StarletteSessionMiddleware
@@ -33,13 +34,29 @@ SESSION_SIGNATURE_MAX_AGE = 30 * 24 * 60 * 60
 SESSION_COOKIE_MAX_AGE = 14 * 24 * 60 * 60
 """How long a browser is asked to keep the cookie when nothing opts in."""
 
+SESSION_REMEMBER_KEY = "remember"
+"""Session key holding the window this session was signed in for.
+
+The source of truth, and it has to live *in the session* rather than on one
+request's scope. Starlette re-emits the cookie on every response that modified
+the session — which is most of them, since resolving the signed-in user caches
+its context there — so a widened window recorded only on the sign-in response
+would be quietly rolled back to the default by the very next page load.
+
+Written as the number of seconds, so an operator who shortens the window gets
+it honoured on every response rather than only on the first. ``True`` is
+accepted too and means :data:`SESSION_SIGNATURE_MAX_AGE`.
+"""
+
 SESSION_COOKIE_MAX_AGE_KEY = "session_cookie_max_age"
 """ASGI scope key an endpoint sets to widen *this* response's cookie window.
 
-``request.scope[SESSION_COOKIE_MAX_AGE_KEY] = seconds`` before returning.
-Values above :data:`SESSION_SIGNATURE_MAX_AGE` are clamped — a cookie the
-signer will not accept is worse than a shorter one, because it fails at the
-end of a long absence rather than at sign-in.
+``request.scope[SESSION_COOKIE_MAX_AGE_KEY] = seconds`` before returning. For
+one response only — use :data:`SESSION_REMEMBER_KEY` for a window that has to
+survive the next request. Values above :data:`SESSION_SIGNATURE_MAX_AGE` are
+clamped in both cases: a cookie the signer will not accept is worse than a
+shorter one, because it fails at the end of a long absence rather than at
+sign-in.
 """
 
 _MAX_AGE = re.compile(rb"Max-Age=\d+")
@@ -71,10 +88,37 @@ class SessionMiddleware(_StarletteSessionMiddleware):
 
 
 def _window(scope: Scope) -> int:
-    requested = scope.get(SESSION_COOKIE_MAX_AGE_KEY)
-    if not isinstance(requested, int) or requested <= 0:
+    """How long to ask the browser to keep the cookie about to be written.
+
+    The session's own record wins: it is the only input that outlives the
+    request that set it, so it is what keeps a remembered session remembered
+    across every later response. The scope key is the one-response escape
+    hatch, for callers that want to widen a cookie without recording anything.
+    """
+    remembered = _remembered_window(scope.get("session"))
+    if remembered is not None:
+        return remembered
+    return _clamp(scope.get(SESSION_COOKIE_MAX_AGE_KEY))
+
+
+def _remembered_window(session: Any) -> int | None:
+    """The window recorded in the session, or ``None`` if it recorded none."""
+    if not isinstance(session, Mapping):
+        return None
+    recorded = session.get(SESSION_REMEMBER_KEY)
+    if recorded is True:
+        return SESSION_SIGNATURE_MAX_AGE
+    # ``bool`` is an ``int``: False must read as "not remembered" rather than
+    # as a zero-second window.
+    if isinstance(recorded, bool) or not isinstance(recorded, int):
+        return None
+    return _clamp(recorded)
+
+
+def _clamp(seconds: Any) -> int:
+    if isinstance(seconds, bool) or not isinstance(seconds, int) or seconds <= 0:
         return SESSION_COOKIE_MAX_AGE
-    return min(requested, SESSION_SIGNATURE_MAX_AGE)
+    return min(seconds, SESSION_SIGNATURE_MAX_AGE)
 
 
 def _retime_session_cookie(message: Message, cookie_name: str, max_age: int) -> None:

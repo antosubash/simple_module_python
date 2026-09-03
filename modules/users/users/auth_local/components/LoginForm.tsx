@@ -142,10 +142,7 @@ export function LoginForm({
         {allowSignup ? (
           <>
             {t(keys.users.login.no_account)}{' '}
-            <a
-              href={REGISTER_PATH}
-              className="font-medium text-primary-700 hover:text-primary-800"
-            >
+            <a href={REGISTER_PATH} className="font-medium text-primary-700 hover:text-primary-800">
               {t(keys.users.login.sign_up)}
             </a>{' '}
             {t(keys.users.login.no_account_suffix)}

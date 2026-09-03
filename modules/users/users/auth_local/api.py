@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, 
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import exceptions as fu_exceptions
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY
-from simple_module_hosting.session import SESSION_COOKIE_MAX_AGE_KEY
+from simple_module_hosting.session import SESSION_REMEMBER_KEY
 
 from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
 from users.auth_local.self_account import router as self_account_router
@@ -88,18 +88,16 @@ async def _remembered_login_response(request: Request, user, access_token_db) ->
     """Sign in for the "Keep me signed in" window instead of the default one.
 
     Every part of the credential has to move together, or the checkbox lies at
-    whichever expires first: the session cookie the pages authenticate with,
-    the ``sm_auth`` cookie, and the access-token row behind it. Neither the
-    transport nor the strategy can be varied per request on the shared backend
-    — one ``CookieTransport``, one lifetime — so this builds a second pair
-    rather than mutating singletons that concurrent requests are reading.
+    whichever expires first: the ``sm_auth`` cookie, the access-token row
+    behind it, and the session cookie the pages actually authenticate with.
+    This handles the first two; the session cookie is widened by recording the
+    window in the session itself (see :func:`login`). Neither the transport nor
+    the strategy can be varied per request on the shared backend — one
+    ``CookieTransport``, one lifetime — so this builds a second pair rather
+    than mutating singletons that concurrent requests are reading.
     """
     settings = request.app.state.users.settings
     window = settings.remember_me_max_age_seconds
-    # The one that actually keeps the browser signed in: page auth reads the
-    # Starlette session cookie, whose window the session middleware takes from
-    # this scope key when it writes the response.
-    request.scope[SESSION_COOKIE_MAX_AGE_KEY] = window
     strategy = get_database_strategy(access_token_db, lifetime_seconds=window)
     transport = build_cookie_transport(
         cookie_name=settings.cookie_name,
@@ -154,6 +152,16 @@ async def login(
     )
     # Bridge the session cookie — AuthMiddleware reads this to identify the user
     request.session[SESSION_USER_ID_KEY] = str(user.id)
+    if credentials.remember:
+        # Recorded *in the session*, not on this response's scope. Resolving
+        # the signed-in user caches its context in the session, so almost every
+        # later request re-emits the cookie — and a window known only to the
+        # sign-in response would be rolled back to the default by the first
+        # page load after it. The session middleware reads this key each time
+        # it writes the cookie.
+        request.session[SESSION_REMEMBER_KEY] = (
+            request.app.state.users.settings.remember_me_max_age_seconds
+        )
     # The deep link has served its purpose; leaving it would send the *next*
     # plain visit to /users/login off to a stale destination.
     request.session.pop(SESSION_NEXT_KEY, None)

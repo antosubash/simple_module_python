@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 _SESSION_USER_ID_KEY = "user_id"
 _SESSION_USER_CTX_KEY = "user_ctx"
 _SESSION_VERSION_KEY = "session_version"
+# Mirrors ``simple_module_hosting.session.SESSION_REMEMBER_KEY``. Duplicated as
+# a literal for the same reason as the keys above: this module reads the raw
+# session dict and does not import the framework's middleware.
+_SESSION_REMEMBER_KEY = "remember"
 
 
 def _stamped_version(session) -> int:
@@ -37,6 +41,9 @@ def _forget(session) -> None:
     session.pop(_SESSION_USER_ID_KEY, None)
     session.pop(_SESSION_USER_CTX_KEY, None)
     session.pop(_SESSION_VERSION_KEY, None)
+    # "Keep me signed in" was a choice about *this* sign-in. Leaving it behind
+    # would hand a 30-day cookie to the anonymous session that replaces it.
+    session.pop(_SESSION_REMEMBER_KEY, None)
 
 
 class UsersAuthProvider:

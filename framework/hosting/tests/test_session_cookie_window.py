@@ -15,6 +15,7 @@ from fastapi import FastAPI, Request
 from simple_module_hosting.session import (
     SESSION_COOKIE_MAX_AGE,
     SESSION_COOKIE_MAX_AGE_KEY,
+    SESSION_REMEMBER_KEY,
     SESSION_SIGNATURE_MAX_AGE,
     SessionMiddleware,
 )
@@ -40,6 +41,32 @@ def _app() -> FastAPI:
     def absurd(request: Request) -> dict:
         request.session["user_id"] = "u1"
         request.scope[SESSION_COOKIE_MAX_AGE_KEY] = 10 * 365 * 24 * 60 * 60
+        return {"ok": True}
+
+    @app.post("/remember-session")
+    def remember_session(request: Request) -> dict:
+        """What the real sign-in does: record the window in the session."""
+        request.session["user_id"] = "u1"
+        request.session[SESSION_REMEMBER_KEY] = REMEMBER_WINDOW
+        return {"ok": True}
+
+    @app.post("/remember-forever")
+    def remember_forever(request: Request) -> dict:
+        request.session["user_id"] = "u1"
+        request.session[SESSION_REMEMBER_KEY] = True
+        return {"ok": True}
+
+    @app.get("/touch")
+    def touch(request: Request) -> dict:
+        """Stands in for any authenticated page: reading the session is not
+        enough to re-emit the cookie, but caching anything in it is — which is
+        what resolving the signed-in user does on every request."""
+        request.session["user_ctx"] = {"id": request.session.get("user_id")}
+        return {"ok": True}
+
+    @app.post("/forget")
+    def forget(request: Request) -> dict:
+        request.session.pop(SESSION_REMEMBER_KEY, None)
         return {"ok": True}
 
     @app.post("/sign-out")
@@ -80,6 +107,57 @@ async def test_an_ordinary_sign_in_keeps_the_fourteen_day_cookie(client):
 async def test_opting_in_widens_this_response_only(client):
     remembered = await client.post("/remember")
     assert "Max-Age=2592000" in _session_cookie(remembered)
+
+
+@pytest.mark.anyio
+async def test_the_widened_window_survives_the_next_request(client):
+    """The regression this whole mechanism exists for.
+
+    Starlette re-emits the cookie on every response that touched the session,
+    and resolving the signed-in user touches it. A window recorded only on the
+    scope of the sign-in request would be silently rolled back to the default
+    by the very next page load — "remember me" would mean fourteen days from
+    the first click.
+    """
+    signed_in = await client.post("/remember-session")
+    assert "Max-Age=2592000" in _session_cookie(signed_in)
+
+    later = await client.get("/touch")
+    assert "Max-Age=2592000" in _session_cookie(later)
+
+
+@pytest.mark.anyio
+async def test_the_scope_key_is_deliberately_one_response_only(client):
+    """The escape hatch records nothing, so it does not outlive its response —
+    which is exactly why the session flag exists."""
+    await client.post("/remember")
+    later = await client.get("/touch")
+    assert f"Max-Age={SESSION_COOKIE_MAX_AGE}" in _session_cookie(later)
+
+
+@pytest.mark.anyio
+async def test_forgetting_the_flag_returns_to_the_default(client):
+    """Clearing the session's remember record — what the auth provider does
+    when it forgets who was signed in — must shorten the next cookie again."""
+    await client.post("/remember-session")
+    await client.post("/forget")
+    later = await client.get("/touch")
+    assert f"Max-Age={SESSION_COOKIE_MAX_AGE}" in _session_cookie(later)
+
+
+@pytest.mark.anyio
+async def test_a_boolean_flag_means_the_signature_window(client):
+    """``True`` is accepted as well as a number of seconds — and must not be
+    read as ``int(True)``, which would be a one-second cookie."""
+    resp = await client.post("/remember-forever")
+    assert f"Max-Age={SESSION_SIGNATURE_MAX_AGE}" in _session_cookie(resp)
+
+
+@pytest.mark.anyio
+async def test_a_plain_session_stays_at_the_default_on_later_requests(client):
+    await client.post("/sign-in")
+    later = await client.get("/touch")
+    assert f"Max-Age={SESSION_COOKIE_MAX_AGE}" in _session_cookie(later)
 
 
 @pytest.mark.anyio

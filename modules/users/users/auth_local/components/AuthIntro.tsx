@@ -8,6 +8,10 @@ interface SharedBranding {
   branding?: { appName: string; logoUrl: string | null } | null;
 }
 
+/** Hoisted so the `<li>` stays on one line — the suppression below has to sit
+ *  directly above the `key`, and the formatter splits a longer element. */
+const CHECK_ROW = 'flex items-center gap-2.5 text-[13.5px] text-muted-foreground';
+
 interface AuthIntroProps {
   heading: string;
   /** The paragraph under the heading. A node so copy can embed a `<code>`. */
@@ -50,7 +54,7 @@ export function AuthIntro({ heading, body, checks = [], children }: AuthIntroPro
             // Index-keyed: a fixed prop for the life of the render, and
             // nothing forbids a caller repeating a line.
             // biome-ignore lint/suspicious/noArrayIndexKey: see above
-            <li key={index} className="flex items-center gap-2.5 text-[13.5px] text-muted-foreground">
+            <li key={index} className={CHECK_ROW}>
               <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-primary-700" />
               {check}
             </li>

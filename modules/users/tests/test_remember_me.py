@@ -37,6 +37,13 @@ async def _make_user(session, email: str, password: str = "SecurePass1!") -> Use
     return user
 
 
+def _reissued_cookie(resp, name: str) -> str | None:
+    """The ``Set-Cookie`` for *name*, or ``None`` when the response wrote none."""
+    headers = [v for k, v in resp.headers.multi_items() if k.lower() == "set-cookie"]
+    matching = [h for h in headers if h.startswith(f"{name}=")]
+    return matching[-1] if matching else None
+
+
 def _set_cookie(resp, name: str) -> str:
     """Return the raw ``Set-Cookie`` header for *name* (httpx drops attributes)."""
     headers = [v for k, v in resp.headers.multi_items() if k.lower() == "set-cookie"]
@@ -115,6 +122,41 @@ class TestRemembered:
 
         await _age_access_tokens(users_app, days=31)
         assert (await anon_client.get("/api/users/me")).status_code == 401
+
+
+class TestTheWindowSurvivesLaterRequests:
+    """The regression: Starlette re-emits the session cookie on every response
+    that modified the session, and resolving the signed-in user caches its
+    context there. A window known only to the sign-in response would be rolled
+    back to the default by the first page load after it."""
+
+    @pytest.mark.anyio
+    async def test_a_remembered_session_keeps_thirty_days_on_the_next_page(
+        self, anon_client, users_db
+    ):
+        await _make_user(users_db, "keeps@example.com")
+        signed_in = await _login(anon_client, "keeps@example.com", remember=True)
+        assert f"Max-Age={REMEMBER_ME_MAX_AGE}" in _set_cookie(signed_in, "session")
+
+        page = await anon_client.get("/dashboard/", follow_redirects=False)
+        assert page.status_code == 200, page.status_code
+        reissued = _reissued_cookie(page, "session")
+        # Asserted rather than tolerated: if this page ever stops re-emitting
+        # the cookie the test has stopped exercising the regression, and that
+        # should be loud enough to re-point it at a page that does.
+        assert reissued is not None, "the page wrote no session cookie to check"
+        assert f"Max-Age={REMEMBER_ME_MAX_AGE}" in reissued
+
+    @pytest.mark.anyio
+    async def test_a_plain_session_keeps_the_default_on_the_next_page(self, anon_client, users_db):
+        await _make_user(users_db, "plain-next@example.com")
+        await _login(anon_client, "plain-next@example.com")
+
+        page = await anon_client.get("/dashboard/", follow_redirects=False)
+        assert page.status_code == 200, page.status_code
+        reissued = _reissued_cookie(page, "session")
+        if reissued is not None:
+            assert "Max-Age=1209600" in reissued
 
 
 class TestNotRemembered:
