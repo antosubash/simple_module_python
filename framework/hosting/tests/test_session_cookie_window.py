@@ -204,3 +204,12 @@ async def test_other_cookies_are_left_alone():
         resp = await c.post("/both")
     headers = [v for k, v in resp.headers.multi_items() if k.lower() == "set-cookie"]
     assert any(h.startswith("sm_auth=") and "Max-Age=99" in h for h in headers)
+
+
+def test_passing_max_age_is_refused_rather_than_ignored():
+    """It used to be popped, so a deployment could believe it had shortened
+    sessions when the value had gone straight in the bin."""
+    import pytest
+
+    with pytest.raises(TypeError, match="signature window"):
+        SessionMiddleware(lambda scope, receive, send: None, "secret", max_age=60)

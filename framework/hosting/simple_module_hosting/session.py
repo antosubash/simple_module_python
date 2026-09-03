@@ -85,9 +85,17 @@ class SessionMiddleware(_StarletteSessionMiddleware):
 
     def __init__(self, app: ASGIApp, secret_key: Any, **kwargs: Any) -> None:
         # The parent's ``max_age`` is what the signer verifies against, so it
-        # takes the longer of the two. The cookie's own Max-Age is rewritten
-        # on the way out.
-        kwargs.pop("max_age", None)
+        # takes the longer of the two; the cookie's own Max-Age is rewritten on
+        # the way out. Silently dropping a caller's value would let a
+        # deployment believe it had shortened sessions when it had done
+        # nothing at all — the two knobs are :data:`SESSION_COOKIE_MAX_AGE`
+        # and :data:`SESSION_REMEMBER_KEY`, and neither is this one.
+        if "max_age" in kwargs:
+            raise TypeError(
+                "SessionMiddleware fixes max_age at SESSION_SIGNATURE_MAX_AGE: it is the "
+                "signature window, not the cookie window. Set the cookie window per session "
+                "with SESSION_REMEMBER_KEY, or per response with SESSION_COOKIE_MAX_AGE_KEY."
+            )
         super().__init__(app, secret_key, max_age=SESSION_SIGNATURE_MAX_AGE, **kwargs)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:

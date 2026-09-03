@@ -54,9 +54,7 @@ async def _client_with_session(users_app, payload: dict) -> httpx.AsyncClient:
         transport=httpx.ASGITransport(app=users_app),
         base_url="http://testserver",
         cookies={
-            "session": forge_session_cookie(
-                str(users_app.state.sm.settings.secret_key), payload
-            )
+            "session": forge_session_cookie(str(users_app.state.sm.settings.secret_key), payload)
         },
     )
 
