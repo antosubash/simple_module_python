@@ -103,6 +103,10 @@ describe('RoleEdit', () => {
   test('names each module by its registry name, tagging the key prefix only when it differs', () => {
     renderPage();
 
+    // The name is a heading, not decoration: cards are how this page is
+    // structured, and the slug tag rides along inside it.
+    expect(screen.getByRole('heading', { name: 'Files file_storage' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Users' })).toBeVisible();
     expect(screen.getByText('Files')).toBeVisible();
     expect(screen.getByText('file_storage')).toBeVisible();
     expect(screen.getByText('Users')).toBeVisible();

@@ -65,15 +65,15 @@ vi.mock('@inertiajs/react', async () => {
   };
 });
 
-import UserEdit from '../permissions/pages/UserEdit';
+import UserEdit, { type Props } from '../permissions/pages/UserEdit';
 
 const GROUPS = [
   { name: 'Users', permissions: ['users.delete', 'users.invite', 'users.read', 'users.write'] },
   { name: 'Settings', permissions: ['settings.manage', 'settings.read'] },
 ];
 
-function renderPage(overrides: Partial<Record<string, unknown>> = {}) {
-  const props = {
+function renderPage(overrides: Partial<Props> = {}) {
+  const props: Props = {
     user: { id: 'u1', email: 'sam@example.com', full_name: 'Sam Okafor' },
     roles: ['editor'],
     direct: ['users.invite', 'settings.manage'],
@@ -86,8 +86,7 @@ function renderPage(overrides: Partial<Record<string, unknown>> = {}) {
     groups: GROUPS,
     ...overrides,
   };
-  // biome-ignore lint/suspicious/noExplicitAny: fixture props, spread per test.
-  return render(<UserEdit {...(props as any)} />);
+  return render(<UserEdit {...props} />);
 }
 
 const keyRow = (permissionKey: string) =>
@@ -136,6 +135,11 @@ describe('UserEdit', () => {
 
   test('counts effective permissions per module', () => {
     renderPage();
+
+    // Each card is a real heading, so a screen reader can navigate module to
+    // module rather than meeting a wall of unlabelled regions.
+    expect(screen.getByRole('heading', { name: /^Users/ })).toBeVisible();
+    expect(screen.getByRole('heading', { name: /^Settings/ })).toBeVisible();
 
     expect(screen.getByText('3 effective / 4')).toBeVisible();
     expect(screen.getByText('1 effective / 2')).toBeVisible();

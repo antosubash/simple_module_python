@@ -18,7 +18,8 @@ import { useLeaveGuard } from './components/useLeaveGuard';
 
 type UserProp = { id: string; email: string; full_name: string | null };
 
-type Props = {
+/** Exported so the page's specs are checked against the real prop shape. */
+export type Props = {
   user: UserProp;
   roles: string[];
   direct: string[];
