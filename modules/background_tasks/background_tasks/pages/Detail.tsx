@@ -50,9 +50,12 @@ function Detail() {
         titleClassName="font-mono text-[22px]"
         mono
         back={VIEW_BASE}
-        badge={<StatusPill status={execution.status} className="text-xs" />}
+        // Both are hidden on phones: the strip below restates them at a size
+        // the 390px frame can read, and the shell's header showed the same
+        // pill and the same attempt count immediately above it.
+        badge={<StatusPill status={execution.status} className="max-lg:hidden text-xs" />}
         description={
-          <span className="font-mono">
+          <span className="font-mono max-lg:hidden">
             {t(keys.background_tasks.detail.description, {
               id: execution.id,
               attempt,
@@ -96,7 +99,9 @@ function Detail() {
         <div className="grid gap-3.5 lg:grid-cols-[320px_1fr]">
           <DetailFacts execution={execution} className="order-1 lg:order-1 lg:row-span-2" />
           <PayloadCards execution={execution} className="order-3 lg:order-2" />
-          <TracebackCard traceback={execution.traceback} className="order-2 lg:order-3" />
+          {/* `h-full` so a short payload card does not leave the traceback
+              floating with 300px of empty card under it. */}
+          <TracebackCard traceback={execution.traceback} className="order-2 h-full lg:order-3" />
         </div>
 
         {retryable && (

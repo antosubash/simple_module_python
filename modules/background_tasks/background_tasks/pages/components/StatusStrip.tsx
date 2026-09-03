@@ -88,10 +88,14 @@ export function StatusStrip({ counts, active, onSelect }: Props) {
             // the strip can undo itself without reaching for the control below.
             onClick={() => onSelect(isActive ? '' : tile.filter)}
             aria-pressed={isActive}
+            // An offset ring is drawn *outside* the tile, so on a tinted
+            // Failed or Stuck card it sat in the gap and read as a second
+            // border in a clashing colour. Inset, it follows the card's own
+            // edge whatever colour that card is.
             className={cn(
               'cursor-pointer rounded-xl text-left transition-shadow hover:shadow-md',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              isActive && 'ring-2 ring-primary ring-offset-2',
+              isActive && 'ring-2 ring-foreground/20 ring-inset',
             )}
           >
             <StatCard

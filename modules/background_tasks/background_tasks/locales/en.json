@@ -27,7 +27,7 @@
     "queue_aria": "Filter by queue"
   },
   "status": {
-    "pending": "pending",
+    "queued": "queued",
     "running": "running",
     "success": "success",
     "failed": "failed",

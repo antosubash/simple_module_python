@@ -4,7 +4,6 @@ import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
-import { RefreshCcw, ServerCog } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { COLUMN_COUNT, ExecutionsTable } from './components/ExecutionsTable';
 import { RetryAllDialog } from './components/RetryAllDialog';
@@ -149,9 +148,10 @@ function Index() {
         description={t(keys.background_tasks.index.description)}
         actions={
           <>
+            {/* Text only, per the deck: two icons on two outline buttons beside
+                a page title is three competing weights in one corner. */}
             <Button variant="outline" asChild className="max-lg:min-h-11">
               <Link href={`${VIEW_BASE}/workers`}>
-                <ServerCog aria-hidden="true" />
                 {t(keys.background_tasks.index.workers_button)}
               </Link>
             </Button>
@@ -161,7 +161,6 @@ function Index() {
                 className="max-lg:min-h-11"
                 onClick={() => setRetryAllOpen(true)}
               >
-                <RefreshCcw aria-hidden="true" />
                 {t(keys.background_tasks.index.retry_all_button)}
               </Button>
             )}

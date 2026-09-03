@@ -2,6 +2,7 @@
 // Kept small and hand-maintained — the backend file is the source of truth.
 
 import { keys } from '@simple-module-py/i18n';
+import { formatDayMonthTime } from '@simple-module-py/ui/lib/date-format';
 
 export const API_BASE = '/api/background_tasks/admin';
 export const VIEW_BASE = '/admin/background-tasks';
@@ -15,19 +16,16 @@ export const EM_DASH = '—';
  * The deck shows time only, which is unreadable the moment a row is older than
  * today: "09:41:02" on a three-day-old execution invites the reader to assume
  * this morning. The date costs four characters and removes the guess.
+ *
+ * Fixed rather than locale-dependent: the reader's locale gave "Sep 3,
+ * 08:48:40", which is a different order and a comma away from every other
+ * timestamp in the product. See `ui/lib/date-format`.
  */
 export function formatTs(ts: string | null): string {
   if (!ts) return EM_DASH;
   const parsed = new Date(ts);
   if (Number.isNaN(parsed.getTime())) return EM_DASH;
-  return new Intl.DateTimeFormat(undefined, {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).format(parsed);
+  return formatDayMonthTime(ts);
 }
 
 /** "09:44:10" — a reading taken moments ago needs no date. */
@@ -174,7 +172,10 @@ export const STATUS_PILL_CLASS: Record<TaskStatus, string> = {
  * not a universal way to make a word into a label anyway.
  */
 export const STATUS_LABEL_KEY = {
-  [TASK_STATUS.PENDING]: keys.background_tasks.status.pending,
+  // "queued", not "pending": the tile above the table is labelled Queued, and
+  // one state should not have two names on one screen. The stored enum value
+  // stays `pending` — it is a wire format, not copy.
+  [TASK_STATUS.PENDING]: keys.background_tasks.status.queued,
   [TASK_STATUS.RUNNING]: keys.background_tasks.status.running,
   [TASK_STATUS.SUCCESS]: keys.background_tasks.status.success,
   [TASK_STATUS.FAILED]: keys.background_tasks.status.failed,
@@ -222,6 +223,24 @@ export const SEGMENT_LABEL_KEY = {
 export function formatPayload(value: unknown): string {
   try {
     return JSON.stringify(value, null, 1)?.replace(/\n\s*/g, ' ') ?? String(value);
+  } catch {
+    return UNSERIALISABLE;
+  }
+}
+
+/**
+ * The same payload with the braces closed up: `{"size": 512}`.
+ *
+ * The retry dialog's box is one line inside a modal, where the deck tightens
+ * the brackets but keeps the space after each colon — that space is what
+ * stops `{"size":512}` reading as one token. `formatPayload` above is the
+ * roomier form the detail page's own cards use.
+ */
+export function formatCompactPayload(value: unknown): string {
+  try {
+    const json = JSON.stringify(value, null, 1);
+    if (json === undefined) return String(value);
+    return json.replace(/\n\s*/g, '').replace(/,(?=\S)/g, ', ');
   } catch {
     return UNSERIALISABLE;
   }

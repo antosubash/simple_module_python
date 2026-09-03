@@ -22,7 +22,12 @@ export function ExecutionRow({ execution, canRetry, onRetry }: Props) {
   // a real link, so keyboard and assistive-technology users reach the same
   // target without the row needing to impersonate a control.
   return (
-    <TableRow onClick={() => router.visit(href)} className="cursor-pointer hover:bg-secondary/40">
+    // `align-top`: the table is the card's flex child, so a short list let the
+    // last row absorb the leftover height and its cells centred in it.
+    <TableRow
+      onClick={() => router.visit(href)}
+      className="cursor-pointer align-top hover:bg-secondary/40"
+    >
       <TableCell>
         <Link
           href={href}

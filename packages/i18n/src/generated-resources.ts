@@ -110,7 +110,7 @@ export default {
     'background_tasks.retry_dialog.retried_before_other': '',
     'background_tasks.retry_dialog.title': '',
     'background_tasks.status.failed': '',
-    'background_tasks.status.pending': '',
+    'background_tasks.status.queued': '',
     'background_tasks.status.retrying': '',
     'background_tasks.status.revoked': '',
     'background_tasks.status.running': '',

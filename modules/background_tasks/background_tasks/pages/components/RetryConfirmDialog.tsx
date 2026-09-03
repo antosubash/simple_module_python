@@ -2,6 +2,7 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActionDialog';
 import { RefreshCcw } from 'lucide-react';
 import { useMemo } from 'react';
+import { formatCompactPayload } from '../constants';
 
 /** Everything the dialog needs about the row it is about to re-enqueue. */
 export interface RetryTarget {
@@ -19,15 +20,6 @@ interface Props {
   busy?: boolean;
 }
 
-/** Pretty-print a payload, degrading to a marker rather than throwing on a cycle. */
-function format(value: unknown): string {
-  try {
-    return JSON.stringify(value)?.replace(/,(?=\S)/g, ', ') ?? String(value);
-  } catch {
-    return '<unserialisable>';
-  }
-}
-
 /**
  * "Are you sure?" for a single execution.
  *
@@ -42,8 +34,11 @@ export function RetryConfirmDialog({ target, onOpenChange, onConfirm, busy = fal
   const kwargs = target?.kwargs ?? {};
   const hasArgs = args.length > 0;
   const hasKwargs = Object.keys(kwargs).length > 0;
-  const formattedArgs = useMemo(() => (hasArgs ? format(args) : ''), [hasArgs, args]);
-  const formattedKwargs = useMemo(() => (hasKwargs ? format(kwargs) : ''), [hasKwargs, kwargs]);
+  const formattedArgs = useMemo(() => (hasArgs ? formatCompactPayload(args) : ''), [hasArgs, args]);
+  const formattedKwargs = useMemo(
+    () => (hasKwargs ? formatCompactPayload(kwargs) : ''),
+    [hasKwargs, kwargs],
+  );
   const retries = target?.retries ?? 0;
 
   return (

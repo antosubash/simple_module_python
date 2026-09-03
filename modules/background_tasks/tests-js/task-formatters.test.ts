@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import {
   EM_DASH,
+  formatCompactPayload,
   formatDuration,
   formatPayload,
   formatSoftware,
+  formatTs,
   formatUptime,
   shortenId,
 } from '../background_tasks/pages/constants';
@@ -111,5 +113,38 @@ describe('shortenId', () => {
 
   test('leaves a short id whole', () => {
     expect(shortenId('abc123')).toBe('abc123');
+  });
+});
+
+describe('formatCompactPayload', () => {
+  test('closes the brackets up but keeps the space after the colon', () => {
+    // The deck's retry dialog: `{"size": 512}`. Without the space
+    // `{"size":512}` reads as one token in a mono box inside a modal.
+    expect(formatCompactPayload({ size: 512 })).toBe('{"size": 512}');
+  });
+
+  test('spaces the separators between entries', () => {
+    expect(formatCompactPayload({ size: 512, mode: 'fit' })).toBe('{"size": 512, "mode": "fit"}');
+    expect(formatCompactPayload(['a91f2c', 'b02d'])).toBe('["a91f2c", "b02d"]');
+  });
+
+  test('an empty payload stays empty', () => {
+    expect(formatCompactPayload([])).toBe('[]');
+    expect(formatCompactPayload({})).toBe('{}');
+  });
+});
+
+describe('formatTs', () => {
+  test('renders the deck format, not the reader\u2019s locale', () => {
+    // A US machine gave "Sep 3, 08:48:40" — a different order and a comma
+    // away from every other timestamp in the product.
+    const stamp = new Date(2026, 8, 3, 8, 48, 40).toISOString();
+
+    expect(formatTs(stamp)).toBe('3 Sep 08:48:40');
+  });
+
+  test('a missing timestamp is a dash, so the column still lines up', () => {
+    expect(formatTs(null)).toBe(EM_DASH);
+    expect(formatTs('not a time')).toBe(EM_DASH);
   });
 });

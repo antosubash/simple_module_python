@@ -148,7 +148,7 @@ export const keys = {
     },
     status: {
       failed: 'background_tasks.status.failed',
-      pending: 'background_tasks.status.pending',
+      queued: 'background_tasks.status.queued',
       retrying: 'background_tasks.status.retrying',
       revoked: 'background_tasks.status.revoked',
       running: 'background_tasks.status.running',

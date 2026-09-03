@@ -51,7 +51,7 @@ export function TracebackCard({ traceback, className }: Props) {
   const exceptionLine = lastBreak === -1 ? trimmed : trimmed.slice(lastBreak + 1);
 
   return (
-    <Card className={`gap-2.5 overflow-hidden p-4 lg:p-[18px] ${className ?? ''}`}>
+    <Card className={`flex flex-col gap-2.5 overflow-hidden p-4 lg:p-[18px] ${className ?? ''}`}>
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-bold font-display">
           {t(keys.background_tasks.detail.traceback)}
@@ -67,7 +67,7 @@ export function TracebackCard({ traceback, className }: Props) {
         )}
       </div>
       {traceback ? (
-        <pre className="max-h-[28rem] overflow-auto rounded-[10px] bg-slate-900 px-4 py-4 font-mono text-[12.5px] leading-[1.8] text-slate-200">
+        <pre className="max-h-[28rem] flex-1 overflow-auto rounded-[10px] bg-slate-900 px-4 py-4 font-mono text-[12.5px] leading-[1.8] text-slate-200">
           {frames}
           <span className="text-red-300">{exceptionLine}</span>
         </pre>
