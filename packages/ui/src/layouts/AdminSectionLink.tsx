@@ -14,7 +14,7 @@ interface AdminSectionLinkProps {
 
 /**
  * The app shell's doorway into the admin section — the counterpart of
- * `AdminLayout`'s "Back to App".
+ * `AdminLayout`'s "Back to app".
  *
  * Every admin screen moved out of the main sidebar into `adminSidebar`, so
  * without this an admin signs in, lands on `/dashboard/`, and has no link to

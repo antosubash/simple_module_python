@@ -6,7 +6,7 @@ import { groupTag, type PermissionGroup } from './permission-groups';
  * The deck labels each card with the package slug, but the registry's own
  * label is what the rest of the admin calls the module — so the display name
  * leads, and the slug follows only when it says something the name does not
- * ("Files" is `file_storage`; "Background Tasks" is exactly what it looks
+ * ("Files" is `file_storage`; "Background tasks" is exactly what it looks
  * like). It stays a real heading: the cards are the page's structure, and a
  * screen reader navigating by heading is how you find one module among twelve.
  */

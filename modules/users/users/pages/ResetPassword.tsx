@@ -112,7 +112,7 @@ function ResetPassword() {
 
   if (expired) {
     return (
-      <AuthCardShell>
+      <AuthCardShell tone="destructive">
         <Head title={t(keys.users.reset_password.head_title)} />
         <AuthStateCard
           icon={TimerOff}

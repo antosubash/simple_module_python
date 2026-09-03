@@ -19,7 +19,19 @@ interface AuthCardShellProps {
   aside?: React.ReactNode;
   /** Card width — `lg` for the longer forms (register, invite). */
   width?: 'md' | 'lg';
+  /**
+   * Tints the `card` variant's border — `destructive` for a dead link
+   * (reset, invite), `warning` for one that still has a way out (resend
+   * verification). Ignored by the split variants.
+   */
+  tone?: 'default' | 'destructive' | 'warning';
 }
+
+const CARD_BORDER_TONE: Record<NonNullable<AuthCardShellProps['tone']>, string> = {
+  default: 'border-border',
+  destructive: 'border-red-500/35',
+  warning: 'border-amber-600/35',
+};
 
 /**
  * Full-viewport shell for unauthenticated flows
@@ -34,6 +46,7 @@ export function AuthCardShell({
   variant = 'card',
   aside,
   width = 'md',
+  tone = 'default',
 }: AuthCardShellProps) {
   const { branding } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
   const appName = branding?.appName ?? BRAND_DEFAULT_APP_NAME;
@@ -54,7 +67,9 @@ export function AuthCardShell({
           <div className="absolute -bottom-[10%] -left-[10%] h-[500px] w-[500px] rounded-full bg-primary-800 opacity-15 blur-[100px]" />
         </div>
         <div className={`relative w-full ${widthClass}`}>
-          <div className="rounded-3xl border border-border bg-card/85 p-7 shadow-xl backdrop-blur-xl backdrop-saturate-150">
+          <div
+            className={`rounded-3xl border ${CARD_BORDER_TONE[tone]} bg-card/85 p-7 shadow-xl backdrop-blur-xl backdrop-saturate-150`}
+          >
             <div className="mb-5 flex items-center gap-2.5">
               <BrandingMark
                 appName={appName}

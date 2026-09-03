@@ -109,7 +109,7 @@ function VerifyEmail() {
   const card = cards[status];
 
   return (
-    <AuthCardShell>
+    <AuthCardShell tone={status === 'expired' ? 'warning' : 'default'}>
       <Head title={t(keys.users.verify_email.head_title)} />
       <AuthStateCard
         icon={card.icon}

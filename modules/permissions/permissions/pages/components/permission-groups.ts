@@ -32,7 +32,7 @@ export function groupPrefix(group: PermissionGroup): string {
 
 /**
  * The slug to show beside the display name, or '' when it would only repeat
- * it. "Files" earns a `file_storage` tag; "Background Tasks" does not.
+ * it. "Files" earns a `file_storage` tag; "Background tasks" does not.
  */
 export function groupTag(group: PermissionGroup): string {
   const prefix = groupPrefix(group);

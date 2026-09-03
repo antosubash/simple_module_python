@@ -120,7 +120,7 @@ async def recent_activity_for(
     # (a trimmed preset, a disabled module), and its table may not exist.
     #
     # Compared against the module's own constant rather than a literal: the
-    # registered name is ``"AuditLog"`` while the menu label is ``"Audit Log"``,
+    # registered name is ``"AuditLog"`` while the menu label is ``"Audit log"``,
     # and hardcoding the readable one silently disabled this card entirely.
     if not any(getattr(m.meta, "name", "") == MODULE_NAME for m in request.app.state.sm.modules):
         return None

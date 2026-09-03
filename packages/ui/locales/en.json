@@ -46,8 +46,8 @@
     "empty": "Nothing matches that."
   },
   "admin": {
-    "panel_badge": "Admin Panel",
-    "back_to_app": "Back to App"
+    "panel_badge": "Admin panel",
+    "back_to_app": "Back to app"
   },
   "sidebar": {
     "open": "Open sidebar",

@@ -142,7 +142,7 @@
     "refresh_failed": "Failed to refresh workers"
   },
   "nav": {
-    "background_tasks": "Background Tasks"
+    "background_tasks": "Background tasks"
   },
   "audit": {
     "task_execution": "Task execution"

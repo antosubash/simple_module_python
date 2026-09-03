@@ -44,5 +44,24 @@ describe('AuthCardShell', () => {
     );
     expect(screen.getByText('Acme')).toBeInTheDocument();
     expect(container.querySelector('.bg-landing-bg')).toBeNull();
+    expect(container.querySelector('[class*="border-border"]')).not.toBeNull();
+  });
+
+  it('tints the card border red for a destructive tone', () => {
+    const { container } = render(
+      <AuthCardShell tone="destructive">
+        <form aria-label="Reset" />
+      </AuthCardShell>,
+    );
+    expect(container.querySelector('[class*="border-red-500/35"]')).not.toBeNull();
+  });
+
+  it('tints the card border amber for a warning tone', () => {
+    const { container } = render(
+      <AuthCardShell tone="warning">
+        <form aria-label="Verify" />
+      </AuthCardShell>,
+    );
+    expect(container.querySelector('[class*="border-amber-600/35"]')).not.toBeNull();
   });
 });

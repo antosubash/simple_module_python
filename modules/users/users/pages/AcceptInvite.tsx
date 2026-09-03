@@ -76,7 +76,7 @@ function AcceptInvite() {
 
   if (!invite) {
     return (
-      <AuthCardShell>
+      <AuthCardShell tone="destructive">
         <Head title={t(keys.users.accept_invite.head_title)} />
         <AuthStateCard
           icon={TimerOff}

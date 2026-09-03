@@ -7,7 +7,7 @@ Collapsing them hides the difference between "we don't keep this" and "there
 is nothing to keep".
 
 The first version of this compared the registered module name against the menu
-label ``"Audit Log"`` rather than the registered ``"AuditLog"``, so the prop was
+label ``"Audit log"`` rather than the registered ``"AuditLog"``, so the prop was
 always ``None`` and the card never rendered anywhere. Hence a test that asserts
 on a real entry rather than only on the absent case.
 """

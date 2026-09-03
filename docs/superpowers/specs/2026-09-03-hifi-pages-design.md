@@ -24,6 +24,7 @@ Make every one of the deck's 28 screens (8 public, 10 app, 9 ops, 1 mobile board
 | Storage subtitle "1.2 GB of 5 GB used" | "… · 1.2 GB used · 25 MB per file", quota segment appears only when `SM_FILE_STORAGE_QUOTA_BYTES` is set | No quota concept existed; adding the setting is cheap, inventing a number is not. |
 | Doctor "Fix" / "Generate" / "Apply pending" run tools | They **copy the command** to the clipboard | Running Alembic from a web request is not something this app should do. |
 | Locale pill "EN" always visible | Visible always; a single-locale install renders it as a static label | A control that opens nothing is noise, but the deck's placement is kept. |
+| Register intro "The first account becomes the admin; later ones get the default role." | "New accounts start with no roles until an admin grants them." | The bootstrap admin is seeded from settings, not the first registrant. |
 
 ## Cross-cutting building blocks (packages/ui)
 

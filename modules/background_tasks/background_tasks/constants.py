@@ -32,7 +32,7 @@ ENV_PREFIX = "SM_BG_TASKS_"
 ENV_REDIS_URL = "SM_REDIS_URL"
 
 # ── Permissions ─────────────────────────────────────────────────
-PERM_GROUP = "Background Tasks"
+PERM_GROUP = "Background tasks"
 PERM_VIEW = "background_tasks.view"
 PERM_MANAGE = "background_tasks.manage"
 
@@ -42,7 +42,7 @@ VIEW_PREFIX = "/admin/background-tasks"
 ADMIN_ROUTER_PREFIX = "/admin"
 
 # ── Menu ────────────────────────────────────────────────────────
-MENU_LABEL = "Background Tasks"
+MENU_LABEL = "Background tasks"
 MENU_ICON = "activity"
 MENU_ORDER = 120
 
