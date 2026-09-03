@@ -41,12 +41,14 @@ async def fetch_dashboard_stats(db: AsyncSession, app: FastAPI) -> dict:
 
         total_users = await _count_users(db)
         active_users_7d = await _count_active_users(db, days=7)
+        created_this_month = await _count_users_created_this_month(db)
         health_checks = await _run_health_checks(app)
         modules_list = _get_module_info(app, health_checks)
 
         result = {
             "total_users": total_users,
             "active_users_7d": active_users_7d,
+            "users_created_this_month": created_this_month,
             "module_count": len(modules_list),
             "system_info": {
                 "modules": modules_list,
@@ -71,6 +73,21 @@ def invalidate_stats_cache() -> None:
 
 async def _count_users(db: AsyncSession) -> int:
     result = await db.execute(select(func.count()).select_from(User))
+    return result.scalar_one()
+
+
+async def _count_users_created_this_month(db: AsyncSession) -> int:
+    """Accounts created since the first of the current month, UTC.
+
+    Calendar month rather than a rolling 30 days: the tile reads "+6 this
+    month", and a rolling window would make that sentence a lie every day of
+    the month except the first.
+    """
+    now = datetime.now(UTC)
+    start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    result = await db.execute(
+        select(func.count()).select_from(User).where(User.created_at >= start)
+    )
     return result.scalar_one()
 
 

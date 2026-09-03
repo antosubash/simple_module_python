@@ -1,25 +1,86 @@
 {
   "home": {
     "title": "Panel",
-    "description": "Resumen de tu aplicación",
+    "description": "Resumen del sistema de este espacio de trabajo",
     "stats": {
-      "total_users": "Usuarios Totales",
-      "active_users": "Usuarios Activos (7d)",
-      "modules": "Módulos"
+      "total_users": "Usuarios totales",
+      "total_users_delta_one": "+{count} este mes",
+      "total_users_delta_other": "+{count} este mes",
+      "active_users": "Usuarios activos",
+      "active_users_delta": "↑ 7 d",
+      "modules": "Módulos",
+      "modules_delta": "todos cargados",
+      "health": "Estado"
     },
     "system_info_title": "Sistema",
-    "system_info": {
-      "modules": "Módulos",
-      "python_version": "Versión de Python",
-      "health_checks": "Verificaciones de Salud"
-    },
-    "welcome_card_title": "Bienvenido",
+    "system_meta": "Python {version} · {count} módulos · {health}",
+    "system_health_ok": "todas las comprobaciones correctas",
+    "system_health_none": "sin comprobaciones registradas",
+    "system_health_alert_one": "{count} comprobación requiere atención",
+    "system_health_alert_other": "{count} comprobaciones requieren atención",
     "welcome_message": "Bienvenido a SimpleModule",
-    "description_body": "Este es un monolito modular construido con FastAPI, Inertia.js y React. Cada módulo proporciona sus propias páginas, endpoints de API y esquema de base de datos.",
-    "health": {
-      "healthy": "Correcto",
-      "degraded": "Degradado",
-      "unhealthy": "Con fallos"
+    "health_ok": "OK",
+    "health_alert": "{count} alerta",
+    "health_all_good": "todo correcto",
+    "health_see_doctor": "ver Doctor",
+    "tile": {
+      "loaded_healthy": "cargado · correcto",
+      "loaded_degraded": "cargado · degradado",
+      "loaded_unhealthy": "cargado · con fallos",
+      "loaded_no_checks": "cargado · sin comprobaciones",
+      "open": "Abrir",
+      "no_view": "Sin vista"
     }
+  },
+  "doctor": {
+    "title": "Doctor",
+    "description_before": "Las mismas comprobaciones que",
+    "description_after": "— análisis estático, migraciones, servidor de desarrollo y estado de los módulos.",
+    "copy_report": "Copiar informe",
+    "rerun": "Volver a ejecutar",
+    "stat_checks_passing": "Comprobaciones correctas",
+    "stat_checks_total": "/ {count}",
+    "stat_modules_loaded": "Módulos cargados",
+    "stat_pending_migrations": "Migraciones pendientes",
+    "stat_python": "Python",
+    "static_checks": "Comprobaciones estáticas",
+    "checks": {
+      "pages": "Páginas huérfanas — cada página tiene una ruta",
+      "metadata": "Metadatos de módulo completos",
+      "coupling": "El framework no importa ningún módulo de plugin",
+      "migrations": "Los cambios de modelo están cubiertos por migraciones",
+      "locales": "Coherencia de idiomas entre módulos",
+      "inertia": "Las acciones de página apuntan a rutas de vista, no a la API JSON",
+      "auth_provider": "Hay exactamente un proveedor de autenticación activo",
+      "styling": "Los estilos de cada módulo caen en la capa prevista"
+    },
+    "status_pass": "correcto",
+    "fix": "Corregir",
+    "checks_unavailable_title": "Las comprobaciones solo se ejecutan en desarrollo",
+    "checks_unavailable_hint": "Estas comprobaciones leen el código fuente, que una compilación desplegada no incluye.",
+    "recent_migrations": "Migraciones recientes",
+    "generate": "Generar",
+    "apply_pending": "Aplicar pendientes",
+    "applied": "aplicada",
+    "pending": "pendiente",
+    "migrations_empty": "Aquí no hay historial de migraciones disponible.",
+    "dev_server": "Servidor de desarrollo",
+    "running": "en ejecución",
+    "not_running": "detenido",
+    "copied_command_toast": "Comando copiado al portapapeles",
+    "copied_report_toast": "Informe copiado al portapapeles",
+    "copy_failed_toast": "No se pudo acceder al portapapeles",
+    "transcript_modules": "comprobando módulos… {count} cargados",
+    "transcript_pages": "comprobando páginas… {count} enrutadas",
+    "transcript_warn": "aviso: {message}",
+    "transcript_result": "✓ {passed} de {total} comprobaciones correctas",
+    "transcript_skipped": "las comprobaciones se omiten fuera de desarrollo",
+    "report_checks": "Comprobaciones",
+    "report_migrations": "Migraciones",
+    "report_dev_server": "Servidor de desarrollo"
+  },
+  "nav": {
+    "dashboard": "Panel",
+    "doctor": "Doctor"
   }
 }
