@@ -144,3 +144,30 @@ class TestProfileProps:
         assert user["full_name"] == "Test Admin"
         assert user["is_verified"] is True
         assert user["is_external"] is False
+
+
+class TestChangePasswordIsRateLimited:
+    """A live session plus a guessable current password is an online oracle.
+
+    Wrong guesses cost nothing here — ``LoginRateLimiter`` only fronts
+    ``/auth/login`` — so an attacker on an unattended browser could grind the
+    current password at whatever rate the hasher allows.
+    """
+
+    @pytest.mark.anyio
+    async def test_the_throughput_budget_applies(self, anon_client, users_app):
+        from users.auth_local.rate_limit import ThroughputLimiter
+
+        users_app.state.users.auth_throughput_limiter = ThroughputLimiter(
+            max_attempts=2, window_seconds=60
+        )
+        await _login(anon_client)
+
+        body = {"current_password": "NotMyPassword1!", "new_password": "BrandNewPass1!"}
+        first = await anon_client.post(_URL, json=body)
+        second = await anon_client.post(_URL, json=body)
+        assert first.status_code == 400, first.text
+        assert second.status_code == 400, second.text
+
+        third = await anon_client.post(_URL, json=body)
+        assert third.status_code == 429, third.text

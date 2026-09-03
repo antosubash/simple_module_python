@@ -19,7 +19,10 @@ from fastapi_users import exceptions as fu_exceptions
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY
 from simple_module_hosting.session import SESSION_REMEMBER_KEY
 
-from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
+from users.auth_local.rate_limit import (
+    LoginRateLimiter,
+    enforce_auth_throughput_limit,
+)
 from users.auth_local.self_account import router as self_account_router
 from users.backend import build_cookie_transport, get_database_strategy
 from users.constants import SESSION_USER_ID_KEY
@@ -41,6 +44,11 @@ from users.manager import UserManager
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# Re-exported: ``users.module`` mounts the stock routers with
+# ``auth_local_api.enforce_auth_throughput_limit``, and the dependency moved
+# down to ``rate_limit`` so ``self_account`` can import it without a cycle.
+__all__ = ["enforce_auth_throughput_limit", "router"]
+
 
 # ── Rate limit ───────────────────────────────────────────────────────────────
 
@@ -48,26 +56,6 @@ router = APIRouter()
 def get_rate_limiter(request: Request) -> LoginRateLimiter:
     """Return the per-app LoginRateLimiter built in UsersModule.on_startup."""
     return request.app.state.users.rate_limiter
-
-
-def _client_ip(request: Request) -> str:
-    return request.client.host if request.client else "unknown"
-
-
-async def enforce_auth_throughput_limit(request: Request) -> None:
-    """FastAPI dependency that rejects the request with 429 when this IP has
-    exhausted its attempts budget on shared auth side-effect endpoints.
-
-    Applied to forgot-password / register / accept-invite / request-verify-token,
-    which otherwise allow unlimited email or account-creation spam.
-    """
-    limiter: ThroughputLimiter = request.app.state.users.auth_throughput_limiter
-    key = f"{request.url.path}::{_client_ip(request)}"
-    if not limiter.check_and_record(key):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many attempts — try again later",
-        )
 
 
 async def require_signup_enabled(request: Request) -> None:

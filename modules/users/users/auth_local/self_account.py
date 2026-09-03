@@ -10,6 +10,7 @@ session already exists and act on the account behind it.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -18,6 +19,7 @@ from simple_module_db.deps import get_db
 from sqlalchemy import delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from users.auth_local.rate_limit import enforce_auth_throughput_limit
 from users.constants import SESSION_VERSION_KEY
 from users.contracts.schemas import SelfPasswordChange, UserUpdate
 from users.deps import fastapi_users, get_user_manager
@@ -27,7 +29,15 @@ from users.models import RefreshToken, UserAccessToken
 router = APIRouter()
 
 
-@router.post("/me/password", status_code=204)
+@router.post(
+    "/me/password",
+    status_code=204,
+    # A live session plus a guessable current password is an online oracle,
+    # and wrong guesses cost nothing here: ``LoginRateLimiter`` only fronts
+    # ``/auth/login``. Same budget as the other credential-adjacent
+    # endpoints, keyed on path + client IP.
+    dependencies=[Depends(enforce_auth_throughput_limit)],
+)
 async def change_my_password(
     body: SelfPasswordChange,
     request: Request,
@@ -56,8 +66,13 @@ async def change_my_password(
             detail="This account signs in through an identity provider and has no password here.",
         )
 
-    verified, _ = user_manager.password_helper.verify_and_update(
-        body.current_password, user.hashed_password
+    # Argon2/bcrypt verification is deliberately slow, and on the event loop
+    # that stalls every other request in the worker for its duration — the same
+    # reason ``token_preview`` threads its fingerprint check.
+    verified, _ = await asyncio.to_thread(
+        user_manager.password_helper.verify_and_update,
+        body.current_password,
+        user.hashed_password,
     )
     if not verified:
         raise HTTPException(status_code=400, detail="Current password is incorrect.")
