@@ -9,18 +9,19 @@ from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, status
 from simple_module_core.events import EventBus
-from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
-from sqlalchemy import ColumnElement, Row, func, select
+from sqlalchemy import Row, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from background_tasks.constants import RETRYABLE_STATUSES, TaskStatus
-from background_tasks.contracts.events import TaskRetried
 from background_tasks.contracts.schemas import (
+    RetryFailedResult,
     TaskExecutionDetail,
     TaskExecutionListItem,
     TaskExecutionListResponse,
 )
+from background_tasks.filters import execution_filters
 from background_tasks.models import TaskExecution
+from background_tasks.retry_service import RetryCoordinator
 
 if TYPE_CHECKING:
     from celery import Celery
@@ -28,7 +29,6 @@ if TYPE_CHECKING:
 # Declared out here because ``BackgroundTaskService.list`` shadows the builtin
 # inside the class body, so a ``list[...]`` annotation on a method resolves to
 # the method rather than to the type.
-Conditions = list["ColumnElement[bool]"]
 QueueNames = list[str]
 
 
@@ -50,33 +50,7 @@ class BackgroundTaskService:
         self.db = db
         self.celery = celery
         self.event_bus = event_bus
-
-    def _filters(
-        self,
-        *,
-        status: TaskStatus | None = None,
-        task_name: str | None = None,
-        queue: str | None = None,
-    ) -> Conditions:
-        """The three axes the executions screen filters on, as SQL conditions.
-
-        Shared by the listing, the strip counts and the bulk retry so they can
-        never disagree about what "the current view" means — a bulk action
-        scoped differently from the table it sits above is how an operator ends
-        up re-enqueueing rows they never saw.
-        """
-        conditions: Conditions = []
-        if status is not None:
-            conditions.append(TaskExecution.status == status)
-        if task_name:
-            conditions.append(
-                TaskExecution.task_name.ilike(
-                    like_contains_pattern(task_name), escape=LIKE_ESCAPE_CHAR
-                )
-            )
-        if queue:
-            conditions.append(TaskExecution.queue == queue)
-        return conditions
+        self.retries = RetryCoordinator(db, celery, event_bus)
 
     async def list(
         self,
@@ -91,7 +65,7 @@ class BackgroundTaskService:
         page = max(page, 1)
         per_page = max(1, min(per_page, 200))
 
-        conditions = self._filters(status=status, task_name=task_name, queue=queue)
+        conditions = execution_filters(status=status, task_name=task_name, queue=queue)
 
         # A window-function total lets us fetch the page and the count in a
         # single round trip. SQLAlchemy's ``AsyncSession`` serialises calls on
@@ -148,7 +122,7 @@ class BackgroundTaskService:
         """
         query = (
             select(TaskExecution.status, func.count().label("n"))
-            .where(*self._filters(task_name=task_name, queue=queue))
+            .where(*execution_filters(task_name=task_name, queue=queue))
             .group_by(TaskExecution.status)
         )
 
@@ -178,7 +152,7 @@ class BackgroundTaskService:
             select(func.count())
             .select_from(TaskExecution)
             .where(
-                *self._filters(status=TaskStatus.SUCCESS, task_name=task_name, queue=queue),
+                *execution_filters(status=TaskStatus.SUCCESS, task_name=task_name, queue=queue),
                 TaskExecution.finished_at.is_not(None),
                 TaskExecution.finished_at >= cutoff,
             )
@@ -221,73 +195,18 @@ class BackgroundTaskService:
                 ),
             )
 
-        new_row = await self._enqueue_retry(row)
+        new_row = await self.retries.retry_one(row)
         return TaskExecutionDetail.model_validate(new_row)
 
     async def retry_failed(
-        self, *, status: TaskStatus | None = None, queue: str | None = None
-    ) -> int:
-        """Re-enqueue every retryable execution the current view can see.
-
-        "Failed" is the operator's word for both halves of the set: a stuck
-        task is one whose worker died holding it, and it needs exactly the same
-        push. A status filter *narrows* that set rather than widening it, so
-        pressing the button while looking at ``running`` queues nothing — the
-        button can never reach past what is on screen.
-
-        The new rows are ``pending``, so this pass cannot pick up its own work.
-        """
-        wanted = RETRYABLE_STATUSES if status is None else RETRYABLE_STATUSES & {status}
-        if not wanted:
-            return 0
-
-        query = (
-            select(TaskExecution)
-            .where(
-                TaskExecution.status.in_(sorted(wanted)),
-                *self._filters(queue=queue),
-            )
-            # Oldest first: the queue an operator is unwedging should come back
-            # out in the order it went in.
-            .order_by(TaskExecution.queued_at.asc().nulls_last())
+        self,
+        *,
+        status: TaskStatus | None = None,
+        task_name: str | None = None,
+        queue: str | None = None,
+        limit: int | None = None,
+    ) -> RetryFailedResult:
+        """Re-enqueue the retryable executions the current view can see."""
+        return await self.retries.retry_failed(
+            status=status, task_name=task_name, queue=queue, limit=limit
         )
-        rows = list((await self.db.execute(query)).scalars())
-        for row in rows:
-            await self._enqueue_retry(row)
-        return len(rows)
-
-    async def _enqueue_retry(self, row: TaskExecution) -> TaskExecution:
-        """Send one task again and record the new attempt.
-
-        Shared by the single and bulk retries so a row re-enqueued from the
-        header button is indistinguishable from one retried through its own
-        dialog — same chain, same event, same history.
-        """
-        async_result = self.celery.send_task(
-            row.task_name,
-            args=list(row.args or []),
-            kwargs=dict(row.kwargs or {}),
-            queue=row.queue,
-        )
-
-        new_row = TaskExecution(
-            celery_task_id=async_result.id,
-            task_name=row.task_name,
-            status=TaskStatus.PENDING,
-            queue=row.queue,
-            args=list(row.args or []),
-            kwargs=dict(row.kwargs or {}),
-            retried_from_id=row.id,
-        )
-        self.db.add(new_row)
-        await self.db.flush()
-        await self.db.refresh(new_row)
-
-        await self.event_bus.publish(
-            TaskRetried(
-                original_id=row.id,
-                new_id=new_row.id,
-                task_name=row.task_name,
-            )
-        )
-        return new_row

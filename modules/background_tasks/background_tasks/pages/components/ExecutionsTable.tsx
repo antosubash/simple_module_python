@@ -98,6 +98,7 @@ export function ExecutionsTable({
           <Button
             variant="outline"
             size="sm"
+            className="max-lg:min-h-11"
             disabled={page <= 1}
             onClick={() => onPageChange(page - 1)}
           >
@@ -106,6 +107,7 @@ export function ExecutionsTable({
           <Button
             variant="outline"
             size="sm"
+            className="max-lg:min-h-11"
             disabled={page >= totalPages}
             onClick={() => onPageChange(page + 1)}
           >

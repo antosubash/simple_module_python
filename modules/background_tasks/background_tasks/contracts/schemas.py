@@ -76,14 +76,19 @@ class TaskExecutionListResponse(SQLModel):
 
 
 class RetryFailedResult(SQLModel):
-    """How many executions a bulk retry actually re-enqueued.
+    """What a bulk retry actually did.
 
-    The caller cannot compute this: the endpoint decides which statuses count
-    as retryable, so the number has to come back from the action itself rather
-    than be inferred from whatever the screen was showing.
+    The caller cannot compute either number: the endpoint decides which rows
+    count as retryable and caps how many it will take in one pass, so both have
+    to come back from the action rather than be inferred from what the screen
+    was showing.
     """
 
     queued: int
+    # Eligible rows the batch cap left behind. Non-zero means "press it again";
+    # the UI says so rather than leaving the operator to wonder why the backlog
+    # only half moved.
+    remaining: int = 0
 
 
 class WorkerInfo(SQLModel):

@@ -65,9 +65,18 @@ class TaskStatus(StrEnum):
 
 
 RETRYABLE_STATUSES: frozenset[TaskStatus] = frozenset({TaskStatus.FAILED, TaskStatus.STUCK})
+
 TERMINAL_STATUSES: frozenset[TaskStatus] = frozenset(
     {TaskStatus.SUCCESS, TaskStatus.FAILED, TaskStatus.STUCK, TaskStatus.REVOKED}
 )
+
+# How many executions one "Retry all failed" press may re-enqueue.
+#
+# The sweep publishes to the broker once per row and writes a row per publish,
+# so an unbounded backlog turns one button into a multi-minute request holding
+# a DB transaction open. Capping it makes the cost of a press knowable; the
+# response says how many are left so the operator can press again.
+RETRY_ALL_BATCH = 500
 
 # ── Defaults ────────────────────────────────────────────────────
 DEFAULT_QUEUE = "default"

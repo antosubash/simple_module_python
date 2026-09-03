@@ -2,8 +2,13 @@
 
 Stored as ``app.state.background_tasks`` by
 :meth:`BackgroundTasksModule.register_settings`. Not frozen — ``on_startup``
-populates :attr:`celery` once the Celery app is built. Convention: set once
-during boot, treat as read-only after.
+populates :attr:`celery` once the Celery app is built.
+
+:attr:`settings` and :attr:`celery` are set once during boot and read-only
+after. :attr:`last_worker_snapshot` is the exception: it is rewritten at
+request time by whoever last polled the fleet, and is a cache of a report
+rather than configuration. Nothing should branch on its *absence* meaning
+anything more than "nobody has polled yet".
 """
 
 from __future__ import annotations

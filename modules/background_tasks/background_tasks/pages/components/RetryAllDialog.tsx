@@ -10,6 +10,8 @@ interface Props {
   busy?: boolean;
   /** Active status filter, or '' for all. */
   status: string;
+  /** Active task-name search, or '' for none. */
+  taskName: string;
   /** Active queue filter, or '' for all. */
   queue: string;
 }
@@ -28,6 +30,7 @@ export function RetryAllDialog({
   onConfirm,
   busy = false,
   status,
+  taskName,
   queue,
 }: Props) {
   const { t } = useT();
@@ -39,6 +42,12 @@ export function RetryAllDialog({
     queue && queue !== QUEUE_ALL
       ? t(keys.background_tasks.retry_all_dialog.scope_queue, { queue })
       : t(keys.background_tasks.retry_all_dialog.scope_all_queues);
+  // The search narrows the sweep exactly as it narrows the table, so it has to
+  // be in the scope line — otherwise "retry all failed" reads as fleet-wide
+  // while a search box is quietly holding it to four rows.
+  const searchLabel = taskName
+    ? t(keys.background_tasks.retry_all_dialog.scope_search, { query: taskName })
+    : t(keys.background_tasks.retry_all_dialog.scope_no_search);
 
   return (
     <ConfirmActionDialog
@@ -59,6 +68,8 @@ export function RetryAllDialog({
         <span>{statusLabel}</span>
         <span aria-hidden="true">·</span>
         <span>{queueLabel}</span>
+        <span aria-hidden="true">·</span>
+        <span>{searchLabel}</span>
       </div>
     </ConfirmActionDialog>
   );

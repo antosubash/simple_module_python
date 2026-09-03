@@ -114,8 +114,18 @@ class TestRedactBrokerUrl:
     def test_keeps_a_bare_username(self) -> None:
         assert redact_broker_url("amqp://guest@rabbit:5672//") == "amqp://guest@rabbit:5672//"
 
-    def test_unparseable_input_is_reported_as_redacted_not_leaked(self) -> None:
+    def test_an_empty_setting_stays_empty(self) -> None:
+        """Nothing configured is not a secret — it is a different diagnosis."""
         assert redact_broker_url("") == ""
+
+    def test_unparseable_input_is_reported_as_redacted_not_leaked(self) -> None:
+        """``urlsplit`` defers port validation to attribute access.
+
+        A malformed port raises out of the parse, and the url that produced it
+        may still carry a password — so the whole thing is withheld rather than
+        echoed on the chance that it does not.
+        """
+        assert redact_broker_url("redis://u:p@host:notaport") == "***"
 
 
 class TestWorkersViewProps:

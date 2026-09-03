@@ -82,19 +82,23 @@
   },
   "retry_all_dialog": {
     "title": "Retry all failed tasks?",
-    "description": "Every failed and stuck execution in the current view is queued again with its original arguments.",
+    "description": "Every failed or stuck execution in the current view is queued again with its original arguments. Rows that already have a retry in flight are skipped.",
     "scope_all_queues": "All queues",
     "scope_queue": "Queue {queue}",
     "scope_all_statuses": "Failed and stuck",
     "cancel": "Cancel",
-    "confirm": "Queue retries"
+    "confirm": "Queue retries",
+    "scope_search": "Search “{query}”",
+    "scope_no_search": "Any task name"
   },
   "toasts": {
     "retried": "Task \"{name}\" re-enqueued",
     "retry_failed": "Failed to retry task",
-    "bulk_retried_one": "{count} task queued",
-    "bulk_retried_other": "{count} tasks queued",
-    "bulk_retry_failed": "Failed to retry tasks"
+    "bulk_retried_one": "Queued {count} retry",
+    "bulk_retried_other": "Queued {count} retries",
+    "bulk_retry_failed": "Failed to retry tasks",
+    "bulk_remaining_one": "{count} more remains — run it again.",
+    "bulk_remaining_other": "{count} more remain — run it again."
   },
   "worker_health": {
     "broker_unreachable_title": "Broker unreachable",

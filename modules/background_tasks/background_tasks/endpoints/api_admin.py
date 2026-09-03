@@ -21,8 +21,8 @@ from background_tasks.contracts.schemas import (
     WorkerSnapshot,
 )
 from background_tasks.deps import get_background_task_service
-from background_tasks.endpoints.views import poll_workers
 from background_tasks.service import BackgroundTaskService
+from background_tasks.workers_state import poll_workers
 
 router = APIRouter(
     prefix=ADMIN_ROUTER_PREFIX,
@@ -63,16 +63,17 @@ async def get_execution(
 )
 async def retry_failed_executions(
     status: TaskStatus | None = Query(default=None),
+    task_name: str | None = Query(default=None, alias="q"),
     queue: str | None = Query(default=None),
     service: BackgroundTaskService = Depends(get_background_task_service),
 ) -> RetryFailedResult:
     """Re-enqueue every failed or stuck execution the current filter can see.
 
-    Declared before ``/executions/{execution_id}/retry``: FastAPI matches
-    routes in registration order, and "retry-failed" is a valid-looking path
-    segment that the id route would otherwise swallow and 404 on.
+    Takes the same three filters as the listing — status, search, queue — so
+    the sweep covers exactly the rows the operator is looking at and nothing
+    else. Capped per call; the response says how many eligible rows are left.
     """
-    return RetryFailedResult(queued=await service.retry_failed(status=status, queue=queue))
+    return await service.retry_failed(status=status, task_name=task_name, queue=queue)
 
 
 @router.post(

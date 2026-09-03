@@ -14,10 +14,10 @@ from background_tasks.constants import (
     PERM_VIEW,
     TaskStatus,
 )
-from background_tasks.contracts.schemas import WorkerSnapshot
 from background_tasks.deps import get_background_task_service
 from background_tasks.service import BackgroundTaskService
-from background_tasks.worker_inspector import WorkerInspector, redact_broker_url
+from background_tasks.worker_inspector import redact_broker_url
+from background_tasks.workers_state import poll_workers
 
 router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_VIEW))])
 
@@ -25,19 +25,6 @@ PER_PAGE = 20
 
 # Window the "Succeeded 24h" tile counts over.
 SUCCESS_WINDOW_HOURS = 24
-
-
-async def poll_workers(request: Request) -> WorkerSnapshot:
-    """Poll the fleet and keep the reading on module state.
-
-    Every caller pays one inspect timeout, so the result is worth keeping:
-    Doctor reports on the worker process without a poll of its own, and the
-    stored snapshot carries ``polled_at`` so nobody can mistake it for live.
-    """
-    services = request.app.state.background_tasks
-    snapshot = await asyncio.to_thread(WorkerInspector(services.celery).snapshot)
-    services.last_worker_snapshot = snapshot
-    return snapshot
 
 
 async def _worker_presence(request: Request) -> dict[str, object]:

@@ -47,20 +47,26 @@ export async function retryExecution(execution: {
 }
 
 /**
- * Re-enqueue every failed or stuck execution the current filters can see.
+ * Re-enqueue the failed and stuck executions the current filters can see.
  *
  * The filters go to the server rather than being resolved here: the client
  * only knows the twenty rows on this page, and the operator pressing "Retry
- * all failed" means every matching row, not every visible one.
+ * all failed" means every matching row, not every visible one. All three axes
+ * travel — status, search and queue — so the sweep covers exactly the rows on
+ * screen.
  *
- * Returns how many were queued, or `null` if the request failed.
+ * Returns how many were queued, or `null` if the request failed. The server
+ * caps one pass, so `remaining` may be non-zero; the toast says so rather than
+ * leaving the operator to wonder why the backlog only half moved.
  */
 export async function retryAllFailed(filters: {
   status: string;
+  taskName: string;
   queue: string;
 }): Promise<number | null> {
   const params = new URLSearchParams();
   if (filters.status && filters.status !== STATUS_ALL) params.set('status', filters.status);
+  if (filters.taskName) params.set('q', filters.taskName);
   if (filters.queue && filters.queue !== QUEUE_ALL) params.set('queue', filters.queue);
   const query = params.toString();
   try {
@@ -71,8 +77,13 @@ export async function retryAllFailed(filters: {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.detail || `HTTP ${res.status}`);
     }
-    const { queued } = (await res.json()) as { queued: number };
-    toast.success(t(keys.background_tasks.toasts.bulk_retried, { count: queued }));
+    const { queued, remaining } = (await res.json()) as { queued: number; remaining: number };
+    toast.success(t(keys.background_tasks.toasts.bulk_retried, { count: queued }), {
+      description:
+        remaining > 0
+          ? t(keys.background_tasks.toasts.bulk_remaining, { count: remaining })
+          : undefined,
+    });
     return queued;
   } catch (err) {
     toast.error(

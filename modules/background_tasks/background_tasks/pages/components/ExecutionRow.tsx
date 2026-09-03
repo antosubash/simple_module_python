@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { TableCell, TableRow } from '@simple-module-py/ui/components/ui/table';
 import { useRelativeTime } from '@simple-module-py/ui/hooks/use-relative-time';
@@ -24,13 +24,13 @@ export function ExecutionRow({ execution, canRetry, onRetry }: Props) {
   return (
     <TableRow onClick={() => router.visit(href)} className="cursor-pointer hover:bg-secondary/40">
       <TableCell>
-        <a
+        <Link
           href={href}
           onClick={(e) => e.stopPropagation()}
           className="font-mono text-[13px] font-medium text-primary-700 hover:underline"
         >
           {execution.task_name}
-        </a>
+        </Link>
       </TableCell>
       <TableCell>
         <StatusPill status={execution.status} />

@@ -131,7 +131,11 @@ function Index() {
 
   async function handleRetryAll() {
     setBusy(true);
-    const queued = await retryAllFailed({ status: statusValue, queue: queueValue });
+    const queued = await retryAllFailed({
+      status: statusValue,
+      taskName: initialFilters.task_name ?? '',
+      queue: queueValue,
+    });
     setBusy(false);
     setRetryAllOpen(false);
     if (queued !== null) router.reload({ only: RELOAD_ONLY });
@@ -217,6 +221,7 @@ function Index() {
           onConfirm={handleRetryAll}
           busy={busy}
           status={statusValue}
+          taskName={initialFilters.task_name ?? ''}
           queue={queueValue}
         />
       </PageShell>
