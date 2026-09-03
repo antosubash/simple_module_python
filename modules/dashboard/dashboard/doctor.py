@@ -19,6 +19,7 @@ from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel, collect_tsx_pages
+from simple_module_core.discovery import get_module_package_name
 from simple_module_hosting.migrations import list_migrations
 
 logger = logging.getLogger(__name__)
@@ -182,10 +183,46 @@ def dev_server(request: Request) -> dict[str, Any]:
     }
 
 
+HOST_MIGRATION_CHIP = "host"
+"""Chip for a revision that belongs to no installed module.
+
+The host owns the initial schema and anything cross-cutting; the deck's row
+carries a chip either way, and a blank one reads as a missing value rather
+than as "this is not a module's migration"."""
+
+
+def _module_chip(message: str, packages: set[str]) -> str:
+    """Which module a revision is about, from the words of its message.
+
+    Only the *first* migration of a module carries an Alembic branch label —
+    that is the convention this project migrates under — so every later
+    revision arrives with no module at all. ``list_migrations`` deliberately
+    refuses to guess, because a wrong branch label would corrupt a
+    ``downgrade <module>@base``. A chip is not a branch label: it is a word in
+    a list, and getting it from the message costs nothing if it is wrong.
+
+    Matched against the installed packages rather than any leading word, so
+    "add audit_log tables" finds ``audit_log`` and "initial schema" finds
+    nothing and says so.
+    """
+    for word in message.lower().split():
+        if word in packages:
+            return word
+        for package in packages:
+            if word.startswith(f"{package}_"):
+                return package
+    return HOST_MIGRATION_CHIP
+
+
 def migration_rows(app: FastAPI) -> list[dict[str, Any]]:
     """Recent Alembic revisions with the applied flag this database earns."""
     state = getattr(app.state, "migration", None) or {}
-    return list_migrations(current_revision=state.get("current_revision"))
+    rows = list_migrations(current_revision=state.get("current_revision"))
+    packages = {get_module_package_name(m) for m in app.state.sm.modules}
+    for row in rows:
+        if not row.get("module"):
+            row["module"] = _module_chip(row.get("message") or "", packages)
+    return rows
 
 
 def _module_pages_dir(module: Any) -> Path | None:

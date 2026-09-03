@@ -82,7 +82,7 @@ function Doctor() {
         <StatsRow stats={props.stats} available={props.checks_available} />
 
         <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-          <div className="flex flex-col gap-4">
+          <div className="flex min-w-0 flex-col gap-4">
             <ChecksCard
               checks={props.checks}
               available={props.checks_available}
@@ -94,7 +94,10 @@ function Doctor() {
               onCopyCommand={copyCommand}
             />
           </div>
-          <div className="flex flex-col gap-4">
+          {/* `min-w-0`: a grid item's default `min-width:auto` is its content,
+              and the transcript's longest line is wider than a 390px screen —
+              it was the one thing making this page scroll sideways. */}
+          <div className="flex min-w-0 flex-col gap-4">
             <DevServerCard devServer={props.dev_server} />
             <TerminalPanel props={props} />
           </div>

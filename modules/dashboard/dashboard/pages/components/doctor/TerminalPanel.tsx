@@ -65,7 +65,10 @@ export function TerminalPanel({ props }: { props: DoctorProps }) {
   ];
 
   return (
-    <div className="flex min-h-40 flex-col gap-1.5 overflow-hidden rounded-xl bg-slate-900 p-4 font-mono text-[12.5px] leading-[1.75]">
+    // `flex-1` so the terminal runs to the bottom of the column beside the
+    // checks card, as the deck draws it; `min-w-0` so its longest line
+    // truncates rather than widening the page.
+    <div className="flex min-h-40 min-w-0 flex-1 flex-col gap-1.5 overflow-hidden rounded-xl bg-slate-900 p-4 font-mono text-[12.5px] leading-[1.75]">
       {lines.map((line, index) => (
         <span
           // A transcript is an ordered list, and two warnings can legitimately
