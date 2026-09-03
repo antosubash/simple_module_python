@@ -168,36 +168,21 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
 
     # ── Token helpers (no email side-effect) ─────────────────
 
-    async def generate_verification_token(self, user: User) -> str:
+    def mint_invite_token(self, user: User, invited_by: str | None = None) -> str:
         """Mint a verify-audience JWT without firing on_after_request_verify.
 
-        Used by the admin-invite flow: the verify-token primitive is reused
-        for invites, but the email template differs. request_verify() couples
-        token generation with email send — this decouples them.
-        """
-        token_data = {
-            "sub": str(user.id),
-            "email": user.email,
-            "aud": self.verification_token_audience,
-        }
-        return generate_jwt(
-            token_data,
-            self.verification_token_secret,
-            self.verification_token_lifetime_seconds,
-        )
-
-    def mint_invite_token(self, user: User, invited_by: str | None) -> str:
-        """Mint the verify-audience JWT an invitation link carries.
-
-        The one place invites are minted — the bulk form and the resend action
-        both come through here — because the accept-invite card reads
-        ``invited_by`` and ``exp`` straight off the token. A second mint site
-        that forgot the claim would produce links that work but say "you have
-        been invited" by nobody, which is the failure the claim exists to fix.
+        The one place these are minted — the bulk form, the resend action and
+        plain verification all come through here — because the accept-invite
+        card reads ``invited_by`` and ``exp`` straight off the token. A second
+        mint site that forgot the claim would produce links that work but say
+        "you have been invited" by nobody, which is the failure the claim
+        exists to fix. ``request_verify()`` couples minting with sending; this
+        decouples them, which is what the admin flows need.
 
         ``invited_by`` is the inviter's display name, not their id: it is only
         ever shown, and a token that outlives the inviter's account should
-        still read sensibly.
+        still read sensibly. Omitted for a plain verification link, where
+        nobody invited anyone.
         """
         token_data: dict[str, object] = {
             "sub": str(user.id),
