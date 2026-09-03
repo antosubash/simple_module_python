@@ -75,7 +75,11 @@ export function StatCard({
           </span>
           {suffix && <span className="text-sm text-muted-foreground">{suffix}</span>}
         </div>
-        {delta && <div className={cn('mt-0.5 text-sm', DELTA_TONE[deltaTone])}>{delta}</div>}
+        {delta && (
+          <div data-slot="stat-delta" className={cn('mt-0.5 text-sm', DELTA_TONE[deltaTone])}>
+            {delta}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

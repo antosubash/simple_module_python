@@ -77,6 +77,8 @@ export function ConfirmActionDialog({
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
+        {/* Not AlertDialogMedia: that slot is size-16 and row-spans beside the
+            title on desktop, where the deck wants a 40px tile above it. */}
         <AlertDialogHeader className="place-items-start gap-2 text-left">
           <span
             className={cn(
@@ -104,11 +106,15 @@ export function ConfirmActionDialog({
           </div>
         )}
         <AlertDialogFooter>
-          <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
+          {/* The shared Button is h-9; a confirm — destructive most of all — is
+              the most primary control on the screen, so it clears 44px on phones.
+              It has to happen here: this component exposes no className. */}
+          <AlertDialogCancel className="max-lg:min-h-11">{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction
             variant={tone === 'destructive' ? 'destructive' : 'default'}
             disabled={busy || !matched}
             onClick={onConfirm}
+            className="max-lg:min-h-11"
           >
             {confirmLabel}
           </AlertDialogAction>

@@ -61,6 +61,12 @@ describe('ConfirmActionDialog', () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
+  test('gives both footer buttons a 44px phone hit target', () => {
+    renderDialog();
+    expect(screen.getByRole('button', { name: 'Delete' })).toHaveClass('max-lg:min-h-11');
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveClass('max-lg:min-h-11');
+  });
+
   test('disables confirm while the action is in flight', () => {
     renderDialog({ busy: true });
     expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();

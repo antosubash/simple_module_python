@@ -24,7 +24,9 @@ export function PasswordInput({ showLabel, hideLabel, className, ...props }: Pas
       <button
         type="button"
         onClick={() => setVisible((prev) => !prev)}
-        className="absolute inset-y-0 right-0 px-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+        // Centred and out of flow, so `min-h-11` buys a 44px phone hit target
+        // without making the field itself taller than every other input.
+        className="absolute top-1/2 right-0 flex h-full -translate-y-1/2 items-center px-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground max-lg:min-h-11"
       >
         {visible ? hideLabel : showLabel}
       </button>

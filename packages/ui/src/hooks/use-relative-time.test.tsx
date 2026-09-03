@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 // Resolve keys to the key itself plus its count, so the assertions read as
 // "which bucket, with what number" without depending on the English catalog.
@@ -22,20 +22,22 @@ function Probe({ iso }: { iso: string | null | undefined }) {
   );
 }
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe('useRelativeTime', () => {
   test('describes a past timestamp as an age and a future one as a countdown', () => {
     vi.setSystemTime(new Date('2026-09-03T12:00:00Z'));
     render(<Probe iso="2026-09-03T09:00:00Z" />);
     expect(screen.getByTestId('ago')).toHaveTextContent('ui.relative_time.hours_ago:3');
     expect(screen.getByTestId('until')).toHaveTextContent('ui.relative_time.expired');
-    vi.useRealTimers();
   });
 
   test('counts forward to a future timestamp', () => {
     vi.setSystemTime(new Date('2026-09-03T12:00:00Z'));
     render(<Probe iso="2026-09-05T12:00:00Z" />);
     expect(screen.getByTestId('until')).toHaveTextContent('ui.relative_time.in_days:2');
-    vi.useRealTimers();
   });
 
   test('falls back to "unknown" for input it cannot read', () => {

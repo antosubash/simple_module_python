@@ -48,6 +48,7 @@ export function applyTheme(pref: ThemePreference): void {
 }
 
 export function setThemePreference(pref: ThemePreference): void {
+  if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(THEME_STORAGE_KEY, pref);
   } catch {

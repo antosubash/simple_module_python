@@ -23,8 +23,8 @@ describe('StatCard', () => {
   });
 
   test('omits the delta when not provided', () => {
-    render(<StatCard label="Active" value={1} icon={Activity} delta="" />);
-    expect(screen.queryByText('+1')).not.toBeInTheDocument();
+    const { container } = render(<StatCard label="Active" value={1} icon={Activity} />);
+    expect(container.querySelector('[data-slot="stat-delta"]')).toBeNull();
   });
 
   test('renders a muted suffix after the value', () => {
