@@ -8,8 +8,10 @@ interface WaitingOnYouProps {
   email: string;
   onResend: () => void;
   onBack: () => void;
-  /** Set once the resend request has gone out. */
+  /** Set once the server has accepted the resend. */
   resent: boolean;
+  /** Set when the resend was refused (rate limit) or never reached the server. */
+  failed: boolean;
 }
 
 /**
@@ -20,7 +22,7 @@ interface WaitingOnYouProps {
  * the address is confirmed, so the card replaces the form and offers the one
  * action that moves things along.
  */
-export function WaitingOnYou({ email, onResend, onBack, resent }: WaitingOnYouProps) {
+export function WaitingOnYou({ email, onResend, onBack, resent, failed }: WaitingOnYouProps) {
   const { t } = useT();
   return (
     <AuthStateCard
@@ -35,9 +37,14 @@ export function WaitingOnYou({ email, onResend, onBack, resent }: WaitingOnYouPr
       {resent ? (
         <p className="text-[13px] text-primary-700">{t(keys.users.login.verification_resent)}</p>
       ) : (
-        <Button type="button" variant="outline" onClick={onResend} className="max-lg:min-h-11">
-          {t(keys.users.login.resend_verification)}
-        </Button>
+        <>
+          {failed && (
+            <p className="text-[13px] text-destructive">{t(keys.users.login.resend_failed)}</p>
+          )}
+          <Button type="button" variant="outline" onClick={onResend} className="max-lg:min-h-11">
+            {t(keys.users.login.resend_verification)}
+          </Button>
+        </>
       )}
       <button
         type="button"

@@ -23,19 +23,26 @@ function ForgotPassword() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const requestLink = () =>
+  /** Resolves to whether the server took the request — never rejects. */
+  const requestLink = (): Promise<boolean> =>
     fetch('/api/users/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
-    });
+    })
+      .then((res) => res.ok)
+      .catch(() => false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     requestLink().finally(() => {
       // Anti-enumeration: always show the same confirmation regardless of
-      // whether the email exists (fastapi-users returns 202 either way).
+      // whether the email exists (fastapi-users returns 202 either way). The
+      // outcome is deliberately ignored *here* — the sent card is the answer
+      // to "does this address have an account", and it must not vary. A
+      // refusal only surfaces on the explicit resend, which is about this
+      // request rather than about the address.
       setLoading(false);
       setSubmitted(true);
     });
@@ -45,13 +52,7 @@ function ForgotPassword() {
     return (
       <AuthCardShell>
         <Head title={t(keys.users.forgot_password.head_title)} />
-        <ResetLinkSent
-          email={email}
-          mailerDelivers={mailer_delivers}
-          onResend={() => {
-            requestLink();
-          }}
-        />
+        <ResetLinkSent email={email} mailerDelivers={mailer_delivers} onResend={requestLink} />
         <a
           href={LOGIN_PATH}
           className="mt-6 block text-center text-[13px] font-medium text-primary-700 hover:text-primary-800"

@@ -32,6 +32,7 @@ function Login() {
   const [error, setError] = useState<string | null>(null);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resent, setResent] = useState(false);
+  const [resendFailed, setResendFailed] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Server-decided, deliberately. The post-login destination used to be read
@@ -79,11 +80,17 @@ function Login() {
   };
 
   const handleResendVerification = () => {
+    // Only claim it was sent when the server says so: this endpoint is behind
+    // the auth throughput limiter, and a 429 announced as "sent" leaves
+    // someone waiting for an email that was never queued.
+    setResendFailed(false);
     fetch('/api/users/auth/request-verify-token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
-    }).then(() => setResent(true));
+    })
+      .then((res) => (res.ok ? setResent(true) : setResendFailed(true)))
+      .catch(() => setResendFailed(true));
   };
 
   const aside = (
@@ -101,10 +108,12 @@ function Login() {
         <WaitingOnYou
           email={email}
           resent={resent}
+          failed={resendFailed}
           onResend={handleResendVerification}
           onBack={() => {
             setNeedsVerification(false);
             setResent(false);
+            setResendFailed(false);
           }}
         />
       ) : (

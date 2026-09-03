@@ -1,11 +1,12 @@
 """Props and cookie behaviour behind the public auth screens.
 
 The hi-fi deck's sign-in / reset / verify / invite cards say concrete things —
-"valid for 60 minutes", "Keep me signed in for 30 days", "Link expired",
-"in 5 days" — and every one of those is a fact the server owns. These tests
-pin the server side of that copy: the numbers come from settings, the dead-link
-states are decided on GET rather than after a failed submit, and remembering a
-sign-in actually lengthens the credential.
+"valid for 60 minutes", "Link expired", "in 5 days" — and every one of those is
+a fact the server owns. These tests pin the server side of that copy: the
+numbers come from settings, and the dead-link states are decided on GET rather
+than after a submit that was never going to work.
+
+"Keep me signed in" lives next door in ``test_remember_me.py``.
 """
 
 from __future__ import annotations
@@ -26,8 +27,6 @@ _VERIFY_SECRET = "test-verify-secret-32-bytes-xxxxx"
 _RESET_AUDIENCE = "fastapi-users:reset"
 _VERIFY_AUDIENCE = "fastapi-users:verify"
 
-REMEMBER_ME_MAX_AGE = 30 * 24 * 60 * 60
-
 
 async def _make_user(session, email: str, password: str = "SecurePass1!") -> User:
     user = User(
@@ -45,56 +44,9 @@ async def _make_user(session, email: str, password: str = "SecurePass1!") -> Use
     return user
 
 
-def _set_cookie(resp, name: str) -> str:
-    """Return the raw ``Set-Cookie`` header for *name* (httpx drops attributes)."""
-    headers = [v for k, v in resp.headers.multi_items() if k.lower() == "set-cookie"]
-    matching = [h for h in headers if h.startswith(f"{name}=")]
-    assert matching, f"no Set-Cookie for {name!r} in {headers!r}"
-    return matching[-1]
-
-
 def _props(resp) -> dict:
     assert resp.status_code == 200, resp.text
     return resp.json()["props"]
-
-
-# ---------------------------------------------------------------------------
-# "Keep me signed in for 30 days"
-# ---------------------------------------------------------------------------
-
-
-class TestRememberMe:
-    @pytest.mark.anyio
-    async def test_remember_extends_the_auth_cookie_to_thirty_days(self, anon_client, users_db):
-        await _make_user(users_db, "remember@example.com")
-        resp = await anon_client.post(
-            "/api/users/auth/login",
-            data={
-                "username": "remember@example.com",
-                "password": "SecurePass1!",
-                "remember": "true",
-            },
-        )
-        assert resp.status_code == 204, resp.text
-        assert f"Max-Age={REMEMBER_ME_MAX_AGE}" in _set_cookie(resp, "sm_auth")
-
-    @pytest.mark.anyio
-    async def test_without_remember_the_cookie_keeps_the_configured_default(
-        self, anon_client, users_db, users_app
-    ):
-        await _make_user(users_db, "plain@example.com")
-        resp = await anon_client.post(
-            "/api/users/auth/login",
-            data={"username": "plain@example.com", "password": "SecurePass1!"},
-        )
-        assert resp.status_code == 204, resp.text
-        default = users_app.state.users.settings.cookie_max_age_seconds
-        assert f"Max-Age={default}" in _set_cookie(resp, "sm_auth")
-
-    @pytest.mark.anyio
-    async def test_login_page_passes_the_remember_window_in_days(self, anon_client):
-        props = _props(await anon_client.get("/users/login", headers=_INERTIA_HEADERS))
-        assert props["remember_me_days"] == 30
 
 
 # ---------------------------------------------------------------------------
@@ -120,9 +72,19 @@ class TestForgotPasswordProps:
 # ---------------------------------------------------------------------------
 
 
-def _reset_token(user_id: uuid.UUID, *, lifetime_seconds: int) -> str:
+def _reset_token(user: User, *, lifetime_seconds: int, fingerprint: str | None = None) -> str:
+    """Mint a reset token the way ``forgot_password`` does.
+
+    ``password_fgpt`` is a hash *of the stored hash*, which is how the token
+    stops working once the password changes. Pass *fingerprint* to forge one
+    that no longer matches — a link that has already been spent.
+    """
     return generate_jwt(
-        {"sub": str(user_id), "password_fgpt": "x", "aud": _RESET_AUDIENCE},
+        {
+            "sub": str(user.id),
+            "password_fgpt": fingerprint or _pw.hash(user.hashed_password),
+            "aud": _RESET_AUDIENCE,
+        },
         _RESET_SECRET,
         lifetime_seconds,
     )
@@ -132,7 +94,7 @@ class TestResetPasswordProps:
     @pytest.mark.anyio
     async def test_expired_token_renders_the_expired_card(self, anon_client, users_db):
         user = await _make_user(users_db, "expired-reset@example.com")
-        token = _reset_token(user.id, lifetime_seconds=-60)
+        token = _reset_token(user, lifetime_seconds=-60)
         props = _props(
             await anon_client.get(f"/users/reset-password?token={token}", headers=_INERTIA_HEADERS)
         )
@@ -142,12 +104,24 @@ class TestResetPasswordProps:
     @pytest.mark.anyio
     async def test_live_token_carries_the_address_to_sign_in_with(self, anon_client, users_db):
         user = await _make_user(users_db, "live-reset@example.com")
-        token = _reset_token(user.id, lifetime_seconds=3600)
+        token = _reset_token(user, lifetime_seconds=3600)
         props = _props(
             await anon_client.get(f"/users/reset-password?token={token}", headers=_INERTIA_HEADERS)
         )
         assert props["expired"] is False
         assert props["email"] == "live-reset@example.com"
+
+    @pytest.mark.anyio
+    async def test_a_spent_link_is_already_dead(self, anon_client, users_db):
+        """ "Reset links … work once" has to be true on the page, not only in
+        the endpoint: a fingerprint that no longer matches the stored hash
+        means the password already changed."""
+        user = await _make_user(users_db, "spent-reset@example.com")
+        token = _reset_token(user, lifetime_seconds=3600, fingerprint=_pw.hash("something-else"))
+        props = _props(
+            await anon_client.get(f"/users/reset-password?token={token}", headers=_INERTIA_HEADERS)
+        )
+        assert props["expired"] is True
 
     @pytest.mark.anyio
     async def test_without_a_token_the_page_is_not_expired(self, anon_client):
@@ -195,9 +169,9 @@ class TestVerifyEmailProps:
         assert props["email"] is None
 
     @pytest.mark.anyio
-    async def test_lifetime_is_reported_in_hours(self, anon_client):
+    async def test_lifetime_is_reported_in_days(self, anon_client):
         props = _props(await anon_client.get("/users/verify?token=x", headers=_INERTIA_HEADERS))
-        assert props["verification_lifetime_hours"] == 24 * 7
+        assert props["verification_lifetime_days"] == 7
 
 
 # ---------------------------------------------------------------------------

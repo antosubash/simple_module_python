@@ -12,6 +12,7 @@ invite card; kept apart because that one also reads the account's roles.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -82,13 +83,21 @@ async def preview_reset(token: str, user_manager: Any) -> dict[str, Any] | None:
     the address comes from the account. It is needed because "Save and sign in"
     signs the person in immediately after the reset, and asking them to retype
     the address they just proved control of would be theatre.
+
+    Every reason ``UserManager.reset_password`` would refuse the token is
+    checked here, so "Reset links … work once" is true on the page and not
+    only in the endpoint: a token whose ``password_fgpt`` no longer matches the
+    stored hash has already been spent, and one belonging to a disabled
+    account can never be spent at all. Both render "Link expired" rather than
+    a password form that is guaranteed to fail on submit.
     """
     claims = decode_reset_token(token, user_manager.reset_password_token_secret)
     if claims is None:
         return None
 
     user_id = claims.get("sub")
-    if not user_id:
+    fingerprint = claims.get("password_fgpt")
+    if not user_id or not fingerprint:
         return None
 
     try:
@@ -98,4 +107,28 @@ async def preview_reset(token: str, user_manager: Any) -> dict[str, Any] | None:
         # rendering a password form nothing can accept.
         return None
 
+    if not user.is_active or not await _fingerprint_matches(user_manager, user, fingerprint):
+        return None
+
     return {"email": user.email}
+
+
+async def _fingerprint_matches(user_manager: Any, user: Any, fingerprint: str) -> bool:
+    """Has the password changed since this link was minted?
+
+    The same bcrypt comparison ``reset_password`` makes. Bcrypt is CPU-bound
+    (~100 ms at the default cost), and this runs on a page render, so it goes
+    to a worker thread rather than stalling the event loop for every other
+    request in flight.
+    """
+    if user.hashed_password is None:
+        return False
+    try:
+        valid, _ = await asyncio.to_thread(
+            user_manager.password_helper.verify_and_update,
+            user.hashed_password,
+            fingerprint,
+        )
+    except Exception:
+        return False
+    return bool(valid)

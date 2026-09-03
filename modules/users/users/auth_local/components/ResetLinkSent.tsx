@@ -14,7 +14,8 @@ interface ResetLinkSentProps {
   email: string;
   /** False when the configured mailer only logs — the amber callout then shows. */
   mailerDelivers: boolean;
-  onResend: () => void;
+  /** Resolves true when the server accepted the request, false when it did not. */
+  onResend: () => Promise<boolean>;
 }
 
 function formatCountdown(seconds: number): string {
@@ -33,6 +34,7 @@ function formatCountdown(seconds: number): string {
 export function ResetLinkSent({ email, mailerDelivers, onResend }: ResetLinkSentProps) {
   const { t } = useT();
   const [remaining, setRemaining] = useState(RESEND_AFTER_SECONDS);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     if (remaining <= 0) return;
@@ -41,8 +43,18 @@ export function ResetLinkSent({ email, mailerDelivers, onResend }: ResetLinkSent
   }, [remaining]);
 
   const handleResend = () => {
-    onResend();
-    setRemaining(RESEND_AFTER_SECONDS);
+    setFailed(false);
+    // Only restart the countdown once the server has actually taken it. A
+    // refusal (the throughput limiter answers 429) that silently reset the
+    // timer would read as "sent again" and leave someone waiting a minute for
+    // nothing.
+    onResend().then((accepted) => {
+      if (accepted) {
+        setRemaining(RESEND_AFTER_SECONDS);
+      } else {
+        setFailed(true);
+      }
+    });
   };
 
   return (
@@ -61,6 +73,11 @@ export function ResetLinkSent({ email, mailerDelivers, onResend }: ResetLinkSent
       {!mailerDelivers && (
         <p className="w-full rounded-[10px] border border-amber-200 bg-amber-50 px-3.5 py-3 text-[12.5px] leading-relaxed text-amber-700">
           {t(keys.users.forgot_password.console_mailer_note)}
+        </p>
+      )}
+      {failed && (
+        <p className="text-[13px] text-destructive">
+          {t(keys.users.forgot_password.resend_failed)}
         </p>
       )}
       <button

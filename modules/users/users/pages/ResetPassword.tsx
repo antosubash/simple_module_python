@@ -3,7 +3,7 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
-import { TimerOff } from 'lucide-react';
+import { CheckCircle2, TimerOff } from 'lucide-react';
 import { useState } from 'react';
 import { AuthStateCard } from '../auth_local/components/AuthStateCard';
 import { PasswordFields } from '../auth_local/components/PasswordFields';
@@ -34,16 +34,24 @@ function ResetPassword() {
   const [mismatch, setMismatch] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [saved, setSaved] = useState(false);
 
-  /** Sign in with the address the token named, so "Save and sign in" is one step. */
+  /** Sign in with the address the token named, so "Save and sign in" is one step.
+   *
+   * Never rejects: by the time this runs the password has already been
+   * changed, and a network error here must not be reported as a failed reset. */
   const signIn = async () => {
     if (!email) return false;
-    const res = await fetch('/api/users/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ username: email, password }),
-    });
-    return res.status === 204;
+    try {
+      const res = await fetch('/api/users/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ username: email, password }),
+      });
+      return res.status === 204;
+    } catch {
+      return false;
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -70,14 +78,37 @@ function ResetPassword() {
           );
           return;
         }
-        // The password is right by construction — it was just set — so the
-        // only reason to send someone back to the sign-in form is that the
-        // sign-in itself failed.
-        router.visit((await signIn()) ? DASHBOARD_PATH : LOGIN_PATH);
+        if (await signIn()) {
+          router.visit(DASHBOARD_PATH);
+          return;
+        }
+        // The password *was* saved — the reset returned 200. Reporting a
+        // generic failure here would send someone back to try the dead link
+        // again with the old password. Say what actually happened and hand
+        // them the sign-in page.
+        setSaved(true);
       })
       .catch(() => setError(t(keys.users.common.error_try_again)))
       .finally(() => setLoading(false));
   };
+
+  if (saved) {
+    return (
+      <AuthCardShell>
+        <Head title={t(keys.users.reset_password.head_title)} />
+        <AuthStateCard
+          icon={CheckCircle2}
+          tone="primary"
+          title={t(keys.users.reset_password.saved_title)}
+          description={t(keys.users.reset_password.saved_description)}
+        >
+          <Button asChild className="max-lg:min-h-11">
+            <a href={LOGIN_PATH}>{t(keys.users.common.sign_in)}</a>
+          </Button>
+        </AuthStateCard>
+      </AuthCardShell>
+    );
+  }
 
   if (expired) {
     return (

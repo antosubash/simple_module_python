@@ -114,7 +114,7 @@
   },
   "edit": {
     "description_fallback": "Edit user account",
-    "unsaved_changes": "Unsaved changes",
+    "unsaved_changes": "{count} unsaved change",
     "leave_warning": "You have unsaved changes on this user. Leave without saving?",
     "toast_saved": "Changes saved",
     "toast_verified": "User marked verified",
@@ -172,7 +172,8 @@
     "sent_body_suffix": ", a reset link is on its way. The same message shows either way.",
     "console_mailer_note": "Console mailer: the link is in the server log.",
     "resend_in": "Resend in {countdown}",
-    "resend": "Resend link"
+    "resend": "Resend link",
+    "resend_failed": "We could not send it just now. Try again in a minute."
   },
   "index": {
     "title": "Users",
@@ -259,7 +260,8 @@
     "waiting_title": "Waiting on you",
     "waiting_body": "Confirm your email address before signing in. Nothing else is reachable until it's done.",
     "waiting_back": "Use a different account",
-    "no_account_invite_only": "No account? Ask an admin to invite you."
+    "no_account_invite_only": "No account? Ask an admin to invite you.",
+    "resend_failed": "We could not send it just now. Try again in a minute."
   },
   "metadata_card": {
     "title": "Account",
@@ -349,7 +351,9 @@
     "confirm_label": "Confirm",
     "expired_title": "Link expired",
     "expired_body": "Reset links last {minutes} minutes and work once. Request a fresh one — the old link is now dead.",
-    "expired_action": "Request a new link"
+    "expired_action": "Request a new link",
+    "saved_title": "Password saved",
+    "saved_description": "Your new password is set. Sign in with it to continue."
   },
   "role_picker": {
     "default_label": "Roles"
@@ -409,8 +413,11 @@
     "already_description": "This account is already verified — you can log in.",
     "success_action": "Go to sign in",
     "expired_title": "Link expired",
-    "expired_description": "Verification links last {hours} hours. We can send a new one to the same address.",
+    "expired_description": "Verification links last {days} days. We can send a new one to the same address.",
     "resend": "Resend verification",
-    "resent": "Verification email sent."
+    "resent": "Verification email sent.",
+    "incomplete_title": "Link incomplete",
+    "incomplete_description": "This link is incomplete — open it from the email again.",
+    "resend_failed": "We could not send it just now. Try again in a minute."
   }
 }

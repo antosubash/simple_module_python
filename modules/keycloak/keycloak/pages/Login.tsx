@@ -1,6 +1,5 @@
 import { Head, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
-import { Progress } from '@simple-module-py/ui/components/ui/progress';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { LogIn } from 'lucide-react';
 import { useEffect } from 'react';
@@ -44,11 +43,18 @@ export default function Login() {
             t(keys.keycloak.login.body_generic)
           )}
         </p>
-        <Progress
-          value={55}
+        {/* Indeterminate on purpose: the wait is a browser redirect to
+            another origin, whose progress this page cannot observe. A bar
+            frozen at some percentage claims knowledge it does not have. */}
+        <div
+          role="progressbar"
           aria-label={t(keys.keycloak.login.progress_label)}
-          className="h-[5px] w-[220px]"
-        />
+          className="h-[5px] w-[220px] overflow-hidden rounded-full bg-secondary"
+        >
+          {/* No aria-valuenow: ARIA reads a progressbar without one as
+              indeterminate, which is exactly the claim being made. */}
+          <div className="h-full w-full animate-pulse rounded-full bg-primary-600" />
+        </div>
         <a
           href={START_LOGIN_URL}
           className="text-[13px] font-medium text-primary-700 hover:text-primary-800"

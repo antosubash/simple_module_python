@@ -17,20 +17,32 @@ interface ResendVerificationProps {
  * the field appears instead of the screen simply being a dead end. The
  * endpoint answers the same way either way, so nothing here leaks whether an
  * account exists.
+ *
+ * The send is only reported as done when the server says so. This endpoint is
+ * behind the auth throughput limiter, so a second click inside the window
+ * answers 429 — announcing "sent" there would leave someone waiting for an
+ * email that was never queued, on a screen with nothing else to try.
  */
 export function ResendVerification({ email }: ResendVerificationProps) {
   const { t } = useT();
   const [typed, setTyped] = useState('');
   const [sent, setSent] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const address = email ?? typed;
 
   const resend = () => {
+    setFailed(false);
+    setSending(true);
     fetch('/api/users/auth/request-verify-token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: address }),
-    }).then(() => setSent(true));
+    })
+      .then((res) => (res.ok ? setSent(true) : setFailed(true)))
+      .catch(() => setFailed(true))
+      .finally(() => setSending(false));
   };
 
   if (sent) {
@@ -49,11 +61,14 @@ export function ResendVerification({ email }: ResendVerificationProps) {
           aria-label={t(keys.users.common.email)}
         />
       )}
+      {failed && (
+        <p className="text-[13px] text-destructive">{t(keys.users.verify_email.resend_failed)}</p>
+      )}
       <Button
         type="button"
         variant="outline"
         onClick={resend}
-        disabled={!address}
+        disabled={!address || sending}
         className="self-start max-lg:min-h-11"
       >
         {t(keys.users.verify_email.resend)}

@@ -3,7 +3,7 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
-import { CheckCircle2, Loader2, TimerOff } from 'lucide-react';
+import { CheckCircle2, Loader2, TimerOff, Unlink } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { AuthStateCard, type AuthStateTone } from '../auth_local/components/AuthStateCard';
 import { ResendVerification } from '../auth_local/components/ResendVerification';
@@ -12,16 +12,16 @@ interface Props {
   token: string;
   /** Read off the token even when it has expired, so resend needs no retyping. */
   email: string | null;
-  verification_lifetime_hours: number;
+  verification_lifetime_days: number;
 }
 
-type VerifyStatus = 'pending' | 'success' | 'already_verified' | 'expired';
+type VerifyStatus = 'pending' | 'success' | 'already_verified' | 'expired' | 'incomplete';
 
 function VerifyEmail() {
   const {
     token,
     email,
-    verification_lifetime_hours: lifetimeHours,
+    verification_lifetime_days: lifetimeDays,
   } = usePage<{ props: Props }>().props as unknown as Props;
   const { t } = useT();
 
@@ -29,7 +29,10 @@ function VerifyEmail() {
 
   useEffect(() => {
     if (!token) {
-      setStatus('expired');
+      // A link that arrived without its token is a different problem from one
+      // that ran out — nothing was ever sent to expire, and re-opening the
+      // original email usually fixes it.
+      setStatus('incomplete');
       return;
     }
 
@@ -92,7 +95,14 @@ function VerifyEmail() {
       icon: TimerOff,
       tone: 'amber',
       title: t(keys.users.verify_email.expired_title),
-      description: t(keys.users.verify_email.expired_description, { hours: lifetimeHours }),
+      description: t(keys.users.verify_email.expired_description, { days: lifetimeDays }),
+      body: <ResendVerification email={email} />,
+    },
+    incomplete: {
+      icon: Unlink,
+      tone: 'amber',
+      title: t(keys.users.verify_email.incomplete_title),
+      description: t(keys.users.verify_email.incomplete_description),
       body: <ResendVerification email={email} />,
     },
   };

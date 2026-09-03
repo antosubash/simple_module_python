@@ -41,9 +41,10 @@ def test_toggle_host_multi_tenant_persists(
     # Click the Host entry in the sidebar.
     page.get_by_role("button", name=re.compile(r"host", re.I)).first.click()
 
-    checkbox = page.get_by_role("checkbox").first
-    before = checkbox.is_checked()
-    checkbox.click()
+    # Booleans render as a shadcn Switch (role=switch), not a bare checkbox.
+    toggle = page.get_by_role("switch").first
+    before = toggle.is_checked()
+    toggle.click()
 
     save = page.get_by_role("button", name="Save")
     expect(save).to_be_enabled()
@@ -53,9 +54,9 @@ def test_toggle_host_multi_tenant_persists(
     expect(save).to_be_disabled()
 
     # Toggle back so the test is idempotent.
-    checkbox.click()
+    toggle.click()
     expect(save).to_be_enabled()
     save.click()
     expect(save).to_be_disabled()
 
-    assert page.get_by_role("checkbox").first.is_checked() == before
+    assert page.get_by_role("switch").first.is_checked() == before

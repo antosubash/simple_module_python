@@ -16,6 +16,7 @@ from users.auth_local.invite_preview import preview_invite
 from users.auth_local.token_preview import decode_verify_token, preview_reset
 from users.bootstrap import resolve_bootstrap_credentials
 from users.contracts.schemas import UserRead
+from users.mailer import mailer_delivers
 from users.manager import UserManager, get_user_manager
 from users.models import User
 
@@ -37,19 +38,12 @@ _PAGE_ACCEPT_INVITE = "Users/AcceptInvite"
 _PAGE_PROFILE = "Users/Profile"
 
 _SECONDS_PER_MINUTE = 60
-_SECONDS_PER_HOUR = 60 * 60
 _SECONDS_PER_DAY = 60 * 60 * 24
 
 
 def _mailer_delivers(request: Request) -> bool:
-    """Whether the configured mailer actually sends anything.
-
-    Drives the amber "the link is in the server log" callout: the console
-    mailer writes the link to stdout, so telling someone to check their inbox
-    would be the one answer that is certainly wrong.
-    """
-    mailer = getattr(getattr(request.app.state, "users", None), "mailer", None)
-    return bool(mailer is not None and getattr(mailer, "delivers_email", True))
+    """Drives the amber "the link is in the server log" callout."""
+    return mailer_delivers(getattr(getattr(request.app.state, "users", None), "mailer", None))
 
 
 @router.get("/login", response_model=None)
@@ -177,8 +171,8 @@ async def verify_page(request: Request, inertia: InertiaDep, token: str = "") ->
         {
             "token": token,
             "email": claims.get("email") if claims else None,
-            "verification_lifetime_hours": (
-                users_settings.verification_token_lifetime_seconds // _SECONDS_PER_HOUR
+            "verification_lifetime_days": (
+                users_settings.verification_token_lifetime_seconds // _SECONDS_PER_DAY
             ),
         },
     )

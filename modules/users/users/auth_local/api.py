@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, 
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import exceptions as fu_exceptions
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY
+from simple_module_hosting.session import SESSION_COOKIE_MAX_AGE_KEY
 
 from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
 from users.auth_local.self_account import router as self_account_router
@@ -86,16 +87,19 @@ async def require_signup_enabled(request: Request) -> None:
 async def _remembered_login_response(request: Request, user, access_token_db) -> Response:
     """Sign in for the "Keep me signed in" window instead of the default one.
 
-    Both halves of the credential have to move together: the access token is a
-    row with its own expiry and the cookie has its own ``Max-Age``, so a long
-    cookie around a short token would sign the user out halfway through the
-    window the checkbox promised. Neither can be varied per request on the
-    shared backend — one ``CookieTransport``, one strategy lifetime — so this
-    builds a second pair rather than mutating singletons that concurrent
-    requests are reading.
+    Every part of the credential has to move together, or the checkbox lies at
+    whichever expires first: the session cookie the pages authenticate with,
+    the ``sm_auth`` cookie, and the access-token row behind it. Neither the
+    transport nor the strategy can be varied per request on the shared backend
+    — one ``CookieTransport``, one lifetime — so this builds a second pair
+    rather than mutating singletons that concurrent requests are reading.
     """
     settings = request.app.state.users.settings
     window = settings.remember_me_max_age_seconds
+    # The one that actually keeps the browser signed in: page auth reads the
+    # Starlette session cookie, whose window the session middleware takes from
+    # this scope key when it writes the response.
+    request.scope[SESSION_COOKIE_MAX_AGE_KEY] = window
     strategy = get_database_strategy(access_token_db, lifetime_seconds=window)
     transport = build_cookie_transport(
         cookie_name=settings.cookie_name,
