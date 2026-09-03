@@ -12,6 +12,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit, urlunsplit
 
 from kombu.exceptions import OperationalError
 from redis.exceptions import RedisError
@@ -26,6 +27,9 @@ logger = logging.getLogger(__name__)
 
 # The four independent inspect broadcasts, issued concurrently.
 _PROBES = ("ping", "stats", "active_queues", "active")
+
+# What a stripped password is replaced with, in the url and on the page.
+REDACTED = "***"
 
 
 class WorkerInspector:
@@ -128,6 +132,18 @@ def _build_worker_info(
     sw_ver = stats.get("sw_ver")
     software = f"{sw_ident}:{sw_ver}" if sw_ident and sw_ver else (sw_ident or sw_ver)
 
+    # Celery reports uptime as a number of seconds. Anything else (a worker
+    # running a patched build, a proxy that rewrote the payload) is dropped
+    # rather than passed through — a card that renders "uptime ages" is worse
+    # than one that admits it doesn't know. ``bool`` is excluded explicitly:
+    # it is an ``int`` in Python, and "uptime: True" is not a duration.
+    raw_uptime = stats.get("uptime")
+    uptime_seconds = (
+        float(raw_uptime)
+        if isinstance(raw_uptime, int | float) and not isinstance(raw_uptime, bool)
+        else None
+    )
+
     return WorkerInfo(
         hostname=hostname,
         online=pinged,
@@ -136,4 +152,35 @@ def _build_worker_info(
         pool_size=pool_size,
         total_processed=total_processed,
         software=software,
+        uptime_seconds=uptime_seconds,
     )
+
+
+def redact_broker_url(url: str) -> str:
+    """Strip the password out of a broker url before it is shown to anyone.
+
+    The Workers page names the url so an operator can check the setting it is
+    blaming, and broker urls routinely carry credentials — a redis password
+    put on screen (and into every screenshot of a failing deploy) is a leak
+    the page has no reason to cause. The username survives, because that is
+    part of identifying *which* broker without being a secret.
+
+    Parsing is deliberate rather than regex-based: a password can legally
+    contain ``@`` and ``:``, and only a parser gets the last ``@`` right.
+    """
+    if not url:
+        return url
+    try:
+        parsed = urlsplit(url)
+        if not parsed.password:
+            return url
+        host = parsed.hostname or ""
+        if parsed.port:
+            host = f"{host}:{parsed.port}"
+    except ValueError:
+        # ``urlsplit`` defers validation to attribute access, so a malformed
+        # port lands here. Unparseable input may still carry a credential —
+        # say nothing rather than echo something that might.
+        return REDACTED
+    netloc = f"{parsed.username or ''}:{REDACTED}@{host}"
+    return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))

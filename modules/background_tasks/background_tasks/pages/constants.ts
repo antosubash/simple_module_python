@@ -6,8 +6,109 @@ import { keys } from '@simple-module-py/i18n';
 export const API_BASE = '/api/background_tasks/admin';
 export const VIEW_BASE = '/admin/background-tasks';
 
+/** Rendered wherever a value is genuinely absent, so the columns still line up. */
+export const EM_DASH = '—';
+
+/**
+ * "19 Aug 14:02:11" — the same shape the audit log uses.
+ *
+ * The deck shows time only, which is unreadable the moment a row is older than
+ * today: "09:41:02" on a three-day-old execution invites the reader to assume
+ * this morning. The date costs four characters and removes the guess.
+ */
 export function formatTs(ts: string | null): string {
-  return ts ? new Date(ts).toLocaleString() : '—';
+  if (!ts) return EM_DASH;
+  const parsed = new Date(ts);
+  if (Number.isNaN(parsed.getTime())) return EM_DASH;
+  return new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(parsed);
+}
+
+/** "09:44:10" — a reading taken moments ago needs no date. */
+export function formatClock(ts: string | null): string {
+  if (!ts) return EM_DASH;
+  const parsed = new Date(ts);
+  if (Number.isNaN(parsed.getTime())) return EM_DASH;
+  return new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(parsed);
+}
+
+/**
+ * How long a run took, or a dash while it is still taking it.
+ *
+ * A live-ticking elapsed time on a running row reads as a measurement, and an
+ * operator comparing it against the finished rows beside it is comparing a
+ * duration with a stopwatch. Unfinished work has no duration yet.
+ */
+export function formatDuration(started: string | null, finished: string | null): string {
+  if (!started || !finished) return EM_DASH;
+  const ms = new Date(finished).getTime() - new Date(started).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return EM_DASH;
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.floor(ms / 60_000)}m ${Math.floor((ms % 60_000) / 1000)}s`;
+}
+
+/** "4d 2h" — coarse on purpose; nobody reads a worker's uptime to the second. */
+export function formatUptime(seconds: number | null): string | null {
+  if (seconds === null || !Number.isFinite(seconds) || seconds < 0) return null;
+  const days = Math.floor(seconds / 86_400);
+  const hours = Math.floor((seconds % 86_400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m`;
+  return `${Math.floor(seconds)}s`;
+}
+
+/**
+ * "py-celery:5.4.0" → "celery 5.4.0".
+ *
+ * The wire format is Celery's own `sw_ident:sw_ver`; the "py-" prefix
+ * distinguishes the Python implementation from other language ports, which is
+ * not a distinction anyone reading this page is making.
+ */
+export function formatSoftware(software: string | null): string | null {
+  if (!software) return null;
+  const [ident, version] = software.split(':');
+  const name = ident.replace(/^py-/, '');
+  return version ? `${name} ${version}` : name;
+}
+
+/**
+ * The detail page's row — `TaskExecutionDetail` from the backend.
+ *
+ * A superset of the list item (`Execution` in `retry.ts`): the extra fields
+ * are the ones only worth shipping for a single row.
+ */
+export interface TaskDetail {
+  id: string;
+  celery_task_id: string | null;
+  task_name: string;
+  status: TaskStatus;
+  queue: string;
+  args: unknown[];
+  kwargs: Record<string, unknown>;
+  result: Record<string, unknown> | null;
+  traceback: string | null;
+  exception_type: string | null;
+  worker: string | null;
+  retries: number;
+  retried_from_id: string | null;
+  queued_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  heartbeat_at: string | null;
 }
 
 export interface WorkerInfo {
@@ -18,6 +119,7 @@ export interface WorkerInfo {
   pool_size: number | null;
   total_processed: number | null;
   software: string | null;
+  uptime_seconds: number | null;
 }
 
 export interface WorkerSnapshot {
@@ -51,14 +153,19 @@ export const TERMINAL_STATUSES: ReadonlySet<TaskStatus> = new Set([
   TASK_STATUS.REVOKED,
 ]);
 
-export const STATUS_BADGE_VARIANT: Record<TaskStatus, 'secondary' | 'destructive' | 'outline'> = {
-  [TASK_STATUS.PENDING]: 'outline',
-  [TASK_STATUS.RUNNING]: 'secondary',
-  [TASK_STATUS.SUCCESS]: 'secondary',
-  [TASK_STATUS.FAILED]: 'destructive',
-  [TASK_STATUS.STUCK]: 'destructive',
-  [TASK_STATUS.REVOKED]: 'outline',
-  [TASK_STATUS.RETRYING]: 'outline',
+/**
+ * Borderless tint per status, keyed by what the status means rather than by
+ * a palette ramp: red is "someone must act", amber "this is not moving", blue
+ * "in flight", emerald "done", grey "nothing to say".
+ */
+export const STATUS_PILL_CLASS: Record<TaskStatus, string> = {
+  [TASK_STATUS.PENDING]: 'text-muted-foreground bg-secondary',
+  [TASK_STATUS.RUNNING]: 'text-blue-700 bg-blue-50',
+  [TASK_STATUS.SUCCESS]: 'text-primary-700 bg-primary-600/10',
+  [TASK_STATUS.FAILED]: 'text-red-700 bg-red-50',
+  [TASK_STATUS.STUCK]: 'text-amber-700 bg-amber-50',
+  [TASK_STATUS.REVOKED]: 'text-muted-foreground bg-secondary',
+  [TASK_STATUS.RETRYING]: 'text-amber-700 bg-amber-50',
 };
 
 /**
@@ -76,12 +183,54 @@ export const STATUS_LABEL_KEY = {
   [TASK_STATUS.RETRYING]: keys.background_tasks.status.retrying,
 } as const;
 
-export const STATUS_ORDER: TaskStatus[] = [
-  TASK_STATUS.PENDING,
-  TASK_STATUS.RUNNING,
-  TASK_STATUS.RETRYING,
-  TASK_STATUS.SUCCESS,
+/** Sentinel for "no status filter"; an empty string cannot be a Select value. */
+export const STATUS_ALL = 'all';
+/**
+ * Same, for the queue dropdown — but underscored, because queue names are
+ * whatever a module chose and one of them could legitimately be called "all".
+ */
+export const QUEUE_ALL = '__all__';
+
+/**
+ * The four the segmented control offers: everything, plus the three states an
+ * operator triages. `pending`, `success`, `revoked` and `retrying` stay
+ * reachable through the stat tiles, which is where a whole-fleet number
+ * belongs anyway.
+ */
+export const SEGMENT_STATUSES = [
+  STATUS_ALL,
   TASK_STATUS.FAILED,
+  TASK_STATUS.RUNNING,
   TASK_STATUS.STUCK,
-  TASK_STATUS.REVOKED,
-];
+] as const;
+
+export const SEGMENT_LABEL_KEY = {
+  [STATUS_ALL]: keys.background_tasks.filters.all,
+  [TASK_STATUS.FAILED]: keys.background_tasks.filters.failed,
+  [TASK_STATUS.RUNNING]: keys.background_tasks.filters.running,
+  [TASK_STATUS.STUCK]: keys.background_tasks.filters.stuck,
+} as const;
+
+/**
+ * A task payload on one line: `[ "a91f2c" ]`, `{ "size": 512 }`.
+ *
+ * Indent-1 JSON with the newlines collapsed, rather than a bare
+ * `JSON.stringify`, because the spaces are what make a nested payload
+ * skimmable at a glance — and skimming it is the entire reason it is shown
+ * next to a retry button.
+ */
+export function formatPayload(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 1)?.replace(/\n\s*/g, ' ') ?? String(value);
+  } catch {
+    return UNSERIALISABLE;
+  }
+}
+
+/** Shown instead of a payload that cannot be stringified (a cycle, a BigInt). */
+export const UNSERIALISABLE = '<unserialisable>';
+
+/** `c1a4…8de2` — enough of an id to recognise, not enough to read aloud. */
+export function shortenId(id: string): string {
+  return id.length <= 12 ? id : `${id.slice(0, 4)}…${id.slice(-4)}`;
+}

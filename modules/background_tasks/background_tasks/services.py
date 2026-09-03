@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from celery import Celery
 
+    from background_tasks.contracts.schemas import WorkerSnapshot
     from background_tasks.settings import BackgroundTasksSettings
 
 
@@ -23,3 +24,9 @@ class BackgroundTasksServices:
 
     settings: BackgroundTasksSettings
     celery: Celery | None = None
+    # The most recent fleet poll, kept so a screen that only wants to *mention*
+    # the workers (Doctor's dev-server panel) can read one without paying the
+    # ~1s inspect timeout itself. Written by whoever last polled; ``None``
+    # until something has. Read it for reporting, never as a live reading —
+    # ``polled_at`` says how old it is.
+    last_worker_snapshot: WorkerSnapshot | None = None

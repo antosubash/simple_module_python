@@ -72,6 +72,18 @@ class TaskExecutionListResponse(SQLModel):
     per_page: int
     status: TaskStatus | None = None
     task_name: str | None = None
+    queue: str | None = None
+
+
+class RetryFailedResult(SQLModel):
+    """How many executions a bulk retry actually re-enqueued.
+
+    The caller cannot compute this: the endpoint decides which statuses count
+    as retryable, so the number has to come back from the action itself rather
+    than be inferred from whatever the screen was showing.
+    """
+
+    queued: int
 
 
 class WorkerInfo(SQLModel):
@@ -84,6 +96,10 @@ class WorkerInfo(SQLModel):
     pool_size: int | None = None
     total_processed: int | None = None
     software: str | None = None
+    # Seconds since this worker process started, as it reports them. ``None``
+    # for a worker that never answered ``stats()`` — an offline worker has no
+    # uptime to claim, and zero would read as "just restarted".
+    uptime_seconds: float | None = None
 
 
 class WorkerSnapshot(SQLModel):
