@@ -29,6 +29,30 @@ _INERTIA_ERROR_STATUSES = frozenset({401, 403, 404, 419, 422, 429, 500, 503})
 # action rather than sending the visitor to the landing page.
 _SIGN_IN_STATUSES = frozenset({401, 419})
 
+# How ``RequiresPermission`` spells a denial in ``HTTPException.detail``
+# (see ``simple_module_hosting.permissions``). Kept as a constant next to the
+# parser so the two halves of the contract are one grep apart.
+_PERMISSION_DETAIL_PREFIX = "Permission required: "
+
+
+def _required_permission(message: str) -> str | None:
+    """The permission named by a ``RequiresPermission`` denial, if this is one.
+
+    The 403 page says "Your role doesn't include ``<perm>``. Ask an admin to
+    grant it." — it needs the bare permission name, not the sentence the guard
+    wrote for logs and API clients. Reading it back off the detail keeps the
+    guard as the single place that knows the name; the alternative, stashing it
+    on ``request.state``, only works when the exception travels the one code
+    path that set it, and 403s are also raised by hand.
+
+    Anything else — a role-gated ``/admin`` 403, a hand-raised
+    ``HTTPException(403, "Administrator access required")`` — yields ``None``,
+    and the page falls back to copy that names no permission.
+    """
+    if not message.startswith(_PERMISSION_DETAIL_PREFIX):
+        return None
+    return message[len(_PERMISSION_DETAIL_PREFIX) :].strip() or None
+
 
 def _login_url(request: Request) -> str | None:
     """Best-effort login URL for the sign-in statuses.
@@ -146,6 +170,10 @@ async def render_error_page(
                 "status": status_code,
                 "message": message,
                 "correlation_id": getattr(request.state, "correlation_id", "") or "",
+                # Always present, null when no permission is involved: the page
+                # branches on it, and an absent prop is indistinguishable there
+                # from one that was never wired.
+                "required_permission": _required_permission(message),
                 "login_url": (_login_url(request) if status_code in _SIGN_IN_STATUSES else None),
                 # Set by MaintenanceMiddleware. A planned outage reads very
                 # differently from the same status code arriving unbidden.
