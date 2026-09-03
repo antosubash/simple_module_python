@@ -62,6 +62,32 @@ describe('SegmentedControl', () => {
     expect(screen.getByRole('radio', { name: /All/ })).toHaveTextContent('12');
   });
 
+  test('the accessible name separates the label from the count', () => {
+    // Without the separator the name read "All12" — one word, and unusable
+    // as a target for anyone driving the page by voice.
+    render(
+      <SegmentedControl
+        value="all"
+        onChange={() => {}}
+        options={OPTIONS}
+        aria-label="Filter by status"
+      />,
+    );
+    expect(screen.getByRole('radio', { name: 'All 12' })).toBeInTheDocument();
+  });
+
+  test('an option without a count keeps its label as its name', () => {
+    render(
+      <SegmentedControl
+        value="all"
+        onChange={() => {}}
+        options={OPTIONS}
+        aria-label="Filter by status"
+      />,
+    );
+    expect(screen.getByRole('radio', { name: 'Active' })).toBeInTheDocument();
+  });
+
   test('a disabled option cannot be picked', () => {
     const onChange = vi.fn();
     render(

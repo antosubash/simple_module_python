@@ -52,6 +52,10 @@ export function SegmentedControl<V extends string>({
             type="button"
             role="radio"
             aria-checked={active}
+            // Without this the accessible name is the label and the count run
+            // together — "system28". The visible text stays as-is; only the
+            // name a screen reader announces gets the separator.
+            aria-label={option.count === undefined ? undefined : `${option.label} ${option.count}`}
             disabled={option.disabled}
             onClick={() => onChange(option.value)}
             className={cn(
@@ -68,6 +72,7 @@ export function SegmentedControl<V extends string>({
             {option.label}
             {option.count !== undefined && (
               <span
+                aria-hidden
                 className={cn(
                   'tabular-nums',
                   active ? 'text-muted-foreground' : 'text-muted-foreground/70',
