@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import uuid as uuid_mod
+from datetime import UTC, datetime, timedelta
 
 from auth.contracts.schemas import UserContext
 from simple_module_hosting.session import (
@@ -163,11 +164,21 @@ class UsersAuthProvider:
             from sqlalchemy import select
             from sqlalchemy.orm import noload, selectinload
 
+            from users.backend import _TOKEN_LIFETIME_SECONDS
             from users.models import User, UserAccessToken
 
             session_factory = scope["app"].state.sm.db.session_factory
             async with session_factory() as db_session:
-                stmt = select(UserAccessToken).where(UserAccessToken.token == token)
+                # The age clause is not optional: this path bypasses
+                # fastapi-users' DatabaseStrategy, which is where the lifetime
+                # is normally applied, so without it a row minted to last
+                # thirty days authenticated forever. Same constant as the
+                # strategy, or the two disagree about what "expired" means.
+                cutoff = datetime.now(UTC) - timedelta(seconds=_TOKEN_LIFETIME_SECONDS)
+                stmt = select(UserAccessToken).where(
+                    UserAccessToken.token == token,
+                    UserAccessToken.created_at > cutoff,
+                )
                 access = (await db_session.execute(stmt)).scalar_one_or_none()
                 if access is None:
                     return None
