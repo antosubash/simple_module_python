@@ -25,6 +25,7 @@ Make every one of the deck's 28 screens (8 public, 10 app, 9 ops, 1 mobile board
 | Doctor "Fix" / "Generate" / "Apply pending" run tools | They **copy the command** to the clipboard | Running Alembic from a web request is not something this app should do. |
 | Locale pill "EN" always visible | Visible always; a single-locale install renders it as a static label | A control that opens nothing is noise, but the deck's placement is kept. |
 | Register intro "The first account becomes the admin; later ones get the default role." | "New accounts start with no roles until an admin grants them." | The bootstrap admin is seeded from settings, not the first registrant. |
+| "Keep me signed in for 30 days" is just a longer cookie | Session cookie signature window is 30 days; effective lifetime is bounded per session at 14 / 30 days | Starlette signs and expires with one number, so honouring the checkbox forces the *signature* window to 30 days for everyone. Login writes an absolute `expires_at` into the session (`now + cookie_max_age_seconds`, or `remember_me_max_age_seconds` when ticked) and `UsersAuthProvider` refuses a session past it — so an ordinary sign-in still dies at 14 days even though the signer would verify it for 30. Sessions minted before this carry no `expires_at` and are accepted as legacy; that fail-open is temporary. |
 
 ## Cross-cutting building blocks (packages/ui)
 

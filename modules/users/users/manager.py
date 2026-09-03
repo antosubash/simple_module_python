@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
 from fastapi_users.jwt import generate_jwt
+from simple_module_hosting.session import stamp_session_expiry
 
 from users.constants import (
     OAUTH_REGISTRATION_REQUEST_FLAG,
@@ -43,6 +44,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         self.verification_token_secret = settings.verification_token_secret
         self.reset_password_token_lifetime_seconds = settings.reset_password_token_lifetime_seconds
         self.verification_token_lifetime_seconds = settings.verification_token_lifetime_seconds
+        self.cookie_max_age_seconds = settings.cookie_max_age_seconds
 
     # ── Password policy ──────────────────────────────────────
 
@@ -158,6 +160,11 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             # rather than in each caller so the OAuth callback and the
             # accept-invite flow are covered by the same line as password login.
             request.session[SESSION_VERSION_KEY] = int(user.session_version or 0)
+            # And when it stops being accepted. The signature window is 30 days
+            # for everyone so the "keep me signed in" checkbox can be honoured;
+            # this is what keeps an ordinary sign-in to its own 14 days anyway.
+            # ``login`` re-stamps with the longer window when the box is ticked.
+            stamp_session_expiry(request.session, self.cookie_max_age_seconds)
 
     # ── Token helpers (no email side-effect) ─────────────────
 

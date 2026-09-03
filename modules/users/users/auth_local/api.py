@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, 
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import exceptions as fu_exceptions
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY
-from simple_module_hosting.session import SESSION_REMEMBER_KEY
+from simple_module_hosting.session import SESSION_REMEMBER_KEY, stamp_session_expiry
 
 from users.auth_local.rate_limit import (
     LoginRateLimiter,
@@ -147,9 +147,13 @@ async def login(
         # sign-in response would be rolled back to the default by the first
         # page load after it. The session middleware reads this key each time
         # it writes the cookie.
-        request.session[SESSION_REMEMBER_KEY] = (
-            request.app.state.users.settings.remember_me_max_age_seconds
-        )
+        window = request.app.state.users.settings.remember_me_max_age_seconds
+        request.session[SESSION_REMEMBER_KEY] = window
+        # ``on_after_login`` already bounded this session at the default
+        # window; the checkbox is what widens it. Re-stamped here rather than
+        # branched inside the hook so the OAuth and accept-invite paths, which
+        # have no checkbox, keep the default without knowing this exists.
+        stamp_session_expiry(request.session, window)
     # The deep link has served its purpose; leaving it would send the *next*
     # plain visit to /users/login off to a stale destination.
     request.session.pop(SESSION_NEXT_KEY, None)

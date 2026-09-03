@@ -22,7 +22,8 @@ the account (and its ``session_version``) on every request.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+import time
+from collections.abc import Mapping, MutableMapping
 from typing import Any
 
 from starlette.middleware.sessions import SessionMiddleware as _StarletteSessionMiddleware
@@ -46,6 +47,21 @@ would be quietly rolled back to the default by the very next page load.
 Written as the number of seconds, so an operator who shortens the window gets
 it honoured on every response rather than only on the first. ``True`` is
 accepted too and means :data:`SESSION_SIGNATURE_MAX_AGE`.
+"""
+
+SESSION_EXPIRES_AT_KEY = "expires_at"
+"""Absolute deadline (epoch seconds) this session was signed in until.
+
+The signature window is one number for the whole process, and "keep me signed
+in for 30 days" forces it to 30 days for *everyone* — so without this an
+ordinary 14-day session stays replayable for a month once its cookie is lifted
+off disk. Recording the deadline in the payload puts the ceiling back per
+session: the auth provider treats a session past it as signed out, whatever
+the signer is still willing to verify.
+
+Written by whoever signs the user in, via :func:`stamp_session_expiry`.
+Sessions minted before this existed carry no key and are accepted as legacy —
+failing closed on absence would sign the entire user base out on deploy.
 """
 
 SESSION_COOKIE_MAX_AGE_KEY = "session_cookie_max_age"
@@ -134,3 +150,33 @@ def _retime_session_cookie(message: Message, cookie_name: str, max_age: int) -> 
     for index, (key, value) in enumerate(headers):
         if key.lower() == b"set-cookie" and value.startswith(prefix):
             headers[index] = (key, _MAX_AGE.sub(replacement, value, count=1))
+
+
+def stamp_session_expiry(session: MutableMapping[str, Any], max_age_seconds: int) -> int:
+    """Record when this session stops being accepted, and return the deadline.
+
+    Absolute rather than a duration so it cannot be renewed by accident: every
+    response that touches the session rewrites the cookie, and a relative
+    window would slide forward on each one until the session never expired.
+    Clamped to the signature window, which is the longest the signer will
+    verify anyway — a longer promise would be one the cookie cannot keep.
+    """
+    deadline = int(time.time()) + _clamp(max_age_seconds)
+    session[SESSION_EXPIRES_AT_KEY] = deadline
+    return deadline
+
+
+def session_has_expired(session: Any) -> bool:
+    """True only if the session records a deadline that has passed.
+
+    Fail-open on a missing or unreadable key: it means the session predates
+    :func:`stamp_session_expiry`, and the alternative is signing every current
+    user out at deploy time. Revisit once deployed sessions have all turned
+    over — at that point absence should mean expired.
+    """
+    if not isinstance(session, Mapping):
+        return False
+    recorded = session.get(SESSION_EXPIRES_AT_KEY)
+    if isinstance(recorded, bool) or not isinstance(recorded, (int, float)):
+        return False
+    return recorded <= time.time()
