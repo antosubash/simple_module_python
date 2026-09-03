@@ -26,6 +26,8 @@ interface ConfirmActionDialogProps {
   confirmLabel: string;
   cancelLabel: string;
   onConfirm: () => void;
+  /** The action is in flight. Passing it at all makes the caller responsible
+   *  for closing the dialog — see the note on the confirm button. */
   busy?: boolean;
   /** Type-to-confirm. Matched case-insensitively; gates the confirm button. */
   confirmText?: { expected: string; label: string; placeholder?: string };
@@ -58,7 +60,7 @@ export function ConfirmActionDialog({
   confirmLabel,
   cancelLabel,
   onConfirm,
-  busy = false,
+  busy,
   confirmText,
   children,
 }: ConfirmActionDialogProps) {
@@ -112,8 +114,17 @@ export function ConfirmActionDialog({
           <AlertDialogCancel className="max-lg:min-h-11">{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction
             variant={tone === 'destructive' ? 'destructive' : 'default'}
-            disabled={busy || !matched}
-            onClick={onConfirm}
+            disabled={busy === true || !matched}
+            // Radix closes the dialog on this click, which would hide the busy
+            // state a caller passing `busy` is about to enter — the prop was
+            // inert for exactly that reason. Preventing the default leaves the
+            // dialog's fate to `open`, so callers that never mention `busy`
+            // are closed here instead of being left with a stuck dialog.
+            onClick={(event) => {
+              event.preventDefault();
+              onConfirm();
+              if (busy === undefined) onOpenChange(false);
+            }}
             className="max-lg:min-h-11"
           >
             {confirmLabel}

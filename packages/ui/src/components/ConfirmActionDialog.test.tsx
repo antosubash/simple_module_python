@@ -72,6 +72,22 @@ describe('ConfirmActionDialog', () => {
     expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
   });
 
+  test('a caller tracking busy is left to close the dialog itself', () => {
+    // The whole point of `busy`: Radix closes on click, and a dialog that
+    // vanishes mid-request looks like the request finished.
+    const { onConfirm, onOpenChange } = renderDialog({ busy: false });
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  test('a caller that never mentions busy still gets an auto-close', () => {
+    const { onConfirm, onOpenChange } = renderDialog();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
   test('renders extra content between the description and the buttons', () => {
     renderDialog({ children: <p>flag: beta-search</p> });
     expect(screen.getByText('flag: beta-search')).toBeInTheDocument();
