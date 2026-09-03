@@ -6,9 +6,16 @@ import { StatCard } from './StatCard';
 
 describe('StatCard', () => {
   test('renders label and value', () => {
-    render(<StatCard label="Total Users" value={42} icon={Activity} />);
-    expect(screen.getByText('Total Users')).toBeInTheDocument();
+    render(<StatCard label="Total users" value={42} icon={Activity} />);
+    expect(screen.getByText('Total users')).toBeInTheDocument();
     expect(screen.getByText('42')).toBeInTheDocument();
+  });
+
+  test('leaves the label in the sentence case it was given', () => {
+    render(<StatCard label="Checks passing" value={9} />);
+    // Not just the text: an `uppercase` class would render "CHECKS PASSING"
+    // while `getByText` still matched, so the styling is the assertion.
+    expect(screen.getByText('Checks passing')).not.toHaveClass('uppercase');
   });
 
   test('renders without an icon', () => {

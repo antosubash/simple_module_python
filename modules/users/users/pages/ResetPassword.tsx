@@ -1,38 +1,59 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import { Input } from '@simple-module-py/ui/components/ui/input';
-import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
+import { TimerOff } from 'lucide-react';
 import { useState } from 'react';
+import { AuthStateCard } from '../auth_local/components/AuthStateCard';
+import { PasswordFields } from '../auth_local/components/PasswordFields';
+
+const FORGOT_PATH = '/users/forgot-password';
+const DASHBOARD_PATH = '/dashboard/';
 
 interface Props {
   token: string;
+  /** The address the token was issued for — signs the reset in when it lands. */
+  email: string | null;
+  /** True when a token was supplied and could not be read. */
+  expired: boolean;
+  reset_link_lifetime_minutes: number;
 }
 
 function ResetPassword() {
-  const { token: initialToken } = usePage<{ props: Props }>().props as unknown as Props;
+  const {
+    token,
+    email,
+    expired,
+    reset_link_lifetime_minutes: lifetimeMinutes,
+  } = usePage<{ props: Props }>().props as unknown as Props;
   const { t } = useT();
-
-  const urlToken =
-    typeof window !== 'undefined'
-      ? (new URLSearchParams(window.location.search).get('token') ?? '')
-      : '';
-  const token = urlToken || initialToken;
 
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [mismatch, setMismatch] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  /** Sign in with the address the token named, so "Save and sign in" is one step. */
+  const signIn = async () => {
+    if (!email) return false;
+    const res = await fetch('/api/users/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ username: email, password }),
+    });
+    return res.status === 204;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (password !== confirm) {
-      setError(t(keys.users.common.passwords_no_match));
+      setMismatch(true);
       return;
     }
+    setMismatch(false);
     setLoading(true);
     fetch('/api/users/auth/reset-password', {
       method: 'POST',
@@ -40,60 +61,73 @@ function ResetPassword() {
       body: JSON.stringify({ token, password }),
     })
       .then(async (res) => {
-        if (res.status === 200 || res.status === 204) {
-          router.visit(LOGIN_PATH);
-        } else {
+        if (res.status !== 200 && res.status !== 204) {
           const data = await res.json().catch(() => ({}));
-          const detail =
+          setError(
             typeof data?.detail === 'string'
               ? data.detail
-              : t(keys.users.reset_password.error_failed);
-          setError(detail);
+              : t(keys.users.reset_password.error_failed),
+          );
+          return;
         }
+        // The password is right by construction — it was just set — so the
+        // only reason to send someone back to the sign-in form is that the
+        // sign-in itself failed.
+        router.visit((await signIn()) ? DASHBOARD_PATH : LOGIN_PATH);
       })
       .catch(() => setError(t(keys.users.common.error_try_again)))
       .finally(() => setLoading(false));
   };
 
+  if (expired) {
+    return (
+      <AuthCardShell>
+        <Head title={t(keys.users.reset_password.head_title)} />
+        <AuthStateCard
+          icon={TimerOff}
+          tone="destructive"
+          title={t(keys.users.reset_password.expired_title)}
+          description={t(keys.users.reset_password.expired_body, { minutes: lifetimeMinutes })}
+        >
+          <Button asChild className="max-lg:min-h-11">
+            <a href={FORGOT_PATH}>{t(keys.users.reset_password.expired_action)}</a>
+          </Button>
+        </AuthStateCard>
+      </AuthCardShell>
+    );
+  }
+
   return (
     <AuthCardShell>
       <Head title={t(keys.users.reset_password.head_title)} />
-      <h1 className="mb-1.5 text-[22px] font-bold tracking-tight font-[var(--font-display)] text-foreground">
+      <h1 className="mb-5 text-[21px] font-bold tracking-tight text-foreground font-[var(--font-display)]">
         {t(keys.users.reset_password.heading)}
       </h1>
-      <p className="mb-5 text-sm text-muted-foreground">{t(keys.users.reset_password.subtitle)}</p>
-      <form onSubmit={handleSubmit} className="space-y-3.5">
-        <div className="space-y-1.5">
-          <Label htmlFor="password" className="text-sm font-medium text-muted-foreground">
-            {t(keys.users.common.new_password)}
-          </Label>
-          <Input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={t(keys.users.common.password_placeholder)}
-            required
-            autoComplete="new-password"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="confirm" className="text-sm font-medium text-muted-foreground">
-            {t(keys.users.common.confirm_password)}
-          </Label>
-          <Input
-            id="confirm"
-            type="password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            required
-            autoComplete="new-password"
-          />
-        </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <PasswordFields
+          password={password}
+          onPasswordChange={(next) => {
+            setPassword(next);
+            setMismatch(false);
+          }}
+          confirm={confirm}
+          onConfirmChange={(next) => {
+            setConfirm(next);
+            setMismatch(false);
+          }}
+          passwordLabel={t(keys.users.common.new_password)}
+          confirmLabel={t(keys.users.reset_password.confirm_label)}
+          mismatch={mismatch}
+        />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <Button type="submit" size="lg" className="w-full" disabled={loading || !token}>
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full max-lg:min-h-11"
+          disabled={loading || !token}
+        >
           {loading ? t(keys.users.reset_password.submitting) : t(keys.users.reset_password.submit)}
         </Button>
       </form>

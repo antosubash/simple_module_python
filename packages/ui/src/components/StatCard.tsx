@@ -36,9 +36,11 @@ const DELTA_TONE: Record<NonNullable<StatCardProps['deltaTone']>, string> = {
  * One number, read at a glance.
  *
  * The label leads and the value follows, because a row of these is scanned by
- * label first — the figure means nothing until you know what it counts. The
- * delta is plain coloured text rather than a badge: a badge competes with the
- * value for attention, and the value is the point.
+ * label first — the figure means nothing until you know what it counts. It is
+ * set in sentence case, not the uppercase micro-caption this used to be: the
+ * label is a short phrase to read, not a section divider. The delta is plain
+ * coloured text rather than a badge, because a badge competes with the value
+ * for attention and the value is the point.
  */
 export function StatCard({
   label,
@@ -55,7 +57,7 @@ export function StatCard({
     <Card className={cn('border-border', CARD_TONE[tone], className)}>
       <CardContent className="pt-5">
         <div className="flex items-start justify-between gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+          <span data-slot="stat-label" className="text-[13px] font-medium text-muted-foreground">
             {label}
           </span>
           {Icon && (

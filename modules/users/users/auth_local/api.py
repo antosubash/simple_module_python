@@ -11,20 +11,25 @@ Routes owned here (all mounted by :meth:`UsersModule.register_routes`):
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import exceptions as fu_exceptions
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY
 
 from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
+from users.auth_local.self_account import router as self_account_router
+from users.backend import build_cookie_transport, get_database_strategy
 from users.constants import SESSION_USER_ID_KEY
 from users.contracts.schemas import (
     AcceptInviteRequest,
+    LoginRequest,
     SelfProfileUpdate,
     UserRead,
     UserUpdate,
 )
+from users.db_adapter import get_access_token_db
 from users.deps import (
     auth_backend,
     fastapi_users,
@@ -78,13 +83,37 @@ async def require_signup_enabled(request: Request) -> None:
 # ── Wrapper login ────────────────────────────────────────────────────────────
 
 
+async def _remembered_login_response(request: Request, user, access_token_db) -> Response:
+    """Sign in for the "Keep me signed in" window instead of the default one.
+
+    Both halves of the credential have to move together: the access token is a
+    row with its own expiry and the cookie has its own ``Max-Age``, so a long
+    cookie around a short token would sign the user out halfway through the
+    window the checkbox promised. Neither can be varied per request on the
+    shared backend — one ``CookieTransport``, one strategy lifetime — so this
+    builds a second pair rather than mutating singletons that concurrent
+    requests are reading.
+    """
+    settings = request.app.state.users.settings
+    window = settings.remember_me_max_age_seconds
+    strategy = get_database_strategy(access_token_db, lifetime_seconds=window)
+    transport = build_cookie_transport(
+        cookie_name=settings.cookie_name,
+        cookie_max_age_seconds=window,
+        cookie_secure=settings.cookie_secure,
+        cookie_samesite=settings.cookie_samesite,
+    )
+    return await transport.get_login_response(await strategy.write_token(user))
+
+
 @router.post("/auth/login", status_code=204)
 async def login(
     request: Request,
     response: Response,
-    credentials: OAuth2PasswordRequestForm = Depends(),
+    credentials: Annotated[LoginRequest, Form()],
     user_manager: UserManager = Depends(get_user_manager),
     strategy=Depends(auth_backend.get_strategy),
+    access_token_db=Depends(get_access_token_db),
     limiter: LoginRateLimiter = Depends(get_rate_limiter),
 ):
     """Rate-limited login wrapper. Sets sm_auth cookie + session user_id."""
@@ -93,7 +122,12 @@ async def login(
         raise HTTPException(status_code=429, detail="Too many attempts — try again later")
 
     try:
-        user = await user_manager.authenticate(credentials)
+        user = await user_manager.authenticate(
+            OAuth2PasswordRequestForm(
+                username=credentials.username,
+                password=credentials.password,
+            )
+        )
     except fu_exceptions.UserNotExists:
         user = None
 
@@ -109,7 +143,11 @@ async def login(
     # Fire the login hook (updates last_login_at)
     await user_manager.on_after_login(user, request, response)
     # Set fastapi-users' cookie via auth_backend.login
-    login_response = await auth_backend.login(strategy, user)
+    login_response = (
+        await _remembered_login_response(request, user, access_token_db)
+        if credentials.remember
+        else await auth_backend.login(strategy, user)
+    )
     # Bridge the session cookie — AuthMiddleware reads this to identify the user
     request.session[SESSION_USER_ID_KEY] = str(user.id)
     # The deep link has served its purpose; leaving it would send the *next*
@@ -158,9 +196,16 @@ async def accept_invite(
     except (fu_exceptions.InvalidVerifyToken, fu_exceptions.UserAlreadyVerified):
         raise HTTPException(status_code=400, detail="INVITE_BAD_TOKEN") from None
 
+    # A blank name leaves whatever the admin typed when minting the invite
+    # alone: the field is pre-filled from it, so an untouched form must not
+    # read as "clear this". Omitted rather than passed as None — ``UserUpdate``
+    # dumps with ``exclude_unset``, so an explicit None would write the wipe.
+    changes: dict[str, str] = {"password": body.password}
+    if body.full_name and body.full_name.strip():
+        changes["full_name"] = body.full_name.strip()
     try:
         await user_manager.update(
-            UserUpdate(password=body.password),
+            UserUpdate(**changes),
             user,
             request=request,
         )
@@ -199,3 +244,12 @@ async def update_me(
         user,
         request=request,
     )
+
+
+# ── Self password + session revocation ───────────────────────────────────────
+
+# Their own module: this file is at the 300-line cap, and changing your own
+# password has nothing in common with the login wrappers above beyond the
+# ``/me`` prefix. Mounted here so both keep that prefix and this file stays the
+# one place the module's auth routes are listed.
+router.include_router(self_account_router)
