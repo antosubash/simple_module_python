@@ -71,4 +71,4 @@ def test_error_page_title_names_the_status(
     auth bounce, not a 404, so this would assert against the login page."""
     _login(page, e2e_username, e2e_password)
     page.goto("/no-such-page-anywhere")
-    expect(page).to_have_title("Page Not Found — SimpleModule", timeout=10_000)
+    expect(page).to_have_title("Not found — SimpleModule", timeout=10_000)
