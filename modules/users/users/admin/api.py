@@ -11,6 +11,7 @@ from simple_module_core.events import EventBus
 from simple_module_hosting.permissions import RequiresPermission
 
 from users.admin.bulk_invite import bulk_router
+from users.admin.resend_invite import resend_router
 from users.admin.service import UserService
 from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
 from users.contracts.events import (
@@ -41,9 +42,10 @@ admin_router = APIRouter(
     tags=["users-admin"],
 )
 
-# Bulk invite lives in its own module (this file is near the 300-line cap) but
-# mounts here so it inherits the users.manage guard above.
+# Bulk invite and resend live in their own modules (this file is near the
+# 300-line cap) but mount here so they inherit the users.manage guard above.
 admin_router.include_router(bulk_router)
+admin_router.include_router(resend_router)
 
 
 @admin_router.get("", response_model=list[UserListItem])

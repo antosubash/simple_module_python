@@ -53,11 +53,11 @@ def _failure_detail(exc: Exception) -> str:
     the cell blank: a class name is a poor message, but it is still a lead.
     """
     if isinstance(exc, UserAlreadyExists):
-        return "Already registered"
+        return "Already a member of this workspace"
     return str(exc) or type(exc).__name__
 
 
-def _invite_link(request: Request, token: str) -> str:
+def invite_link(request: Request, token: str) -> str:
     """Build the accept URL the admin will hand to the invitee.
 
     Uses the module's configured ``base_url`` — the same value both mailers
@@ -150,7 +150,7 @@ async def admin_bulk_invite(
 
         if delivers:
             try:
-                await mailer.send_invite(user.email, token, invited_by_name)
+                await mailer.send_invite(user.email, token, invited_by_name, data.message)
             except Exception as exc:
                 # The account exists and the token is valid — the delivery
                 # failed. Handing back the link turns a dead end into a
@@ -161,7 +161,7 @@ async def admin_bulk_invite(
                         email=email,
                         status=STATUS_LINK,
                         detail=str(exc),
-                        link=_invite_link(request, token),
+                        link=invite_link(request, token),
                     )
                 )
             else:
@@ -171,7 +171,7 @@ async def admin_bulk_invite(
                 BulkInviteResult(
                     email=email,
                     status=STATUS_LINK,
-                    link=_invite_link(request, token),
+                    link=invite_link(request, token),
                 )
             )
 

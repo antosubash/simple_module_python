@@ -7,10 +7,13 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from inertia import InertiaResponse
+from simple_module_db.deps import get_db
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
+from users.admin.recent_activity import recent_activity_for
 from users.admin.service import UserService
 from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
 from users.deps import get_user_service
@@ -22,6 +25,8 @@ router = APIRouter()
 _PAGE_ADMIN_INDEX = "Users/Users/Index"
 _PAGE_ADMIN_ADD = "Users/Users/AddPeople"
 _PAGE_ADMIN_EDIT = "Users/Users/Edit"
+
+_SECONDS_PER_DAY = 60 * 60 * 24
 
 
 async def _roles_payload(app) -> list[dict[str, str]]:
@@ -111,7 +116,9 @@ async def admin_add_people_page(
     take almost the same inputs and differ in one respect — who sets the
     password — so the choice belongs inside the form.
     """
-    mailer = getattr(getattr(request.app.state, "users", None), "mailer", None)
+    users_state = getattr(request.app.state, "users", None)
+    mailer = getattr(users_state, "mailer", None)
+    settings = getattr(users_state, "settings", None)
     return await inertia.render(
         _PAGE_ADMIN_ADD,
         {
@@ -121,6 +128,15 @@ async def admin_add_people_page(
             # delivers nothing — promising delivery there would be the one
             # answer that is certainly wrong.
             "mailer_delivers": bool(mailer is not None and getattr(mailer, "delivers_email", True)),
+            # Named, not just "off": "Mailer is console" tells an admin which
+            # setting to go and change, which "mail is disabled" does not.
+            "mailer_name": getattr(settings, "mailer", "console"),
+            # The footer note states the expiry rather than hardcoding "7
+            # days", so shortening the lifetime cannot leave the page lying.
+            "invite_expiry_days": (
+                getattr(settings, "verification_token_lifetime_seconds", _SECONDS_PER_DAY)
+                // _SECONDS_PER_DAY
+            ),
         },
     )
 
@@ -155,6 +171,7 @@ async def admin_edit_page(
     request: Request,
     inertia: InertiaDep,
     service: UserService = Depends(get_user_service),
+    db: AsyncSession = Depends(get_db),
 ) -> InertiaResponse:
     try:
         uid = uuid.UUID(user_id)
@@ -171,5 +188,9 @@ async def admin_edit_page(
             "user": user_item.model_dump(mode="json"),
             "roles": await _roles_payload(request.app),
             "has_permissions_module": has_permissions,
+            # ``None`` when the audit_log module is not installed — the card
+            # is then absent rather than empty, which is the honest rendering
+            # of "this deployment does not record activity".
+            "recent_activity": await recent_activity_for(request, uid, db),
         },
     )

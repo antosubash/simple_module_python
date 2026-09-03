@@ -11,7 +11,11 @@ from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
 from fastapi_users.jwt import generate_jwt
 
-from users.constants import OAUTH_REGISTRATION_REQUEST_FLAG, SESSION_USER_ID_KEY
+from users.constants import (
+    OAUTH_REGISTRATION_REQUEST_FLAG,
+    SESSION_USER_ID_KEY,
+    SESSION_VERSION_KEY,
+)
 from users.contracts.events import UserRegistered
 from users.db_adapter import UserDatabaseWithRoles, get_user_db
 from users.exceptions import ExternalUserNoPasswordError
@@ -147,6 +151,13 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         # wrappers — re-assigning the same value here is a harmless no-op.
         if request is not None:
             request.session[SESSION_USER_ID_KEY] = str(user.id)
+            # Stamp the session with the revocation counter it was minted
+            # under. ``UsersAuthProvider`` refuses any session whose stamp has
+            # fallen behind the account's, which is what makes "sign out
+            # everywhere" reach browsers this process has never seen. Set here
+            # rather than in each caller so the OAuth callback and the
+            # accept-invite flow are covered by the same line as password login.
+            request.session[SESSION_VERSION_KEY] = int(user.session_version or 0)
 
     # ── Token helpers (no email side-effect) ─────────────────
 
@@ -162,6 +173,32 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             "email": user.email,
             "aud": self.verification_token_audience,
         }
+        return generate_jwt(
+            token_data,
+            self.verification_token_secret,
+            self.verification_token_lifetime_seconds,
+        )
+
+    def mint_invite_token(self, user: User, invited_by: str | None) -> str:
+        """Mint the verify-audience JWT an invitation link carries.
+
+        The one place invites are minted — the bulk form and the resend action
+        both come through here — because the accept-invite card reads
+        ``invited_by`` and ``exp`` straight off the token. A second mint site
+        that forgot the claim would produce links that work but say "you have
+        been invited" by nobody, which is the failure the claim exists to fix.
+
+        ``invited_by`` is the inviter's display name, not their id: it is only
+        ever shown, and a token that outlives the inviter's account should
+        still read sensibly.
+        """
+        token_data: dict[str, object] = {
+            "sub": str(user.id),
+            "email": user.email,
+            "aud": self.verification_token_audience,
+        }
+        if invited_by:
+            token_data["invited_by"] = invited_by
         return generate_jwt(
             token_data,
             self.verification_token_secret,

@@ -12,11 +12,22 @@ from sqlalchemy.orm import noload
 from users.admin.queries import _UserServiceBase
 from users.contracts.schemas import UserCreate
 from users.exceptions import (
+    AlreadyVerifiedError,
     EmailAlreadyExistsError,
     ExternalUserNoPasswordError,
     UserNotFoundError,
 )
 from users.models import OAuthAccount, RefreshToken, User, UserAccessToken, UserRole
+
+
+def _display_name(actor: User | None) -> str | None:
+    """What the invite email and the accept card should call the inviter.
+
+    Duck-typed: the endpoints hand this an ``auth`` ``UserContext``, which has
+    a ``name`` but is not a ``User``. ``None`` when nobody is attributable —
+    a CLI invite has no acting session — and the token simply omits the claim.
+    """
+    return getattr(actor, "name", None) or None
 
 
 class UserService(_UserServiceBase):
@@ -131,7 +142,12 @@ class UserService(_UserServiceBase):
         invited_by: User | None = None,
     ) -> tuple[User, str]:
         """Creates unverified user + random unusable password, assigns roles,
-        mints a verification token. Returns (user, token)."""
+        mints an invite token. Returns (user, token).
+
+        ``invited_at`` is what later tells this account apart from someone who
+        signed themselves up: the two rows are otherwise identical, and only
+        this one has an outstanding email worth resending.
+        """
         password = secrets.token_urlsafe(32)
         user_create = UserCreate(
             email=email,
@@ -141,6 +157,7 @@ class UserService(_UserServiceBase):
             is_verified=False,
         )
         user = await self._manager.create(user_create, safe=False)
+        user.invited_at = datetime.now(UTC)
 
         # Assign roles
         roles = await self._resolve_roles(role_names)
@@ -153,12 +170,35 @@ class UserService(_UserServiceBase):
                     assigned_by=invited_by_str,
                 )
             )
+        await self._db.flush()
         if roles:
-            await self._db.flush()
             await self._db.refresh(user, attribute_names=["roles"])
 
-        token = await self._manager.generate_verification_token(user)
-        return user, token
+        return user, self._manager.mint_invite_token(user, _display_name(invited_by))
+
+    async def resend_invite(
+        self,
+        user_id: uuid.UUID,
+        *,
+        invited_by: User | None = None,
+    ) -> tuple[User, str]:
+        """Mint a fresh invite token for a pending account.
+
+        ``invited_at`` moves forward with the new token rather than recording
+        the first attempt: the row advertises "expires in 5d", and that has to
+        describe the link the person was just sent, not the one that never
+        arrived.
+
+        Raises ``AlreadyVerifiedError`` for an account that has already been
+        through the flow — there is nothing left to accept, and re-inviting
+        would mint a live token for a working account.
+        """
+        user = await self._require_user(user_id)
+        if user.is_verified:
+            raise AlreadyVerifiedError(user_id)
+        user.invited_at = datetime.now(UTC)
+        await self._db.flush()
+        return user, self._manager.mint_invite_token(user, _display_name(invited_by))
 
     async def disable(self, user_id: uuid.UUID) -> User:
         user = await self._require_user(user_id)

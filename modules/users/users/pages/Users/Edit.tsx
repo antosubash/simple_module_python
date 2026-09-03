@@ -1,243 +1,120 @@
-import { Link, router, usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
-import { Button } from '@simple-module-py/ui/components/ui/button';
+import { useRelativeTime } from '@simple-module-py/ui/hooks/use-relative-time';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
+import { initials } from '@simple-module-py/ui/lib/initials';
 import type React from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { toast } from 'sonner';
-import { AccountStatusCard } from './components/AccountStatusCard';
+import { StatusPill } from '../../admin/components/StatusPill';
+import { deriveState, type UserListItem } from '../../admin/components/user-list-item';
+import { AccountCard } from './components/AccountCard';
 import { DangerZone } from './components/DangerZone';
 import { DetailsCard } from './components/DetailsCard';
-import { MetadataCard } from './components/MetadataCard';
+import { EditHeaderActions } from './components/EditHeaderActions';
+import { type ActivityEntry, RecentActivityCard } from './components/RecentActivityCard';
 import type { Role } from './components/RolePicker';
-import { RolesCard } from './components/RolesCard';
+import { useEditUserForm } from './components/useEditUserForm';
 import { useUserActions } from './components/useUserActions';
-
-interface UserListItem {
-  id: string;
-  email: string;
-  full_name: string | null;
-  is_active: boolean;
-  is_verified: boolean;
-  is_external: boolean;
-  disabled_at: string | null;
-  last_login_at: string | null;
-  created_at: string | null;
-  roles: string[];
-}
 
 interface Props {
   user: UserListItem;
   roles: Role[];
   has_permissions_module: boolean;
+  /** `null` when the audit_log module is not installed. */
+  recent_activity: ActivityEntry[] | null;
   auth?: { user?: { id?: string } };
 }
 
-interface FormState {
-  email: string;
-  fullName: string;
-  roles: string[];
-}
-
-function sameRoles(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false;
-  const sortedB = [...b].sort();
-  return [...a].sort().every((role, i) => role === sortedB[i]);
+/** "Mar 2026" — when someone joined is a month, never a minute. */
+function joinedMonth(value: string | null): string {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
 }
 
 /**
  * Edit a user.
  *
- * Details and roles share one dirty state and one Save. They were three
- * independent forms with three save buttons, so a half-finished edit could be
- * abandoned in a way the page never acknowledged, and "did that save?" had
- * three different answers.
- *
- * Status changes (disable/enable, mark verified) stay immediate on purpose.
- * They are actions, not edits: locking out a compromised account should not
- * require finding a Save button, and queuing it behind one would be worse
- * than the inconsistency it removes.
+ * The header carries the identity — avatar, name, address, when they joined,
+ * when they were last here, and the status pill — so the cards below are only
+ * about what can be changed. Status changes (disable/enable, mark verified)
+ * stay immediate on purpose: they are actions, not edits.
  */
 function Edit() {
-  const { user, roles, has_permissions_module, auth } = usePage<{ props: Props }>()
-    .props as unknown as Props;
+  const {
+    user,
+    roles,
+    has_permissions_module,
+    recent_activity: recentActivity,
+    auth,
+  } = usePage<{ props: Props }>().props as unknown as Props;
   const { t } = useT();
+  const { ago } = useRelativeTime();
   const isSelf = auth?.user?.id === user.id;
 
-  const initial = useMemo<FormState>(
-    () => ({
-      email: user.email,
-      fullName: user.full_name ?? '',
-      roles: user.roles ?? [],
-    }),
-    [user.email, user.full_name, user.roles],
-  );
-
-  const [form, setForm] = useState<FormState>(initial);
-  // What is currently persisted. Starts at the server's values and advances
-  // per section as each save lands, so "unsaved changes" stays truthful even
-  // when only part of a save succeeded.
-  const [baseline, setBaseline] = useState<FormState>(initial);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const form = useEditUserForm(user);
   const actions = useUserActions(user.id, user.is_active, user.is_verified);
-
-  // Re-seed after a server reload, or the form would keep showing pre-save
-  // values against a record that has already moved on.
-  useEffect(() => {
-    setForm(initial);
-    setBaseline(initial);
-    setError(null);
-  }, [initial]);
-
-  const detailsDirty = form.email !== baseline.email || form.fullName !== baseline.fullName;
-  const rolesDirty = !sameRoles(form.roles, baseline.roles);
-  const dirty = detailsDirty || rolesDirty;
-
-  // Set while this page is driving its own visit (the post-save reload), so
-  // the guard below doesn't prompt about changes that were just persisted —
-  // React has not re-rendered with the advanced baseline at that point.
-  const savingRef = useRef(false);
-
-  // One dirty state is only honest if leaving with unsaved changes is hard to
-  // do by accident. `beforeunload` alone is not enough: it never fires for an
-  // Inertia visit, and "Back to Users", "Cancel" and every sidebar link are
-  // Inertia visits — i.e. every ordinary way of leaving this page.
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener('beforeunload', warn);
-    const stopListening = router.on('before', () =>
-      savingRef.current ? true : window.confirm(t(keys.users.edit.leave_warning)),
-    );
-    return () => {
-      window.removeEventListener('beforeunload', warn);
-      stopListening();
-    };
-  }, [dirty, t]);
-
-  const toggleRole = (roleName: string) =>
-    setForm((prev) => ({
-      ...prev,
-      roles: prev.roles.includes(roleName)
-        ? prev.roles.filter((r) => r !== roleName)
-        : [...prev.roles, roleName],
-    }));
-
-  async function handleSave() {
-    setSaving(true);
-    setError(null);
-    savingRef.current = true;
-    try {
-      // Only the parts that changed — sending roles untouched would rewrite
-      // every assignment's audit trail for an edit that never touched them.
-      //
-      // The baseline advances per section as each one lands. If details save
-      // and roles then fail, the page must stop calling the details edit
-      // "unsaved" — it is already persisted, and saying otherwise invites the
-      // admin to redo work or distrust the indicator entirely. Reloading
-      // instead would throw away the role edit they still have pending.
-      if (detailsDirty) {
-        const resp = await fetch(`/api/users/admin/${user.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: form.email, full_name: form.fullName || null }),
-        });
-        if (!resp.ok) {
-          const body = await resp.json().catch(() => ({}));
-          setError(
-            typeof body?.detail === 'string' ? body.detail : t(keys.users.edit.error_details),
-          );
-          return;
-        }
-        setBaseline((prev) => ({ ...prev, email: form.email, fullName: form.fullName }));
-      }
-      if (rolesDirty) {
-        const resp = await fetch(`/api/users/admin/${user.id}/roles`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ role_names: form.roles }),
-        });
-        if (!resp.ok) {
-          setError(
-            detailsDirty ? t(keys.users.edit.error_partial) : t(keys.users.edit.error_roles),
-          );
-          return;
-        }
-        setBaseline((prev) => ({ ...prev, roles: form.roles }));
-      }
-      toast.success(t(keys.users.edit.toast_saved));
-      router.reload();
-    } catch {
-      setError(t(keys.users.common.error_occurred));
-    } finally {
-      setSaving(false);
-      savingRef.current = false;
-    }
-  }
 
   return (
     <PageShell
-      title={user.email}
-      description={user.full_name ?? t(keys.users.edit.description_fallback)}
+      title={user.full_name || user.email}
+      back="/admin/users/"
+      leading={
+        <span className="inline-flex h-13 w-13 shrink-0 items-center justify-center rounded-full bg-primary-600/10 text-lg font-bold text-primary-700 font-[var(--font-display)]">
+          {initials(user.full_name, user.email)}
+        </span>
+      }
+      badge={
+        <StatusPill state={deriveState(actions.isActive, actions.isVerified, user.invited_at)} />
+      }
+      description={t(keys.users.edit.subtitle, {
+        email: user.email,
+        joined: joinedMonth(user.created_at),
+        lastLogin: user.last_login_at ? ago(user.last_login_at) : t(keys.users.edit.never),
+      })}
       actions={
-        <div className="flex items-center gap-2">
-          {dirty && (
-            <span className="text-xs text-muted-foreground">
-              {t(keys.users.edit.unsaved_changes)}
-            </span>
-          )}
-          <Button asChild variant="outline">
-            <Link href="/admin/users/">{t(keys.users.common.back_to_users)}</Link>
-          </Button>
-          {/* Back to what is persisted, not to what the page loaded with —
-              discarding must not visually undo a section that already saved. */}
-          <Button variant="ghost" onClick={() => setForm(baseline)} disabled={!dirty || saving}>
-            {t(keys.users.common.discard)}
-          </Button>
-          <Button onClick={handleSave} disabled={!dirty || saving}>
-            {saving ? t(keys.users.common.saving) : t(keys.users.common.save_changes)}
-          </Button>
-        </div>
+        <EditHeaderActions
+          dirtyCount={form.dirtyCount}
+          saving={form.saving}
+          onDiscard={form.discard}
+          onSave={form.save}
+        />
       }
     >
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid items-stretch gap-4 lg:grid-cols-[1.3fr_1fr]">
         <DetailsCard
-          email={form.email}
-          fullName={form.fullName}
-          onEmailChange={(email) => setForm((prev) => ({ ...prev, email }))}
-          onFullNameChange={(fullName) => setForm((prev) => ({ ...prev, fullName }))}
-          error={error}
+          email={form.form.email}
+          fullName={form.form.fullName}
+          onEmailChange={(email) => form.setForm((prev) => ({ ...prev, email }))}
+          onFullNameChange={(fullName) => form.setForm((prev) => ({ ...prev, fullName }))}
+          roles={roles}
+          selectedRoles={form.form.roles}
+          onToggleRole={form.toggleRole}
+          userId={user.id}
+          hasPermissionsModule={has_permissions_module}
+          error={form.error}
         />
 
-        <MetadataCard
+        <AccountCard
+          email={user.email}
           isExternal={user.is_external}
           createdAt={user.created_at}
-          lastLoginAt={user.last_login_at}
-          disabledAt={user.disabled_at}
-          isVerified={actions.isVerified}
-          savingVerify={actions.savingVerify}
-          onMarkVerified={actions.markVerified}
-        />
-
-        <AccountStatusCard
-          email={user.email}
+          disabledAt={user.disabled_at ?? null}
           isActive={actions.isActive}
-          isExternal={user.is_external}
+          isVerified={actions.isVerified}
           savingStatus={actions.savingStatus}
+          savingVerify={actions.savingVerify}
           onDisable={actions.disable}
           onEnable={actions.enable}
+          onMarkVerified={actions.markVerified}
           onCopyResetLink={actions.copyResetLink}
         />
 
-        <RolesCard
-          roles={roles}
-          selected={form.roles}
-          onToggle={toggleRole}
-          userId={user.id}
-          hasPermissionsModule={has_permissions_module}
-        />
+        {/* Absent, not empty, when the deployment records nothing. */}
+        {recentActivity !== null && (
+          <RecentActivityCard entries={recentActivity} userId={user.id} />
+        )}
 
         <DangerZone userId={user.id} email={user.email} isSelf={isSelf} />
       </div>

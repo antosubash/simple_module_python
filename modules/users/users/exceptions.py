@@ -36,3 +36,16 @@ class ExternalUserNoPasswordError(Exception):
     def __init__(self, user_id: uuid.UUID) -> None:
         super().__init__(f"User {user_id} is external (SSO) and has no password")
         self.user_id = user_id
+
+
+class AlreadyVerifiedError(Exception):
+    """Raised when re-inviting an account that has already been accepted.
+
+    Not an error the admin caused so much as one the screen should have
+    prevented: Resend is only offered on pending rows. Refusing anyway keeps a
+    stale tab from minting a live invite token for a working account.
+    """
+
+    def __init__(self, user_id: uuid.UUID) -> None:
+        super().__init__(f"User {user_id} is already verified")
+        self.user_id = user_id

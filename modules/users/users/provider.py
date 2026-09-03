@@ -17,6 +17,26 @@ logger = logging.getLogger(__name__)
 
 _SESSION_USER_ID_KEY = "user_id"
 _SESSION_USER_CTX_KEY = "user_ctx"
+_SESSION_VERSION_KEY = "session_version"
+
+
+def _stamped_version(session) -> int:
+    """The revocation counter this session was minted under.
+
+    Missing or unreadable means 0 — the value every session predating the
+    column carries, and the default on the row, so upgrading signs nobody out.
+    """
+    try:
+        return int(session.get(_SESSION_VERSION_KEY, 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _forget(session) -> None:
+    """Drop everything this session claimed about who is signed in."""
+    session.pop(_SESSION_USER_ID_KEY, None)
+    session.pop(_SESSION_USER_CTX_KEY, None)
+    session.pop(_SESSION_VERSION_KEY, None)
 
 
 class UsersAuthProvider:
@@ -37,25 +57,57 @@ class UsersAuthProvider:
 
         user_id_str = str(raw_user_id)
 
-        cached = UserContext.from_session_dict(session.get(_SESSION_USER_CTX_KEY))
-        if cached is not None and cached.id == user_id_str:
-            return cached
-
         try:
             user_uuid = uuid_mod.UUID(user_id_str)
         except (ValueError, TypeError):
             logger.warning("Invalid user_id in session: %r", raw_user_id)
-            session.pop(_SESSION_USER_ID_KEY, None)
-            session.pop(_SESSION_USER_CTX_KEY, None)
+            _forget(session)
             return None
 
-        user_ctx = await self._load_user(request.scope, user_uuid)
+        cached = UserContext.from_session_dict(session.get(_SESSION_USER_CTX_KEY))
+        if cached is not None and cached.id == user_id_str:
+            # The cached context lives in the client's own signed cookie, so
+            # the server cannot reach in and delete it. One indexed
+            # primary-key read is what makes "Sign out everywhere" actually
+            # sign out a browser this process has never seen — the alternative
+            # is a button that only logs out the person pressing it.
+            if await self._version_still_current(request.scope, user_uuid, session):
+                return cached
+            _forget(session)
+            return None
+
+        user_ctx = await self._load_user(request.scope, user_uuid, session)
         if user_ctx is None:
-            session.pop(_SESSION_USER_ID_KEY, None)
-            session.pop(_SESSION_USER_CTX_KEY, None)
+            _forget(session)
         else:
             session[_SESSION_USER_CTX_KEY] = user_ctx.to_session_dict()
         return user_ctx
+
+    async def _version_still_current(self, scope, user_id: uuid_mod.UUID, session) -> bool:
+        """Whether this session predates the account's last "sign out everywhere".
+
+        A user row that has vanished answers False: the account is gone, so
+        the cached context describes nobody.
+        """
+        try:
+            from sqlalchemy import select
+
+            from users.models import User
+
+            session_factory = scope["app"].state.sm.db.session_factory
+            async with session_factory() as db_session:
+                stored = (
+                    await db_session.execute(select(User.session_version).where(User.id == user_id))
+                ).scalar_one_or_none()
+        except Exception:
+            # A database that cannot be reached is not evidence of a
+            # revocation. Refusing here would log every signed-in user out of
+            # an app that is merely having a bad minute.
+            logger.exception("Session version check failed for %s; keeping the session", user_id)
+            return True
+        if stored is None:
+            return False
+        return int(stored) == _stamped_version(session)
 
     def get_login_url(self, request: Request | None, next_url: str | None = None) -> str:
         return "/users/login"
@@ -112,7 +164,7 @@ class UsersAuthProvider:
             logger.exception("Bearer token resolution failed")
             return None
 
-    async def _load_user(self, scope, user_id: uuid_mod.UUID) -> UserContext | None:
+    async def _load_user(self, scope, user_id: uuid_mod.UUID, session=None) -> UserContext | None:
         try:
             from sqlalchemy import select
             from sqlalchemy.orm import noload, selectinload
@@ -130,6 +182,12 @@ class UsersAuthProvider:
                 )
                 user = (await db_session.execute(stmt)).scalar_one_or_none()
                 if user is None or not user.is_active or user.disabled_at is not None:
+                    return None
+                # Same revocation check as the cached path, free here because
+                # the row is already loaded.
+                if session is not None and int(user.session_version or 0) != _stamped_version(
+                    session
+                ):
                     return None
                 return UserContext.from_user(user)
         except Exception:
