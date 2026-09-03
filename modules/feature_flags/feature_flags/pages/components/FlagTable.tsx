@@ -38,8 +38,30 @@ export function FlagTable({ flags, tenantId, canManage, onToggle, onClear }: Pro
   const { t } = useT();
   const columnCount = canManage ? 5 : 4;
 
+  /** The override control, or the sentence explaining why there is none. */
+  const clearAction = (flag: FeatureFlag) =>
+    flag.overridden ? (
+      <Button
+        variant="link"
+        size="sm"
+        className="h-auto p-0 text-primary-700 max-sm:min-h-11"
+        onClick={() => onClear(flag)}
+      >
+        {t(keys.feature_flags.table.clear_override)}
+      </Button>
+    ) : (
+      <span className="text-xs text-muted-foreground">
+        {tenantId
+          ? t(keys.feature_flags.table.following_system)
+          : t(keys.feature_flags.table.following_default)}
+      </span>
+    );
+
   return (
-    <Card className="gap-0 border-border overflow-hidden p-0">
+    // Fills the viewport with the audit note pinned to the bottom, as the deck
+    // and the settings store both do. A min-height, not a fixed one, so a long
+    // flag list grows rather than scrolling inside the card.
+    <Card className="flex flex-col gap-0 overflow-hidden border-border p-0 lg:min-h-[calc(100vh-var(--app-chrome-h)-15rem)]">
       <Table>
         <TableHeader>
           <TableRow>
@@ -52,7 +74,9 @@ export function FlagTable({ flags, tenantId, canManage, onToggle, onClear }: Pro
             </TableHead>
             <TableHead className={HEAD}>{t(keys.feature_flags.table.effective)}</TableHead>
             {canManage && (
-              <TableHead className={cn(HEAD, 'text-right')}>
+              // Hidden below `sm`: at 390px this column pushed the table wider
+              // than the card. Its control moves under the switch instead.
+              <TableHead className={cn(HEAD, 'hidden text-right sm:table-cell')}>
                 {t(keys.feature_flags.table.actions)}
               </TableHead>
             )}
@@ -102,25 +126,11 @@ export function FlagTable({ flags, tenantId, canManage, onToggle, onClear }: Pro
                       : t(keys.feature_flags.table.disabled)}
                   </span>
                 </div>
+                {canManage && <div className="mt-1.5 sm:hidden">{clearAction(flag)}</div>}
               </TableCell>
               {canManage && (
-                <TableCell className="text-right sm:px-6">
-                  {flag.overridden ? (
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-primary-700"
-                      onClick={() => onClear(flag)}
-                    >
-                      {t(keys.feature_flags.table.clear_override)}
-                    </Button>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">
-                      {tenantId
-                        ? t(keys.feature_flags.table.following_system)
-                        : t(keys.feature_flags.table.following_default)}
-                    </span>
-                  )}
+                <TableCell className="hidden text-right sm:table-cell sm:px-6">
+                  {clearAction(flag)}
                 </TableCell>
               )}
             </TableRow>
@@ -144,7 +154,7 @@ export function FlagTable({ flags, tenantId, canManage, onToggle, onClear }: Pro
           )}
         </TableBody>
       </Table>
-      <p className="border-t px-4 py-3 text-sm text-muted-foreground">
+      <p className="mt-auto border-t px-4 py-3 text-sm text-muted-foreground">
         {t(keys.feature_flags.browse.audit_note)}
       </p>
     </Card>
