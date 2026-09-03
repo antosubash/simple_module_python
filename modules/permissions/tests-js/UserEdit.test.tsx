@@ -89,8 +89,10 @@ function renderPage(overrides: Partial<Props> = {}) {
   return render(<UserEdit {...props} />);
 }
 
+// The row is a `<label>` so the whole 44px strip toggles its switch, not just
+// the 20px control — `closest('div')` would now walk out to the card body.
 const keyRow = (permissionKey: string) =>
-  screen.getByText(permissionKey, { selector: 'code' }).closest('div') as HTMLElement;
+  screen.getByText(permissionKey, { selector: 'code' }).closest('label') as HTMLElement;
 
 describe('UserEdit', () => {
   test('renders the deck header, subtitle and actions', () => {
@@ -152,6 +154,15 @@ describe('UserEdit', () => {
     expect(within(row).getByText('granted by editor')).toBeVisible();
     expect(within(row).queryByText('direct')).not.toBeInTheDocument();
     expect(within(row).getByRole('switch')).toHaveAttribute('data-state', 'unchecked');
+  });
+
+  test('the whole row is the switch\u2019s label, so the tap target is the row', () => {
+    renderPage();
+
+    const row = keyRow('users.read');
+    expect(row.tagName).toBe('LABEL');
+    expect(row).toHaveAttribute('for', within(row).getByRole('switch').id);
+    expect(row).toHaveClass('min-h-11');
   });
 
   test('names every granting role', () => {

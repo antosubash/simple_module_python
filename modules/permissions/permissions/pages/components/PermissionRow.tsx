@@ -31,17 +31,28 @@ export function PermissionRow({
   const inherited = viaRoles.length > 0;
   const effective = direct || inherited;
 
+  const switchId = `grant-${permissionKey}`;
+
   return (
-    <div className={`flex items-center gap-3 px-4 py-3 ${className}`}>
+    // A `label`, as the role editor's rows already are: the whole row is the
+    // 44px target, not the 20px switch inside it.
+    <label
+      htmlFor={switchId}
+      className={`flex min-h-11 cursor-pointer items-center gap-3 px-4 py-3 ${className}`}
+    >
       <Switch
+        id={switchId}
         checked={direct}
         onCheckedChange={(checked) => onToggle(permissionKey, checked === true)}
         aria-label={t(keys.permissions.user_edit.direct_toggle_label, { key: permissionKey })}
         title={t(keys.permissions.user_edit.direct_toggle_label, { key: permissionKey })}
       />
 
+      {/* Wrapping beats truncating on a phone: a permission key is read from
+          the right — `settings.create`, `settings.delete` — so cutting the end
+          off removes the half that tells them apart. */}
       <code
-        className={`min-w-0 flex-1 truncate font-mono text-[12px] ${
+        className={`min-w-0 flex-1 break-all font-mono text-[12px] sm:truncate ${
           effective ? 'text-foreground' : 'text-muted-foreground'
         }`}
       >
@@ -65,6 +76,6 @@ export function PermissionRow({
           {t(keys.permissions.user_edit.via_role, { roles: viaRoles.join(', ') })}
         </Badge>
       )}
-    </div>
+    </label>
   );
 }

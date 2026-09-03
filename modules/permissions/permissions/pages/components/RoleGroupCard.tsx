@@ -27,8 +27,8 @@ export function RoleGroupCard({ group, permissions, assigned, onToggle, onToggle
   const lastRow = lastRowStart(permissions.length);
 
   return (
-    <Card className="overflow-hidden border-border p-0">
-      <div className="flex items-center gap-3 border-b border-border bg-secondary/40 px-4 py-3">
+    <Card className="gap-0 overflow-hidden border-border p-0">
+      <div className="flex items-center gap-3 border-b border-border bg-secondary px-4 py-3">
         <span className="relative inline-flex shrink-0">
           <Checkbox
             checked={state}

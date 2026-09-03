@@ -31,8 +31,8 @@ export function GrantsGroupCard({
   const granted = group.permissions.filter((key) => effective.has(key)).length;
 
   return (
-    <Card className="overflow-hidden border-border p-0">
-      <div className="flex items-center gap-3 border-b border-border bg-secondary/40 px-4 py-3">
+    <Card className="gap-0 overflow-hidden border-border p-0">
+      <div className="flex items-center gap-3 border-b border-border bg-secondary px-4 py-3">
         <GroupHeading group={group} />
         <span className="shrink-0 text-xs text-muted-foreground">
           {t(keys.permissions.user_edit.group_effective, {
