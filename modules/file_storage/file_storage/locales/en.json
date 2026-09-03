@@ -64,7 +64,8 @@
     "type_all": "All types",
     "type_selected": "Type: {value} ({count})",
     "uploader_label": "Uploaded by",
-    "uploader_all": "Anyone"
+    "uploader_all": "Anyone",
+    "uploader_selected": "Uploaded by: {value}"
   },
   "upload": {
     "drop_here": "Drop files here",

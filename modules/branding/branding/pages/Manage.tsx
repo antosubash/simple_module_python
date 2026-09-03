@@ -138,7 +138,15 @@ function Manage() {
             >
               {t(keys.branding.manage.discard)}
             </Button>
-            <Button size="sm" className="max-lg:min-h-11" disabled={locked} onClick={publish}>
+            {/* Nothing staged, nothing to publish: images upload on pick, so
+                with a zero change count this button would PUT the values the
+                server already holds and report success for doing nothing. */}
+            <Button
+              size="sm"
+              className="max-lg:min-h-11"
+              disabled={locked || changes === 0}
+              onClick={publish}
+            >
               {busy ? t(keys.branding.manage.publishing) : t(keys.branding.manage.publish)}
             </Button>
           </>
@@ -191,9 +199,12 @@ function Manage() {
                 </div>
               </div>
 
+              {/* The *effective* colour, not the stored one: with nothing set
+                  the site already renders emerald, and a preset row where no
+                  chip is active claims the opposite. */}
               <PresetField
                 options={page.presets ?? []}
-                activeColor={form.color}
+                activeColor={form.color || DEFAULT_SWATCH}
                 onSelect={(swatch) => set({ color: swatch })}
                 disabled={locked}
               />

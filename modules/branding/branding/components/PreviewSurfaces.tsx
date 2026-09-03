@@ -23,7 +23,10 @@ function Logo({ brand }: { brand: PreviewBrand }) {
 export function SignInPreview({ brand }: { brand: PreviewBrand }) {
   const { t } = useT();
   return (
-    <div className="flex min-h-52 flex-1 flex-col items-center justify-center gap-3 rounded-[10px] border border-border bg-background p-4">
+    // No `flex-1`: this frame is a small card and a login footer, and
+    // stretching it to the form column's height left a 300px empty band under
+    // them. The App tab fills, because its content is a whole screen.
+    <div className="flex min-h-52 flex-col items-center justify-center gap-3 rounded-[10px] border border-border bg-background p-4">
       <div className="w-full max-w-56 rounded-lg border border-border bg-card p-3.5">
         <div className="flex items-center gap-2">
           <Logo brand={brand} />
@@ -57,7 +60,7 @@ export function SignInPreview({ brand }: { brand: PreviewBrand }) {
 export function EmailPreview({ brand }: { brand: PreviewBrand }) {
   const { t } = useT();
   return (
-    <div className="flex min-h-52 flex-1 flex-col overflow-hidden rounded-[10px] border border-border bg-background">
+    <div className="flex min-h-52 flex-col overflow-hidden rounded-[10px] border border-border bg-background">
       <div
         className="flex items-center gap-2 px-3 py-2.5"
         style={{ backgroundColor: brand.accent }}

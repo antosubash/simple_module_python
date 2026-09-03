@@ -480,6 +480,7 @@ export const keys = {
       type_selected: 'file_storage.filters.type_selected',
       uploader_all: 'file_storage.filters.uploader_all',
       uploader_label: 'file_storage.filters.uploader_label',
+      uploader_selected: 'file_storage.filters.uploader_selected',
     },
     nav: {
       files: 'file_storage.nav.files',

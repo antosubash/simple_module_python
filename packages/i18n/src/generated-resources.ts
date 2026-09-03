@@ -372,6 +372,7 @@ export default {
     'file_storage.filters.type_selected': '',
     'file_storage.filters.uploader_all': '',
     'file_storage.filters.uploader_label': '',
+    'file_storage.filters.uploader_selected': '',
     'file_storage.nav.files': '',
     'file_storage.table.actions': '',
     'file_storage.table.filename': '',

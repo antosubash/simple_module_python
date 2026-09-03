@@ -77,6 +77,7 @@ export function FileFilterBar({ filters, facets, uploaders, onChange }: Props) {
   // A trailing "/" is a whole family, which the list shows as "image/*".
   const isFamily = contentType.endsWith('/');
   const selected = [...facets, ...grouped].find((f) => f.value === contentType);
+  const selectedUploader = uploaders.find((u) => u.id === uploadedBy);
 
   return (
     <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -133,7 +134,14 @@ export function FileFilterBar({ filters, facets, uploaders, onChange }: Props) {
           className="w-full sm:w-52"
           aria-label={t(keys.file_storage.filters.uploader_label)}
         >
-          <SelectValue placeholder={t(keys.file_storage.filters.uploader_label)} />
+          {/* Named like the Type trigger beside it: left to itself the trigger
+              renders the selected item, so an unfiltered control read "Anyone"
+              — which says nothing about which column it narrows. */}
+          <SelectValue placeholder={t(keys.file_storage.filters.uploader_label)}>
+            {selectedUploader
+              ? t(keys.file_storage.filters.uploader_selected, { value: selectedUploader.label })
+              : t(keys.file_storage.filters.uploader_label)}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={ANY}>{t(keys.file_storage.filters.uploader_all)}</SelectItem>
