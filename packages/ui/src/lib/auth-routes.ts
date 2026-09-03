@@ -1,5 +1,3 @@
-import { keys } from '@simple-module-py/i18n';
-
 /**
  * Where the public shell sends visitors to authenticate.
  *
@@ -10,27 +8,6 @@ import { keys } from '@simple-module-py/i18n';
  */
 export const LOGIN_PATH = '/users/login';
 export const REGISTER_PATH = '/users/register';
-
-/**
- * The public "sign in or sign up" call to action, gated on whether signup is
- * open. Bundles the href and its matching label so a caller can't update one
- * half of the swap (e.g. the link) without the other (e.g. the button text).
- *
- * Returns a catalog *key* rather than display text. The label used to be a
- * hardcoded English literal here, which shipped untranslated to every locale —
- * and `make ci-check-untranslated` could not see it, because a string reaching
- * the screen through a returned object is exactly the taint-analysis blind
- * spot that check documents. Handing back a key makes the omission a type
- * error instead of a silent one.
- */
-export function authCta(signupOpen: boolean): {
-  href: string;
-  labelKey: typeof keys.ui.public_nav.sign_up | typeof keys.ui.public_nav.log_in;
-} {
-  return signupOpen
-    ? { href: REGISTER_PATH, labelKey: keys.ui.public_nav.sign_up }
-    : { href: LOGIN_PATH, labelKey: keys.ui.public_nav.log_in };
-}
 
 /**
  * The Users admin screen's url, as registered by the users module's menu

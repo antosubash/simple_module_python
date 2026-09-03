@@ -3,8 +3,7 @@
     "generic_title": "Something went wrong",
     "generic_description": "The page encountered an unexpected error. Try reloading, or return home.",
     "reload_button": "Reload Page",
-    "go_home_button": "Go Home",
-    "http_badge": "HTTP {code}"
+    "go_home_button": "Go Home"
   },
   "nav": {
     "admin": "Administration"
@@ -60,8 +59,6 @@
     "github": "GitHub",
     "open_dashboard": "Open dashboard",
     "sign_in": "Sign in",
-    "log_in": "Log in",
-    "sign_up": "Sign up",
     "open_menu": "Open menu",
     "close_menu": "Close menu"
   }
