@@ -1,4 +1,14 @@
 import { keys, useT } from '@simple-module-py/i18n';
+import { Input } from '@simple-module-py/ui/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@simple-module-py/ui/components/ui/select';
+import { Switch } from '@simple-module-py/ui/components/ui/switch';
+import { Textarea } from '@simple-module-py/ui/components/ui/textarea';
 import { useState } from 'react';
 
 export type FieldType = 'bool' | 'int' | 'float' | 'string' | 'json';
@@ -15,10 +25,14 @@ export type FieldMeta = {
   env_var: string;
   /** The field's SM_* env var is present in the process environment. */
   env_set?: boolean;
+  /** The declaring settings class reads env at all (declares an `env_prefix`). */
+  env_readable?: boolean;
   /** A stored setting overrides this field. */
   db_override?: boolean;
   /** Where the live value came from. Mirrors hydrate_settings' precedence. */
   source?: 'db' | 'env' | 'default';
+  /** Closed set of accepted values, or null when the field is free text. */
+  choices?: string[] | null;
 };
 
 type Props = {
@@ -28,23 +42,28 @@ type Props = {
   id?: string;
 };
 
+/** A stored override is the one thing on this screen someone put there. */
+const OVERRIDDEN = 'border-primary ring-[3px] ring-primary/10';
+
 export function FieldInput({ field, onChange, value, id }: Props) {
   const { t } = useT();
   const [revealed, setRevealed] = useState(false);
+  const highlight = field.db_override ? OVERRIDDEN : '';
 
   if (field.is_secret && !revealed) {
+    // Not "Reveal": the server never returns the stored value, so there is
+    // nothing to uncover — only a new value to set. A reveal control here
+    // would promise something the API deliberately cannot deliver.
     return (
-      <div className="flex items-center gap-2">
-        <input
-          id={id}
-          type="password"
-          value="••••••••"
-          readOnly
-          className="w-full rounded border px-2 py-1 font-mono text-sm"
-        />
+      <div
+        className={`flex h-9 items-center justify-between rounded-md border border-input px-3 py-1 ${highlight}`}
+      >
+        <span id={id} className="font-mono text-sm text-muted-foreground">
+          ••••••••••
+        </span>
         <button
           type="button"
-          className="text-sm text-primary hover:underline"
+          className="text-xs font-medium text-primary-700 hover:underline"
           onClick={() => {
             setRevealed(true);
             onChange(field.name, ''); // start blank
@@ -56,49 +75,70 @@ export function FieldInput({ field, onChange, value, id }: Props) {
     );
   }
 
-  switch (field.type) {
-    case 'bool':
-      return (
-        <input
-          id={id}
-          type="checkbox"
-          checked={!!value}
-          onChange={(e) => onChange(field.name, e.target.checked)}
-        />
-      );
-    case 'int':
-    case 'float':
-      return (
-        <input
-          id={id}
-          type="number"
-          step={field.type === 'int' ? '1' : 'any'}
-          value={String(value ?? '')}
-          onChange={(e) =>
-            onChange(field.name, e.target.value === '' ? null : Number(e.target.value))
-          }
-          className="w-full rounded border px-2 py-1 font-mono text-sm"
-        />
-      );
-    case 'json':
-      return (
-        <textarea
-          id={id}
-          rows={3}
-          value={typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
-          onChange={(e) => onChange(field.name, e.target.value)}
-          className="w-full rounded border px-2 py-1 font-mono text-xs"
-        />
-      );
-    default:
-      return (
-        <input
-          id={id}
-          type="text"
-          value={String(value ?? '')}
-          onChange={(e) => onChange(field.name, e.target.value)}
-          className="w-full rounded border px-2 py-1 font-mono text-sm"
-        />
-      );
+  if (field.type === 'bool') {
+    return (
+      <Switch
+        id={id}
+        checked={!!value}
+        onCheckedChange={(next) => onChange(field.name, next)}
+        className={highlight}
+      />
+    );
   }
+
+  if (field.choices?.length) {
+    // A pattern-constrained string is a closed list; a text box makes its only
+    // feedback on a typo a 422 after Save.
+    return (
+      <Select value={String(value ?? '')} onValueChange={(next) => onChange(field.name, next)}>
+        <SelectTrigger id={id} className={`w-full ${highlight}`}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {field.choices.map((choice) => (
+            <SelectItem key={choice} value={choice}>
+              {choice}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  if (field.type === 'int' || field.type === 'float') {
+    return (
+      <Input
+        id={id}
+        type="number"
+        step={field.type === 'int' ? '1' : 'any'}
+        value={String(value ?? '')}
+        onChange={(e) =>
+          onChange(field.name, e.target.value === '' ? null : Number(e.target.value))
+        }
+        className={`w-[120px] font-mono ${highlight}`}
+      />
+    );
+  }
+
+  if (field.type === 'json') {
+    return (
+      <Textarea
+        id={id}
+        rows={3}
+        value={typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
+        onChange={(e) => onChange(field.name, e.target.value)}
+        className={`font-mono text-xs ${highlight}`}
+      />
+    );
+  }
+
+  return (
+    <Input
+      id={id}
+      type="text"
+      value={String(value ?? '')}
+      onChange={(e) => onChange(field.name, e.target.value)}
+      className={`font-mono ${highlight}`}
+    />
+  );
 }

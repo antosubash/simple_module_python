@@ -8,20 +8,9 @@ import { Label } from '@simple-module-py/ui/components/ui/label';
 import { Textarea } from '@simple-module-py/ui/components/ui/textarea';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import type React from 'react';
-import ValueInput, { type ValueType } from './components/ValueInput';
+import ValueInput from './components/ValueInput';
 import { ROUTES } from './routes';
-
-type Scope = 'system' | 'tenant' | 'user';
-
-type Setting = {
-  id: number;
-  scope: Scope;
-  scope_id: string;
-  key: string;
-  value: string;
-  value_type: ValueType;
-  description: string | null;
-};
+import type { Setting } from './types';
 
 type Props = { setting: Setting };
 
@@ -44,11 +33,6 @@ function Edit({ setting }: Props) {
       <PageShell
         title={t(keys.settings.edit.title)}
         description={`${setting.scope}.${setting.key}`}
-        actions={
-          <Button asChild variant="outline">
-            <Link href={ROUTES.browse}>{t(keys.settings.form.cancel_button)}</Link>
-          </Button>
-        }
       >
         <Card className="max-w-2xl border-border">
           <CardContent className="pt-6">

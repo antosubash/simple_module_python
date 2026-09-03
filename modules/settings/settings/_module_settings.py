@@ -14,6 +14,7 @@ from typing import Any
 from fastapi import FastAPI
 from pydantic_settings import BaseSettings
 
+from settings._field_meta import choices_for, env_readable_var, resolve_default
 from settings.env_vars import env_prefix_for
 from settings.hydrate import value_type_for_field
 from settings.service import SettingService
@@ -61,6 +62,22 @@ class ModuleSettingField:
     """
     db_override: bool = False
     """A stored setting overrides this field."""
+    env_readable: bool = False
+    """The declaring class reads env at all, i.e. it declares an ``env_prefix``.
+
+    :attr:`env_set` collapses two very different answers into one ``False``:
+    "there is no env fallback for this field" and "there is one and nobody set
+    it". The Resolved value panel has to tell them apart, or it labels a row
+    "env fallback" for a class that will never look at the environment.
+    """
+    env_value: str | None = None
+    """The env var's current contents, masked for secrets, or ``None``.
+
+    Only populated when the field is genuinely env-readable *and* set — it is
+    the fallback the panel shows, not a second copy of the live value.
+    """
+    choices: list[str] | None = None
+    """Closed set of accepted values, or ``None`` when the field is free text."""
 
     @property
     def source(self) -> str:
@@ -117,45 +134,6 @@ def _extract_settings(app: FastAPI, package: str) -> BaseSettings | None:
     return inner if isinstance(inner, BaseSettings) else None
 
 
-def _resolve_default(info) -> Any:
-    """Return the effective default, handling ``default_factory`` fields.
-
-    Pydantic sets ``info.default`` to ``PydanticUndefined`` when
-    ``default_factory`` is used. We call the factory to get the concrete
-    default so the settings UI can serialize it.
-    """
-    from pydantic_core import PydanticUndefined
-
-    if info.default is not PydanticUndefined:
-        return info.default
-    if info.default_factory is not None:
-        return info.default_factory()
-    return None
-
-
-def _env_readable_var(settings: BaseSettings, name: str) -> str | None:
-    """Env var pydantic would actually read for ``name``, or ``None``.
-
-    ``env_var`` on the view is a *label* — the ``SM_<PACKAGE>_<FIELD>`` name the
-    ``smpy settings import-from-env`` CLI looks for, kept from before settings
-    moved into the DB. It is not evidence that pydantic reads it: the bundled
-    module settings classes subclass ``DbBackedSettings``, which drops the env
-    source entirely, so ``SM_FILE_STORAGE_BACKEND`` has no effect on
-    ``FileStorageSettings()``. (Until GH #283 those classes subclassed
-    ``BaseSettings`` and merely omitted ``env_prefix``, which left pydantic
-    reading each field from its *bare* name instead of not at all.) Deriving
-    env-readability from the class's own ``env_prefix`` keeps the "From
-    environment" badge honest, and works as-is for the classes that do declare
-    one — the host's ``Settings`` (``SM_``), ``BackgroundTasksSettings``
-    (``SM_BG_TASKS_``), and every module built from the scaffold, whose
-    template ships ``env_prefix="SM_<PACKAGE>_"``.
-    """
-    env_prefix = str(type(settings).model_config.get("env_prefix") or "")
-    if not env_prefix:
-        return None
-    return f"{env_prefix}{name.upper()}"
-
-
 def _field_view(
     name: str,
     settings: BaseSettings,
@@ -175,9 +153,10 @@ def _field_view(
     # silently exposing a secret.
     secret = value_type not in _NEVER_SECRET_TYPES and is_secret_field(name)
     extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
-    default = _resolve_default(info)
+    default = resolve_default(info)
     env_var = f"{prefix}{name.upper()}"
-    live_env_var = _env_readable_var(settings, name)
+    live_env_var = env_readable_var(settings, name)
+    env_set = live_env_var is not None and live_env_var in os.environ
     return ModuleSettingField(
         name=name,
         env_var=env_var,
@@ -188,8 +167,16 @@ def _field_view(
         type=value_type,
         requires_restart=bool(extra.get("requires_restart", False)),
         group=extra.get("group"),
-        env_set=live_env_var is not None and live_env_var in os.environ,
+        env_set=env_set,
         db_override=name in overridden,
+        env_readable=live_env_var is not None,
+        # ``live_env_var`` is not None whenever env_set is True, but the
+        # narrowing is spelled out so a future edit cannot turn this into a
+        # `os.environ[None]`.
+        env_value=(
+            _mask(os.environ[live_env_var]) if env_set and live_env_var is not None else None
+        ),
+        choices=choices_for(info),
     )
 
 

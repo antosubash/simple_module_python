@@ -8,6 +8,19 @@ export interface KnownKey {
   type: string;
   description: string;
   module: string;
+  /** `SM_<PACKAGE>_<FIELD>` label for this field. */
+  env_var: string;
+  /** The declaring class reads env at all (it declares an `env_prefix`). */
+  env_readable: boolean;
+  /** That env var is genuinely read *and* set in this deployment. */
+  env_set: boolean;
+  /** Its contents, masked for secrets — the fallback, not the live value. */
+  env_value: string | null;
+  default: unknown;
+  requires_restart: boolean;
+  is_secret: boolean;
+  /** Closed set of accepted values, or null when the field is free text. */
+  choices: string[] | null;
 }
 
 interface Props {
@@ -18,6 +31,27 @@ interface Props {
 }
 
 const MAX_SUGGESTIONS = 8;
+
+/** The right-hand meta on a suggestion row: what this key resolves to today. */
+function SuggestionMeta({ match }: { match: KnownKey }) {
+  const { t } = useT();
+  const fallback = match.default;
+
+  if (match.env_readable && match.env_set) {
+    return (
+      <>{t(keys.settings.form.suggestion_env, { type: match.type, env_var: match.env_var })}</>
+    );
+  }
+  if (fallback !== null && fallback !== undefined && fallback !== '') {
+    return (
+      <>
+        {t(keys.settings.form.suggestion_default, { type: match.type, default: String(fallback) })}
+      </>
+    );
+  }
+  // No env fallback and no default worth quoting — the type is the whole story.
+  return <>{match.type}</>;
+}
 
 /**
  * Setting key input with suggestions drawn from registered module settings.
@@ -53,8 +87,8 @@ export function KeyField({ value, onChange, knownKeys, error }: Props) {
   const looksModuleScoped = value.includes('.');
 
   return (
-    <div className="space-y-2 sm:col-span-2">
-      <Label className="text-sm font-medium text-muted-foreground">
+    <div className="space-y-1.5">
+      <Label className="text-[12.5px] font-medium text-muted-foreground">
         {t(keys.settings.form.key_label)}
       </Label>
       <div className="relative">
@@ -73,25 +107,31 @@ export function KeyField({ value, onChange, knownKeys, error }: Props) {
           className="font-mono"
         />
         {focused && matches.length > 0 && (
-          <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">
-            {matches.map((match) => (
-              <li key={match.key}>
-                <button
-                  type="button"
-                  // Selecting a key also sets its declared value type, which
-                  // is otherwise a second thing to get right by hand.
-                  onMouseDown={() => onChange(match.key, match.type)}
-                  className="flex w-full flex-col items-start rounded px-2 py-1.5 text-left hover:bg-accent"
-                >
-                  <span className="font-mono text-xs">{match.key}</span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {match.module} · {match.type}
-                    {match.description ? ` — ${match.description}` : ''}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-border bg-popover shadow-lg">
+            <p className="bg-secondary px-3 py-2 text-[12.5px] text-muted-foreground">
+              {t(keys.settings.form.suggestions_header)}
+            </p>
+            <ul className="max-h-64 overflow-y-auto">
+              {matches.map((match) => (
+                <li key={match.key}>
+                  <button
+                    type="button"
+                    // Selecting a key also sets its declared value type, which
+                    // is otherwise a second thing to get right by hand.
+                    onMouseDown={() => onChange(match.key, match.type)}
+                    className={`flex w-full items-center justify-between gap-3 border-t border-border px-3 py-2 text-left hover:bg-accent ${
+                      match.key === value.trim() ? 'bg-primary-600/10' : ''
+                    }`}
+                  >
+                    <span className="truncate font-mono text-[13px]">{match.key}</span>
+                    <span className="shrink-0 text-[11.5px] text-muted-foreground">
+                      <SuggestionMeta match={match} />
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
 

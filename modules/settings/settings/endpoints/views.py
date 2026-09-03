@@ -10,6 +10,7 @@ strings below match what ``pages/*.tsx`` declare.
 from __future__ import annotations
 
 import asyncio
+import math
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from inertia import InertiaResponse
@@ -19,6 +20,7 @@ from simple_module_hosting.inertia_utils import redirect_back_with_errors, valid
 from simple_module_hosting.permissions import RequiresPermission
 from starlette.responses import RedirectResponse
 
+from settings import known_keys
 from settings._module_settings import (
     _package_of,
     collect_module_settings,
@@ -26,22 +28,31 @@ from settings._module_settings import (
 )
 from settings._module_settings_props import serialize
 from settings.constants import (
+    ALL_SCOPES,
+    DEFAULT_PER_PAGE,
     ERR_SETTING_NOT_FOUND,
+    MAX_PER_PAGE,
     PERM_CREATE,
     PERM_DELETE,
     PERM_EDIT,
     PERM_VIEW,
+    PROP_COUNTS,
     PROP_ERROR,
+    PROP_FILTERS,
+    PROP_KNOWN_KEYS,
     PROP_MODULES,
+    PROP_PAGINATION,
     PROP_SETTING,
     PROP_SETTINGS,
+    PROP_TESTABLE,
+    SCOPE_ALL,
     VIEW_CREATE_PATH,
     VIEW_EDIT_PATH,
     VIEW_MODULES_PATH,
     VIEW_PREFIX,
     VIEW_STORE_PATH,
 )
-from settings.contracts.schemas import SettingCreate, SettingUpdate
+from settings.contracts.schemas import SettingCreate, SettingScope, SettingUpdate
 from settings.deps import get_setting_service
 from settings.service import SettingService
 
@@ -69,17 +80,46 @@ router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_VIEW))])
 async def browse(
     inertia: InertiaDep,
     service: SettingService = Depends(get_setting_service),
+    scope: str = SCOPE_ALL,
+    q: str = "",
+    page: int = 1,
+    per_page: int = DEFAULT_PER_PAGE,
 ) -> InertiaResponse:
-    """The raw key/value store.
+    """The raw key/value store, filtered/searched/paged on the server.
 
     Moved off the section root: it is a database view, and an admin who clicks
     "Settings" is nearly always after a module's form, not a table of rows
     keyed by dotted strings.
+
+    An unrecognised ``scope`` falls back to "all" rather than 422ing or
+    matching nothing: it reaches the server from a hand-edited or stale url,
+    and an empty table over a nonzero total reads as data loss.
     """
-    items = await service.list_all()
+    selected = scope if scope in ALL_SCOPES else SCOPE_ALL
+    # Clamp before querying, with the same bounds twice, so the pagination prop
+    # echoes what the query actually ran with — ?page=0 must not render page-1
+    # rows labelled "page 0".
+    page = max(page, 1)
+    per_page = max(1, min(per_page, MAX_PER_PAGE))
+    scope_filter = None if selected == SCOPE_ALL else SettingScope(selected)
+
+    items, total = await service.list_filtered(scope_filter, q, page, per_page)
+    # A page past the end (stale ?page= link, or the last row on it was just
+    # deleted) is clamped and re-queried — otherwise the client gets an empty
+    # list with a nonzero total and renders a blank table.
+    total_pages = max(1, math.ceil(total / per_page))
+    if page > total_pages:
+        page = total_pages
+        items, total = await service.list_filtered(scope_filter, q, page, per_page)
+
     return await inertia.render(
         _PAGE_BROWSE,
-        {PROP_SETTINGS: [item.model_dump(mode="json") for item in items]},
+        {
+            PROP_SETTINGS: [item.model_dump(mode="json") for item in items],
+            PROP_PAGINATION: {"page": page, "per_page": per_page, "total": total},
+            PROP_COUNTS: await service.count_by_scope(q),
+            PROP_FILTERS: {"scope": selected, "q": q},
+        },
     )
 
 
@@ -91,30 +131,7 @@ async def modules_redirect() -> RedirectResponse:
 
 @router.get(VIEW_CREATE_PATH, response_model=None)
 async def create_view(request: Request, inertia: InertiaDep) -> InertiaResponse:
-    return await inertia.render(_PAGE_CREATE, {"known_keys": _known_keys(request)})
-
-
-def _known_keys(request: Request) -> list[dict[str, str]]:
-    """Every ``<package>.<field>`` a module actually reads, for autocomplete.
-
-    The key field is free text, and a typo produces a row that looks saved and
-    is silently never read — the failure gives no feedback at all. Suggesting
-    the registered keys makes the common case unmissable without forbidding
-    the uncommon one: keys outside this list stay valid, since a module can
-    read settings the settings module cannot enumerate.
-    """
-    suggestions: list[dict[str, str]] = []
-    for view in collect_module_settings(request.app):
-        for field in view.fields:
-            suggestions.append(
-                {
-                    "key": f"{view.package}.{field.name}",
-                    "type": field.type,
-                    "description": field.description,
-                    "module": view.module_name,
-                }
-            )
-    return sorted(suggestions, key=lambda s: s["key"])
+    return await inertia.render(_PAGE_CREATE, {PROP_KNOWN_KEYS: known_keys.build(request.app)})
 
 
 @router.get(VIEW_EDIT_PATH, response_model=None)
@@ -205,27 +222,30 @@ async def modules_view(
             PROP_MODULES: serialize(views),
             # Which packages can be connection-tested, so the page only offers
             # the button where something is actually reachable.
-            "testable": _testable_packages(request),
+            PROP_TESTABLE: _testable_packages(request),
         },
     )
 
 
-def _testable_packages(request: Request) -> list[str]:
-    """Packages whose module registered at least one health check.
+def _testable_packages(request: Request) -> dict[str, list[str]]:
+    """Package -> the names of the health checks its module registered.
 
     "Test connection" is just that module's health checks run on demand —
     reusing the registry means settings never learns what an SMTP or an S3
-    connection is.
+    connection is. The names come back with the packages so the button can say
+    what it is about to dial ("Test mailer connection") instead of the useless
+    "Test connection" a bare package list can produce.
     """
-    registry = request.app.state.sm.health_registry
-    owners = {c.module for c in registry.all_checks if c.module}
-    return sorted(
-        {
-            _package_of(mod)
-            for mod in getattr(request.app.state.sm, "modules", ())
-            if mod.meta.name in owners
-        }
-    )
+    checks_by_owner: dict[str, list[str]] = {}
+    for check in request.app.state.sm.health_registry.all_checks:
+        if check.module:
+            checks_by_owner.setdefault(check.module, []).append(check.name)
+
+    return {
+        _package_of(mod): sorted(checks_by_owner[mod.meta.name])
+        for mod in getattr(request.app.state.sm, "modules", ())
+        if mod.meta.name in checks_by_owner
+    }
 
 
 @router.post(
