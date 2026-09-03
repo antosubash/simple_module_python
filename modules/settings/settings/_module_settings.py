@@ -10,6 +10,7 @@ import os
 import re
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI
 from pydantic_settings import BaseSettings
@@ -35,6 +36,30 @@ _NEVER_SECRET_TYPES = frozenset({"int", "float", "bool"})
 def is_secret_field(name: str) -> bool:
     """True if a field name suggests it holds credential material."""
     return bool(_SECRET_PATTERNS.search(name))
+
+
+def embeds_credential(value: Any) -> bool:
+    """True if ``value`` is a URL carrying a password in its authority.
+
+    The name rule alone cannot see these: ``broker_url``, ``result_backend``,
+    ``redis_url`` and ``database_url`` match nothing in
+    :data:`_SECRET_PATTERNS`, yet a production DSN is precisely where the
+    Redis and Postgres passwords live — and those fields are ``env_readable``,
+    so the value reached both the module editor and the ``known_keys``
+    suggestion list in clear text.
+
+    Judged on the value rather than the name because the name is the thing
+    that was wrong. A DSN without a password stays visible: hiding
+    ``redis://localhost:6379/0`` helps nobody debug why the queue is idle.
+    """
+    if not isinstance(value, str) or "://" not in value:
+        return False
+    try:
+        return bool(urlsplit(value).password)
+    except ValueError:
+        # A malformed authority (an unclosed IPv6 literal, say) is not a
+        # credential, but it must not take the settings screen down either.
+        return False
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,7 +176,7 @@ def _field_view(
     # "mask only strings" so the failure direction is safe: an unexpected type
     # (e.g. `str | None`, which resolves to "json") stays masked instead of
     # silently exposing a secret.
-    secret = value_type not in _NEVER_SECRET_TYPES and is_secret_field(name)
+    named_secret = value_type not in _NEVER_SECRET_TYPES and is_secret_field(name)
     extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
     default = resolve_default(info)
     env_var = f"{prefix}{name.upper()}"
@@ -160,11 +185,22 @@ def _field_view(
     # ``live_env_var`` is not None whenever env_set is True, but the narrowing
     # is spelled out so a future edit cannot turn this into ``os.environ[None]``.
     raw_env = os.environ[live_env_var] if env_set and live_env_var is not None else None
+
+    def hidden(value: Any) -> bool:
+        """Mask per *value*, not just per name: a DSN carrying a password is a
+        secret even on a field called ``broker_url``, while the same field's
+        password-free default is still worth showing."""
+        return named_secret or embeds_credential(value)
+
+    # ``is_secret`` drives the editor's input type and the "reveal" affordance,
+    # so it has to be true when *any* of the three readings is being hidden —
+    # otherwise the form offers to edit a value it is showing as dots.
+    secret = named_secret or any(embeds_credential(v) for v in (raw_value, default, raw_env))
     return ModuleSettingField(
         name=name,
         env_var=env_var,
-        value=_mask(raw_value) if secret else raw_value,
-        default=_mask(default) if secret else default,
+        value=_mask(raw_value) if hidden(raw_value) else raw_value,
+        default=_mask(default) if hidden(default) else default,
         description=info.description or "",
         is_secret=secret,
         type=value_type,
@@ -176,7 +212,7 @@ def _field_view(
         # Masked on the same rule as ``value`` and ``default``: a secret stays
         # hidden, everything else is shown. Masking unconditionally turned the
         # Resolved value panel's env row into a row of dots for every key.
-        env_value=(_mask(raw_env) if secret else raw_env) if raw_env is not None else None,
+        env_value=(_mask(raw_env) if hidden(raw_env) else raw_env) if raw_env is not None else None,
         choices=choices_for(info),
     )
 
