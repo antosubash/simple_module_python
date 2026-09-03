@@ -19,7 +19,23 @@ the target route as usual.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
+from typing import Any
+
+LabelResolver = Callable[[Any, list[str]], Awaitable[dict[str, str]]]
+"""Batch "what is this row called" for one entity type.
+
+Called with the request's database session and every entity id of that type on
+the page, and returns ``{entity_id: display name}``. Ids it cannot name are
+simply absent — the caller falls back to the id, which is what the audit row
+actually stored.
+
+The session is typed ``Any`` because ``simple_module_core`` must not depend on
+SQLAlchemy; in practice it is the ``AsyncSession`` the request is already
+using, so a resolver adds one query per entity type per page and no session
+management of its own.
+"""
 
 _ID_PLACEHOLDER = "{id}"
 
@@ -43,12 +59,27 @@ class AuditLink:
             to ``label`` — a missing translation shows English rather than a
             raw dotted key. Rows are rendered server-side, so the audit view
             translates these before they reach the page.
+        table_name: ``__tablename__`` of the table these rows live in
+            (``"users_user"``), shown as the type tag beside the row's name.
+            Not derivable from ``entity_type`` in either direction, so the
+            module that owns the table states both. ``None`` falls back to the
+            class name.
+        label_resolver: Optional :data:`LabelResolver` naming individual rows.
+            Without it a reader gets a primary key and has to paste it into
+            another screen to learn which record changed; only the owning
+            module knows that a ``Setting`` is named by its key and a ``User``
+            by ``full_name or email``. Excluded from equality: it is typically
+            a closure, and two boots would build two unequal objects out of one
+            module — a registry conflict is about two modules claiming one
+            entity type, which the identity fields already express.
     """
 
     entity_type: str
     url_template: str
     label: str = ""
     label_key: str = ""
+    table_name: str | None = None
+    label_resolver: LabelResolver | None = field(default=None, compare=False)
 
     def __post_init__(self) -> None:
         if _ID_PLACEHOLDER not in self.url_template:

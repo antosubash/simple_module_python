@@ -1,40 +1,42 @@
 {
   "browse": {
-    "title": "Audit Log",
-    "description": "Track all entity changes across the system.",
+    "title": "Audit log",
+    "description": "Field-level change history across all modules",
+    "export_csv": "Export CSV",
     "empty_title": "No audit entries",
     "empty_description": "Changes to entities will appear here automatically.",
     "no_match_title": "No entries match these filters",
     "no_match_description": "Entries exist outside the current filters.",
     "clear_filters": "Clear filters",
-    "showing": "Showing {from}–{to} of {total} entries",
+    "showing": "Showing {from}–{to} of {total}",
     "previous": "Previous",
     "next": "Next"
   },
   "filters": {
-    "entity_type_label": "Entity Type",
+    "entity_type_label": "Entity type",
     "entity_type_all": "All types",
     "action_label": "Action",
     "action_all": "All actions",
-    "user_label": "User ID",
-    "user_placeholder": "Filter by user…",
-    "from_date_label": "From",
-    "to_date_label": "To",
+    "user_label": "Actor",
+    "user_placeholder": "Anyone",
+    "date_range_label": "Date range",
+    "date_range_any": "Any date",
+    "date_range_reset": "Clear dates",
     "apply": "Apply",
     "clear": "Clear"
   },
   "table": {
-    "timestamp": "Timestamp",
+    "timestamp": "Time",
     "action": "Action",
     "entity": "Entity",
-    "user": "User",
+    "user": "Actor",
     "changes": "Changes"
   },
   "actions": {
-    "created": "Created",
-    "updated": "Updated",
-    "deleted": "Deleted",
-    "soft_deleted": "Archived"
+    "created": "created",
+    "updated": "updated",
+    "deleted": "deleted",
+    "soft_deleted": "archived"
   },
   "correlation": {
     "view_related": "Related",
@@ -46,10 +48,10 @@
   },
   "changes": {
     "fields_set": "{count} fields set",
-    "show_more": "Show {count} more…",
+    "show_more": "+{count} more fields",
     "show_less": "Show less",
-    "system_user": "System",
-    "no_changes": "—",
+    "system_user": "system",
+    "no_changes": "no changes recorded",
     "unresolved_user": "No matching account for this id",
     "fields_set_one": "{count} field set",
     "fields_set_other": "{count} fields set"

@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.resources
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, FastAPI
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
@@ -27,7 +28,35 @@ from feature_flags.constants import (
     VIEW_PREFIX,
 )
 
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
 _logger = logging.getLogger(__name__)
+
+
+async def _resolve_override_labels(db: AsyncSession, ids: list[str]) -> dict[str, str]:
+    """Name an override row by the flag it overrides.
+
+    The row's primary key is an autoincrementing integer with no meaning
+    outside the table. What a reader of "someone changed override 12" wants to
+    know is *which flag* — so the label is the flag name, not the id, and not
+    the row's scope (which the flags screen shows once the link is followed).
+    """
+    from sqlalchemy import select
+
+    from feature_flags.models import FeatureFlagOverride
+
+    numeric = {int(raw): raw for raw in ids if raw.lstrip("-").isdigit()}
+    if not numeric:
+        return {}
+    rows = (
+        await db.execute(
+            select(FeatureFlagOverride.id, FeatureFlagOverride.name).where(
+                FeatureFlagOverride.id.in_(list(numeric))
+            )
+        )
+    ).all()
+    return {numeric.get(row_id, str(row_id)): name for row_id, name in rows}
 
 
 class FeatureFlagsModule(ModuleBase):
@@ -76,10 +105,13 @@ class FeatureFlagsModule(ModuleBase):
         registry.register(
             AuditLink(
                 # Class name, not __tablename__ — see AuditLink.entity_type.
+                # The table name travels alongside as the audit log's type tag.
                 entity_type=FeatureFlagOverride.__name__,
                 url_template=f"{MENU_URL}?{QP_OVERRIDE}={{id}}",
                 label=AUDIT_LINK_LABEL,
                 label_key=AUDIT_LINK_LABEL_KEY,
+                table_name=FeatureFlagOverride.__tablename__,
+                label_resolver=_resolve_override_labels,
             )
         )
 

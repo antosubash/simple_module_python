@@ -16,20 +16,46 @@ from users.models import User
 
 def _registry() -> AuditLinkRegistry:
     reg = AuditLinkRegistry()
-    reg.register(AuditLink(entity_type="User", url_template="/admin/users/{id}", label="User"))
+    reg.register(
+        AuditLink(
+            entity_type="User",
+            url_template="/admin/users/{id}",
+            label="User",
+            table_name="users_user",
+        )
+    )
     return reg
 
 
 class TestEntityLink:
     def test_registered_table_resolves_to_a_url(self):
         ref = entity_link(_registry(), "User", "a91")
-        assert ref == {"url": "/admin/users/a91", "label": "User"}
+        assert ref == {
+            "url": "/admin/users/a91",
+            "label": "User",
+            "display": "a91",
+            "table_name": "users_user",
+        }
+
+    def test_a_resolved_name_titles_the_cell(self):
+        ref = entity_link(_registry(), "User", "a91", None, "Sam Okafor")
+        assert ref["display"] == "Sam Okafor"
+
+    def test_an_unresolved_name_falls_back_to_the_id(self):
+        """The id is never friendly and never wrong."""
+        assert entity_link(_registry(), "User", "a91")["display"] == "a91"
 
     def test_unclaimed_table_renders_unlinked(self):
         """Join rows and blob stores have no screen — the id still shows."""
         ref = entity_link(_registry(), "UserPermission", "x1")
         assert ref["url"] is None
         assert ref["label"] == "UserPermission"
+        assert ref["display"] == "x1"
+
+    def test_unclaimed_table_tags_with_the_class_name(self):
+        """No owner means no ``__tablename__`` to show — the class name is
+        still something a developer can grep for."""
+        assert entity_link(_registry(), "UserPermission", "x1")["table_name"] == "UserPermission"
 
     def test_missing_label_falls_back_to_the_table_name(self):
         reg = AuditLinkRegistry()

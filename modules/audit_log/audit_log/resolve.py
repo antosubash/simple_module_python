@@ -7,22 +7,36 @@ leaves the screen showing two uuids per row and no route to either record.
 This module resolves both at render time:
 
 * ``resolve_actors`` batches one query for every user id on the page.
+* ``resolve_entity_labels`` asks each owning module what its rows are *called*,
+  one batched call per entity type on the page.
 * ``entity_link`` consults the host's :class:`AuditLinkRegistry`, which each
-  module populates with the URL template for its own tables.
+  module populates with the URL template and table name for its own tables.
 
-Neither is stored. The audit row keeps the id it recorded.
+None of it is stored. The audit row keeps the ids it recorded.
 """
 
 from __future__ import annotations
 
+import logging
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from simple_module_core.audit_links import AuditLinkRegistry
-from sqlalchemy import select
+from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from users.audit import resolve_user_labels
 from users.models import User
+
+logger = logging.getLogger(__name__)
+
+_MAX_ACTOR_MATCHES = 500
+"""Ceiling on how many accounts one Actor search may resolve to.
+
+A name search that matches more people than this is not a filter, and the ids
+it produces are spent as bind parameters in the audit query.
+"""
 
 
 async def resolve_actors(db: AsyncSession, user_ids: list[str | None]) -> dict[str, str]:
@@ -31,37 +45,95 @@ async def resolve_actors(db: AsyncSession, user_ids: list[str | None]) -> dict[s
     One query for the whole page rather than one per row: an audit page is 50
     entries and the same handful of admins tend to appear on all of them.
 
-    Ids that no longer resolve (deleted accounts) are simply absent from the
-    result — the caller falls back to showing the raw id, which is still the
-    truthful record of who acted.
+    Delegates the naming rule itself to ``users.audit`` — the actor column and
+    the entity column both point at user rows, and two copies of "full_name or
+    email" is two chances for the same row to be called two things on one
+    screen. Ids that no longer resolve (deleted accounts) or never named an
+    account at all are simply absent from the result — the caller falls back to
+    showing the raw id, which is still the truthful record of who acted.
     """
-    wanted = {uid for uid in user_ids if uid}
+    wanted = sorted({uid for uid in user_ids if uid})
     if not wanted:
         return {}
+    return await resolve_user_labels(db, wanted)
 
-    # Audit rows store the id as text; the users table keys on UUID. Ids that
-    # aren't parseable belong to some other id space, so skip rather than
-    # fail the page.
-    parsed: dict[uuid.UUID, str] = {}
-    for raw in wanted:
-        try:
-            parsed[uuid.UUID(raw)] = raw
-        except (ValueError, AttributeError, TypeError):
-            continue
-    if not parsed:
-        return {}
 
+async def resolve_actor_ids(db: AsyncSession, term: str) -> list[str]:
+    """User ids matching what was typed into the Actor box.
+
+    A uuid means that account and only that account — an id is unambiguous and
+    resolving it through a name search could widen it. Anything else is a
+    substring of a name or an email, which is what someone investigating an
+    incident actually has to hand.
+
+    An empty list is a real answer ("nobody is called that") and the caller
+    must filter on it rather than dropping the filter: silently returning
+    every row would read as "everyone did this".
+    """
+    term = term.strip()
+    if not term:
+        return []
+    try:
+        return [str(uuid.UUID(term))]
+    except (ValueError, AttributeError, TypeError):
+        pass
+
+    pattern = like_contains_pattern(term)
     rows = (
         await db.execute(
-            select(User.id, User.email, User.full_name).where(User.id.in_(list(parsed)))
+            select(User.id)
+            .where(
+                or_(
+                    User.full_name.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
+                    User.email.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
+                )
+            )
+            # The matches become an IN list, so an unbounded search ("a") on a
+            # large install would build a statement with more bind parameters
+            # than Postgres accepts. Ordered so the bound is at least stable
+            # between two runs of the same too-broad search.
+            .order_by(User.email)
+            .limit(_MAX_ACTOR_MATCHES)
         )
-    ).all()
+    ).scalars()
+    return [str(row) for row in rows]
 
-    resolved: dict[str, str] = {}
-    for user_id, email, full_name in rows:
-        raw = parsed.get(user_id) or str(user_id)
-        resolved[raw] = full_name or email
-    return resolved
+
+async def resolve_entity_labels(
+    db: AsyncSession,
+    registry: AuditLinkRegistry,
+    refs: Iterable[tuple[str, str]],
+) -> dict[tuple[str, str], str]:
+    """Map ``(entity_type, entity_id)`` -> display name for one page of rows.
+
+    Grouped by entity type and dispatched to the owning module's resolver, so
+    a page of 50 user edits costs one query and not fifty. Types whose owner
+    registered no resolver — or none at all — are absent, and the caller shows
+    the id.
+
+    A resolver that raises is logged and skipped rather than allowed to fail
+    the render: the audit log's job is to show what happened, and it can still
+    do that with an id where a name would have been.
+    """
+    by_type: dict[str, set[str]] = {}
+    for entity_type, entity_id in refs:
+        if entity_id:
+            by_type.setdefault(entity_type, set()).add(entity_id)
+
+    labels: dict[tuple[str, str], str] = {}
+    for entity_type, ids in by_type.items():
+        link = registry.get(entity_type)
+        if link is None or link.label_resolver is None:
+            continue
+        try:
+            resolved = await link.label_resolver(db, sorted(ids))
+        except Exception:
+            logger.exception("Audit label resolver failed for %s", entity_type)
+            continue
+        for entity_id, label in resolved.items():
+            if label:
+                labels[(entity_type, entity_id)] = label
+    return labels
 
 
 USER_ENTITY_TYPE = User.__name__
@@ -96,22 +168,42 @@ def entity_link(
     entity_type: str,
     entity_id: str,
     translate: Callable[[str], str] | None = None,
+    display: str | None = None,
 ) -> dict[str, Any]:
-    """Return ``{"url", "label"}`` for one entity reference.
+    """Return ``{"url", "label", "display", "table_name"}`` for one reference.
 
-    ``url`` is ``None`` when no module claims this table — the id still
+    ``url`` is ``None`` when no module claims this table — the row still
     renders, just without a link, which is the correct outcome for tables that
     have no screen of their own (join rows, stored files).
 
+    ``display`` is what the cell is titled with: the resolved row name where
+    the owner could supply one, and otherwise the stored id, which is never
+    wrong even when it is not friendly. ``table_name`` is the muted tag beside
+    it and falls back to the class name for unclaimed types, because "some
+    table" is worse than a name a developer can at least grep for.
+
     ``translate`` resolves the link's ``label_key``; an unresolved key (the
-    Translator echoes it back) keeps the literal ``label``.
+    Translator echoes it back) keeps the literal ``label``. ``label`` names the
+    *kind* of row and stays on the payload for callers that summarise rather
+    than tabulate.
     """
     link = registry.get(entity_type)
+    shown = display or entity_id
     if link is None:
-        return {"url": None, "label": entity_type}
+        return {
+            "url": None,
+            "label": entity_type,
+            "display": shown,
+            "table_name": entity_type,
+        }
     label = link.label or entity_type
     if link.label_key and translate is not None:
         translated = translate(link.label_key)
         if translated != link.label_key:
             label = translated
-    return {"url": link.url_for(entity_id), "label": label}
+    return {
+        "url": link.url_for(entity_id),
+        "label": label,
+        "display": shown,
+        "table_name": link.table_name or entity_type,
+    }

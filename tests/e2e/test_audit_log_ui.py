@@ -33,9 +33,9 @@ def test_audit_log_renders_with_data(page: Page, e2e_username: str, e2e_password
 
     page.goto("/admin/audit-log/")
 
-    expect(page.get_by_role("heading", name="Audit Log")).to_be_visible()
+    expect(page.get_by_role("heading", name="Audit log")).to_be_visible()
 
-    expect(page.get_by_role("columnheader", name="Timestamp")).to_be_visible()
+    expect(page.get_by_role("columnheader", name="Time")).to_be_visible()
     expect(page.get_by_role("columnheader", name="Action")).to_be_visible()
     expect(page.get_by_role("columnheader", name="Entity")).to_be_visible()
 
@@ -97,10 +97,12 @@ def test_audit_log_filter_by_entity_type(page: Page, e2e_username: str, e2e_pass
 
     page.goto("/admin/audit-log/?entity_type=User&action=updated")
 
-    expect(page.get_by_role("heading", name="Audit Log")).to_be_visible()
+    expect(page.get_by_role("heading", name="Audit log")).to_be_visible()
 
     cells = page.get_by_role("cell")
     expect(cells.first).to_be_visible()
 
-    user_cell_count = page.locator('css=td:has-text("User")').count()
+    # The entity cell now reads "<display name> users_user": the row is named
+    # by the module that owns it, tagged with the table it lives in.
+    user_cell_count = page.locator('css=td:has-text("users_user")').count()
     assert user_cell_count > 0, "Expected at least one User row after filtering"
