@@ -63,9 +63,12 @@ export function AppTopbar({ navItems, accountItems, currentUrl, activeMenuItem }
   const { t } = useT();
   const heading = usePageHeading(currentUrl);
   // Signing out was reachable only from the avatar dropdown and ⌘K. The item
-  // itself stays registry-owned — whichever auth provider is installed
-  // contributes the one account entry that must be POSTed.
-  const logout = accountItems.find(isPostMenuItem);
+  // itself stays registry-owned: every auth provider registers exactly one
+  // USER_DROPDOWN entry with `icon="log-out"` and `method="post"` (users,
+  // keycloak). Matching the icon first means a second POST account action —
+  // which the invariant does not forbid — cannot be mislabelled "Log out".
+  const postItems = accountItems.filter(isPostMenuItem);
+  const logout = postItems.find((entry) => entry.icon === 'log-out') ?? postItems[0];
   const section = activeMenuItem;
   // Only a genuine sub-page earns a second crumb — on a section's own index the
   // heading and the section name are the same word, and "Users / Users" is noise.

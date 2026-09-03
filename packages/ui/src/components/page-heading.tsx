@@ -94,9 +94,12 @@ export function useReportPageHeading(
   // A page re-creates its handler on every render. Keying the report on it
   // would publish a new heading each time, re-render the provider, and loop —
   // so the latest handler is read through a ref and the published wrapper
-  // stays identical across renders.
+  // stays identical across renders. Written in an effect rather than during
+  // render: a render may be thrown away, and this ref outlives it.
   const onClickRef = useRef(action?.onClick);
-  onClickRef.current = action?.onClick;
+  useEffect(() => {
+    onClickRef.current = action?.onClick;
+  }, [action?.onClick]);
   const next = useMemo<Heading>(
     () => ({
       title,

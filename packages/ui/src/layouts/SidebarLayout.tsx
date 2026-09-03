@@ -15,7 +15,7 @@ import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
 import { BrandingMark } from '../components/BrandingMark';
-import { LocaleSwitcher } from '../components/LocaleSwitcher';
+import { LocaleSwitcher, useHasMultipleLocales } from '../components/LocaleSwitcher';
 import { NavIcon } from '../components/NavIcon';
 import { PageHeadingProvider, usePageSection } from '../components/page-heading';
 import { darkSurfaceLogo } from '../lib/brand';
@@ -108,6 +108,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
     [menus?.sidebar, menus?.adminSidebar],
   );
   const declaredSection = usePageSection(currentUrl);
+  const hasLocaleChoice = useHasMultipleLocales();
   // Same "which entry does this page belong to" resolution AppTopbar uses for
   // the breadcrumb, so the sidebar highlight and the breadcrumb never disagree.
   const active = activeSection(menuItems, currentUrl) ?? findSection(menuItems, declaredSection);
@@ -226,10 +227,14 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
 
           {/* The topbar carries the locale on desktop; on a phone it belongs
               here rather than in the bar, where the deck puts the page title
-              and the page's own action. */}
-          <div className="border-t border-white/[0.06] px-3 py-2 lg:hidden">
-            <LocaleSwitcher className="w-full min-h-11 border-white/15 text-app-sidebar-text hover:bg-white/10 hover:text-white" />
-          </div>
+              and the page's own action. A single-locale install gets nothing:
+              the topbar's inert pill exists to balance a row of controls, and
+              there is no such row here. */}
+          {hasLocaleChoice && (
+            <div className="border-t border-white/[0.06] px-3 py-2 lg:hidden">
+              <LocaleSwitcher className="w-full min-h-11 border-white/15 text-app-sidebar-text hover:bg-white/10 hover:text-white" />
+            </div>
+          )}
 
           {/* User section — avatar row opens a dropdown with Profile / Logout / etc. */}
           {auth?.user && (

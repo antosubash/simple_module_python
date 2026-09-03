@@ -36,7 +36,12 @@ vi.mock('@simple-module-py/i18n', () => {
   };
 });
 
-import { LocaleSwitcher } from './LocaleSwitcher';
+import { LocaleSwitcher, useHasMultipleLocales } from './LocaleSwitcher';
+
+/** Stands in for the drawer footer, which renders its strip only when true. */
+function LocaleGate() {
+  return <span data-testid="gate">{String(useHasMultipleLocales())}</span>;
+}
 
 describe('LocaleSwitcher', () => {
   beforeEach(() => {
@@ -65,5 +70,19 @@ describe('LocaleSwitcher', () => {
     render(<LocaleSwitcher />);
     expect(screen.queryByRole('button')).toBeNull();
     expect(screen.getByTitle('Only EN is enabled')).toHaveTextContent('EN');
+  });
+});
+
+describe('useHasMultipleLocales', () => {
+  test('is true when the install offers a choice', () => {
+    i18nProps.current = { locale: 'en', supportedLocales: ['en', 'es'], messages: {} };
+    render(<LocaleGate />);
+    expect(screen.getByTestId('gate')).toHaveTextContent('true');
+  });
+
+  test('is false on a single-locale install, so the drawer omits the strip', () => {
+    i18nProps.current = { locale: 'en', supportedLocales: ['en'], messages: {} };
+    render(<LocaleGate />);
+    expect(screen.getByTestId('gate')).toHaveTextContent('false');
   });
 });

@@ -27,15 +27,19 @@ vi.mock('@simple-module-py/i18n', () => {
   };
 });
 
-import { PageHeadingProvider, useReportPageHeading } from '../components/page-heading';
+import {
+  type Heading,
+  PageHeadingProvider,
+  useReportPageHeading,
+} from '../components/page-heading';
 import { MobileBar } from './MobileBar';
 import { DEFAULT_SIDEBAR_THEME } from './sidebar-theme';
 
 const THEME = { ...DEFAULT_SIDEBAR_THEME, mobileTitleLabel: 'SimpleModule' };
 const USER = { name: 'Ada Rowe', email: 'ada@example.com', roles: ['admin'] };
 
-function Page({ heading }: { heading: Parameters<typeof useReportPageHeading>[0] }) {
-  useReportPageHeading(heading as never);
+function Page({ heading }: { heading: Omit<Heading, 'url'> }) {
+  useReportPageHeading(heading);
   return null;
 }
 

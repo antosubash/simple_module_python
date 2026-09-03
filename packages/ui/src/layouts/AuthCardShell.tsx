@@ -40,19 +40,15 @@ export function AuthCardShell({
   const logoUrl = branding?.logoUrl ?? null;
   const widthClass = width === 'lg' ? 'max-w-lg' : 'max-w-md';
 
-  // Absolute so the banner spans the shell's full width without the centring
-  // flex column shrinking it to the card's width.
-  const banner = (
-    <div className="absolute inset-x-0 top-0 z-10">
-      <BrandingBanner />
-    </div>
-  );
-
   if (variant === 'card') {
     return (
       <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-secondary/40 p-4">
         <BrandingHead />
-        {banner}
+        {/* Absolute so the banner spans the shell's full width without the
+            centring flex column shrinking it to the card's width. */}
+        <div className="absolute inset-x-0 top-0 z-10">
+          <BrandingBanner />
+        </div>
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute -top-[10%] -right-[10%] h-[600px] w-[600px] rounded-full bg-primary-600 opacity-15 blur-[100px]" />
           <div className="absolute -bottom-[10%] -left-[10%] h-[500px] w-[500px] rounded-full bg-primary-800 opacity-15 blur-[100px]" />
@@ -80,9 +76,14 @@ export function AuthCardShell({
   const dark = variant === 'split-dark';
 
   return (
-    <main className="relative grid min-h-screen grid-cols-1 lg:grid-cols-[1.05fr_1fr]">
+    // The banner is a row of its own here rather than an overlay: the aside's
+    // lockup sits in the top-left corner of the dark column, exactly where an
+    // absolutely positioned banner would cover it.
+    <main className="relative grid min-h-screen grid-cols-1 lg:grid-cols-[1.05fr_1fr] lg:grid-rows-[auto_1fr]">
       <BrandingHead />
-      {banner}
+      <div className="lg:col-span-2">
+        <BrandingBanner />
+      </div>
       <div
         className={
           dark

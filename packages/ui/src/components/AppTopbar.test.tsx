@@ -131,6 +131,27 @@ describe('AppTopbar log out', () => {
     expect(button).toHaveAttribute('data-href', '/users/logout');
   });
 
+  it('prefers the log-out item over another post action', () => {
+    const bulk: MenuItem = {
+      label: 'Clear cache',
+      url: '/admin/cache/clear',
+      icon: 'trash',
+      method: 'post',
+    };
+    render(
+      <AppTopbar
+        navItems={NAV}
+        accountItems={[PROFILE, bulk, LOGOUT]}
+        currentUrl="/dashboard/"
+        activeMenuItem={null}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Log out' })).toHaveAttribute(
+      'data-href',
+      '/users/logout',
+    );
+  });
+
   it('renders no log out control when the menu has no post item', () => {
     render(
       <AppTopbar

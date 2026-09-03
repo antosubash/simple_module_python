@@ -37,6 +37,19 @@ interface I18nSharedProps {
   messages: Record<string, string>;
 }
 
+/**
+ * Whether this install offers a real choice of locale.
+ *
+ * The topbar keeps an inert pill on a single-locale install because its right
+ * cluster would otherwise look unfinished, but a phone drawer has no such
+ * cluster — there a lone pill is a bordered strip that does nothing. Callers
+ * that place the control ask this first.
+ */
+export function useHasMultipleLocales(): boolean {
+  const i18n = usePage<{ i18n?: I18nSharedProps }>().props.i18n;
+  return (i18n?.supportedLocales.length ?? 0) > 1;
+}
+
 export function LocaleSwitcher({ className = '' }: { className?: string }) {
   const page = usePage<{ i18n?: I18nSharedProps }>();
   const i18n = page.props.i18n;

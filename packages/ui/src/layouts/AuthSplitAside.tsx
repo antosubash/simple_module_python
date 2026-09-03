@@ -45,8 +45,11 @@ export function AuthSplitAside({ heading, body, checks }: AuthSplitAsideProps): 
         </h2>
         <p className="max-w-[400px] text-[15.5px] leading-relaxed text-dark-text-muted">{body}</p>
         <ul className="mt-1.5 flex flex-col gap-2.5">
-          {checks.map((check) => (
-            <li key={check} className="flex items-center gap-2.5 text-sm text-dark-text">
+          {checks.map((check, index) => (
+            // Index-keyed: the list is a fixed prop for the life of the render
+            // and nothing forbids a caller repeating a line.
+            // biome-ignore lint/suspicious/noArrayIndexKey: see above
+            <li key={index} className="flex items-center gap-2.5 text-sm text-dark-text">
               <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-primary-300" />
               {check}
             </li>

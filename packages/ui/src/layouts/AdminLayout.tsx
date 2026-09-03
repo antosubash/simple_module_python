@@ -3,12 +3,12 @@ import { keys, useT } from '@simple-module-py/i18n';
 import type React from 'react';
 import { DEFAULT_SIDEBAR_THEME, SidebarLayout } from './SidebarLayout';
 
-// The app sidebar's surface, with a red active pill: the admin area announces
-// itself through the panel badge and its own menu, and the one row that says
-// "you are here" is the one place a different colour is worth spending.
+// Same visual language as the app sidebar — the admin area announces itself
+// through the panel badge and its own menu, not through an alarm colour. The
+// active row is the deck's solid primary pill in both shells, so moving
+// between them changes what the nav lists, not how it reads.
 const THEME = {
   ...DEFAULT_SIDEBAR_THEME,
-  activeClass: 'bg-red-600 text-white',
   mobileTitleLabel: 'Admin',
 } as const;
 
