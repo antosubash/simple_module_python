@@ -30,6 +30,14 @@ bulk_router = APIRouter()
 
 STATUS_SENT = "sent"
 STATUS_LINK = "link"
+
+MAILER_FAILURE_DETAIL = "The invitation could not be emailed — use the link instead."
+"""What an admin is told when delivery fails.
+
+Deliberately not ``str(exc)``: an SMTP error quotes the host, the port and
+sometimes the credential it tried, and this response is rendered straight
+into an admin screen. The real message goes to the log, where it is one
+correlation id away and not on anybody's screenshot."""
 STATUS_FAILED = "failed"
 
 MAX_ADDRESSES = 100
@@ -147,16 +155,16 @@ async def admin_bulk_invite(
         if delivers:
             try:
                 await mailer.send_invite(user.email, token, invited_by_name, data.message)
-            except Exception as exc:
+            except Exception:
                 # The account exists and the token is valid — the delivery
                 # failed. Handing back the link turns a dead end into a
                 # copy-paste, rather than stranding a half-finished invite.
-                logger.warning("invite mail failed for %s: %s", email, exc)
+                logger.exception("invite mail failed for %s", email)
                 results.append(
                     BulkInviteResult(
                         email=email,
                         status=STATUS_LINK,
-                        detail=str(exc),
+                        detail=MAILER_FAILURE_DETAIL,
                         link=invite_link(request, token),
                     )
                 )

@@ -191,3 +191,34 @@ class TestInviteTokenClaims:
         )
         assert payload["invited_by"] == "Test Admin"
         assert "exp" in payload
+
+
+class TestMailerFailureIsNotEchoed:
+    """An SMTP error quotes the host, the port and sometimes the credential."""
+
+    @pytest.mark.anyio
+    async def test_the_admin_gets_the_link_and_a_generic_reason(
+        self, admin_client, users_app, caplog
+    ):
+        from users.admin.bulk_invite import MAILER_FAILURE_DETAIL
+
+        class _BrokenMailer(_SpyMailer):
+            async def send_invite(self, email, token, invited_by_name, message=None):
+                raise RuntimeError("smtp://relay:s3cret@mail.internal:587 refused AUTH")
+
+        user_id = await _invite(admin_client, "broken@example.com")
+        original = users_app.state.users.mailer
+        users_app.state.users.mailer = _BrokenMailer()
+        try:
+            with caplog.at_level(logging.ERROR, logger="users.admin.resend_invite"):
+                resp = await admin_client.post(f"/api/users/admin/{user_id}/resend-invite")
+        finally:
+            users_app.state.users.mailer = original
+
+        assert resp.status_code == 202, resp.text
+        body = resp.json()
+        assert body["status"] == "link"
+        assert body["detail"] == MAILER_FAILURE_DETAIL
+        assert "s3cret" not in resp.text
+        # The real reason is not lost — it is one log line away.
+        assert "s3cret" in caplog.text

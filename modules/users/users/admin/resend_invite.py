@@ -19,7 +19,12 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi import status as http_status
 
-from users.admin.bulk_invite import STATUS_LINK, STATUS_SENT, invite_link
+from users.admin.bulk_invite import (
+    MAILER_FAILURE_DETAIL,
+    STATUS_LINK,
+    STATUS_SENT,
+    invite_link,
+)
 from users.admin.service import UserService
 from users.contracts.schemas import BulkInviteResult
 from users.deps import get_mailer, get_user_service
@@ -68,14 +73,14 @@ async def admin_resend_invite(
     if mailer_delivers(mailer):
         try:
             await mailer.send_invite(user.email, token, invited_by_name)
-        except Exception as exc:
+        except Exception:
             # The token is valid and the account is waiting; only delivery
             # failed. Handing back the link turns a dead end into a copy-paste.
-            logger.warning("invite resend mail failed for %s: %s", user.email, exc)
+            logger.exception("invite resend mail failed for %s", user.email)
             return BulkInviteResult(
                 email=user.email,
                 status=STATUS_LINK,
-                detail=str(exc),
+                detail=MAILER_FAILURE_DETAIL,
                 link=invite_link(request, token),
             )
         return BulkInviteResult(email=user.email, status=STATUS_SENT)
