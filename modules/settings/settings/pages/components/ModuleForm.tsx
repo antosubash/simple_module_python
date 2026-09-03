@@ -112,7 +112,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="flex flex-1 flex-col gap-4">
       {/* Outside the card: the heading names the pane, and the deck keeps the
           card for the fields alone. */}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -142,8 +142,10 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
         </div>
       </header>
 
-      <Card className="flex min-h-0 flex-1 flex-col gap-4 border-border p-6">
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+      <Card className="flex flex-1 flex-col gap-4 border-border p-6">
+        {/* No inner scroller: the card grows and the page scrolls, which is
+            one scrollbar for the screen instead of three nested ones. */}
+        <div className="flex flex-col gap-4">
           {groups.map(([group, fields]) => (
             <section key={group} className="flex flex-col gap-4">
               {group && <h2 className="text-sm font-semibold text-muted-foreground">{group}</h2>}

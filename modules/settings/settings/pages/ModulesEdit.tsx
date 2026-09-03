@@ -37,11 +37,15 @@ function ModulesEdit({ modules, testable = {} }: Props) {
   return (
     <>
       <Head title={t(keys.settings.modules.head_title)} />
-      {/* Master/detail pane fills the viewport minus the chrome above it,
-          whose height the layout publishes as --app-chrome-h. Below `lg` the
-          two panes stack instead, so a 390px screen never scrolls sideways. */}
-      <div className="flex flex-col bg-background lg:h-[calc(100vh-var(--app-chrome-h))] lg:flex-row">
-        <aside className="flex w-full shrink-0 flex-col border-b border-border bg-secondary/40 p-3.5 max-lg:max-h-72 max-lg:overflow-y-auto lg:w-[230px] lg:border-b-0 lg:border-r lg:py-5">
+      {/* The page scrolls, not the pane. Pinning the pane to
+          `100vh - --app-chrome-h` ignored the footer below it, so the shell
+          grew past the viewport and the window scrollbar appeared *beside* the
+          pane's own — two scrollbars for one list. A min-height gives the same
+          full-viewport look, and the module list sticks under the topbar
+          instead of scrolling itself. Below `lg` the two panes stack, so a
+          390px screen never scrolls sideways. */}
+      <div className="flex flex-col bg-background lg:min-h-[calc(100vh-var(--app-chrome-h))] lg:flex-row">
+        <aside className="flex w-full shrink-0 flex-col border-b border-border bg-secondary/40 p-3.5 max-lg:max-h-72 max-lg:overflow-y-auto lg:sticky lg:top-[var(--app-chrome-h)] lg:max-h-[calc(100vh-var(--app-chrome-h))] lg:w-[230px] lg:self-start lg:overflow-y-auto lg:border-b-0 lg:border-r lg:py-5">
           <div className="relative mb-2">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -64,7 +68,10 @@ function ModulesEdit({ modules, testable = {} }: Props) {
                   key={m.package}
                   type="button"
                   onClick={() => setSelected(m.package)}
-                  className={`flex flex-col gap-0.5 rounded-lg px-3 py-2.5 text-left transition-colors max-lg:min-h-11 ${
+                  // `shrink-0`: inside a scrolling flex column the buttons
+                  // were shrinkable, so a long module list on a phone squashed
+                  // every row to a 5px sliver instead of scrolling.
+                  className={`flex shrink-0 flex-col gap-0.5 rounded-lg px-3 py-2.5 text-left transition-colors max-lg:min-h-11 ${
                     isActive
                       ? 'bg-primary-600/10 text-primary-700'
                       : 'text-foreground hover:bg-card'
@@ -100,7 +107,9 @@ function ModulesEdit({ modules, testable = {} }: Props) {
           </div>
         </aside>
 
-        <main className="flex min-w-0 flex-1 flex-col p-4 sm:p-6 lg:overflow-y-auto lg:px-8">
+        {/* `pb-10` rather than a fade: the fields list ends on a full row with
+            breathing room under it, not half a row cut off by the pane edge. */}
+        <main className="flex min-w-0 flex-1 flex-col p-4 sm:p-6 lg:px-8 lg:pb-10">
           {current?.manage_url ? (
             <Card className="border-border p-8">
               {/* No second editor for these fields — the module's own page is

@@ -37,9 +37,11 @@ export function ModuleFieldRow({
   const showDescription = field.description && field.type !== 'bool';
 
   return (
-    <div className="grid gap-3 sm:grid-cols-[170px_1fr] lg:grid-cols-[170px_1fr_210px] lg:items-center">
+    // `minmax(170px, auto)`: a fixed 170px track cannot grow, so a long field
+    // name overflowed it and printed straight over the input beside it.
+    <div className="grid gap-3 sm:grid-cols-[minmax(170px,auto)_1fr] lg:grid-cols-[minmax(170px,auto)_1fr_210px] lg:items-center">
       <div className="min-w-0">
-        <label htmlFor={id} className="text-[13px] font-medium">
+        <label htmlFor={id} className="block break-words text-[13px] font-medium">
           {field.name}
         </label>
         {showDescription && (

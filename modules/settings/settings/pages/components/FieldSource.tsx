@@ -54,8 +54,11 @@ export function FieldSource({ field, onReset }: { field: FieldMeta; onReset: () 
   // it — otherwise the row repeats the control next to it.
   const showDefault = !isBlank(field.default) && String(field.default) !== String(field.value);
   return (
+    // Wraps rather than clips: `SM_FILE_STORAGE_QUOTA_BYTES` has no space to
+    // break at, so a 210px column cut it mid-word with nothing to say so.
+    // `break-words` breaks only the tokens that do not fit.
     <span
-      className="font-mono text-[11.5px] text-muted-foreground"
+      className="block break-words font-mono text-[11.5px] leading-snug text-muted-foreground"
       title={
         field.env_readable
           ? t(keys.settings.modules.env_var_hint)

@@ -10,6 +10,7 @@ import { Plus, Search, Settings as SettingsIcon, Trash2 } from 'lucide-react';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { type ScopeCounts, type ScopeFilter, ScopeTabs } from './components/ScopeTabs';
+import { StoreCards } from './components/StoreCards';
 import { StoreTable } from './components/StoreTable';
 import { ROUTES } from './routes';
 import type { Pagination, Setting } from './types';
@@ -68,10 +69,10 @@ function Browse({ settings, pagination, counts, filters }: Props) {
         description={t(keys.settings.browse.description)}
         actions={
           <>
-            <Button asChild variant="outline">
+            <Button asChild variant="outline" className="max-lg:min-h-11">
               <a href={ROUTES.modules}>{t(keys.settings.modules.browse_link)}</a>
             </Button>
-            <Button asChild className="gap-1.5">
+            <Button asChild className="gap-1.5 max-lg:min-h-11">
               <a href={ROUTES.create}>
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 {t(keys.settings.browse.new_button)}
@@ -120,7 +121,10 @@ function Browse({ settings, pagination, counts, filters }: Props) {
               </p>
             </div>
           ) : (
-            <StoreTable settings={settings} onDelete={setPendingDelete} />
+            <>
+              <StoreCards settings={settings} onDelete={setPendingDelete} />
+              <StoreTable settings={settings} onDelete={setPendingDelete} />
+            </>
           )}
 
           <div className="mt-auto flex items-center justify-between border-t px-4 py-3 text-sm text-muted-foreground">

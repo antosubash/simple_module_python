@@ -40,74 +40,78 @@ export function StoreTable({ settings, onDelete }: Props) {
   const { t } = useT();
 
   return (
-    <Table>
-      <TableHeader className="bg-secondary/40">
-        <TableRow>
-          <TableHead className={`${HEAD} w-[110px]`}>{t(keys.settings.table.scope)}</TableHead>
-          <TableHead className={HEAD}>{t(keys.settings.table.key)}</TableHead>
-          <TableHead className={`${HEAD} hidden sm:table-cell w-[80px]`}>
-            {t(keys.settings.table.value_type)}
-          </TableHead>
-          <TableHead className={`${HEAD} w-[28%]`}>{t(keys.settings.table.value)}</TableHead>
-          <TableHead className={`${HEAD} w-[130px] text-right`}>
-            {t(keys.settings.table.actions)}
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {settings.map((setting) => (
-          <TableRow key={setting.id} className="hover:bg-secondary/40">
-            <TableCell>
-              <Badge variant="outline" className={SCOPE_TONE[setting.scope]}>
-                {t(keys.settings.scopes[setting.scope])}
-              </Badge>
-            </TableCell>
-            <TableCell>
-              <div className="flex flex-col gap-0.5">
-                <code className="font-mono text-[13px] text-foreground">{setting.key}</code>
-                {setting.scope_id && (
-                  <span className="text-[11.5px] text-muted-foreground">{setting.scope_id}</span>
-                )}
-              </div>
-            </TableCell>
-            <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-              {t(keys.settings.value_types_short[setting.value_type])}
-            </TableCell>
-            <TableCell>
-              <div className="flex items-center gap-2">
-                {HEX_COLOR.test(setting.value) && (
-                  <span
-                    aria-hidden="true"
-                    className="size-4 shrink-0 rounded border border-border"
-                    style={{ background: setting.value }}
-                  />
-                )}
-                <code className="font-mono text-[13px] truncate">{setting.value}</code>
-              </div>
-            </TableCell>
-            <TableCell>
-              <div className="flex items-center justify-end gap-1.5 text-[12.5px] font-medium">
-                <a
-                  href={ROUTES.edit(setting.id)}
-                  className="text-primary-700 hover:text-primary-800"
-                >
-                  {t(keys.settings.browse.edit_link)}
-                </a>
-                <span aria-hidden="true" className="text-muted-foreground">
-                  ·
-                </span>
-                <button
-                  type="button"
-                  onClick={() => onDelete(setting)}
-                  className="text-destructive hover:underline"
-                >
-                  {t(keys.settings.browse.delete_link)}
-                </button>
-              </div>
-            </TableCell>
+    // `Table` renders its own scroll container; hiding the `<table>` alone
+    // would leave that wrapper behind as an empty band on phones.
+    <div className="hidden sm:block">
+      <Table>
+        <TableHeader className="bg-secondary/40">
+          <TableRow>
+            <TableHead className={`${HEAD} w-[110px]`}>{t(keys.settings.table.scope)}</TableHead>
+            <TableHead className={HEAD}>{t(keys.settings.table.key)}</TableHead>
+            <TableHead className={`${HEAD} hidden sm:table-cell w-[80px]`}>
+              {t(keys.settings.table.value_type)}
+            </TableHead>
+            <TableHead className={`${HEAD} w-[28%]`}>{t(keys.settings.table.value)}</TableHead>
+            <TableHead className={`${HEAD} w-[130px] text-right`}>
+              {t(keys.settings.table.actions)}
+            </TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {settings.map((setting) => (
+            <TableRow key={setting.id} className="hover:bg-secondary/40">
+              <TableCell>
+                <Badge variant="outline" className={SCOPE_TONE[setting.scope]}>
+                  {t(keys.settings.scopes[setting.scope])}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-col gap-0.5">
+                  <code className="font-mono text-[13px] text-foreground">{setting.key}</code>
+                  {setting.scope_id && (
+                    <span className="text-[11.5px] text-muted-foreground">{setting.scope_id}</span>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                {t(keys.settings.value_types_short[setting.value_type])}
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  {HEX_COLOR.test(setting.value) && (
+                    <span
+                      aria-hidden="true"
+                      className="size-4 shrink-0 rounded border border-border"
+                      style={{ background: setting.value }}
+                    />
+                  )}
+                  <code className="font-mono text-[13px] truncate">{setting.value}</code>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center justify-end gap-1.5 text-[12.5px] font-medium">
+                  <a
+                    href={ROUTES.edit(setting.id)}
+                    className="text-primary-700 hover:text-primary-800"
+                  >
+                    {t(keys.settings.browse.edit_link)}
+                  </a>
+                  <span aria-hidden="true" className="text-muted-foreground">
+                    ·
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(setting)}
+                    className="text-destructive hover:underline"
+                  >
+                    {t(keys.settings.browse.delete_link)}
+                  </button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
