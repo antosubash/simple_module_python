@@ -51,10 +51,7 @@ class TestTestableShape:
             HealthCheck(name="users.aaa", check=_ok, module="Users", probe=False)
         )
 
-        assert await _testable(authenticated_client) == {
-            **await _testable(authenticated_client),
-            "users": ["users.aaa", "users.mailer"],
-        }
+        assert (await _testable(authenticated_client))["users"] == ["users.aaa", "users.mailer"]
 
 
 class TestTestConnectionStillRuns:

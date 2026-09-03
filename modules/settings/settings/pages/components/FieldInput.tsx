@@ -58,9 +58,17 @@ export function FieldInput({ field, onChange, value, id }: Props) {
       <div
         className={`flex h-9 items-center justify-between rounded-md border border-input px-3 py-1 ${highlight}`}
       >
-        <span id={id} className="font-mono text-sm text-muted-foreground">
-          ••••••••••
-        </span>
+        {/* A real input, not a styled span: the row's `<label htmlFor>` needs a
+            labelable control to point at, and putting the id on the button
+            instead would replace its own "Set new value" name with the field
+            name for anyone listening to it. */}
+        <input
+          id={id}
+          type="password"
+          value="••••••••••"
+          readOnly
+          className="min-w-0 flex-1 bg-transparent font-mono text-sm text-muted-foreground outline-none"
+        />
         <button
           type="button"
           className="text-xs font-medium text-primary-700 hover:underline"

@@ -81,6 +81,14 @@ class TestPaging:
         assert props["pagination"]["page"] == 1
         assert len(props["settings"]) == 20
 
+    async def test_a_non_numeric_page_renders_the_first_page(
+        self, seeded: FastAPI, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        """Same tolerance ``scope`` gets: a broken link still shows the table."""
+        props = await _props(authenticated_client, "?page=abc&per_page=lots")
+
+        assert props["pagination"] == {"page": 1, "per_page": 20, "total": 30}
+
 
 class TestScopeFilter:
     async def test_scope_narrows_the_rows(

@@ -2,6 +2,7 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ValueType } from '../types';
 
 export interface KnownKey {
   key: string;
@@ -36,21 +37,20 @@ const MAX_SUGGESTIONS = 8;
 function SuggestionMeta({ match }: { match: KnownKey }) {
   const { t } = useT();
   const fallback = match.default;
+  // The deck's short spelling — "str · env SM_USERS_SMTP_HOST" — in a column
+  // that has to fit beside a dotted key. A registry declaration can name a type
+  // this catalog has no short form for, so fall back to the raw string.
+  const short = keys.settings.value_types_short[match.type as ValueType];
+  const type = short ? t(short) : match.type;
 
   if (match.env_readable && match.env_set) {
-    return (
-      <>{t(keys.settings.form.suggestion_env, { type: match.type, env_var: match.env_var })}</>
-    );
+    return <>{t(keys.settings.form.suggestion_env, { type, env_var: match.env_var })}</>;
   }
   if (fallback !== null && fallback !== undefined && fallback !== '') {
-    return (
-      <>
-        {t(keys.settings.form.suggestion_default, { type: match.type, default: String(fallback) })}
-      </>
-    );
+    return <>{t(keys.settings.form.suggestion_default, { type, default: String(fallback) })}</>;
   }
   // No env fallback and no default worth quoting — the type is the whole story.
-  return <>{match.type}</>;
+  return <>{type}</>;
 }
 
 /**

@@ -205,6 +205,9 @@ describe('Controls follow the declared field', () => {
 
     expect(screen.getByText('write-only · never returned')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Set new value' })).toBeVisible();
+    // The row's label has to point at a real control, and it must not swallow
+    // the button's own name in the process.
+    expect(screen.getByLabelText('smtp_password')).toHaveAttribute('readonly');
   });
 });
 

@@ -129,6 +129,7 @@ function Browse({ settings, pagination, counts, filters }: Props) {
               <Button
                 variant="outline"
                 size="sm"
+                className="max-lg:min-h-11"
                 disabled={page <= 1}
                 onClick={() => navigate({ page: page - 1 })}
               >
@@ -137,6 +138,7 @@ function Browse({ settings, pagination, counts, filters }: Props) {
               <Button
                 variant="outline"
                 size="sm"
+                className="max-lg:min-h-11"
                 disabled={page >= lastPage}
                 onClick={() => navigate({ page: page + 1 })}
               >

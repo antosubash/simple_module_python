@@ -157,6 +157,9 @@ def _field_view(
     env_var = f"{prefix}{name.upper()}"
     live_env_var = env_readable_var(settings, name)
     env_set = live_env_var is not None and live_env_var in os.environ
+    # ``live_env_var`` is not None whenever env_set is True, but the narrowing
+    # is spelled out so a future edit cannot turn this into ``os.environ[None]``.
+    raw_env = os.environ[live_env_var] if env_set and live_env_var is not None else None
     return ModuleSettingField(
         name=name,
         env_var=env_var,
@@ -170,12 +173,10 @@ def _field_view(
         env_set=env_set,
         db_override=name in overridden,
         env_readable=live_env_var is not None,
-        # ``live_env_var`` is not None whenever env_set is True, but the
-        # narrowing is spelled out so a future edit cannot turn this into a
-        # `os.environ[None]`.
-        env_value=(
-            _mask(os.environ[live_env_var]) if env_set and live_env_var is not None else None
-        ),
+        # Masked on the same rule as ``value`` and ``default``: a secret stays
+        # hidden, everything else is shown. Masking unconditionally turned the
+        # Resolved value panel's env row into a row of dots for every key.
+        env_value=(_mask(raw_env) if secret else raw_env) if raw_env is not None else None,
         choices=choices_for(info),
     )
 

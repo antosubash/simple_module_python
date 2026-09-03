@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -132,8 +133,9 @@ class SettingService:
             # a stray "%" matches the entire table. ``ilike`` is emulated by
             # SQLAlchemy on SQLite (lower() on both sides), so one expression
             # is case-insensitive on both databases.
-            escaped = needle.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            conditions.append(Setting.key.ilike(f"%{escaped}%", escape="\\"))
+            conditions.append(
+                Setting.key.ilike(like_contains_pattern(needle), escape=LIKE_ESCAPE_CHAR)
+            )
         return conditions
 
     async def list_by_scope(

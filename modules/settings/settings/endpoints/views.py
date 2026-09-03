@@ -20,7 +20,7 @@ from simple_module_hosting.inertia_utils import redirect_back_with_errors, valid
 from simple_module_hosting.permissions import RequiresPermission
 from starlette.responses import RedirectResponse
 
-from settings import known_keys
+from settings import browse_query, known_keys
 from settings._module_settings import (
     _package_of,
     collect_module_settings,
@@ -28,10 +28,8 @@ from settings._module_settings import (
 )
 from settings._module_settings_props import serialize
 from settings.constants import (
-    ALL_SCOPES,
     DEFAULT_PER_PAGE,
     ERR_SETTING_NOT_FOUND,
-    MAX_PER_PAGE,
     PERM_CREATE,
     PERM_DELETE,
     PERM_EDIT,
@@ -52,7 +50,7 @@ from settings.constants import (
     VIEW_PREFIX,
     VIEW_STORE_PATH,
 )
-from settings.contracts.schemas import SettingCreate, SettingScope, SettingUpdate
+from settings.contracts.schemas import SettingCreate, SettingUpdate
 from settings.deps import get_setting_service
 from settings.service import SettingService
 
@@ -82,8 +80,8 @@ async def browse(
     service: SettingService = Depends(get_setting_service),
     scope: str = SCOPE_ALL,
     q: str = "",
-    page: int = 1,
-    per_page: int = DEFAULT_PER_PAGE,
+    page: str = "1",
+    per_page: str = str(DEFAULT_PER_PAGE),
 ) -> InertiaResponse:
     """The raw key/value store, filtered/searched/paged on the server.
 
@@ -91,34 +89,30 @@ async def browse(
     "Settings" is nearly always after a module's form, not a table of rows
     keyed by dotted strings.
 
-    An unrecognised ``scope`` falls back to "all" rather than 422ing or
-    matching nothing: it reaches the server from a hand-edited or stale url,
-    and an empty table over a nonzero total reads as data loss.
+    The filters are strings because they reach us from urls people edit and
+    bookmark; ``browse_query.parse`` substitutes defaults for anything
+    unusable rather than 422ing a link that used to work.
     """
-    selected = scope if scope in ALL_SCOPES else SCOPE_ALL
-    # Clamp before querying, with the same bounds twice, so the pagination prop
-    # echoes what the query actually ran with — ?page=0 must not render page-1
-    # rows labelled "page 0".
-    page = max(page, 1)
-    per_page = max(1, min(per_page, MAX_PER_PAGE))
-    scope_filter = None if selected == SCOPE_ALL else SettingScope(selected)
-
-    items, total = await service.list_filtered(scope_filter, q, page, per_page)
+    query = browse_query.parse(scope, q, page, per_page)
+    items, total = await service.list_filtered(
+        query.scope_filter, query.q, query.page, query.per_page
+    )
     # A page past the end (stale ?page= link, or the last row on it was just
     # deleted) is clamped and re-queried — otherwise the client gets an empty
     # list with a nonzero total and renders a blank table.
-    total_pages = max(1, math.ceil(total / per_page))
-    if page > total_pages:
-        page = total_pages
-        items, total = await service.list_filtered(scope_filter, q, page, per_page)
+    number = min(query.page, max(1, math.ceil(total / query.per_page)))
+    if number != query.page:
+        items, total = await service.list_filtered(
+            query.scope_filter, query.q, number, query.per_page
+        )
 
     return await inertia.render(
         _PAGE_BROWSE,
         {
             PROP_SETTINGS: [item.model_dump(mode="json") for item in items],
-            PROP_PAGINATION: {"page": page, "per_page": per_page, "total": total},
-            PROP_COUNTS: await service.count_by_scope(q),
-            PROP_FILTERS: {"scope": selected, "q": q},
+            PROP_PAGINATION: {"page": number, "per_page": query.per_page, "total": total},
+            PROP_COUNTS: await service.count_by_scope(query.q),
+            PROP_FILTERS: {"scope": query.scope, "q": query.q},
         },
     )
 

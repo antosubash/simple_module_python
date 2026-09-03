@@ -11,6 +11,7 @@ from __future__ import annotations
 import httpx
 import pytest
 from fastapi import FastAPI
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _INERTIA = {"X-Inertia": "true", "X-Inertia-Version": "1.0"}
 _CREATE = "/admin/settings/create"
@@ -150,3 +151,64 @@ class TestSuggestionsStaySorted:
         entries = await _known_keys(authenticated_client)
 
         assert [e["key"] for e in entries] == sorted(e["key"] for e in entries)
+
+
+class _EnvBacked(BaseSettings):
+    """A class that genuinely reads ``SM_DEMO_*`` — unlike the bundled ones."""
+
+    model_config = SettingsConfigDict(env_prefix="SM_DEMO_", extra="ignore")
+
+    host: str = "localhost"
+    api_key: str = ""
+
+
+class TestEnvValueMasking:
+    """``env_value`` follows the same mask rule as ``value`` and ``default``.
+
+    Masking it unconditionally turned the Resolved value panel's "env fallback"
+    row into a row of dots for every key — the one row whose whole job is to
+    say what the app would fall back to.
+    """
+
+    def test_a_non_secret_env_value_is_shown(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from settings._module_settings import _field_view
+
+        monkeypatch.setenv("SM_DEMO_HOST", "mail.example.com")
+
+        view = _field_view("host", _EnvBacked(), "SM_DEMO_")
+
+        assert view.is_secret is False
+        assert view.env_value == "mail.example.com"
+
+    def test_a_secret_env_value_is_masked(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from settings._module_settings import SECRET_MASK, _field_view
+
+        monkeypatch.setenv("SM_DEMO_API_KEY", "super-secret-value")
+
+        view = _field_view("api_key", _EnvBacked(), "SM_DEMO_")
+
+        assert view.is_secret is True
+        assert view.env_value == SECRET_MASK
+
+    def test_an_unset_env_var_has_no_value_at_all(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from settings._module_settings import _field_view
+
+        monkeypatch.delenv("SM_DEMO_HOST", raising=False)
+
+        view = _field_view("host", _EnvBacked(), "SM_DEMO_")
+
+        assert view.env_readable is True
+        assert view.env_set is False
+        assert view.env_value is None
+
+    def test_a_db_backed_class_reports_no_env_value(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """``UsersSettings`` declares no ``env_prefix``: the var is not a fallback."""
+        from settings._module_settings import _field_view
+        from users.settings import UsersSettings
+
+        monkeypatch.setenv("SM_USERS_SMTP_HOST", "not-a-fallback.example.com")
+
+        view = _field_view("smtp_host", UsersSettings(), "SM_USERS_")
+
+        assert view.env_readable is False
+        assert view.env_value is None
