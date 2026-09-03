@@ -62,7 +62,13 @@ async def list_files(
     content_type: str | None = None,
 ) -> tuple[list[StoredFileOut], int]:
     base = select(StoredFile)
-    count_q = select(func.count()).select_from(StoredFile)
+    # ``func.count(StoredFile.id)``, not a bare ``func.count()``: the
+    # soft-delete loader criteria are attached per *mapper found in the
+    # statement*, and a bare count with only ``select_from`` names no mapped
+    # column, so the filter never applied and the total went on counting
+    # deleted rows. That is the pager offering pages that render empty — the
+    # exact failure ``filter_clauses`` exists to prevent.
+    count_q = select(func.count(StoredFile.id)).select_from(StoredFile)
     for clause in filter_clauses(created_by=created_by, search=search, content_type=content_type):
         base = base.where(clause)
         count_q = count_q.where(clause)

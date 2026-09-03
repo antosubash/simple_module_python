@@ -39,13 +39,16 @@ class BulkDeleteRequest(SQLModel):
 
 
 class BulkDeleteResult(SQLModel):
-    """How many rows the batch actually removed.
+    """Which rows the batch actually removed.
 
-    Not simply ``len(ids)``: a selection can name files another admin has
-    already deleted, and the caller's toast should say what happened.
+    Not simply an echo of the request: a selection can name files another admin
+    has already deleted. The caller needs the ids, not only the count — a
+    screen that names "the" deleted file from its own selection would credit
+    the wrong filename whenever part of the batch had already gone.
     """
 
     deleted: int
+    ids: list[uuid.UUID] = Field(default_factory=list)
 
 
 class StoredFileListOut(SQLModel):

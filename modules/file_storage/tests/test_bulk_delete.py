@@ -9,10 +9,13 @@ removed, because ids the caller sent may already be gone.
 from __future__ import annotations
 
 import uuid
+from io import BytesIO
 
 import httpx
+from fastapi import UploadFile
 from file_storage import constants
 from file_storage.contracts.events import FileDeleted
+from simple_module_test import forge_session_cookie
 
 BULK_DELETE = f"{constants.ROUTE_PREFIX_API}{constants.PATH_FILES_BULK_DELETE}"
 LIST_FILES = f"{constants.ROUTE_PREFIX_API}{constants.PATH_FILES}"
@@ -25,6 +28,14 @@ async def _upload(client: httpx.AsyncClient, name: str) -> str:
     )
     assert resp.status_code == 201, resp.text
     return resp.json()["id"]
+
+
+def _upload_file(name: str) -> UploadFile:
+    return UploadFile(
+        filename=name,
+        file=BytesIO(b"payload"),
+        headers={"content-type": "text/plain"},  # type: ignore[arg-type]
+    )
 
 
 async def _filenames(client: httpx.AsyncClient) -> list[str]:
@@ -42,7 +53,9 @@ class TestBulkDelete:
         resp = await authenticated_client.post(BULK_DELETE, json={"ids": [first, second]})
 
         assert resp.status_code == 200, resp.text
-        assert resp.json() == {"deleted": 2}
+        body = resp.json()
+        assert body["deleted"] == 2
+        assert sorted(body["ids"]) == sorted([first, second])
         assert await _filenames(authenticated_client) == ["keep.txt"]
 
     async def test_ids_that_are_already_gone_do_not_fail_the_batch(
@@ -55,7 +68,12 @@ class TestBulkDelete:
         resp = await authenticated_client.post(BULK_DELETE, json={"ids": [real, str(uuid.uuid4())]})
 
         assert resp.status_code == 200, resp.text
-        assert resp.json() == {"deleted": 1}
+        body = resp.json()
+        assert body["deleted"] == 1
+        # The screen names a file only when exactly one id comes back, so that
+        # id has to be the one actually *removed* — naming the first thing the
+        # user selected would credit a deletion that never happened.
+        assert body["ids"] == [real]
         assert await _filenames(authenticated_client) == []
 
     async def test_an_empty_selection_deletes_nothing(
@@ -66,7 +84,7 @@ class TestBulkDelete:
         resp = await authenticated_client.post(BULK_DELETE, json={"ids": []})
 
         assert resp.status_code == 200, resp.text
-        assert resp.json() == {"deleted": 0}
+        assert resp.json() == {"deleted": 0, "ids": []}
         assert await _filenames(authenticated_client) == ["a.txt"]
 
     async def test_announces_each_removal_on_the_event_bus(
@@ -88,6 +106,38 @@ class TestBulkDelete:
         assert sorted(seen) == sorted([first, second])
 
 
+class TestBackendFailures:
+    async def test_one_unreachable_object_does_not_abort_the_batch(self, tmp_path, db_session):
+        """The rows are already marked deleted by the time objects are dropped.
+        Letting one unreachable object raise would 500 the request, tell the
+        caller nothing happened, and leave the rest behind as orphans."""
+        from file_storage.backends.filesystem import FilesystemBackend
+        from file_storage.service import FileStorageService
+        from file_storage.settings import FileStorageSettings
+
+        class OneBadKey(FilesystemBackend):
+            async def delete(self, key: str) -> None:
+                if key.endswith("boom.txt"):
+                    raise OSError("backend is on fire")
+                await super().delete(key)
+
+        settings = FileStorageSettings(
+            backend=constants.BackendId.FILESYSTEM, fs_root_path=str(tmp_path)
+        )
+        svc = FileStorageService(db_session, OneBadKey(root=tmp_path), settings)
+        good = await svc.upload(_upload_file("fine.txt"))
+        bad = await svc.upload(_upload_file("boom.txt"))
+
+        removed = await svc.delete_many([good.id, bad.id])
+
+        assert sorted(r.filename for r in removed) == ["boom.txt", "fine.txt"]
+        # Both rows are gone from the listing — the failure is a janitor's
+        # problem, not something the caller has to retry.
+        items, total = await svc.list_files()
+        assert items == []
+        assert total == 0
+
+
 class TestBounds:
     async def test_rejects_a_selection_larger_than_a_page(
         self, authenticated_client: httpx.AsyncClient
@@ -106,3 +156,60 @@ class TestPermissions:
         resp = await client.post(BULK_DELETE, json={"ids": []}, follow_redirects=False)
 
         assert resp.status_code in {302, 401, 403}
+
+    async def test_download_only_caller_cannot_delete(self, app):
+        """Reading the bucket and emptying it are separate grants.
+
+        The module maps its own ``user`` role to upload+download+delete, so a
+        plain account proves nothing here — this caller holds exactly
+        ``file_storage.download`` and must be refused.
+        """
+        async with await _reader_client(app) as reader:
+            listed = await reader.get(LIST_FILES)
+            forbidden = await reader.post(BULK_DELETE, json={"ids": []})
+
+        # Listing proves the session is real, so the 403 is about the missing
+        # permission rather than a caller who never authenticated at all.
+        assert listed.status_code == 200, listed.text
+        assert forbidden.status_code == 403
+
+
+READER_ROLE = "file_storage_reader"
+
+
+async def _reader_client(app) -> httpx.AsyncClient:
+    """A signed-in caller holding ``file_storage.download`` and nothing else.
+
+    Built rather than reused: the module maps its own ``user`` role to
+    upload+download+delete, so no seeded account can stand in for "may read the
+    bucket, may not empty it".
+    """
+    from users.models import Role, User, UserRole
+
+    # Role → permission mapping lives in the registry, not the DB.
+    app.state.sm.permissions.map_role(READER_ROLE, [constants.Permission.DOWNLOAD])
+
+    async with app.state.sm.db.session_factory() as session:
+        role = Role(name=READER_ROLE, description="Download only")
+        user = User(
+            email="reader@test",
+            hashed_password="not-a-real-hash",
+            is_active=True,
+            is_verified=True,
+            is_superuser=False,
+        )
+        session.add_all([role, user])
+        await session.flush()
+        session.add(UserRole(user_id=user.id, role_id=role.id))
+        await session.commit()
+        user_id = str(user.id)
+
+    return httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://testserver",
+        cookies={
+            "session": forge_session_cookie(
+                str(app.state.sm.settings.secret_key), {"user_id": user_id}
+            )
+        },
+    )

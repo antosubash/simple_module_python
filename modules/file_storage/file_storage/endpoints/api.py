@@ -175,14 +175,16 @@ async def bulk_delete_files(
     """Delete a selection in one request.
 
     Ids that no longer resolve are skipped rather than 404-ing the batch — the
-    screen's selection can outlive the rows it names. Each removal is still
-    announced individually, so a subscriber that mirrors or reindexes files
-    cannot tell a bulk delete from a run of single ones.
+    screen's selection can outlive the rows it names. The response names the
+    rows that actually went, so the caller can report on them rather than on
+    what it asked for. Each removal is still announced individually, so a
+    subscriber that mirrors or reindexes files cannot tell a bulk delete from a
+    run of single ones.
     """
     rows = await service.delete_many(body.ids)
     for row in rows:
         await bus.publish(FileDeleted(file_id=row.id, key=row.key))
-    return BulkDeleteResult(deleted=len(rows))
+    return BulkDeleteResult(deleted=len(rows), ids=[row.id for row in rows])
 
 
 @router.delete(

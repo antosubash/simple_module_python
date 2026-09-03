@@ -219,9 +219,23 @@ class FileStorageService:
         # reads, so they must all be marked before any object is dropped.
         await self.db.flush()
         for row in rows:
-            # Object is acceptably absent — eg. a previous delete partially succeeded.
-            with contextlib.suppress(StorageNotFoundError):
+            # Every object is dropped independently. The rows are already
+            # marked deleted, so letting one unreachable object abort the loop
+            # would 500 the request *and* leave the caller believing nothing
+            # happened, while the remaining objects stay behind as orphans with
+            # no row left pointing at them. A failure here is a janitor's
+            # problem, not the caller's.
+            try:
                 await self.backend.delete(row.key)
+            except StorageNotFoundError:
+                # Acceptably absent — eg. a previous delete partially succeeded.
+                pass
+            except Exception:
+                _logger.exception(
+                    "file_storage.bulk_delete_object_failed key=%s — row is deleted, "
+                    "object orphaned",
+                    row.key,
+                )
         return rows
 
     async def delete(self, file_id: uuid.UUID) -> StoredFile:

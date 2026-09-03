@@ -2,6 +2,10 @@
 
 PERM_FEATURE_FLAGS_VIEW = "feature_flags.view"
 PERM_FEATURE_FLAGS_MANAGE = "feature_flags.manage"
+# Shown as a heading in the role editor, so it follows the same sentence case
+# as the menu label and the page title rather than reading "Feature Flags"
+# beside them.
+PERM_GROUP = "Feature flags"
 
 # Prefix is load-bearing on SQLite, which has no per-module schemas.
 TABLE_OVERRIDE = "feature_flags_override"

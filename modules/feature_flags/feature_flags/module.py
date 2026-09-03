@@ -22,6 +22,7 @@ from feature_flags.constants import (
     MENU_URL,
     PERM_FEATURE_FLAGS_MANAGE,
     PERM_FEATURE_FLAGS_VIEW,
+    PERM_GROUP,
     QP_OVERRIDE,
     VIEW_PREFIX,
 )
@@ -84,7 +85,7 @@ class FeatureFlagsModule(ModuleBase):
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
-            "Feature Flags",
+            PERM_GROUP,
             [
                 PERM_FEATURE_FLAGS_VIEW,
                 PERM_FEATURE_FLAGS_MANAGE,

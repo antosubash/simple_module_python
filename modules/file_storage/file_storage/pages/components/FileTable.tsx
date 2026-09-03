@@ -27,6 +27,14 @@ interface Props {
   empty: React.ReactNode;
 }
 
+// A 16px box is a 16px tap target, and this column is the only way into bulk
+// delete. An invisible pseudo-element grows the *button's own* hit area to
+// 44px below `lg` (16px + 14px either side) while the box keeps looking like a
+// checkbox. It has to be the control itself: a wrapper cannot forward clicks
+// to a Radix checkbox, which renders a button rather than a real input.
+const TAP_TARGET =
+  'relative max-lg:before:absolute max-lg:before:-inset-3.5 max-lg:before:content-[""]';
+
 const HEAD =
   'bg-secondary/40 text-[11px] font-semibold uppercase tracking-[0.08em] ' +
   'text-muted-foreground sm:px-6';
@@ -53,6 +61,7 @@ export function FileTable({
               {/* Indeterminate while only some rows are ticked, so the header
                   box never claims a selection the footer count contradicts. */}
               <Checkbox
+                className={TAP_TARGET}
                 checked={allSelected ? true : selectedIds.length > 0 ? 'indeterminate' : false}
                 onCheckedChange={(checked) => onToggleAll(checked === true)}
                 aria-label={t(keys.file_storage.table.select_all)}
@@ -83,6 +92,7 @@ export function FileTable({
               {canDelete && (
                 <TableCell className="sm:pl-6 sm:pr-0">
                   <Checkbox
+                    className={TAP_TARGET}
                     checked={selected}
                     onCheckedChange={(checked) => onToggleRow(file.id, checked === true)}
                     aria-label={t(keys.file_storage.table.select_row, { name: file.filename })}

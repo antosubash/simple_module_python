@@ -96,12 +96,13 @@ function Browse() {
         body: JSON.stringify({ ids: selectedIds }),
       });
       if (!resp.ok) throw new Error('bulk delete failed');
-      const { deleted } = (await resp.json()) as { deleted: number };
+      const { deleted, ids } = (await resp.json()) as { deleted: number; ids: string[] };
+      // Named from what the server *removed*, not from what was selected: part
+      // of a selection can already be gone, and naming the first file the user
+      // ticked would credit a deletion that did not happen.
+      const removed = ids.length === 1 ? files.find((f) => f.id === ids[0]) : undefined;
       toast.success(
-        t(keys.file_storage.toasts.deleted, {
-          count: deleted,
-          name: selectedFiles[0]?.filename ?? '',
-        }),
+        t(keys.file_storage.toasts.deleted, { count: deleted, name: removed?.filename ?? '' }),
       );
       select([]);
       router.reload({ only: RELOAD_PROPS });
@@ -131,7 +132,11 @@ function Browse() {
   // full and the filter is just too narrow. `total` is filter-aware, so this
   // still covers "no matches" without claiming the bucket is empty whenever a
   // page past the last one renders.
-  const showEmpty = files.length === 0 && jobs.length === 0 && pagination.total === 0;
+  //
+  // Upload rows deliberately do *not* suppress it: a failed upload leaves a
+  // row in the card above and nothing in the table, and hiding the empty state
+  // for it leaves a blank table with no explanation of either fact.
+  const showEmpty = files.length === 0 && pagination.total === 0;
 
   return (
     <>
@@ -215,17 +220,15 @@ function Browse() {
               ) : null
             }
           />
-          {/* Shown for every non-empty result, one page or forty — the range is
-              how someone checks their filter matched what they expected. The
-              one case it is withheld is a table with no rows at all, where
-              "Showing 0–0 of 0" sits under an empty state that already said so. */}
-          {pagination.total > 0 && (
-            <SelectionFooter
-              pagination={pagination}
-              selectedCount={selectedIds.length}
-              onGo={(target) => navigate(filters, target)}
-            />
-          )}
+          {/* Always visible, one page or forty and empty results included: the
+              range is how someone checks their filter matched what they
+              expected, and "Showing 0–0 of 0" is the honest answer when it
+              matched nothing. */}
+          <SelectionFooter
+            pagination={pagination}
+            selectedCount={selectedIds.length}
+            onGo={(target) => navigate(filters, target)}
+          />
         </Card>
 
         {/* `open` stays pinned while the request is in flight: the Radix

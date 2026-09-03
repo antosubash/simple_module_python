@@ -97,6 +97,10 @@ class TestStorageFacts:
 
         assert props["used_bytes"] == 5
         assert [f["id"] for f in props["files"]] == [keep]
+        # The count has to drop with the rows. A total that keeps counting
+        # deleted files offers pages that render empty — and after a bulk
+        # delete it is the whole selection, not one row.
+        assert props["pagination"]["total"] == 1
 
     async def test_quota_is_absent_until_configured(self, authenticated_client: httpx.AsyncClient):
         props = await _browse(authenticated_client)
