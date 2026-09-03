@@ -25,6 +25,9 @@ Make every one of the deck's 28 screens (8 public, 10 app, 9 ops, 1 mobile board
 | Doctor "Fix" / "Generate" / "Apply pending" run tools | They **copy the command** to the clipboard | Running Alembic from a web request is not something this app should do. |
 | Locale pill "EN" always visible | Visible always; a single-locale install renders it as a static label | A control that opens nothing is noise, but the deck's placement is kept. |
 | Register intro "The first account becomes the admin; later ones get the default role." | "New accounts start with no roles until an admin grants them." | The bootstrap admin is seeded from settings, not the first registrant. |
+| Module tiles tint degraded modules emerald-soft | Degraded tiles are amber | Emerald is the shell's "everything is fine" colour, and a degraded health check tinted with it reads as a decoration rather than a warning. Amber matches the Doctor warn rows and the Failed/Stuck task tiles, so one colour means one thing across the ops screens. |
+| Tasks index has no worker banner | `WorkerHealthBanner` stays above the table | The deck assumes a worker is running. A queue with a backlog and nobody consuming it looks identical to an idle queue in the table alone, and that is the single most common misconfiguration of this module — the banner is the answer to "why is nothing happening?". Shown only when unfiltered, so it never contradicts a narrowed view. |
+| Users list collapses to a search-only bar on phones | Dropdown filters, the stat row and the Users/Roles tabs all stay at 390 | Dropping them made the phone layout a different feature rather than a narrower one: "show me invited users" is exactly the query someone runs from a phone. The controls wrap and take 44px tap targets instead of disappearing. |
 | "Keep me signed in for 30 days" is just a longer cookie | Session cookie signature window is 30 days; effective lifetime is bounded per session at 14 / 30 days | Starlette signs and expires with one number, so honouring the checkbox forces the *signature* window to 30 days for everyone. Login writes an absolute `expires_at` into the session (`now + cookie_max_age_seconds`, or `remember_me_max_age_seconds` when ticked) and `UsersAuthProvider` refuses a session past it — so an ordinary sign-in still dies at 14 days even though the signer would verify it for 30. Sessions minted before this carry no `expires_at` and are accepted as legacy; that fail-open is temporary. |
 
 ## Cross-cutting building blocks (packages/ui)
@@ -98,7 +101,7 @@ These are built first because three or more screens depend on each.
 | feature_flags | `register_audit_links` |
 | file_storage | `used_bytes`, `backend`, limits, optional `quota_bytes` setting; `created_by` filter + uploader facet + resolved labels; `POST /api/file-storage/files/bulk-delete` |
 | background_tasks | `success_24h` count; `queue` filter + `queues`; `POST …/executions/retry-failed`; `max_retries` on detail; `uptime_seconds` on workers; redacted broker url |
-| audit_log | `GET /api/audit-log/export.csv`; actor-by-name filter; entity display labels via a registry label hook |
+| audit_log | `GET /api/audit_log/export.csv` (the module's api prefix is its package name, not the view url); browse view passes `items[]`; actor-by-name filter; entity display labels via a registry label hook |
 | core | `AuditLink` gains an optional `label_resolver`; `MenuItem` section fix |
 
 ## Testing
