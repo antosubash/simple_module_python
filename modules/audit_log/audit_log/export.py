@@ -31,6 +31,7 @@ CSV_MEDIA_TYPE = "text/csv; charset=utf-8"
 CSV_FILENAME = "audit-log.csv"
 _ARROW = " → "
 _CLAUSE_SEPARATOR = "; "
+_FORMULA_LEADS = frozenset({"=", "+", "-", "@", "\t", "\r"})
 
 
 def format_value(value: Any) -> str:
@@ -56,15 +57,38 @@ def format_changes(changes: Any) -> str:
     return _CLAUSE_SEPARATOR.join(clauses)
 
 
+def escape_formula(cell: str) -> str:
+    """Neutralise a cell a spreadsheet would evaluate rather than display.
+
+    Excel, Sheets and LibreOffice all treat a leading ``=``, ``+``, ``-`` or
+    ``@`` as the start of a formula, and a leading tab or carriage return can
+    smuggle one past that check. ``entity_label`` and ``actor`` come from a
+    display name, which is whatever the account holder typed — so an export
+    opened next to the screen it came from would run it.
+
+    A leading apostrophe is the spreadsheet's own "this is text" marker: it is
+    consumed on import and does not show in the cell, so the reading is
+    unchanged for every value that was never a formula.
+    """
+    return f"'{cell}" if cell[:1] in _FORMULA_LEADS else cell
+
+
 def _row(entry: AuditEntryRead, *, entity_label: str, actor: str) -> list[str]:
+    # Applied per cell rather than to the two user-controlled columns, so a
+    # column added later cannot quietly reopen the hole. The machine-generated
+    # columns (an ISO timestamp, an action slug) never start with a lead
+    # character, so nothing else on the row changes.
     return [
-        entry.created_at.isoformat(),
-        entry.action,
-        entry.entity_type,
-        entry.entity_id,
-        entity_label,
-        actor,
-        format_changes(entry.changes),
+        escape_formula(value)
+        for value in (
+            entry.created_at.isoformat(),
+            entry.action,
+            entry.entity_type,
+            entry.entity_id,
+            entity_label,
+            actor,
+            format_changes(entry.changes),
+        )
     ]
 
 
