@@ -36,23 +36,35 @@ function short(id: string): string {
  *
  * The name comes from the module that owns the row (see the audit-link
  * registry's label resolver) and the tag names the table it lives in, which is
- * the vocabulary the same operator uses in a migration or a psql prompt. The
- * id is kept as the cell's title rather than printed: it is the durable part
- * of the record, but reading it was never how anyone identified a row.
+ * the vocabulary the same operator uses in a migration or a psql prompt.
+ *
+ * Where the row has a link the id rides along as the cell's title — the link
+ * itself carries it, so following it is how you get there. Where nothing
+ * claims the table there is no link, and the id is the only handle the reader
+ * has for querying it elsewhere, so it stays visible and copyable rather than
+ * hidden behind a hover.
  */
 export function EntityCell({ entry }: { entry: AuditEntryRef }) {
   const display = entry.entity?.display || entry.entity_id;
   const url = entry.entity?.url ?? null;
   const tableName = entry.entity?.table_name || entry.entity_type;
+  const named = display !== entry.entity_id;
 
   return (
-    <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5" title={entry.entity_id}>
+    <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
       {url ? (
-        <Link href={url} className="text-sm text-primary-700 hover:underline">
+        <Link
+          href={url}
+          className="text-sm text-primary-700 hover:underline"
+          title={entry.entity_id}
+        >
           {display}
         </Link>
       ) : (
-        <span className="text-sm">{display}</span>
+        <>
+          {named && <span className="text-sm">{display}</span>}
+          <CopyableId value={entry.entity_id} label={short(entry.entity_id)} />
+        </>
       )}
       <span className="text-xs text-muted-foreground">{tableName}</span>
     </div>

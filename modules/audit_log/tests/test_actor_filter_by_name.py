@@ -11,7 +11,6 @@ exactly that uuid, because an id is unambiguous and a name never is.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 
 import httpx
 from audit_log.constants import ACTION_UPDATED
@@ -21,6 +20,9 @@ from users.models import User
 VIEW_URL = "/admin/audit-log/"
 INERTIA_HEADERS = {"X-Inertia": "true", "Accept": "application/json"}
 _ENTITY_TYPE = "Widget"
+# Enough matching accounts that any per-search ceiling worth writing would
+# have had to be smaller, and small enough to stay a fast test.
+_MANY_ACTORS = 30
 
 
 async def _seed(app) -> dict[str, str]:
@@ -66,6 +68,19 @@ async def _entity_ids(client: httpx.AsyncClient, **params: str) -> list[str]:
 
 
 class TestActorFilter:
+    async def test_a_whitespace_only_term_is_an_empty_box(
+        self, app, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        """Spaces are not a name. Treating them as one answers "nobody did
+        anything" to a filter the reader did not knowingly set."""
+        await _seed(app)
+
+        assert await _entity_ids(authenticated_client, user_id="   ") == [
+            "dana",
+            "sam",
+            "system",
+        ]
+
     async def test_no_actor_filter_returns_every_row(
         self, app, authenticated_client: httpx.AsyncClient
     ) -> None:
@@ -124,32 +139,105 @@ class TestActorFilter:
         assert resp.json()["props"]["filters"]["user_id"] == "okafor"
 
 
-class TestDateRange:
-    """The picker is date-only, so ``to_date`` names a whole day. Treating it
-    as midnight silently excludes everything that happened on the day the
-    reader just chose as the end of the range."""
+class TestActorSearchIsNotTruncated:
+    """A name search must return *every* matching actor's rows.
 
-    async def test_to_date_includes_the_whole_day(
+    Resolving the matches into a Python list forces a choice between a ceiling
+    (a common substring silently answers with an arbitrary slice of the
+    accounts, on the page and in the CSV, with nothing to say so) and no
+    ceiling (the ``IN`` list outgrows what Postgres will accept). Matching in
+    the database has neither problem.
+    """
+
+    async def test_the_filter_is_a_subquery_not_a_list_of_ids(self) -> None:
+        """Pins the mechanism, not just today's row count: an implementation
+        that materialises ids passes the count test right up until the install
+        is big enough to break it."""
+        from audit_log.resolve import actor_filter
+
+        rendered = str(actor_filter("okafor"))
+
+        assert "SELECT" in rendered.upper()
+        assert "users_user" in rendered
+
+    async def test_every_matching_actor_is_returned(
         self, app, authenticated_client: httpx.AsyncClient
     ) -> None:
-        stamp = datetime(2026, 8, 19, 14, 2, 11, tzinfo=UTC)
+        ids = []
         async with app.state.sm.db.session_factory() as session:
-            session.add(
-                AuditEntry(
-                    entity_type=_ENTITY_TYPE,
-                    entity_id="afternoon",
-                    action=ACTION_UPDATED,
-                    changes=[],
-                    created_at=stamp,
+            for n in range(_MANY_ACTORS):
+                user = User(
+                    email=f"crowd{n:03d}@example.com",
+                    hashed_password="x",
+                    full_name=f"Crowd Member {n:03d}",
+                    is_active=True,
                 )
-            )
+                session.add(user)
+                await session.flush()
+                ids.append(str(user.id))
+            await session.commit()
+
+        async with app.state.sm.db.session_factory() as session:
+            for n, user_id in enumerate(ids):
+                session.add(
+                    AuditEntry(
+                        entity_type=_ENTITY_TYPE,
+                        entity_id=f"crowd{n:03d}",
+                        action=ACTION_UPDATED,
+                        changes=[],
+                        user_id=user_id,
+                    )
+                )
             await session.commit()
 
         found = await _entity_ids(
-            authenticated_client, from_date="2026-08-01", to_date="2026-08-19"
+            authenticated_client, user_id="Crowd Member", page_size=str(_MANY_ACTORS + 10)
         )
 
-        assert found == ["afternoon"]
+        assert found == [f"crowd{n:03d}" for n in range(_MANY_ACTORS)]
+
+    async def test_the_export_returns_them_all_too(
+        self, app, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        """The CSV is where a truncated answer does the most damage — it leaves
+        the screen behind and becomes the record someone files."""
+        import csv
+        import io
+
+        async with app.state.sm.db.session_factory() as session:
+            ids = []
+            for n in range(_MANY_ACTORS):
+                user = User(
+                    email=f"crowd{n:03d}@example.com",
+                    hashed_password="x",
+                    full_name=f"Crowd Member {n:03d}",
+                    is_active=True,
+                )
+                session.add(user)
+                await session.flush()
+                ids.append(str(user.id))
+            for n, user_id in enumerate(ids):
+                session.add(
+                    AuditEntry(
+                        entity_type=_ENTITY_TYPE,
+                        entity_id=f"crowd{n:03d}",
+                        action=ACTION_UPDATED,
+                        changes=[],
+                        user_id=user_id,
+                    )
+                )
+            await session.commit()
+
+        resp = await authenticated_client.get(
+            "/api/audit_log/export.csv",
+            params={"entity_type": _ENTITY_TYPE, "user_id": "Crowd Member"},
+        )
+
+        assert resp.status_code == 200, resp.text
+        rows = list(csv.DictReader(io.StringIO(resp.text)))
+        assert sorted(r["entity_id"] for r in rows) == [
+            f"crowd{n:03d}" for n in range(_MANY_ACTORS)
+        ]
 
 
 class TestActorSearchSafety:

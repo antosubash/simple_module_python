@@ -21,6 +21,10 @@ describe('formatEntryTime', () => {
     expect(formatEntryTime(new Date(2026, 7, 19, 9, 3, 40).toISOString())).toBe('19 Aug 09:03:40');
   });
 
+  test('the day is not padded — `d MMM`, not `dd MMM`', () => {
+    expect(formatEntryTime(new Date(2026, 7, 5, 14, 2, 11).toISOString())).toBe('5 Aug 14:02:11');
+  });
+
   test('midnight is 00, never 24', () => {
     expect(formatEntryTime(new Date(2026, 7, 19, 0, 0, 0).toISOString())).toBe('19 Aug 00:00:00');
   });
@@ -52,7 +56,7 @@ describe('date-only values', () => {
 });
 
 describe('formatDateRange', () => {
-  test('reads as the deck writes it', () => {
+  test('reads as the deck writes it — padded ends, unlike the time cell', () => {
     expect(formatDateRange('2026-08-01', '2026-08-19')).toBe('01 Aug – 19 Aug');
   });
 

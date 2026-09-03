@@ -15,7 +15,7 @@ from audit_log.contracts.schemas import AuditEntryList
 from audit_log.deps import AuditLogServiceDep
 from audit_log.export import CSV_FILENAME, CSV_MEDIA_TYPE, stream_csv
 from audit_log.filters import EntryFilters
-from audit_log.resolve import resolve_actor_ids
+from audit_log.resolve import actor_filter
 
 router = APIRouter()
 
@@ -72,14 +72,15 @@ async def export_audit_entries(
     resolved through names, both exactly as the screen does them, so the file
     and the page always agree about which rows matched.
     """
-    filters = EntryFilters(
+    filters = EntryFilters.for_date_only_range(
         entity_type=entity_type,
         entity_id=entity_id,
         action=action,
+        actor_match=actor_filter(user_id or ""),
         correlation_id=correlation_id,
         from_date=from_date,
         to_date=to_date,
-    ).with_actor_ids(await resolve_actor_ids(db, user_id) if user_id else None)
+    )
 
     return StreamingResponse(
         stream_csv(service, db, request.app.state.sm.audit_links, filters),

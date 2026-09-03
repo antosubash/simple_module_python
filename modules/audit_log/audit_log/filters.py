@@ -9,7 +9,6 @@ tell apart from the one they did.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, time
 from typing import Any
@@ -34,32 +33,52 @@ def end_of_day(moment: datetime | None) -> datetime | None:
 class EntryFilters:
     """A narrowing of the audit log, independent of paging.
 
-    ``user_id`` is an exact match on the stored id; ``user_ids`` is the set an
-    Actor *search* resolved to. The distinction matters at the empty end:
-    ``user_ids=[]`` means "nobody is called that" and must return no rows,
-    while ``None`` means the box was left empty.
+    ``user_id`` is an exact match on the stored id — what the JSON list
+    endpoint takes. ``actor_match`` is the predicate an Actor *search* compiles
+    to (see ``resolve.actor_filter``), which may match by name or email and is
+    therefore a subquery rather than a value.
     """
 
     entity_type: str | None = None
     entity_id: str | None = None
     action: str | None = None
     user_id: str | None = None
-    user_ids: Sequence[str] | None = None
+    actor_match: Any | None = None
     correlation_id: str | None = None
     from_date: datetime | None = None
     to_date: datetime | None = None
 
-    def with_actor_ids(self, user_ids: Sequence[str] | None) -> EntryFilters:
-        """A copy filtered on a resolved actor search instead of a raw id."""
-        return EntryFilters(
-            entity_type=self.entity_type,
-            entity_id=self.entity_id,
-            action=self.action,
-            user_id=None,
-            user_ids=user_ids,
-            correlation_id=self.correlation_id,
-            from_date=self.from_date,
-            to_date=end_of_day(self.to_date),
+    @classmethod
+    def for_date_only_range(
+        cls,
+        *,
+        entity_type: str | None = None,
+        entity_id: str | None = None,
+        action: str | None = None,
+        actor_match: Any | None = None,
+        correlation_id: str | None = None,
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+    ) -> EntryFilters:
+        """Filters for the screen's controls, whose Date range is date-only.
+
+        The upper bound is stretched over the whole day it names — see
+        :func:`end_of_day`. A named constructor rather than a step a caller has
+        to remember: the browse view and the CSV export both build filters from
+        the same query string, and one of them forgetting would mean the file
+        and the page disagreed about which day the range ended on.
+
+        Plain construction keeps exact ``datetime`` bounds, which is what the
+        JSON list endpoint's documented ``from_date``/``to_date`` mean.
+        """
+        return cls(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            action=action,
+            actor_match=actor_match,
+            correlation_id=correlation_id,
+            from_date=from_date,
+            to_date=end_of_day(to_date),
         )
 
     def conditions(self) -> list[Any]:
@@ -73,10 +92,8 @@ class EntryFilters:
             conditions.append(AuditEntry.action == self.action)
         if self.user_id:
             conditions.append(AuditEntry.user_id == self.user_id)
-        # An empty sequence is a filter, not the absence of one: `IN ()` is
-        # false for every row, which is the right answer to a name nobody has.
-        if self.user_ids is not None:
-            conditions.append(AuditEntry.user_id.in_(list(self.user_ids)))
+        if self.actor_match is not None:
+            conditions.append(self.actor_match)
         # One request that touched four entities writes four rows sharing a
         # correlation id. Filtering on it is what turns those back into a
         # single action instead of four unrelated-looking events.

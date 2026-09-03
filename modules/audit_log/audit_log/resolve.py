@@ -24,19 +24,14 @@ from typing import Any
 
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
-from sqlalchemy import or_, select
+from sqlalchemy import String, cast, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from users.audit import resolve_user_labels
 from users.models import User
 
+from audit_log.models import AuditEntry
+
 logger = logging.getLogger(__name__)
-
-_MAX_ACTOR_MATCHES = 500
-"""Ceiling on how many accounts one Actor search may resolve to.
-
-A name search that matches more people than this is not a filter, and the ids
-it produces are spent as bind parameters in the audit query.
-"""
 
 
 async def resolve_actors(db: AsyncSession, user_ids: list[str | None]) -> dict[str, str]:
@@ -58,45 +53,53 @@ async def resolve_actors(db: AsyncSession, user_ids: list[str | None]) -> dict[s
     return await resolve_user_labels(db, wanted)
 
 
-async def resolve_actor_ids(db: AsyncSession, term: str) -> list[str]:
-    """User ids matching what was typed into the Actor box.
+def actor_filter(term: str) -> Any | None:
+    """A predicate selecting the audit rows an Actor search should show.
 
-    A uuid means that account and only that account — an id is unambiguous and
-    resolving it through a name search could widen it. Anything else is a
+    A uuid means that account and only that account — an id is unambiguous, and
+    putting it through a name search could only widen it. Anything else is a
     substring of a name or an email, which is what someone investigating an
     incident actually has to hand.
 
-    An empty list is a real answer ("nobody is called that") and the caller
-    must filter on it rather than dropping the filter: silently returning
-    every row would read as "everyone did this".
+    The name case is a **subquery**, not a list of ids resolved in Python
+    first. Materialising the matches means choosing a ceiling: without one, a
+    common substring on a large install builds an ``IN`` list with more bind
+    parameters than Postgres accepts; with one, the same search silently
+    returns an arbitrary slice of the matching accounts, on the page *and* in
+    the CSV, with nothing to say so. An audit log that quietly answers a
+    different question than the one asked is worse than one that is slow, so
+    the match stays in the database where it has no ceiling.
+
+    ``None`` means the box was empty. It never means "nobody is called that" —
+    that answer is a subquery matching no rows, which is not the same thing.
+
+    ``user_id`` is text and ``User.id`` is a uuid, which is why the ids were
+    materialised in the first place; ``CAST`` bridges it. Both dialects render
+    the canonical lowercase, hyphenated form the audit trail stored (Postgres
+    from its native ``uuid``, SQLite from the ``CHAR(36)`` the GUID type
+    writes).
+
+    Typed ``Any`` because SQLModel declares columns with their plain Python
+    types, so a comparison reads statically as ``bool`` while being a SQL
+    expression at runtime — the same reason ``EntryFilters.conditions`` does.
     """
     term = term.strip()
     if not term:
-        return []
+        return None
     try:
-        return [str(uuid.UUID(term))]
+        return AuditEntry.user_id == str(uuid.UUID(term))
     except (ValueError, AttributeError, TypeError):
         pass
 
     pattern = like_contains_pattern(term)
-    rows = (
-        await db.execute(
-            select(User.id)
-            .where(
-                or_(
-                    User.full_name.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
-                    User.email.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
-                )
+    return AuditEntry.user_id.in_(
+        select(cast(User.id, String)).where(
+            or_(
+                User.full_name.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
+                User.email.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
             )
-            # The matches become an IN list, so an unbounded search ("a") on a
-            # large install would build a statement with more bind parameters
-            # than Postgres accepts. Ordered so the bound is at least stable
-            # between two runs of the same too-broad search.
-            .order_by(User.email)
-            .limit(_MAX_ACTOR_MATCHES)
         )
-    ).scalars()
-    return [str(row) for row in rows]
+    )
 
 
 async def resolve_entity_labels(
@@ -129,6 +132,12 @@ async def resolve_entity_labels(
             resolved = await link.label_resolver(db, sorted(ids))
         except Exception:
             logger.exception("Audit label resolver failed for %s", entity_type)
+            # A failed statement leaves the session in an aborted transaction
+            # on Postgres, where every later query answers "current transaction
+            # is aborted" — which would take the rest of the page's names with
+            # it, and truncate a streaming export mid-file. Reset so the rest of
+            # the work still runs, with ids where names would have been.
+            await db.rollback()
             continue
         for entity_id, label in resolved.items():
             if label:

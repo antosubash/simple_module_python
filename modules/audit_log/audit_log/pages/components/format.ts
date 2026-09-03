@@ -15,8 +15,13 @@
  * tabular evidence, and en-US would widen every row with "PM" and reorder the
  * date away from the range control sitting above it. Built from two
  * formatters because a single one interposes a comma between them.
+ *
+ * `d`, not `dd`: the cell's day is unpadded ("5 Aug"). The range field below
+ * pads its ends ("01 Aug – 19 Aug") because the deck draws them that way — two
+ * digits keep the two halves of a range the same width.
  */
-const DAY_FORMAT = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' });
+const CELL_DAY_FORMAT = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
+const RANGE_DAY_FORMAT = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' });
 const CLOCK_FORMAT = new Intl.DateTimeFormat('en-GB', {
   hour: '2-digit',
   minute: '2-digit',
@@ -31,7 +36,7 @@ export function formatEntryTime(timestamp: string): string {
   // An unparseable timestamp is still evidence; showing it raw beats showing
   // "Invalid Date" where a reader expects a time.
   if (Number.isNaN(parsed.getTime())) return timestamp;
-  return `${DAY_FORMAT.format(parsed)} ${CLOCK_FORMAT.format(parsed)}`;
+  return `${CELL_DAY_FORMAT.format(parsed)} ${CLOCK_FORMAT.format(parsed)}`;
 }
 
 /**
@@ -59,9 +64,9 @@ export function toIsoDate(date: Date): string {
 export function formatDateRange(from: string | null, to: string | null): string {
   const start = from ? parseIsoDate(from) : null;
   const end = to ? parseIsoDate(to) : null;
-  if (start && end) return `${DAY_FORMAT.format(start)} – ${DAY_FORMAT.format(end)}`;
-  if (start) return `${DAY_FORMAT.format(start)} –`;
-  if (end) return `– ${DAY_FORMAT.format(end)}`;
+  if (start && end) return `${RANGE_DAY_FORMAT.format(start)} – ${RANGE_DAY_FORMAT.format(end)}`;
+  if (start) return `${RANGE_DAY_FORMAT.format(start)} –`;
+  if (end) return `– ${RANGE_DAY_FORMAT.format(end)}`;
   return '';
 }
 

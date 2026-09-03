@@ -20,6 +20,8 @@ from background_tasks.models import TaskExecution
 from feature_flags.models import FeatureFlagOverride
 from settings.models import Setting
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
+from sqlalchemy import select
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 from users.models import User
 
@@ -208,3 +210,58 @@ class TestBatching:
         )
 
         assert await resolve_entity_labels(db_session, registry, [("User", "a")]) == {}
+
+    async def test_a_database_error_leaves_the_session_usable(
+        self, db_session: AsyncSession
+    ) -> None:
+        """A resolver that fails *in the database* aborts the transaction on
+        Postgres, and every later query answers "current transaction is
+        aborted" — which would take the rest of the page's names with it and
+        truncate a streaming export mid-file. The session has to be reset."""
+        rollbacks = []
+        original = db_session.rollback
+
+        async def spy() -> None:
+            rollbacks.append(True)
+            await original()
+
+        async def db_boom(_db, _ids):
+            raise DBAPIError("SELECT 1", {}, Exception("column does not exist"))
+
+        registry = AuditLinkRegistry()
+        registry.register(
+            AuditLink(entity_type="Setting", url_template="/s/{id}", label_resolver=db_boom)
+        )
+        db_session.rollback = spy  # type: ignore[method-assign]
+        try:
+            labels = await resolve_entity_labels(db_session, registry, [("Setting", "1")])
+        finally:
+            db_session.rollback = original  # type: ignore[method-assign]
+
+        assert labels == {}
+        assert rollbacks == [True]
+        # The session still answers — the export's next batch depends on it.
+        assert (await db_session.execute(select(AuditEntry))).all() is not None
+
+    async def test_one_failing_module_does_not_cost_the_others_their_names(
+        self, db_session: AsyncSession
+    ) -> None:
+        async def boom(_db, _ids):
+            raise DBAPIError("SELECT 1", {}, Exception("nope"))
+
+        async def fine(_db, ids):
+            return {i: f"name-{i}" for i in ids}
+
+        registry = AuditLinkRegistry()
+        registry.register(
+            AuditLink(entity_type="Setting", url_template="/s/{id}", label_resolver=boom)
+        )
+        registry.register(
+            AuditLink(entity_type="User", url_template="/u/{id}", label_resolver=fine)
+        )
+
+        labels = await resolve_entity_labels(
+            db_session, registry, [("Setting", "1"), ("User", "a")]
+        )
+
+        assert labels == {("User", "a"): "name-a"}

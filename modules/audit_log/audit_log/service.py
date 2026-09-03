@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator
 from datetime import datetime
 
 from simple_module_db.provider import DatabaseProvider
@@ -77,7 +77,6 @@ class AuditLogService:
         entity_id: str | None = None,
         action: str | None = None,
         user_id: str | None = None,
-        user_ids: Sequence[str] | None = None,
         correlation_id: str | None = None,
         from_date: datetime | None = None,
         to_date: datetime | None = None,
@@ -90,7 +89,6 @@ class AuditLogService:
                 entity_id=entity_id,
                 action=action,
                 user_id=user_id,
-                user_ids=user_ids,
                 correlation_id=correlation_id,
                 from_date=from_date,
                 to_date=to_date,

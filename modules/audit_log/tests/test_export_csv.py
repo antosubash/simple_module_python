@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 import httpx
 from audit_log.constants import ACTION_CREATED, ACTION_DELETED, ACTION_UPDATED
 from audit_log.models import AuditEntry
+from simple_module_test import forge_session_cookie
 from users.models import User
 
 EXPORT_URL = "/api/audit_log/export.csv"
@@ -258,6 +259,31 @@ class TestExportPermission:
         resp = await client.get(EXPORT_URL, follow_redirects=False)
 
         assert resp.status_code in (302, 303, 401, 403)
+
+    async def test_a_signed_in_non_admin_is_refused(self, app) -> None:
+        """Signed in is not the same as allowed to read the audit trail. The
+        export is a second door onto the same rows as the browse screen, and a
+        guard on one of the two doors is not a guard."""
+        from users.bootstrap import create_standard_user
+
+        async with app.state.sm.db.session_factory() as session:
+            result = await create_standard_user(
+                session,
+                email="nosy@example.com",
+                password="UserPass1!",
+                full_name="Nosy Parker",
+            )
+            user_id = str(result.user.id)
+
+        cookie = forge_session_cookie(str(app.state.sm.settings.secret_key), {"user_id": user_id})
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+            cookies={"session": cookie},
+        ) as viewer:
+            resp = await viewer.get(EXPORT_URL, follow_redirects=False)
+
+        assert resp.status_code == 403, resp.text
 
     async def test_an_unknown_entity_id_exports_only_the_header(
         self, authenticated_client: httpx.AsyncClient
