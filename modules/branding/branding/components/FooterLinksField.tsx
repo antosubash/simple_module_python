@@ -107,10 +107,22 @@ export function FooterLinksField({ links, onChange, disabled }: FooterLinksField
             onChange={(e) => setDraft({ ...draft, href: e.target.value })}
             className="min-w-48 flex-1 font-mono text-xs"
           />
-          <Button type="button" size="sm" disabled={disabled || !complete} onClick={commit}>
+          <Button
+            type="button"
+            size="sm"
+            className="max-lg:min-h-11"
+            disabled={disabled || !complete}
+            onClick={commit}
+          >
             {t(keys.branding.manage.footer_link_add_confirm)}
           </Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => setAdding(false)}>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="max-lg:min-h-11"
+            onClick={() => setAdding(false)}
+          >
             {t(keys.branding.manage.footer_link_add_cancel)}
           </Button>
         </div>

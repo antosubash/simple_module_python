@@ -130,12 +130,13 @@ function Manage() {
             <Button
               variant="outline"
               size="sm"
+              className="max-lg:min-h-11"
               disabled={locked || changes === 0}
               onClick={() => setForm(baseline)}
             >
               {t(keys.branding.manage.discard)}
             </Button>
-            <Button size="sm" disabled={locked} onClick={publish}>
+            <Button size="sm" className="max-lg:min-h-11" disabled={locked} onClick={publish}>
               {busy ? t(keys.branding.manage.publishing) : t(keys.branding.manage.publish)}
             </Button>
           </>

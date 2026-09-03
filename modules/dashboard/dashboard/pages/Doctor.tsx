@@ -72,10 +72,14 @@ function Doctor() {
         }
         actions={
           <>
-            <Button variant="outline" size="sm" onClick={copyReport}>
+            <Button variant="outline" size="sm" className="max-lg:min-h-11" onClick={copyReport}>
               {t(keys.dashboard.doctor.copy_report)}
             </Button>
-            <Button size="sm" className="gap-1.5" onClick={() => router.post(RERUN_URL)}>
+            <Button
+              size="sm"
+              className="gap-1.5 max-lg:min-h-11"
+              onClick={() => router.post(RERUN_URL)}
+            >
               <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
               {t(keys.dashboard.doctor.rerun)}
             </Button>
