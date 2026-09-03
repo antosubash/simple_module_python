@@ -228,7 +228,7 @@ function Browse() {
                         {t(keys.audit_log.actions[entry.action])}
                       </span>
                     </TableCell>
-                    <TableCell className={TD}>
+                    <TableCell className={`${TD} whitespace-normal`}>
                       <EntityCell entry={entry} />
                     </TableCell>
                     <TableCell
@@ -236,7 +236,10 @@ function Browse() {
                     >
                       <ActorCell entry={entry} />
                     </TableCell>
-                    <TableCell className={`${TD} hidden md:table-cell`}>
+                    {/* `TableCell` is `whitespace-nowrap` by default, which
+                        made one long value push the table wider than the card
+                        and cut every updated row mid-value. */}
+                    <TableCell className={`${TD} hidden whitespace-normal md:table-cell`}>
                       <ChangesList action={entry.action} changes={entry.changes} />
                     </TableCell>
                   </TableRow>

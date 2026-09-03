@@ -89,3 +89,31 @@ describe('formatChangeValue', () => {
     expect(formatChangePair(true, false)).toBe('true → false');
   });
 });
+
+describe('timestamp values inside a change', () => {
+  test('an ISO datetime is shortened to the Time column\u2019s own format', () => {
+    // Rendered whole, one of these is 32 characters and pushes the Changes
+    // column past the card it sits in.
+    const stamp = new Date(2026, 8, 3, 9, 13, 59).toISOString();
+
+    expect(formatChangeValue(stamp)).toBe('3 Sep 09:13:59');
+  });
+
+  test('both sides serialise alike however precise the server was', () => {
+    // The old side is second-precision, the new side carries microseconds and
+    // an offset. Whole, the reader compares 32 characters to spot one second.
+    expect(formatChangePair('2026-09-03T09:13:59', '2026-09-03T09:14:00.123456')).toBe(
+      '3 Sep 09:13:59 → 3 Sep 09:14:00',
+    );
+  });
+
+  test('a date-only string is left alone — it is not a timestamp', () => {
+    expect(formatChangeValue('2026-09-03')).toBe('"2026-09-03"');
+  });
+
+  test('a string that merely contains a date is left alone', () => {
+    expect(formatChangeValue('backup 2026-09-03T09:13:59 done')).toBe(
+      '"backup 2026-09-03T09:13:59 done"',
+    );
+  });
+});

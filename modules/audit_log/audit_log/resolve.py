@@ -18,6 +18,7 @@ None of it is stored. The audit row keeps the ids it recorded.
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from collections.abc import Callable, Iterable
 from typing import Any
@@ -145,6 +146,21 @@ async def resolve_entity_labels(
     return labels
 
 
+_CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+
+
+def table_name_for(entity_type: str) -> str:
+    """The muted tag beside a row's name, for a type nothing claims.
+
+    ``UserAccessToken`` becomes ``user_access_token``. Not the real table
+    (which carries its module's prefix) but the same vocabulary an operator
+    uses at a psql prompt, where the class name is a Python identifier they
+    would have to translate first. A module that registers an ``AuditLink``
+    states its ``table_name`` outright and never reaches this.
+    """
+    return _CAMEL_BOUNDARY.sub("_", entity_type).lower()
+
+
 USER_ENTITY_TYPE = User.__name__
 """The model an audit actor is a row of.
 
@@ -188,8 +204,9 @@ def entity_link(
     ``display`` is what the cell is titled with: the resolved row name where
     the owner could supply one, and otherwise the stored id, which is never
     wrong even when it is not friendly. ``table_name`` is the muted tag beside
-    it and falls back to the class name for unclaimed types, because "some
-    table" is worse than a name a developer can at least grep for.
+    it; for a type nothing claims it is the class name snake-cased rather than
+    left as ``UserAccessToken``, so every tag in the column reads as a table
+    name and not one Python class among them.
 
     ``translate`` resolves the link's ``label_key``; an unresolved key (the
     Translator echoes it back) keeps the literal ``label``. ``label`` names the
@@ -203,7 +220,7 @@ def entity_link(
             "url": None,
             "label": entity_type,
             "display": shown,
-            "table_name": entity_type,
+            "table_name": table_name_for(entity_type),
         }
     label = link.label or entity_type
     if link.label_key and translate is not None:
@@ -214,5 +231,5 @@ def entity_link(
         "url": link.url_for(entity_id),
         "label": label,
         "display": shown,
-        "table_name": link.table_name or entity_type,
+        "table_name": link.table_name or table_name_for(entity_type),
     }

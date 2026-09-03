@@ -55,14 +55,14 @@ export function EntityCell({ entry }: { entry: AuditEntryRef }) {
       {url ? (
         <Link
           href={url}
-          className="text-sm text-primary-700 hover:underline"
+          className="text-sm break-words text-primary-700 hover:underline"
           title={entry.entity_id}
         >
           {display}
         </Link>
       ) : (
         <>
-          {named && <span className="text-sm">{display}</span>}
+          {named && <span className="text-sm break-words">{display}</span>}
           <CopyableId value={entry.entity_id} label={short(entry.entity_id)} />
         </>
       )}

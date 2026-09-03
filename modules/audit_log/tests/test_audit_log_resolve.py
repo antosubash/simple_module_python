@@ -52,10 +52,12 @@ class TestEntityLink:
         assert ref["label"] == "UserPermission"
         assert ref["display"] == "x1"
 
-    def test_unclaimed_table_tags_with_the_class_name(self):
-        """No owner means no ``__tablename__`` to show — the class name is
-        still something a developer can grep for."""
-        assert entity_link(_registry(), "UserPermission", "x1")["table_name"] == "UserPermission"
+    def test_unclaimed_table_tags_with_the_snake_cased_class_name(self):
+        """No owner means no ``__tablename__`` to show, but the tag column is
+        table names — one Python class among them reads as a different kind of
+        thing, so the class name is snake-cased into the same vocabulary."""
+        ref = entity_link(_registry(), "UserAccessToken", "x1")
+        assert ref["table_name"] == "user_access_token"
 
     def test_missing_label_falls_back_to_the_table_name(self):
         reg = AuditLinkRegistry()

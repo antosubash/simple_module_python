@@ -1,4 +1,7 @@
 {
+  "audit": {
+    "file": "File"
+  },
   "browse": {
     "title": "File storage",
     "head_title": "File storage",

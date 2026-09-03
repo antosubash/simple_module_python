@@ -1,4 +1,7 @@
 {
+  "audit": {
+    "role_permission": "Role permission"
+  },
   "browse": {
     "title": "Permissions",
     "description": "Permissions are auto-discovered from every installed module. Assign them to roles, or grant them directly to individual users.",

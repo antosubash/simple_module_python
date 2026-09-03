@@ -45,7 +45,7 @@ export function ChangesList({ action, changes }: ChangesListProps) {
   const remaining = changes.length - VISIBLE_LIMIT;
 
   return (
-    <div className="flex flex-col gap-0.5 font-mono text-xs text-muted-foreground">
+    <div className="flex flex-col gap-0.5 font-mono text-xs break-words text-muted-foreground">
       {visible.map((change) => (
         <span key={change.field}>
           <span className="text-foreground">{change.field}</span>{' '}
@@ -55,7 +55,7 @@ export function ChangesList({ action, changes }: ChangesListProps) {
       {remaining > 0 && (
         <button
           type="button"
-          className="self-start font-sans text-xs font-medium text-primary-700 hover:underline"
+          className="self-start font-sans text-xs font-medium text-primary-700 hover:underline max-sm:min-h-11"
           onClick={() => setExpanded(!expanded)}
         >
           {expanded

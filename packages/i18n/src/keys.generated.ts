@@ -432,6 +432,9 @@ export const keys = {
     actions: {
       download: 'file_storage.actions.download',
     },
+    audit: {
+      file: 'file_storage.audit.file',
+    },
     browse: {
       clear_filters: 'file_storage.browse.clear_filters',
       delete_selected: 'file_storage.browse.delete_selected',
@@ -662,6 +665,9 @@ export const keys = {
     },
   },
   permissions: {
+    audit: {
+      role_permission: 'permissions.audit.role_permission',
+    },
     browse: {
       count_label: 'permissions.browse.count_label',
       count_label_one: 'permissions.browse.count_label_one',

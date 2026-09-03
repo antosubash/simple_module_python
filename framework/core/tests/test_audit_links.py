@@ -122,3 +122,26 @@ class TestLabelResolver:
                     entity_type="User", url_template="/b/{id}", label_resolver=lambda *_: None
                 )
             )
+
+
+class TestScreenlessLinks:
+    """A table can be audited and named without having a page of its own.
+
+    Join rows and stored files are the cases: nothing to open, but the audit
+    table still has to call the row something and tag it with its table, and
+    only the owning module knows either.
+    """
+
+    def test_an_empty_template_is_accepted(self) -> None:
+        link = AuditLink(
+            entity_type="RolePermission",
+            url_template="",
+            label="Role permission",
+            table_name="permissions_role_permission",
+        )
+
+        assert link.url_for("('admin', 'settings.create')") is None
+
+    def test_a_non_empty_template_still_has_to_carry_the_id(self) -> None:
+        with pytest.raises(ValueError, match="contains no"):
+            AuditLink(entity_type="Thing", url_template="/things")

@@ -8,35 +8,31 @@
  * expected.
  */
 
+import { formatDayMonth, formatDayMonthTime } from '@simple-module-py/ui/lib/date-format';
+
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * An ISO timestamp as the server writes them, with or without sub-seconds and
+ * offset: `2026-09-03T09:13:59`, `…59.123456`, `…59.123456+00:00`, `…59Z`.
+ */
+const ISO_DATETIME = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/;
+
 /**
  * "19 Aug 14:02:11" — the deck's `d MMM HH:mm:ss`.
  *
- * Fixed to en-GB rather than the reader's locale: the column is 150px of
- * tabular evidence, and en-US would widen every row with "PM" and reorder the
- * date away from the range control sitting above it. Built from two
- * formatters because a single one interposes a comma between them.
+ * Fixed rather than locale-dependent: the column is 150px of tabular evidence,
+ * and en-US would widen every row with "PM" and reorder the date away from the
+ * range control sitting above it. The month is `en-US`'s three-letter form
+ * because `en-GB` abbreviates September to "Sept", which is a fourth character
+ * in a column the deck aligns on three. See `ui/lib/date-format`.
  *
  * `d`, not `dd`: the cell's day is unpadded ("5 Aug"). The range field below
  * pads its ends ("01 Aug – 19 Aug") because the deck draws them that way — two
  * digits keep the two halves of a range the same width.
  */
-const CELL_DAY_FORMAT = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
-const RANGE_DAY_FORMAT = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' });
-const CLOCK_FORMAT = new Intl.DateTimeFormat('en-GB', {
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hourCycle: 'h23',
-});
-
-const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
-
 export function formatEntryTime(timestamp: string): string {
-  const parsed = new Date(timestamp);
-  // An unparseable timestamp is still evidence; showing it raw beats showing
-  // "Invalid Date" where a reader expects a time.
-  if (Number.isNaN(parsed.getTime())) return timestamp;
-  return `${CELL_DAY_FORMAT.format(parsed)} ${CLOCK_FORMAT.format(parsed)}`;
+  return formatDayMonthTime(timestamp);
 }
 
 /**
@@ -62,11 +58,12 @@ export function toIsoDate(date: Date): string {
 
 /** "01 Aug – 19 Aug", or one end of it, or an empty string for no range. */
 export function formatDateRange(from: string | null, to: string | null): string {
+  const pad = { pad: true };
   const start = from ? parseIsoDate(from) : null;
   const end = to ? parseIsoDate(to) : null;
-  if (start && end) return `${RANGE_DAY_FORMAT.format(start)} – ${RANGE_DAY_FORMAT.format(end)}`;
-  if (start) return `${RANGE_DAY_FORMAT.format(start)} –`;
-  if (end) return `– ${RANGE_DAY_FORMAT.format(end)}`;
+  if (start && end) return `${formatDayMonth(start, pad)} – ${formatDayMonth(end, pad)}`;
+  if (start) return `${formatDayMonth(start, pad)} –`;
+  if (end) return `– ${formatDayMonth(end, pad)}`;
   return '';
 }
 
@@ -79,6 +76,15 @@ export function formatDateRange(from: string | null, to: string | null): string 
  */
 export function formatChangeValue(value: unknown): string {
   if (value === undefined) return 'null';
+  // A stored timestamp arrives as an ISO string, and the two sides of one
+  // change rarely agree on how much of it: `…:59` against
+  // `…:59.123456+00:00`. Rendered whole they force the Changes column wider
+  // than the card, and the reader compares 32 characters to spot a
+  // one-second difference. Shortened to the same `d MMM HH:mm:ss` the Time
+  // column uses, both sides serialise alike and the diff is the difference.
+  if (typeof value === 'string' && ISO_DATETIME.test(value)) {
+    return formatDayMonthTime(value);
+  }
   return JSON.stringify(value) ?? 'null';
 }
 
