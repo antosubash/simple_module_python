@@ -13,7 +13,7 @@ Make every one of the deck's 28 screens (8 public, 10 app, 9 ops, 1 mobile board
 
 | Deck | Decision | Why |
 |---|---|---|
-| One charcoal shell with `Main / Operations / System` nav, Permissions as a top-level item | Keep the registry-driven app/admin split and the red-tinted admin sidebar | #274 post-dates the deck and CLAUDE.md mandates the split; Permissions has no index page. Only the *styling* of nav items follows the deck (solid primary pill, 44px rows on phones). |
+| One charcoal shell with `Main / Operations / System` nav, Permissions as a top-level item | Keep the registry-driven app/admin split (two sidebars, one emerald shell — main already dropped the red admin tint before this branch) | #274 post-dates the deck and CLAUDE.md mandates the split; Permissions has no index page. Only the *styling* of nav items follows the deck (solid primary pill in both sidebars, 44px rows on phones). |
 | No footer inside the app frame | Keep `BrandingFooter` | Footer links became admin-configurable in #282/#287, after the deck. |
 | Landing badge "Batteries-included **Django** + Inertia starter" | "Batteries-included **FastAPI** + Inertia starter" | Deck typo. |
 | Settings nav lands on the raw override table; module forms are a sub-page | Keep `/admin/settings/` = module forms, `/admin/settings/store` = overrides | Decided in #261 (item 1o). Each screen is restyled in place. |
@@ -41,7 +41,7 @@ These are built first because three or more screens depend on each.
 
 ## Shell (00, 28)
 
-- Sidebar active item: solid `bg-primary text-white` pill (app) / `bg-red-600 text-white` (admin); 15px labels; rows `min-h-11` below `lg`.
+- Sidebar active item: solid `bg-primary text-white` pill in both the app and admin sidebars; 15px labels; rows `min-h-11` below `lg`.
 - Topbar: breadcrumb · "Search ⌘K" · locale pill · **Log out** (POST, from the `userDropdown` logout item).
 - Sidebar user row: two-letter initials on a neutral surface.
 - Phone bar (< lg): back chevron when the page declares `back`, else hamburger; **page title** (from the heading context; mono when the shell is told so); right slot = `mobileAction` or the avatar. Locale control moves to the drawer footer.
