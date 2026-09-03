@@ -14,9 +14,12 @@ from datetime import UTC, datetime, timedelta
 from auth.contracts.schemas import UserContext
 from simple_module_hosting.session import (
     SESSION_EXPIRES_AT_KEY,
+    SESSION_REMEMBER_KEY,
     session_has_expired,
 )
 from starlette.requests import Request
+
+from users.constants import SESSION_USER_ID_KEY, SESSION_VERSION_KEY
 
 # Re-exported: the cache lives in its own module (see its docstring), but
 # ``users.provider`` is where callers reach for it.
@@ -31,13 +34,9 @@ from users.session_version_cache import (  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
-_SESSION_USER_ID_KEY = "user_id"
+# Not in ``users.constants``: nothing outside this file writes it, and the
+# shape it holds is this provider's own caching detail.
 _SESSION_USER_CTX_KEY = "user_ctx"
-_SESSION_VERSION_KEY = "session_version"
-# Mirrors ``simple_module_hosting.session.SESSION_REMEMBER_KEY``. Duplicated as
-# a literal for the same reason as the keys above: this module reads the raw
-# session dict and does not import the framework's middleware.
-_SESSION_REMEMBER_KEY = "remember"
 
 
 def _stamped_version(session) -> int:
@@ -47,20 +46,20 @@ def _stamped_version(session) -> int:
     column carries, and the default on the row, so upgrading signs nobody out.
     """
     try:
-        return int(session.get(_SESSION_VERSION_KEY, 0) or 0)
+        return int(session.get(SESSION_VERSION_KEY, 0) or 0)
     except (TypeError, ValueError):
         return 0
 
 
 def _forget(session) -> None:
     """Drop everything this session claimed about who is signed in."""
-    session.pop(_SESSION_USER_ID_KEY, None)
+    session.pop(SESSION_USER_ID_KEY, None)
     session.pop(_SESSION_USER_CTX_KEY, None)
-    session.pop(_SESSION_VERSION_KEY, None)
+    session.pop(SESSION_VERSION_KEY, None)
     session.pop(SESSION_EXPIRES_AT_KEY, None)
     # "Keep me signed in" was a choice about *this* sign-in. Leaving it behind
     # would hand a 30-day cookie to the anonymous session that replaces it.
-    session.pop(_SESSION_REMEMBER_KEY, None)
+    session.pop(SESSION_REMEMBER_KEY, None)
 
 
 class UsersAuthProvider:
@@ -75,7 +74,7 @@ class UsersAuthProvider:
             return await self._resolve_bearer(request.scope, auth_header[7:])
 
         session = request.scope.get("session", {})
-        raw_user_id = session.get(_SESSION_USER_ID_KEY)
+        raw_user_id = session.get(SESSION_USER_ID_KEY)
         if not raw_user_id:
             return None
 
