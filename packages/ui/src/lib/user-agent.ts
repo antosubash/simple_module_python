@@ -16,7 +16,10 @@ const BROWSERS: [RegExp, string][] = [
   [/\bOPR\/|\bOpera\//, 'Opera'],
   [/\bSamsungBrowser\//, 'Samsung Internet'],
   [/\bFirefox\/|\bFxiOS\//, 'Firefox'],
-  [/\bChrome\/|\bCriOS\//, 'Chrome'],
+  // No word boundary before `Chrome`: a headless build reports
+  // `HeadlessChrome/...`, which is still Chrome and was falling through to
+  // the Safari token every Chromium UA also carries.
+  [/Chrome\/|CriOS\//, 'Chrome'],
   [/\bSafari\//, 'Safari'],
 ];
 
