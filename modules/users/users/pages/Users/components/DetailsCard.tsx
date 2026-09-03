@@ -78,7 +78,7 @@ export function DetailsCard({
             {hasPermissionsModule && (
               <Link
                 href={`/admin/permissions/users/${userId}/edit`}
-                className="text-sm font-medium text-primary-700 hover:text-primary-800"
+                className="text-sm font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400"
               >
                 {t(keys.users.roles_card.manage_permissions)}
               </Link>

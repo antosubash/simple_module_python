@@ -18,6 +18,7 @@ from users.admin.service import UserService
 from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
 from users.deps import get_user_service
 from users.exceptions import UserNotFoundError
+from users.mailer import mailer_delivers
 from users.roles_cache import get_roles_cache
 
 router = APIRouter()
@@ -124,10 +125,8 @@ async def admin_add_people_page(
         {
             "roles": await _roles_payload(request.app),
             # Drives the copy-link panel: when nothing can be delivered, the
-            # invite mode has to hand the link back instead. No mailer at all
-            # delivers nothing — promising delivery there would be the one
-            # answer that is certainly wrong.
-            "mailer_delivers": bool(mailer is not None and getattr(mailer, "delivers_email", True)),
+            # invite mode has to hand the link back instead.
+            "mailer_delivers": mailer_delivers(mailer),
             # Named, not just "off": "Mailer is console" tells an admin which
             # setting to go and change, which "mail is disabled" does not.
             "mailer_name": getattr(settings, "mailer", "console"),

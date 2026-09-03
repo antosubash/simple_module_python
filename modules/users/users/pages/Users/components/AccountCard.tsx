@@ -85,15 +85,20 @@ export function AccountCard({
           <Row label={t(keys.users.metadata_card.created)}>{formatDay(createdAt, emptyValue)}</Row>
           <Row label={t(keys.users.metadata_card.verified)}>
             {isVerified ? (
-              <span className="text-primary-700">{t(keys.users.metadata_card.yes)}</span>
+              <span className="text-primary-700 dark:text-primary-400">
+                {t(keys.users.metadata_card.yes)}
+              </span>
             ) : (
               <span className="inline-flex items-center gap-2">
-                <span className="text-amber-700">{t(keys.users.metadata_card.no)}</span>
+                <span className="text-amber-700 dark:text-amber-400">
+                  {t(keys.users.metadata_card.no)}
+                </span>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={onMarkVerified}
                   disabled={savingVerify}
+                  className="max-lg:min-h-11"
                 >
                   {savingVerify
                     ? t(keys.users.common.saving)

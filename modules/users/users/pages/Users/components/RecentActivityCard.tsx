@@ -59,7 +59,10 @@ export function RecentActivityCard({ entries, userId }: Props) {
                 <span className="w-[86px] shrink-0 font-mono text-xs text-muted-foreground">
                   {stamp(entry.at)}
                 </span>
-                <Link href={entry.href} className="flex-1 hover:text-primary-700">
+                <Link
+                  href={entry.href}
+                  className="flex-1 hover:text-primary-700 dark:hover:text-primary-400"
+                >
                   {entry.summary}
                 </Link>
               </li>
@@ -68,7 +71,7 @@ export function RecentActivityCard({ entries, userId }: Props) {
         )}
         <Link
           href={`/admin/audit-log/?user_id=${userId}`}
-          className="mt-auto pt-4 text-sm font-medium text-primary-700 hover:text-primary-800"
+          className="mt-auto pt-4 text-sm font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400"
         >
           {t(keys.users.recent_activity.see_all)}
         </Link>

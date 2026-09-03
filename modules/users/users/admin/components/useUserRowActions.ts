@@ -81,10 +81,9 @@ export function useUserRowActions() {
   async function setActive(userId: string, active: boolean) {
     setBusy(userId);
     try {
-      const resp = await fetch(
-        `/api/users/admin/${userId}/${active ? 'enable' : 'disable'}`,
-        { method: 'PATCH' },
-      );
+      const resp = await fetch(`/api/users/admin/${userId}/${active ? 'enable' : 'disable'}`, {
+        method: 'PATCH',
+      });
       if (!resp.ok) {
         toast.error(t(keys.users.user_row.toast_status_failed));
         return;

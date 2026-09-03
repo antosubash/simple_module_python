@@ -9,8 +9,8 @@ import type { UserListItem } from './user-list-item';
 /** Amber for the two states that are waiting on something, muted otherwise. */
 const META_TONE: Record<UserListItem['state'], string> = {
   active: 'text-muted-foreground',
-  unverified: 'text-amber-700',
-  invited: 'text-amber-700',
+  unverified: 'text-amber-700 dark:text-amber-400',
+  invited: 'text-amber-700 dark:text-amber-400',
   disabled: 'text-muted-foreground',
 };
 
@@ -56,7 +56,7 @@ export function UserCards({ users }: { users: UserListItem[] }) {
             className={cn(
               'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-bold',
               user.state === 'active'
-                ? 'bg-primary-600/10 text-primary-700'
+                ? 'bg-primary-600/10 text-primary-700 dark:text-primary-400'
                 : 'bg-secondary text-muted-foreground',
             )}
           >

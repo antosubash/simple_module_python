@@ -78,6 +78,59 @@ class TestChangePassword:
         assert resp.status_code == 400, resp.text
 
 
+class TestChangePasswordRevokesOtherSessions:
+    """Changing a password is what you do when a session is in the wrong hands."""
+
+    @pytest.mark.anyio
+    async def test_another_browser_is_signed_out(self, anon_client, users_app):
+        import httpx
+        from simple_module_test import forge_session_cookie
+        from sqlalchemy import select
+        from users.models import User
+
+        await _login(anon_client)
+        async with users_app.state.sm.db.session_factory() as session:
+            user_id = (
+                await session.execute(select(User.id).where(User.email == "admin@example.com"))
+            ).scalar_one()
+
+        other = httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=users_app),
+            base_url="http://testserver",
+            cookies={
+                "session": forge_session_cookie(
+                    str(users_app.state.sm.settings.secret_key),
+                    {"user_id": str(user_id), "session_version": 0},
+                )
+            },
+        )
+        async with other:
+            before = await other.get("/admin/users/", follow_redirects=False)
+            assert before.status_code == 200, before.text
+
+            resp = await anon_client.post(
+                _URL,
+                json={"current_password": "AdminPass1!", "new_password": "BrandNewPass1!"},
+            )
+            assert resp.status_code == 204, resp.text
+
+            after = await other.get("/admin/users/", follow_redirects=False)
+            assert after.status_code in (302, 401), after.text
+
+    @pytest.mark.anyio
+    async def test_the_changing_browser_keeps_working(self, anon_client):
+        """Its session is re-stamped, so the bump does not catch the caller."""
+        await _login(anon_client)
+        resp = await anon_client.post(
+            _URL,
+            json={"current_password": "AdminPass1!", "new_password": "BrandNewPass1!"},
+        )
+        assert resp.status_code == 204, resp.text
+
+        page = await anon_client.get("/admin/users/", follow_redirects=False)
+        assert page.status_code == 200, page.text
+
+
 class TestProfileProps:
     @pytest.mark.anyio
     async def test_profile_view_passes_the_real_user(self, admin_client):

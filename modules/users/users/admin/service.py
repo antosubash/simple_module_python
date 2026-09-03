@@ -12,9 +12,9 @@ from sqlalchemy.orm import noload
 from users.admin.queries import _UserServiceBase
 from users.contracts.schemas import UserCreate
 from users.exceptions import (
-    AlreadyVerifiedError,
     EmailAlreadyExistsError,
     ExternalUserNoPasswordError,
+    NotPendingInviteError,
     UserNotFoundError,
 )
 from users.models import OAuthAccount, RefreshToken, User, UserAccessToken, UserRole
@@ -189,13 +189,19 @@ class UserService(_UserServiceBase):
         describe the link the person was just sent, not the one that never
         arrived.
 
-        Raises ``AlreadyVerifiedError`` for an account that has already been
-        through the flow — there is nothing left to accept, and re-inviting
-        would mint a live token for a working account.
+        Only rows in the ``invited`` state qualify — ``invited_at`` set and not
+        yet verified. The three ways to miss are refused rather than repaired,
+        because each repair would be a lie: stamping ``invited_at`` on a
+        self-signup would claim someone invited them, and re-enabling a
+        disabled account to let its invite through would undo the disabling.
         """
         user = await self._require_user(user_id)
         if user.is_verified:
-            raise AlreadyVerifiedError(user_id)
+            raise NotPendingInviteError(user_id, "the invitation was already accepted")
+        if not user.is_active:
+            raise NotPendingInviteError(user_id, "the account is disabled")
+        if user.invited_at is None:
+            raise NotPendingInviteError(user_id, "this account signed itself up")
         user.invited_at = datetime.now(UTC)
         await self._db.flush()
         return user, self._manager.mint_invite_token(user, _display_name(invited_by))

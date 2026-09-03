@@ -85,8 +85,8 @@ export function EmailChipInput({ value, onChange, id, className }: Props) {
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium',
                 valid
-                  ? 'bg-primary-600/10 text-primary-700'
-                  : 'bg-red-50 text-red-700 dark:bg-red-950/40',
+                  ? 'bg-primary-600/10 text-primary-700 dark:text-primary-400'
+                  : 'bg-red-500/10 text-red-700 dark:text-red-400',
               )}
             >
               <span data-valid={valid ? 'true' : 'false'}>{email}</span>
@@ -94,7 +94,10 @@ export function EmailChipInput({ value, onChange, id, className }: Props) {
                 type="button"
                 aria-label={t(keys.users.invite_fields.remove_chip, { email })}
                 onClick={() => onChange(value.filter((other) => other !== email))}
-                className="text-current/60 transition-colors hover:text-current"
+                // The chip is 26px tall by design, so the tap area is grown
+                // with a pseudo-element instead of the box: `min-h-11` here
+                // would stretch every chip on a phone.
+                className="relative text-current/60 transition-colors hover:text-current max-lg:after:absolute max-lg:after:top-1/2 max-lg:after:left-1/2 max-lg:after:h-11 max-lg:after:w-11 max-lg:after:-translate-x-1/2 max-lg:after:-translate-y-1/2 max-lg:after:content-['']"
               >
                 ✕
               </button>

@@ -55,7 +55,7 @@ export function DangerZone({ userId, email, isSelf }: Props) {
   return (
     <Card className="border-red-500/40 bg-red-500/5">
       <CardContent className="flex h-full flex-col gap-2.5 pt-5">
-        <h2 className="text-[15px] font-bold text-red-600 font-[var(--font-display)]">
+        <h2 className="text-[15px] font-bold text-red-600 font-[var(--font-display)] dark:text-red-400">
           {t(keys.users.danger_zone.title)}
         </h2>
         <p className="text-sm leading-relaxed text-muted-foreground">
@@ -69,7 +69,7 @@ export function DangerZone({ userId, email, isSelf }: Props) {
             variant="outline"
             disabled={isSelf || deleting}
             onClick={() => setOpen(true)}
-            className="gap-1.5 border-red-500 text-red-600 hover:bg-red-500/10 hover:text-red-700 max-lg:min-h-11"
+            className="gap-1.5 border-red-500 text-red-600 hover:bg-red-500/10 hover:text-red-700 max-lg:min-h-11 dark:text-red-400 dark:hover:text-red-300"
           >
             <Trash2 className="size-3.5" aria-hidden="true" />
             {deleting

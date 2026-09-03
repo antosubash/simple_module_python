@@ -23,7 +23,8 @@ from users.admin.bulk_invite import STATUS_LINK, STATUS_SENT, invite_link
 from users.admin.service import UserService
 from users.contracts.schemas import BulkInviteResult
 from users.deps import get_mailer, get_user_service
-from users.exceptions import AlreadyVerifiedError, UserNotFoundError
+from users.exceptions import NotPendingInviteError, UserNotFoundError
+from users.mailer import mailer_delivers
 
 logger = logging.getLogger(__name__)
 
@@ -53,19 +54,18 @@ async def admin_resend_invite(
         user, token = await service.resend_invite(user_id, invited_by=actor)
     except UserNotFoundError:
         raise HTTPException(status_code=404, detail="User not found") from None
-    except AlreadyVerifiedError:
+    except NotPendingInviteError as exc:
+        # The reason travels: "already accepted" and "signed itself up" call
+        # for different next steps, and a single flat 409 tells the admin
+        # neither of them.
         raise HTTPException(
             status_code=409,
-            detail="This account has already accepted its invitation.",
+            detail=f"There is no pending invite to resend — {exc.reason}.",
         ) from None
 
-    # Absent attribute means "assume it delivers" — a third-party mailer must
-    # never leak an invite token into the response just by not declaring
-    # itself. No mailer at all delivers nothing, though.
-    delivers = mailer is not None and getattr(mailer, "delivers_email", True)
     invited_by_name = getattr(actor, "name", None) or "Administrator"
 
-    if delivers:
+    if mailer_delivers(mailer):
         try:
             await mailer.send_invite(user.email, token, invited_by_name)
         except Exception as exc:

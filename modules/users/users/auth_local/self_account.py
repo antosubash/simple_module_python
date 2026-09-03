@@ -18,6 +18,7 @@ from simple_module_db.deps import get_db
 from sqlalchemy import delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from users.constants import SESSION_VERSION_KEY
 from users.contracts.schemas import SelfPasswordChange, UserUpdate
 from users.deps import fastapi_users, get_user_manager
 from users.manager import UserManager
@@ -42,6 +43,12 @@ async def change_my_password(
     400 rather than 403 for an SSO account: there is no password here to be
     forbidden from changing, so this is a bad request about a field that does
     not apply, not an authorisation decision.
+
+    Succeeding also revokes every *other* session. Changing a password is what
+    someone does when they think an old session is in the wrong hands, and a
+    change that leaves those sessions signed in does not do the one thing it
+    was reached for. The browser doing the changing keeps working: its session
+    is re-stamped with the new value rather than being caught by its own bump.
     """
     if user.is_external or user.hashed_password is None:
         raise HTTPException(
@@ -59,6 +66,12 @@ async def change_my_password(
         await user_manager.update(UserUpdate(password=body.new_password), user, request=request)
     except fu_exceptions.InvalidPasswordException as exc:
         raise HTTPException(status_code=400, detail=exc.reason) from exc
+
+    # ``user`` is attached to this request's session (``get_user_db`` takes the
+    # same ``get_db``), so assigning is enough to mark it written — a Core
+    # UPDATE would be rolled back as a read-only request.
+    user.session_version = int(user.session_version or 0) + 1
+    request.session[SESSION_VERSION_KEY] = user.session_version
     return Response(status_code=204)
 
 

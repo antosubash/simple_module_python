@@ -118,6 +118,44 @@ class TestResendInvite:
         user = await _make_user(users_db, email="settled@example.com", verified=True)
         resp = await admin_client.post(f"/api/users/admin/{user.id}/resend-invite")
         assert resp.status_code == 409, resp.text
+        assert "already accepted" in resp.json()["detail"]
+
+    @pytest.mark.anyio
+    async def test_resend_refuses_for_a_self_signup(self, admin_client, users_db):
+        """Nobody invited them, so there is no invitation to send again."""
+        from test_api_admin import _make_user
+
+        user = await _make_user(users_db, email="walkedin@example.com", verified=False)
+        resp = await admin_client.post(f"/api/users/admin/{user.id}/resend-invite")
+        assert resp.status_code == 409, resp.text
+        assert "signed itself up" in resp.json()["detail"]
+
+    @pytest.mark.anyio
+    async def test_a_refused_resend_leaves_the_state_alone(self, admin_client, users_db):
+        """Refusing must not stamp ``invited_at`` and turn a self-signup into an invite."""
+        from test_api_admin import _make_user
+
+        user = await _make_user(users_db, email="untouched@example.com", verified=False)
+        await admin_client.post(f"/api/users/admin/{user.id}/resend-invite")
+
+        rows = await admin_client.get(
+            "/admin/users/", headers={"X-Inertia": "true", "Accept": "application/json"}
+        )
+        row = next(
+            u for u in rows.json()["props"]["users"] if u["email"] == "untouched@example.com"
+        )
+        assert row["state"] == "unverified"
+        assert row["invited_at"] is None
+
+    @pytest.mark.anyio
+    async def test_resend_refuses_for_a_disabled_account(self, admin_client):
+        """A live invite token would let a disabled account back in."""
+        user_id = await _invite(admin_client, "shutout@example.com")
+        assert (await admin_client.patch(f"/api/users/admin/{user_id}/disable")).status_code == 200
+
+        resp = await admin_client.post(f"/api/users/admin/{user_id}/resend-invite")
+        assert resp.status_code == 409, resp.text
+        assert "disabled" in resp.json()["detail"]
 
     @pytest.mark.anyio
     async def test_resend_404s_for_an_unknown_user(self, admin_client):

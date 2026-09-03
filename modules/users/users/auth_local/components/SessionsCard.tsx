@@ -65,7 +65,7 @@ export function SessionsCard({ lastLoginAt }: Props) {
         <button
           type="button"
           onClick={() => setConfirming(true)}
-          className="mt-4 text-sm font-medium text-red-600 transition-colors hover:text-red-700 max-lg:min-h-11"
+          className="mt-4 text-sm font-medium text-red-600 transition-colors hover:text-red-700 max-lg:min-h-11 dark:text-red-400 dark:hover:text-red-300"
         >
           {t(keys.users.profile.sign_out_everywhere)}
         </button>

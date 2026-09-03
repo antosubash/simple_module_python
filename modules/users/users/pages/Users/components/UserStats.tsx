@@ -25,7 +25,7 @@ export function UserStats({ total, active, invited, roleCount }: Props) {
       <StatCard
         label={t(keys.users.index.stat_pending)}
         value={invited}
-        valueClassName={invited > 0 ? 'text-amber-700' : undefined}
+        valueClassName={invited > 0 ? 'text-amber-700 dark:text-amber-400' : undefined}
       />
       <StatCard label={t(keys.users.index.stat_roles)} value={roleCount} />
     </div>

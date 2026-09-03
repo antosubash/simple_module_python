@@ -111,13 +111,18 @@ async def recent_activity_for(
     reviewing an account wants to know.
     """
     try:
+        from audit_log.constants import MODULE_NAME
         from audit_log.service import AuditLogService
     except ImportError:
         return None
 
     # Installed as a package but not loaded into this app is a real state
     # (a trimmed preset, a disabled module), and its table may not exist.
-    if not any(getattr(m.meta, "name", "") == "Audit Log" for m in request.app.state.sm.modules):
+    #
+    # Compared against the module's own constant rather than a literal: the
+    # registered name is ``"AuditLog"`` while the menu label is ``"Audit Log"``,
+    # and hardcoding the readable one silently disabled this card entirely.
+    if not any(getattr(m.meta, "name", "") == MODULE_NAME for m in request.app.state.sm.modules):
         return None
 
     try:

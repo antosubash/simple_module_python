@@ -34,12 +34,11 @@ export function UserRowMenu({ user, actions }: Props) {
           size="icon-sm"
           aria-label={t(keys.users.user_row.actions_aria, { email: user.email })}
           disabled={actions.busy === user.id}
-          onClick={(event) => event.stopPropagation()}
         >
           <MoreHorizontal aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+      <DropdownMenuContent align="end">
         <DropdownMenuItem asChild>
           <Link href={`/admin/users/${user.id}`}>{t(keys.users.user_row.action_edit)}</Link>
         </DropdownMenuItem>

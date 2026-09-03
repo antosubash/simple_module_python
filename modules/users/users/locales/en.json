@@ -18,9 +18,6 @@
     "expired_body": "This invite link is expired or was never valid. Ask an admin for a new one."
   },
   "account_status": {
-    "title": "Account status",
-    "active": "active",
-    "disabled": "disabled",
     "disable_button": "Disable account",
     "enable_button": "Enable account",
     "disable_confirm_title": "Disable {email}?",
@@ -143,16 +140,6 @@
     "empty_title": "No users yet"
   },
   "filters": {
-    "status_placeholder": "Status",
-    "status_all": "All statuses",
-    "status_active": "Active",
-    "status_disabled": "Disabled",
-    "role_placeholder": "Role",
-    "role_all": "All roles",
-    "verified_placeholder": "Verified",
-    "verified_all": "All",
-    "verified_yes": "Verified",
-    "verified_no": "Unverified",
     "status_trigger": "Status: {value}",
     "role_trigger": "Role: {value}",
     "value_all": "all",
@@ -183,8 +170,6 @@
     "stat_active": "Active",
     "stat_pending": "Pending invites",
     "stat_roles": "Roles",
-    "pending_review": "review",
-    "pending_all_set": "all set",
     "tab_users": "Users",
     "tab_roles": "Roles",
     "search_placeholder": "Search by name or email…",
@@ -194,18 +179,12 @@
     "col_last_seen": "Last seen",
     "previous": "Previous",
     "next": "Next",
-    "page_of": "Page {page} of {total}",
     "showing_range": "Showing {from}–{to} of {total}",
     "view_label": "What to show",
     "add_people_short": "+ Add"
   },
   "invite_fields": {
     "label": "Email addresses",
-    "hint": "One per line, or separated by commas.",
-    "recognised": "{count} recognised.",
-    "invalid_email_one": "{email} is not a valid email address.",
-    "invalid_email_other": "{count} addresses are not valid email addresses.",
-    "no_mailer": "This deployment logs invite mail instead of sending it. You will get a copyable link for each address to pass on yourself.",
     "chip_placeholder": "Paste a list, or type and press Enter…",
     "counter": "{count} addresses · {invalid} invalid",
     "counter_clean": "{count} addresses",
@@ -215,24 +194,18 @@
     "message_placeholder": "Added to the invite email."
   },
   "invite_results": {
-    "summary_sent": "{count} sent",
-    "summary_links": "{count} need a link",
-    "summary_failed": "{count} failed",
-    "dismiss": "Dismiss",
-    "links_hint": "These accounts exist but no mail was delivered — send each person their link.",
-    "copy_all": "Copy all",
-    "copy_link_title": "Copy invite link",
-    "all_delivered": "All invites delivered.",
     "title": "Last batch",
     "meta_sent": "{count} sent",
     "meta_failed": "{count} failed",
     "copy_link": "Copy link",
     "retry": "Retry",
     "retrying": "Retrying…",
-    "expiry_note": "Invites expire after {days} days. Pending invites appear in the Users table with a Resend action.",
     "empty": "Results from your last batch appear here.",
     "toast_copied": "Invite link copied",
-    "copy_failed": "Could not copy — select the link and copy it by hand."
+    "copy_failed": "Could not copy — select the link and copy it by hand.",
+    "expiry_note": "Invites expire after {count} day. Pending invites appear in the Users table with a Resend action.",
+    "expiry_note_one": "Invites expire after {count} day. Pending invites appear in the Users table with a Resend action.",
+    "expiry_note_other": "Invites expire after {count} days. Pending invites appear in the Users table with a Resend action."
   },
   "login": {
     "head_title": "Sign in",
@@ -268,8 +241,6 @@
     "sign_in": "Sign-in",
     "local_badge": "local · password",
     "created": "Created",
-    "last_login": "Last login",
-    "never": "Never",
     "disabled_at": "Disabled at",
     "verified": "Verified",
     "yes": "yes",
@@ -286,11 +257,7 @@
     "head_title": "Profile",
     "title": "Your profile",
     "description": "Name, email, password and active sessions",
-    "account_section": "Account",
-    "upload_avatar": "Upload avatar",
     "avatar_hint": "Avatars come from the branding logo — no per-user upload.",
-    "verified_badge": "verified",
-    "unverified_badge": "unverified",
     "toast_updated": "Profile updated",
     "toast_failed": "Failed to update profile",
     "details_title": "Details",
@@ -359,7 +326,6 @@
     "default_label": "Roles"
   },
   "roles_card": {
-    "title": "Roles",
     "manage_permissions": "Manage permissions →"
   },
   "roles_tab": {
@@ -382,7 +348,6 @@
     "status_invited": "invited",
     "status_active": "active",
     "sso_badge": "SSO",
-    "edit_aria": "Edit {email}",
     "status_unverified": "unverified",
     "invited_meta": "invited {ago} · expires {until}",
     "resend": "Resend",

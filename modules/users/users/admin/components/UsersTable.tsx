@@ -10,10 +10,10 @@ import {
 } from '@simple-module-py/ui/components/ui/table';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import type { Filters } from './IndexFilters';
-import type { UserListItem } from './user-list-item';
 import { UserCards } from './UserCards';
 import { UserRow } from './UserRow';
 import { UsersEmptyPanel } from './UsersEmpty';
+import type { UserListItem } from './user-list-item';
 import { useUserRowActions } from './useUserRowActions';
 
 const HEAD_CLASS =
@@ -73,38 +73,38 @@ export function UsersTable({
           <UsersEmptyPanel filtered={filtered} onClear={onClearFilters} />
         ) : (
           <Table className="hidden sm:table">
-          <TableHeader>
-            <TableRow>
-              <TableHead className={HEAD_CLASS}>
-                <button
-                  type="button"
-                  className="flex items-center gap-0.5 hover:text-foreground"
-                  onClick={() => onSort('email')}
-                >
-                  {t(keys.users.index.col_member)}
-                  <SortIcon col="email" filters={filters} />
-                </button>
-              </TableHead>
-              <TableHead className={HEAD_CLASS}>{t(keys.users.index.col_role)}</TableHead>
-              <TableHead className={HEAD_CLASS}>{t(keys.users.index.col_status)}</TableHead>
-              <TableHead className={`${HEAD_CLASS} hidden lg:table-cell`}>
-                <button
-                  type="button"
-                  className="flex items-center gap-0.5 hover:text-foreground"
-                  onClick={() => onSort('last_login_at')}
-                >
-                  {t(keys.users.index.col_last_seen)}
-                  <SortIcon col="last_login_at" filters={filters} />
-                </button>
-              </TableHead>
-              <TableHead className={`${HEAD_CLASS} text-right`} />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.map((user) => (
-              <UserRow key={user.id} user={user} actions={actions} />
-            ))}
-          </TableBody>
+            <TableHeader>
+              <TableRow>
+                <TableHead className={HEAD_CLASS}>
+                  <button
+                    type="button"
+                    className="flex items-center gap-0.5 hover:text-foreground"
+                    onClick={() => onSort('email')}
+                  >
+                    {t(keys.users.index.col_member)}
+                    <SortIcon col="email" filters={filters} />
+                  </button>
+                </TableHead>
+                <TableHead className={HEAD_CLASS}>{t(keys.users.index.col_role)}</TableHead>
+                <TableHead className={HEAD_CLASS}>{t(keys.users.index.col_status)}</TableHead>
+                <TableHead className={`${HEAD_CLASS} hidden lg:table-cell`}>
+                  <button
+                    type="button"
+                    className="flex items-center gap-0.5 hover:text-foreground"
+                    onClick={() => onSort('last_login_at')}
+                  >
+                    {t(keys.users.index.col_last_seen)}
+                    <SortIcon col="last_login_at" filters={filters} />
+                  </button>
+                </TableHead>
+                <TableHead className={`${HEAD_CLASS} text-right`} />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((user) => (
+                <UserRow key={user.id} user={user} actions={actions} />
+              ))}
+            </TableBody>
           </Table>
         )}
 

@@ -22,6 +22,7 @@ from users.admin.service import UserService
 from users.contracts.events import UserInvited
 from users.contracts.schemas import BulkInviteResponse, BulkInviteResult, UserBulkInvite
 from users.deps import get_event_bus, get_mailer, get_user_service
+from users.mailer import mailer_delivers
 
 logger = logging.getLogger(__name__)
 
@@ -89,13 +90,8 @@ async def admin_bulk_invite(
     invited_by = getattr(request.state, "user", None)
     invited_by_name = invited_by.name if invited_by else "Administrator"
 
-    # Absent attribute means "assume it delivers" — a third-party mailer must
-    # never leak invite tokens into the response just by not declaring itself.
-    # No mailer at all delivers nothing, though: defaulting that to True sends
-    # every address down the send path, where the AttributeError surfaces to
-    # the admin as a raw "'NoneType' object has no attribute 'send_invite'".
-    # This matches what the page's ``mailer_delivers`` prop already reports.
-    delivers = mailer is not None and getattr(mailer, "delivers_email", True)
+    # Same question the page's ``mailer_delivers`` prop answers, asked once.
+    delivers = mailer_delivers(mailer)
 
     # Preserve submit order but drop repeats: pasting a list with the same
     # address twice should not create two invites for it. A malformed address

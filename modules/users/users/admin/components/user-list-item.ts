@@ -20,9 +20,9 @@ export type UserState = 'active' | 'unverified' | 'invited' | 'disabled';
 
 /** Tailwind classes for the soft status pill each state wears. */
 export const STATE_PILL: Record<UserState, string> = {
-  active: 'bg-primary-600/10 text-primary-700',
-  unverified: 'bg-amber-500/10 text-amber-700',
-  invited: 'bg-amber-500/10 text-amber-700',
+  active: 'bg-primary-600/10 text-primary-700 dark:text-primary-400',
+  unverified: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+  invited: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
   disabled: 'bg-secondary text-muted-foreground',
 };
 

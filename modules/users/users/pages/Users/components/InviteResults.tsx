@@ -77,7 +77,11 @@ export function InviteResults({ results, expiryDays, onRetry, retrying }: Props)
               <div className="flex items-center gap-2.5">
                 <span
                   aria-hidden="true"
-                  className={result.status === 'failed' ? 'text-destructive' : 'text-primary-700'}
+                  className={
+                    result.status === 'failed'
+                      ? 'text-destructive'
+                      : 'text-primary-700 dark:text-primary-400'
+                  }
                 >
                   {result.status === 'failed' ? '✕' : '✓'}
                 </span>
@@ -87,7 +91,7 @@ export function InviteResults({ results, expiryDays, onRetry, retrying }: Props)
                     type="button"
                     onClick={() => onRetry(result.email)}
                     disabled={retrying === result.email}
-                    className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
+                    className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60 max-lg:min-h-11 max-lg:px-2"
                   >
                     {retrying === result.email
                       ? t(keys.users.invite_results.retrying)
@@ -98,7 +102,7 @@ export function InviteResults({ results, expiryDays, onRetry, retrying }: Props)
                     <button
                       type="button"
                       onClick={() => copyLink(result.link ?? '')}
-                      className="text-xs font-medium text-primary-700 transition-colors hover:text-primary-800"
+                      className="text-xs font-medium text-primary-700 transition-colors hover:text-primary-800 dark:text-primary-400 max-lg:min-h-11 max-lg:px-2"
                     >
                       {t(keys.users.invite_results.copy_link)}
                     </button>
@@ -114,7 +118,7 @@ export function InviteResults({ results, expiryDays, onRetry, retrying }: Props)
       )}
 
       <p className="px-4 py-4 text-xs leading-relaxed text-muted-foreground">
-        {t(keys.users.invite_results.expiry_note, { days: expiryDays })}
+        {t(keys.users.invite_results.expiry_note, { count: expiryDays })}
       </p>
     </Card>
   );
