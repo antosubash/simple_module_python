@@ -788,11 +788,18 @@ export const keys = {
       sign_up: 'ui.public_nav.sign_up',
     },
     relative_time: {
+      days_ago: 'ui.relative_time.days_ago',
+      expired: 'ui.relative_time.expired',
       hours_ago: 'ui.relative_time.hours_ago',
+      in_days: 'ui.relative_time.in_days',
+      in_hours: 'ui.relative_time.in_hours',
+      in_minutes: 'ui.relative_time.in_minutes',
       just_now: 'ui.relative_time.just_now',
       minutes_ago: 'ui.relative_time.minutes_ago',
+      months_ago: 'ui.relative_time.months_ago',
       seconds_ago: 'ui.relative_time.seconds_ago',
       unknown: 'ui.relative_time.unknown',
+      years_ago: 'ui.relative_time.years_ago',
     },
     sidebar: {
       close: 'ui.sidebar.close',

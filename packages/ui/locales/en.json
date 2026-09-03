@@ -17,7 +17,14 @@
     "just_now": "just now",
     "seconds_ago": "{count}s ago",
     "minutes_ago": "{count}m ago",
-    "hours_ago": "{count}h ago"
+    "hours_ago": "{count}h ago",
+    "days_ago": "{count}d ago",
+    "months_ago": "{count}mo ago",
+    "years_ago": "{count}y ago",
+    "in_minutes": "in {count}m",
+    "in_hours": "in {count}h",
+    "in_days": "in {count}d",
+    "expired": "expired"
   },
   "nav_groups": {
     "access": "Access",

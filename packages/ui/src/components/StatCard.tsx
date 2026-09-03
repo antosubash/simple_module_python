@@ -1,51 +1,81 @@
-import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { cn } from '@simple-module-py/ui/lib/utils';
 import type { LucideIcon } from 'lucide-react';
+import type React from 'react';
 
 interface StatCardProps {
   label: string;
-  value: string | number;
-  icon: LucideIcon;
+  value: React.ReactNode;
+  icon?: LucideIcon;
+  /** A short qualifier under the value — "+12 this week", "all healthy". */
   delta?: string;
   deltaTone?: 'success' | 'info' | 'warning' | 'destructive' | 'secondary';
+  /** Muted text right after the value, e.g. the denominator in "5 / 8". */
+  suffix?: string;
+  /** Tints the whole card, for a figure that is itself the bad news. */
+  tone?: 'default' | 'warning' | 'destructive';
+  valueClassName?: string;
   className?: string;
 }
 
+const CARD_TONE: Record<NonNullable<StatCardProps['tone']>, string> = {
+  default: '',
+  warning: 'bg-amber-50/60 border-amber-200 [&_.stat-value]:text-amber-700',
+  destructive: 'bg-red-50/60 border-red-200 [&_.stat-value]:text-red-700',
+};
+
+const DELTA_TONE: Record<NonNullable<StatCardProps['deltaTone']>, string> = {
+  success: 'text-primary-700',
+  info: 'text-blue-700',
+  warning: 'text-amber-700',
+  destructive: 'text-red-700',
+  secondary: 'text-muted-foreground',
+};
+
+/**
+ * One number, read at a glance.
+ *
+ * The label leads and the value follows, because a row of these is scanned by
+ * label first — the figure means nothing until you know what it counts. The
+ * delta is plain coloured text rather than a badge: a badge competes with the
+ * value for attention, and the value is the point.
+ */
 export function StatCard({
   label,
   value,
   icon: Icon,
   delta,
   deltaTone = 'success',
+  suffix,
+  tone = 'default',
+  valueClassName,
   className,
 }: StatCardProps) {
-  const deltaVariant: Record<NonNullable<StatCardProps['deltaTone']>, string> = {
-    success: 'border-primary-200 bg-primary-50 text-primary-700',
-    info: 'border-blue-200 bg-blue-50 text-blue-700',
-    warning: 'border-amber-200 bg-amber-50 text-amber-700',
-    destructive: 'border-red-200 bg-red-50 text-red-700',
-    secondary: 'border-border bg-secondary text-muted-foreground',
-  };
   return (
-    <Card className={cn('border-border', className)}>
+    <Card className={cn('border-border', CARD_TONE[tone], className)}>
       <CardContent className="pt-5">
-        <div className="flex items-start justify-between">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600/10 text-primary-700">
-            <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
+        <div className="flex items-start justify-between gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            {label}
           </span>
-          {delta && (
-            <Badge variant="outline" className={cn('font-semibold', deltaVariant[deltaTone])}>
-              {delta}
-            </Badge>
+          {Icon && (
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-600/10 text-primary-700">
+              <Icon className="h-4 w-4" aria-hidden="true" />
+            </span>
           )}
         </div>
-        <div className="mt-3 font-bold tracking-tight font-[var(--font-display)] text-[26px] text-foreground">
-          {value}
+        <div className="mt-2 flex items-baseline gap-1.5">
+          <span
+            className={cn(
+              'stat-value font-bold tracking-tight font-[var(--font-display)] text-[26px] text-foreground',
+              valueClassName,
+            )}
+          >
+            {value}
+          </span>
+          {suffix && <span className="text-sm text-muted-foreground">{suffix}</span>}
         </div>
-        <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-          {label}
-        </div>
+        {delta && <div className={cn('mt-0.5 text-sm', DELTA_TONE[deltaTone])}>{delta}</div>}
       </CardContent>
     </Card>
   );
