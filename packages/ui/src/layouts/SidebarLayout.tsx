@@ -257,7 +257,13 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
             activeMenuItem={active}
           />
           <div className="flex-1">{children}</div>
-          <BrandingFooter appName={appName} logoUrl={logoUrl} links={footerLinks} variant="app" />
+          <BrandingFooter
+            appName={appName}
+            logoUrl={logoUrl}
+            links={footerLinks}
+            footerText={branding?.footerText}
+            variant="app"
+          />
         </main>
       </div>
     </TooltipProvider>

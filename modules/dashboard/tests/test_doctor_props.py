@@ -103,6 +103,19 @@ class TestChecks:
             if check_id != MIGRATION_CHECK_ID:
                 assert check["status"] == "pass", check
 
+    async def test_a_check_with_no_remediation_command_offers_no_action(
+        self, authenticated_client
+    ) -> None:
+        """Five of the eight have no single line that fixes them. A "Fix" that
+        copied ``make doctor`` would be a button that re-runs what you are
+        already looking at, so those rows carry no command at all."""
+        checks = {c["id"]: c for c in (await _props(authenticated_client))["checks"]}
+
+        assert checks["metadata"]["command"] is None
+        assert checks["coupling"]["command"] is None
+        assert checks["pages"]["command"] == "make gen-pages"
+        assert checks["locales"]["command"] == "make gen-i18n"
+
     async def test_an_error_finding_fails_its_check(self, app, authenticated_client) -> None:
         app.state.sm.diagnostics.runner = list
         app.state.sm.diagnostics.results = [

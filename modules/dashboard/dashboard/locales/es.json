@@ -40,6 +40,7 @@
     "rerun": "Volver a ejecutar",
     "stat_checks_passing": "Comprobaciones correctas",
     "stat_checks_total": "/ {count}",
+    "stat_checks_unavailable": "no disponible",
     "stat_modules_loaded": "Módulos cargados",
     "stat_pending_migrations": "Migraciones pendientes",
     "stat_python": "Python",
@@ -76,6 +77,7 @@
     "transcript_result": "✓ {passed} de {total} comprobaciones correctas",
     "transcript_skipped": "las comprobaciones se omiten fuera de desarrollo",
     "report_checks": "Comprobaciones",
+    "report_checks_unavailable": "no disponible (las comprobaciones solo se ejecutan en desarrollo)",
     "report_migrations": "Migraciones",
     "report_dev_server": "Servidor de desarrollo"
   },

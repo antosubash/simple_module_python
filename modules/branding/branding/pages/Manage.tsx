@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { BannerField, type BannerSeverity } from '../components/BannerField';
 import { DesignPackField, type DesignPackOption } from '../components/DesignPackField';
 import { type BrandingForm, countBrandingChanges } from '../components/dirty';
-import { FooterLinksField } from '../components/FooterLinksField';
+import { FooterField } from '../components/FooterField';
 import { ImageDropzones, type ImageKind } from '../components/ImageDropzones';
 import { PresetField, type PresetOption } from '../components/PresetField';
 import { PreviewTabs } from '../components/PreviewTabs';
@@ -55,6 +55,7 @@ function Manage() {
       designPack: branding?.designPack ?? '',
       bannerMessage: branding?.banner?.message ?? '',
       bannerSeverity: (branding?.banner?.severity as BannerSeverity) ?? 'info',
+      footerText: branding?.footerText ?? '',
       footerLinks: branding?.footerLinks ?? [],
     }),
     [branding],
@@ -93,6 +94,7 @@ function Manage() {
             design_pack: form.designPack,
             banner_message: form.bannerMessage,
             banner_severity: form.bannerSeverity,
+            footer_text: form.footerText,
             footer_links: form.footerLinks,
           }),
         }),
@@ -213,7 +215,9 @@ function Manage() {
                 disabled={locked}
               />
 
-              <FooterLinksField
+              <FooterField
+                text={form.footerText}
+                onTextChange={(footerText) => set({ footerText })}
                 links={form.footerLinks}
                 onChange={(footerLinks) => set({ footerLinks })}
                 disabled={locked}
@@ -240,6 +244,7 @@ function Manage() {
               logoUrl: branding?.logoUrl ?? null,
               logoDarkUrl: branding?.logoDarkUrl ?? null,
               bannerMessage: form.bannerMessage,
+              footerText: form.footerText,
               footerLinks: form.footerLinks,
               menuLabels: (page.menus?.sidebar ?? []).map((item) => item.label),
             }}

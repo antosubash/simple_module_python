@@ -19,6 +19,7 @@ const BASELINE: BrandingForm = {
   designPack: '',
   bannerMessage: '',
   bannerSeverity: 'info',
+  footerText: '© 2026 Acme Corp',
   footerLinks: [{ label: 'Privacy', href: '/privacy' }],
 };
 
@@ -37,6 +38,12 @@ describe('countBrandingChanges', () => {
     };
 
     expect(countBrandingChanges(form, BASELINE)).toBe(4);
+  });
+
+  test('the caption line is its own change, separate from the links', () => {
+    const form: BrandingForm = { ...BASELINE, footerText: '© 2026 Globex' };
+
+    expect(countBrandingChanges(form, BASELINE)).toBe(1);
   });
 
   test('the whole footer list is one change however many rows move', () => {

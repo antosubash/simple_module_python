@@ -13,24 +13,34 @@ export const MAX_FOOTER_LABEL = 40;
 /** Mirrors `MAX_FOOTER_LINK_HREF_LEN`. */
 export const MAX_FOOTER_HREF = 500;
 
-interface FooterLinksFieldProps {
+/** Mirrors `MAX_FOOTER_TEXT_LEN` in `branding/constants.py`. */
+export const MAX_FOOTER_TEXT = 200;
+
+interface FooterFieldProps {
+  /** The caption line. Blank keeps the framework's own `© {year} · MIT`. */
+  text: string;
+  onTextChange: (next: string) => void;
   links: FooterLink[];
   onChange: (next: FooterLink[]) => void;
   disabled: boolean;
 }
 
 /**
- * The site footer's links, as chips.
+ * The whole footer: its caption line and its links.
  *
- * Two inputs per row made a five-link footer a wall of text boxes for
- * something that is read as a single line. A finished link is a chip; only the
- * one being added shows fields — and it can't be added blank, which is what
- * the old "add an empty row" affordance produced.
+ * One block because that is one line on the rendered page — splitting the
+ * caption from the links into two form sections asks the administrator to
+ * assemble the result in their head.
  *
- * An empty list means "show the framework's own links", so removing the last
- * chip reads as a reset rather than an empty footer.
+ * Links are chips: two inputs per row made a five-link footer a wall of text
+ * boxes for something read as a single line. A finished link is a chip; only
+ * the one being added shows fields — and it can't be added blank, which is
+ * what the old "add an empty row" affordance produced.
+ *
+ * Blank text and an empty list both mean "show the framework's own", so
+ * clearing either reads as a reset rather than an empty footer.
  */
-export function FooterLinksField({ links, onChange, disabled }: FooterLinksFieldProps) {
+export function FooterField({ text, onTextChange, links, onChange, disabled }: FooterFieldProps) {
   const { t } = useT();
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState<FooterLink>({ label: '', href: '' });
@@ -47,9 +57,18 @@ export function FooterLinksField({ links, onChange, disabled }: FooterLinksField
 
   return (
     <div className="flex flex-col gap-2">
-      <Label className="text-[12.5px] font-medium text-muted-foreground">
+      <Label htmlFor="footer_text" className="text-[12.5px] font-medium text-muted-foreground">
         {t(keys.branding.manage.footer_links_label)}
       </Label>
+
+      <Input
+        id="footer_text"
+        value={text}
+        maxLength={MAX_FOOTER_TEXT}
+        disabled={disabled}
+        placeholder={t(keys.branding.manage.footer_text_placeholder)}
+        onChange={(e) => onTextChange(e.target.value)}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         {links.map((link, index) => (

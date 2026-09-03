@@ -10,6 +10,8 @@ export interface PreviewBrand {
   /** Dark-surface variant; falls back to `logoUrl` like the real sidebar. */
   logoDarkUrl: string | null;
   bannerMessage: string;
+  /** Caption line; blank falls back to the framework's own. */
+  footerText: string;
   footerLinks: FooterLink[];
   /** The viewer's own sidebar entries, so the mini nav shows a real menu. */
   menuLabels: string[];
@@ -63,7 +65,9 @@ function BrandBadge({ brand, size }: { brand: PreviewBrand; size: string }) {
 function FooterStrip({ brand }: { brand: PreviewBrand }) {
   return (
     <div className="flex items-center justify-between gap-2 border-t border-border bg-card px-2.5 py-1 text-[8px] text-muted-foreground">
-      <span className="truncate">{`© ${PREVIEW_YEAR} ${brand.appName} · ${BRAND_LICENSE}`}</span>
+      <span className="truncate">
+        {brand.footerText.trim() || `© ${PREVIEW_YEAR} ${brand.appName} · ${BRAND_LICENSE}`}
+      </span>
       <span className="truncate">
         {previewFooterLinks(brand)
           .map((link) => link.label)
@@ -93,8 +97,14 @@ export function BrandingPreview({ brand }: { brand: PreviewBrand }) {
             </span>
           </div>
           <div className="h-2 rounded-[3px]" style={{ backgroundColor: brand.accent }} />
-          {rows.map((label) => (
-            <div key={label} className="h-2 rounded-[3px] bg-white/10" />
+          {rows.map((label, index) => (
+            <div
+              // Decorative bars: two menu entries can share a label, and the
+              // list is static within a render.
+              // biome-ignore lint/suspicious/noArrayIndexKey: see above
+              key={`${label}-${index}`}
+              className="h-2 rounded-[3px] bg-white/10"
+            />
           ))}
         </div>
 

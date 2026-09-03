@@ -20,6 +20,7 @@ export interface BrandingForm {
   designPack: string;
   bannerMessage: string;
   bannerSeverity: BannerSeverity;
+  footerText: string;
   footerLinks: FooterLink[];
 }
 
@@ -45,6 +46,7 @@ export function countBrandingChanges(form: BrandingForm, baseline: BrandingForm)
   if (form.bannerMessage !== baseline.bannerMessage) count += 1;
   // A severity change only matters while there is a banner to colour.
   if (form.bannerSeverity !== baseline.bannerSeverity && form.bannerMessage) count += 1;
+  if (form.footerText !== baseline.footerText) count += 1;
   if (!sameLinks(form.footerLinks, baseline.footerLinks)) count += 1;
   return count;
 }

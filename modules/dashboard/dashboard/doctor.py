@@ -18,15 +18,11 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
-from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
+from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel, collect_tsx_pages
 from simple_module_hosting.migrations import list_migrations
 
 logger = logging.getLogger(__name__)
 
-#: Command copied by a check's "Fix" action. Running Alembic — or anything
-#: else — from a web request is not something this app does, so the screen
-#: hands the operator the line to paste into their own shell.
-_DOCTOR_COMMAND = "make doctor"
 MIGRATION_CHECK_ID = "migrations"
 
 
@@ -41,7 +37,12 @@ class DoctorCheck:
 
     id: str
     codes: frozenset[str]
-    command: str = _DOCTOR_COMMAND
+    #: Shell line the row's "Fix" action copies, or ``None`` when the finding
+    #: has no single remediation command. Running Alembic — or anything else —
+    #: from a web request is not something this app does, so the screen hands
+    #: the operator the line to paste into their own shell; offering a "Fix"
+    #: that only re-runs the same checks would be a button that does nothing.
+    command: str | None = None
 
 
 #: The catalogue. Labels live in the locale catalogue keyed by ``id`` — this is
@@ -203,8 +204,6 @@ def count_pages(app: FastAPI) -> int:
     The same set SM003 diffs against ``inertia.render`` calls, so the number in
     the transcript panel is the number the orphan-page check reasoned about.
     """
-    from simple_module_core.diagnostics._pages import collect_tsx_pages
-
     total = 0
     for module in app.state.sm.modules:
         pages_dir = _module_pages_dir(module)

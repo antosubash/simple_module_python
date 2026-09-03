@@ -61,6 +61,9 @@ def test_branding_payload_unset() -> None:
         "faviconUrl": None,
         # None, not an empty dict — no message means render no bar at all.
         "banner": None,
+        # None = the admin set no caption, so the frontend keeps the
+        # framework's own `© {year} · MIT`.
+        "footerText": None,
         # None = the admin set no links, so the frontend keeps the framework's
         # own BRAND_FOOTER_LINKS.
         "footerLinks": None,

@@ -40,6 +40,7 @@
     "rerun": "Re-run checks",
     "stat_checks_passing": "Checks passing",
     "stat_checks_total": "/ {count}",
+    "stat_checks_unavailable": "not available",
     "stat_modules_loaded": "Modules loaded",
     "stat_pending_migrations": "Pending migrations",
     "stat_python": "Python",
@@ -76,6 +77,7 @@
     "transcript_result": "✓ {passed} of {total} checks passed",
     "transcript_skipped": "diagnostics are skipped outside development",
     "report_checks": "Checks",
+    "report_checks_unavailable": "not available (diagnostics run in development only)",
     "report_migrations": "Migrations",
     "report_dev_server": "Dev server"
   },

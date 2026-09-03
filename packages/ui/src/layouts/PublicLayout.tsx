@@ -109,6 +109,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
         appName={appName}
         logoUrl={logoUrl}
         links={branding?.footerLinks}
+        footerText={branding?.footerText}
         variant="public"
       />
     </div>

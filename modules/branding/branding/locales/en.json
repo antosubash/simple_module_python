@@ -42,6 +42,7 @@
     "error_toast": "Could not update branding",
     "upload_error_toast": "Could not upload image",
     "footer_links_label": "Footer",
+    "footer_text_placeholder": "© 2026 Acme Corp",
     "footer_links_add": "+ add link",
     "footer_link_label_label": "Link text",
     "footer_link_label_placeholder": "Privacy",

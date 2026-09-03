@@ -6,5 +6,5 @@
       "@simple-module-py/ui/*": ["../../packages/ui/src/*"]
     }
   },
-  "include": ["dashboard/**/*.ts", "dashboard/**/*.tsx"]
+  "include": ["dashboard/**/*.ts", "dashboard/**/*.tsx", "tests-js/**/*.ts", "tests-js/**/*.tsx"]
 }

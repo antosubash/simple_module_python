@@ -4,6 +4,8 @@ import type { DoctorProps } from './types';
 export interface ReportLabels {
   title: string;
   checks: string;
+  /** Stands in for the tally when the checks never ran. */
+  checksUnavailable: string;
   migrations: string;
   devServer: string;
   applied: string;
@@ -29,9 +31,14 @@ const STATUS_MARK: Record<string, string> = {
  */
 export function buildDoctorReport(props: DoctorProps, labels: ReportLabels): string {
   const { stats } = props;
+  // Same reasoning as the stat card: "0/8" in a pasted report would tell the
+  // reader every check failed, when in fact none of them ran.
+  const tally = props.checks_available
+    ? `${stats.checks_passing}/${stats.checks_total}`
+    : labels.checksUnavailable;
   const lines: string[] = [
     labels.title,
-    `${labels.checks}: ${stats.checks_passing}/${stats.checks_total} · ` +
+    `${labels.checks}: ${tally} · ` +
       `modules ${stats.modules_loaded} · pending migrations ${stats.pending_migrations} · ` +
       `python ${stats.python_version}`,
     '',

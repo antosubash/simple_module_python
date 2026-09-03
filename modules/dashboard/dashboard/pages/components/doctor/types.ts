@@ -20,8 +20,12 @@ export interface DoctorFinding {
 export interface DoctorCheck {
   id: string;
   status: 'pass' | 'warn' | 'fail' | 'unknown';
-  /** Copied to the clipboard by the row's "Fix" action. */
-  command: string;
+  /**
+   * Copied to the clipboard by the row's "Fix" action, or `null` when the
+   * check has no single remediation command — those rows show no action
+   * rather than a button that only re-runs the same checks.
+   */
+  command: string | null;
   findings: DoctorFinding[];
 }
 

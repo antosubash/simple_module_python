@@ -1,6 +1,7 @@
 import { keys, useT } from '@simple-module-py/i18n';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { AlertTriangle, Check, XCircle } from 'lucide-react';
+import { useCheckLabels } from './check-copy';
 import type { DoctorCheck, DoctorFinding } from './types';
 
 interface Props {
@@ -76,13 +77,15 @@ function ProblemRow({
           />
         ))}
       </div>
-      <button
-        type="button"
-        onClick={() => onCopyCommand(check.command)}
-        className={`shrink-0 text-[12.5px] font-medium max-lg:min-h-11 ${tone.action}`}
-      >
-        {fixLabel}
-      </button>
+      {check.command && (
+        <button
+          type="button"
+          onClick={() => onCopyCommand(check.command as string)}
+          className={`shrink-0 text-[12.5px] font-medium max-lg:min-h-11 ${tone.action}`}
+        >
+          {fixLabel}
+        </button>
+      )}
     </div>
   );
 }
@@ -96,16 +99,7 @@ function ProblemRow({
  */
 export function ChecksCard({ checks, available, onCopyCommand }: Props) {
   const { t } = useT();
-  const labels: Record<string, string> = {
-    pages: t(keys.dashboard.doctor.checks.pages),
-    metadata: t(keys.dashboard.doctor.checks.metadata),
-    coupling: t(keys.dashboard.doctor.checks.coupling),
-    migrations: t(keys.dashboard.doctor.checks.migrations),
-    locales: t(keys.dashboard.doctor.checks.locales),
-    inertia: t(keys.dashboard.doctor.checks.inertia),
-    auth_provider: t(keys.dashboard.doctor.checks.auth_provider),
-    styling: t(keys.dashboard.doctor.checks.styling),
-  };
+  const labels = useCheckLabels();
 
   return (
     <Card className="border-border">

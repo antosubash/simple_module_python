@@ -66,8 +66,14 @@ export function TerminalPanel({ props }: { props: DoctorProps }) {
 
   return (
     <div className="flex min-h-40 flex-col gap-1.5 overflow-hidden rounded-xl bg-slate-900 p-4 font-mono text-[12.5px] leading-[1.75]">
-      {lines.map((line) => (
-        <span key={line.text} className={`truncate ${TONE_CLASS[line.tone]}`}>
+      {lines.map((line, index) => (
+        <span
+          // A transcript is an ordered list, and two warnings can legitimately
+          // carry the same text; position is the identity here.
+          // biome-ignore lint/suspicious/noArrayIndexKey: see above
+          key={index}
+          className={`truncate ${TONE_CLASS[line.tone]}`}
+        >
           {line.text}
         </span>
       ))}

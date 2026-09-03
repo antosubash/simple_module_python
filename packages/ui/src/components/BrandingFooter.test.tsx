@@ -70,4 +70,22 @@ describe('BrandingFooter', () => {
       '/api/file-storage/files/abc/download',
     );
   });
+
+  test('renders the host-configured footer text in place of the licence caption', () => {
+    render(<BrandingFooter appName="Acme" footerText="© 2026 Acme Corp" />);
+    expect(screen.getByText('© 2026 Acme Corp')).toBeInTheDocument();
+    // GH #282's sibling: a deployment should stop advertising the framework's
+    // licence as its own.
+    expect(screen.queryByText(/MIT/)).not.toBeInTheDocument();
+  });
+
+  test.each([
+    ['null', null],
+    ['undefined', undefined],
+    ['blank', '   '],
+  ])('falls back to the licence caption when footerText is %s', (_name, footerText) => {
+    render(<BrandingFooter appName="Acme" footerText={footerText} />);
+    const year = new Date().getFullYear();
+    expect(screen.getByText(new RegExp(`${year}.*MIT`))).toBeInTheDocument();
+  });
 });
