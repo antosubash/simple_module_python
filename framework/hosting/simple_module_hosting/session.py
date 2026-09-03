@@ -13,10 +13,12 @@ window is how long *this* browser was asked to keep it. Ordinary sign-ins keep
 the 14-day cookie they always had; only a request that opts in gets more, and
 never more than the signature window.
 
-The cost is stated plainly: a session cookie lifted off disk stays replayable
-for the signature window, not the cookie window. That is the price of the
-checkbox. Revocation does not depend on either — the users provider re-reads
-the account (and its ``session_version``) on every request.
+The cost would otherwise be that a session cookie lifted off disk stays
+replayable for the signature window rather than the cookie window, so each
+session also records its own absolute deadline (:data:`SESSION_EXPIRES_AT_KEY`)
+and the auth provider enforces it. Revocation depends on neither window — the
+users provider checks the account's ``session_version``, cached for at most
+30 seconds per process.
 """
 
 from __future__ import annotations

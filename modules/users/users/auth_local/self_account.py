@@ -25,6 +25,7 @@ from users.contracts.schemas import SelfPasswordChange, UserUpdate
 from users.deps import fastapi_users, get_user_manager
 from users.manager import UserManager
 from users.models import RefreshToken, UserAccessToken
+from users.provider import forget_session_version
 
 router = APIRouter()
 
@@ -87,6 +88,9 @@ async def change_my_password(
     # UPDATE would be rolled back as a read-only request.
     user.session_version = int(user.session_version or 0) + 1
     request.session[SESSION_VERSION_KEY] = user.session_version
+    # This worker caches the counter for up to 30s; without this it would keep
+    # honouring the sessions this change was meant to strand.
+    forget_session_version(user.id)
     return Response(status_code=204)
 
 
@@ -112,6 +116,9 @@ async def revoke_all_my_sessions(
     # is already attached to this session — ``get_user_db`` takes the same
     # ``get_db`` dependency — so the assignment is enough.
     user.session_version = int(user.session_version or 0) + 1
+    # See the password change: the cached counter has to go with the bump, or
+    # this worker keeps letting the sessions it just revoked back in.
+    forget_session_version(user.id)
     await db.execute(
         update(RefreshToken)
         .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))

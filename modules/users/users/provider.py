@@ -18,6 +18,17 @@ from simple_module_hosting.session import (
 )
 from starlette.requests import Request
 
+# Re-exported: the cache lives in its own module (see its docstring), but
+# ``users.provider`` is where callers reach for it.
+from users.session_version_cache import (  # noqa: F401
+    SESSION_VERSION_TTL_SECONDS,
+    clear_session_version_cache,
+    forget_session_version,
+    peek_session_version,
+    read_session_version,
+    store_session_version,
+)
+
 logger = logging.getLogger(__name__)
 
 _SESSION_USER_ID_KEY = "user_id"
@@ -111,7 +122,19 @@ class UsersAuthProvider:
 
         A user row that has vanished answers False: the account is gone, so
         the cached context describes nobody.
+
+        The stored counter is cached for :data:`SESSION_VERSION_TTL_SECONDS`,
+        so a revocation made in another worker can take that long to reach
+        this one; the worker that made it invalidates its own entry.
+
+        Note the deliberate asymmetry with :meth:`_load_user`: an unreachable
+        database keeps an already-resolved session alive here (a bad minute is
+        not evidence of a revocation), while there it refuses to *mint* one —
+        failing open on a check and closed on a load.
         """
+        hit, cached = read_session_version(user_id)
+        if hit:
+            return cached is not None and int(cached) == _stamped_version(session)
         try:
             from sqlalchemy import select
 
@@ -125,9 +148,11 @@ class UsersAuthProvider:
         except Exception:
             # A database that cannot be reached is not evidence of a
             # revocation. Refusing here would log every signed-in user out of
-            # an app that is merely having a bad minute.
+            # an app that is merely having a bad minute. Not cached — the next
+            # request should retry rather than inherit the outage.
             logger.exception("Session version check failed for %s; keeping the session", user_id)
             return True
+        store_session_version(user_id, stored)
         if stored is None:
             return False
         return int(stored) == _stamped_version(session)
