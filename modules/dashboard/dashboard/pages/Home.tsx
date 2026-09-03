@@ -11,6 +11,8 @@ import { moduleTargetResolver } from './components/module-target';
 
 interface SystemModule {
   name: string;
+  /** Package directory (`audit_log`) — the deck's tile label. */
+  package: string;
   status: 'loaded';
   /** The module's own screen, or '' when it ships no views. */
   url: string;
@@ -114,8 +116,12 @@ function Home() {
           />
         </div>
 
-        <Card className="border-border">
-          <CardContent className="pt-5">
+        {/* The deck's System card runs to the bottom of the viewport rather
+            than stopping under the last tile row. A min-height, not a fixed
+            one, so a long module list still grows instead of scrolling
+            inside the card. */}
+        <Card className="flex flex-col border-border lg:min-h-[calc(100vh-var(--app-chrome-h)-22rem)]">
+          <CardContent className="flex flex-1 flex-col pt-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-lg font-bold font-display">
                 {t(keys.dashboard.home.system_info_title)}
@@ -134,7 +140,8 @@ function Home() {
                 return (
                   <ModuleTile
                     key={m.name}
-                    name={m.name}
+                    name={m.package}
+                    displayName={m.name}
                     url={target}
                     health={m.health}
                     reachable={!!target}

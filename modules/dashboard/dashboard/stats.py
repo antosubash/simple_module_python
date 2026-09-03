@@ -8,6 +8,7 @@ import time
 from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI
+from simple_module_core.discovery import get_module_package_name
 from simple_module_core.health import HealthCheck, HealthStatus
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -129,6 +130,10 @@ def _get_module_info(app: FastAPI, health_checks: list[dict[str, str]]) -> list[
     return [
         {
             "name": m.meta.name,
+            # The deck's tiles are labelled with the package directory
+            # (``audit_log``), not the display name (``AuditLog``) — they sit
+            # in a mono face and read as the thing you would `uv add`.
+            "package": get_module_package_name(m),
             "status": "loaded",
             "url": f"{m.meta.view_prefix}/" if m.meta.view_prefix else "",
             # A partly-administrative module (users) mounts its management

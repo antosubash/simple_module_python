@@ -3,7 +3,10 @@ import { Link } from '@inertiajs/react';
 export type ModuleHealth = '' | 'healthy' | 'degraded' | 'unhealthy';
 
 interface Props {
+  /** Package directory — the mono label the deck puts on the tile. */
   name: string;
+  /** Display name, shown as the tooltip when the package name is truncated. */
+  displayName: string;
   /** The module's own screen. Empty, or not in the user's menus, renders inert. */
   url: string;
   health: ModuleHealth;
@@ -31,14 +34,26 @@ const BASE = 'flex w-full flex-col gap-2 rounded-xl border p-3.5 text-left';
  * 8px cue in a grid of twelve tiles, which is exactly the sort of thing you
  * miss on the screen you are scanning for problems.
  */
-export function ModuleTile({ name, url, health, reachable, statusLabel, actionLabel }: Props) {
+export function ModuleTile({
+  name,
+  displayName,
+  url,
+  health,
+  reachable,
+  statusLabel,
+  actionLabel,
+}: Props) {
   const body = (
     <>
       <div className="flex items-center justify-between gap-2">
-        <code className="min-w-0 truncate font-mono text-[13.5px] font-medium">{name}</code>
+        <code className="min-w-0 truncate font-mono text-[13.5px] font-medium" title={displayName}>
+          {name}
+        </code>
         <span className={`h-2 w-2 shrink-0 rounded-full ${DOT[health]}`} aria-hidden="true" />
       </div>
-      <div className="flex items-center justify-between gap-2">
+      {/* Four tiles per row at 390px leaves no width for a second line: the
+          deck's phone frame is the mono name and the health dot, nothing else. */}
+      <div className="hidden items-center justify-between gap-2 sm:flex">
         <span className="min-w-0 truncate text-[11.5px] text-muted-foreground">{statusLabel}</span>
         <span
           className={`shrink-0 text-[11.5px] font-medium ${
