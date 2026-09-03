@@ -93,10 +93,8 @@ class TestRecentActivity:
         assert (await _edit_props(admin_client, user_id))["recent_activity"] == []
 
     @pytest.mark.anyio
-    async def test_a_non_user_entity_is_named_by_its_owning_module(
-        self, admin_client, users_app
-    ):
-        """"Created setting users.smtp_host", not "Created setting 3f2a…".
+    async def test_a_non_user_entity_is_named_by_its_owning_module(self, admin_client, users_app):
+        """Read as "Created setting users.smtp_host", not "Created setting 3f2a…".
 
         Before this the card reached only the users table, so every other kind
         of row came out as the model class lowercased plus a raw uuid — which
@@ -126,9 +124,7 @@ class TestRecentActivity:
         assert [r["summary"] for r in rows] == ["Created setting users.smtp_host"]
 
     @pytest.mark.anyio
-    async def test_a_row_nothing_can_name_falls_back_to_a_short_id(
-        self, admin_client, users_app
-    ):
+    async def test_a_row_nothing_can_name_falls_back_to_a_short_id(self, admin_client, users_app):
         """No resolver for this type — the kind still reads, the id is trimmed."""
         from audit_log.models import AuditEntry
 
