@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -8,7 +9,7 @@ import {
   BreadcrumbSeparator,
 } from '@simple-module-py/ui/components/ui/breadcrumb';
 import { isUnder, samePath, trimmed } from '../lib/current-path';
-import type { MenuItem } from '../types';
+import { isPostMenuItem, type MenuItem } from '../types';
 import { CommandPalette } from './CommandPalette';
 import { LocaleSwitcher } from './LocaleSwitcher';
 import { usePageHeading } from './page-heading';
@@ -59,7 +60,12 @@ export function findSection(items: MenuItem[], sectionUrl: string | null): MenuI
  * the heading that is about to be rendered directly beneath it.
  */
 export function AppTopbar({ navItems, accountItems, currentUrl, activeMenuItem }: AppTopbarProps) {
+  const { t } = useT();
   const heading = usePageHeading(currentUrl);
+  // Signing out was reachable only from the avatar dropdown and ⌘K. The item
+  // itself stays registry-owned — whichever auth provider is installed
+  // contributes the one account entry that must be POSTed.
+  const logout = accountItems.find(isPostMenuItem);
   const section = activeMenuItem;
   // Only a genuine sub-page earns a second crumb — on a section's own index the
   // heading and the section name are the same word, and "Users / Users" is noise.
@@ -69,7 +75,7 @@ export function AppTopbar({ navItems, accountItems, currentUrl, activeMenuItem }
   const leaf = heading && heading !== section?.label ? heading : null;
 
   return (
-    <header className="sticky top-0 z-20 hidden h-[var(--app-chrome-h)] shrink-0 items-center justify-between gap-4 border-b border-border bg-card px-6 lg:flex">
+    <header className="sticky top-0 z-20 hidden h-[var(--app-chrome-h)] shrink-0 items-center justify-between gap-4 border-b border-border bg-card px-7 lg:flex">
       <Breadcrumb>
         <BreadcrumbList className="text-[13px]">
           {section ? (
@@ -102,9 +108,19 @@ export function AppTopbar({ navItems, accountItems, currentUrl, activeMenuItem }
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <CommandPalette navItems={navItems} accountItems={accountItems} />
         <LocaleSwitcher />
+        {logout && (
+          <Link
+            href={logout.url}
+            method="post"
+            as="button"
+            className="inline-flex items-center rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          >
+            {t(keys.ui.topbar.log_out)}
+          </Link>
+        )}
       </div>
     </header>
   );

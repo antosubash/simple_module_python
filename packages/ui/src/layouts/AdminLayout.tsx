@@ -3,10 +3,12 @@ import { keys, useT } from '@simple-module-py/i18n';
 import type React from 'react';
 import { DEFAULT_SIDEBAR_THEME, SidebarLayout } from './SidebarLayout';
 
-// Same visual language as the app sidebar — the admin area announces itself
-// through the panel badge and its own menu, not through an alarm color.
+// The app sidebar's surface, with a red active pill: the admin area announces
+// itself through the panel badge and its own menu, and the one row that says
+// "you are here" is the one place a different colour is worth spending.
 const THEME = {
   ...DEFAULT_SIDEBAR_THEME,
+  activeClass: 'bg-red-600 text-white',
   mobileTitleLabel: 'Admin',
 } as const;
 
@@ -50,11 +52,11 @@ function BackToApp() {
     <div className="pt-4 mt-4 border-t border-white/[0.06]">
       <Link
         href="/dashboard/"
-        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-app-sidebar-text-muted hover:bg-app-sidebar-hover hover:text-white transition-colors"
+        className="flex min-h-11 lg:min-h-0 items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium text-app-sidebar-text-muted hover:bg-app-sidebar-hover hover:text-white transition-colors"
       >
         <svg
           aria-hidden="true"
-          className="w-5 h-5"
+          className="hidden lg:block w-5 h-5"
           fill="none"
           viewBox="0 0 24 24"
           strokeWidth={1.5}

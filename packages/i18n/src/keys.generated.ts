@@ -802,11 +802,16 @@ export const keys = {
       years_ago: 'ui.relative_time.years_ago',
     },
     sidebar: {
+      back: 'ui.sidebar.back',
       close: 'ui.sidebar.close',
       open: 'ui.sidebar.open',
     },
     switcher: {
       label: 'ui.switcher.label',
+      single_locale: 'ui.switcher.single_locale',
+    },
+    topbar: {
+      log_out: 'ui.topbar.log_out',
     },
   },
   users: {

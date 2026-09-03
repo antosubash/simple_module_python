@@ -10,7 +10,11 @@
     "admin": "Administration"
   },
   "switcher": {
-    "label": "Change language"
+    "label": "Change language",
+    "single_locale": "Only {locale} is enabled"
+  },
+  "topbar": {
+    "log_out": "Log out"
   },
   "relative_time": {
     "unknown": "unknown",
@@ -47,7 +51,8 @@
   },
   "sidebar": {
     "open": "Open sidebar",
-    "close": "Close sidebar"
+    "close": "Close sidebar",
+    "back": "Back"
   },
   "public_nav": {
     "docs": "Docs",

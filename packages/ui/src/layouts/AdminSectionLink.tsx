@@ -39,9 +39,9 @@ export function AdminSectionLink({
       <Link
         href="/admin"
         onClick={onNavigate}
-        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${className}`}
+        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium ${className}`}
       >
-        <NavIcon name="shield" />
+        <NavIcon name="shield" className="hidden lg:block w-5 h-5" />
         {t(keys.ui.nav.admin)}
       </Link>
     </div>
