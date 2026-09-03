@@ -10,20 +10,17 @@ import {
 import { Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-export interface ContentTypeFacet {
-  value: string;
-  count: number;
-}
+import type { ContentTypeFacet, FileFilters, UploaderFacet } from '../types';
 
 interface Props {
-  search: string;
-  contentType: string;
+  filters: FileFilters;
   facets: ContentTypeFacet[];
-  onChange: (next: { q: string; content_type: string }) => void;
+  uploaders: UploaderFacet[];
+  onChange: (next: FileFilters) => void;
 }
 
-/** Sentinel for "no type filter" — Radix Select forbids an empty item value. */
-export const TYPE_ALL = '__all__';
+/** Sentinel for "no filter" — Radix Select forbids an empty item value. */
+export const ANY = '__all__';
 
 /** Group a bucketful of `image/png`, `image/jpeg`, … under one `image/` entry. */
 function families(facets: ContentTypeFacet[]): ContentTypeFacet[] {
@@ -38,8 +35,9 @@ function families(facets: ContentTypeFacet[]): ContentTypeFacet[] {
     .map(([value, count]) => ({ value, count }));
 }
 
-export function FileFilterBar({ search, contentType, facets, onChange }: Props) {
+export function FileFilterBar({ filters, facets, uploaders, onChange }: Props) {
   const { t } = useT();
+  const { q: search, content_type: contentType, uploaded_by: uploadedBy } = filters;
   const [draft, setDraft] = useState(search);
   // The last query this box asked the server for. Adopting `search` blindly
   // loses keystrokes: typing "report" fires the debounce at "repo", and when
@@ -55,21 +53,34 @@ export function FileFilterBar({ search, contentType, facets, onChange }: Props) 
     setDraft(search);
   }, [search]);
 
-  // Debounced so each keystroke isn't a round trip.
+  // Debounced so each keystroke isn't a round trip. Every dependency is a
+  // primitive on purpose: `filters` is a fresh object on each Inertia render,
+  // so depending on it would restart the timer forever and the search would
+  // never fire while anything else on the page was updating.
   useEffect(() => {
     if (draft === search) return;
     const timeout = setTimeout(() => {
       requested.current = draft;
-      onChange({ q: draft, content_type: contentType });
+      onChange({ q: draft, content_type: contentType, uploaded_by: uploadedBy });
     }, 300);
     return () => clearTimeout(timeout);
-  }, [draft, search, contentType, onChange]);
+  }, [draft, search, contentType, uploadedBy, onChange]);
+
+  // Carries the current draft, so record it as requested for the same reason
+  // the debounce does.
+  function pick(change: Partial<FileFilters>) {
+    requested.current = draft;
+    onChange({ q: draft, content_type: contentType, uploaded_by: uploadedBy, ...change });
+  }
 
   const grouped = families(facets);
+  // A trailing "/" is a whole family, which the list shows as "image/*".
+  const isFamily = contentType.endsWith('/');
+  const selected = [...facets, ...grouped].find((f) => f.value === contentType);
 
   return (
     <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="relative max-w-sm flex-1">
+      <div className="relative flex-1 sm:max-w-sm">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           className="pl-9"
@@ -79,20 +90,28 @@ export function FileFilterBar({ search, contentType, facets, onChange }: Props) 
           aria-label={t(keys.file_storage.filters.search_placeholder)}
         />
       </div>
+
       <Select
-        value={contentType || TYPE_ALL}
-        onValueChange={(value) => {
-          // Carries the current draft, so record it as requested for the same
-          // reason the debounce does.
-          requested.current = draft;
-          onChange({ q: draft, content_type: value === TYPE_ALL ? '' : value });
-        }}
+        value={contentType || ANY}
+        onValueChange={(value) => pick({ content_type: value === ANY ? '' : value })}
       >
-        <SelectTrigger className="w-full sm:w-64">
-          <SelectValue placeholder={t(keys.file_storage.filters.type_label)} />
+        <SelectTrigger
+          className="w-full sm:w-56"
+          aria-label={t(keys.file_storage.filters.type_label)}
+        >
+          {/* The trigger names the filter as well as its value — "image/png"
+              alone does not say which column it narrows. */}
+          <SelectValue placeholder={t(keys.file_storage.filters.type_label)}>
+            {contentType
+              ? t(keys.file_storage.filters.type_selected, {
+                  value: isFamily ? `${contentType}*` : contentType,
+                  count: selected?.count ?? 0,
+                })
+              : t(keys.file_storage.filters.type_label)}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={TYPE_ALL}>{t(keys.file_storage.filters.type_all)}</SelectItem>
+          <SelectItem value={ANY}>{t(keys.file_storage.filters.type_all)}</SelectItem>
           {grouped.map((facet) => (
             <SelectItem key={facet.value} value={facet.value}>
               {facet.value}* ({facet.count})
@@ -101,6 +120,26 @@ export function FileFilterBar({ search, contentType, facets, onChange }: Props) 
           {facets.map((facet) => (
             <SelectItem key={facet.value} value={facet.value}>
               {facet.value} ({facet.count})
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={uploadedBy || ANY}
+        onValueChange={(value) => pick({ uploaded_by: value === ANY ? '' : value })}
+      >
+        <SelectTrigger
+          className="w-full sm:w-52"
+          aria-label={t(keys.file_storage.filters.uploader_label)}
+        >
+          <SelectValue placeholder={t(keys.file_storage.filters.uploader_label)} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ANY}>{t(keys.file_storage.filters.uploader_all)}</SelectItem>
+          {uploaders.map((uploader) => (
+            <SelectItem key={uploader.id} value={uploader.id}>
+              {uploader.label} ({uploader.count})
             </SelectItem>
           ))}
         </SelectContent>

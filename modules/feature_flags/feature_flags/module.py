@@ -7,11 +7,14 @@ import logging
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
+from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 
 from feature_flags.constants import (
+    AUDIT_LINK_LABEL,
+    AUDIT_LINK_LABEL_KEY,
     LOCALE_NAMESPACE,
     MENU_ICON,
     MENU_LABEL,
@@ -19,6 +22,7 @@ from feature_flags.constants import (
     MENU_URL,
     PERM_FEATURE_FLAGS_MANAGE,
     PERM_FEATURE_FLAGS_VIEW,
+    QP_OVERRIDE,
     VIEW_PREFIX,
 )
 
@@ -54,6 +58,27 @@ class FeatureFlagsModule(ModuleBase):
                 # Mirrors the view router's guard. Without it the entry shows
                 # for every signed-in account and 403s on click.
                 permissions=[PERM_FEATURE_FLAGS_VIEW],
+            )
+        )
+
+    def register_audit_links(self, registry: AuditLinkRegistry) -> None:
+        """Point audit rows for an override back at the flags screen.
+
+        The browse footer promises every toggle is written to the audit log;
+        the reverse trip is what makes that promise useful. There is no
+        per-override page, so the link lands on the table with the row's id in
+        the query string rather than inventing a detail screen for a two-column
+        record.
+        """
+        from feature_flags.models import FeatureFlagOverride
+
+        registry.register(
+            AuditLink(
+                # Class name, not __tablename__ — see AuditLink.entity_type.
+                entity_type=FeatureFlagOverride.__name__,
+                url_template=f"{MENU_URL}?{QP_OVERRIDE}={{id}}",
+                label=AUDIT_LINK_LABEL,
+                label_key=AUDIT_LINK_LABEL_KEY,
             )
         )
 

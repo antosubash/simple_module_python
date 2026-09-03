@@ -1,14 +1,7 @@
 import { keys, useT } from '@simple-module-py/i18n';
+import { SegmentedControl } from '@simple-module-py/ui/components/SegmentedControl';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from '@simple-module-py/ui/components/ui/select';
 import { useState } from 'react';
 
 interface Props {
@@ -25,15 +18,15 @@ const CUSTOM = '__custom__';
 /**
  * Scope picker for the flags table.
  *
- * This was a free-text box, so viewing a tenant meant knowing and correctly
- * typing its id — and a typo silently showed a scope with no overrides
- * instead of an error.
+ * A segmented control rather than a dropdown: the scope is the difference
+ * between an experiment and an outage, so which one is active has to be
+ * readable without opening anything.
  *
  * The list cannot be closed: there is no tenant registry in the framework
  * (ids arrive on auth claims), so the only tenants this app can enumerate are
  * those that already have an override. Creating the *first* override for a
  * tenant therefore still needs a way to name one by hand, which is what the
- * "other tenant" branch is for.
+ * last segment is for.
  */
 export function TenantPicker({ tenantId, tenants, onSelect }: Props) {
   const { t } = useT();
@@ -55,54 +48,40 @@ export function TenantPicker({ tenantId, tenants, onSelect }: Props) {
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="min-w-[240px]">
-        <span className="mb-1 block text-sm font-medium">
-          {t(keys.feature_flags.browse.viewing_label)}
-        </span>
-        <Select value={custom ? CUSTOM : (tenantId ?? SYSTEM)} onValueChange={handleChange}>
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SYSTEM}>{t(keys.feature_flags.browse.scope_system)}</SelectItem>
-            {options.length > 0 && <SelectSeparator />}
-            {options.map((tid) => (
-              <SelectItem key={tid} value={tid}>
-                {tid}
-              </SelectItem>
-            ))}
-            <SelectSeparator />
-            <SelectItem value={CUSTOM}>{t(keys.feature_flags.browse.scope_custom)}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+    <div className="flex flex-wrap items-center gap-3">
+      <SegmentedControl
+        value={custom ? CUSTOM : (tenantId ?? SYSTEM)}
+        onChange={handleChange}
+        options={[
+          { value: SYSTEM, label: t(keys.feature_flags.browse.scope_system) },
+          ...options.map((tid) => ({ value: tid, label: tid })),
+          { value: CUSTOM, label: t(keys.feature_flags.browse.scope_custom) },
+        ]}
+        aria-label={t(keys.feature_flags.browse.scope_label)}
+      />
 
       {custom && (
         <form
-          className="flex items-end gap-2"
+          className="flex items-center gap-2"
           onSubmit={(e) => {
             e.preventDefault();
             const trimmed = draft.trim();
             if (trimmed) onSelect(trimmed);
           }}
         >
-          <div className="min-w-[200px]">
-            <label className="mb-1 block text-sm font-medium" htmlFor="tenant_id">
-              {t(keys.feature_flags.browse.tenant_id_label)}
-            </label>
-            <Input
-              id="tenant_id"
-              autoFocus
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={t(keys.feature_flags.browse.tenant_id_placeholder)}
-            />
-          </div>
-          <Button type="submit" disabled={!draft.trim()}>
+          <Input
+            id="tenant_id"
+            className="h-8 w-44"
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={t(keys.feature_flags.browse.tenant_id_placeholder)}
+            aria-label={t(keys.feature_flags.browse.tenant_id_label)}
+          />
+          <Button type="submit" size="sm" disabled={!draft.trim()}>
             {t(keys.feature_flags.browse.go)}
           </Button>
-          <Button type="button" variant="ghost" onClick={() => setCustom(false)}>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setCustom(false)}>
             {t(keys.feature_flags.browse.cancel)}
           </Button>
         </form>

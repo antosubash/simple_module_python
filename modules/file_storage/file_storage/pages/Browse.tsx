@@ -1,91 +1,67 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActionDialog';
 import { EmptyState } from '@simple-module-py/ui/components/EmptyState';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
-import { TableEmptyRow } from '@simple-module-py/ui/components/TableEmptyRow';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@simple-module-py/ui/components/ui/alert-dialog';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@simple-module-py/ui/components/ui/table';
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import { Download, FileBox, Trash2 } from 'lucide-react';
-import { useCallback } from 'react';
+import { FileBox, Trash2 } from 'lucide-react';
+import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import { type ContentTypeFacet, FileFilterBar } from './components/FileFilterBar';
+
+import { DropzoneStrip } from './components/DropzoneStrip';
+import { FileFilterBar } from './components/FileFilterBar';
+import { FileTable } from './components/FileTable';
+import { SelectionFooter } from './components/SelectionFooter';
 import { UploadDropzone } from './components/UploadDropzone';
-import { UploadProgressRows } from './components/UploadProgressRows';
-import { PERMISSIONS, ROUTES, UNKNOWN_UPLOADER } from './constants';
+import { UploadsCard } from './components/UploadsCard';
+import { PERMISSIONS, RELOAD_PROPS, ROUTES } from './constants';
+import { describeTypes, formatBytes } from './format';
+import type { BrowseProps, FileFilters } from './types';
 import { useUploadQueue } from './upload-queue';
 
-const COLUMN_COUNT = 5;
-
-interface StoredFile {
-  id: string;
-  filename: string;
-  size_bytes: number;
-  content_type: string;
-  uploaded_by: string | null;
-  created_at: string | null;
-}
-
-interface Pagination {
-  page: number;
-  perPage: number;
-  total: number;
-}
-
-interface Props {
-  files: StoredFile[];
-  pagination: Pagination;
-  filters: { q: string; content_type: string };
-  content_types: ContentTypeFacet[];
-}
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
-  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
-}
-
 function Browse() {
-  const page = usePage<{ props: Props }>();
-  const {
-    files,
-    pagination,
-    filters,
-    content_types: contentTypes,
-  } = page.props as unknown as Props;
+  const props = usePage<{ props: BrowseProps }>().props as unknown as BrowseProps;
+  const { files, pagination, content_types: contentTypes, uploaders } = props;
   const { t } = useT();
   const { can } = usePermissions();
   const canUpload = can(PERMISSIONS.UPLOAD);
   const canDelete = can(PERMISSIONS.DELETE);
-  const { jobs, start, dismiss, busy } = useUploadQueue();
+  const { jobs, start, retry, cancel, dismiss, busy } = useUploadQueue();
 
-  const isFiltered = !!(filters?.q || filters?.content_type);
+  const filters: FileFilters = {
+    q: props.filters?.q ?? '',
+    content_type: props.filters?.content_type ?? '',
+    uploaded_by: props.filters?.uploaded_by ?? '',
+  };
+  const isFiltered = !!(filters.q || filters.content_type || filters.uploaded_by);
 
-  const navigate = useCallback((next: { q: string; content_type: string }, target = 1) => {
+  // Selection belongs to the rows on screen: keying it by the page's ids
+  // means paging or filtering drops it, so "Delete selected" can never remove
+  // something the person can no longer see.
+  const pageKey = files.map((f) => f.id).join(',');
+  const [selection, setSelection] = useState<{ key: string; ids: string[] }>({
+    key: pageKey,
+    ids: [],
+  });
+  const selectedIds = selection.key === pageKey ? selection.ids : [];
+  const select = (ids: string[]) => setSelection({ key: pageKey, ids });
+
+  const selectedFiles = files.filter((f) => selectedIds.includes(f.id));
+  // One file names its own backend, which is not necessarily the configured
+  // one: rows ingested before a backend switch still live where they landed.
+  const confirmBackend = selectedFiles.length === 1 ? selectedFiles[0].backend : props.backend;
+
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const navigate = useCallback((next: FileFilters, target = 1) => {
     const params: Record<string, string> = {};
     if (next.q) params.q = next.q;
     if (next.content_type) params.content_type = next.content_type;
+    if (next.uploaded_by) params.uploaded_by = next.uploaded_by;
     if (target > 1) params.page = String(target);
     router.get(ROUTES.VIEW_BROWSE, params, { preserveState: true, preserveScroll: true });
   }, []);
@@ -97,188 +73,183 @@ function Browse() {
   // Stable identity matters: the filter bar debounces on this callback, so a
   // fresh one each render would clear and restart the timer on every upload
   // progress event and the search would never fire while a file is in flight.
-  const applyFilters = useCallback(
-    (next: { q: string; content_type: string }) => navigate(next, 1),
-    [navigate],
-  );
+  const applyFilters = useCallback((next: FileFilters) => navigate(next, 1), [navigate]);
 
-  const currentFilters = { q: filters?.q ?? '', content_type: filters?.content_type ?? '' };
-  const totalPages = Math.max(1, Math.ceil(pagination.total / pagination.perPage));
+  async function handleFiles(picked: File[]) {
+    const { uploaded, failed } = await start(picked);
+    if (uploaded > 0) {
+      toast.success(t(keys.file_storage.toasts.uploaded_count, { count: uploaded }));
+    }
+    // Failures also leave a row on screen; the toast is for the case where
+    // the user has already scrolled away from the card.
+    for (const name of failed) {
+      toast.error(t(keys.file_storage.toasts.upload_failed_named, { name }));
+    }
+  }
 
-  function handleDelete(file: StoredFile) {
-    fetch(ROUTES.apiFile(file.id), { method: 'DELETE' })
-      .then((resp) => {
-        if (!resp.ok) throw new Error('delete failed');
-        toast.success(t(keys.file_storage.toasts.deleted, { name: file.filename }));
-        router.reload({ only: ['files', 'pagination', 'content_types'] });
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const resp = await fetch(ROUTES.API_BULK_DELETE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+      if (!resp.ok) throw new Error('bulk delete failed');
+      const { deleted } = (await resp.json()) as { deleted: number };
+      toast.success(
+        t(keys.file_storage.toasts.deleted, {
+          count: deleted,
+          name: selectedFiles[0]?.filename ?? '',
+        }),
+      );
+      select([]);
+      router.reload({ only: RELOAD_PROPS });
+    } catch {
+      toast.error(t(keys.file_storage.toasts.delete_failed));
+    } finally {
+      setDeleting(false);
+      setConfirming(false);
+    }
+  }
+
+  const maxSize = formatBytes(props.max_file_size_bytes);
+  const subtitle = props.quota_bytes
+    ? t(keys.file_storage.browse.subtitle_quota, {
+        backend: props.backend,
+        used: formatBytes(props.used_bytes),
+        quota: formatBytes(props.quota_bytes),
+        max: maxSize,
       })
-      .catch(() => toast.error(t(keys.file_storage.toasts.delete_failed)));
-  }
+    : t(keys.file_storage.browse.subtitle, {
+        backend: props.backend,
+        used: formatBytes(props.used_bytes),
+        max: maxSize,
+      });
 
-  // What the empty table offers to do next. A filter is the user's own doing,
-  // so undoing it comes first; otherwise this is a second dropzone rather than
-  // a ref to the header's — it owns its hidden input, so the duplicate costs
-  // nothing and puts the affordance where the user is already looking.
-  let emptyAction: React.ReactNode;
-  if (isFiltered) {
-    emptyAction = (
-      <Button variant="outline" onClick={() => applyFilters({ q: '', content_type: '' })}>
-        {t(keys.file_storage.browse.clear_filters)}
-      </Button>
-    );
-  } else if (canUpload) {
-    emptyAction = <UploadDropzone onFiles={start} busy={busy} />;
-  }
+  // "Nothing uploaded yet" is wrong — and discouraging — when the bucket is
+  // full and the filter is just too narrow. `total` is filter-aware, so this
+  // still covers "no matches" without claiming the bucket is empty whenever a
+  // page past the last one renders.
+  const showEmpty = files.length === 0 && jobs.length === 0 && pagination.total === 0;
 
   return (
     <>
       <Head title={t(keys.file_storage.browse.head_title)} />
       <PageShell
         title={t(keys.file_storage.browse.title)}
-        description={t(keys.file_storage.browse.description)}
-        actions={canUpload ? <UploadDropzone onFiles={start} busy={busy} /> : undefined}
+        description={subtitle}
+        actions={
+          <>
+            {canDelete && (
+              <Button
+                variant="outline"
+                className="max-lg:min-h-11"
+                disabled={selectedIds.length === 0}
+                onClick={() => setConfirming(true)}
+              >
+                <Trash2 />
+                {t(keys.file_storage.browse.delete_selected)}
+              </Button>
+            )}
+            {canUpload && <UploadDropzone onFiles={handleFiles} busy={busy} />}
+          </>
+        }
       >
+        {canUpload && (
+          <DropzoneStrip
+            onFiles={handleFiles}
+            types={
+              props.allowed_content_types
+                ? describeTypes(props.allowed_content_types)
+                : t(keys.file_storage.upload.any_type)
+            }
+            maxSize={maxSize}
+            disabled={busy}
+          />
+        )}
+
+        <UploadsCard jobs={jobs} onCancel={cancel} onRetry={retry} onDismiss={dismiss} />
+
         <FileFilterBar
-          search={filters?.q ?? ''}
-          contentType={filters?.content_type ?? ''}
+          filters={filters}
           facets={contentTypes ?? []}
+          uploaders={uploaders ?? []}
           onChange={applyFilters}
         />
 
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="sm:px-6">{t(keys.file_storage.table.filename)}</TableHead>
-                <TableHead className="hidden md:table-cell sm:px-6">
-                  {t(keys.file_storage.table.type)}
-                </TableHead>
-                <TableHead className="sm:px-6">{t(keys.file_storage.table.size)}</TableHead>
-                <TableHead className="hidden md:table-cell sm:px-6">
-                  {t(keys.file_storage.table.uploaded_by)}
-                </TableHead>
-                <TableHead className="text-right sm:px-6">
-                  {t(keys.file_storage.table.actions)}
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <UploadProgressRows jobs={jobs} onDismiss={dismiss} columnCount={COLUMN_COUNT} />
-              {files.map((file) => (
-                <TableRow key={file.id}>
-                  <TableCell className="sm:px-6 font-medium">{file.filename}</TableCell>
-                  <TableCell className="hidden md:table-cell sm:px-6 text-muted-foreground">
-                    {file.content_type}
-                  </TableCell>
-                  <TableCell className="sm:px-6 tabular-nums text-muted-foreground">
-                    {formatBytes(file.size_bytes)}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell sm:px-6 text-muted-foreground">
-                    {file.uploaded_by ?? UNKNOWN_UPLOADER}
-                  </TableCell>
-                  <TableCell className="text-right sm:px-6">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button asChild variant="ghost" size="icon-sm">
-                        <a
-                          href={ROUTES.apiDownload(file.id)}
-                          aria-label={t(keys.file_storage.actions.download)}
-                        >
-                          <Download />
-                        </a>
+        <Card className="gap-0 overflow-hidden p-0">
+          <FileTable
+            files={files}
+            selectedIds={selectedIds}
+            canDelete={canDelete}
+            onToggleRow={(id, on) =>
+              select(on ? [...selectedIds, id] : selectedIds.filter((x) => x !== id))
+            }
+            onToggleAll={(on) => select(on ? files.map((f) => f.id) : [])}
+            empty={
+              showEmpty ? (
+                <EmptyState
+                  icon={FileBox}
+                  title={
+                    isFiltered
+                      ? t(keys.file_storage.browse.no_match_title)
+                      : t(keys.file_storage.browse.empty_title)
+                  }
+                  description={
+                    isFiltered
+                      ? t(keys.file_storage.browse.no_match_description)
+                      : t(keys.file_storage.browse.empty_description)
+                  }
+                  action={
+                    isFiltered ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => applyFilters({ q: '', content_type: '', uploaded_by: '' })}
+                      >
+                        {t(keys.file_storage.browse.clear_filters)}
                       </Button>
-                      {canDelete && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>
-                                {t(keys.file_storage.delete_dialog.title, { name: file.filename })}
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                {t(keys.file_storage.delete_dialog.description)}
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>
-                                {t(keys.file_storage.delete_dialog.cancel)}
-                              </AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(file)}
-                                className="bg-destructive text-white hover:bg-destructive/90"
-                              >
-                                {t(keys.file_storage.delete_dialog.confirm)}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {/* `total` is filter-aware, so this still covers "no matches".
-                  Dropping it would claim the bucket is empty whenever a page
-                  past the last one renders — e.g. after deleting the only row
-                  on page 2, or following a stale ?page= link. */}
-              {files.length === 0 && jobs.length === 0 && pagination.total === 0 && (
-                <TableEmptyRow columnCount={COLUMN_COUNT}>
-                  {/* "Nothing uploaded yet" is wrong — and discouraging —
-                      when the bucket is full and the filter is just too
-                      narrow. */}
-                  <EmptyState
-                    icon={FileBox}
-                    title={
-                      isFiltered
-                        ? t(keys.file_storage.browse.no_match_title)
-                        : t(keys.file_storage.browse.empty_title)
-                    }
-                    description={
-                      isFiltered
-                        ? t(keys.file_storage.browse.no_match_description)
-                        : t(keys.file_storage.browse.empty_description)
-                    }
-                    action={emptyAction}
-                  />
-                </TableEmptyRow>
-              )}
-            </TableBody>
-          </Table>
+                    ) : undefined
+                  }
+                />
+              ) : null
+            }
+          />
+          {/* Shown for every non-empty result, one page or forty — the range is
+              how someone checks their filter matched what they expected. The
+              one case it is withheld is a table with no rows at all, where
+              "Showing 0–0 of 0" sits under an empty state that already said so. */}
+          {pagination.total > 0 && (
+            <SelectionFooter
+              pagination={pagination}
+              selectedCount={selectedIds.length}
+              onGo={(target) => navigate(filters, target)}
+            />
+          )}
         </Card>
 
-        {totalPages > 1 && (
-          <div className="mt-4 flex items-center justify-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagination.page <= 1}
-              onClick={() => navigate(currentFilters, pagination.page - 1)}
-            >
-              {t(keys.file_storage.browse.previous)}
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              {t(keys.file_storage.browse.page_of, {
-                page: pagination.page,
-                total: totalPages,
-              })}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagination.page >= totalPages}
-              onClick={() => navigate(currentFilters, pagination.page + 1)}
-            >
-              {t(keys.file_storage.browse.next)}
-            </Button>
-          </div>
-        )}
+        {/* `open` stays pinned while the request is in flight: the Radix
+            action closes the dialog the moment it is clicked, which would hide
+            the busy state it is there to show. */}
+        <ConfirmActionDialog
+          open={confirming || deleting}
+          onOpenChange={(open) => !deleting && setConfirming(open)}
+          icon={Trash2}
+          title={t(keys.file_storage.delete_dialog.title, {
+            count: selectedIds.length,
+            name: selectedFiles[0]?.filename ?? '',
+          })}
+          description={t(keys.file_storage.delete_dialog.description, {
+            count: selectedIds.length,
+            backend: confirmBackend,
+          })}
+          confirmLabel={t(keys.file_storage.delete_dialog.confirm, {
+            count: selectedIds.length,
+          })}
+          cancelLabel={t(keys.file_storage.delete_dialog.cancel)}
+          busy={deleting}
+          onConfirm={handleDelete}
+        />
       </PageShell>
     </>
   );

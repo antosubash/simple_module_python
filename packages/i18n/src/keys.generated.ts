@@ -429,7 +429,6 @@ export const keys = {
   },
   file_storage: {
     actions: {
-      delete: 'file_storage.actions.delete',
       download: 'file_storage.actions.download',
     },
     browse: {
@@ -554,6 +553,7 @@ export const keys = {
     landing: {
       badge: 'host.landing.badge',
       command_copied: 'host.landing.command_copied',
+      copied_label: 'host.landing.copied_label',
       copy_command: 'host.landing.copy_command',
       copy_label: 'host.landing.copy_label',
       cta_body: 'host.landing.cta_body',
