@@ -108,8 +108,9 @@ describe('PageShell rendering', () => {
     );
     const h1 = screen.getByRole('heading', { level: 1 });
     // `font-display` is the utility Tailwind generates from the `@theme`
-    // token; `font-[var(--font-display)]` compiles to a font-weight and also
-    // makes tailwind-merge drop the sibling `font-bold`.
+    // token. The arbitrary-value form this replaced compiled to a
+    // *font-weight* and also made tailwind-merge drop the sibling `font-bold`
+    // — spelling it out here would put it back in Tailwind's source scan.
     expect(h1).toHaveClass('font-display');
     expect(h1).toHaveClass('font-bold');
     expect(h1).toHaveClass('text-[27px]');
