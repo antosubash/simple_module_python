@@ -3,6 +3,7 @@ import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActi
 import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
+import { formatDayMonthYear } from '@simple-module-py/ui/lib/date-format';
 import { Copy, KeyRound, UserX } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
@@ -22,16 +23,16 @@ interface Props {
   onCopyResetLink: () => void;
 }
 
-/** "12 Mar 2026" — a date, not a timestamp: the minute an account was created never matters. */
+/**
+ * "12 Mar 2026" — a date, not a timestamp: the minute an account was created
+ * never matters.
+ *
+ * Day-first, as the deck writes it. The reader's own locale gave "Mar 12,
+ * 2026" on a US machine, which is a different order from every other date on
+ * the screen.
+ */
 export function formatDay(value: string | null, fallback: string): string {
-  if (!value) return fallback;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return fallback;
-  return parsed.toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatDayMonthYear(value, fallback);
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {

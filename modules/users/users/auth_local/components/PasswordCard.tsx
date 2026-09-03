@@ -83,6 +83,7 @@ export function PasswordCard() {
                 value={current}
                 onChange={(e) => setCurrent(e.target.value)}
                 autoComplete="current-password"
+                className="max-lg:min-h-11"
                 showLabel={showLabel}
                 hideLabel={hideLabel}
                 required
@@ -97,6 +98,7 @@ export function PasswordCard() {
                 value={next}
                 onChange={(e) => setNext(e.target.value)}
                 autoComplete="new-password"
+                className="max-lg:min-h-11"
                 showLabel={showLabel}
                 hideLabel={hideLabel}
                 required
@@ -111,6 +113,7 @@ export function PasswordCard() {
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 autoComplete="new-password"
+                className="max-lg:min-h-11"
                 showLabel={showLabel}
                 hideLabel={hideLabel}
                 required
@@ -120,7 +123,7 @@ export function PasswordCard() {
 
           <PasswordStrength
             password={next}
-            hint={t(keys.users.common.password_hint)}
+            hint={t(keys.users.profile.password_hint)}
             labels={{
               weak: t(keys.users.common.strength_weak),
               ok: t(keys.users.common.strength_ok),

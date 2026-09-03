@@ -44,12 +44,17 @@ export function PasswordStrength({ password, labels, hint, className }: Password
   const { level, percent } = scorePassword(password);
   return (
     <div className={cn('space-y-1.5', className)}>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-        <div
-          className={cn('h-full rounded-full transition-all', level !== 'none' && BAR_TONE[level])}
-          style={{ width: `${percent}%` }}
-        />
-      </div>
+      {/* No empty grey track at rest: a meter reading zero says "this password
+          is terrible" about a field nobody has typed in yet. It appears with
+          the first keystroke, which is also when it starts meaning anything. */}
+      {level !== 'none' && (
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+          <div
+            className={cn('h-full rounded-full transition-all', BAR_TONE[level])}
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+      )}
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
         {level !== 'none' && (
           <span className={cn('font-semibold', TEXT_TONE[level])}>{labels[level]}</span>

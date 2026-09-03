@@ -3,8 +3,9 @@ import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActi
 import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { useRelativeTime } from '@simple-module-py/ui/hooks/use-relative-time';
+import { describeUserAgent } from '@simple-module-py/ui/lib/user-agent';
 import { LogOut } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 interface Props {
@@ -26,6 +27,11 @@ export function SessionsCard({ lastLoginAt }: Props) {
   const { ago } = useRelativeTime();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Read in an effect rather than during render: `navigator` does not exist
+  // while the page is server-rendered, and naming the browser in the first
+  // client render would make it disagree with the markup it is hydrating.
+  const [agent, setAgent] = useState<{ browser: string; os: string } | null>(null);
+  useEffect(() => setAgent(describeUserAgent(navigator.userAgent)), []);
 
   async function revokeAll() {
     setBusy(true);
@@ -54,7 +60,11 @@ export function SessionsCard({ lastLoginAt }: Props) {
         <div className="flex items-center gap-3 text-sm">
           <span className="size-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />
           <div className="min-w-0 flex-1">
-            <div>{t(keys.users.profile.this_browser)}</div>
+            <div>
+              {agent
+                ? t(keys.users.profile.this_browser_on, { browser: agent.browser, os: agent.os })
+                : t(keys.users.profile.this_browser)}
+            </div>
             <div className="text-xs text-muted-foreground">
               {lastLoginAt
                 ? t(keys.users.profile.signed_in_ago, { ago: ago(lastLoginAt) })

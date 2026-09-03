@@ -108,19 +108,24 @@ export function UserRow({ user, actions }: Props) {
       </TableCell>
       {/* `relative` lifts the controls above the member link's overlay. */}
       <TableCell className="relative text-right whitespace-nowrap">
-        {invited && (
+        {/* The deck puts "Resend" *in place of* the kebab on an invited row:
+            nothing else in that menu applies to an account nobody has claimed
+            yet, and the one thing you want is the one thing shown. Editing is
+            still a row click away. */}
+        {invited ? (
           <Button
             variant="ghost"
             size="sm"
-            className="text-primary-700 hover:text-primary-800 dark:text-primary-400"
+            className="text-primary-700 hover:text-primary-800 max-lg:min-h-11 dark:text-primary-400"
             disabled={actions.busy === user.id}
             aria-label={t(keys.users.user_row.resend_aria, { email: user.email })}
             onClick={() => actions.resendInvite(user.id, user.email)}
           >
             {t(keys.users.user_row.resend)}
           </Button>
+        ) : (
+          <UserRowMenu user={user} actions={actions} />
         )}
-        <UserRowMenu user={user} actions={actions} />
       </TableCell>
     </TableRow>
   );

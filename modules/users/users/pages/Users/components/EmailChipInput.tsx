@@ -118,17 +118,22 @@ export function EmailChipInput({ value, onChange, id, className }: Props) {
             if (draft.trim() && commit(draft)) setDraft('');
           }}
           placeholder={value.length === 0 ? t(keys.users.invite_fields.chip_placeholder) : ''}
-          className="min-w-40 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          className="min-w-40 flex-1 bg-transparent text-sm outline-none max-lg:min-h-11 placeholder:text-muted-foreground"
         />
       </div>
-      <p className="text-xs text-muted-foreground">
-        {invalidCount > 0
-          ? t(keys.users.invite_fields.counter, {
-              count: value.length,
-              invalid: invalidCount,
-            })
-          : t(keys.users.invite_fields.counter_clean, { count: value.length })}
-      </p>
+      {/* "0 addresses" under an empty box states the obvious and reads as an
+          error the reader has to rule out. The count starts when there is
+          something to count. */}
+      {value.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {invalidCount > 0
+            ? t(keys.users.invite_fields.counter, {
+                count: value.length,
+                invalid: invalidCount,
+              })
+            : t(keys.users.invite_fields.counter_clean, { count: value.length })}
+        </p>
+      )}
     </div>
   );
 }

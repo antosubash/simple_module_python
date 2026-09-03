@@ -42,11 +42,6 @@ export function UserRowMenu({ user, actions }: Props) {
         <DropdownMenuItem asChild>
           <Link href={`/admin/users/${user.id}`}>{t(keys.users.user_row.action_edit)}</Link>
         </DropdownMenuItem>
-        {user.state === 'invited' && (
-          <DropdownMenuItem onSelect={() => actions.resendInvite(user.id, user.email)}>
-            {t(keys.users.user_row.action_resend)}
-          </DropdownMenuItem>
-        )}
         {/* An SSO account has no local password, so a reset link would point
             at a form that cannot help. */}
         {!user.is_external && (

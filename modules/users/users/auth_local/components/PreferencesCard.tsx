@@ -90,7 +90,10 @@ export function PreferencesCard() {
                 <input type="hidden" name="locale" value="" readOnly />
               </form>
               <Select value={i18n.locale} onValueChange={selectLocale}>
-                <SelectTrigger className="w-40" aria-label={t(keys.users.profile.language)}>
+                <SelectTrigger
+                  className="w-40 max-lg:min-h-11"
+                  aria-label={t(keys.users.profile.language)}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -113,7 +116,10 @@ export function PreferencesCard() {
                 setThemePreference(next as ThemePreference);
               }}
             >
-              <SelectTrigger className="w-40" aria-label={t(keys.users.profile.theme)}>
+              <SelectTrigger
+                className="w-40 max-lg:min-h-11"
+                aria-label={t(keys.users.profile.theme)}
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

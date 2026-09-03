@@ -37,13 +37,17 @@ export function RolePicker({ roles, selected, onToggle, label }: Props) {
               type="button"
               aria-pressed={active}
               onClick={() => onToggle(role.name)}
-              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors max-lg:min-h-11 ${
                 active
                   ? 'border-primary-200 bg-primary-600/10 text-primary-700'
                   : 'border-border bg-card text-muted-foreground hover:text-foreground'
               }`}
             >
               {role.name}
+              {/* The deck marks the selected chip "admin ✓". `aria-pressed`
+                  already says so to a screen reader; the tick says it to
+                  everyone else, since tint alone is the only other cue. */}
+              {active && <span aria-hidden="true"> ✓</span>}
             </button>
           );
         })}

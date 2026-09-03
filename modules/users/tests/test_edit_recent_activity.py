@@ -93,6 +93,63 @@ class TestRecentActivity:
         assert (await _edit_props(admin_client, user_id))["recent_activity"] == []
 
     @pytest.mark.anyio
+    async def test_a_non_user_entity_is_named_by_its_owning_module(
+        self, admin_client, users_app
+    ):
+        """"Created setting users.smtp_host", not "Created setting 3f2a…".
+
+        Before this the card reached only the users table, so every other kind
+        of row came out as the model class lowercased plus a raw uuid — which
+        names a Python class at a reader who is looking at a screen of
+        settings.
+        """
+        from audit_log.models import AuditEntry
+        from settings.models import Setting
+
+        user_id = await _admin_id(users_app)
+        async with users_app.state.sm.db.session_factory() as session:
+            setting = Setting(key="users.smtp_host", value="mail.example.com")
+            session.add(setting)
+            await session.flush()
+            session.add(
+                AuditEntry(
+                    entity_type=Setting.__name__,
+                    entity_id=str(setting.id),
+                    action="create",
+                    changes=[],
+                    user_id=str(user_id),
+                )
+            )
+            await session.commit()
+
+        rows = (await _edit_props(admin_client, user_id))["recent_activity"]
+        assert [r["summary"] for r in rows] == ["Created setting users.smtp_host"]
+
+    @pytest.mark.anyio
+    async def test_a_row_nothing_can_name_falls_back_to_a_short_id(
+        self, admin_client, users_app
+    ):
+        """No resolver for this type — the kind still reads, the id is trimmed."""
+        from audit_log.models import AuditEntry
+
+        user_id = await _admin_id(users_app)
+        entity_id = "6b03e1a2-0000-4000-8000-000000000001"
+        async with users_app.state.sm.db.session_factory() as session:
+            session.add(
+                AuditEntry(
+                    entity_type="Unclaimed",
+                    entity_id=entity_id,
+                    action="create",
+                    changes=[],
+                    user_id=str(user_id),
+                )
+            )
+            await session.commit()
+
+        rows = (await _edit_props(admin_client, user_id))["recent_activity"]
+        assert [r["summary"] for r in rows] == ["Created unclaimed 6b03e1a2"]
+
+    @pytest.mark.anyio
     async def test_prop_is_none_when_audit_log_is_not_installed(self, admin_client, users_app):
         """Absent module, absent card — not an empty one claiming no activity."""
         sm = users_app.state.sm

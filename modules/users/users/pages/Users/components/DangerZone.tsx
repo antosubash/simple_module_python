@@ -3,7 +3,7 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActionDialog';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
-import { Trash2 } from 'lucide-react';
+import { Trash2, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -53,8 +53,11 @@ export function DangerZone({ userId, email, isSelf }: Props) {
   };
 
   return (
-    <Card className="border-red-500/40 bg-red-500/5">
-      <CardContent className="flex h-full flex-col gap-2.5 pt-5">
+    // `self-start`: in a grid row beside the Details card this stretched to
+    // its neighbour's height, leaving the delete button floating in a tall
+    // red panel the deck draws as a compact one.
+    <Card className="self-start border-red-500/40 bg-red-500/5">
+      <CardContent className="flex flex-col gap-2.5 pt-5">
         <h2 className="text-[15px] font-bold text-red-600 font-display dark:text-red-400">
           {t(keys.users.danger_zone.title)}
         </h2>
@@ -89,14 +92,16 @@ export function DangerZone({ userId, email, isSelf }: Props) {
         // click, and the dialog vanishing mid-delete looks like it worked.
         open={open || deleting}
         onOpenChange={(next) => !deleting && setOpen(next)}
-        icon={Trash2}
+        // The deck's confirm tile is a warning triangle, not a bin: the
+        // dialog is the moment to stop, and the bin is on the button below.
+        icon={TriangleAlert}
         title={t(keys.users.danger_zone.confirm_title, { email })}
         description={t(keys.users.danger_zone.confirm_body)}
         confirmLabel={t(keys.users.danger_zone.delete_button)}
         cancelLabel={t(keys.users.common.cancel)}
         confirmText={{
           expected: email,
-          label: `${t(keys.users.danger_zone.confirm_prompt_prefix)} ${email} ${t(keys.users.danger_zone.confirm_prompt_suffix)}`,
+          label: t(keys.users.danger_zone.confirm_prompt),
           placeholder: email,
         }}
         busy={deleting}

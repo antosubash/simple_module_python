@@ -79,13 +79,20 @@ export function ProfileDetailsCard({ user }: { user: ProfileUser }) {
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder={t(keys.users.common.name_placeholder)}
                 maxLength={200}
+                className="max-lg:min-h-11"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor={emailId} className="text-sm font-medium text-muted-foreground">
                 {t(keys.users.common.email)}
               </Label>
-              <Input id={emailId} type="email" value={user.email} readOnly className="bg-muted" />
+              <Input
+                id={emailId}
+                type="email"
+                value={user.email}
+                readOnly
+                className="bg-muted max-lg:min-h-11"
+              />
             </div>
           </div>
           <div className="flex justify-end">

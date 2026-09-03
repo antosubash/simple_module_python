@@ -200,19 +200,28 @@ function AddPeople() {
       />
 
       {!mailerDelivers && (
+        // One sentence, as the deck has it — a title/body pair reads as two
+        // separate facts when it is really one: which mailer, and what that
+        // means for the links. The "Configure SMTP" link ends the sentence
+        // rather than sitting right-aligned away from what it refers to.
         <InlineBanner
           icon={TriangleAlert}
           tone="warning"
           align="start"
-          title={t(keys.users.add_people.mailer_banner_title, { mailer: mailerName })}
-          description={t(keys.users.add_people.mailer_banner_body)}
-          action={
-            <Link
-              href={SETTINGS_URL}
-              className="text-xs font-medium text-amber-800 underline dark:text-amber-200"
-            >
-              {t(keys.users.add_people.configure_smtp)}
-            </Link>
+          title={
+            <span className="font-normal">
+              {t(keys.users.add_people.mailer_banner_prefix)} <b>{mailerName}</b>{' '}
+              {t(keys.users.add_people.mailer_banner_suffix)}{' '}
+              {/* The 44px tap area is grown with a pseudo-element: an inline
+                  link inside a sentence cannot take `min-h-11` without
+                  stretching the line box around it. */}
+              <Link
+                href={SETTINGS_URL}
+                className="relative font-medium underline max-lg:after:absolute max-lg:after:top-1/2 max-lg:after:left-0 max-lg:after:h-11 max-lg:after:w-full max-lg:after:-translate-y-1/2 max-lg:after:content-['']"
+              >
+                {t(keys.users.add_people.configure_smtp)}
+              </Link>
+            </span>
           }
         />
       )}

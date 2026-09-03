@@ -72,40 +72,47 @@ export function UsersTable({
         {users.length === 0 ? (
           <UsersEmptyPanel filtered={filtered} onClear={onClearFilters} />
         ) : (
-          <Table className="hidden sm:table">
-            <TableHeader>
-              <TableRow>
-                <TableHead className={HEAD_CLASS}>
-                  <button
-                    type="button"
-                    className="flex items-center gap-0.5 hover:text-foreground"
-                    onClick={() => onSort('email')}
-                  >
-                    {t(keys.users.index.col_member)}
-                    <SortIcon col="email" filters={filters} />
-                  </button>
-                </TableHead>
-                <TableHead className={HEAD_CLASS}>{t(keys.users.index.col_role)}</TableHead>
-                <TableHead className={HEAD_CLASS}>{t(keys.users.index.col_status)}</TableHead>
-                <TableHead className={`${HEAD_CLASS} hidden lg:table-cell`}>
-                  <button
-                    type="button"
-                    className="flex items-center gap-0.5 hover:text-foreground"
-                    onClick={() => onSort('last_login_at')}
-                  >
-                    {t(keys.users.index.col_last_seen)}
-                    <SortIcon col="last_login_at" filters={filters} />
-                  </button>
-                </TableHead>
-                <TableHead className={`${HEAD_CLASS} text-right`} />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((user) => (
-                <UserRow key={user.id} user={user} actions={actions} />
-              ))}
-            </TableBody>
-          </Table>
+          // `Table` renders its own scroll container, so hiding the `<table>`
+          // alone left that wrapper behind as an empty band above the footer
+          // on phones — hide the container instead.
+          <div className="hidden sm:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className={HEAD_CLASS}>
+                    <button
+                      type="button"
+                      // The UA stylesheet resets `text-transform` on buttons, so
+                      // these two headers alone escaped HEAD_CLASS's `uppercase`.
+                      className="flex items-center gap-0.5 uppercase hover:text-foreground"
+                      onClick={() => onSort('email')}
+                    >
+                      {t(keys.users.index.col_member)}
+                      <SortIcon col="email" filters={filters} />
+                    </button>
+                  </TableHead>
+                  <TableHead className={HEAD_CLASS}>{t(keys.users.index.col_role)}</TableHead>
+                  <TableHead className={HEAD_CLASS}>{t(keys.users.index.col_status)}</TableHead>
+                  <TableHead className={`${HEAD_CLASS} hidden lg:table-cell`}>
+                    <button
+                      type="button"
+                      className="flex items-center gap-0.5 uppercase hover:text-foreground"
+                      onClick={() => onSort('last_login_at')}
+                    >
+                      {t(keys.users.index.col_last_seen)}
+                      <SortIcon col="last_login_at" filters={filters} />
+                    </button>
+                  </TableHead>
+                  <TableHead className={`${HEAD_CLASS} text-right`} />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <UserRow key={user.id} user={user} actions={actions} />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
 
         <div className="flex items-center justify-between border-t px-4 py-3 text-sm text-muted-foreground">
@@ -114,6 +121,7 @@ export function UsersTable({
             <Button
               variant="outline"
               size="sm"
+              className="max-lg:min-h-11"
               disabled={page <= 1}
               onClick={() => onPage(page - 1)}
             >
@@ -122,6 +130,7 @@ export function UsersTable({
             <Button
               variant="outline"
               size="sm"
+              className="max-lg:min-h-11"
               disabled={page >= totalPages}
               onClick={() => onPage(page + 1)}
             >
