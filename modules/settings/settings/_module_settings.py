@@ -7,59 +7,25 @@ Each module stores a services dataclass on ``app.state.<package>`` whose
 from __future__ import annotations
 
 import os
-import re
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urlsplit
 
 from fastapi import FastAPI
 from pydantic_settings import BaseSettings
 
 from settings._field_meta import choices_for, env_readable_var, resolve_default
+
+# Re-exported: callers reach for ``SECRET_MASK`` / ``is_secret_field`` here.
+from settings._secrets import (  # noqa: F401
+    _NEVER_SECRET_TYPES,
+    SECRET_MASK,
+    embeds_credential,
+    is_secret_field,
+    mask,
+)
 from settings.env_vars import env_prefix_for
 from settings.hydrate import value_type_for_field
 from settings.service import SettingService
-
-# We intentionally DON'T match the bare word "token" (would mask
-# `verification_token_lifetime_seconds` — just an int) or "key" alone (would
-# mask `s3_bucket_key_prefix`). Only fragments that actually indicate material.
-_SECRET_PATTERNS = re.compile(
-    r"(password|secret|api[_-]?key|private[_-]?key|token[_-]?secret)", re.I
-)
-SECRET_MASK = "••••••••"
-
-# Value types that cannot carry credential material, so a secret-ish *name*
-# on one of them is a false positive rather than something to hide.
-_NEVER_SECRET_TYPES = frozenset({"int", "float", "bool"})
-
-
-def is_secret_field(name: str) -> bool:
-    """True if a field name suggests it holds credential material."""
-    return bool(_SECRET_PATTERNS.search(name))
-
-
-def embeds_credential(value: Any) -> bool:
-    """True if ``value`` is a URL carrying a password in its authority.
-
-    The name rule alone cannot see these: ``broker_url``, ``result_backend``,
-    ``redis_url`` and ``database_url`` match nothing in
-    :data:`_SECRET_PATTERNS`, yet a production DSN is precisely where the
-    Redis and Postgres passwords live — and those fields are ``env_readable``,
-    so the value reached both the module editor and the ``known_keys``
-    suggestion list in clear text.
-
-    Judged on the value rather than the name because the name is the thing
-    that was wrong. A DSN without a password stays visible: hiding
-    ``redis://localhost:6379/0`` helps nobody debug why the queue is idle.
-    """
-    if not isinstance(value, str) or "://" not in value:
-        return False
-    try:
-        return bool(urlsplit(value).password)
-    except ValueError:
-        # A malformed authority (an unclosed IPv6 literal, say) is not a
-        # credential, but it must not take the settings screen down either.
-        return False
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,12 +100,6 @@ class ModuleSettingsView:
     a link there instead of a second editor for the same fields."""
 
 
-def _mask(value: Any) -> Any:
-    if value in (None, "", [], {}):
-        return value
-    return SECRET_MASK
-
-
 def _package_of(mod: Any) -> str:
     return type(mod).__module__.split(".", 1)[0]
 
@@ -199,8 +159,8 @@ def _field_view(
     return ModuleSettingField(
         name=name,
         env_var=env_var,
-        value=_mask(raw_value) if hidden(raw_value) else raw_value,
-        default=_mask(default) if hidden(default) else default,
+        value=mask(raw_value) if hidden(raw_value) else raw_value,
+        default=mask(default) if hidden(default) else default,
         description=info.description or "",
         is_secret=secret,
         type=value_type,
@@ -212,7 +172,7 @@ def _field_view(
         # Masked on the same rule as ``value`` and ``default``: a secret stays
         # hidden, everything else is shown. Masking unconditionally turned the
         # Resolved value panel's env row into a row of dots for every key.
-        env_value=(_mask(raw_env) if hidden(raw_env) else raw_env) if raw_env is not None else None,
+        env_value=(mask(raw_env) if hidden(raw_env) else raw_env) if raw_env is not None else None,
         choices=choices_for(info),
     )
 
