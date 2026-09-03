@@ -60,15 +60,18 @@ export function CopyCommand({ command }: { command: string }) {
       <button
         type="button"
         onClick={copy}
-        // The visible word is short; the accessible name says what is copied,
-        // and contains it, so label-in-name still holds.
-        aria-label={t(keys.host.landing.copy_command)}
+        // Swaps with the label, not fixed: an accessible name of "Copy
+        // command" over a button reading "✓ Copied" is a label-in-name failure
+        // (WCAG 2.5.3), and voice control would still be told to say "copy".
+        aria-label={
+          copied ? t(keys.host.landing.command_copied) : t(keys.host.landing.copy_command)
+        }
         className="flex shrink-0 items-center rounded font-sans text-xs font-medium text-slate-400 transition-colors hover:text-slate-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 max-lg:-my-2 max-lg:min-h-11 max-lg:px-1"
       >
         {/* The label is the feedback, and it is a live region so the swap is
             announced too — an icon changing silently told nobody. */}
         <span aria-live="polite" className={copied ? 'text-primary-300' : undefined}>
-          {copied ? t(keys.host.landing.command_copied) : t(keys.host.landing.copy_label)}
+          {copied ? t(keys.host.landing.copied_label) : t(keys.host.landing.copy_label)}
         </span>
       </button>
     </div>

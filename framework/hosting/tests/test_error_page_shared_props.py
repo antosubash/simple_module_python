@@ -143,6 +143,13 @@ class TestRequiredPermissionProp:
             f"403 page did not carry the missing permission; props={sorted(props)}"
         )
 
+    async def test_a_written_detail_still_reaches_the_page(
+        self, guarded_client: httpx.AsyncClient
+    ) -> None:
+        """Only the boilerplate is dropped — a sentence a caller wrote survives."""
+        props = _inertia_page((await guarded_client.get(_GUARDED_PATH)).text)["props"]
+        assert props["message"] == f"Permission required: {_GUARDED_PERMISSION}"
+
     async def test_other_errors_carry_no_permission(
         self, authenticated_client: httpx.AsyncClient
     ) -> None:
@@ -152,3 +159,25 @@ class TestRequiredPermissionProp:
         props = _inertia_page((await authenticated_client.get(_MISSING_PATH)).text)["props"]
         assert "required_permission" in props, f"prop missing entirely; props={sorted(props)}"
         assert props["required_permission"] is None
+
+
+class TestStatusPhraseIsNotAMessage:
+    """The default ``HTTPException.detail`` is the status name, not copy.
+
+    Starlette fills ``detail`` with ``HTTPStatus(code).phrase`` when a caller
+    gives none, so a plain ``HTTPException(404)`` arrives at the page carrying
+    "Not Found" and a bare ``HTTPException(403)`` carrying "Forbidden". The
+    page prefers a server message over its own catalog description — correct
+    when the message says something ("Administrator access required"), useless
+    when it restates the title. Left alone, the deck's 404 and 403 sentences
+    would be unreachable on the paths that actually produce them.
+    """
+
+    async def test_unmatched_url_sends_no_message(
+        self, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        props = _inertia_page((await authenticated_client.get(_MISSING_PATH)).text)["props"]
+        assert not props["message"], (
+            "the status phrase reached the page as a message, so it renders in "
+            f"place of the catalog description: {props['message']!r}"
+        )

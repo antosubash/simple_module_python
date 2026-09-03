@@ -58,7 +58,7 @@
     },
     "head_title": "Welcome",
     "copy_command": "Copy command",
-    "command_copied": "✓ Copied",
+    "command_copied": "Copied",
     "how_it_works_eyebrow": "How it works",
     "how_it_works_heading": "One process · many modules · zero glue.",
     "quickstart_eyebrow": "Quickstart",
@@ -73,7 +73,8 @@
     "copy_label": "Copy",
     "terminal_helper": "No account needed to run it locally. Sign-in is only for the hosted admin UI.",
     "cta_body": "Open the admin UI to manage users, modules and background tasks.",
-    "cta_sign_in": "Sign in to the admin UI"
+    "cta_sign_in": "Sign in to the admin UI",
+    "copied_label": "✓ Copied"
   },
   "offline": {
     "title": "You're offline",

@@ -29,9 +29,12 @@ interface StatusCopy {
   accent: Accent;
 }
 
-/** The status whose remedy is "try the same request again", rather than
- * backing out of it: the server failed, the request itself was fine. */
-const RETRYABLE = 500;
+/** From here up the fault is the server's, not the request's, so the remedy
+ * is "try it again" rather than "back out of it" — and the correlation id is
+ * worth quoting, because there is something on our side to go and look at.
+ * A maintenance 503 keeps its amber accent and gains both: a reload is exactly
+ * how a visitor finds out the window has closed. */
+const SERVER_ERROR_MIN = 500;
 
 /** One row per status, rather than three parallel Record<number, …> maps —
  * those drift the moment a status is added to one and missed in another. */
@@ -155,7 +158,7 @@ function ErrorPage({
           // Only where it is actionable. The id is the handle on a server
           // failure worth reporting; on a 403 or a 404 it is a hex string
           // asking to be mistaken for the problem.
-          status === RETRYABLE && correlation_id ? (
+          status >= SERVER_ERROR_MIN && correlation_id ? (
             <CopyableId
               value={correlation_id}
               // The chip is short enough to read; the clipboard keeps the full
@@ -179,7 +182,7 @@ function ErrorPage({
         <Button asChild variant={showSignIn ? 'outline' : 'default'} className="max-lg:min-h-11">
           <Link href={homeHref}>{t(keys.host.error.go_home)}</Link>
         </Button>
-        {status === RETRYABLE ? (
+        {status >= SERVER_ERROR_MIN ? (
           // Inertia reload, not location.reload(): it re-issues the same visit
           // and swaps the page in place, so a transient 500 resolves without
           // throwing away the history entry.
