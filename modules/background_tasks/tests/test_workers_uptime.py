@@ -183,3 +183,59 @@ class TestSnapshotHandoff:
         kept = app.state.background_tasks.last_worker_snapshot
         assert kept is not None
         assert [w.hostname for w in kept.workers] == ["celery@w1"]
+
+
+class TestSnapshotErrorRedaction:
+    """The failure message names the broker it could not reach.
+
+    ``snapshot.error`` is ``str(exc)`` from kombu/redis, and those messages
+    routinely quote the url they were dialling — password and all. It reaches
+    the Workers page, the JSON admin snapshot and Doctor, which is to say: the
+    screen an operator screenshots when the queue is down.
+    """
+
+    def test_a_password_inside_the_message_is_stripped(self) -> None:
+        from background_tasks.worker_inspector import redact_urls
+
+        message = "Cannot connect to redis://bob:hunter2@redis.internal:6379/4: timed out"
+
+        assert redact_urls(message) == (
+            "Cannot connect to redis://bob:***@redis.internal:6379/4: timed out"
+        )
+
+    def test_every_url_in_the_message_is_covered(self) -> None:
+        from background_tasks.worker_inspector import redact_urls
+
+        redacted = redact_urls("broker redis://:a@h:1/0 and redis://:b@h:1/1 both refused")
+
+        assert "hunter" not in redacted
+        assert redacted.count("***") == 2
+
+    def test_a_message_with_no_url_is_untouched(self) -> None:
+        from background_tasks.worker_inspector import redact_urls
+
+        assert redact_urls("[Errno 111] Connection refused") == "[Errno 111] Connection refused"
+
+    def test_none_stays_none(self) -> None:
+        from background_tasks.worker_inspector import redact_urls
+
+        assert redact_urls(None) is None
+
+    def test_an_unreachable_broker_reports_a_redacted_error(self, monkeypatch) -> None:
+        """The inspector redacts at the source, so nothing downstream can
+        forget to — the view, the JSON snapshot and Doctor all read this."""
+        from background_tasks.worker_inspector import WorkerInspector
+        from kombu.exceptions import OperationalError
+
+        class _Celery:
+            def connection(self):
+                raise OperationalError(
+                    "Cannot connect to redis://bob:hunter2@redis.internal:6379/4: timed out"
+                )
+
+        snapshot = WorkerInspector(_Celery()).snapshot()
+
+        assert snapshot.broker_reachable is False
+        assert snapshot.error is not None
+        assert "hunter2" not in snapshot.error
+        assert "redis://bob:***@redis.internal:6379/4" in snapshot.error
