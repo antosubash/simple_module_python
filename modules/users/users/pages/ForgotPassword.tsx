@@ -66,7 +66,7 @@ function ForgotPassword() {
   return (
     <AuthCardShell>
       <Head title={t(keys.users.forgot_password.head_title)} />
-      <h1 className="text-[21px] font-bold tracking-tight text-foreground font-[var(--font-display)]">
+      <h1 className="text-[21px] font-bold tracking-tight text-foreground font-display">
         {t(keys.users.forgot_password.heading)}
       </h1>
       <p className="mt-2 mb-5 text-sm leading-relaxed text-muted-foreground">

@@ -92,7 +92,7 @@ export function BrandingPreview({ brand }: { brand: PreviewBrand }) {
         <div className="flex w-[74px] shrink-0 flex-col gap-1.5 bg-app-sidebar px-1.5 py-2">
           <div className="flex items-center gap-1.5">
             <BrandBadge brand={brand} size="h-3.5 w-3.5" />
-            <span className="truncate text-[8px] font-bold text-white font-[var(--font-display)]">
+            <span className="truncate text-[8px] font-bold text-white font-display">
               {brand.appName}
             </span>
           </div>

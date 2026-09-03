@@ -117,7 +117,7 @@ function Home() {
         <Card className="border-border">
           <CardContent className="pt-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-bold font-[var(--font-display)]">
+              <h2 className="text-lg font-bold font-display">
                 {t(keys.dashboard.home.system_info_title)}
               </h2>
               <span className="font-mono text-xs text-muted-foreground">

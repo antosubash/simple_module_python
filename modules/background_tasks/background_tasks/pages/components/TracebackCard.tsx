@@ -53,7 +53,7 @@ export function TracebackCard({ traceback, className }: Props) {
   return (
     <Card className={`gap-2.5 overflow-hidden p-4 lg:p-[18px] ${className ?? ''}`}>
       <div className="flex items-center justify-between gap-3">
-        <span className="text-sm font-bold font-[var(--font-display)]">
+        <span className="text-sm font-bold font-display">
           {t(keys.background_tasks.detail.traceback)}
         </span>
         {traceback && (

@@ -18,9 +18,7 @@ interface BoxProps {
 function EmptyBox({ title, titleClassName, description, children }: BoxProps) {
   return (
     <div className="flex flex-col gap-2.5 rounded-[13px] border-[1.5px] border-dashed p-5">
-      <span className={`text-[15px] font-bold font-[var(--font-display)] ${titleClassName}`}>
-        {title}
-      </span>
+      <span className={`text-[15px] font-bold font-display ${titleClassName}`}>{title}</span>
       <p className="text-[13px] leading-relaxed text-muted-foreground">{description}</p>
       {children}
     </div>

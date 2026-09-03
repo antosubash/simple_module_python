@@ -47,9 +47,7 @@ export function AuthStateCard({
       >
         <Icon className={`h-[21px] w-[21px] ${iconClassName ?? ''}`} aria-hidden="true" />
       </span>
-      <h1 className="text-[21px] font-bold tracking-tight text-foreground font-[var(--font-display)]">
-        {title}
-      </h1>
+      <h1 className="text-[21px] font-bold tracking-tight text-foreground font-display">{title}</h1>
       {description && (
         <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
       )}

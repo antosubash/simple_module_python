@@ -77,7 +77,7 @@ export function AuthCardShell({
                 accentColor={BRAND_ACCENT}
                 size="lg"
                 badgeClassName="shadow-md shadow-primary-600/30"
-                labelClassName="text-[17px] font-bold tracking-tight font-[var(--font-display)] text-foreground"
+                labelClassName="text-[17px] font-bold tracking-tight font-display text-foreground"
                 caption={BRAND_TECH}
               />
             </div>

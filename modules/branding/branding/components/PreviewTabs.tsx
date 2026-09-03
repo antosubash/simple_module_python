@@ -21,7 +21,7 @@ export function PreviewTabs({ brand }: { brand: PreviewBrand }) {
   return (
     <Card className="flex flex-col overflow-hidden border-border p-0">
       <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
-        <span className="flex-1 text-sm font-bold font-[var(--font-display)]">
+        <span className="flex-1 text-sm font-bold font-display">
           {t(keys.branding.manage.preview_title)}
         </span>
         <SegmentedControl

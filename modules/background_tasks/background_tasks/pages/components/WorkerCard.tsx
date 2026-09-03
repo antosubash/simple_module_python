@@ -8,7 +8,7 @@ function Stat({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 text-lg font-bold font-[var(--font-display)]">{children}</div>
+      <div className="mt-1 text-lg font-bold font-display">{children}</div>
     </div>
   );
 }

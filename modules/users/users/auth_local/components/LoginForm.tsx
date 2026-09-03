@@ -53,7 +53,7 @@ export function LoginForm({
 
   return (
     <>
-      <h1 className="text-[26px] font-bold tracking-tight text-foreground font-[var(--font-display)] sm:text-[28px]">
+      <h1 className="text-[26px] font-bold tracking-tight text-foreground font-display sm:text-[28px]">
         {t(keys.users.login.heading)}
       </h1>
       <p className="mt-1.5 mb-6 text-sm text-muted-foreground">{t(keys.users.login.subtitle)}</p>

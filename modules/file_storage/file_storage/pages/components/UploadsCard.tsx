@@ -27,7 +27,7 @@ export function UploadsCard({ jobs, onCancel, onRetry, onDismiss }: Props) {
   return (
     <Card className="mb-4 gap-3 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sm font-bold font-[var(--font-display)]">
+        <span className="text-sm font-bold font-display">
           {t(keys.file_storage.upload.card_title)}
         </span>
         <span className="text-xs text-muted-foreground">

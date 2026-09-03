@@ -94,7 +94,7 @@ function Landing() {
           <span className="inline-flex items-center rounded-full border border-primary-600/20 bg-primary-600/10 px-3.5 py-1.5 text-[12.5px] font-bold text-primary-700">
             {t(keys.host.landing.badge)}
           </span>
-          <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-bold leading-[1.05] tracking-tight font-[var(--font-display)] sm:text-5xl lg:text-6xl">
+          <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-bold leading-[1.05] tracking-tight font-display sm:text-5xl lg:text-6xl">
             {t(keys.host.landing.hero_title_line1)}
             <br />
             <span className="bg-gradient-to-r from-primary-600 to-primary-800 bg-clip-text text-transparent">
@@ -137,7 +137,7 @@ function Landing() {
             <span className="text-xs font-semibold uppercase tracking-[0.10em] text-primary-700">
               {t(keys.host.landing.how_it_works_eyebrow)}
             </span>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight font-[var(--font-display)] sm:text-3xl">
+            <h2 className="mt-2 text-2xl font-bold tracking-tight font-display sm:text-3xl">
               {t(keys.host.landing.how_it_works_heading)}
             </h2>
           </div>
@@ -151,9 +151,7 @@ function Landing() {
                   <span className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600/10 text-primary-700">
                     <f.icon className="h-[18px] w-[18px]" aria-hidden="true" />
                   </span>
-                  <h3 className="mb-1.5 text-[17px] font-bold font-[var(--font-display)]">
-                    {t(f.title)}
-                  </h3>
+                  <h3 className="mb-1.5 text-[17px] font-bold font-display">{t(f.title)}</h3>
                   <p className="text-[14.5px] leading-[1.65] text-muted-foreground">{t(f.desc)}</p>
                 </CardContent>
               </Card>
@@ -169,7 +167,7 @@ function Landing() {
             <span className="text-xs font-semibold uppercase tracking-[0.10em] text-primary-700">
               {t(keys.host.landing.quickstart_eyebrow)}
             </span>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight font-[var(--font-display)] sm:text-[28px]">
+            <h2 className="mt-2 text-2xl font-bold tracking-tight font-display sm:text-[28px]">
               {t(keys.host.landing.quickstart_heading)}
             </h2>
             <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
@@ -230,7 +228,7 @@ function Landing() {
       <section className="border-t border-border bg-secondary/40 px-4 py-12 sm:px-8 sm:py-14">
         <div className="mx-auto flex max-w-4xl flex-col items-center justify-between gap-4 rounded-3xl bg-gradient-to-br from-primary-600 to-primary-800 px-9 py-8 shadow-xl sm:flex-row">
           <div>
-            <h3 className="text-xl font-bold tracking-tight text-white font-[var(--font-display)] sm:text-[22px]">
+            <h3 className="text-xl font-bold tracking-tight text-white font-display sm:text-[22px]">
               {t(keys.host.landing.cta_heading)}
             </h3>
             <p className="mt-1 text-sm text-white/85">{t(keys.host.landing.cta_body)}</p>

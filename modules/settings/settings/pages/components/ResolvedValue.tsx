@@ -67,9 +67,7 @@ export function ResolvedValue({ draft, known }: Props) {
 
   return (
     <Card className="gap-3.5 border-border p-5">
-      <h2 className="font-[var(--font-display)] text-base font-bold">
-        {t(keys.settings.resolved.title)}
-      </h2>
+      <h2 className="font-display text-base font-bold">{t(keys.settings.resolved.title)}</h2>
       <div className="flex flex-col gap-2.5">
         <Row label={t(keys.settings.resolved.this_override)} active>
           {draft || t(keys.settings.resolved.unset)}

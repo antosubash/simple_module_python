@@ -108,7 +108,7 @@ function Browse({ settings, pagination, counts, filters }: Props) {
           {settings.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
               <SettingsIcon className="size-8" aria-hidden="true" />
-              <h2 className="font-[var(--font-display)] text-base font-semibold text-foreground">
+              <h2 className="font-display text-base font-semibold text-foreground">
                 {isFiltered
                   ? t(keys.settings.browse.no_match_title)
                   : t(keys.settings.browse.empty_title)}

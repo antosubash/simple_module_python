@@ -29,7 +29,7 @@ export default function Login() {
         <span className="inline-flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-primary-600/10 text-primary-700">
           <LogIn className="h-[22px] w-[22px]" aria-hidden="true" />
         </span>
-        <h1 className="text-[21px] font-bold tracking-tight text-foreground font-[var(--font-display)]">
+        <h1 className="text-[21px] font-bold tracking-tight text-foreground font-display">
           {t(keys.keycloak.login.redirecting)}
         </h1>
         <p className="max-w-[380px] text-sm leading-relaxed text-muted-foreground">

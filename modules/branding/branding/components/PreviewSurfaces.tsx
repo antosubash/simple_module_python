@@ -27,9 +27,7 @@ export function SignInPreview({ brand }: { brand: PreviewBrand }) {
       <div className="w-full max-w-56 rounded-lg border border-border bg-card p-3.5">
         <div className="flex items-center gap-2">
           <Logo brand={brand} />
-          <span className="truncate text-[11px] font-bold font-[var(--font-display)]">
-            {brand.appName}
-          </span>
+          <span className="truncate text-[11px] font-bold font-display">{brand.appName}</span>
         </div>
         <div className="mt-3 text-[11px] font-semibold">
           {t(keys.branding.manage.preview_signin_heading)}
@@ -64,7 +62,7 @@ export function EmailPreview({ brand }: { brand: PreviewBrand }) {
         className="flex items-center gap-2 px-3 py-2.5"
         style={{ backgroundColor: brand.accent }}
       >
-        <span className="truncate text-[11px] font-bold text-white font-[var(--font-display)]">
+        <span className="truncate text-[11px] font-bold text-white font-display">
           {brand.appName}
         </span>
       </div>

@@ -41,10 +41,10 @@ export function AuthIntro({ heading, body, checks = [], children }: AuthIntroPro
           logoUrl={branding?.logoUrl ?? null}
           accentColor={BRAND_ACCENT}
           size="md"
-          labelClassName="text-[15px] font-bold tracking-tight text-foreground font-[var(--font-display)]"
+          labelClassName="text-[15px] font-bold tracking-tight text-foreground font-display"
         />
       </div>
-      <h1 className="text-[28px] leading-tight font-bold tracking-tight text-foreground font-[var(--font-display)] sm:text-[32px]">
+      <h1 className="text-[28px] leading-tight font-bold tracking-tight text-foreground font-display sm:text-[32px]">
         {heading}
       </h1>
       <p className="text-[15px] leading-relaxed text-muted-foreground">{body}</p>

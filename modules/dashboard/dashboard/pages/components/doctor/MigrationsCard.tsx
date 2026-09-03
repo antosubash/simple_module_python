@@ -38,7 +38,7 @@ export function MigrationsCard({ migrations, commands, onCopyCommand }: Props) {
     <Card className="border-border">
       <CardContent className="pt-5">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="text-base font-bold font-[var(--font-display)]">
+          <h2 className="text-base font-bold font-display">
             {t(keys.dashboard.doctor.recent_migrations)}
           </h2>
           <div className="flex items-center gap-3">

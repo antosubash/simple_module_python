@@ -90,7 +90,7 @@ export function DetailFacts({ execution, className }: Props) {
     <Card
       className={`gap-3 border-0 bg-transparent p-0 shadow-none lg:h-full lg:border lg:bg-card lg:p-5 ${className ?? ''}`}
     >
-      <h2 className="hidden text-base font-bold font-[var(--font-display)] lg:block">
+      <h2 className="hidden text-base font-bold font-display lg:block">
         {t(keys.background_tasks.detail.meta)}
       </h2>
       <dl className="grid grid-cols-2 gap-3 lg:block lg:space-y-2.5">

@@ -11,7 +11,7 @@ interface Props {
 function PayloadCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Card className="gap-2.5 p-4 lg:p-[18px]">
-      <span className="text-sm font-bold font-[var(--font-display)]">{title}</span>
+      <span className="text-sm font-bold font-display">{title}</span>
       <code className="overflow-x-auto rounded-lg bg-secondary px-3 py-2.5 font-mono text-xs text-muted-foreground">
         {children}
       </code>

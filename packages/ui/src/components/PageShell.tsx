@@ -53,13 +53,15 @@ export function PageShell({
   return (
     <div className={`px-4 py-6 sm:px-6 sm:py-7 lg:px-8 ${widthClass}`}>
       <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-baseline sm:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
+        {/* Phones wrap the title, so a centred avatar drifts off the first
+            line; top-align there and centre once the row fits. */}
+        <div className="flex min-w-0 items-start gap-3 sm:items-center">
           {leading}
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
               <h1
                 className={cn(
-                  'text-2xl font-bold tracking-tight font-[var(--font-display)]',
+                  'text-[27px] font-bold tracking-[-0.02em] font-display',
                   titleClassName,
                 )}
               >
@@ -72,7 +74,18 @@ export function PageShell({
             )}
           </div>
         </div>
-        {actions && <div className="flex flex-shrink-0 items-center gap-2">{actions}</div>}
+        {actions && (
+          // A page that also declares `mobileAction` already shows its primary
+          // control in the phone bar; repeating it here is a duplicate button.
+          <div
+            className={cn(
+              'flex flex-shrink-0 items-center gap-2',
+              mobileAction && 'hidden sm:flex',
+            )}
+          >
+            {actions}
+          </div>
+        )}
       </div>
       <div>{children}</div>
     </div>

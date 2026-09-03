@@ -61,7 +61,7 @@ function Edit() {
       title={user.full_name || user.email}
       back="/admin/users/"
       leading={
-        <span className="inline-flex h-13 w-13 shrink-0 items-center justify-center rounded-full bg-primary-600/10 text-lg font-bold text-primary-700 font-[var(--font-display)] dark:text-primary-400">
+        <span className="inline-flex h-13 w-13 shrink-0 items-center justify-center rounded-full bg-primary-600/10 text-lg font-bold text-primary-700 font-display dark:text-primary-400">
           {initials(user.full_name, user.email)}
         </span>
       }

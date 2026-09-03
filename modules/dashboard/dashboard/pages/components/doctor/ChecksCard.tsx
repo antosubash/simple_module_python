@@ -104,7 +104,7 @@ export function ChecksCard({ checks, available, onCopyCommand }: Props) {
   return (
     <Card className="border-border">
       <CardContent className="pt-5">
-        <h2 className="mb-3 text-base font-bold font-[var(--font-display)]">
+        <h2 className="mb-3 text-base font-bold font-display">
           {t(keys.dashboard.doctor.static_checks)}
         </h2>
         {available ? (

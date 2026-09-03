@@ -20,8 +20,12 @@ interface StatCardProps {
 
 const CARD_TONE: Record<NonNullable<StatCardProps['tone']>, string> = {
   default: '',
-  warning: 'bg-amber-50/60 border-amber-200 [&_.stat-value]:text-amber-700',
-  destructive: 'bg-red-50/60 border-red-200 [&_.stat-value]:text-red-700',
+  // The deck tints label and figure alike: on a tinted tile the label is part
+  // of the warning, not neutral chrome sitting on a coloured background.
+  warning:
+    'bg-amber-600/5 border-amber-200 [&_.stat-value]:text-amber-700 [&_[data-slot=stat-label]]:text-amber-700',
+  destructive:
+    'bg-red-50/60 border-red-200 [&_.stat-value]:text-red-700 [&_[data-slot=stat-label]]:text-red-700',
 };
 
 const DELTA_TONE: Record<NonNullable<StatCardProps['deltaTone']>, string> = {
@@ -54,22 +58,24 @@ export function StatCard({
   className,
 }: StatCardProps) {
   return (
-    <Card className={cn('border-border', CARD_TONE[tone], className)}>
-      <CardContent className="pt-5">
+    <Card className={cn('gap-0 border-border py-[18px]', CARD_TONE[tone], className)}>
+      <CardContent className="px-5">
         <div className="flex items-start justify-between gap-2">
           <span data-slot="stat-label" className="text-[13px] font-medium text-muted-foreground">
             {label}
           </span>
           {Icon && (
-            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-600/10 text-primary-700">
+            // The deck's phone frame drops the icon tile: at 390px the label
+            // and figure are the whole tile and the icon only steals width.
+            <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-600/10 text-primary-700 sm:inline-flex">
               <Icon className="h-4 w-4" aria-hidden="true" />
             </span>
           )}
         </div>
-        <div className="mt-2 flex items-baseline gap-1.5">
+        <div className="mt-2.5 flex items-baseline gap-1.5">
           <span
             className={cn(
-              'stat-value font-bold tracking-tight font-[var(--font-display)] text-[26px] text-foreground',
+              'stat-value font-bold tracking-[-0.02em] font-display text-[30px] text-foreground',
               valueClassName,
             )}
           >

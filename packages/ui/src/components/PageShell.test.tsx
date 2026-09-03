@@ -99,6 +99,51 @@ describe('PageShell rendering', () => {
     expect(screen.getByText('Member since 2026')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1 })).toHaveClass('font-mono');
   });
+
+  it('sets the heading in bold Sora at the deck size', () => {
+    render(
+      <PageHeadingProvider>
+        <PageShell title="Dashboard">body</PageShell>
+      </PageHeadingProvider>,
+    );
+    const h1 = screen.getByRole('heading', { level: 1 });
+    // `font-display` is the utility Tailwind generates from the `@theme`
+    // token; `font-[var(--font-display)]` compiles to a font-weight and also
+    // makes tailwind-merge drop the sibling `font-bold`.
+    expect(h1).toHaveClass('font-display');
+    expect(h1).toHaveClass('font-bold');
+    expect(h1).toHaveClass('text-[27px]');
+  });
+
+  it('hides the desktop actions slot on phones when a mobile action exists', () => {
+    render(
+      <PageHeadingProvider>
+        <PageShell
+          title="Users"
+          mobileAction={{ label: '+ Add', href: '/admin/users/add' }}
+          actions={<button type="button">Add people</button>}
+        >
+          body
+        </PageShell>
+      </PageHeadingProvider>,
+    );
+    const slot = screen.getByRole('button', { name: 'Add people' }).parentElement;
+    expect(slot).toHaveClass('hidden');
+    expect(slot).toHaveClass('sm:flex');
+  });
+
+  it('always shows the actions slot when the page declares no mobile action', () => {
+    render(
+      <PageHeadingProvider>
+        <PageShell title="Users" actions={<button type="button">Add people</button>}>
+          body
+        </PageShell>
+      </PageHeadingProvider>,
+    );
+    expect(screen.getByRole('button', { name: 'Add people' }).parentElement).not.toHaveClass(
+      'hidden',
+    );
+  });
 });
 
 /** The pre-existing positional call every module page still uses. */

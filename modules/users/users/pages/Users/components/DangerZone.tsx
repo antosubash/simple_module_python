@@ -55,7 +55,7 @@ export function DangerZone({ userId, email, isSelf }: Props) {
   return (
     <Card className="border-red-500/40 bg-red-500/5">
       <CardContent className="flex h-full flex-col gap-2.5 pt-5">
-        <h2 className="text-[15px] font-bold text-red-600 font-[var(--font-display)] dark:text-red-400">
+        <h2 className="text-[15px] font-bold text-red-600 font-display dark:text-red-400">
           {t(keys.users.danger_zone.title)}
         </h2>
         <p className="text-sm leading-relaxed text-muted-foreground">

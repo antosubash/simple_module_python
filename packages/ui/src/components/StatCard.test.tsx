@@ -18,6 +18,20 @@ describe('StatCard', () => {
     expect(screen.getByText('Checks passing')).not.toHaveClass('uppercase');
   });
 
+  test('keeps the icon tile off phones', () => {
+    // The deck's 390px frame is label + figure only; below `sm` the tile is
+    // display:none rather than absent, so the desktop layout is unchanged.
+    const { container } = render(<StatCard label="Files" value={3} icon={Activity} />);
+    const tile = container.querySelector('svg')?.parentElement;
+    expect(tile).toHaveClass('hidden');
+    expect(tile).toHaveClass('sm:inline-flex');
+  });
+
+  test('sets the value at the deck size', () => {
+    render(<StatCard label="Members" value={7} />);
+    expect(screen.getByText('7')).toHaveClass('text-[30px]');
+  });
+
   test('renders without an icon', () => {
     const { container } = render(<StatCard label="Members" value={7} />);
     expect(screen.getByText('Members')).toBeInTheDocument();
@@ -41,12 +55,25 @@ describe('StatCard', () => {
 
   test('tints the whole card for a warning tone', () => {
     const { container } = render(<StatCard label="Queue" value={12} tone="warning" />);
-    expect(container.querySelector('[data-slot="card"]')).toHaveClass('border-amber-200');
+    const card = container.querySelector('[data-slot="card"]');
+    expect(card).toHaveClass('border-amber-200');
+    // The label is tinted with the figure, not left neutral on the tint.
+    expect(card).toHaveClass('[&_[data-slot=stat-label]]:text-amber-700');
   });
 
   test('tints the whole card for a destructive tone', () => {
     const { container } = render(<StatCard label="Failed" value={3} tone="destructive" />);
-    expect(container.querySelector('[data-slot="card"]')).toHaveClass('border-red-200');
+    const card = container.querySelector('[data-slot="card"]');
+    expect(card).toHaveClass('border-red-200');
+    expect(card).toHaveClass('[&_[data-slot=stat-label]]:text-red-700');
+  });
+
+  test('uses the compact deck padding instead of the shadcn card default', () => {
+    const { container } = render(<StatCard label="Members" value={7} />);
+    const card = container.querySelector('[data-slot="card"]');
+    expect(card).toHaveClass('py-[18px]');
+    expect(card).toHaveClass('gap-0');
+    expect(card).not.toHaveClass('py-6');
   });
 
   test('accepts an extra class on the value', () => {

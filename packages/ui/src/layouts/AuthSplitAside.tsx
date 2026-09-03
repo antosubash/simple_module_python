@@ -35,12 +35,12 @@ export function AuthSplitAside({ heading, body, checks }: AuthSplitAsideProps): 
           logoUrl={darkSurfaceLogo(branding)}
           accentColor={BRAND_ACCENT}
           size="md"
-          labelClassName="text-[15px] font-bold tracking-tight text-dark-text font-[var(--font-display)]"
+          labelClassName="text-[15px] font-bold tracking-tight text-dark-text font-display"
         />
       </div>
 
       <div className="flex flex-col gap-4">
-        <h2 className="max-w-[420px] text-[28px] leading-tight font-bold tracking-tight text-white font-[var(--font-display)] sm:text-[34px]">
+        <h2 className="max-w-[420px] text-[28px] leading-tight font-bold tracking-tight text-white font-display sm:text-[34px]">
           {heading}
         </h2>
         <p className="max-w-[400px] text-[15.5px] leading-relaxed text-dark-text-muted">{body}</p>

@@ -55,7 +55,7 @@ export function ProfileDetailsCard({ user }: { user: ProfileUser }) {
       <CardContent className="pt-5">
         <SectionTitle>{t(keys.users.profile.details_title)}</SectionTitle>
         <div className="mb-5 flex items-center gap-3.5">
-          <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary-600/10 text-lg font-bold text-primary-700 font-[var(--font-display)] dark:text-primary-400">
+          <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary-600/10 text-lg font-bold text-primary-700 font-display dark:text-primary-400">
             {initials(user.full_name, user.email)}
           </span>
           <div className="min-w-0">

@@ -112,7 +112,7 @@ function AcceptInvite() {
   return (
     <AuthCardShell variant="split-light" aside={intro} width="lg">
       <Head title={t(keys.users.accept_invite.head_title)} />
-      <h1 className="mb-5 text-[21px] font-bold tracking-tight text-foreground font-[var(--font-display)]">
+      <h1 className="mb-5 text-[21px] font-bold tracking-tight text-foreground font-display">
         {t(keys.users.accept_invite.heading)}
       </h1>
       {invite.already_accepted && (

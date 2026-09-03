@@ -131,7 +131,7 @@ function ResetPassword() {
   return (
     <AuthCardShell>
       <Head title={t(keys.users.reset_password.head_title)} />
-      <h1 className="mb-5 text-[21px] font-bold tracking-tight text-foreground font-[var(--font-display)]">
+      <h1 className="mb-5 text-[21px] font-bold tracking-tight text-foreground font-display">
         {t(keys.users.reset_password.heading)}
       </h1>
       <form onSubmit={handleSubmit} className="space-y-4">

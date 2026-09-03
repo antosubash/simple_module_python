@@ -58,7 +58,7 @@ export function BrandingFooter({
             logoUrl={logoUrl}
             accentColor={BRAND_ACCENT}
             size="sm"
-            labelClassName="text-sm font-semibold tracking-tight text-foreground font-[var(--font-display)]"
+            labelClassName="text-sm font-semibold tracking-tight text-foreground font-display"
             caption={caption}
           />
         </div>

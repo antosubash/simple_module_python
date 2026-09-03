@@ -35,11 +35,11 @@ export function ErrorScreen({
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
       <div className="flex w-full max-w-md flex-col items-center gap-3.5 rounded-2xl border border-border bg-card p-8 text-center shadow-sm sm:p-10">
         <p
-          className={`text-[64px] font-bold leading-none tracking-[-0.03em] font-[var(--font-display)] ${ACCENT_NUMERAL[accent]}`}
+          className={`text-[64px] font-bold leading-none tracking-[-0.03em] font-display ${ACCENT_NUMERAL[accent]}`}
         >
           {hero}
         </p>
-        <h1 className="text-[21px] font-bold tracking-tight text-foreground font-[var(--font-display)]">
+        <h1 className="text-[21px] font-bold tracking-tight text-foreground font-display">
           {title}
         </h1>
         <p className="max-w-[280px] text-sm leading-[1.7] text-muted-foreground">{description}</p>

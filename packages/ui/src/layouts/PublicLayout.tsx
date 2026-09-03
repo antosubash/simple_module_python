@@ -45,14 +45,10 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                 <div
                   className={`flex h-8 w-8 items-center justify-center rounded-lg ${BRAND_ACCENT} shadow-md shadow-primary-600/30 transition-transform group-hover:scale-105`}
                 >
-                  <span className="font-bold text-white text-sm font-[var(--font-display)]">
-                    {brandInitial}
-                  </span>
+                  <span className="font-bold text-white text-sm font-display">{brandInitial}</span>
                 </div>
               )}
-              <span className="text-[15px] font-bold tracking-tight font-[var(--font-display)]">
-                {appName}
-              </span>
+              <span className="text-[15px] font-bold tracking-tight font-display">{appName}</span>
             </Link>
 
             <div className="hidden items-center gap-4 sm:flex">

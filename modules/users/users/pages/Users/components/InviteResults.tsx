@@ -48,7 +48,7 @@ export function InviteResults({ results, expiryDays, onRetry, retrying }: Props)
   return (
     <Card className="flex flex-col overflow-hidden border-border p-0">
       <div className="flex items-center gap-3 border-b px-4 py-3.5">
-        <h2 className="flex-1 text-[15px] font-bold font-[var(--font-display)]">
+        <h2 className="flex-1 text-[15px] font-bold font-display">
           {t(keys.users.invite_results.title)}
         </h2>
         {results.length > 0 && (

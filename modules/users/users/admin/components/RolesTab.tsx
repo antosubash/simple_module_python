@@ -44,7 +44,7 @@ export function RolesTab({ roles }: { roles: RoleItem[] }) {
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-[15px] font-bold tracking-tight font-[var(--font-display)] text-foreground">
+                        <h3 className="text-[15px] font-bold tracking-tight font-display text-foreground">
                           {role.name}
                         </h3>
                         {isSystem && (

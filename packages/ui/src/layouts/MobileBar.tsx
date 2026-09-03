@@ -86,7 +86,7 @@ export function MobileBar({
         className={
           chrome?.mono
             ? 'truncate font-mono text-sm text-white'
-            : 'truncate font-[var(--font-display)] text-[15px] font-bold text-white'
+            : 'truncate font-display text-[15px] font-bold text-white'
         }
       >
         {chrome?.title ?? appName}
