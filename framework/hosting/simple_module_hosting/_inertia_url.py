@@ -50,6 +50,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from urllib.parse import urlsplit
 
 logger = logging.getLogger(__name__)
 
@@ -103,8 +104,6 @@ def to_relative_url(url: str) -> str:
     Anything unparseable is passed through rather than mangled — a wrong url is
     still better than a crash on the render path.
     """
-    from urllib.parse import urlsplit
-
     try:
         parts = urlsplit(url)
     except ValueError:  # pragma: no cover - urlsplit is near-total
