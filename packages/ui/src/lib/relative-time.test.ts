@@ -7,6 +7,7 @@ import {
   relativeAge,
   relativeUntil,
   STALE_AFTER_MS,
+  timeUntil,
 } from './relative-time';
 
 // The wording lives in the ui catalog, so the unit under test here is which
@@ -63,6 +64,29 @@ describe('ageOf', () => {
   it('returns NaN for a missing or unparseable timestamp', () => {
     expect(ageOf(null, now)).toBeNaN();
     expect(ageOf('not a date', now)).toBeNaN();
+  });
+});
+
+describe('timeUntil', () => {
+  const now = Date.parse('2026-08-19T12:00:00Z');
+
+  it('counts forward to a deadline', () => {
+    expect(timeUntil('2026-08-19T12:00:30Z', now)).toBe(30_000);
+  });
+
+  it('goes negative once the deadline has passed, so it can read as expired', () => {
+    // The mirror of `ageOf`'s clamp, and the reason the two cannot be the same
+    // function: clamping here would make every past expiry read as "in 0m".
+    expect(timeUntil('2026-08-19T11:59:30Z', now)).toBe(-30_000);
+    expect(relativeUntil(timeUntil('2026-08-19T11:59:30Z', now))).toEqual({
+      key: RELATIVE_UNTIL_KEYS.expired,
+    });
+  });
+
+  it('returns NaN for a missing or unparseable timestamp, exactly as ageOf does', () => {
+    expect(timeUntil(null, now)).toBeNaN();
+    expect(timeUntil(undefined, now)).toBeNaN();
+    expect(timeUntil('not a date', now)).toBeNaN();
   });
 });
 

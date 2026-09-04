@@ -27,6 +27,22 @@ interface AuthCardShellProps {
   tone?: 'default' | 'destructive' | 'warning';
 }
 
+/**
+ * Deck control sizing for the unauthenticated screens: 46px fields and 48px
+ * primary buttons on a 10px radius, against the shadcn defaults of 36px and
+ * 40px. Applied once to the card rather than spelled out on every field, so a
+ * new auth screen cannot be born a size behind the six that exist. Both
+ * heights clear the 44px phone tap target at every breakpoint — the fields
+ * did not before, and the `size="lg"` buttons only did through a
+ * `max-lg:min-h-11` override that is now redundant and gone.
+ */
+const DECK_CONTROLS = [
+  '[&_[data-slot=input]]:h-[46px]',
+  '[&_[data-slot=input]]:rounded-[10px]',
+  '[&_[data-slot=button][data-size=lg]]:h-12',
+  '[&_[data-slot=button][data-size=lg]]:rounded-[10px]',
+].join(' ');
+
 const CARD_BORDER_TONE: Record<NonNullable<AuthCardShellProps['tone']>, string> = {
   default: 'border-border',
   destructive: 'border-red-500/35',
@@ -68,7 +84,7 @@ export function AuthCardShell({
         </div>
         <div className={`relative w-full ${widthClass}`}>
           <div
-            className={`rounded-3xl border ${CARD_BORDER_TONE[tone]} bg-card/85 p-7 shadow-xl backdrop-blur-xl backdrop-saturate-150`}
+            className={`rounded-3xl border ${CARD_BORDER_TONE[tone]} bg-card/85 p-7 shadow-xl backdrop-blur-xl backdrop-saturate-150 ${DECK_CONTROLS}`}
           >
             <div className="mb-5 flex items-center gap-2.5">
               <BrandingMark
@@ -103,7 +119,12 @@ export function AuthCardShell({
         className={
           dark
             ? 'relative flex flex-col overflow-hidden bg-landing-bg px-6 py-10 sm:px-12 sm:py-12'
-            : 'flex items-center bg-background px-6 py-10 sm:px-12'
+            : // The light split needs two surfaces to read as a split at all.
+              // Both columns were `bg-background`, so the seam was only the
+              // card's 1px border; `bg-secondary/40` is the same page surface
+              // the centred `card` variant sits on, and stays a token so the
+              // dark theme still applies.
+              'flex items-center bg-secondary/40 px-6 py-10 sm:px-12'
         }
       >
         {dark && (
@@ -116,7 +137,9 @@ export function AuthCardShell({
       </div>
       <div className="flex items-center justify-center bg-background px-4 py-10 sm:px-10">
         <div className={`w-full ${widthClass}`}>
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-xl sm:p-8">
+          <div
+            className={`rounded-2xl border border-border bg-card p-6 shadow-xl sm:p-8 ${DECK_CONTROLS}`}
+          >
             {children}
           </div>
         </div>
