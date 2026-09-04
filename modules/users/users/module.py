@@ -224,6 +224,7 @@ class UsersModule(ModuleBase):
         from users.mailer import build_mailer, default_app_name
         from users.oauth.providers import build_client_map, provider_buttons
         from users.roles_cache import refresh_roles_cache
+        from users.session_version_cache import configure_session_version_cache
 
         state = app.state.users
         s = state.settings
@@ -287,6 +288,10 @@ class UsersModule(ModuleBase):
             s.login_redirect_url = f"{first_view}/" if first_view else "/"
 
         reconfigure_cookie_transport(auth_backend, s)
+        # The revocation cache's staleness window is an operator choice: the
+        # default trades one indexed read per request for a bounded window in
+        # which another worker's revocation is not yet seen here.
+        configure_session_version_cache(s.session_version_cache_ttl_seconds)
 
         await asyncio.gather(
             bootstrap_admin_from_env(app),
