@@ -20,6 +20,7 @@ import pytest
 from _models import _TxnBase, _TxnThing
 from fastapi import BackgroundTasks, Depends, FastAPI
 from fastapi.responses import StreamingResponse
+from simple_module_db import OnCommitCallback, RequestSession
 from simple_module_db.deps import get_db
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
@@ -28,7 +29,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 
-def _build_app(db_state, *, with_middleware: bool = True) -> FastAPI:
+def _build_app(
+    db_state,
+    *,
+    with_middleware: bool = True,
+    on_commit: OnCommitCallback | None = None,
+) -> FastAPI:
     """A miniature host: create flushes only, read opens its own session."""
     app = FastAPI()
     if with_middleware:
@@ -36,12 +42,14 @@ def _build_app(db_state, *, with_middleware: bool = True) -> FastAPI:
     app.state.sm = SimpleNamespace(db=db_state)
 
     @app.post("/things", status_code=201)
-    async def create(name: str, db: AsyncSession = Depends(get_db)):
+    async def create(name: str, db: RequestSession = Depends(get_db)):
         # Deliberately no commit() — get_db owns the unit of work, which is
         # exactly the pattern the framework documents for service code.
         thing = _TxnThing(name=name)
         db.add(thing)
         await db.flush()
+        if on_commit is not None:
+            db.on_commit(on_commit)
         return {"id": thing.id}
 
     @app.get("/things/{thing_id}")
@@ -54,9 +62,11 @@ def _build_app(db_state, *, with_middleware: bool = True) -> FastAPI:
         return {"found": True, "name": found.name}
 
     @app.post("/boom", status_code=201)
-    async def boom(db: AsyncSession = Depends(get_db)):
+    async def boom(db: RequestSession = Depends(get_db)):
         db.add(_TxnThing(name="doomed"))
         await db.flush()
+        if on_commit is not None:
+            db.on_commit(on_commit)
         raise RuntimeError("endpoint blew up after writing")
 
     return app
@@ -131,11 +141,54 @@ class TestCommitBeforeResponse:
             "row was not committed by the time the response left the server"
         )
 
-    async def test_endpoint_exception_still_rolls_back(self, db_state):
-        """The middleware must not turn a failed request's writes into a commit."""
-        async with await _client(_build_app(db_state)) as client:
+    async def test_on_commit_runs_after_the_write_is_durable(self, db_state):
+        """A cache refresh can only observe state committed in another session."""
+        observed: list[list[str]] = []
+
+        async def refresh_cache():
+            async with db_state.session_factory() as other:
+                rows = (await other.execute(select(_TxnThing))).scalars().all()
+                observed.append([row.name for row in rows])
+
+        async with await _client(_build_app(db_state, on_commit=refresh_cache)) as client:
+            assert (await client.post("/things", params={"name": "committed"})).status_code == 201
+
+        assert observed == [["committed"]]
+
+    async def test_on_commit_failure_does_not_skip_later_callbacks(self, db_state):
+        """The commit is durable, so callback errors are logged rather than returned as 500s."""
+        called: list[bool] = []
+        app = _build_app(db_state)
+
+        @app.post("/callback-errors", status_code=201)
+        async def callback_errors(db: RequestSession = Depends(get_db)):
+            db.add(_TxnThing(name="durable-despite-cache-error"))
+            await db.flush()
+
+            def fail_refresh():
+                raise RuntimeError("cache unavailable")
+
+            db.on_commit(fail_refresh)
+            db.on_commit(lambda: called.append(True))
+            return {"ok": True}
+
+        async with await _client(app) as client:
+            response = await client.post("/callback-errors")
+
+        assert response.status_code == 201
+        assert called == [True]
+        async with db_state.session_factory() as session:
+            names = [row.name for row in (await session.execute(select(_TxnThing))).scalars()]
+        assert names == ["durable-despite-cache-error"]
+
+    async def test_endpoint_exception_rolls_back_without_on_commit(self, db_state):
+        """Callbacks for work discarded by an endpoint failure never run."""
+        called: list[bool] = []
+        app = _build_app(db_state, on_commit=lambda: called.append(True))
+        async with await _client(app) as client:
             assert (await client.post("/boom")).status_code == 500
 
+        assert called == []
         async with db_state.session_factory() as session:
             assert (await session.execute(select(_TxnThing))).scalars().all() == []
 
@@ -154,11 +207,14 @@ class TestCommitBeforeResponse:
 
         monkeypatch.setattr(AsyncSession, "commit", explode)
 
-        async with await _client(_build_app(db_state)) as client:
+        called: list[bool] = []
+        app = _build_app(db_state, on_commit=lambda: called.append(True))
+        async with await _client(app) as client:
             response = await client.post("/things", params={"name": "nope"})
 
         assert response.status_code == 500
         assert response.json() == {"detail": "Internal Server Error"}
+        assert called == []
 
         monkeypatch.undo()
         async with db_state.session_factory() as session:
@@ -216,10 +272,16 @@ class TestCommitBeforeResponse:
     async def test_still_commits_without_the_middleware(self, db_state):
         """get_db keeps its own fallback finalize, so the dependency works
         standalone — in a WebSocket handler, or a test that builds no stack."""
-        app = _build_app(db_state, with_middleware=False)
+        called: list[bool] = []
+        app = _build_app(
+            db_state,
+            with_middleware=False,
+            on_commit=lambda: called.append(True),
+        )
         async with await _client(app) as client:
             assert (await client.post("/things", params={"name": "solo"})).status_code == 201
 
+        assert called == [True]
         async with db_state.session_factory() as session:
             names = [t.name for t in (await session.execute(select(_TxnThing))).scalars().all()]
         assert names == ["solo"]

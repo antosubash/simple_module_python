@@ -6,8 +6,8 @@ import time
 from collections.abc import AsyncGenerator
 
 from fastapi import Request
-from sqlalchemy.ext.asyncio import AsyncSession
 
+from simple_module_db.session import RequestSession
 from simple_module_db.transaction import (
     SESSION_START_KEY,
     finalize_session,
@@ -16,7 +16,7 @@ from simple_module_db.transaction import (
 )
 
 
-async def get_db(request: Request) -> AsyncGenerator[AsyncSession, None]:
+async def get_db(request: Request) -> AsyncGenerator[RequestSession, None]:
     """Yield an async database session, auto-closing on exit.
 
     Commits only when the session has pending writes (``new``, ``dirty``,
@@ -34,7 +34,7 @@ async def get_db(request: Request) -> AsyncGenerator[AsyncSession, None]:
     Usage in FastAPI endpoints::
 
         @router.get("/items")
-        async def list_items(db: AsyncSession = Depends(get_db)):
+        async def list_items(db: RequestSession = Depends(get_db)):
             ...
     """
     factory = request.app.state.sm.db.session_factory

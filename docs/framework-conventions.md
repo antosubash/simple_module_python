@@ -241,7 +241,10 @@ Each request opens one session:
 - Read-only requests exit via rollback — cheaper, and keeps the session out of write-side profiling.
 - Exceptions always rollback.
 
-Service code should not call `session.commit()` directly. Flush for intermediate reads if you need DB-assigned values, then let the framework commit.
+Service code should not call `session.commit()` directly. Flush for intermediate reads if you need DB-assigned values, then let the framework commit. The injected
+`RequestSession` also provides `session.on_commit(callback)` for synchronous or
+asynchronous cache refreshes that must only observe durable state. Callbacks run
+after successful commit and are discarded on rollback or commit failure.
 
 The commit lands in `CommitBeforeResponseMiddleware`, which intercepts the ASGI
 `http.response.start` message — the last point still inside the request. That is

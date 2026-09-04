@@ -31,6 +31,10 @@ import time
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from simple_module_db.callbacks import (
+    discard_on_commit_callbacks,
+    run_on_commit_callbacks,
+)
 from simple_module_db.listeners import SESSION_HAS_WRITES_KEY
 
 logger = logging.getLogger("simple_module.db")
@@ -97,6 +101,7 @@ async def finalize_session(session: AsyncSession) -> None:
         if session.info.get(_FINALIZED_KEY):
             return
         _settle(session)
+        discard_on_commit_callbacks(session)
         await session.rollback()
         logger.debug(
             "db.session.read_only",
@@ -106,6 +111,7 @@ async def finalize_session(session: AsyncSession) -> None:
     try:
         await session.commit()
     except Exception:
+        discard_on_commit_callbacks(session)
         await session.rollback()
         raise
     finally:
@@ -116,10 +122,12 @@ async def finalize_session(session: AsyncSession) -> None:
         "db.session.commit",
         extra={"operation": "commit", "db_duration_ms": _elapsed_ms(session)},
     )
+    await run_on_commit_callbacks(session)
 
 
 async def rollback_session(session: AsyncSession) -> None:
     """Roll ``session`` back and drop its pending work. Idempotent."""
+    discard_on_commit_callbacks(session)
     if session.info.get(_FINALIZED_KEY) and not _has_pending(session):
         return
     _settle(session)
