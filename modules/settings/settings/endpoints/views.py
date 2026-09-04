@@ -10,6 +10,7 @@ strings below match what ``pages/*.tsx`` declare.
 from __future__ import annotations
 
 import asyncio
+import math
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from inertia import InertiaResponse
@@ -19,25 +20,34 @@ from simple_module_hosting.inertia_utils import redirect_back_with_errors, valid
 from simple_module_hosting.permissions import RequiresPermission
 from starlette.responses import RedirectResponse
 
+from settings import browse_query, known_keys
 from settings._module_settings import (
     _package_of,
     collect_module_settings,
     overrides_by_package,
-    serialize,
 )
+from settings._module_settings_props import serialize
 from settings.constants import (
+    DEFAULT_PER_PAGE,
     ERR_SETTING_NOT_FOUND,
     PERM_CREATE,
     PERM_DELETE,
     PERM_EDIT,
     PERM_VIEW,
+    PROP_COUNTS,
     PROP_ERROR,
+    PROP_FILTERS,
+    PROP_KNOWN_KEYS,
     PROP_MODULES,
+    PROP_PAGINATION,
     PROP_SETTING,
     PROP_SETTINGS,
+    PROP_TESTABLE,
+    SCOPE_ALL,
     VIEW_CREATE_PATH,
     VIEW_EDIT_PATH,
     VIEW_MODULES_PATH,
+    VIEW_PREFIX,
     VIEW_STORE_PATH,
 )
 from settings.contracts.schemas import SettingCreate, SettingUpdate
@@ -50,9 +60,11 @@ _PAGE_EDIT = "Settings/Edit"
 _PAGE_MODULES_EDIT = "Settings/ModulesEdit"
 
 # Row-level actions return to the raw store they were performed in, not to
-# the module forms that now own the section root.
-_REDIRECT_SETTINGS = "/settings/store"
-_REDIRECT_MODULES = "/settings/"
+# the module forms that now own the section root. Built from VIEW_PREFIX so
+# they follow the section if it moves again — spelled out, they silently sent
+# users to the pre-/admin paths after the move.
+_REDIRECT_SETTINGS = f"{VIEW_PREFIX}{VIEW_STORE_PATH}"
+_REDIRECT_MODULES = f"{VIEW_PREFIX}/"
 
 # Every screen in this section reads configuration: module field values,
 # their env var names, and now which of the two is in force. The matching JSON
@@ -66,17 +78,42 @@ router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_VIEW))])
 async def browse(
     inertia: InertiaDep,
     service: SettingService = Depends(get_setting_service),
+    scope: str = SCOPE_ALL,
+    q: str = "",
+    page: str = "1",
+    per_page: str = str(DEFAULT_PER_PAGE),
 ) -> InertiaResponse:
-    """The raw key/value store.
+    """The raw key/value store, filtered/searched/paged on the server.
 
     Moved off the section root: it is a database view, and an admin who clicks
     "Settings" is nearly always after a module's form, not a table of rows
     keyed by dotted strings.
+
+    The filters are strings because they reach us from urls people edit and
+    bookmark; ``browse_query.parse`` substitutes defaults for anything
+    unusable rather than 422ing a link that used to work.
     """
-    items = await service.list_all()
+    query = browse_query.parse(scope, q, page, per_page)
+    items, total = await service.list_filtered(
+        query.scope_filter, query.q, query.page, query.per_page
+    )
+    # A page past the end (stale ?page= link, or the last row on it was just
+    # deleted) is clamped and re-queried — otherwise the client gets an empty
+    # list with a nonzero total and renders a blank table.
+    number = min(query.page, max(1, math.ceil(total / query.per_page)))
+    if number != query.page:
+        items, total = await service.list_filtered(
+            query.scope_filter, query.q, number, query.per_page
+        )
+
     return await inertia.render(
         _PAGE_BROWSE,
-        {PROP_SETTINGS: [item.model_dump(mode="json") for item in items]},
+        {
+            PROP_SETTINGS: [item.model_dump(mode="json") for item in items],
+            PROP_PAGINATION: {"page": number, "per_page": query.per_page, "total": total},
+            PROP_COUNTS: await service.count_by_scope(query.q),
+            PROP_FILTERS: {"scope": query.scope, "q": query.q},
+        },
     )
 
 
@@ -88,30 +125,7 @@ async def modules_redirect() -> RedirectResponse:
 
 @router.get(VIEW_CREATE_PATH, response_model=None)
 async def create_view(request: Request, inertia: InertiaDep) -> InertiaResponse:
-    return await inertia.render(_PAGE_CREATE, {"known_keys": _known_keys(request)})
-
-
-def _known_keys(request: Request) -> list[dict[str, str]]:
-    """Every ``<package>.<field>`` a module actually reads, for autocomplete.
-
-    The key field is free text, and a typo produces a row that looks saved and
-    is silently never read — the failure gives no feedback at all. Suggesting
-    the registered keys makes the common case unmissable without forbidding
-    the uncommon one: keys outside this list stay valid, since a module can
-    read settings the settings module cannot enumerate.
-    """
-    suggestions: list[dict[str, str]] = []
-    for view in collect_module_settings(request.app):
-        for field in view.fields:
-            suggestions.append(
-                {
-                    "key": f"{view.package}.{field.name}",
-                    "type": field.type,
-                    "description": field.description,
-                    "module": view.module_name,
-                }
-            )
-    return sorted(suggestions, key=lambda s: s["key"])
+    return await inertia.render(_PAGE_CREATE, {PROP_KNOWN_KEYS: known_keys.build(request.app)})
 
 
 @router.get(VIEW_EDIT_PATH, response_model=None)
@@ -202,27 +216,30 @@ async def modules_view(
             PROP_MODULES: serialize(views),
             # Which packages can be connection-tested, so the page only offers
             # the button where something is actually reachable.
-            "testable": _testable_packages(request),
+            PROP_TESTABLE: _testable_packages(request),
         },
     )
 
 
-def _testable_packages(request: Request) -> list[str]:
-    """Packages whose module registered at least one health check.
+def _testable_packages(request: Request) -> dict[str, list[str]]:
+    """Package -> the names of the health checks its module registered.
 
     "Test connection" is just that module's health checks run on demand —
     reusing the registry means settings never learns what an SMTP or an S3
-    connection is.
+    connection is. The names come back with the packages so the button can say
+    what it is about to dial ("Test mailer connection") instead of the useless
+    "Test connection" a bare package list can produce.
     """
-    registry = request.app.state.sm.health_registry
-    owners = {c.module for c in registry.all_checks if c.module}
-    return sorted(
-        {
-            _package_of(mod)
-            for mod in getattr(request.app.state.sm, "modules", ())
-            if mod.meta.name in owners
-        }
-    )
+    checks_by_owner: dict[str, list[str]] = {}
+    for check in request.app.state.sm.health_registry.all_checks:
+        if check.module:
+            checks_by_owner.setdefault(check.module, []).append(check.name)
+
+    return {
+        _package_of(mod): sorted(checks_by_owner[mod.meta.name])
+        for mod in getattr(request.app.state.sm, "modules", ())
+        if mod.meta.name in checks_by_owner
+    }
 
 
 @router.post(

@@ -1,39 +1,121 @@
 {
-  "landing": {
-    "badge": "v0.1 · Python 3.12 · experimental",
-    "hero_title_line1": "Monolitos modulares para Python —",
-    "hero_title_line2": "sin el código repetitivo.",
-    "hero_subtitle": "Cada función incluye sus propias tablas SQLModel, endpoints FastAPI y páginas React. Los módulos plugin se componen al iniciar — sin coste de microservicios, sin pegamento de cliente API.",
-    "cta_dashboard": "Abrir panel",
-    "cta_get_started": "Empieza tu proyecto",
-    "cta_docs": "Lee los docs",
-    "features": {
-      "module_system_title": "Descubierto al iniciar",
-      "module_system_description": "Los entry points de Python registran cada subclase de ModuleBase. Sin reflexión, sin cableado manual.",
-      "auth_title": "Autenticación incluida",
-      "auth_description": "Email + sesiones por cookie vía fastapi-users. Roles y permisos se registran con el módulo.",
-      "schema_title": "Esquema por módulo",
-      "schema_description": "PostgreSQL → un esquema por módulo. SQLite → tablas con prefijo. Cada módulo posee sus datos.",
-      "inertia_title": "Inertia + React",
-      "inertia_description": "Páginas Browse / Create / Edit incluidas en cada módulo. Vite HMR para el frontend, FastAPI async para el backend.",
-      "diagnostics_title": "make doctor",
-      "diagnostics_description": "El analizador estático detecta páginas huérfanas, acoplamiento del framework y desviaciones de migración antes del arranque.",
-      "devtools_title": "SQLModel async",
-      "devtools_description": "SQLAlchemy async + Pydantic + Alembic. Genera migraciones por módulo."
-    }
+  "admin": {
+    "title": "Administración",
+    "description": "Gestiona usuarios, accesos, apariencia y configuración del sistema.",
+    "empty": "No hay herramientas de administración disponibles para tu cuenta.",
+    "overview": "Resumen"
   },
   "error": {
-    "generic_title": "Error",
+    "correlation_id_copy": "Copiar ID de referencia",
+    "forbidden_description": "Tu rol no incluye el permiso que necesita esta página. Pide a un administrador que te lo conceda.",
+    "forbidden_permission_prefix": "Tu rol no incluye",
+    "forbidden_permission_suffix": ". Pide a un administrador que te lo conceda.",
+    "forbidden_title": "Sin acceso",
     "generic_description": "Ocurrió un error inesperado.",
-    "forbidden_title": "Prohibido",
-    "forbidden_description": "No tienes permiso para acceder a esta página.",
-    "not_found_title": "Página no encontrada",
-    "not_found_description": "La página que buscas no existe o ha sido movida.",
-    "server_error_title": "Error del servidor",
-    "server_error_description": "Algo salió mal de nuestro lado. Por favor, inténtalo de nuevo más tarde.",
-    "go_home": "Ir al inicio",
+    "generic_title": "Error",
     "go_back": "Volver",
-    "correlation_id_label": "Menciona este ID si contactas con soporte",
-    "correlation_id_copy": "Copiar ID de referencia"
+    "go_home": "Ir al inicio",
+    "invalid_request_description": "La dirección que seguiste contiene parámetros que no pudimos leer.",
+    "invalid_request_title": "Solicitud no válida",
+    "maintenance_description": "Estamos haciendo algunos cambios y volveremos en breve. Gracias por tu paciencia.",
+    "maintenance_title": "En mantenimiento",
+    "not_found_description": "Esa página o registro no existe. Puede que se haya eliminado.",
+    "not_found_title": "No encontrado",
+    "rate_limited_description": "Has hecho muchas solicitudes en poco tiempo. Espera un momento e inténtalo de nuevo.",
+    "rate_limited_title": "Demasiadas solicitudes",
+    "retry": "Reintentar",
+    "server_error_description": "El servidor encontró un error. Menciona este id si lo reportas.",
+    "server_error_title": "Algo se ha roto",
+    "session_expired_description": "Se cerró tu sesión tras un periodo de inactividad. Inicia sesión de nuevo para continuar donde lo dejaste.",
+    "session_expired_title": "Sesión caducada",
+    "sign_in": "Iniciar sesión",
+    "unauthorized_description": "Debes iniciar sesión para ver esta página.",
+    "unauthorized_title": "Inicio de sesión requerido",
+    "unavailable_description": "El servicio no está disponible temporalmente. Inténtalo de nuevo en unos momentos.",
+    "unavailable_title": "Servicio no disponible"
+  },
+  "landing": {
+    "badge": "✦ Plantilla FastAPI + Inertia con todo incluido",
+    "hero_title_line1": "Aplicaciones Python modulares,",
+    "hero_title_line2": "ensambladas, no pegadas",
+    "hero_subtitle": "Cada función es un módulo autónomo con sus propias rutas, migraciones, permisos y vistas Inertia. Añade uno y el host lo conecta al arrancar.",
+    "cta_dashboard": "Abrir panel",
+    "cta_get_started": "Genera un proyecto",
+    "cta_docs": "Lee los docs",
+    "features": {
+      "module_system_title": "Sistema de módulos",
+      "module_system_description": "Coloca un paquete en modules/ y sus URLs, migraciones y entradas de menú se registran solas.",
+      "auth_title": "Autenticación incluida",
+      "auth_description": "Sesiones por email y cookie, invitaciones, restablecimiento de contraseña y SSO opcional con Keycloak, listos de serie.",
+      "schema_title": "Esquema primero",
+      "schema_description": "Cada módulo declara sus modelos, rutas y permisos en un solo sitio; el host lee esa declaración al arrancar.",
+      "inertia_title": "Vistas Inertia",
+      "inertia_description": "Páginas React servidas directamente desde vistas Python. Sin una capa de API aparte que mantener sincronizada.",
+      "diagnostics_title": "Diagnósticos",
+      "diagnostics_description": "Cada módulo puede registrar comprobaciones de estado; make doctor y la pantalla Doctor informan de todas ellas.",
+      "devtools_title": "Herramientas de desarrollo",
+      "devtools_description": "make new-module genera un módulo funcional, con tests y una página de ejemplo incluidos."
+    },
+    "head_title": "Bienvenido",
+    "copy_command": "Copiar comando",
+    "command_copied": "Copiado",
+    "how_it_works_eyebrow": "Cómo funciona",
+    "how_it_works_heading": "Un proceso · muchos módulos · sin pegamento.",
+    "quickstart_eyebrow": "Inicio rápido",
+    "quickstart_heading": "Una app funcionando en cinco comandos.",
+    "quickstart_body_prefix": "Abre",
+    "quickstart_body_suffix": "con usuarios, panel y permisos ya configurados. Inicia sesión con la cuenta de administrador que crees y continúa desde ahí.",
+    "module_users_description": "Email + sesiones por cookie vía fastapi-users",
+    "module_dashboard_description": "Inicio autenticado con tarjetas de módulos",
+    "module_permissions_description": "Registro de permisos por módulo",
+    "cta_heading": "¿Ya lo tienes en marcha?",
+    "cta_github": "GitHub →",
+    "copy_label": "Copiar",
+    "copied_label": "✓ Copiado",
+    "terminal_helper": "No necesitas cuenta para ejecutarlo en local. El inicio de sesión es solo para la interfaz de administración alojada.",
+    "cta_body": "Abre la interfaz de administración para gestionar usuarios, módulos y tareas en segundo plano.",
+    "cta_sign_in": "Inicia sesión en la interfaz de administración"
+  },
+  "offline": {
+    "title": "Sin conexión",
+    "description": "Es posible que los cambios no se guarden hasta que se restablezca la conexión.",
+    "restored": "Conexión restablecida"
+  },
+  "setup": {
+    "title": "Set up your install",
+    "subtitle": "A few things before this application is ready to use.",
+    "connections": {
+      "heading": "Connections",
+      "description": "Checking the services this install depends on.",
+      "retest": "Test again",
+      "testing": "Testing…"
+    },
+    "migrations": {
+      "heading": "Database schema",
+      "behind": "The database is behind the version this code expects.",
+      "current": "The database schema is up to date.",
+      "apply": "Apply migrations",
+      "applying": "Applying…"
+    },
+    "administrator": {
+      "heading": "Create an administrator",
+      "description": "This account can sign in and manage the install.",
+      "email": "Email",
+      "password": "Password",
+      "full_name": "Full name",
+      "submit": "Create administrator",
+      "submitting": "Creating…",
+      "created": "Administrator created. Reloading…"
+    },
+    "steps": {
+      "heading": "Setup steps",
+      "complete": "Done",
+      "pending": "Pending",
+      "migrations": {
+        "title": "Apply database migrations",
+        "description": "Bring the database schema up to the version this code expects."
+      }
+    },
+    "error": "Something went wrong. See the detail above."
   }
 }

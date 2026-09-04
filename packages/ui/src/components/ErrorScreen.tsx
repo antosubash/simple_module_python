@@ -3,23 +3,24 @@ import type { ReactNode } from 'react';
 interface Props {
   hero: ReactNode;
   title: string;
-  description: string;
+  /** Node, not string: the 403 copy names the missing permission in a `<code>`. */
+  description: ReactNode;
   details?: ReactNode;
   children: ReactNode;
-  /** Visual accent for HTTP-style hero (403=warning, 404=info, 500=destructive). */
+  /** Visual accent for the numeral (403=warning, 404=primary, 5xx=destructive). */
   accent?: 'primary' | 'warning' | 'destructive';
 }
 
-const ACCENT_COLOR: Record<NonNullable<Props['accent']>, string> = {
-  primary: 'oklch(0.59 0.14 158)',
-  warning: 'oklch(0.66 0.16 70)',
-  destructive: 'oklch(0.55 0.2 25)',
-};
-
-const ACCENT_BADGE: Record<NonNullable<Props['accent']>, string> = {
-  primary: 'border-primary-200 bg-primary-50 text-primary-700',
-  warning: 'border-amber-200 bg-amber-50 text-amber-700',
-  destructive: 'border-red-200 bg-red-50 text-red-700',
+/**
+ * The numeral is the entire illustration, so its colour has to carry the
+ * status class — emerald "wrong turn", amber "not allowed", red "we broke".
+ * It used to be a fixed emerald gradient whatever the status, which said the
+ * same thing three times and left the accent prop showing only in a blob.
+ */
+const ACCENT_NUMERAL: Record<NonNullable<Props['accent']>, string> = {
+  primary: 'text-primary-700',
+  warning: 'text-amber-700',
+  destructive: 'text-red-600',
 };
 
 export function ErrorScreen({
@@ -30,43 +31,23 @@ export function ErrorScreen({
   children,
   accent = 'primary',
 }: Props) {
-  const blob = ACCENT_COLOR[accent];
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div
-          className="absolute -top-[10%] -right-[10%] h-[500px] w-[500px] rounded-full opacity-10 blur-[100px]"
-          style={{ background: blob }}
-        />
-      </div>
-      <div className="relative z-10 max-w-xl text-center">
-        <span
-          className={`mb-4 inline-flex items-center gap-2 rounded-full border px-3 py-1 font-mono text-xs font-semibold ${ACCENT_BADGE[accent]}`}
-        >
-          <span
-            className="h-1.5 w-1.5 rounded-full"
-            style={{ background: blob }}
-            aria-hidden="true"
-          />
-          HTTP {hero}
-        </span>
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+      <div className="flex w-full max-w-md flex-col items-center gap-3.5 rounded-2xl border border-border bg-card p-8 text-center shadow-sm sm:p-10">
         <p
-          className="bg-clip-text text-transparent font-bold leading-none tracking-tight font-[var(--font-display)]"
-          style={{
-            backgroundImage: 'linear-gradient(135deg, oklch(0.59 0.14 158), oklch(0.5 0.11 168))',
-            fontSize: 'clamp(72px, 12vw, 120px)',
-          }}
+          className={`text-[64px] font-bold leading-none tracking-[-0.03em] font-display ${ACCENT_NUMERAL[accent]}`}
         >
           {hero}
         </p>
-        <h1 className="mt-3 text-2xl font-bold tracking-tight text-foreground font-[var(--font-display)] sm:text-3xl">
+        <h1 className="text-[21px] font-bold tracking-tight text-foreground font-display">
           {title}
         </h1>
-        <p className="mx-auto mt-2 max-w-md text-base text-muted-foreground leading-relaxed">
-          {description}
-        </p>
-        {details}
-        <div className="mt-8 flex items-center justify-center gap-2 flex-wrap">{children}</div>
+        <p className="max-w-[280px] text-sm leading-[1.7] text-muted-foreground">{description}</p>
+        {/* Full width so a caller's block-level details (the dev-mode stack
+            trace in ErrorBoundary) fill the card instead of shrinking to
+            their content and spilling out of it. */}
+        {details ? <div className="w-full">{details}</div> : null}
+        <div className="mt-1 flex flex-wrap items-center justify-center gap-2.5">{children}</div>
       </div>
     </div>
   );

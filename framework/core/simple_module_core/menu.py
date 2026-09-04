@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Literal
@@ -24,6 +25,15 @@ class MenuItem:
 
     label: str
     url: str
+    label_key: str = ""
+    """Catalog key for ``label``. Empty = ship ``label`` verbatim.
+
+    Menu labels are rendered on every page, so they are translated on the
+    server — the payload carries finished text and every render site (sidebar,
+    topbar, command palette) keeps working untouched. A key that resolves to
+    nothing falls back to ``label``, so a missing translation degrades to
+    English rather than to a raw dotted key on screen.
+    """
     icon: str = ""
     order: int = 0
     section: MenuSection = MenuSection.SIDEBAR
@@ -42,6 +52,14 @@ class MenuItem:
     method: MenuItemMethod = "get"
     """HTTP method used when the item is activated. ``"post"`` renders as an
     Inertia form submission so the target endpoint can be POST-only (e.g. logout)."""
+    group_key: str = ""
+    """Catalog key for ``group``, with the same fallback rule as ``label_key``.
+
+    Group headers are shared vocabulary — several modules file entries under
+    "Administration" — so they live in the ``ui`` namespace. Letting each
+    module invent its own key would let one translation drift from another and
+    split a single header in two.
+    """
     group: str = ""
     """Sidebar group label. Empty = ungrouped (renders flat, no header).
     Items in the same section that share a group are visually clustered under a
@@ -79,6 +97,7 @@ class MenuRegistry:
         is_authenticated: bool,
         roles: list[str] | None = None,
         permissions: list[str] | None = None,
+        translate: Callable[[str], str] | None = None,
     ) -> dict[str, list[dict]]:
         """Return menu items grouped by section, filtered by auth/roles/permissions.
 
@@ -86,11 +105,24 @@ class MenuRegistry:
         wildcards). Items declaring permissions the caller lacks are dropped,
         so the sidebar never offers a screen that will 403 on click.
 
+        ``translate`` resolves ``label_key``/``group_key`` against the request's
+        locale. Omitting it (or omitting the keys) ships the literal ``label``
+        and ``group``, which is what third-party modules predating the keys do.
+
         Returns a dict ready to be serialized into Inertia shared props.
         """
         roles = roles or []
         granted = set(permissions or [])
         result: dict[str, list[dict]] = {s.value: [] for s in MenuSection}
+
+        def render(key: str, fallback: str) -> str:
+            # Translator.t() echoes the key back when the catalog has no entry.
+            # Showing "users.nav.users" in the sidebar would be worse than the
+            # English it replaced, so an unresolved key keeps the literal.
+            if not key or translate is None:
+                return fallback
+            translated = translate(key)
+            return fallback if translated == key else translated
 
         for item in self.all_items:
             if item.requires_auth and not is_authenticated:
@@ -103,11 +135,11 @@ class MenuRegistry:
                 continue
             result[item.section.value].append(
                 {
-                    "label": item.label,
+                    "label": render(item.label_key, item.label),
                     "url": item.url,
                     "icon": item.icon,
                     "method": item.method,
-                    "group": item.group,
+                    "group": render(item.group_key, item.group),
                 }
             )
 

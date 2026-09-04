@@ -24,7 +24,7 @@ export function CorrelationLink({
       type="button"
       onClick={() => onSelect(correlationId)}
       title={t(keys.audit_log.correlation.view_related_title)}
-      className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+      className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline max-sm:min-h-11"
     >
       <GitMerge className="size-3" aria-hidden="true" />
       {t(keys.audit_log.correlation.view_related)}

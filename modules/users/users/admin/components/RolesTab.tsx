@@ -1,8 +1,8 @@
 import { Link } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
-import { TabsContent } from '@simple-module-py/ui/components/ui/tabs';
 import { Pencil, ShieldCheck, Users } from 'lucide-react';
 
 export interface RoleItem {
@@ -15,13 +15,16 @@ export interface RoleItem {
 const SYSTEM_ROLES = new Set(['Owner', 'Admin', 'Viewer']);
 
 export function RolesTab({ roles }: { roles: RoleItem[] }) {
+  const { t } = useT();
+  // A plain fragment, not a `TabsContent`: the Users/Roles switch is a
+  // segmented radio group now, and the page decides which side to render.
   return (
-    <TabsContent value="roles">
+    <>
       {roles.length === 0 ? (
         <Card className="border-border">
           <CardContent className="flex flex-col items-center gap-2 py-16 text-muted-foreground">
             <ShieldCheck className="size-8" />
-            <p>No roles defined</p>
+            <p>{t(keys.users.roles_tab.empty)}</p>
           </CardContent>
         </Card>
       ) : (
@@ -41,7 +44,7 @@ export function RolesTab({ roles }: { roles: RoleItem[] }) {
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-[15px] font-bold tracking-tight font-[var(--font-display)] text-foreground">
+                        <h3 className="text-[15px] font-bold tracking-tight font-display text-foreground">
                           {role.name}
                         </h3>
                         {isSystem && (
@@ -49,19 +52,22 @@ export function RolesTab({ roles }: { roles: RoleItem[] }) {
                             variant="outline"
                             className="border-border bg-secondary text-[10px] text-muted-foreground"
                           >
-                            system
+                            {t(keys.users.roles_tab.system_badge)}
                           </Badge>
                         )}
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-                        {role.description || 'No description.'}
+                        {role.description || t(keys.users.roles_tab.no_description)}
                       </p>
                       <div className="mt-2 font-mono text-[11px] text-muted-foreground">
-                        {role.user_count} {role.user_count === 1 ? 'member' : 'members'}
+                        {t(keys.users.roles_tab.member_count, { count: role.user_count })}
                       </div>
                     </div>
                     <Button asChild variant="ghost" size="icon-sm">
-                      <Link href={`/permissions/roles/${role.id}/edit`} aria-label="Edit role">
+                      <Link
+                        href={`/admin/permissions/roles/${role.id}/edit`}
+                        aria-label={t(keys.users.roles_tab.edit_role)}
+                      >
                         <Pencil />
                       </Link>
                     </Button>
@@ -72,6 +78,6 @@ export function RolesTab({ roles }: { roles: RoleItem[] }) {
           })}
         </div>
       )}
-    </TabsContent>
+    </>
   );
 }

@@ -1,6 +1,6 @@
 """SimpleModule Core - Module system, menu, permissions, events, and diagnostics."""
 
-from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
+from simple_module_core.audit_links import AuditLink, AuditLinkRegistry, LabelResolver
 from simple_module_core.csp import CspSourceError, CspSourceRegistry
 from simple_module_core.design_packs import DesignPack, DesignPackRegistry
 from simple_module_core.diagnostics import (
@@ -41,6 +41,7 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRoute, PublicRouteRegistry
 from simple_module_core.services import Services
+from simple_module_core.setup_steps import SetupRegistry, SetupStep
 from simple_module_core.versioning import FRAMEWORK_API_VERSION, check_framework_compatibility
 
 __all__ = [
@@ -65,6 +66,7 @@ __all__ = [
     "HealthStatus",
     "I18nRegistry",
     "InvalidModuleError",
+    "LabelResolver",
     "MenuItem",
     "MenuRegistry",
     "MenuSection",
@@ -77,6 +79,8 @@ __all__ = [
     "PublicRoute",
     "PublicRouteRegistry",
     "Services",
+    "SetupRegistry",
+    "SetupStep",
     "Translator",
     "ValidationError",
     "check_framework_compatibility",

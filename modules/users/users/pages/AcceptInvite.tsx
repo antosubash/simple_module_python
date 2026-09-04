@@ -1,33 +1,45 @@
 import { Head, router, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
-import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
-import { CheckCircle2 } from 'lucide-react';
+import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
+import { BRAND_DEFAULT_APP_NAME } from '@simple-module-py/ui/lib/brand';
+import { TimerOff } from 'lucide-react';
 import { useState } from 'react';
+import { AuthField } from '../auth_local/components/AuthField';
+import { AuthIntro } from '../auth_local/components/AuthIntro';
+import { AuthStateCard } from '../auth_local/components/AuthStateCard';
+import { InviteSummary } from '../auth_local/components/InviteSummary';
+import { PasswordFields } from '../auth_local/components/PasswordFields';
+
+const DASHBOARD_PATH = '/dashboard/';
 
 interface InvitePreview {
   email: string;
   roles: string[];
   already_accepted: boolean;
+  /** Display name of whoever minted the invite; absent on older tokens. */
+  invited_by_name: string | null;
+  expires_at: string | null;
+  full_name: string | null;
 }
 
 interface Props {
   token: string;
   /** null when the token cannot be read — expired, tampered, or absent. */
   invite: InvitePreview | null;
+  branding?: { appName: string } | null;
 }
 
 function AcceptInvite() {
-  const { token: initialToken, invite } = usePage<{ props: Props }>().props as unknown as Props;
-  const urlToken =
-    typeof window !== 'undefined'
-      ? (new URLSearchParams(window.location.search).get('token') ?? '')
-      : '';
-  const token = urlToken || initialToken;
+  const { token, invite, branding } = usePage<{ props: Props }>().props as unknown as Props;
+  const { t } = useT();
 
+  const [fullName, setFullName] = useState(invite?.full_name ?? '');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [mismatch, setMismatch] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -35,111 +47,121 @@ function AcceptInvite() {
     e.preventDefault();
     setError(null);
     if (password !== confirm) {
-      setError('Passwords do not match.');
+      setMismatch(true);
       return;
     }
+    setMismatch(false);
     setLoading(true);
     fetch('/api/users/auth/accept-invite', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, password }),
+      body: JSON.stringify({ token, password, full_name: fullName }),
     })
       .then(async (res) => {
         if (res.status === 204 || res.status === 200) {
-          router.visit('/dashboard/');
+          router.visit(DASHBOARD_PATH);
         } else {
           const data = await res.json().catch(() => ({}));
           const detail = typeof data?.detail === 'string' ? data.detail : '';
           if (detail === 'INVITE_BAD_TOKEN') {
-            setError('Invite link has expired or is invalid. Please request a new invitation.');
+            setError(t(keys.users.accept_invite.error_bad_token));
           } else {
-            setError(detail || 'Failed to accept invite. Please try again.');
+            setError(detail || t(keys.users.accept_invite.error_failed));
           }
         }
       })
-      .catch(() => setError('An error occurred. Please try again.'))
+      .catch(() => setError(t(keys.users.common.error_try_again)))
       .finally(() => setLoading(false));
   };
 
-  return (
-    <AuthCardShell>
-      <Head title="Accept Invite" />
-      {/* Who the invite is for, and what it grants. Without this the card asks
-          for a password while identifying neither — a forwarded link, or an
-          invite addressed to the wrong person, is indistinguishable from the
-          right one. */}
-      <div className="flex items-start gap-3 rounded-xl border border-primary-200 bg-primary-50 p-3 text-sm text-primary-800">
-        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-        <div className="min-w-0">
-          <p className="font-semibold">
-            {invite ? `You've been invited as ${invite.email}` : "You've been invited"}
-          </p>
-          <p className="mt-0.5">Pick a password and you'll be signed in.</p>
-          {invite && invite.roles.length > 0 && (
-            <p className="mt-1.5 flex flex-wrap items-center gap-1">
-              <span className="text-xs text-primary-700">Access:</span>
-              {invite.roles.map((role) => (
-                <span
-                  key={role}
-                  className="rounded-full border border-primary-200 bg-white/60 px-2 py-0.5 text-[11px] font-semibold"
-                >
-                  {role}
-                </span>
-              ))}
-            </p>
-          )}
-        </div>
-      </div>
+  if (!invite) {
+    return (
+      <AuthCardShell tone="destructive">
+        <Head title={t(keys.users.accept_invite.head_title)} />
+        <AuthStateCard
+          icon={TimerOff}
+          tone="destructive"
+          title={t(keys.users.accept_invite.expired_title)}
+          description={t(keys.users.accept_invite.expired_body)}
+        >
+          <Button variant="outline" asChild className="max-lg:min-h-11">
+            <a href={LOGIN_PATH}>{t(keys.users.common.back_to_sign_in)}</a>
+          </Button>
+        </AuthStateCard>
+      </AuthCardShell>
+    );
+  }
 
-      {invite?.already_accepted && (
-        <p className="mt-3 rounded-lg bg-amber-50 p-2.5 text-sm text-amber-900">
-          This invite has already been used. Sign in instead, or use "Forgot password" if you don't
-          have your password.
+  const appName = branding?.appName ?? BRAND_DEFAULT_APP_NAME;
+  const intro = (
+    <AuthIntro
+      heading={
+        invite.invited_by_name
+          ? t(keys.users.accept_invite.invited_by, {
+              inviter: invite.invited_by_name,
+              app: appName,
+            })
+          : t(keys.users.accept_invite.invited_generic, { app: appName })
+      }
+      body={t(keys.users.accept_invite.subtitle)}
+    >
+      <InviteSummary email={invite.email} roles={invite.roles} expiresAt={invite.expires_at} />
+    </AuthIntro>
+  );
+
+  return (
+    <AuthCardShell variant="split-light" aside={intro} width="lg">
+      <Head title={t(keys.users.accept_invite.head_title)} />
+      <h1 className="mb-5 text-[21px] font-bold tracking-tight text-foreground font-display">
+        {t(keys.users.accept_invite.heading)}
+      </h1>
+      {invite.already_accepted && (
+        <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[13px] text-amber-700">
+          {t(keys.users.accept_invite.already_used)}
         </p>
       )}
-      <h1 className="mt-5 mb-1.5 text-[22px] font-bold tracking-tight font-[var(--font-display)] text-foreground">
-        Set your password
-      </h1>
-      <form onSubmit={handleSubmit} className="space-y-3.5">
-        <div className="space-y-1.5">
-          <Label htmlFor="password" className="text-sm font-medium text-muted-foreground">
-            Password
-          </Label>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <AuthField htmlFor="full_name" label={t(keys.users.common.full_name)}>
           <Input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="8+ characters"
-            required
-            autoComplete="new-password"
+            id="full_name"
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder={t(keys.users.common.name_placeholder)}
+            autoComplete="name"
           />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="confirm" className="text-sm font-medium text-muted-foreground">
-            Confirm password
-          </Label>
-          <Input
-            id="confirm"
-            type="password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            required
-            autoComplete="new-password"
-          />
-        </div>
+        </AuthField>
+        <PasswordFields
+          password={password}
+          onPasswordChange={(next) => {
+            setPassword(next);
+            setMismatch(false);
+          }}
+          confirm={confirm}
+          onConfirmChange={(next) => {
+            setConfirm(next);
+            setMismatch(false);
+          }}
+          passwordLabel={t(keys.users.common.password)}
+          confirmLabel={t(keys.users.common.confirm_password)}
+          mismatch={mismatch}
+          hint={t(keys.users.common.password_hint)}
+        />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <Button type="submit" size="lg" className="w-full" disabled={loading || !token}>
-          {loading ? 'Activating…' : 'Set password & sign in'}
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full max-lg:min-h-11"
+          disabled={loading || !token}
+        >
+          {loading ? t(keys.users.accept_invite.submitting) : t(keys.users.accept_invite.submit)}
         </Button>
       </form>
-      {token && (
-        <p className="mt-4 text-center font-mono text-[11px] text-muted-foreground">
-          token={token.slice(0, 16)}…
-        </p>
-      )}
+      <p className="mt-4 text-center text-[12.5px] leading-relaxed text-muted-foreground">
+        {t(keys.users.accept_invite.helper)}
+      </p>
     </AuthCardShell>
   );
 }

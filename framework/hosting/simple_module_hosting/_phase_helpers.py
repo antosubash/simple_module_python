@@ -11,9 +11,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, FastAPI
+from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
-from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from inertia import (
     InertiaVersionConflictException,
@@ -24,7 +23,6 @@ from simple_module_core.exceptions import NotFoundError
 from simple_module_db import CommitBeforeResponseMiddleware
 from starlette.exceptions import HTTPException
 from starlette.middleware.gzip import GZipMiddleware
-from starlette.middleware.sessions import SessionMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from simple_module_hosting._error_handlers import (
@@ -35,8 +33,10 @@ from simple_module_hosting._error_handlers import (
 )
 from simple_module_hosting._host_services import _HostServices
 from simple_module_hosting._inertia_cache import InertiaCacheMiddleware
+from simple_module_hosting._module_routes import wire_module_routes
 from simple_module_hosting.host_settings import HostSettings
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
+from simple_module_hosting.maintenance import MaintenanceMiddleware
 from simple_module_hosting.middleware import (
     CorrelationIdMiddleware,
     InertiaLayoutDataMiddleware,
@@ -44,7 +44,9 @@ from simple_module_hosting.middleware import (
     SecurityHeadersMiddleware,
     TenantMiddleware,
 )
+from simple_module_hosting.session import SessionMiddleware
 from simple_module_hosting.settings import Settings
+from simple_module_hosting.setup_gate import SETUP_PATH, SetupMiddleware
 from simple_module_hosting.static_files import PrecompressedStaticFiles
 
 if TYPE_CHECKING:
@@ -104,12 +106,27 @@ def install_middleware(
     Order matters: last added = first executed. Execution order:
     (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging
     → Security → Session → [module] → (Tenant, if multi_tenant) → Locale
-    → Inertia → InertiaCache → CommitBeforeResponse.
+    → Inertia → InertiaCache → Setup → Maintenance → CommitBeforeResponse.
     """
     # Added first, so it is innermost and its send-wrapper is the first to see
     # the response: the request's DB work commits before any byte reaches the
     # client, instead of in get_db's post-response exit code (GH #257).
     app.add_middleware(CommitBeforeResponseMiddleware)
+    # Inside InertiaCache, so its short-circuit is still governed by it. The
+    # maintenance 503 renders through Inertia and carries this user's auth
+    # block and menus like any other payload; short-circuiting *outside* the
+    # cache guard would ship exactly the per-user payload GH #272 exists to
+    # keep out of caches. Added before Inertia so it *executes* after it: the
+    # page needs the shared props (auth, menus, i18n) to render with a layout,
+    # and auth + locale — both further out — to know who is asking and in which
+    # language to answer.
+    app.add_middleware(MaintenanceMiddleware)
+    # Added after Maintenance so it *executes* before it: an install that has
+    # never been set up has nothing meaningful to put into maintenance mode,
+    # and the setup redirect should win. Inside InertiaCache for the same
+    # reason Maintenance is — this short-circuits, and the redirect must not
+    # be stored by any cache.
+    app.add_middleware(SetupMiddleware)
     # Paired with InertiaLayoutDataMiddleware below, which is what puts this
     # user's auth, permissions and menus into every Inertia payload: this one
     # makes sure the payload that results is never stored where a page request
@@ -150,8 +167,10 @@ def install_middleware(
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
     # Outermost: rewrite scheme/client from X-Forwarded-* before anything else
-    # reads them, so request logs see the real client IP and Inertia's absolute
-    # page url carries the proxy-terminated scheme (GH #223). Gated on an
+    # reads them, so request logs see the real client IP rather than the
+    # proxy's. Inertia no longer needs this: its page url is
+    # root-relative, so pushState can't see a cross-scheme url either way (it
+    # used to throw a SecurityError on every page — GH #223). Gated on an
     # explicit trust setting — never trust forwarded headers by default.
     if settings.trusted_proxy:
         app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.trusted_proxy)
@@ -166,6 +185,18 @@ def attach_public_routes(app: FastAPI, settings: Settings, registry) -> None:
     ``app.state.public_routes``, where ``auth.middleware.AuthMiddleware`` reads it
     on every request.
     """
+    # The setup wizard is anonymous by necessity: it is served precisely when
+    # no account exists, so gating it behind auth would redirect the operator
+    # to a login they cannot pass. Its own handlers 404 once setup completes,
+    # which is what keeps this exemption from outliving its purpose.
+    #
+    # Exact + trailing-slash prefix, not a bare "/setup" prefix: the latter
+    # would also hand anonymous access to any unrelated route that happens to
+    # start with those six characters ("/setup-guide"), and nothing about that
+    # route asked to be public.
+    registry.add_exact(SETUP_PATH)
+    registry.add_prefix(f"{SETUP_PATH}/")
+
     for prefix in settings.auth_public_paths:
         registry.add_prefix(prefix)
     app.state.public_routes = registry
@@ -256,35 +287,4 @@ def check_settings_registration(app: FastAPI, modules: list) -> list[Diagnostic]
     return diagnostics
 
 
-def wire_module_routes(app: FastAPI, module) -> None:
-    """Attach a module's API + view routers to ``app`` using its Meta prefixes.
-
-    The single canonical implementation so ``create_app`` and the test harness
-    in ``simple_module_test`` stay in lockstep if ``ModuleBase`` ever gains
-    a new router type.
-
-    Bare-prefix view routes (``view_prefix="/foo"`` + ``@router.get("/")``)
-    are also mounted at the trailing-slash-less form ``"/foo"``. Without this,
-    FastAPI's ``redirect_slashes=True`` fires a 307 to ``"/foo/"``, which
-    clients like httpx strip ``X-Inertia`` from on follow — turning every
-    Inertia navigation into a broken HTML response. Cloning the route at the
-    bare-prefix path serves the same handler directly, no redirect.
-    """
-    api_router = APIRouter(prefix=module.meta.route_prefix, tags=[module.meta.name])
-    view_router = APIRouter(prefix=module.meta.view_prefix, tags=[f"{module.meta.name} Views"])
-    module.register_routes(api_router, view_router)
-    if module.meta.view_prefix:
-        bare_target = f"{module.meta.view_prefix}/"
-        for route in list(view_router.routes):
-            if isinstance(route, APIRoute) and route.path == bare_target:
-                view_router.add_api_route(
-                    "",
-                    route.endpoint,
-                    methods=list(route.methods or {"GET"}),
-                    response_model=route.response_model,
-                    include_in_schema=False,
-                    dependencies=route.dependencies,
-                    name=f"{route.name}__bare",
-                )
-    app.include_router(api_router)
-    app.include_router(view_router)
+__all__ = ["wire_module_routes"]

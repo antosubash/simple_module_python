@@ -10,17 +10,6 @@ export const LOGIN_PATH = '/users/login';
 export const REGISTER_PATH = '/users/register';
 
 /**
- * The public "sign in or sign up" call to action, gated on whether signup is
- * open. Bundles the href and its matching label so a caller can't update one
- * half of the swap (e.g. the link) without the other (e.g. the button text).
- */
-export function authCta(signupOpen: boolean): { href: string; label: string } {
-  return signupOpen
-    ? { href: REGISTER_PATH, label: 'Sign up' }
-    : { href: LOGIN_PATH, label: 'Sign in' };
-}
-
-/**
  * The Users admin screen's url, as registered by the users module's menu
  * item (`_URL_USERS_ADMIN` in `users/module.py`, mirrored by `_ADMIN_URL` in
  * `permissions/endpoints/views.py`).
@@ -31,4 +20,4 @@ export function authCta(signupOpen: boolean): { href: string; label: string } {
  * literal per call site keeps those declarations from drifting apart from
  * each other if the route ever moves.
  */
-export const USERS_ADMIN_PATH = '/users/admin';
+export const USERS_ADMIN_PATH = '/admin/users/';

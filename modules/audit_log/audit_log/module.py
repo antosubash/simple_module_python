@@ -47,11 +47,13 @@ class AuditLogModule(ModuleBase):
         registry.add(
             MenuItem(
                 label=MENU_LABEL,
+                label_key="audit_log.nav.audit_log",
                 url=MENU_URL,
                 icon=MENU_ICON,
                 order=MENU_ORDER,
-                section=MenuSection.SIDEBAR,
+                section=MenuSection.ADMIN_SIDEBAR,
                 group="System",
+                group_key="ui.nav_groups.system",
                 # Mirrors the view route's guard — the same ungated-menu bug
                 # this module already shipped before the filter existed.
                 permissions=[PERM_VIEW],

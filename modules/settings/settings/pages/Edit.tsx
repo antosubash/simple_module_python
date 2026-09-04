@@ -6,22 +6,11 @@ import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { Textarea } from '@simple-module-py/ui/components/ui/textarea';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import type React from 'react';
-import ValueInput, { type ValueType } from './components/ValueInput';
+import ValueInput from './components/ValueInput';
 import { ROUTES } from './routes';
-
-type Scope = 'system' | 'tenant' | 'user';
-
-type Setting = {
-  id: number;
-  scope: Scope;
-  scope_id: string;
-  key: string;
-  value: string;
-  value_type: ValueType;
-  description: string | null;
-};
+import type { Setting } from './types';
 
 type Props = { setting: Setting };
 
@@ -40,15 +29,10 @@ function Edit({ setting }: Props) {
 
   return (
     <>
-      <Head title="Edit Setting" />
+      <Head title={t(keys.settings.edit.title)} />
       <PageShell
         title={t(keys.settings.edit.title)}
         description={`${setting.scope}.${setting.key}`}
-        actions={
-          <Button asChild variant="outline">
-            <Link href={ROUTES.browse}>Cancel</Link>
-          </Button>
-        }
       >
         <Card className="max-w-2xl border-border">
           <CardContent className="pt-6">
@@ -114,7 +98,7 @@ function Edit({ setting }: Props) {
 
               <div className="sm:col-span-2 flex justify-end gap-2">
                 <Button asChild variant="outline">
-                  <Link href={ROUTES.browse}>Cancel</Link>
+                  <Link href={ROUTES.browse}>{t(keys.settings.form.cancel_button)}</Link>
                 </Button>
                 <Button type="submit" disabled={processing}>
                   {t(keys.settings.edit.submit_button)}
@@ -128,5 +112,5 @@ function Edit({ setting }: Props) {
   );
 }
 
-Edit.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Edit.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default Edit;

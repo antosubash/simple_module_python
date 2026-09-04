@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import {
   Tooltip,
@@ -6,25 +7,33 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@simple-module-py/ui/components/ui/tooltip';
+import { X } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AppTopbar, activeSection, findSection } from '../components/AppTopbar';
 import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
 import { BrandingMark } from '../components/BrandingMark';
-import { LocaleSwitcher } from '../components/LocaleSwitcher';
+import { LocaleSwitcher, useHasMultipleLocales } from '../components/LocaleSwitcher';
 import { NavIcon } from '../components/NavIcon';
 import { PageHeadingProvider, usePageSection } from '../components/page-heading';
 import { darkSurfaceLogo } from '../lib/brand';
 import type { MenuItem, SharedProps } from '../types';
+import { AdminSectionLink } from './AdminSectionLink';
+import { MobileBar } from './MobileBar';
 import { SidebarUserMenu } from './SidebarUserMenu';
+import { DEFAULT_SIDEBAR_THEME, SIDEBAR_ICON_FOCUS, type SidebarTheme } from './sidebar-theme';
 
 // A stable reference for "no items" — `menus?.[key] ?? []` would otherwise
 // mint a fresh empty array every render, and that array flows into
 // CommandPalette's `useMemo([navItems, accountItems])`, defeating it on every
 // render where a menu is absent instead of only when its contents change.
 const NO_ITEMS: MenuItem[] = [];
+
+// Phones get 44px rows; the desktop sidebar keeps the deck's tighter 40px.
+const NAV_ROW =
+  'flex items-center gap-3 min-h-11 lg:min-h-0 px-3 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-150';
 
 function groupMenuItems(items: MenuItem[]): { group: string; items: MenuItem[] }[] {
   const groups: { group: string; items: MenuItem[] }[] = [];
@@ -40,17 +49,6 @@ function groupMenuItems(items: MenuItem[]): { group: string; items: MenuItem[] }
     groups[idx].items.push(item);
   }
   return groups;
-}
-
-interface SidebarTheme {
-  sidebarBg: string;
-  accentColor: string;
-  avatarBg: string;
-  hoverBg: string;
-  activeClass: string;
-  inactiveClass: string;
-  mutedTextClass: string;
-  mobileTitleLabel: string;
 }
 
 interface SidebarLayoutProps {
@@ -75,11 +73,13 @@ export function SidebarLayout(props: SidebarLayoutProps) {
 }
 
 function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: SidebarLayoutProps) {
+  const { t } = useT();
   const page = usePage<{ props: SharedProps }>();
   const { auth, menus, branding } = page.props as unknown as SharedProps;
   const currentUrl = page.url;
   const appName = branding?.appName ?? theme.mobileTitleLabel;
   const logoUrl = branding?.logoUrl ?? null;
+  const footerLinks = branding?.footerLinks;
   // The sidebar and mobile bar are near-black whatever the theme, so they take
   // the dark logo variant when one exists. The layout footer follows the theme,
   // so it keeps the primary logo.
@@ -88,7 +88,27 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
   const closeSidebar = () => setSidebarOpen(false);
 
   const menuItems = menus?.[menuKey] ?? NO_ITEMS;
+  // ⌘K reaches everything the viewer can open, not just the shell they are
+  // standing in. Both sidebars are already filtered by roles and permissions,
+  // so this widens reach without offering anything they cannot use — whereas
+  // indexing only `menuKey` made every admin screen unreachable from the app
+  // shell the moment they moved to their own sidebar.
+  // Keyed by url so a module that somehow contributes the same destination to
+  // both sections is listed once. MenuRegistry buckets each item into exactly
+  // one section, so this is a cheap invariant guard rather than a live case.
+  const paletteItems = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          [...(menus?.sidebar ?? NO_ITEMS), ...(menus?.adminSidebar ?? NO_ITEMS)].map(
+            (item) => [item.url, item] as const,
+          ),
+        ).values(),
+      ),
+    [menus?.sidebar, menus?.adminSidebar],
+  );
   const declaredSection = usePageSection(currentUrl);
+  const hasLocaleChoice = useHasMultipleLocales();
   // Same "which entry does this page belong to" resolution AppTopbar uses for
   // the breadcrumb, so the sidebar highlight and the breadcrumb never disagree.
   const active = activeSection(menuItems, currentUrl) ?? findSection(menuItems, declaredSection);
@@ -103,52 +123,26 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
           instead of a hardcoded `h-14`, so they cannot drift out of sync with
           each other or with pages that subtract it to fill the viewport. */}
       <div className="min-h-screen bg-background [--app-chrome-h:3.5rem]">
-        {/* Mobile top bar */}
-        <div
-          className={`sticky top-0 z-40 flex h-[var(--app-chrome-h)] items-center gap-3 ${theme.sidebarBg} px-4 lg:hidden`}
-        >
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open sidebar"
-            className="text-sidebar-icon hover:text-white hover:bg-white/10"
-          >
-            <svg
-              aria-hidden="true"
-              className="w-6 h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
-              />
-            </svg>
-          </Button>
-          <Link href="/dashboard/" className="flex items-center gap-2">
-            <BrandingMark
-              appName={appName}
-              logoUrl={darkLogoUrl}
-              accentColor={theme.accentColor}
-              size="sm"
-            />
-          </Link>
-          {/* The topbar that normally carries this is desktop-only, so the
-              mobile bar keeps the locale control rather than losing it. */}
-          <div className="ml-auto">
-            <LocaleSwitcher />
-          </div>
-        </div>
+        <MobileBar
+          theme={theme}
+          appName={appName}
+          currentUrl={currentUrl}
+          user={auth?.user}
+          onOpen={() => setSidebarOpen(true)}
+        />
 
         {/* Mobile overlay */}
         {sidebarOpen && (
           <button
             type="button"
-            aria-label="Close sidebar"
+            // Out of the tab order deliberately: this backdrop is the
+            // click-outside affordance, and as a full-screen control it can
+            // show no meaningful focus ring. Keyboard users close the sidebar
+            // with the X button beside the logo, which is focusable and does
+            // carry a visible ring — so this is one less invisible tab stop,
+            // not a lost route out.
+            tabIndex={-1}
+            aria-label={t(keys.ui.sidebar.close)}
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden cursor-default"
             onClick={closeSidebar}
           />
@@ -156,10 +150,20 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
 
         {/* Sidebar */}
         <aside
-          className={`fixed inset-y-0 left-0 z-50 w-64 ${theme.sidebarBg} flex flex-col border-r border-white/[0.06] transition-transform duration-200 ease-in-out lg:translate-x-0 lg:z-30 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+          className={`fixed inset-y-0 left-0 z-50 w-full sm:w-72 lg:w-64 ${theme.sidebarBg} flex flex-col border-r border-white/[0.06] transition-transform duration-200 ease-in-out lg:translate-x-0 lg:z-30 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
         >
-          {/* Logo */}
-          <div className="h-14 lg:h-16 flex items-center justify-between px-4 lg:px-5 border-b border-white/[0.06]">
+          {/* Drawer header — ✕ then the app name, per the deck's phone frame.
+              On lg the close button is gone and this is the 64px brand row. */}
+          <div className="h-14 lg:h-16 flex items-center gap-3 px-4 lg:px-5 border-b border-white/[0.06]">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={closeSidebar}
+              aria-label={t(keys.ui.sidebar.close)}
+              className={`lg:hidden min-h-11 min-w-11 -ml-2 text-sidebar-icon-muted hover:text-white hover:bg-white/10 ${SIDEBAR_ICON_FOCUS}`}
+            >
+              <X aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
+            </Button>
             <Link href="/dashboard/" className="flex items-center gap-2.5 group">
               <BrandingMark
                 appName={appName}
@@ -168,24 +172,6 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
                 size="md"
               />
             </Link>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={closeSidebar}
-              aria-label="Close sidebar"
-              className="lg:hidden text-sidebar-icon-muted hover:text-white hover:bg-white/10"
-            >
-              <svg
-                aria-hidden="true"
-                className="w-5 h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
-            </Button>
           </div>
 
           {headerSlot}
@@ -199,7 +185,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
               >
                 {group.group && (
                   <div
-                    className={`px-3 pb-1 text-xs font-semibold uppercase tracking-wider ${theme.mutedTextClass}`}
+                    className={`px-3 pb-1.5 text-[11px] font-bold uppercase tracking-[0.09em] ${theme.mutedTextClass}`}
                   >
                     {group.group}
                   </div>
@@ -212,12 +198,12 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
                         <Link
                           href={item.url}
                           onClick={closeSidebar}
-                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
-                            isActive ? theme.activeClass : theme.inactiveClass
-                          }`}
+                          className={`${NAV_ROW} ${isActive ? theme.activeClass : theme.inactiveClass}`}
                           style={{ animationDelay: `${index * 50}ms` }}
                         >
-                          <NavIcon name={item.icon} />
+                          {/* No icons on phones: the deck's drawer is a list of
+                              names, and the glyphs only crowd a 390px row. */}
+                          <NavIcon name={item.icon} className="hidden lg:block w-5 h-5" />
                           {item.label}
                         </Link>
                       </TooltipTrigger>
@@ -229,15 +215,32 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
                 })}
               </div>
             ))}
+            {menuKey === 'sidebar' && (
+              <AdminSectionLink
+                adminItems={menus?.adminSidebar ?? NO_ITEMS}
+                className={`min-h-11 lg:min-h-0 ${theme.inactiveClass}`}
+                onNavigate={closeSidebar}
+              />
+            )}
             {footerNavSlot}
           </nav>
+
+          {/* The topbar carries the locale on desktop; on a phone it belongs
+              here rather than in the bar, where the deck puts the page title
+              and the page's own action. A single-locale install gets nothing:
+              the topbar's inert pill exists to balance a row of controls, and
+              there is no such row here. */}
+          {hasLocaleChoice && (
+            <div className="border-t border-white/[0.06] px-3 py-2 lg:hidden">
+              <LocaleSwitcher className="w-full min-h-11 border-white/15 text-app-sidebar-text hover:bg-white/10 hover:text-white" />
+            </div>
+          )}
 
           {/* User section — avatar row opens a dropdown with Profile / Logout / etc. */}
           {auth?.user && (
             <SidebarUserMenu
               user={auth.user}
               items={menus?.userDropdown ?? NO_ITEMS}
-              avatarBg={theme.avatarBg}
               hoverBg={theme.hoverBg}
               mutedTextClass={theme.mutedTextClass}
               onNavigate={closeSidebar}
@@ -248,15 +251,24 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
         {/* Main content */}
         <main className="flex min-h-screen flex-col lg:ml-64">
           <AppTopbar
-            navItems={menuItems}
+            navItems={paletteItems}
             accountItems={menus?.userDropdown ?? NO_ITEMS}
             currentUrl={currentUrl}
             activeMenuItem={active}
           />
           <div className="flex-1">{children}</div>
-          <BrandingFooter appName={appName} logoUrl={logoUrl} variant="app" />
+          <BrandingFooter
+            appName={appName}
+            logoUrl={logoUrl}
+            links={footerLinks}
+            footerText={branding?.footerText}
+            variant="app"
+          />
         </main>
       </div>
     </TooltipProvider>
   );
 }
+
+export type { SidebarTheme };
+export { DEFAULT_SIDEBAR_THEME };

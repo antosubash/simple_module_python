@@ -6,18 +6,17 @@ import contextlib
 import hashlib
 import logging
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import UploadFile
-from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern, like_prefix_pattern
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from file_storage import constants
+from file_storage import constants, queries
 from file_storage.contracts.schemas import StoredFileOut
 from file_storage.contracts.service import StorageNotFoundError
 from file_storage.models import StoredFile
@@ -132,7 +131,7 @@ class FileStorageService:
                 )
             raise
 
-        return StoredFileOut.model_validate(_to_out_dict(row))
+        return StoredFileOut.model_validate(queries.to_out_dict(row))
 
     def _check_content_type(self, content_type: str) -> None:
         allowed = self.settings.allowed_content_types
@@ -140,6 +139,8 @@ class FileStorageService:
             raise ContentTypeNotAllowedError(f"Content-Type {content_type!r} not in allow-list.")
 
     # ── Read ─────────────────────────────────────────────────────────
+    #
+    # The SQL lives in ``queries.py``; these are the seam callers already use.
 
     async def list_files(
         self,
@@ -150,73 +151,23 @@ class FileStorageService:
         search: str | None = None,
         content_type: str | None = None,
     ) -> tuple[list[StoredFileOut], int]:
-        base = select(StoredFile)
-        count_q = select(func.count()).select_from(StoredFile)
-        for clause in self._filter_clauses(
-            created_by=created_by, search=search, content_type=content_type
-        ):
-            base = base.where(clause)
-            count_q = count_q.where(clause)
-
-        total = (await self.db.execute(count_q)).scalar() or 0
-        result = await self.db.execute(
-            base.order_by(StoredFile.created_at.desc())
-            .offset((page - 1) * per_page)
-            .limit(per_page)
+        return await queries.list_files(
+            self.db,
+            page=page,
+            per_page=per_page,
+            created_by=created_by,
+            search=search,
+            content_type=content_type,
         )
-        rows = result.scalars().all()
-        items = [StoredFileOut.model_validate(_to_out_dict(r)) for r in rows]
-        return items, total
-
-    @staticmethod
-    def _filter_clauses(
-        *,
-        created_by: str | None,
-        search: str | None,
-        content_type: str | None,
-    ) -> list:
-        """Build the WHERE clauses shared by the page query and its count.
-
-        Kept in one place so a filter can never narrow the rows without also
-        narrowing the total — the bug that shows up as a pager offering page 3
-        of an empty search.
-        """
-        clauses = []
-        if created_by is not None:
-            clauses.append(StoredFile.created_by == created_by)
-        if search:
-            # Escape LIKE metacharacters so a literal "%" or "_" in a
-            # filename search is matched as text, not treated as a wildcard.
-            clauses.append(
-                StoredFile.filename.ilike(like_contains_pattern(search), escape=LIKE_ESCAPE_CHAR)
-            )
-        if content_type:
-            # A trailing "/" means a whole family ("image/"), anything else is
-            # an exact type ("application/pdf"). Families are what make the
-            # filter usable when a bucket holds nine kinds of image.
-            if content_type.endswith("/"):
-                clauses.append(
-                    StoredFile.content_type.ilike(
-                        like_prefix_pattern(content_type), escape=LIKE_ESCAPE_CHAR
-                    )
-                )
-            else:
-                clauses.append(StoredFile.content_type == content_type)
-        return clauses
 
     async def content_type_facets(self, *, created_by: str | None = None) -> list[dict]:
-        """Distinct content types present, with counts, for the filter dropdown.
+        return await queries.content_type_facets(self.db, created_by=created_by)
 
-        Offering the full IANA list would be noise; the only types worth
-        showing are the ones actually in the bucket.
-        """
-        query = select(StoredFile.content_type, func.count().label("n"))
-        for clause in self._filter_clauses(created_by=created_by, search=None, content_type=None):
-            query = query.where(clause)
-        query = query.group_by(StoredFile.content_type).order_by(StoredFile.content_type)
+    async def uploader_facets(self) -> list[dict]:
+        return await queries.uploader_facets(self.db)
 
-        rows = (await self.db.execute(query)).all()
-        return [{"value": str(row[0]), "count": int(row[1])} for row in rows]
+    async def used_bytes(self) -> int:
+        return await queries.used_bytes(self.db)
 
     async def get(self, file_id: uuid.UUID) -> StoredFile:
         row = await self.db.get(StoredFile, file_id)
@@ -242,6 +193,51 @@ class FileStorageService:
 
     # ── Delete ───────────────────────────────────────────────────────
 
+    async def delete_many(self, file_ids: Sequence[uuid.UUID]) -> list[StoredFile]:
+        """Soft-delete every id that still resolves, returning the rows removed.
+
+        Ids that no longer resolve are skipped rather than raising: two admins
+        clearing the same selection is an ordinary race, and failing the batch
+        would leave the second one with half the rows gone and an error to
+        interpret. The caller reports how many rows it actually removed.
+        """
+        if not file_ids:
+            return []
+        rows = list(
+            (await self.db.execute(select(StoredFile).where(StoredFile.id.in_(list(file_ids)))))
+            .scalars()
+            .all()
+        )
+        if not rows:
+            return []
+
+        now = datetime.now(UTC)
+        for row in rows:
+            row.is_deleted = True
+            row.deleted_at = now
+        # One flush for the batch: the DB rows are what the next page load
+        # reads, so they must all be marked before any object is dropped.
+        await self.db.flush()
+        for row in rows:
+            # Every object is dropped independently. The rows are already
+            # marked deleted, so letting one unreachable object abort the loop
+            # would 500 the request *and* leave the caller believing nothing
+            # happened, while the remaining objects stay behind as orphans with
+            # no row left pointing at them. A failure here is a janitor's
+            # problem, not the caller's.
+            try:
+                await self.backend.delete(row.key)
+            except StorageNotFoundError:
+                # Acceptably absent — eg. a previous delete partially succeeded.
+                pass
+            except Exception:
+                _logger.exception(
+                    "file_storage.bulk_delete_object_failed key=%s — row is deleted, "
+                    "object orphaned",
+                    row.key,
+                )
+        return rows
+
     async def delete(self, file_id: uuid.UUID) -> StoredFile:
         row = await self.get(file_id)
         # Soft-delete in DB first; if the backend delete fails afterwards we
@@ -260,18 +256,3 @@ def _generate_key(filename: str) -> str:
     today = datetime.now(UTC)
     suffix = Path(filename).suffix
     return f"{today:%Y/%m/%d}/{uuid.uuid4().hex}{suffix}"
-
-
-def _to_out_dict(row: StoredFile) -> dict:
-    """Project ORM row → DTO dict, mapping ``created_by`` to ``uploaded_by``."""
-    return {
-        "id": row.id,
-        "key": row.key,
-        "filename": row.filename,
-        "content_type": row.content_type,
-        "size_bytes": row.size_bytes,
-        "backend": row.backend,
-        "checksum_sha256": row.checksum_sha256,
-        "uploaded_by": row.created_by,
-        "created_at": row.created_at,
-    }

@@ -1,90 +1,46 @@
 import { Head, Link, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
-import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import { Card } from '@simple-module-py/ui/components/ui/card';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import { ageOf, isStale, relativeAgeLabel } from '@simple-module-py/ui/lib/relative-time';
-import { ArrowLeft, RefreshCw, ServerCrash, ServerOff } from 'lucide-react';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
+import { ageOf, isStale } from '@simple-module-py/ui/lib/relative-time';
+import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { API_BASE, formatTs, VIEW_BASE, type WorkerInfo, type WorkerSnapshot } from './constants';
+import { WorkerCard } from './components/WorkerCard';
+import { BrokerUnreachable, NoWorkers } from './components/WorkerEmptyStates';
+import { API_BASE, formatClock, VIEW_BASE, type WorkerSnapshot } from './constants';
 
 interface Props {
   snapshot: WorkerSnapshot;
-}
-
-function WorkerCard({ worker }: { worker: WorkerInfo }) {
-  return (
-    <Card className="p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <span
-            role="img"
-            className={`mt-1.5 size-2.5 rounded-full ${
-              worker.online ? 'bg-green-500' : 'bg-muted-foreground'
-            }`}
-            aria-label={worker.online ? 'online' : 'offline'}
-          />
-          <div>
-            <h3 className="font-medium">{worker.hostname}</h3>
-            {worker.software && <p className="text-xs text-muted-foreground">{worker.software}</p>}
-          </div>
-        </div>
-        <Badge variant={worker.online ? 'secondary' : 'outline'}>
-          {worker.online ? 'Online' : 'Offline'}
-        </Badge>
-      </div>
-
-      <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-        <div>
-          <dt className="text-muted-foreground">Active</dt>
-          <dd className="font-medium">{worker.active_task_count}</dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Pool</dt>
-          <dd className="font-medium">{worker.pool_size ?? '—'}</dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Processed</dt>
-          <dd className="font-medium">{worker.total_processed ?? '—'}</dd>
-        </div>
-        <div className="col-span-2 sm:col-span-1">
-          <dt className="text-muted-foreground">Queues</dt>
-          <dd className="flex flex-wrap gap-1">
-            {worker.queues.length === 0 ? (
-              <span className="text-muted-foreground">—</span>
-            ) : (
-              worker.queues.map((q) => (
-                <Badge key={q} variant="outline" className="font-normal">
-                  {q}
-                </Badge>
-              ))
-            )}
-          </dd>
-        </div>
-      </dl>
-    </Card>
-  );
+  /** Broker url with the password stripped, for the unreachable state. */
+  broker_url_redacted: string;
+  /** Queues this install routes through, for the start-a-worker command. */
+  queues: string[];
 }
 
 function Workers() {
-  const { snapshot: initial } = usePage<{ props: Props }>().props as unknown as Props;
+  const {
+    snapshot: initial,
+    broker_url_redacted: brokerUrl,
+    queues,
+  } = usePage<{ props: Props }>().props as unknown as Props;
+  const { t } = useT();
   const [snapshot, setSnapshot] = useState<WorkerSnapshot>(initial);
   const [loading, setLoading] = useState(false);
 
   // This page is a point-in-time poll that only updates when asked. Left open
   // on a second monitor it keeps rendering a healthy fleet long after that
-  // fleet died — the one failure it exists to catch. Ticking a clock beside the
-  // reading is what makes the page admit it has gone cold; the poll itself
-  // stays manual, so nobody's open tab quietly hammers the broker.
+  // fleet died — the one failure it exists to catch. The timestamp is
+  // absolute, so a ticking clock is what lets the label admit it has gone
+  // cold; the poll itself stays manual, so nobody's open tab quietly hammers
+  // the broker.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 5_000);
     return () => clearInterval(id);
   }, []);
-  const age = ageOf(snapshot.polled_at, now);
-  const stale = isStale(age);
+  const stale = isStale(ageOf(snapshot.polled_at, now));
 
   async function refresh() {
     setLoading(true);
@@ -94,13 +50,14 @@ function Workers() {
       });
       if (res.ok) {
         setSnapshot((await res.json()) as WorkerSnapshot);
-        // Don't wait up to a tick for the age to catch up with the new reading.
+        // Don't wait up to a tick for the staleness to catch up with the new
+        // reading.
         setNow(Date.now());
       } else {
-        toast.error(`Failed to refresh workers (HTTP ${res.status})`);
+        toast.error(t(keys.background_tasks.workers.refresh_failed_status, { status: res.status }));
       }
     } catch {
-      toast.error('Failed to refresh workers');
+      toast.error(t(keys.background_tasks.workers.refresh_failed));
     } finally {
       setLoading(false);
     }
@@ -108,72 +65,44 @@ function Workers() {
 
   return (
     <>
-      <Head title="Workers" />
-      <PageShell title="Workers" description="Celery workers connected to the broker.">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <Button variant="outline" size="sm" asChild>
-            <Link href={VIEW_BASE}>
-              <ArrowLeft className="mr-2 size-4" />
-              Back to executions
-            </Link>
-          </Button>
-          <div className="flex items-center gap-3">
-            <span
-              className={`text-xs ${stale ? 'text-amber-600' : 'text-muted-foreground'}`}
-              title={`Polled at ${formatTs(snapshot.polled_at)}`}
-            >
-              Updated {relativeAgeLabel(age)}
+      <Head title={t(keys.background_tasks.workers.title)} />
+      <PageShell
+        title={t(keys.background_tasks.workers.title)}
+        description={t(keys.background_tasks.workers.description)}
+        back={VIEW_BASE}
+        actions={
+          <>
+            <span className={`text-[13px] ${stale ? 'text-amber-700' : 'text-muted-foreground'}`}>
+              {t(keys.background_tasks.workers.last_updated, {
+                time: formatClock(snapshot.polled_at),
+              })}
             </span>
-            {stale && (
-              <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700">
-                Stale
-              </Badge>
-            )}
             <Button
-              variant={stale ? 'default' : 'outline'}
-              size="sm"
+              variant="outline"
               onClick={refresh}
               disabled={loading}
+              className="max-lg:min-h-11"
             >
-              <RefreshCw className={`mr-2 size-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              <RefreshCw className={loading ? 'animate-spin' : undefined} aria-hidden="true" />
+              {t(keys.background_tasks.workers.refresh)}
             </Button>
-          </div>
-        </div>
-
+            <Button variant="outline" asChild className="max-lg:min-h-11">
+              <Link href={VIEW_BASE}>
+                <ArrowLeft aria-hidden="true" />
+                {t(keys.background_tasks.workers.back_button)}
+              </Link>
+            </Button>
+          </>
+        }
+      >
         {!snapshot.broker_reachable ? (
-          <Card className="p-6">
-            <div className="flex items-start gap-3">
-              <ServerCrash className="size-5 text-destructive" />
-              <div>
-                <h3 className="font-medium">Broker unreachable</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {snapshot.error ?? 'No error message reported.'}
-                </p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Check the <code>SM_BG_TASKS_BROKER_URL</code> setting and confirm the broker
-                  process is running.
-                </p>
-              </div>
-            </div>
-          </Card>
+          <BrokerUnreachable error={snapshot.error} brokerUrl={brokerUrl} />
         ) : snapshot.workers.length === 0 ? (
-          <Card className="p-6">
-            <div className="flex items-start gap-3">
-              <ServerOff className="size-5 text-muted-foreground" />
-              <div>
-                <h3 className="font-medium">No workers connected</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  The broker is reachable but no Celery workers are responding. Start one with{' '}
-                  <code>uv run python scripts/run_worker.py</code>.
-                </p>
-              </div>
-            </div>
-          </Card>
+          <NoWorkers queues={queues ?? []} />
         ) : (
-          <div className="grid gap-3">
-            {snapshot.workers.map((w) => (
-              <WorkerCard key={w.hostname} worker={w} />
+          <div className="grid gap-4 md:grid-cols-2">
+            {snapshot.workers.map((worker) => (
+              <WorkerCard key={worker.hostname} worker={worker} />
             ))}
           </div>
         )}
@@ -182,5 +111,5 @@ function Workers() {
   );
 }
 
-Workers.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Workers.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default Workers;

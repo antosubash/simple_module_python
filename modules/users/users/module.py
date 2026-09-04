@@ -7,10 +7,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends
-from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
+from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.setup_steps import SetupRegistry
 
 from users.constants import (
     ADMIN_ROLE_NAME,
@@ -29,7 +30,7 @@ _MODULE_DEPENDENCY_AUTH = "Auth"
 _MODULE_DEPENDENCY_SETTINGS = "Settings"
 
 # Menu URLs
-_URL_USERS_ADMIN = "/users/admin"
+_URL_USERS_ADMIN = "/admin/users/"
 _URL_USERS_ME = "/users/me"
 _URL_USERS_LOGOUT = "/users/logout"
 
@@ -44,6 +45,10 @@ class UsersModule(ModuleBase):
         name="Users",
         route_prefix="/api/users",
         view_prefix="/users",
+        # Sign-in and self-service stay on /users; the management CRUD
+        # belongs with the other admin screens. One view_prefix cannot
+        # express both, hence the second router.
+        admin_view_prefix="/admin/users",
         depends_on=[_MODULE_DEPENDENCY_AUTH, _MODULE_DEPENDENCY_SETTINGS],
     )
     _is_auth_provider = True
@@ -108,36 +113,40 @@ class UsersModule(ModuleBase):
         )
         registry.map_role(USER_ROLE_NAME, [PERM_USERS_SELF_PROFILE])
 
-    def register_audit_links(self, registry: AuditLinkRegistry) -> None:
-        from users.models import User
+    def register_setup_steps(self, registry: SetupRegistry) -> None:
+        """Gate the app until an administrator exists — see ``users.setup``."""
+        from users.setup import build_admin_step
 
-        registry.register(
-            AuditLink(
-                # The model class name — what snapshot_changes records. Keying
-                # this off __tablename__ ("users_user") silently never matches.
-                entity_type=User.__name__,
-                url_template=f"{_URL_USERS_ADMIN}/{{id}}",
-                label="User",
-            )
-        )
+        registry.add(build_admin_step())
+
+    def register_audit_links(self, registry: AuditLinkRegistry) -> None:
+        # Built in users.audit: the link now carries a batch resolver that
+        # names each row (full_name, or the email while an invite is
+        # outstanding), which is a query and does not belong in a hook file.
+        from users.audit import build_user_audit_link
+
+        registry.register(build_user_audit_link(_URL_USERS_ADMIN))
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         # Admin-only user management
         registry.add(
             MenuItem(
                 label="Users",
+                label_key="users.nav.users",
                 url=_URL_USERS_ADMIN,
                 icon=_ICON_USERS,
                 order=100,
-                section=MenuSection.SIDEBAR,
+                section=MenuSection.ADMIN_SIDEBAR,
                 roles=[ADMIN_ROLE_NAME],
-                group="Administration",
+                group="Access",
+                group_key="ui.nav_groups.access",
             )
         )
         # Self-service: profile + logout live in the user dropdown.
         registry.add(
             MenuItem(
                 label="Profile",
+                label_key="users.nav.profile",
                 url=_URL_USERS_ME,
                 icon=_ICON_USER,
                 order=990,
@@ -147,6 +156,7 @@ class UsersModule(ModuleBase):
         registry.add(
             MenuItem(
                 label="Logout",
+                label_key="users.nav.logout",
                 url=_URL_USERS_LOGOUT,
                 icon=_ICON_LOG_OUT,
                 order=999,
@@ -161,7 +171,6 @@ class UsersModule(ModuleBase):
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from users.admin.api import admin_router
-        from users.admin.views import router as admin_views
         from users.auth_local import api as auth_local_api
         from users.auth_local.token_api import router as token_router
         from users.auth_local.views import router as auth_views
@@ -198,7 +207,11 @@ class UsersModule(ModuleBase):
         register_oauth_routes(api_router)
 
         view_router.include_router(auth_views)
-        view_router.include_router(admin_views)
+
+    def register_admin_routes(self, admin_router: APIRouter) -> None:
+        from users.admin.views import router as admin_views
+
+        admin_router.include_router(admin_views)
 
     async def on_startup(self, app: FastAPI) -> None:
         """Build the mailer, rate limiter, and apply production cookie params."""

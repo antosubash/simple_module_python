@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
+from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
@@ -17,8 +18,37 @@ from file_storage import constants
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
+
+
+async def _resolve_file_labels(db: AsyncSession, ids: list[str]) -> dict[str, str]:
+    """Name a stored file by its filename — "q3-report.pdf", not a uuid.
+
+    Ids that are not uuids belong to some other id space and are left unnamed,
+    which falls back to showing the id as stored.
+    """
+    import uuid as _uuid
+
+    from sqlalchemy import select
+
+    from file_storage.models import StoredFile
+
+    wanted: dict[_uuid.UUID, str] = {}
+    for raw in ids:
+        try:
+            wanted[_uuid.UUID(raw)] = raw
+        except (ValueError, AttributeError, TypeError):
+            continue
+    if not wanted:
+        return {}
+    rows = (
+        await db.execute(
+            select(StoredFile.id, StoredFile.filename).where(StoredFile.id.in_(list(wanted)))
+        )
+    ).all()
+    return {wanted.get(file_id, str(file_id)): filename for file_id, filename in rows}
 
 
 class FileStorageModule(ModuleBase):
@@ -60,6 +90,29 @@ class FileStorageModule(ModuleBase):
         api_router.include_router(api)
         view_router.include_router(views)
 
+    def register_audit_links(self, registry: AuditLinkRegistry) -> None:
+        """Name file rows in the audit log, and tag them with their table.
+
+        No ``url_template``: a stored file has no page of its own — the browse
+        screen is a list, not a record — so the audit cell shows the filename
+        unlinked beside a copyable id. Registering anyway is the point: without
+        it every upload reads as ``StoredFile`` plus a uuid, and the reader has
+        to go and look up which file that was.
+        """
+        from file_storage.models import StoredFile
+
+        registry.register(
+            AuditLink(
+                # Class name, not __tablename__ — see AuditLink.entity_type.
+                entity_type=StoredFile.__name__,
+                url_template="",
+                label="File",
+                label_key=f"{constants.LOCALE_NAMESPACE}.audit.file",
+                table_name=constants.TABLE_STORED_FILE,
+                label_resolver=_resolve_file_labels,
+            )
+        )
+
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
             constants.MODULE_DISPLAY_NAME,
@@ -83,12 +136,14 @@ class FileStorageModule(ModuleBase):
         registry.add(
             MenuItem(
                 label=constants.MODULE_DISPLAY_NAME,
+                label_key="file_storage.nav.files",
                 url=f"{constants.ROUTE_PREFIX_VIEW}/",
                 icon=constants.MENU_ICON,
                 order=constants.MENU_ORDER,
                 section=MenuSection.SIDEBAR,
                 roles=list(constants.MENU_ROLES),
                 group="Content",
+                group_key="ui.nav_groups.content",
             )
         )
 

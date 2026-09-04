@@ -8,7 +8,7 @@ Automatic field-level audit trail for every SQLModel entity in the app. Each cre
 |---|---|
 | `name` | `AuditLog` |
 | `route_prefix` | `/api/audit_log` |
-| `view_prefix` | `/audit_log` |
+| `view_prefix` | `/admin/audit-log` |
 | `depends_on` | `["Users"]` |
 
 ## How capture works
@@ -76,7 +76,7 @@ Requires `audit_log.view`. Returns `AuditEntryList`. Query filters (all optional
 
 | Method + path | Inertia component | Permission |
 |---|---|---|
-| `GET /audit_log/` | `AuditLog/Browse` | `audit_log.view` |
+| `GET /admin/audit-log/` | `AuditLog/Browse` | `audit_log.view` |
 
 The browse route takes the same filter set as the API. It additionally returns the list of distinct `entity_type` values seen so far, to populate the filter dropdown. Pagination params are sanitised rather than validated — a bad `page` / `page_size` falls back to the default instead of erroring.
 
@@ -120,7 +120,7 @@ There is no write permission — the trail is append-only and written by the fra
 
 | Label | URL | Icon | Section | Group | Order |
 |---|---|---|---|---|---|
-| `Audit Log` | `/audit_log` | `scroll-text` | `SIDEBAR` | `System` | `210` |
+| `Audit Log` | `/admin/audit-log` | `scroll-text` | `ADMIN_SIDEBAR` | `System` | `210` |
 
 ## Inertia pages
 

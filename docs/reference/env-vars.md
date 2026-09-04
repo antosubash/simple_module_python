@@ -1,6 +1,6 @@
 # Environment variables
 
-All env vars use the `SM_` prefix. Settings are loaded at boot — anything that must be **known before the DB is open** lives here. Runtime-tunable settings (SMTP creds, feature flags, storage backends) live in the DB-backed settings store and are edited from `/settings/modules`.
+All env vars use the `SM_` prefix. Settings are loaded at boot — anything that must be **known before the DB is open** lives here. Runtime-tunable settings (SMTP creds, feature flags, storage backends) live in the DB-backed settings store and are edited from `/admin/settings/`.
 
 This is the full reference. See [Configuration](/guide/configuration) for a narrative overview.
 
@@ -19,6 +19,7 @@ This is the full reference. See [Configuration](/guide/configuration) for a narr
 | `SM_VITE_PORT` | `5050` | Dev only — port this repo's own host `vite.config.ts` binds to. If you change it, set `SM_VITE_DEV_URL` to match so the backend points the HMR client at the right origin. New scaffolds don't need it — they read `SM_VITE_DEV_URL` directly. |
 | `SM_PROJECT_ROOT` | unset | Overrides project-root discovery: where the `.env` is looked up and what relative sqlite paths resolve against. Normally unnecessary — settings walk up from the cwd (stopping at repo boundaries and `$HOME`) to find the `.env` on their own. |
 | `SM_AUTH_PUBLIC_PATHS` | `[]` | JSON array of host-level anonymous-access path prefixes. Escape hatch for exposing a route without a session when no module owns it; modules should prefer the method-aware `register_public_routes` hook. |
+| `SM_TRUSTED_PROXY` | unset | Comma-separated proxy IPs / CIDRs whose `X-Forwarded-*` headers are trusted, or `*` to trust any peer (correct when the container is only reachable through one proxy). Setting it installs uvicorn's `ProxyHeadersMiddleware` outermost, so request logs record the real client IP and `request.url.scheme` reflects `X-Forwarded-Proto`. **Recommended behind a TLS-terminating proxy**, where otherwise every request in the logs is attributed to the proxy's own address rather than the visitor's. It is no longer needed for Inertia: the page url is root-relative, so `pushState` can't see a cross-scheme url whatever the proxy sends (it used to throw a `SecurityError` on every page — GH #223). It is still needed for anything that builds an absolute url from `request.url.scheme`/`request.url_for(...)` — notably OAuth/OIDC's callback url and the locale cookie's `secure` flag — left unset behind such a proxy, an OAuth `redirect_uri` ships as `http://…` and most providers reject it. Forwarded headers are never trusted by default. |
 
 ## DB connection pool
 
@@ -35,21 +36,31 @@ Pools are **per process**. With multiple `uvicorn --workers`, total connections 
 `asyncpg.TooManyConnectionsError` under load. See
 [deployment](deployment.md#build) for sizing examples.
 
-## Host settings (DB-backed, not env)
+## Host settings (`HostSettings`)
 
-Multi-tenancy and i18n configuration live in the DB-backed host settings store (`HostSettings`, registered under `package="host"`), **not** in env vars. Edit them in the admin UI at `/settings/modules` under the host section. Their defaults:
+These are declared on `HostSettings` and registered under `package="host"`, so they appear in the admin UI at `/admin/settings/`. They are **also** readable from env: `Settings` combines `HostSettings` with `BootstrapSettings` and inherits its `env_prefix="SM_"`, so each field below resolves from the matching `SM_*` variable at boot.
 
-| Setting | Default | Notes |
-|---|---|---|
-| `multi_tenant` | `false` | Enables `TenantMiddleware` + `MultiTenantMixin` auto-filter. |
-| `tenant_header` | `""` | HTTP header that identifies the current tenant (empty = tenant middleware disabled). |
-| `i18n_default_locale` | `en` | Must be in `i18n_supported_locales`. |
-| `i18n_supported_locales` | `["en"]` | e.g. `["en", "es", "de"]`. |
-| `i18n_cookie_name` | `locale` | Cookie that stores the user's selected locale. |
+Which source actually wins depends on the field, because `HostSettings` is consumed through two different objects:
+
+| Setting | Env var | Default | Read from | Notes |
+|---|---|---|---|---|
+| `multi_tenant` | `SM_MULTI_TENANT` | `false` | **env at boot** | Decides whether `TenantMiddleware` is installed. A DB write cannot install a middleware after boot. |
+| `tenant_header` | `SM_TENANT_HEADER` | `""` | **env at boot** | Header identifying the tenant (empty = header lookup disabled). |
+| `i18n_default_locale` | `SM_I18N_DEFAULT_LOCALE` | `en` | **env at boot** | Must be in `i18n_supported_locales`. |
+| `i18n_supported_locales` | `SM_I18N_SUPPORTED_LOCALES` | `["en"]` | **env at boot** | JSON array, e.g. `["en","es"]`. |
+| `i18n_cookie_name` | `SM_I18N_COOKIE_NAME` | `locale` | **env at boot** | Cookie storing the selected locale. |
+| `maintenance_mode` | *(none — see below)* | `false` | **DB at request time** | Serve everyone but admins a 503. DB-backed so flipping it needs no redeploy — see [Deployment](/reference/deployment#maintenance-mode). |
+| `maintenance_message` | *(none — see below)* | `""` | **DB at request time** | Optional operator note on the maintenance page. |
+
+The split is not arbitrary. The boot instance (`Settings()`, env-derived) lands on `app.state.sm.settings` and is what configures middleware at construction — `LocaleMiddleware` captures its locale set there, and the tenancy flag decides whether `TenantMiddleware` is added at all. The DB-hydrated instance is a plain `HostSettings` on `app.state.host.settings`, which declares no `env_prefix` and so is defaults-plus-overrides; `MaintenanceMiddleware` reads that one on every request.
+
+So editing the tenancy or i18n rows in the admin UI updates what the UI shows without moving what the app serves — those need the env var and a restart. Maintenance mode is the one that genuinely takes effect live.
+
+The two maintenance fields have **no working env var**, and this is worth stating plainly because the shape of the code suggests otherwise. `SM_MAINTENANCE_MODE=true` does set `maintenance_mode` on the boot `Settings()` object — but nothing reads maintenance from there, and the DB-hydrated `HostSettings` that `MaintenanceMiddleware` does read carries no `SM_` prefix, so it never sees the variable. Setting it looks plausible and silently does nothing. Flip the flag in the admin UI, or write the settings row directly.
 
 ## Users module
 
-Most users settings (signup, mailer, SMTP, OAuth/OIDC credentials, rate limits) are now **DB-backed** — edit them in the admin UI at `/settings/modules` under Users, not via env vars. The env vars below are the genuine bootstrap-time exceptions read at process start.
+Most users settings (signup, mailer, SMTP, OAuth/OIDC credentials, rate limits) are now **DB-backed** — edit them in the admin UI at `/admin/settings/` under Users, not via env vars. The env vars below are the genuine bootstrap-time exceptions read at process start.
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -62,17 +73,19 @@ Most users settings (signup, mailer, SMTP, OAuth/OIDC credentials, rate limits) 
 
 ## Background tasks (Celery)
 
-Celery config (`broker_url`, `result_backend`, queue, retention, etc.) is now **DB-backed** — edit it in the admin UI at `/settings/modules` under BackgroundTasks. Defaults are `redis://localhost:6379/0` (broker) and `/1` (result backend). Because workers read the broker/backend once at process start, changing those values requires a worker restart.
+Celery config (`broker_url`, `result_backend`, queue, retention, etc.) is now **DB-backed** — edit it in the admin UI at `/admin/settings/` under BackgroundTasks. Defaults are `redis://localhost:6379/0` (broker) and `/1` (result backend). Because workers read the broker/backend once at process start, changing those values requires a worker restart.
 
-The one field still read from the environment at import time:
+Three fields are still read from the environment, because they have to work *before* any DB row exists. A stored DB value still wins once hydration runs.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SM_BG_TASKS_TASK_ALWAYS_EAGER` | `false` | Run tasks synchronously in the calling process (used by tests). |
+| `SM_BG_TASKS_BROKER_URL` | `redis://localhost:6379/0` | Read at construction. Needed in a container: the production validator rejects a `localhost` broker, so without this an app with the module installed can't boot far enough to hydrate settings — and a worker process, which never sees `app.state`, has no other source at all. |
+| `SM_BG_TASKS_RESULT_BACKEND` | `redis://localhost:6379/1` | Same reasoning as the broker. |
+| `SM_BG_TASKS_TASK_ALWAYS_EAGER` | `false` | Read at module-import time, so test suites that never run the FastAPI lifespan can still flip it. Runs tasks synchronously in the calling process. |
 
 ## File storage module
 
-File storage config is now **DB-backed** — edit it in the admin UI at `/settings/modules` under Files. The key fields and defaults:
+File storage config is now **DB-backed** — edit it in the admin UI at `/admin/settings/` under Files. The key fields and defaults:
 
 | Setting | Default | Notes |
 |---|---|---|

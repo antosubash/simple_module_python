@@ -14,12 +14,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from pydantic import Field, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
+from simple_module_core.settings_base import DbBackedSettings
 
 from file_storage import constants
 
 
-class FileStorageSettings(BaseSettings):
+class FileStorageSettings(DbBackedSettings):
     """Configuration for the file_storage module.
 
     The active backend is selected by ``backend`` (matches a key in the
@@ -29,6 +30,9 @@ class FileStorageSettings(BaseSettings):
     subclassing or by reading additional fields at registration time.
     """
 
+    # ``DbBackedSettings`` (not ``BaseSettings``) so the DB is genuinely the
+    # only source: omitting ``env_prefix`` would leave pydantic-settings
+    # reading each field from its bare name — GH #283.
     model_config = SettingsConfigDict(extra="ignore")
 
     backend: str = constants.DEFAULT_BACKEND
@@ -59,6 +63,14 @@ class FileStorageSettings(BaseSettings):
     allowed_content_types: list[str] | None = Field(
         default=None,
         description="Whitelist of MIME types. None = any type allowed.",
+    )
+    # Reported, not enforced: the browse screen states "1.2 GB of 5 GB used"
+    # only for installs that have said what 5 GB means to them. Left unset,
+    # the screen reports usage without inventing a ceiling, and uploads are
+    # bounded by ``max_file_size_bytes`` alone as before.
+    quota_bytes: int | None = Field(
+        default=None,
+        description="Total storage the browse screen measures usage against. None = unmeasured.",
     )
 
     @model_validator(mode="after")

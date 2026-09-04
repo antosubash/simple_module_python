@@ -28,7 +28,24 @@ from users.models import UserAccessToken
 if TYPE_CHECKING:
     from users.settings import UsersSettings
 
-_TOKEN_LIFETIME_SECONDS = 60 * 60 * 24 * 14  # 14 days
+_TOKEN_LIFETIME_SECONDS = 60 * 60 * 24 * 30  # 30 days
+"""Oldest access-token row still accepted — the ceiling, not the norm.
+
+This is the *read* window, and there is only one of it: ``current_user``
+resolves its strategy from the shared backend, so it cannot vary per request.
+A remembered sign-in writes a row it needs for thirty days, and reading it back
+against a fourteen-day window would have signed those people out halfway
+through the window the checkbox promised.
+
+What actually bounds an ordinary session is the cookie's own ``Max-Age``
+(``UsersSettings.cookie_max_age_seconds``, fourteen days), which the browser
+enforces by dropping it. Same shape as the session cookie's signature window in
+``simple_module_hosting.session``: one long acceptance window, a short cookie
+window unless the person asked for more. Revocation does not depend on either —
+"sign out everywhere" bumps ``User.session_version``, which is checked on every
+request.
+"""
+
 _AUTH_BACKEND_NAME = "cookie"
 
 

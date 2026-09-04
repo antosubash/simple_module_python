@@ -66,9 +66,18 @@ def _declared_path(constant: str) -> str:
     return match.group(1)
 
 
+def _users_meta():
+    from simple_module_core.discovery import discover_modules
+
+    for module in discover_modules():
+        if module.meta.name.lower() == "users":
+            return module.meta
+    pytest.fail("users module not installed; cannot verify auth paths")
+
+
 @pytest.mark.parametrize(
     ("constant", "route"),
-    [("LOGIN_PATH", "login"), ("REGISTER_PATH", "register"), ("USERS_ADMIN_PATH", "admin")],
+    [("LOGIN_PATH", "login"), ("REGISTER_PATH", "register")],
 )
 def test_auth_route_constants_track_the_users_view_prefix(constant: str, route: str) -> None:
     """Derived, not hardcoded: if the module's view prefix moves, this fails.
@@ -76,8 +85,18 @@ def test_auth_route_constants_track_the_users_view_prefix(constant: str, route: 
     Hardcoding ``/users/login`` here would let the prefix change out from under
     the constants and still pass — which is precisely the drift being guarded.
     """
-    from simple_module_core.discovery import discover_modules
+    assert _declared_path(constant) == f"{_users_meta().view_prefix}/{route}"
 
-    prefixes = {m.meta.name.lower(): m.meta.view_prefix for m in discover_modules()}
-    assert "users" in prefixes, "users module not installed; cannot verify auth paths"
-    assert _declared_path(constant) == f"{prefixes['users']}/{route}"
+
+def test_users_admin_path_tracks_the_admin_view_prefix() -> None:
+    """User management moved out from under the module's own view prefix.
+
+    Sign-in is a public page and belongs on ``/users``; managing accounts is an
+    admin screen and belongs with the others under ``/admin``. One module, two
+    mount points — so this constant tracks ``admin_view_prefix``, not
+    ``view_prefix``, and would drift silently if it were spelled out here.
+    """
+    # Trailing slash: the index is registered at "/" under the prefix, so the
+    # slashed form is the canonical path. Linking to the bare one costs a 307
+    # on every navigation — see test_menu_urls_are_canonical.
+    assert _declared_path("USERS_ADMIN_PATH") == f"{_users_meta().admin_view_prefix}/"

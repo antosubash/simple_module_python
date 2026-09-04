@@ -203,3 +203,73 @@ async def test_resolver_exception_is_logged_and_skipped():
     ) as c:
         resp = await c.get("/protected/page")
     assert resp.status_code == 302
+
+
+class TestDeepLinkPreservation:
+    """AuthMiddleware stashes where an anonymous visitor was heading.
+
+    The value is replayed into a ``Location`` header after login, so it is
+    stored relative and sanitised on the way in — see
+    ``simple_module_core.redirect_safety``.
+    """
+
+    async def _get(self, app, path: str):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test", follow_redirects=False
+        ) as c:
+            return await c.get(path)
+
+    async def test_target_is_offered_to_the_provider(self):
+        """The provider is handed the target, not left to guess it."""
+        seen: list[str | None] = []
+
+        class _RecordingProvider(_StubProvider):
+            def get_login_url(self, request, next_url=None):
+                seen.append(next_url)
+                return "/stub/login"
+
+        app = _build_app(_RecordingProvider())
+        app.add_middleware(AuthMiddleware)
+        app.add_middleware(SessionMiddleware, secret_key=SECRET)
+
+        await self._get(app, "/protected/page?tab=2")
+
+        assert seen == ["/protected/page?tab=2"]
+
+    async def test_target_is_relative_not_absolute(self):
+        """``str(request.url)`` would hand the provider an absolute URL —
+        needless, and the wrong shape for a redirect target."""
+        seen: list[str | None] = []
+
+        class _RecordingProvider(_StubProvider):
+            def get_login_url(self, request, next_url=None):
+                seen.append(next_url)
+                return "/stub/login"
+
+        app = _build_app(_RecordingProvider())
+        app.add_middleware(AuthMiddleware)
+        app.add_middleware(SessionMiddleware, secret_key=SECRET)
+
+        await self._get(app, "/protected/page")
+
+        assert seen == ["/protected/page"]
+        assert not seen[0].startswith("http")
+
+    async def test_authenticated_request_stashes_nothing(self):
+        """Only the anonymous branch records a target."""
+        seen: list[str | None] = []
+
+        class _RecordingProvider(_StubProvider):
+            def get_login_url(self, request, next_url=None):
+                seen.append(next_url)
+                return "/stub/login"
+
+        app = _build_app(_RecordingProvider(user=_TEST_USER))
+        app.add_middleware(AuthMiddleware)
+        app.add_middleware(SessionMiddleware, secret_key=SECRET)
+
+        resp = await self._get(app, "/protected/page")
+
+        assert resp.status_code == 200
+        assert seen == []

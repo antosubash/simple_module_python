@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.resources
 import logging
+import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -30,9 +31,39 @@ from background_tasks.constants import (
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 logger = logging.getLogger(__name__)
+
+
+async def _resolve_execution_labels(db: AsyncSession, ids: list[str]) -> dict[str, str]:
+    """Name an execution row by the task it ran.
+
+    An execution id is a uuid nobody recognises; "files.generate_thumbnail" is
+    the name the whole rest of the module — tiles, filters, detail title —
+    already uses for the same row.
+    """
+    from sqlalchemy import select
+
+    from background_tasks.models import TaskExecution
+
+    parsed: dict[uuid.UUID, str] = {}
+    for raw in ids:
+        try:
+            parsed[uuid.UUID(raw)] = raw
+        except (ValueError, AttributeError, TypeError):
+            continue
+    if not parsed:
+        return {}
+    rows = (
+        await db.execute(
+            select(TaskExecution.id, TaskExecution.task_name).where(
+                TaskExecution.id.in_(list(parsed))
+            )
+        )
+    ).all()
+    return {parsed.get(row_id, str(row_id)): name for row_id, name in rows}
 
 
 class BackgroundTasksModule(ModuleBase):
@@ -78,9 +109,13 @@ class BackgroundTasksModule(ModuleBase):
         registry.register(
             AuditLink(
                 # Class name, not __tablename__ — see AuditLink.entity_type.
+                # The table name travels alongside as the audit log's type tag.
                 entity_type=TaskExecution.__name__,
                 url_template=f"{VIEW_PREFIX}/{{id}}",
                 label="Task execution",
+                label_key="background_tasks.audit.task_execution",
+                table_name=TaskExecution.__tablename__,
+                label_resolver=_resolve_execution_labels,
             )
         )
 
@@ -88,12 +123,14 @@ class BackgroundTasksModule(ModuleBase):
         registry.add(
             MenuItem(
                 label=MENU_LABEL,
+                label_key="background_tasks.nav.background_tasks",
                 url=f"{VIEW_PREFIX}/",
                 icon=MENU_ICON,
                 order=MENU_ORDER,
-                section=MenuSection.SIDEBAR,
+                section=MenuSection.ADMIN_SIDEBAR,
                 roles=["admin"],
-                group="Administration",
+                group="System",
+                group_key="ui.nav_groups.system",
             )
         )
 
@@ -133,6 +170,33 @@ class BackgroundTasksModule(ModuleBase):
             "BackgroundTasks: Celery app ready (broker=%s, queue=%s)",
             services.settings.broker_url,
             services.settings.task_default_queue,
+        )
+
+        # Registered here, not in register_health_checks: the Celery app does
+        # not exist until this hook builds it, and the check must follow later
+        # settings changes rather than pinning the boot-time instance.
+        from simple_module_core.health import HealthCheck
+
+        from background_tasks.health import CHECK_REDIS, build_redis_check
+
+        app.state.sm.health_registry.add(
+            HealthCheck(
+                name=CHECK_REDIS,
+                check=build_redis_check(app),
+                module=self.meta.name,
+                # On demand only, like the mailer and storage checks. An
+                # earlier version had this on the readiness probe, reasoning
+                # that Redis is infrastructure this app owns rather than a
+                # third party. That conflates two different questions: whether
+                # this process can serve requests, and whether the system is
+                # fully functional. Failing readiness pulls the web tier out of
+                # the load balancer, turning "background jobs are backed up"
+                # into "the site is down" — and it made /health/ready report
+                # unhealthy on every deployment without Redis, which CI caught.
+                # The wizard's connection step and the settings screen's "Test
+                # connection" both run it explicitly, which is what it is for.
+                probe=False,
+            )
         )
 
     async def on_shutdown(self, app: FastAPI) -> None:

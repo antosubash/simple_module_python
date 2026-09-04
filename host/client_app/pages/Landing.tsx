@@ -3,45 +3,47 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { PublicLayout } from '@simple-module-py/ui/layouts/PublicLayout';
-import { authCta } from '@simple-module-py/ui/lib/auth-routes';
+import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import type { SharedProps } from '@simple-module-py/ui/types';
-import {
-  BookOpen,
-  Copy,
-  Database,
-  LayoutTemplate,
-  Package,
-  Rocket,
-  Route,
-  ShieldCheck,
-  Sparkles,
-  Stethoscope,
-} from 'lucide-react';
+import { Database, LayoutTemplate, Package, Route, ShieldCheck, Stethoscope } from 'lucide-react';
+import { CopyCommand } from '../components/CopyCommand';
 
-const QUICKSTART = `# 1. install python and js deps
-$ make install
+/** The one command the hero exists to hand over. */
+const INSTALL_COMMAND = 'uvx --from simple_module_cli smpy new my-app';
 
-# 2. copy env template
-$ cp .env.example .env
-
-# 3. run migrations
-$ make migrate
-
-# 4. start API + Vite in parallel
-$ make dev
-`;
+/**
+ * The terminal transcript, one entry per numbered step.
+ *
+ * Structured rather than one template literal so the `#` comments can be
+ * greyed and the `✓` results tinted: a wall of one colour reads as output,
+ * not as a script with commentary, which is the whole point of showing a
+ * transcript instead of a list.
+ */
+const QUICKSTART: { comment: string; command: string; ok?: string }[] = [
+  { comment: '# 1. install python and js deps', command: '$ make install' },
+  { comment: '# 2. copy env template', command: '$ cp .env.example .env' },
+  { comment: '# 3. run migrations', command: '$ make migrate' },
+  {
+    comment: '# 4. start API + Vite in parallel',
+    command: '$ make dev',
+    ok: '✓ ready on http://localhost:8000',
+  },
+  {
+    comment: '# 5. scaffold a new module',
+    command: '$ make new-module name=orders',
+    ok: '✓ scaffolded modules/orders/',
+  },
+];
 
 function Landing() {
   const { t } = useT();
-  const { auth, signup } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const { auth } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
 
-  // Every public CTA used to point at /auth/login, which is the JSON API prefix
-  // and has no page — so both "Get started" and "Sign up" 404'd. Send a signed-in
-  // visitor onward, an anonymous one to signup when it is open, and to sign-in
-  // otherwise; a closed instance never advertises an account it won't create.
-  const signupOpen = signup?.allowed ?? false;
-  const cta = authCta(signupOpen);
-  const primaryHref = auth?.isAuthenticated ? '/dashboard/' : cta.href;
+  // The admin UI is the only thing behind a session here, so the one CTA that
+  // leads anywhere private is auth-aware: a signed-in visitor is offered the
+  // dashboard, everyone else the sign-in page. Never /auth/* — that is the
+  // JSON API prefix and has no page (see host/tests/test_public_auth_links).
+  const adminHref = auth?.isAuthenticated ? '/dashboard/' : LOGIN_PATH;
 
   const features = [
     {
@@ -78,7 +80,7 @@ function Landing() {
 
   return (
     <>
-      <Head title="Welcome" />
+      <Head title={t(keys.host.landing.head_title)} />
       {/* Hero with mesh blobs */}
       <section className="relative overflow-hidden">
         <div
@@ -89,11 +91,10 @@ function Landing() {
           <div className="absolute top-[40%] -left-[10%] h-[500px] w-[500px] rounded-full bg-primary-800 opacity-15 blur-[100px]" />
         </div>
         <div className="relative z-10 mx-auto max-w-5xl px-4 pt-16 pb-12 text-center sm:px-8 sm:pt-24 sm:pb-16">
-          <span className="inline-flex items-center gap-2 rounded-full border border-primary-600/20 bg-primary-600/10 px-3.5 py-1.5 text-xs font-semibold text-primary-700">
-            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+          <span className="inline-flex items-center rounded-full border border-primary-600/20 bg-primary-600/10 px-3.5 py-1.5 text-[12.5px] font-bold text-primary-700">
             {t(keys.host.landing.badge)}
           </span>
-          <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-bold leading-[1.05] tracking-tight font-[var(--font-display)] sm:text-5xl lg:text-6xl">
+          <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-bold leading-[1.05] tracking-tight font-display sm:text-5xl lg:text-6xl">
             {t(keys.host.landing.hero_title_line1)}
             <br />
             <span className="bg-gradient-to-r from-primary-600 to-primary-800 bg-clip-text text-transparent">
@@ -104,33 +105,28 @@ function Landing() {
             {t(keys.host.landing.hero_subtitle)}
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-3">
-            <Button asChild size="lg" className="w-full gap-2 sm:w-auto">
-              <a href={primaryHref}>
-                <Rocket className="h-4 w-4" aria-hidden="true" />
-                {t(keys.host.landing.cta_get_started)}
-              </a>
+            {/* An anchor, not a route: the page answers "how do I start?"
+                two sections down, and sending a first-time visitor to a login
+                form for a thing they can run locally was the wrong door. */}
+            <Button asChild size="lg" className="w-full max-lg:min-h-11 sm:w-auto">
+              <a href="#quickstart">{t(keys.host.landing.cta_get_started)}</a>
             </Button>
-            <Button asChild size="lg" variant="outline" className="w-full gap-2 sm:w-auto">
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="w-full max-lg:min-h-11 sm:w-auto"
+            >
               <a href="https://github.com/antosubash/simple_module_python">
-                <BookOpen className="h-4 w-4" aria-hidden="true" />
                 {t(keys.host.landing.cta_docs)}
               </a>
             </Button>
           </div>
           {/* Terminal CTA */}
-          <div className="mx-auto mt-7 flex max-w-xl items-center gap-3 rounded-xl border border-white/[0.06] bg-slate-900 px-4 py-3 text-left font-mono text-sm shadow-lg">
-            <span className="shrink-0 text-primary-300">$</span>
-            <code className="flex-1 truncate text-slate-200">
-              uvx --from simple_module_cli smpy new my-app
-            </code>
-            <button
-              type="button"
-              aria-label="Copy command"
-              className="shrink-0 text-slate-400 transition-colors hover:text-slate-200"
-            >
-              <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-          </div>
+          <CopyCommand command={INSTALL_COMMAND} />
+          <p className="mx-auto mt-3.5 text-[13px] text-muted-foreground">
+            {t(keys.host.landing.terminal_helper)}
+          </p>
         </div>
       </section>
 
@@ -139,26 +135,24 @@ function Landing() {
         <div className="mx-auto max-w-6xl">
           <div className="mb-10 text-center">
             <span className="text-xs font-semibold uppercase tracking-[0.10em] text-primary-700">
-              How it works
+              {t(keys.host.landing.how_it_works_eyebrow)}
             </span>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight font-[var(--font-display)] sm:text-3xl">
-              One process · many modules · zero glue.
+            <h2 className="mt-2 text-2xl font-bold tracking-tight font-display sm:text-3xl">
+              {t(keys.host.landing.how_it_works_heading)}
             </h2>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {features.map((f) => (
               <Card
                 key={f.title}
-                className="border-border bg-card transition-colors hover:border-primary-200"
+                className="border-border bg-card transition-all hover:border-primary hover:shadow-lg"
               >
                 <CardContent className="pt-5">
                   <span className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600/10 text-primary-700">
                     <f.icon className="h-[18px] w-[18px]" aria-hidden="true" />
                   </span>
-                  <h3 className="mb-1.5 text-base font-bold font-[var(--font-display)]">
-                    {t(f.title)}
-                  </h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">{t(f.desc)}</p>
+                  <h3 className="mb-1.5 text-[17px] font-bold font-display">{t(f.title)}</h3>
+                  <p className="text-[14.5px] leading-[1.65] text-muted-foreground">{t(f.desc)}</p>
                 </CardContent>
               </Card>
             ))}
@@ -167,28 +161,27 @@ function Landing() {
       </section>
 
       {/* Quickstart split */}
-      <section className="bg-background px-4 py-16 sm:px-8 sm:py-20">
+      <section id="quickstart" className="bg-background px-4 py-16 sm:px-8 sm:py-20">
         <div className="mx-auto grid max-w-5xl items-center gap-10 lg:grid-cols-[1fr_1.2fr]">
           <div>
             <span className="text-xs font-semibold uppercase tracking-[0.10em] text-primary-700">
-              Quickstart
+              {t(keys.host.landing.quickstart_eyebrow)}
             </span>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight font-[var(--font-display)] sm:text-[28px]">
-              Working app in five commands.
+            <h2 className="mt-2 text-2xl font-bold tracking-tight font-display sm:text-[28px]">
+              {t(keys.host.landing.quickstart_heading)}
             </h2>
             <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
-              Land on{' '}
+              {t(keys.host.landing.quickstart_body_prefix)}{' '}
               <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[13px]">
                 http://localhost:8000
               </code>{' '}
-              with users, dashboard, and permissions pre-wired. Sign in with the admin account you
-              bootstrap and go from there.
+              {t(keys.host.landing.quickstart_body_suffix)}
             </p>
             <div className="mt-5 flex flex-col gap-2.5">
               {[
-                ['users', 'Email + cookie sessions via fastapi-users'],
-                ['dashboard', 'Authenticated home with module tiles'],
-                ['permissions', 'Per-module permission registry'],
+                ['users', t(keys.host.landing.module_users_description)],
+                ['dashboard', t(keys.host.landing.module_dashboard_description)],
+                ['permissions', t(keys.host.landing.module_permissions_description)],
               ].map(([n, d]) => (
                 <div key={n} className="flex items-center gap-2.5">
                   <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary-600/10 text-primary-700">
@@ -214,13 +207,18 @@ function Landing() {
               <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
               <span className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
               <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+              {/* i18n-exempt: a fake terminal titlebar — a shell path and a program name. */}
               <span className="ml-2 font-mono text-[11px] text-slate-400">~/my-app — bash</span>
             </div>
-            <pre className="m-0 px-5 py-4 font-mono text-[13px] leading-7 text-slate-200">
-              {QUICKSTART}
-              <span className="text-primary-300">✓ ready on http://localhost:8000</span>
-              {'\n\n# 5. scaffold a new module\n$ make new-module name=orders\n'}
-              <span className="text-primary-300">✓ scaffolded modules/orders/</span>
+            <pre className="m-0 overflow-x-auto px-5 py-4 font-mono text-[13px] leading-[1.85] text-slate-200">
+              {QUICKSTART.map((step, index) => (
+                <span key={step.command}>
+                  {index > 0 ? '\n' : ''}
+                  <span className="text-slate-400">{step.comment}</span>
+                  {`\n${step.command}\n`}
+                  {step.ok ? <span className="text-primary-300">{`${step.ok}\n`}</span> : null}
+                </span>
+              ))}
             </pre>
           </div>
         </div>
@@ -230,31 +228,31 @@ function Landing() {
       <section className="border-t border-border bg-secondary/40 px-4 py-12 sm:px-8 sm:py-14">
         <div className="mx-auto flex max-w-4xl flex-col items-center justify-between gap-4 rounded-3xl bg-gradient-to-br from-primary-600 to-primary-800 px-9 py-8 shadow-xl sm:flex-row">
           <div>
-            <h3 className="text-xl font-bold tracking-tight text-white font-[var(--font-display)] sm:text-[22px]">
-              Ready to ship modules?
+            <h3 className="text-xl font-bold tracking-tight text-white font-display sm:text-[22px]">
+              {t(keys.host.landing.cta_heading)}
             </h3>
-            <p className="mt-1 text-sm text-white/85">
-              {auth?.isAuthenticated
-                ? 'Head to the dashboard, or hack on the framework directly.'
-                : signupOpen
-                  ? 'Sign up for the admin UI, or hack on the framework directly.'
-                  : 'Sign in to the admin UI, or hack on the framework directly.'}
-            </p>
+            <p className="mt-1 text-sm text-white/85">{t(keys.host.landing.cta_body)}</p>
           </div>
           <div className="flex shrink-0 gap-2">
             <Button
               asChild
               variant="secondary"
-              className="bg-white text-primary-700 hover:bg-white/90"
+              className="bg-white text-primary-700 hover:bg-white/90 max-lg:min-h-11"
             >
-              <a href={primaryHref}>{auth?.isAuthenticated ? 'Open Dashboard' : cta.label}</a>
+              <a href={adminHref}>
+                {auth?.isAuthenticated
+                  ? t(keys.host.landing.cta_dashboard)
+                  : t(keys.host.landing.cta_sign_in)}
+              </a>
             </Button>
             <Button
               asChild
-              variant="ghost"
-              className="text-white hover:bg-white/10 hover:text-white"
+              variant="outline"
+              className="border-white/45 bg-transparent text-white hover:bg-white/10 hover:text-white max-lg:min-h-11"
             >
-              <a href="https://github.com/antosubash/simple_module_python">GitHub →</a>
+              <a href="https://github.com/antosubash/simple_module_python">
+                {t(keys.host.landing.cta_github)}
+              </a>
             </Button>
           </div>
         </div>

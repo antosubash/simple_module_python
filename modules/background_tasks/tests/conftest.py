@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 from background_tasks import sync_db
+from background_tasks.constants import PERM_VIEW, TaskStatus
 from background_tasks.models import TaskExecution
+from sqlalchemy import select
 
 
 @pytest.fixture
@@ -49,3 +53,61 @@ def sync_sqlite(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Pat
     yield db_file
 
     sync_db.dispose_sync_engine()
+
+
+@pytest.fixture
+def seed_execution(app):
+    """Insert one ``TaskExecution`` and hand it back.
+
+    A factory rather than a fixture value: nearly every test in the retry
+    suites needs several rows that differ in one field, and spelling the whole
+    constructor out each time buries the one thing the test is about.
+    """
+
+    async def _seed(
+        *,
+        task_name: str = "demo.task",
+        status: TaskStatus = TaskStatus.FAILED,
+        queue: str = "default",
+        queued_at: datetime | None = None,
+    ) -> TaskExecution:
+        row = TaskExecution(
+            celery_task_id=str(uuid.uuid4()),
+            task_name=task_name,
+            status=status,
+            queue=queue,
+            args=[],
+            kwargs={},
+            queued_at=queued_at or datetime.now(UTC),
+        )
+        async with app.state.sm.db.session_factory() as session:
+            session.add(row)
+            await session.commit()
+            await session.refresh(row)
+        return row
+
+    return _seed
+
+
+@pytest.fixture
+def execution_rows(app):
+    """Every ``TaskExecution`` currently in the database, read fresh."""
+
+    async def _rows() -> list[TaskExecution]:
+        async with app.state.sm.db.session_factory() as session:
+            return list((await session.execute(select(TaskExecution))).scalars())
+
+    return _rows
+
+
+@pytest.fixture
+def view_only(app) -> None:
+    """Downgrade the seeded admin to ``background_tasks.view`` for one test.
+
+    The admin role carries the wildcard, so nothing else in this suite can tell
+    a ``view`` gate from a ``manage`` gate — every endpoint would pass either
+    way. Pinning the registry's resolved role map is the smallest way to get a
+    principal genuinely allowed to read the executions table and genuinely not
+    allowed to sweep it.
+    """
+    app.state.sm.permissions._role_map_cache = {"admin": [PERM_VIEW]}

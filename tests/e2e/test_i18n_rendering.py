@@ -13,7 +13,7 @@ Added alongside the i18next 23 -> 26 upgrade, which had no automated coverage.
 Detection strategy
 ------------------
 Matching a "looks like a dotted key" shape is not good enough: the Settings and
-Feature Flags pages legitimately *display* dotted identifiers as data (setting
+Feature flags pages legitimately *display* dotted identifiers as data (setting
 keys like ``branding.app_name``, flag names like ``file_storage.public_uploads``),
 and a shape-based check flags those as leaks.
 
@@ -46,20 +46,20 @@ _DOTTED_TOKEN = re.compile(r"\b[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+\b")
 _PAGES = [
     ("Dashboard", "/dashboard/"),
     ("Files", "/file-storage/"),
-    ("Users", "/users/admin"),
-    ("Feature Flags", "/feature_flags/"),
-    ("Branding", "/branding/"),
-    ("Background Tasks", "/admin/background-tasks/"),
-    ("Settings", "/settings/"),
-    ("Audit Log", "/audit_log/"),
+    ("Users", "/admin/users/"),
+    ("Feature flags", "/admin/feature-flags/"),
+    ("Branding", "/admin/branding/"),
+    ("Background tasks", "/admin/background-tasks/"),
+    ("Settings", "/admin/settings/"),
+    ("Audit log", "/admin/audit-log/"),
 ]
 
 
 def _login(page: Page, username: str, password: str) -> None:
-    page.get_by_role("link", name="Log in").first.click()
+    page.get_by_role("link", name="Sign in").first.click()
     page.locator("#email").fill(username)
     page.locator("#password").fill(password)
-    page.get_by_role("button", name="Log in").click()
+    page.get_by_role("button", name="Sign in").click()
     page.wait_for_url("**/dashboard/**", timeout=15_000)
 
 

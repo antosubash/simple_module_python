@@ -8,7 +8,8 @@ The default auth provider + user-management module: email/password login, OAuth/
 |---|---|
 | `name` | `Users` |
 | `route_prefix` | `/api/users` |
-| `view_prefix` | `/users` |
+| `view_prefix` | `/users` (sign-in, self-service) |
+| `admin_view_prefix` | `/admin/users` (management CRUD) |
 | `depends_on` | `["Auth"]` |
 
 ## Auth flow
@@ -60,7 +61,7 @@ The module is built on [`fastapi-users`](https://fastapi-users.github.io/) for p
 | `PATCH /api/users/admin/{user_id}/verify` | → `UserListItem` (mark verified; idempotent) |
 | `POST /api/users/admin/{user_id}/reset-password-link` | → `PasswordResetLink` (`409` for external/SSO users) |
 
-`POST /api/users/admin` creates an **active + verified** user directly — no invite email, no verification flow; the admin sets the password. It returns `409` if the email is already taken and `400` for an invalid password. The matching admin UI (Create form, Edit details card, and a delete "danger zone") lives under `/users/admin` — see [View routes](#view-routes) and [Inertia pages](#inertia-pages).
+`POST /api/users/admin` creates an **active + verified** user directly — no invite email, no verification flow; the admin sets the password. It returns `409` if the email is already taken and `400` for an invalid password. The matching admin UI (Create form, Edit details card, and a delete "danger zone") lives under `/admin/users/` — see [View routes](#view-routes) and [Inertia pages](#inertia-pages).
 
 ### View routes
 
@@ -79,12 +80,15 @@ Authenticated:
 - `GET /users/me` → `Users/Profile`
 - `PATCH /users/me` → form action (redirects)
 
-Admin (`users.manage`):
+Admin (`users.manage`) — served from the module's `admin_view_prefix`, `/admin/users`:
 
-- `GET /users/admin` → `Users/Users/Index`
-- `GET /users/admin/invite` → `Users/Users/Invite`
-- `GET /users/admin/create` → `Users/Users/Create`
-- `GET /users/admin/{user_id}` → `Users/Users/Edit`
+- `GET /admin/users/` → `Users/Users/Index`
+- `GET /admin/users/add` → `Users/Users/AddPeople` — one form for both flows; `?mode=create|invite` picks which
+- `GET /admin/users/{user_id}` → `Users/Users/Edit`
+
+The separate Create and Invite pages merged into `AddPeople`. Their old paths survive as 307 redirects carrying the mode: `GET /admin/users/invite` → `/admin/users/add?mode=invite`, and `GET /admin/users/create` → `/admin/users/add?mode=create`.
+
+These pages moved out of `/users/admin` when the admin screens were gathered under `/admin` — the pre-move URLs still 301 for now, but link to the new ones. The `/api/users/admin/*` endpoints below are a separate contract and did **not** move.
 
 ## Public contracts
 
@@ -167,7 +171,7 @@ DB-backed via `register_module_settings`. Two values are read **only** from the 
 
 Both **must** be replaced with non-placeholder values in production — the boot-time check refuses to start otherwise.
 
-Everything else is DB-backed (initial values are pydantic defaults; edit at `/settings/modules/users`):
+Everything else is DB-backed (initial values are pydantic defaults; edit under Users at `/admin/settings/`):
 
 | Field | Default |
 |---|---|
@@ -207,7 +211,7 @@ Everything else is DB-backed (initial values are pydantic defaults; edit at `/se
 
 | Label | URL | Icon | Section | Group | Order | Roles |
 |---|---|---|---|---|---|---|
-| `Users` | `/users/admin` | `users` | `SIDEBAR` | `Administration` | `100` | `["admin"]` |
+| `Users` | `/admin/users/` | `users` | `ADMIN_SIDEBAR` | `Access` | `100` | `["admin"]` |
 | `Profile` | `/users/me` | `user` | `USER_DROPDOWN` | — | `990` | _logged-in_ |
 | `Logout` | `/users/logout` (POST) | `log-out` | `USER_DROPDOWN` | — | `999` | _logged-in_ |
 
@@ -259,7 +263,7 @@ Two paths to seed the first admin:
 
 ## OAuth providers
 
-OAuth/OIDC sign-in is **DB-settings-driven**: a provider is enabled simply by setting its `client_id` + `client_secret` (and, for generic OIDC, a discovery URL) in the settings UI at `/settings/modules/users`. No code change or restart — `register_event_handlers` rebuilds the client cache (`app.state.users.oauth_clients`) on the `SettingsReloaded` event, so changes take effect live. Providers with no credentials are silently skipped.
+OAuth/OIDC sign-in is **DB-settings-driven**: a provider is enabled simply by setting its `client_id` + `client_secret` (and, for generic OIDC, a discovery URL) in the settings UI under Users at `/admin/settings/`. No code change or restart — `register_event_handlers` rebuilds the client cache (`app.state.users.oauth_clients`) on the `SettingsReloaded` event, so changes take effect live. Providers with no credentials are silently skipped.
 
 Built-in provider keys (the `{provider}` URL segment):
 

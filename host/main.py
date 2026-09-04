@@ -13,13 +13,19 @@ from simple_module_core.dotenv import load_dotenv_into_environ
 os.environ.setdefault("SM_PROJECT_ROOT", str(Path(__file__).resolve().parent.parent))
 load_dotenv_into_environ(Path(os.environ["SM_PROJECT_ROOT"]) / ".env")
 
-from simple_module_hosting import Settings, create_app  # noqa: E402
+from simple_module_hosting import create_app, merge_host_settings  # noqa: E402
 from simple_module_hosting.logging import setup_logging  # noqa: E402
 
 from host.routes import router as host_router  # noqa: E402
 from host.routes_i18n import router as i18n_router  # noqa: E402
+from host.routes_legacy import router as legacy_router  # noqa: E402
+from host.routes_setup import router as setup_router  # noqa: E402
 
-settings = Settings()
+# merge_host_settings, not Settings(): log_level and the rest of the host
+# knobs live in the DB now. create_app falls back to this when passed no
+# settings, but it is passed settings here — so the read has to happen at
+# this call site or it never happens in the real host at all.
+settings = merge_host_settings()
 
 setup_logging(
     level=settings.log_level,
@@ -29,6 +35,12 @@ setup_logging(
 app = create_app(settings)
 app.include_router(host_router)
 app.include_router(i18n_router)
+# Every /setup route 404s once setup completes, so this is inert on a
+# configured install.
+app.include_router(setup_router)
+# Mounted last: its catch-all {path:path} routes must not shadow a real
+# route that happens to share a legacy prefix.
+app.include_router(legacy_router)
 
 if __name__ == "__main__":
     import uvicorn

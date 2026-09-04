@@ -55,3 +55,93 @@ class TestAuditLinkRegistry:
         reg.register(AuditLink(entity_type="User", url_template="/a/{id}"))
         reg.all_links.clear()
         assert reg.get("User") is not None
+
+
+class TestTableName:
+    """The audit row's type tag shows the table the row lives in.
+
+    ``entity_type`` is the model class name — the audit trail records
+    ``type(obj).__name__`` — but ``User`` is jargon and ``users_user`` is what
+    an operator reading a migration or a psql prompt already knows. The two
+    cannot be derived from one another, so the module that owns the table says
+    both.
+    """
+
+    def test_table_name_defaults_to_none(self):
+        assert AuditLink(entity_type="User", url_template="/u/{id}").table_name is None
+
+    def test_table_name_round_trips(self):
+        link = AuditLink(entity_type="User", url_template="/u/{id}", table_name="users_user")
+        assert link.table_name == "users_user"
+
+
+class TestLabelResolver:
+    """A row's *display name* is the owning module's business.
+
+    The registry cannot know that a ``Setting`` is named by its ``key`` and a
+    ``User`` by ``full_name or email``, and the audit log must not grow an
+    import of every module to find out. The owner supplies a batch resolver
+    instead: one call per entity type per page, never one query per row.
+    """
+
+    def test_label_resolver_defaults_to_none(self):
+        assert AuditLink(entity_type="User", url_template="/u/{id}").label_resolver is None
+
+    async def test_resolver_is_stored_and_callable(self):
+        async def resolve(_db, ids):
+            return {i: f"name-{i}" for i in ids}
+
+        link = AuditLink(entity_type="User", url_template="/u/{id}", label_resolver=resolve)
+        assert link.label_resolver is not None
+        assert await link.label_resolver(None, ["a"]) == {"a": "name-a"}
+
+    def test_registering_twice_with_distinct_closures_is_idempotent(self):
+        """A resolver is a closure, so two boots build two unequal objects.
+
+        Comparing on it would turn a re-entrant boot into "Two modules claim
+        User" — a conflict is about two modules pointing one entity type at
+        two different screens, which the identity fields already express.
+        """
+        reg = AuditLinkRegistry()
+        for _ in range(2):
+            reg.register(
+                AuditLink(
+                    entity_type="User",
+                    url_template="/a/{id}",
+                    label_resolver=lambda _db, ids: None,
+                )
+            )
+        assert len(reg.all_links) == 1
+
+    def test_genuinely_conflicting_claims_still_raise(self):
+        reg = AuditLinkRegistry()
+        reg.register(AuditLink(entity_type="User", url_template="/a/{id}"))
+        with pytest.raises(ValueError, match="Two modules claim"):
+            reg.register(
+                AuditLink(
+                    entity_type="User", url_template="/b/{id}", label_resolver=lambda *_: None
+                )
+            )
+
+
+class TestScreenlessLinks:
+    """A table can be audited and named without having a page of its own.
+
+    Join rows and stored files are the cases: nothing to open, but the audit
+    table still has to call the row something and tag it with its table, and
+    only the owning module knows either.
+    """
+
+    def test_an_empty_template_is_accepted(self) -> None:
+        link = AuditLink(
+            entity_type="RolePermission",
+            url_template="",
+            label="Role permission",
+            table_name="permissions_role_permission",
+        )
+
+        assert link.url_for("('admin', 'settings.create')") is None
+
+    def test_a_non_empty_template_still_has_to_carry_the_id(self) -> None:
+        with pytest.raises(ValueError, match="contains no"):
+            AuditLink(entity_type="Thing", url_template="/things")

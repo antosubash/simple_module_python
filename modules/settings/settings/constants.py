@@ -42,9 +42,19 @@ ALL_VALUE_TYPES: Final = (
     VALUE_TYPE_JSON,
 )
 
+# ── Secrets ──────────────────────────────────────────────────────────
+# Keys whose stored value must never leave the settings API or the raw
+# key/value browse screen. ``host.secret_key`` is the session-signing key: the
+# hosting layer generates and persists it here when SM_SECRET_KEY is unset, and
+# anyone who can read it can forge a session cookie for any account. Masked on
+# the way out only — the boot-time reader goes straight to SQL, so hiding it
+# here costs nothing.
+SENSITIVE_KEYS: Final = frozenset({"host.secret_key"})
+SENSITIVE_PLACEHOLDER: Final = "********"
+
 # ── Routing ──────────────────────────────────────────────────────────
 API_PREFIX: Final = "/api/settings"
-VIEW_PREFIX: Final = "/settings"
+VIEW_PREFIX: Final = "/admin/settings"
 VIEW_CREATE_PATH: Final = "/create"
 VIEW_EDIT_PATH: Final = "/{setting_id}/edit"
 VIEW_MODULES_PATH: Final = "/modules"
@@ -101,6 +111,21 @@ PROP_SETTINGS: Final = "settings"
 PROP_SETTING: Final = "setting"
 PROP_MODULES: Final = "modules"
 PROP_ERROR: Final = "error"
+PROP_PAGINATION: Final = "pagination"
+PROP_COUNTS: Final = "counts"
+PROP_FILTERS: Final = "filters"
+PROP_KNOWN_KEYS: Final = "known_keys"
+PROP_TESTABLE: Final = "testable"
+
+# ── Store listing (scope tabs + search + paging) ─────────────────────
+# The table is server-filtered: the scope tabs report counts the client can no
+# longer compute once it holds a single page, and an install with a few
+# thousand overrides must not ship all of them to render twenty.
+SCOPE_ALL: Final = "all"
+"""Sentinel for "no scope filter" — a tab value, never a stored scope."""
+
+DEFAULT_PER_PAGE: Final = 20
+MAX_PER_PAGE: Final = 200
 
 # ── User-facing error messages ───────────────────────────────────────
 ERR_SETTING_NOT_FOUND: Final = "Setting not found"
@@ -121,3 +146,6 @@ QP_USER_ID: Final = "user_id"
 QP_TENANT_ID: Final = "tenant_id"
 QP_SCOPE: Final = "scope"
 QP_SCOPE_ID: Final = "scope_id"
+QP_Q: Final = "q"
+QP_PAGE: Final = "page"
+QP_PER_PAGE: Final = "per_page"

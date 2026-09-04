@@ -1,31 +1,38 @@
 import { Head, usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
-import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { CheckCircle2, Loader2, TimerOff, Unlink } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { AuthStateCard, type AuthStateTone } from '../auth_local/components/AuthStateCard';
+import { ResendVerification } from '../auth_local/components/ResendVerification';
 
 interface Props {
   token: string;
+  /** Read off the token even when it has expired, so resend needs no retyping. */
+  email: string | null;
+  verification_lifetime_days: number;
 }
 
-type VerifyStatus = 'pending' | 'success' | 'already_verified' | 'error';
+type VerifyStatus = 'pending' | 'success' | 'already_verified' | 'expired' | 'incomplete';
 
 function VerifyEmail() {
-  const { token: initialToken } = usePage<{ props: Props }>().props as unknown as Props;
-  const urlToken =
-    typeof window !== 'undefined'
-      ? (new URLSearchParams(window.location.search).get('token') ?? '')
-      : '';
-  const token = urlToken || initialToken;
+  const {
+    token,
+    email,
+    verification_lifetime_days: lifetimeDays,
+  } = usePage<{ props: Props }>().props as unknown as Props;
+  const { t } = useT();
 
   const [status, setStatus] = useState<VerifyStatus>('pending');
-  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     if (!token) {
-      setStatus('error');
-      setErrorMsg('No verification token found in this link.');
+      // A link that arrived without its token is a different problem from one
+      // that ran out — nothing was ever sent to expire, and re-opening the
+      // original email usually fixes it.
+      setStatus('incomplete');
       return;
     }
 
@@ -37,84 +44,82 @@ function VerifyEmail() {
       .then(async (res) => {
         if (res.status === 200 || res.status === 204) {
           setStatus('success');
-        } else {
-          const data = await res.json().catch(() => ({}));
-          const detail = typeof data?.detail === 'string' ? data.detail : '';
-          if (detail === 'VERIFY_USER_ALREADY_VERIFIED') {
-            setStatus('already_verified');
-          } else {
-            setStatus('error');
-            setErrorMsg('Verification link expired or invalid. Please request a new one.');
-          }
+          return;
         }
+        const data = await res.json().catch(() => ({}));
+        const detail = typeof data?.detail === 'string' ? data.detail : '';
+        setStatus(detail === 'VERIFY_USER_ALREADY_VERIFIED' ? 'already_verified' : 'expired');
       })
-      .catch(() => {
-        setStatus('error');
-        setErrorMsg('An error occurred. Please try again.');
-      });
+      .catch(() => setStatus('expired'));
   }, [token]);
 
-  const content = {
+  const signInButton = (
+    <Button asChild className="max-lg:min-h-11">
+      <a href={LOGIN_PATH}>{t(keys.users.verify_email.success_action)}</a>
+    </Button>
+  );
+
+  interface StateCard {
+    icon: typeof CheckCircle2;
+    iconClassName?: string;
+    tone: AuthStateTone;
+    title: string;
+    description: string;
+    body: React.ReactNode;
+  }
+
+  const cards: Record<VerifyStatus, StateCard> = {
     pending: {
       icon: Loader2,
-      iconClass: 'text-muted-foreground animate-spin',
-      title: 'Verifying your email…',
-      description: 'Please wait while we verify your email address.',
+      iconClassName: 'animate-spin',
+      tone: 'neutral',
+      title: t(keys.users.verify_email.pending_title),
+      description: t(keys.users.verify_email.pending_description),
       body: null,
     },
     success: {
       icon: CheckCircle2,
-      iconClass: 'text-primary-700',
-      title: 'Email verified!',
-      description: 'Your account is now active.',
-      body: (
-        <a href={LOGIN_PATH}>
-          <Button className="w-full">Log in</Button>
-        </a>
-      ),
+      tone: 'primary',
+      title: t(keys.users.verify_email.success_title),
+      description: t(keys.users.verify_email.success_description),
+      body: signInButton,
     },
     already_verified: {
       icon: CheckCircle2,
-      iconClass: 'text-primary-700',
-      title: 'Already verified',
-      description: 'This account is already verified — you can log in.',
-      body: (
-        <a href={LOGIN_PATH}>
-          <Button className="w-full">Log in</Button>
-        </a>
-      ),
+      tone: 'primary',
+      title: t(keys.users.verify_email.already_title),
+      description: t(keys.users.verify_email.already_description),
+      body: signInButton,
     },
-    error: {
-      icon: XCircle,
-      iconClass: 'text-destructive',
-      title: 'Verification failed',
-      description: errorMsg || 'Verification link expired or invalid.',
-      body: (
-        <a
-          href={LOGIN_PATH}
-          className="text-center text-sm font-semibold text-primary-700 hover:text-primary-800"
-        >
-          Back to log in
-        </a>
-      ),
+    expired: {
+      icon: TimerOff,
+      tone: 'amber',
+      title: t(keys.users.verify_email.expired_title),
+      description: t(keys.users.verify_email.expired_description, { days: lifetimeDays }),
+      body: <ResendVerification email={email} />,
     },
-  }[status];
-
-  const Icon = content.icon;
+    incomplete: {
+      icon: Unlink,
+      tone: 'amber',
+      title: t(keys.users.verify_email.incomplete_title),
+      description: t(keys.users.verify_email.incomplete_description),
+      body: <ResendVerification email={email} />,
+    },
+  };
+  const card = cards[status];
 
   return (
-    <AuthCardShell>
-      <Head title="Verify Email" />
-      <div className="flex flex-col items-center gap-3 text-center">
-        <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
-          <Icon className={`h-6 w-6 ${content.iconClass}`} aria-hidden="true" />
-        </span>
-        <h1 className="text-[22px] font-bold tracking-tight font-[var(--font-display)] text-foreground">
-          {content.title}
-        </h1>
-        <p className="text-sm text-muted-foreground">{content.description}</p>
-        {content.body && <div className="mt-2 w-full">{content.body}</div>}
-      </div>
+    <AuthCardShell tone={status === 'expired' ? 'warning' : 'default'}>
+      <Head title={t(keys.users.verify_email.head_title)} />
+      <AuthStateCard
+        icon={card.icon}
+        iconClassName={card.iconClassName}
+        tone={card.tone}
+        title={card.title}
+        description={card.description}
+      >
+        {card.body}
+      </AuthStateCard>
     </AuthCardShell>
   );
 }

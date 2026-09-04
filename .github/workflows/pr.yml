@@ -85,6 +85,9 @@ jobs:
           cache: "npm"
       - run: make install-js
       - run: make ci-js-lint
+      # Catches user-visible text rendered as a literal instead of t(keys.…).
+      # Shipping a locales/en.json never proved a page actually read it.
+      - run: make ci-check-untranslated
 
   js-typecheck:
     name: JS typecheck
@@ -155,7 +158,10 @@ jobs:
       SM_USERS_BOOTSTRAP_PASSWORD: admin
       # Exclude Keycloak module — SM020 prevents both users and keycloak
       # from running simultaneously. E2E tests use the users module.
-      SM_MODULES_ENABLED: '["Auth","Users","Dashboard","Permissions","Settings","BackgroundTasks","FileStorage","FeatureFlags","AuditLog"]'
+      # Branding is included so the admin section's "edited on its own page,
+      # never in the generic module editor" rule is actually exercised — the
+      # server-side half of that is a 409 guard, which is worth CI coverage.
+      SM_MODULES_ENABLED: '["Auth","Users","Dashboard","Permissions","Settings","BackgroundTasks","FileStorage","FeatureFlags","AuditLog","Branding"]'
       E2E_BASE_URL: http://localhost:8000
     steps:
       - uses: actions/checkout@v7

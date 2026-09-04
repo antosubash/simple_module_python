@@ -1,40 +1,41 @@
 {
   "browse": {
-    "title": "Feature Flags",
-    "description": "Toggle features exposed by installed modules. Overrides persist across restarts.",
+    "title": "Feature flags",
+    "description": "Runtime toggles. A tenant override wins over the system value.",
     "empty_title": "No feature flags registered",
     "empty_description": "Modules declare flags via register_feature_flags(); install one to see it here.",
-    "count_one": "{count} flag",
-    "count_other": "{count} flags",
-    "viewing_system": "Viewing system-level flags. Switch scope to override per tenant.",
-    "viewing_tenant": "Viewing overrides for tenant \"{tenant_id}\". Tenant overrides beat the system value.",
+    "scope_label": "Scope",
+    "viewing_system": "Viewing system-level flags — every tenant follows these unless it overrides them.",
+    "viewing_tenant": "Viewing overrides for tenant {tenant_id} — unset flags follow the system value.",
+    "view_history": "View change history →",
+    "audit_note": "Every toggle is written to the audit log with the actor and the previous value.",
     "tenant_id_label": "Tenant ID",
     "tenant_id_placeholder": "e.g. acme",
-    "scope_system": "System (all tenants)",
+    "scope_system": "system",
+    "scope_custom": "Other…",
     "go": "View",
-    "viewing_label": "Viewing",
-    "scope_custom": "Other tenant…",
     "cancel": "Cancel"
   },
   "table": {
-    "name": "Flag",
+    "name": "Name",
     "description": "Description",
-    "default": "Default",
-    "status": "Status",
+    "system": "System",
+    "effective": "Effective",
     "actions": "Actions",
+    "on": "on",
+    "off": "off",
     "enabled": "Enabled",
     "disabled": "Disabled",
-    "overridden": "Override active",
-    "following_default": "Following default",
-    "following_system": "Following system",
-    "system_value": "System: {value}",
+    "overridden": "override",
+    "following_default": "following default",
+    "following_system": "following system",
     "clear_override": "Clear override"
   },
   "confirm": {
-    "enable_title": "Enable \"{name}\"?",
-    "disable_title": "Disable \"{name}\"?",
+    "enable_title": "Enable “{name}”?",
+    "disable_title": "Disable “{name}”?",
     "scope_system": "This changes the value for every tenant, immediately.",
-    "scope_tenant": "This sets an override for tenant \"{tenant_id}\" only. Other tenants keep following the system value.",
+    "scope_tenant": "This sets an override for tenant “{tenant_id}” only. Other tenants keep following the system value.",
     "enable_action": "Enable",
     "disable_action": "Disable",
     "cancel": "Cancel"
@@ -44,5 +45,11 @@
     "disabled": "\"{name}\" disabled",
     "cleared": "Override cleared for \"{name}\"",
     "toggle_failed": "Failed to update flag"
+  },
+  "audit": {
+    "override": "Feature flag override"
+  },
+  "nav": {
+    "feature_flags": "Feature flags"
   }
 }

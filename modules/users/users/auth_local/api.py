@@ -11,19 +11,29 @@ Routes owned here (all mounted by :meth:`UsersModule.register_routes`):
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import exceptions as fu_exceptions
+from simple_module_core.redirect_safety import SESSION_NEXT_KEY
+from simple_module_hosting.session import SESSION_REMEMBER_KEY, stamp_session_expiry
 
-from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
+from users.auth_local.rate_limit import (
+    LoginRateLimiter,
+    enforce_auth_throughput_limit,
+)
+from users.auth_local.self_account import router as self_account_router
+from users.backend import build_cookie_transport, get_database_strategy
 from users.constants import SESSION_USER_ID_KEY
 from users.contracts.schemas import (
     AcceptInviteRequest,
+    LoginRequest,
     SelfProfileUpdate,
     UserRead,
     UserUpdate,
 )
+from users.db_adapter import get_access_token_db
 from users.deps import (
     auth_backend,
     fastapi_users,
@@ -34,6 +44,11 @@ from users.manager import UserManager
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# Re-exported: ``users.module`` mounts the stock routers with
+# ``auth_local_api.enforce_auth_throughput_limit``, and the dependency moved
+# down to ``rate_limit`` so ``self_account`` can import it without a cycle.
+__all__ = ["enforce_auth_throughput_limit", "router"]
+
 
 # ── Rate limit ───────────────────────────────────────────────────────────────
 
@@ -41,26 +56,6 @@ router = APIRouter()
 def get_rate_limiter(request: Request) -> LoginRateLimiter:
     """Return the per-app LoginRateLimiter built in UsersModule.on_startup."""
     return request.app.state.users.rate_limiter
-
-
-def _client_ip(request: Request) -> str:
-    return request.client.host if request.client else "unknown"
-
-
-async def enforce_auth_throughput_limit(request: Request) -> None:
-    """FastAPI dependency that rejects the request with 429 when this IP has
-    exhausted its attempts budget on shared auth side-effect endpoints.
-
-    Applied to forgot-password / register / accept-invite / request-verify-token,
-    which otherwise allow unlimited email or account-creation spam.
-    """
-    limiter: ThroughputLimiter = request.app.state.users.auth_throughput_limiter
-    key = f"{request.url.path}::{_client_ip(request)}"
-    if not limiter.check_and_record(key):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many attempts — try again later",
-        )
 
 
 async def require_signup_enabled(request: Request) -> None:
@@ -77,13 +72,38 @@ async def require_signup_enabled(request: Request) -> None:
 # ── Wrapper login ────────────────────────────────────────────────────────────
 
 
+async def _remembered_login_response(request: Request, user, access_token_db) -> Response:
+    """Sign in for the "Keep me signed in" window instead of the default one.
+
+    Every part of the credential has to move together, or the checkbox lies at
+    whichever expires first: the ``sm_auth`` cookie, the access-token row
+    behind it, and the session cookie the pages actually authenticate with.
+    This handles the first two; the session cookie is widened by recording the
+    window in the session itself (see :func:`login`). Neither the transport nor
+    the strategy can be varied per request on the shared backend — one
+    ``CookieTransport``, one lifetime — so this builds a second pair rather
+    than mutating singletons that concurrent requests are reading.
+    """
+    settings = request.app.state.users.settings
+    window = settings.remember_me_max_age_seconds
+    strategy = get_database_strategy(access_token_db, lifetime_seconds=window)
+    transport = build_cookie_transport(
+        cookie_name=settings.cookie_name,
+        cookie_max_age_seconds=window,
+        cookie_secure=settings.cookie_secure,
+        cookie_samesite=settings.cookie_samesite,
+    )
+    return await transport.get_login_response(await strategy.write_token(user))
+
+
 @router.post("/auth/login", status_code=204)
 async def login(
     request: Request,
     response: Response,
-    credentials: OAuth2PasswordRequestForm = Depends(),
+    credentials: Annotated[LoginRequest, Form()],
     user_manager: UserManager = Depends(get_user_manager),
     strategy=Depends(auth_backend.get_strategy),
+    access_token_db=Depends(get_access_token_db),
     limiter: LoginRateLimiter = Depends(get_rate_limiter),
 ):
     """Rate-limited login wrapper. Sets sm_auth cookie + session user_id."""
@@ -92,7 +112,12 @@ async def login(
         raise HTTPException(status_code=429, detail="Too many attempts — try again later")
 
     try:
-        user = await user_manager.authenticate(credentials)
+        user = await user_manager.authenticate(
+            OAuth2PasswordRequestForm(
+                username=credentials.username,
+                password=credentials.password,
+            )
+        )
     except fu_exceptions.UserNotExists:
         user = None
 
@@ -108,9 +133,30 @@ async def login(
     # Fire the login hook (updates last_login_at)
     await user_manager.on_after_login(user, request, response)
     # Set fastapi-users' cookie via auth_backend.login
-    login_response = await auth_backend.login(strategy, user)
+    login_response = (
+        await _remembered_login_response(request, user, access_token_db)
+        if credentials.remember
+        else await auth_backend.login(strategy, user)
+    )
     # Bridge the session cookie — AuthMiddleware reads this to identify the user
     request.session[SESSION_USER_ID_KEY] = str(user.id)
+    if credentials.remember:
+        # Recorded *in the session*, not on this response's scope. Resolving
+        # the signed-in user caches its context in the session, so almost every
+        # later request re-emits the cookie — and a window known only to the
+        # sign-in response would be rolled back to the default by the first
+        # page load after it. The session middleware reads this key each time
+        # it writes the cookie.
+        window = request.app.state.users.settings.remember_me_max_age_seconds
+        request.session[SESSION_REMEMBER_KEY] = window
+        # ``on_after_login`` already bounded this session at the default
+        # window; the checkbox is what widens it. Re-stamped here rather than
+        # branched inside the hook so the OAuth and accept-invite paths, which
+        # have no checkbox, keep the default without knowing this exists.
+        stamp_session_expiry(request.session, window)
+    # The deep link has served its purpose; leaving it would send the *next*
+    # plain visit to /users/login off to a stale destination.
+    request.session.pop(SESSION_NEXT_KEY, None)
     return login_response
 
 
@@ -154,9 +200,16 @@ async def accept_invite(
     except (fu_exceptions.InvalidVerifyToken, fu_exceptions.UserAlreadyVerified):
         raise HTTPException(status_code=400, detail="INVITE_BAD_TOKEN") from None
 
+    # A blank name leaves whatever the admin typed when minting the invite
+    # alone: the field is pre-filled from it, so an untouched form must not
+    # read as "clear this". Omitted rather than passed as None — ``UserUpdate``
+    # dumps with ``exclude_unset``, so an explicit None would write the wipe.
+    changes: dict[str, str] = {"password": body.password}
+    if body.full_name and body.full_name.strip():
+        changes["full_name"] = body.full_name.strip()
     try:
         await user_manager.update(
-            UserUpdate(password=body.password),
+            UserUpdate(**changes),
             user,
             request=request,
         )
@@ -166,6 +219,10 @@ async def accept_invite(
     await user_manager.on_after_login(user, request, response)
     login_response = await auth_backend.login(strategy, user)
     request.session[SESSION_USER_ID_KEY] = str(user.id)
+    # Invite acceptance routes the user itself, so a deep link stashed by an
+    # earlier bounce is stale here — drop it rather than leave it to fire on
+    # some later visit to the login page.
+    request.session.pop(SESSION_NEXT_KEY, None)
     return login_response
 
 
@@ -191,3 +248,12 @@ async def update_me(
         user,
         request=request,
     )
+
+
+# ── Self password + session revocation ───────────────────────────────────────
+
+# Their own module: this file is at the 300-line cap, and changing your own
+# password has nothing in common with the login wrappers above beyond the
+# ``/me`` prefix. Mounted here so both keep that prefix and this file stays the
+# one place the module's auth routes are listed.
+router.include_router(self_account_router)

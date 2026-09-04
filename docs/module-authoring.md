@@ -119,6 +119,48 @@ class MyModule(ModuleBase):
     )
 ```
 
+### Administrative screens
+
+Admin pages belong under `/admin/*`, in `MenuSection.ADMIN_SIDEBAR`, rendered
+by `AdminLayout`. Do all three or none — `SidebarLayout` renders whichever
+menu its `menuKey` names, so a page still on `AuthenticatedLayout` after its
+menu entry moved shows a sidebar that no longer lists it.
+
+If your module is administrative end to end, that is just a prefix:
+
+```python
+class MyModule(ModuleBase):
+    meta = ModuleMeta(name="MyModule", view_prefix="/admin/my-module")
+```
+
+If it serves both public and admin pages — as `users` does, with sign-in at
+`/users/login` and management at `/admin/users` — one `view_prefix` cannot
+express both. Declare a second mount point and fill it from
+`register_admin_routes`:
+
+```python
+class MyModule(ModuleBase):
+    meta = ModuleMeta(
+        name="MyModule",
+        view_prefix="/my-module",  # public pages
+        admin_view_prefix="/admin/my-module",  # admin pages
+    )
+
+    def register_admin_routes(self, admin_router: APIRouter) -> None:
+        from my_module.admin.views import router as admin_views
+
+        admin_router.include_router(admin_views)
+```
+
+The prefix is a URL convention, not a permission: nothing under `/admin` is
+gated automatically. Guard these routes with the same dependencies you would
+use anywhere else, and give the menu item a matching `permissions=` so it is
+not offered to accounts whose click would 403.
+
+Point the menu item at the canonical path — the trailing-slash form when the
+index is registered at `"/"`. Linking to the bare prefix costs a 307 on every
+navigation, which `test_menu_urls_are_canonical` will fail you for.
+
 ## API stability contract
 
 `simple_module_core` exposes `FRAMEWORK_API_VERSION` (PEP 440 string). At
@@ -460,6 +502,54 @@ def register_csp_sources(self, registry):
 Only fetch directives can be extended; each source must be a single
 origin/scheme token, validated at boot. See
 [docs/framework/lifecycle.md](framework/lifecycle.md#register_csp_sourcesregistry).
+
+## First-run setup steps
+
+A module can declare what an install still needs before it is usable. While
+any required step reports incomplete, `SetupMiddleware` serves the wizard at
+`/setup` instead of the app:
+
+```python
+from simple_module_core import SetupRegistry, SetupStep
+
+
+async def has_administrator(app) -> bool:
+    async with app.state.sm.db.session_factory() as session:
+        ...  # return True once satisfied
+
+
+class MyModule(ModuleBase):
+    def register_setup_steps(self, registry: SetupRegistry) -> None:
+        registry.add(
+            SetupStep(
+                id="mymodule.administrator",
+                title="Create an administrator",
+                description="An account that can sign in and manage this install.",
+                is_complete=has_administrator,
+                order=30,
+            )
+        )
+```
+
+Three things are worth knowing before you add one.
+
+**Registering nothing is a valid answer, and it is how a module opts out.** The
+`users` module contributes the "an administrator exists" step; `keycloak`
+deliberately does not, because an install using an external identity provider
+has a legitimately empty local users table and a host-level superuser count
+would hold it behind the wizard forever.
+
+**A step whose predicate raises counts as complete.** Failing closed on a
+transient database error would open an anonymous admin-creation form on a
+live install — that is failing *open* on security, so the framework fails the
+other way.
+
+**Completion is recomputed per request, not latched.** An install that loses
+its administrators can be recovered through the browser rather than needing
+shell access to the container.
+
+Set `required=False` for a step that should appear in the wizard without
+holding the install closed. `order` controls display order (lower first).
 
 ## CSRF on mutation endpoints
 

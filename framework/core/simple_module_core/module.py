@@ -1,11 +1,12 @@
-"""Module base class and metadata."""
+"""Module lifecycle base class. ``ModuleMeta`` lives in ``module_meta``."""
 
 from __future__ import annotations
 
 from abc import ABC
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from simple_module_core.module_meta import ModuleMeta
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
@@ -19,33 +20,7 @@ if TYPE_CHECKING:
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.permissions import PermissionRegistry
     from simple_module_core.public_routes import PublicRouteRegistry
-
-
-@dataclass(frozen=True)
-class ModuleMeta:
-    """Metadata describing a module."""
-
-    name: str
-    route_prefix: str = ""
-    view_prefix: str = ""
-    depends_on: list[str] = field(default_factory=list)
-    version: str = "1.0.0"
-    requires_framework: str | None = None
-    """PEP 440 specifier for the framework API version this module supports.
-
-    Example: ``">=1.0,<2.0"``. When set, the module is rejected at boot if the
-    installed ``simple_module_core.FRAMEWORK_API_VERSION`` does not satisfy it.
-    When ``None``, no compatibility check is performed (legacy modules).
-    """
-    i18n_audience: str = "public"
-    """Who this module's locale catalog is shipped to: ``"public"`` or ``"admin"``.
-
-    ``"public"`` (the default) ships the catalog in every Inertia payload.
-    ``"admin"`` ships it only to authenticated users — declare it on modules
-    whose UI sits entirely behind login (settings, permissions, dashboards) so
-    anonymous visitors don't download admin form labels on every public page.
-    The catalog is always available server-side (``Translator``) either way.
-    """
+    from simple_module_core.setup_steps import SetupRegistry
 
 
 class ModuleBase(ABC):
@@ -111,6 +86,19 @@ class ModuleBase(ABC):
     ) -> None:
         """Register API endpoints and Inertia view routes."""
 
+    def register_admin_routes(self, admin_router: APIRouter) -> None:
+        """Register admin-only view routes, mounted at ``meta.admin_view_prefix``.
+
+        Only needed by modules that serve both public and administrative
+        pages — see ``ModuleMeta.admin_view_prefix``. A module whose views are
+        all administrative should point ``view_prefix`` at ``/admin/...`` and
+        keep using ``register_routes``.
+
+        Nothing here is gated automatically: the prefix is a URL convention,
+        not a permission. Guard these routes with the same dependencies you
+        would use anywhere else.
+        """
+
     def register_menu_items(self, registry: MenuRegistry) -> None:
         """Contribute menu items visible in the UI."""
 
@@ -130,6 +118,20 @@ class ModuleBase(ABC):
 
     def register_health_checks(self, registry: HealthRegistry) -> None:
         """Contribute health checks for the ``/health/ready`` endpoint."""
+
+    def register_setup_steps(self, registry: SetupRegistry) -> None:
+        """Declare what this module needs before the install is usable.
+
+        While any required step reports incomplete, ``SetupMiddleware`` serves
+        the first-run wizard instead of the app::
+
+            registry.add(SetupStep(id="users.administrator", ...))
+
+        A module that registers nothing never gates the app — that is how an
+        external identity provider opts out. See docs/module-authoring.md.
+
+        Called once at boot, in dependency order.
+        """
 
     def register_public_routes(self, registry: PublicRouteRegistry) -> None:
         """Declare routes that must bypass authentication (anonymous access).
@@ -272,3 +274,6 @@ class ModuleBase(ABC):
 
     async def on_shutdown(self, app: FastAPI) -> None:
         """Called during app shutdown."""
+
+
+__all__ = ["ModuleBase", "ModuleMeta"]

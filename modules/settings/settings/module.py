@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.resources
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, FastAPI
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
@@ -25,6 +26,30 @@ from settings.constants import (
     PERM_VIEW,
     VIEW_PREFIX,
 )
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+
+async def _resolve_setting_labels(db: AsyncSession, ids: list[str]) -> dict[str, str]:
+    """Name a setting row by its key — "users.smtp_host", not row 41.
+
+    The primary key is a surrogate integer that appears nowhere else in the
+    product; the key is what the reader searched for and what every other
+    screen calls the row. Ids that are not integers belong to some other id
+    space and are left unnamed, which falls back to showing the id.
+    """
+    from sqlalchemy import select
+
+    from settings.models import Setting
+
+    numeric = {int(raw): raw for raw in ids if raw.lstrip("-").isdigit()}
+    if not numeric:
+        return {}
+    rows = (
+        await db.execute(select(Setting.id, Setting.key).where(Setting.id.in_(list(numeric))))
+    ).all()
+    return {numeric.get(row_id, str(row_id)): key for row_id, key in rows}
 
 
 class SettingsModule(ModuleBase):
@@ -64,11 +89,13 @@ class SettingsModule(ModuleBase):
         registry.add(
             MenuItem(
                 label=MENU_LABEL,
+                label_key="settings.nav.settings",
                 url=MENU_URL,
                 icon=MENU_ICON,
                 order=MENU_ORDER,
-                section=MenuSection.SIDEBAR,
+                section=MenuSection.ADMIN_SIDEBAR,
                 group="System",
+                group_key="ui.nav_groups.system",
                 # Mirrors the view router's guard, so the entry is not offered
                 # to accounts whose click would 403.
                 permissions=[PERM_VIEW],
@@ -84,9 +111,13 @@ class SettingsModule(ModuleBase):
         registry.register(
             AuditLink(
                 # Class name, not __tablename__ — see AuditLink.entity_type.
+                # The table name travels alongside as the audit log's type tag.
                 entity_type=Setting.__name__,
                 url_template=f"{VIEW_PREFIX}/{{id}}/edit",
                 label="Setting",
+                label_key="settings.audit.setting",
+                table_name=Setting.__tablename__,
+                label_resolver=_resolve_setting_labels,
             )
         )
 

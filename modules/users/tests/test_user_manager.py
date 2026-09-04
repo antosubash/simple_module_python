@@ -179,17 +179,17 @@ class TestOnAfterLogin:
 # ---------------------------------------------------------------------------
 
 
-class TestGenerateVerificationToken:
+class TestMintInviteToken:
     @pytest.mark.anyio
     async def test_returns_decodable_jwt(self, manager, fake_settings, fake_user):
-        token = await manager.generate_verification_token(fake_user)
+        token = manager.mint_invite_token(fake_user)
 
         assert isinstance(token, str)
         assert len(token) > 20  # basic sanity
 
     @pytest.mark.anyio
     async def test_jwt_has_correct_audience(self, manager, fake_settings, fake_user):
-        token = await manager.generate_verification_token(fake_user)
+        token = manager.mint_invite_token(fake_user)
 
         data = decode_jwt(
             token,
@@ -200,7 +200,7 @@ class TestGenerateVerificationToken:
 
     @pytest.mark.anyio
     async def test_jwt_has_correct_subject(self, manager, fake_settings, fake_user):
-        token = await manager.generate_verification_token(fake_user)
+        token = manager.mint_invite_token(fake_user)
 
         data = decode_jwt(
             token,
@@ -211,7 +211,7 @@ class TestGenerateVerificationToken:
 
     @pytest.mark.anyio
     async def test_jwt_has_email(self, manager, fake_settings, fake_user):
-        token = await manager.generate_verification_token(fake_user)
+        token = manager.mint_invite_token(fake_user)
 
         data = decode_jwt(
             token,
@@ -224,10 +224,34 @@ class TestGenerateVerificationToken:
     async def test_jwt_audience_matches_verify_audience(self, manager, fake_user):
         """Token audience must match what fastapi-users POST /verify expects."""
         assert manager.verification_token_audience == "fastapi-users:verify"
-        token = await manager.generate_verification_token(fake_user)
+        token = manager.mint_invite_token(fake_user)
         # Decodable with the verify audience — no exception means it passes
         decode_jwt(
             token,
             manager.verification_token_secret,
             ["fastapi-users:verify"],
         )
+
+    @pytest.mark.anyio
+    async def test_the_inviter_claim_is_absent_when_nobody_invited(
+        self, manager, fake_settings, fake_user
+    ):
+        """The same helper mints plain verification links, where "invited by"
+        would be a lie."""
+        data = decode_jwt(
+            manager.mint_invite_token(fake_user),
+            fake_settings.verification_token_secret,
+            [manager.verification_token_audience],
+        )
+        assert "invited_by" not in data
+
+    @pytest.mark.anyio
+    async def test_the_inviter_claim_is_carried_when_there_is_one(
+        self, manager, fake_settings, fake_user
+    ):
+        data = decode_jwt(
+            manager.mint_invite_token(fake_user, "Dana Rivera"),
+            fake_settings.verification_token_secret,
+            [manager.verification_token_audience],
+        )
+        assert data["invited_by"] == "Dana Rivera"

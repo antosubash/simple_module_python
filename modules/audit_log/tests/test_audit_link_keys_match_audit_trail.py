@@ -43,7 +43,7 @@ class TestRegisteredKeysAreClassNames:
         assert created.status_code in (200, 201), created.text
 
         resp = await authenticated_client.get(
-            "/audit_log/", headers={"X-Inertia": "true", "Accept": "application/json"}
+            "/admin/audit-log/", headers={"X-Inertia": "true", "Accept": "application/json"}
         )
         assert resp.status_code == 200, resp.text
         items = resp.json()["props"]["items"]

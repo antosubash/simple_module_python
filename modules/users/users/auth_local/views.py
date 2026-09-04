@@ -2,14 +2,23 @@
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from inertia import InertiaResponse
+from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
+from simple_module_db.deps import get_db
 from simple_module_hosting.inertia_deps import InertiaDep
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
 from users.auth_local.invite_preview import preview_invite
+from users.auth_local.token_preview import decode_verify_token, preview_reset
 from users.bootstrap import resolve_bootstrap_credentials
+from users.contracts.schemas import UserRead
+from users.mailer import mailer_delivers
 from users.manager import UserManager, get_user_manager
+from users.models import User
 
 router = APIRouter()
 
@@ -27,6 +36,14 @@ _PAGE_RESET_PASSWORD = "Users/ResetPassword"
 _PAGE_VERIFY_EMAIL = "Users/VerifyEmail"
 _PAGE_ACCEPT_INVITE = "Users/AcceptInvite"
 _PAGE_PROFILE = "Users/Profile"
+
+_SECONDS_PER_MINUTE = 60
+_SECONDS_PER_DAY = 60 * 60 * 24
+
+
+def _mailer_delivers(request: Request) -> bool:
+    """Drives the amber "the link is in the server log" callout."""
+    return mailer_delivers(getattr(getattr(request.app.state, "users", None), "mailer", None))
 
 
 @router.get("/login", response_model=None)
@@ -55,8 +72,22 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
         {
             "allow_signup": users_settings.allow_signup,
             "dev_accounts": dev_accounts,
-            "login_redirect_url": users_settings.login_redirect_url,
+            # Where AuthMiddleware bounced them from, when it bounced them.
+            # Read, not popped: a reload of the login page must not silently
+            # downgrade the deep link to the default landing page. The POST
+            # handler clears it once login actually succeeds.
+            "login_redirect_url": (
+                safe_next_or_none(request.session.get(SESSION_NEXT_KEY))
+                # Never "" — UsersSettings normalises a blanked value back to
+                # the default, so every consumer (here, Keycloak, OAuth) gets
+                # a usable target rather than each guarding for itself.
+                or users_settings.login_redirect_url
+            ),
             "oauth_providers": users_state.oauth_providers,
+            # "Keep me signed in for N days" reads this rather than spelling
+            # the number in the copy, so shortening the window in settings
+            # cannot leave the checkbox lying about what it does.
+            "remember_me_days": users_settings.remember_me_max_age_seconds // _SECONDS_PER_DAY,
         },
     )
 
@@ -82,18 +113,69 @@ async def register_page(request: Request, inertia: InertiaDep) -> InertiaRespons
 
 
 @router.get("/forgot-password", response_model=None)
-async def forgot_password_page(inertia: InertiaDep) -> InertiaResponse:
-    return await inertia.render(_PAGE_FORGOT_PASSWORD, {})
+async def forgot_password_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
+    users_settings = request.app.state.users.settings
+    return await inertia.render(
+        _PAGE_FORGOT_PASSWORD,
+        {
+            "reset_link_lifetime_minutes": (
+                users_settings.reset_password_token_lifetime_seconds // _SECONDS_PER_MINUTE
+            ),
+            "mailer_delivers": _mailer_delivers(request),
+        },
+    )
 
 
 @router.get("/reset-password", response_model=None)
-async def reset_password_page(inertia: InertiaDep, token: str = "") -> InertiaResponse:
-    return await inertia.render(_PAGE_RESET_PASSWORD, {"token": token})
+async def reset_password_page(
+    request: Request,
+    inertia: InertiaDep,
+    user_manager: UserManager = Depends(get_user_manager),
+    token: str = "",
+) -> InertiaResponse:
+    """Decide the dead-link state here rather than after a failed submit.
+
+    Typing a new password twice only to be told the link ran out an hour ago
+    is the worst moment to find out. The token says so on arrival, so the page
+    is handed the answer.
+    """
+    users_settings = request.app.state.users.settings
+    preview = await preview_reset(token, user_manager)
+    return await inertia.render(
+        _PAGE_RESET_PASSWORD,
+        {
+            "token": token,
+            # The address the reset is for — "Save and sign in" needs it to
+            # complete the sign-in without asking for it again.
+            "email": preview["email"] if preview else None,
+            # A missing token is its own state ("use the link from your
+            # email"); this is specifically a link that was real and is not
+            # any more.
+            "expired": bool(token) and preview is None,
+            "reset_link_lifetime_minutes": (
+                users_settings.reset_password_token_lifetime_seconds // _SECONDS_PER_MINUTE
+            ),
+        },
+    )
 
 
 @router.get("/verify", response_model=None)
-async def verify_page(inertia: InertiaDep, token: str = "") -> InertiaResponse:
-    return await inertia.render(_PAGE_VERIFY_EMAIL, {"token": token})
+async def verify_page(request: Request, inertia: InertiaDep, token: str = "") -> InertiaResponse:
+    users_settings = request.app.state.users.settings
+    # Deliberately ignores expiry: an expired verification link is exactly
+    # when the address is worth recovering, so "Resend verification" can offer
+    # to send another one there instead of asking for it to be retyped.
+    claims = decode_verify_token(token, users_settings.verification_token_secret)
+    return await inertia.render(
+        _PAGE_VERIFY_EMAIL,
+        {
+            "token": token,
+            "email": claims.get("email") if claims else None,
+            "verification_lifetime_days": (
+                users_settings.verification_token_lifetime_seconds // _SECONDS_PER_DAY
+            ),
+        },
+    )
 
 
 @router.get("/invite/accept", response_model=None)
@@ -114,5 +196,27 @@ async def accept_invite_page(
 
 
 @router.get("/me", response_model=None)
-async def profile_page(inertia: InertiaDep) -> InertiaResponse:
-    return await inertia.render(_PAGE_PROFILE, {})
+async def profile_page(
+    request: Request,
+    inertia: InertiaDep,
+    db: AsyncSession = Depends(get_db),
+) -> InertiaResponse:
+    """The signed-in user's own record, loaded rather than inferred.
+
+    The page used to read ``auth.user.full_name`` and ``auth.user.is_verified``
+    off the shared props, where neither has ever existed — ``UserContext``
+    carries id, email, name and roles. The name field therefore always loaded
+    blank and the badge always read "unverified". Loading the row is the fix:
+    it is also the only source for ``is_external`` (which hides the password
+    card) and ``last_login_at`` (which dates this browser's session).
+    """
+    ctx = getattr(request.state, "user", None)
+    if ctx is None:
+        raise HTTPException(status_code=401)
+    user = await db.get(User, uuid.UUID(ctx.id))
+    if user is None:
+        raise HTTPException(status_code=401)
+    return await inertia.render(
+        _PAGE_PROFILE,
+        {"user": UserRead.model_validate(user).model_dump(mode="json")},
+    )

@@ -148,8 +148,8 @@ DB-backed; defaults are in `BackgroundTasksSettings`. Several are marked `requir
 | `stuck_after_seconds` | `300` | heartbeat-staleness threshold |
 | `stuck_sweep_interval_seconds` | `60` | beat cadence for the stuck sweep |
 | `purge_interval_seconds` | `86_400` | beat cadence for old-row purge |
-| `retention_days` | `14` | how long to keep terminal rows |
-| `max_retries` | `3` | informational; tasks define their own policies |
+| `retention_days` | `14` | how long to keep terminal rows; range 1-3650 |
+| `max_retries` | `3` | informational; tasks define their own policies; range 0-100 |
 
 Bootstrap env-var equivalents (`SM_BG_TASKS_*`) only seed pydantic defaults at first boot — once a value lives in the DB, it's authoritative.
 

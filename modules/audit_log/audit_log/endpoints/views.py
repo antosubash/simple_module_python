@@ -7,19 +7,29 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, Request
 from inertia import InertiaResponse
+from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_db.deps import get_db
+from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from audit_log.constants import (
+    API_PREFIX,
     DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,
     PAGE_BROWSE,
     PERM_VIEW,
 )
 from audit_log.deps import AuditLogServiceDep
-from audit_log.resolve import actor_link, entity_link, resolve_actors
+from audit_log.filters import EntryFilters
+from audit_log.resolve import (
+    actor_filter,
+    actor_link,
+    entity_link,
+    resolve_actors,
+    resolve_entity_labels,
+)
 
 router = APIRouter()
 
@@ -34,6 +44,23 @@ def _safe_int(raw: str | None, default: int) -> int:
         return default
 
 
+def _type_options(entity_types: list[str], links: AuditLinkRegistry) -> list[dict[str, str]]:
+    """Filter-dropdown options: filter by class name, read as a table name.
+
+    ``entity_type`` is stored — and therefore filtered — as the model class
+    name, but ``User`` is jargon that appears nowhere else an operator looks.
+    The option shows ``users_user``, the same tag the rows carry, while the
+    value submitted stays the thing the column actually holds.
+    """
+    options = []
+    for entity_type in entity_types:
+        link = links.get(entity_type)
+        options.append(
+            {"value": entity_type, "label": (link.table_name if link else None) or entity_type}
+        )
+    return options
+
+
 @router.get(
     "/",
     response_model=None,
@@ -43,6 +70,7 @@ async def browse(
     request: Request,
     inertia: InertiaDep,
     service: AuditLogServiceDep,
+    translator: TranslatorDep,
     db: AsyncSession = Depends(get_db),
     entity_type: str | None = Query(default=None),
     entity_id: str | None = Query(default=None),
@@ -57,17 +85,21 @@ async def browse(
     # Sanitize pagination — never raise a validation error for bad values.
     page_int = max(_safe_int(page, 1), 1)
     page_size_int = max(1, min(_safe_int(page_size, DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE))
-    list_kwargs = {
-        "entity_type": entity_type,
-        "entity_id": entity_id,
-        "action": action,
-        "user_id": user_id,
-        "correlation_id": correlation_id,
-        "from_date": from_date,
-        "to_date": to_date,
-        "page_size": page_size_int,
-    }
-    result = await service.list_entries(page=page_int, **list_kwargs)
+    # The Actor box takes a name or an email as well as an id. Whitespace is
+    # not a search: an all-spaces term means the box is empty, not that nobody
+    # is called that.
+    actor_term = (user_id or "").strip()
+    filters = EntryFilters.for_date_only_range(
+        entity_type=entity_type,
+        entity_id=entity_id,
+        action=action,
+        actor_match=actor_filter(actor_term),
+        correlation_id=correlation_id,
+        from_date=from_date,
+        to_date=to_date,
+    )
+
+    result = await service.list_filtered(filters, page=page_int, page_size=page_size_int)
     # A page requested past the end (a stale ?page= link, or a correlation
     # pivot whose result set shrank between load and click) must be clamped
     # and re-queried — otherwise the client gets an empty `items` list with a
@@ -76,13 +108,16 @@ async def browse(
     total_pages = max(1, math.ceil(result.total / page_size_int))
     if page_int > total_pages:
         page_int = total_pages
-        result = await service.list_entries(page=page_int, **list_kwargs)
-    entity_types = await service.distinct_entity_types()
+        result = await service.list_filtered(filters, page=page_int, page_size=page_size_int)
 
     # Resolve ids for display only — the stored row keeps the bare id, which
     # is what makes it a durable record.
-    actors = await resolve_actors(db, [item.user_id for item in result.items])
     links = request.app.state.sm.audit_links
+    entity_types = _type_options(await service.distinct_entity_types(), links)
+    actors = await resolve_actors(db, [item.user_id for item in result.items])
+    labels = await resolve_entity_labels(
+        db, links, [(item.entity_type, item.entity_id) for item in result.items]
+    )
 
     items = []
     for item in result.items:
@@ -94,7 +129,13 @@ async def browse(
         # next column, and it degrades to plain text if no module claims the
         # users table.
         payload["actor_url"] = actor_link(links, item.user_id) if item.user_id else None
-        payload["entity"] = entity_link(links, item.entity_type, item.entity_id)
+        payload["entity"] = entity_link(
+            links,
+            item.entity_type,
+            item.entity_id,
+            translator.t,
+            labels.get((item.entity_type, item.entity_id)),
+        )
         items.append(payload)
 
     return await inertia.render(
@@ -105,14 +146,17 @@ async def browse(
             "page": result.page,
             "page_size": result.page_size,
             "entity_types": entity_types,
+            "export_url": f"{API_PREFIX}/export.csv",
             "filters": {
                 "entity_type": entity_type,
                 "entity_id": entity_id,
                 "action": action,
-                "user_id": user_id,
+                # The term, not what it matched: the box must keep showing
+                # what was typed into it.
+                "user_id": actor_term or None,
                 "correlation_id": correlation_id,
-                "from_date": from_date.isoformat() if from_date else None,
-                "to_date": to_date.isoformat() if to_date else None,
+                "from_date": from_date.date().isoformat() if from_date else None,
+                "to_date": to_date.date().isoformat() if to_date else None,
             },
         },
     )
