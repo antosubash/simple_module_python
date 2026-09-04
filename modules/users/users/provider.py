@@ -69,6 +69,16 @@ class UsersAuthProvider:
     _is_auth_provider = True
 
     async def resolve_user(self, request: Request) -> UserContext | None:
+        # An ``Authorization`` header is an explicit claim, and it decides the
+        # request: a bad token returns None rather than falling through to the
+        # session cookie. Falling through would make an invalid token
+        # indistinguishable from no token, so a client whose credential expired
+        # silently keeps working on whatever other identity it carries and its
+        # 401s depend on what else is in the request. It gains nothing either —
+        # it can only resolve the session's own identity, which the caller
+        # already had. Pinned by ``test_a_bad_bearer_is_not_rescued_by_a_valid
+        # _session``, which asserted the opposite for as long as it went
+        # uncollected.
         auth_header = request.headers.get("authorization", "")
         if auth_header.startswith("Bearer "):
             return await self._resolve_bearer(request.scope, auth_header[7:])

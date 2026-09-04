@@ -78,14 +78,38 @@ async def test_no_auth_header_on_api_returns_401(pat_client):
 
 
 @pytest.mark.anyio
-async def test_session_wins_over_bad_bearer(authenticated_client):
-    """A valid session cookie + Bearer bad -> 200 via session; resolver not consulted.
+async def test_a_bad_bearer_is_not_rescued_by_a_valid_session(authenticated_client):
+    """An explicitly presented credential that is invalid fails the request.
 
-    The ``authenticated_client`` fixture already carries an admin session cookie;
-    here we additionally send a bad bearer to prove the session path wins.
-    Endpoint is any admin-readable, non-user-enumerating route."""
+    This test previously asserted the opposite — that the session cookie wins
+    and "the resolver is not consulted" — and had never run: ``testpaths`` did
+    not list ``tests/``, so a bare ``pytest`` collected nothing here. The
+    behaviour it described is not what ``UsersAuthProvider.resolve_user`` does;
+    the ``Authorization`` header is checked first and a bad token returns
+    ``None`` without falling through.
+
+    Keeping the code and correcting the test is the deliberate call. Falling
+    through would make an invalid token indistinguishable from no token at all,
+    so a client whose credential has expired or been revoked silently keeps
+    working on whatever other identity it happens to carry, and its 401s become
+    dependent on what else is in the request. Nothing is gained by the
+    fall-through either: it can only ever resolve the session's own identity,
+    which the caller already had.
+
+    The narrow cost is a browser that attaches a stale ``Authorization`` header
+    to a page request. Nothing in this app does that — pages authenticate with
+    the session cookie.
+    """
     resp = await authenticated_client.get(
         "/api/permissions/",
         headers={"Authorization": "Bearer bad"},
     )
+    assert resp.status_code == 401
+
+
+@pytest.mark.anyio
+async def test_the_same_session_succeeds_without_the_bad_header(authenticated_client):
+    """The other half: the session itself is fine, so the 401 above is the
+    header's doing and not a broken fixture."""
+    resp = await authenticated_client.get("/api/permissions/")
     assert resp.status_code == 200
