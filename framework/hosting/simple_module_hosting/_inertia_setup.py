@@ -12,7 +12,9 @@ from fastapi import FastAPI
 from inertia import InertiaConfig, inertia_dependency_factory
 from starlette.requests import Request
 
+from simple_module_hosting._favicon import default_favicon_data_uri
 from simple_module_hosting._inertia_json import json_safe_inertia_dependency
+from simple_module_hosting._inertia_url import relative_page_url_dependency
 from simple_module_hosting.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -40,16 +42,27 @@ def branding_head(request: Request) -> dict:
     The favicon URL is read from the module rather than assembled here: branding
     owns its route shape, and framework code must not reach into a plugin
     (SM009). ``BrandingHead`` still applies it client-side too, so a favicon
-    changed at runtime updates without a reload.
+    changed at runtime updates without a reload. When nothing has been uploaded
+    — the state every install starts in — it falls back to a generated mark
+    rather than ``None``, because omitting the tag sends the browser to
+    ``/favicon.ico``, which this app does not serve.
     """
     services = getattr(request.app.state, "branding", None)
     settings = getattr(services, "settings", None)
     if settings is None:
-        return {"app_name": _DEFAULT_APP_NAME, "theme_color": None, "favicon_url": None}
+        return {
+            "app_name": _DEFAULT_APP_NAME,
+            "theme_color": None,
+            "favicon_url": default_favicon_data_uri(_DEFAULT_APP_NAME),
+        }
+    app_name = getattr(settings, "app_name", "") or _DEFAULT_APP_NAME
+    accent = getattr(settings, "primary_color", "") or ""
     return {
-        "app_name": getattr(settings, "app_name", "") or _DEFAULT_APP_NAME,
-        "theme_color": getattr(settings, "primary_color", "") or None,
-        "favicon_url": getattr(services, "favicon_url", None),
+        "app_name": app_name,
+        "theme_color": accent or None,
+        "favicon_url": (
+            getattr(services, "favicon_url", None) or default_favicon_data_uri(app_name, accent)
+        ),
     }
 
 
@@ -185,9 +198,15 @@ def setup_inertia(
         use_flash_errors=True,
     )
 
-    # Upstream's JSON branch builds a Starlette JSONResponse directly, so the
-    # encoder configured above only ever applies to full page loads. Wrap the
-    # dependency so a client-side visit encodes the same props the same way.
-    inertia_dep = json_safe_inertia_dependency(inertia_dependency_factory(inertia_config))
+    # Two wraps over the stock dependency, each closing a gap in upstream:
+    #   * JSON branch builds a Starlette JSONResponse directly, so the encoder
+    #     configured above only ever applies to full page loads — wrap it so a
+    #     client-side visit encodes the same props the same way.
+    #   * The page url is absolute, which the browser rejects for pushState
+    #     behind a TLS-terminating proxy — wrap it back to the root-relative
+    #     path the Inertia protocol specifies.
+    inertia_dep = relative_page_url_dependency(
+        json_safe_inertia_dependency(inertia_dependency_factory(inertia_config))
+    )
     app.state.inertia_dependency = inertia_dep
     return inertia_config

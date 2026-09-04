@@ -78,7 +78,9 @@ The last three are ordered relative to each other for reasons worth stating, bec
 
 uvicorn's own, installed **only** when `SM_TRUSTED_PROXY` is set — forwarded headers are never trusted by default. It sits outermost so the `X-Forwarded-*`-corrected scheme and client IP reach everything downstream: request logs record the real client rather than the proxy, and `request.url.scheme` reflects `X-Forwarded-Proto`.
 
-Behind a TLS-terminating proxy this is **required**, not a nicety. Without it the app believes it is serving `http` while the browser is on `https`, Inertia's `pushState` sees a cross-scheme URL, throws a `SecurityError`, and login breaks.
+Behind a TLS-terminating proxy this is **recommended**: without it the app believes it is serving `http` while the browser is on `https`, and every request — in the logs and in the audit trail — is attributed to the proxy's own address rather than the visitor's.
+
+It used to be load-bearing for the UI too, because Inertia's page url was absolute and its cross-scheme `pushState` threw a `SecurityError` on every page (GH #223). The page url is root-relative now, so that failure mode is gone whether or not this is set.
 
 Set it to a comma-separated list of proxy IPs/CIDRs, or `*` to trust any peer — correct when the container is only reachable through one proxy, wrong when anything else can connect.
 

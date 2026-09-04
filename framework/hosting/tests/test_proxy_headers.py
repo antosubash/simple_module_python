@@ -1,14 +1,19 @@
 """Proxy-header handling (X-Forwarded-Proto / X-Forwarded-For).
 
 Behind a TLS-terminating reverse proxy the app sees plain ``http`` on the
-container socket, so ``request.url.scheme`` is wrong. inertia-python copies
-that scheme into the page object's absolute ``url``; the browser then refuses
-the cross-scheme ``history.pushState`` and login breaks (GH #223).
+container socket and the proxy's own address as the client, so
+``request.url.scheme`` and ``request.client`` are both wrong.
 
 When ``SM_TRUSTED_PROXY`` is set, the host registers uvicorn's
 ``ProxyHeadersMiddleware`` as the outermost middleware so the corrected scheme
 and client IP are visible to every downstream middleware (logging included).
 Left unset (the default) nothing changes — the header is ignored.
+
+This used to be the *only* thing standing between a proxied install and a
+broken UI, because inertia-python copies the scheme into the page object's
+absolute ``url`` and the browser then refuses the cross-scheme
+``history.pushState`` (GH #223). The page url is root-relative now, so that
+coupling is gone and ``TestSchemeCorrection`` asserts its absence.
 """
 
 from __future__ import annotations
@@ -48,8 +53,8 @@ class TestMiddlewareWiring:
 
         ``app.user_middleware`` is in execution order (FastAPI reverses the
         LIFO add_middleware stack), so the proxy middleware must be first —
-        otherwise RequestLogging would log the proxy's address, and Inertia
-        would already have read the wrong scheme.
+        otherwise RequestLogging would log the proxy's address, and every
+        layer below it would read the uncorrected scheme.
         """
         app = create_app(_settings(trusted_proxy="*"))
         names = _names(app)
@@ -94,29 +99,27 @@ async def _client_for(settings: Settings):
 
 
 class TestSchemeCorrection:
-    @pytest.mark.parametrize(
-        ("trusted_proxy", "expected_scheme"),
-        [
-            ("*", "https"),  # trusted proxy → X-Forwarded-Proto honored
-            (None, "http"),  # no trust configured → header ignored
-        ],
-    )
-    async def test_inertia_page_url_scheme(
-        self, trusted_proxy: str | None, expected_scheme: str
-    ) -> None:
-        """The Inertia page object's absolute url reflects X-Forwarded-Proto.
+    @pytest.mark.parametrize("trusted_proxy", ["*", None])
+    async def test_the_inertia_page_url_carries_no_scheme(self, trusted_proxy: str | None) -> None:
+        """The page object's url is relative, so no scheme can be wrong.
 
-        This is the exact thing the browser chokes on: inertia-python sets
+        This used to be the thing the browser chokes on: upstream sets
         ``"url": str(request.url)``, scheme included, and embeds it in the
-        ``data-page`` blob of the rendered HTML.
+        ``data-page`` blob of the rendered HTML, so an install that had not set
+        ``SM_TRUSTED_PROXY`` shipped ``http://…`` to an ``https://`` document
+        and every ``pushState`` threw (GH #223).
+
+        The url is now root-relative, as the Inertia protocol specifies, and
+        the proxy setting is parametrized to show it no longer participates:
+        neither spelling can put an origin into the payload.
         """
         client, ctx = await _client_for(_settings(trusted_proxy=trusted_proxy))
         try:
             resp = await client.get(_LOGIN_PATH, headers={"X-Forwarded-Proto": "https"})
             assert resp.status_code == 200
-            assert f"{expected_scheme}://testserver{_LOGIN_PATH}" in resp.text
-            wrong = "https" if expected_scheme == "http" else "http"
-            assert f"{wrong}://testserver{_LOGIN_PATH}" not in resp.text
+            assert "http://testserver" not in resp.text
+            assert "https://testserver" not in resp.text
+            assert f'"url": "{_LOGIN_PATH}"' in resp.text
         finally:
             await client.aclose()
             await ctx.__aexit__(None, None, None)
