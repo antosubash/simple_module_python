@@ -1,4 +1,9 @@
-"""file_storage service — upload, list, download, delete orchestration."""
+"""file_storage service — upload, download, delete orchestration.
+
+The read side (listing, paging, bucket totals) is mixed in from
+:mod:`file_storage.reads`, so this file stays about the half of the job
+that talks to a storage backend and mutates rows.
+"""
 
 from __future__ import annotations
 
@@ -20,8 +25,10 @@ from file_storage import constants, queries
 from file_storage.contracts.schemas import StoredFileOut
 from file_storage.contracts.service import StorageNotFoundError
 from file_storage.models import StoredFile
+from file_storage.reads import FileStorageReads
 
 if TYPE_CHECKING:
+    from file_storage.aggregates import AggregateCache
     from file_storage.contracts.service import StorageBackend
     from file_storage.settings import FileStorageSettings
 
@@ -60,7 +67,7 @@ class RedirectDownload:
 Download = StreamDownload | RedirectDownload
 
 
-class FileStorageService:
+class FileStorageService(FileStorageReads):
     """Orchestrates validation, hashing, backend IO, and DB lifecycle."""
 
     def __init__(
@@ -68,10 +75,17 @@ class FileStorageService:
         db: AsyncSession,
         backend: StorageBackend,
         settings: FileStorageSettings,
+        aggregate_cache: AggregateCache | None = None,
     ) -> None:
         self.db = db
         self.backend = backend
         self.settings = settings
+        # Optional on purpose. The app-wide cache lives on ``app.state`` and is
+        # handed in by ``deps``; a service built directly — a test, a script —
+        # gets ``None`` and reads the database every time, which is what a
+        # caller checking "did my write land?" wants and what keeps a
+        # short-lived instance from serving numbers nobody invalidates.
+        self._aggregate_cache = aggregate_cache
 
     # ── Upload ───────────────────────────────────────────────────────
 
@@ -137,37 +151,6 @@ class FileStorageService:
         allowed = self.settings.allowed_content_types
         if allowed is not None and content_type not in allowed:
             raise ContentTypeNotAllowedError(f"Content-Type {content_type!r} not in allow-list.")
-
-    # ── Read ─────────────────────────────────────────────────────────
-    #
-    # The SQL lives in ``queries.py``; these are the seam callers already use.
-
-    async def list_files(
-        self,
-        *,
-        page: int = 1,
-        per_page: int = 20,
-        created_by: str | None = None,
-        search: str | None = None,
-        content_type: str | None = None,
-    ) -> tuple[list[StoredFileOut], int]:
-        return await queries.list_files(
-            self.db,
-            page=page,
-            per_page=per_page,
-            created_by=created_by,
-            search=search,
-            content_type=content_type,
-        )
-
-    async def content_type_facets(self, *, created_by: str | None = None) -> list[dict]:
-        return await queries.content_type_facets(self.db, created_by=created_by)
-
-    async def uploader_facets(self) -> list[dict]:
-        return await queries.uploader_facets(self.db)
-
-    async def used_bytes(self) -> int:
-        return await queries.used_bytes(self.db)
 
     async def get(self, file_id: uuid.UUID) -> StoredFile:
         row = await self.db.get(StoredFile, file_id)
