@@ -17,6 +17,7 @@ from settings._module_settings import SECRET_MASK, _field_view
 
 _INERTIA = {"X-Inertia": "true", "X-Inertia-Version": "1.0"}
 _CREATE = "/admin/settings/create"
+_WITH_PASSWORD = "postgresql://svc:hunter2@db.internal/app"
 
 
 class _Dsns(BaseSettings):
@@ -111,9 +112,51 @@ class TestMaskSentinelIsNeverStored:
     def test_a_masked_dsn_echoed_back_is_dropped(self):
         """The editor renders the mask; submitting it must not overwrite the
         real DSN with a row of dots. The name rule does not know
-        ``broker_url`` is a secret, so the sentinel has to be the signal."""
+        ``broker_url`` is a secret, so the field's rendered ``is_secret`` is
+        what says the sentinel could be an echo."""
         from settings.endpoints.module_api import _strip_mask_sentinels
 
-        assert _strip_mask_sentinels({"broker_url": SECRET_MASK, "queue": "celery"}) == {
+        masked = frozenset({"broker_url"})
+        assert _strip_mask_sentinels(masked, {"broker_url": SECRET_MASK, "queue": "celery"}) == {
             "queue": "celery"
         }
+
+    def test_the_sentinel_is_stored_on_a_field_that_was_never_masked(self):
+        """A field the editor rendered in clear text is not echoing anything, so
+        a value that happens to equal the mask is a real edit. Dropping it on the
+        sentinel alone silently discarded the write with nothing to show for it."""
+        from settings.endpoints.module_api import _strip_mask_sentinels
+
+        changes = {"queue": SECRET_MASK}
+        assert _strip_mask_sentinels(frozenset(), changes) == changes
+
+
+class TestContainersAreWalked:
+    """A DSN does not stop being a credential for sitting inside a list.
+
+    ``embeds_credential`` returned False for anything that was not a ``str``,
+    so a ``list[str]`` of broker URLs or a ``dict`` of per-tenant DSNs would
+    have been rendered in full.
+    """
+
+    def test_a_dsn_in_a_list_is_a_credential(self):
+        from settings._secrets import embeds_credential
+
+        assert embeds_credential(["redis://localhost:6379/0", _WITH_PASSWORD]) is True
+
+    def test_a_dsn_in_a_dict_value_is_a_credential(self):
+        from settings._secrets import embeds_credential
+
+        assert embeds_credential({"primary": _WITH_PASSWORD}) is True
+
+    def test_a_nested_container_is_walked(self):
+        from settings._secrets import embeds_credential
+
+        assert embeds_credential({"shards": [{"dsn": _WITH_PASSWORD}]}) is True
+
+    def test_password_free_containers_stay_visible(self):
+        from settings._secrets import embeds_credential
+
+        assert embeds_credential(["redis://localhost:6379/0"]) is False
+        assert embeds_credential({"n": 5, "flag": True, "url": "https://example.com"}) is False
+        assert embeds_credential(None) is False

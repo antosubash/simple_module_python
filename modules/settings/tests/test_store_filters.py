@@ -198,3 +198,29 @@ class TestServiceQuery:
         counts = await SettingService(db_session).count_by_scope()
 
         assert counts == {"all": 1, "system": 1, "tenant": 0, "user": 0}
+
+
+class TestPaginationSchema:
+    """Lenient parsing, honest OpenAPI.
+
+    ``page``/``per_page`` were typed ``str`` so a bookmarked link with a stale
+    value would never 422. The intent is right; the side effect was a schema
+    advertising page numbers as strings to every generated client.
+    """
+
+    async def test_the_schema_advertises_integers(
+        self, app: FastAPI, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        schema = (await authenticated_client.get("/openapi.json")).json()
+        params = {p["name"]: p["schema"] for p in schema["paths"][_STORE]["get"]["parameters"]}
+        assert params["page"]["type"] == "integer"
+        assert params["per_page"]["type"] == "integer"
+
+    async def test_an_unparseable_page_still_renders(
+        self, seeded: FastAPI, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        """A link someone edited by hand falls back to page 1 rather than 422ing."""
+        props = await _props(authenticated_client, "?page=banana&per_page=nonsense")
+
+        assert props["pagination"]["page"] == 1
+        assert props["settings"]

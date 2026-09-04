@@ -11,6 +11,9 @@ exactly what the query ran with.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Annotated, Any
+
+from pydantic import BeforeValidator
 
 from settings.constants import ALL_SCOPES, DEFAULT_PER_PAGE, MAX_PER_PAGE, SCOPE_ALL
 from settings.contracts.schemas import SettingScope
@@ -32,18 +35,33 @@ class BrowseQuery:
         return None if self.scope == SCOPE_ALL else SettingScope(self.scope)
 
 
-def _int_or(raw: str, fallback: int) -> int:
-    try:
-        return int(raw)
-    except (TypeError, ValueError):
-        return fallback
+def _lenient_int(fallback: int) -> BeforeValidator:
+    """Coerce a query param to ``int``, substituting ``fallback`` for garbage.
+
+    Declared as a validator on an ``int``-annotated param rather than by typing
+    the param ``str``: both accept ``?page=banana`` without a 422, but only this
+    one leaves the OpenAPI schema advertising an integer. A generated client
+    that reads the schema was otherwise told to send page numbers as strings.
+    """
+
+    def coerce(raw: Any) -> int:
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return fallback
+
+    return BeforeValidator(coerce)
 
 
-def parse(scope: str, q: str, page: str, per_page: str) -> BrowseQuery:
+PageParam = Annotated[int, _lenient_int(1)]
+PerPageParam = Annotated[int, _lenient_int(DEFAULT_PER_PAGE)]
+
+
+def parse(scope: str, q: str, page: int, per_page: int) -> BrowseQuery:
     """Read the four query params, substituting defaults for anything unusable."""
     return BrowseQuery(
         scope=scope if scope in ALL_SCOPES else SCOPE_ALL,
         q=q,
-        page=max(_int_or(page, 1), 1),
-        per_page=max(1, min(_int_or(per_page, DEFAULT_PER_PAGE), MAX_PER_PAGE)),
+        page=max(page, 1),
+        per_page=max(1, min(per_page, MAX_PER_PAGE)),
     )

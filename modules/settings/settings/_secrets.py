@@ -30,8 +30,34 @@ def is_secret_field(name: str) -> bool:
     return bool(_SECRET_PATTERNS.search(name))
 
 
+def is_named_secret(name: str, value_type: str | None = None) -> bool:
+    """True if the *name* marks this field as credential material.
+
+    ``value_type`` exempts the types that cannot hold one, so a numeric field
+    whose name merely contains a secret-ish word is not masked and made
+    uneditable — ``reset_password_token_lifetime_seconds`` is an int, but it
+    matches on "password" exactly as the real secrets do. Phrased as "exempt
+    the types that cannot hold a credential" rather than "mask only strings" so
+    the failure direction is safe: an unexpected type (``str | None`` resolves
+    to "json") stays masked instead of silently exposing a secret.
+    """
+    if value_type in _NEVER_SECRET_TYPES:
+        return False
+    return is_secret_field(name)
+
+
+def conceals_secret(name: str, value: Any, value_type: str | None = None) -> bool:
+    """True if this name/value pair must be masked on the way out.
+
+    The one rule every read path shares: mask per *value* as well as per name,
+    so a DSN carrying a password is hidden even on a field called
+    ``broker_url``, while that field's password-free default is still shown.
+    """
+    return is_named_secret(name, value_type) or embeds_credential(value)
+
+
 def embeds_credential(value: Any) -> bool:
-    """True if ``value`` is a URL carrying a password in its authority.
+    """True if ``value`` carries a password in a URL authority.
 
     The name rule alone cannot see these: ``broker_url``, ``result_backend``,
     ``redis_url`` and ``database_url`` match nothing in
@@ -43,15 +69,26 @@ def embeds_credential(value: Any) -> bool:
     Judged on the value rather than the name because the name is the thing
     that was wrong. A DSN without a password stays visible: hiding
     ``redis://localhost:6379/0`` helps nobody debug why the queue is idle.
+
+    Containers are walked rather than dismissed: a ``list[str]`` of broker
+    URLs or a ``dict`` of per-tenant DSNs holds exactly the same material as
+    the bare string, and returning False for anything non-``str`` meant one
+    such field would have been shown in full.
     """
-    if not isinstance(value, str) or "://" not in value:
-        return False
-    try:
-        return bool(urlsplit(value).password)
-    except ValueError:
-        # A malformed authority (an unclosed IPv6 literal, say) is not a
-        # credential, but it must not take the settings screen down either.
-        return False
+    if isinstance(value, str):
+        if "://" not in value:
+            return False
+        try:
+            return bool(urlsplit(value).password)
+        except ValueError:
+            # A malformed authority (an unclosed IPv6 literal, say) is not a
+            # credential, but it must not take the settings screen down either.
+            return False
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return any(embeds_credential(item) for item in value)
+    if isinstance(value, dict):
+        return any(embeds_credential(item) for item in value.values())
+    return False
 
 
 def mask(value: Any) -> Any:

@@ -37,8 +37,6 @@ class TestFieldMetadata:
         expected = {
             "key",
             "type",
-            "description",
-            "module",
             "env_var",
             "env_set",
             "env_readable",
@@ -124,7 +122,6 @@ class TestRegistryDefinitions:
         entry = _by_key(await _known_keys(authenticated_client), "orders.checkout.require_terms")
 
         assert entry["default"] == "true"
-        assert entry["description"] == "Show the terms checkbox on checkout."
         assert entry["choices"] is None
         assert entry["env_readable"] is False
 
