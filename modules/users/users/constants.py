@@ -19,6 +19,11 @@ PERM_USERS_SELF_PROFILE = "users.self.profile"
 
 # Session keys
 SESSION_USER_ID_KEY = "user_id"
+# Revocation stamp copied out of ``User.session_version`` at login. A session
+# whose stamp has fallen behind the account's was minted before the owner
+# pressed "Sign out everywhere", so the auth provider refuses it. Absent means
+# 0, which is what every session predating the column carries.
+SESSION_VERSION_KEY = "session_version"
 
 # request.state flag set by the OAuth callback before find-or-create so the
 # manager's on_after_register hook can mark *newly provisioned* OAuth users as
@@ -27,7 +32,10 @@ SESSION_USER_ID_KEY = "user_id"
 OAUTH_REGISTRATION_REQUEST_FLAG = "users_oauth_registration"
 
 # Admin list-endpoint allowed filter/sort values
-ALLOWED_STATUS = frozenset({"active", "disabled"})
+# "active" here means active *and* verified: the table shows unverified and
+# invited as their own states, so folding them back into "active" would make
+# the filter disagree with the pill beside every row it returned.
+ALLOWED_STATUS = frozenset({"active", "unverified", "invited", "disabled"})
 ALLOWED_VERIFIED = frozenset({"yes", "no"})
 ALLOWED_SORT = frozenset({"email", "last_login_at", "created_at"})
 ALLOWED_ORDER = frozenset({"asc", "desc"})

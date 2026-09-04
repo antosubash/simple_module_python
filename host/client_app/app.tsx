@@ -3,6 +3,7 @@ import { ErrorBoundary } from '@simple-module-py/ui/components/ErrorBoundary';
 import { OfflineBanner } from '@simple-module-py/ui/components/OfflineBanner';
 import { formatTitle, setTitleAppName } from '@simple-module-py/ui/lib/app-title';
 import { startSpaLinkInterception } from '@simple-module-py/ui/lib/spa-links';
+import { initTheme } from '@simple-module-py/ui/lib/theme';
 import { useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { bootI18nFromInitialPage, subscribeI18nToNavigation } from './i18n';
@@ -24,6 +25,10 @@ createInertiaApp({
       .branding;
     setTitleAppName(branding?.appName);
     bootI18nFromInitialPage(props.initialPage.props);
+    // Before the first render, so a dark-theme user never sees a light frame
+    // flash. The returned unsubscribe is deliberately dropped: the listener
+    // keeps `system` following the OS for the life of the document.
+    initTheme();
 
     function Root() {
       const boundaryRef = useRef<ErrorBoundary>(null);

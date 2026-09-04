@@ -39,7 +39,13 @@ class ConsoleMailer:
             "users.reset.email", extra={"to": email, "link": link, "app_name": self._app_name()}
         )
 
-    async def send_invite(self, email: str, token: str, invited_by_name: str) -> None:
+    async def send_invite(
+        self,
+        email: str,
+        token: str,
+        invited_by_name: str,
+        message: str | None = None,
+    ) -> None:
         link = f"{self._base}/users/invite/accept?token={token}"
         logger.info(
             "users.invite.email",
@@ -47,6 +53,9 @@ class ConsoleMailer:
                 "to": email,
                 "link": link,
                 "invited_by": invited_by_name,
+                # Not "message": ``LogRecord`` already owns that attribute and
+                # ``logging`` raises KeyError rather than shadowing it.
+                "message_body": message,
                 "app_name": self._app_name(),
             },
         )

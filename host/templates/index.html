@@ -9,6 +9,27 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {# Blocking on purpose, and before any stylesheet: `initTheme()` runs after
+       React mounts, so a dark-mode user saw a white page for the length of the
+       bundle download. Reads the same `sm.theme` key `theme.ts` writes and
+       applies the same rule; `theme.ts` stays the source of truth for every
+       later change, including the OS flipping at sunset. Inline is allowed
+       here — the CSP in `middleware.py` carries 'unsafe-inline' for scripts
+       (Vite's preamble needs it); tightening it to a nonce is a change to make
+       there and here together. #}
+    <script>
+      (function () {
+        try {
+          var pref = window.localStorage.getItem('sm.theme');
+          var dark =
+            pref === 'dark' ||
+            (pref !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+        } catch (e) {
+          /* Storage denied (private Safari, sandboxed iframe) — light it is. */
+        }
+      })();
+    </script>
     {% set _brand = branding_head(request) %}
     {# `inertia` marks this as head-managed. Inertia only replaces elements
        carrying that attribute — a plain <title> is left alone and its own

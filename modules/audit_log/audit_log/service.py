@@ -2,17 +2,33 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from datetime import datetime
 
 from simple_module_db.provider import DatabaseProvider
-from sqlalchemy import Select, func, literal_column, select
+from sqlalchemy import Select, and_, func, literal_column, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from audit_log.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from audit_log.contracts.schemas import AuditEntryList, AuditEntryRead
+from audit_log.filters import EntryFilters
 from audit_log.models import AuditEntry
 
 _ENTITY_TYPE_CTE = "distinct_entity_type"
+
+# Only AuditEntryRead's columns: plain rows, no ORM hydration, so a page (or an
+# export walking every page) never materialises AuditEntry objects it throws
+# away immediately.
+_READ_COLUMNS = (
+    AuditEntry.id,
+    AuditEntry.entity_type,
+    AuditEntry.entity_id,
+    AuditEntry.action,
+    AuditEntry.changes,
+    AuditEntry.user_id,
+    AuditEntry.correlation_id,
+    AuditEntry.created_at,
+)
 
 
 def _distinct_stmt_for_dialect(provider: DatabaseProvider) -> Select:
@@ -67,41 +83,34 @@ class AuditLogService:
         page: int = 1,
         page_size: int = DEFAULT_PAGE_SIZE,
     ) -> AuditEntryList:
+        return await self.list_filtered(
+            EntryFilters(
+                entity_type=entity_type,
+                entity_id=entity_id,
+                action=action,
+                user_id=user_id,
+                correlation_id=correlation_id,
+                from_date=from_date,
+                to_date=to_date,
+            ),
+            page=page,
+            page_size=page_size,
+        )
+
+    async def list_filtered(
+        self,
+        filters: EntryFilters,
+        *,
+        page: int = 1,
+        page_size: int = DEFAULT_PAGE_SIZE,
+    ) -> AuditEntryList:
         page_size = min(max(page_size, 1), MAX_PAGE_SIZE)
         page = max(page, 1)
+        conditions = filters.conditions()
 
-        conditions = []
-        if entity_type:
-            conditions.append(AuditEntry.entity_type == entity_type)
-        if entity_id:
-            conditions.append(AuditEntry.entity_id == entity_id)
-        if action:
-            conditions.append(AuditEntry.action == action)
-        if user_id:
-            conditions.append(AuditEntry.user_id == user_id)
-        # One request that touched four entities writes four rows sharing a
-        # correlation id. Filtering on it is what turns those back into a
-        # single action instead of four unrelated-looking events.
-        if correlation_id:
-            conditions.append(AuditEntry.correlation_id == correlation_id)
-        if from_date:
-            conditions.append(AuditEntry.created_at >= from_date)
-        if to_date:
-            conditions.append(AuditEntry.created_at <= to_date)
-
-        # Select only AuditEntryRead's columns (plain rows, no ORM hydration) and
-        # count the same conditions directly — avoids hydrating full AuditEntry
-        # objects per page and the subquery wrapper around the count.
-        cols = select(
-            AuditEntry.id,
-            AuditEntry.entity_type,
-            AuditEntry.entity_id,
-            AuditEntry.action,
-            AuditEntry.changes,
-            AuditEntry.user_id,
-            AuditEntry.correlation_id,
-            AuditEntry.created_at,
-        )
+        # Count the same conditions directly rather than wrapping the row query
+        # in a subquery.
+        cols = select(*_READ_COLUMNS)
         count_stmt = select(func.count()).select_from(AuditEntry)
         for cond in conditions:
             cols = cols.where(cond)
@@ -119,6 +128,47 @@ class AuditLogService:
         items = [AuditEntryRead(**row._mapping) for row in rows]
 
         return AuditEntryList(items=items, total=total, page=page, page_size=page_size)
+
+    async def iter_entries(
+        self, filters: EntryFilters, *, batch_size: int = MAX_PAGE_SIZE
+    ) -> AsyncIterator[list[AuditEntryRead]]:
+        """Walk every matching row, newest first, one batch at a time.
+
+        Keyset paging on ``(created_at, id)`` rather than OFFSET: an export of
+        a large log would otherwise make the database re-scan and discard
+        everything it has already sent, once per batch. Same ordering as the
+        screen, so a file and the page it came from read alike.
+        """
+        conditions = filters.conditions()
+        cursor: tuple[datetime, object] | None = None
+
+        while True:
+            stmt = select(*_READ_COLUMNS)
+            for cond in conditions:
+                stmt = stmt.where(cond)
+            if cursor is not None:
+                last_created, last_id = cursor
+                # Spelled out rather than a row-value comparison because the
+                # two keys sort in opposite directions — newest first, then id
+                # ascending, exactly as the screen orders them. A bulk write
+                # stamps every row of one request identically, so the id half
+                # is what stops a batch boundary swallowing the rest of them.
+                stmt = stmt.where(
+                    or_(
+                        AuditEntry.created_at < last_created,
+                        and_(AuditEntry.created_at == last_created, AuditEntry.id > last_id),
+                    )
+                )
+            stmt = stmt.order_by(AuditEntry.created_at.desc(), AuditEntry.id).limit(batch_size)
+
+            rows = (await self.db.execute(stmt)).all()
+            if not rows:
+                return
+            batch = [AuditEntryRead(**row._mapping) for row in rows]
+            yield batch
+            if len(rows) < batch_size:
+                return
+            cursor = (batch[-1].created_at, batch[-1].id)
 
     async def distinct_entity_types(self) -> list[str]:
         """Every entity_type present, sorted — feeds the browse filter dropdown.

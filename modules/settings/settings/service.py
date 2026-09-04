@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from settings.constants import (
+    ALL_SCOPES,
+    DEFAULT_PER_PAGE,
+    SCOPE_ALL,
     SENSITIVE_KEYS,
     SENSITIVE_PLACEHOLDER,
     SYSTEM_SCOPE_ID,
@@ -74,6 +78,65 @@ class SettingService:
             select(Setting).order_by(Setting.scope, Setting.scope_id, Setting.key)
         )
         return [_out(row) for row in result.scalars()]
+
+    async def list_filtered(
+        self,
+        scope: SettingScope | None = None,
+        q: str | None = None,
+        page: int = 1,
+        per_page: int = DEFAULT_PER_PAGE,
+    ) -> tuple[list[SettingOut], int]:
+        """One page of rows plus the unpaged total for the same filters.
+
+        The browse screen used to receive every row and filter in the browser,
+        which made the payload, the render and find-in-page all scale with the
+        whole table instead of with what was asked for. ``q`` matches the key
+        only — the search box says "Search keys…", and quietly matching values
+        would surface rows whose key has nothing to do with the query.
+        """
+        conditions = self._filter_conditions(scope, q)
+        total = await self.db.scalar(select(func.count()).select_from(Setting).where(*conditions))
+        stmt = (
+            select(Setting)
+            .where(*conditions)
+            .order_by(Setting.scope, Setting.scope_id, Setting.key)
+            .offset(max(page - 1, 0) * per_page)
+            .limit(per_page)
+        )
+        result = await self.db.execute(stmt)
+        return [_out(row) for row in result.scalars()], int(total or 0)
+
+    async def count_by_scope(self, q: str | None = None) -> dict[str, int]:
+        """Per-scope tallies for the filter tabs, plus ``all``.
+
+        Every scope is named even at zero: a tab that disappears when its count
+        drops to nothing moves the other tabs under the cursor mid-search.
+        The scope filter itself is deliberately not applied — the tabs describe
+        what each of them *would* show, so selecting one must not zero the rest.
+        """
+        conditions = self._filter_conditions(None, q)
+        stmt = select(Setting.scope, func.count()).where(*conditions).group_by(Setting.scope)
+        result = await self.db.execute(stmt)
+        tallies = {str(scope): int(count) for scope, count in result.all()}
+        counts = {name: tallies.get(name, 0) for name in ALL_SCOPES}
+        return {SCOPE_ALL: sum(counts.values()), **counts}
+
+    @staticmethod
+    def _filter_conditions(scope: SettingScope | None, q: str | None) -> list:
+        conditions = []
+        if scope is not None:
+            conditions.append(Setting.scope == scope.value)
+        needle = (q or "").strip()
+        if needle:
+            # Setting keys are full of underscores, and `_` is a LIKE wildcard:
+            # unescaped, a search for "smtp_host" also matches "smtpXhost", and
+            # a stray "%" matches the entire table. ``ilike`` is emulated by
+            # SQLAlchemy on SQLite (lower() on both sides), so one expression
+            # is case-insensitive on both databases.
+            conditions.append(
+                Setting.key.ilike(like_contains_pattern(needle), escape=LIKE_ESCAPE_CHAR)
+            )
+        return conditions
 
     async def list_by_scope(
         self, scope: SettingScope, scope_id: str = SYSTEM_SCOPE_ID

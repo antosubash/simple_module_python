@@ -48,8 +48,7 @@ export function BrandingMark({
   const wordmark = (
     <span
       className={
-        labelClassName ??
-        `${labelSize} font-semibold text-white font-[var(--font-display)] tracking-tight`
+        labelClassName ?? `${labelSize} font-semibold text-white font-display tracking-tight`
       }
     >
       {appName}
@@ -66,9 +65,7 @@ export function BrandingMark({
         />
       ) : (
         <div className={`${box} ${accentColor} flex items-center justify-center ${badgeShadow}`}>
-          <span className={`text-white font-bold ${initialSize} font-[var(--font-display)]`}>
-            {initial}
-          </span>
+          <span className={`text-white font-bold ${initialSize} font-display`}>{initial}</span>
         </div>
       )}
       {caption ? (

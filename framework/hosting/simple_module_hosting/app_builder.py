@@ -18,7 +18,7 @@ from simple_module_core.health import HealthRegistry
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRouteRegistry
-from simple_module_core.services import Services
+from simple_module_core.services import DiagnosticsState, Services
 from simple_module_core.setup_steps import SetupRegistry
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
@@ -142,13 +142,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     i18n_registry, i18n_extra = build_i18n_registry(settings, modules, _PROJECT_ROOT)
 
     # ── Phase 2: Run diagnostics (dev only) ────────────────
+    # Kept on Services rather than printed and dropped: the Doctor screen
+    # renders this exact result and its "Re-run checks" calls ``rerun()``.
+    diagnostics_state = DiagnosticsState()
     if settings.is_development:
-        diagnostics = run_diagnostics(
+        diagnostics_state.runner = lambda: run_diagnostics(
             modules,
             i18n_supported_locales=settings.i18n_supported_locales,
             i18n_default_locale=settings.i18n_default_locale,
             i18n_extra_sources=i18n_extra,
         )
+        diagnostics = diagnostics_state.rerun()
         errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]
         if diagnostics:
             print_diagnostics(diagnostics)
@@ -288,6 +292,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         i18n_registry=i18n_registry,
         inertia_config=inertia_config,
         modules=tuple(modules),
+        diagnostics=diagnostics_state,
     )
 
     return app

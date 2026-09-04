@@ -16,9 +16,50 @@ import re
 
 import httpx
 import pytest
+from fastapi import Depends, Request
+from simple_module_hosting.permissions import RequiresPermission
 
 _NOT_FOUND = 404
+_FORBIDDEN = 403
 _MISSING_PATH = "/definitely/not/a/real/route"
+_GUARDED_PERMISSION = "settings.manage"
+_GUARDED_PATH = "/permission-guard-probe"
+
+
+def _without_the_guarded_permission(request: Request) -> None:
+    """Stand in for a viewer whose roles do not grant the guarded permission.
+
+    The suite's only seeded account is an admin holding the wildcard, so
+    ``RequiresPermission`` would wave it straight through. Narrowing the
+    resolved set the guard reads is the smallest way to reach its deny branch
+    without inventing a second user and a second signed cookie.
+    """
+    request.state.resolved_permissions = {"settings.view"}
+
+
+@pytest.fixture
+async def guarded_client(app, authenticated_client: httpx.AsyncClient) -> httpx.AsyncClient:
+    """``authenticated_client``, plus a route its user is not allowed to open.
+
+    The route is mounted here rather than borrowed from a module: the point is
+    the framework guard, and pinning the test to whichever module happens to
+    ship a ``settings.manage`` endpoint today would make it fail for reasons
+    that have nothing to do with error pages.
+    """
+
+    async def _probe() -> dict[str, bool]:
+        return {"ok": True}
+
+    app.add_api_route(
+        _GUARDED_PATH,
+        _probe,
+        methods=["GET"],
+        dependencies=[
+            Depends(_without_the_guarded_permission),
+            Depends(RequiresPermission(_GUARDED_PERMISSION)),
+        ],
+    )
+    return authenticated_client
 
 
 def _inertia_page(body: str) -> dict:
@@ -78,3 +119,65 @@ class TestErrorPageSharedProps:
         """An unauthenticated 404 must not blow up on missing shared state."""
         resp = await client.get("/health/definitely-not-real")
         assert resp.status_code >= _NOT_FOUND
+
+
+class TestRequiredPermissionProp:
+    """A 403 from ``RequiresPermission`` must name the permission on the page.
+
+    The page's 403 copy is "Your role doesn't include ``<perm>``. Ask an admin
+    to grant it." — it can only say that if the missing permission reaches it
+    as its own prop. The guard already puts the name in the exception detail
+    ("Permission required: settings.manage"), but that string is a *message*
+    for a human, and rendering it verbatim would leak the wording of a Python
+    exception into the UI. Parsing it back out here keeps one source of truth
+    for the permission name and lets the page own the sentence.
+    """
+
+    async def test_permission_denied_page_names_the_permission(
+        self, guarded_client: httpx.AsyncClient
+    ) -> None:
+        resp = await guarded_client.get(_GUARDED_PATH)
+        assert resp.status_code == _FORBIDDEN
+        props = _inertia_page(resp.text)["props"]
+        assert props.get("required_permission") == _GUARDED_PERMISSION, (
+            f"403 page did not carry the missing permission; props={sorted(props)}"
+        )
+
+    async def test_a_written_detail_still_reaches_the_page(
+        self, guarded_client: httpx.AsyncClient
+    ) -> None:
+        """Only the boilerplate is dropped — a sentence a caller wrote survives."""
+        props = _inertia_page((await guarded_client.get(_GUARDED_PATH)).text)["props"]
+        assert props["message"] == f"Permission required: {_GUARDED_PERMISSION}"
+
+    async def test_other_errors_carry_no_permission(
+        self, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        """A 404 has no permission to name — the prop must be present and null,
+        not absent, or the page cannot tell "no permission involved" from "prop
+        was never wired"."""
+        props = _inertia_page((await authenticated_client.get(_MISSING_PATH)).text)["props"]
+        assert "required_permission" in props, f"prop missing entirely; props={sorted(props)}"
+        assert props["required_permission"] is None
+
+
+class TestStatusPhraseIsNotAMessage:
+    """The default ``HTTPException.detail`` is the status name, not copy.
+
+    Starlette fills ``detail`` with ``HTTPStatus(code).phrase`` when a caller
+    gives none, so a plain ``HTTPException(404)`` arrives at the page carrying
+    "Not Found" and a bare ``HTTPException(403)`` carrying "Forbidden". The
+    page prefers a server message over its own catalog description — correct
+    when the message says something ("Administrator access required"), useless
+    when it restates the title. Left alone, the deck's 404 and 403 sentences
+    would be unreachable on the paths that actually produce them.
+    """
+
+    async def test_unmatched_url_sends_no_message(
+        self, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        props = _inertia_page((await authenticated_client.get(_MISSING_PATH)).text)["props"]
+        assert not props["message"], (
+            "the status phrase reached the page as a message, so it renders in "
+            f"place of the catalog description: {props['message']!r}"
+        )

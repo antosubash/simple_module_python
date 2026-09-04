@@ -3,21 +3,31 @@
     "generic_title": "Something went wrong",
     "generic_description": "The page encountered an unexpected error. Try reloading, or return home.",
     "reload_button": "Reload Page",
-    "go_home_button": "Go Home",
-    "http_badge": "HTTP {code}"
+    "go_home_button": "Go Home"
   },
   "nav": {
     "admin": "Administration"
   },
   "switcher": {
-    "label": "Change language"
+    "label": "Change language",
+    "single_locale": "Only {locale} is enabled"
+  },
+  "topbar": {
+    "log_out": "Log out"
   },
   "relative_time": {
     "unknown": "unknown",
     "just_now": "just now",
     "seconds_ago": "{count}s ago",
     "minutes_ago": "{count}m ago",
-    "hours_ago": "{count}h ago"
+    "hours_ago": "{count}h ago",
+    "days_ago": "{count}d ago",
+    "months_ago": "{count}mo ago",
+    "years_ago": "{count}y ago",
+    "in_minutes": "in {count}m",
+    "in_hours": "in {count}h",
+    "in_days": "in {count}d",
+    "expired": "expired"
   },
   "nav_groups": {
     "access": "Access",
@@ -35,20 +45,20 @@
     "empty": "Nothing matches that."
   },
   "admin": {
-    "panel_badge": "Admin Panel",
-    "back_to_app": "Back to App"
+    "panel_badge": "Admin panel",
+    "back_to_app": "Back to app"
   },
   "sidebar": {
     "open": "Open sidebar",
-    "close": "Close sidebar"
+    "close": "Close sidebar",
+    "back": "Back"
   },
   "public_nav": {
     "docs": "Docs",
     "modules": "Modules",
     "github": "GitHub",
-    "open_dashboard": "Open Dashboard",
-    "log_in": "Log in",
-    "sign_up": "Sign up",
+    "open_dashboard": "Open dashboard",
+    "sign_in": "Sign in",
     "open_menu": "Open menu",
     "close_menu": "Close menu"
   }

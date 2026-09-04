@@ -72,6 +72,23 @@ class TaskExecutionListResponse(SQLModel):
     per_page: int
     status: TaskStatus | None = None
     task_name: str | None = None
+    queue: str | None = None
+
+
+class RetryFailedResult(SQLModel):
+    """What a bulk retry actually did.
+
+    The caller cannot compute either number: the endpoint decides which rows
+    count as retryable and caps how many it will take in one pass, so both have
+    to come back from the action rather than be inferred from what the screen
+    was showing.
+    """
+
+    queued: int
+    # Eligible rows the batch cap left behind. Non-zero means "press it again";
+    # the UI says so rather than leaving the operator to wonder why the backlog
+    # only half moved.
+    remaining: int = 0
 
 
 class WorkerInfo(SQLModel):
@@ -84,6 +101,10 @@ class WorkerInfo(SQLModel):
     pool_size: int | None = None
     total_processed: int | None = None
     software: str | None = None
+    # Seconds since this worker process started, as it reports them. ``None``
+    # for a worker that never answered ``stats()`` — an offline worker has no
+    # uptime to claim, and zero would read as "just restarted".
+    uptime_seconds: float | None = None
 
 
 class WorkerSnapshot(SQLModel):

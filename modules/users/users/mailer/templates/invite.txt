@@ -1,5 +1,9 @@
 {{ invited_by_name }} invited you to join {{ app_name }}.
+{% if message %}
+{{ invited_by_name }} added:
 
+    {{ message }}
+{% endif %}
 Accept the invitation: {{ link }}
 
 If you weren't expecting this, you can safely ignore this email.

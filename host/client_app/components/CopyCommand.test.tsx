@@ -6,15 +6,20 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 vi.mock('@simple-module-py/i18n', () => ({
   useT: () => ({
     t: (key: string) =>
-      ({ 'host.landing.copy_command': 'Copy command', 'host.landing.command_copied': 'Copied' })[
-        key
-      ] ?? key,
+      ({
+        'host.landing.copy_command': 'Copy command',
+        'host.landing.command_copied': 'Copied',
+        'host.landing.copy_label': 'Copy',
+        'host.landing.copied_label': '✓ Copied',
+      })[key] ?? key,
   }),
   keys: {
     host: {
       landing: {
         copy_command: 'host.landing.copy_command',
         command_copied: 'host.landing.command_copied',
+        copy_label: 'host.landing.copy_label',
+        copied_label: 'host.landing.copied_label',
       },
     },
   },
@@ -63,13 +68,36 @@ describe('CopyCommand', () => {
     expect(writeText).toHaveBeenCalledWith(COMMAND);
   });
 
-  test('announces the copy to assistive tech', async () => {
+  // The deck labels the control in words, not an icon: a bare glyph on a
+  // dark strip reads as decoration, and this is the one action the hero has.
+  test('labels the control "Copy" before anything is copied', () => {
+    stubClipboard(() => Promise.resolve());
+    render(<CopyCommand command={COMMAND} />);
+
+    expect(screen.getByRole('button', { name: 'Copy command' })).toHaveTextContent('Copy');
+    expect(screen.queryByText('✓ Copied')).not.toBeInTheDocument();
+  });
+
+  test('swaps the visible label to "✓ Copied" after a click', async () => {
     stubClipboard(() => Promise.resolve());
     render(<CopyCommand command={COMMAND} />);
 
     await clickCopy();
 
-    expect(screen.getByText('Copied')).toBeInTheDocument();
+    expect(screen.getByText('✓ Copied')).toBeInTheDocument();
+  });
+
+  // WCAG 2.5.3: the accessible name has to contain the visible label. A fixed
+  // "Copy command" over a button reading "✓ Copied" fails that, and tells
+  // voice control to say a word the button no longer shows.
+  test('moves the accessible name with the visible label', async () => {
+    stubClipboard(() => Promise.resolve());
+    render(<CopyCommand command={COMMAND} />);
+
+    await clickCopy();
+
+    expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy command' })).not.toBeInTheDocument();
   });
 
   test('clears the announcement after the reset window', async () => {
@@ -78,13 +106,14 @@ describe('CopyCommand', () => {
     render(<CopyCommand command={COMMAND} />);
 
     await clickCopy();
-    expect(screen.getByText('Copied')).toBeInTheDocument();
+    expect(screen.getByText('✓ Copied')).toBeInTheDocument();
 
     await act(async () => {
       vi.advanceTimersByTime(2000);
     });
 
-    expect(screen.queryByText('Copied')).not.toBeInTheDocument();
+    expect(screen.queryByText('✓ Copied')).not.toBeInTheDocument();
+    expect(screen.getByText('Copy')).toBeInTheDocument();
   });
 
   test('stays quiet when the clipboard is unavailable', async () => {
@@ -96,6 +125,6 @@ describe('CopyCommand', () => {
 
     await clickCopy();
 
-    expect(screen.queryByText('Copied')).not.toBeInTheDocument();
+    expect(screen.queryByText('✓ Copied')).not.toBeInTheDocument();
   });
 });

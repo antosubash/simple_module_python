@@ -67,6 +67,76 @@ def resolve_head_revision(alembic_ini_path: str | None = None) -> str | None:
     return heads[0] if heads else None
 
 
+#: Revisions shown on the Doctor screen's "Recent migrations" panel.
+_DEFAULT_LIST_LIMIT = 6
+
+
+def _applied_revisions(script, current: set[str]) -> set[str]:
+    """Every revision at or below one of *current*.
+
+    ``alembic_version`` only records the branch heads a database sits on; the
+    whole chain below each of them has necessarily been applied too, so a
+    membership test against the raw rows would report almost everything as
+    pending.
+    """
+    applied: set[str] = set()
+    for head in current:
+        try:
+            applied.update(rev.revision for rev in script.iterate_revisions(head, "base"))
+        except Exception as exc:  # pragma: no cover - only a stale/foreign stamp
+            # A database stamped at a revision this checkout doesn't have (code
+            # rolled back under a migrated DB). Report the rest rather than 500.
+            logger.debug("Unknown current revision %s: %s", head, exc)
+    return applied
+
+
+def list_migrations(
+    project_root: str | Path | None = None,
+    current_revision: str | None = None,
+    *,
+    limit: int = _DEFAULT_LIST_LIMIT,
+) -> list[dict]:
+    """Recent Alembic revisions, newest first, with their applied status.
+
+    The boot check answers *whether* the database is at head; this answers
+    which revisions exist and which of them this database has run — the two
+    halves the Doctor screen shows side by side.
+
+    ``current_revision`` is the comma-joined string ``migration_status``
+    reports, so a caller can hand its own state straight back in.
+
+    ``module`` is the revision's Alembic branch label, which by this project's
+    convention only the *first* migration of a module carries. Later revisions
+    on that branch report ``""`` rather than a module name guessed from the
+    message text.
+
+    Returns ``[]`` when Alembic isn't configured here — a deployment that
+    ships no ``host/`` renders an empty panel instead of erroring.
+    """
+    from alembic.util.exc import CommandError
+
+    ini_path = str(Path(project_root) / _ALEMBIC_INI_RELATIVE) if project_root else None
+    try:
+        script = script_directory(ini_path)
+        revisions = list(script.walk_revisions())
+    except (CommandError, FileNotFoundError) as exc:
+        logger.debug("Alembic script directory unavailable: %s", exc)
+        return []
+
+    current = {part.strip() for part in (current_revision or "").split(",") if part.strip()}
+    applied = _applied_revisions(script, current)
+
+    return [
+        {
+            "id": rev.revision,
+            "module": sorted(rev.branch_labels)[0] if rev.branch_labels else "",
+            "message": rev.doc or "",
+            "applied": rev.revision in applied,
+        }
+        for rev in revisions[:limit]
+    ]
+
+
 async def migration_status(engine, alembic_ini_path: str | None = None) -> dict:
     """Report database migration state without raising.
 

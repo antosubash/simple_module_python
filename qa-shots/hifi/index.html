@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hi-Fi Pages — implementation gallery (worktree-hifi-pages @ c591e33)</title>
+<style>
+  :root {
+    --bg: #f6f7f5; --panel: #ffffff; --ink: #14201b; --muted: #5d6b64; --line: #e2e6e3;
+    --primary: #047857; --primary-soft: #d1fae5; --amber: #b45309; --amber-soft: #fef3c7; --red: #b91c1c; --red-soft: #fee2e2;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1613; --panel: #16201b; --ink: #e8efeb; --muted: #9aa8a1; --line: #263029; --primary-soft: #0b3b2c; --amber-soft: #3b2a08; --red-soft: #3b1212; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 var(--sans); color: var(--ink); background: var(--bg); }
+  a { color: var(--primary); }
+  code { font-family: var(--mono); font-size: 13px; }
+  header { padding: 28px 32px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { margin: 0 0 4px; font-size: 24px; }
+  header p { margin: 0; color: var(--muted); }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .meta code { color: var(--ink); }
+  .layout { display: grid; grid-template-columns: 280px 1fr; min-height: calc(100vh - 120px); }
+  nav { border-right: 1px solid var(--line); background: var(--panel); padding: 16px 0; position: sticky; top: 0; height: 100vh; overflow: auto; }
+  nav h3 { margin: 12px 20px 4px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  nav button { display: flex; width: 100%; text-align: left; border: 0; background: none; color: var(--ink); padding: 8px 20px; font: inherit; cursor: pointer; gap: 10px; align-items: baseline; }
+  nav button:hover { background: var(--bg); }
+  nav button.active { background: var(--primary); color: #fff; }
+  nav button .num { font-family: var(--mono); font-size: 12px; opacity: .7; min-width: 28px; }
+  nav button .tag { margin-left: auto; font-size: 10px; padding: 1px 6px; border-radius: 999px; background: var(--amber-soft); color: var(--amber); }
+  nav button.active .tag { background: rgba(255,255,255,.2); color: #fff; }
+  main { padding: 24px 32px 64px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+  .seg button { border: 0; background: none; padding: 6px 12px; font: inherit; color: var(--ink); cursor: pointer; }
+  .seg button.on { background: var(--primary); color: #fff; }
+  .toolbar .spacer { flex: 1; }
+  .toolbar label { font-size: 13px; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; }
+  .card h2 { margin: 0 0 4px; font-size: 20px; display: flex; gap: 10px; align-items: baseline; }
+  .card h2 .num { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+  .card .routes { font-family: var(--mono); font-size: 12px; color: var(--muted); margin: 0 0 8px; }
+  .card .spec { margin: 0 0 14px; color: var(--muted); }
+  .note { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 6px; margin: 0 6px 10px 0; }
+  .note.warn { background: var(--amber-soft); color: var(--amber); }
+  .note.ok { background: var(--primary-soft); color: var(--primary); }
+  .shots { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+  figure { margin: 0; }
+  figcaption { font-size: 12px; color: var(--muted); margin-bottom: 6px; font-family: var(--mono); }
+  figure img { display: block; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: zoom-in; }
+  figure.desktop img { width: 100%; max-width: 960px; }
+  figure.phone img { width: 260px; }
+  figure.desktop { flex: 1 1 560px; }
+  .hidden { display: none !important; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .gates td:nth-child(3) { font-family: var(--mono); font-size: 13px; }
+  .issues li { margin: 4px 0; }
+  .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; align-items: flex-start; justify-content: center; overflow: auto; padding: 24px; z-index: 10; cursor: zoom-out; }
+  .lightbox.open { display: flex; }
+  .lightbox img { max-width: none; width: auto; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Hi-Fi Pages — implementation gallery</h1>
+  <p>Every screen of the Claude Design "Hi-Fi Pages" deck as implemented in <code>simple_module_python</code>, captured from the running app at 1440 px and 390 px.</p>
+  <div class="meta">
+    <span>Branch <code>worktree-hifi-pages</code> @ <code>c591e33</code> (64 commits over <code>main</code> 3f64f3c)</span>
+    <span>Spec <code>docs/superpowers/specs/2026-09-03-hifi-pages-design.md</code></span>
+    <span>Captured 2026-09-03 with Playwright (<code>shots.py</code> / <code>shots_extra.py</code>)</span>
+  </div>
+</header>
+<div class="layout">
+  <nav id="nav"></nav>
+  <main>
+    <div class="toolbar">
+      <div class="seg" id="viewport">
+        <button data-vp="all" class="on">Both</button>
+        <button data-vp="desktop">Desktop 1440</button>
+        <button data-vp="phone">Phone 390</button>
+      </div>
+      <div class="seg" id="mode">
+        <button data-mode="one" class="on">One screen</button>
+        <button data-mode="all">All screens</button>
+      </div>
+      <span class="spacer"></span>
+      <label><input type="checkbox" id="showSummary" checked> Show summary sections</label>
+    </div>
+
+    <section id="summary">
+      <div class="card">
+        <h2>Verification gates at c591e33</h2>
+        <table class="gates">
+          <tr><th>Gate</th><th>Result</th><th>Command</th></tr>
+          <tr><td>Python tests</td><td>2739 passed (baseline 2700)</td><td>uv run pytest -q -p no:cacheprovider</td></tr>
+          <tr><td>JS tests</td><td>393 passed, 47 files</td><td>npx vitest run</td></tr>
+          <tr><td>Lint</td><td>clean (ruff, ty, biome, tsc ×13, file-size, hardcoded-strings, untranslated, metadata, readmes)</td><td>make lint</td></tr>
+          <tr><td>Doctor</td><td>0 findings</td><td>make doctor</td></tr>
+          <tr><td>E2E</td><td>33 passed (30 + 3 new mutating-flow tests)</td><td>uv run pytest -m e2e tests/e2e -q</td></tr>
+          <tr><td>Build</td><td>ok, 292 assets</td><td>npm run build</td></tr>
+          <tr><td>Design</td><td>65 screenshots compared against the deck, screen by screen</td><td>qa-shots/hifi/</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h2>Deliberate departures from the deck</h2>
+        <p class="spec">The contract between the deck and the implementation. Everything not listed here follows the deck.</p>
+        <table id="departures"></table>
+      </div>
+      <div class="card" id="issuesCard">
+        <h2>Open follow-ups filed as issues</h2>
+        <ul class="issues" id="issues"></ul>
+      </div>
+    </section>
+
+    <section id="screens"></section>
+  </main>
+</div>
+<div class="lightbox" id="lightbox"><img alt=""></div>
+
+<script>
+const SCREENS = [
+  { group: "Public screens", num: "01", title: "Landing", routes: ["/"], desktop: "01-landing-desktop.png", phone: "01-landing-phone.png",
+    spec: "Copy pass: badge, h1, subtitle, six feature cards, quickstart with a visible Copy / ✓ Copied label and grey terminal comments, CTA strip. Nav shows one “Sign in” (or “Open dashboard” when signed in)." },
+  { group: "Public screens", num: "02", title: "Login", routes: ["/users/login"], desktop: "02-login-desktop.png", phone: "02-login-phone.png",
+    spec: "Dark split layout; show/hide password; “Keep me signed in for 30 days” (new remember flag → 30-day session); “or” divider with “Continue with {provider}”; register link only when signup is allowed." },
+  { group: "Public screens", num: "03", title: "Register", routes: ["/users/register"], desktop: "03-register-desktop.png", phone: "03-register-phone.png",
+    spec: "Light split with intro and two check rows; strength meter and helper; field-level confirm error; “Create account”. Signup was enabled via the DB-backed users setting for this capture." },
+  { group: "Public screens", num: "04a", title: "Forgot password", routes: ["/users/forgot-password"], desktop: "04-forgot-desktop.png", phone: "04-forgot-phone.png",
+    spec: "“valid for {minutes} minutes” from settings; “Send reset link”." },
+  { group: "Public screens", num: "04b", title: "Forgot password — sent", routes: ["/users/forgot-password (after submit)"], desktop: "04-forgot-sent-desktop.png", phone: null,
+    spec: "Sent state with ✉ tile, bold email, amber console-mailer callout (only when the mailer does not deliver) and a resend countdown." },
+  { group: "Public screens", num: "04c", title: "Reset password", routes: ["/users/reset-password?token=…"], desktop: "04-reset-valid-desktop.png", phone: "04-reset-valid-phone.png",
+    spec: "“Set a new password” / “Confirm” / strength / “Save and sign in” (signs in with the email decoded from the token)." },
+  { group: "Public screens", num: "04d", title: "Reset password — link expired", routes: ["/users/reset-password?token=<expired>"], desktop: "04-reset-expired-desktop.png", phone: "04-reset-expired-phone.png",
+    spec: "“Link expired” state rendered on GET when the token is dead." },
+  { group: "Public screens", num: "05", title: "Verify email — link expired", routes: ["/users/verify?token=<expired>"], desktop: "05-verify-expired-desktop.png", phone: "05-verify-expired-phone.png",
+    spec: "Amber “Link expired” card with “Resend verification” (email decoded from the expired token); lifetime from settings." },
+  { group: "Public screens", num: "06a", title: "Accept invite", routes: ["/users/invite/accept?token=…"], desktop: "06-invite-valid-desktop.png", phone: "06-invite-valid-phone.png",
+    spec: "“{inviter} invited you to {app}”; summary card Email / Role / Expires; Full name field; “Join workspace”. Backend: invited_by claim, expires_at from exp, optional full_name on accept." },
+  { group: "Public screens", num: "06b", title: "Accept invite — link expired", routes: ["/users/invite/accept?token=<expired>"], desktop: "06-invite-expired-desktop.png", phone: "06-invite-expired-phone.png",
+    spec: "Expired-invite state inside the same AuthCardShell." },
+  { group: "Public screens", num: "07a", title: "Keycloak — sign-in interstitial", routes: ["/keycloak/login"], desktop: "07-keycloak-login-desktop.png", phone: "07-keycloak-login-phone.png",
+    spec: "Interstitial inside AuthCardShell with realm URL and “Not redirected? Continue manually”.",
+    warn: "These two captures are byte-identical to the signed-out pair: the route redirects to the realm before the interstitial paints. Tracked in issue #301." },
+  { group: "Public screens", num: "07b", title: "Keycloak — signed out", routes: ["/keycloak/logged-out"], desktop: "07-keycloak-loggedout-desktop.png", phone: "07-keycloak-loggedout-phone.png",
+    spec: "Real public route, now the post-logout target. Captured from a second server started with SM_AUTH_PROVIDER=keycloak." },
+  { group: "Public screens", num: "08", title: "Error 404", routes: ["/this-page-does-not-exist"], desktop: "08-404-desktop.png", phone: "08-404-phone.png",
+    spec: "Numeral coloured per status at 64 px inside a bordered card; sentence-case title; 403 names the missing permission; 500 shows the req_ id chip with copy and Retry; “Go home” targets the dashboard when signed in." },
+
+  { group: "App screens", num: "09", title: "Dashboard", routes: ["/dashboard/"], desktop: "09-dashboard-desktop.png", phone: "09-dashboard-phone.png",
+    spec: "New StatCard layout with “+{n} this month”; two-row ModuleTiles with loaded · healthy / degraded (amber) / no checks and Open / No view; demo placeholders removed." },
+  { group: "App screens", num: "10", title: "Users", routes: ["/admin/users/"], desktop: "10-users-desktop.png", phone: "10-users-phone.png",
+    spec: "Plain stat row; segmented Users / Roles; Status and Role dropdown filters; two-letter avatars; invited rows tinted with “invited 2d ago · expires in 5d” and Resend; dimmed disabled rows; relative Last seen; row click → edit; kebab menu; in-card “Showing 1–20 of N”." },
+  { group: "App screens", num: "11", title: "Add people", routes: ["/admin/users/add"], desktop: "11-addpeople-desktop.png", phone: "11-addpeople-phone.png",
+    spec: "Mode control “Invite by email” / “Create account”; amber mailer banner with “Configure SMTP”; chip email input (Enter/paste, invalid chips red, “N addresses · M invalid”); roles for the batch; optional message; persistent “Last batch” card." },
+  { group: "App screens", num: "12", title: "Edit user", routes: ["/admin/users/{id}"], desktop: "12-edituser-desktop.png", phone: "12-edituser-phone.png",
+    spec: "Header with avatar, name, joined / last login, status pill, “{n} unsaved changes” / Discard / Save; Details card with “Manage permissions →”; Account card actions; Recent activity from the audit log; Danger zone." },
+  { group: "App screens", num: "13", title: "Profile", routes: ["/users/me"], desktop: "13-profile-desktop.png", phone: "13-profile-phone.png",
+    spec: "Details, Password (POST /api/users/me/password, hidden for SSO users), Sessions (this browser + “Sign out everywhere” via session_version), Preferences (language, theme light/dark/system)." },
+  { group: "App screens", num: "14", title: "Edit role", routes: ["/admin/permissions/roles/{id}/edit"], desktop: "14-role-desktop.png", phone: "14-role-phone.png",
+    spec: "“Edit role: {name}”; Reset / Cancel / Save role; filter searches keys; “Granted only” toggle; bold granted count and flat bar; two-column cards with tri-state header checkbox; leave-guard." },
+  { group: "App screens", num: "15", title: "User grants", routes: ["/admin/permissions/users/{id}/edit"], desktop: "15-grants-desktop.png", phone: "15-grants-phone.png",
+    spec: "“Permissions — {email}”; plain stats (Roles, Direct grants, Effective n / total); legend direct grant / from role; cards with “{n} effective / {total}”; switch-first rows on phones with direct / granted-by pills." },
+  { group: "App screens", num: "16", title: "Settings store", routes: ["/admin/settings/store"], desktop: "16-settings-desktop.png", phone: "16-settings-phone.png",
+    spec: "Scope tabs with counts; “Search keys…”; server-side paging (20/page); columns Scope / Key (scope id sub-line) / Type / Value (hex swatch) / Actions." },
+  { group: "App screens", num: "17", title: "New override", routes: ["/admin/settings/create"], desktop: "17-settingnew-desktop.png", phone: "17-settingnew-phone.png",
+    spec: "1.3fr 1fr grid; suggestion dropdown “Registered by modules” with type · env / default meta; Resolved value panel (this override / env fallback / module default, restart note); secrets masked." },
+  { group: "App screens", num: "18", title: "Module settings", routes: ["/admin/settings/"], desktop: "18-modules-desktop.png", phone: "18-modules-phone.png",
+    spec: "Sidebar with package names and “· n overridden”; header outside the card; rows with trailing meta (env var · default / overridden in DB · Revert / write-only); Switch for booleans; Test connection with the last result." },
+
+  { group: "Ops screens", num: "19", title: "Feature flags", routes: ["/admin/feature-flags/"], desktop: "19-flags-desktop.png", phone: "19-flags-phone.png",
+    spec: "Segmented scope (system + tenants + Other…); Name / Description / System / Effective / Actions; “Clear override”; tinted overridden rows; “View change history →” into the audit log." },
+  { group: "Ops screens", num: "20", title: "File storage", routes: ["/file-storage/"], desktop: "20-files-desktop.png", phone: "20-files-phone.png",
+    spec: "Backend / usage / limit subtitle; drag-and-drop strip; uploads-in-progress card with cancel and retry; Type and Uploaded by filters; checkbox selection + “Delete selected” (new bulk endpoint); footer “{n} selected · showing a–b of N”." },
+  { group: "Ops screens", num: "21", title: "Confirm dialogs", routes: ["/file-storage/", "/admin/background-tasks/", "/admin/users/{id}"], desktop: "21-confirm-file-desktop.png", phone: null, extra: [["Queue retry (desktop)", "21-confirm-retry-desktop.png"], ["Delete user — destructive, type the email (desktop)", "21-confirm-user-desktop.png"]],
+    spec: "Shared ConfirmActionDialog: file delete names the file and backend; retry says “Queue retry” with the attempt count and an args box; user delete is destructive with “Type the email to confirm”." },
+  { group: "Ops screens", num: "22", title: "Background tasks", routes: ["/admin/background-tasks/"], desktop: "22-tasks-desktop.png", phone: "22-tasks-phone.png",
+    spec: "Workers + “Retry all failed” in the header; five tiles Queued / Running / Succeeded 24h / Failed / Stuck that act as filters; segmented status + Queue filter; six columns, mono task names, relative Queued, text Retry, clickable rows. WorkerHealthBanner kept (departure)." },
+  { group: "Ops screens", num: "23", title: "Task detail", routes: ["/admin/background-tasks/{id}"], desktop: "23-taskdetail-desktop.png", phone: "23-taskdetail-phone.png",
+    spec: "Mono title with status pill; “execution {id} · attempt {n} of {max}”; Details with Duration and Exception; Arguments / Keyword arguments side by side; terminal-styled traceback with Copy and highlighted last line; 320px 1fr grid." },
+  { group: "Ops screens", num: "24", title: "Workers", routes: ["/admin/background-tasks/workers"], desktop: "24-workers-desktop.png", phone: "24-workers-phone.png",
+    spec: "“Last updated HH:MM:SS”, Refresh, Executions; two-column fleet with mono hostnames, version · uptime, tinted pills, dimmed offline cards; broker-unreachable state shows the redacted broker URL and the real celery start command." },
+  { group: "Ops screens", num: "25", title: "Audit log", routes: ["/admin/audit-log/"], desktop: "25-audit-desktop.png", phone: "25-audit-phone.png",
+    spec: "Export CSV (streaming, honours filters, formula-escaped); filter grid with Entity type / Action / Actor / Date range + Apply / Clear; mono time; lowercase action pills; resolved entity labels with table-name tag; “field old → new” diffs; in-card paging." },
+  { group: "Ops screens", num: "26", title: "Branding", routes: ["/admin/branding/"], desktop: "26-branding-desktop.png", phone: "26-branding-phone.png",
+    spec: "“{n} unsaved changes” / Discard / Publish branding with dirty tracking; App name + Primary colour row; four preset chips; three image dropzones; footer text + links editor; Live preview with App / Sign-in / Email tabs." },
+  { group: "Ops screens", num: "27", title: "Doctor", routes: ["/admin/doctor/"], desktop: "27-doctor-desktop.png", phone: "27-doctor-phone.png",
+    spec: "Real data: diagnostics checks (re-run on POST), Alembic migrations with applied / pending status, dev-server rows; “Copy report” + “↻ Re-run checks”; Fix / Generate / Apply pending copy the command (departure)." },
+
+  { group: "Shell", num: "28", title: "Phone drawer", routes: ["/dashboard/ (drawer open)"], desktop: null, phone: "28-drawer-phone.png",
+    spec: "Full-width drawer below sm, ✕ + app name header, no icons on rows, active primary pill, 44 px rows; locale control moves to the drawer footer." },
+];
+
+const DEPARTURES = [
+  ["One charcoal shell with Main / Operations / System nav, Permissions as a top-level item", "Keep the registry-driven app/admin split (two sidebars, one emerald shell)", "#274 post-dates the deck and CLAUDE.md mandates the split; only the styling of nav items follows the deck."],
+  ["No footer inside the app frame", "Keep BrandingFooter", "Footer links became admin-configurable in #282/#287, after the deck."],
+  ["Landing badge “Batteries-included Django + Inertia starter”", "“Batteries-included FastAPI + Inertia starter”", "Deck typo."],
+  ["Settings nav lands on the raw override table; module forms are a sub-page", "Keep /admin/settings/ = module forms, /admin/settings/store = overrides", "Decided in #261; each screen is restyled in place."],
+  ["Files under an “Ops” admin group", "Stays at /file-storage/ in the app shell", "Moving it is an IA change, not a design change."],
+  ["Profile → Preferences → “Task failure emails” toggle", "Omitted", "No notification subsystem exists; a toggle that does nothing is worse than none."],
+  ["Profile → Sessions lists other devices with UA / IP", "Lists this browser only, plus “Sign out everywhere”", "Browser auth is a signed cookie, not a server-side session store; “Sign out everywhere” bumps a per-user session_version."],
+  ["Workers offline card “last heartbeat 6m ago”", "“offline” without an age", "Celery inspect cannot report a worker that did not answer."],
+  ["Storage subtitle “1.2 GB of 5 GB used”", "Quota segment appears only when SM_FILE_STORAGE_QUOTA_BYTES is set", "No quota concept existed; adding the setting is cheap, inventing a number is not."],
+  ["Doctor “Fix” / “Generate” / “Apply pending” run tools", "They copy the command to the clipboard", "Running Alembic from a web request is not something this app should do."],
+  ["Locale pill “EN” always visible", "Visible always; single-locale installs render a static label", "A control that opens nothing is noise, but the placement is kept."],
+  ["Register intro “The first account becomes the admin…”", "“New accounts start with no roles until an admin grants them.”", "The bootstrap admin is seeded from settings, not the first registrant."],
+  ["Module tiles tint degraded modules emerald-soft", "Degraded tiles are amber", "Emerald is the shell's “everything is fine” colour; amber matches Doctor warn rows and Failed/Stuck tiles."],
+  ["Tasks index has no worker banner", "WorkerHealthBanner stays above the table", "A backlog with no consumer looks identical to an idle queue; the banner answers “why is nothing happening?”."],
+  ["Users list collapses to a search-only bar on phones", "Dropdown filters, the stat row and the Users/Roles tabs stay at 390", "Dropping them made the phone layout a different feature rather than a narrower one."],
+  ["“Keep me signed in for 30 days” is just a longer cookie", "Signature window is 30 days; effective lifetime is bounded per session at 14 / 30 days via an absolute expires_at", "Starlette signs and expires with one number; the provider refuses sessions past their own deadline."],
+];
+
+// Follow-up issues filed on GitHub on 2026-09-03 for everything the review left open.
+const ISSUES = [
+  { number: 292, label: "bug", title: "Bearer/sm_auth tokens ignore the per-session expiry and their advertised lifetime", url: "https://github.com/antosubash/simple_module_python/issues/292" },
+  { number: 293, label: "bug", title: "Settings raw store and known-keys list return credential values unmasked", url: "https://github.com/antosubash/simple_module_python/issues/293" },
+  { number: 294, label: "enhancement", title: "Harden the session_version cache: TOCTOU read, pre-commit invalidation, cross-process lag", url: "https://github.com/antosubash/simple_module_python/issues/294" },
+  { number: 295, label: "enhancement", title: "Two tests only pass in full-suite order, and several new components ship untested", url: "https://github.com/antosubash/simple_module_python/issues/295" },
+  { number: 296, label: "enhancement", title: "Server-composed and split-key strings bypass the i18n catalogs", url: "https://github.com/antosubash/simple_module_python/issues/296" },
+  { number: 297, label: "enhancement", title: "packages/ui accessibility and deck-fidelity follow-ups", url: "https://github.com/antosubash/simple_module_python/issues/297" },
+  { number: 298, label: "bug", title: "Concurrent “Retry failed” presses re-enqueue the same executions twice", url: "https://github.com/antosubash/simple_module_python/issues/298" },
+  { number: 299, label: "enhancement", title: "File storage recomputes three full-table aggregates on every Browse render", url: "https://github.com/antosubash/simple_module_python/issues/299" },
+  { number: 300, label: "enhancement", title: "Audit log entity labels expose account names and emails to audit_log.view holders", url: "https://github.com/antosubash/simple_module_python/issues/300" },
+  { number: 301, label: "documentation", title: "Re-verify the hi-fi screens against the live deck, and decide on the Keycloak interstitial", url: "https://github.com/antosubash/simple_module_python/issues/301" },
+  { number: 302, label: "documentation", title: "make gen-i18n prints success and exits 0 even when it wrote nothing", url: "https://github.com/antosubash/simple_module_python/issues/302" }
+];
+
+const $ = (s, r = document) => r.querySelector(s);
+const nav = $("#nav"), screensEl = $("#screens");
+let current = 0, vp = "all", mode = "one";
+
+function fig(cls, caption, src) {
+  const f = document.createElement("figure"); f.className = cls;
+  f.innerHTML = `<figcaption>${caption}</figcaption><img loading="lazy" src="${src}" alt="${caption}">`;
+  f.querySelector("img").addEventListener("click", () => openLightbox(src));
+  return f;
+}
+function card(s) {
+  const c = document.createElement("div"); c.className = "card"; c.id = "screen-" + s.num;
+  c.innerHTML = `<h2><span class="num">${s.num}</span>${s.title}</h2>
+    <p class="routes">${s.routes.join(" · ")}</p>
+    <p class="spec">${s.spec}</p>`;
+  if (s.warn) { const n = document.createElement("span"); n.className = "note warn"; n.textContent = s.warn; c.appendChild(n); }
+  const shots = document.createElement("div"); shots.className = "shots";
+  if (s.desktop) shots.appendChild(fig("desktop", `${s.desktop} · 1440 px`, s.desktop));
+  for (const [cap, src] of (s.extra || [])) shots.appendChild(fig("desktop", `${src} · ${cap}`, src));
+  if (s.phone) shots.appendChild(fig("phone", `${s.phone} · 390 px`, s.phone));
+  c.appendChild(shots);
+  return c;
+}
+function render() {
+  nav.innerHTML = ""; screensEl.innerHTML = "";
+  let group = "";
+  SCREENS.forEach((s, i) => {
+    if (s.group !== group) { group = s.group; const h = document.createElement("h3"); h.textContent = group; nav.appendChild(h); }
+    const b = document.createElement("button");
+    b.innerHTML = `<span class="num">${s.num}</span><span>${s.title}</span>${s.warn ? '<span class="tag">note</span>' : ""}`;
+    if (i === current && mode === "one") b.classList.add("active");
+    b.addEventListener("click", () => { current = i; if (mode === "all") { document.getElementById("screen-" + s.num).scrollIntoView({ behavior: "smooth" }); } else render(); });
+    nav.appendChild(b);
+  });
+  (mode === "one" ? [SCREENS[current]] : SCREENS).forEach(s => screensEl.appendChild(card(s)));
+  document.querySelectorAll("figure.desktop").forEach(f => f.classList.toggle("hidden", vp === "phone"));
+  document.querySelectorAll("figure.phone").forEach(f => f.classList.toggle("hidden", vp === "desktop"));
+}
+function renderStatic() {
+  const t = $("#departures");
+  t.innerHTML = "<tr><th>Deck</th><th>Decision</th><th>Why</th></tr>" + DEPARTURES.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("");
+  const ul = $("#issues");
+  if (!ISSUES.length) { $("#issuesCard").classList.add("hidden"); return; }
+  ul.innerHTML = ISSUES.map(i => `<li><a href="${i.url}">#${i.number}</a> ${i.title} <span class="note ${i.label === "bug" ? "warn" : "ok"}" style="margin:0 0 0 6px">${i.label}</span></li>`).join("");
+}
+function openLightbox(src) { const lb = $("#lightbox"); lb.querySelector("img").src = src; lb.classList.add("open"); }
+$("#lightbox").addEventListener("click", () => $("#lightbox").classList.remove("open"));
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") $("#lightbox").classList.remove("open");
+  if (mode !== "one") return;
+  if (e.key === "ArrowRight" || e.key === "j") { current = Math.min(SCREENS.length - 1, current + 1); render(); }
+  if (e.key === "ArrowLeft" || e.key === "k") { current = Math.max(0, current - 1); render(); }
+});
+$("#viewport").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; vp = b.dataset.vp; $("#viewport").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); render(); });
+$("#mode").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; mode = b.dataset.mode; $("#mode").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); render(); });
+$("#showSummary").addEventListener("change", e => $("#summary").classList.toggle("hidden", !e.target.checked));
+renderStatic(); render();
+</script>
+</body>
+</html>

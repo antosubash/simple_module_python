@@ -19,7 +19,7 @@ def _login(page: Page, username: str, password: str) -> None:
     page.goto("/users/login")
     page.locator("#email").fill(username)
     page.locator("#password").fill(password)
-    page.get_by_role("button", name="Log in").click()
+    page.get_by_role("button", name="Sign in").click()
     page.wait_for_url("**/dashboard/**", timeout=15_000)
 
 

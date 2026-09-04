@@ -34,6 +34,9 @@ PATH_UPLOAD: Final = "/upload"
 PATH_FILES: Final = "/files"
 PATH_FILE_BY_ID: Final = "/files/{file_id}"
 PATH_FILE_DOWNLOAD: Final = "/files/{file_id}/download"
+# POST, not DELETE: a selection is a body, and DELETE with a body is refused
+# or silently stripped by enough proxies that it cannot be relied on.
+PATH_FILES_BULK_DELETE: Final = "/files/bulk-delete"
 
 # ── Inertia page names ───────────────────────────────────────────────
 PAGE_BROWSE: Final = "FileStorage/Browse"
@@ -99,6 +102,10 @@ DEFAULT_MAX_FILE_SIZE_BYTES: Final = 100 * 1024 * 1024  # 100 MB
 DEFAULT_PRESIGN_TTL_SECONDS: Final = 300  # 5 minutes
 DEFAULT_CHUNK_SIZE: Final = 64 * 1024  # 64 KB
 SPOOL_MAX_SIZE_BYTES: Final = 10 * 1024 * 1024  # 10 MB before disk-spill
+
+# Shown where a file has no uploader at all — rows predating authenticated
+# uploads. The label is resolved server-side, so this is the only copy.
+UNKNOWN_UPLOADER: Final = "—"
 
 # ── Menu ─────────────────────────────────────────────────────────────
 MENU_ICON: Final = "files"

@@ -5,7 +5,7 @@
       "host/client_app/**",
       "packages/**",
       "modules/*/*/pages/**",
-      "modules/*/*/components/**",
+      "modules/*/*/**/components/**",
       "modules/*/tests-js/**",
       "!host/client_app/modules.generated.ts",
       "!host/client_app/modules.manifest.json",

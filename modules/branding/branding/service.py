@@ -51,6 +51,7 @@ class BrandingService:
             favicon_url=asset_url(FAVICON_URL, settings.favicon_file_id),
             banner_message=settings.banner_message,
             banner_severity=settings.banner_severity,
+            footer_text=settings.footer_text,
             footer_links=list(settings.footer_links),
         )
 

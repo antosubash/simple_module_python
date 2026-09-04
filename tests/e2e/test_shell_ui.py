@@ -16,10 +16,10 @@ pytestmark = pytest.mark.e2e
 
 
 def _login(page: Page, username: str, password: str) -> None:
-    page.get_by_role("link", name="Log in").first.click()
+    page.get_by_role("link", name="Sign in").first.click()
     page.locator("#email").fill(username)
     page.locator("#password").fill(password)
-    page.get_by_role("button", name="Log in").click()
+    page.get_by_role("button", name="Sign in").click()
     page.wait_for_url("**/dashboard/**", timeout=15_000)
 
 
@@ -64,11 +64,11 @@ def test_out_of_range_pages_clamp_instead_of_erroring(
 
     for url in ("/admin/background-tasks/?page=0", "/admin/background-tasks/?page=99"):
         page.goto(url)
-        expect(page.get_by_role("heading", name="Background Tasks")).to_be_visible()
+        expect(page.get_by_role("heading", name="Background tasks")).to_be_visible()
 
     for url in ("/file-storage/?page=0", "/file-storage/?page=99"):
         page.goto(url)
-        expect(page.get_by_role("heading", name="Files")).to_be_visible()
+        expect(page.get_by_role("heading", name="File storage")).to_be_visible()
 
 
 def test_user_search_treats_like_metacharacters_literally(

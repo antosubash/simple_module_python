@@ -9,6 +9,7 @@ deploy behind more than a single worker.
 from __future__ import annotations
 
 from cachetools import TTLCache
+from fastapi import HTTPException, Request, status
 
 
 class LoginRateLimiter:
@@ -57,3 +58,28 @@ class ThroughputLimiter:
         count = self._hits.get(key, 0) + 1
         self._hits[key] = count
         return count <= self._max
+
+
+def _client_ip(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
+async def enforce_auth_throughput_limit(request: Request) -> None:
+    """FastAPI dependency that rejects the request with 429 when this IP has
+    exhausted its attempts budget on shared auth side-effect endpoints.
+
+    Applied to forgot-password / register / accept-invite / request-verify-token,
+    which otherwise allow unlimited email or account-creation spam, and to
+    ``/me/password``, where a wrong current password is free to guess.
+
+    Lives here rather than beside the endpoints it guards because
+    ``self_account`` needs it too and ``api`` already imports *that* module —
+    the dependency has to sit below both, not beside one of them.
+    """
+    limiter: ThroughputLimiter = request.app.state.users.auth_throughput_limiter
+    key = f"{request.url.path}::{_client_ip(request)}"
+    if not limiter.check_and_record(key):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many attempts — try again later",
+        )

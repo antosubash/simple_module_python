@@ -1,47 +1,56 @@
 {
+  "audit": {
+    "file": "File"
+  },
   "browse": {
-    "title": "Files",
-    "description": "Manage uploaded files.",
-    "upload_button": "Upload file",
-    "uploading": "Uploading...",
+    "title": "File storage",
+    "head_title": "File storage",
+    "subtitle": "Backend {backend} · {used} used · {max} per file",
+    "subtitle_quota": "Backend {backend} · {used} of {quota} used · {max} per file",
+    "upload_button": "Upload files",
+    "delete_selected": "Delete selected",
+    "uploading": "Uploading…",
     "empty_title": "No files yet",
     "empty_description": "Upload your first file to get started.",
-    "count_one": "{count} file",
-    "count_other": "{count} files",
     "no_match_title": "No matching files",
-    "no_match_description": "No files match the current search or type filter.",
+    "no_match_description": "No files match the current search, type or uploader filter.",
     "clear_filters": "Clear filters",
     "previous": "Previous",
     "next": "Next",
-    "page_of": "Page {page} of {total}",
-    "head_title": "File Storage"
+    "showing": "Showing {from}–{to} of {total}",
+    "selected_showing_one": "{count} selected · showing {from}–{to} of {total}",
+    "selected_showing_other": "{count} selected · showing {from}–{to} of {total}"
   },
   "table": {
-    "filename": "Name",
+    "filename": "Filename",
     "size": "Size",
     "type": "Type",
     "uploaded_by": "Uploaded by",
-    "uploaded_at": "Uploaded",
-    "actions": "Actions"
+    "when": "When",
+    "actions": "Actions",
+    "select_all": "Select every file on this page",
+    "select_row": "Select {name}"
   },
   "actions": {
-    "download": "Download",
-    "delete": "Delete"
+    "download": "Download"
   },
   "delete_dialog": {
-    "title": "Delete \"{name}\"?",
-    "description": "The file will be removed from storage. This cannot be undone.",
+    "title_one": "Delete “{name}”?",
+    "title_other": "Delete {count} files?",
+    "description_one": "This removes the file from the {backend} backend. Links already shared will stop working immediately.",
+    "description_other": "This removes {count} files from the {backend} backend. Links already shared will stop working immediately.",
     "cancel": "Cancel",
-    "confirm": "Delete"
+    "confirm_one": "Delete file",
+    "confirm_other": "Delete files"
   },
   "toasts": {
-    "uploaded": "\"{name}\" uploaded",
     "upload_failed": "Upload failed",
-    "deleted": "\"{name}\" deleted",
+    "deleted_one": "“{name}” deleted",
+    "deleted_other": "{count} files deleted",
     "delete_failed": "Failed to delete file",
     "uploaded_count_one": "{count} file uploaded",
     "uploaded_count_other": "{count} files uploaded",
-    "upload_failed_named": "\"{name}\" failed to upload"
+    "upload_failed_named": "“{name}” failed to upload"
   },
   "errors": {
     "not_found": "File not found",
@@ -50,12 +59,24 @@
     "backend_error": "Storage backend error"
   },
   "filters": {
-    "search_placeholder": "Search files by name…",
+    "search_placeholder": "Search filenames…",
     "type_label": "Type",
-    "type_all": "All types"
+    "type_all": "All types",
+    "type_selected": "Type: {value} ({count})",
+    "uploader_label": "Uploaded by",
+    "uploader_all": "Anyone",
+    "uploader_selected": "Uploaded by: {value}"
   },
   "upload": {
+    "drop_here": "Drop files here",
+    "browse_hint": "or click to browse · {types} · max {size}",
+    "any_type": "any type",
+    "card_title": "Uploads in progress",
+    "card_subtitle": "Stays put while you filter or page the table",
+    "failed_reason": "Failed — {reason}",
+    "retry": "Retry",
     "in_progress": "Uploading {name}",
+    "cancel": "Cancel upload",
     "dismiss": "Dismiss"
   },
   "nav": {

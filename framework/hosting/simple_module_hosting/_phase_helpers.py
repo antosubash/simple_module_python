@@ -23,7 +23,6 @@ from simple_module_core.exceptions import NotFoundError
 from simple_module_db import CommitBeforeResponseMiddleware
 from starlette.exceptions import HTTPException
 from starlette.middleware.gzip import GZipMiddleware
-from starlette.middleware.sessions import SessionMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from simple_module_hosting._error_handlers import (
@@ -45,6 +44,7 @@ from simple_module_hosting.middleware import (
     SecurityHeadersMiddleware,
     TenantMiddleware,
 )
+from simple_module_hosting.session import SessionMiddleware
 from simple_module_hosting.settings import Settings
 from simple_module_hosting.setup_gate import SETUP_PATH, SetupMiddleware
 from simple_module_hosting.static_files import PrecompressedStaticFiles
