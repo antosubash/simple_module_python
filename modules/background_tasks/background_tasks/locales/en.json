@@ -12,9 +12,11 @@
   "strip": {
     "queued": "Queued",
     "running": "Running",
-    "succeeded_24h": "Succeeded 24h",
+    "succeeded": "Succeeded",
     "failed": "Failed",
-    "stuck": "Stuck"
+    "stuck": "Stuck",
+    "window_all": "All time",
+    "window_24h": "Last 24h"
   },
   "filters": {
     "status_label": "Filter by status",

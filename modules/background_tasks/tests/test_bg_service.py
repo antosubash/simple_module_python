@@ -14,7 +14,7 @@ from background_tasks.models import TaskExecution
 from background_tasks.service import BackgroundTaskService
 from fastapi import HTTPException
 from simple_module_core.events import EventBus
-from sqlalchemy.ext.asyncio import AsyncSession
+from simple_module_db import RequestSession, finalize_session
 
 
 def _make_row(
@@ -51,14 +51,14 @@ def mock_celery() -> MagicMock:
 
 @pytest.fixture
 def service(
-    db_session: AsyncSession, event_bus: EventBus, mock_celery: MagicMock
+    db_session: RequestSession, event_bus: EventBus, mock_celery: MagicMock
 ) -> BackgroundTaskService:
     return BackgroundTaskService(db=db_session, celery=mock_celery, event_bus=event_bus)
 
 
 class TestList:
     async def test_returns_paginated_rows_newest_first(
-        self, db_session: AsyncSession, service: BackgroundTaskService
+        self, db_session: RequestSession, service: BackgroundTaskService
     ):
         now = datetime.now(UTC)
         older = _make_row(task_name="demo.a", queued_at=now - timedelta(minutes=5))
@@ -71,7 +71,7 @@ class TestList:
         assert [i.task_name for i in resp.items] == ["demo.b", "demo.a"]
 
     async def test_filters_by_status(
-        self, db_session: AsyncSession, service: BackgroundTaskService
+        self, db_session: RequestSession, service: BackgroundTaskService
     ):
         db_session.add_all(
             [
@@ -85,7 +85,7 @@ class TestList:
         assert [i.task_name for i in resp.items] == ["demo.bad"]
 
     async def test_filters_by_task_name_substring(
-        self, db_session: AsyncSession, service: BackgroundTaskService
+        self, db_session: RequestSession, service: BackgroundTaskService
     ):
         db_session.add_all(
             [
@@ -103,7 +103,7 @@ class TestStatusCounts:
     """Feeds the failed/stuck ops strip above the executions table."""
 
     async def test_counts_are_grouped_by_status(
-        self, db_session: AsyncSession, service: BackgroundTaskService
+        self, db_session: RequestSession, service: BackgroundTaskService
     ):
         for status in (TaskStatus.FAILED, TaskStatus.FAILED, TaskStatus.SUCCESS):
             db_session.add(_make_row(status=status))
@@ -117,7 +117,7 @@ class TestStatusCounts:
         assert await service.status_counts() == {}
 
     async def test_search_narrows_the_counts(
-        self, db_session: AsyncSession, service: BackgroundTaskService
+        self, db_session: RequestSession, service: BackgroundTaskService
     ):
         """The strip must describe the same rows the table is paging through."""
         db_session.add(_make_row(task_name="orders.send_receipt", status=TaskStatus.FAILED))
@@ -128,7 +128,7 @@ class TestStatusCounts:
         assert counts == {TaskStatus.FAILED.value: 1}
 
     async def test_counts_keys_are_plain_strings(
-        self, db_session: AsyncSession, service: BackgroundTaskService
+        self, db_session: RequestSession, service: BackgroundTaskService
     ):
         """Postgres hands back the enum, SQLite a str — the page needs one shape."""
         db_session.add(_make_row(status=TaskStatus.STUCK))
@@ -144,7 +144,7 @@ class TestGet:
         assert await service.get(uuid.uuid4()) is None
 
     async def test_returns_detail_for_existing_row(
-        self, db_session: AsyncSession, service: BackgroundTaskService
+        self, db_session: RequestSession, service: BackgroundTaskService
     ):
         row = _make_row(args=[1, "two"], kwargs={"three": 3})
         db_session.add(row)
@@ -160,7 +160,7 @@ class TestGet:
 class TestRetry:
     async def test_retry_failed_task_enqueues_and_creates_row(
         self,
-        db_session: AsyncSession,
+        db_session: RequestSession,
         service: BackgroundTaskService,
         mock_celery: MagicMock,
         event_bus: EventBus,
@@ -194,12 +194,19 @@ class TestRetry:
         assert detail.retried_from_id == original.id
         assert detail.status == TaskStatus.PENDING
         assert detail.celery_task_id == "new-celery-id-123"
+        # Nothing is announced while the retry is still a pending write — a
+        # subscriber acting on a transaction that rolls back acts on a retry
+        # that never happened.
+        assert received == []
+
+        await finalize_session(db_session)
+
         assert len(received) == 1
         assert received[0].original_id == original.id
         assert received[0].new_id == detail.id
 
     async def test_retry_stuck_task_is_allowed(
-        self, db_session: AsyncSession, service: BackgroundTaskService
+        self, db_session: RequestSession, service: BackgroundTaskService
     ):
         row = _make_row(status=TaskStatus.STUCK)
         db_session.add(row)
@@ -210,7 +217,7 @@ class TestRetry:
         assert detail.retried_from_id == row.id
 
     async def test_retry_rejects_non_retryable_status(
-        self, db_session: AsyncSession, service: BackgroundTaskService
+        self, db_session: RequestSession, service: BackgroundTaskService
     ):
         row = _make_row(status=TaskStatus.SUCCESS)
         db_session.add(row)
