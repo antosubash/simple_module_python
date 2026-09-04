@@ -159,13 +159,33 @@ class SettingService:
     async def list_by_scope(
         self, scope: SettingScope, scope_id: str = SYSTEM_SCOPE_ID
     ) -> list[SettingOut]:
-        stmt = (
+        result = await self.db.execute(self._scope_stmt(scope, scope_id))
+        return [_out(row) for row in result.scalars()]
+
+    async def list_by_scope_unmasked(
+        self, scope: SettingScope, scope_id: str = SYSTEM_SCOPE_ID
+    ) -> list[SettingOut]:
+        """The same rows with their real values, for code that *applies* them.
+
+        The masking in :func:`_out` is for the screens. Hydration is not a
+        screen: ``SettingsStore`` feeds these values back into the live module
+        settings objects at boot, so a masked read writes a row of dots over the
+        real secret — a mailer that cannot authenticate, and a
+        ``reset_password_token_secret`` that no longer verifies the tokens it
+        signed. This is the one read that must see through the mask, and it is
+        spelled out rather than reached by passing a flag so that every caller
+        of it is one grep away.
+        """
+        result = await self.db.execute(self._scope_stmt(scope, scope_id))
+        return [SettingOut.model_validate(row) for row in result.scalars()]
+
+    @staticmethod
+    def _scope_stmt(scope: SettingScope, scope_id: str):
+        return (
             select(Setting)
             .where(Setting.scope == scope.value, Setting.scope_id == scope_id)
             .order_by(Setting.key)
         )
-        result = await self.db.execute(stmt)
-        return [_out(row) for row in result.scalars()]
 
     # ── Lookup ──────────────────────────────────────────────────────
 
@@ -179,21 +199,31 @@ class SettingService:
         entity = await self._find(scope, scope_id, key)
         return _out(entity) if entity is not None else None
 
+    async def _resolve_entity(
+        self,
+        key: str,
+        user_id: str | None = None,
+        tenant_id: str | None = None,
+    ) -> Setting | None:
+        """First match walking USER > TENANT > SYSTEM, unserialized."""
+        if user_id:
+            entity = await self._find(SettingScope.USER, user_id, key)
+            if entity is not None:
+                return entity
+        if tenant_id:
+            entity = await self._find(SettingScope.TENANT, tenant_id, key)
+            if entity is not None:
+                return entity
+        return await self._find(SettingScope.SYSTEM, SYSTEM_SCOPE_ID, key)
+
     async def resolve(
         self,
         key: str,
         user_id: str | None = None,
         tenant_id: str | None = None,
     ) -> SettingOut | None:
-        if user_id:
-            entity = await self._find(SettingScope.USER, user_id, key)
-            if entity is not None:
-                return _out(entity)
-        if tenant_id:
-            entity = await self._find(SettingScope.TENANT, tenant_id, key)
-            if entity is not None:
-                return _out(entity)
-        entity = await self._find(SettingScope.SYSTEM, SYSTEM_SCOPE_ID, key)
+        """The resolved row as the API returns it — masked if it is a secret."""
+        entity = await self._resolve_entity(key, user_id=user_id, tenant_id=tenant_id)
         return _out(entity) if entity is not None else None
 
     async def get_resolved_value(
@@ -203,8 +233,16 @@ class SettingService:
         tenant_id: str | None = None,
         default: str | None = None,
     ) -> str | None:
-        found = await self.resolve(key, user_id=user_id, tenant_id=tenant_id)
-        return found.value if found is not None else default
+        """The resolved *value*, unmasked — this is what consumers act on.
+
+        ``SettingsAccessor`` is the read path other modules use to get a value
+        they are about to use, not one they are about to render. Masking here
+        would hand a module the placeholder instead of its own API key. The
+        masked view of the same row is :meth:`resolve`, which is what the API
+        returns.
+        """
+        entity = await self._resolve_entity(key, user_id=user_id, tenant_id=tenant_id)
+        return entity.value if entity is not None else default
 
     # ── Mutations ───────────────────────────────────────────────────
 

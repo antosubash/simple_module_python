@@ -171,3 +171,60 @@ class TestSavingAnUntouchedForm:
 
         stored = await db_session.get(Setting, created.id)
         assert stored.value == SENSITIVE_PLACEHOLDER
+
+
+class TestTheMaskStopsAtTheScreen:
+    """Masking is for the screens. The code that *applies* a setting has to see
+    the real value, or hydration writes a row of dots over every credential the
+    deployment stored — a mailer that cannot authenticate, and a
+    ``reset_password_token_secret`` that no longer verifies the tokens it signed.
+    """
+
+    async def test_the_store_reads_through_the_mask(self, db_session) -> None:
+        from settings.constants import SYSTEM_SCOPE_ID
+        from settings.store import SettingsStore
+
+        service = SettingService(db_session)
+        await service.create(
+            SettingCreate(
+                scope=SettingScope.SYSTEM,
+                scope_id=SYSTEM_SCOPE_ID,
+                key="users.reset_password_token_secret",
+                value="s3kr3t",
+                value_type=VALUE_TYPE_STRING,
+            )
+        )
+        overrides = await SettingsStore(service).get_overrides("users")
+
+        assert overrides["reset_password_token_secret"] == ("s3kr3t", VALUE_TYPE_STRING)
+
+    async def test_a_consumer_module_reads_the_real_value(self, db_session) -> None:
+        """``SettingsAccessor.get`` is what another module calls to obtain a
+        value it is about to use, not to render."""
+        service = SettingService(db_session)
+        await service.create(
+            SettingCreate(
+                scope=SettingScope.SYSTEM,
+                scope_id="",
+                key="orders.stripe_api_key",
+                value="sk-live-abc",
+                value_type=VALUE_TYPE_STRING,
+            )
+        )
+        assert await service.get_resolved_value("orders.stripe_api_key") == "sk-live-abc"
+
+    async def test_the_resolve_endpoint_still_masks_the_same_row(self, db_session) -> None:
+        """The two readings of one row: the API renders, the consumer acts."""
+        service = SettingService(db_session)
+        await service.create(
+            SettingCreate(
+                scope=SettingScope.SYSTEM,
+                scope_id="",
+                key="orders.stripe_api_key",
+                value="sk-live-abc",
+                value_type=VALUE_TYPE_STRING,
+            )
+        )
+        resolved = await service.resolve("orders.stripe_api_key")
+        assert resolved is not None
+        assert resolved.value == SENSITIVE_PLACEHOLDER
