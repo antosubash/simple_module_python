@@ -82,9 +82,9 @@ InertiaLayoutDataMiddleware
 
 `ProxyHeaders` is installed only when `SM_TRUSTED_PROXY` is set (uvicorn's
 `ProxyHeadersMiddleware`). It sits outermost so the scheme/client corrected
-from `X-Forwarded-*` is visible to every downstream layer — request logs and
-the audit trail get the real client IP rather than the proxy's, and
-`request.url.scheme` reflects the proxy-terminated scheme.
+from `X-Forwarded-*` is visible to every downstream layer — request logs get
+the real client IP rather than the proxy's, and `request.url.scheme` reflects
+the proxy-terminated scheme.
 
 Inertia does not depend on it. The page url it ships is root-relative, as the
 protocol specifies, so it carries no scheme to disagree with the document's.

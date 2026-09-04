@@ -62,8 +62,8 @@ def test_database_url_stays_env_only() -> None:
 
 def test_trusted_proxy_normalizes_blank() -> None:
     """A stray space would otherwise be parsed by uvicorn as a literal host
-    that matches no client, so request logs and the audit trail would keep
-    attributing every request to the proxy instead of the real visitor."""
+    that matches no client, so request logs would keep attributing every
+    request to the proxy instead of the real visitor."""
     assert HostSettings(trusted_proxy="  ").trusted_proxy is None
     assert HostSettings(trusted_proxy="*").trusted_proxy == "*"
 

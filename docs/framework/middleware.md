@@ -78,11 +78,11 @@ The last three are ordered relative to each other for reasons worth stating, bec
 
 uvicorn's own, installed **only** when `SM_TRUSTED_PROXY` is set — forwarded headers are never trusted by default. It sits outermost so the `X-Forwarded-*`-corrected scheme and client IP reach everything downstream: request logs record the real client rather than the proxy, and `request.url.scheme` reflects `X-Forwarded-Proto`.
 
-Behind a TLS-terminating proxy this is **recommended**: without it the app believes it is serving `http` while the browser is on `https`, and every request — in the logs and in the audit trail — is attributed to the proxy's own address rather than the visitor's.
+Behind a TLS-terminating proxy this is **recommended**: without it the app believes it is serving `http` while the browser is on `https`, and every request log entry is attributed to the proxy's own address rather than the visitor's.
 
 It used to be load-bearing for the UI too, because Inertia's page url was absolute and its cross-scheme `pushState` threw a `SecurityError` on every page (GH #223). The page url is root-relative now, so that failure mode is gone whether or not this is set.
 
-It is still load-bearing for anything else that reads `request.url.scheme` or calls `request.url_for(...)` to build an absolute url — OAuth/OIDC's `callback_url` (`modules/users/users/oauth/api.py`, `modules/keycloak/keycloak/endpoints/api.py`) and the session cookie's `secure` flag (`host/routes_i18n.py`) among them. Left unset behind a TLS-terminating proxy, an OAuth redirect_uri is built as `http://…` and most providers reject it as a mismatch against the `https://…` one registered in their console.
+It is still load-bearing for anything else that reads `request.url.scheme` or calls `request.url_for(...)` to build an absolute url — OAuth/OIDC's `callback_url` (`modules/users/users/oauth/api.py`, `modules/keycloak/keycloak/endpoints/api.py`) and the locale cookie's `secure` flag (`host/routes_i18n.py`) among them. Left unset behind a TLS-terminating proxy, an OAuth redirect_uri is built as `http://…` and most providers reject it as a mismatch against the `https://…` one registered in their console.
 
 Set it to a comma-separated list of proxy IPs/CIDRs, or `*` to trust any peer — correct when the container is only reachable through one proxy, wrong when anything else can connect.
 

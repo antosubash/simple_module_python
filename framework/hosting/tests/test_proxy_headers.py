@@ -141,8 +141,8 @@ class TestClientCorrection:
     ``TestSchemeCorrection`` above only proves the page url stays scheme-free —
     it would pass identically even if ``ProxyHeadersMiddleware`` silently did
     nothing, since a relative url never carries a scheme either way. Request
-    logs and the audit trail are what actually depend on the correction now
-    (see ``host_settings.py`` and ``_phase_helpers.py``), so exercise that
+    logs are what actually depend on the correction now (see
+    ``host_settings.py`` and ``_phase_helpers.py``), so exercise that
     directly: ``RequestLoggingMiddleware`` puts ``scope["client"]`` on every
     ``request.started`` log record as ``client_ip``.
     """

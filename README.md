@@ -102,7 +102,7 @@ bundle rather than a Vite dev server. Useful overrides:
 | `SM_SECRET_KEY` | generated per start | Persist sessions across restarts |
 | `SM_DATABASE_URL` | `sqlite+aiosqlite:////app/data/app.db` | Point at Postgres |
 | `SM_USERS_BOOTSTRAP_EMAIL` / `_PASSWORD` | `admin@example.com` / `changeme` | Seed a first admin nobody else can guess |
-| `SM_TRUSTED_PROXY` | unset | Set to `*` behind a reverse proxy, so logs and the audit trail record the visitor's IP and not the proxy's |
+| `SM_TRUSTED_PROXY` | unset | Set to `*` behind a reverse proxy, so logs record the visitor's IP and not the proxy's |
 
 **No background tasks.** The image skips installing the Celery module
 (`uv sync … --no-install-package simple-module-background-tasks`), so nothing in

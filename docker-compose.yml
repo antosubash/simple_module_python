@@ -18,8 +18,8 @@ services:
       - SM_USERS_BOOTSTRAP_EMAIL
       - SM_USERS_BOOTSTRAP_PASSWORD
       # Set to `*` when this sits behind a reverse proxy that terminates TLS,
-      # so `X-Forwarded-For`/`-Proto` are honoured and the logs and audit trail
-      # record the visitor rather than the proxy. Nothing in the UI depends on
+      # so `X-Forwarded-For`/`-Proto` are honoured and the logs record the
+      # visitor rather than the proxy. Nothing in the UI depends on
       # it — the Inertia page url is relative — so leaving it unset is safe,
       # and it stays opt-in because a directly-exposed container would be
       # trusting a header any client can set.

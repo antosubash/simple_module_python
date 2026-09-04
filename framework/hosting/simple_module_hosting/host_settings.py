@@ -58,8 +58,8 @@ class HostSettings(BaseSettings):
     # the container is only reachable through a single proxy), or a comma-
     # separated list of proxy IPs / CIDRs. Drives uvicorn's
     # ProxyHeadersMiddleware so request.url.scheme reflects X-Forwarded-Proto
-    # and request logs/the audit trail record the real client IP rather than
-    # the proxy's. Recommended behind a TLS-terminating proxy, not required for
+    # and request logs record the real client IP rather than the proxy's.
+    # Recommended behind a TLS-terminating proxy, not required for
     # Inertia: the page url is root-relative, so pushState can't see a
     # cross-scheme url regardless (it used to throw a SecurityError on every
     # page — GH #223). Still required for anything else that reads
