@@ -55,6 +55,30 @@ from urllib.parse import urlsplit
 logger = logging.getLogger(__name__)
 
 
+def patch_relative_page_url(inertia: Any) -> Any:
+    """Patch a single Inertia instance in place so its page ``url`` is
+    root-relative, and return it.
+
+    Shared by :func:`relative_page_url_dependency` (the normal per-request
+    path) and by callers that already hold a bare instance — the error
+    handler's half-built-app fallback — so there is exactly one place that
+    knows how to apply the patch rather than a second copy of this hasattr
+    check.
+
+    An instance that doesn't expose the hook is handed back untouched: the
+    failure mode is the absolute url that already ships, and refusing to boot
+    because an upstream attribute moved would be a worse trade.
+    """
+    if hasattr(inertia, "_get_page_data"):
+        inertia._get_page_data = _page_data_for(inertia)
+    else:  # pragma: no cover - upstream layout changed
+        logger.warning(
+            "Inertia instance has no _get_page_data; the page url stays "
+            "absolute and history writes will fail behind a TLS proxy"
+        )
+    return inertia
+
+
 def relative_page_url_dependency(inertia_dep: Any) -> Any:
     """Wrap an Inertia dependency so its page ``url`` is root-relative.
 
@@ -62,22 +86,10 @@ def relative_page_url_dependency(inertia_dep: Any) -> Any:
     returns, and composes with the other wraps in either order — each patches a
     different instance attribute, and the JSON wrap looks ``_get_page_data`` up
     on the instance at call time.
-
-    An instance that doesn't expose the hook is handed back untouched: the
-    failure mode is the absolute url that already ships, and refusing to boot
-    because an upstream attribute moved would be a worse trade.
     """
 
     def dependency(request: Any, client: Any = None) -> Any:
-        inertia = inertia_dep(request, client)
-        if hasattr(inertia, "_get_page_data"):
-            inertia._get_page_data = _page_data_for(inertia)
-        else:  # pragma: no cover - upstream layout changed
-            logger.warning(
-                "Inertia instance has no _get_page_data; the page url stays "
-                "absolute and history writes will fail behind a TLS proxy"
-            )
-        return inertia
+        return patch_relative_page_url(inertia_dep(request, client))
 
     return dependency
 
@@ -116,4 +128,4 @@ def to_relative_url(url: str) -> str:
     return relative
 
 
-__all__ = ["relative_page_url_dependency", "to_relative_url"]
+__all__ = ["patch_relative_page_url", "relative_page_url_dependency", "to_relative_url"]

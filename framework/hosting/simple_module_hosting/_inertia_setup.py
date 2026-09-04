@@ -49,20 +49,15 @@ def branding_head(request: Request) -> dict:
     """
     services = getattr(request.app.state, "branding", None)
     settings = getattr(services, "settings", None)
-    if settings is None:
-        return {
-            "app_name": _DEFAULT_APP_NAME,
-            "theme_color": None,
-            "favicon_url": default_favicon_data_uri(_DEFAULT_APP_NAME),
-        }
     app_name = getattr(settings, "app_name", "") or _DEFAULT_APP_NAME
     accent = getattr(settings, "primary_color", "") or ""
+    favicon_url = getattr(services, "favicon_url", None) or default_favicon_data_uri(
+        app_name, accent
+    )
     return {
         "app_name": app_name,
         "theme_color": accent or None,
-        "favicon_url": (
-            getattr(services, "favicon_url", None) or default_favicon_data_uri(app_name, accent)
-        ),
+        "favicon_url": favicon_url,
     }
 
 

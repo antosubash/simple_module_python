@@ -21,7 +21,9 @@ floor.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from urllib.parse import quote
+from xml.sax.saxutils import escape as _xml_escape
 
 #: sRGB for `--color-primary-600` / `--color-primary-800`
 #: (`oklch(0.59 0.14 158)` / `oklch(0.42 0.09 175)`), the two stops of
@@ -44,6 +46,7 @@ _SVG = (
 )
 
 
+@lru_cache(maxsize=64)
 def default_favicon_data_uri(app_name: str, accent: str = "") -> str:
     """An SVG data URI showing ``app_name``'s initial on the brand gradient.
 
@@ -52,6 +55,12 @@ def default_favicon_data_uri(app_name: str, accent: str = "") -> str:
     tab icon matches the rest of its chrome. Already validated as a hex colour
     by ``BrandingSettings``; anything else is ignored rather than trusted into
     the markup.
+
+    Pure function of its two arguments, cached: ``branding_head`` calls it on
+    every full page render, and with no favicon uploaded — the state every
+    install starts in — that means every single page load rebuilds and
+    re-quotes the same SVG. The cache is keyed on ``(app_name, accent)``, both
+    of which only change when an admin edits branding settings.
     """
     initial = _initial(app_name)
     from_, to = (accent, accent) if _is_hex_colour(accent) else (_ACCENT_FROM, _ACCENT_TO)
@@ -71,7 +80,7 @@ def _initial(app_name: str) -> str:
     so the tab and the sidebar badge never disagree.
     """
     raw = (app_name or "").strip()[:1].upper() or "S"
-    return raw.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return _xml_escape(raw)
 
 
 def _is_hex_colour(value: str) -> bool:

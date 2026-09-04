@@ -25,8 +25,10 @@ import pytest
 from simple_module_hosting.app_builder import create_app
 from simple_module_hosting.settings import Settings
 from simple_module_test.fixtures import _create_all_tables, _seed_setup_admin
+from starlette.requests import Request
 
 _LOGIN_PATH = "/users/login"
+_PROBE_PATH = "/proxy-scheme-probe"
 _FORWARDED_FOR = "203.0.113.5"
 _DIRECT_CLIENT_IP = "127.0.0.1"  # httpx.ASGITransport's default scope["client"]
 
@@ -90,7 +92,11 @@ class TestMiddlewareWiring:
 
 async def _client_for(settings: Settings):
     """Build an app + lifespan-started client mirroring the shared fixtures."""
-    app = create_app(settings)
+    return await _client_for_app(create_app(settings))
+
+
+async def _client_for_app(app):
+    """Same, for a caller that needed the app first (to mount a probe route)."""
     await _create_all_tables(app.state.sm.db.engine)
     # Without an administrator the setup gate redirects every request to
     # /setup, including the login page these tests assert on.
@@ -166,6 +172,53 @@ class TestClientCorrection:
             ]
             assert len(started) == 1
             assert started[0].client_ip == expected_client_ip
+        finally:
+            await client.aclose()
+            await ctx.__aexit__(None, None, None)
+
+
+class TestSchemeReachesUrlBuilders:
+    """``request.url.scheme`` itself, which is what still depends on this setting.
+
+    ``TestSchemeCorrection`` above proves the Inertia payload carries no scheme
+    — true whether or not this middleware runs, so it cannot notice the
+    middleware silently doing nothing. But OAuth/OIDC build their
+    ``redirect_uri`` from ``request.url_for(...)``, and the locale cookie
+    derives its ``secure`` flag from the scheme; left uncorrected behind a TLS
+    proxy an OAuth ``redirect_uri`` ships as ``http://…`` and providers reject
+    it against the ``https://…`` one registered in their console. Assert the
+    correction directly, on a probe route.
+    """
+
+    @pytest.mark.parametrize(
+        ("trusted_proxy", "expected_scheme"),
+        [
+            ("*", "https"),  # trusted proxy → X-Forwarded-Proto honored
+            (None, "http"),  # no trust configured → header ignored
+        ],
+    )
+    async def test_forwarded_proto_reaches_request_url(
+        self, trusted_proxy: str | None, expected_scheme: str
+    ) -> None:
+        # The probe is declared public: AuthMiddleware would otherwise redirect
+        # an anonymous GET to the login page, and the assertion would be about
+        # that page's url instead of the probe's.
+        app = create_app(_settings(trusted_proxy=trusted_proxy, auth_public_paths=[_PROBE_PATH]))
+
+        async def probe(request: Request) -> dict[str, str]:
+            return {
+                "scheme": request.url.scheme,
+                "built": str(request.url_for("probe")),
+            }
+
+        app.add_api_route(_PROBE_PATH, probe, methods=["GET"], name="probe")
+        client, ctx = await _client_for_app(app)
+        try:
+            resp = await client.get(_PROBE_PATH, headers={"X-Forwarded-Proto": "https"})
+            assert resp.status_code == 200
+            assert resp.json()["scheme"] == expected_scheme
+            # url_for is the call OAuth actually uses to build redirect_uri.
+            assert resp.json()["built"].startswith(f"{expected_scheme}://")
         finally:
             await client.aclose()
             await ctx.__aexit__(None, None, None)

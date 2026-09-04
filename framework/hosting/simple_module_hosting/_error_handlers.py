@@ -21,7 +21,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from simple_module_hosting._inertia_shared import _INERTIA_HEADER
-from simple_module_hosting._inertia_url import relative_page_url_dependency
+from simple_module_hosting._inertia_url import patch_relative_page_url
 from simple_module_hosting.permissions import PERMISSION_DENIED_PREFIX
 
 logger = logging.getLogger(__name__)
@@ -180,15 +180,14 @@ async def render_error_page(
         # SecurityError after the page url was made relative everywhere else.
         # The raw construction stays as the fallback for a half-built app —
         # the case this whole handler exists to survive — but still goes
-        # through the same url-relativizing wrap directly: a fallback that
+        # through the same url-relativizing patch directly: a fallback that
         # skipped it would reintroduce the exact bug this module exists to
         # fix, just for the one request that hit it before setup finished.
         inertia_dep = getattr(request.app.state, "inertia_dependency", None)
-        if inertia_dep is None:
-            inertia_dep = relative_page_url_dependency(
-                lambda req, client=None: Inertia(req, config)
-            )
-        inertia = inertia_dep(request, None)
+        if inertia_dep is not None:
+            inertia = inertia_dep(request, None)
+        else:
+            inertia = patch_relative_page_url(Inertia(request, config))
         # This does not go through get_inertia, so the share step has to be
         # repeated here. Without it the error page renders raw translation keys
         # (host.error.not_found_title) and loses auth/menus, so a signed-in

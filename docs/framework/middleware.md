@@ -82,6 +82,8 @@ Behind a TLS-terminating proxy this is **recommended**: without it the app belie
 
 It used to be load-bearing for the UI too, because Inertia's page url was absolute and its cross-scheme `pushState` threw a `SecurityError` on every page (GH #223). The page url is root-relative now, so that failure mode is gone whether or not this is set.
 
+It is still load-bearing for anything else that reads `request.url.scheme` or calls `request.url_for(...)` to build an absolute url — OAuth/OIDC's `callback_url` (`modules/users/users/oauth/api.py`, `modules/keycloak/keycloak/endpoints/api.py`) and the session cookie's `secure` flag (`host/routes_i18n.py`) among them. Left unset behind a TLS-terminating proxy, an OAuth redirect_uri is built as `http://…` and most providers reject it as a mismatch against the `https://…` one registered in their console.
+
 Set it to a comma-separated list of proxy IPs/CIDRs, or `*` to trust any peer — correct when the container is only reachable through one proxy, wrong when anything else can connect.
 
 ### `CorrelationIdMiddleware`

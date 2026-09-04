@@ -59,10 +59,14 @@ class HostSettings(BaseSettings):
     # separated list of proxy IPs / CIDRs. Drives uvicorn's
     # ProxyHeadersMiddleware so request.url.scheme reflects X-Forwarded-Proto
     # and request logs/the audit trail record the real client IP rather than
-    # the proxy's. Recommended behind a TLS-terminating proxy, not required:
-    # Inertia's page url is root-relative, so pushState can't see a
+    # the proxy's. Recommended behind a TLS-terminating proxy, not required for
+    # Inertia: the page url is root-relative, so pushState can't see a
     # cross-scheme url regardless (it used to throw a SecurityError on every
-    # page — GH #223).
+    # page — GH #223). Still required for anything else that reads
+    # request.url.scheme or calls request.url_for(...) to build an absolute
+    # url, e.g. OAuth's callback_url and the locale cookie's `secure` flag —
+    # left unset behind such a proxy, an OAuth redirect_uri ships as http://
+    # and most providers reject it.
     trusted_proxy: str | None = None
 
     auth_provider: str = DEFAULT_AUTH_PROVIDER
