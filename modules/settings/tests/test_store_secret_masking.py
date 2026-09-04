@@ -13,10 +13,11 @@ from __future__ import annotations
 import httpx
 import pytest
 from fastapi import FastAPI
+from settings._row_masking import is_masked
 from settings.constants import SENSITIVE_PLACEHOLDER, VALUE_TYPE_INT, VALUE_TYPE_STRING
 from settings.contracts.schemas import SettingCreate, SettingScope
 from settings.models import Setting
-from settings.service import SettingService, is_masked
+from settings.service import SettingService
 
 _DSN = "postgresql://svc:hunter2@db.internal/app"
 

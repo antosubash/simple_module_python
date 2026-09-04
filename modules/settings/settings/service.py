@@ -6,13 +6,11 @@ from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from settings._secrets import conceals_secret
+from settings._row_masking import drop_placeholder_write, is_placeholder_write, out
 from settings.constants import (
     ALL_SCOPES,
     DEFAULT_PER_PAGE,
     SCOPE_ALL,
-    SENSITIVE_KEYS,
-    SENSITIVE_PLACEHOLDER,
     SYSTEM_SCOPE_ID,
     VALUE_TYPE_STRING,
 )
@@ -24,59 +22,6 @@ from settings.contracts.schemas import (
     SettingUpsert,
 )
 from settings.models import Setting
-
-
-def is_masked(entity: Setting) -> bool:
-    """Whether this row's stored value must not leave the service.
-
-    :data:`SENSITIVE_KEYS` names the one key the hosting layer owns
-    (``host.secret_key``). Everything else is judged by the same name/value
-    rule the module editor uses, because the store is the *same data* seen
-    through a different screen: an override named ``users.smtp_password``, or
-    any override holding a ``postgresql://user:pw@host/db``, was rendered in
-    clear text in the browse table and pre-filled into the edit form purely
-    because the allowlist had a single entry in it.
-    """
-    return entity.key in SENSITIVE_KEYS or conceals_secret(
-        entity.key, entity.value, entity.value_type
-    )
-
-
-def _out(entity: Setting) -> SettingOut:
-    """Serialize a row, masking values that must not leave the service.
-
-    Every read path funnels through here so a secret cannot be read back by
-    listing it, resolving it, or fetching it by id.
-    """
-    out = SettingOut.model_validate(entity)
-    if is_masked(entity):
-        return out.model_copy(update={"value": SENSITIVE_PLACEHOLDER})
-    return out
-
-
-def _is_placeholder_write(entity: Setting, value: object) -> bool:
-    """Whether this write is the mask being echoed back, not a real new value.
-
-    The admin edit form GETs the row, pre-fills its input from the response,
-    and PUTs it back. For a masked row that response carries ``"********"``, so
-    an admin who opens the row and clicks Save — without touching the field —
-    would otherwise overwrite a real credential with a fixed, publicly-known
-    string. On ``host.secret_key`` that silently invalidates every session and
-    makes every future cookie forgeable.
-
-    Gated on the stored row rather than on the sentinel alone, so a non-secret
-    row whose real value happens to be eight asterisks still saves.
-
-    Treated as "leave it alone" rather than rejected, so the rest of the form
-    still saves and an admin who genuinely types a new value can still set one.
-    """
-    return is_masked(entity) and value == SENSITIVE_PLACEHOLDER
-
-
-def _drop_placeholder_write(entity: Setting, changes: dict) -> None:
-    """Strip a masked-value echo out of an update payload, in place."""
-    if "value" in changes and _is_placeholder_write(entity, changes["value"]):
-        del changes["value"]
 
 
 class SettingService:
@@ -95,7 +40,7 @@ class SettingService:
         result = await self.db.execute(
             select(Setting).order_by(Setting.scope, Setting.scope_id, Setting.key)
         )
-        return [_out(row) for row in result.scalars()]
+        return [out(row) for row in result.scalars()]
 
     async def list_filtered(
         self,
@@ -122,7 +67,7 @@ class SettingService:
             .limit(per_page)
         )
         result = await self.db.execute(stmt)
-        return [_out(row) for row in result.scalars()], int(total or 0)
+        return [out(row) for row in result.scalars()], int(total or 0)
 
     async def count_by_scope(self, q: str | None = None) -> dict[str, int]:
         """Per-scope tallies for the filter tabs, plus ``all``.
@@ -160,7 +105,7 @@ class SettingService:
         self, scope: SettingScope, scope_id: str = SYSTEM_SCOPE_ID
     ) -> list[SettingOut]:
         result = await self.db.execute(self._scope_stmt(scope, scope_id))
-        return [_out(row) for row in result.scalars()]
+        return [out(row) for row in result.scalars()]
 
     async def list_by_scope_unmasked(
         self, scope: SettingScope, scope_id: str = SYSTEM_SCOPE_ID
@@ -193,11 +138,11 @@ class SettingService:
         entity = await self.db.get(Setting, setting_id)
         if entity is None:
             return None
-        return _out(entity)
+        return out(entity)
 
     async def get_scoped(self, scope: SettingScope, scope_id: str, key: str) -> SettingOut | None:
         entity = await self._find(scope, scope_id, key)
-        return _out(entity) if entity is not None else None
+        return out(entity) if entity is not None else None
 
     async def _resolve_entity(
         self,
@@ -224,7 +169,7 @@ class SettingService:
     ) -> SettingOut | None:
         """The resolved row as the API returns it — masked if it is a secret."""
         entity = await self._resolve_entity(key, user_id=user_id, tenant_id=tenant_id)
-        return _out(entity) if entity is not None else None
+        return out(entity) if entity is not None else None
 
     async def get_resolved_value(
         self,
@@ -251,19 +196,19 @@ class SettingService:
         self.db.add(entity)
         await self.db.flush()
         await self.db.refresh(entity)
-        return _out(entity)
+        return out(entity)
 
     async def update(self, setting_id: int, data: SettingUpdate) -> SettingOut | None:
         entity = await self.db.get(Setting, setting_id)
         if entity is None:
             return None
         changes = data.model_dump(exclude_unset=True)
-        _drop_placeholder_write(entity, changes)
+        drop_placeholder_write(entity, changes)
         for field, value in changes.items():
             setattr(entity, field, value)
         await self.db.flush()
         await self.db.refresh(entity)
-        return _out(entity)
+        return out(entity)
 
     async def upsert_scoped(
         self,
@@ -286,7 +231,7 @@ class SettingService:
             )
             self.db.add(entity)
         else:
-            if not _is_placeholder_write(entity, data.value):
+            if not is_placeholder_write(entity, data.value):
                 entity.value = data.value
             if data.value_type is not None:
                 entity.value_type = data.value_type.value
@@ -295,7 +240,7 @@ class SettingService:
                 entity.description = data.description
         await self.db.flush()
         await self.db.refresh(entity)
-        return _out(entity)
+        return out(entity)
 
     async def delete(self, setting_id: int) -> bool:
         entity = await self.db.get(Setting, setting_id)
