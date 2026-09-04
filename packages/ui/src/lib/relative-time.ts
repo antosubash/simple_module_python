@@ -10,6 +10,9 @@
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
 const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+const MONTH = 30 * DAY;
+const YEAR = 365 * DAY;
 
 /** Past this, a snapshot is old enough that it may no longer describe reality. */
 export const STALE_AFTER_MS = 60 * SECOND;
@@ -20,9 +23,26 @@ export const RELATIVE_AGE_KEYS = {
   seconds: 'ui.relative_time.seconds_ago',
   minutes: 'ui.relative_time.minutes_ago',
   hours: 'ui.relative_time.hours_ago',
+  days: 'ui.relative_time.days_ago',
+  months: 'ui.relative_time.months_ago',
+  years: 'ui.relative_time.years_ago',
 } as const;
 
 export type RelativeAgeKey = (typeof RELATIVE_AGE_KEYS)[keyof typeof RELATIVE_AGE_KEYS];
+
+/**
+ * The same idea pointed forwards: how long until a deadline, not how long
+ * since a reading. Invitations and API keys expire, and "in 3d" answers the
+ * only question a reader has about an expiry date.
+ */
+export const RELATIVE_UNTIL_KEYS = {
+  minutes: 'ui.relative_time.in_minutes',
+  hours: 'ui.relative_time.in_hours',
+  days: 'ui.relative_time.in_days',
+  expired: 'ui.relative_time.expired',
+} as const;
+
+export type RelativeUntilKey = (typeof RELATIVE_UNTIL_KEYS)[keyof typeof RELATIVE_UNTIL_KEYS];
 
 /**
  * Which bucket an age falls into, and the number to put in the sentence.
@@ -32,7 +52,7 @@ export type RelativeAgeKey = (typeof RELATIVE_AGE_KEYS)[keyof typeof RELATIVE_AG
  * what is worth testing, and it stays a pure function.
  */
 export interface RelativeAge {
-  key: RelativeAgeKey;
+  key: RelativeAgeKey | RelativeUntilKey;
   count?: number;
 }
 
@@ -42,7 +62,27 @@ export function relativeAge(ageMs: number): RelativeAge {
   if (age < 10 * SECOND) return { key: RELATIVE_AGE_KEYS.justNow };
   if (age < MINUTE) return { key: RELATIVE_AGE_KEYS.seconds, count: Math.floor(age / SECOND) };
   if (age < HOUR) return { key: RELATIVE_AGE_KEYS.minutes, count: Math.floor(age / MINUTE) };
-  return { key: RELATIVE_AGE_KEYS.hours, count: Math.floor(age / HOUR) };
+  if (age < DAY) return { key: RELATIVE_AGE_KEYS.hours, count: Math.floor(age / HOUR) };
+  if (age < MONTH) return { key: RELATIVE_AGE_KEYS.days, count: Math.floor(age / DAY) };
+  if (age < YEAR) return { key: RELATIVE_AGE_KEYS.months, count: Math.floor(age / MONTH) };
+  return { key: RELATIVE_AGE_KEYS.years, count: Math.floor(age / YEAR) };
+}
+
+/**
+ * Which bucket a remaining lifetime falls into.
+ *
+ * Anything at or past its deadline reads as expired rather than as a negative
+ * countdown, and a sub-minute remainder rounds *up* — "in 0m" would read as
+ * already gone when there is still time to act.
+ */
+export function relativeUntil(msUntil: number): RelativeAge {
+  if (!Number.isFinite(msUntil)) return { key: RELATIVE_AGE_KEYS.unknown };
+  if (msUntil <= 0) return { key: RELATIVE_UNTIL_KEYS.expired };
+  if (msUntil < HOUR) {
+    return { key: RELATIVE_UNTIL_KEYS.minutes, count: Math.max(1, Math.floor(msUntil / MINUTE)) };
+  }
+  if (msUntil < DAY) return { key: RELATIVE_UNTIL_KEYS.hours, count: Math.floor(msUntil / HOUR) };
+  return { key: RELATIVE_UNTIL_KEYS.days, count: Math.floor(msUntil / DAY) };
 }
 
 export function isStale(ageMs: number): boolean {

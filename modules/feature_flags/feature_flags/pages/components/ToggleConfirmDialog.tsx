@@ -1,14 +1,6 @@
 import { keys, useT } from '@simple-module-py/i18n';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@simple-module-py/ui/components/ui/alert-dialog';
+import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActionDialog';
+import { Flag } from 'lucide-react';
 
 export interface PendingToggle {
   name: string;
@@ -30,6 +22,10 @@ interface Props {
  * "for everyone" depending on a scope selector further up the page. That scope
  * is the part worth restating: it is the difference between an experiment and
  * an outage, and it is the piece you cannot see from the switch itself.
+ *
+ * Rendered through the shared confirm so it looks like every other "are you
+ * sure?" in the app — turning something off gets the same red tile as any
+ * other change people should slow down for.
  */
 export function ToggleConfirmDialog({ pending, tenantId, onConfirm, onCancel }: Props) {
   const { t } = useT();
@@ -44,26 +40,20 @@ export function ToggleConfirmDialog({ pending, tenantId, onConfirm, onCancel }: 
     : t(keys.feature_flags.confirm.scope_system);
 
   return (
-    <AlertDialog open onOpenChange={(open) => !open && onCancel()}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{scope}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>
-            {t(keys.feature_flags.confirm.cancel)}
-          </AlertDialogCancel>
-          <AlertDialogAction
-            variant={pending.next ? 'default' : 'destructive'}
-            onClick={() => onConfirm(pending)}
-          >
-            {pending.next
-              ? t(keys.feature_flags.confirm.enable_action)
-              : t(keys.feature_flags.confirm.disable_action)}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmActionDialog
+      open
+      onOpenChange={(open) => !open && onCancel()}
+      tone={pending.next ? 'primary' : 'destructive'}
+      icon={Flag}
+      title={title}
+      description={scope}
+      confirmLabel={
+        pending.next
+          ? t(keys.feature_flags.confirm.enable_action)
+          : t(keys.feature_flags.confirm.disable_action)
+      }
+      cancelLabel={t(keys.feature_flags.confirm.cancel)}
+      onConfirm={() => onConfirm(pending)}
+    />
   );
 }

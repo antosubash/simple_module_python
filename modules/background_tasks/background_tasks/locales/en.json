@@ -1,30 +1,39 @@
 {
   "index": {
-    "title": "Background Tasks",
-    "description": "Monitor task executions and retry failed or stuck jobs.",
+    "title": "Background tasks",
+    "description": "Monitor executions and retry failed or stuck jobs",
     "search_placeholder": "Search by task name…",
-    "count_one": "{count} task",
-    "count_other": "{count} tasks",
-    "empty_title": "No task executions yet",
-    "empty_description": "Tasks appear here as soon as modules enqueue work.",
-    "no_match": "No tasks match \"{query}\"",
     "workers_button": "Workers",
+    "retry_all_button": "Retry all failed",
     "previous": "Previous",
     "next": "Next",
-    "page_of": "Page {page} of {total}"
+    "showing": "Showing {from}–{to} of {total}"
+  },
+  "strip": {
+    "queued": "Queued",
+    "running": "Running",
+    "succeeded_24h": "Succeeded 24h",
+    "failed": "Failed",
+    "stuck": "Stuck"
   },
   "filters": {
-    "status_label": "Status",
-    "status_all": "All statuses"
+    "status_label": "Filter by status",
+    "all": "All",
+    "failed": "Failed",
+    "running": "Running",
+    "stuck": "Stuck",
+    "queue_label": "Queue:",
+    "queue_all": "all",
+    "queue_aria": "Filter by queue"
   },
   "status": {
-    "pending": "Pending",
-    "running": "Running",
-    "success": "Success",
-    "failed": "Failed",
-    "stuck": "Stuck",
-    "revoked": "Revoked",
-    "retrying": "Retrying"
+    "queued": "queued",
+    "running": "running",
+    "success": "success",
+    "failed": "failed",
+    "stuck": "stuck",
+    "revoked": "revoked",
+    "retrying": "retrying"
   },
   "table": {
     "task": "Task",
@@ -32,47 +41,64 @@
     "queue": "Queue",
     "queued_at": "Queued",
     "duration": "Duration",
-    "worker": "Worker",
     "actions": "Actions",
-    "view": "View",
     "retry": "Retry"
   },
   "detail": {
-    "title": "Task execution",
-    "head_title": "Task Detail",
-    "description": "Task execution {id}",
-    "back_button": "Back to tasks",
+    "head_title": "Task detail",
+    "description": "execution {id} · attempt {attempt} of {max}",
+    "attempt": "attempt {attempt} of {max}",
+    "back_button": "Back to executions",
     "retry_button": "Retry task",
-    "args": "Arguments",
-    "kwargs": "Keyword arguments",
-    "result": "Result",
-    "traceback": "Traceback",
     "meta": "Details",
-    "status": "Status",
     "queue": "Queue",
-    "retries": "Retries",
     "worker": "Worker",
     "celery_id": "Celery id",
     "queued_at": "Queued at",
     "started_at": "Started at",
     "finished_at": "Finished at",
+    "duration": "Duration",
     "heartbeat": "Heartbeat",
-    "exception": "Exception",
     "retried_from": "Retried from",
+    "exception": "Exception",
+    "args": "Arguments",
+    "kwargs": "Keyword arguments",
+    "result": "Result",
+    "traceback": "Traceback",
+    "copy": "Copy",
+    "copied": "Copied",
     "no_traceback": "No traceback recorded."
   },
   "retry_dialog": {
     "title": "Retry {name}?",
-    "description": "Queues a new execution with the same arguments. The original row stays as it is, kept for history.",
-    "args_label": "args:",
-    "kwargs_label": "kwargs:",
+    "description": "A new execution is queued with the same arguments.",
+    "retried_before_one": "This one has already been retried once.",
+    "retried_before_other": "This one has already been retried {count} times.",
+    "args_label": "args",
+    "kwargs_label": "kwargs",
     "no_args": "This task takes no arguments.",
     "cancel": "Cancel",
-    "confirm": "Retry task"
+    "confirm": "Queue retry"
+  },
+  "retry_all_dialog": {
+    "title": "Retry all failed tasks?",
+    "description": "Every failed or stuck execution in the current view is queued again with its original arguments. Rows that already have a retry in flight are skipped.",
+    "scope_all_queues": "All queues",
+    "scope_queue": "Queue {queue}",
+    "scope_all_statuses": "Failed and stuck",
+    "cancel": "Cancel",
+    "confirm": "Queue retries",
+    "scope_search": "Search “{query}”",
+    "scope_no_search": "Any task name"
   },
   "toasts": {
     "retried": "Task \"{name}\" re-enqueued",
-    "retry_failed": "Failed to retry task"
+    "retry_failed": "Failed to retry task",
+    "bulk_retried_one": "Queued {count} retry",
+    "bulk_retried_other": "Queued {count} retries",
+    "bulk_retry_failed": "Failed to retry tasks",
+    "bulk_remaining_one": "{count} more remains — run it again.",
+    "bulk_remaining_other": "{count} more remain — run it again."
   },
   "worker_health": {
     "broker_unreachable_title": "Broker unreachable",
@@ -84,7 +110,7 @@
   },
   "tasks_empty": {
     "filtered_title": "No tasks match these filters",
-    "filtered_description": "Executions exist outside the current search and status filter.",
+    "filtered_description": "Executions exist outside the current search, status and queue filters.",
     "clear_filters": "Clear filters",
     "broker_unreachable_title": "Can't reach the broker",
     "broker_unreachable_description": "Nothing can be queued or executed until the broker is back. Tasks are not being lost — they are not being accepted.",
@@ -95,29 +121,28 @@
   },
   "workers": {
     "title": "Workers",
-    "description": "Celery workers connected to the broker.",
-    "back_button": "Back to executions",
-    "polled_at": "Polled at {ts}",
-    "updated": "Updated {age}",
-    "stale": "Stale",
+    "description": "Celery workers connected to the broker",
+    "back_button": "Executions",
+    "last_updated": "Last updated {time}",
     "refresh": "Refresh",
     "online": "Online",
     "offline": "Offline",
+    "uptime": "uptime {uptime}",
+    "offline_state": "offline",
     "active": "Active",
     "pool": "Pool",
     "processed": "Processed",
     "queues": "Queues",
     "broker_unreachable_title": "Broker unreachable",
+    "broker_unreachable_description": "The connection to the broker failed, so nothing can be queued or run. Check this setting and confirm the broker is up.",
     "no_error_reported": "No error message reported.",
-    "broker_hint_prefix": "Check the",
-    "broker_hint_suffix": "setting and confirm the broker process is running.",
     "no_workers_title": "No workers connected",
-    "no_workers_hint_prefix": "The broker is reachable but no Celery workers are responding. Start one with",
+    "no_workers_description": "The broker is reachable but nothing is consuming the queue. Start a worker locally with:",
     "refresh_failed_status": "Failed to refresh workers (HTTP {status})",
     "refresh_failed": "Failed to refresh workers"
   },
   "nav": {
-    "background_tasks": "Background Tasks"
+    "background_tasks": "Background tasks"
   },
   "audit": {
     "task_execution": "Task execution"

@@ -13,10 +13,11 @@ from __future__ import annotations
 import os
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
 from simple_module_core.dotenv import env_str
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.redirect_safety import non_empty_redirect
+from simple_module_core.settings_base import DbBackedSettings
 
 _PLACEHOLDER_RESET_SECRET = "dev-reset-token-secret-change-me"
 _PLACEHOLDER_VERIFY_SECRET = "dev-verify-token-secret-change-me"
@@ -24,9 +25,12 @@ _PLACEHOLDER_VERIFY_SECRET = "dev-verify-token-secret-change-me"
 DEFAULT_LOGIN_REDIRECT_URL = "/dashboard/"
 
 
-class UsersSettings(BaseSettings):
+class UsersSettings(DbBackedSettings):
     """Local user management configuration."""
 
+    # ``DbBackedSettings`` (not ``BaseSettings``) so the DB is genuinely the
+    # only source: omitting ``env_prefix`` would leave pydantic-settings
+    # reading each field from its bare name — GH #283.
     model_config = SettingsConfigDict(extra="ignore")
 
     # Self-service signup
@@ -73,6 +77,10 @@ class UsersSettings(BaseSettings):
     # Cookie (fastapi-users AuthenticationBackend)
     cookie_name: str = "sm_auth"
     cookie_max_age_seconds: int = 60 * 60 * 24 * 14  # 14 days
+    # "Keep me signed in for N days" on the sign-in card. The page reads the
+    # number out of this rather than spelling it in the copy, so an operator
+    # who shortens the window does not leave the checkbox lying.
+    remember_me_max_age_seconds: int = 60 * 60 * 24 * 30  # 30 days
     cookie_secure: bool = True  # flipped False in dev by the module at startup
     cookie_samesite: str = "lax"
 

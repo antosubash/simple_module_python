@@ -1,4 +1,7 @@
 {
+  "audit": {
+    "role_permission": "Role permission"
+  },
   "browse": {
     "title": "Permissions",
     "description": "Permissions are auto-discovered from every installed module. Assign them to roles, or grant them directly to individual users.",
@@ -33,36 +36,41 @@
     "save_failed": "Could not save permissions"
   },
   "edit": {
-    "title": "Edit permissions for {role}",
+    "title": "Edit role: {role}",
     "description": "Toggle the permissions granted to every user holding this role.",
     "empty": "No permissions have been registered by any installed module.",
-    "submit_button": "Save changes",
-    "reset_button": "Discard",
-    "cancel_link": "Back",
-    "selected_summary": "Selected",
-    "select_all_group": "Select all",
-    "clear_group": "Clear",
+    "no_matches": "No permissions match this filter.",
+    "submit_button": "Save role",
+    "reset_button": "Reset",
+    "cancel_link": "Cancel",
     "head_title": "Edit Role",
-    "permissions_enabled": "permissions enabled",
-    "granted_summary": "{granted} of {total} granted"
+    "filter_placeholder": "Filter modules or permissions…",
+    "granted_only": "Granted only",
+    "granted_summary": "of {total} granted",
+    "toggle_group_label": "Toggle every {group} permission",
+    "leave_warning": "You have unsaved changes to this role. Leave without saving?"
   },
   "user_edit": {
-    "title": "Permissions for {email}",
-    "description": "Grant permissions directly to this user. Inherited permissions come from the roles they hold.",
+    "title": "Permissions — {email}",
+    "subtitle": "{name} · effective permissions combine role grants and direct grants",
+    "subtitle_no_name": "Effective permissions combine role grants and direct grants",
     "roles_label": "Roles",
     "no_roles": "No roles assigned",
     "empty": "No permissions have been registered by any installed module.",
+    "no_matches": "No permissions match this filter.",
     "inherited_hint": "Granted by role: {roles}. Turning the switch off here will not revoke it — edit the role instead.",
-    "submit_button": "Save changes",
-    "reset_button": "Discard",
-    "cancel_link": "Back",
-    "direct_summary": "Direct",
+    "submit_button": "Save grants",
+    "cancel_link": "Cancel",
+    "direct_summary": "Direct grants",
     "effective_summary": "Effective",
-    "via_role": "via {role}",
-    "effective_yes": "This user has this permission",
-    "effective_no": "This user does not have this permission",
+    "legend_direct": "direct grant",
+    "legend_role": "from role",
+    "group_effective": "{granted} effective / {total}",
+    "direct_badge": "direct",
+    "via_role": "granted by {roles}",
     "direct_toggle_label": "Grant {key} directly to this user",
-    "head_title": "Edit User"
+    "head_title": "Edit User",
+    "leave_warning": "You have unsaved changes to these grants. Leave without saving?"
   },
   "errors": {
     "role_not_found": "Role not found.",

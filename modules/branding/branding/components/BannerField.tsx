@@ -8,10 +8,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@simple-module-py/ui/components/ui/select';
+import { BANNER_SEVERITIES, type BannerSeverity } from './dirty';
 
-/** Mirrors `BANNER_SEVERITIES` in `branding/constants.py`. */
-export const BANNER_SEVERITIES = ['info', 'warning', 'danger'] as const;
-export type BannerSeverity = (typeof BANNER_SEVERITIES)[number];
+export { BANNER_SEVERITIES, type BannerSeverity };
 
 /** Matches `MAX_BANNER_MESSAGE_LEN`, so the server never has to reject length. */
 export const MAX_BANNER_MESSAGE = 500;
@@ -40,9 +39,11 @@ export function BannerField({
   };
 
   return (
-    <div className="space-y-2">
-      <Label htmlFor="banner_message">{t(keys.branding.manage.banner_label)}</Label>
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-col gap-2">
+      <Label htmlFor="banner_message" className="text-[12.5px] font-medium text-muted-foreground">
+        {t(keys.branding.manage.banner_label)}
+      </Label>
+      <div className="flex flex-wrap items-center gap-2.5">
         <Input
           id="banner_message"
           value={message}
@@ -50,7 +51,7 @@ export function BannerField({
           disabled={disabled}
           placeholder={t(keys.branding.manage.banner_placeholder)}
           onChange={(e) => onMessageChange(e.target.value)}
-          className="min-w-60 flex-1"
+          className="min-w-52 flex-1"
         />
         <Select
           value={severity}
@@ -59,7 +60,7 @@ export function BannerField({
         >
           <SelectTrigger
             id="banner_severity"
-            className="w-40"
+            className="w-32"
             aria-label={t(keys.branding.manage.banner_severity_label)}
           >
             <SelectValue />
@@ -73,7 +74,6 @@ export function BannerField({
           </SelectContent>
         </Select>
       </div>
-      <p className="text-xs text-muted-foreground">{t(keys.branding.manage.banner_help)}</p>
     </div>
   );
 }

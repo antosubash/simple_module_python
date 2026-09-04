@@ -1,7 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { EmptyState } from '@simple-module-py/ui/components/EmptyState';
-import { TableEmptyRow } from '@simple-module-py/ui/components/TableEmptyRow';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Plus, UserPlus, Users } from 'lucide-react';
 
@@ -41,43 +40,42 @@ export function SoloAccountPrompt() {
   );
 }
 
-interface UsersEmptyRowProps {
+interface UsersEmptyPanelProps {
   /** A search term or filter is narrowing the list, so rows may exist outside it. */
   filtered: boolean;
-  columnCount: number;
   onClear: () => void;
 }
 
 /**
- * The table's own empty row.
+ * What the card shows in place of the table when nothing matches.
  *
  * "No users yet" is both wrong and alarming when the workspace is full and the
  * filter is simply too narrow, so the two cases get opposite copy and opposite
  * actions — clear the filter, or add the first person.
+ *
+ * A panel rather than a table row: below `sm` the table is swapped for a card
+ * list, and an empty state that lived inside the table would disappear on
+ * exactly the screens with the least room to work out why the list is blank.
  */
-export function UsersEmptyRow({ filtered, columnCount, onClear }: UsersEmptyRowProps) {
+export function UsersEmptyPanel({ filtered, onClear }: UsersEmptyPanelProps) {
   const { t } = useT();
-  return (
-    <TableEmptyRow columnCount={columnCount}>
-      {filtered ? (
-        <EmptyState
-          icon={Users}
-          title={t(keys.users.empty.filtered_title)}
-          description={t(keys.users.empty.filtered_description)}
-          action={
-            <Button variant="outline" onClick={onClear}>
-              {t(keys.users.empty.clear_filters)}
-            </Button>
-          }
-        />
-      ) : (
-        <EmptyState
-          icon={UserPlus}
-          title={t(keys.users.empty.empty_title)}
-          description={t(keys.users.empty.invite_description)}
-          action={<AddPeopleAction />}
-        />
-      )}
-    </TableEmptyRow>
+  return filtered ? (
+    <EmptyState
+      icon={Users}
+      title={t(keys.users.empty.filtered_title)}
+      description={t(keys.users.empty.filtered_description)}
+      action={
+        <Button variant="outline" onClick={onClear}>
+          {t(keys.users.empty.clear_filters)}
+        </Button>
+      }
+    />
+  ) : (
+    <EmptyState
+      icon={UserPlus}
+      title={t(keys.users.empty.empty_title)}
+      description={t(keys.users.empty.invite_description)}
+      action={<AddPeopleAction />}
+    />
   );
 }

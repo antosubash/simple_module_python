@@ -30,10 +30,10 @@ _TITLED_PAGES = [
 
 def _login(page: Page, username: str, password: str) -> None:
     page.goto("/")
-    page.get_by_role("link", name="Log in").first.click()
+    page.get_by_role("link", name="Sign in").first.click()
     page.locator("#email").fill(username)
     page.locator("#password").fill(password)
-    page.get_by_role("button", name="Log in").click()
+    page.get_by_role("button", name="Sign in").click()
     page.wait_for_url("**/dashboard/**", timeout=15_000)
 
 
@@ -41,14 +41,14 @@ def test_login_page_title_names_the_page(page: Page) -> None:
     """Checked signed-out too: the sign-in page is the first tab a visitor
     sees, and it is served by the same template."""
     page.goto("/users/login")
-    expect(page).to_have_title("Login — SimpleModule", timeout=10_000)
+    expect(page).to_have_title("Sign in — SimpleModule", timeout=10_000)
 
 
 def test_signed_out_page_has_exactly_one_title_element(page: Page) -> None:
     """Two titles is the actual defect — the text assertions only fail
     because of the ordering it produces."""
     page.goto("/users/login")
-    expect(page).to_have_title("Login — SimpleModule", timeout=10_000)
+    expect(page).to_have_title("Sign in — SimpleModule", timeout=10_000)
     assert page.locator("title").count() == 1
 
 
@@ -71,4 +71,4 @@ def test_error_page_title_names_the_status(
     auth bounce, not a 404, so this would assert against the login page."""
     _login(page, e2e_username, e2e_password)
     page.goto("/no-such-page-anywhere")
-    expect(page).to_have_title("Page Not Found — SimpleModule", timeout=10_000)
+    expect(page).to_have_title("Not found — SimpleModule", timeout=10_000)

@@ -1,49 +1,64 @@
 import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActionDialog';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
-import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@simple-module-py/ui/components/ui/table';
+import { Input } from '@simple-module-py/ui/components/ui/input';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
-import { Box, Plus, Settings as SettingsIcon } from 'lucide-react';
+import { Plus, Search, Settings as SettingsIcon, Trash2 } from 'lucide-react';
 import type React from 'react';
-import type { ValueType } from './components/ValueInput';
+import { useCallback, useEffect, useState } from 'react';
+import { type ScopeCounts, type ScopeFilter, ScopeTabs } from './components/ScopeTabs';
+import { StoreCards } from './components/StoreCards';
+import { StoreTable } from './components/StoreTable';
 import { ROUTES } from './routes';
+import type { Pagination, Setting } from './types';
 
-type Scope = 'system' | 'tenant' | 'user';
+interface Props {
+  settings: Setting[];
+  pagination: Pagination;
+  counts: ScopeCounts;
+  filters: { scope: ScopeFilter; q: string };
+}
 
-type Setting = {
-  id: number;
-  scope: Scope;
-  scope_id: string;
-  key: string;
-  value: string;
-  value_type: ValueType;
-  description: string | null;
-};
-
-type Props = { settings: Setting[] };
-
-const SCOPE_TONE: Record<Scope, string> = {
-  system: 'border-primary-200 bg-primary-50 text-primary-700',
-  tenant: 'border-blue-200 bg-blue-50 text-blue-700',
-  user: 'border-amber-200 bg-amber-50 text-amber-700',
-};
-
-function Browse({ settings }: Props) {
+function Browse({ settings, pagination, counts, filters }: Props) {
   const { t } = useT();
+  const [search, setSearch] = useState(filters.q);
+  const [pendingDelete, setPendingDelete] = useState<Setting | null>(null);
 
-  function handleDelete(setting: Setting) {
-    if (!window.confirm(t(keys.settings.browse.delete_confirm, { key: setting.key }))) return;
-    router.delete(ROUTES.byId(setting.id));
+  const navigate = useCallback(
+    (next: Partial<{ scope: ScopeFilter; q: string; page: number }>) => {
+      const scope = next.scope ?? filters.scope;
+      const q = next.q ?? search;
+      const page = next.page ?? 1;
+      const params: Record<string, string> = {};
+      if (scope !== 'all') params.scope = scope;
+      if (q) params.q = q;
+      if (page > 1) params.page = String(page);
+      router.get(ROUTES.browse, params, { preserveState: true, preserveScroll: true });
+    },
+    [filters.scope, search],
+  );
+
+  // Debounced so a five-letter key is one request rather than five, and
+  // `preserveState` above keeps the caret where it was between them.
+  useEffect(() => {
+    if (search === filters.q) return;
+    const timeout = setTimeout(() => navigate({ q: search }), 300);
+    return () => clearTimeout(timeout);
+  }, [search, filters.q, navigate]);
+
+  const { page, per_page, total } = pagination;
+  const from = total === 0 ? 0 : (page - 1) * per_page + 1;
+  const to = Math.min(page * per_page, total);
+  const lastPage = Math.max(1, Math.ceil(total / per_page));
+  const isFiltered = !!filters.q || filters.scope !== 'all';
+
+  function confirmDelete() {
+    if (!pendingDelete) return;
+    router.delete(ROUTES.byId(pendingDelete.id));
+    setPendingDelete(null);
   }
 
   return (
@@ -54,101 +69,100 @@ function Browse({ settings }: Props) {
         description={t(keys.settings.browse.description)}
         actions={
           <>
-            <Button asChild variant="outline" className="gap-1.5">
-              <a href={ROUTES.modules}>
-                <Box className="h-3.5 w-3.5" /> {t(keys.settings.modules.browse_link)}
-              </a>
+            <Button asChild variant="outline" className="max-lg:min-h-11">
+              <a href={ROUTES.modules}>{t(keys.settings.modules.browse_link)}</a>
             </Button>
-            <Button asChild className="gap-1.5">
+            <Button asChild className="gap-1.5 max-lg:min-h-11">
               <a href={ROUTES.create}>
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4" aria-hidden="true" />
                 {t(keys.settings.browse.new_button)}
               </a>
             </Button>
           </>
         }
       >
-        {settings.length === 0 ? (
-          <Card className="border-border">
-            <div className="flex flex-col items-center gap-2 py-16 text-muted-foreground">
-              <SettingsIcon className="size-8" />
-              <h2 className="text-base font-semibold text-foreground font-[var(--font-display)]">
-                {t(keys.settings.browse.empty_title)}
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <ScopeTabs
+            value={filters.scope}
+            counts={counts}
+            onChange={(scope) => navigate({ scope, page: 1 })}
+          />
+          <div className="relative flex-1">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t(keys.settings.browse.search_placeholder)}
+              className="pl-9 max-lg:min-h-11"
+            />
+          </div>
+        </div>
+
+        {/* A min-height rather than a fixed one: the deck's card fills the
+            viewport with the footer pinned to the bottom, and `min-h` gets
+            that look without clipping a full page of rows on a short window. */}
+        <Card className="flex flex-col overflow-hidden border-border p-0 lg:min-h-[calc(100vh-var(--app-chrome-h)-15rem)]">
+          {settings.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
+              <SettingsIcon className="size-8" aria-hidden="true" />
+              <h2 className="font-display text-base font-semibold text-foreground">
+                {isFiltered
+                  ? t(keys.settings.browse.no_match_title)
+                  : t(keys.settings.browse.empty_title)}
               </h2>
-              <p className="text-sm">{t(keys.settings.browse.empty_description)}</p>
+              <p className="text-sm">
+                {isFiltered
+                  ? t(keys.settings.browse.no_match_description)
+                  : t(keys.settings.browse.empty_description)}
+              </p>
             </div>
-          </Card>
-        ) : (
-          <Card className="border-border overflow-hidden p-0">
-            <Table>
-              <TableHeader className="bg-secondary/40">
-                <TableRow>
-                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                    {t(keys.settings.table.scope)}
-                  </TableHead>
-                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground hidden md:table-cell">
-                    {t(keys.settings.table.scope_id)}
-                  </TableHead>
-                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                    {t(keys.settings.table.key)}
-                  </TableHead>
-                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground hidden lg:table-cell">
-                    {t(keys.settings.table.value_type)}
-                  </TableHead>
-                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                    {t(keys.settings.table.value)}
-                  </TableHead>
-                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground hidden lg:table-cell">
-                    {t(keys.settings.table.description)}
-                  </TableHead>
-                  <TableHead className="text-right">{t(keys.settings.table.actions)}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {settings.map((setting) => (
-                  <TableRow key={setting.id} className="hover:bg-secondary/40">
-                    <TableCell>
-                      <Badge variant="outline" className={SCOPE_TONE[setting.scope]}>
-                        {t(keys.settings.scopes[setting.scope])}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">
-                      {setting.scope_id || '—'}
-                    </TableCell>
-                    <TableCell className="font-mono text-sm font-semibold">{setting.key}</TableCell>
-                    <TableCell className="hidden lg:table-cell text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-                      {t(keys.settings.value_types[setting.value_type])}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-foreground max-w-[200px] truncate">
-                      {setting.value}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell text-sm text-muted-foreground max-w-[200px] truncate">
-                      {setting.description ?? ''}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-3 text-xs">
-                        <a
-                          href={ROUTES.edit(setting.id)}
-                          className="font-semibold text-primary-700 hover:text-primary-800"
-                        >
-                          {t(keys.settings.browse.edit_link)}
-                        </a>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(setting)}
-                          className="font-semibold text-destructive hover:underline"
-                        >
-                          {t(keys.settings.browse.delete_link)}
-                        </button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        )}
+          ) : (
+            <>
+              <StoreCards settings={settings} onDelete={setPendingDelete} />
+              <StoreTable settings={settings} onDelete={setPendingDelete} />
+            </>
+          )}
+
+          <div className="mt-auto flex items-center justify-between border-t px-4 py-3 text-sm text-muted-foreground">
+            <span>{t(keys.settings.browse.showing, { from, to, total })}</span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="max-lg:min-h-11"
+                disabled={page <= 1}
+                onClick={() => navigate({ page: page - 1 })}
+              >
+                {t(keys.settings.browse.previous)}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="max-lg:min-h-11"
+                disabled={page >= lastPage}
+                onClick={() => navigate({ page: page + 1 })}
+              >
+                {t(keys.settings.browse.next)}
+              </Button>
+            </div>
+          </div>
+        </Card>
       </PageShell>
+
+      <ConfirmActionDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        icon={Trash2}
+        title={t(keys.settings.browse.delete_title)}
+        description={t(keys.settings.browse.delete_description, { key: pendingDelete?.key ?? '' })}
+        confirmLabel={t(keys.settings.browse.delete_confirm_button)}
+        cancelLabel={t(keys.settings.form.cancel_button)}
+        onConfirm={confirmDelete}
+      />
     </>
   );
 }

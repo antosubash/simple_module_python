@@ -8,7 +8,8 @@ interface InlineBannerProps {
   /** `info` for a neutral status note, `warning` for something that needs attention. */
   tone?: 'info' | 'warning';
   title: React.ReactNode;
-  description: React.ReactNode;
+  /** Omit for a one-line banner — the deck's mailer strip is a single sentence. */
+  description?: React.ReactNode;
   /** Usually a button/link — the one thing to do about this banner. */
   action?: React.ReactNode;
   /** Vertical alignment of the icon/text block against the trailing action. */
@@ -67,7 +68,7 @@ export function InlineBanner({
         <Icon className={cn('mt-0.5 size-4 shrink-0', TONE_ICON[tone])} aria-hidden="true" />
         <div>
           <p className={TONE_TITLE[tone]}>{title}</p>
-          <p className={TONE_DESCRIPTION[tone]}>{description}</p>
+          {description && <p className={TONE_DESCRIPTION[tone]}>{description}</p>}
         </div>
       </div>
       {action && <div className="shrink-0">{action}</div>}

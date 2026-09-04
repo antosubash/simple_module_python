@@ -7,11 +7,19 @@ from simple_module_core.permissions import DEFAULT_ROLE_PERMISSIONS, WILDCARD
 
 __all__ = [
     "DEFAULT_ROLE_PERMISSIONS",
+    "PERMISSION_DENIED_PREFIX",
     "WILDCARD",
     "RequiresPermission",
     "expand_permissions",
     "resolve_permissions",
 ]
+
+# How a denial spells the missing permission in ``HTTPException.detail``.
+# Exported because the error-page handler parses the name back out of it to
+# tell the visitor what to ask an admin for; two copies of this literal in two
+# files is exactly the drift that would leave the 403 page with no permission
+# to name and no test to notice.
+PERMISSION_DENIED_PREFIX = "Permission required: "
 
 
 def resolve_permissions(
@@ -71,5 +79,5 @@ class RequiresPermission:
         if self.permission not in permissions:
             raise HTTPException(
                 status_code=403,
-                detail=f"Permission required: {self.permission}",
+                detail=f"{PERMISSION_DENIED_PREFIX}{self.permission}",
             )

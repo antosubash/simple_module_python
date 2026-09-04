@@ -1,7 +1,6 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
-import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import {
@@ -13,18 +12,21 @@ import {
   TableRow,
 } from '@simple-module-py/ui/components/ui/table';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
+import { Download } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 import { BrowseEmpty } from './components/BrowseEmpty';
+import { type Change, ChangesList } from './components/ChangesList';
 import { CorrelationBanner, CorrelationLink } from './components/Correlation';
 import { ActorCell, EntityCell, type EntityRef } from './components/EntryCells';
-import { ALL, type AppliedFilters, FilterBar, type FilterState } from './components/FilterBar';
-
-interface Change {
-  field: string;
-  old?: unknown;
-  new?: unknown;
-}
+import {
+  ALL,
+  type AppliedFilters,
+  type EntityTypeOption,
+  FilterBar,
+  type FilterState,
+} from './components/FilterBar';
+import { formatEntryTime } from './components/format';
 
 interface AuditEntryRead {
   id: string;
@@ -47,58 +49,25 @@ interface Props {
   total: number;
   page: number;
   page_size: number;
-  entity_types: string[];
+  entity_types: EntityTypeOption[];
+  /** Where the CSV lives; the current filters are appended to it. */
+  export_url: string;
   /** `correlation_id` is set only by the per-row "Related" pivot — it has no
    * control in FilterBar. */
   filters: AppliedFilters;
 }
 
-const ACTION_BADGE: Record<string, string> = {
-  created: 'border-green-200 bg-green-50 text-green-700',
-  updated: 'border-blue-200 bg-blue-50 text-blue-700',
-  deleted: 'border-red-200 bg-red-50 text-red-700',
-  soft_deleted: 'border-amber-200 bg-amber-50 text-amber-700',
+// Borderless tints, lowercase values: the pill is a value in a dense table,
+// not a badge competing with the row's links for attention.
+const ACTION_PILL: Record<string, string> = {
+  created: 'bg-primary-600/10 text-primary-700',
+  updated: 'bg-blue-50 text-blue-700',
+  deleted: 'bg-red-50 text-red-700',
+  soft_deleted: 'bg-amber-50 text-amber-700',
 };
+const PILL = 'inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-medium';
 const TH = 'sm:px-6 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground';
-
-function ChangesList({ entry }: { entry: AuditEntryRead }) {
-  const { t } = useT();
-  const [expanded, setExpanded] = useState(false);
-  if (entry.action === 'deleted' || entry.action === 'soft_deleted')
-    return <span className="text-muted-foreground">{t(keys.audit_log.changes.no_changes)}</span>;
-  if (entry.action === 'created')
-    return (
-      <span className="text-muted-foreground">
-        {t(keys.audit_log.changes.fields_set, { count: entry.changes.length })}
-      </span>
-    );
-
-  const visible = expanded ? entry.changes : entry.changes.slice(0, 3);
-  const remaining = entry.changes.length - 3;
-  return (
-    <div className="space-y-0.5 text-xs">
-      {visible.map((c) => (
-        <div key={c.field} className="font-mono">
-          <span className="font-semibold">{c.field}</span>{' '}
-          <span className="text-muted-foreground">
-            {String(c.old ?? '""')}&rarr;{String(c.new ?? '""')}
-          </span>
-        </div>
-      ))}
-      {remaining > 0 && (
-        <button
-          type="button"
-          className="text-primary-700 hover:underline text-xs"
-          onClick={() => setExpanded(!expanded)}
-        >
-          {expanded
-            ? t(keys.audit_log.changes.show_less)
-            : t(keys.audit_log.changes.show_more, { count: remaining })}
-        </button>
-      )}
-    </div>
-  );
-}
+const TD = 'sm:px-6 align-top';
 
 const CLEARED: FilterState = {
   entityType: ALL,
@@ -108,9 +77,30 @@ const CLEARED: FilterState = {
   toDate: '',
 };
 
+/** The screen's filters as a query string — shared by navigation and the
+ * export link, so a CSV can never disagree with the table above it. */
+function queryFor(
+  next: FilterState,
+  correlationId: string | null,
+  page: number,
+  pageSize: number,
+): URLSearchParams {
+  const p: Record<string, string> = {};
+  if (next.entityType && next.entityType !== ALL) p.entity_type = next.entityType;
+  if (next.action && next.action !== ALL) p.action = next.action;
+  if (next.userId) p.user_id = next.userId;
+  if (correlationId) p.correlation_id = correlationId;
+  if (next.fromDate) p.from_date = next.fromDate;
+  if (next.toDate) p.to_date = next.toDate;
+  if (page > 1) p.page = String(page);
+  if (pageSize !== 50) p.page_size = String(pageSize);
+  return new URLSearchParams(p);
+}
+
 function Browse() {
-  const { items, total, page, page_size, entity_types, filters } = usePage<{ props: Props }>()
-    .props as unknown as Props;
+  const { items, total, page, page_size, entity_types, export_url, filters } = usePage<{
+    props: Props;
+  }>().props as unknown as Props;
   const { t } = useT();
 
   const [state, setState] = useState<FilterState>({
@@ -125,20 +115,12 @@ function Browse() {
   // no control for it in FilterBar, so it survives an Apply and is dropped only
   // when something asks for it to be.
   function navigate(next: FilterState, nextPage = 1, correlationId = filters.correlation_id) {
-    const p: Record<string, string> = {};
-    if (next.entityType && next.entityType !== ALL) p.entity_type = next.entityType;
-    if (next.action && next.action !== ALL) p.action = next.action;
-    if (next.userId) p.user_id = next.userId;
-    if (correlationId) p.correlation_id = correlationId;
-    if (next.fromDate) p.from_date = next.fromDate;
-    if (next.toDate) p.to_date = next.toDate;
-    if (nextPage > 1) p.page = String(nextPage);
-    if (page_size !== 50) p.page_size = String(page_size);
+    const query = queryFor(next, correlationId, nextPage, page_size);
     // Trailing slash: the browse route is registered at "/" under
     // VIEW_PREFIX and reaches the app via `include_router`, which
     // `_clone_bare_prefix_route` cannot alias — the bare form costs a 307
     // on every filter change. Matches MENU_URL in constants.py.
-    router.visit(`/admin/audit-log/?${new URLSearchParams(p).toString()}`);
+    router.visit(`/admin/audit-log/?${query.toString()}`);
   }
 
   function handleClear() {
@@ -154,9 +136,23 @@ function Browse() {
     navigate(CLEARED, 1, id);
   }
 
-  const totalPages = Math.ceil(total / page_size);
+  const totalPages = Math.max(1, Math.ceil(total / page_size));
   const from = total === 0 ? 0 : (page - 1) * page_size + 1;
   const to = Math.min(page * page_size, total);
+  // The applied filters, not the unsubmitted form state: the button must
+  // export what the table is showing.
+  const exportHref = `${export_url}?${queryFor(
+    {
+      entityType: filters.entity_type ?? ALL,
+      action: filters.action ?? ALL,
+      userId: filters.user_id ?? '',
+      fromDate: filters.from_date ?? '',
+      toDate: filters.to_date ?? '',
+    },
+    filters.correlation_id,
+    1,
+    page_size,
+  ).toString()}`;
 
   return (
     <>
@@ -164,6 +160,14 @@ function Browse() {
       <PageShell
         title={t(keys.audit_log.browse.title)}
         description={t(keys.audit_log.browse.description)}
+        actions={
+          <Button asChild variant="outline" className="gap-1.5 max-lg:min-h-11">
+            <a href={exportHref} download>
+              <Download className="size-4" aria-hidden="true" />
+              {t(keys.audit_log.browse.export_csv)}
+            </a>
+          </Button>
+        }
       >
         <FilterBar
           state={state}
@@ -177,15 +181,19 @@ function Browse() {
           <CorrelationBanner count={total} onClear={handleClear} />
         )}
 
-        {items.length === 0 ? (
-          <BrowseEmpty applied={filters} onClear={handleClear} />
-        ) : (
-          <Card className="border-border overflow-hidden p-0">
+        <Card className="border-border overflow-hidden p-0">
+          {items.length === 0 ? (
+            <BrowseEmpty applied={filters} entityTypes={entity_types} onClear={handleClear} />
+          ) : (
             <Table>
               <TableHeader className="bg-secondary/40">
                 <TableRow>
-                  <TableHead className={TH}>{t(keys.audit_log.table.timestamp)}</TableHead>
-                  <TableHead className={TH}>{t(keys.audit_log.table.action)}</TableHead>
+                  <TableHead className={`${TH} w-[150px]`}>
+                    {t(keys.audit_log.table.timestamp)}
+                  </TableHead>
+                  <TableHead className={`${TH} w-[110px]`}>
+                    {t(keys.audit_log.table.action)}
+                  </TableHead>
                   <TableHead className={TH}>{t(keys.audit_log.table.entity)}</TableHead>
                   <TableHead className={`${TH} hidden sm:table-cell`}>
                     {t(keys.audit_log.table.user)}
@@ -198,9 +206,15 @@ function Browse() {
               <TableBody>
                 {items.map((entry) => (
                   <TableRow key={entry.id} className="hover:bg-secondary/40">
-                    <TableCell className="sm:px-6 whitespace-nowrap align-top text-sm tabular-nums text-muted-foreground">
+                    <TableCell
+                      className={`${TD} whitespace-nowrap font-mono text-xs text-muted-foreground`}
+                    >
                       <div className="flex flex-col">
-                        <span>{new Date(entry.created_at).toLocaleString()}</span>
+                        <span>{formatEntryTime(entry.created_at)}</span>
+                        {/* The deck has no correlation control. It stays here
+                            because it is the only way back from one row to the
+                            request that wrote it, and under the timestamp is
+                            where "this same moment" belongs. */}
                         {entry.correlation_id && !filters.correlation_id && (
                           <CorrelationLink
                             correlationId={entry.correlation_id}
@@ -209,36 +223,43 @@ function Browse() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="sm:px-6">
-                      <Badge variant="outline" className={ACTION_BADGE[entry.action] ?? ''}>
+                    <TableCell className={TD}>
+                      <span className={`${PILL} ${ACTION_PILL[entry.action] ?? ''}`}>
                         {t(keys.audit_log.actions[entry.action])}
-                      </Badge>
+                      </span>
                     </TableCell>
-                    <TableCell className="sm:px-6">
+                    <TableCell className={`${TD} whitespace-normal`}>
                       <EntityCell entry={entry} />
                     </TableCell>
-                    <TableCell className="sm:px-6 hidden sm:table-cell text-sm text-muted-foreground">
+                    <TableCell
+                      className={`${TD} hidden sm:table-cell text-sm text-muted-foreground`}
+                    >
                       <ActorCell entry={entry} />
                     </TableCell>
-                    <TableCell className="sm:px-6 hidden md:table-cell">
-                      <ChangesList entry={entry} />
+                    {/* `TableCell` is `whitespace-nowrap` by default, which
+                        made one long value push the table wider than the card
+                        and cut every updated row mid-value. */}
+                    <TableCell className={`${TD} hidden whitespace-normal md:table-cell`}>
+                      <ChangesList action={entry.action} changes={entry.changes} />
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </Card>
-        )}
+          )}
 
-        {totalPages > 1 && (
-          <div className="mt-4 flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              {t(keys.audit_log.browse.showing, { from, to, total })}
+          {/* Always visible, one page or forty: the range is how a reader
+              checks the filter matched what they expected, and "Showing 0–0
+              of 0" is the honest answer when it matched nothing. */}
+          <div className="flex items-center justify-between border-t px-4 py-3 text-sm text-muted-foreground">
+            <span>
+              {t(keys.audit_log.browse.showing, { from, to, total: total.toLocaleString() })}
             </span>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
+                className="max-lg:min-h-11"
                 disabled={page <= 1}
                 onClick={() => navigate(state, page - 1)}
               >
@@ -247,6 +268,7 @@ function Browse() {
               <Button
                 variant="outline"
                 size="sm"
+                className="max-lg:min-h-11"
                 disabled={page >= totalPages}
                 onClick={() => navigate(state, page + 1)}
               >
@@ -254,7 +276,7 @@ function Browse() {
               </Button>
             </div>
           </div>
-        )}
+        </Card>
       </PageShell>
     </>
   );

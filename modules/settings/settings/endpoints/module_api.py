@@ -16,7 +16,6 @@ from simple_module_hosting.permissions import RequiresPermission
 from settings._module_settings import (
     SECRET_MASK,
     collect_module_settings,
-    is_secret_field,
     overrides_by_package,
 )
 from settings._module_settings_props import serialize
@@ -39,11 +38,18 @@ _DELETE = [Depends(RequiresPermission(PERM_DELETE))]
 
 
 def _strip_mask_sentinels(changes: dict[str, Any]) -> dict[str, Any]:
-    """Drop secret fields whose value is the UI mask sentinel."""
+    """Drop any field whose submitted value is the UI mask sentinel.
+
+    Keyed on the sentinel alone rather than on ``is_secret_field(name)``: a
+    value can be masked because it *is* a credential (a DSN with a password in
+    it) on a field whose name says nothing of the sort, and storing the row of
+    dots that the editor rendered would overwrite the real connection string.
+    Nothing legitimately equals :data:`SECRET_MASK`.
+    """
     return {
         name: value
         for name, value in changes.items()
-        if not (isinstance(value, str) and value == SECRET_MASK and is_secret_field(name))
+        if not (isinstance(value, str) and value == SECRET_MASK)
     }
 
 

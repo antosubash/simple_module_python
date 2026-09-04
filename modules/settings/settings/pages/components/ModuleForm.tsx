@@ -1,8 +1,10 @@
 import { router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { Button } from '@simple-module-py/ui/components/ui/button';
+import { Card } from '@simple-module-py/ui/components/ui/card';
 import { useEffect, useMemo, useState } from 'react';
-import { FieldInput, type FieldMeta } from './FieldInput';
-import { FieldSource } from './FieldSource';
+import type { FieldMeta } from './FieldInput';
+import { ModuleFieldRow } from './ModuleFieldRow';
 import { TestConnectionButton } from './TestConnectionButton';
 
 export type ModuleView = {
@@ -17,8 +19,8 @@ export type ModuleView = {
 
 type Props = {
   module: ModuleView;
-  /** True when this module registered health checks worth running on demand. */
-  testable?: boolean;
+  /** Names of the health checks this module registered, if any. */
+  checks?: string[];
 };
 
 function notEqual(a: unknown, b: unknown): boolean {
@@ -29,7 +31,7 @@ function notEqual(a: unknown, b: unknown): boolean {
   return true;
 }
 
-export function ModuleForm({ module: m, testable = false }: Props) {
+export function ModuleForm({ module: m, checks = [] }: Props) {
   const { t } = useT();
   const initial = useMemo(() => {
     const o: Record<string, unknown> = {};
@@ -38,44 +40,47 @@ export function ModuleForm({ module: m, testable = false }: Props) {
   }, [m.fields]);
 
   const [values, setValues] = useState<Record<string, unknown>>(initial);
+  const [baseline, setBaseline] = useState<Record<string, unknown>>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   // Reset the edit buffer whenever the underlying module changes (package
   // switch, or server-reloaded props after a save/reset).
   useEffect(() => {
     setValues(initial);
+    setBaseline(initial);
     setErrors({});
+    setSaved(false);
   }, [initial]);
 
   const modifiedFields = useMemo(() => {
     const s = new Set<string>();
     for (const name of Object.keys(values)) {
-      if (notEqual(values[name], initial[name])) s.add(name);
+      if (notEqual(values[name], baseline[name])) s.add(name);
     }
     return s;
-  }, [values, initial]);
-
-  const defaultByName = useMemo(() => {
-    const o: Record<string, unknown> = {};
-    for (const f of m.fields) o[f.name] = f.default;
-    return o;
-  }, [m.fields]);
+  }, [values, baseline]);
 
   const dirty = modifiedFields.size > 0;
 
-  const grouped = useMemo(() => {
-    const g: Record<string, FieldMeta[]> = {};
+  // Grouped only where the module said so. A single "General" heading over
+  // every field of a module that declared no groups is a heading that carries
+  // no information and costs a row of vertical space per module.
+  const groups = useMemo(() => {
+    const g = new Map<string, FieldMeta[]>();
     for (const f of m.fields) {
-      const key = f.group ?? t(keys.settings.modules_form.default_group);
-      if (!g[key]) g[key] = [];
-      g[key].push(f);
+      const key = f.group ?? '';
+      const bucket = g.get(key);
+      if (bucket) bucket.push(f);
+      else g.set(key, [f]);
     }
-    return g;
-  }, [m.fields, t]);
+    return [...g.entries()];
+  }, [m.fields]);
 
   async function onSave() {
     setBusy(true);
+    setSaved(false);
     setErrors({});
     const changed: Record<string, unknown> = {};
     for (const name of modifiedFields) changed[name] = values[name];
@@ -92,80 +97,83 @@ export function ModuleForm({ module: m, testable = false }: Props) {
       }
       setErrors(fieldErrs);
     } else if (resp.ok) {
-      router.reload({ only: ['modules'] });
+      // Keeping the form mounted lets the confirmation remain visible instead
+      // of being discarded by an immediate Inertia reload.
+      setBaseline({ ...values });
+      setSaved(true);
     }
     setBusy(false);
   }
 
   async function onReset(name: string) {
+    setSaved(false);
     await fetch(`/api/settings/modules/${m.package}/${name}`, { method: 'DELETE' });
     router.reload({ only: ['modules'] });
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-center justify-between border-b pb-3">
+    <div className="flex flex-1 flex-col gap-4">
+      {/* Outside the card: the heading names the pane, and the deck keeps the
+          card for the fields alone. */}
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold">{m.module_name}</h2>
-          <p className="text-xs font-mono text-muted-foreground">{m.package}</p>
+          <h1 className="font-display text-2xl font-bold tracking-tight">
+            <code className="font-mono text-[22px]">{m.package}</code>{' '}
+            {t(keys.settings.modules.heading_suffix)}
+          </h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            {t(keys.settings.modules.description)}
+          </p>
         </div>
-        <div className="flex items-start gap-2">
-          {testable && <TestConnectionButton pkg={m.package} />}
-          <button
-            type="button"
-            disabled={!dirty || busy}
-            onClick={onSave}
-            className="rounded bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
-          >
+        <div className="flex shrink-0 items-center gap-2.5">
+          {saved && (
+            <p role="status" className="text-sm font-medium text-primary-700">
+              {t(keys.settings.modules_form.saved_toast)}
+            </p>
+          )}
+          {dirty && (
+            <p className="text-[13px] text-muted-foreground">
+              {t(keys.settings.modules.unsaved_count, { count: modifiedFields.size })}
+            </p>
+          )}
+          <Button type="button" disabled={!dirty || busy} onClick={onSave} className="min-h-11">
             {busy ? t(keys.settings.modules_form.saving) : t(keys.settings.modules_form.save)}
-          </button>
+          </Button>
         </div>
       </header>
 
-      {Object.entries(grouped).map(([group, fields]) => (
-        <section key={group} className="space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground">{group}</h3>
-          {fields.map((f) => {
-            const isModified = notEqual(values[f.name], defaultByName[f.name]);
-            return (
-              <div key={f.name} className="grid grid-cols-[1fr_2fr] gap-4 items-start">
-                <div>
-                  <label htmlFor={`field-${m.package}-${f.name}`} className="font-mono text-xs">
-                    {f.name}
-                  </label>
-                  {f.description && (
-                    <p className="mt-1 text-xs text-muted-foreground">{f.description}</p>
-                  )}
-                  {f.requires_restart && isModified && (
-                    <span className="mt-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] uppercase text-amber-900">
-                      {t(keys.settings.modules_form.requires_restart)}
-                    </span>
-                  )}
-                  <FieldSource field={f} />
-                </div>
-                <div>
-                  <FieldInput
-                    id={`field-${m.package}-${f.name}`}
-                    field={f}
-                    value={values[f.name]}
-                    onChange={(name, v) => setValues((prev) => ({ ...prev, [name]: v }))}
-                  />
-                  {isModified && (
-                    <button
-                      type="button"
-                      onClick={() => onReset(f.name)}
-                      className="mt-1 text-xs text-primary hover:underline"
-                    >
-                      {t(keys.settings.modules_form.reset_to_default)}
-                    </button>
-                  )}
-                  {errors[f.name] && <p className="mt-1 text-xs text-red-600">{errors[f.name]}</p>}
-                </div>
-              </div>
-            );
-          })}
-        </section>
-      ))}
+      <Card className="flex flex-1 flex-col gap-4 border-border p-6">
+        {/* No inner scroller: the card grows and the page scrolls, which is
+            one scrollbar for the screen instead of three nested ones. */}
+        <div className="flex flex-col gap-4">
+          {groups.map(([group, fields]) => (
+            <section key={group} className="flex flex-col gap-4">
+              {group && <h2 className="text-sm font-semibold text-muted-foreground">{group}</h2>}
+              {fields.map((f) => (
+                <ModuleFieldRow
+                  key={f.name}
+                  field={f}
+                  package={m.package}
+                  value={values[f.name]}
+                  modified={modifiedFields.has(f.name)}
+                  error={errors[f.name]}
+                  onReset={() => onReset(f.name)}
+                  onChange={(name, v) => {
+                    setSaved(false);
+                    setValues((prev) => ({ ...prev, [name]: v }));
+                  }}
+                />
+              ))}
+            </section>
+          ))}
+        </div>
+
+        {checks.length > 0 && (
+          <div className="mt-auto border-t pt-4">
+            <TestConnectionButton pkg={m.package} checks={checks} />
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

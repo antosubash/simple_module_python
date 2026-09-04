@@ -1,55 +1,85 @@
 {
   "browse": {
     "title": "Settings",
-    "new_button": "New Setting",
+    "new_button": "New override",
     "empty_title": "No settings yet",
     "empty_description": "Get started by creating your first setting.",
+    "no_match_title": "No matching overrides",
+    "no_match_description": "No key matches this search in this scope.",
     "edit_link": "Edit",
     "delete_link": "Delete",
-    "delete_confirm": "Delete setting \"{key}\"? This cannot be undone.",
-    "description": "Workspace, account, mailer, and module configuration."
+    "delete_title": "Delete override",
+    "delete_description": "\"{key}\" will be removed and the key falls back to the next scope down. This cannot be undone.",
+    "delete_confirm_button": "Delete override",
+    "description": "Database overrides. Precedence: user beats tenant beats system beats env default.",
+    "search_placeholder": "Search keys…",
+    "scope_filter_label": "Filter overrides by scope",
+    "scope_all": "All",
+    "showing": "Showing {from}–{to} of {total}",
+    "previous": "Previous",
+    "next": "Next"
   },
   "table": {
     "scope": "Scope",
-    "scope_id": "Scope ID",
     "key": "Key",
     "value": "Value",
     "value_type": "Type",
-    "description": "Description",
     "actions": "Actions"
   },
   "scopes": {
-    "system": "System",
-    "tenant": "Tenant",
-    "user": "User"
+    "system": "system",
+    "tenant": "tenant",
+    "user": "user"
   },
   "value_types": {
-    "string": "String",
-    "bool": "Boolean",
-    "int": "Integer",
-    "float": "Float",
-    "json": "JSON"
+    "string": "string",
+    "bool": "bool",
+    "int": "int",
+    "float": "float",
+    "json": "json"
+  },
+  "value_types_short": {
+    "string": "str",
+    "bool": "bool",
+    "int": "int",
+    "float": "float",
+    "json": "json"
   },
   "form": {
     "scope_label": "Scope",
     "scope_id_label": "Scope ID",
-    "scope_id_placeholder": "Tenant or user id (empty for system)",
+    "scope_id_placeholder": "Leave blank for system scope",
     "key_label": "Key",
     "key_placeholder": "e.g. feature.enabled",
     "value_type_label": "Type",
     "value_label": "Value",
     "value_placeholder": "Enter a value",
     "description_label": "Description",
-    "description_placeholder": "Optional description",
+    "description_placeholder": "Why this override exists.",
     "key_unknown_warning": "No installed module declares this key. It will be stored, but nothing will read it unless a module looks it up.",
     "cancel_button": "Cancel",
     "bool_true": "true",
-    "bool_false": "false"
+    "bool_false": "false",
+    "suggestions_header": "Registered by modules",
+    "suggestion_env": "{type} · env {env_var}",
+    "suggestion_default": "{type} · default {default}"
+  },
+  "resolved": {
+    "title": "Resolved value",
+    "this_override": "this override",
+    "env_fallback": "env fallback",
+    "module_default": "module default",
+    "not_read": "not read",
+    "not_set": "not set",
+    "unset": "unset",
+    "no_restart_note": "Saving takes effect on the next request — no restart needed.",
+    "restart_note": "This key is read once at boot — the app has to be restarted before the new value applies."
   },
   "create": {
-    "title": "New Setting",
-    "submit_button": "Create",
-    "head_title": "Create Setting"
+    "title": "New override",
+    "description": "The value input follows the type. On edit the key is locked.",
+    "submit_button": "Save override",
+    "head_title": "New override"
   },
   "edit": {
     "title": "Edit Setting",
@@ -57,15 +87,21 @@
   },
   "modules": {
     "title": "Module Settings",
-    "description": "Read-only view of every module's runtime configuration, autodiscovered from the app. Secrets are masked.",
+    "description": "Generated from the module's declared settings. Env fallback shown per field.",
+    "heading_suffix": "settings",
     "back_link": "Back to overrides",
     "empty_title": "No modules with settings",
     "no_fields": "No fields declared.",
     "secret_badge": "secret",
-    "browse_link": "View module settings",
-    "search_placeholder": "Search modules or fields…",
-    "field_count_suffix": "fields",
-    "browse_free_form_link": "View free-form settings",
+    "browse_link": "Per-module forms",
+    "search_placeholder": "Search modules…",
+    "field_count_one": "{count} field",
+    "field_count_other": "{count} fields",
+    "overridden_count_one": "{count} overridden",
+    "overridden_count_other": "{count} overridden",
+    "unsaved_count_one": "{count} unsaved",
+    "unsaved_count_other": "{count} unsaved",
+    "browse_free_form_link": "Browse raw overrides →",
     "table": {
       "field": "Field",
       "env_var": "Env var",
@@ -73,17 +109,17 @@
       "default": "Default",
       "description": "Description"
     },
-    "test_connection": "Test connection",
+    "test_connection": "Test {name} connection",
+    "test_connection_generic": "Test connection",
     "testing": "Testing…",
+    "last_test_success": "Last test succeeded {ago}",
+    "last_test_failure": "Last test failed {ago}",
     "env_var_hint": "Environment variable name for this field, used by \"smpy settings import-from-env\"",
-    "source_db": "Stored override",
-    "source_db_hint": "A stored setting supplies this value",
-    "source_db_over_env": "Stored (shadows env)",
-    "source_db_shadows_env": "A stored setting overrides {env_var}; the environment value is ignored",
-    "source_env": "From environment",
-    "source_env_hint": "{env_var} is set in this deployment",
-    "source_default": "Default",
-    "head_title": "Modules",
+    "env_var_not_read_hint": "{env_var} is a label only — this module reads its settings from the database, never from the environment",
+    "source_db": "overridden in DB",
+    "source_db_over_env": "overridden in DB · shadows env",
+    "secret_write_only": "write-only · never returned",
+    "head_title": "Module settings",
     "managed_title": "Managed on its own page",
     "managed_description": "{module} ships a purpose-built settings page; edit it there so validation and previews apply.",
     "managed_open": "Open {module} settings"
@@ -91,9 +127,9 @@
   "modules_form": {
     "save": "Save",
     "saving": "Saving…",
-    "default_group": "General",
+    "saved_toast": "Settings saved",
     "requires_restart": "Requires restart",
-    "reset_to_default": "Reset to default",
+    "reset_to_default": "Revert",
     "set_new_value": "Set new value"
   },
   "nav": {

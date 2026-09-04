@@ -7,10 +7,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends
-from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
+from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.setup_steps import SetupRegistry
 
 from users.constants import (
     ADMIN_ROLE_NAME,
@@ -112,19 +113,19 @@ class UsersModule(ModuleBase):
         )
         registry.map_role(USER_ROLE_NAME, [PERM_USERS_SELF_PROFILE])
 
-    def register_audit_links(self, registry: AuditLinkRegistry) -> None:
-        from users.models import User
+    def register_setup_steps(self, registry: SetupRegistry) -> None:
+        """Gate the app until an administrator exists — see ``users.setup``."""
+        from users.setup import build_admin_step
 
-        registry.register(
-            AuditLink(
-                # The model class name — what snapshot_changes records. Keying
-                # this off __tablename__ ("users_user") silently never matches.
-                entity_type=User.__name__,
-                url_template=f"{_URL_USERS_ADMIN}{{id}}",
-                label="User",
-                label_key="users.audit.user",
-            )
-        )
+        registry.add(build_admin_step())
+
+    def register_audit_links(self, registry: AuditLinkRegistry) -> None:
+        # Built in users.audit: the link now carries a batch resolver that
+        # names each row (full_name, or the email while an invite is
+        # outstanding), which is a query and does not belong in a hook file.
+        from users.audit import build_user_audit_link
+
+        registry.register(build_user_audit_link(_URL_USERS_ADMIN))
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         # Admin-only user management

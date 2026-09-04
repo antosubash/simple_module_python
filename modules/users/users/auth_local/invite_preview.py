@@ -14,6 +14,7 @@ the same facts with no side effects.
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 import jwt
@@ -22,8 +23,20 @@ from fastapi_users.jwt import decode_jwt
 logger = logging.getLogger(__name__)
 
 
+def _expires_at(claims: dict[str, Any]) -> str | None:
+    """The token's ``exp`` as an ISO timestamp, for the card's "Expires" row.
+
+    Absent or unparseable means the row is simply left out — an invite with no
+    stated expiry is better than an invented one.
+    """
+    exp = claims.get("exp")
+    if not isinstance(exp, int | float):
+        return None
+    return datetime.fromtimestamp(exp, UTC).isoformat()
+
+
 async def preview_invite(token: str, user_manager: Any) -> dict[str, Any] | None:
-    """Return ``{"email", "roles"}`` for *token*, or ``None`` if unreadable.
+    """Return the invite's facts for *token*, or ``None`` if unreadable.
 
     ``None`` covers expired, tampered, and wrong-audience tokens alike. The
     page deliberately does not distinguish them: the reason belongs to the
@@ -45,6 +58,12 @@ async def preview_invite(token: str, user_manager: Any) -> dict[str, Any] | None
     if not email:
         return None
 
+    # Minted by the admin flow, absent from tokens issued by self-service
+    # verification and from any invite created before the claim existed —
+    # so the headline falls back to naming no one rather than guessing.
+    invited_by_name = data.get("invited_by") or None
+    expires_at = _expires_at(data)
+
     roles: list[str] = []
     try:
         user = await user_manager.get_by_email(email)
@@ -52,7 +71,14 @@ async def preview_invite(token: str, user_manager: Any) -> dict[str, Any] | None
         # The token decoded but the account is gone. Showing the address it
         # was issued for is still more useful than showing nothing; accepting
         # will fail with a proper message.
-        return {"email": email, "roles": roles, "already_accepted": False}
+        return {
+            "email": email,
+            "roles": roles,
+            "already_accepted": False,
+            "invited_by_name": invited_by_name,
+            "expires_at": expires_at,
+            "full_name": None,
+        }
 
     roles = sorted(role.name for role in getattr(user, "roles", []) or [])
     return {
@@ -61,4 +87,9 @@ async def preview_invite(token: str, user_manager: Any) -> dict[str, Any] | None
         # An invite that has already been used should say so, rather than
         # presenting a password form that is guaranteed to fail.
         "already_accepted": bool(getattr(user, "is_verified", False)),
+        "invited_by_name": invited_by_name,
+        "expires_at": expires_at,
+        # Pre-fills the "Full name" field: an admin who typed the invitee's
+        # name when minting the invite should not make them type it again.
+        "full_name": getattr(user, "full_name", None),
     }

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { ageOf, isStale, RELATIVE_AGE_KEYS, relativeAge, STALE_AFTER_MS } from './relative-time';
+import {
+  ageOf,
+  isStale,
+  RELATIVE_AGE_KEYS,
+  RELATIVE_UNTIL_KEYS,
+  relativeAge,
+  relativeUntil,
+  STALE_AFTER_MS,
+} from './relative-time';
 
 // The wording lives in the ui catalog, so the unit under test here is which
 // bucket an age falls into and what count it reports — not the English.
@@ -55,5 +63,51 @@ describe('ageOf', () => {
   it('returns NaN for a missing or unparseable timestamp', () => {
     expect(ageOf(null, now)).toBeNaN();
     expect(ageOf('not a date', now)).toBeNaN();
+  });
+});
+
+describe('relativeAge over longer spans', () => {
+  const DAY = 24 * 60 * 60_000;
+
+  it('counts days once an age passes a day', () => {
+    expect(relativeAge(DAY)).toEqual({ key: RELATIVE_AGE_KEYS.days, count: 1 });
+    expect(relativeAge(29 * DAY)).toEqual({ key: RELATIVE_AGE_KEYS.days, count: 29 });
+  });
+
+  it('switches to months at thirty days', () => {
+    expect(relativeAge(30 * DAY)).toEqual({ key: RELATIVE_AGE_KEYS.months, count: 1 });
+    expect(relativeAge(364 * DAY)).toEqual({ key: RELATIVE_AGE_KEYS.months, count: 12 });
+  });
+
+  it('switches to years at a year', () => {
+    expect(relativeAge(365 * DAY)).toEqual({ key: RELATIVE_AGE_KEYS.years, count: 1 });
+    expect(relativeAge(800 * DAY)).toEqual({ key: RELATIVE_AGE_KEYS.years, count: 2 });
+  });
+});
+
+describe('relativeUntil', () => {
+  const MINUTE = 60_000;
+  const HOUR = 60 * MINUTE;
+  const DAY = 24 * HOUR;
+
+  it('reports anything already past as expired', () => {
+    expect(relativeUntil(0)).toEqual({ key: RELATIVE_UNTIL_KEYS.expired });
+    expect(relativeUntil(-1)).toEqual({ key: RELATIVE_UNTIL_KEYS.expired });
+  });
+
+  it('counts minutes below the hour, never rounding down to zero', () => {
+    expect(relativeUntil(30_000)).toEqual({ key: RELATIVE_UNTIL_KEYS.minutes, count: 1 });
+    expect(relativeUntil(59 * MINUTE)).toEqual({ key: RELATIVE_UNTIL_KEYS.minutes, count: 59 });
+  });
+
+  it('counts hours below a day, then days', () => {
+    expect(relativeUntil(HOUR)).toEqual({ key: RELATIVE_UNTIL_KEYS.hours, count: 1 });
+    expect(relativeUntil(23 * HOUR)).toEqual({ key: RELATIVE_UNTIL_KEYS.hours, count: 23 });
+    expect(relativeUntil(DAY)).toEqual({ key: RELATIVE_UNTIL_KEYS.days, count: 1 });
+    expect(relativeUntil(10 * DAY)).toEqual({ key: RELATIVE_UNTIL_KEYS.days, count: 10 });
+  });
+
+  it('degrades to "unknown" rather than NaN', () => {
+    expect(relativeUntil(Number.NaN)).toEqual({ key: RELATIVE_AGE_KEYS.unknown });
   });
 });

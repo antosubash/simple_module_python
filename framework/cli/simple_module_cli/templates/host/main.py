@@ -33,12 +33,15 @@ if str(_HOST_DIR) not in sys.path:
 os.chdir(_REPO_ROOT)
 load_dotenv_into_environ(_REPO_ROOT / ".env")
 
-from simple_module_hosting import Settings, create_app  # noqa: E402
+from simple_module_hosting import create_app, merge_host_settings  # noqa: E402
 from simple_module_hosting.logging import setup_logging  # noqa: E402
 
 from routes import router as host_router  # noqa: E402
 
-settings = Settings()
+# merge_host_settings, not Settings(): the host knobs (log level, trusted
+# proxy, auth provider, DB pool) are DB-backed, and create_app's own fallback
+# does not fire because settings is passed to it explicitly below.
+settings = merge_host_settings()
 
 setup_logging(
     level=settings.log_level,

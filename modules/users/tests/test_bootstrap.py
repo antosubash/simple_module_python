@@ -177,12 +177,12 @@ async def test_create_admin_creates_role_if_missing(users_db: AsyncSession) -> N
 
 
 @pytest.mark.asyncio
-async def test_bootstrap_from_env_noop_when_unset(users_app) -> None:
+async def test_bootstrap_from_env_noop_when_unset(users_app_empty) -> None:
     """bootstrap_admin_from_env does nothing when bootstrap_email is empty."""
     from sqlalchemy import select
 
     fake_app = _make_fake_app(
-        users_app.state.sm.db.session_factory,
+        users_app_empty.state.sm.db.session_factory,
         bootstrap_email="",
         bootstrap_password="",
     )
@@ -190,18 +190,18 @@ async def test_bootstrap_from_env_noop_when_unset(users_app) -> None:
     await bootstrap_admin_from_env(fake_app)  # type: ignore[arg-type]
 
     # No users should have been created
-    async with users_app.state.sm.db.session_factory() as s:
+    async with users_app_empty.state.sm.db.session_factory() as s:
         count = (await s.execute(select(User))).scalars().all()
     assert len(count) == 0
 
 
 @pytest.mark.asyncio
-async def test_bootstrap_from_env_noop_when_table_nonempty(users_app) -> None:
+async def test_bootstrap_from_env_noop_when_table_nonempty(users_app_empty) -> None:
     """bootstrap_admin_from_env skips creation when the users table has rows."""
     from sqlalchemy import select
 
     # Seed a dummy user first
-    async with users_app.state.sm.db.session_factory() as s:
+    async with users_app_empty.state.sm.db.session_factory() as s:
         dummy = User(
             email="existing@test.example",
             hashed_password=PasswordHelper().hash("dummy"),
@@ -213,32 +213,32 @@ async def test_bootstrap_from_env_noop_when_table_nonempty(users_app) -> None:
         await s.commit()
 
     fake_app = _make_fake_app(
-        users_app.state.sm.db.session_factory,
+        users_app_empty.state.sm.db.session_factory,
         bootstrap_email="admin@test.example",
         bootstrap_password="AdminPass1!",
     )
     await bootstrap_admin_from_env(fake_app)  # type: ignore[arg-type]
 
     # Only the original dummy user should exist
-    async with users_app.state.sm.db.session_factory() as s:
+    async with users_app_empty.state.sm.db.session_factory() as s:
         users = (await s.execute(select(User))).scalars().all()
     assert len(users) == 1
     assert users[0].email == "existing@test.example"
 
 
 @pytest.mark.asyncio
-async def test_bootstrap_from_env_creates_admin_when_empty_and_configured(users_app) -> None:
+async def test_bootstrap_from_env_creates_admin_when_empty_and_configured(users_app_empty) -> None:
     """bootstrap_admin_from_env creates an admin when table is empty and env vars are set."""
     from sqlalchemy import select
 
     fake_app = _make_fake_app(
-        users_app.state.sm.db.session_factory,
+        users_app_empty.state.sm.db.session_factory,
         bootstrap_email="bootstrap@test.example",
         bootstrap_password="BootPass1!",
     )
     await bootstrap_admin_from_env(fake_app)  # type: ignore[arg-type]
 
-    async with users_app.state.sm.db.session_factory() as s:
+    async with users_app_empty.state.sm.db.session_factory() as s:
         user = (
             await s.execute(select(User).where(User.email == "bootstrap@test.example"))
         ).scalar_one_or_none()

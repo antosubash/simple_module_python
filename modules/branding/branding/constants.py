@@ -115,3 +115,86 @@ def clean_app_name(value: str) -> str:
     if any(ord(ch) < 0x20 for ch in cleaned):
         raise ValueError("app_name must not contain control characters")
     return cleaned
+
+
+# ── Footer text ────────────────────────────────────────────────────────
+# The caption beside the footer links. Blank means "use the framework's own"
+# (`© {year} · MIT`), so a deployment that never sets this is unchanged —
+# and one that does stops publishing the framework's licence as its own.
+MAX_FOOTER_TEXT_LEN: Final = 200
+
+
+def clean_footer_text(value: str) -> str:
+    """Trim + bound the footer caption (shared by the settings and update DTO)."""
+    cleaned = value.strip()
+    if len(cleaned) > MAX_FOOTER_TEXT_LEN:
+        raise ValueError(f"footer_text must be at most {MAX_FOOTER_TEXT_LEN} characters")
+    # The caption is rendered into HTML and into transactional email headers;
+    # a stray newline breaks the latter outright.
+    if any(ord(ch) < 0x20 for ch in cleaned):
+        raise ValueError("footer_text must not contain control characters")
+    return cleaned
+
+
+# ── Footer links ───────────────────────────────────────────────────────
+# An empty list means "use the framework's own links" (`BRAND_FOOTER_LINKS`
+# in @simple-module-py/ui), so an existing deployment that never sets these
+# keeps the footer it has today.
+MAX_FOOTER_LINKS: Final = 6
+MAX_FOOTER_LINK_LABEL_LEN: Final = 40
+MAX_FOOTER_LINK_HREF_LEN: Final = 500
+
+#: Schemes an admin-supplied footer href may use, plus site-relative paths.
+#:
+#: This is a real allow-list, not tidiness: the href is rendered straight into
+#: an ``<a href>`` on every page of the site, signed-in or not, so
+#: ``javascript:`` (and ``data:``) would turn the branding screen into a stored
+#: XSS sink for anyone holding ``branding.manage``.
+FOOTER_LINK_SCHEMES: Final = ("http://", "https://", "mailto:")
+FOOTER_LINK_HREF_ERROR: Final = (
+    "footer link href must start with " + ", ".join(FOOTER_LINK_SCHEMES) + " or /"
+)
+#: Backslashes are rejected outright. Browsers normalise ``\`` to ``/`` in the
+#: authority position of a special-scheme URL, so ``/\evil.example.com`` reads
+#: as a site-relative path but navigates to ``https://evil.example.com`` — the
+#: exact bypass the ``//host`` rule below exists to close. No legitimate footer
+#: target needs a raw backslash; ``%5C`` still works for one in a path.
+FOOTER_LINK_BACKSLASH_ERROR: Final = "footer link href must not contain a backslash"
+
+
+def clean_footer_label(value: str) -> str:
+    """Normalise + validate a footer link's visible text."""
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError("footer link label must not be blank")
+    if len(cleaned) > MAX_FOOTER_LINK_LABEL_LEN:
+        raise ValueError(
+            f"footer link label must be at most {MAX_FOOTER_LINK_LABEL_LEN} characters"
+        )
+    if any(ord(ch) < 0x20 for ch in cleaned):
+        raise ValueError("footer link label must not contain control characters")
+    return cleaned
+
+
+def clean_footer_href(value: str) -> str:
+    """Normalise + validate a footer link's target.
+
+    Scheme-relative ``//host`` is rejected along with everything else outside
+    the allow-list: it reads as a relative path but navigates off-site, so
+    allowing it would make the ``/`` rule mean something other than "this site".
+    Backslashes go with it — a browser reads ``/\\host`` the same way.
+    """
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError("footer link href must not be blank")
+    if len(cleaned) > MAX_FOOTER_LINK_HREF_LEN:
+        raise ValueError(f"footer link href must be at most {MAX_FOOTER_LINK_HREF_LEN} characters")
+    if any(ord(ch) < 0x20 for ch in cleaned):
+        raise ValueError("footer link href must not contain control characters")
+    if "\\" in cleaned:
+        raise ValueError(FOOTER_LINK_BACKSLASH_ERROR)
+    lowered = cleaned.lower()
+    relative = cleaned.startswith("/") and not cleaned.startswith("//")
+    if not relative and not lowered.startswith(FOOTER_LINK_SCHEMES):
+        raise ValueError(FOOTER_LINK_HREF_ERROR)
+    return cleaned

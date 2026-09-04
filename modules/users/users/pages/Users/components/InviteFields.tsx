@@ -1,49 +1,71 @@
 import { keys, useT } from '@simple-module-py/i18n';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { Textarea } from '@simple-module-py/ui/components/ui/textarea';
-import { Info } from 'lucide-react';
+import { useId } from 'react';
+import { EmailChipInput } from './EmailChipInput';
+import { type Role, RolePicker } from './RolePicker';
 
 interface Props {
-  emails: string;
-  onEmailsChange: (value: string) => void;
-  /** Addresses parsed out of the box so far. */
-  count: number;
-  mailerDelivers: boolean;
+  emails: string[];
+  onEmailsChange: (next: string[]) => void;
+  roles: Role[];
+  selectedRoles: string[];
+  onToggleRole: (roleName: string) => void;
+  message: string;
+  onMessageChange: (value: string) => void;
 }
 
-export function InviteFields({ emails, onEmailsChange, count, mailerDelivers }: Props) {
+/**
+ * Everything one batch of invitations needs: who, what access, and why.
+ *
+ * The roles label spells out that they apply to the whole batch — a role
+ * picker sitting under a list of five addresses reads as though it belongs to
+ * whichever one you were last looking at.
+ */
+export function InviteFields({
+  emails,
+  onEmailsChange,
+  roles,
+  selectedRoles,
+  onToggleRole,
+  message,
+  onMessageChange,
+}: Props) {
   const { t } = useT();
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="emails" className="text-sm font-medium text-muted-foreground">
-        {t(keys.users.invite_fields.label)} <span className="text-destructive">*</span>
-      </Label>
-      <Textarea
-        id="emails"
-        value={emails}
-        onChange={(e) => onEmailsChange(e.target.value)}
-        rows={4}
-        required
-        autoComplete="off"
-        // Pasting a column out of a spreadsheet is the actual use case, so
-        // newlines have to work as separators alongside commas.
-        // i18n-exempt: example email addresses, not prose.
-        placeholder={'teammate@example.com\nanother@example.com'}
-        className="font-mono text-sm"
-      />
-      <p className="text-xs text-muted-foreground">
-        {t(keys.users.invite_fields.hint)}{' '}
-        {count > 0 && t(keys.users.invite_fields.recognised, { count })}
-      </p>
+  const emailsId = useId();
+  const messageId = useId();
 
-      {!mailerDelivers && (
-        <p className="flex items-start gap-1.5 rounded-md bg-amber-50 p-2 text-xs text-amber-900">
-          <Info className="mt-0.5 size-3.5 shrink-0" />
-          {/* Being told this before submitting beats discovering it after,
-              when the invite exists and the recipient has heard nothing. */}
-          {t(keys.users.invite_fields.no_mailer)}
-        </p>
-      )}
-    </div>
+  return (
+    <>
+      <div className="space-y-2">
+        <Label htmlFor={emailsId} className="text-sm font-medium">
+          {t(keys.users.invite_fields.label)}
+        </Label>
+        <EmailChipInput id={emailsId} value={emails} onChange={onEmailsChange} />
+      </div>
+
+      <RolePicker
+        roles={roles}
+        selected={selectedRoles}
+        onToggle={onToggleRole}
+        label={t(keys.users.invite_fields.roles_label)}
+      />
+
+      <div className="space-y-2">
+        <Label htmlFor={messageId} className="text-sm font-medium">
+          {t(keys.users.invite_fields.message_label)}
+        </Label>
+        {/* An invitation from an address nobody recognises is indistinguishable
+            from phishing; one line of context is what makes it answerable. */}
+        <Textarea
+          id={messageId}
+          value={message}
+          onChange={(e) => onMessageChange(e.target.value)}
+          rows={2}
+          maxLength={1000}
+          placeholder={t(keys.users.invite_fields.message_placeholder)}
+        />
+      </div>
+    </>
   );
 }

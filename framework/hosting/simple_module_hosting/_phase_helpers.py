@@ -23,7 +23,6 @@ from simple_module_core.exceptions import NotFoundError
 from simple_module_db import CommitBeforeResponseMiddleware
 from starlette.exceptions import HTTPException
 from starlette.middleware.gzip import GZipMiddleware
-from starlette.middleware.sessions import SessionMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from simple_module_hosting._error_handlers import (
@@ -45,7 +44,9 @@ from simple_module_hosting.middleware import (
     SecurityHeadersMiddleware,
     TenantMiddleware,
 )
+from simple_module_hosting.session import SessionMiddleware
 from simple_module_hosting.settings import Settings
+from simple_module_hosting.setup_gate import SETUP_PATH, SetupMiddleware
 from simple_module_hosting.static_files import PrecompressedStaticFiles
 
 if TYPE_CHECKING:
@@ -105,7 +106,7 @@ def install_middleware(
     Order matters: last added = first executed. Execution order:
     (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging
     → Security → Session → [module] → (Tenant, if multi_tenant) → Locale
-    → Inertia → InertiaCache → Maintenance → CommitBeforeResponse.
+    → Inertia → InertiaCache → Setup → Maintenance → CommitBeforeResponse.
     """
     # Added first, so it is innermost and its send-wrapper is the first to see
     # the response: the request's DB work commits before any byte reaches the
@@ -120,6 +121,12 @@ def install_middleware(
     # and auth + locale — both further out — to know who is asking and in which
     # language to answer.
     app.add_middleware(MaintenanceMiddleware)
+    # Added after Maintenance so it *executes* before it: an install that has
+    # never been set up has nothing meaningful to put into maintenance mode,
+    # and the setup redirect should win. Inside InertiaCache for the same
+    # reason Maintenance is — this short-circuits, and the redirect must not
+    # be stored by any cache.
+    app.add_middleware(SetupMiddleware)
     # Paired with InertiaLayoutDataMiddleware below, which is what puts this
     # user's auth, permissions and menus into every Inertia payload: this one
     # makes sure the payload that results is never stored where a page request
@@ -160,8 +167,10 @@ def install_middleware(
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
     # Outermost: rewrite scheme/client from X-Forwarded-* before anything else
-    # reads them, so request logs see the real client IP and Inertia's absolute
-    # page url carries the proxy-terminated scheme (GH #223). Gated on an
+    # reads them, so request logs see the real client IP rather than the
+    # proxy's. Inertia no longer needs this: its page url is
+    # root-relative, so pushState can't see a cross-scheme url either way (it
+    # used to throw a SecurityError on every page — GH #223). Gated on an
     # explicit trust setting — never trust forwarded headers by default.
     if settings.trusted_proxy:
         app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.trusted_proxy)
@@ -176,6 +185,18 @@ def attach_public_routes(app: FastAPI, settings: Settings, registry) -> None:
     ``app.state.public_routes``, where ``auth.middleware.AuthMiddleware`` reads it
     on every request.
     """
+    # The setup wizard is anonymous by necessity: it is served precisely when
+    # no account exists, so gating it behind auth would redirect the operator
+    # to a login they cannot pass. Its own handlers 404 once setup completes,
+    # which is what keeps this exemption from outliving its purpose.
+    #
+    # Exact + trailing-slash prefix, not a bare "/setup" prefix: the latter
+    # would also hand anonymous access to any unrelated route that happens to
+    # start with those six characters ("/setup-guide"), and nothing about that
+    # route asked to be public.
+    registry.add_exact(SETUP_PATH)
+    registry.add_prefix(f"{SETUP_PATH}/")
+
     for prefix in settings.auth_public_paths:
         registry.add_prefix(prefix)
     app.state.public_routes = registry

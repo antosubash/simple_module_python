@@ -148,7 +148,7 @@ class TestAcceptInvite:
         manager = UserManager(user_db, fake_mailer, settings)
         # Reload the user with the manager to get a proper User object
         fetched = await user_db.get_by_email("invited@example.com")
-        token = await manager.generate_verification_token(fetched)
+        token = manager.mint_invite_token(fetched)
 
         resp = await anon_client.post(
             "/api/users/auth/accept-invite",

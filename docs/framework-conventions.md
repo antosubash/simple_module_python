@@ -83,8 +83,11 @@ InertiaLayoutDataMiddleware
 `ProxyHeaders` is installed only when `SM_TRUSTED_PROXY` is set (uvicorn's
 `ProxyHeadersMiddleware`). It sits outermost so the scheme/client corrected
 from `X-Forwarded-*` is visible to every downstream layer — request logs get
-the real client IP, and `request.url.scheme` reflects the proxy-terminated
-scheme so Inertia's absolute page url is `https`, not `http`.
+the real client IP rather than the proxy's, and `request.url.scheme` reflects
+the proxy-terminated scheme.
+
+Inertia does not depend on it. The page url it ships is root-relative, as the
+protocol specifies, so it carries no scheme to disagree with the document's.
 
 ### Module-registered middleware ordering
 
@@ -94,12 +97,57 @@ If you need a specific relative order, express it with `ModuleMeta.depends_on`. 
 
 ## Settings
 
-Framework settings live on `Settings` (`simple_module_hosting.settings`), prefix `SM_`:
+Framework settings live on `Settings` (`simple_module_hosting.settings`), which
+is `HostSettings` + `BootstrapSettings`. Both read the `SM_` prefix, but they
+differ in where the *value* comes from.
+
+`BootstrapSettings` is env-only, because it cannot be anything else:
 
 ```
-SM_DATABASE_URL, SM_ENVIRONMENT, SM_SECRET_KEY, SM_VITE_DEV_URL,
-SM_DEBUG, SM_LOG_LEVEL, SM_LOG_FORMAT, SM_MULTI_TENANT, SM_TENANT_HEADER
+SM_DATABASE_URL   opens the database, so it cannot live in it
+SM_MODULES_ENABLED decides which modules load — including the settings module
+SM_ENVIRONMENT, SM_DEBUG, SM_VITE_DEV_URL   facts about the process
+SM_SECRET_KEY     optional; unset generates and stores one
 ```
+
+`HostSettings` is DB-backed, edited at `/admin/settings`, with the env var as
+an override:
+
+```
+SM_MULTI_TENANT, SM_TENANT_HEADER, SM_I18N_*, SM_MAINTENANCE_*,
+SM_LOG_LEVEL, SM_LOG_FORMAT, SM_TRUSTED_PROXY, SM_AUTH_PROVIDER,
+SM_AUTH_PUBLIC_PATHS, SM_DB_POOL_SIZE, SM_DB_MAX_OVERFLOW,
+SM_DB_POOL_PRE_PING, SM_DB_POOL_RECYCLE
+```
+
+Precedence is **env → DB → default**, and env must keep winning: a deployment
+that sets `SM_TRUSTED_PROXY` has to behave identically after an upgrade, and an
+inverted precedence would change that with nothing raising.
+
+### The two reads
+
+Settings are read twice per boot, and the first read is the one that is easy
+to forget.
+
+`create_app` consumes settings in Phase 1 (module discovery, auth-provider
+selection, the i18n registry) and again in Phase 8 (the middleware stack).
+Both happen before the lifespan opens the database, so lifespan hydration can
+only swap what a request handler reads later — it cannot rebuild a registry or
+a middleware stack that already exists. `_preapp_config.merge_host_settings`
+therefore does one short-lived read *before* Phase 1.
+
+A consequence worth stating plainly: **an entry point that builds its own
+`Settings()` and passes it to `create_app` skips that read entirely.**
+`host/main.py` calls `merge_host_settings()` for exactly this reason. Before
+that was fixed, `HostSettings` fields consumed at build time were silently
+inert — editing `i18n_default_locale` in the admin UI wrote a row nothing read
+back.
+
+The read is tolerant by design. An unreachable database, a database that has
+not been migrated, and an empty settings table all fall back to defaults
+rather than raising: each is an ordinary first-boot state, and each is what
+the setup wizard exists to repair. Failing the boot would make the wizard
+unreachable.
 
 ### Framework state
 
@@ -108,8 +156,8 @@ once at boot. Consumers read `request.app.state.sm.<field>` — never raw `app.s
 attributes for framework-owned state.
 
 Fields: `settings`, `db`, `event_bus`, `menu_registry`, `permissions`,
-`feature_flags`, `health_registry`, `public_routes`, `i18n_registry`,
-`inertia_config`, `modules`.
+`feature_flags`, `health_registry`, `public_routes`, `setup_registry`,
+`design_packs`, `audit_links`, `i18n_registry`, `inertia_config`, `modules`.
 
 Two attributes are intentionally kept outside `Services`:
 

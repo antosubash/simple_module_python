@@ -66,6 +66,25 @@ class User(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
         sa_type=DateTime(timezone=True),
         index=True,
     )
+    # Set when an admin created this account on someone's behalf; ``None`` for
+    # a self-signup. Both shapes are otherwise identical rows
+    # (``is_active and not is_verified``), and they call for opposite actions —
+    # resend the invite, versus wait for a person who already has the mail — so
+    # the distinction has to be stored rather than guessed. Also dates the
+    # invite, which is what makes "expires in 5d" derivable from the token
+    # lifetime.
+    invited_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),
+    )
+    # Bumped by "sign out everywhere". Browser auth is a signed cookie, not a
+    # server-side session store, so there is no row to delete for a device that
+    # is no longer in the owner's hands; every session stamps this value at
+    # login and the auth provider refuses any that no longer matches.
+    session_version: int = Field(
+        default=0,
+        sa_column_kwargs={"server_default": text("0")},
+    )
 
     roles: list["Role"] = Relationship(
         link_model=UserRole,
