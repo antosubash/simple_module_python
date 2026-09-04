@@ -181,3 +181,36 @@ class TestStatusPhraseIsNotAMessage:
             "the status phrase reached the page as a message, so it renders in "
             f"place of the catalog description: {props['message']!r}"
         )
+
+
+class TestErrorPageUrl:
+    """The error page's own url must be relative, like every other page's.
+
+    ``render_error_page`` used to construct ``Inertia`` directly, so it missed
+    the wrap that rewrites the absolute url upstream emits. Every real page
+    was fixed and the 404 alone kept throwing the cross-scheme ``pushState``
+    ``SecurityError`` behind a TLS-terminating proxy — the one page a lost
+    visitor is most likely to be looking at.
+    """
+
+    async def test_the_error_page_url_is_relative(
+        self, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        resp = await authenticated_client.get(_MISSING_PATH)
+        url = _inertia_page(resp.text)["url"]
+        assert url == _MISSING_PATH, f"error page url is not root-relative: {url!r}"
+
+    async def test_the_error_page_url_carries_no_origin(
+        self, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        url = _inertia_page((await authenticated_client.get(_MISSING_PATH)).text)["url"]
+        assert not url.startswith("http://")
+        assert not url.startswith("https://")
+
+    async def test_a_forbidden_page_url_is_relative_too(
+        self, guarded_client: httpx.AsyncClient
+    ) -> None:
+        """403 renders through the same handler, so it must not regress alone."""
+        resp = await guarded_client.get(_GUARDED_PATH)
+        assert resp.status_code == _FORBIDDEN
+        assert _inertia_page(resp.text)["url"] == _GUARDED_PATH

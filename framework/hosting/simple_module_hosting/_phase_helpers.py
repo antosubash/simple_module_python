@@ -167,8 +167,10 @@ def install_middleware(
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
     # Outermost: rewrite scheme/client from X-Forwarded-* before anything else
-    # reads them, so request logs see the real client IP and Inertia's absolute
-    # page url carries the proxy-terminated scheme (GH #223). Gated on an
+    # reads them, so request logs see the real client IP rather than the
+    # proxy's. Inertia no longer needs this: its page url is
+    # root-relative, so pushState can't see a cross-scheme url either way (it
+    # used to throw a SecurityError on every page — GH #223). Gated on an
     # explicit trust setting — never trust forwarded headers by default.
     if settings.trusted_proxy:
         app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.trusted_proxy)

@@ -1,25 +1,36 @@
 """Proxy-header handling (X-Forwarded-Proto / X-Forwarded-For).
 
 Behind a TLS-terminating reverse proxy the app sees plain ``http`` on the
-container socket, so ``request.url.scheme`` is wrong. inertia-python copies
-that scheme into the page object's absolute ``url``; the browser then refuses
-the cross-scheme ``history.pushState`` and login breaks (GH #223).
+container socket and the proxy's own address as the client, so
+``request.url.scheme`` and ``request.client`` are both wrong.
 
 When ``SM_TRUSTED_PROXY`` is set, the host registers uvicorn's
 ``ProxyHeadersMiddleware`` as the outermost middleware so the corrected scheme
 and client IP are visible to every downstream middleware (logging included).
 Left unset (the default) nothing changes — the header is ignored.
+
+This used to be the *only* thing standing between a proxied install and a
+broken UI, because inertia-python copies the scheme into the page object's
+absolute ``url`` and the browser then refuses the cross-scheme
+``history.pushState`` (GH #223). The page url is root-relative now, so that
+coupling is gone and ``TestSchemeCorrection`` asserts its absence.
 """
 
 from __future__ import annotations
+
+import logging
 
 import httpx
 import pytest
 from simple_module_hosting.app_builder import create_app
 from simple_module_hosting.settings import Settings
 from simple_module_test.fixtures import _create_all_tables, _seed_setup_admin
+from starlette.requests import Request
 
 _LOGIN_PATH = "/users/login"
+_PROBE_PATH = "/proxy-scheme-probe"
+_FORWARDED_FOR = "203.0.113.5"
+_DIRECT_CLIENT_IP = "127.0.0.1"  # httpx.ASGITransport's default scope["client"]
 
 
 def _names(app) -> tuple[str, ...]:
@@ -48,8 +59,8 @@ class TestMiddlewareWiring:
 
         ``app.user_middleware`` is in execution order (FastAPI reverses the
         LIFO add_middleware stack), so the proxy middleware must be first —
-        otherwise RequestLogging would log the proxy's address, and Inertia
-        would already have read the wrong scheme.
+        otherwise RequestLogging would log the proxy's address, and every
+        layer below it would read the uncorrected scheme.
         """
         app = create_app(_settings(trusted_proxy="*"))
         names = _names(app)
@@ -81,7 +92,11 @@ class TestMiddlewareWiring:
 
 async def _client_for(settings: Settings):
     """Build an app + lifespan-started client mirroring the shared fixtures."""
-    app = create_app(settings)
+    return await _client_for_app(create_app(settings))
+
+
+async def _client_for_app(app):
+    """Same, for a caller that needed the app first (to mount a probe route)."""
     await _create_all_tables(app.state.sm.db.engine)
     # Without an administrator the setup gate redirects every request to
     # /setup, including the login page these tests assert on.
@@ -94,6 +109,87 @@ async def _client_for(settings: Settings):
 
 
 class TestSchemeCorrection:
+    @pytest.mark.parametrize("trusted_proxy", ["*", None])
+    async def test_the_inertia_page_url_carries_no_scheme(self, trusted_proxy: str | None) -> None:
+        """The page object's url is relative, so no scheme can be wrong.
+
+        This used to be the thing the browser chokes on: upstream sets
+        ``"url": str(request.url)``, scheme included, and embeds it in the
+        ``data-page`` blob of the rendered HTML, so an install that had not set
+        ``SM_TRUSTED_PROXY`` shipped ``http://…`` to an ``https://`` document
+        and every ``pushState`` threw (GH #223).
+
+        The url is now root-relative, as the Inertia protocol specifies, and
+        the proxy setting is parametrized to show it no longer participates:
+        neither spelling can put an origin into the payload.
+        """
+        client, ctx = await _client_for(_settings(trusted_proxy=trusted_proxy))
+        try:
+            resp = await client.get(_LOGIN_PATH, headers={"X-Forwarded-Proto": "https"})
+            assert resp.status_code == 200
+            assert "http://testserver" not in resp.text
+            assert "https://testserver" not in resp.text
+            assert f'"url": "{_LOGIN_PATH}"' in resp.text
+        finally:
+            await client.aclose()
+            await ctx.__aexit__(None, None, None)
+
+
+class TestClientCorrection:
+    """The scheme/client-IP correction itself, independent of Inertia.
+
+    ``TestSchemeCorrection`` above only proves the page url stays scheme-free —
+    it would pass identically even if ``ProxyHeadersMiddleware`` silently did
+    nothing, since a relative url never carries a scheme either way. Request
+    logs are what actually depend on the correction now (see
+    ``host_settings.py`` and ``_phase_helpers.py``), so exercise that
+    directly: ``RequestLoggingMiddleware`` puts ``scope["client"]`` on every
+    ``request.started`` log record as ``client_ip``.
+    """
+
+    @pytest.mark.parametrize(
+        ("trusted_proxy", "expected_client_ip"),
+        [
+            ("*", _FORWARDED_FOR),  # trusted proxy → X-Forwarded-For honored
+            (None, _DIRECT_CLIENT_IP),  # no trust configured → header ignored
+        ],
+    )
+    async def test_request_log_records_the_corrected_client_ip(
+        self,
+        trusted_proxy: str | None,
+        expected_client_ip: str,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        client, ctx = await _client_for(_settings(trusted_proxy=trusted_proxy))
+        try:
+            with caplog.at_level(logging.DEBUG, logger="simple_module.request"):
+                resp = await client.get(_LOGIN_PATH, headers={"X-Forwarded-For": _FORWARDED_FOR})
+            assert resp.status_code == 200
+            started = [
+                r
+                for r in caplog.records
+                if r.name == "simple_module.request" and r.message == "request.started"
+            ]
+            assert len(started) == 1
+            assert started[0].client_ip == expected_client_ip
+        finally:
+            await client.aclose()
+            await ctx.__aexit__(None, None, None)
+
+
+class TestSchemeReachesUrlBuilders:
+    """``request.url.scheme`` itself, which is what still depends on this setting.
+
+    ``TestSchemeCorrection`` above proves the Inertia payload carries no scheme
+    — true whether or not this middleware runs, so it cannot notice the
+    middleware silently doing nothing. But OAuth/OIDC build their
+    ``redirect_uri`` from ``request.url_for(...)``, and the locale cookie
+    derives its ``secure`` flag from the scheme; left uncorrected behind a TLS
+    proxy an OAuth ``redirect_uri`` ships as ``http://…`` and providers reject
+    it against the ``https://…`` one registered in their console. Assert the
+    correction directly, on a probe route.
+    """
+
     @pytest.mark.parametrize(
         ("trusted_proxy", "expected_scheme"),
         [
@@ -101,22 +197,28 @@ class TestSchemeCorrection:
             (None, "http"),  # no trust configured → header ignored
         ],
     )
-    async def test_inertia_page_url_scheme(
+    async def test_forwarded_proto_reaches_request_url(
         self, trusted_proxy: str | None, expected_scheme: str
     ) -> None:
-        """The Inertia page object's absolute url reflects X-Forwarded-Proto.
+        # The probe is declared public: AuthMiddleware would otherwise redirect
+        # an anonymous GET to the login page, and the assertion would be about
+        # that page's url instead of the probe's.
+        app = create_app(_settings(trusted_proxy=trusted_proxy, auth_public_paths=[_PROBE_PATH]))
 
-        This is the exact thing the browser chokes on: inertia-python sets
-        ``"url": str(request.url)``, scheme included, and embeds it in the
-        ``data-page`` blob of the rendered HTML.
-        """
-        client, ctx = await _client_for(_settings(trusted_proxy=trusted_proxy))
+        async def probe(request: Request) -> dict[str, str]:
+            return {
+                "scheme": request.url.scheme,
+                "built": str(request.url_for("probe")),
+            }
+
+        app.add_api_route(_PROBE_PATH, probe, methods=["GET"], name="probe")
+        client, ctx = await _client_for_app(app)
         try:
-            resp = await client.get(_LOGIN_PATH, headers={"X-Forwarded-Proto": "https"})
+            resp = await client.get(_PROBE_PATH, headers={"X-Forwarded-Proto": "https"})
             assert resp.status_code == 200
-            assert f"{expected_scheme}://testserver{_LOGIN_PATH}" in resp.text
-            wrong = "https" if expected_scheme == "http" else "http"
-            assert f"{wrong}://testserver{_LOGIN_PATH}" not in resp.text
+            assert resp.json()["scheme"] == expected_scheme
+            # url_for is the call OAuth actually uses to build redirect_uri.
+            assert resp.json()["built"].startswith(f"{expected_scheme}://")
         finally:
             await client.aclose()
             await ctx.__aexit__(None, None, None)

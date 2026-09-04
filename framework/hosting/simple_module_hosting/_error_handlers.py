@@ -21,6 +21,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from simple_module_hosting._inertia_shared import _INERTIA_HEADER
+from simple_module_hosting._inertia_url import patch_relative_page_url
 from simple_module_hosting.permissions import PERMISSION_DENIED_PREFIX
 
 logger = logging.getLogger(__name__)
@@ -172,11 +173,25 @@ async def render_error_page(
         # thing that is missing when the app is half-built, and an error page
         # that raises while reporting an error leaves the caller with nothing.
         config: InertiaConfig = request.app.state.sm.inertia_config
-        inertia = Inertia(request, config)
-        # This builds its own Inertia instead of going through get_inertia, so
-        # the share step has to be repeated here. Without it the error page
-        # renders raw translation keys (host.error.not_found_title) and loses
-        # auth/menus, so a signed-in user's 404 has no layout.
+        # Prefer the app's configured dependency over constructing Inertia
+        # directly: it carries the framework's wraps, and an error page built
+        # around them is an error page rendered differently from every other
+        # page. That is how the 404 kept throwing the cross-scheme `pushState`
+        # SecurityError after the page url was made relative everywhere else.
+        # The raw construction stays as the fallback for a half-built app —
+        # the case this whole handler exists to survive — but still goes
+        # through the same url-relativizing patch directly: a fallback that
+        # skipped it would reintroduce the exact bug this module exists to
+        # fix, just for the one request that hit it before setup finished.
+        inertia_dep = getattr(request.app.state, "inertia_dependency", None)
+        if inertia_dep is not None:
+            inertia = inertia_dep(request, None)
+        else:
+            inertia = patch_relative_page_url(Inertia(request, config))
+        # This does not go through get_inertia, so the share step has to be
+        # repeated here. Without it the error page renders raw translation keys
+        # (host.error.not_found_title) and loses auth/menus, so a signed-in
+        # user's 404 has no layout.
         shared = getattr(request.state, "inertia_shared", None)
         if shared:
             inertia.share(**shared)
