@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from simple_module_core.permissions import WILDCARD, PermissionRegistry
+from simple_module_core.permissions import WILDCARD, PermissionRegistry, grants
 
 
 class TestPermissionRegistry:
@@ -113,3 +113,31 @@ class TestPermissionRegistryMapRole:
         for key, val in result.items():
             assert isinstance(key, str)
             assert isinstance(val, list)
+
+
+class TestGrants:
+    """The wildcard rule, in one place.
+
+    Anything gating part of a *response* rather than a route reads grants
+    through here — a second hand-rolled ``in`` check is a second chance to
+    forget that ``admin`` holds ``*`` and no named permission at all.
+    """
+
+    async def test_a_held_permission_is_granted(self):
+        assert grants({"users.manage"}, "users.manage") is True
+
+    async def test_a_missing_permission_is_not(self):
+        assert grants({"audit_log.view"}, "users.manage") is False
+
+    async def test_the_wildcard_satisfies_anything(self):
+        assert grants({WILDCARD}, "users.manage") is True
+
+    async def test_an_empty_requirement_is_satisfied_by_nothing_held(self):
+        """Empty means "no permission gates this" — the default for a
+        declaration that never named one, not a requirement nobody meets."""
+        assert grants(set(), "") is True
+
+    async def test_it_reads_any_collection(self):
+        """Callers hand it whatever they have — the middleware caches a set,
+        a test hands a list."""
+        assert grants(["users.manage"], "users.manage") is True

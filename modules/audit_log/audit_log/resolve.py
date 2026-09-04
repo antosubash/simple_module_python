@@ -20,10 +20,11 @@ from __future__ import annotations
 import logging
 import re
 import uuid
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Collection, Iterable
 from typing import Any
 
 from simple_module_core.audit_links import AuditLinkRegistry
+from simple_module_core.permissions import grants
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from sqlalchemy import String, cast, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,6 +48,14 @@ async def resolve_actors(db: AsyncSession, user_ids: list[str | None]) -> dict[s
     screen. Ids that no longer resolve (deleted accounts) or never named an
     account at all are simply absent from the result — the caller falls back to
     showing the raw id, which is still the truthful record of who acted.
+
+    Deliberately **not** gated on ``users.manage`` the way the entity column is
+    (``resolve_entity_labels``). The two columns disclose the same field and
+    answer different questions: the entity column names people who were merely
+    *edited*, which an auditor does not need in order to review the trail,
+    while the actor column names the person who *acted*, which is the trail.
+    ``audit_log.view`` therefore does imply "may see who acted"; that is stated
+    in docs/modules/audit_log.md so it is granted knowingly. See GH #300.
     """
     wanted = sorted({uid for uid in user_ids if uid})
     if not wanted:
@@ -107,6 +116,7 @@ async def resolve_entity_labels(
     db: AsyncSession,
     registry: AuditLinkRegistry,
     refs: Iterable[tuple[str, str]],
+    permissions: Collection[str],
 ) -> dict[tuple[str, str], str]:
     """Map ``(entity_type, entity_id)`` -> display name for one page of rows.
 
@@ -114,6 +124,21 @@ async def resolve_entity_labels(
     a page of 50 user edits costs one query and not fifty. Types whose owner
     registered no resolver — or none at all — are absent, and the caller shows
     the id.
+
+    *permissions* is what the **requesting principal** holds, and a type whose
+    owner set ``AuditLink.label_permission`` is skipped for a reader who lacks
+    it. Naming a row is a second reading of that row: ``users`` names accounts
+    by ``full_name or email``, so resolving unconditionally made
+    ``audit_log.view`` a way to read the user directory that ``users.manage``
+    is supposed to gate — including the email of every account still holding an
+    unaccepted invite, where ``full_name`` is null. The entry itself is not
+    withheld: the reader still gets the action, the type and the id, which is
+    what an audit trail is for. See GH #300.
+
+    Required rather than defaulted, because the safe value is the one the
+    caller has to look up: a default of "everything" would silently reopen the
+    hole at every new call site, and a default of "nothing" would silently
+    blind an admin at the same ones.
 
     A resolver that raises is logged and skipped rather than allowed to fail
     the render: the audit log's job is to show what happened, and it can still
@@ -128,6 +153,8 @@ async def resolve_entity_labels(
     for entity_type, ids in by_type.items():
         link = registry.get(entity_type)
         if link is None or link.label_resolver is None:
+            continue
+        if not grants(permissions, link.label_permission):
             continue
         try:
             resolved = await link.label_resolver(db, sorted(ids))

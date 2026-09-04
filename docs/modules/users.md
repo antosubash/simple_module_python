@@ -207,6 +207,8 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `users.manage` | admin: list / invite / disable / role-assign |
 | `users.self.profile` | edit own profile (granted to `user` role) |
 
+`users.manage` also unlocks account *names* in the audit log's entity column: the module registers its audit link with `label_permission="users.manage"`, so a reader holding only `audit_log.view` sees the id of an edited account rather than its display name or email. See [audit_log](/modules/audit_log) § Entity and actor names.
+
 ## Menu
 
 | Label | URL | Icon | Section | Group | Order | Roles |
