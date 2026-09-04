@@ -73,6 +73,24 @@ def _footer_total(page: Page) -> int:
     return int(match.group(1).replace(",", ""))
 
 
+def _expect_footer_total(page: Page, expected: int, timeout_ms: int = 30_000) -> None:
+    """Wait for the table foot to report ``expected``.
+
+    The rows disappear as soon as the delete's reload swaps the list, but the
+    total is a separate prop that can land a beat later — reading it in the
+    same tick as the row assertion makes this flaky, and it does fail that way
+    occasionally under load.
+    """
+    deadline = time.time() + timeout_ms / 1000
+    last = None
+    while time.time() < deadline:
+        last = _footer_total(page)
+        if last == expected:
+            return
+        page.wait_for_timeout(200)
+    raise AssertionError(f"file table foot still shows {last}, expected {expected}")
+
+
 def test_deleting_selected_files_removes_them_and_drops_the_count(
     page: Page, tmp_path, e2e_username: str, e2e_password: str
 ) -> None:
@@ -102,7 +120,7 @@ def test_deleting_selected_files_removes_them_and_drops_the_count(
 
     for name in names:
         expect(page.get_by_role("checkbox", name=f"Select {name}")).to_have_count(0, timeout=30_000)
-    assert _footer_total(page) == before - 2
+    _expect_footer_total(page, before - 2)
 
 
 def test_the_audit_log_export_downloads_a_csv_with_a_header_row(
