@@ -19,6 +19,7 @@ from file_storage.contracts.schemas import (
     StoredFileOut,
 )
 from file_storage.deps import get_event_bus, get_file_storage_service
+from file_storage.format import format_bytes
 from file_storage.service import (
     ContentTypeNotAllowedError,
     FileStorageService,
@@ -46,11 +47,19 @@ async def upload_file(
     try:
         out = await service.upload(file)
     except FileTooLargeError as exc:
+        # The limit belongs in the sentence: "too large" is not actionable to
+        # someone holding a 40 MB file, and every client that shows this
+        # message — the upload card, curl, a third-party integration — then
+        # gets the number without having to fetch it from somewhere else.
+        # ``max_bytes`` travels alongside for callers that would rather
+        # compose their own copy.
+        max_bytes = service.settings.max_file_size_bytes
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail={
                 "code": constants.ErrorCode.TOO_LARGE,
-                "message": t.t(constants.I18nKey.ERR_TOO_LARGE),
+                "message": t.t(constants.I18nKey.ERR_TOO_LARGE, max_size=format_bytes(max_bytes)),
+                "max_bytes": max_bytes,
             },
         ) from exc
     except ContentTypeNotAllowedError as exc:

@@ -1,5 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { InterpolatedText } from '@simple-module-py/ui/components/InterpolatedText';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
@@ -135,10 +136,20 @@ function RoleEdit({ role, assigned, groups }: Props) {
             </Button>
             <div className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
               <span>
-                {/* The count carries the emphasis, so it is rendered apart from
-                    the sentence rather than interpolated into it. */}
-                <b className="font-semibold text-foreground">{data.permissions.length}</b>{' '}
-                {t(keys.permissions.edit.granted_summary, { total: totalRegistered })}
+                {/* The count carries the emphasis, so it renders in its own
+                    element — but the sentence stays one key with a `{granted}`
+                    placeholder the translator can move, rather than a fragment
+                    that only works with the number in front of it. */}
+                <InterpolatedText
+                  render={(slot) =>
+                    t(keys.permissions.edit.granted_summary, {
+                      granted: slot,
+                      total: totalRegistered,
+                    })
+                  }
+                >
+                  <b className="font-semibold text-foreground">{data.permissions.length}</b>
+                </InterpolatedText>
               </span>
               <div className="h-1.5 w-32 overflow-hidden rounded-full bg-secondary">
                 <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />

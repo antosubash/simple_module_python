@@ -23,7 +23,7 @@ configureI18n({
     'permissions.edit.cancel_link': 'Cancel',
     'permissions.edit.filter_placeholder': 'Filter modules or permissions…',
     'permissions.edit.granted_only': 'Granted only',
-    'permissions.edit.granted_summary': 'of {total} granted',
+    'permissions.edit.granted_summary': '{granted} of {total} granted',
     'permissions.edit.toggle_group_label': 'Toggle every {group} permission',
   },
 });

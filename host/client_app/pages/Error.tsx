@@ -2,6 +2,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { CopyableId } from '@simple-module-py/ui/components/CopyableId';
 import { ErrorScreen } from '@simple-module-py/ui/components/ErrorScreen';
+import { InterpolatedText } from '@simple-module-py/ui/components/InterpolatedText';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import type { SharedProps } from '@simple-module-py/ui/types';
 import type { ReactNode } from 'react';
@@ -125,13 +126,13 @@ function ErrorPage({
   let description: ReactNode = message || copy.description;
   if (required_permission) {
     description = (
-      <>
-        {t(keys.host.error.forbidden_permission_prefix)}{' '}
+      <InterpolatedText
+        render={(slot) => t(keys.host.error.forbidden_permission, { permission: slot })}
+      >
         <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[12.5px] text-foreground">
           {required_permission}
         </code>
-        {t(keys.host.error.forbidden_permission_suffix)}
-      </>
+      </InterpolatedText>
     );
   }
 

@@ -8,8 +8,7 @@
   "error": {
     "correlation_id_copy": "Copiar ID de referencia",
     "forbidden_description": "Tu rol no incluye el permiso que necesita esta página. Pide a un administrador que te lo conceda.",
-    "forbidden_permission_prefix": "Tu rol no incluye",
-    "forbidden_permission_suffix": ". Pide a un administrador que te lo conceda.",
+    "forbidden_permission": "Tu rol no incluye {permission}. Pide a un administrador que te lo conceda.",
     "forbidden_title": "Sin acceso",
     "generic_description": "Ocurrió un error inesperado.",
     "generic_title": "Error",
@@ -82,40 +81,40 @@
     "restored": "Conexión restablecida"
   },
   "setup": {
-    "title": "Set up your install",
-    "subtitle": "A few things before this application is ready to use.",
+    "title": "Configura tu instalación",
+    "subtitle": "Unas cuantas cosas antes de que esta aplicación esté lista para usarse.",
     "connections": {
-      "heading": "Connections",
-      "description": "Checking the services this install depends on.",
-      "retest": "Test again",
-      "testing": "Testing…"
+      "heading": "Conexiones",
+      "description": "Comprobando los servicios de los que depende esta instalación.",
+      "retest": "Probar de nuevo",
+      "testing": "Probando…"
     },
     "migrations": {
-      "heading": "Database schema",
-      "behind": "The database is behind the version this code expects.",
-      "current": "The database schema is up to date.",
-      "apply": "Apply migrations",
-      "applying": "Applying…"
+      "heading": "Esquema de la base de datos",
+      "behind": "La base de datos está por detrás de la versión que espera este código.",
+      "current": "El esquema de la base de datos está actualizado.",
+      "apply": "Aplicar migraciones",
+      "applying": "Aplicando…"
     },
     "administrator": {
-      "heading": "Create an administrator",
-      "description": "This account can sign in and manage the install.",
-      "email": "Email",
-      "password": "Password",
-      "full_name": "Full name",
-      "submit": "Create administrator",
-      "submitting": "Creating…",
-      "created": "Administrator created. Reloading…"
+      "heading": "Crea un administrador",
+      "description": "Esta cuenta puede iniciar sesión y administrar la instalación.",
+      "email": "Correo electrónico",
+      "password": "Contraseña",
+      "full_name": "Nombre completo",
+      "submit": "Crear administrador",
+      "submitting": "Creando…",
+      "created": "Administrador creado. Recargando…"
     },
     "steps": {
-      "heading": "Setup steps",
-      "complete": "Done",
-      "pending": "Pending",
+      "heading": "Pasos de configuración",
+      "complete": "Hecho",
+      "pending": "Pendiente",
       "migrations": {
-        "title": "Apply database migrations",
-        "description": "Bring the database schema up to the version this code expects."
+        "title": "Aplicar las migraciones de la base de datos",
+        "description": "Actualiza el esquema de la base de datos a la versión que espera este código."
       }
     },
-    "error": "Something went wrong. See the detail above."
+    "error": "Algo ha salido mal. Consulta el detalle de arriba."
   }
 }

@@ -54,7 +54,7 @@
   },
   "errors": {
     "not_found": "File not found",
-    "too_large": "File exceeds the maximum allowed size",
+    "too_large": "File exceeds the {max_size} limit for a single upload",
     "bad_type": "This file type is not allowed",
     "backend_error": "Storage backend error"
   },
