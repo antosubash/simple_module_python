@@ -44,6 +44,7 @@ async def change_my_password(
     request: Request,
     user=Depends(fastapi_users.current_user(active=True)),
     user_manager: UserManager = Depends(get_user_manager),
+    db: AsyncSession = Depends(get_db),
 ) -> Response:
     """Change your own password, proving you know the current one.
 
@@ -55,11 +56,13 @@ async def change_my_password(
     forbidden from changing, so this is a bad request about a field that does
     not apply, not an authorisation decision.
 
-    Succeeding also revokes every *other* session. Changing a password is what
-    someone does when they think an old session is in the wrong hands, and a
-    change that leaves those sessions signed in does not do the one thing it
-    was reached for. The browser doing the changing keeps working: its session
-    is re-stamped with the new value rather than being caught by its own bump.
+    Succeeding also revokes every *other* session, and every bearer credential.
+    Changing a password is what someone does when they think an old session is
+    in the wrong hands, and a change that leaves those signed in does not do the
+    one thing it was reached for. The browser doing the changing keeps working:
+    its session is re-stamped with the new value rather than being caught by its
+    own bump. A bearer client is not re-stamped and must sign in again — there
+    is nowhere to write the new counter to a caller holding only a token.
     """
     if user.is_external or user.hashed_password is None:
         raise HTTPException(
@@ -91,6 +94,18 @@ async def change_my_password(
     # This worker caches the counter for up to 30s; without this it would keep
     # honouring the sessions this change was meant to strand.
     forget_session_version(user.id)
+    # The bearer half of the same revocation. The stamped ``session_version``
+    # on each row already strands them, but leaving the rows behind means a
+    # stolen token keeps resolving a row until its own deadline passes — and
+    # the refresh tokens would mint fresh ones in the meantime. Deleting is
+    # what "this password is no longer the one that works" has to mean.
+    await db.execute(
+        update(RefreshToken)
+        .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))
+        .values(revoked_at=datetime.now(UTC))
+    )
+    await db.execute(delete(UserAccessToken).where(UserAccessToken.user_id == user.id))
+    await db.flush()
     return Response(status_code=204)
 
 

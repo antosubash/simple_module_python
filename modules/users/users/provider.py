@@ -9,12 +9,17 @@ from __future__ import annotations
 
 import logging
 import uuid as uuid_mod
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from auth.contracts.schemas import UserContext
 from simple_module_hosting.session import (
+    SESSION_COOKIE_MAX_AGE,
     SESSION_EXPIRES_AT_KEY,
     SESSION_REMEMBER_KEY,
+    SESSION_SIGNATURE_MAX_AGE,
+    ensure_session_expiry,
     session_has_expired,
 )
 from starlette.requests import Request
@@ -82,8 +87,13 @@ class UsersAuthProvider:
         # DB reload are both covered by one line. The signature window is 30
         # days for the whole process — that is what "keep me signed in" needs —
         # so this deadline is the only thing holding an ordinary sign-in to the
-        # 14 days it actually asked for. A session with no deadline predates
-        # this and is accepted as legacy; see ``session_has_expired``.
+        # 14 days it actually asked for.
+        #
+        # A session minted before deadlines existed carries none. It is stamped
+        # here rather than waved through: the stamp cannot outlast the signature
+        # window the signer already enforces, so this only ever tightens, and it
+        # leaves ``session_has_expired`` free to fail closed on absence.
+        ensure_session_expiry(session, self._session_window(request, session))
         if session_has_expired(session):
             _forget(session)
             return None
@@ -115,6 +125,24 @@ class UsersAuthProvider:
         else:
             session[_SESSION_USER_CTX_KEY] = user_ctx.to_session_dict()
         return user_ctx
+
+    @staticmethod
+    def _session_window(request: Request, session: Mapping[str, Any]) -> int:
+        """The window a legacy session should be held to, in seconds.
+
+        Mirrors what the cookie writer already does with this session: the
+        remembered window if it recorded one, otherwise the ordinary sign-in
+        window. Reading it back means a legacy "keep me signed in" session is
+        not quietly demoted to fourteen days on the request that stamps it.
+        """
+        recorded = session.get(SESSION_REMEMBER_KEY)
+        if recorded is True:
+            return SESSION_SIGNATURE_MAX_AGE
+        # ``bool`` is an ``int``: False means "not remembered", not zero seconds.
+        if not isinstance(recorded, bool) and isinstance(recorded, int) and recorded > 0:
+            return recorded
+        settings = getattr(getattr(request.app.state, "users", None), "settings", None)
+        return getattr(settings, "cookie_max_age_seconds", None) or SESSION_COOKIE_MAX_AGE
 
     async def _version_still_current(self, scope, user_id: uuid_mod.UUID, session) -> bool:
         """Whether this session predates the account's last "sign out everywhere".
@@ -190,18 +218,23 @@ class UsersAuthProvider:
 
             from users.backend import _TOKEN_LIFETIME_SECONDS
             from users.models import User, UserAccessToken
+            from users.token_strategy import token_is_live
 
             session_factory = scope["app"].state.sm.db.session_factory
             async with session_factory() as db_session:
-                # The age clause is not optional: this path bypasses
-                # fastapi-users' DatabaseStrategy, which is where the lifetime
-                # is normally applied, so without it a row minted to last
-                # thirty days authenticated forever. Same constant as the
-                # strategy, or the two disagree about what "expired" means.
-                cutoff = datetime.now(UTC) - timedelta(seconds=_TOKEN_LIFETIME_SECONDS)
+                # Neither clause is optional: this path bypasses fastapi-users'
+                # DatabaseStrategy, which is where a lifetime is normally
+                # applied, so without them a row authenticated forever. The
+                # ceiling is the same constant the strategy reads with, and
+                # ``expires_at`` is the row's own deadline — an ordinary
+                # sign-in's fourteen days, or ``/auth/token``'s fifteen
+                # minutes, rather than the thirty-day ceiling for all of them.
+                now = datetime.now(UTC)
+                cutoff = now - timedelta(seconds=_TOKEN_LIFETIME_SECONDS)
                 stmt = select(UserAccessToken).where(
                     UserAccessToken.token == token,
                     UserAccessToken.created_at > cutoff,
+                    UserAccessToken.expires_at > now,
                 )
                 access = (await db_session.execute(stmt)).scalar_one_or_none()
                 if access is None:
@@ -215,6 +248,13 @@ class UsersAuthProvider:
                 )
                 user = (await db_session.execute(stmt)).scalar_one_or_none()
                 if user is None or not user.is_active or user.disabled_at is not None:
+                    return None
+                # The revocation check the session path has had all along. A
+                # password change bumps ``session_version`` and strands every
+                # session; without this the bearer tokens minted before it kept
+                # working, including any an attacker who knew the old password
+                # had already collected. Free here — the row is already loaded.
+                if not token_is_live(access, user, now):
                     return None
                 return UserContext.from_user(user)
         except Exception:
