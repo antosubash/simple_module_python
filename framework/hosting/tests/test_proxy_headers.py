@@ -18,6 +18,8 @@ coupling is gone and ``TestSchemeCorrection`` asserts its absence.
 
 from __future__ import annotations
 
+import logging
+
 import httpx
 import pytest
 from simple_module_hosting.app_builder import create_app
@@ -25,6 +27,8 @@ from simple_module_hosting.settings import Settings
 from simple_module_test.fixtures import _create_all_tables, _seed_setup_admin
 
 _LOGIN_PATH = "/users/login"
+_FORWARDED_FOR = "203.0.113.5"
+_DIRECT_CLIENT_IP = "127.0.0.1"  # httpx.ASGITransport's default scope["client"]
 
 
 def _names(app) -> tuple[str, ...]:
@@ -120,6 +124,48 @@ class TestSchemeCorrection:
             assert "http://testserver" not in resp.text
             assert "https://testserver" not in resp.text
             assert f'"url": "{_LOGIN_PATH}"' in resp.text
+        finally:
+            await client.aclose()
+            await ctx.__aexit__(None, None, None)
+
+
+class TestClientCorrection:
+    """The scheme/client-IP correction itself, independent of Inertia.
+
+    ``TestSchemeCorrection`` above only proves the page url stays scheme-free —
+    it would pass identically even if ``ProxyHeadersMiddleware`` silently did
+    nothing, since a relative url never carries a scheme either way. Request
+    logs and the audit trail are what actually depend on the correction now
+    (see ``host_settings.py`` and ``_phase_helpers.py``), so exercise that
+    directly: ``RequestLoggingMiddleware`` puts ``scope["client"]`` on every
+    ``request.started`` log record as ``client_ip``.
+    """
+
+    @pytest.mark.parametrize(
+        ("trusted_proxy", "expected_client_ip"),
+        [
+            ("*", _FORWARDED_FOR),  # trusted proxy → X-Forwarded-For honored
+            (None, _DIRECT_CLIENT_IP),  # no trust configured → header ignored
+        ],
+    )
+    async def test_request_log_records_the_corrected_client_ip(
+        self,
+        trusted_proxy: str | None,
+        expected_client_ip: str,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        client, ctx = await _client_for(_settings(trusted_proxy=trusted_proxy))
+        try:
+            with caplog.at_level(logging.DEBUG, logger="simple_module.request"):
+                resp = await client.get(_LOGIN_PATH, headers={"X-Forwarded-For": _FORWARDED_FOR})
+            assert resp.status_code == 200
+            started = [
+                r
+                for r in caplog.records
+                if r.name == "simple_module.request" and r.message == "request.started"
+            ]
+            assert len(started) == 1
+            assert started[0].client_ip == expected_client_ip
         finally:
             await client.aclose()
             await ctx.__aexit__(None, None, None)
