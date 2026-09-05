@@ -24,7 +24,7 @@ from users.auth_local.rate_limit import (
     enforce_auth_throughput_limit,
 )
 from users.auth_local.self_account import router as self_account_router
-from users.backend import build_cookie_transport, get_database_strategy
+from users.backend import build_cookie_transport, build_strategy
 from users.constants import SESSION_USER_ID_KEY
 from users.contracts.schemas import (
     AcceptInviteRequest,
@@ -86,7 +86,7 @@ async def _remembered_login_response(request: Request, user, access_token_db) ->
     """
     settings = request.app.state.users.settings
     window = settings.remember_me_max_age_seconds
-    strategy = get_database_strategy(access_token_db, lifetime_seconds=window)
+    strategy = build_strategy(access_token_db, window)
     transport = build_cookie_transport(
         cookie_name=settings.cookie_name,
         cookie_max_age_seconds=window,
