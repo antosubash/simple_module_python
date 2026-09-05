@@ -107,7 +107,7 @@ export function LoginForm({
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <Button type="submit" size="lg" className="w-full max-lg:min-h-11" disabled={loading}>
+        <Button type="submit" size="lg" className="w-full" disabled={loading}>
           {loading ? t(keys.users.login.submitting) : t(keys.users.login.submit)}
         </Button>
       </form>
@@ -122,14 +122,7 @@ export function LoginForm({
             <span className="h-px flex-1 bg-border" />
           </div>
           {oauthProviders.map((provider) => (
-            <Button
-              key={provider.name}
-              type="button"
-              variant="outline"
-              size="lg"
-              asChild
-              className="max-lg:min-h-11"
-            >
+            <Button key={provider.name} type="button" variant="outline" size="lg" asChild>
               <a href={`/api/users/auth/${provider.name}/login`}>
                 {t(keys.users.login.continue_with, { name: provider.display_name })}
               </a>
