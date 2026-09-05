@@ -213,3 +213,40 @@ def test_passing_max_age_is_refused_rather_than_ignored():
 
     with pytest.raises(TypeError, match="signature window"):
         SessionMiddleware(lambda scope, receive, send: None, "secret", max_age=60)
+
+
+class TestClampFallsBackOnAnythingUnusable:
+    """``_clamp``'s other branch. The suite covered a window *beyond* the
+    signature max, but never a zero, negative or non-integer one — which is
+    where the 14-day default comes from, and the branch a caller reaches by
+    reading a bad value out of a session payload rather than by typing one.
+    """
+
+    @pytest.mark.parametrize(
+        "value,why",
+        [
+            (0, "zero — a cookie that expires immediately is not a window"),
+            (-1, "negative"),
+            (None, "absent"),
+            ("1209600", "a string that looks like a number"),
+            (True, "bool is an int, and True must not read as one second"),
+            (False, "the other bool"),
+            (14.5, "float"),
+        ],
+    )
+    def test_it_returns_the_default(self, value, why):
+        from simple_module_hosting.session import SESSION_COOKIE_MAX_AGE, _clamp
+
+        assert _clamp(value) == SESSION_COOKIE_MAX_AGE, why
+
+    def test_a_usable_window_is_kept(self):
+        from simple_module_hosting.session import _clamp
+
+        assert _clamp(60) == 60
+
+    def test_a_window_past_the_signature_is_capped(self):
+        """A cookie the signer will not accept is worse than a shorter one: it
+        fails at the end of a long absence rather than at sign-in."""
+        from simple_module_hosting.session import SESSION_SIGNATURE_MAX_AGE, _clamp
+
+        assert _clamp(SESSION_SIGNATURE_MAX_AGE * 2) == SESSION_SIGNATURE_MAX_AGE

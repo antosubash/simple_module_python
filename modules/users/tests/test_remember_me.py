@@ -155,8 +155,12 @@ class TestTheWindowSurvivesLaterRequests:
         page = await anon_client.get("/dashboard/", follow_redirects=False)
         assert page.status_code == 200, page.status_code
         reissued = _reissued_cookie(page, "session")
-        if reissued is not None:
-            assert "Max-Age=1209600" in reissued
+        # Asserted, not guarded: `if reissued is not None:` let this pass when
+        # the page wrote no session cookie at all, which is precisely the case
+        # where it has stopped exercising the regression. Its remembered
+        # sibling three tests up already asserts presence first.
+        assert reissued is not None, "the page wrote no session cookie to check"
+        assert "Max-Age=1209600" in reissued
 
 
 class TestNotRemembered:
