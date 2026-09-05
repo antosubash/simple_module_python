@@ -80,8 +80,8 @@ async def browse(
     service: SettingService = Depends(get_setting_service),
     scope: str = SCOPE_ALL,
     q: str = "",
-    page: str = "1",
-    per_page: str = str(DEFAULT_PER_PAGE),
+    page: browse_query.PageParam = 1,
+    per_page: browse_query.PerPageParam = DEFAULT_PER_PAGE,
 ) -> InertiaResponse:
     """The raw key/value store, filtered/searched/paged on the server.
 
@@ -89,9 +89,12 @@ async def browse(
     "Settings" is nearly always after a module's form, not a table of rows
     keyed by dotted strings.
 
-    The filters are strings because they reach us from urls people edit and
-    bookmark; ``browse_query.parse`` substitutes defaults for anything
-    unusable rather than 422ing a link that used to work.
+    The filters reach us from urls people edit and bookmark, so nothing here
+    422s a link that used to work: an unusable ``scope`` falls back to the
+    ``all`` tab, and the two page params carry a validator that substitutes
+    their default instead of rejecting the request. ``browse_query.parse``
+    then clamps, so the ``filters``/``pagination`` props can echo exactly what
+    the query ran with.
     """
     query = browse_query.parse(scope, q, page, per_page)
     items, total = await service.list_filtered(
