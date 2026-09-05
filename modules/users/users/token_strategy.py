@@ -18,14 +18,18 @@ bearer paths agree: this strategy backs ``fastapi_users.current_user``, and
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from auth.contracts.schemas import UserContext
 from fastapi_users import exceptions, models
 from fastapi_users.authentication.strategy.db import AccessTokenDatabase, DatabaseStrategy
 from fastapi_users.manager import BaseUserManager
 
 from users.models import UserAccessToken
+
+logger = logging.getLogger(__name__)
 
 
 def token_is_live(access_token: UserAccessToken, user: Any, now: datetime | None = None) -> bool:
@@ -100,3 +104,61 @@ class ExpiringDatabaseStrategy(DatabaseStrategy):
         if not token_is_live(access_token, user):
             return None
         return user
+
+
+async def resolve_bearer(scope, token: str) -> UserContext | None:
+    """Look up an access token in ``users_access_token`` and return the user.
+
+    The provider's half of the pair. ``AuthMiddleware`` reaches this through
+    ``UsersAuthProvider.resolve_user``; ``fastapi_users.current_user`` reaches
+    :class:`ExpiringDatabaseStrategy` instead. Same two bounds either way,
+    written once as SQL and once in Python because one path can push them into
+    the query and the other cannot.
+    """
+    try:
+        from sqlalchemy import select
+        from sqlalchemy.orm import noload, selectinload
+
+        from users.backend import _TOKEN_LIFETIME_SECONDS
+        from users.models import User
+
+        session_factory = scope["app"].state.sm.db.session_factory
+        async with session_factory() as db_session:
+            # Neither clause is optional: this path bypasses fastapi-users'
+            # DatabaseStrategy, which is where a lifetime is normally applied,
+            # so without them a row authenticated forever. The ceiling is the
+            # same constant the strategy reads with, and ``expires_at`` is the
+            # row's own deadline — an ordinary sign-in's fourteen days, or
+            # ``/auth/token``'s fifteen minutes, rather than the thirty-day
+            # ceiling for all of them.
+            now = datetime.now(UTC)
+            cutoff = now - timedelta(seconds=_TOKEN_LIFETIME_SECONDS)
+            stmt = select(UserAccessToken).where(
+                UserAccessToken.token == token,
+                UserAccessToken.created_at > cutoff,
+                UserAccessToken.expires_at > now,
+            )
+            access = (await db_session.execute(stmt)).scalar_one_or_none()
+            if access is None:
+                return None
+            # noload oauth_accounts: lazy="selectin" on the model would
+            # otherwise fire an extra query the UserContext never reads.
+            stmt = (
+                select(User)
+                .where(User.id == access.user_id)
+                .options(selectinload(User.roles), noload(User.oauth_accounts))
+            )
+            user = (await db_session.execute(stmt)).scalar_one_or_none()
+            if user is None or not user.is_active or user.disabled_at is not None:
+                return None
+            # The revocation check the session path has had all along. A
+            # password change bumps ``session_version`` and strands every
+            # session; without this the bearer tokens minted before it kept
+            # working, including any an attacker who knew the old password had
+            # already collected. Free here — the row is already loaded.
+            if not token_is_live(access, user, now):
+                return None
+            return UserContext.from_user(user)
+    except Exception:
+        logger.exception("Bearer token resolution failed")
+        return None
