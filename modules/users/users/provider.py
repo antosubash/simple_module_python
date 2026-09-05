@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 import uuid as uuid_mod
 from collections.abc import Mapping
-from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from auth.contracts.schemas import UserContext
@@ -221,55 +220,16 @@ class UsersAuthProvider:
         return request.headers.get("authorization", "").startswith("Bearer ")
 
     async def _resolve_bearer(self, scope, token: str) -> UserContext | None:
-        """Look up an access token in users_access_token and return the user."""
-        try:
-            from sqlalchemy import select
-            from sqlalchemy.orm import noload, selectinload
+        """Resolve an ``Authorization: Bearer`` token to its user.
 
-            from users.backend import _TOKEN_LIFETIME_SECONDS
-            from users.models import User, UserAccessToken
-            from users.token_strategy import token_is_live
+        Delegates to :func:`users.token_strategy.resolve_bearer`, which is where
+        ``ExpiringDatabaseStrategy`` also lives — the two readers of
+        ``users_access_token`` apply the same deadline and ``session_version``
+        rules, and keeping them in one file is what stops them drifting apart.
+        """
+        from users.token_strategy import resolve_bearer
 
-            session_factory = scope["app"].state.sm.db.session_factory
-            async with session_factory() as db_session:
-                # Neither clause is optional: this path bypasses fastapi-users'
-                # DatabaseStrategy, which is where a lifetime is normally
-                # applied, so without them a row authenticated forever. The
-                # ceiling is the same constant the strategy reads with, and
-                # ``expires_at`` is the row's own deadline — an ordinary
-                # sign-in's fourteen days, or ``/auth/token``'s fifteen
-                # minutes, rather than the thirty-day ceiling for all of them.
-                now = datetime.now(UTC)
-                cutoff = now - timedelta(seconds=_TOKEN_LIFETIME_SECONDS)
-                stmt = select(UserAccessToken).where(
-                    UserAccessToken.token == token,
-                    UserAccessToken.created_at > cutoff,
-                    UserAccessToken.expires_at > now,
-                )
-                access = (await db_session.execute(stmt)).scalar_one_or_none()
-                if access is None:
-                    return None
-                # noload oauth_accounts: lazy="selectin" on the model would
-                # otherwise fire an extra query the UserContext never reads.
-                stmt = (
-                    select(User)
-                    .where(User.id == access.user_id)
-                    .options(selectinload(User.roles), noload(User.oauth_accounts))
-                )
-                user = (await db_session.execute(stmt)).scalar_one_or_none()
-                if user is None or not user.is_active or user.disabled_at is not None:
-                    return None
-                # The revocation check the session path has had all along. A
-                # password change bumps ``session_version`` and strands every
-                # session; without this the bearer tokens minted before it kept
-                # working, including any an attacker who knew the old password
-                # had already collected. Free here — the row is already loaded.
-                if not token_is_live(access, user, now):
-                    return None
-                return UserContext.from_user(user)
-        except Exception:
-            logger.exception("Bearer token resolution failed")
-            return None
+        return await resolve_bearer(scope, token)
 
     async def _load_user(self, scope, user_id: uuid_mod.UUID, session=None) -> UserContext | None:
         try:
