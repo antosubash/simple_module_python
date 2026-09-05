@@ -168,6 +168,7 @@ class FileStorageModule(ModuleBase):
         picked up — constructing in ``register_settings`` would bake in
         the pydantic defaults instead of the DB overrides.
         """
+        from file_storage.aggregates import register_invalidation
         from file_storage.backends import build_backend
 
         services = app.state.file_storage
@@ -184,6 +185,12 @@ class FileStorageModule(ModuleBase):
                 settings.s3_region,
                 settings.s3_endpoint_url or "(default)",
             )
+
+        # Wire the browse screen's cached bucket totals to this app's sessions,
+        # so any commit that wrote a file row drops them. Registered here rather
+        # than in ``register_settings`` because ``app.state.sm.db`` is opened by
+        # the lifespan, which has not run at registration time.
+        register_invalidation(app.state.sm.db, services.aggregates)
 
         # Registered here, not in register_health_checks: the backend does not
         # exist until this hook builds it, and the check must follow later
