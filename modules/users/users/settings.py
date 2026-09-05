@@ -19,6 +19,8 @@ from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.redirect_safety import non_empty_redirect
 from simple_module_core.settings_base import DbBackedSettings
 
+from users.session_version_cache import SESSION_VERSION_TTL_SECONDS
+
 _PLACEHOLDER_RESET_SECRET = "dev-reset-token-secret-change-me"
 _PLACEHOLDER_VERIFY_SECRET = "dev-verify-token-secret-change-me"
 
@@ -81,6 +83,12 @@ class UsersSettings(DbBackedSettings):
     # number out of this rather than spelling it in the copy, so an operator
     # who shortens the window does not leave the checkbox lying.
     remember_me_max_age_seconds: int = 60 * 60 * 24 * 30  # 30 days
+    # How long a worker reuses a read of ``User.session_version`` before going
+    # back to the DB. The cost of the cache is a window in which *another*
+    # worker's revocation has not been seen here; 0 disables it and pays one
+    # indexed read per request instead. See ``users.session_version_cache``.
+    session_version_cache_ttl_seconds: int = SESSION_VERSION_TTL_SECONDS
+
     cookie_secure: bool = True  # flipped False in dev by the module at startup
     cookie_samesite: str = "lax"
 

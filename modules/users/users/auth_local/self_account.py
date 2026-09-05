@@ -15,9 +15,9 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi_users import exceptions as fu_exceptions
+from simple_module_db import RequestSession
 from simple_module_db.deps import get_db
 from sqlalchemy import delete, update
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from users.auth_local.rate_limit import enforce_auth_throughput_limit
 from users.constants import SESSION_VERSION_KEY
@@ -44,7 +44,7 @@ async def change_my_password(
     request: Request,
     user=Depends(fastapi_users.current_user(active=True)),
     user_manager: UserManager = Depends(get_user_manager),
-    db: AsyncSession = Depends(get_db),
+    db: RequestSession = Depends(get_db),
 ) -> Response:
     """Change your own password, proving you know the current one.
 
@@ -91,9 +91,15 @@ async def change_my_password(
     # UPDATE would be rolled back as a read-only request.
     user.session_version = int(user.session_version or 0) + 1
     request.session[SESSION_VERSION_KEY] = user.session_version
-    # This worker caches the counter for up to 30s; without this it would keep
-    # honouring the sessions this change was meant to strand.
-    forget_session_version(user.id)
+    # This worker caches the counter; without this it would keep honouring the
+    # sessions this change was meant to strand. Hung on the commit rather than
+    # run inline: clearing before the row is durable means a failed commit
+    # leaves the cache empty and the counter unchanged, so the next read
+    # repopulates the *old* value and quietly re-admits everything. The
+    # callback runs inside the response cycle, so the browser that pressed the
+    # button is never told it worked while this worker still lets the old
+    # sessions in.
+    db.on_commit(lambda: forget_session_version(user.id))
     # The bearer half of the same revocation. The stamped ``session_version``
     # on each row already strands them, but leaving the rows behind means a
     # stolen token keeps resolving a row until its own deadline passes — and
@@ -113,7 +119,7 @@ async def change_my_password(
 async def revoke_all_my_sessions(
     request: Request,
     user=Depends(fastapi_users.current_user(active=True)),
-    db: AsyncSession = Depends(get_db),
+    db: RequestSession = Depends(get_db),
 ) -> Response:
     """Sign this account out of every browser and client, including this one.
 
@@ -132,8 +138,10 @@ async def revoke_all_my_sessions(
     # ``get_db`` dependency — so the assignment is enough.
     user.session_version = int(user.session_version or 0) + 1
     # See the password change: the cached counter has to go with the bump, or
-    # this worker keeps letting the sessions it just revoked back in.
-    forget_session_version(user.id)
+    # this worker keeps letting the sessions it just revoked back in — and it
+    # has to go *after* the commit, or a rollback restores the old counter
+    # behind an emptied cache.
+    db.on_commit(lambda: forget_session_version(user.id))
     await db.execute(
         update(RefreshToken)
         .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))
