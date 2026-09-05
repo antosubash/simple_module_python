@@ -61,9 +61,11 @@ off disk. Recording the deadline in the payload puts the ceiling back per
 session: the auth provider treats a session past it as signed out, whatever
 the signer is still willing to verify.
 
-Written by whoever signs the user in, via :func:`stamp_session_expiry`.
-Sessions minted before this existed carry no key and are accepted as legacy —
-failing closed on absence would sign the entire user base out on deploy.
+Written by whoever signs the user in, via :func:`stamp_session_expiry`. A
+session minted before this existed carries no key; the auth provider stamps one
+on first sight (:func:`ensure_session_expiry`) rather than either rejecting it —
+which would sign the entire user base out on deploy — or accepting it forever,
+which would leave the hole this key was added to close.
 """
 
 SESSION_COOKIE_MAX_AGE_KEY = "session_cookie_max_age"
@@ -176,17 +178,40 @@ def stamp_session_expiry(session: MutableMapping[str, Any], max_age_seconds: int
     return deadline
 
 
-def session_has_expired(session: Any) -> bool:
-    """True only if the session records a deadline that has passed.
+def ensure_session_expiry(session: MutableMapping[str, Any], max_age_seconds: int) -> int:
+    """Return this session's deadline, stamping one if it has none.
 
-    Fail-open on a missing or unreadable key: it means the session predates
-    :func:`stamp_session_expiry`, and the alternative is signing every current
-    user out at deploy time. Revisit once deployed sessions have all turned
-    over — at that point absence should mean expired.
+    The migration path for sessions minted before :func:`stamp_session_expiry`
+    existed. Failing closed on absence would sign the whole user base out at
+    deploy time; accepting absence forever leaves open the hole the deadline was
+    added to close. Stamping on first sight does neither — the session keeps
+    working, and from that request on it carries the same bound as one minted
+    today.
+
+    It cannot widen anything: an existing deadline is returned untouched, and a
+    stamp written now is still capped by the signature window, which the signer
+    enforces from the session's *original* mint time. So a legacy session's real
+    ceiling stays what it always was, and one signature window after this ships
+    there are no unstamped sessions left for :func:`session_has_expired` to
+    decide about.
+    """
+    recorded = session.get(SESSION_EXPIRES_AT_KEY) if isinstance(session, Mapping) else None
+    if not isinstance(recorded, bool) and isinstance(recorded, (int, float)):
+        return int(recorded)
+    return stamp_session_expiry(session, max_age_seconds)
+
+
+def session_has_expired(session: Any) -> bool:
+    """True if the session has no deadline, or records one that has passed.
+
+    Fails **closed** on a missing or unreadable key. That is safe because the
+    only caller stamps first — see :func:`ensure_session_expiry` — so absence
+    here means the session never went through that path, which is not something
+    to give the benefit of the doubt to.
     """
     if not isinstance(session, Mapping):
-        return False
+        return True
     recorded = session.get(SESSION_EXPIRES_AT_KEY)
     if isinstance(recorded, bool) or not isinstance(recorded, (int, float)):
-        return False
+        return True
     return recorded <= time.time()

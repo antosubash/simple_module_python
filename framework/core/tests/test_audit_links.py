@@ -113,6 +113,25 @@ class TestLabelResolver:
             )
         assert len(reg.all_links) == 1
 
+    def test_label_permission_defaults_to_ungated(self):
+        """Most row names disclose nothing a reader of the audit log should not
+        already see — a setting key, a filename — so declaring nothing means
+        "anyone who may read the trail may read the name"."""
+        assert AuditLink(entity_type="Setting", url_template="/s/{id}").label_permission == ""
+
+    def test_label_permission_is_part_of_the_claim(self):
+        """Unlike the resolver, it is compared: two modules disagreeing about
+        who may see a name is exactly the conflict the registry exists to
+        catch, and silently keeping the looser one would be the wrong answer."""
+        reg = AuditLinkRegistry()
+        reg.register(AuditLink(entity_type="User", url_template="/u/{id}"))
+        with pytest.raises(ValueError, match="Two modules claim"):
+            reg.register(
+                AuditLink(
+                    entity_type="User", url_template="/u/{id}", label_permission="users.manage"
+                )
+            )
+
     def test_genuinely_conflicting_claims_still_raise(self):
         reg = AuditLinkRegistry()
         reg.register(AuditLink(entity_type="User", url_template="/a/{id}"))

@@ -66,6 +66,8 @@ def emit_frontend_types_for_modules(
     settings: Settings,
     installed_modules: list[ModuleBase],
     project_root: Path,
+    *,
+    strict: bool = False,
 ) -> None:
     """Emit the TS key union covering every *installed* module.
 
@@ -77,20 +79,33 @@ def emit_frontend_types_for_modules(
     inactive module's strings are typed, never served.
     """
     registry, _ = build_i18n_registry(settings, installed_modules, project_root)
-    emit_frontend_types(registry, project_root)
+    emit_frontend_types(registry, project_root, strict=strict)
 
 
-def emit_frontend_types(registry: I18nRegistry, project_root: Path) -> None:
+def emit_frontend_types(
+    registry: I18nRegistry, project_root: Path, *, strict: bool = False
+) -> None:
     """Write the TS augmentation files into @simple-module-py/i18n if present.
 
     Logs but does not raise on failure — stale types are preferable to a
     broken boot. Dev-loop only; callers should gate on ``is_development``.
+
+    ``strict=True`` re-raises instead, for a tool whose whole job is this
+    regeneration (``make gen-i18n``). There a swallowed failure only defers the
+    error to a ``tsc`` run several steps removed from the cause. Under strict a
+    missing package directory is an error too, where on the boot path it is the
+    normal shape of a wheel-installed app that ships no i18n workspace.
     """
+    pkg_src = project_root / "packages" / "i18n" / "src"
+    if not pkg_src.is_dir():
+        if strict:
+            raise FileNotFoundError(f"{pkg_src} does not exist — nothing to regenerate")
+        return
     try:
-        pkg_src = project_root / "packages" / "i18n" / "src"
-        if pkg_src.is_dir():
-            write_generated_resources(registry, pkg_src)
+        write_generated_resources(registry, pkg_src)
     except Exception:
+        if strict:
+            raise
         logger.exception("Failed to write generated-resources.ts — frontend types will be stale")
 
 

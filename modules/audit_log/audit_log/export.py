@@ -15,7 +15,7 @@ from __future__ import annotations
 import csv
 import io
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Collection
 from typing import Any
 
 from simple_module_core.audit_links import AuditLinkRegistry
@@ -97,12 +97,19 @@ async def stream_csv(
     db: AsyncSession,
     registry: AuditLinkRegistry,
     filters: EntryFilters,
+    permissions: Collection[str],
 ) -> AsyncIterator[str]:
     """Yield the CSV a batch at a time, header first.
 
     Names are resolved per batch, with the same batched lookups the screen
     uses — a 5,000-row export costs one actor query and one query per entity
     type per batch, not one per row.
+
+    *permissions* is the requesting principal's, and it reaches the entity
+    resolvers exactly as it does on the screen. The export is a second door
+    onto the same rows, so a name the browse page withholds must not be
+    downloadable from here (GH #300); the ``entity_label`` column falls back to
+    the id, which is what the row stored anyway.
     """
     buffer = io.StringIO()
     writer = csv.writer(buffer)
@@ -119,7 +126,10 @@ async def stream_csv(
     async for batch in service.iter_entries(filters):
         actors = await resolve_actors(db, [entry.user_id for entry in batch])
         labels = await resolve_entity_labels(
-            db, registry, [(entry.entity_type, entry.entity_id) for entry in batch]
+            db,
+            registry,
+            [(entry.entity_type, entry.entity_id) for entry in batch],
+            permissions,
         )
         for entry in batch:
             writer.writerow(

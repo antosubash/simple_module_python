@@ -45,11 +45,36 @@ def test_bootstrap_placeholder_secret_blocks_production(monkeypatch):
         BootstrapSettings()
 
 
-def test_host_settings_ignores_env(monkeypatch):
-    # HostSettings must NOT read env — env-sprawl is what we're removing.
+def test_host_settings_reads_its_own_prefixed_env(monkeypatch):
+    """Env beats the default. This test asserted the opposite and never ran.
+
+    ``testpaths`` did not list ``tests/``, so nothing here was collected by a
+    bare ``pytest`` — the stale assertion sat green for as long as it took to
+    notice. The contract it claimed ("HostSettings must NOT read env") is not
+    the one the codebase has: precedence is env → DB → default, and env has to
+    keep winning or an upgrade silently changes a deployment's behaviour
+    (CLAUDE.md § Conventions). ``HostSettings`` declares ``env_prefix="SM_"``
+    for exactly that reason.
+    """
     monkeypatch.setenv("SM_MULTI_TENANT", "true")
-    hs = HostSettings()
-    assert hs.multi_tenant is False  # default wins; env ignored
+    assert HostSettings().multi_tenant is True
+
+
+def test_host_settings_ignores_unprefixed_env(monkeypatch):
+    """What the ``env_prefix`` is actually defending against.
+
+    Without it a bare ``HostSettings()`` would read unprefixed names, and
+    ``LOG_LEVEL`` in particular is a common variable that has nothing to do
+    with this app.
+    """
+    monkeypatch.delenv("SM_MULTI_TENANT", raising=False)
+    monkeypatch.setenv("MULTI_TENANT", "true")
+    assert HostSettings().multi_tenant is False
+
+
+def test_host_settings_default_wins_when_env_is_unset(monkeypatch):
+    monkeypatch.delenv("SM_MULTI_TENANT", raising=False)
+    assert HostSettings().multi_tenant is False
 
 
 def test_host_settings_default_locale_must_be_supported():

@@ -1,10 +1,10 @@
 import { useT } from '@simple-module-py/i18n';
 import {
   ageOf,
-  RELATIVE_AGE_KEYS,
   type RelativeAge,
   relativeAge,
   relativeUntil,
+  timeUntil,
 } from '../lib/relative-time';
 
 /**
@@ -31,11 +31,9 @@ export function useRelativeTime(): {
 
   return {
     ago: (iso) => render(relativeAge(ageOf(iso, now))),
-    until: (iso) => {
-      if (!iso) return t(RELATIVE_AGE_KEYS.unknown);
-      const parsed = new Date(iso).getTime();
-      if (Number.isNaN(parsed)) return t(RELATIVE_AGE_KEYS.unknown);
-      return render(relativeUntil(parsed - now));
-    },
+    // `timeUntil` carries the same null/invalid handling `ageOf` has, and
+    // `relativeUntil` already answers NaN with the "unknown" key — so the
+    // countdown no longer re-implements either.
+    until: (iso) => render(relativeUntil(timeUntil(iso, now))),
   };
 }

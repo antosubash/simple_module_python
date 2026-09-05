@@ -1,4 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, expect, test, vi } from 'vitest';
 
 import { SegmentedControl } from './SegmentedControl';
@@ -102,5 +104,93 @@ describe('SegmentedControl', () => {
     expect(archived).toBeDisabled();
     fireEvent.click(archived);
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+/** Controlled wrapper, so a keyboard move is reflected the way a page would. */
+function Harness({ initial = 'all' }: { initial?: string }) {
+  const [value, setValue] = useState(initial);
+  return (
+    <SegmentedControl
+      value={value}
+      onChange={setValue}
+      options={OPTIONS}
+      aria-label="Filter by status"
+    />
+  );
+}
+
+describe('SegmentedControl keyboard', () => {
+  test('the whole group is one tab stop, parked on the checked option', async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <Harness initial="active" />
+        <button type="button">after</button>
+      </>,
+    );
+
+    await user.tab();
+    expect(screen.getByRole('radio', { name: 'Active' })).toHaveFocus();
+
+    // One more Tab leaves the group entirely rather than stepping to the next
+    // chip: that is the difference the roving tabIndex buys.
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'after' })).toHaveFocus();
+  });
+
+  test('arrow keys move focus and selection together', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial="all" />);
+
+    await user.tab();
+    await user.keyboard('{ArrowRight}');
+
+    const active = screen.getByRole('radio', { name: 'Active' });
+    expect(active).toHaveFocus();
+    expect(active).toHaveAttribute('aria-checked', 'true');
+  });
+
+  test('arrow keys skip disabled options and wrap round the ends', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial="active" />);
+
+    // Right from "Active" would land on the disabled "Archived", so it wraps
+    // past it to "All".
+    await user.tab();
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByRole('radio', { name: 'All 12' })).toHaveFocus();
+
+    // And left from "All" wraps backwards, skipping "Archived" again.
+    await user.keyboard('{ArrowLeft}');
+    expect(screen.getByRole('radio', { name: 'Active' })).toHaveFocus();
+  });
+
+  test('Home and End jump to the first and last enabled options', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial="active" />);
+
+    await user.tab();
+    await user.keyboard('{Home}');
+    expect(screen.getByRole('radio', { name: 'All 12' })).toHaveFocus();
+
+    // "Archived" is disabled, so the last *reachable* option is "Active".
+    await user.keyboard('{End}');
+    expect(screen.getByRole('radio', { name: 'Active' })).toHaveFocus();
+  });
+
+  test('a group whose value matches nothing is still reachable by Tab', async () => {
+    const user = userEvent.setup();
+    render(
+      <SegmentedControl
+        value="gone"
+        onChange={() => {}}
+        options={OPTIONS}
+        aria-label="Filter by status"
+      />,
+    );
+
+    await user.tab();
+    expect(screen.getByRole('radio', { name: 'All 12' })).toHaveFocus();
   });
 });

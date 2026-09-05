@@ -139,7 +139,7 @@ function Register() {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <Button type="submit" size="lg" className="w-full max-lg:min-h-11" disabled={loading}>
+        <Button type="submit" size="lg" className="w-full" disabled={loading}>
           {loading ? t(keys.users.register.submitting) : t(keys.users.register.submit)}
         </Button>
       </form>

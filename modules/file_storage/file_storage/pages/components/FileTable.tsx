@@ -39,6 +39,15 @@ const HEAD =
   'bg-secondary/40 text-[11px] font-semibold uppercase tracking-[0.08em] ' +
   'text-muted-foreground sm:px-6';
 
+// The select-all box has the same bleed as the rows, but nothing above the
+// header row to bleed *into*: the table's own container is `overflow-x-auto`
+// (which computes the block axis to `auto` too) inside a card the page renders
+// `overflow-hidden`, and a clipped overflow region is not hit-testable. A 56px
+// header row on phones centres the 16px box with 20px of cell either side, so
+// the whole 44px target lands inside both clipping boxes — and clear of row
+// one's own bleed, which would otherwise sit on top of it.
+const HEAD_CHECKBOX_CELL = 'w-10 max-lg:h-14 sm:pr-0';
+
 export function FileTable({
   files,
   selectedIds,
@@ -57,7 +66,7 @@ export function FileTable({
       <TableHeader>
         <TableRow>
           {canDelete && (
-            <TableHead className={cn(HEAD, 'w-10 sm:pr-0')}>
+            <TableHead className={cn(HEAD, HEAD_CHECKBOX_CELL)}>
               {/* Indeterminate while only some rows are ticked, so the header
                   box never claims a selection the footer count contradicts. */}
               <Checkbox

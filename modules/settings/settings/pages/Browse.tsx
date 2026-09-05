@@ -65,6 +65,7 @@ function Browse({ settings, pagination, counts, filters }: Props) {
     <>
       <Head title={t(keys.settings.browse.title)} />
       <PageShell
+        fill
         title={t(keys.settings.browse.title)}
         description={t(keys.settings.browse.description)}
         actions={
@@ -102,10 +103,12 @@ function Browse({ settings, pagination, counts, filters }: Props) {
           </div>
         </div>
 
-        {/* A min-height rather than a fixed one: the deck's card fills the
-            viewport with the footer pinned to the bottom, and `min-h` gets
-            that look without clipping a full page of rows on a short window. */}
-        <Card className="flex flex-col overflow-hidden border-border p-0 lg:min-h-[calc(100vh-var(--app-chrome-h)-15rem)]">
+        {/* The deck's card fills the viewport with the footer pinned to the
+            bottom. `fill` on the shell hands the leftover height to this
+            column, so the card grows into it — the `15rem` this replaced was a
+            hand-measured stand-in for the heading, tabs and search bar above,
+            and drifted whenever any of them changed. */}
+        <Card className="flex flex-col overflow-hidden border-border p-0 lg:flex-1">
           {settings.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
               <SettingsIcon className="size-8" aria-hidden="true" />

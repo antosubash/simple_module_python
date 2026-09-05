@@ -70,6 +70,17 @@ export function initTheme(): () => void {
   // Re-read the preference rather than closing over it: an explicit choice
   // made after boot must stop the OS from overriding it.
   const onChange = () => applyTheme(readThemePreference());
-  media.addEventListener('change', onChange);
-  return () => media.removeEventListener('change', onChange);
+  if (typeof media.addEventListener === 'function') {
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }
+  // Safari < 14 shipped MediaQueryList without the EventTarget methods, and
+  // `initTheme` runs inside an effect — an unguarded `addEventListener` throws
+  // there and takes the whole theme init with it, leaving the app stuck on
+  // whatever the class list happened to say.
+  if (typeof media.addListener === 'function') {
+    media.addListener(onChange);
+    return () => media.removeListener?.(onChange);
+  }
+  return () => {};
 }

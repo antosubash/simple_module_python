@@ -84,7 +84,7 @@ function ForgotPassword() {
             autoComplete="email"
           />
         </AuthField>
-        <Button type="submit" size="lg" className="w-full max-lg:min-h-11" disabled={loading}>
+        <Button type="submit" size="lg" className="w-full" disabled={loading}>
           {loading
             ? t(keys.users.forgot_password.submitting)
             : t(keys.users.forgot_password.submit)}

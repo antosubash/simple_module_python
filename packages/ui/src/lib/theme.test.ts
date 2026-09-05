@@ -79,6 +79,25 @@ describe('setThemePreference', () => {
   });
 });
 
+/**
+ * Safari < 14: a MediaQueryList with only the deprecated listener pair. Any
+ * call to `addEventListener` on it is a TypeError, which is the failure this
+ * guards against.
+ */
+function stubLegacyMatchMedia(prefersDark: boolean) {
+  const listeners = new Set<(e: MediaQueryListEvent) => void>();
+  const mql = {
+    matches: prefersDark,
+    addListener: (fn: (e: MediaQueryListEvent) => void) => listeners.add(fn),
+    removeListener: (fn: (e: MediaQueryListEvent) => void) => listeners.delete(fn),
+  };
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn(() => mql),
+  );
+  return { listeners, mql };
+}
+
 describe('initTheme', () => {
   it('applies the stored preference straight away', () => {
     stubPrefersDark(false);
@@ -110,5 +129,34 @@ describe('initTheme', () => {
     for (const fn of listeners) fn({ matches: true } as MediaQueryListEvent);
     expect(document.documentElement.classList.contains('dark')).toBe(false);
     stop();
+  });
+});
+
+describe('initTheme on a browser without addEventListener', () => {
+  it('subscribes through the deprecated addListener instead of throwing', () => {
+    const { listeners, mql } = stubLegacyMatchMedia(false);
+
+    const stop = initTheme();
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+
+    mql.matches = true;
+    for (const fn of listeners) fn({ matches: true } as MediaQueryListEvent);
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+
+    stop();
+    expect(listeners.size).toBe(0);
+  });
+
+  it('still applies the stored preference when neither subscription exists', () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false })),
+    );
+    localStorage.setItem(THEME_STORAGE_KEY, 'dark');
+
+    const stop = initTheme();
+
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(() => stop()).not.toThrow();
   });
 });

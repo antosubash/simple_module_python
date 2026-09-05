@@ -160,7 +160,9 @@ export const keys = {
       queued: 'background_tasks.strip.queued',
       running: 'background_tasks.strip.running',
       stuck: 'background_tasks.strip.stuck',
-      succeeded_24h: 'background_tasks.strip.succeeded_24h',
+      succeeded: 'background_tasks.strip.succeeded',
+      window_24h: 'background_tasks.strip.window_24h',
+      window_all: 'background_tasks.strip.window_all',
     },
     table: {
       actions: 'background_tasks.table.actions',

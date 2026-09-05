@@ -19,10 +19,12 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import Collection
 from typing import Any
 
 from fastapi import Request
 from simple_module_core.i18n import Translator
+from simple_module_hosting.permissions import resolved_permissions_for
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -131,7 +133,7 @@ def _kind_of(t: Translator, registry: Any, entity_type: str) -> str:
 
 
 async def _labels_for(
-    db: AsyncSession, registry: Any, entries: list[Any]
+    db: AsyncSession, registry: Any, entries: list[Any], permissions: Collection[str]
 ) -> dict[tuple[str, str], str]:
     """Display labels for every row an entry page refers to, by entity type.
 
@@ -139,13 +141,19 @@ async def _labels_for(
     a ``Setting`` by its key, a ``StoredFile`` by its filename — batched to one
     query per entity type rather than one per row. Types whose owner registered
     no resolver are simply absent, and the caller shows a short id.
+
+    *permissions* carries the reader's grants through to the resolvers, which
+    skip entity types their owner gated (GH #300). This card lives behind
+    ``users.manage`` so in practice nothing is withheld here — passing the real
+    set rather than assuming that keeps it true if the page's own guard ever
+    loosens.
     """
     from audit_log.resolve import resolve_entity_labels
 
     refs = [(entry.entity_type, entry.entity_id) for entry in entries]
     if not refs:
         return {}
-    return await resolve_entity_labels(db, registry, refs)
+    return await resolve_entity_labels(db, registry, refs, permissions)
 
 
 async def recent_activity_for(
@@ -178,7 +186,7 @@ async def recent_activity_for(
     registry = request.app.state.sm.audit_links
     try:
         page = await AuditLogService(db).list_entries(user_id=str(user_id), page_size=RECENT_LIMIT)
-        labels = await _labels_for(db, registry, page.items)
+        labels = await _labels_for(db, registry, page.items, resolved_permissions_for(request))
     except Exception:
         # A card that cannot load is not a reason to 500 the whole edit page.
         logger.exception("Could not read recent activity for %s", user_id)

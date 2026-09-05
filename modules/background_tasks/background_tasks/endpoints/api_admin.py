@@ -34,14 +34,23 @@ router = APIRouter(
 @router.get("/executions", response_model=TaskExecutionListResponse)
 async def list_executions(
     status: TaskStatus | None = Query(default=None),
-    task_name: str | None = Query(default=None),
+    q: str | None = Query(default=None),
+    task_name: str | None = Query(default=None, deprecated=True),
     queue: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=200),
     service: BackgroundTaskService = Depends(get_background_task_service),
 ) -> TaskExecutionListResponse:
+    """List executions, filtered exactly as the page filters them.
+
+    The task-name search is ``q`` — the same name the page and the sweep use,
+    so an operator can move a URL between the three and keep their filter. This
+    endpoint originally spelled it ``task_name``, which meant a link copied off
+    the screen silently listed *everything*; that spelling is still accepted so
+    existing API callers keep working, and ``q`` wins when both are given.
+    """
     return await service.list(
-        status=status, task_name=task_name, queue=queue, page=page, per_page=per_page
+        status=status, task_name=q or task_name, queue=queue, page=page, per_page=per_page
     )
 
 
