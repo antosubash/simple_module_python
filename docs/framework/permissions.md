@@ -150,5 +150,5 @@ async def test_create_requires_permission(client, db_session):
 
 - **Namespace with the module name.** `orders.create`, not `create_order`.
 - **Use `<module>.<verb>` form.** Nouns like `orders.admin` are fine for broad grants.
-- **Don't inline string checks.** `if "orders.create" in principal.permissions: ...` scattered through code is hard to audit. Use `RequiresPermission` or refactor into a dependency.
+- **Don't inline string checks.** `if "orders.create" in principal.permissions: ...` scattered through code is hard to audit. Use `RequiresPermission` or refactor into a dependency. When the thing to gate is part of a *response* rather than a route — a column, a label, a card — read the caller's grants with `resolved_permissions_for(request)` and test them with `simple_module_core.permissions.grants`, which is where the wildcard rule lives. A hand-rolled `in` check forgets that `admin` holds `*` and no named permission at all.
 - **Don't use roles in business logic.** Check permissions, not `user.roles`. Roles are an admin concept; permissions are the enforcement boundary.
