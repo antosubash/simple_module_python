@@ -19,7 +19,7 @@ async def get_file_storage_service(
     db: AsyncSession = Depends(get_db),
     services: FileStorageServices = Depends(get_file_storage_services),
 ) -> FileStorageService:
-    return FileStorageService(db, services.backend, services.settings)
+    return FileStorageService(db, services.backend, services.settings, services.aggregates)
 
 
 def get_event_bus(request: Request) -> EventBus:

@@ -14,6 +14,14 @@ from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+UNGATED: set[str] = set()
+"""The reader's grants, for links that declare no ``label_permission``.
+
+Empty rather than "everything" on purpose: these tests are about batching, and
+an ungated link must name its rows for a reader holding nothing at all. The
+gate itself is exercised in ``test_entity_label_permission.py``.
+"""
+
 
 class TestBatching:
     """One call per entity type per page, never one per row: a 50-row page of
@@ -37,7 +45,7 @@ class TestBatching:
         )
 
         labels = await resolve_entity_labels(
-            db_session, registry, [("User", "a"), ("User", "b"), ("User", "a")]
+            db_session, registry, [("User", "a"), ("User", "b"), ("User", "a")], UNGATED
         )
 
         assert calls == [["a", "b"]]
@@ -47,7 +55,9 @@ class TestBatching:
         registry = AuditLinkRegistry()
         registry.register(AuditLink(entity_type="StoredFile", url_template="/f/{id}"))
 
-        assert await resolve_entity_labels(db_session, registry, [("StoredFile", "z")]) == {}
+        assert (
+            await resolve_entity_labels(db_session, registry, [("StoredFile", "z")], UNGATED) == {}
+        )
 
     async def test_a_failing_resolver_does_not_take_down_the_page(
         self, db_session: AsyncSession
@@ -62,7 +72,7 @@ class TestBatching:
             AuditLink(entity_type="User", url_template="/u/{id}", label_resolver=boom)
         )
 
-        assert await resolve_entity_labels(db_session, registry, [("User", "a")]) == {}
+        assert await resolve_entity_labels(db_session, registry, [("User", "a")], UNGATED) == {}
 
     async def test_a_database_error_leaves_the_session_usable(
         self, db_session: AsyncSession
@@ -87,7 +97,7 @@ class TestBatching:
         )
         db_session.rollback = spy  # type: ignore[method-assign]
         try:
-            labels = await resolve_entity_labels(db_session, registry, [("Setting", "1")])
+            labels = await resolve_entity_labels(db_session, registry, [("Setting", "1")], UNGATED)
         finally:
             db_session.rollback = original  # type: ignore[method-assign]
 
@@ -114,7 +124,7 @@ class TestBatching:
         )
 
         labels = await resolve_entity_labels(
-            db_session, registry, [("Setting", "1"), ("User", "a")]
+            db_session, registry, [("Setting", "1"), ("User", "a")], UNGATED
         )
 
         assert labels == {("User", "a"): "name-a"}

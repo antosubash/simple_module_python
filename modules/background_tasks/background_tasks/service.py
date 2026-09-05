@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, status
 from simple_module_core.events import EventBus
+from simple_module_db import RequestSession
 from sqlalchemy import Row, func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from background_tasks.constants import RETRYABLE_STATUSES, TaskStatus
 from background_tasks.contracts.schemas import (
@@ -43,7 +43,7 @@ class BackgroundTaskService:
 
     def __init__(
         self,
-        db: AsyncSession,
+        db: RequestSession,
         celery: Celery,
         event_bus: EventBus,
     ) -> None:

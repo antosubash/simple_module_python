@@ -11,7 +11,7 @@ from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_db.deps import get_db
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from audit_log.constants import (
@@ -115,8 +115,14 @@ async def browse(
     links = request.app.state.sm.audit_links
     entity_types = _type_options(await service.distinct_entity_types(), links)
     actors = await resolve_actors(db, [item.user_id for item in result.items])
+    # Entity names are resolved against what *this* reader may see: naming the
+    # row is a read of the row, and `audit_log.view` alone must not be a way
+    # round the permission its owning module puts on that (GH #300).
     labels = await resolve_entity_labels(
-        db, links, [(item.entity_type, item.entity_id) for item in result.items]
+        db,
+        links,
+        [(item.entity_type, item.entity_id) for item in result.items],
+        resolved_permissions_for(request),
     )
 
     items = []

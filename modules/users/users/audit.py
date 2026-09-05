@@ -19,6 +19,7 @@ from simple_module_core.audit_links import AuditLink
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from users.constants import PERM_USERS_MANAGE
 from users.models import User
 
 _LABEL = "User"
@@ -65,4 +66,12 @@ def build_user_audit_link(admin_url_prefix: str) -> AuditLink:
         label_key=_LABEL_KEY,
         table_name=User.__tablename__,
         label_resolver=resolve_user_labels,
+        # A name here is the same disclosure the user list makes, so it takes
+        # the same permission. Without it, a role holding `audit_log.view` and
+        # nothing else could read the display name of every account that has
+        # ever been edited — and the email of every account still holding an
+        # unaccepted invite, since those have no `full_name` yet. The audit row
+        # itself is not withheld: a reader without `users.manage` still sees
+        # that a `User` was updated and which id, just not who. GH #300.
+        label_permission=PERM_USERS_MANAGE,
     )

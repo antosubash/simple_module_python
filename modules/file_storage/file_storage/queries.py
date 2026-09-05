@@ -4,6 +4,11 @@ Split out of ``service.py`` because they are a different job: nothing here
 touches a storage backend or mutates a row, so the whole module is safe to call
 from a view that only wants to render numbers. ``FileStorageService`` keeps
 thin delegating methods so callers still go through one object.
+
+Everything here is scoped by the caller's filters. The *unfiltered* bucket
+totals — the byte usage and both facet lists, which describe the bucket rather
+than the page — live in :mod:`file_storage.aggregates`, where one grouped scan
+answers all three and the result can be cached.
 """
 
 from __future__ import annotations
@@ -52,6 +57,51 @@ def filter_clauses(
     return clauses
 
 
+async def count_files(
+    db: AsyncSession,
+    *,
+    created_by: str | None = None,
+    search: str | None = None,
+    content_type: str | None = None,
+) -> int:
+    """How many rows the filters match.
+
+    Split from :func:`page_of_files` so a caller that has to clamp ``?page=``
+    can learn the total *before* choosing an offset. Asking for the page first
+    and re-asking after the clamp — which is what the browse view used to do —
+    paid for a page of rows nobody would ever see.
+    """
+    # ``func.count(StoredFile.id)``, not a bare ``func.count()``: the
+    # soft-delete loader criteria are attached per *mapper found in the
+    # statement*, and a bare count with only ``select_from`` names no mapped
+    # column, so the filter never applied and the total went on counting
+    # deleted rows. That is the pager offering pages that render empty — the
+    # exact failure ``filter_clauses`` exists to prevent.
+    query = select(func.count(StoredFile.id)).select_from(StoredFile)
+    for clause in filter_clauses(created_by=created_by, search=search, content_type=content_type):
+        query = query.where(clause)
+    return int((await db.execute(query)).scalar() or 0)
+
+
+async def page_of_files(
+    db: AsyncSession,
+    *,
+    page: int = 1,
+    per_page: int = 20,
+    created_by: str | None = None,
+    search: str | None = None,
+    content_type: str | None = None,
+) -> list[StoredFileOut]:
+    """One page of rows, newest first, narrowed by the same filters as the count."""
+    query = select(StoredFile)
+    for clause in filter_clauses(created_by=created_by, search=search, content_type=content_type):
+        query = query.where(clause)
+    result = await db.execute(
+        query.order_by(StoredFile.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
+    )
+    return [StoredFileOut.model_validate(to_out_dict(r)) for r in result.scalars().all()]
+
+
 async def list_files(
     db: AsyncSession,
     *,
@@ -61,31 +111,25 @@ async def list_files(
     search: str | None = None,
     content_type: str | None = None,
 ) -> tuple[list[StoredFileOut], int]:
-    base = select(StoredFile)
-    # ``func.count(StoredFile.id)``, not a bare ``func.count()``: the
-    # soft-delete loader criteria are attached per *mapper found in the
-    # statement*, and a bare count with only ``select_from`` names no mapped
-    # column, so the filter never applied and the total went on counting
-    # deleted rows. That is the pager offering pages that render empty — the
-    # exact failure ``filter_clauses`` exists to prevent.
-    count_q = select(func.count(StoredFile.id)).select_from(StoredFile)
-    for clause in filter_clauses(created_by=created_by, search=search, content_type=content_type):
-        base = base.where(clause)
-        count_q = count_q.where(clause)
+    """Page plus total, for callers whose page number is already known good.
 
-    total = (await db.execute(count_q)).scalar() or 0
-    result = await db.execute(
-        base.order_by(StoredFile.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
-    )
-    rows = result.scalars().all()
-    return [StoredFileOut.model_validate(to_out_dict(r)) for r in rows], total
+    The JSON API is one: it bounds ``page`` with ``Query(ge=1)`` and returns a
+    422 rather than clamping, so it never needs the count before the rows.
+    """
+    filters = {"created_by": created_by, "search": search, "content_type": content_type}
+    total = await count_files(db, **filters)
+    items = await page_of_files(db, page=page, per_page=per_page, **filters)
+    return items, total
 
 
 async def content_type_facets(db: AsyncSession, *, created_by: str | None = None) -> list[dict]:
-    """Distinct content types present, with counts, for the filter dropdown.
+    """Distinct content types present for one uploader, with counts.
 
-    Offering the full IANA list would be noise; the only types worth
-    showing are the ones actually in the bucket.
+    Offering the full IANA list would be noise; the only types worth showing
+    are the ones actually in the bucket. The unfiltered case — what the browse
+    dropdown actually renders — is answered from
+    :func:`file_storage.aggregates.compute` instead, which gets it out of the
+    same scan as the uploader facets and the byte total.
     """
     query = select(StoredFile.content_type, func.count().label("n"))
     for clause in filter_clauses(created_by=created_by, search=None, content_type=None):
@@ -94,38 +138,6 @@ async def content_type_facets(db: AsyncSession, *, created_by: str | None = None
 
     rows = (await db.execute(query)).all()
     return [{"value": str(row[0]), "count": int(row[1])} for row in rows]
-
-
-async def uploader_facets(db: AsyncSession) -> list[dict]:
-    """Distinct uploaders present, with counts, for the "Uploaded by" filter.
-
-    Rows with no ``created_by`` — anything uploaded before the audit listener
-    had a user to record — are skipped rather than offered under a sentinel:
-    ``created_by=None`` already means "every uploader" to the listing query, so
-    a "no uploader" option could not be honestly round-tripped through the
-    query string.
-    """
-    query = (
-        select(StoredFile.created_by, func.count().label("n"))
-        .where(StoredFile.created_by.is_not(None))
-        .group_by(StoredFile.created_by)
-        .order_by(StoredFile.created_by)
-    )
-    rows = (await db.execute(query)).all()
-    return [{"value": str(row[0]), "count": int(row[1])} for row in rows]
-
-
-async def used_bytes(db: AsyncSession) -> int:
-    """Total bytes held by files that still exist.
-
-    Deliberately ignores the active filters: this describes the bucket, not the
-    page being looked at, and a number that shrank when someone typed in the
-    search box would be describing nothing at all. Deleted rows are excluded by
-    the soft-delete loader criteria, so a deleted file stops counting against
-    the quota the moment it goes.
-    """
-    total = (await db.execute(select(func.coalesce(func.sum(StoredFile.size_bytes), 0)))).scalar()
-    return int(total or 0)
 
 
 def to_out_dict(row: StoredFile) -> dict:

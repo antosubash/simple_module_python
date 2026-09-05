@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass, field
 
 WILDCARD = "*"
@@ -24,6 +25,23 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
 def is_admin(roles: list[str] | None) -> bool:
     """Whether ``roles`` carries the framework's admin role."""
     return bool(roles) and ADMIN_ROLE in roles
+
+
+def grants(held: Collection[str], required: str) -> bool:
+    """Whether a principal holding *held* satisfies *required*.
+
+    One place for the wildcard rule, so code that gates something *inside* a
+    response — a column, a label, a card — reads the grant the same way
+    ``RequiresPermission`` reads it at the door. Two hand-rolled ``in`` checks
+    are two chances to forget that ``admin`` holds ``*`` and nothing else.
+
+    An empty *required* is satisfied by anything: callers use it to mean "no
+    permission gates this", which is the default for a declaration that never
+    named one.
+    """
+    if not required:
+        return True
+    return WILDCARD in held or required in held
 
 
 @dataclass

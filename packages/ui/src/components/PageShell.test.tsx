@@ -147,6 +147,39 @@ describe('PageShell rendering', () => {
   });
 });
 
+describe('PageShell fill', () => {
+  it('hands the leftover viewport height to the content column', () => {
+    // The alternative — and what this replaced — is `100vh` minus a rem figure
+    // hand-measured off the heading and filter row, which goes wrong the
+    // moment either of them changes height.
+    render(
+      <PageHeadingProvider>
+        <PageShell fill title="Settings">
+          <div data-testid="body">body</div>
+        </PageShell>
+      </PageHeadingProvider>,
+    );
+
+    const column = screen.getByTestId('body').parentElement;
+    expect(column).toHaveClass('lg:flex-1');
+    expect(column?.parentElement).toHaveClass('lg:min-h-[calc(100vh-var(--app-chrome-h))]');
+  });
+
+  it('leaves the content column alone by default', () => {
+    render(
+      <PageHeadingProvider>
+        <PageShell title="Settings">
+          <div data-testid="body">body</div>
+        </PageShell>
+      </PageHeadingProvider>,
+    );
+
+    const column = screen.getByTestId('body').parentElement;
+    expect(column).not.toHaveClass('lg:flex-1');
+    expect(column?.parentElement?.className).not.toContain('100vh');
+  });
+});
+
 /** The pre-existing positional call every module page still uses. */
 function LegacyPage() {
   useReportPageHeading('Role editor', '/admin/users');

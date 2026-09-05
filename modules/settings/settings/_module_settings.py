@@ -19,7 +19,9 @@ from settings._field_meta import choices_for, env_readable_var, resolve_default
 from settings._secrets import (  # noqa: F401
     _NEVER_SECRET_TYPES,
     SECRET_MASK,
+    conceals_secret,
     embeds_credential,
+    is_named_secret,
     is_secret_field,
     mask,
 )
@@ -129,14 +131,7 @@ def _field_view(
     info = cls.model_fields[name]
     raw_value = getattr(settings, name)
     value_type = value_type_for_field(cls, name)
-    # A numeric field whose name merely contains a secret-ish word was being
-    # masked and made uneditable — `reset_password_token_lifetime_seconds` is
-    # an int, but it matches on "password" exactly as the real secrets do.
-    # Phrased as "exempt the types that cannot hold a credential" rather than
-    # "mask only strings" so the failure direction is safe: an unexpected type
-    # (e.g. `str | None`, which resolves to "json") stays masked instead of
-    # silently exposing a secret.
-    named_secret = value_type not in _NEVER_SECRET_TYPES and is_secret_field(name)
+    named_secret = is_named_secret(name, value_type)
     extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
     default = resolve_default(info)
     env_var = f"{prefix}{name.upper()}"
@@ -147,10 +142,7 @@ def _field_view(
     raw_env = os.environ[live_env_var] if env_set and live_env_var is not None else None
 
     def hidden(value: Any) -> bool:
-        """Mask per *value*, not just per name: a DSN carrying a password is a
-        secret even on a field called ``broker_url``, while the same field's
-        password-free default is still worth showing."""
-        return named_secret or embeds_credential(value)
+        return conceals_secret(name, value, value_type)
 
     # ``is_secret`` drives the editor's input type and the "reveal" affordance,
     # so it has to be true when *any* of the three readings is being hidden —

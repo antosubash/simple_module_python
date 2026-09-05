@@ -30,6 +30,14 @@ interface PageShellProps {
   back?: string;
   /** Render the phone bar's title in the mono face. */
   mono?: boolean;
+  /**
+   * Make the shell reach the bottom of the viewport on `lg`, with the content
+   * column growing into whatever the heading leaves. A page whose main surface
+   * should fill the window then says `lg:flex-1` on that surface instead of
+   * subtracting a hand-measured header height from `100vh` — a magic number
+   * that silently drifts the moment a heading, tab row or filter bar changes.
+   */
+  fill?: boolean;
 }
 
 export function PageShell({
@@ -45,13 +53,23 @@ export function PageShell({
   mobileAction,
   back,
   mono,
+  fill = false,
 }: PageShellProps) {
   // The shell's breadcrumb and phone bar are named from this, so they can never
   // disagree with the heading rendered below.
   useReportPageHeading({ title, section, back, mono, mobileAction });
   const widthClass = maxWidth === 'full' ? '' : 'max-w-screen-xl mx-auto';
   return (
-    <div className={`px-4 py-6 sm:px-6 sm:py-7 lg:px-8 ${widthClass}`}>
+    <div
+      className={cn(
+        'px-4 py-6 sm:px-6 sm:py-7 lg:px-8',
+        widthClass,
+        // `min-h` rather than `h`: a page taller than the window still grows,
+        // and `--app-chrome-h` is the one variable both bars size themselves
+        // off, so this cannot disagree with the topbar.
+        fill && 'lg:flex lg:min-h-[calc(100vh-var(--app-chrome-h))] lg:flex-col',
+      )}
+    >
       <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-baseline sm:justify-between">
         {/* Phones wrap the title, so a centred avatar drifts off the first
             line; top-align there and centre once the row fits. */}
@@ -87,7 +105,7 @@ export function PageShell({
           </div>
         )}
       </div>
-      <div>{children}</div>
+      <div className={cn(fill && 'lg:flex lg:min-h-0 lg:flex-1 lg:flex-col')}>{children}</div>
     </div>
   );
 }

@@ -153,12 +153,7 @@ function ResetPassword() {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <Button
-          type="submit"
-          size="lg"
-          className="w-full max-lg:min-h-11"
-          disabled={loading || !token}
-        >
+        <Button type="submit" size="lg" className="w-full" disabled={loading || !token}>
           {loading ? t(keys.users.reset_password.submitting) : t(keys.users.reset_password.submit)}
         </Button>
       </form>

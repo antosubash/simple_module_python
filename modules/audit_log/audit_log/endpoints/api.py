@@ -7,7 +7,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from simple_module_db.deps import get_db
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from audit_log.constants import DEFAULT_PAGE_SIZE, PERM_VIEW
@@ -83,7 +83,16 @@ async def export_audit_entries(
     )
 
     return StreamingResponse(
-        stream_csv(service, db, request.app.state.sm.audit_links, filters),
+        # Resolved here rather than inside the generator: the response body is
+        # produced after the endpoint returns, and `request.state` is the
+        # wrong thing to reach into from a background task.
+        stream_csv(
+            service,
+            db,
+            request.app.state.sm.audit_links,
+            filters,
+            resolved_permissions_for(request),
+        ),
         media_type=CSV_MEDIA_TYPE,
         headers={"Content-Disposition": f'attachment; filename="{CSV_FILENAME}"'},
     )

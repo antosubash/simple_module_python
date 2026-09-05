@@ -90,13 +90,33 @@ export function isStale(ageMs: number): boolean {
 }
 
 /**
+ * Epoch milliseconds for an ISO timestamp, or NaN for anything unreadable —
+ * missing, empty, or not a date. The one place that decides what "unreadable"
+ * means, so `ageOf` and `timeUntil` cannot drift apart on the edge cases.
+ */
+function parseTimestamp(isoTimestamp: string | null | undefined): number {
+  if (!isoTimestamp) return Number.NaN;
+  return new Date(isoTimestamp).getTime();
+}
+
+/**
  * Milliseconds between `now` and an ISO timestamp, or NaN if it cannot be read.
  * Clamped at zero: a server clock a little ahead of the browser's should read
  * as "just now", never as a negative age.
  */
 export function ageOf(isoTimestamp: string | null | undefined, now: number): number {
-  if (!isoTimestamp) return Number.NaN;
-  const parsed = new Date(isoTimestamp).getTime();
+  const parsed = parseTimestamp(isoTimestamp);
   if (Number.isNaN(parsed)) return Number.NaN;
   return Math.max(0, now - parsed);
+}
+
+/**
+ * Milliseconds from `now` until an ISO timestamp, or NaN if it cannot be read.
+ * Deliberately *not* clamped — `relativeUntil` needs to see the negative to
+ * call a deadline expired, which is exactly why this cannot just be `-ageOf`.
+ */
+export function timeUntil(isoTimestamp: string | null | undefined, now: number): number {
+  const parsed = parseTimestamp(isoTimestamp);
+  if (Number.isNaN(parsed)) return Number.NaN;
+  return parsed - now;
 }

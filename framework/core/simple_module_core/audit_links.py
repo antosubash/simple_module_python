@@ -11,10 +11,15 @@ A module declares where its rows live via
 collects them into one registry at boot and stores it on
 ``app.state.sm.audit_links``.
 
-**The registry maps model class names to URL templates, nothing more.** It does
-not verify the row exists or that the reader may open it — following a link to a
-deleted record lands on that screen's own 404, and permissions are enforced by
-the target route as usual.
+**A link is a route, not an authorisation.** The registry does not verify the
+row exists or that the reader may open it — following a link to a deleted
+record lands on that screen's own 404, and permissions are enforced by the
+target route as usual.
+
+The one exception is ``label_permission``: the *name* of a row travels in the
+audit payload itself, so no downstream route ever gets the chance to refuse it.
+A module whose row names disclose something it gates elsewhere says so there,
+and readers without that permission see the id instead.
 """
 
 from __future__ import annotations
@@ -76,6 +81,15 @@ class AuditLink:
             a closure, and two boots would build two unequal objects out of one
             module — a registry conflict is about two modules claiming one
             entity type, which the identity fields already express.
+        label_permission: Permission a reader must hold before
+            ``label_resolver`` is *run* for them. Empty — the default — means
+            the name is safe for anyone allowed to read the audit trail at all.
+            Set it when naming the row discloses something the module gates
+            elsewhere: ``users`` names an account by ``full_name or email``, so
+            without this an ``audit_log.view`` grant is a back door onto the
+            user directory that ``users.manage`` guards at the front. Denied
+            readers still see the row, the action and the id — the audit trail
+            stays complete, it just stops volunteering the name.
     """
 
     entity_type: str
@@ -84,6 +98,7 @@ class AuditLink:
     label_key: str = ""
     table_name: str | None = None
     label_resolver: LabelResolver | None = field(default=None, compare=False)
+    label_permission: str = ""
 
     def __post_init__(self) -> None:
         if self.url_template and _ID_PLACEHOLDER not in self.url_template:

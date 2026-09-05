@@ -7,8 +7,6 @@ import type { ValueType } from '../types';
 export interface KnownKey {
   key: string;
   type: string;
-  description: string;
-  module: string;
   /** `SM_<PACKAGE>_<FIELD>` label for this field. */
   env_var: string;
   /** The declaring class reads env at all (it declares an `env_prefix`). */
