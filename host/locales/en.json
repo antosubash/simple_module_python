@@ -8,8 +8,7 @@
   "error": {
     "correlation_id_copy": "Copy reference ID",
     "forbidden_description": "Your role doesn't include the permission this page needs. Ask an admin to grant it.",
-    "forbidden_permission_prefix": "Your role doesn't include",
-    "forbidden_permission_suffix": ". Ask an admin to grant it.",
+    "forbidden_permission": "Your role doesn't include {permission}. Ask an admin to grant it.",
     "forbidden_title": "No access",
     "generic_description": "An unexpected error occurred.",
     "generic_title": "Error",

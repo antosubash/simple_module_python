@@ -287,7 +287,16 @@
   "recent_activity": {
     "title": "Recent activity",
     "see_all": "See all in the audit log →",
-    "empty": "Nothing recorded for this account yet."
+    "empty": "Nothing recorded for this account yet.",
+    "summary": {
+      "created": "Created {kind} {label}",
+      "updated": "Updated {kind} {label}",
+      "deleted": "Deleted {kind} {label}",
+      "other": "{action} {kind} {label}",
+      "changed_fields": "Changed {fields} on {label}",
+      "changed_count_one": "Changed {count} field on {label}",
+      "changed_count_other": "Changed {count} fields on {label}"
+    }
   },
   "register": {
     "head_title": "Create your account",

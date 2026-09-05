@@ -7,6 +7,12 @@ to load on an install that never enabled it. Hence the lazy import inside
 ``try/except ImportError`` and the ``None`` return, which the page renders as
 "no card" rather than "no activity": an install that records nothing and a
 person who did nothing are different claims.
+
+Every line is a *translated* sentence, not an assembled one. The rows are
+rendered server-side, so this reaches for the request's ``Translator`` the way
+menus and audit rows do: a catalog key plus its interpolation arguments. An
+f-string here would put English on the card in every locale, and no catalog
+could ever reach it.
 """
 
 from __future__ import annotations
@@ -17,6 +23,7 @@ from collections.abc import Collection
 from typing import Any
 
 from fastapi import Request
+from simple_module_core.i18n import Translator
 from simple_module_hosting.permissions import resolved_permissions_for
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,15 +35,23 @@ second audit log. "See all in the audit log →" carries the rest."""
 
 AUDIT_LOG_URL = "/admin/audit-log/"
 
-_ACTION_VERBS = {
-    "create": "Created",
-    "created": "Created",
-    "insert": "Created",
-    "update": "Updated",
-    "updated": "Updated",
-    "delete": "Deleted",
-    "deleted": "Deleted",
+_SUMMARY_KEY = "users.recent_activity.summary"
+
+_ACTION_KEYS = {
+    "create": "created",
+    "created": "created",
+    "insert": "created",
+    "update": "updated",
+    "updated": "updated",
+    "delete": "deleted",
+    "deleted": "deleted",
 }
+"""Audit ``action`` values to the catalog key that phrases them.
+
+Several writers spell the same event differently; the card should not. Anything
+absent falls through to ``summary.other``, which keeps the raw verb — inventing
+a translation for a word only that writer uses would be a guess.
+"""
 
 _MAX_NAMED_FIELDS = 2
 """Past this the field list stops being a summary and becomes the diff."""
@@ -63,8 +78,8 @@ def _changed_fields(changes: Any) -> list[str]:
     return names
 
 
-def _summarise(action: str, kind: str, label: str, changes: Any) -> str:
-    """One line naming what happened, to what.
+def _summarise(t: Translator, action: str, kind: str, label: str, changes: Any) -> str:
+    """One line naming what happened, to what — from the catalog, not an f-string.
 
     Field names lead when there are one or two of them, because "changed
     is_active" is the answer and "updated a User" is not. Beyond that the count
@@ -74,24 +89,47 @@ def _summarise(action: str, kind: str, label: str, changes: Any) -> str:
     "file"), not the model class lowercased: "Created storedfile 6b03…" names
     a Python class at a reader who is looking at a screen full of files.
     """
-    verb = _ACTION_VERBS.get(action.lower(), action.capitalize())
+    action_key = _ACTION_KEYS.get(action.lower())
     fields = _changed_fields(changes)
-    if verb == "Updated" and fields:
+    if action_key == "updated" and fields:
         if len(fields) <= _MAX_NAMED_FIELDS:
-            return f"Changed {', '.join(fields)} on {label}"
-        return f"Changed {len(fields)} fields on {label}"
-    return f"{verb} {kind} {label}".rstrip()
+            # The separator is the catalog's problem too, hence one argument
+            # rather than one per field: a locale that joins with "، " has
+            # nowhere to say so if this file does the joining.
+            return t.t(
+                f"{_SUMMARY_KEY}.changed_fields", fields=", ".join(fields), label=label
+            ).strip()
+        return t.t(f"{_SUMMARY_KEY}.changed_count", count=len(fields), label=label).strip()
+    if action_key is None:
+        return t.t(
+            f"{_SUMMARY_KEY}.other", action=action.capitalize(), kind=kind, label=label
+        ).strip()
+    return t.t(f"{_SUMMARY_KEY}.{action_key}", kind=kind, label=label).strip()
 
 
-def _kind_of(registry: Any, entity_type: str) -> str:
+def _kind_of(t: Translator, registry: Any, entity_type: str) -> str:
     """What to call this sort of row in a sentence — "setting", "file", "user".
 
     Taken from the owning module's audit link, which already states it for the
-    audit table's type tag. Falling back to the class name keeps a module that
-    registered no link readable rather than blank.
+    audit table's type tag, and translated through the link's ``label_key``
+    exactly as the audit table does. Falling back to the class name keeps a
+    module that registered no link readable rather than blank.
+
+    Lowercased because the label is written for a column header ("Setting")
+    and this is mid-sentence. That is right for English and Spanish and wrong
+    for German, where a locale that capitalises its nouns should phrase the
+    whole ``summary.*`` clause around the kind instead of relying on the case
+    of one interpolated word.
     """
     link = registry.get(entity_type) if registry is not None else None
-    return ((link.label if link is not None else "") or entity_type).lower()
+    if link is None:
+        return entity_type.lower()
+    label = link.label or entity_type
+    if link.label_key:
+        translated = t.t(link.label_key)
+        if translated != link.label_key:
+            label = translated
+    return label.lower()
 
 
 async def _labels_for(
@@ -122,6 +160,7 @@ async def recent_activity_for(
     request: Request,
     user_id: uuid.UUID,
     db: AsyncSession,
+    t: Translator,
 ) -> list[dict[str, str]] | None:
     """Recent audit entries where *user_id* was the actor, or ``None``.
 
@@ -157,8 +196,9 @@ async def recent_activity_for(
         {
             "at": entry.created_at.isoformat(),
             "summary": _summarise(
+                t,
                 entry.action,
-                _kind_of(registry, entry.entity_type),
+                _kind_of(t, registry, entry.entity_type),
                 labels.get(
                     (entry.entity_type, entry.entity_id),
                     entry.entity_id[:_SHORT_ID_CHARS],

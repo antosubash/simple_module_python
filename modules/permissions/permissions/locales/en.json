@@ -46,7 +46,7 @@
     "head_title": "Edit Role",
     "filter_placeholder": "Filter modules or permissions…",
     "granted_only": "Granted only",
-    "granted_summary": "of {total} granted",
+    "granted_summary": "{granted} of {total} granted",
     "toggle_group_label": "Toggle every {group} permission",
     "leave_warning": "You have unsaved changes to this role. Leave without saving?"
   },

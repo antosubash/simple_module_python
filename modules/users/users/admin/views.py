@@ -8,6 +8,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from inertia import InertiaResponse
 from simple_module_db.deps import get_db
+from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -169,6 +170,7 @@ async def admin_edit_page(
     user_id: str,
     request: Request,
     inertia: InertiaDep,
+    t: TranslatorDep,
     service: UserService = Depends(get_user_service),
     db: AsyncSession = Depends(get_db),
 ) -> InertiaResponse:
@@ -190,6 +192,6 @@ async def admin_edit_page(
             # ``None`` when the audit_log module is not installed — the card
             # is then absent rather than empty, which is the honest rendering
             # of "this deployment does not record activity".
-            "recent_activity": await recent_activity_for(request, uid, db),
+            "recent_activity": await recent_activity_for(request, uid, db, t),
         },
     )

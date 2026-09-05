@@ -531,8 +531,7 @@ export const keys = {
     error: {
       correlation_id_copy: 'host.error.correlation_id_copy',
       forbidden_description: 'host.error.forbidden_description',
-      forbidden_permission_prefix: 'host.error.forbidden_permission_prefix',
-      forbidden_permission_suffix: 'host.error.forbidden_permission_suffix',
+      forbidden_permission: 'host.error.forbidden_permission',
       forbidden_title: 'host.error.forbidden_title',
       generic_description: 'host.error.generic_description',
       generic_title: 'host.error.generic_title',
@@ -941,9 +940,13 @@ export const keys = {
       just_now: 'ui.relative_time.just_now',
       minutes_ago: 'ui.relative_time.minutes_ago',
       months_ago: 'ui.relative_time.months_ago',
+      months_ago_one: 'ui.relative_time.months_ago_one',
+      months_ago_other: 'ui.relative_time.months_ago_other',
       seconds_ago: 'ui.relative_time.seconds_ago',
       unknown: 'ui.relative_time.unknown',
       years_ago: 'ui.relative_time.years_ago',
+      years_ago_one: 'ui.relative_time.years_ago_one',
+      years_ago_other: 'ui.relative_time.years_ago_other',
     },
     sidebar: {
       back: 'ui.sidebar.back',
@@ -1247,6 +1250,16 @@ export const keys = {
     recent_activity: {
       empty: 'users.recent_activity.empty',
       see_all: 'users.recent_activity.see_all',
+      summary: {
+        changed_count: 'users.recent_activity.summary.changed_count',
+        changed_count_one: 'users.recent_activity.summary.changed_count_one',
+        changed_count_other: 'users.recent_activity.summary.changed_count_other',
+        changed_fields: 'users.recent_activity.summary.changed_fields',
+        created: 'users.recent_activity.summary.created',
+        deleted: 'users.recent_activity.summary.deleted',
+        other: 'users.recent_activity.summary.other',
+        updated: 'users.recent_activity.summary.updated',
+      },
       title: 'users.recent_activity.title',
     },
     register: {

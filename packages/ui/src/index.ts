@@ -2,6 +2,7 @@ export { ConfirmActionDialog } from './components/ConfirmActionDialog';
 export { ErrorBoundary } from './components/ErrorBoundary';
 export { ErrorScreen } from './components/ErrorScreen';
 export { FilterPills } from './components/FilterPills';
+export { InterpolatedText } from './components/InterpolatedText';
 export { NavIcon } from './components/NavIcon';
 export { OfflineBanner } from './components/OfflineBanner';
 export { PageShell } from './components/PageShell';
