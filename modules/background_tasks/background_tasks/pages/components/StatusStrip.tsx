@@ -21,6 +21,8 @@ interface Tile {
   /** Status this tile narrows the table to. */
   filter: TaskStatus;
   labelKey: StripLabelKey;
+  /** The period the figure covers, spelled out under it. */
+  windowKey: StripLabelKey;
   count: (counts: StatusCounts) => number;
   tone: Tone;
 }
@@ -29,21 +31,30 @@ interface Tile {
  * The five numbers that describe a queue, left to right in the order work
  * moves through it: waiting, running, done, broken, wedged.
  *
- * "Succeeded 24h" is the only windowed figure, and deliberately so — the other
- * four are states something is in *right now*, while success is only
- * interesting as a rate. An all-time success total is a number that never goes
- * down and therefore never says anything.
+ * Succeeded is the only windowed figure, and deliberately so — the other four
+ * are states something is in *right now*, while success is only interesting as
+ * a rate. An all-time success total is a number that never goes down and
+ * therefore never says anything.
+ *
+ * That makes the row mixed units, which is why every tile carries its period
+ * rather than only the odd one out: side by side and unlabelled, a 24-hour
+ * success count reading lower than the table's total for the same filter looks
+ * like a bug, and nothing on screen said otherwise.
  */
+const ALL_TIME = keys.background_tasks.strip.window_all;
+
 const TILES: Tile[] = [
   {
     filter: TASK_STATUS.PENDING,
     labelKey: keys.background_tasks.strip.queued,
+    windowKey: ALL_TIME,
     count: (c) => c[TASK_STATUS.PENDING] ?? 0,
     tone: 'default',
   },
   {
     filter: TASK_STATUS.RUNNING,
     labelKey: keys.background_tasks.strip.running,
+    windowKey: ALL_TIME,
     count: (c) => c[TASK_STATUS.RUNNING] ?? 0,
     tone: 'default',
   },
@@ -52,19 +63,22 @@ const TILES: Tile[] = [
     // windowed: the tile is how an operator reaches the successes at all, and
     // the segmented control below has no option for them.
     filter: TASK_STATUS.SUCCESS,
-    labelKey: keys.background_tasks.strip.succeeded_24h,
+    labelKey: keys.background_tasks.strip.succeeded,
+    windowKey: keys.background_tasks.strip.window_24h,
     count: (c) => c.success_24h ?? 0,
     tone: 'default',
   },
   {
     filter: TASK_STATUS.FAILED,
     labelKey: keys.background_tasks.strip.failed,
+    windowKey: ALL_TIME,
     count: (c) => c[TASK_STATUS.FAILED] ?? 0,
     tone: 'destructive',
   },
   {
     filter: TASK_STATUS.STUCK,
     labelKey: keys.background_tasks.strip.stuck,
+    windowKey: ALL_TIME,
     count: (c) => c[TASK_STATUS.STUCK] ?? 0,
     tone: 'warning',
   },
@@ -101,6 +115,8 @@ export function StatusStrip({ counts, active, onSelect }: Props) {
             <StatCard
               label={t(tile.labelKey)}
               value={count.toLocaleString()}
+              delta={t(tile.windowKey)}
+              deltaTone="secondary"
               tone={tone}
               className="h-full"
             />
