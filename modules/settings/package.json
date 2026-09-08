@@ -13,6 +13,6 @@
     "@simple-module-py/tsconfig": "*"
   },
   "dependencies": {
-    "sonner": "^2.0.7"
+    "sonner": "^2.0.8"
   }
 }
