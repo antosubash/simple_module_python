@@ -17,11 +17,13 @@
     "@simple-module-py/i18n": "{{FRAMEWORK_VERSION}}",
     "@simple-module-py/tsconfig": "{{FRAMEWORK_VERSION}}",
     "@simple-module-py/ui": "{{FRAMEWORK_VERSION}}",
+    "@types/node": "^26.5.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2"
   },
   "dependencies": {}
 }

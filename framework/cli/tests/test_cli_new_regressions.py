@@ -224,3 +224,25 @@ def test_sm_new_no_install_next_steps_include_initial_migration(tmp_path: Path) 
     assert result.exit_code == 0, result.output
     assert 'make migration msg="initial schema"' in result.output
     assert "make migrate" in result.output
+
+
+def test_sm_new_flat_root_covers_client_app_build_deps(tmp_path: Path) -> None:
+    """Flat scaffolds have no npm workspaces, so ``client_app/package.json`` is
+    never installed and the root manifest is the only one npm reads. It must
+    therefore carry everything the client build imports — ``vite.config.ts``
+    pulls in ``@tailwindcss/vite``, so a root missing it failed ``vite build``
+    with ``Could not resolve '@tailwindcss/vite'``."""
+    runner = CliRunner()
+    target = tmp_path / "demo"
+    runner.invoke(
+        app,
+        ["new", "demo", "--yes", "--flat", "--no-install", "--dest", str(target)],
+    )
+    root = json.loads((target / "package.json").read_text())
+    client_app = json.loads((target / "client_app" / "package.json").read_text())
+    assert "workspaces" not in root, "flat mode must stay workspace-free"
+
+    installed = {**root.get("dependencies", {}), **root.get("devDependencies", {})}
+    required = {**client_app.get("dependencies", {}), **client_app.get("devDependencies", {})}
+    missing = sorted(set(required) - set(installed))
+    assert not missing, f"flat root package.json is missing client_app deps: {missing}"
