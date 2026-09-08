@@ -20,13 +20,17 @@ createInertiaApp({
       locale: initial?.locale ?? 'en',
       messages: initial?.messages ?? {},
     });
-    let activeLocale = initial?.locale ?? null;
     router.on('success', (event) => {
       const block = (event.detail.page.props as { i18n?: I18nBlock }).i18n;
-      if (!block) return;
-      if (block.locale !== activeLocale && block.messages) {
+      // A non-null `messages` payload IS the server's signal that the client
+      // needs it — the backend sends `null` whenever the catalog the client
+      // already holds is still good. Gating on a locale change instead drops
+      // the catalog that arrives when the *audience* changes: signing in swaps
+      // the anonymous snapshot for one including admin-only modules, at the
+      // same locale, so every admin screen rendered raw keys
+      // ("dashboard.home.title") until a hard refresh.
+      if (block?.messages) {
         updateI18n({ locale: block.locale, messages: block.messages });
-        activeLocale = block.locale;
       }
     });
     // Authored content (pagebuilder widgets, markdown and rich-text fields)
