@@ -22,6 +22,7 @@ from branding.constants import (
     HEX_COLOR_RE,
     clean_app_name,
     clean_banner_message,
+    clean_footer_text,
     normalize_banner_severity,
 )
 from branding.contracts.schemas import FooterLink, bounded_footer_links
@@ -48,9 +49,16 @@ class BrandingSettings(DbBackedSettings):
     design_pack: str = ""  # "" = base tokens only; otherwise a registered slug
     banner_message: str = ""  # "" = no site-wide banner
     banner_severity: str = BANNER_SEVERITY_INFO
+    # "" = show the framework's own `© {year} · MIT` caption.
+    footer_text: str = ""
     # [] = show the framework's own links, so a deployment that never touches
     # this keeps the footer it has today.
     footer_links: list[FooterLink] = Field(default_factory=list)
+
+    @field_validator("footer_text")
+    @classmethod
+    def _bounded_footer_text(cls, value: str) -> str:
+        return clean_footer_text(value)
 
     @field_validator("footer_links")
     @classmethod

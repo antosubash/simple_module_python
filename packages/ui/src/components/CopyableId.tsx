@@ -51,7 +51,9 @@ export function CopyableId({ value, label, title, className = '' }: Props) {
       onClick={copy}
       title={title ?? value}
       aria-label={title ?? value}
-      className={`inline-flex max-w-full items-center gap-1.5 rounded border border-border bg-muted/50 px-1.5 py-0.5 font-mono text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${className}`}
+      // 44px on phones: the chip is 20px tall by design and every caller puts
+      // it in a dense table, where it is the only handle on a row's id.
+      className={`inline-flex max-w-full items-center gap-1.5 rounded border border-border bg-muted/50 px-1.5 py-0.5 font-mono text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground max-sm:min-h-11 ${className}`}
     >
       <span className="truncate">{label ?? value}</span>
       {copied ? (

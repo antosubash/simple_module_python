@@ -11,13 +11,13 @@ import {
 import { ChevronsUpDown } from 'lucide-react';
 import type React from 'react';
 import { NavIcon } from '../components/NavIcon';
+import { initials } from '../lib/initials';
 import { isPostMenuItem, type MenuItem } from '../types';
 
 interface SidebarUserMenuProps {
   user: { name: string; email: string; roles: string[] };
   items: MenuItem[];
   /** Sidebar theme fragments supplied by the owning layout. */
-  avatarBg: string;
   hoverBg: string;
   mutedTextClass: string;
   onNavigate: () => void;
@@ -32,7 +32,6 @@ interface SidebarUserMenuProps {
 export function SidebarUserMenu({
   user,
   items,
-  avatarBg,
   hoverBg,
   mutedTextClass,
   onNavigate,
@@ -57,11 +56,13 @@ export function SidebarUserMenu({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left ${hoverBg} transition-colors`}
+            className={`flex w-full min-h-11 lg:min-h-0 items-center gap-3 rounded-lg px-2 py-2 text-left ${hoverBg} transition-colors`}
           >
-            <Avatar className="ring-2 ring-primary-500/20">
-              <AvatarFallback className={`${avatarBg} text-xs text-white`}>
-                {(user.name || user.email)?.charAt(0)?.toUpperCase() || 'U'}
+            {/* Two letters on a neutral surface, per the deck — a coloured
+                ring read as a status indicator the avatar does not carry. */}
+            <Avatar>
+              <AvatarFallback className="bg-white/10 text-xs font-bold text-white">
+                {initials(user.name, user.email)}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1 text-white">{identity(mutedTextClass)}</div>

@@ -7,10 +7,14 @@ Usage::
 
 Exits with status 1 if any ERROR-level diagnostics are reported.
 
-i18n checks are included when ``SM_I18N_SUPPORTED_LOCALES`` is set in env
-(or ``.env``). Host-level ``host/locales/`` and shared ``packages/ui/locales/``
-are picked up relative to the project root (``SM_PROJECT_ROOT``, else the
-directory of the discovered ``.env``, else the current working dir).
+i18n checks always run. ``SM_I18N_SUPPORTED_LOCALES`` (env or ``.env``)
+declares the locale set this install promises, which also enables SM013 for a
+namespace that never shipped one; with it unset, each namespace is checked
+against the locale files it actually has, so key drift between two shipped
+translations is still caught. Host-level ``host/locales/`` and shared
+``packages/ui/locales/`` are picked up relative to the project root
+(``SM_PROJECT_ROOT``, else the directory of the discovered ``.env``, else the
+current working dir).
 """
 
 from __future__ import annotations
@@ -36,8 +40,14 @@ from simple_module_core.dotenv import find_env_file, parse_dotenv
 from simple_module_core.exceptions import InvalidModuleError
 
 
-def _load_i18n_settings_from_env() -> tuple[list[str], str] | tuple[None, None]:
-    """Return ``(supported_locales, default_locale)`` or ``(None, None)`` if unset.
+def _load_i18n_settings_from_env() -> tuple[list[str] | None, str]:
+    """Return ``(supported_locales, default_locale)``.
+
+    ``supported_locales`` is ``None`` when ``SM_I18N_SUPPORTED_LOCALES`` is
+    unset or unparseable — the diagnostic then falls back to the locale files
+    each namespace ships rather than running no locale checks at all. The
+    default locale always has a value, because a parity comparison needs to
+    know which side is the source of truth.
 
     Reads env vars directly to avoid a dependency on ``simple_module_hosting``.
     Honors ``.env`` by merging it into ``os.environ`` if present (pydantic-
@@ -46,9 +56,10 @@ def _load_i18n_settings_from_env() -> tuple[list[str], str] | tuple[None, None]:
     for key, value in parse_dotenv().items():
         os.environ.setdefault(key, value)
 
+    default = os.environ.get("SM_I18N_DEFAULT_LOCALE", "en")
     supported_raw = os.environ.get("SM_I18N_SUPPORTED_LOCALES")
     if not supported_raw:
-        return None, None
+        return None, default
 
     try:
         supported = json.loads(supported_raw)
@@ -57,9 +68,8 @@ def _load_i18n_settings_from_env() -> tuple[list[str], str] | tuple[None, None]:
         supported = [s.strip() for s in supported_raw.split(",") if s.strip()]
 
     if not isinstance(supported, list) or not supported:
-        return None, None
+        return None, default
 
-    default = os.environ.get("SM_I18N_DEFAULT_LOCALE", "en")
     return supported, default
 
 

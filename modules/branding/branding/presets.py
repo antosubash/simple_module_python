@@ -50,15 +50,18 @@ class BrandingPreset:
         return self.values.get("primary_color")
 
 
-# Ordered: the first entry restores the framework default.
+# The hi-fi deck's four chips, in its order. Four rather than seven because
+# the row is a *choice*, not a palette: seven swatches read as a colour picker
+# with the app-name field sitting next to it. Labels are lowercase — they name
+# a colour, not a product.
+#
+# Note these are the deck's hexes, not Tailwind's 500 ramp: #0f766e is
+# emerald's deeper shade, which is what a brand colour on white actually needs.
 BUILTIN_PRESETS: Final[tuple[BrandingPreset, ...]] = (
-    BrandingPreset("emerald", "Emerald", {"primary_color": "#10b981"}),
-    BrandingPreset("ocean", "Ocean", {"primary_color": "#0ea5e9"}),
-    BrandingPreset("indigo", "Indigo", {"primary_color": "#6366f1"}),
-    BrandingPreset("violet", "Violet", {"primary_color": "#8b5cf6"}),
-    BrandingPreset("amber", "Amber", {"primary_color": "#f59e0b"}),
-    BrandingPreset("rose", "Rose", {"primary_color": "#f43f5e"}),
-    BrandingPreset("slate", "Slate", {"primary_color": "#64748b"}),
+    BrandingPreset("emerald", "emerald", {"primary_color": "#0f766e"}),
+    BrandingPreset("slate", "slate", {"primary_color": "#475569"}),
+    BrandingPreset("indigo", "indigo", {"primary_color": "#4f46e5"}),
+    BrandingPreset("amber", "amber", {"primary_color": "#b45309"}),
 )
 
 

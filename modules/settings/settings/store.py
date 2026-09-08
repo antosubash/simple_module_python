@@ -2,6 +2,13 @@
 
 Wraps the existing SettingService. Keys are namespaced ``<package>.<field>``
 to avoid collision with free-form user-defined setting keys.
+
+Reads are deliberately *unmasked*. This store is what applies overrides to the
+live settings objects at boot, not what renders them: the masking on the
+service's ordinary read path is for the admin screens, and going through it here
+would write a row of dots over every real credential the deployment had stored.
+The display side masks independently, from the settings object it is given —
+see ``_module_settings._field_view``.
 """
 
 from __future__ import annotations
@@ -24,7 +31,7 @@ class SettingsStore:
     async def get_overrides(self, package: str) -> dict[str, tuple[str, str]]:
         """Return ``{field_name: (raw_value, value_type)}`` for a package."""
         prefix = f"{package}."
-        items = await self._service.list_by_scope(SettingScope.SYSTEM, SYSTEM_SCOPE_ID)
+        items = await self._service.list_by_scope_unmasked(SettingScope.SYSTEM, SYSTEM_SCOPE_ID)
         out: dict[str, tuple[str, str]] = {}
         for item in items:
             if not item.key.startswith(prefix):
@@ -42,7 +49,7 @@ class SettingsStore:
         SYSTEM scope per package, so calling it in a loop over the installed
         modules is one full read per module for the same rows.
         """
-        items = await self._service.list_by_scope(SettingScope.SYSTEM, SYSTEM_SCOPE_ID)
+        items = await self._service.list_by_scope_unmasked(SettingScope.SYSTEM, SYSTEM_SCOPE_ID)
         out: dict[str, set[str]] = {}
         for item in items:
             package, sep, field_name = item.key.partition(".")
@@ -65,7 +72,7 @@ class SettingsStore:
         )
 
     async def list_packages_with_overrides(self) -> list[str]:
-        items = await self._service.list_by_scope(SettingScope.SYSTEM, SYSTEM_SCOPE_ID)
+        items = await self._service.list_by_scope_unmasked(SettingScope.SYSTEM, SYSTEM_SCOPE_ID)
         pkgs: set[str] = set()
         for item in items:
             if "." not in item.key:

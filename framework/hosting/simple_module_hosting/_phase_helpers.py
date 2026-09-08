@@ -23,7 +23,6 @@ from simple_module_core.exceptions import NotFoundError
 from simple_module_db import CommitBeforeResponseMiddleware
 from starlette.exceptions import HTTPException
 from starlette.middleware.gzip import GZipMiddleware
-from starlette.middleware.sessions import SessionMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from simple_module_hosting._error_handlers import (
@@ -45,6 +44,7 @@ from simple_module_hosting.middleware import (
     SecurityHeadersMiddleware,
     TenantMiddleware,
 )
+from simple_module_hosting.session import SessionMiddleware
 from simple_module_hosting.settings import Settings
 from simple_module_hosting.setup_gate import SETUP_PATH, SetupMiddleware
 from simple_module_hosting.static_files import PrecompressedStaticFiles
@@ -167,8 +167,10 @@ def install_middleware(
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
     # Outermost: rewrite scheme/client from X-Forwarded-* before anything else
-    # reads them, so request logs see the real client IP and Inertia's absolute
-    # page url carries the proxy-terminated scheme (GH #223). Gated on an
+    # reads them, so request logs see the real client IP rather than the
+    # proxy's. Inertia no longer needs this: its page url is
+    # root-relative, so pushState can't see a cross-scheme url either way (it
+    # used to throw a SecurityError on every page — GH #223). Gated on an
     # explicit trust setting — never trust forwarded headers by default.
     if settings.trusted_proxy:
         app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.trusted_proxy)

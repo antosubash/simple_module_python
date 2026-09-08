@@ -32,7 +32,7 @@ ENV_PREFIX = "SM_BG_TASKS_"
 ENV_REDIS_URL = "SM_REDIS_URL"
 
 # ── Permissions ─────────────────────────────────────────────────
-PERM_GROUP = "Background Tasks"
+PERM_GROUP = "Background tasks"
 PERM_VIEW = "background_tasks.view"
 PERM_MANAGE = "background_tasks.manage"
 
@@ -42,7 +42,7 @@ VIEW_PREFIX = "/admin/background-tasks"
 ADMIN_ROUTER_PREFIX = "/admin"
 
 # ── Menu ────────────────────────────────────────────────────────
-MENU_LABEL = "Background Tasks"
+MENU_LABEL = "Background tasks"
 MENU_ICON = "activity"
 MENU_ORDER = 120
 
@@ -65,9 +65,18 @@ class TaskStatus(StrEnum):
 
 
 RETRYABLE_STATUSES: frozenset[TaskStatus] = frozenset({TaskStatus.FAILED, TaskStatus.STUCK})
+
 TERMINAL_STATUSES: frozenset[TaskStatus] = frozenset(
     {TaskStatus.SUCCESS, TaskStatus.FAILED, TaskStatus.STUCK, TaskStatus.REVOKED}
 )
+
+# How many executions one "Retry all failed" press may re-enqueue.
+#
+# The sweep publishes to the broker once per row and writes a row per publish,
+# so an unbounded backlog turns one button into a multi-minute request holding
+# a DB transaction open. Capping it makes the cost of a press knowable; the
+# response says how many are left so the operator can press again.
+RETRY_ALL_BATCH = 500
 
 # ── Defaults ────────────────────────────────────────────────────
 DEFAULT_QUEUE = "default"

@@ -1,11 +1,9 @@
 import { keys, useT } from '@simple-module-py/i18n';
-import { Label } from '@simple-module-py/ui/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@simple-module-py/ui/components/ui/select';
 
 export interface DesignPackOption {
@@ -25,34 +23,47 @@ interface DesignPackFieldProps {
   disabled: boolean;
 }
 
+/**
+ * The design pack, as one muted line in the form's foot.
+ *
+ * It was a full labelled field mid-form, which gave equal billing to a setting
+ * most deployments never touch — and pushed the colour and logo controls, the
+ * ones this page exists for, below the fold.
+ */
 export function DesignPackField({ options, value, onChange, disabled }: DesignPackFieldProps) {
   const { t } = useT();
+  const none = t(keys.branding.manage.design_pack_none);
 
+  if (options.length === 0) {
+    return (
+      <span className="text-[12.5px] text-muted-foreground">
+        {t(keys.branding.manage.design_pack_empty)}
+      </span>
+    );
+  }
+
+  const current = options.find((pack) => pack.value === value);
   return (
-    <div className="space-y-2">
-      <Label htmlFor="design_pack">{t(keys.branding.manage.design_pack_label)}</Label>
-      <Select
-        value={value === '' ? NONE : value}
-        disabled={disabled || options.length === 0}
-        onValueChange={(next) => onChange(next === NONE ? '' : next)}
+    <Select
+      value={value === '' ? NONE : value}
+      disabled={disabled}
+      onValueChange={(next) => onChange(next === NONE ? '' : next)}
+    >
+      <SelectTrigger
+        id="design_pack"
+        aria-label={t(keys.branding.manage.design_pack_label)}
+        className="h-auto w-auto gap-1.5 border-0 bg-transparent p-0 text-[12.5px] font-medium text-muted-foreground shadow-none focus:ring-0"
       >
-        <SelectTrigger id="design_pack" className="max-w-72">
-          <SelectValue placeholder={t(keys.branding.manage.design_pack_none)} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={NONE}>{t(keys.branding.manage.design_pack_none)}</SelectItem>
-          {options.map((pack) => (
-            <SelectItem key={pack.value} value={pack.value}>
-              {pack.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <p className="text-xs text-muted-foreground">
-        {options.length === 0
-          ? t(keys.branding.manage.design_pack_empty)
-          : t(keys.branding.manage.design_pack_help)}
-      </p>
-    </div>
+        {t(keys.branding.manage.design_pack_inline, { name: current?.label ?? none })}
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NONE}>{none}</SelectItem>
+        {options.map((pack) => (
+          <SelectItem key={pack.value} value={pack.value}>
+            {pack.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

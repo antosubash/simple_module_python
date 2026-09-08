@@ -12,6 +12,10 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- Request-scoped database sessions now expose `session.on_commit(callback)` for
+  synchronous or asynchronous cache refreshes and other derived state. The
+  framework invokes callbacks only after a successful commit and discards them
+  on rollback or commit failure.
 - Every `smpy new` scaffold now ships Docker assets by default: a multi-stage
   `docker/host.Dockerfile` (uv + Node builder that runs `gen-pages` before the
   Vite build, slim non-root runtime that applies migrations on start), a

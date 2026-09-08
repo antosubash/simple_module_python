@@ -83,8 +83,11 @@ InertiaLayoutDataMiddleware
 `ProxyHeaders` is installed only when `SM_TRUSTED_PROXY` is set (uvicorn's
 `ProxyHeadersMiddleware`). It sits outermost so the scheme/client corrected
 from `X-Forwarded-*` is visible to every downstream layer — request logs get
-the real client IP, and `request.url.scheme` reflects the proxy-terminated
-scheme so Inertia's absolute page url is `https`, not `http`.
+the real client IP rather than the proxy's, and `request.url.scheme` reflects
+the proxy-terminated scheme.
+
+Inertia does not depend on it. The page url it ships is root-relative, as the
+protocol specifies, so it carries no scheme to disagree with the document's.
 
 ### Module-registered middleware ordering
 
@@ -238,7 +241,10 @@ Each request opens one session:
 - Read-only requests exit via rollback — cheaper, and keeps the session out of write-side profiling.
 - Exceptions always rollback.
 
-Service code should not call `session.commit()` directly. Flush for intermediate reads if you need DB-assigned values, then let the framework commit.
+Service code should not call `session.commit()` directly. Flush for intermediate reads if you need DB-assigned values, then let the framework commit. The injected
+`RequestSession` also provides `session.on_commit(callback)` for synchronous or
+asynchronous cache refreshes that must only observe durable state. Callbacks run
+after successful commit and are discarded on rollback or commit failure.
 
 The commit lands in `CommitBeforeResponseMiddleware`, which intercepts the ASGI
 `http.response.start` message — the last point still inside the request. That is
@@ -597,6 +603,35 @@ Do NOT declare `const schema = z.object({ ... t('...') })` at module scope — i
 - Shared UI strings (`packages/ui/`) live in `packages/ui/locales/`, namespaced `ui.*`.
 - Both are auto-discovered at boot alongside module contributions.
 
+### Strings the server composes
+
+Neither lint check can see a sentence built in Python. `scripts/check_untranslated_strings.mjs` parses `.tsx`; an f-string in a service reaches the page already rendered, and no catalog can translate it afterwards.
+
+So a payload field a page renders verbatim must carry *translated* text, not assembled text. Take the request's `Translator` (`TranslatorDep` in an endpoint, or pass it down) and emit a key plus its interpolation arguments:
+
+```python
+# no
+summary = f"Changed {', '.join(fields)} on {label}"
+# yes
+summary = t.t("users.recent_activity.summary.changed_fields", fields=", ".join(fields), label=label)
+```
+
+This is the same shape as menus (`MenuItem.label_key` resolved in `MenuRegistry.get_for_user(translate=…)`) and audit rows (`AuditLink.label_key`): a registration states a key, the request resolves it, and an unresolved key falls back to the English literal rather than putting a dotted key on screen.
+
+### One key, one placeholder
+
+A value that needs its own markup mid-sentence — a permission name in `<code>`, a count in `<b>` — still belongs to *one* catalog key. Splicing `…_prefix` + value + `…_suffix` hands a translator two fragments and no way to move the value, which is the first thing a different word order needs to do.
+
+`InterpolatedText` (`@simple-module-py/ui/components/InterpolatedText`) renders the whole sentence from one key and puts the markup at the placeholder:
+
+```tsx
+<InterpolatedText render={(slot) => t(keys.host.error.forbidden_permission, { permission: slot })}>
+  <code>{requiredPermission}</code>
+</InterpolatedText>
+```
+
+The catalog entry is an ordinary `"Your role doesn't include {permission}. Ask an admin."`. A translation that drops the placeholder still shows the value (appended); one that repeats it keeps every word of the copy.
+
 ### Supported locales
 
 Configure via env:
@@ -622,3 +657,5 @@ The active locale lands on `request.state.locale`. The `<LocaleSwitcher />` comp
 ### Diagnostics
 
 App boot runs `I18nDiagnostics` against every module's declared locale dirs. See codes `SM013`–`SM016` in the table above. Warnings are printed in dev; errors fail the boot in production.
+
+`make doctor` runs the same checks, and it runs them whether or not `SM_I18N_SUPPORTED_LOCALES` is set. With the variable unset each namespace is checked against the locale files it actually ships: SM014/SM015 still hold every translation to the default catalog's key set, while SM013 stays quiet, since a locale nothing promised cannot be missing. Declaring the set turns SM013 back on — that is the check that reports a module which never shipped one of the locales the install claims to support.

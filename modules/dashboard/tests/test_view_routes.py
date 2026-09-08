@@ -98,10 +98,11 @@ async def test_dashboard_index_redirects_anon_to_login(client):
 
 @pytest.mark.anyio
 async def test_doctor_reports_real_diagnostics(authenticated_client):
-    """The doctor page ships live diagnostics, migration state and env facts.
+    """The doctor page ships live checks, migrations and dev-server rows.
 
     Guards against the panel regressing to hardcoded demo data: the values
-    asserted here can only come from the running app.
+    asserted here can only come from the running app. The per-panel detail
+    lives in ``test_doctor_props.py``; this is the route-level smoke test.
     """
     resp = await authenticated_client.get(
         "/admin/doctor/",
@@ -110,16 +111,14 @@ async def test_doctor_reports_real_diagnostics(authenticated_client):
     assert resp.status_code == 200, resp.text
     props = resp.json()["props"]
 
-    assert isinstance(props["diagnostics"], list)
-    for finding in props["diagnostics"]:
-        assert finding["code"].startswith("SM")
-        assert finding["level"] in {"error", "warning", "info"}
+    assert props["checks"], "the check catalogue is never empty"
+    for check in props["checks"]:
+        assert check["status"] in {"pass", "warn", "fail", "unknown"}
 
-    migration = props["migration"]
-    # The test fixtures stamp alembic at head, so the page must agree.
-    assert migration["is_current"] is True
-    assert migration["current_revision"] == migration["head_revision"]
+    # The test fixtures stamp alembic at head, so every listed revision must
+    # read as applied and nothing may be pending.
+    assert props["migrations"]
+    assert all(row["applied"] for row in props["migrations"])
+    assert props["stats"]["pending_migrations"] == 0
 
-    env = props["environment"]
-    assert env["database"] == "sqlite"
-    assert env["default_locale"] in env["locales"]
+    assert [row["name"] for row in props["dev_server"]["rows"]] == ["vite", "api", "worker"]

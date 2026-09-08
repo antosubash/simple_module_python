@@ -26,19 +26,19 @@ pytestmark = pytest.mark.e2e
 ADMIN_SCREENS = {
     "Users": "/admin/users/",
     "Branding": "/admin/branding/",
-    "Feature Flags": "/admin/feature-flags/",
-    "Background Tasks": "/admin/background-tasks/",
+    "Feature flags": "/admin/feature-flags/",
+    "Background tasks": "/admin/background-tasks/",
     "Settings": "/admin/settings/",
-    "Audit Log": "/admin/audit-log/",
+    "Audit log": "/admin/audit-log/",
     "Doctor": "/admin/doctor/",
 }
 
 
 def _login(page: Page, username: str, password: str) -> None:
-    page.get_by_role("link", name="Log in").first.click()
+    page.get_by_role("link", name="Sign in").first.click()
     page.locator("#email").fill(username)
     page.locator("#password").fill(password)
-    page.get_by_role("button", name="Log in").click()
+    page.get_by_role("button", name="Sign in").click()
     page.wait_for_url("**/dashboard/**", timeout=15_000)
 
 
@@ -61,7 +61,7 @@ def test_app_sidebar_delegates_to_one_admin_entry(
 ) -> None:
     """Admin screens belong to the admin shell, not the app sidebar.
 
-    Branding and Feature Flags used to register into the app sidebar while
+    Branding and Feature flags used to register into the app sidebar while
     rendering in the admin layout, which left orphan groups beside Dashboard.
     """
     page.goto("/")
@@ -148,7 +148,7 @@ def test_generic_settings_api_refuses_to_double_edit_branding(
     assert allowed.ok, allowed.text()
 
     page.goto("/admin/branding/")
-    expect(page.get_by_label("Application name")).not_to_have_value("Hijacked")
+    expect(page.get_by_label("App name")).not_to_have_value("Hijacked")
 
 
 def test_doctor_reports_live_state(page: Page, e2e_username: str, e2e_password: str) -> None:
@@ -159,9 +159,12 @@ def test_doctor_reports_live_state(page: Page, e2e_username: str, e2e_password: 
     page.goto("/admin/doctor/")
     expect(page.get_by_role("heading", name="Doctor")).to_be_visible()
 
-    # Environment facts can only come from the running app.
-    expect(page.get_by_text("development", exact=True)).to_be_visible()
-    expect(page.get_by_text("Diagnostics", exact=True)).to_be_visible()
+    # The section headings mirror the live report: static checks, migration
+    # history and the dev server, plus the control that reruns them.
+    expect(page.get_by_role("heading", name="Static checks")).to_be_visible()
+    expect(page.get_by_role("heading", name="Recent migrations")).to_be_visible()
+    expect(page.get_by_role("heading", name="Dev server")).to_be_visible()
+    expect(page.get_by_role("button", name="Re-run checks")).to_be_visible()
 
     # The retired fixtures named a module that has never existed here, and a
     # dev-server panel whose port was wrong.

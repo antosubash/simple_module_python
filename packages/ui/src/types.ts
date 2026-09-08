@@ -34,6 +34,11 @@ export interface BrandingShared {
   /** Site-wide announcement, or `null` when no message is set. */
   banner: { message: string; severity: string } | null;
   /**
+   * Caption line set by an administrator, or `null` when unset — in which case
+   * the framework's own `© {year} · {BRAND_LICENSE}` is shown.
+   */
+  footerText: string | null;
+  /**
    * Footer links set by an administrator, or `null` when none are configured —
    * in which case the framework's own `BRAND_FOOTER_LINKS` are shown. Set at
    * `/admin/branding`; a deployment that never touches it keeps today's footer.

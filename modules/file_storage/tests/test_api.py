@@ -64,3 +64,29 @@ async def test_get_unknown_id_returns_404(authenticated_client: httpx.AsyncClien
     # /api/* requests without a browser Accept get a JSON {"detail": ...}
     # body; only browser-shaped requests receive the Inertia error page.
     assert resp.status_code == 404
+
+
+async def test_413_names_the_limit_it_enforced(app, authenticated_client: httpx.AsyncClient):
+    """ "File exceeds the maximum allowed size" tells a rejected uploader nothing.
+
+    The number is the only actionable part of the sentence, and it reached the
+    client through no other channel on the API path — so it goes in the message
+    (interpolated by the catalog, not concatenated) and alongside it as raw
+    bytes for callers that would rather phrase their own copy.
+    """
+    services = app.state.file_storage
+    original = services.settings.max_file_size_bytes
+    services.settings.max_file_size_bytes = 4
+    try:
+        resp = await authenticated_client.post(
+            f"{constants.ROUTE_PREFIX_API}{constants.PATH_UPLOAD}",
+            files={"file": ("big.txt", b"far too many bytes", "text/plain")},
+        )
+    finally:
+        services.settings.max_file_size_bytes = original
+
+    assert resp.status_code == 413, resp.text
+    detail = resp.json()["detail"]
+    assert detail["code"] == constants.ErrorCode.TOO_LARGE
+    assert detail["max_bytes"] == 4
+    assert "4 B" in detail["message"]

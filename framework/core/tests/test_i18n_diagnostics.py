@@ -99,3 +99,43 @@ def test_extra_sources_detect_key_drift(tmp_path: Path) -> None:
     ).run([])
     codes = {f.code for f in findings}
     assert "SM014" in codes
+
+
+class TestUndeclaredLocaleSet:
+    """``supported_locales=None`` — nobody said which locales this install ships.
+
+    ``make doctor`` runs with no ``SM_I18N_SUPPORTED_LOCALES`` on a stock
+    checkout, and the whole diagnostic used to be skipped in that state: drift
+    between two catalogs that *are* both shipped went unreported because no
+    third file declared them. The files on disk are themselves the declaration.
+    """
+
+    def test_key_drift_is_reported_without_a_declared_locale_set(self, tmp_path: Path) -> None:
+        _write(tmp_path / "p", "en", {"a": "1"})
+        _write(tmp_path / "p", "es", {"a": "1", "orphan": "x"})
+        mod = _FakeModule("P", {"p": tmp_path / "p"})
+        findings = I18nDiagnostics(supported_locales=None, default_locale="en").run([mod])
+        assert {f.code for f in findings} == {"SM015"}
+
+    def test_a_locale_nobody_promised_is_not_reported_missing(self, tmp_path: Path) -> None:
+        """SM013 is a broken promise; with no declared set there is no promise."""
+        _write(tmp_path / "p", "en", {"a": "1"})
+        _write(tmp_path / "q", "en", {"a": "1"})
+        _write(tmp_path / "q", "es", {"a": "1"})
+        mod = _FakeModule("P", {"p": tmp_path / "p", "q": tmp_path / "q"})
+        findings = I18nDiagnostics(supported_locales=None, default_locale="en").run([mod])
+        assert findings == []
+
+    def test_extra_sources_are_auto_detected_too(self, tmp_path: Path) -> None:
+        _write(tmp_path / "ui_locales", "en", {"a": "1", "b": "2"})
+        _write(tmp_path / "ui_locales", "es", {"a": "1"})
+        findings = I18nDiagnostics(
+            supported_locales=None,
+            default_locale="en",
+            extra_sources=[("packages/ui", "ui", tmp_path / "ui_locales")],
+        ).run([])
+        assert [f.code for f in findings] == ["SM014"]
+
+    def test_a_missing_locale_dir_is_silently_skipped(self, tmp_path: Path) -> None:
+        mod = _FakeModule("P", {"p": tmp_path / "nope"})
+        assert I18nDiagnostics(supported_locales=None, default_locale="en").run([mod]) == []

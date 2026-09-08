@@ -1,5 +1,4 @@
 import { keys, useT } from '@simple-module-py/i18n';
-import { Check, Copy } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const RESET_AFTER_MS = 2000;
@@ -61,20 +60,20 @@ export function CopyCommand({ command }: { command: string }) {
       <button
         type="button"
         onClick={copy}
-        aria-label={t(keys.host.landing.copy_command)}
-        className="shrink-0 rounded p-0.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
+        // Swaps with the label, not fixed: an accessible name of "Copy
+        // command" over a button reading "✓ Copied" is a label-in-name failure
+        // (WCAG 2.5.3), and voice control would still be told to say "copy".
+        aria-label={
+          copied ? t(keys.host.landing.command_copied) : t(keys.host.landing.copy_command)
+        }
+        className="flex shrink-0 items-center rounded font-sans text-xs font-medium text-slate-400 transition-colors hover:text-slate-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 max-lg:-my-2 max-lg:min-h-11 max-lg:px-1"
       >
-        {copied ? (
-          <Check className="h-3.5 w-3.5 text-primary-300" aria-hidden="true" />
-        ) : (
-          <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-        )}
+        {/* The label is the feedback, and it is a live region so the swap is
+            announced too — an icon changing silently told nobody. */}
+        <span aria-live="polite" className={copied ? 'text-primary-300' : undefined}>
+          {copied ? t(keys.host.landing.copied_label) : t(keys.host.landing.copy_label)}
+        </span>
       </button>
-      {/* Announced, not shown: the icon swap is the visual signal, but a
-          screen-reader user gets no feedback from a silent icon change. */}
-      <span aria-live="polite" className="sr-only">
-        {copied ? t(keys.host.landing.command_copied) : ''}
-      </span>
     </div>
   );
 }

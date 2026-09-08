@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.resources
 import logging
+import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -30,9 +31,39 @@ from background_tasks.constants import (
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 logger = logging.getLogger(__name__)
+
+
+async def _resolve_execution_labels(db: AsyncSession, ids: list[str]) -> dict[str, str]:
+    """Name an execution row by the task it ran.
+
+    An execution id is a uuid nobody recognises; "files.generate_thumbnail" is
+    the name the whole rest of the module — tiles, filters, detail title —
+    already uses for the same row.
+    """
+    from sqlalchemy import select
+
+    from background_tasks.models import TaskExecution
+
+    parsed: dict[uuid.UUID, str] = {}
+    for raw in ids:
+        try:
+            parsed[uuid.UUID(raw)] = raw
+        except (ValueError, AttributeError, TypeError):
+            continue
+    if not parsed:
+        return {}
+    rows = (
+        await db.execute(
+            select(TaskExecution.id, TaskExecution.task_name).where(
+                TaskExecution.id.in_(list(parsed))
+            )
+        )
+    ).all()
+    return {parsed.get(row_id, str(row_id)): name for row_id, name in rows}
 
 
 class BackgroundTasksModule(ModuleBase):
@@ -78,10 +109,13 @@ class BackgroundTasksModule(ModuleBase):
         registry.register(
             AuditLink(
                 # Class name, not __tablename__ — see AuditLink.entity_type.
+                # The table name travels alongside as the audit log's type tag.
                 entity_type=TaskExecution.__name__,
                 url_template=f"{VIEW_PREFIX}/{{id}}",
                 label="Task execution",
                 label_key="background_tasks.audit.task_execution",
+                table_name=TaskExecution.__tablename__,
+                label_resolver=_resolve_execution_labels,
             )
         )
 

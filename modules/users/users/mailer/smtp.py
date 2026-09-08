@@ -65,11 +65,24 @@ class SmtpMailer:
         body = template.render(link=link, app_name=app)
         await self._send(email, f"Reset your {app} password", body)
 
-    async def send_invite(self, email: str, token: str, invited_by_name: str) -> None:
+    async def send_invite(
+        self,
+        email: str,
+        token: str,
+        invited_by_name: str,
+        message: str | None = None,
+    ) -> None:
         app = self._app_name()
         link = f"{self._base}/users/invite/accept?token={token}"
         template = _template_env.get_template("invite.txt")
-        body = template.render(link=link, invited_by_name=invited_by_name, app_name=app)
+        body = template.render(
+            link=link,
+            invited_by_name=invited_by_name,
+            app_name=app,
+            # Stripped here rather than in the template: a message of nothing
+            # but whitespace should leave no quoted block behind.
+            message=(message or "").strip() or None,
+        )
         await self._send(email, f"{invited_by_name} invited you to {app}", body)
 
     async def verify_connection(self) -> None:

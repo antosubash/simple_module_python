@@ -64,6 +64,14 @@ class FileStorageSettings(DbBackedSettings):
         default=None,
         description="Whitelist of MIME types. None = any type allowed.",
     )
+    # Reported, not enforced: the browse screen states "1.2 GB of 5 GB used"
+    # only for installs that have said what 5 GB means to them. Left unset,
+    # the screen reports usage without inventing a ceiling, and uploads are
+    # bounded by ``max_file_size_bytes`` alone as before.
+    quota_bytes: int | None = Field(
+        default=None,
+        description="Total storage the browse screen measures usage against. None = unmeasured.",
+    )
 
     @model_validator(mode="after")
     def _validate_backend_config(self) -> FileStorageSettings:

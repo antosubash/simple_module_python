@@ -3,9 +3,14 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { CopyableId } from '@simple-module-py/ui/components/CopyableId';
 
 export interface EntityRef {
-  /** null when no module claims this table — the id renders unlinked. */
+  /** null when no module claims this table — the name renders unlinked. */
   url: string | null;
+  /** The kind of row ("User"), for summaries. */
   label: string;
+  /** What this particular row is called, or its id when nothing named it. */
+  display: string;
+  /** `__tablename__`, shown as the muted tag beside the name. */
+  table_name: string;
 }
 
 export interface AuditEntryRef {
@@ -27,24 +32,41 @@ function short(id: string): string {
 }
 
 /**
- * Entity kind and id. The id is a link when the owning module registered one,
- * and always copyable — quoting an id into a ticket is the other thing people
- * do with this column.
+ * What changed, by name: "Sam Okafor" with a muted "users_user" beside it.
+ *
+ * The name comes from the module that owns the row (see the audit-link
+ * registry's label resolver) and the tag names the table it lives in, which is
+ * the vocabulary the same operator uses in a migration or a psql prompt.
+ *
+ * Where the row has a link the id rides along as the cell's title — the link
+ * itself carries it, so following it is how you get there. Where nothing
+ * claims the table there is no link, and the id is the only handle the reader
+ * has for querying it elsewhere, so it stays visible and copyable rather than
+ * hidden behind a hover.
  */
 export function EntityCell({ entry }: { entry: AuditEntryRef }) {
-  const label = entry.entity?.label ?? entry.entity_type;
+  const display = entry.entity?.display || entry.entity_id;
   const url = entry.entity?.url ?? null;
+  const tableName = entry.entity?.table_name || entry.entity_type;
+  const named = display !== entry.entity_id;
 
   return (
-    <div className="flex items-baseline gap-1.5">
-      <span className="text-sm font-medium">{label}</span>
+    <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
       {url ? (
-        <Link href={url} className="font-mono text-xs text-primary-700 hover:underline">
-          {short(entry.entity_id)}
+        <Link
+          href={url}
+          className="text-sm break-words text-primary-700 hover:underline"
+          title={entry.entity_id}
+        >
+          {display}
         </Link>
       ) : (
-        <CopyableId value={entry.entity_id} label={short(entry.entity_id)} />
+        <>
+          {named && <span className="text-sm break-words">{display}</span>}
+          <CopyableId value={entry.entity_id} label={short(entry.entity_id)} />
+        </>
       )}
+      <span className="text-xs text-muted-foreground">{tableName}</span>
     </div>
   );
 }

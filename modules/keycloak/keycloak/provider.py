@@ -44,7 +44,15 @@ class KeycloakAuthProvider:
 
     def get_public_paths(self) -> tuple[tuple[str, ...], tuple[str, ...]]:
         return (
-            ("/keycloak/login", "/keycloak/logout", "/api/keycloak/auth/"),
+            (
+                "/keycloak/login",
+                "/keycloak/logout",
+                # Where the end-session redirect lands: there is no session
+                # left to check, and bouncing it to /keycloak/login would sign
+                # the visitor straight back in.
+                "/keycloak/logged-out",
+                "/api/keycloak/auth/",
+            ),
             (),
         )
 

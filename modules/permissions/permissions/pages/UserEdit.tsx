@@ -8,31 +8,36 @@ import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { USERS_ADMIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
-import { Check, KeyRound, Link2, Package, Search, ShieldCheck } from 'lucide-react';
+import { Search } from 'lucide-react';
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { PermissionRow } from './components/PermissionRow';
+import { GrantsGroupCard } from './components/GrantsGroupCard';
+import { filterGroups, type PermissionGroup } from './components/permission-groups';
+import { useLeaveGuard } from './components/useLeaveGuard';
 
-type Group = { name: string; permissions: string[] };
 type UserProp = { id: string; email: string; full_name: string | null };
 
-type Props = {
+/** Exported so the page's specs are checked against the real prop shape. */
+export type Props = {
   user: UserProp;
   roles: string[];
   direct: string[];
   inherited: string[];
   /** Permission key -> roles granting it, so a row can name its source. */
   inherited_by: Record<string, string[]>;
-  groups: Group[];
+  groups: PermissionGroup[];
 };
 
+/** Grant permissions to one user, on top of whatever their roles already give. */
 function UserEdit({ user, roles, direct, inherited, inherited_by: inheritedBy, groups }: Props) {
   const { t } = useT();
-  const { data, setData, put, processing, isDirty, reset } = useForm<{ permissions: string[] }>({
+  const { data, setData, put, processing, isDirty } = useForm<{ permissions: string[] }>({
     permissions: direct,
   });
   const [q, setQ] = useState('');
+  // Set while this page drives its own save visit — see `useLeaveGuard`.
+  const savingRef = useRef(false);
 
   const directSet = useMemo(() => new Set(data.permissions), [data.permissions]);
   const effectiveSet = useMemo(
@@ -40,14 +45,12 @@ function UserEdit({ user, roles, direct, inherited, inherited_by: inheritedBy, g
     [data.permissions, inherited],
   );
   const totalRegistered = useMemo(
-    () => groups.reduce((sum, g) => sum + g.permissions.length, 0),
+    () => groups.reduce((sum, group) => sum + group.permissions.length, 0),
     [groups],
   );
-  const filtered = useMemo(() => {
-    if (!q) return groups;
-    const needle = q.toLowerCase();
-    return groups.filter((g) => g.name.toLowerCase().includes(needle));
-  }, [groups, q]);
+  const visible = useMemo(() => filterGroups(groups, q), [groups, q]);
+
+  useLeaveGuard(isDirty, t(keys.permissions.user_edit.leave_warning), savingRef);
 
   function toggle(key: string, checked: boolean) {
     const next = new Set(data.permissions);
@@ -58,10 +61,14 @@ function UserEdit({ user, roles, direct, inherited, inherited_by: inheritedBy, g
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    savingRef.current = true;
     put(`/admin/permissions/users/${user.id}`, {
       preserveScroll: true,
       onSuccess: () => toast.success(t(keys.permissions.toasts.saved)),
       onError: () => toast.error(t(keys.permissions.toasts.save_failed)),
+      onFinish: () => {
+        savingRef.current = false;
+      },
     });
   }
 
@@ -70,128 +77,115 @@ function UserEdit({ user, roles, direct, inherited, inherited_by: inheritedBy, g
       <Head title={t(keys.permissions.user_edit.head_title)} />
       <PageShell
         title={t(keys.permissions.user_edit.title, { email: user.email })}
-        description={user.full_name || t(keys.permissions.user_edit.description)}
+        // The name leads the subtitle; without one the sentence stands alone
+        // rather than repeating the email already in the title.
+        description={
+          user.full_name
+            ? t(keys.permissions.user_edit.subtitle, { name: user.full_name })
+            : t(keys.permissions.user_edit.subtitle_no_name)
+        }
         // Reached from the user editor; belongs under Users despite the path.
         section={USERS_ADMIN_PATH}
         actions={
           <>
-            <Button asChild variant="ghost">
+            <Button asChild variant="outline" className="max-lg:min-h-11">
               <Link href={USERS_ADMIN_PATH}>{t(keys.permissions.user_edit.cancel_link)}</Link>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => reset('permissions')}
-              disabled={!isDirty}
-            >
-              {t(keys.permissions.user_edit.reset_button)}
             </Button>
             <Button
               type="submit"
               form="user-edit-form"
+              className="font-semibold max-lg:min-h-11"
               disabled={processing || !isDirty}
-              className="gap-1.5"
             >
-              <Check className="h-4 w-4" />
               {t(keys.permissions.user_edit.submit_button)}
             </Button>
           </>
         }
       >
         <form id="user-edit-form" onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Card className="border-border">
-              <CardContent className="pt-5">
-                <div className="flex items-start justify-between">
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600/10 text-primary-700">
-                    <ShieldCheck className="h-[18px] w-[18px]" aria-hidden="true" />
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+            <StatCard
+              label={t(keys.permissions.user_edit.roles_label)}
+              valueClassName="text-sm font-medium"
+              value={
+                roles.length === 0 ? (
+                  <span className="text-muted-foreground">
+                    {t(keys.permissions.user_edit.no_roles)}
                   </span>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {roles.length === 0 ? (
-                    <span className="text-sm text-muted-foreground">
-                      {t(keys.permissions.user_edit.no_roles)}
-                    </span>
-                  ) : (
-                    roles.map((r) => (
+                ) : (
+                  <span className="flex flex-wrap gap-1.5">
+                    {roles.map((role) => (
                       <Badge
-                        key={r}
+                        key={role}
                         variant="outline"
-                        className="border-primary-200 bg-primary-50 text-primary-700"
+                        className="border-primary bg-primary-600/10 px-2.5 py-0.5 font-medium text-primary-700"
                       >
-                        {r}
+                        {role}
                       </Badge>
-                    ))
-                  )}
-                </div>
-                <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                  {t(keys.permissions.user_edit.roles_label)}
-                </div>
-              </CardContent>
-            </Card>
+                    ))}
+                  </span>
+                )
+              }
+            />
             <StatCard
               label={t(keys.permissions.user_edit.direct_summary)}
               value={data.permissions.length}
-              icon={KeyRound}
             />
             <StatCard
               label={t(keys.permissions.user_edit.effective_summary)}
-              value={`${effectiveSet.size} / ${totalRegistered}`}
-              icon={Link2}
+              value={effectiveSet.size}
+              suffix={`/ ${totalRegistered}`}
             />
           </div>
 
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input
-              placeholder={t(keys.permissions.filters.modules_placeholder)}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="pl-9"
-            />
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="relative min-w-[240px] max-w-[280px] flex-1">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder={t(keys.permissions.filters.modules_placeholder)}
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="pl-9 max-lg:min-h-11"
+              />
+            </div>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span aria-hidden="true" className="size-2.5 rounded-[3px] bg-primary" />
+                {t(keys.permissions.user_edit.legend_direct)}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span
+                  aria-hidden="true"
+                  className="size-2.5 rounded-[3px] border border-blue-600 bg-blue-600/25"
+                />
+                {t(keys.permissions.user_edit.legend_role)}
+              </span>
+            </div>
           </div>
 
-          {filtered.length === 0 ? (
+          {visible.length === 0 ? (
             <Card className="border-border">
               <CardContent className="py-12 text-center text-sm text-muted-foreground">
-                {t(keys.permissions.user_edit.empty)}
+                {/* See RoleEdit: "nothing registered" and "nothing matched"
+                    are different facts and must not share a sentence. */}
+                {groups.length === 0
+                  ? t(keys.permissions.user_edit.empty)
+                  : t(keys.permissions.user_edit.no_matches)}
               </CardContent>
             </Card>
           ) : (
-            <div className="flex flex-col gap-3">
-              {filtered.map((group) => {
-                const granted = group.permissions.filter((k) => effectiveSet.has(k)).length;
-                const lastRowStart = Math.floor((group.permissions.length - 1) / 2) * 2;
-                return (
-                  <Card key={group.name} className="border-border overflow-hidden p-0">
-                    <div className="flex items-center gap-3 border-b border-border bg-secondary/40 px-4 py-3">
-                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary-600/10 text-primary-700">
-                        <Package className="h-3.5 w-3.5" aria-hidden="true" />
-                      </span>
-                      <h3 className="flex-1 font-mono text-sm font-semibold text-foreground">
-                        {group.name}
-                      </h3>
-                      <span className="font-mono text-[11px] text-muted-foreground">
-                        {granted}/{group.permissions.length}
-                      </span>
-                    </div>
-                    <div className="grid sm:grid-cols-2">
-                      {group.permissions.map((key, i) => (
-                        <PermissionRow
-                          key={key}
-                          permissionKey={key}
-                          direct={directSet.has(key)}
-                          viaRoles={inheritedBy[key] ?? []}
-                          onToggle={toggle}
-                          className={`${i % 2 === 0 ? 'sm:border-r sm:border-border' : ''} ${
-                            i < lastRowStart ? 'border-b border-border' : ''
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  </Card>
-                );
-              })}
+            <div className="grid items-start gap-3.5 lg:grid-cols-2">
+              {visible.map(({ group, permissions }) => (
+                <GrantsGroupCard
+                  key={group.name}
+                  group={group}
+                  permissions={permissions}
+                  direct={directSet}
+                  effective={effectiveSet}
+                  inheritedBy={inheritedBy}
+                  onToggle={toggle}
+                />
+              ))}
             </div>
           )}
         </form>

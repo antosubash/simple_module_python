@@ -44,6 +44,9 @@ def branding_payload(settings: BrandingSettings) -> dict:
         # deployment with a single logo keeps its current appearance.
         "logoDarkUrl": asset_url(LOGO_DARK_URL, settings.logo_dark_file_id),
         "faviconUrl": asset_url(FAVICON_URL, settings.favicon_file_id),
+        # None when unset, so the frontend keeps the framework's own
+        # `© {year} · MIT` caption rather than rendering a blank line.
+        "footerText": settings.footer_text or None,
         # None when the admin hasn't set any, so the frontend falls back to the
         # framework's own BRAND_FOOTER_LINKS rather than rendering an empty row.
         "footerLinks": (

@@ -117,6 +117,25 @@ def clean_app_name(value: str) -> str:
     return cleaned
 
 
+# ── Footer text ────────────────────────────────────────────────────────
+# The caption beside the footer links. Blank means "use the framework's own"
+# (`© {year} · MIT`), so a deployment that never sets this is unchanged —
+# and one that does stops publishing the framework's licence as its own.
+MAX_FOOTER_TEXT_LEN: Final = 200
+
+
+def clean_footer_text(value: str) -> str:
+    """Trim + bound the footer caption (shared by the settings and update DTO)."""
+    cleaned = value.strip()
+    if len(cleaned) > MAX_FOOTER_TEXT_LEN:
+        raise ValueError(f"footer_text must be at most {MAX_FOOTER_TEXT_LEN} characters")
+    # The caption is rendered into HTML and into transactional email headers;
+    # a stray newline breaks the latter outright.
+    if any(ord(ch) < 0x20 for ch in cleaned):
+        raise ValueError("footer_text must not contain control characters")
+    return cleaned
+
+
 # ── Footer links ───────────────────────────────────────────────────────
 # An empty list means "use the framework's own links" (`BRAND_FOOTER_LINKS`
 # in @simple-module-py/ui), so an existing deployment that never sets these

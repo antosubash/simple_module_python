@@ -73,9 +73,9 @@ def browser_context_args(browser_context_args, base_url):
 def logged_in_page(page: Page, perf_username: str, perf_password: str) -> Page:
     """A page authenticated as the admin, parked on the dashboard."""
     page.goto("/")
-    page.get_by_role("link", name="Log in").first.click()
+    page.get_by_role("link", name="Sign in").first.click()
     page.locator("#email").fill(perf_username)
     page.locator("#password").fill(perf_password)
-    page.get_by_role("button", name="Log in").click()
+    page.get_by_role("button", name="Sign in").click()
     page.wait_for_url("**/dashboard/**", timeout=_LOGIN_TIMEOUT_MS)
     return page

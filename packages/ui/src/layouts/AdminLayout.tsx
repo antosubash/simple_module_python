@@ -4,7 +4,9 @@ import type React from 'react';
 import { DEFAULT_SIDEBAR_THEME, SidebarLayout } from './SidebarLayout';
 
 // Same visual language as the app sidebar — the admin area announces itself
-// through the panel badge and its own menu, not through an alarm color.
+// through the panel badge and its own menu, not through an alarm colour. The
+// active row is the deck's solid primary pill in both shells, so moving
+// between them changes what the nav lists, not how it reads.
 const THEME = {
   ...DEFAULT_SIDEBAR_THEME,
   mobileTitleLabel: 'Admin',
@@ -50,11 +52,11 @@ function BackToApp() {
     <div className="pt-4 mt-4 border-t border-white/[0.06]">
       <Link
         href="/dashboard/"
-        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-app-sidebar-text-muted hover:bg-app-sidebar-hover hover:text-white transition-colors"
+        className="flex min-h-11 lg:min-h-0 items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium text-app-sidebar-text-muted hover:bg-app-sidebar-hover hover:text-white transition-colors"
       >
         <svg
           aria-hidden="true"
-          className="w-5 h-5"
+          className="hidden lg:block w-5 h-5"
           fill="none"
           viewBox="0 0 24 24"
           strokeWidth={1.5}

@@ -6,7 +6,7 @@ import contextlib
 from unittest.mock import MagicMock
 
 from simple_module_db.deps import get_db
-from simple_module_db.session import DatabaseState, init_db
+from simple_module_db.session import DatabaseState, RequestSession, init_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -58,6 +58,7 @@ class TestGetDbDependency:
             gen = get_db(mock_request)
             session = await gen.__anext__()
             assert isinstance(session, AsyncSession)
+            assert isinstance(session, RequestSession)
 
             with contextlib.suppress(StopAsyncIteration):
                 await gen.__anext__()

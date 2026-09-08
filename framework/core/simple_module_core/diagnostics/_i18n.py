@@ -25,11 +25,20 @@ class I18nDiagnostics:
 
     def __init__(
         self,
-        supported_locales: list[str],
+        supported_locales: list[str] | None,
         default_locale: str,
         extra_sources: list[tuple[str, str, Path]] | None = None,
     ) -> None:
         """Build the diagnostic.
+
+        ``supported_locales`` is the set of locales this install promises to
+        ship. ``None`` means *nobody declared one* — each namespace is then
+        checked against the locale files it actually has on disk. SM013 is
+        skipped in that mode (a locale nothing promised cannot be missing),
+        but SM014/SM015 still hold every shipped translation to the default
+        locale's key set. Without this, an install that never set
+        ``SM_I18N_SUPPORTED_LOCALES`` ran no locale checks at all and drift
+        accumulated with nothing to flag it.
 
         ``extra_sources`` is an optional list of ``(reporter_name, namespace,
         locale_dir)`` triples for locale directories that aren't owned by any
@@ -37,7 +46,7 @@ class I18nDiagnostics:
         the shared ``packages/ui/locales/``. ``reporter_name`` is used as the
         ``module_name`` field on findings for display purposes.
         """
-        self.supported_locales = list(supported_locales)
+        self.supported_locales = None if supported_locales is None else list(supported_locales)
         self.default_locale = default_locale
         self.extra_sources = list(extra_sources or [])
 
@@ -55,10 +64,14 @@ class I18nDiagnostics:
     ) -> list[Diagnostic]:
         findings: list[Diagnostic] = []
         per_locale_keys: dict[str, set[str]] = {}
+        declared = self.supported_locales is not None
+        locales = self.supported_locales if declared else self._locales_on_disk(locale_dir)
 
-        for locale in self.supported_locales:
+        for locale in locales or ():
             path = locale_dir / f"{locale}.json"
             if not path.is_file():
+                if not declared:
+                    continue
                 findings.append(
                     Diagnostic(
                         level=DiagnosticLevel.WARNING,
@@ -119,3 +132,14 @@ class I18nDiagnostics:
                     )
                 )
         return findings
+
+    @staticmethod
+    def _locales_on_disk(locale_dir: Path) -> list[str]:
+        """Locale tags a directory actually ships, from its ``<tag>.json`` files.
+
+        The default locale sorts first only by accident of the alphabet, which
+        does not matter: the parity comparison below looks it up by name.
+        """
+        if not locale_dir.is_dir():
+            return []
+        return sorted(path.stem for path in locale_dir.glob("*.json"))

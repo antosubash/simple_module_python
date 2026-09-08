@@ -14,10 +14,12 @@ from branding.constants import (
     MAX_APP_NAME_LEN,
     MAX_BANNER_MESSAGE_LEN,
     MAX_FOOTER_LINKS,
+    MAX_FOOTER_TEXT_LEN,
     clean_app_name,
     clean_banner_message,
     clean_footer_href,
     clean_footer_label,
+    clean_footer_text,
 )
 
 
@@ -62,6 +64,8 @@ class BrandingOut(SQLModel):
     favicon_url: str | None = None
     banner_message: str = ""
     banner_severity: str = ""
+    #: Empty means the framework's own `© {year} · MIT` caption is shown.
+    footer_text: str = ""
     #: Empty means the framework's own links are shown.
     footer_links: list[FooterLink] = Field(default_factory=list)
 
@@ -74,8 +78,15 @@ class BrandingUpdate(SQLModel):
     design_pack: str | None = Field(default=None)
     banner_message: str | None = Field(default=None, max_length=MAX_BANNER_MESSAGE_LEN)
     banner_severity: str | None = Field(default=None)
+    #: Send ``""`` to fall back to the framework's own caption.
+    footer_text: str | None = Field(default=None, max_length=MAX_FOOTER_TEXT_LEN)
     #: Send ``[]`` to fall back to the framework's own links.
     footer_links: list[FooterLink] | None = Field(default=None)
+
+    @field_validator("footer_text")
+    @classmethod
+    def _bounded_footer_text(cls, value: str | None) -> str | None:
+        return None if value is None else clean_footer_text(value)
 
     @field_validator("footer_links")
     @classmethod

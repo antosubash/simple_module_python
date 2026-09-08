@@ -84,7 +84,7 @@ async def token_login(
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     settings = request.app.state.users.settings
-    return await _create_token_pair(db, user.id, settings)
+    return await _create_token_pair(db, user.id, settings, user.session_version)
 
 
 @router.post("/token/refresh", response_model=TokenResponse)
@@ -112,8 +112,17 @@ async def token_refresh(
     rt.revoked_at = now
     await db.flush()
 
+    # The account is re-read rather than trusted from the row: a refresh token
+    # outlives the access tokens it mints, so between two refreshes the user may
+    # have been deactivated, or signed everything out. Minting from a stale
+    # ``user_id`` alone would hand back a live credential to an account that no
+    # longer has one.
+    user = (await db.execute(select(User).where(User.id == rt.user_id))).scalar_one_or_none()
+    if user is None or not user.is_active or user.disabled_at is not None:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+
     settings = request.app.state.users.settings
-    return await _create_token_pair(db, rt.user_id, settings)
+    return await _create_token_pair(db, user.id, settings, user.session_version)
 
 
 @router.delete("/token")
@@ -139,8 +148,16 @@ async def _create_token_pair(
     db: AsyncSession,
     user_id: uuid_mod.UUID,
     settings,
+    session_version: int = 0,
 ) -> TokenResponse:
-    """Mint a new access token + refresh token pair and persist both."""
+    """Mint a new access token + refresh token pair and persist both.
+
+    ``expires_at`` is stamped from ``bearer_token_lifetime_seconds`` — the same
+    number this function reports as ``expires_in``. Without it the row was read
+    back against the process-wide thirty-day ceiling, so a client that honoured
+    ``expires_in`` re-authenticated every fifteen minutes while the token it
+    discarded stayed valid for a month.
+    """
     from users.models import UserAccessToken
 
     now = datetime.now(UTC)
@@ -149,6 +166,8 @@ async def _create_token_pair(
         token=str(uuid_mod.uuid4()),
         user_id=user_id,
         created_at=now,
+        expires_at=now + timedelta(seconds=settings.bearer_token_lifetime_seconds),
+        session_version=int(session_version or 0),
     )
     db.add(access_token)
 

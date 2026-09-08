@@ -21,6 +21,23 @@ def test_presets_ship_and_have_unique_keys() -> None:
     assert keys, "at least one built-in preset must ship"
 
 
+def test_the_four_deck_presets_ship_in_order() -> None:
+    """The hi-fi deck shows exactly four chips, in this order, with these
+    colours — seven Title-case swatches were the pre-deck set."""
+    assert [(p.key, p.label, p.values["primary_color"]) for p in BUILTIN_PRESETS] == [
+        ("emerald", "emerald", "#0f766e"),
+        ("slate", "slate", "#475569"),
+        ("indigo", "indigo", "#4f46e5"),
+        ("amber", "amber", "#b45309"),
+    ]
+
+
+def test_preset_labels_are_lowercase() -> None:
+    # Chips read as colour names, not proper nouns.
+    for preset in BUILTIN_PRESETS:
+        assert preset.label == preset.label.lower(), preset.key
+
+
 def test_every_preset_only_touches_appearance() -> None:
     # The guard that keeps a preset from clobbering deployment identity.
     for preset in BUILTIN_PRESETS:

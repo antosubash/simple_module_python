@@ -243,7 +243,11 @@ def register_audit_links(self, registry: AuditLinkRegistry) -> None:
 
 `label_key` translates the label the same way `MenuItem.label_key` does, falling back to `label` when the key resolves to nothing. Rows are rendered server-side, so the audit view translates these before they reach the page.
 
-The registry maps class names to URL templates and nothing more: it does not check that the row still exists or that the reader may open it. A link to a deleted record lands on the target screen's own 404, and permissions are enforced by the target route as usual.
+`label_resolver` names individual rows — a batch callable taking the request session and every id of that type on the page, returning `{id: display name}`. Only the owning module knows that a `Setting` is named by its key and a `User` by `full_name or email`, and without one the reader gets a bare primary key.
+
+`label_permission` gates that name. **Set it whenever naming the row discloses something the module gates elsewhere.** The name travels inside the audit payload, so no downstream route ever gets the chance to refuse it — a reader holding `audit_log.view` and nothing else would otherwise read the display name (and, for accounts with an outstanding invite, the email) of every account that has ever been edited. `users` therefore declares `users.manage`. Readers without it still see the entry, the action and the id; they just do not get the name. Leaving it empty — the default — says the name is safe for anyone who may read the trail at all, which is true of setting keys, filenames and task names.
+
+A link is a route, not an authorisation: apart from `label_permission`, the registry does not check that the row still exists or that the reader may open it. A link to a deleted record lands on the target screen's own 404, and permissions are enforced by the target route as usual.
 
 ## `on_startup()` / `on_shutdown()`
 

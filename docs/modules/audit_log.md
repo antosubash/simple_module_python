@@ -108,13 +108,25 @@ from audit_log.contracts.schemas import AuditEntryRead, AuditEntryList
 
 The table itself carries `__audit_exclude__ = True` so audit writes never re-enter the capture loop.
 
+## Entity and actor names
+
+An entry stores a model class name and a primary key, which proves what happened and names nobody. The browse screen, the CSV export and the users edit page's activity card all resolve those ids at render time through the audit-link registry: each module supplies a batch `label_resolver` naming its own rows, one query per entity type per page. Nothing is stored — the row keeps the ids it recorded.
+
+**The entity column's names are permission-gated.** An `AuditLink` may declare a `label_permission`, and a reader who does not hold it gets the id instead of the name. `users` declares `users.manage`, because a user row is named by `full_name or email` — so without the gate, `audit_log.view` alone was a way to read the display name of every account that appears in the log, and the email address of every account still holding an unaccepted invite (those have no `full_name` yet). The entry itself is never withheld: the action, the type, the timestamp and the id are the audit trail. Links whose owner declares nothing — setting keys, filenames, task names, flag names — are shown to anyone who may read the trail.
+
+**The actor column's names are not.** `audit_log.view` does imply "may see who acted", and that is deliberate: an audit trail that will not say who performed a change is not one. The two columns disclose the same field and answer different questions — the entity column names people who were merely *edited*, which reviewing the trail does not require. Grant `audit_log.view` knowing it discloses the display name (or email) of everyone who has ever made a change.
+
+The `changes` column is a third surface, and a wider one: it records the values that were written, so a `User` create entry contains the email that was set. Use `__audit_exclude_fields__` on a model to keep a column out of the diff (see § Opting out).
+
 ## Permissions
 
 | Code | Purpose |
 |---|---|
-| `audit_log.view` | read the audit trail (API + browse page) |
+| `audit_log.view` | read the audit trail (API + browse page + CSV export), including the name of every account that has *acted* |
 
 There is no write permission — the trail is append-only and written by the framework, never edited through the UI.
+
+`audit_log.view` does **not** confer the name of an account that merely appears as the *subject* of an entry — that takes `users.manage`, the same permission that opens the user list. See § Entity and actor names.
 
 ## Menu
 

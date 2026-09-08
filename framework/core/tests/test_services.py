@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from simple_module_core.services import Services
+from simple_module_core.services import DiagnosticsState, Services
 
 
 class TestServices:
@@ -35,6 +35,9 @@ class TestServices:
         assert s.i18n_registry is _SENTINEL_I18N
         assert s.inertia_config is _SENTINEL_INERTIA
         assert s.modules == ()
+        # Defaulted, and the one member built to be mutated after boot.
+        assert isinstance(s.diagnostics, DiagnosticsState)
+        assert s.diagnostics.supported is False
 
 
 _SENTINEL_SETTINGS = object()

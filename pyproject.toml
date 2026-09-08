@@ -117,7 +117,7 @@ invalid-assignment = "ignore"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["framework/cli/tests", "framework/core/tests", "framework/db/tests", "framework/hosting/tests", "framework/testing/tests", "host/tests", "modules/auth/tests", "modules/dashboard/tests", "modules/users/tests", "modules/permissions/tests", "modules/background_tasks/tests", "modules/file_storage/tests", "modules/settings/tests", "modules/feature_flags/tests", "modules/keycloak/tests", "modules/audit_log/tests", "modules/branding/tests", "modules/site_lock/tests", "scripts/tests", "tests/integration", "tests/e2e", "tests/benchmarks", "tests/perf"]
+testpaths = ["framework/cli/tests", "framework/core/tests", "framework/db/tests", "framework/hosting/tests", "framework/testing/tests", "host/tests", "modules/auth/tests", "modules/dashboard/tests", "modules/users/tests", "modules/permissions/tests", "modules/background_tasks/tests", "modules/file_storage/tests", "modules/settings/tests", "modules/feature_flags/tests", "modules/keycloak/tests", "modules/audit_log/tests", "modules/branding/tests", "modules/site_lock/tests", "scripts/tests", "tests"]
 markers = [
     "e2e: end-to-end tests requiring a live browser",
     "perf: performance benchmarks (opt-in; run via `make bench`)",

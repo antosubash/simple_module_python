@@ -30,18 +30,20 @@ def run_diagnostics(
     """Convenience function to run all diagnostics.
 
     When ``migration_state`` is provided, also runs migration diagnostics.
-    When ``i18n_supported_locales`` and ``i18n_default_locale`` are provided,
-    also runs i18n locale coverage diagnostics. ``i18n_extra_sources`` lets
-    callers include host/ui locale dirs that aren't owned by a ``ModuleBase``.
+    ``i18n_default_locale`` turns on the locale checks; ``i18n_supported_locales``
+    is the declared locale set, and leaving it empty runs those checks against
+    whatever locale files are on disk instead of skipping them entirely (see
+    :class:`I18nDiagnostics`). ``i18n_extra_sources`` lets callers include
+    host/ui locale dirs that aren't owned by a ``ModuleBase``.
     """
     diagnostics = ModuleDiagnostics().run(modules)
 
-    if i18n_supported_locales and i18n_default_locale:
+    if i18n_default_locale:
         from simple_module_core.diagnostics._i18n import I18nDiagnostics
 
         diagnostics.extend(
             I18nDiagnostics(
-                supported_locales=i18n_supported_locales,
+                supported_locales=i18n_supported_locales or None,
                 default_locale=i18n_default_locale,
                 extra_sources=i18n_extra_sources,
             ).run(modules)

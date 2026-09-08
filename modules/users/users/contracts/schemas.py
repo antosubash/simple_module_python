@@ -16,6 +16,19 @@ Distinct from ``bulk_invite.MAX_ADDRESSES`` (how many invites one submit may
 actually mint): this bounds the work and the response, both of which are one
 entry per submitted address."""
 
+MAX_INVITE_MESSAGE_LENGTH = 1000
+"""Ceiling on the optional note an inviter adds to a batch. Long enough for a
+paragraph of context, short enough that it cannot be used to stuff arbitrary
+content into outbound mail."""
+
+USER_STATES = ("active", "unverified", "invited", "disabled")
+"""What a row in the users table *is*, as one word.
+
+Derived rather than stored: ``disabled`` beats everything, then an
+unverified account is ``invited`` if an admin created it and ``unverified`` if
+the person signed themselves up. Computed server-side so the list, the filter
+and the status pill cannot drift apart."""
+
 # NOTE on EmailStr: only *input* schemas (UserCreate/UserUpdate/UserInvite) use
 # EmailStr — that is where an email must be format-validated. Response schemas
 # (UserRead/UserListItem) use plain ``str``: their data comes straight from the
@@ -79,6 +92,12 @@ class UserBulkInvite(SQLModel):
     above the invite cap so the "over the limit" outcomes stay visible for any
     plausible paste."""
     role_names: list[str] = []
+    message: str | None = Field(default=None, max_length=MAX_INVITE_MESSAGE_LENGTH)
+    """A line of context from the inviter, added to the invite email.
+
+    An invitation from an unfamiliar address is indistinguishable from
+    phishing; "you're joining the migration project" is what makes it
+    answerable. Bounded because it goes straight into a message body."""
 
 
 class BulkInviteResult(SQLModel):
@@ -125,6 +144,13 @@ class UserListItem(SQLModel):
     disabled_at: datetime | None = None
     last_login_at: datetime | None = None
     created_at: datetime | None = None
+    invited_at: datetime | None = None
+    invite_expires_at: datetime | None = None
+    """When the outstanding invite stops working — ``invited_at`` plus the
+    verification-token lifetime. The token itself is not stored, so this is
+    computed on read from the same setting that mints it."""
+    state: str = "active"
+    """One of :data:`USER_STATES`."""
     roles: list[str] = []
 
 
@@ -139,9 +165,27 @@ class RoleAssignment(SQLModel):
     role_names: list[str]
 
 
+class LoginRequest(SQLModel):
+    """The sign-in form, posted url-encoded.
+
+    Field names match ``OAuth2PasswordRequestForm`` so existing clients keep
+    working; ``grant_type``/``scope``/``client_id`` are still accepted on the
+    wire and ignored. ``remember`` is the "Keep me signed in" checkbox: it
+    lengthens the issued credential rather than changing what is checked.
+    """
+
+    username: str
+    password: str
+    remember: bool = False
+
+
 class AcceptInviteRequest(SQLModel):
     token: str
     password: str
+    full_name: str | None = None
+    """What the invitee calls themselves. Optional because an admin may have
+    filled it in when minting the invite, in which case the form pre-fills and
+    a blank submit must not wipe it."""
 
 
 class PasswordResetLink(SQLModel):
@@ -150,3 +194,16 @@ class PasswordResetLink(SQLModel):
 
 class SelfProfileUpdate(SQLModel):
     full_name: str | None = None
+
+
+class SelfPasswordChange(SQLModel):
+    """Change your own password from the profile page.
+
+    The current password is required even though the caller already holds a
+    session: an unattended browser is exactly the case this guards against,
+    and it is the only proof that the person at the keyboard is the account's
+    owner rather than whoever sat down next.
+    """
+
+    current_password: str
+    new_password: str

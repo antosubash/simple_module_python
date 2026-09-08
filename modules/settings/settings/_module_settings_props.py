@@ -42,8 +42,12 @@ def serialize(views: list[ModuleSettingsView]) -> list[dict[str, Any]]:
                     "requires_restart": f.requires_restart,
                     "group": f.group,
                     "env_set": f.env_set,
+                    "env_readable": f.env_readable,
                     "db_override": f.db_override,
                     "source": f.source,
+                    # Turns a pattern-constrained string into a select rather
+                    # than a text box whose only feedback on a typo is a 422.
+                    "choices": f.choices,
                 }
                 for f in v.fields
             ],

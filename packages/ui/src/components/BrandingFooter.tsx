@@ -21,6 +21,13 @@ interface BrandingFooterProps {
    * what makes the footer white-labellable without forking this component.
    */
   links?: BrandLink[] | null;
+  /**
+   * Caption shown under the app name. Omitted, `null` or blank falls back to
+   * the framework's own `© {year} · {BRAND_LICENSE}`, so a host that
+   * configures nothing is unchanged — and one that does stops publishing the
+   * framework's licence as its own.
+   */
+  footerText?: string | null;
 }
 
 /** Framework-owned footer shared by the authenticated and public layouts. */
@@ -29,11 +36,16 @@ export function BrandingFooter({
   logoUrl,
   variant = 'app',
   links,
+  footerText,
 }: BrandingFooterProps): React.ReactElement {
   // An empty array is treated as "unset" too: it is what the server sends
   // for a deployment that has cleared its links, and a footer with no links
   // at all reads as broken rather than deliberate.
   const shown = links?.length ? links : BRAND_FOOTER_LINKS;
+  // Trimmed for the same reason the link list is length-checked: whitespace is
+  // what an admin leaves behind when clearing the field, and a blank caption
+  // reads as a broken footer rather than a deliberate one.
+  const caption = footerText?.trim() || `© ${FOOTER_YEAR} · ${BRAND_LICENSE}`;
   const container =
     variant === 'public' ? 'mx-auto max-w-6xl px-4 py-6 sm:px-8' : 'px-4 py-6 sm:px-6 lg:px-8';
 
@@ -46,8 +58,8 @@ export function BrandingFooter({
             logoUrl={logoUrl}
             accentColor={BRAND_ACCENT}
             size="sm"
-            labelClassName="text-sm font-semibold tracking-tight text-foreground font-[var(--font-display)]"
-            caption={`© ${FOOTER_YEAR} · ${BRAND_LICENSE}`}
+            labelClassName="text-sm font-semibold tracking-tight text-foreground font-display"
+            caption={caption}
           />
         </div>
         <nav className="flex flex-wrap items-center gap-5 text-xs text-muted-foreground">

@@ -12,8 +12,14 @@ from simple_module_hosting.permissions import RequiresPermission
 
 from file_storage import constants
 from file_storage.contracts.events import FileDeleted, FileUploaded
-from file_storage.contracts.schemas import StoredFileListOut, StoredFileOut
+from file_storage.contracts.schemas import (
+    BulkDeleteRequest,
+    BulkDeleteResult,
+    StoredFileListOut,
+    StoredFileOut,
+)
 from file_storage.deps import get_event_bus, get_file_storage_service
+from file_storage.format import format_bytes
 from file_storage.service import (
     ContentTypeNotAllowedError,
     FileStorageService,
@@ -41,11 +47,19 @@ async def upload_file(
     try:
         out = await service.upload(file)
     except FileTooLargeError as exc:
+        # The limit belongs in the sentence: "too large" is not actionable to
+        # someone holding a 40 MB file, and every client that shows this
+        # message — the upload card, curl, a third-party integration — then
+        # gets the number without having to fetch it from somewhere else.
+        # ``max_bytes`` travels alongside for callers that would rather
+        # compose their own copy.
+        max_bytes = service.settings.max_file_size_bytes
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail={
                 "code": constants.ErrorCode.TOO_LARGE,
-                "message": t.t(constants.I18nKey.ERR_TOO_LARGE),
+                "message": t.t(constants.I18nKey.ERR_TOO_LARGE, max_size=format_bytes(max_bytes)),
+                "max_bytes": max_bytes,
             },
         ) from exc
     except ContentTypeNotAllowedError as exc:
@@ -155,6 +169,31 @@ async def download_file(
             "ETag": f'"{row.checksum_sha256}"',
         },
     )
+
+
+@router.post(
+    constants.PATH_FILES_BULK_DELETE,
+    response_model=BulkDeleteResult,
+    dependencies=[Depends(RequiresPermission(constants.Permission.DELETE))],
+)
+async def bulk_delete_files(
+    body: BulkDeleteRequest,
+    service: FileStorageService = Depends(get_file_storage_service),
+    bus: EventBus = Depends(get_event_bus),
+) -> BulkDeleteResult:
+    """Delete a selection in one request.
+
+    Ids that no longer resolve are skipped rather than 404-ing the batch — the
+    screen's selection can outlive the rows it names. The response names the
+    rows that actually went, so the caller can report on them rather than on
+    what it asked for. Each removal is still announced individually, so a
+    subscriber that mirrors or reindexes files cannot tell a bulk delete from a
+    run of single ones.
+    """
+    rows = await service.delete_many(body.ids)
+    for row in rows:
+        await bus.publish(FileDeleted(file_id=row.id, key=row.key))
+    return BulkDeleteResult(deleted=len(rows), ids=[row.id for row in rows])
 
 
 @router.delete(

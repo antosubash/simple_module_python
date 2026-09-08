@@ -22,6 +22,7 @@ from users.admin.service import UserService
 from users.contracts.events import UserInvited
 from users.contracts.schemas import BulkInviteResponse, BulkInviteResult, UserBulkInvite
 from users.deps import get_event_bus, get_mailer, get_user_service
+from users.mailer import mailer_delivers
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,14 @@ bulk_router = APIRouter()
 
 STATUS_SENT = "sent"
 STATUS_LINK = "link"
+
+MAILER_FAILURE_DETAIL = "The invitation could not be emailed — use the link instead."
+"""What an admin is told when delivery fails.
+
+Deliberately not ``str(exc)``: an SMTP error quotes the host, the port and
+sometimes the credential it tried, and this response is rendered straight
+into an admin screen. The real message goes to the log, where it is one
+correlation id away and not on anybody's screenshot."""
 STATUS_FAILED = "failed"
 
 MAX_ADDRESSES = 100
@@ -53,11 +62,11 @@ def _failure_detail(exc: Exception) -> str:
     the cell blank: a class name is a poor message, but it is still a lead.
     """
     if isinstance(exc, UserAlreadyExists):
-        return "Already registered"
+        return "Already a member of this workspace"
     return str(exc) or type(exc).__name__
 
 
-def _invite_link(request: Request, token: str) -> str:
+def invite_link(request: Request, token: str) -> str:
     """Build the accept URL the admin will hand to the invitee.
 
     Uses the module's configured ``base_url`` — the same value both mailers
@@ -89,13 +98,8 @@ async def admin_bulk_invite(
     invited_by = getattr(request.state, "user", None)
     invited_by_name = invited_by.name if invited_by else "Administrator"
 
-    # Absent attribute means "assume it delivers" — a third-party mailer must
-    # never leak invite tokens into the response just by not declaring itself.
-    # No mailer at all delivers nothing, though: defaulting that to True sends
-    # every address down the send path, where the AttributeError surfaces to
-    # the admin as a raw "'NoneType' object has no attribute 'send_invite'".
-    # This matches what the page's ``mailer_delivers`` prop already reports.
-    delivers = mailer is not None and getattr(mailer, "delivers_email", True)
+    # Same question the page's ``mailer_delivers`` prop answers, asked once.
+    delivers = mailer_delivers(mailer)
 
     # Preserve submit order but drop repeats: pasting a list with the same
     # address twice should not create two invites for it. A malformed address
@@ -150,18 +154,18 @@ async def admin_bulk_invite(
 
         if delivers:
             try:
-                await mailer.send_invite(user.email, token, invited_by_name)
-            except Exception as exc:
+                await mailer.send_invite(user.email, token, invited_by_name, data.message)
+            except Exception:
                 # The account exists and the token is valid — the delivery
                 # failed. Handing back the link turns a dead end into a
                 # copy-paste, rather than stranding a half-finished invite.
-                logger.warning("invite mail failed for %s: %s", email, exc)
+                logger.exception("invite mail failed for %s", email)
                 results.append(
                     BulkInviteResult(
                         email=email,
                         status=STATUS_LINK,
-                        detail=str(exc),
-                        link=_invite_link(request, token),
+                        detail=MAILER_FAILURE_DETAIL,
+                        link=invite_link(request, token),
                     )
                 )
             else:
@@ -171,7 +175,7 @@ async def admin_bulk_invite(
                 BulkInviteResult(
                     email=email,
                     status=STATUS_LINK,
-                    link=_invite_link(request, token),
+                    link=invite_link(request, token),
                 )
             )
 

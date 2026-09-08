@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta
 
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from users.admin.user_state import STATUS_CONDITIONS, user_state
 from users.contracts.schemas import RoleListItem, UserListItem
 from users.exceptions import UserNotFoundError
 from users.manager import UserManager
@@ -33,6 +35,19 @@ class _UserServiceBase:
         result = await self._db.execute(select(Role).where(Role.name.in_(role_names)))
         return list(result.scalars().all())
 
+    @property
+    def _invite_lifetime(self) -> timedelta:
+        """How long an invite link stays usable.
+
+        Read off the manager rather than the settings object because that is
+        the value the token is actually minted with — an expiry the table
+        prints has to come from the same place as the one the token enforces.
+        """
+        return timedelta(seconds=self._manager.verification_token_lifetime_seconds)
+
+    def _invite_expiry(self, invited_at: datetime | None) -> datetime | None:
+        return None if invited_at is None else invited_at + self._invite_lifetime
+
     def to_list_item(self, user: User) -> UserListItem:
         """Build the DTO from a User with roles already eager-loaded."""
         return UserListItem(
@@ -45,6 +60,9 @@ class _UserServiceBase:
             disabled_at=user.disabled_at,
             last_login_at=user.last_login_at,
             created_at=user.created_at,
+            invited_at=user.invited_at,
+            invite_expires_at=self._invite_expiry(user.invited_at),
+            state=user_state(user.is_active, user.is_verified, user.invited_at),
             roles=[r.name for r in user.roles],
         )
 
@@ -113,6 +131,7 @@ class _UserServiceBase:
             User.disabled_at,
             User.last_login_at,
             User.created_at,
+            User.invited_at,
         )
         count_stmt = select(func.count()).select_from(User)
 
@@ -127,10 +146,9 @@ class _UserServiceBase:
                 )
             )
 
-        if status == "active":
-            conditions.append(User.is_active.is_(True))
-        elif status == "disabled":
-            conditions.append(User.is_active.is_(False))
+        status_condition = STATUS_CONDITIONS.get(status or "")
+        if status_condition is not None:
+            conditions.append(status_condition())
 
         if verified == "yes":
             conditions.append(User.is_verified.is_(True))
@@ -186,23 +204,38 @@ class _UserServiceBase:
             for uid, role_name_ in role_rows:
                 roles_by_user.setdefault(uid, []).append(role_name_)
 
-        # Selected columns == UserListItem fields (minus roles): unpack directly.
-        items = [UserListItem(**r._mapping, roles=roles_by_user.get(r.id, [])) for r in rows]
+        # Selected columns == UserListItem fields (minus the derived ones and
+        # roles): unpack directly.
+        items = [
+            UserListItem(
+                **r._mapping,
+                invite_expires_at=self._invite_expiry(r.invited_at),
+                state=user_state(r.is_active, r.is_verified, r.invited_at),
+                roles=roles_by_user.get(r.id, []),
+            )
+            for r in rows
+        ]
         return items, total
 
     async def count_user_states(self) -> dict[str, int]:
         """Workspace-wide counts unaffected by list filters/pagination —
-        feeds the dashboard cards on /users/admin so they don't reflect
-        the current page slice."""
-        active_q = select(func.count()).select_from(User).where(User.is_active.is_(True))
-        unverified_q = (
-            select(func.count())
-            .select_from(User)
-            .where(User.is_active.is_(True), User.is_verified.is_(False))
-        )
-        active = (await self._db.execute(active_q)).scalar_one()
-        unverified = (await self._db.execute(unverified_q)).scalar_one()
-        return {"active": int(active), "unverified": int(unverified)}
+        feeds the stat row on /admin/users so it doesn't reflect
+        the current page slice.
+
+        ``invited`` and ``unverified`` are counted apart because the card the
+        deck labels "Pending invites" means outstanding *invitations*: a
+        self-registered account that never clicked its verification mail is
+        nobody's to chase.
+        """
+        counts: dict[str, int] = {}
+        for key, condition in (
+            ("active", STATUS_CONDITIONS["active"]),
+            ("unverified", STATUS_CONDITIONS["unverified"]),
+            ("invited", STATUS_CONDITIONS["invited"]),
+        ):
+            stmt = select(func.count()).select_from(User).where(condition())
+            counts[key] = int((await self._db.execute(stmt)).scalar_one())
+        return counts
 
     async def get_with_roles(self, user_id: uuid.UUID) -> User | None:
         return await self._get_user_with_roles(user_id)

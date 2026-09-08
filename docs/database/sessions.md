@@ -25,10 +25,10 @@ Usage in endpoints:
 ```python
 from typing import Annotated
 from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+from simple_module_db import RequestSession
 from simple_module_db.deps import get_db
 
-SessionDep = Annotated[AsyncSession, Depends(get_db)]
+SessionDep = Annotated[RequestSession, Depends(get_db)]
 
 
 @router.post("")
@@ -87,6 +87,33 @@ async def create(self, data: OrderCreate) -> OrderOut:
 ```
 
 Flushing sends the INSERT but keeps the transaction open. Rollback still works until the dependency commits.
+
+## Refreshing derived state after commit
+
+The request session exposes `on_commit()` for cache invalidation and other derived
+in-process state that must never reflect an uncommitted transaction:
+
+```python
+async def create(self, data: OrderCreate) -> OrderOut:
+    order = Order(**data.model_dump())
+    self.session.add(order)
+    await self.session.flush()
+    self.session.on_commit(self.order_cache.refresh)
+    return OrderOut.model_validate(order)
+```
+
+Callbacks take no arguments and may be synchronous or asynchronous. The framework
+runs them in registration order after a successful commit and before the response
+leaves the server. It discards them when the request rolls back, when commit fails,
+or when the request has no writes. A callback should refresh derived state, not
+perform more database mutations.
+
+At callback time the original transaction is already durable, so callback errors
+cannot roll it back. The framework logs a `db.session.on_commit_failed` error,
+continues with remaining callbacks, and preserves the successful response.
+
+`on_commit()` belongs to the framework-managed request lifecycle. For a manually
+managed session, perform post-commit work explicitly after the transaction block.
 
 ## Manual transactions
 

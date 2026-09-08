@@ -14,7 +14,7 @@ interface AdminSectionLinkProps {
 
 /**
  * The app shell's doorway into the admin section — the counterpart of
- * `AdminLayout`'s "Back to App".
+ * `AdminLayout`'s "Back to app".
  *
  * Every admin screen moved out of the main sidebar into `adminSidebar`, so
  * without this an admin signs in, lands on `/dashboard/`, and has no link to
@@ -39,9 +39,9 @@ export function AdminSectionLink({
       <Link
         href="/admin"
         onClick={onNavigate}
-        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${className}`}
+        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium ${className}`}
       >
-        <NavIcon name="shield" />
+        <NavIcon name="shield" className="hidden lg:block w-5 h-5" />
         {t(keys.ui.nav.admin)}
       </Link>
     </div>

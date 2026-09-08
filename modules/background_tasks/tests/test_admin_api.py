@@ -74,6 +74,35 @@ class TestListExecutions:
         assert resp.status_code == 200
         assert [i["task_name"] for i in resp.json()["items"]] == ["cleanup_old"]
 
+    async def test_the_search_is_spelled_q_like_the_page_and_the_sweep(
+        self, app, authenticated_client: httpx.AsyncClient
+    ):
+        """One filter name across all three surfaces.
+
+        The page and ``retry-failed`` both take the search as ``q``; this
+        endpoint took it as ``task_name``, so a URL copied off the screen
+        listed everything and quietly looked like a filter that matched.
+        """
+        await _seed_failed(app, task_name="files.thumbnail")
+        await _seed_failed(app, task_name="users.invite")
+
+        resp = await authenticated_client.get(f"{ADMIN_BASE}/executions", params={"q": "files."})
+        assert resp.status_code == 200
+        assert [i["task_name"] for i in resp.json()["items"]] == ["files.thumbnail"]
+
+    async def test_the_old_task_name_spelling_still_filters(
+        self, app, authenticated_client: httpx.AsyncClient
+    ):
+        """Deprecated, not removed — an existing API caller keeps working."""
+        await _seed_failed(app, task_name="files.thumbnail")
+        await _seed_failed(app, task_name="users.invite")
+
+        resp = await authenticated_client.get(
+            f"{ADMIN_BASE}/executions", params={"task_name": "users."}
+        )
+        assert resp.status_code == 200
+        assert [i["task_name"] for i in resp.json()["items"]] == ["users.invite"]
+
     async def test_page_past_the_end_clamps_instead_of_reporting_zero(
         self, app, authenticated_client: httpx.AsyncClient
     ):

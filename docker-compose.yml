@@ -17,6 +17,13 @@ services:
       # password and prints it — see `docker compose logs app`.
       - SM_USERS_BOOTSTRAP_EMAIL
       - SM_USERS_BOOTSTRAP_PASSWORD
+      # Set to `*` when this sits behind a reverse proxy that terminates TLS,
+      # so `X-Forwarded-For`/`-Proto` are honoured and the logs record the
+      # visitor rather than the proxy. Nothing in the UI depends on
+      # it — the Inertia page url is relative — so leaving it unset is safe,
+      # and it stays opt-in because a directly-exposed container would be
+      # trusting a header any client can set.
+      - SM_TRUSTED_PROXY
     ports:
       # SM_APP_PORT frees you from a host-port clash with `make dev`.
       - "${SM_APP_PORT:-8000}:8000"

@@ -13,7 +13,20 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import Session
 
+from simple_module_db.callbacks import OnCommitCallback, register_on_commit
 from simple_module_db.provider import DatabaseProvider, detect_provider
+
+
+class RequestSession(AsyncSession):
+    """Async session with hooks for the request-owned transaction."""
+
+    def on_commit(self, callback: OnCommitCallback) -> None:
+        """Run ``callback`` after this request's next successful commit.
+
+        Callbacks may be synchronous or asynchronous. They are discarded when
+        the request rolls back or has no writes.
+        """
+        register_on_commit(self, callback)
 
 
 @dataclass
@@ -21,7 +34,7 @@ class DatabaseState:
     """Holds all database state for a single application instance."""
 
     engine: AsyncEngine
-    session_factory: async_sessionmaker[AsyncSession]
+    session_factory: async_sessionmaker[RequestSession]
     sync_session_class: type[Session] = field(repr=False, default=Session)
     audit_callback: Callable | None = field(default=None, repr=False)
     _listeners_registered: bool = field(default=False, repr=False)
@@ -67,7 +80,10 @@ def init_db(
     # Scoped Session subclass so event listeners only fire for this engine's sessions
     scoped_session_class = type("ScopedSession", (Session,), {})
     session_factory = async_sessionmaker(
-        engine, expire_on_commit=False, sync_session_class=scoped_session_class
+        engine,
+        class_=RequestSession,
+        expire_on_commit=False,
+        sync_session_class=scoped_session_class,
     )
 
     return DatabaseState(

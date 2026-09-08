@@ -15,6 +15,8 @@ from simple_module_hosting.permissions import RequiresPermission
 from starlette.responses import RedirectResponse
 
 from feature_flags.constants import (
+    AUDIT_LOG_MODULE,
+    AUDIT_LOG_VIEW_URL,
     MENU_URL,
     PAGE_BROWSE,
     PERM_FEATURE_FLAGS_MANAGE,
@@ -34,6 +36,22 @@ def _redirect_for_tenant(tenant_id: str | None) -> RedirectResponse:
     return RedirectResponse(target, status_code=303)
 
 
+def _audit_log_url(request: Request) -> str | None:
+    """Where "View change history" points, or ``None`` when nothing is there.
+
+    The audit log is an ordinary installable module, not a dependency of this
+    one — offering a link to a screen the install does not have is a 404 with
+    extra steps. Built from the model class name because that is the key the
+    trail is written under.
+    """
+    from feature_flags.models import FeatureFlagOverride
+
+    installed = any(m.meta.name == AUDIT_LOG_MODULE for m in request.app.state.sm.modules)
+    if not installed:
+        return None
+    return f"{AUDIT_LOG_VIEW_URL}?entity_type={FeatureFlagOverride.__name__}"
+
+
 def _scope_args(tenant_id: str | None) -> dict[str, str]:
     if tenant_id:
         return {"scope": SCOPE_TENANT, "scope_id": tenant_id}
@@ -46,6 +64,7 @@ def _scope_args(tenant_id: str | None) -> dict[str, str]:
     dependencies=[Depends(RequiresPermission(PERM_FEATURE_FLAGS_VIEW))],
 )
 async def browse(
+    request: Request,
     inertia: InertiaDep,
     service: FeatureFlagServiceDep,
     registry: FeatureFlagRegistryDep,
@@ -59,6 +78,7 @@ async def browse(
             "flags": [f.model_dump(mode="json") for f in flags],
             "tenant_id": tenant_id,
             "tenants": tenants,
+            "audit_log_url": _audit_log_url(request),
         },
     )
 

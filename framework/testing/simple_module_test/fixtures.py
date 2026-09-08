@@ -20,20 +20,17 @@ which soft-imports ``background_tasks``).
 
 from __future__ import annotations
 
-import contextlib
-import importlib
 import os
 from collections.abc import AsyncGenerator, Iterator
-from functools import lru_cache
 
 import httpx
 import pytest
-from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER, discover_modules
-from simple_module_db.base import all_module_bases
+from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
 from simple_module_db.session import DatabaseState, init_db
 from simple_module_hosting.settings import Settings
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from simple_module_test._schema import _create_all_tables
 from simple_module_test.session_cookie import forge_session_cookie
 
 _AUTH_PROVIDER_ENV = "SM_AUTH_PROVIDER"
@@ -107,67 +104,6 @@ async def engine(db_state: DatabaseState) -> AsyncEngine:
     return db_state.engine
 
 
-@lru_cache(maxsize=1)
-def _ensure_models_imported() -> list:
-    """Import all module models so all_module_bases is populated (cached)."""
-    for mod in discover_modules():
-        pkg = type(mod).__module__.split(".")[0]
-        with contextlib.suppress(ModuleNotFoundError):
-            importlib.import_module(f"{pkg}.models")
-    return list(all_module_bases)
-
-
-@lru_cache(maxsize=1)
-def _alembic_heads() -> tuple[str, ...]:
-    """Cached head revisions — cannot change within a pytest run.
-
-    Plural: each module's first migration sets its own ``branch_labels``, so
-    the history has one head per module and a real upgraded database carries
-    an ``alembic_version`` row for each. Stamping only one leaves the rest
-    looking un-applied, which now reads as a behind-head schema and puts every
-    test app behind the setup gate.
-    """
-    from simple_module_hosting.migrations import resolve_head_revisions
-
-    return resolve_head_revisions()
-
-
-async def _create_all_tables(engine) -> None:
-    """Create all module tables in a single connection.
-
-    Also stamps the alembic_version table at heads so the app's startup
-    migration check (``check_migrations``) treats the test DB as current.
-    Without the stamp the check would raise because ``create_all`` doesn't
-    touch alembic_version.
-    """
-    from sqlalchemy import text
-
-    bases = _ensure_models_imported()
-    heads = _alembic_heads()
-
-    async with engine.begin() as conn:
-
-        def _sync_create_all(sync_conn):
-            for base in bases:
-                base.metadata.create_all(sync_conn)
-
-        await conn.run_sync(_sync_create_all)
-
-        if heads:
-            await conn.execute(
-                text(
-                    "CREATE TABLE IF NOT EXISTS alembic_version "
-                    "(version_num VARCHAR(32) NOT NULL PRIMARY KEY)"
-                )
-            )
-            await conn.execute(text("DELETE FROM alembic_version"))
-            for head in heads:
-                await conn.execute(
-                    text("INSERT INTO alembic_version (version_num) VALUES (:v)"),
-                    {"v": head},
-                )
-
-
 @pytest.fixture
 async def db_session(db_state: DatabaseState) -> AsyncGenerator[AsyncSession, None]:
     """Yield an async session backed by in-memory SQLite."""
@@ -236,12 +172,38 @@ async def app(settings: Settings):
         yield application
 
 
+def _disable_env_bootstrap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stop ``bootstrap_admin_from_env`` seeding the app being built.
+
+    ``UsersModule.on_startup`` creates an administrator from
+    ``SM_USERS_BOOTSTRAP_*``, read from the environment *and* from a ``.env`` on
+    disk. A developer who followed ``.env.example`` has those set, so every app
+    this plugin builds gets an admin whether the fixture asked for one or not.
+    For ``setup_pending_app`` that is not a nuisance but the opposite of its
+    contract: the setup gate releases the moment an administrator exists, so the
+    wizard routes 404 and every test using it fails.
+
+    They fail *locally only* — CI has no ``.env`` — which is the worst shape for
+    a fixture to be wrong in, and left the failure looking like test-ordering
+    noise rather than a fixture that does not do what it says.
+    """
+    for key in list(os.environ):
+        if key.startswith("SM_USERS_BOOTSTRAP_"):
+            monkeypatch.delenv(key, raising=False)
+    try:
+        from users import bootstrap as bootstrap_module
+    except ImportError:
+        return  # No local-accounts provider installed; nothing bootstraps.
+    monkeypatch.setattr(bootstrap_module, "_read_dotenv_bootstrap_vars", dict)
+
+
 @pytest.fixture
-async def setup_pending_app(settings: Settings):
+async def setup_pending_app(settings: Settings, monkeypatch: pytest.MonkeyPatch):
     """An app with no administrator, so the first-run setup gate is engaged.
 
     The counterpart to ``app``: use this to assert on setup-mode behaviour.
     """
+    _disable_env_bootstrap(monkeypatch)
     async for application in _build_app(settings, seed_admin=False):
         yield application
 

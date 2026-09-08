@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from simple_module_core.i18n import I18nRegistry
-from simple_module_hosting.i18n_manifest import write_generated_resources
+from simple_module_hosting.i18n_manifest import emit_frontend_types, write_generated_resources
 
 
 def test_writes_file_with_flat_keys(tmp_path: Path) -> None:
@@ -114,3 +115,53 @@ def test_keys_tree_does_not_overwrite_real_key_with_stem(tmp_path: Path) -> None
     text = (tmp_path / "keys.generated.ts").read_text()
     # The real key retains its value; the virtual stem is skipped.
     assert "count: 'products.browse.count'" in text
+
+
+class TestEmitFrontendTypesStrictness:
+    """`make gen-i18n` must fail loudly where a live boot prefers stale types."""
+
+    def _registry(self) -> I18nRegistry:
+        reg = I18nRegistry(default_locale="en", supported_locales=["en"])
+        reg._messages = {"en": {"host.landing.title": "Hello"}}
+        return reg
+
+    def test_writes_into_the_i18n_package(self, tmp_path: Path) -> None:
+        pkg_src = tmp_path / "packages" / "i18n" / "src"
+        pkg_src.mkdir(parents=True)
+        emit_frontend_types(self._registry(), tmp_path, strict=True)
+        assert (pkg_src / "generated-resources.ts").is_file()
+        assert (pkg_src / "keys.generated.ts").is_file()
+
+    def test_missing_package_is_silent_on_the_boot_path(self, tmp_path: Path) -> None:
+        """A wheel-installed app ships no i18n workspace — that is not an error."""
+        emit_frontend_types(self._registry(), tmp_path)
+        assert not (tmp_path / "packages").exists()
+
+    def test_missing_package_raises_under_strict(self, tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError):
+            emit_frontend_types(self._registry(), tmp_path, strict=True)
+
+    def test_write_failure_is_swallowed_on_the_boot_path(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pkg_src = tmp_path / "packages" / "i18n" / "src"
+        pkg_src.mkdir(parents=True)
+        monkeypatch.setattr(
+            "simple_module_hosting.i18n_manifest.write_generated_resources", _explode
+        )
+        emit_frontend_types(self._registry(), tmp_path)  # logged, not raised
+
+    def test_write_failure_raises_under_strict(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pkg_src = tmp_path / "packages" / "i18n" / "src"
+        pkg_src.mkdir(parents=True)
+        monkeypatch.setattr(
+            "simple_module_hosting.i18n_manifest.write_generated_resources", _explode
+        )
+        with pytest.raises(OSError, match="disk full"):
+            emit_frontend_types(self._registry(), tmp_path, strict=True)
+
+
+def _explode(*args: object, **kwargs: object) -> None:
+    raise OSError("disk full")

@@ -95,6 +95,19 @@ class TestDashboardStatsEndpoint:
         names = [m["name"] for m in modules]
         assert "Dashboard" in names
 
+    async def test_module_entries_carry_their_package_directory(
+        self, authenticated_client: httpx.AsyncClient
+    ):
+        """The deck labels each tile with the package, not the display name.
+
+        ``AuditLog`` is what the module calls itself; ``audit_log`` is what it
+        is on disk and on PyPI, and that is the mono label in the frame.
+        """
+        resp = await authenticated_client.get(_STATS_URL)
+        modules = {m["name"]: m for m in resp.json()["system_info"]["modules"]}
+        assert modules["Dashboard"]["package"] == "dashboard"
+        assert modules["Users"]["package"] == "users"
+
     async def test_stats_requires_authentication(self, client: httpx.AsyncClient):
         resp = await client.get(_STATS_URL, follow_redirects=False)
         assert resp.status_code in (302, 401, 403)

@@ -15,6 +15,7 @@ from simple_module_db.deps import get_db
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.responses import RedirectResponse
 
 from dashboard.stats import fetch_dashboard_stats
 
@@ -36,6 +37,7 @@ admin_router = APIRouter(dependencies=[Depends(_require_admin)])
 
 _PAGE_HOME = "Dashboard/Home"
 _PAGE_DOCTOR = "Dashboard/Doctor"
+_DOCTOR_URL = "/admin/doctor/"
 
 
 @router.get("/", response_model=None)
@@ -57,31 +59,26 @@ async def dashboard(
 
 
 @admin_router.get("/", response_model=None)
-async def doctor(
-    request: Request,
-    inertia: InertiaDep,
-    db: AsyncSession = Depends(get_db),
-) -> InertiaResponse:
-    """`make doctor` mirror — live diagnostics, migrations, modules, env."""
-    from dashboard.doctor import collect_diagnostics, environment_info, migration_overview
+async def doctor(request: Request, inertia: InertiaDep) -> InertiaResponse:
+    """`make doctor` mirror — checks, migrations, dev server, all live."""
+    from dashboard.doctor import doctor_props
 
-    # collect_diagnostics/migration_overview do blocking filesystem walks +
-    # AST parses (module coupling/page checks, the alembic script directory) —
-    # run them off the event loop and alongside the DB stats fetch instead of
-    # serially after it, so one doctor request doesn't stall every other
-    # coroutine on this worker for the duration of a full framework scan.
-    stats, diagnostics, migration = await asyncio.gather(
-        fetch_dashboard_stats(db, request.app),
-        asyncio.to_thread(collect_diagnostics, request.app),
-        asyncio.to_thread(migration_overview, request.app),
+    # doctor_props walks the alembic script directory and every module's pages
+    # dir, so it is blocking filesystem work: keep it off the event loop rather
+    # than stalling every other coroutine on this worker for its duration.
+    props = await asyncio.to_thread(
+        doctor_props, request, module_count=len(request.app.state.sm.modules)
     )
-    return await inertia.render(
-        _PAGE_DOCTOR,
-        {
-            "module_count": stats["module_count"],
-            "system_info": stats["system_info"],
-            "diagnostics": diagnostics,
-            "migration": migration,
-            "environment": environment_info(request.app),
-        },
-    )
+    return await inertia.render(_PAGE_DOCTOR, props)
+
+
+@admin_router.post("/rerun", response_model=None)
+async def rerun_diagnostics(request: Request) -> RedirectResponse:
+    """Re-run the checks and come back to the page.
+
+    A POST because it does work, and a redirect because Inertia needs a page
+    response to land on. Outside development the run is a no-op — the holder
+    reports the checks as unsupported and the screen keeps saying so.
+    """
+    await asyncio.to_thread(request.app.state.sm.diagnostics.rerun)
+    return RedirectResponse(_DOCTOR_URL, status_code=303)
