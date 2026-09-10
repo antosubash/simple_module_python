@@ -92,6 +92,37 @@ class TestStandaloneOverlay:
         assert '"@simple-module-py/tsconfig": "0.0.27"' in pkg
         assert '"typescript"' in pkg
 
+    async def test_standalone_ships_the_types_its_tsconfig_declares(self, tmp_path):
+        """The shared base.json sets ``types: ["vite/client", "node"]``, so a
+        standalone module that doesn't depend on `vite` and `@types/node` fails
+        its own CI `npm run typecheck` with TS2688 "Cannot find type definition
+        file for 'node'/'vite/client'" on the very first run."""
+        import json
+        from pathlib import Path
+
+        from simple_module_cli.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-my-feature"
+        create_module(dest, name="MyFeature", standalone=True)
+
+        base = json.loads(
+            (Path(__file__).parents[3] / "packages" / "tsconfig" / "base.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        declared = base.get("compilerOptions", {}).get("types", [])
+        # "vite/client" is shipped by `vite`; "node" by `@types/node`.
+        providers = {"vite/client": "vite", "node": "@types/node"}
+        pkg = json.loads((dest / "package.json").read_text(encoding="utf-8"))
+        dev_deps = pkg.get("devDependencies", {})
+        for entry in declared:
+            provider = providers.get(entry)
+            assert provider is not None, f"no known provider for tsconfig type {entry!r}"
+            assert provider in dev_deps, (
+                f"base.json declares types {entry!r} but the standalone module "
+                f"scaffold does not depend on {provider!r}"
+            )
+
     async def test_in_repo_keeps_workspace_configs(self, tmp_path):
         from simple_module_cli.scaffolding import create_module
 

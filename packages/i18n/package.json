@@ -38,8 +38,8 @@
     "react": "^19.0.0"
   },
   "dependencies": {
-    "i18next": "^26.3.6",
-    "react-i18next": "^17.0.11"
+    "i18next": "^26.4.2",
+    "react-i18next": "^17.0.13"
   },
   "devDependencies": {
     "@simple-module-py/tsconfig": "0.0.34"

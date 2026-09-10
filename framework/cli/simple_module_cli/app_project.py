@@ -63,11 +63,22 @@ _APP_NPM_DEPS = {
     "react-dom": "^19.0.0",
     "@inertiajs/react": "^2.0.0",
 }
+# Flat mode has no npm workspaces, so `client_app/package.json` is never
+# installed — the root package.json seeded from these two dicts is the only
+# manifest npm reads. It must therefore cover everything client_app needs to
+# build, not just the framework pins: `vite.config.ts` imports
+# `@tailwindcss/vite`, and `tsc` needs the @types packages. Keep this in step
+# with templates/host/client_app/package.json.tpl.
 _APP_NPM_DEV_DEPS = {
     "@simple-module-py/tsconfig": _FRAMEWORK_VERSION,
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "^5.6.0",
-    "vite": "^8.0.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^26.5.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
 }
 
 # Files the host template ships that the workspace template re-emits at
