@@ -63,10 +63,20 @@ async def guarded_client(app, authenticated_client: httpx.AsyncClient) -> httpx.
 
 
 def _inertia_page(body: str) -> dict:
-    """Pull the JSON blob Inertia embeds in the server-rendered document."""
-    match = re.search(r'data-page="([^"]+)"', body) or re.search(r"data-page='([^']+)'", body)
+    """Pull the JSON blob Inertia embeds in the server-rendered document.
+
+    Read the ``<script type="application/json">`` element first — that is the
+    only place Inertia 3 looks. The single-quoted ``data-page`` attribute on
+    ``<div id="app">`` is the Inertia 2 form, kept as a fallback so this helper
+    works against either. Note the script element also carries a *literal*
+    ``data-page="app"`` attribute naming the mount point, so a naive
+    double-quoted ``data-page="…"`` search matches ``app`` and not JSON.
+    """
+    match = re.search(
+        r'<script data-page="[^"]*" type="application/json">(.*?)</script>', body, re.DOTALL
+    ) or re.search(r"data-page='([^']+)'", body)
     if match is None:
-        pytest.fail("no data-page attribute found — the error page did not render via Inertia")
+        pytest.fail("no embedded page object found — the error page did not render via Inertia")
     return json.loads(html.unescape(match.group(1)))
 
 
