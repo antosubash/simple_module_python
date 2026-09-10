@@ -29,14 +29,12 @@ class InertiaContext:
 
 
 class InertiaExtension(Extension):
-    tags = {"inertia_head", "inertia_body"}
+    tags = {"inertia_head", "inertia_body"}  # noqa: RUF012 - Jinja declares this an instance attr
 
     def parse(self, parser: Parser) -> nodes.Node:
         tag_name = next(parser.stream).value
         lineno = parser.stream.current.lineno
-        node = self.call_method(
-            f"_render_{tag_name}", [nodes.ContextReference()], lineno=lineno
-        )
+        node = self.call_method(f"_render_{tag_name}", [nodes.ContextReference()], lineno=lineno)
         return nodes.Output([node]).set_lineno(lineno)
 
     def _render_inertia_head(self, context: Context) -> Markup:

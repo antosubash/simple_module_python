@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Literal, cast
+from typing import Literal
 
 MergeIntent = Literal["append", "prepend"]
 
@@ -46,7 +46,7 @@ class InertiaRequest:
             partial_except=_csv(lower.get("x-inertia-partial-except")),
             reset=_csv(lower.get("x-inertia-reset")),
             error_bag=lower.get("x-inertia-error-bag") or None,
-            merge_intent=cast(MergeIntent, intent) if intent in ("append", "prepend") else None,
+            merge_intent=intent if intent in ("append", "prepend") else None,
             except_once_props=_csv(lower.get("x-inertia-except-once-props")),
             is_prefetch=(lower.get("purpose") or "").lower() == "prefetch",
             method=method.upper(),

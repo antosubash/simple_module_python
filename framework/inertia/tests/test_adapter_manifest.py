@@ -6,7 +6,6 @@ import json
 
 import pytest
 from fastapi.templating import Jinja2Templates
-
 from simple_module_inertia.config import InertiaConfig
 from simple_module_inertia.manifest import entry_assets, read_manifest
 
@@ -72,7 +71,7 @@ def test_production_falls_back_to_the_first_is_entry_chunk(tmp_path) -> None:
 def test_production_with_no_entry_raises_naming_the_manifest(tmp_path) -> None:
     manifest = _manifest(tmp_path, {"x.tsx": {"file": "assets/x.js"}})
     cfg = _cfg(tmp_path, environment="production", manifest_json_path=manifest)
-    with pytest.raises(LookupError, match="manifest.json"):
+    with pytest.raises(LookupError, match=r"manifest\.json"):
         entry_assets(cfg)
 
 

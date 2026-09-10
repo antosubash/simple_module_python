@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
-from starlette.requests import Request
-
 from simple_module_inertia.errors import (
     InertiaVersionConflictException,
     inertia_request_validation_exception_handler,
     inertia_version_conflict_exception_handler,
 )
+from starlette.requests import Request
 
 
 def _request(headers: dict[str, str], method: str = "POST") -> Request:

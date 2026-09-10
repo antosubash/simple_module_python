@@ -33,9 +33,7 @@ def version_conflict(url: str, version: str) -> Response:
 
 def redirect(url: str, *, method: str) -> RedirectResponse:
     code = (
-        status.HTTP_307_TEMPORARY_REDIRECT
-        if method.upper() == "GET"
-        else status.HTTP_303_SEE_OTHER
+        status.HTTP_307_TEMPORARY_REDIRECT if method.upper() == "GET" else status.HTTP_303_SEE_OTHER
     )
     return RedirectResponse(url=url, status_code=code)
 

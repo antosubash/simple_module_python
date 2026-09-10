@@ -3,7 +3,6 @@ from __future__ import annotations
 import warnings
 
 import pytest
-
 from simple_module_inertia.props import (
     Prop,
     ScrollMeta,

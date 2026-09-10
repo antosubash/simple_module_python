@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 from pydantic import BaseModel
-
 from simple_module_inertia.page import (
     PropEncodingError,
     build_page,
@@ -95,9 +94,7 @@ class TestBuildPage:
         assert page["props"]["errors"] == {"email": "taken"}
 
     def test_false_flags_and_empty_metadata_are_omitted(self) -> None:
-        page = build_page(
-            component="C", resolved=ResolvedProps(), url="/", version="v", errors={}
-        )
+        page = build_page(component="C", resolved=ResolvedProps(), url="/", version="v", errors={})
         for absent in (
             "deferredProps",
             "mergeProps",

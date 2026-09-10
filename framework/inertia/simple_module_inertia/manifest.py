@@ -13,6 +13,7 @@ import json
 import posixpath
 from dataclasses import dataclass, field
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from simple_module_inertia.config import InertiaConfig
@@ -26,7 +27,7 @@ class InertiaFiles:
 
 @lru_cache
 def read_manifest(path: str) -> dict[str, Any]:
-    with open(path, encoding="utf-8") as fh:
+    with Path(path).open(encoding="utf-8") as fh:
         return json.load(fh)
 
 
@@ -64,8 +65,6 @@ def entry_assets(config: InertiaConfig) -> InertiaFiles:
         )
     root = config.root_directory.strip("/")
     path = (
-        config.entrypoint_filename
-        if root in ("", ".")
-        else f"{root}/{config.entrypoint_filename}"
+        config.entrypoint_filename if root in ("", ".") else f"{root}/{config.entrypoint_filename}"
     )
     return InertiaFiles(js=f"{config.dev_url.rstrip('/')}/{path}")

@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from simple_module_inertia.response import (
     fragment_redirect,
     json_response,
@@ -15,9 +14,7 @@ from simple_module_inertia.response import (
 
 
 def test_json_response_carries_the_inertia_headers_and_encoded_page() -> None:
-    resp = json_response(
-        {"component": "C", "props": {"p": Path("/x")}, "url": "/", "version": "v"}
-    )
+    resp = json_response({"component": "C", "props": {"p": Path("/x")}, "url": "/", "version": "v"})
     assert resp.status_code == 200
     assert resp.headers["X-Inertia"] == "true"
     assert resp.headers["Vary"] == "Accept"
