@@ -63,7 +63,7 @@ responsibility. Every file below has one job and is testable on its own.
 | `inertia.py` | The request-scoped `Inertia` facade: `render`, `share`, `flash`, `back`, `redirect`, `location`, `encrypt_history`, `clear_history`. Thin — it delegates to `resolve`, `page`, `response`. |
 | `manifest.py` | Reads the Vite manifest keyed exactly as Vite writes it and resolves the entry's JS + CSS. Hosting stops rewriting the file. |
 | `errors.py` | Validation errors → session flash → the `errors` always-prop, scoped by error bag. Upstream's `exceptions.py`, renamed. |
-| `templating.py` | The Jinja `inertia_head` / `inertia_body` extension. Upstream, substantively unchanged. |
+| `templating.py` | The Jinja `inertia_head` / `inertia_body` extension. The body emits the initial page in **both** forms — `<script data-page="app" type="application/json">` (the only thing Inertia 3's `getInitialPageFromDOM` reads) and the `data-page` attribute on `<div id="app">` (what Inertia 2 read) — from one `htmlsafe_json_dumps` string, so a v2 client keeps working after the package ships and a v3 client works after it migrates. |
 | `deps.py` | `inertia_dependency_factory(config)` and the request → `Inertia` dependency. |
 
 ## 3. Prop-resolution rules (`resolve.py`)

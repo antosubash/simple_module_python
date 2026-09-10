@@ -61,6 +61,14 @@ class InertiaExtension(Extension):
         else:
             if inertia.data is None:
                 raise ValueError("No data was provided for the Inertia page")
+            # Inertia 3's getInitialPageFromDOM reads only the JSON script
+            # element; Inertia 2 read only the data-page attribute. Emit both
+            # so the adapter ships before the client migrates and keeps working
+            # after. ``data`` is htmlsafe_json_dumps output, so it cannot break
+            # out of either the attribute or the script element.
+            fragments.append(
+                f'<script data-page="app" type="application/json">{inertia.data}</script>'
+            )
             fragments.append(f"<div id=\"app\" data-page='{inertia.data}'></div>")
         fragments.append(f'<script type="module" src="{inertia.js}"></script>')
         return Markup("\n".join(fragments))
