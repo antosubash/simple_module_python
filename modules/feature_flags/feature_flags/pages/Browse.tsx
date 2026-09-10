@@ -107,5 +107,5 @@ function Browse() {
   );
 }
 
-Browse.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
+Browse.layout = [AdminLayout];
 export default Browse;

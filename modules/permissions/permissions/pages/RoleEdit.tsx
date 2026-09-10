@@ -187,5 +187,5 @@ function RoleEdit({ role, assigned, groups }: Props) {
   );
 }
 
-RoleEdit.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
+RoleEdit.layout = [AdminLayout];
 export default RoleEdit;

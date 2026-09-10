@@ -85,6 +85,6 @@ function AdminPage() {
   );
 }
 
-AdminPage.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
+AdminPage.layout = [AdminLayout];
 
 export default AdminPage;

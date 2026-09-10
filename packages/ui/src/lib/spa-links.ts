@@ -116,7 +116,7 @@ export function startSpaLinkInterception(): () => void {
     takenOver = null;
   });
 
-  const offInvalid = router.on('invalid', (event) => {
+  const offInvalid = router.on('httpException', (event) => {
     if (!takenOver) return;
     const url = takenOver;
     takenOver = null;

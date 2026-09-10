@@ -143,5 +143,5 @@ function ModulesEdit({ modules, testable = {} }: Props) {
   );
 }
 
-ModulesEdit.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
+ModulesEdit.layout = [AdminLayout];
 export default ModulesEdit;

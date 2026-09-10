@@ -125,5 +125,5 @@ function Detail() {
   );
 }
 
-Detail.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
+Detail.layout = [AdminLayout];
 export default Detail;

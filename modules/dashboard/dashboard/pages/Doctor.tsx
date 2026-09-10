@@ -107,5 +107,5 @@ function Doctor() {
   );
 }
 
-Doctor.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
+Doctor.layout = [AdminLayout];
 export default Doctor;

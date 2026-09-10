@@ -122,5 +122,5 @@ function Edit() {
   );
 }
 
-Edit.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
+Edit.layout = [AdminLayout];
 export default Edit;

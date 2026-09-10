@@ -50,5 +50,5 @@ function Profile() {
   );
 }
 
-Profile.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Profile.layout = [AuthenticatedLayout];
 export default Profile;

@@ -261,5 +261,5 @@ function Landing() {
   );
 }
 
-Landing.layout = (page: React.ReactNode) => <PublicLayout>{page}</PublicLayout>;
+Landing.layout = [PublicLayout];
 export default Landing;

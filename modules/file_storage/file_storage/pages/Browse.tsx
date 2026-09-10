@@ -258,5 +258,5 @@ function Browse() {
   );
 }
 
-Browse.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Browse.layout = [AuthenticatedLayout];
 export default Browse;

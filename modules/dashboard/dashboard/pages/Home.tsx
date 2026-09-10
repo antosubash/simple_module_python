@@ -162,5 +162,5 @@ function Home() {
   );
 }
 
-Home.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Home.layout = [AuthenticatedLayout];
 export default Home;

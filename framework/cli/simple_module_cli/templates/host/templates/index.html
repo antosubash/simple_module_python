@@ -7,7 +7,7 @@
        crawlers and link previews see the configured site name before React
        hydrates; Inertia's <Head> takes over per-page titles after that. #}
     {% set brand = branding_head(request) %}
-    <title>{{ brand.app_name }}</title>
+    <title data-inertia="">{{ brand.app_name }}</title>
     {% if brand.theme_color %}<meta name="theme-color" content="{{ brand.theme_color }}" />{% endif %}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

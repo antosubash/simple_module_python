@@ -266,6 +266,6 @@ function Manage() {
   );
 }
 
-Manage.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
+Manage.layout = [AdminLayout];
 
 export default Manage;

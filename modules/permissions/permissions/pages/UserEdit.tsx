@@ -194,5 +194,5 @@ function UserEdit({ user, roles, direct, inherited, inherited_by: inheritedBy, g
   );
 }
 
-UserEdit.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
+UserEdit.layout = [AdminLayout];
 export default UserEdit;

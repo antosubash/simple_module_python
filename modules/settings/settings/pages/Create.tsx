@@ -159,5 +159,5 @@ function Create({ known_keys }: Props) {
   );
 }
 
-Create.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
+Create.layout = [AdminLayout];
 export default Create;

@@ -170,5 +170,5 @@ function Browse({ settings, pagination, counts, filters }: Props) {
   );
 }
 
-Browse.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
+Browse.layout = [AdminLayout];
 export default Browse;
