@@ -85,7 +85,14 @@ export function StoreTable({ settings, onDelete }: Props) {
                       style={{ background: setting.value }}
                     />
                   )}
-                  <code className="font-mono text-[13px] truncate">{setting.value}</code>
+                  {/* `title` carries the full text: the cell clips most of a
+                      realistic value (a connection string measured 66% hidden at
+                      1440px, not just on phones) and the row's only other route
+                      to it is opening the editor. It repeats what is rendered,
+                      so a masked secret stays masked here too. */}
+                  <code title={setting.value} className="font-mono text-[13px] truncate">
+                    {setting.value}
+                  </code>
                 </div>
               </TableCell>
               <TableCell>

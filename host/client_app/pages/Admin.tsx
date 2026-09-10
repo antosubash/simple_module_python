@@ -40,7 +40,11 @@ function ToolCard({ item }: { item: MenuItem }) {
         <span className="block truncate font-medium text-foreground group-hover:text-primary">
           {item.label}
         </span>
-        <span className="block truncate text-sm text-muted-foreground">{item.url}</span>
+        {/* The url is the card's only disambiguator when two tools share a
+            label, so clipping it silently makes them indistinguishable. */}
+        <span title={item.url} className="block truncate text-sm text-muted-foreground">
+          {item.url}
+        </span>
       </span>
     </Link>
   );

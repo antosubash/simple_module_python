@@ -72,7 +72,11 @@ export function MigrationsCard({ migrations, commands, onCopyCommand }: Props) {
                     {row.module}
                   </code>
                 )}
-                <span className="min-w-0 flex-1 truncate">{row.message}</span>
+                {/* Clips at narrow widths, and the row offers no other way to
+                    read it — the same remedy the short id above already uses. */}
+                <span title={row.message} className="min-w-0 flex-1 truncate">
+                  {row.message}
+                </span>
                 <span
                   className={`shrink-0 text-[12.5px] ${
                     row.applied ? 'text-primary-700' : 'text-amber-700'

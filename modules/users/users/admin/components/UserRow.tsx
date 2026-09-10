@@ -55,6 +55,18 @@ export function UserRow({ user, actions }: Props) {
   const { ago, until } = useRelativeTime();
   const emptyValue = t(keys.users.common.empty_value);
   const invited = user.state === 'invited';
+  // Both member lines truncate, and this row is the only place a name or an
+  // address is shown, so each carries its own rendered text in `title`:
+  // arbitrary-length user data clips on real accounts long before seeded ones.
+  // Each `title` sits on an element lifted above the link's row overlay (see
+  // below) — under it, the overlay would answer the hover instead.
+  const primary = invited ? user.email : user.full_name || user.email.split('@')[0];
+  const secondary = invited
+    ? t(keys.users.user_row.invited_meta, {
+        ago: ago(user.invited_at),
+        until: until(user.invite_expires_at),
+      })
+    : user.email;
 
   return (
     <TableRow
@@ -77,15 +89,23 @@ export function UserRow({ user, actions }: Props) {
               href={`/admin/users/${user.id}`}
               className="truncate text-sm font-medium text-foreground before:absolute before:inset-0 before:content-[''] hover:underline focus-visible:underline focus-visible:outline-none"
             >
-              {invited ? user.email : user.full_name || user.email.split('@')[0]}
+              {/* `relative` puts the text back on top of the link's own overlay
+                  so it answers the hover: on the overlay the tooltip would
+                  belong to the whole row and follow the pointer across every
+                  other cell. Wrapping the text does not stop it truncating —
+                  the anchor is still the element that clips. */}
+              <span className="relative" title={primary}>
+                {primary}
+              </span>
             </Link>
-            <div className="truncate text-[12.5px] text-muted-foreground">
-              {invited
-                ? t(keys.users.user_row.invited_meta, {
-                    ago: ago(user.invited_at),
-                    until: until(user.invite_expires_at),
-                  })
-                : user.email}
+            {/* Lifted for the same reason. The cost is that this one line stops
+                being part of the row-wide click target; the rest of the row,
+                including the name above it, still opens the user. */}
+            <div
+              title={secondary}
+              className="relative truncate text-[12.5px] text-muted-foreground"
+            >
+              {secondary}
             </div>
           </div>
         </div>

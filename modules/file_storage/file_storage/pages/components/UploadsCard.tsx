@@ -34,47 +34,55 @@ export function UploadsCard({ jobs, onCancel, onRetry, onDismiss }: Props) {
           {t(keys.file_storage.upload.card_subtitle)}
         </span>
       </div>
-      {jobs.map((job) => (
-        <div key={job.id} className="flex items-center gap-3 text-sm">
-          <span className="w-40 shrink-0 truncate sm:w-[190px]">{job.name}</span>
-          {job.status === 'error' ? (
-            <>
-              <span className="min-w-0 flex-1 truncate text-destructive">
-                {job.reason
-                  ? t(keys.file_storage.upload.failed_reason, { reason: job.reason })
-                  : t(keys.file_storage.toasts.upload_failed)}
-              </span>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-primary-700"
-                onClick={() => onRetry(job.id)}
-              >
-                {t(keys.file_storage.upload.retry)}
-              </Button>
-              <DismissButton
-                label={t(keys.file_storage.upload.dismiss)}
-                onClick={() => onDismiss(job.id)}
-              />
-            </>
-          ) : (
-            <>
-              <Progress
-                value={job.percent}
-                className="h-1.5 flex-1"
-                aria-label={t(keys.file_storage.upload.in_progress, { name: job.name })}
-              />
-              <span className="w-11 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-                {job.percent}%
-              </span>
-              <DismissButton
-                label={t(keys.file_storage.upload.cancel)}
-                onClick={() => onCancel(job.id)}
-              />
-            </>
-          )}
-        </div>
-      ))}
+      {jobs.map((job) => {
+        // Filenames are arbitrary-length and the fixed 160px column clips them,
+        // while this row is the only place an in-flight upload is named at all.
+        // The failure text is the server's own reason, equally unbounded.
+        const failure = job.reason
+          ? t(keys.file_storage.upload.failed_reason, { reason: job.reason })
+          : t(keys.file_storage.toasts.upload_failed);
+        return (
+          <div key={job.id} className="flex items-center gap-3 text-sm">
+            <span title={job.name} className="w-40 shrink-0 truncate sm:w-[190px]">
+              {job.name}
+            </span>
+            {job.status === 'error' ? (
+              <>
+                <span title={failure} className="min-w-0 flex-1 truncate text-destructive">
+                  {failure}
+                </span>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-primary-700"
+                  onClick={() => onRetry(job.id)}
+                >
+                  {t(keys.file_storage.upload.retry)}
+                </Button>
+                <DismissButton
+                  label={t(keys.file_storage.upload.dismiss)}
+                  onClick={() => onDismiss(job.id)}
+                />
+              </>
+            ) : (
+              <>
+                <Progress
+                  value={job.percent}
+                  className="h-1.5 flex-1"
+                  aria-label={t(keys.file_storage.upload.in_progress, { name: job.name })}
+                />
+                <span className="w-11 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                  {job.percent}%
+                </span>
+                <DismissButton
+                  label={t(keys.file_storage.upload.cancel)}
+                  onClick={() => onCancel(job.id)}
+                />
+              </>
+            )}
+          </div>
+        );
+      })}
     </Card>
   );
 }
