@@ -211,6 +211,25 @@ def test_sm_new_rejects_mixed_separators(tmp_path: Path) -> None:
     assert result.exit_code != 0
 
 
+def test_scaffold_adopts_every_locale_catalog_the_server_sends(tmp_path: Path) -> None:
+    """Issue #321: the scaffold gated ``updateI18n`` on a locale *change*, which
+    drops the catalog that arrives when the audience changes instead. Signing in
+    swaps the anonymous snapshot for one including admin-only modules at the same
+    locale, so every admin screen rendered raw keys ("dashboard.home.title")
+    until a hard refresh. A non-null ``messages`` payload is itself the server's
+    signal that the client needs it."""
+    from simple_module_cli.scaffolding import create_host
+
+    dest = tmp_path / "demo"
+    create_host(dest, name="demo-host", modules=["Dashboard", "Auth"])
+
+    app_tsx = (dest / "client_app" / "app.tsx").read_text()
+    assert "updateI18n" in app_tsx
+    assert "activeLocale" not in app_tsx, (
+        "the locale gate is back — a same-locale catalog would be dropped again"
+    )
+
+
 def test_sm_new_no_install_next_steps_include_initial_migration(tmp_path: Path) -> None:
     """Issue #135: ``host/migrations/versions/`` ships empty, so a fresh
     ``make migrate`` is a no-op. The printed next-steps must therefore
