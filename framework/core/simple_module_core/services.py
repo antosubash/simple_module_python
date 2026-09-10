@@ -19,9 +19,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from inertia import InertiaConfig
     from simple_module_db.session import DatabaseState
     from simple_module_hosting.settings import Settings
+    from simple_module_inertia import InertiaConfig
 
     from simple_module_core.audit_links import AuditLinkRegistry
     from simple_module_core.design_packs import DesignPackRegistry

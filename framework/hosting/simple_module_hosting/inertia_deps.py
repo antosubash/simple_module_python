@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends, Request
-from inertia import Inertia
+from simple_module_inertia import Inertia
 
 
 async def get_inertia(request: Request) -> Inertia:
