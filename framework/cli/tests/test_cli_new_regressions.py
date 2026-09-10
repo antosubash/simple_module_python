@@ -13,9 +13,9 @@ from simple_module_cli.cli import app
 from typer.testing import CliRunner
 
 
-def test_sm_new_flat_pins_inertia_react_to_v2(tmp_path: Path) -> None:
+def test_sm_new_flat_pins_inertia_react_to_v3(tmp_path: Path) -> None:
     """Issue #128: flat scaffold's root package.json must peer-match
-    @simple-module-py/ui's ``@inertiajs/react: ^2.0.0`` peer dep."""
+    @simple-module-py/ui's ``@inertiajs/react: ^3.0.0`` peer dep."""
     runner = CliRunner()
     target = tmp_path / "demo"
     runner.invoke(
@@ -25,7 +25,7 @@ def test_sm_new_flat_pins_inertia_react_to_v2(tmp_path: Path) -> None:
     data = json.loads((target / "package.json").read_text())
     inertia = data.get("dependencies", {}).get("@inertiajs/react")
     assert inertia is not None
-    assert inertia.startswith("^2."), f"expected ^2.x, got {inertia!r}"
+    assert inertia.startswith("^3."), f"expected ^3.x, got {inertia!r}"
 
 
 def test_sm_new_sample_module_pins_match_framework_version(tmp_path: Path) -> None:

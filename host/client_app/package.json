@@ -10,7 +10,7 @@
   "dependencies": {
     "@base-ui/react": "^1.8.0",
     "@hookform/resolvers": "^5.9.1",
-    "@inertiajs/react": "^2.3.27",
+    "@inertiajs/react": "^3.7.0",
     "@radix-ui/react-slot": "^1.2.4",
     "@simple-module-py/i18n": "*",
     "class-variance-authority": "^0.7.1",

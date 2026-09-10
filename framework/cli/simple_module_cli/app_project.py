@@ -61,7 +61,7 @@ _APP_NPM_DEPS = {
     "@simple-module-py/i18n": _FRAMEWORK_VERSION,
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@inertiajs/react": "^2.0.0",
+    "@inertiajs/react": "^3.7.0",
 }
 # Flat mode has no npm workspaces, so `client_app/package.json` is never
 # installed — the root package.json seeded from these two dicts is the only

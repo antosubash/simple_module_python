@@ -8,7 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@inertiajs/react": "^2.0.0",
+    "@inertiajs/react": "^3.7.0",
     "@simple-module-py/i18n": "{{FRAMEWORK_VERSION}}",
     "@simple-module-py/ui": "{{FRAMEWORK_VERSION}}",
     "react": "^19.0.0",
