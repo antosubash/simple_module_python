@@ -5,13 +5,13 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, Request
-from inertia import InertiaResponse
 from pydantic import ValidationError
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.inertia_utils import (
     redirect_back_with_errors,
     validation_errors_to_dict,
 )
+from simple_module_inertia import InertiaResponse
 from starlette.responses import RedirectResponse
 
 from permissions.constants import PERM_MANAGE

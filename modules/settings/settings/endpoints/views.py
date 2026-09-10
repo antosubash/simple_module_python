@@ -13,11 +13,11 @@ import asyncio
 import math
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from inertia import InertiaResponse
 from pydantic import ValidationError
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.inertia_utils import redirect_back_with_errors, validation_errors_to_dict
 from simple_module_hosting.permissions import RequiresPermission
+from simple_module_inertia import InertiaResponse
 from starlette.responses import RedirectResponse
 
 from settings import browse_query, known_keys

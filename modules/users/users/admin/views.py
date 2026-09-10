@@ -6,11 +6,11 @@ import math
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from inertia import InertiaResponse
 from simple_module_db.deps import get_db
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
+from simple_module_inertia import InertiaResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 

@@ -6,9 +6,9 @@ import asyncio
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from inertia import InertiaResponse
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
+from simple_module_inertia import InertiaResponse
 
 from background_tasks.constants import (
     PERM_VIEW,

@@ -14,9 +14,9 @@ landlord of a space all of them share.
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
-from inertia import InertiaResponse
 from simple_module_core.permissions import is_admin
 from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_inertia import InertiaResponse
 
 router = APIRouter()
 

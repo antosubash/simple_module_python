@@ -6,12 +6,12 @@ import math
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, Request
-from inertia import InertiaResponse
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_db.deps import get_db
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for
+from simple_module_inertia import InertiaResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from audit_log.constants import (
