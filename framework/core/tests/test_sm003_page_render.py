@@ -108,6 +108,24 @@ class TestSm003PageRenderResolution:
         mod = _FakeModule(meta=_FakeMeta(name="M"))
         assert "admin/Browse" in find_render_calls(mod, src_dir)  # pyright: ignore[reportArgumentType]
 
+    async def test_colocated_test_file_is_not_flagged_as_orphan_page(self, tmp_path: Path):
+        """A ``*.test.tsx``/``*.spec.tsx`` beside a page is a test, not a page.
+
+        Regression test: ``collect_tsx_pages`` globbed ``pages/**/*.tsx``
+        with no exclusion, so a colocated ``Browse.test.tsx`` (the same
+        pattern Vite's import.meta.glob now excludes) was reported as an
+        SM003 orphan page since nothing renders "M/Browse.test".
+        """
+        src_dir = tmp_path / "m" / "m"
+        (src_dir / "pages").mkdir(parents=True)
+        (src_dir / "pages" / "Browse.tsx").write_text("export default function B() {}")
+        (src_dir / "pages" / "Browse.test.tsx").write_text("test('renders', () => {})")
+        (src_dir / "pages" / "Browse.spec.tsx").write_text("test('renders', () => {})")
+        (src_dir / "endpoints.py").write_text(
+            'async def view(inertia):\n    return await inertia.render("M/Browse", {})\n'
+        )
+        assert self._diags(src_dir, "M") == []
+
     async def test_fstring_with_unknown_name_stays_flagged(self, tmp_path: Path):
         """An f-string over a runtime value is not static — don't guess."""
         src_dir = tmp_path / "m" / "m"

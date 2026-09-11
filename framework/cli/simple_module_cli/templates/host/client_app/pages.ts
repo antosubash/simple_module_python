@@ -15,7 +15,14 @@ import { moduleGlobs } from './modules.generated';
 type PageModule = { default: React.ComponentType<Record<string, unknown>> };
 type PageLoader = () => Promise<PageModule>;
 
-const hostPages = import.meta.glob<PageModule>('./pages/**/*.tsx');
+// A `*.test.tsx` beside a page is a test, not a page — without these
+// negations it registers as a phantom page and Vite follows the import into
+// the production bundle.
+const hostPages = import.meta.glob<PageModule>([
+  './pages/**/*.tsx',
+  '!./pages/**/*.test.tsx',
+  '!./pages/**/*.spec.tsx',
+]);
 
 const pages: Record<string, PageLoader> = {};
 

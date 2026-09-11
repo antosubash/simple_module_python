@@ -19,7 +19,6 @@ from __future__ import annotations
 import importlib.resources
 import json
 import logging
-import os
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -30,6 +29,7 @@ from simple_module_hosting.assets import (
     render_assets_json,
     render_modules_css,
 )
+from simple_module_hosting.page_globs import glob_patterns_for
 
 logger = logging.getLogger(__name__)
 
@@ -215,22 +215,9 @@ def write_module_pages_manifest(
     }
 
 
-def _glob_pattern_for(pages_dir: Path, output_dir: Path) -> str:
-    """Build a Vite ``import.meta.glob`` pattern relative to ``output_dir``.
-
-    Vite 8 interprets filesystem-absolute paths against the project root,
-    not the filesystem, so we always emit the path relative to the file
-    where the glob lives (``modules.generated.ts`` under ``output_dir``).
-    """
-    try:
-        rel = Path(os.path.relpath(pages_dir, output_dir.resolve()))
-    except ValueError:
-        # Different drive on Windows — fall back to absolute (rare).
-        return pages_dir.as_posix() + "/**/*.tsx"
-    rel_str = rel.as_posix()
-    if not rel_str.startswith(("./", "../")):
-        rel_str = "./" + rel_str
-    return rel_str + "/**/*.tsx"
+#: Re-exported so the generator's one caller and its tests keep importing the
+#: glob rule from here; it lives in ``page_globs`` to stay under the line cap.
+_glob_pattern_for = glob_patterns_for
 
 
 def read_module_package_json(mod: ModuleBase) -> dict | None:

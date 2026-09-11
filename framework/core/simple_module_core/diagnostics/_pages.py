@@ -89,6 +89,15 @@ def _iter_render_components(tree: ast.Module, consts: dict[str, str]) -> list[st
     return found
 
 
+#: A ``*.test.tsx``/``*.spec.tsx`` beside a page is a test, not a page —
+#: mirrors ``simple_module_hosting.page_globs.TEST_FILE_SUFFIXES``, which
+#: excludes the same files from the Vite glob. Duplicated rather than
+#: imported: ``simple_module_hosting`` depends on ``simple_module_core``,
+#: not the other way around, so importing it here would invert the package
+#: layering.
+_TEST_FILE_SUFFIXES = (".test.tsx", ".spec.tsx")
+
+
 def collect_tsx_pages(pages_dir: Path) -> set[str]:
     """Collect .tsx page identifiers relative to pages_dir, without extension.
 
@@ -96,10 +105,15 @@ def collect_tsx_pages(pages_dir: Path) -> set[str]:
     directly against inertia.render("Module/Sub/Page") keys. Subdirectories
     whose names start with a lowercase letter (``components/``, ``hooks/``,
     ...) are treated as helper folders, not Inertia page roots, matching the
-    PascalCase convention Inertia uses.
+    PascalCase convention Inertia uses. Files ending in ``.test.tsx`` or
+    ``.spec.tsx`` are colocated tests, not pages, and are excluded the same
+    way the Vite glob excludes them — otherwise a colocated test with no
+    matching ``inertia.render()`` call is flagged as an SM003 orphan page.
     """
     pages: set[str] = set()
     for f in pages_dir.rglob("*.tsx"):
+        if f.name.endswith(_TEST_FILE_SUFFIXES):
+            continue
         rel = f.relative_to(pages_dir)
         if any(part[:1].islower() for part in rel.parts[:-1]):
             continue

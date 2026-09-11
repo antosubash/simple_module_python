@@ -17,7 +17,16 @@ import { moduleGlobs } from './modules.generated';
 type PageModule = { default: React.ComponentType<Record<string, unknown>> };
 type PageLoader = () => Promise<PageModule>;
 
-const hostPages = import.meta.glob<PageModule>('./pages/**/*.tsx');
+// A `*.test.tsx` beside a page is a test, not a page. Without these negations
+// it registered as a phantom page ("Error.test") and Vite followed the import
+// into the production bundle, shipping the test and dragging testing-library
+// into a vendor chunk. Mirrors TEST_FILE_SUFFIXES in the manifest generator,
+// which emits the same negations for module pages.
+const hostPages = import.meta.glob<PageModule>([
+  './pages/**/*.tsx',
+  '!./pages/**/*.test.tsx',
+  '!./pages/**/*.spec.tsx',
+]);
 
 const pages: Record<string, PageLoader> = {};
 
