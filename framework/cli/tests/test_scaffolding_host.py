@@ -41,6 +41,17 @@ class TestCreateHost:
         ]:
             assert (dest / relpath).exists(), f"missing: {relpath}"
 
+    async def test_pages_ts_excludes_colocated_test_files(self, tmp_path):
+        """Guards template drift from host/client_app/pages.ts: without these
+        negations a colocated test file ships to the production bundle."""
+        from simple_module_cli.scaffolding import create_host
+
+        dest = tmp_path / "demo"
+        create_host(dest, name="demo-host", modules=[])
+        pages_ts = (dest / "client_app" / "pages.ts").read_text(encoding="utf-8")
+        assert "'!./pages/**/*.test.tsx'" in pages_ts
+        assert "'!./pages/**/*.spec.tsx'" in pages_ts
+
     async def test_package_json_carries_host_name(self, tmp_path):
         """client_app/package.json has its `name` prefixed with the host name."""
         from simple_module_cli.scaffolding import create_host
