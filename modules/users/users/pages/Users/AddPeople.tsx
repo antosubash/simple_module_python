@@ -287,5 +287,5 @@ function AddPeople() {
   );
 }
 
-AddPeople.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
+AddPeople.layout = [AdminLayout];
 export default AddPeople;

@@ -228,5 +228,5 @@ function Index() {
   );
 }
 
-Index.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
+Index.layout = [AdminLayout];
 export default Index;

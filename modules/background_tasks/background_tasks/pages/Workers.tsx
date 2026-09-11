@@ -111,5 +111,5 @@ function Workers() {
   );
 }
 
-Workers.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
+Workers.layout = [AdminLayout];
 export default Workers;

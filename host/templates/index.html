@@ -31,12 +31,12 @@
       })();
     </script>
     {% set _brand = branding_head(request) %}
-    {# `inertia` marks this as head-managed. Inertia only replaces elements
+    {# `data-inertia` marks this as head-managed. Inertia only replaces elements
        carrying that attribute — a plain <title> is left alone and its own
-       <title inertia=""> is *appended* instead, leaving two title elements.
+       <title data-inertia=""> is *appended* instead, leaving two title elements.
        The browser then uses the first in document order, so every page showed
        the bare app name and no <Head title> ever took effect. #}
-    <title inertia="">{{ _brand.app_name }}</title>
+    <title data-inertia="">{{ _brand.app_name }}</title>
     {% if _brand.theme_color %}<meta name="theme-color" content="{{ _brand.theme_color }}" />{% endif %}
     {% if _brand.favicon_url %}<link rel="icon" href="{{ _brand.favicon_url }}" />{% endif %}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
