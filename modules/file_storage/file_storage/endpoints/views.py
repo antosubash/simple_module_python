@@ -5,10 +5,10 @@ from __future__ import annotations
 import math
 
 from fastapi import APIRouter, Depends, Query
-from inertia import InertiaResponse
 from simple_module_db.deps import get_db
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
+from simple_module_inertia import InertiaResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from file_storage import constants

@@ -571,6 +571,37 @@ Frontend callers echo the token back as `X-CSRF-Token` on
 `POST`/`PUT`/`PATCH`/`DELETE`. Safe methods are never checked, and bare test
 apps without `SessionMiddleware` are exempt, so unit tests need no ceremony.
 
+## Prop types (Inertia v3)
+
+The adapter is the in-repo `simple_module_inertia` package, which speaks the
+Inertia v3 protocol. Import `InertiaResponse` and the prop wrappers from it.
+Wrap a value, a callable, or an awaitable; the adapter decides when to resolve
+it, and the wrappers compose (`merge(defer(load_feed), match_on="id")`):
+
+```python
+from simple_module_inertia import always, defer, merge, once, optional, scroll
+
+await inertia.render(
+    "Feed/Index",
+    {
+        "posts": scroll(
+            load_page, page_name="page", current_page=1, previous_page=None, next_page=2
+        ),
+        "notices": merge(load_notices, match_on="id"),
+        "plans": once(load_plans, expires_at=None),
+        "analytics": defer(load_analytics, group="sidebar"),
+        "stats": optional(load_stats),  # only on partial reloads that ask for it
+        "flash": always(get_flash),  # on every response, even partial ones
+    },
+)
+```
+
+`errors` is always present in props (it is the protocol's always-prop) and is
+filled from validation failures flashed by the previous request. A page `url`
+is always root-relative, and a prop that cannot be serialised raises
+`PropEncodingError` naming its path (`props.user.avatar`) rather than a bare
+`TypeError`.
+
 ## Developing out-of-tree
 
 A module in its own repo has no host around it — these are the three

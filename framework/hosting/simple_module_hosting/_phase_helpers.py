@@ -14,13 +14,13 @@ from typing import TYPE_CHECKING
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
-from inertia import (
-    InertiaVersionConflictException,
-    inertia_version_conflict_exception_handler,
-)
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
 from simple_module_core.exceptions import NotFoundError
 from simple_module_db import CommitBeforeResponseMiddleware
+from simple_module_inertia import (
+    InertiaVersionConflictException,
+    inertia_version_conflict_exception_handler,
+)
 from starlette.exceptions import HTTPException
 from starlette.middleware.gzip import GZipMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware

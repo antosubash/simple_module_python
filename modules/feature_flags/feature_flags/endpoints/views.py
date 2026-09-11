@@ -9,9 +9,9 @@ frontend doesn't need separate routes per scope.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
-from inertia import InertiaResponse
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
+from simple_module_inertia import InertiaResponse
 from starlette.responses import RedirectResponse
 
 from feature_flags.constants import (

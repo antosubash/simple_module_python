@@ -23,7 +23,6 @@ classifiers = [
 dependencies = [
     "click>=8.1",
     "fastapi>=0.115",
-    "fastapi-inertia>=1.0",
     "httpx>=0.27",
     # SessionMiddleware (starlette.middleware.sessions) imports itsdangerous at
     # module import time; starlette treats it as an optional extra, so declare
@@ -32,6 +31,7 @@ dependencies = [
     "jinja2>=3.1",
     "simple_module_core==0.0.34",
     "simple_module_db==0.0.34",
+    "simple_module_inertia==0.0.34",
     "starlette>=0.44",
     "tomlkit>=0.13",
     "uvicorn[standard]>=0.34",
@@ -59,3 +59,4 @@ packages = ["simple_module_hosting"]
 [tool.uv.sources]
 simple_module_core = { workspace = true }
 simple_module_db = { workspace = true }
+simple_module_inertia = { workspace = true }

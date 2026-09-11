@@ -27,10 +27,10 @@ import logging
 from types import SimpleNamespace
 
 from fastapi import APIRouter, HTTPException, Request
-from inertia import InertiaResponse
 from pydantic import EmailStr
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_inertia import InertiaResponse
 from sqlmodel import SQLModel
 
 from host.setup_payloads import connection_status, steps_payload
