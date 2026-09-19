@@ -8,7 +8,8 @@ second time inside whichever module happens to keep a cache (GH #318). A module
 the bus itself knows nothing about Redis.
 
 Every framework channel shares one Redis channel. The volume is a handful of
-messages per revocation or settings save, and ``Invalidation.channel`` routes
+messages per revocation — ``users`` is the only publisher today — and
+``Invalidation.channel`` routes
 inside the receiving process, so one subscription is less machinery for the same
 result — and it means a module that adds a channel after boot needs no
 resubscribe.

@@ -412,14 +412,40 @@ issue. Recorded in `provider._version_still_current`'s docstring and in
 error path something authoritative to fall back on — mark the entry stale rather
 than delete it — which keeps "handlers may only forget" in spirit.
 
+### F14 — the sweep missed the definition site, and a batch reported itself done (fixed)
+
+Two of the twelve fixes above did not hold, caught by re-auditing the fixes rather
+than trusting the report of them.
+
+The channel-scope error (F8/F11) was in **six** places, not five. The one left was
+`background_tasks/constants.py`, the comment on `DEFAULT_INVALIDATION_CHANNEL`
+itself — the first thing a reader of that constant sees. F11 already recorded
+"grep the phrase, don't patch where you noticed it" and the grep still missed the
+definition site, because the earlier sweep searched the phrasing used in prose and
+this instance is a code comment. Fixed, along with its claim that cross-talk is
+"harmless (a dropped cache entry)", which F13 shows is not unconditional.
+
+The second was simply not applied. The batch script that made those edits raised
+on one substitution whose target text I had mistyped; I fixed that one by hand and
+moved on, never re-running the rest, so every edit *after* it in the script was
+silently skipped — and I reported the batch as applied. A script that aborts
+part-way leaves an unknown suffix undone: it has to report what it applied, not
+just that it finished. The version used for this fix counts and prints
+`applied: N of M`.
+
+Both are process findings rather than product ones, which is why they are recorded
+here instead of being quietly fixed: the same shape (a fix applied at the place it
+was noticed, and a batch believed on its own word) will otherwise recur.
+
 ## How the findings were found
 
 Worth recording, because it argues for the method rather than for me. Of the
-thirteen findings, F1–F5 came out of *writing* the tests, F6–F9 out of an
+fourteen findings, F1–F5 came out of *writing* the tests, F6–F9 out of an
 adversarial review and an exploratory pass against a real broker, and F10–F12 out
 of auditing the documentation against the tree — including this plan, which
 claimed a test that did not exist. F13 came from pushing back on a conclusion I
-had already written down.
+had already written down, and F14 from re-auditing the fixes for the other
+thirteen, which is the step that is easiest to skip and caught two bad claims.
 
 Two of the three worst findings (F6, F7) were invisible to every test in the
 original change *and* to the ones I added first, because both need a broker that

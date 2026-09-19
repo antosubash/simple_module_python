@@ -183,7 +183,7 @@ class TestDeliver:
         ],
     )
     async def test_junk_is_dropped_rather_than_raised(self, message):
-        """A shared Redis database carries other people's traffic."""
+        """A shared Redis server carries other people's traffic."""
         bus = InvalidationBus()
         seen: list[Invalidation] = []
         bus.subscribe("c", seen.append)

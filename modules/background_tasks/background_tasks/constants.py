@@ -88,9 +88,12 @@ DEFAULT_PURGE_INTERVAL_SECONDS = 60 * 60 * 24
 DEFAULT_RETENTION_DAYS = 14
 DEFAULT_MAX_RETRIES = 3
 # Redis pub/sub channel carrying the framework's cache invalidations. Namespaced
-# so that two apps sharing one Redis database do not each act on the other's
-# messages — harmless (a dropped cache entry), but it makes every worker do
-# pointless reads. An operator in that position renames it per app.
+# so that two apps on one Redis *server* do not each act on the other's messages.
+# The server, not the database: pub/sub ignores the logical DB index, so DBs 4 and
+# 5 of one instance share this channel. Mostly that costs pointless reads, but it
+# is not unconditionally harmless — an emptied cache is also what exposes
+# ``UsersAuthProvider._version_still_current``'s fail-open branch, so rename it
+# per app rather than relying on the DB number.
 DEFAULT_INVALIDATION_CHANNEL = "simple_module.invalidation"
 
 # ── Internal task names ─────────────────────────────────────────
