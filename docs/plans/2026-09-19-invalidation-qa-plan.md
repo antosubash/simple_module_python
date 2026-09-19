@@ -39,12 +39,12 @@ Four layers, each answering a question the layer below cannot:
 The last two are new. A `redis_server` fixture starts a throwaway
 `redis-server` on a free port (`--save '' --appendonly no`), so the tests need
 no external service and no `docker-up`; they skip with a loud reason when the
-binary is absent. `redis-server` ships with GitHub's `ubuntu-latest` image, so
-these should run in the existing `Python tests` job without a service container —
-but a silent skip is exactly the failure this plan exists to prevent, so it is not
-left to prose. `redis_server` **fails instead of skipping when `CI` is set**: if
-the runner image ever drops the binary, the job goes red and names the reason
-rather than quietly shedding every real-Redis and two-process test.
+binary is absent. In CI the broker is a **service container** instead, with
+`SM_TEST_REDIS_URL` pointing the fixture at it — see F16, where the guard that was
+supposed to be belt-and-braces turned out to be the thing that caught a false
+assumption on its first run. `redis_server` **fails instead of skipping when `CI`
+is set**, so a runner that cannot reach a Redis turns the job red and names the
+reason rather than quietly shedding every real-broker and two-process test.
 
 ## Contract → coverage → gap
 
@@ -474,15 +474,47 @@ here instead of being quietly fixed: the same shapes (a fix applied at the place
 was noticed, a batch believed on its own word, and a local gate that is not CI's)
 will otherwise recur.
 
+### F16 — `redis-server` is not on the runner, and the guard is what proved it
+
+The guard added for C1 fired on its first CI run: nine errors, every one of them
+`no redis-server binary and no SM_TEST_REDIS_URL`. **GitHub's `ubuntu-latest`
+image does not ship `redis-server`**, contrary to what the Method section of this
+plan asserted — so every real-broker and two-process test would have skipped
+silently, and the build would have gone green having tested none of the things this
+plan exists to test. 3103 passed, 9 errors, and the 9 were the point.
+
+This is the finding the whole exercise argues for. The docs auditor flagged the
+claim as unverified (C1) and suggested an explicit assertion instead of prose. Had
+I merely softened the wording — the cheaper response, and the one I nearly made —
+the assumption would still be in the tree and the coverage would have been
+imaginary. Making it enforceable cost a few lines and disproved it within one run.
+
+Fixed by giving the `Python tests` job a `redis:7-alpine` service container and
+teaching the fixture to honour `SM_TEST_REDIS_URL`, so there are now three paths and
+all three are verified: an external URL (CI), a locally spawned binary (developer),
+and a hard failure when neither exists under `CI`. Deliberately a service container
+rather than `apt-get install redis-server`: it needs no package mirror on the
+critical path of every run, and it matches what the `E2E smoke` job already does.
+
 ## How the findings were found
 
 Worth recording, because it argues for the method rather than for me. Of the
-fourteen findings, F1–F5 came out of *writing* the tests, F6–F9 out of an
+sixteen findings, F1–F5 came out of *writing* the tests, F6–F9 out of an
 adversarial review and an exploratory pass against a real broker, and F10–F12 out
-of auditing the documentation against the tree — including this plan, which
-claimed a test that did not exist. F13 came from pushing back on a conclusion I
-had already written down, and F14 from re-auditing the fixes for the other
-thirteen, which is the step that is easiest to skip and caught two bad claims.
+of auditing the documentation against the tree — including this plan, which claimed
+a test that did not exist. F13 came from pushing back on a conclusion I had already
+written down. F14 came from re-auditing the fixes for the other thirteen, which is
+the step easiest to skip and caught two bad claims. F15 and F16 came from CI
+disagreeing with me: once because my local gate was not CI's gate, once because a
+guard I had been talked into making enforceable immediately disproved the
+assumption it guarded.
+
+The through-line is not "write more tests". Five of the sixteen (F10, F14, F15,
+F16, and half of F13) were failures of the *checking apparatus* rather than of the
+code — a plan row with no test, a batch that reported success for edits it skipped,
+a local command that was not the CI command, an unverified claim about the runner,
+and a demonstration that was never committed as a test. Every one of them was
+caught by checking the check, and none by looking harder at the feature.
 
 Two of the three worst findings (F6, F7) were invisible to every test in the
 original change *and* to the ones I added first, because both need a broker that

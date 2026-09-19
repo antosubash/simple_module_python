@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import os
 import secrets
-import shutil
 import socket
 import subprocess
 import time
@@ -127,9 +126,6 @@ def stack(redis_server, tmp_path_factory) -> _Stack:
     ``cookie_secure`` has to go off or the browser-equivalent client refuses to
     send the auth cookie over plain HTTP and every request 401s.
     """
-    if shutil.which("redis-server") is None:  # pragma: no cover — redis_server skips first
-        pytest.skip("needs redis-server")
-
     db_path = str(tmp_path_factory.mktemp("cross-process") / "qa.db")
     built = _Stack(db_path=db_path, redis_url=redis_server, secret=secrets.token_hex(32))
     env = built.env(broadcast=False, channel="unused")
