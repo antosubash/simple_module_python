@@ -42,6 +42,17 @@ unacceptable for a password change made because an account is believed
 compromised can shorten it — to 0, which disables the cache and pays the read on
 every request.
 
+**0 is not strictest in every direction, and the reason is not obvious.** It is
+strictest for cross-worker lag: nothing is cached, so no worker can serve a stale
+counter. But a cache *hit* is an in-memory comparison, while a *miss* goes to
+``UsersAuthProvider._version_still_current``'s database read — whose ``except
+Exception`` deliberately returns True so an outage is not a mass logout. So the
+cache is also an incidental fail-closed shield, and at 0 it never applies: every
+cached-path request takes the read, and during a database outage every one of them
+fails open, rather than a fraction. An operator hardening against a compromised
+account is trading one exposure for another, not removing one. See
+``test_session_version_failopen.py``, which pins both halves.
+
 The knob is ``users.session_version_cache_ttl_seconds`` in the settings store,
 reachable from the admin UI or by setting
 ``SM_USERS_SESSION_VERSION_CACHE_TTL_SECONDS`` and running ``smpy settings

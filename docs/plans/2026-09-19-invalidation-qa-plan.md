@@ -403,14 +403,36 @@ channel — a whole-channel clear that empties every user's entry at once instea
 one at a time. Setting the TTL to 0, which the docstring offers as the strictest
 option, removes the shield entirely, so "strictest" is not unambiguous.
 
-Left as documentation rather than a code change, deliberately. Failing closed on
-the check would sign every user out of an app having a bad minute, which is the
-trade-off the existing comment says was chosen on purpose; changing it is a
-product decision for the repo owner, not a QA pass's to make inside an unrelated
-issue. Recorded in `provider._version_still_current`'s docstring and in
-`invalidation.md`, with the overclaim removed. A fix, if wanted, would give the
-error path something authoritative to fall back on — mark the entry stale rather
-than delete it — which keeps "handlers may only forget" in spirit.
+Left as documentation rather than a code change, deliberately — and the case for
+that is stronger than first stated. A `False` return does not merely 401 the
+request: the caller then runs `_forget(session)`, which drops the user id, the
+cached context, the version stamp, the expiry *and* the "keep me signed in"
+choice. Failing closed therefore **destroys** every affected session, so a
+database blip becomes a fleet-wide forced re-authentication with remembered
+sign-ins discarded, not a few minutes of 401s. Against that, the open branch costs
+a replayed revoked cookie *plus* a concurrent outage, during which nearly anything
+the session could do needs the same database. A reader who assumes `False` fails
+one request would price failing closed far too cheaply, which is why `_forget` is
+named here.
+
+Now pinned rather than merely described: `test_session_version_failopen.py` drives
+`_version_still_current` against a raising session factory for warm cache (refuses),
+cold cache (admits), and TTL 0 (admits, because nothing is ever stored), so a future
+reversal in either direction fails a test whose message states the decision. The
+knob's own docstring in `session_version_cache` now carries the caveat too — it was
+the place a security-minded operator actually reads, and it had been left saying
+"shorten it to 0" unqualified while the caveat sat two files away. That is the
+F11/F14/F15 pattern a fourth time.
+
+**The obvious fix does not work**, which is worth recording before someone builds
+it. "Mark the entry stale instead of deleting it, and let the error path fall back
+to the stale value" fails for exactly the case the bus exists for: after a
+revocation the stale value *is* the old counter, which equals the session's stamp,
+so the fallback would admit precisely the session the invalidation was published to
+strand. Any real narrowing has to discriminate on *why* the entry went away — an
+invalidation tombstone means "something changed and I cannot read what", the one
+case where failing closed rests on evidence rather than on a blip, while a TTL or
+LRU absence can still fall back.
 
 ### F14 — the sweep missed the definition site, and a batch reported itself done (fixed)
 
