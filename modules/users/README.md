@@ -19,7 +19,7 @@ Pre-wired into any app scaffolded with `smpy new`.
 - `smpy users create-admin` CLI for ad-hoc admin creation.
 - Inertia pages for login/register/invite-accept/admin-invite.
 - Console mailer (logs to stdout) or SMTP mailer (`SM_USERS_MAILER=smtp`).
-- Demo mode — a one-click, read-only shared account on the sign-in card, for public showcase instances.
+- Demo mode — one-click, read-only shared **admin** and **standard user** accounts on the sign-in card, for public showcase instances.
 
 ## Usage
 
@@ -57,21 +57,27 @@ async def profile(user: CurrentUser):
 For hosting a public showcase instance. Set under **/admin/settings/ → Users**:
 
 ```
-demo_mode      = true
-demo_email     = demo@example.com
-demo_role      = admin   # "user" by default
-demo_read_only = true    # default — keep it on
+demo_mode        = true
+demo_admin_email = demo-admin@example.com
+demo_user_email  = demo-user@example.com
+demo_read_only   = true    # default — keep it on
 ```
 
-The sign-in card grows an **Explore the demo** button that posts to
-`POST /api/users/auth/demo`; the account's password never reaches the browser.
-The account is seeded (and reconciled) at boot and on every settings reload,
-and while `demo_read_only` is on, `DemoReadOnlyMiddleware` refuses every unsafe
-HTTP method from the demo session — everyone else on the instance is unaffected.
-A standing banner tells the visitor they are in a demo.
+The sign-in card grows one button per configured account — **Explore as an
+administrator** and **Explore as a standard user** — each posting to
+`POST /api/users/auth/demo/{role}`. Neither account's password reaches the
+browser. Two accounts because the admin surface is what the framework is for
+and the end-user app is what you build with it; a visitor can switch between
+them without signing out. Blank either email to offer only the other; that
+closes its route too, not just its button.
 
-Full detail, including the `demo_role = "admin"` + `demo_read_only = false`
-warning, is in [docs/modules/users.md](../../docs/modules/users.md#demo-mode-hosting-a-showcase-instance).
+Both accounts are seeded (and reconciled) at boot and on every settings
+reload, and while `demo_read_only` is on, `DemoReadOnlyMiddleware` refuses
+every unsafe HTTP method from either demo session — everyone else on the
+instance is unaffected. A standing banner tells the visitor they are in a demo.
+
+Full detail, including the `demo_read_only = false` warning, is in
+[docs/modules/users.md](../../docs/modules/users.md#demo-mode-hosting-a-showcase-instance).
 
 ## Social sign-in (Google, GitHub, Microsoft, OIDC)
 

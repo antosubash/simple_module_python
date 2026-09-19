@@ -4,7 +4,7 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { AuthSplitAside } from '@simple-module-py/ui/layouts/AuthSplitAside';
 import { useState } from 'react';
-import { DemoSignIn } from '../auth_local/components/DemoSignIn';
+import { type DemoAccount, DemoSignIn } from '../auth_local/components/DemoSignIn';
 import { LoginForm, type OAuthProvider } from '../auth_local/components/LoginForm';
 import { WaitingOnYou } from '../auth_local/components/WaitingOnYou';
 
@@ -15,7 +15,7 @@ interface DevAccount {
 }
 
 interface DemoSignInProps {
-  enabled: boolean;
+  accounts: DemoAccount[];
   read_only: boolean;
 }
 
@@ -47,7 +47,7 @@ function Login() {
   const [resent, setResent] = useState(false);
   const [resendFailed, setResendFailed] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [demoPending, setDemoPending] = useState(false);
+  const [demoPendingRole, setDemoPendingRole] = useState<string | null>(null);
   const [demoError, setDemoError] = useState<string | null>(null);
 
   // Server-decided, deliberately. The post-login destination used to be read
@@ -89,28 +89,28 @@ function Login() {
       .finally(() => setLoading(false));
   };
 
-  // No credentials in the body: the server resolves the shared demo account
-  // itself, so the page never holds a password it could leak into a bug
+  // No credentials in the body: the role in the path is all the server
+  // needs, so the page never holds a password it could leak into a bug
   // report, a screenshot or the browser's autofill store.
-  const startDemo = () => {
+  const startDemo = (role: string) => {
     setDemoError(null);
     setError(null);
-    setDemoPending(true);
-    fetch('/api/users/auth/demo', { method: 'POST' })
+    setDemoPendingRole(role);
+    fetch(`/api/users/auth/demo/${role}`, { method: 'POST' })
       .then((res) => {
         if (res.status === 204) {
           router.visit(nextUrl);
           return;
         }
-        // 404 is demo mode having been switched off since this page was
-        // rendered; 429 is the shared throughput budget. Neither is worth its
-        // own copy — both mean "not right now".
+        // 404 is that account having been switched off since this page was
+        // rendered; 429 is its throughput budget. Neither is worth its own
+        // copy — both mean "not right now".
         setDemoError(t(keys.users.login.demo_error));
-        setDemoPending(false);
+        setDemoPendingRole(null);
       })
       .catch(() => {
         setDemoError(t(keys.users.common.error_try_again));
-        setDemoPending(false);
+        setDemoPendingRole(null);
       });
   };
 
@@ -173,10 +173,11 @@ function Login() {
         />
       )}
 
-      {demo_signin?.enabled && !needsVerification && (
+      {demo_signin?.accounts?.length > 0 && !needsVerification && (
         <DemoSignIn
+          accounts={demo_signin.accounts}
           readOnly={demo_signin.read_only}
-          pending={demoPending}
+          pendingRole={demoPendingRole}
           error={demoError}
           onStart={startDemo}
         />
@@ -194,7 +195,7 @@ function Login() {
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={loading}
+                disabled={loading || demoPendingRole !== null}
                 onClick={() => {
                   setEmail(acct.email);
                   setPassword(acct.password);

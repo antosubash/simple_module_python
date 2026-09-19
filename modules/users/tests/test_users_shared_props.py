@@ -8,7 +8,7 @@ genuinely open instance hides its own signup.
 
 ``demo`` drives the standing demo banner, and is per *session*: an operator
 signed in normally on a showcase instance must not be told their work is
-throwaway.
+throwaway, whichever of the two demo accounts is also in use.
 """
 
 from __future__ import annotations
@@ -52,44 +52,45 @@ class TestSignupSharedProp:
 
 
 class TestDemoSharedProp:
-    def test_inactive_when_demo_mode_is_off(self) -> None:
-        request = _request(
-            SimpleNamespace(settings=SimpleNamespace(demo_mode=False), demo_user_id=None),
-            session={SESSION_DEMO_KEY: True},
+    ADMIN_ID = "11111111-1111-1111-1111-111111111111"
+    USER_ID = "22222222-2222-2222-2222-222222222222"
+    OUTSIDER_ID = "33333333-3333-3333-3333-333333333333"
+
+    def _state(self, *, demo_mode=True, read_only=True, ids=()):
+        return SimpleNamespace(
+            settings=SimpleNamespace(demo_mode=demo_mode, demo_read_only=read_only),
+            demo_user_ids=ids,
         )
+
+    def test_inactive_when_demo_mode_is_off(self) -> None:
+        request = _request(self._state(demo_mode=False), session={SESSION_DEMO_KEY: True})
         assert users_shared_props(request)["demo"] == {"active": False, "readOnly": False}
 
     def test_inactive_for_an_ordinary_session_on_a_demo_instance(self) -> None:
         """The operator's own session is not a demo session."""
         request = _request(
-            SimpleNamespace(
-                settings=SimpleNamespace(demo_mode=True, demo_read_only=True),
-                demo_user_id="11111111-1111-1111-1111-111111111111",
-            ),
-            session={"user_id": "22222222-2222-2222-2222-222222222222"},
+            self._state(ids=(self.ADMIN_ID, self.USER_ID)),
+            session={"user_id": self.OUTSIDER_ID},
         )
         assert users_shared_props(request)["demo"] == {"active": False, "readOnly": False}
 
-    def test_active_for_the_demo_session(self) -> None:
+    @pytest.mark.parametrize("which", ["ADMIN_ID", "USER_ID"])
+    def test_active_for_either_demo_account(self, which: str) -> None:
+        """Both buttons lead to a banner — an admin demo is not less of a demo."""
         request = _request(
-            SimpleNamespace(
-                settings=SimpleNamespace(demo_mode=True, demo_read_only=True),
-                demo_user_id=None,
-            ),
-            session={SESSION_DEMO_KEY: True},
+            self._state(ids=(self.ADMIN_ID, self.USER_ID)),
+            session={"user_id": getattr(self, which)},
         )
+        assert users_shared_props(request)["demo"] == {"active": True, "readOnly": True}
+
+    def test_active_for_a_stamped_session(self) -> None:
+        request = _request(self._state(), session={SESSION_DEMO_KEY: True})
         assert users_shared_props(request)["demo"] == {"active": True, "readOnly": True}
 
     def test_read_only_tracks_the_setting(self) -> None:
         """The banner says "changes are not saved" — it must not say it when
         they are."""
-        request = _request(
-            SimpleNamespace(
-                settings=SimpleNamespace(demo_mode=True, demo_read_only=False),
-                demo_user_id=None,
-            ),
-            session={SESSION_DEMO_KEY: True},
-        )
+        request = _request(self._state(read_only=False), session={SESSION_DEMO_KEY: True})
         assert users_shared_props(request)["demo"] == {"active": True, "readOnly": False}
 
 

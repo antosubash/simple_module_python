@@ -34,7 +34,7 @@ def users_shared_props(request: Request) -> dict:
     state = getattr(request.app.state, "users", None)
     settings = getattr(state, "settings", None)
     demo_active = bool(getattr(settings, "demo_mode", False)) and is_demo_session(
-        getattr(request, "scope", {}), getattr(state, "demo_user_id", None)
+        getattr(request, "scope", {}), getattr(state, "demo_user_ids", ())
     )
     return {
         "signup": {"allowed": bool(getattr(settings, "allow_signup", False))},

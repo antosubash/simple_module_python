@@ -9,24 +9,25 @@ from __future__ import annotations
 import httpx
 import pytest
 from _users_app_builders import _build_users_app
-from users.demo import ensure_demo_user
+from users.demo import ensure_demo_users
 
-DEMO_EMAIL = "demo@example.com"
+DEMO_ADMIN_EMAIL = "demo-admin@example.com"
+DEMO_USER_EMAIL = "demo-user@example.com"
 
 
 @pytest.fixture
 async def demo_app(monkeypatch):
-    """A users app with demo mode on and the demo account seeded."""
+    """A users app with demo mode on and both demo accounts seeded."""
     application, ctx = await _build_users_app(monkeypatch, allow_signup=False)
     application.state.users.settings.demo_mode = True
-    await ensure_demo_user(application)
+    await ensure_demo_users(application)
     yield application
     await ctx.__aexit__(None, None, None)
 
 
 @pytest.fixture
 async def demo_client(demo_app):
-    """Anonymous client against ``demo_app`` — it signs itself in via the button."""
+    """Anonymous client against ``demo_app`` — it signs itself in via a button."""
     transport = httpx.ASGITransport(app=demo_app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         yield client

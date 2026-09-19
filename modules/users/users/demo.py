@@ -1,17 +1,22 @@
-"""Shared demo account — the one-click sign-in behind a public showcase instance.
+"""Shared demo accounts — the one-click sign-ins behind a public showcase instance.
 
-Three pieces live here because they have to agree on one question ("is a demo
-account configured, and who is it?"):
+Three pieces live here because they have to agree on one question ("which demo
+accounts are configured, and who are they?"):
 
-* :func:`resolve_demo_account` — reads the answer out of settings.
-* :func:`ensure_demo_user` — reconciles the account row against that answer and
-  caches its id on ``app.state.users``.
+* :func:`resolve_demo_accounts` — reads the answer out of settings.
+* :func:`ensure_demo_users` — reconciles the rows against that answer and
+  caches their ids on ``app.state.users``.
 * :data:`SESSION_DEMO_KEY` — what a demo sign-in stamps on the session so the
   read-only guard can recognise it without a database read.
 
+Two accounts, an administrator and an ordinary user, because the two halves of
+the app look nothing alike: a visitor who only ever sees ``/admin/*`` never
+meets the app an end user uses, and one who never sees it misses what the
+framework is for. Each is independently switchable by blanking its email.
+
 Deliberately *not* the dev quick-login buttons (``users.auth_local.views``):
 those are development-only and paste real credentials into the form, which is
-exactly what a published demo must not do. Here the password never leaves the
+exactly what a published demo must not do. Here the passwords never leave the
 server — :mod:`users.auth_local.demo_api` mints the session directly.
 """
 
@@ -41,7 +46,7 @@ from users.settings import UsersSettings
 logger = logging.getLogger("users.demo")
 
 # Stamped on the session by the demo sign-in endpoint. The guard also matches
-# on the user id, so this is not the only line of defence — it is what keeps
+# on the user ids, so this is not the only line of defence — it is what keeps
 # the hot path off the database.
 SESSION_DEMO_KEY = "is_demo"
 
@@ -54,38 +59,54 @@ _ROLE_SEEDS = {
     USER_ROLE_NAME: (USER_ROLE_ID, USER_ROLE_DESCRIPTION),
 }
 
+# (role, email field, password field, seeded display name), in the order the
+# buttons should appear on the sign-in card. Admin first: it is the surface
+# someone evaluating the framework came to see.
+_ACCOUNT_SPECS: tuple[tuple[str, str, str, str], ...] = (
+    (ADMIN_ROLE_NAME, "demo_admin_email", "demo_admin_password", "Demo Administrator"),
+    (USER_ROLE_NAME, "demo_user_email", "demo_user_password", "Demo User"),
+)
+
 
 @dataclass(frozen=True)
 class DemoAccount:
-    """The demo account an operator has asked for, normalised."""
+    """One demo account an operator has asked for, normalised."""
 
+    role: str
     email: str
     password: str
     full_name: str
-    role: str
-    read_only: bool
 
 
-def resolve_demo_account(settings: UsersSettings | None) -> DemoAccount | None:
-    """The configured demo account, or ``None`` when the feature is off.
+def resolve_demo_accounts(settings: UsersSettings | None) -> tuple[DemoAccount, ...]:
+    """The configured demo accounts, empty when the feature is off.
 
-    A blank ``demo_email`` reads as off rather than as an error: the field is
-    editable in the admin UI, and a half-finished edit should leave the sign-in
-    page unchanged instead of failing the next boot.
+    A blank email reads as "don't offer this one" rather than as an error: the
+    fields are editable in the admin UI, and a half-finished edit should leave
+    the sign-in page with one button rather than failing the next boot. Blank
+    both and ``demo_mode`` has nothing to turn on, which is worth a line in
+    the log because the operator plainly meant something by switching it on.
     """
     if settings is None or not getattr(settings, "demo_mode", False):
-        return None
-    email = (settings.demo_email or "").strip()
-    if not email:
-        logger.warning("%s — demo_mode is on but demo_email is blank", _EVT_DISABLED)
-        return None
-    return DemoAccount(
-        email=email,
-        password=settings.demo_password or "",
-        full_name=(settings.demo_full_name or "").strip() or "Demo User",
-        role=settings.demo_role if settings.demo_role in _ROLE_SEEDS else USER_ROLE_NAME,
-        read_only=bool(settings.demo_read_only),
+        return ()
+    accounts = tuple(
+        DemoAccount(
+            role=role,
+            email=email,
+            password=getattr(settings, password_field, "") or "",
+            full_name=full_name,
+        )
+        for role, email_field, password_field, full_name in _ACCOUNT_SPECS
+        if (email := (getattr(settings, email_field, "") or "").strip())
     )
+    if not accounts:
+        logger.warning("%s — demo_mode is on but no demo email is set", _EVT_DISABLED)
+    return accounts
+
+
+def resolve_demo_account(settings: UsersSettings | None, role: str) -> DemoAccount | None:
+    """The configured demo account for ``role``, or ``None``."""
+    return next((a for a in resolve_demo_accounts(settings) if a.role == role), None)
 
 
 async def _role_row(db: AsyncSession, name: str) -> Role:
@@ -110,9 +131,9 @@ async def _role_row(db: AsyncSession, name: str) -> Role:
 async def _sync_role(db: AsyncSession, user: User, role_name: str) -> None:
     """Give the demo user exactly the configured role, dropping the other one.
 
-    Dropping matters: flipping ``demo_role`` from ``admin`` back to ``user`` is
-    how an operator revokes a demo that turned out to be too open, and a switch
-    that only ever added rows would leave the admin grant in place.
+    Dropping matters: an operator who repoints ``demo_user_email`` at an
+    address that previously served as the demo *admin* is demoting it, and a
+    sync that only ever added rows would leave the admin grant in place.
     """
     wanted = await _role_row(db, role_name)
     links = (await db.execute(select(UserRole).where(UserRole.user_id == user.id))).scalars().all()
@@ -125,15 +146,15 @@ async def _sync_role(db: AsyncSession, user: User, role_name: str) -> None:
 
 
 async def reconcile_demo_user(db: AsyncSession, account: DemoAccount) -> User:
-    """Create or update the demo account row so it matches ``account``.
+    """Create or update one demo account's row so it matches ``account``.
 
     Idempotent, and run on every boot *and* every settings reload — an operator
     who turns demo mode on in the admin UI of a long-running install must not
-    have to restart to get the account.
+    have to restart to get the accounts.
 
-    A configured ``demo_password`` is (re)applied every time, so changing it in
-    the admin UI takes effect. A blank one is hashed from a fresh random secret
-    on create only — that is what makes "reachable only via the button" true,
+    A configured password is (re)applied every time, so changing it in the
+    admin UI takes effect. A blank one is hashed from a fresh random secret on
+    create only — that is what makes "reachable only through the button" true,
     and re-rolling it every boot would write an audit entry per worker per
     restart for a value nobody can use.
     """
@@ -166,25 +187,29 @@ async def reconcile_demo_user(db: AsyncSession, account: DemoAccount) -> User:
     return user
 
 
-async def ensure_demo_user(app: FastAPI) -> uuid.UUID | None:
-    """Reconcile the demo account and cache its id on ``app.state.users``.
+async def ensure_demo_users(app: FastAPI) -> tuple[uuid.UUID, ...]:
+    """Reconcile every configured demo account; cache the ids on app state.
 
-    Returns the id (also stored as ``state.demo_user_id``) or ``None`` when no
+    Returns the ids (also stored as ``state.demo_user_ids``), empty when no
     demo account is configured. Never raises: a demo instance failing to boot
-    because the showcase account could not be written is a worse outcome than
-    booting without the button.
+    because a showcase account could not be written is a worse outcome than
+    booting without the buttons.
+
+    One account failing does not cost the other — they are independent
+    offers, and an admin demo that cannot be seeded is no reason to withdraw
+    a working user demo.
     """
     state = app.state.users
-    account = resolve_demo_account(state.settings)
-    if account is None:
-        state.demo_user_id = None
-        return None
-    try:
-        async with app.state.sm.db.session_factory() as session:
-            user = await reconcile_demo_user(session, account)
-    except Exception:
-        logger.exception("users.demo.failed", extra={"email": account.email})
-        state.demo_user_id = None
-        return None
-    state.demo_user_id = user.id
-    return user.id
+    ids: list[uuid.UUID] = []
+    for account in resolve_demo_accounts(state.settings):
+        try:
+            async with app.state.sm.db.session_factory() as session:
+                user = await reconcile_demo_user(session, account)
+        except Exception:
+            logger.exception(
+                "users.demo.failed", extra={"email": account.email, "role": account.role}
+            )
+            continue
+        ids.append(user.id)
+    state.demo_user_ids = tuple(ids)
+    return state.demo_user_ids

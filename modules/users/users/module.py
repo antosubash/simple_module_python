@@ -104,16 +104,16 @@ class UsersModule(ModuleBase):
             state.oauth_clients = build_client_map(state.settings)
             state.oauth_providers = provider_buttons(state.oauth_clients)
             # Same reason: turning demo mode on from the settings UI has to
-            # seed the account and refresh the cached id, or the button
-            # appears on a sign-in page that 404s until the next restart.
-            from users.demo import ensure_demo_user
+            # seed the accounts and refresh the cached ids, or the buttons
+            # appear on a sign-in page that 404s until the next restart.
+            from users.demo import ensure_demo_users
 
-            await ensure_demo_user(app)
+            await ensure_demo_users(app)
 
         bus.subscribe(settings_reloaded, _rebuild_oauth_clients)
 
     def register_middleware(self, app: FastAPI) -> None:
-        """Refuse writes from the shared demo session.
+        """Refuse writes from either shared demo session.
 
         A no-op until ``demo_mode`` and ``demo_read_only`` are both on — it
         re-reads them per request — so an install that never hosts a demo pays
@@ -239,7 +239,7 @@ class UsersModule(ModuleBase):
         from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
         from users.backend import reconfigure_cookie_transport
         from users.bootstrap import bootstrap_admin_from_env
-        from users.demo import ensure_demo_user
+        from users.demo import ensure_demo_users
         from users.deps import auth_backend
         from users.mailer import build_mailer, default_app_name
         from users.oauth.providers import build_client_map, provider_buttons
@@ -285,6 +285,6 @@ class UsersModule(ModuleBase):
             refresh_roles_cache(app),
         )
         # After the env bootstrap, not beside it: that one only runs while the
-        # users table is empty, and the demo account has to be reconciled on
-        # every boot so a change to demo_role or demo_password takes effect.
-        await ensure_demo_user(app)
+        # users table is empty, and the demo accounts have to be reconciled on
+        # every boot so a change to either email or password takes effect.
+        await ensure_demo_users(app)

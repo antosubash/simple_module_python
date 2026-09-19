@@ -36,7 +36,7 @@ class UsersState:
     roles_cache: list[RoleSummary] = field(default_factory=list)
     oauth_providers: list[dict[str, str]] = field(default_factory=list)
     oauth_clients: dict[str, OAuthProvider] = field(default_factory=dict)
-    # Id of the shared demo account, or None when demo mode is off. Cached at
+    # Ids of the seeded demo accounts, empty when demo mode is off. Cached at
     # boot (and on every settings reload) so ``DemoReadOnlyMiddleware`` can
     # recognise a demo session without a database read per request.
-    demo_user_id: uuid.UUID | None = None
+    demo_user_ids: tuple[uuid.UUID, ...] = ()
