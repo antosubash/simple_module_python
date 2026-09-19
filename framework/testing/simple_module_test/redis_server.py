@@ -12,15 +12,19 @@ up first. The server is ephemeral — a free port, no persistence
 (``--save '' --appendonly no``), killed on teardown — so it cannot collide with
 the real ``dev-services`` Redis on 6379 or leave state behind.
 
-Absent the binary the fixture **skips loudly** rather than passing vacuously.
-``redis-server`` is present on GitHub's ``ubuntu-latest`` image, so these run in
-CI; that they ran rather than skipped is worth confirming from the collected
-count rather than assuming.
+Absent the binary the fixture skips — except under ``CI``, where it **fails**.
+A skip is right on a developer's machine and wrong on a build: the whole point of
+these tests is to cover what the fake client cannot, and a runner image that
+stopped shipping ``redis-server`` would silently shed every one of them while the
+build stayed green. That is the same "passes while testing nothing" failure the
+tests themselves exist to rule out, so it gets an explicit guard rather than a
+sentence in a plan.
 """
 
 from __future__ import annotations
 
 import contextlib
+import os
 import shutil
 import socket
 import subprocess
@@ -78,7 +82,18 @@ def redis_server() -> Iterator[str]:
     """
     binary = shutil.which("redis-server")
     if binary is None:
-        pytest.skip("redis-server is not installed; cannot test the real transport")
+        message = (
+            "redis-server is not installed, so the real-transport and cross-process "
+            "tests cannot run"
+        )
+        if os.environ.get("CI"):
+            pytest.fail(
+                f"{message}. On CI this is a failure, not a skip: silently dropping "
+                "these tests would leave the cross-process claim untested while the "
+                "build stayed green. Install redis-server on the runner, or add a "
+                "redis service to the job."
+            )
+        pytest.skip(message)
 
     port = _free_port()
     process = subprocess.Popen(

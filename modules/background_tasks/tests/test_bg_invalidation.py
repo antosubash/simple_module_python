@@ -19,10 +19,17 @@ from simple_module_core.invalidation import Invalidation, InvalidationBus
 
 
 class _FakePubSub:
-    """Yields a scripted sequence of pub/sub frames, then blocks forever."""
+    """Hands out a scripted sequence of pub/sub frames, then goes quiet.
+
+    Mirrors ``get_message``, not ``listen()``, because that is what the transport
+    polls — ``listen()`` blocks in an unbounded read, which is the defect these
+    tests exist downstream of. Deliberately does **not** implement ``listen``: a
+    regression back to it fails here with an ``AttributeError`` rather than
+    quietly passing against a fake that still supports both.
+    """
 
     def __init__(self, frames, subscribe_error=None) -> None:
-        self._frames = frames
+        self._frames = list(frames)
         self._subscribe_error = subscribe_error
         self.subscribed: list[str] = []
         self.closed = False
@@ -33,10 +40,16 @@ class _FakePubSub:
             raise error
         self.subscribed.append(channel)
 
-    async def listen(self):
-        for frame in self._frames:
-            yield frame
-        await asyncio.Event().wait()  # a real subscription never ends on its own
+    async def get_message(self, ignore_subscribe_messages: bool = False, timeout=None):
+        """A frame if one is scripted, else ``None`` after the poll interval.
+
+        The ``None`` is the point: a real idle channel returns it rather than
+        blocking, which is what lets the health check and cancellation get a turn.
+        """
+        if self._frames:
+            return self._frames.pop(0)
+        await asyncio.sleep(timeout if timeout else 0)
+        return None
 
     async def aclose(self) -> None:
         self.closed = True

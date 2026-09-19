@@ -176,10 +176,12 @@ class TestChannelIsolation:
     async def test_only_the_configured_channel_is_subscribed(self, redis_server):
         """A message on another channel must not reach this transport's bus.
 
-        Two apps sharing one Redis database is the case
-        ``SM_BG_TASKS_INVALIDATION_CHANNEL`` exists for; if the channel name were
-        ignored, renaming it would do nothing and each app would act on the
-        other's traffic.
+        Two apps on one Redis *server* is the case
+        ``SM_BG_TASKS_INVALIDATION_CHANNEL`` exists for — pub/sub ignores the
+        logical database index, so a different DB number is no isolation at all
+        and the channel name is the only thing separating two installs. If the
+        setting were ignored, renaming it would do nothing and each app would act
+        on the other's traffic.
         """
         bus = InvalidationBus()
         seen: list[Invalidation] = []

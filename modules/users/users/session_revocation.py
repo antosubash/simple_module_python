@@ -41,7 +41,7 @@ def _cache_key(key: str):
     carries strings — so a remote message that popped the *string* would find
     nothing and the whole mechanism would be a silent no-op. That is the failure
     this function exists to prevent, and what
-    ``test_session_revocation.py::test_wire_key_evicts_a_uuid_keyed_entry``
+    ``test_session_revocation.py::TestWireKey::test_wire_key_evicts_a_uuid_keyed_entry``
     pins down.
 
     Falls back to the raw string for an id that is not a UUID, so an install

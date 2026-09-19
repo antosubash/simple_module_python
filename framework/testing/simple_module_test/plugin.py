@@ -46,9 +46,11 @@ def _bootstrap_eager_celery() -> None:
     Also switches off the cross-worker invalidation transport. ``on_startup``
     would otherwise open a Redis pub/sub listener per app fixture — against a
     broker no test environment runs — leaving a reconnect loop in the
-    background of every suite. ``setdefault``, so a test that wants the
-    transport (``modules/background_tasks/tests/test_invalidation.py``) can set
-    the variable and get it.
+    background of every suite. ``setdefault``, so a test that wants the transport
+    can set the variable and get it — though the tests that exercise the transport
+    build ``RedisInvalidationTransport`` directly instead, against either a fake
+    client (``test_bg_invalidation.py``) or a throwaway ``redis-server`` (the
+    ``redis_server`` fixture, used by ``test_bg_invalidation_redis.py``).
     """
     os.environ.setdefault("SM_BG_TASKS_BROADCAST_INVALIDATIONS", "false")
     with contextlib.suppress(ImportError):

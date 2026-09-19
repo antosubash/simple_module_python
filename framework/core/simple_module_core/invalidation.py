@@ -3,12 +3,17 @@ transport is installed.
 
 Several modules keep a per-process cache of a row that is cheap to read and
 expensive to read *often* — ``users`` caches ``User.session_version`` (the
-revocation counter checked on nearly every authenticated request),
-``file_storage`` caches its aggregate size, ``settings`` hot-swaps a settings
-object in the worker that handled the save. All three share one failure shape:
-the worker that performed the write drops its own entry immediately, and
-**every other worker keeps serving the stale value until its own entry
-expires**.
+revocation counter checked on nearly every authenticated request) and
+``file_storage`` caches its aggregate size, both behind a 30-second TTL. They
+share one failure shape: the worker that performed the write drops its own entry
+immediately, and **every other worker keeps serving the stale value until its own
+entry expires**.
+
+``settings`` has the same shape without the TTL — ``apply_changes_and_reload``
+hot-swaps the settings object in the worker that handled the save and announces it
+on the in-process :class:`~simple_module_core.events.EventBus`, so the others serve
+the old configuration until restart. It needs a re-read rather than an eviction, so
+it is a consumer this bus makes *possible* rather than one it already serves.
 
 The obvious fix — publish the write on Redis pub/sub so every worker drops its
 entry at once — was not reachable from any of those modules. Redis belongs to
@@ -175,7 +180,22 @@ class InvalidationBus:
     # ── transport ──────────────────────────────────────────
 
     def set_transport(self, transport: InvalidationTransport) -> None:
-        """Install the shared backend. Replaces any previous one."""
+        """Install the shared backend.
+
+        Replacing one is almost certainly a mistake, so it says so. The bus can
+        only forget the old transport's reference — it cannot stop the listener
+        that transport is running, and two live listeners on one channel deliver
+        every remote message to this bus twice. Whoever owns the transport has to
+        ``stop()`` the old one; ``background_tasks`` does that in ``on_shutdown``.
+        """
+        if self._transport is not None:
+            logger.warning(
+                "Replacing invalidation transport %s with %s — the old one's listener "
+                "is not stopped by this call and will keep delivering, so every remote "
+                "message will be applied twice",
+                type(self._transport).__name__,
+                type(transport).__name__,
+            )
         self._transport = transport
         logger.info("Invalidation transport installed: %s", type(transport).__name__)
 
@@ -238,7 +258,16 @@ class InvalidationBus:
         one module's broken eviction is not a reason for another's cache to stay
         stale.
         """
-        for handler in self._handlers.get(invalidation.channel, ()):
+        # A snapshot, not the live list. A handler is free to call
+        # :meth:`subscribe` — nothing forbids it, and a module that lazily
+        # registers a cache would — and appending to the list being iterated
+        # would feed the new handler straight back into this loop. Because these
+        # handlers are typically *sync*, that loop contains no await point, so it
+        # does not merely recurse: it wedges the whole event loop, with
+        # ``asyncio.timeout`` unable to fire and the ``except`` below logging
+        # nothing. Measured at 3.1 million invocations from a single ``publish``
+        # before the copy was added.
+        for handler in tuple(self._handlers.get(invalidation.channel, ())):
             try:
                 result = handler(invalidation)
                 if inspect.isawaitable(result):

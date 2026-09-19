@@ -39,9 +39,12 @@ Four layers, each answering a question the layer below cannot:
 The last two are new. A `redis_server` fixture starts a throwaway
 `redis-server` on a free port (`--save '' --appendonly no`), so the tests need
 no external service and no `docker-up`; they skip with a loud reason when the
-binary is absent. `redis-server` is present on GitHub's `ubuntu-latest` image,
-so these run in the existing `Python tests` job — **verified by comparing the
-CI test count, not assumed.**
+binary is absent. `redis-server` ships with GitHub's `ubuntu-latest` image, so
+these should run in the existing `Python tests` job without a service container —
+but a silent skip is exactly the failure this plan exists to prevent, so it is not
+left to prose. `redis_server` **fails instead of skipping when `CI` is set**: if
+the runner image ever drops the binary, the job goes red and names the reason
+rather than quietly shedding every real-Redis and two-process test.
 
 ## Contract → coverage → gap
 
@@ -89,7 +92,7 @@ heterogeneous fleet loses messages depending on which worker served the write.
 | T11 | **against real Redis: `stop` really releases the connection** | 🆕 |
 | T12 | **a refused connection fails the publish without breaking the local eviction** | 🆕 |
 | T13 | **a broker that accepts and then answers nothing is bounded by the publish timeout** | 🆕 |
-| T14 | **only the configured channel is subscribed (two apps, one Redis database)** | 🆕 |
+| T14 | **only the configured channel is subscribed (two apps, one Redis server)** | 🆕 |
 
 T13 is the one with teeth and T12 is explicitly *not* — see F5. A refused
 connection fails instantly and would pass with no timeout at all; only a mute
@@ -256,3 +259,169 @@ passed with or without any timeout. Replaced with a server that accepts the
 connection and then answers nothing, which is the failure mode the publish
 timeout actually exists for, and mutation-checked: removing
 `asyncio.timeout(PUBLISH_TIMEOUT_SECONDS)` makes it fail.
+
+### F6 — a handler that re-subscribes wedged the event loop (P0, fixed)
+
+`InvalidationBus._dispatch` iterated the live handler list, so a handler calling
+`bus.subscribe()` for its own channel appended to the list being walked. Because
+these handlers are typically *sync*, that loop has no await point: it did not
+recurse, it took the event loop with it, so neither `asyncio.timeout` nor the
+per-handler `except` could intervene and nothing was logged. Measured by
+exploratory QA at **3,155,610 invocations from a single `publish()`**, with the
+process needing SIGTERM.
+
+No subscriber in the tree does this today, so it was latent rather than live — but
+the fix is one word (`tuple(...)`) and the failure is a hung worker, so it is not
+worth leaving for someone to discover. Mutation-checked: with the live list
+restored, `TestReentrantSubscribe` hangs until the runner kills it.
+
+### F7 — the listener had no read deadline at all (P0, fixed)
+
+The real one. `socket_connect_timeout` bounds the *connect* and nothing else, and
+`socket_timeout` was never set, so against a broker that completes the TCP
+handshake and then answers nothing — a frozen Redis, a NAT or load-balancer
+idle-drop leaving the socket half-open, a failover that keeps the socket —
+`pubsub.subscribe()` waited on a read with no deadline.
+
+The consequence is worse than having no transport. The listener hung *before ever
+raising*, so `_log_failure` never ran, `_warned` stayed `False`, the reconnect loop
+never got a turn, and `_start_invalidation_transport` had already logged that the
+transport was up. Cross-process invalidation was then off on that worker for the
+life of the process, silently, with the boot log and the docs both claiming
+otherwise — and it does not recover when the broker starts answering again.
+Reproduced by two independent QA passes, one by reading redis-py's source and one
+by executing a TCP proxy that stops relaying without closing: **20s+ with no
+warning, no reconnect, messages silently dropped**, while the publish side was
+correctly bounded at 1.00s.
+
+Fixed with four deadlines rather than one, because they cover different failures:
+`socket_connect_timeout` (SYN black hole), `socket_timeout` (a read that starts and
+stalls), `socket_keepalive` + `health_check_interval` (a socket open at both ends
+carrying nothing), and an `asyncio.timeout` around the one-shot `subscribe`. The
+listener also polls `get_message(timeout=…)` instead of blocking in `listen()`, so
+an idle channel is not mistaken for a stalled one and the health check gets a turn.
+
+Mutation-checked against the originally-shipped code — neither guard present —
+where the new test fails with "the listener never complained about a mute broker".
+
+### F8 — Redis pub/sub ignores the database index (documentation, fixed)
+
+`docs/framework/invalidation.md` said to rename the channel "when two apps share
+one Redis **database**", which reads as though the logical DB number isolates
+installs — and CLAUDE.md's "this repo owns DBs 4 and 5" reinforces that. It does
+not: pub/sub is server-global. Verified by experiment — a publisher on `/0` and a
+subscriber on `/1` with the same channel reach each other, so two installs left on
+the default channel name clear each other's caches and each sees the other's user
+ids. The doc now says rename per app and not to rely on the DB number.
+
+### F9 — smaller documentation gaps found by the QA pass (fixed)
+
+- Anyone who can `PUBLISH` to the channel can flush a whole channel's cache with
+  one well-formed `"key": null` message. A denial-of-service shape rather than an
+  auth bypass — it can only make workers re-read, never admit a session — but the
+  trust model was undocumented. Now stated.
+- One slow handler delays every channel, because the listener awaits `deliver`
+  inline. Now stated.
+- There is no `unsubscribe`, and subscribing the same callable twice runs it twice.
+  Now stated.
+- `set_transport` over an existing transport cannot stop the old listener, so both
+  deliver and every remote message is applied twice. It now logs a warning saying
+  exactly that.
+
+### What the QA pass confirmed rather than broke
+
+Worth recording, because these were claims rather than facts before: reconnect
+after a real `kill -9` and restart (listener recovers and delivers; the in-gap
+message is lost, as documented); 10,000 × 1KB messages delivered in order with
+none dropped; 100 concurrent publishes through one transport; hostile keys up to
+1MB including emoji, NUL bytes, lone surrogates and a key that is itself a valid
+wire message, all exact round-trips; `""` distinguishable from `None` end to end; a
+timed-out publish not poisoning the client; and `stop()` returning promptly while a
+handler is wedged. The commit/broadcast ordering was checked for a
+read-visibility race and found sound — `on_commit` runs strictly after the commit
+succeeds, and the only remaining race is the TTL floor that predates the feature.
+
+### F10 — this plan claimed a test it did not have (P1, fixed)
+
+Row W4, "an unreachable Redis URL still lets `on_startup` complete", was marked
+🆕 and had nothing behind it: the three tests touching
+`_start_invalidation_transport` used broadcast-off, a fake client, and a fake
+transport. The hook is a level above the transport tests, and it is the level that
+decides whether a worker boots — and it logs "invalidation transport on …"
+unconditionally, which is precisely what made F7 invisible. Now tested against a
+dead port, for both "the boot completes" and "a publish still evicts locally".
+
+Worth noting against this plan's own method: a coverage matrix is only as good as
+someone checking it against the tree, which is what the docs audit was for.
+
+### F11 — the "Redis database" error was fixed in one of five places (fixed)
+
+F8 corrected `docs/framework/invalidation.md` and left the same wrong claim in
+`CHANGELOG.md`, `.env.example`, a test docstring and this plan's T14 row. All four
+now say "server". A grep for the phrase, not just a fix at the place it was
+noticed, is the lesson.
+
+### F12 — `settings` does not have the failure shape attributed to it (fixed)
+
+The docs listed `settings` alongside `users` and `file_storage` as "all three
+share one failure shape … until its own entry expired". Its hydrated settings
+objects have **no TTL** and never expire: `apply_changes_and_reload` swaps the
+object in the worker that handled the save and announces it on the *in-process*
+`EventBus`, so every other worker serves the old configuration until restart. An
+admin editing a setting on a four-worker deployment changes it for one worker in
+four. That is worse than the shape claimed, not the same, and it is now stated
+separately in both the doc and the bus's own module docstring. (`file_storage` was
+accurate — 30s TTL, drops its own entry on commit.)
+
+### F13 — a flushed cache is also a fail-closed shield (P1, documented not changed)
+
+My own security note overclaimed. I wrote that a spoofed invalidation "can never
+*admit* a session, only make workers verify one more often". The first half does
+not follow from the second, because the re-read has a fail-open branch the cached
+path does not:
+
+```python
+hit, cached = read_session_version(user_id)
+if hit:
+    return cached is not None and int(cached) == _stamped_version(session)   # cannot fail open
+try:
+    ...                                    # the DB read
+except Exception:
+    return True                            # deliberately admits, so a blip is not a mass logout
+```
+
+A cache **hit** is an in-memory comparison; only a **miss** reaches that `return
+True`. So an empty cache plus a simultaneously failing database admits a revoked
+session that a warm cache would have refused. Demonstrated by driving
+`_version_still_current` with a raising `session_factory`: warm cache rejects,
+flushed cache admits, healthy database rejects either way.
+
+Calibration matters here. This composition **predates the bus and needs no
+attacker**: a 30-second TTL expiry or a cold process after a deploy reaches the
+same branch. What the bus adds is one more route to it, and — via F8's shared
+channel — a whole-channel clear that empties every user's entry at once instead of
+one at a time. Setting the TTL to 0, which the docstring offers as the strictest
+option, removes the shield entirely, so "strictest" is not unambiguous.
+
+Left as documentation rather than a code change, deliberately. Failing closed on
+the check would sign every user out of an app having a bad minute, which is the
+trade-off the existing comment says was chosen on purpose; changing it is a
+product decision for the repo owner, not a QA pass's to make inside an unrelated
+issue. Recorded in `provider._version_still_current`'s docstring and in
+`invalidation.md`, with the overclaim removed. A fix, if wanted, would give the
+error path something authoritative to fall back on — mark the entry stale rather
+than delete it — which keeps "handlers may only forget" in spirit.
+
+## How the findings were found
+
+Worth recording, because it argues for the method rather than for me. Of the
+thirteen findings, F1–F5 came out of *writing* the tests, F6–F9 out of an
+adversarial review and an exploratory pass against a real broker, and F10–F12 out
+of auditing the documentation against the tree — including this plan, which
+claimed a test that did not exist. F13 came from pushing back on a conclusion I
+had already written down.
+
+Two of the three worst findings (F6, F7) were invisible to every test in the
+original change *and* to the ones I added first, because both need a broker that
+misbehaves in a way a fake client cannot express. The lesson is not "write more
+tests"; it is that a fake asserts your own assumptions back to you.

@@ -18,7 +18,8 @@ All notable changes to this project are documented in this file. The format is b
   the connection it already configures, so a write drops the matching entry in
   *every* worker instead of only the one that performed it.
   Turn it off with `SM_BG_TASKS_BROADCAST_INVALIDATIONS=false`; rename the channel
-  with `SM_BG_TASKS_INVALIDATION_CHANNEL` when two apps share a Redis database.
+  with `SM_BG_TASKS_INVALIDATION_CHANNEL` for every app on a shared Redis server
+  (pub/sub ignores the database index, so DB 4 vs DB 5 does not isolate it).
   See [docs/framework/invalidation.md](docs/framework/invalidation.md) (GH #318).
 - `users` publishes its `session_version` bump on that bus, so "sign out
   everywhere" and a password change stop being honoured across every worker at

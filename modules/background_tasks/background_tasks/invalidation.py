@@ -31,6 +31,47 @@ __all__ = ["RedisInvalidationTransport"]
 INITIAL_BACKOFF_SECONDS = 1.0
 MAX_BACKOFF_SECONDS = 30.0
 
+SUBSCRIBE_TIMEOUT_SECONDS = 5.0
+"""Ceiling on the one-shot SUBSCRIBE at the top of each listener attempt.
+
+A separate bound from :data:`PUBLISH_TIMEOUT_SECONDS` because it is not in a
+request's way — only a wedged listener's. Needed because ``socket_connect_timeout``
+bounds the *connect* and nothing else: against a broker that completes the TCP
+handshake and then never answers, ``subscribe`` waits on a read that has no
+deadline, so the listener hangs before it has ever raised, ``_log_failure`` never
+runs, and the reconnect loop below never gets a turn. Cross-process invalidation
+is then silently and permanently off on this worker, while the boot log says it is
+on — the exact "does nothing and nobody learns" failure this whole file is
+supposed to avoid. Found by QA, not by the original tests.
+"""
+
+READ_TIMEOUT_SECONDS = 10.0
+"""``socket_timeout`` for the client: a bound on any read that has started.
+
+Cannot simply be small: the same option applies to the subscription, and a quiet
+channel must not be torn down for being quiet. That is why the listener polls
+:meth:`redis.asyncio.client.PubSub.get_message` with its own short timeout instead
+of blocking in ``listen()`` — polling returns ``None`` on an idle channel without
+ever starting a read, so this deadline only bites when bytes stop arriving
+mid-message.
+"""
+
+HEALTH_CHECK_INTERVAL_SECONDS = 15.0
+"""How often redis-py PINGs an otherwise idle subscription.
+
+The half-open socket — ESTABLISHED at both ends, carrying nothing, as a NAT or
+load balancer idle-drop leaves it — is invisible to every timeout above, because
+no read is ever attempted. redis-py's health check is what turns it into an error:
+the PING's reply read is bounded by ``socket_timeout``, so a mute peer raises into
+the reconnect loop within roughly this interval.
+"""
+
+LISTEN_POLL_SECONDS = 1.0
+"""How long each ``get_message`` waits before returning ``None`` and looping.
+
+Also the granularity at which the health check and cancellation get a turn.
+"""
+
 PUBLISH_TIMEOUT_SECONDS = 1.0
 """Ceiling on how long a publish may hold up the request that triggered it.
 
@@ -74,12 +115,18 @@ class RedisInvalidationTransport:
         """
         import redis.asyncio as aioredis
 
-        # A connect timeout as well as the per-call one below: without it a host
-        # that swallows SYN packets blocks the listener's first attempt forever
-        # instead of failing into the reconnect loop.
+        # Four deadlines, each covering a failure the others do not. Connect
+        # covers a host that swallows SYN packets; socket_timeout covers a read
+        # that starts and stalls; keepalive and the health check cover a socket
+        # that is open at both ends and carrying nothing. Without the last two a
+        # half-open connection leaves this worker permanently and silently
+        # without cross-process invalidation.
         self._client = aioredis.from_url(
             self._url,
             socket_connect_timeout=PUBLISH_TIMEOUT_SECONDS,
+            socket_timeout=READ_TIMEOUT_SECONDS,
+            socket_keepalive=True,
+            health_check_interval=HEALTH_CHECK_INTERVAL_SECONDS,
         )
         self._listener = asyncio.create_task(self._listen(), name="sm-invalidation-listener")
 
@@ -124,13 +171,19 @@ class RedisInvalidationTransport:
             pubsub = None
             try:
                 pubsub = self._client.pubsub()
-                await pubsub.subscribe(self._channel)
+                async with asyncio.timeout(SUBSCRIBE_TIMEOUT_SECONDS):
+                    await pubsub.subscribe(self._channel)
                 if self._warned:
                     logger.info("Invalidation listener reconnected to %r", self._channel)
                 self._warned = False
                 backoff = INITIAL_BACKOFF_SECONDS
-                async for raw in pubsub.listen():
-                    if raw.get("type") != "message":
+                while True:
+                    # Polling rather than ``listen()``: an idle channel returns
+                    # None instead of blocking in an unbounded read, which is what
+                    # lets redis-py run its health check and lets cancellation
+                    # land promptly at shutdown.
+                    raw = await pubsub.get_message(timeout=LISTEN_POLL_SECONDS)
+                    if raw is None or raw.get("type") != "message":
                         continue
                     await self._bus.deliver(raw["data"])
             except asyncio.CancelledError:

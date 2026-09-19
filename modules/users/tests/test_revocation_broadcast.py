@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import AsyncGenerator
 
 import pytest
 from sqlalchemy import select
@@ -42,7 +43,7 @@ class _RecordingTransport:
 
 
 @pytest.fixture
-async def broadcasts(users_app) -> _RecordingTransport:
+async def broadcasts(users_app) -> AsyncGenerator[_RecordingTransport, None]:
     """Capture what this app would have broadcast to the other workers."""
     transport = _RecordingTransport()
     users_app.state.sm.invalidation.set_transport(transport)

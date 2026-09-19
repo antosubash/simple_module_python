@@ -15,6 +15,8 @@ failure that looks like something else:
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core.diagnostics import DiagnosticLevel, run_diagnostics
@@ -147,6 +149,75 @@ class TestShutdown:
         assert stopped == [True], "the listener was never stopped"
         assert bus.has_transport is False, "the bus still holds a dead transport"
         assert app.state.background_tasks.invalidation_transport is None
+
+
+class TestStartupAgainstADeadBroker:
+    """``on_startup`` must complete even when Redis is unreachable.
+
+    The hook is a level above ``RedisInvalidationTransport.start()``, which the
+    degraded tests cover, and it is the level that decides whether a web worker
+    boots at all. It also logs "invalidation transport on …" unconditionally,
+    which is what made the wedged-listener defect (F7) invisible — so the boot
+    path deserves its own test rather than inheriting the transport's.
+    """
+
+    async def test_an_unreachable_url_does_not_fail_the_boot(self):
+        import socket
+
+        from background_tasks.module import BackgroundTasksModule
+        from background_tasks.settings import BackgroundTasksSettings
+
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            dead_port = int(probe.getsockname()[1])
+
+        bus = InvalidationBus()
+        app = _StubApp(
+            bus,
+            BackgroundTasksSettings(
+                broadcast_invalidations=True,
+                broker_url=f"redis://127.0.0.1:{dead_port}/0",
+            ),
+        )
+        module = BackgroundTasksModule()
+
+        # The property under test is simply "returns": an accelerator over a TTL
+        # must never stop a worker that can otherwise serve every request.
+        await asyncio.wait_for(module._start_invalidation_transport(app), timeout=30)
+        try:
+            assert bus.has_transport is True, "the transport should be installed optimistically"
+        finally:
+            await module.on_shutdown(app)
+
+    async def test_publishing_through_a_dead_broker_still_evicts_locally(self):
+        """And the app keeps working afterwards, degraded to per-process."""
+        import socket
+
+        from background_tasks.module import BackgroundTasksModule
+        from background_tasks.settings import BackgroundTasksSettings
+
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            dead_port = int(probe.getsockname()[1])
+
+        bus = InvalidationBus()
+        seen: list[object] = []
+        bus.subscribe("c", seen.append)
+        app = _StubApp(
+            bus,
+            BackgroundTasksSettings(
+                broadcast_invalidations=True,
+                broker_url=f"redis://127.0.0.1:{dead_port}/0",
+            ),
+        )
+        module = BackgroundTasksModule()
+        await module._start_invalidation_transport(app)
+        try:
+            await asyncio.wait_for(bus.publish("c", key="k"), timeout=30)
+        finally:
+            await module.on_shutdown(app)
+
+        assert len(seen) == 1
 
 
 class TestSettingsValidation:

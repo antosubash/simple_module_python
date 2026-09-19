@@ -167,6 +167,16 @@ class UsersAuthProvider:
         database keeps an already-resolved session alive here (a bad minute is
         not evidence of a revocation), while there it refuses to *mint* one —
         failing open on a check and closed on a load.
+
+        Note what keeps that open branch rare: a cache **hit** is an in-memory
+        comparison and cannot reach it at all, so the cache is an incidental
+        fail-closed shield over the DB read below. Whenever the cache is empty —
+        a TTL expiry, a cold process after a deploy, or an invalidation broadcast
+        — a database that is simultaneously unreachable will admit a session this
+        method would otherwise have refused. That is the accepted cost of not
+        signing everyone out during an outage, but it is a composition worth
+        knowing about before shortening the TTL to 0, which removes the shield
+        entirely.
         """
         hit, cached = read_session_version(user_id)
         if hit:
