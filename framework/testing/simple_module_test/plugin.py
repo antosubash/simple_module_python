@@ -9,6 +9,7 @@ test suites — treat the fixture surface like a public API.
 from __future__ import annotations
 
 import contextlib
+import os
 
 import pytest
 
@@ -40,7 +41,15 @@ def _bootstrap_eager_celery() -> None:
     so the host's ``build_celery`` call never runs and ``task.delay()``
     falls through to the broker. Skipped silently when ``background_tasks``
     isn't installed.
+
+    Also switches off the cross-worker invalidation transport. ``on_startup``
+    would otherwise open a Redis pub/sub listener per app fixture — against a
+    broker no test environment runs — leaving a reconnect loop in the
+    background of every suite. ``setdefault``, so a test that wants the
+    transport (``modules/background_tasks/tests/test_invalidation.py``) can set
+    the variable and get it.
     """
+    os.environ.setdefault("SM_BG_TASKS_BROADCAST_INVALIDATIONS", "false")
     with contextlib.suppress(ImportError):
         from background_tasks.celery_app import build_celery
         from background_tasks.settings import BackgroundTasksSettings

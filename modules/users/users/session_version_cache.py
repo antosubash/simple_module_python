@@ -28,10 +28,12 @@ SESSION_VERSION_TTL_SECONDS = 30
 ``_version_still_current`` runs on the cached-context path, which is most
 requests, so the check was one indexed primary-key read per page load. The
 cost of the cache is a bounded staleness window: a revocation performed in
-*another* worker process takes up to this long to be seen here. The process
-that performed it calls :func:`forget_session_version` and sees it at once, so
-the browser that pressed "Sign out everywhere" is never told it worked while
-still being let in.
+*another* worker process takes up to this long to be seen here — unless a
+cross-process invalidation transport is installed, in which case
+``users.session_revocation`` drops the entry in every worker at once and this
+TTL only bounds a dropped message. The process that performed the revocation
+sees it immediately either way, so the browser that pressed "Sign out
+everywhere" is never told it worked while still being let in.
 
 30 seconds is chosen to be shorter than any plausible "did it work?" retry and
 long enough to collapse a page's worth of requests into one read. It is the
@@ -116,11 +118,13 @@ def configure_session_version_cache(ttl_seconds: int) -> None:
     so a settings reload does not throw away a warm cache for nothing.
 
     ``0`` disables caching — every entry expires the moment it is written, so the
-    revocation check goes back to one indexed read per request. That is the honest
-    knob for a deployment that will not accept *any* window in which one worker
-    has not yet seen another's revocation. The cross-process fix proper is a
-    shared invalidation channel, which this layer cannot reach: Redis belongs to
-    the ``background_tasks`` plugin, and the framework ``EventBus`` is in-process.
+    revocation check goes back to one indexed read per request. That remains the
+    only setting that admits *no* window at all, but it is no longer the only
+    answer to one: ``users.session_revocation`` publishes each bump on the
+    framework's ``InvalidationBus``, so an install whose ``background_tasks``
+    module has a reachable Redis sees a revocation in every worker within a
+    round trip and can keep the cache. This TTL is then the bound on a *dropped*
+    message rather than on every cross-worker revocation.
     """
     global _SESSION_VERSIONS
     ttl = max(0, int(ttl_seconds))

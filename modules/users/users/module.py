@@ -23,6 +23,7 @@ from users.constants import (
 if TYPE_CHECKING:
     from fastapi import FastAPI
     from simple_module_core.events import EventBus
+    from simple_module_core.invalidation import InvalidationBus
 
 _MODULE_DEPENDENCY_AUTH = "Auth"
 # register_settings() goes through settings.registration.register_module_settings,
@@ -105,6 +106,19 @@ class UsersModule(ModuleBase):
             state.oauth_providers = provider_buttons(state.oauth_clients)
 
         bus.subscribe(settings_reloaded, _rebuild_oauth_clients)
+
+    def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
+        """Let another worker's revocation drop this worker's cached counter.
+
+        ``_version_still_current`` runs on nearly every authenticated request, so
+        the stored ``session_version`` is cached per process. Without this the
+        cache is the reason a password change made because an account is
+        believed compromised leaves the *other* workers admitting the old
+        sessions for the rest of their TTL (GH #318).
+        """
+        from users.session_revocation import subscribe
+
+        subscribe(bus)
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
@@ -214,86 +228,12 @@ class UsersModule(ModuleBase):
         admin_router.include_router(admin_views)
 
     async def on_startup(self, app: FastAPI) -> None:
-        """Build the mailer, rate limiter, and apply production cookie params."""
-        import asyncio
+        """Build the mailer, limiters, OAuth clients and the seeded admin.
 
-        from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
-        from users.backend import reconfigure_cookie_transport
-        from users.bootstrap import bootstrap_admin_from_env
-        from users.deps import auth_backend
-        from users.mailer import build_mailer, default_app_name
-        from users.oauth.providers import build_client_map, provider_buttons
-        from users.roles_cache import refresh_roles_cache
-        from users.session_version_cache import configure_session_version_cache
+        The body lives in ``users.startup``: every step reads a DB-hydrated
+        setting, so it must run after the lifespan's hydration, and keeping it
+        out of this file keeps that boundary visible.
+        """
+        from users.startup import run_startup
 
-        state = app.state.users
-        s = state.settings
-
-        def _app_name() -> str:
-            # Read the (optional) branding module's live name off app.state by
-            # name — never imported, so users stays decoupled from branding.
-            branding = getattr(app.state, "branding", None)
-            name = getattr(getattr(branding, "settings", None), "app_name", None)
-            return name or default_app_name()
-
-        state.mailer = build_mailer(s, _app_name)
-
-        # Registered here rather than in register_health_checks because the
-        # check needs the app to re-read DB-hydrated settings on every run.
-        # The owner is passed explicitly since the boot-time set_owner window
-        # has long closed by startup.
-        from simple_module_core.health import HealthCheck
-
-        from users.health import CHECK_MAILER, build_mailer_check
-
-        app.state.sm.health_registry.add(
-            HealthCheck(
-                name=CHECK_MAILER,
-                check=build_mailer_check(app),
-                module=self.meta.name,
-                # On demand only: this authenticates against the mail provider,
-                # which must not happen on a readiness-probe timer.
-                probe=False,
-            )
-        )
-        state.rate_limiter = LoginRateLimiter(
-            max_failures=s.login_rate_limit_failures,
-            window_seconds=s.login_rate_limit_window_seconds,
-            cooldown_seconds=s.login_rate_limit_cooldown_seconds,
-        )
-        state.auth_throughput_limiter = ThroughputLimiter(
-            max_attempts=s.auth_rate_limit_attempts,
-            window_seconds=s.auth_rate_limit_window_seconds,
-        )
-        state.oauth_clients = build_client_map(s)
-        state.oauth_providers = provider_buttons(state.oauth_clients)
-
-        # Auto-fall-back when the default ``/dashboard/`` target is
-        # unreachable because the Dashboard module isn't installed (e.g.
-        # ``--preset minimal`` or apps like smpy_gis that omit it).
-        # Pick the first sibling module that exposes view routes instead
-        # of hard-coding ``/`` which may itself 404 (#173). Operator-set
-        # overrides are always preserved.
-        if s.login_redirect_url == "/dashboard/" and not any(
-            m.meta.name == "Dashboard" for m in app.state.sm.modules
-        ):
-            first_view = next(
-                (
-                    m.meta.view_prefix
-                    for m in app.state.sm.modules
-                    if m.meta.view_prefix and m.meta.name != self.meta.name
-                ),
-                None,
-            )
-            s.login_redirect_url = f"{first_view}/" if first_view else "/"
-
-        reconfigure_cookie_transport(auth_backend, s)
-        # The revocation cache's staleness window is an operator choice: the
-        # default trades one indexed read per request for a bounded window in
-        # which another worker's revocation is not yet seen here.
-        configure_session_version_cache(s.session_version_cache_ttl_seconds)
-
-        await asyncio.gather(
-            bootstrap_admin_from_env(app),
-            refresh_roles_cache(app),
-        )
+        await run_startup(self, app)

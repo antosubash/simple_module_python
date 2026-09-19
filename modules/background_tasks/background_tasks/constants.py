@@ -87,6 +87,11 @@ DEFAULT_STUCK_SWEEP_INTERVAL_SECONDS = 60
 DEFAULT_PURGE_INTERVAL_SECONDS = 60 * 60 * 24
 DEFAULT_RETENTION_DAYS = 14
 DEFAULT_MAX_RETRIES = 3
+# Redis pub/sub channel carrying the framework's cache invalidations. Namespaced
+# so that two apps sharing one Redis database do not each act on the other's
+# messages — harmless (a dropped cache entry), but it makes every worker do
+# pointless reads. An operator in that position renames it per app.
+DEFAULT_INVALIDATION_CHANNEL = "simple_module.invalidation"
 
 # ── Internal task names ─────────────────────────────────────────
 INTERNAL_TASK_SWEEP_STUCK = "background_tasks.sweep_stuck_tasks"

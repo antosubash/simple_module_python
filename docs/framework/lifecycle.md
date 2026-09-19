@@ -10,6 +10,7 @@ register_menu_items
 register_permissions
 register_feature_flags
 register_event_handlers
+register_invalidations
 register_health_checks
 register_public_routes
 register_csp_sources
@@ -118,6 +119,19 @@ async def _on_order_placed(self, event: OrderPlaced) -> None: ...
 Handlers are keyed by the exact event type and run concurrently on publish. See [Events](/framework/events).
 
 `app` is optional. Take it when a handler needs `app.state.sm.db.session_factory` to persist on the framework's engine rather than building its own. The framework inspects your signature and calls the one-argument form `(self, bus)` when that is what you declared, so modules written before `app` existed keep working unchanged.
+
+## `register_invalidations(bus, app)`
+
+Subscribe this module's per-process caches to the `InvalidationBus`, so another worker's write drops this worker's entry:
+
+```python
+def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
+    bus.subscribe("orders.totals", lambda inv: _TOTALS.pop(inv.key, None))
+```
+
+Handlers may be sync or async, and may only **forget** — the bus carries no delivery guarantee, so a handler that wrote to the database would do it an unknowable number of times. Publishing needs no hook: reach the same bus at `request.app.state.sm.invalidation` from a `db.on_commit` callback.
+
+Whether an invalidation reaches other processes depends on a transport being installed (`background_tasks` installs a Redis one), so every cache keeps its TTL as a floor. See [Cache invalidation](/framework/invalidation).
 
 ## `register_health_checks(registry)`
 

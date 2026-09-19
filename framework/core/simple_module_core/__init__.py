@@ -36,6 +36,11 @@ from simple_module_core.feature_flags import (
 )
 from simple_module_core.health import HealthCheck, HealthCheckResult, HealthRegistry, HealthStatus
 from simple_module_core.i18n import I18nRegistry, Translator
+from simple_module_core.invalidation import (
+    Invalidation,
+    InvalidationBus,
+    InvalidationTransport,
+)
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
@@ -66,6 +71,9 @@ __all__ = [
     "HealthStatus",
     "I18nRegistry",
     "InvalidModuleError",
+    "Invalidation",
+    "InvalidationBus",
+    "InvalidationTransport",
     "LabelResolver",
     "MenuItem",
     "MenuRegistry",

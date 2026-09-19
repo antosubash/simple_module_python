@@ -12,6 +12,19 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- `InvalidationBus` — a framework-level cache-invalidation channel any module can
+  publish on (`ModuleBase.register_invalidations`, `app.state.sm.invalidation`).
+  In-process by default; `background_tasks` installs a Redis pub/sub transport on
+  the connection it already configures, so a write drops the matching entry in
+  *every* worker instead of only the one that performed it.
+  Turn it off with `SM_BG_TASKS_BROADCAST_INVALIDATIONS=false`; rename the channel
+  with `SM_BG_TASKS_INVALIDATION_CHANNEL` when two apps share a Redis database.
+  See [docs/framework/invalidation.md](docs/framework/invalidation.md) (GH #318).
+- `users` publishes its `session_version` bump on that bus, so "sign out
+  everywhere" and a password change stop being honoured across every worker at
+  once rather than after each worker's `SM_USERS_SESSION_VERSION_TTL_SECONDS`
+  window. The TTL now bounds a *dropped* message rather than every cross-worker
+  revocation; installs without a reachable Redis keep the previous behaviour.
 - Request-scoped database sessions now expose `session.on_commit(callback)` for
   synchronous or asynchronous cache refreshes and other derived state. The
   framework invokes callbacks only after a successful commit and discards them
