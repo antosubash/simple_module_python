@@ -40,8 +40,16 @@ long enough to collapse a page's worth of requests into one read. It is the
 *default*, not a constant: an operator who considers any cross-process lag
 unacceptable for a password change made because an account is believed
 compromised can shorten it — to 0, which disables the cache and pays the read on
-every request — via ``SM_USERS_SESSION_VERSION_TTL_SECONDS``. See
-:func:`configure_session_version_cache`.
+every request.
+
+The knob is ``users.session_version_cache_ttl_seconds`` in the settings store,
+reachable from the admin UI or by setting
+``SM_USERS_SESSION_VERSION_CACHE_TTL_SECONDS`` and running ``smpy settings
+import-from-env``. Note both halves of that: ``UsersSettings`` is a
+:class:`DbBackedSettings`, so exporting the variable alone changes nothing — it
+has to be imported into the store. Earlier revisions of this docstring named a
+variable (``SM_USERS_SESSION_VERSION_TTL_SECONDS``) that does not match any field
+and so was read by nothing at all. See :func:`configure_session_version_cache`.
 """
 
 _CACHE_MAXSIZE = 10_000

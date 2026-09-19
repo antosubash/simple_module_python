@@ -77,6 +77,8 @@ A transport failure never propagates. The caller has already committed; turning 
 
 Every framework channel shares that one Redis channel; `Invalidation.channel` routes inside the receiving process.
 
+> **A stored override beats the environment.** `settings.hydrate.hydrate_settings` passes DB values to the settings class as *init args*, and pydantic-settings ranks init args above its env source — so once `background_tasks.broadcast_invalidations` has a row in the settings store (written from the admin UI, or by `smpy settings import-from-env`), the env var above stops having any effect after boot hydration. This inverts the precedence CLAUDE.md states (`env → DB → default`) and is not specific to these two fields: it applies to every env-readable module setting, `broker_url` included. Check the settings screen, not just the container's environment, when a knob appears not to work.
+
 Failure behaviour, all deliberate:
 
 - **Redis unreachable at boot** — the app boots, logs a warning naming the consequence, and the listener retries with capped backoff. A web worker that can serve every request must not fail to start over a degraded accelerator.
@@ -91,7 +93,7 @@ A standalone worker never builds the FastAPI app, so it installs no transport: i
 
 ### Tests
 
-`simple_module_test` sets `SM_BG_TASKS_BROADCAST_INVALIDATIONS=false` (via `setdefault`) so no suite opens a pub/sub listener against a broker it doesn't have. A test that wants the transport sets the variable, or drives `RedisInvalidationTransport` directly against a fake client — see `modules/background_tasks/tests/test_bg_invalidation.py`.
+`simple_module_test` sets `SM_BG_TASKS_BROADCAST_INVALIDATIONS=false` (via `setdefault`) so no suite opens a pub/sub listener against a broker it doesn't have. A test that wants the transport sets the variable, or drives `RedisInvalidationTransport` directly. The transport is covered at three levels: `test_bg_invalidation.py` (fake client — retry, timeout, teardown logic), `test_bg_invalidation_redis.py` (real `redis-server` — round trip, origin filter, channel isolation), and `test_bg_invalidation_degraded.py` (broker refused or mute). `tests/integration/test_invalidation_cross_process.py` covers two real worker processes, with a control arm that reproduces the bug when broadcasting is off.
 
 ## Still per-process
 

@@ -203,6 +203,53 @@ class TestDeliver:
         assert [i.key for i in seen] == [None]
 
 
+class TestRelaying:
+    """A worker relays what it publishes even when it caches nothing itself."""
+
+    async def test_a_channel_with_no_local_subscribers_still_broadcasts(self):
+        """Otherwise a heterogeneous fleet loses messages by luck of routing.
+
+        The worker that serves a revocation need not be one that caches the
+        counter — a module can publish for caches that only *other* modules keep.
+        If the transport were skipped when nothing local listens, whether the
+        other workers heard would depend on which worker got the request.
+        """
+        bus = InvalidationBus()
+        transport = _RecordingTransport()
+        bus.set_transport(transport)
+
+        await bus.publish("nobody.local", key="k")
+
+        assert len(transport.sent) == 1
+
+
+class TestUnknownChannels:
+    async def test_a_remote_message_for_an_unsubscribed_channel_is_a_no_op(self):
+        """A shared transport carries every channel; most are not ours."""
+        bus = InvalidationBus()
+        seen: list[Invalidation] = []
+        bus.subscribe("mine", seen.append)
+
+        await bus.deliver(Invalidation(channel="theirs", key="k", origin="other").to_wire())
+
+        assert seen == []
+
+    async def test_non_utf8_bytes_are_dropped_rather_than_raised(self):
+        """``json.loads`` raises ``UnicodeDecodeError`` on these, not ValueError.
+
+        A listener that died on one such frame would take cross-process
+        invalidation down for the life of the process, and a shared Redis
+        database is exactly where arbitrary bytes come from.
+        """
+        bus = InvalidationBus()
+        seen: list[Invalidation] = []
+        bus.subscribe("c", seen.append)
+
+        await bus.deliver(b"\xff\xfe\x00not json")
+
+        assert seen == []
+
+
 class TestOrigin:
     def test_two_buses_do_not_share_an_origin(self):
         """A shared origin would make each ignore the other — silently."""

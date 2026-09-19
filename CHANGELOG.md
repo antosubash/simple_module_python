@@ -22,7 +22,7 @@ All notable changes to this project are documented in this file. The format is b
   See [docs/framework/invalidation.md](docs/framework/invalidation.md) (GH #318).
 - `users` publishes its `session_version` bump on that bus, so "sign out
   everywhere" and a password change stop being honoured across every worker at
-  once rather than after each worker's `SM_USERS_SESSION_VERSION_TTL_SECONDS`
+  once rather than after each worker's `users.session_version_cache_ttl_seconds`
   window. The TTL now bounds a *dropped* message rather than every cross-worker
   revocation; installs without a reachable Redis keep the previous behaviour.
 - Request-scoped database sessions now expose `session.on_commit(callback)` for
