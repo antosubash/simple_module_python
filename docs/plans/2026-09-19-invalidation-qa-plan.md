@@ -383,11 +383,11 @@ path does not:
 ```python
 hit, cached = read_session_version(user_id)
 if hit:
-    return cached is not None and int(cached) == _stamped_version(session)   # cannot fail open
+    return cached is not None and int(cached) == _stamped_version(session)  # cannot fail open
 try:
-    ...                                    # the DB read
+    ...  # the DB read
 except Exception:
-    return True                            # deliberately admits, so a blip is not a mass logout
+    return True  # deliberately admits, so a blip is not a mass logout
 ```
 
 A cache **hit** is an in-memory comparison; only a **miss** reaches that `return
@@ -433,9 +433,24 @@ part-way leaves an unknown suffix undone: it has to report what it applied, not
 just that it finished. The version used for this fix counts and prints
 `applied: N of M`.
 
+### F15 — my local gate was not CI's gate (fixed)
+
+The commit carrying F14 failed CI on `Python lint & format`, having passed locally.
+Cause: I ran `ruff format --check framework host modules scripts tests` — a path
+list I wrote — while CI runs `make ci-python-lint`, which is `ruff format --check .`
+over the whole tree. The offending file was this plan: ruff formats Python code
+blocks inside Markdown, and F13's snippet used aligned trailing comments.
+
+Two lessons, both cheap. Run the make target CI runs, not an approximation of it.
+And when a diagnostic loop reported nothing, it was because I filtered its output
+with `grep -v "already formatted$"` — which also matches the *failing* summary line
+("1 file would be reformatted, 938 files already formatted"), so the filter hid the
+one answer I was looking for.
+
 Both are process findings rather than product ones, which is why they are recorded
-here instead of being quietly fixed: the same shape (a fix applied at the place it
-was noticed, and a batch believed on its own word) will otherwise recur.
+here instead of being quietly fixed: the same shapes (a fix applied at the place it
+was noticed, a batch believed on its own word, and a local gate that is not CI's)
+will otherwise recur.
 
 ## How the findings were found
 
