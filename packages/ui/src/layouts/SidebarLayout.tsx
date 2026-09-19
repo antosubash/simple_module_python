@@ -15,6 +15,7 @@ import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
 import { BrandingMark } from '../components/BrandingMark';
+import { DemoBanner } from '../components/DemoBanner';
 import { LocaleSwitcher, useHasMultipleLocales } from '../components/LocaleSwitcher';
 import { NavIcon } from '../components/NavIcon';
 import { PageHeadingProvider, usePageSection } from '../components/page-heading';
@@ -117,6 +118,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
     <TooltipProvider>
       <BrandingHead />
       <BrandingBanner />
+      <DemoBanner />
       {/* --app-chrome-h names the height of the bar above the content — the
           topbar on lg, the mobile bar below it, both mutually exclusive.
           Both bars size themselves off this one variable (h-[var(--app-chrome-h)])

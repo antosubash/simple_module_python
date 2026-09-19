@@ -230,7 +230,13 @@
     "waiting_body": "Confirm your email address before signing in. Nothing else is reachable until it's done.",
     "waiting_back": "Use a different account",
     "no_account_invite_only": "No account? Ask an admin to invite you.",
-    "resend_failed": "We could not send it just now. Try again in a minute."
+    "resend_failed": "We could not send it just now. Try again in a minute.",
+    "demo_divider": "Just looking?",
+    "demo_submit": "Explore the demo",
+    "demo_submitting": "Opening the demo…",
+    "demo_hint_read_only": "Signs you in to a shared, read-only account. Nothing you do is saved.",
+    "demo_hint_writable": "Signs you in to a shared account. Anyone else exploring sees the same data.",
+    "demo_error": "The demo account is unavailable right now. Please try again shortly."
   },
   "metadata_card": {
     "title": "Account",

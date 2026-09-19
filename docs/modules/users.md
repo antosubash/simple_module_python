@@ -33,6 +33,7 @@ The module is built on [`fastapi-users`](https://fastapi-users.github.io/) for p
 | `POST /api/users/auth/request-verify-token` | `RequestVerifyToken` | rate-limited |
 | `POST /api/users/auth/verify` | `VerifyRequest` | |
 | `POST /api/users/auth/accept-invite` | `AcceptInviteRequest` | sets password + signs the user in |
+| `POST /api/users/auth/demo` | — | one-click sign-in as the shared demo account; `404` unless `demo_mode` is on; rate-limited — see [Demo mode](#demo-mode-hosting-a-showcase-instance) |
 | `POST /api/users/auth/token` | `TokenRequest` (email + password) | bearer login for mobile / API clients → `{access_token, refresh_token, token_type, expires_in}`; `401` for external/SSO users |
 | `POST /api/users/auth/token/refresh` | `RefreshRequest` (refresh_token) | rotates a refresh token into a new pair (old one revoked) |
 | `DELETE /api/users/auth/token` | `RefreshRequest` (refresh_token) | revokes a refresh token (idempotent) |
@@ -195,6 +196,12 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `auth_rate_limit_attempts` | `10` |
 | `auth_rate_limit_window_seconds` | `300` |
 | `bootstrap_email`, `bootstrap_password`, `bootstrap_user_email`, `bootstrap_user_password` | `""` — see [Bootstrap](#bootstrap-the-first-admin) |
+| `demo_mode` | `False` — see [Demo mode](#demo-mode-hosting-a-showcase-instance) |
+| `demo_email` | `"demo@example.com"` |
+| `demo_password` | `""` (a random one is generated, so the account is reachable only through the button) |
+| `demo_full_name` | `"Demo User"` |
+| `demo_role` | `"user"` (or `"admin"`) |
+| `demo_read_only` | `True` |
 | `oauth_google_client_id` / `oauth_google_client_secret` | `""` — Google OAuth |
 | `oauth_github_client_id` / `oauth_github_client_secret` | `""` — GitHub OAuth |
 | `oauth_microsoft_client_id` / `oauth_microsoft_client_secret` / `oauth_microsoft_tenant` | `""` / `""` / `"common"` — Microsoft (Entra ID) |
@@ -251,6 +258,72 @@ Two paths to seed the first admin:
 
 1. **CLI** — `smpy users create-admin ...`.
 2. **Env vars** — set `SM_USERS_BOOTSTRAP_EMAIL` + `SM_USERS_BOOTSTRAP_PASSWORD` before first `make dev`. `bootstrap_admin_from_env(app)` runs at startup and creates the admin if the `users_user` table is empty. Optionally seed a non-admin too via `SM_USERS_BOOTSTRAP_USER_EMAIL` + `SM_USERS_BOOTSTRAP_USER_PASSWORD`.
+
+## Demo mode (hosting a showcase instance)
+
+Turn `demo_mode` on and the sign-in card grows an **Explore the demo** button.
+One click signs the visitor in as a shared, pre-seeded account — no email, no
+password, no signup.
+
+```
+users.demo_mode      = true
+users.demo_email     = demo@example.com
+users.demo_role      = admin      # what actually shows off the framework
+users.demo_read_only = true       # default; leave it on
+```
+
+Set these under Users at `/admin/settings/`, or seed them in the settings store
+before first boot. Changes apply live — the `SettingsReloaded` handler
+re-seeds the account and refreshes the cached id, so there is no restart.
+
+### What it does
+
+- **Seeds the account** on every boot and every settings reload
+  (`users.demo.ensure_demo_user`). Idempotent, and it *reconciles*: changing
+  `demo_role` from `admin` back to `user` demotes the existing row and drops
+  the admin grant rather than leaving it in place.
+- **Never sends the password to the browser.** The button posts to
+  `POST /api/users/auth/demo` with an empty body and the server resolves the
+  account itself. This is the difference between demo mode and the dev
+  quick-login buttons, which paste real credentials into the form and are
+  therefore development-only. Leave `demo_password` blank and the account is
+  seeded with a random secret nobody — including you — can type; set it only
+  if you also intend to publish the credentials (for an API demo, say).
+- **Refuses writes** while `demo_read_only` is on.
+  `DemoReadOnlyMiddleware` rejects every unsafe HTTP method from a demo
+  session with `403 {"detail": "DEMO_READ_ONLY"}`, except signing out. Inertia
+  requests get the protocol's `409` + `X-Inertia-Location` instead, so a
+  blocked save re-renders the page rather than throwing up an error modal.
+- **Says so.** `DemoBanner` renders a standing bar in every app shell, driven
+  by the `demo` shared prop. It is **per session**, not per install — you,
+  signed in to your own account on the same instance, do not see it, and your
+  writes are not touched.
+
+### `demo_role = "admin"` and `demo_read_only = false`
+
+This combination hands anyone who can reach your sign-in page a writable
+superuser: the settings editor (including the SMTP password and OAuth client
+secrets), the user table, and maintenance mode. It is allowed — an instance
+whose database is rebuilt on a timer has a legitimate reason to want a
+writable demo — but it logs `users.demo.writable_admin` at WARNING on every
+settings load. Do not run it against a database you care about.
+
+### Limits worth knowing
+
+- The account is **shared**. Two visitors exploring at once see each other's
+  state, and with `demo_read_only = false` they can overwrite each other.
+  Periodically resetting the database is the only real answer.
+- `demo_read_only` matches on the **session** — the stamp the demo endpoint
+  writes, or a session whose `user_id` is the demo account's. A bearer token
+  is not covered directly, but minting one is itself a `POST`, so a read-only
+  demo cannot get hold of one.
+- The endpoint shares the `auth_rate_limit_*` budget with the other
+  credential-adjacent routes. Each click mints a session row, so a demo
+  instance under real traffic may want that raised.
+- With `demo_role = "admin"`, the demo account **satisfies the first-run setup
+  gate** — an administrator exists, so `/setup` never appears. Seed your own
+  admin first (`smpy users create-admin`, or the `SM_USERS_BOOTSTRAP_*` vars),
+  because a read-only demo session cannot complete the wizard.
 
 ## Mailer backends
 

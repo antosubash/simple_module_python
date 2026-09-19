@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    import uuid
+
     from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
     from users.mailer import Mailer
     from users.oauth.providers import OAuthProvider
@@ -34,3 +36,7 @@ class UsersState:
     roles_cache: list[RoleSummary] = field(default_factory=list)
     oauth_providers: list[dict[str, str]] = field(default_factory=list)
     oauth_clients: dict[str, OAuthProvider] = field(default_factory=dict)
+    # Id of the shared demo account, or None when demo mode is off. Cached at
+    # boot (and on every settings reload) so ``DemoReadOnlyMiddleware`` can
+    # recognise a demo session without a database read per request.
+    demo_user_id: uuid.UUID | None = None

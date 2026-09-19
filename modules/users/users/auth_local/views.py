@@ -16,6 +16,7 @@ from users.auth_local.invite_preview import preview_invite
 from users.auth_local.token_preview import decode_verify_token, preview_reset
 from users.bootstrap import resolve_bootstrap_credentials
 from users.contracts.schemas import UserRead
+from users.demo import resolve_demo_account
 from users.mailer import mailer_delivers
 from users.manager import UserManager, get_user_manager
 from users.models import User
@@ -71,6 +72,21 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
         _PAGE_LOGIN,
         {
             "allow_signup": users_settings.allow_signup,
+            # The demo card, when a showcase account is configured. Carries no
+            # password: the button posts to /api/users/auth/demo and the
+            # server looks the account up itself. ``read_only`` is here so the
+            # card can say what the visitor will and will not be able to do
+            # before they click, rather than after their first refused save.
+            #
+            # Not ``demo`` — that name belongs to the shared prop describing
+            # the *current* session (``users.shared_props``). Page props win
+            # the merge, so reusing it would have this key quietly shadow the
+            # banner's on this one page.
+            "demo_signin": (
+                {"enabled": True, "read_only": demo_account.read_only}
+                if (demo_account := resolve_demo_account(users_settings))
+                else {"enabled": False, "read_only": False}
+            ),
             "dev_accounts": dev_accounts,
             # Where AuthMiddleware bounced them from, when it bounced them.
             # Read, not popped: a reload of the login page must not silently

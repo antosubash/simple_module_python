@@ -162,4 +162,4 @@ async def users_db(users_app) -> AsyncGenerator[AsyncSession, None]:
 
 # Fixtures consumed by the users.middleware unit tests live in
 # _middleware_support.py (imported as a pytest plugin below).
-pytest_plugins = ["_middleware_support"]
+pytest_plugins = ["_middleware_support", "_demo_support"]

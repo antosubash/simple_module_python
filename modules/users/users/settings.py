@@ -10,6 +10,7 @@ DB-backed settings can be seeded, otherwise the two paths deadlock.
 
 from __future__ import annotations
 
+import logging
 import os
 
 from pydantic import Field, field_validator, model_validator
@@ -19,12 +20,18 @@ from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.redirect_safety import non_empty_redirect
 from simple_module_core.settings_base import DbBackedSettings
 
+from users.constants import ADMIN_ROLE_NAME
 from users.session_version_cache import SESSION_VERSION_TTL_SECONDS
+
+logger = logging.getLogger("users.settings")
 
 _PLACEHOLDER_RESET_SECRET = "dev-reset-token-secret-change-me"
 _PLACEHOLDER_VERIFY_SECRET = "dev-verify-token-secret-change-me"
 
 DEFAULT_LOGIN_REDIRECT_URL = "/dashboard/"
+
+# Groups the demo fields together in the module-settings editor.
+DEMO_SETTINGS_GROUP = "Demo account"
 
 
 class UsersSettings(DbBackedSettings):
@@ -112,6 +119,33 @@ class UsersSettings(DbBackedSettings):
     auth_rate_limit_attempts: int = 10
     auth_rate_limit_window_seconds: int = 300
 
+    # ── Demo account ────────────────────────────────────────────────────
+    # For public showcase instances: one click on the sign-in card signs the
+    # visitor in as a shared, pre-seeded account. The password is never sent
+    # to the browser (unlike the dev quick-fill buttons, which are
+    # development-only and paste real credentials into the form).
+    demo_mode: bool = Field(default=False, json_schema_extra={"group": DEMO_SETTINGS_GROUP})
+    demo_email: str = Field(
+        default="demo@example.com", json_schema_extra={"group": DEMO_SETTINGS_GROUP}
+    )
+    # Blank means "no password anyone can type": the account is seeded with a
+    # random one and is reachable only through the demo button. Set it only if
+    # you also want the credentials published (e.g. for API demos).
+    demo_password: str = Field(default="", json_schema_extra={"group": DEMO_SETTINGS_GROUP})
+    demo_full_name: str = Field(
+        default="Demo User", json_schema_extra={"group": DEMO_SETTINGS_GROUP}
+    )
+    # Which role the demo account carries. ``admin`` is what shows off the
+    # admin surface — pair it with ``demo_read_only`` (see the validator below)
+    # or the first visitor can rewrite the instance's settings.
+    demo_role: str = Field(
+        default="user", pattern="^(user|admin)$", json_schema_extra={"group": DEMO_SETTINGS_GROUP}
+    )
+    # Refuse every unsafe HTTP method from a demo session. On by default:
+    # a demo account is a published credential, so the safe posture is the one
+    # you get without reading the docs.
+    demo_read_only: bool = Field(default=True, json_schema_extra={"group": DEMO_SETTINGS_GROUP})
+
     # Bootstrap (env-var auto-create users on first boot)
     bootstrap_email: str = ""
     bootstrap_password: str = ""
@@ -147,6 +181,26 @@ class UsersSettings(DbBackedSettings):
     oauth_microsoft_tenant: str = Field(
         default="common", json_schema_extra={"group": "Microsoft OAuth"}
     )
+
+    @model_validator(mode="after")
+    def _warn_on_writable_admin_demo(self) -> UsersSettings:
+        """A writable admin demo is a public superuser — say so, loudly.
+
+        Not an error: an operator who resets the demo database on a timer has
+        a legitimate reason to want it, and refusing would make a settings
+        edit in the admin UI fail with no way to opt in. But the combination
+        hands anyone who finds the URL the settings editor, the user table and
+        maintenance mode, so it does not get to happen quietly.
+        """
+        if self.demo_mode and self.demo_role == ADMIN_ROLE_NAME and not self.demo_read_only:
+            logger.warning(
+                "users.demo.writable_admin — demo_mode is on with demo_role=%r and "
+                "demo_read_only=False: anyone who can reach the sign-in page gets a "
+                "writable administrator session. Set demo_read_only=True unless this "
+                "instance's database is disposable.",
+                self.demo_role,
+            )
+        return self
 
     @model_validator(mode="after")
     def _forbid_placeholder_token_secrets_in_production(self) -> UsersSettings:
