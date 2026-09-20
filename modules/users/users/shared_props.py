@@ -30,10 +30,14 @@ def users_shared_props(request: Request) -> dict:
     per-*session*, not per-install: an operator signed in to their own account
     on a demo instance is doing real work and should not be told otherwise,
     and it is the demo visitor who needs to know their saves will bounce.
+
+    Judged on the same rule as ``DemoReadOnlyMiddleware`` — the session's own
+    stamp, not ``demo_mode``. The two must agree, or switching demo mode off
+    leaves the visitor's saves being refused by a page that no longer says why.
     """
     state = getattr(request.app.state, "users", None)
     settings = getattr(state, "settings", None)
-    demo_active = bool(getattr(settings, "demo_mode", False)) and is_demo_session(
+    demo_active = is_demo_session(
         getattr(request, "scope", {}), getattr(state, "demo_user_ids", ())
     )
     return {

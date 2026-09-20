@@ -130,3 +130,49 @@ async def test_the_guard_leaves_real_accounts_alone(demo_app):
         )
 
     assert res.status_code == 200
+
+
+# ── ways out of a demo session ──────────────────────────────────────────────
+
+
+async def test_a_demo_session_can_sign_in_as_a_real_user_and_gets_its_writes_back(
+    demo_app, demo_client
+):
+    """Signing in as yourself is how you stop being the demo.
+
+    Two failures met here. Refusing the sign-in POST stranded anyone whose
+    browser still carried the stamp — including a lapsed demo session, which
+    ``_forget`` leaves anonymous but still marked — with no reachable way back
+    in short of clearing cookies. And a stamp that survived the sign-in would
+    hand the guard to the real account that replaced it.
+    """
+    from _users_app_builders import _make_admin_user
+
+    admin = await _make_admin_user(demo_app)
+    await demo_client.post(_demo_route(ADMIN_ROLE_NAME))
+
+    signed_in = await demo_client.post(
+        "/api/users/auth/login",
+        data={"username": admin.email, "password": "AdminPass1!", "remember": "false"},
+    )
+    assert signed_in.status_code == 204
+
+    res = await demo_client.patch("/api/users/me", json={"full_name": "A Real Admin"})
+    assert res.status_code == 200
+
+
+async def test_demo_sessions_stay_read_only_after_demo_mode_is_switched_off(demo_app, demo_client):
+    """Withdrawing the offer must not promote the sessions already handed out.
+
+    ``demo_mode = False`` stops the buttons; it does not expire the cookies, so
+    a guard that keyed on it would hand every live demo visitor a writable
+    superuser on the way out.
+    """
+    await demo_client.post(_demo_route(ADMIN_ROLE_NAME))
+    demo_app.state.users.settings.demo_mode = False
+    demo_app.state.users.demo_user_ids = ()
+
+    res = await demo_client.patch("/api/users/me", json={"full_name": "Owned"})
+
+    assert res.status_code == 403
+    assert res.json()["detail"] == DEMO_READ_ONLY_DETAIL

@@ -337,6 +337,18 @@ every settings load. Do not run it against a database you care about. Blanking
   writes, or a session whose `user_id` is one of the demo accounts'. A bearer
   token is not covered directly, but minting one is itself a `POST`, so a
   read-only demo cannot get hold of one.
+- The guard deliberately does **not** consult `demo_mode`. Switching demo mode
+  off withdraws the *offer* — it does not retract the sessions already handed
+  out, and promoting those live cookies to writable superusers on the way out
+  would be the opposite of what "turn the demo off" means. A stamped session
+  stays read-only (and keeps its banner) until it signs out or lapses. To end
+  the sessions themselves, disable the demo rows in the user editor; a
+  reconcile will not re-enable them.
+- Signing in with real credentials (`POST /api/users/auth/login`) is allowed
+  from a demo session — it is how you *stop* being the demo, it takes a real
+  password, and the rate limiter still applies. Every non-demo sign-in clears
+  the stamp, so a browser that once held a demo session is never locked out of
+  the ordinary login.
 - Each role's endpoint has its own `auth_rate_limit_*` budget (the limiter
   keys on path + client IP), so a bot hammering one cannot lock a visitor out
   of the other. Each click mints a session row, so a demo instance under real

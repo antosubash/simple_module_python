@@ -39,7 +39,14 @@ _SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 #: and a demo you cannot sign out of is a demo you cannot show twice. The
 #: sign-in routes are here so switching between the two demo accounts works
 #: without signing out first — that comparison is the point of having two.
-_ALLOWED_PATHS = frozenset({"/users/logout", "/api/users/auth/logout"})
+#:
+#: ``/api/users/auth/login`` is here for the same reason in reverse: signing in
+#: as yourself is how you *stop* being the demo, and it takes real credentials
+#: (still rate-limited) rather than mutating anything. Refusing it stranded a
+#: visitor whose demo session had lapsed — the stamp outlives the identity —
+#: with no reachable way back in. ``/auth/token`` is deliberately *not* here:
+#: minting a bearer token is what a read-only demo must not be able to do.
+_ALLOWED_PATHS = frozenset({"/users/logout", "/api/users/auth/logout", "/api/users/auth/login"})
 
 #: Prefix form of the same, for the per-role demo sign-in routes.
 _ALLOWED_PREFIXES = ("/api/users/auth/demo/",)
@@ -89,13 +96,17 @@ class DemoReadOnlyMiddleware:
 
         state = getattr(scope["app"].state, "users", None)
         settings = getattr(state, "settings", None)
-        # ``demo_mode`` and ``demo_read_only`` are both live-editable, so they
-        # are read per request rather than captured at construction.
-        if (
-            settings is None
-            or not getattr(settings, "demo_mode", False)
-            or not getattr(settings, "demo_read_only", True)
-        ):
+        # ``demo_read_only`` is live-editable, so it is read per request rather
+        # than captured at construction.
+        #
+        # ``demo_mode`` is deliberately *not* consulted. It governs whether the
+        # instance still *offers* the demo, not what an already-minted demo
+        # session is: an operator ending the showcase by switching it off would
+        # otherwise promote every live demo cookie from read-only to a writable
+        # superuser, which is the opposite of what they asked for. Sessions are
+        # recognised by the stamp they carry, so an install that never hosted a
+        # demo still pays nothing beyond one dict lookup on unsafe methods.
+        if settings is None or not getattr(settings, "demo_read_only", True):
             await self.app(scope, receive, send)
             return
 

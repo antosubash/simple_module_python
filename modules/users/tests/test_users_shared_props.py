@@ -62,9 +62,16 @@ class TestDemoSharedProp:
             demo_user_ids=ids,
         )
 
-    def test_inactive_when_demo_mode_is_off(self) -> None:
-        request = _request(self._state(demo_mode=False), session={SESSION_DEMO_KEY: True})
+    def test_inactive_for_a_session_that_was_never_a_demo(self) -> None:
+        request = _request(self._state(), session={})
         assert users_shared_props(request)["demo"] == {"active": False, "readOnly": False}
+
+    def test_a_stamped_session_stays_a_demo_after_demo_mode_is_switched_off(self) -> None:
+        """Judged on the same rule as the guard, which keeps refusing this
+        session's writes once the offer is withdrawn — a banner that vanished
+        would leave those refusals looking like a crash."""
+        request = _request(self._state(demo_mode=False), session={SESSION_DEMO_KEY: True})
+        assert users_shared_props(request)["demo"] == {"active": True, "readOnly": True}
 
     def test_inactive_for_an_ordinary_session_on_a_demo_instance(self) -> None:
         """The operator's own session is not a demo session."""

@@ -36,6 +36,7 @@ from users.constants import (
     ADMIN_ROLE_DESCRIPTION,
     ADMIN_ROLE_ID,
     ADMIN_ROLE_NAME,
+    SESSION_DEMO_KEY,
     USER_ROLE_DESCRIPTION,
     USER_ROLE_ID,
     USER_ROLE_NAME,
@@ -45,10 +46,20 @@ from users.settings import UsersSettings
 
 logger = logging.getLogger("users.demo")
 
-# Stamped on the session by the demo sign-in endpoint. The guard also matches
-# on the user ids, so this is not the only line of defence — it is what keeps
-# the hot path off the database.
-SESSION_DEMO_KEY = "is_demo"
+# ``SESSION_DEMO_KEY`` is stamped on the session by the demo sign-in endpoint;
+# the guard also matches on the user ids, so it is not the only line of defence
+# — it is what keeps the hot path off the database. It is defined in
+# ``users.constants`` because ``manager`` and ``provider`` have to clear it on
+# every other sign-in and on session teardown, and neither may import this
+# module. Re-exported here, which is where the feature's own code reads it.
+__all__ = [
+    "SESSION_DEMO_KEY",
+    "DemoAccount",
+    "ensure_demo_users",
+    "reconcile_demo_user",
+    "resolve_demo_account",
+    "resolve_demo_accounts",
+]
 
 _EVT_CREATED = "users.demo.created"
 _EVT_RECONCILED = "users.demo.reconciled"
@@ -157,6 +168,12 @@ async def reconcile_demo_user(db: AsyncSession, account: DemoAccount) -> User:
     create only — that is what makes "reachable only through the button" true,
     and re-rolling it every boot would write an audit entry per worker per
     restart for a value nobody can use.
+
+    ``is_active``/``disabled_at`` are set on *create* only, for the same reason
+    the generated password is: disabling the row in the admin UI is the kill
+    switch for a demo account being abused, and a reconcile that re-enabled it
+    would undo that on the next boot or the next unrelated Users settings save.
+    Re-enabling is an admin action, not a config one.
     """
     hasher = PasswordHelper()
     user = (
@@ -172,10 +189,11 @@ async def reconcile_demo_user(db: AsyncSession, account: DemoAccount) -> User:
     elif created:
         user.hashed_password = hasher.hash(secrets.token_urlsafe(32))
     user.full_name = account.full_name
-    user.is_active = True
     user.is_verified = True
     user.is_superuser = account.role == ADMIN_ROLE_NAME
-    user.disabled_at = None
+    if created:
+        user.is_active = True
+        user.disabled_at = None
     await db.flush()
     await _sync_role(db, user, account.role)
     await db.commit()
