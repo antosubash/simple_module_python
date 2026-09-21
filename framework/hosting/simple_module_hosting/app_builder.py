@@ -10,11 +10,12 @@ from fastapi import FastAPI
 from simple_module_core import CspSourceRegistry
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.design_packs import DesignPackRegistry
-from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
+from simple_module_core.diagnostics import print_diagnostics
 from simple_module_core.discovery import discover_modules, select_auth_provider, topological_sort
 from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagRegistry
 from simple_module_core.health import HealthRegistry
+from simple_module_core.invalidation import InvalidationBus
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRouteRegistry
@@ -24,6 +25,7 @@ from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 
 from simple_module_hosting._db_health import register_database_check
+from simple_module_hosting._dev_boot import run_dev_boot
 from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._lifespan import build_lifespan
 from simple_module_hosting._phase_helpers import (
@@ -39,7 +41,7 @@ from simple_module_hosting._preapp_config import merge_host_settings
 from simple_module_hosting._registrations import run_module_registrations
 from simple_module_hosting._secret_key import assert_not_placeholder
 from simple_module_hosting.health import router as health_router
-from simple_module_hosting.i18n_manifest import build_i18n_registry, emit_frontend_types_for_modules
+from simple_module_hosting.i18n_manifest import build_i18n_registry
 from simple_module_hosting.settings import Settings
 from simple_module_hosting.setup_gate import register_migration_step
 from simple_module_hosting.static_files import PrecompressedStaticFiles
@@ -146,37 +148,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # renders this exact result and its "Re-run checks" calls ``rerun()``.
     diagnostics_state = DiagnosticsState()
     if settings.is_development:
-        diagnostics_state.runner = lambda: run_diagnostics(
+        run_dev_boot(
+            settings,
             modules,
-            i18n_supported_locales=settings.i18n_supported_locales,
-            i18n_default_locale=settings.i18n_default_locale,
-            i18n_extra_sources=i18n_extra,
+            installed_modules,
+            i18n_extra=i18n_extra,
+            diagnostics_state=diagnostics_state,
+            project_root=_PROJECT_ROOT,
         )
-        diagnostics = diagnostics_state.rerun()
-        errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]
-        if diagnostics:
-            print_diagnostics(diagnostics)
-        if errors:
-            raise SystemExit(f"Module diagnostics: {len(errors)} error(s). Fix before continuing.")
-
-        # Emit frontend module-pages manifest so Vite can find pages shipped
-        # inside pip-installed module wheels. See scaffolding.py.
-        try:
-            from simple_module_hosting.manifest import write_module_pages_manifest
-
-            client_app = _PROJECT_ROOT / "host" / "client_app"
-            if client_app.is_dir():
-                write_module_pages_manifest(modules, client_app)
-        except Exception:
-            logger.exception("Failed to write module pages manifest — frontend may miss pages")
-
-        emit_frontend_types_for_modules(settings, installed_modules, _PROJECT_ROOT)
 
     # ── Phase 3: Create FastAPI app ────────────────────────
     menu_registry = MenuRegistry()
     perm_registry = PermissionRegistry()
     ff_registry = FeatureFlagRegistry()
     event_bus = EventBus()
+    invalidation_bus = InvalidationBus()
     health_registry = HealthRegistry()
     public_route_registry = PublicRouteRegistry()
     setup_registry = SetupRegistry()
@@ -211,6 +197,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         modules,
         app=app,
         event_bus=event_bus,
+        invalidation_bus=invalidation_bus,
         menu_registry=menu_registry,
         perm_registry=perm_registry,
         ff_registry=ff_registry,
@@ -292,6 +279,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         i18n_registry=i18n_registry,
         inertia_config=inertia_config,
         modules=tuple(modules),
+        invalidation=invalidation_bus,
         diagnostics=diagnostics_state,
     )
 

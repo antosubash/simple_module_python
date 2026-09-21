@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from celery import Celery
 
     from background_tasks.contracts.schemas import WorkerSnapshot
+    from background_tasks.invalidation import RedisInvalidationTransport
     from background_tasks.settings import BackgroundTasksSettings
 
 
@@ -35,3 +36,7 @@ class BackgroundTasksServices:
     # until something has. Read it for reporting, never as a live reading —
     # ``polled_at`` says how old it is.
     last_worker_snapshot: WorkerSnapshot | None = None
+    # The cross-worker cache-invalidation transport this module installs on the
+    # framework bus, kept only so ``on_shutdown`` can stop its listener task.
+    # ``None`` when ``broadcast_invalidations`` is off.
+    invalidation_transport: RedisInvalidationTransport | None = None

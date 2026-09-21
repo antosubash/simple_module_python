@@ -89,7 +89,7 @@ def test_discover_modules_called_with_strict_mirroring_environment(monkeypatch):
     # emit_frontend_types_for_modules) — with zero modules they'd rewrite the
     # generated i18n files to empty.
     monkeypatch.setattr(
-        "simple_module_hosting.app_builder.emit_frontend_types_for_modules",
+        "simple_module_hosting._dev_boot.emit_frontend_types_for_modules",
         lambda *a, **kw: None,
     )
     import simple_module_hosting.manifest as manifest_mod

@@ -8,14 +8,24 @@ from __future__ import annotations
 
 import pytest
 
+#: Set by suite-wide fixtures rather than by any test here, and each one a real
+#: settings field that ``import-from-env`` would rightly pick up.
+_FIXTURE_ENV = ("SM_AUTH_PROVIDER", "SM_BG_TASKS_BROADCAST_INVALIDATIONS")
+
+
+def _drop_fixture_env(monkeypatch) -> None:
+    for name in _FIXTURE_ENV:
+        monkeypatch.delenv(name, raising=False)
+
 
 @pytest.mark.asyncio
 async def test_import_from_env_writes_overrides(db_session, monkeypatch, app) -> None:
-    # The suite-wide `pinned_auth_provider` fixture sets SM_AUTH_PROVIDER, and
-    # auth_provider is a host setting now, so it would import too and make the
-    # count below about the fixture rather than about this test. Dropping it
-    # keeps the assertion exact as host gains further fields.
-    monkeypatch.delenv("SM_AUTH_PROVIDER", raising=False)
+    # The suite-wide fixtures set SM_AUTH_PROVIDER (host's `auth_provider`) and
+    # SM_BG_TASKS_BROADCAST_INVALIDATIONS (to keep the test run off Redis).
+    # Both are real settings fields, so both would import and make the count
+    # below about the fixtures rather than about this test. Dropping them keeps
+    # the assertion exact as the settings surface grows.
+    _drop_fixture_env(monkeypatch)
     monkeypatch.setenv("SM_USERS_ALLOW_SIGNUP", "true")
     monkeypatch.setenv("SM_USERS_SMTP_PORT", "2525")
     monkeypatch.setenv("SM_BG_TASKS_RETENTION_DAYS", "30")
@@ -37,9 +47,9 @@ async def test_import_from_env_writes_overrides(db_session, monkeypatch, app) ->
 
 @pytest.mark.asyncio
 async def test_import_ignores_unknown_env(db_session, monkeypatch, app) -> None:
-    # See the note in test_import_from_env_writes_overrides: SM_AUTH_PROVIDER
-    # is a real host setting now and would be a legitimate import.
-    monkeypatch.delenv("SM_AUTH_PROVIDER", raising=False)
+    # See the note in test_import_from_env_writes_overrides: both would be
+    # legitimate imports and neither is this test's subject.
+    _drop_fixture_env(monkeypatch)
     monkeypatch.setenv("SM_USERS_DOES_NOT_EXIST", "value")
 
     from settings.cli import import_from_env_impl

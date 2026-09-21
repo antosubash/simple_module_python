@@ -28,18 +28,39 @@ SESSION_VERSION_TTL_SECONDS = 30
 ``_version_still_current`` runs on the cached-context path, which is most
 requests, so the check was one indexed primary-key read per page load. The
 cost of the cache is a bounded staleness window: a revocation performed in
-*another* worker process takes up to this long to be seen here. The process
-that performed it calls :func:`forget_session_version` and sees it at once, so
-the browser that pressed "Sign out everywhere" is never told it worked while
-still being let in.
+*another* worker process takes up to this long to be seen here — unless a
+cross-process invalidation transport is installed, in which case
+``users.session_revocation`` drops the entry in every worker at once and this
+TTL only bounds a dropped message. The process that performed the revocation
+sees it immediately either way, so the browser that pressed "Sign out
+everywhere" is never told it worked while still being let in.
 
 30 seconds is chosen to be shorter than any plausible "did it work?" retry and
 long enough to collapse a page's worth of requests into one read. It is the
 *default*, not a constant: an operator who considers any cross-process lag
 unacceptable for a password change made because an account is believed
 compromised can shorten it — to 0, which disables the cache and pays the read on
-every request — via ``SM_USERS_SESSION_VERSION_TTL_SECONDS``. See
-:func:`configure_session_version_cache`.
+every request.
+
+**0 is not strictest in every direction, and the reason is not obvious.** It is
+strictest for cross-worker lag: nothing is cached, so no worker can serve a stale
+counter. But a cache *hit* is an in-memory comparison, while a *miss* goes to
+``UsersAuthProvider._version_still_current``'s database read — whose ``except
+Exception`` deliberately returns True so an outage is not a mass logout. So the
+cache is also an incidental fail-closed shield, and at 0 it never applies: every
+cached-path request takes the read, and during a database outage every one of them
+fails open, rather than a fraction. An operator hardening against a compromised
+account is trading one exposure for another, not removing one. See
+``test_session_version_failopen.py``, which pins both halves.
+
+The knob is ``users.session_version_cache_ttl_seconds`` in the settings store,
+reachable from the admin UI or by setting
+``SM_USERS_SESSION_VERSION_CACHE_TTL_SECONDS`` and running ``smpy settings
+import-from-env``. Note both halves of that: ``UsersSettings`` is a
+:class:`DbBackedSettings`, so exporting the variable alone changes nothing — it
+has to be imported into the store. Earlier revisions of this docstring named a
+variable (``SM_USERS_SESSION_VERSION_TTL_SECONDS``) that does not match any field
+and so was read by nothing at all. See :func:`configure_session_version_cache`.
 """
 
 _CACHE_MAXSIZE = 10_000
@@ -116,11 +137,13 @@ def configure_session_version_cache(ttl_seconds: int) -> None:
     so a settings reload does not throw away a warm cache for nothing.
 
     ``0`` disables caching — every entry expires the moment it is written, so the
-    revocation check goes back to one indexed read per request. That is the honest
-    knob for a deployment that will not accept *any* window in which one worker
-    has not yet seen another's revocation. The cross-process fix proper is a
-    shared invalidation channel, which this layer cannot reach: Redis belongs to
-    the ``background_tasks`` plugin, and the framework ``EventBus`` is in-process.
+    revocation check goes back to one indexed read per request. That remains the
+    only setting that admits *no* window at all, but it is no longer the only
+    answer to one: ``users.session_revocation`` publishes each bump on the
+    framework's ``InvalidationBus``, so an install whose ``background_tasks``
+    module has a reachable Redis sees a revocation in every worker within a
+    round trip and can keep the cache. This TTL is then the bound on a *dropped*
+    message rather than on every cross-worker revocation.
     """
     global _SESSION_VERSIONS
     ttl = max(0, int(ttl_seconds))

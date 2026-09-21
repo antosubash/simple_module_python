@@ -41,6 +41,7 @@ from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
 from background_tasks.constants import (
     DEFAULT_BROKER_URL,
+    DEFAULT_INVALIDATION_CHANNEL,
     DEFAULT_MAX_RETRIES,
     DEFAULT_PURGE_INTERVAL_SECONDS,
     DEFAULT_QUEUE,
@@ -86,6 +87,23 @@ class BackgroundTasksSettings(BaseSettings):
         json_schema_extra=_CELERY_RESTART,
     )
     task_default_queue: str = Field(default=DEFAULT_QUEUE, json_schema_extra=_CELERY_RESTART)
+
+    # ── Cross-process cache invalidation (GH #318) ──────────
+    # This module owns the Redis connection, so it installs the transport that
+    # carries the framework InvalidationBus between workers. Off means every
+    # per-process cache — ``users``' revocation counter above all — stays stale
+    # in the *other* workers until its own TTL expires, which is the behaviour
+    # that predates the transport. Left on by default because a deployment with
+    # Redis configured is the one that has several workers to keep in step; the
+    # test suite turns it off, having no Redis to reach.
+    broadcast_invalidations: bool = Field(
+        default=True, json_schema_extra={"requires_restart": True, "group": "Celery"}
+    )
+    invalidation_channel: str = Field(
+        default=DEFAULT_INVALIDATION_CHANNEL,
+        min_length=1,
+        json_schema_extra={"requires_restart": True, "group": "Celery"},
+    )
 
     # Run tasks synchronously inside the calling process. Tests flip it on via
     # ``SM_BG_TASKS_TASK_ALWAYS_EAGER`` or by passing it explicitly, either of

@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from simple_module_core.events import EventBus
     from simple_module_core.feature_flags import FeatureFlagRegistry
     from simple_module_core.health import HealthRegistry
+    from simple_module_core.invalidation import InvalidationBus
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.permissions import PermissionRegistry
     from simple_module_core.public_routes import PublicRouteRegistry
@@ -48,6 +49,7 @@ class ModuleBase(ABC):
           - register_permissions(registry)
           - register_feature_flags(registry)
           - register_event_handlers(bus)
+          - register_invalidations(bus, app)
           - register_health_checks(registry)
 
         Phase 5: Database
@@ -114,6 +116,22 @@ class ModuleBase(ABC):
         ``app`` is optional for back-compat; pass it through to handlers
         that need ``app.state.sm.db.session_factory`` to persist on the
         framework's engine instead of building their own.
+        """
+
+    def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
+        """Subscribe this module's per-process caches to their channels.
+
+        Handlers may only *forget* — drop a cache entry, clear a dict. The bus
+        carries no delivery guarantee, so a handler that wrote to the database
+        would do it an unknowable number of times::
+
+            def register_invalidations(self, bus, app):
+                bus.subscribe("orders.totals", lambda inv: _TOTALS.pop(inv.key, None))
+
+        Publishing needs no hook — reach the same bus at
+        ``request.app.state.sm.invalidation`` from a ``db.on_commit`` callback.
+        Cross-process delivery depends on a transport being installed, so every
+        cache keeps its TTL as a floor. See ``docs/framework/invalidation.md``.
         """
 
     def register_health_checks(self, registry: HealthRegistry) -> None:

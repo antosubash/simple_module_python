@@ -155,9 +155,13 @@ Framework singletons live on `app.state.sm`, a frozen `Services` dataclass popul
 once at boot. Consumers read `request.app.state.sm.<field>` — never raw `app.state`
 attributes for framework-owned state.
 
-Fields: `settings`, `db`, `event_bus`, `menu_registry`, `permissions`,
+Fields: `settings`, `db`, `event_bus`, `invalidation`, `menu_registry`, `permissions`,
 `feature_flags`, `health_registry`, `public_routes`, `setup_registry`,
 `design_packs`, `audit_links`, `i18n_registry`, `inertia_config`, `modules`.
+
+`invalidation` is the cross-process cache-invalidation bus — publish a per-process
+cache's staleness on it instead of dropping only this worker's entry. See
+[`docs/framework/invalidation.md`](framework/invalidation.md).
 
 Two attributes are intentionally kept outside `Services`:
 

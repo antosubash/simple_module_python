@@ -1,6 +1,6 @@
 # Events
 
-`EventBus` is an **in-process** pub/sub mechanism. It's not a message broker — no persistence, no retries, no cross-process delivery. For durable async work, use the `background_tasks` module (Celery) or publish a domain event and have a handler enqueue a Celery task.
+`EventBus` is an **in-process** pub/sub mechanism. It's not a message broker — no persistence, no retries, no cross-process delivery. For durable async work, use the `background_tasks` module (Celery) or publish a domain event and have a handler enqueue a Celery task. To tell *other worker processes* that something they cached is stale, use the [invalidation bus](/framework/invalidation) instead — same shape, deliberately narrower contract.
 
 Events are the preferred way for modules to react to **other modules'** actions without creating a direct code dependency.
 

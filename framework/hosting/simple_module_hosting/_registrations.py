@@ -19,6 +19,7 @@ def run_module_registrations(
     *,
     app: FastAPI,
     event_bus,
+    invalidation_bus,
     menu_registry,
     perm_registry,
     ff_registry,
@@ -42,6 +43,7 @@ def run_module_registrations(
         mod.register_permissions(perm_registry)
         mod.register_feature_flags(ff_registry)
         dispatch_event_handlers(mod, event_bus, app)
+        mod.register_invalidations(invalidation_bus, app)
         health_registry.set_owner(mod.meta.name)
         mod.register_health_checks(health_registry)
         mod.register_public_routes(public_route_registry)

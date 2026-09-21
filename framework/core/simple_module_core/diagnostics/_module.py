@@ -95,6 +95,7 @@ class ModuleDiagnostics:
                     "register_permissions",
                     "register_feature_flags",
                     "register_event_handlers",
+                    "register_invalidations",
                     "register_middleware",
                     "register_health_checks",
                     "register_public_routes",
