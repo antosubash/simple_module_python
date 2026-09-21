@@ -77,13 +77,11 @@ class TestWiring:
             calls.append(kwargs)
             return [_FINDING]
 
-        monkeypatch.setattr(
-            "simple_module_hosting.app_builder.run_diagnostics", fake_run_diagnostics
-        )
+        monkeypatch.setattr("simple_module_hosting._dev_boot.run_diagnostics", fake_run_diagnostics)
         # Both write into the working tree; the point here is the diagnostics
         # holder, not the generated frontend artefacts.
         monkeypatch.setattr(
-            "simple_module_hosting.app_builder.emit_frontend_types_for_modules",
+            "simple_module_hosting._dev_boot.emit_frontend_types_for_modules",
             lambda *a, **k: None,
         )
         monkeypatch.setattr(

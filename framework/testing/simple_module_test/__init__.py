@@ -15,6 +15,8 @@ Primary exports:
 The pytest plugin auto-registers these fixtures (no imports needed):
 ``fake_event_bus``, ``build_test_app``, ``settings``, ``db_state``,
 ``engine``, ``db_session``, ``app``, ``client``, and ``authenticated_client``.
+``redis_server`` starts a throwaway ``redis-server`` for the tests that need a
+real broker (cross-worker cache invalidation) and skips when the binary is absent.
 See ``simple_module_test.plugin`` (and ``simple_module_test.fixtures``) for
 their definitions. ``authenticated_client`` additionally requires the ``users``
 module to be installed — it seeds an admin via ``users.bootstrap``.

@@ -25,7 +25,7 @@ from users.contracts.schemas import SelfPasswordChange, UserUpdate
 from users.deps import fastapi_users, get_user_manager
 from users.manager import UserManager
 from users.models import RefreshToken, UserAccessToken
-from users.provider import forget_session_version
+from users.session_revocation import publish_revocation
 
 router = APIRouter()
 
@@ -91,15 +91,17 @@ async def change_my_password(
     # UPDATE would be rolled back as a read-only request.
     user.session_version = int(user.session_version or 0) + 1
     request.session[SESSION_VERSION_KEY] = user.session_version
-    # This worker caches the counter; without this it would keep honouring the
-    # sessions this change was meant to strand. Hung on the commit rather than
-    # run inline: clearing before the row is durable means a failed commit
+    # Every worker caches the counter; without this they would keep honouring
+    # the sessions this change was meant to strand. Hung on the commit rather
+    # than run inline: clearing before the row is durable means a failed commit
     # leaves the cache empty and the counter unchanged, so the next read
     # repopulates the *old* value and quietly re-admits everything. The
     # callback runs inside the response cycle, so the browser that pressed the
     # button is never told it worked while this worker still lets the old
-    # sessions in.
-    db.on_commit(lambda: forget_session_version(user.id))
+    # sessions in. The other workers hear about it over the invalidation bus —
+    # at once where a transport is installed, otherwise when their own entry
+    # expires (GH #318).
+    db.on_commit(lambda: publish_revocation(request.app, user.id))
     # The bearer half of the same revocation. The stamped ``session_version``
     # on each row already strands them, but leaving the rows behind means a
     # stolen token keeps resolving a row until its own deadline passes — and
@@ -138,10 +140,10 @@ async def revoke_all_my_sessions(
     # ``get_db`` dependency — so the assignment is enough.
     user.session_version = int(user.session_version or 0) + 1
     # See the password change: the cached counter has to go with the bump, or
-    # this worker keeps letting the sessions it just revoked back in — and it
+    # the workers keep letting the sessions this just revoked back in — and it
     # has to go *after* the commit, or a rollback restores the old counter
     # behind an emptied cache.
-    db.on_commit(lambda: forget_session_version(user.id))
+    db.on_commit(lambda: publish_revocation(request.app, user.id))
     await db.execute(
         update(RefreshToken)
         .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))

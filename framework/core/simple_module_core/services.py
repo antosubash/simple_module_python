@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from simple_module_core.invalidation import InvalidationBus
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -90,6 +92,11 @@ class Services:
     i18n_registry: I18nRegistry
     inertia_config: InertiaConfig
     modules: tuple[ModuleBase, ...]
+    #: Cross-process cache invalidation. Defaulted for the same reason as
+    #: ``diagnostics``: an app assembled outside ``create_app`` (tests, a
+    #: single-module harness) gets a working in-process bus with no
+    #: subscribers rather than a ``TypeError`` at construction.
+    invalidation: InvalidationBus = field(default_factory=InvalidationBus)
     #: Defaulted so an app built outside ``create_app`` still has a holder to
     #: read; that one simply reports the checks as unsupported.
     diagnostics: DiagnosticsState = field(default_factory=DiagnosticsState)

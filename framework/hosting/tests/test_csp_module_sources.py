@@ -30,6 +30,7 @@ def _filled_registry() -> CspSourceRegistry:
         [NeedsFont()],
         app=MagicMock(),
         event_bus=MagicMock(),
+        invalidation_bus=MagicMock(),
         menu_registry=MagicMock(),
         perm_registry=MagicMock(),
         ff_registry=MagicMock(),

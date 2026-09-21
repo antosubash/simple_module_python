@@ -124,6 +124,7 @@ export default defineConfig({
             { text: "Principal resolvers", link: "/framework/principal-resolvers" },
             { text: "Public routes", link: "/framework/public-routes" },
             { text: "Events", link: "/framework/events" },
+            { text: "Cache invalidation", link: "/framework/invalidation" },
             { text: "Internationalization", link: "/framework/i18n" },
           ],
         },
