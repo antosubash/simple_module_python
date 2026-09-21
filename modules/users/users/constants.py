@@ -24,6 +24,13 @@ SESSION_USER_ID_KEY = "user_id"
 # pressed "Sign out everywhere", so the auth provider refuses it. Absent means
 # 0, which is what every session predating the column carries.
 SESSION_VERSION_KEY = "session_version"
+# Stamped by the demo sign-in endpoint so ``DemoReadOnlyMiddleware`` can
+# recognise a shared demo session without a database read. Lives here rather
+# than in ``users.demo`` because ``manager``/``provider`` have to clear it on
+# every *other* sign-in and on every session teardown, and neither of those
+# should have to import the seeding module to do it. Re-exported from
+# ``users.demo``, which is where the feature's own code reads it from.
+SESSION_DEMO_KEY = "is_demo"
 
 # request.state flag set by the OAuth callback before find-or-create so the
 # manager's on_after_register hook can mark *newly provisioned* OAuth users as

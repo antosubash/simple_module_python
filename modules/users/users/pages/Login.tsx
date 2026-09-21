@@ -4,6 +4,7 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { AuthSplitAside } from '@simple-module-py/ui/layouts/AuthSplitAside';
 import { useState } from 'react';
+import { type DemoAccount, DemoSignIn } from '../auth_local/components/DemoSignIn';
 import { LoginForm, type OAuthProvider } from '../auth_local/components/LoginForm';
 import { WaitingOnYou } from '../auth_local/components/WaitingOnYou';
 
@@ -13,8 +14,14 @@ interface DevAccount {
   password: string;
 }
 
+interface DemoSignInProps {
+  accounts: DemoAccount[];
+  read_only: boolean;
+}
+
 interface Props {
   allow_signup: boolean;
+  demo_signin: DemoSignInProps;
   dev_accounts: DevAccount[];
   login_redirect_url: string;
   oauth_providers: OAuthProvider[];
@@ -22,8 +29,14 @@ interface Props {
 }
 
 function Login() {
-  const { allow_signup, dev_accounts, login_redirect_url, oauth_providers, remember_me_days } =
-    usePage<{ props: Props }>().props as unknown as Props;
+  const {
+    allow_signup,
+    demo_signin,
+    dev_accounts,
+    login_redirect_url,
+    oauth_providers,
+    remember_me_days,
+  } = usePage<{ props: Props }>().props as unknown as Props;
   const { t } = useT();
 
   const [email, setEmail] = useState('');
@@ -34,6 +47,8 @@ function Login() {
   const [resent, setResent] = useState(false);
   const [resendFailed, setResendFailed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [demoPendingRole, setDemoPendingRole] = useState<string | null>(null);
+  const [demoError, setDemoError] = useState<string | null>(null);
 
   // Server-decided, deliberately. The post-login destination used to be read
   // from `?next=` here, which let any crafted login link bounce the user to an
@@ -72,6 +87,31 @@ function Login() {
       })
       .catch(() => setError(t(keys.users.common.error_try_again)))
       .finally(() => setLoading(false));
+  };
+
+  // No credentials in the body: the role in the path is all the server
+  // needs, so the page never holds a password it could leak into a bug
+  // report, a screenshot or the browser's autofill store.
+  const startDemo = (role: string) => {
+    setDemoError(null);
+    setError(null);
+    setDemoPendingRole(role);
+    fetch(`/api/users/auth/demo/${role}`, { method: 'POST' })
+      .then((res) => {
+        if (res.status === 204) {
+          router.visit(nextUrl);
+          return;
+        }
+        // 404 is that account having been switched off since this page was
+        // rendered; 429 is its throughput budget. Neither is worth its own
+        // copy — both mean "not right now".
+        setDemoError(t(keys.users.login.demo_error));
+        setDemoPendingRole(null);
+      })
+      .catch(() => {
+        setDemoError(t(keys.users.common.error_try_again));
+        setDemoPendingRole(null);
+      });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -133,6 +173,16 @@ function Login() {
         />
       )}
 
+      {demo_signin?.accounts?.length > 0 && !needsVerification && (
+        <DemoSignIn
+          accounts={demo_signin.accounts}
+          readOnly={demo_signin.read_only}
+          pendingRole={demoPendingRole}
+          error={demoError}
+          onStart={startDemo}
+        />
+      )}
+
       {dev_accounts && dev_accounts.length > 0 && !needsVerification && (
         <div className="mt-5 border-t border-border pt-4">
           <p className="mb-2 text-center font-mono text-[11px] text-muted-foreground">
@@ -145,7 +195,7 @@ function Login() {
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={loading}
+                disabled={loading || demoPendingRole !== null}
                 onClick={() => {
                   setEmail(acct.email);
                   setPassword(acct.password);
