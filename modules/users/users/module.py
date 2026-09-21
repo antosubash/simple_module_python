@@ -103,8 +103,25 @@ class UsersModule(ModuleBase):
             state = app.state.users
             state.oauth_clients = build_client_map(state.settings)
             state.oauth_providers = provider_buttons(state.oauth_clients)
+            # Same reason: turning demo mode on from the settings UI has to
+            # seed the accounts and refresh the cached ids, or the buttons
+            # appear on a sign-in page that 404s until the next restart.
+            from users.demo import ensure_demo_users
+
+            await ensure_demo_users(app)
 
         bus.subscribe(settings_reloaded, _rebuild_oauth_clients)
+
+    def register_middleware(self, app: FastAPI) -> None:
+        """Refuse writes from either shared demo session.
+
+        A no-op until ``demo_mode`` and ``demo_read_only`` are both on — it
+        re-reads them per request — so an install that never hosts a demo pays
+        one frozenset lookup on unsafe methods and nothing on reads.
+        """
+        from users.demo_guard import DemoReadOnlyMiddleware
+
+        app.add_middleware(DemoReadOnlyMiddleware)
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
@@ -172,6 +189,7 @@ class UsersModule(ModuleBase):
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from users.admin.api import admin_router
         from users.auth_local import api as auth_local_api
+        from users.auth_local.demo_api import router as demo_router
         from users.auth_local.token_api import router as token_router
         from users.auth_local.views import router as auth_views
         from users.contracts.schemas import UserCreate, UserRead
@@ -179,6 +197,7 @@ class UsersModule(ModuleBase):
         from users.oauth.api import register_oauth_routes
 
         api_router.include_router(auth_local_api.router)
+        api_router.include_router(demo_router)
         api_router.include_router(token_router)
         api_router.include_router(admin_router)
         # Throughput-wrap the stock fastapi-users routers; ``require_signup_enabled``
@@ -220,11 +239,14 @@ class UsersModule(ModuleBase):
         from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
         from users.backend import reconfigure_cookie_transport
         from users.bootstrap import bootstrap_admin_from_env
+        from users.demo import ensure_demo_users
         from users.deps import auth_backend
         from users.mailer import build_mailer, default_app_name
         from users.oauth.providers import build_client_map, provider_buttons
         from users.roles_cache import refresh_roles_cache
         from users.session_version_cache import configure_session_version_cache
+        from users.settings import DEFAULT_LOGIN_REDIRECT_URL
+        from users.startup import apply_login_redirect_fallback, register_mailer_health_check
 
         state = app.state.users
         s = state.settings
@@ -237,25 +259,7 @@ class UsersModule(ModuleBase):
             return name or default_app_name()
 
         state.mailer = build_mailer(s, _app_name)
-
-        # Registered here rather than in register_health_checks because the
-        # check needs the app to re-read DB-hydrated settings on every run.
-        # The owner is passed explicitly since the boot-time set_owner window
-        # has long closed by startup.
-        from simple_module_core.health import HealthCheck
-
-        from users.health import CHECK_MAILER, build_mailer_check
-
-        app.state.sm.health_registry.add(
-            HealthCheck(
-                name=CHECK_MAILER,
-                check=build_mailer_check(app),
-                module=self.meta.name,
-                # On demand only: this authenticates against the mail provider,
-                # which must not happen on a readiness-probe timer.
-                probe=False,
-            )
-        )
+        register_mailer_health_check(app, self.meta.name)
         state.rate_limiter = LoginRateLimiter(
             max_failures=s.login_rate_limit_failures,
             window_seconds=s.login_rate_limit_window_seconds,
@@ -268,24 +272,7 @@ class UsersModule(ModuleBase):
         state.oauth_clients = build_client_map(s)
         state.oauth_providers = provider_buttons(state.oauth_clients)
 
-        # Auto-fall-back when the default ``/dashboard/`` target is
-        # unreachable because the Dashboard module isn't installed (e.g.
-        # ``--preset minimal`` or apps like smpy_gis that omit it).
-        # Pick the first sibling module that exposes view routes instead
-        # of hard-coding ``/`` which may itself 404 (#173). Operator-set
-        # overrides are always preserved.
-        if s.login_redirect_url == "/dashboard/" and not any(
-            m.meta.name == "Dashboard" for m in app.state.sm.modules
-        ):
-            first_view = next(
-                (
-                    m.meta.view_prefix
-                    for m in app.state.sm.modules
-                    if m.meta.view_prefix and m.meta.name != self.meta.name
-                ),
-                None,
-            )
-            s.login_redirect_url = f"{first_view}/" if first_view else "/"
+        apply_login_redirect_fallback(app, s, self.meta.name, DEFAULT_LOGIN_REDIRECT_URL)
 
         reconfigure_cookie_transport(auth_backend, s)
         # The revocation cache's staleness window is an operator choice: the
@@ -297,3 +284,7 @@ class UsersModule(ModuleBase):
             bootstrap_admin_from_env(app),
             refresh_roles_cache(app),
         )
+        # After the env bootstrap, not beside it: that one only runs while the
+        # users table is empty, and the demo accounts have to be reconciled on
+        # every boot so a change to either email or password takes effect.
+        await ensure_demo_users(app)

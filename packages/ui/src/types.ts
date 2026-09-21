@@ -62,6 +62,11 @@ export interface SharedProps {
   // auth provider is installed (e.g. a Keycloak-only deployment), which reads
   // the same as "closed" — the host isn't the one taking signups.
   signup?: { allowed: boolean };
+  // Also from the users module. `active` is true only for the shared demo
+  // account's own session — an operator signed in normally on a demo instance
+  // sees nothing. `readOnly` mirrors the `demo_read_only` setting that makes
+  // `DemoReadOnlyMiddleware` refuse the session's writes.
+  demo?: { active: boolean; readOnly: boolean };
   // Injected by the branding module's shared-props provider (optional: the
   // module may not be installed).
   branding?: BrandingShared;

@@ -65,5 +65,9 @@
     "sign_in": "Iniciar sesión",
     "open_menu": "Abrir menú",
     "close_menu": "Cerrar menú"
+  },
+  "demo": {
+    "banner_read_only": "Modo demostración: has iniciado sesión en una cuenta compartida y los cambios no se guardan.",
+    "banner_writable": "Modo demostración: has iniciado sesión en una cuenta compartida que usan todas las personas que exploran este sitio."
   }
 }
