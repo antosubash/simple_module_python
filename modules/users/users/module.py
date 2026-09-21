@@ -104,6 +104,12 @@ class UsersModule(ModuleBase):
             state = app.state.users
             state.oauth_clients = build_client_map(state.settings)
             state.oauth_providers = provider_buttons(state.oauth_clients)
+            # Same reason: turning demo mode on from the settings UI has to
+            # seed the accounts and refresh the cached ids, or the buttons
+            # appear on a sign-in page that 404s until the next restart.
+            from users.demo import ensure_demo_users
+
+            await ensure_demo_users(app)
 
         bus.subscribe(settings_reloaded, _rebuild_oauth_clients)
 
@@ -119,6 +125,17 @@ class UsersModule(ModuleBase):
         from users.session_revocation import subscribe
 
         subscribe(bus)
+
+    def register_middleware(self, app: FastAPI) -> None:
+        """Refuse writes from either shared demo session.
+
+        A no-op until ``demo_mode`` and ``demo_read_only`` are both on — it
+        re-reads them per request — so an install that never hosts a demo pays
+        one frozenset lookup on unsafe methods and nothing on reads.
+        """
+        from users.demo_guard import DemoReadOnlyMiddleware
+
+        app.add_middleware(DemoReadOnlyMiddleware)
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
@@ -186,6 +203,7 @@ class UsersModule(ModuleBase):
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from users.admin.api import admin_router
         from users.auth_local import api as auth_local_api
+        from users.auth_local.demo_api import router as demo_router
         from users.auth_local.token_api import router as token_router
         from users.auth_local.views import router as auth_views
         from users.contracts.schemas import UserCreate, UserRead
@@ -193,6 +211,7 @@ class UsersModule(ModuleBase):
         from users.oauth.api import register_oauth_routes
 
         api_router.include_router(auth_local_api.router)
+        api_router.include_router(demo_router)
         api_router.include_router(token_router)
         api_router.include_router(admin_router)
         # Throughput-wrap the stock fastapi-users routers; ``require_signup_enabled``

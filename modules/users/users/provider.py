@@ -23,7 +23,7 @@ from simple_module_hosting.session import (
 )
 from starlette.requests import Request
 
-from users.constants import SESSION_USER_ID_KEY, SESSION_VERSION_KEY
+from users.constants import SESSION_DEMO_KEY, SESSION_USER_ID_KEY, SESSION_VERSION_KEY
 
 # Re-exported: the cache lives in its own module (see its docstring), but
 # ``users.provider`` is where callers reach for it.
@@ -64,6 +64,11 @@ def _forget(session) -> None:
     # "Keep me signed in" was a choice about *this* sign-in. Leaving it behind
     # would hand a 30-day cookie to the anonymous session that replaces it.
     session.pop(SESSION_REMEMBER_KEY, None)
+    # Including the demo stamp. A forgotten session is anonymous, and an
+    # anonymous session still marked as a demo is refused every unsafe method
+    # — including the sign-in POST — which leaves the visitor with no way back
+    # in short of clearing cookies.
+    session.pop(SESSION_DEMO_KEY, None)
 
 
 class UsersAuthProvider:

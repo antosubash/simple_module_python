@@ -32,6 +32,14 @@ the login page — revealing that a login form exists on a site that is meant
 to be fully hidden. That inversion breaks the feature without failing any
 site_lock unit test, which is why the order is pinned here.
 
+DemoReadOnlyMiddleware is outermost of the module middlewares — ``users``
+sorts last, so it wraps SiteLock and Auth. That is where it wants to be: it
+refuses a demo session's writes before any handler, middleware side-effect or
+DB session runs, and it reads the demo marker straight off the session rather
+than ``request.state.user``, so it needs nothing Auth provides. It also
+cannot hide SiteLock from an anonymous visitor, because acquiring a demo
+session means POSTing to the demo endpoint, which SiteLock blocks first.
+
 Maintenance sits after InertiaLayoutData because its 503 page renders
 through Inertia and needs the shared props (auth, menus, i18n) — placed any
 further out it would render bare, with no layout and untranslated copy. It is
@@ -64,6 +72,7 @@ _EXPECTED_MULTI_TENANT = (
     "GZipMiddleware",
     "SecurityHeadersMiddleware",
     "SessionMiddleware",
+    "DemoReadOnlyMiddleware",
     "SiteLockMiddleware",
     "AuthMiddleware",
     "TenantMiddleware",
@@ -81,6 +90,7 @@ _EXPECTED_SINGLE_TENANT = (
     "GZipMiddleware",
     "SecurityHeadersMiddleware",
     "SessionMiddleware",
+    "DemoReadOnlyMiddleware",
     "SiteLockMiddleware",
     "AuthMiddleware",
     "LocaleMiddleware",

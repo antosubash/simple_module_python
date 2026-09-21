@@ -14,6 +14,7 @@ from simple_module_hosting.session import stamp_session_expiry
 
 from users.constants import (
     OAUTH_REGISTRATION_REQUEST_FLAG,
+    SESSION_DEMO_KEY,
     SESSION_USER_ID_KEY,
     SESSION_VERSION_KEY,
 )
@@ -153,6 +154,13 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         # wrappers — re-assigning the same value here is a harmless no-op.
         if request is not None:
             request.session[SESSION_USER_ID_KEY] = str(user.id)
+            # Whoever signs in here is not the shared demo account: the demo
+            # endpoint re-stamps this *after* calling the hook, and every other
+            # path must clear a marker the browser is still carrying from an
+            # earlier demo visit. Left behind, ``DemoReadOnlyMiddleware`` would
+            # treat this real session as read-only — and refuse the very
+            # ``/api/users/auth/login`` that created it.
+            request.session.pop(SESSION_DEMO_KEY, None)
             # Stamp the session with the revocation counter it was minted
             # under. ``UsersAuthProvider`` refuses any session whose stamp has
             # fallen behind the account's, which is what makes "sign out
