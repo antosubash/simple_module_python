@@ -49,8 +49,19 @@ from the URL.
 
 ## Configuration
 
-DB-backed (Settings screen): `allow_self_service` (default on — any signed-in
-user may create an organisation) and `invitation_ttl_hours` (default 72).
+DB-backed (Settings screen):
+
+- `allow_self_service` (default on) — any signed-in user may create an
+  organisation.
+- `invitation_ttl_hours` (default 72).
+- `public_base_url` (default empty) — origin invitation links are built on.
+  Empty makes them root-relative: they are never built from the request's
+  `Host` header, because the same link travels in `InvitationCreated` for a
+  mailer to send.
+
+Management routes need both the permission and an owner/admin role *in the
+active tenant*: a platform-wide grant does not make a plain member of a tenant
+its manager (`403 tenant_manager_required`).
 
 ## Billing seams
 

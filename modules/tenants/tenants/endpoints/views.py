@@ -15,6 +15,7 @@ from simple_module_inertia import InertiaResponse
 
 from tenants.constants import (
     ENTITLEMENT_SEATS,
+    MANAGER_ROLES,
     PAGE_ACCEPT,
     PAGE_INDEX,
     PAGE_MEMBERS,
@@ -44,6 +45,7 @@ async def index(
             "memberships": [m.model_dump(mode="json") for m in memberships],
             "active_id": getattr(request.state, "tenant_id", None),
             "suspended": bool(getattr(request.state, "tenant_suspended", False)),
+            "suspended_name": getattr(request.state, "suspended_tenant_name", None),
             "can_create": settings.allow_self_service or _perm(request, PERM_PLATFORM_MANAGE),
             "reason": reason,
         },
@@ -65,7 +67,10 @@ async def members(
     tenant = await service.get(tenant_id) if tenant_id else None
     if tenant is None:
         return RedirectResponse("/tenants/?reason=tenant_required", status_code=303)
-    can_manage = _perm(request, PERM_MEMBERS_MANAGE)
+    can_manage = (
+        _perm(request, PERM_MEMBERS_MANAGE)
+        and getattr(request.state, "tenant_role", None) in MANAGER_ROLES
+    )
     pending = await invitations.list_pending(tenant.id) if can_manage else []
     limit = await service.entitlements.limit(tenant.id, ENTITLEMENT_SEATS)
     return await inertia.render(

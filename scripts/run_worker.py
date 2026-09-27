@@ -33,6 +33,14 @@ load_dotenv_into_environ(_env_file)
 
 from background_tasks.celery_app import build_celery  # noqa: E402
 from background_tasks.settings import BackgroundTasksSettings  # noqa: E402
+from background_tasks.sync_db import set_database_url  # noqa: E402
+from simple_module_hosting import merge_host_settings  # noqa: E402
+
+# The worker never builds the app, so resolve the host settings the same way
+# host/main.py does (env → DB → default): task bodies must hit the same
+# database with the same fail-closed tenant rules as request code.
+_host = merge_host_settings()
+set_database_url(_host.database_url, tenant_strict=_host.multi_tenant)
 
 # Module-level name ``celery`` is what ``celery -A scripts.run_worker:celery``
 # looks for. Keep it stable.

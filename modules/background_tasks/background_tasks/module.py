@@ -158,7 +158,10 @@ class BackgroundTasksModule(ModuleBase):
         # resolved — pydantic-settings reads ``.env`` but never propagates
         # to ``os.environ``, so signals would otherwise fall back to the
         # SQLite default and silently drop ``TaskExecution`` rows.
-        set_database_url(app.state.sm.settings.database_url)
+        host = app.state.sm.settings
+        set_database_url(
+            host.database_url, tenant_strict=bool(getattr(host, "multi_tenant", False))
+        )
         # build_celery imports `signals` for side effects and runs
         # `autodiscover_tasks` across every installed module.
         services.celery = build_celery(services.settings)

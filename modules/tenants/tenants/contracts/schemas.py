@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 
 from pydantic import field_validator
@@ -9,12 +10,14 @@ from sqlmodel import Field, SQLModel
 
 from tenants.constants import MAX_EMAIL_LEN, MAX_NAME_LEN, MembershipRole
 
-_SLUG_PATTERN = r"^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$"
+_SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$")
 
 
 class TenantCreate(SQLModel):
     name: str = Field(min_length=1, max_length=MAX_NAME_LEN)
-    slug: str | None = Field(default=None, regex=_SLUG_PATTERN)
+    # Validated below: SQLModel's Field swallows a v1-style ``regex=`` without
+    # enforcing it, and rejects pydantic v2's ``pattern=``.
+    slug: str | None = Field(default=None)
 
     @field_validator("name")
     @classmethod
@@ -22,6 +25,13 @@ class TenantCreate(SQLModel):
         value = value.strip()
         if not value:
             raise ValueError("name must not be blank")
+        return value
+
+    @field_validator("slug")
+    @classmethod
+    def _slug_shape(cls, value: str | None) -> str | None:
+        if value is not None and not _SLUG_RE.fullmatch(value):
+            raise ValueError("slug must be 1-50 lowercase letters, digits or inner dashes")
         return value
 
 

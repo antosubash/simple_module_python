@@ -15,13 +15,34 @@ tenant a request acts for.
 
 | Operation on a `MultiTenantMixin` model | Tenant set | No tenant, strict (`multi_tenant` on) | No tenant, not strict |
 |---|---|---|---|
-| `SELECT` / `session.get` | filtered to the tenant | `TenantIsolationError` | unfiltered |
-| ORM `update()` / `delete()` | filtered to the tenant | `TenantIsolationError` | unfiltered |
-| `INSERT` | `tenant_id` filled in; a different explicit value raises | `TenantIsolationError` unless `tenant_id` is set explicitly | DB `NOT NULL` error unless set |
+| `SELECT` | filtered to the tenant | `MissingTenantError` | unfiltered |
+| ORM `update()` / `delete()` | filtered to the tenant; `update().values(tenant_id=…)` raises | `MissingTenantError` | unfiltered |
+| `session.add` + flush | `tenant_id` filled in; a different explicit value raises | `MissingTenantError` unless `tenant_id` is set explicitly | DB `NOT NULL` error unless set |
+| ORM `insert(Model)` (bulk / `.values()`) | `tenant_id` filled in; a different explicit value raises | `MissingTenantError` unless every row sets `tenant_id` | DB `NOT NULL` error unless set |
+| Flushing a change to, or a delete of, a loaded object | only if it belongs to the bound tenant | `MissingTenantError` | allowed |
 | Changing `tenant_id` | raises | raises | raises (only an `all_tenants()` block may move a row) |
 
-Fail closed is the point: a request, job or command that forgot to establish a
-tenant errors instead of reading every tenant's data.
+`MissingTenantError` is a `TenantIsolationError`. Fail closed is the point: a
+request, job or command that forgot to establish a tenant errors instead of
+reading every tenant's data.
+
+### What the filter can see
+
+Scoping works on the ORM entities a statement *names*: `select(Model)`,
+`update(Model)`, `delete(Model)`, `insert(Model)`, relationship loads. It does
+**not** reach a tenant table that appears only as a join target, inside an
+`exists()` / `in_()` / scalar subquery, as `select(func.count()).select_from(Model)`,
+or in a Core statement on `Model.__table__` (#332). Such statements are neither
+filtered nor, under strict mode, refused — name the entity, or add the
+`tenant_id` predicate yourself.
+
+### One session, one tenant
+
+`session.get()` answers from the identity map without SQL, so a session reused
+across `tenant_context` blocks can hand back an object loaded for another
+tenant. The flush refuses to write or delete it, but reading it is not
+prevented: give each tenant its own session (or `session.expunge_all()`
+between tenants) in jobs and CLI loops. Per-request sessions are unaffected.
 
 ## Acting outside a request
 
@@ -38,14 +59,36 @@ stmt = select(Order).execution_options(all_tenants=True)  # one statement
 ```
 
 Every `all_tenants` call site is a place one tenant can see another's data —
-keep them in platform-admin code and review them as such.
+keep them in platform-admin code and review them as such. A `tenant_context()`
+nested inside `all_tenants()` wins for its block, so the usual platform job is
+safe to write:
+
+```python
+with all_tenants():
+    tenant_ids = [t.id for t in await service.list_all()]
+for tenant_id in tenant_ids:
+    with tenant_context(tenant_id):  # scoped, even if nested in all_tenants()
+        ...
+```
+
+A task or asyncio task started inside `all_tenants()` inherits the bypass
+(ordinary contextvar semantics).
 
 ## Background jobs
 
 `background_tasks` stamps the enqueuing request's tenant onto the Celery
 message and restores it around the task body, so a task queued from a request
-runs as that tenant. Beat tasks have no request: wrap cross-tenant work in
+runs as that tenant. Request code cannot enqueue as another tenant (an explicit
+`sm_tenant_id` header must match the bound one); platform code with no tenant
+bound may name one. Beat tasks have no request: wrap cross-tenant work in
 `all_tenants()`, or loop over tenants with `tenant_context()`.
+
+The worker never builds the app, so `background_tasks.sync_db` attaches the
+same listeners to its own session class and reads `multi_tenant` from the host
+settings (`scripts/run_worker.py`): task bodies get the same fail-closed rules
+as request code. A process that talks to the DB some other way must do the
+same — `attach_session_listeners(MySession)` plus
+`bind_engine_policy(engine, EngineTenancy(tenant_strict=...))`.
 
 ## Resolution
 

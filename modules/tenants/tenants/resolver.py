@@ -42,7 +42,16 @@ _MEMBERSHIPS: TTLCache[str, list[MyTenantView]] = TTLCache(
 )
 
 
+# Bumped by every invalidation. A read that started before an invalidation
+# must not store its (possibly stale) result afterwards: otherwise a member
+# removed while their own request was mid-read is re-cached as a member for a
+# whole TTL.
+_epoch = 0
+
+
 def forget(key: str | None) -> None:
+    global _epoch
+    _epoch += 1
     if key is None:
         _MEMBERSHIPS.clear()
     else:
@@ -75,6 +84,7 @@ async def memberships_for(app: FastAPI, user_id: str) -> list[MyTenantView]:
     cached = _MEMBERSHIPS.get(user_id)
     if cached is not None:
         return cached
+    started = _epoch
     async with app.state.sm.db.session_factory() as db:
         rows = await TenantService(db).list_for_user(user_id)
     views = [
@@ -83,7 +93,8 @@ async def memberships_for(app: FastAPI, user_id: str) -> list[MyTenantView]:
         )
         for t, role in rows
     ]
-    _MEMBERSHIPS[user_id] = views
+    if _epoch == started:
+        _MEMBERSHIPS[user_id] = views
     return views
 
 
@@ -110,6 +121,7 @@ async def resolve_tenant(request: Request) -> str | None:
     """``TenantResolver`` for the framework's ``TenantMiddleware``."""
     request.state.tenant_role = None
     request.state.tenant_suspended = False
+    request.state.suspended_tenant_name = None
     user = getattr(request.state, "user", None)
     if user is None:
         return None
@@ -134,13 +146,21 @@ async def resolve_tenant(request: Request) -> str | None:
     session = request.scope.get("session")
     preferred = session.get(SESSION_ACTIVE_TENANT) if session is not None else None
     active = pick_active(memberships, preferred)
+    chosen = next((m for m in memberships if m.id == preferred), None)
+    chosen_suspended = chosen is not None and chosen.status == TenantStatus.SUSPENDED
+    if chosen_suspended:
+        # Falling back to another membership must not be silent: say which
+        # organisation was suspended, and keep the choice in the session so
+        # the notice stays until the user switches deliberately.
+        request.state.tenant_suspended = True
+        request.state.suspended_tenant_name = chosen.name
 
     if active is None:
         request.state.tenant_suspended = any(
             m.status == TenantStatus.SUSPENDED for m in memberships
         )
         return None
-    if session is not None and preferred != active.id:
+    if session is not None and preferred != active.id and not chosen_suspended:
         session[SESSION_ACTIVE_TENANT] = active.id
     return _enter(request, user, active)
 

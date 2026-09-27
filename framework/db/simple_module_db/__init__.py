@@ -17,6 +17,7 @@ from simple_module_db.session import DatabaseState, RequestSession, init_db
 from simple_module_db.tenancy import (
     ALL_TENANTS_OPTION,
     TENANT_ID_PATTERN,
+    MissingTenantError,
     TenantIsolationError,
     all_tenants,
     current_tenant_id,
@@ -34,6 +35,7 @@ __all__ = [
     "CommitBeforeResponseMiddleware",
     "DatabaseProvider",
     "DatabaseState",
+    "MissingTenantError",
     "MultiTenantMixin",
     "OnCommitCallback",
     "RequestSession",

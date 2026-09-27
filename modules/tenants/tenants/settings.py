@@ -13,6 +13,13 @@ class TenantsSettings(DbBackedSettings):
         default=True,
         description="Let any signed-in user create an organisation. Off: platform admins only.",
     )
+    public_base_url: str = Field(
+        default="",
+        description=(
+            "Origin invitation links are built on, e.g. https://app.example.com. "
+            "Empty: links are root-relative and never taken from the request's Host header."
+        ),
+    )
     invitation_ttl_hours: int = Field(
         default=72, ge=1, le=24 * 30, description="How long an invitation link stays valid."
     )

@@ -18,6 +18,7 @@ from typing import Any
 
 from simple_module_core.events import Event, EventBus
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tenants.constants import (
@@ -107,7 +108,13 @@ class TenantService:
             slug = await self._free_slug(slugify(data.name))
         tenant = Tenant(name=data.name, slug=slug)
         self.db.add(tenant)
-        await self.db.flush()
+        try:
+            # A concurrent create can claim the slug between the check above
+            # and this insert: a 409, not a 500. The request fails as a whole,
+            # so its transaction is rolled back — no savepoint needed.
+            await self.db.flush()
+        except IntegrityError as exc:
+            raise TenantError("slug_taken", status_code=409) from exc
         owner = Membership(
             tenant_id=tenant.id, user_id=owner_user_id, role=MembershipRole.OWNER, email=owner_email
         )
@@ -148,6 +155,20 @@ class TenantService:
         )
         return dict((await self.db.execute(stmt)).tuples().all())
 
+    async def lock(self, tenant_id: str) -> Tenant:
+        """Row-lock the tenant for the rest of the transaction.
+
+        Serialises check-then-act rules per tenant — "at least one owner",
+        "within the seat limit" — so two concurrent requests cannot both pass
+        the check and together break the rule. (No-op on SQLite, which
+        serialises writers anyway.)
+        """
+        stmt = select(Tenant).where(Tenant.id == tenant_id).with_for_update()
+        tenant = (await self.db.execute(stmt)).scalar_one_or_none()
+        if tenant is None:
+            raise TenantError("not_found", status_code=404)
+        return tenant
+
     async def _require(self, tenant_id: str) -> Tenant:
         tenant = await self.get(tenant_id)
         if tenant is None:
@@ -164,6 +185,12 @@ class TenantService:
             .order_by(Membership.created_at, Tenant.name)
         )
         return [(t, role) for t, role in (await self.db.execute(stmt)).all()]
+
+    async def has_member_email(self, tenant_id: str, email: str) -> bool:
+        stmt = select(Membership.id).where(
+            Membership.tenant_id == tenant_id, func.lower(Membership.email) == email.lower()
+        )
+        return await self.db.scalar(stmt) is not None
 
     async def get_membership(self, tenant_id: str, user_id: str) -> Membership | None:
         stmt = select(Membership).where(
@@ -189,6 +216,7 @@ class TenantService:
         return int(members or 0) + await pending_invitation_count(self.db, tenant_id)
 
     async def ensure_seat_available(self, tenant_id: str) -> None:
+        await self.lock(tenant_id)
         used = await self.seats_used(tenant_id)
         await ensure_within_limit(self.entitlements, tenant_id, ENTITLEMENT_SEATS, used)
 
@@ -210,7 +238,10 @@ class TenantService:
             await self.ensure_seat_available(tenant_id)
         membership = Membership(tenant_id=tenant_id, user_id=user_id, role=role, email=email)
         self.db.add(membership)
-        await self.db.flush()
+        try:
+            await self.db.flush()  # a concurrent join of the same user loses here
+        except IntegrityError as exc:
+            raise TenantError("already_member", status_code=409) from exc
         self._after_commit(MembershipAdded(tenant_id, user_id, role), invalidate=[user_id])
         return membership
 
@@ -225,6 +256,7 @@ class TenantService:
     async def change_role(
         self, tenant_id: str, user_id: str, role: MembershipRole, *, actor_role: str
     ) -> Membership:
+        await self.lock(tenant_id)
         membership = await self.get_membership(tenant_id, user_id)
         if membership is None:
             raise TenantError("member_not_found", status_code=404)
@@ -240,6 +272,7 @@ class TenantService:
         return membership
 
     async def remove_member(self, tenant_id: str, user_id: str, *, actor_role: str) -> None:
+        await self.lock(tenant_id)
         membership = await self.get_membership(tenant_id, user_id)
         if membership is None:
             raise TenantError("member_not_found", status_code=404)

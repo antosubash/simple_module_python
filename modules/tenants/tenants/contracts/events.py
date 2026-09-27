@@ -44,7 +44,11 @@ class MembershipRemoved(Event):
 
 @dataclass
 class InvitationCreated(Event):
-    """Delivery hook: a mailer module sends ``accept_url`` to ``email``."""
+    """Delivery hook: a mailer module sends ``accept_url`` to ``email``.
+
+    ``accept_url`` is absolute only when the ``public_base_url`` setting is
+    set; otherwise it is root-relative and the mailer must prefix its origin.
+    """
 
     tenant_id: str
     tenant_name: str

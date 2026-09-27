@@ -9,6 +9,7 @@ from fastapi import Depends, Request
 from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tenants.constants import MANAGER_ROLES
 from tenants.errors import TenantError
 from tenants.invitations import InvitationService
 from tenants.resolver import make_invalidator
@@ -61,5 +62,21 @@ def require_active_tenant(request: Request) -> ActiveTenantContext:
     return ActiveTenantContext(tenant_id=tenant_id, role=role, user_id=user_id)
 
 
+def require_tenant_manager(
+    ctx: Annotated[ActiveTenantContext, Depends(require_active_tenant)],
+) -> ActiveTenantContext:
+    """An owner or admin *of the active tenant*.
+
+    Checked on top of the permission gate: a platform-wide grant of
+    ``tenants.members.manage`` (the wildcard admin, say) must not turn a plain
+    member of this tenant into its manager. Platform staff act through
+    ``/admin/tenants`` instead.
+    """
+    if ctx.role not in MANAGER_ROLES:
+        raise TenantError("tenant_manager_required", status_code=403)
+    return ctx
+
+
 UserIdDep = Annotated[str, Depends(require_user_id)]
 ActiveTenantDep = Annotated[ActiveTenantContext, Depends(require_active_tenant)]
+ManagerDep = Annotated[ActiveTenantContext, Depends(require_tenant_manager)]

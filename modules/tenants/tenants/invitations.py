@@ -14,7 +14,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tenants.constants import MembershipRole
+from tenants.constants import MembershipRole, TenantStatus
 from tenants.contracts.events import InvitationCreated
 from tenants.contracts.schemas import InvitationCreate
 from tenants.errors import TenantError
@@ -60,9 +60,9 @@ class InvitationService:
         self, tenant_id: str, data: InvitationCreate, *, base_url: str
     ) -> tuple[Invitation, str, str]:
         """Return ``(invitation, raw_token, accept_url)``."""
-        tenant = await self.tenants.get(tenant_id)
-        if tenant is None:
-            raise TenantError("not_found", status_code=404)
+        tenant = await self.tenants.lock(tenant_id)
+        if await self.tenants.has_member_email(tenant_id, data.email):
+            raise TenantError("already_member", status_code=409)
         duplicate = await self.db.scalar(
             select(Invitation.id).where(_pending_clause(tenant_id), Invitation.email == data.email)
         )
@@ -96,7 +96,9 @@ class InvitationService:
         await self.db.delete(invitation)
         await self.db.flush()
 
-    async def lookup(self, token: str) -> tuple[Invitation, Tenant] | None:
+    async def lookup(
+        self, token: str, *, for_update: bool = False
+    ) -> tuple[Invitation, Tenant] | None:
         if not token:
             return None
         stmt = (
@@ -104,6 +106,8 @@ class InvitationService:
             .join(Tenant, Tenant.id == Invitation.tenant_id)
             .where(Invitation.token_hash == hash_token(token))
         )
+        if for_update:  # two concurrent accepts of one link must not both pass
+            stmt = stmt.with_for_update(of=Invitation)
         row = (await self.db.execute(stmt)).first()
         return (row[0], row[1]) if row else None
 
@@ -112,12 +116,14 @@ class InvitationService:
         return _aware(invitation.expires_at) <= _now()
 
     async def accept(self, token: str, *, user_id: str, user_email: str) -> Tenant:
-        found = await self.lookup(token)
+        found = await self.lookup(token, for_update=True)
         if found is None:
             raise TenantError("invitation_not_found", status_code=404)
         invitation, tenant = found
         if invitation.accepted_at is not None:
             raise TenantError("invitation_used", status_code=409)
+        if tenant.status != TenantStatus.ACTIVE:
+            raise TenantError("tenant_suspended", status_code=409)
         if self.is_expired(invitation):
             raise TenantError("invitation_expired", status_code=410)
         # The link is a bearer secret; binding it to the invited address means

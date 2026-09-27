@@ -29,7 +29,13 @@ from tenants.contracts.schemas import (
     RoleChange,
     TenantCreate,
 )
-from tenants.deps import ActiveTenantDep, InvitationServiceDep, TenantServiceDep, UserIdDep
+from tenants.deps import (
+    ActiveTenantDep,
+    InvitationServiceDep,
+    ManagerDep,
+    TenantServiceDep,
+    UserIdDep,
+)
 from tenants.errors import TenantError
 from tenants.resolver import switch_active
 
@@ -93,14 +99,14 @@ async def list_members(ctx: ActiveTenantDep, service: TenantServiceDep) -> list[
 
 @router.patch("/current/members/{user_id}", response_model=MemberView, dependencies=_MANAGE)
 async def change_role(
-    user_id: str, data: RoleChange, ctx: ActiveTenantDep, service: TenantServiceDep
+    user_id: str, data: RoleChange, ctx: ManagerDep, service: TenantServiceDep
 ) -> MemberView:
     m = await service.change_role(ctx.tenant_id, user_id, data.role, actor_role=ctx.role)
     return MemberView(user_id=m.user_id, email=m.email, role=m.role, joined_at=m.created_at)
 
 
 @router.delete("/current/members/{user_id}", status_code=204, dependencies=_MANAGE)
-async def remove_member(user_id: str, ctx: ActiveTenantDep, service: TenantServiceDep) -> Response:
+async def remove_member(user_id: str, ctx: ManagerDep, service: TenantServiceDep) -> Response:
     await service.remove_member(ctx.tenant_id, user_id, actor_role=ctx.role)
     return Response(status_code=204)
 
@@ -117,7 +123,7 @@ async def leave(ctx: ActiveTenantDep, service: TenantServiceDep) -> Response:
 
 @router.get("/current/invitations", response_model=list[InvitationView], dependencies=_MANAGE)
 async def list_invitations(
-    ctx: ActiveTenantDep, invitations: InvitationServiceDep
+    ctx: ManagerDep, invitations: InvitationServiceDep
 ) -> list[InvitationView]:
     return [InvitationView(**i.model_dump()) for i in await invitations.list_pending(ctx.tenant_id)]
 
@@ -131,18 +137,22 @@ async def list_invitations(
 async def invite(
     data: InvitationCreate,
     request: Request,
-    ctx: ActiveTenantDep,
+    ctx: ManagerDep,
     invitations: InvitationServiceDep,
 ) -> InvitationIssued:
     invitation, token, url = await invitations.create(
-        ctx.tenant_id, data, base_url=str(request.base_url)
+        # Never request.base_url: it comes from the Host header, and this link
+        # also travels in InvitationCreated for a mailer to send.
+        ctx.tenant_id,
+        data,
+        base_url=request.app.state.tenants.settings.public_base_url,
     )
     return InvitationIssued(**invitation.model_dump(), token=token, accept_url=url)
 
 
 @router.delete("/current/invitations/{invitation_id}", status_code=204, dependencies=_MANAGE)
 async def revoke_invitation(
-    invitation_id: int, ctx: ActiveTenantDep, invitations: InvitationServiceDep
+    invitation_id: int, ctx: ManagerDep, invitations: InvitationServiceDep
 ) -> Response:
     await invitations.revoke(ctx.tenant_id, invitation_id)
     return Response(status_code=204)

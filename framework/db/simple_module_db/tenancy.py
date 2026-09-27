@@ -50,15 +50,31 @@ class TenantIsolationError(Exception):
     """Raised when a multi-tenancy isolation constraint is violated."""
 
 
+class MissingTenantError(TenantIsolationError):
+    """A tenant-scoped operation ran with no tenant bound (strict mode).
+
+    Distinct from its parent so a request handler can tell "this user has no
+    organisation yet" (a user state) from a cross-tenant write (a bug or an
+    attack) and answer them differently.
+    """
+
+
 @contextmanager
 def tenant_context(tenant_id: str) -> Iterator[None]:
-    """Run the block as ``tenant_id`` — for jobs, CLI commands and tests."""
+    """Run the block as ``tenant_id`` — for jobs, CLI commands and tests.
+
+    Wins over an enclosing ``all_tenants()``: the natural platform job is
+    ``with all_tenants(): for t in tenants: with tenant_context(t): ...``, and
+    each iteration must be scoped to ``t``, not left unscoped.
+    """
     if not is_valid_tenant_id(tenant_id):
         raise ValueError(f"tenant_context() needs a valid tenant id, got {tenant_id!r}")
     token = current_tenant_id.set(tenant_id)
+    bypass_token = _all_tenants.set(False)
     try:
         yield
     finally:
+        _all_tenants.reset(bypass_token)
         current_tenant_id.reset(token)
 
 
@@ -84,8 +100,8 @@ def is_all_tenants() -> bool:
     return _all_tenants.get()
 
 
-def missing_tenant_error(entity: str, operation: str) -> TenantIsolationError:
-    return TenantIsolationError(
+def missing_tenant_error(entity: str, operation: str) -> MissingTenantError:
+    return MissingTenantError(
         f"{operation} on tenant-scoped '{entity}' without a tenant context. "
         "Run it inside a request that resolved a tenant, `tenant_context(id)`, "
         "or — for deliberate cross-tenant access — `all_tenants()` / "
@@ -96,6 +112,7 @@ def missing_tenant_error(entity: str, operation: str) -> TenantIsolationError:
 __all__ = [
     "ALL_TENANTS_OPTION",
     "TENANT_ID_PATTERN",
+    "MissingTenantError",
     "TenantIsolationError",
     "all_tenants",
     "current_tenant_id",

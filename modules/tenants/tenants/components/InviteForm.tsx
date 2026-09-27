@@ -48,7 +48,8 @@ export function InviteForm({ onInvited }: Props) {
         return;
       }
       const data = (await response.json()) as { accept_url: string };
-      setAcceptUrl(data.accept_url);
+      // Root-relative unless public_base_url is configured.
+      setAcceptUrl(new URL(data.accept_url, window.location.origin).toString());
       setEmail('');
       toast.success(t(keys.tenants.members.toast_invited));
       onInvited();

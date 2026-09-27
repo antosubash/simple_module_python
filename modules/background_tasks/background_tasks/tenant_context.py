@@ -15,7 +15,7 @@ import logging
 from contextvars import Token
 from typing import Any
 
-from simple_module_db import current_tenant_id
+from simple_module_db import TenantIsolationError, current_tenant_id, is_valid_tenant_id
 
 TENANT_HEADER = "sm_tenant_id"
 
@@ -26,12 +26,23 @@ _tokens: dict[str, Token[str | None]] = {}
 def stamp_tenant(headers: dict[str, Any] | None) -> None:
     """Record the current tenant on an outgoing message (publish side).
 
-    An explicit value already present — a caller passing
-    ``headers={"sm_tenant_id": ...}`` to ``send_task`` — is kept.
+    An explicit ``headers={"sm_tenant_id": ...}`` passed to ``send_task`` is
+    kept only when no tenant is bound (platform code enqueueing work for a
+    tenant) or it names the bound tenant: request code must not be able to
+    schedule work as another tenant.
     """
-    if headers is None or headers.get(TENANT_HEADER):
+    if headers is None:
         return
     tenant_id = current_tenant_id.get()
+    explicit = headers.get(TENANT_HEADER)
+    if explicit:
+        if not is_valid_tenant_id(explicit):
+            raise TenantIsolationError(f"Invalid tenant id on task headers: {explicit!r}")
+        if tenant_id is not None and explicit != tenant_id:
+            raise TenantIsolationError(
+                f"Cannot enqueue a task for tenant '{explicit}' in context of tenant '{tenant_id}'"
+            )
+        return
     if tenant_id is not None:
         headers[TENANT_HEADER] = tenant_id
 
@@ -43,7 +54,14 @@ def _tenant_of(task: Any) -> str | None:
     value = getattr(request, TENANT_HEADER, None)
     if value is None and isinstance(getattr(request, "headers", None), dict):
         value = request.headers.get(TENANT_HEADER)
-    return str(value) if value else None
+    if not value:
+        return None
+    if not is_valid_tenant_id(value):
+        # Never run a task body as a malformed tenant; it runs unscoped and,
+        # under strict mode, fails closed on its first tenant-scoped query.
+        _log.warning("Ignoring invalid tenant id on task message: %r", str(value)[:80])
+        return None
+    return str(value)
 
 
 def restore_tenant(*, task_id: str | None, task: Any) -> None:

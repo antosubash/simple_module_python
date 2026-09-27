@@ -45,7 +45,7 @@ deliberately out of scope; this doc fixes the seams it will plug into.
   the module does not depend on a mailer.
 - **Resolver**: active tenant from the session, validated against a
   membership (per-process TTL cache, dropped through `InvalidationBus` on
-  membership change); falls back to the user's first membership. Suspended
+  membership change); falls back to the user's first active membership. Suspended
   tenants resolve to nothing.
 - **Effective roles**: the membership role is added to the request's
   principal as `tenant:<role>` for the active tenant only, and the module maps

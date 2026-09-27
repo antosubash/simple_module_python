@@ -11,13 +11,15 @@ interface Props {
   memberships: Membership[];
   active_id: string | null;
   suspended: boolean;
+  suspended_name: string | null;
   can_create: boolean;
   reason: string | null;
 }
 
 function Index() {
-  const { memberships, active_id, suspended, can_create, reason } = usePage<{ props: Props }>()
-    .props as unknown as Props;
+  const { memberships, active_id, suspended, suspended_name, can_create, reason } = usePage<{
+    props: Props;
+  }>().props as unknown as Props;
   const { t } = useT();
 
   function reload() {
@@ -36,9 +38,14 @@ function Index() {
             {t(keys.tenants.index.notice_tenant_required)}
           </div>
         )}
-        {suspended && !active_id && (
+        {suspended && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-destructive">
-            {t(keys.tenants.index.notice_suspended)}
+            {active_id && suspended_name
+              ? t(keys.tenants.index.notice_suspended_switched, {
+                  name: suspended_name,
+                  active: memberships.find((m) => m.id === active_id)?.name ?? '',
+                })
+              : t(keys.tenants.index.notice_suspended)}
           </div>
         )}
 

@@ -18,6 +18,8 @@ import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 
+from simple_module_db.listeners import attach_session_listeners
+from simple_module_db.query_filter import EngineTenancy, bind_engine_policy
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -27,6 +29,13 @@ logger = logging.getLogger(__name__)
 _engine: Engine | None = None
 _session_factory: sessionmaker[Session] | None = None
 _url_override: str | None = None
+_tenant_strict: bool = False
+
+
+class WorkerSession(Session):
+    """This engine's own session class, so the entity listeners attached to it
+    never double up with a ``DatabaseState``'s (each state has its own
+    ``Session`` subclass; listeners on the base class would fire for both)."""
 
 
 def _sync_url(async_url: str) -> str:
@@ -38,7 +47,7 @@ def _sync_url(async_url: str) -> str:
     return async_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
 
 
-def set_database_url(url: str | None) -> None:
+def set_database_url(url: str | None, *, tenant_strict: bool = False) -> None:
     """Pin the URL used to build the sync engine.
 
     The web process loads ``.env`` via pydantic-settings, but those values
@@ -48,11 +57,15 @@ def set_database_url(url: str | None) -> None:
     calls this with the resolved ``settings.database_url`` so signals use
     the same DB the app is on. Pass ``None`` to clear the override (used in
     tests + on shutdown).
+
+    ``tenant_strict`` mirrors the host's ``multi_tenant``: task bodies get the
+    same fail-closed tenant rules as request code.
     """
-    global _url_override, _engine, _session_factory
-    if _url_override == url:
+    global _url_override, _engine, _session_factory, _tenant_strict
+    if _url_override == url and _tenant_strict == tenant_strict:
         return
     _url_override = url
+    _tenant_strict = tenant_strict
     if _engine is not None:
         _engine.dispose()
     _engine = None
@@ -68,7 +81,13 @@ def _resolve_url() -> str:
 def _build_engine() -> Engine:
     sync_url = _sync_url(_resolve_url())
     # Small pool — signals fire sequentially per worker process.
-    return create_engine(sync_url, pool_pre_ping=True, pool_size=2, max_overflow=3)
+    engine = create_engine(sync_url, pool_pre_ping=True, pool_size=2, max_overflow=3)
+    # A worker never runs create_app, so without this its sessions would have
+    # no tenant filter at all: the tenant restored around a task body would
+    # scope nothing (#371).
+    attach_session_listeners(WorkerSession)
+    bind_engine_policy(engine, EngineTenancy(tenant_strict=_tenant_strict))
+    return engine
 
 
 def get_sync_session_factory() -> sessionmaker[Session]:
@@ -76,7 +95,7 @@ def get_sync_session_factory() -> sessionmaker[Session]:
     global _engine, _session_factory
     if _session_factory is None:
         _engine = _build_engine()
-        _session_factory = sessionmaker(bind=_engine, expire_on_commit=False)
+        _session_factory = sessionmaker(bind=_engine, class_=WorkerSession, expire_on_commit=False)
     return _session_factory
 
 
@@ -87,12 +106,13 @@ def dispose_sync_engine() -> None:
     restarts within one process (test runners, uvicorn dev reload) don't
     accumulate engines against the old DB URL.
     """
-    global _engine, _session_factory, _url_override
+    global _engine, _session_factory, _url_override, _tenant_strict
     if _engine is not None:
         _engine.dispose()
     _engine = None
     _session_factory = None
     _url_override = None
+    _tenant_strict = False
 
 
 @contextmanager

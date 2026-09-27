@@ -72,6 +72,19 @@ All notable changes to this project are documented in this file. The format is b
 - Changing a row's `tenant_id` is refused whether or not a tenant is bound
   (it used to be checked only inside a tenant context); only an `all_tenants()`
   block may move a row between tenants.
+- Tenant rules now cover every ORM write path, not only `session.add`: an
+  ORM `insert(Model)` (bulk or `.values()`) is stamped with the bound tenant
+  and refused for a different one (#357); `update(Model).values(tenant_id=…)`
+  is refused; a flush that writes or deletes an object belonging to another
+  tenant (e.g. one returned from the identity map after a `tenant_context`
+  switch) is refused.
+- `tenant_context()` nested in `all_tenants()` now scopes its block; it used
+  to be ignored there, so a per-tenant loop inside a platform job ran
+  unscoped.
+- Strict mode is held per engine, so a second `DatabaseState` in the process
+  no longer switches it off for the first. The Celery worker's session gets the
+  tenant listeners and the host's `multi_tenant` setting too (#371).
+- New `MissingTenantError` (a `TenantIsolationError`) for "no tenant bound".
 
 ### Security
 - The tenant header (`tenant_header`) is no longer honoured for an

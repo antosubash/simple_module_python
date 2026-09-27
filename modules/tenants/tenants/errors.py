@@ -6,7 +6,7 @@ import logging
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
-from simple_module_db import TenantIsolationError
+from simple_module_db import MissingTenantError, TenantIsolationError
 
 from tenants.contracts.entitlements import EntitlementExceededError
 
@@ -41,17 +41,23 @@ async def _entitlement_exceeded(request: Request, exc: Exception) -> Response:
 
 
 async def _isolation_error(request: Request, exc: Exception) -> Response:
-    """A tenant-scoped query ran without a tenant.
+    """A tenant isolation rule fired during a request.
 
-    With no active tenant this is a user state, not a bug: the user has no
-    organisation yet, or theirs is suspended — send pages to the picker
-    instead of a 500. With a tenant resolved it is a cross-tenant write
-    attempt, which is refused and logged.
+    Only a *missing* tenant for a signed-in user is a user state — no
+    organisation yet, or theirs is suspended — and gets the picker instead of
+    a 500. Anything else (a cross-tenant write, a tenant_id change) is a bug
+    or an attack: refused with 403 and logged as an error, never dressed up
+    as "pick an organisation".
     """
     user = getattr(request.state, "user", None)
     tenant_id = getattr(request.state, "tenant_id", None)
-    if tenant_id is not None or user is None:
-        logger.warning("Tenant isolation violation on %s: %s", request.url.path, exc)
+    if not isinstance(exc, MissingTenantError) or tenant_id is not None or user is None:
+        logger.error(
+            "Tenant isolation violation on %s %s: %s",
+            request.method,
+            request.url.path,
+            exc,
+        )
         return JSONResponse({"detail": "tenant_isolation"}, status_code=403)
     if _is_api(request) or request.method not in ("GET", "HEAD"):
         return JSONResponse({"detail": "tenant_required"}, status_code=403)
