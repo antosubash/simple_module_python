@@ -43,11 +43,36 @@ async def reset_schema(engine: Any) -> None:
         await conn.execute(text("CREATE SCHEMA public"))
 
 
+# The test the schema was last emptied for. On SQLite every engine is its own
+# in-memory database; on Postgres the ``app`` and ``db_session`` fixtures share
+# one, so a second reset inside the same test would wipe the first fixture's
+# rows (the seeded admin, say) from under it.
+_current_test: object | None = None
+_reset_for: object | None = None
+
+
+def begin_test(token: object) -> None:
+    """Mark the start of a test; the next ``reset_schema_once`` resets."""
+    global _current_test
+    _current_test = token
+
+
+async def reset_schema_once(engine: Any) -> None:
+    """``reset_schema`` at most once per test (see ``begin_test``)."""
+    global _reset_for
+    if _current_test is not None and _reset_for is _current_test:
+        return
+    await reset_schema(engine)
+    _reset_for = _current_test
+
+
 __all__ = [
     "SQLITE_MEMORY",
     "TEST_DATABASE_ENV",
+    "begin_test",
     "database_url_for_tests",
     "init_db_kwargs",
     "is_sqlite",
     "reset_schema",
+    "reset_schema_once",
 ]

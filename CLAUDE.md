@@ -35,6 +35,7 @@ All day-to-day tasks go through `make`:
 | `make kill` | Free ports 8000/5050/5173 |
 | `make test` | Run `test-py` then `test-js` (e2e excluded by default) |
 | `make test-py` / `make test-js` | Run a single suite |
+| `make test-py-pg` | Python suite on Postgres (`SM_TEST_PG_URL`, default db `sm_test`, schema is dropped per test) |
 | `make test-e2e` | Playwright smoke tests (requires `make dev` running + `uv run playwright install chromium`) |
 | `make lint` | Ruff format-check + Ruff + `ty` + Biome + per-workspace `tsc` + 300-line file cap |
 | `make doctor` | Module diagnostics (orphan pages, coupling violations, migration drift, locale checks) — same checks run at prod boot |
@@ -114,7 +115,7 @@ Meaningful codes when reading `make doctor` output: `SM001` missing meta (error)
 ## Tests & fixtures
 
 The `simple_module_test` plugin provides app-level fixtures available to every test directory — auto-loaded via its `pytest11` entry point (defined in `framework/testing/simple_module_test/fixtures.py`), so the root `conftest.py` is intentionally thin:
-- `settings` — in-memory SQLite `Settings` with `multi_tenant=True`. Set `SM_TEST_DATABASE_URL=postgresql+asyncpg://…` to run the fixtures (and the tenancy DB tests) on Postgres instead; each test then starts from an empty `public` schema (`simple_module_test.database`).
+- `settings` — in-memory SQLite `Settings` with `multi_tenant=True`. Set `SM_TEST_DATABASE_URL=postgresql+asyncpg://…` to run the fixtures (and the tenancy DB tests) on Postgres instead; each test then starts from an empty `public` schema, reset once per test so `app` and `db_session` share it (`simple_module_test.database`). `make test-py-pg` runs the whole suite that way, with `-p no:anyio`: an `@pytest.mark.anyio` test would run on a different event loop from its async fixtures, and an asyncpg connection cannot cross loops.
 - `db_state`, `engine`, `db_session` — fresh in-memory `DatabaseState` per test; `db_session` also creates all module tables and stamps `alembic_version` at head so the boot-time migration check passes.
 - `app` — `create_app(settings)` with lifespan started/stopped.
 - `client` / `authenticated_client` — `httpx.AsyncClient`; `authenticated_client` seeds an admin via `users.bootstrap.create_admin` and carries a forged session cookie.

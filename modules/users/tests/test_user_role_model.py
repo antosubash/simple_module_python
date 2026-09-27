@@ -47,7 +47,11 @@ async def test_user_role_composite_pk(db_session):
     role = Role(id=role_id, name="testrole")
     link = UserRole(user_id=user_id, role_id=role_id)
 
-    db_session.add_all([user, role, link])
+    # No relationship() links these, so the unit of work does not order the
+    # inserts by foreign key; flush the parents first (Postgres enforces it).
+    db_session.add_all([user, role])
+    await db_session.flush()
+    db_session.add(link)
     await db_session.commit()
 
     result = await db_session.execute(
@@ -80,11 +84,16 @@ async def test_fk_cascade_delete_user_removes_user_role(db_session):
     role = Role(id=role_id, name="cascade_role")
     link = UserRole(user_id=user_id, role_id=role_id)
 
-    db_session.add_all([user, role, link])
+    # No relationship() links these, so the unit of work does not order the
+    # inserts by foreign key; flush the parents first (Postgres enforces it).
+    db_session.add_all([user, role])
+    await db_session.flush()
+    db_session.add(link)
     await db_session.commit()
 
-    # Enable FK enforcement for SQLite (it's off by default)
-    await db_session.execute(text("PRAGMA foreign_keys=ON"))
+    # Enable FK enforcement for SQLite (it's off by default; Postgres always enforces)
+    if db_session.bind.dialect.name == "sqlite":
+        await db_session.execute(text("PRAGMA foreign_keys=ON"))
 
     await db_session.delete(user)
     await db_session.commit()

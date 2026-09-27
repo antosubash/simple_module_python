@@ -12,6 +12,10 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- **Postgres test runs** (#343) — `SM_TEST_DATABASE_URL` points the
+  `simple_module_test` fixtures at Postgres, and `make test-py-pg` runs the
+  whole Python suite there. The schema is reset once per test, so `app` and
+  `db_session` see each other's rows as they would in production.
 - **`tenants` module** — SaaS organisations: tenants, many-to-many memberships
   with per-tenant roles (`owner`/`admin`/`member`, surfaced as `tenant:<role>`
   on the active tenant only), email-bound invitations, platform suspend /

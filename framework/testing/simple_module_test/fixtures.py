@@ -31,7 +31,7 @@ from simple_module_hosting.settings import Settings
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from simple_module_test._schema import _create_all_tables
-from simple_module_test.database import database_url_for_tests, init_db_kwargs
+from simple_module_test.database import begin_test, database_url_for_tests, init_db_kwargs
 from simple_module_test.session_cookie import forge_session_cookie
 
 _AUTH_PROVIDER_ENV = "SM_AUTH_PROVIDER"
@@ -62,6 +62,16 @@ def pinned_auth_provider() -> Iterator[str]:
             os.environ.pop(_AUTH_PROVIDER_ENV, None)
         else:
             os.environ[_AUTH_PROVIDER_ENV] = previous
+
+
+@pytest.fixture(autouse=True)
+def fresh_test_database(request: pytest.FixtureRequest) -> None:
+    """Let the first fixture of each test empty the Postgres schema, and no later one.
+
+    A no-op on the default in-memory SQLite, where every engine is already
+    its own empty database (see ``simple_module_test.database``).
+    """
+    begin_test(request.node)
 
 
 @pytest.fixture
