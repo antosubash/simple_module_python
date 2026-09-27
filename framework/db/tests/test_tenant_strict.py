@@ -6,7 +6,7 @@ from collections.abc import AsyncGenerator
 
 import pytest
 from _models import _TenantBase, _TenantItem
-from simple_module_db import TenantIsolationError, all_tenants, tenant_context
+from simple_module_db import TenantIsolationError, all_tenants, current_tenant_id, tenant_context
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 from sqlalchemy import delete, func, select, update
@@ -110,3 +110,34 @@ def test_tenant_context_rejects_empty_id():
 def test_tenant_context_rejects_malformed_ids(bad):
     with pytest.raises(ValueError), tenant_context(bad):
         pass
+
+
+async def test_unbound_flush_still_refuses_tenant_change(tenant_session: AsyncSession):
+    """#356: without a tenant bound (non-strict), a row still cannot move tenants."""
+    token = current_tenant_id.set("tenant-a")
+    try:
+        item = _TenantItem(name="Stays")
+        tenant_session.add(item)
+        await tenant_session.flush()
+    finally:
+        current_tenant_id.reset(token)
+
+    item.tenant_id = "tenant-b"
+    with pytest.raises(TenantIsolationError, match="Cannot change tenant_id"):
+        await tenant_session.flush()
+    await tenant_session.rollback()
+
+
+async def test_all_tenants_block_may_move_a_row(tenant_session: AsyncSession):
+    token = current_tenant_id.set("tenant-a")
+    try:
+        item = _TenantItem(name="Moves")
+        tenant_session.add(item)
+        await tenant_session.flush()
+    finally:
+        current_tenant_id.reset(token)
+
+    with all_tenants():
+        item.tenant_id = "tenant-b"
+        await tenant_session.flush()
+    assert item.tenant_id == "tenant-b"
