@@ -271,3 +271,36 @@ class TestMultiTenancyEdgeCases:
 
         assert current_tenant_id.get() is None
         assert seen == ["tenant-a"]
+
+
+async def test_unbound_flush_still_refuses_tenant_change(tenant_session: AsyncSession):
+    """#356: without a tenant bound (non-strict), a row still cannot move tenants."""
+    token = current_tenant_id.set("tenant-a")
+    try:
+        item = _TenantItem(name="Stays")
+        tenant_session.add(item)
+        await tenant_session.flush()
+    finally:
+        current_tenant_id.reset(token)
+
+    item.tenant_id = "tenant-b"
+    with pytest.raises(TenantIsolationError, match="Cannot change tenant_id"):
+        await tenant_session.flush()
+    await tenant_session.rollback()
+
+
+async def test_all_tenants_block_may_move_a_row(tenant_session: AsyncSession):
+    from simple_module_db import all_tenants
+
+    token = current_tenant_id.set("tenant-a")
+    try:
+        item = _TenantItem(name="Moves")
+        tenant_session.add(item)
+        await tenant_session.flush()
+    finally:
+        current_tenant_id.reset(token)
+
+    with all_tenants():
+        item.tenant_id = "tenant-b"
+        await tenant_session.flush()
+    assert item.tenant_id == "tenant-b"

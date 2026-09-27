@@ -16,6 +16,7 @@ from simple_module_db.session import DatabaseState
 from simple_module_db.tenancy import (
     TenantIsolationError,
     current_tenant_id,
+    is_all_tenants,
     missing_tenant_error,
 )
 
@@ -149,10 +150,10 @@ def _before_flush_listener(
         if isinstance(obj, VersionedMixin):
             obj.version += 1
 
-        # Prevent tenant_id from being changed on existing objects — also for
-        # unscoped platform code under strict mode: moving a row between
-        # tenants is never a routine edit.
-        if isinstance(obj, MultiTenantMixin) and (tenant_id is not None or is_strict()):
+        # Prevent tenant_id from being changed on existing objects, bound or
+        # not (#356): moving a row between tenants is never a routine edit.
+        # Only a deliberate ``all_tenants()`` block may do it.
+        if isinstance(obj, MultiTenantMixin) and not is_all_tenants():
             hist = sa_inspect(obj).attrs.tenant_id.history
             if hist.has_changes():
                 raise TenantIsolationError("Cannot change tenant_id of an existing object")

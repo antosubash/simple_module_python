@@ -18,7 +18,7 @@ tenant a request acts for.
 | `SELECT` / `session.get` | filtered to the tenant | `TenantIsolationError` | unfiltered |
 | ORM `update()` / `delete()` | filtered to the tenant | `TenantIsolationError` | unfiltered |
 | `INSERT` | `tenant_id` filled in; a different explicit value raises | `TenantIsolationError` unless `tenant_id` is set explicitly | DB `NOT NULL` error unless set |
-| Changing `tenant_id` | raises | raises | allowed |
+| Changing `tenant_id` | raises | raises | raises (only an `all_tenants()` block may move a row) |
 
 Fail closed is the point: a request, job or command that forgot to establish a
 tenant errors instead of reading every tenant's data.

@@ -69,6 +69,9 @@ All notable changes to this project are documented in this file. The format is b
   context raises `TenantIsolationError` instead of reading or writing every
   tenant's rows. ORM `update()`/`delete()` are now tenant-scoped too; they were
   not before.
+- Changing a row's `tenant_id` is refused whether or not a tenant is bound
+  (it used to be checked only inside a tenant context); only an `all_tenants()`
+  block may move a row between tenants.
 
 ### Security
 - The tenant header (`tenant_header`) is no longer honoured for an
