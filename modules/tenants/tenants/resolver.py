@@ -31,6 +31,12 @@ from tenants.constants import (
     TenantStatus,
 )
 from tenants.contracts.schemas import MyTenantView
+from tenants.host_resolver import (
+    forget_hosts,
+    is_public_route,
+    resolve_from_host,
+    subdomain_slug,
+)
 from tenants.service import TenantService
 
 logger = logging.getLogger(__name__)
@@ -54,6 +60,7 @@ def forget(key: str | None) -> None:
     _epoch += 1
     if key is None:
         _MEMBERSHIPS.clear()
+        forget_hosts()  # a status change: cached subdomain lookups are stale too
     else:
         _MEMBERSHIPS.pop(key, None)
 
@@ -123,6 +130,9 @@ async def resolve_tenant(request: Request) -> str | None:
     request.state.tenant_suspended = False
     request.state.suspended_tenant_name = None
     user = getattr(request.state, "user", None)
+    slug = subdomain_slug(request)
+    if slug is not None:
+        return await _resolve_subdomain(request, user, slug)
     if user is None:
         return None
     user_id = str(user.id)
@@ -163,6 +173,20 @@ async def resolve_tenant(request: Request) -> str | None:
     if session is not None and preferred != active.id and not chosen_suspended:
         session[SESSION_ACTIVE_TENANT] = active.id
     return _enter(request, user, active)
+
+
+async def _resolve_subdomain(request: Request, user: Any, slug: str) -> str | None:
+    tenant_id, active = await resolve_from_host(request, slug)
+    if not active or tenant_id is None:
+        return None
+    if user is not None:
+        memberships = await memberships_for(request.app, str(user.id))
+        own = next((m for m in memberships if m.id == tenant_id), None)
+        if own is not None:
+            return _enter(request, user, own)
+        if not is_public_route(request):
+            return None
+    return tenant_id
 
 
 def _header_tenant(request: Request) -> str | None:

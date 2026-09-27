@@ -1,12 +1,12 @@
 """``do_orm_execute`` filter: soft-delete and tenant scoping on every ORM statement.
 
-Scope — what this filter can and cannot see. It works on the ORM entities a
-statement names (``execute_state.all_mappers``): ``select(Model)``,
-``update(Model)``, ``delete(Model)``, ``insert(Model)``, relationship loads.
-A tenant-scoped table reached only through a join target, an ``exists()`` /
-``in_()`` subquery, ``select(func.count()).select_from(Model)`` or a Core
-statement on ``Model.__table__`` is NOT scoped (#332) — module code must name
-the entity or add the ``tenant_id`` predicate itself.
+Scope (#332). Tenant criteria are attached for *every* tenant-scoped model,
+not only the entities a statement names, so a tenant table reached through a
+join target, an ORM ``exists()`` / ``in_()`` / scalar subquery or
+``select(func.count()).select_from(Model)`` is filtered too. A Core statement
+on ``Model.__table__`` at the top level (select / update / delete) gets an
+explicit ``WHERE tenant_id = ...``. The one shape left unscoped is a bare Core
+``exists().where(...)``; write ``select(Model...).where(...).exists()``.
 """
 
 from __future__ import annotations
@@ -14,8 +14,9 @@ from __future__ import annotations
 from typing import Any
 from weakref import WeakKeyDictionary
 
+from sqlalchemy import event
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import ORMExecuteState, Session, with_loader_criteria
+from sqlalchemy.orm import Mapper, ORMExecuteState, Session, with_loader_criteria
 
 from simple_module_db.mixins import MultiTenantMixin, SoftDeleteMixin
 from simple_module_db.tenancy import (
@@ -64,6 +65,24 @@ def is_strict(session: Session) -> bool:
 _mixin_flags_cache: dict[type, tuple[bool, bool]] = {}
 
 
+# Every mapped MultiTenantMixin class, and its table names — filled as mappers
+# configure, so criteria can be attached for models a statement doesn't name.
+_tenant_classes: set[type] = set()
+_tenant_table_names: set[str] = set()
+
+
+def _register(cls: type) -> None:
+    if cls not in _tenant_classes:
+        _tenant_classes.add(cls)
+        _tenant_table_names.add(cls.__table__.name)
+
+
+@event.listens_for(Mapper, "mapper_configured")
+def _on_mapper_configured(mapper: Mapper, cls: type) -> None:
+    if issubclass(cls, MultiTenantMixin):
+        _register(cls)
+
+
 def _flags(cls: type) -> tuple[bool, bool]:
     flags = _mixin_flags_cache.get(cls)
     if flags is None:
@@ -100,6 +119,7 @@ def filter_statements(execute_state: ORMExecuteState) -> Any:
         return None
 
     options = []
+    named: list[type] = []
     for mapper in execute_state.all_mappers:
         cls = mapper.class_
         is_soft_delete, is_multi_tenant = _flags(cls)
@@ -107,21 +127,62 @@ def filter_statements(execute_state: ORMExecuteState) -> Any:
             options.append(
                 with_loader_criteria(cls, cls.is_deleted.is_(False), include_aliases=True)
             )
-        if not is_multi_tenant or skip_tenant:
-            continue
-        if execute_state.is_update and _assigned_tenant_ids(execute_state):
-            raise TenantIsolationError("Cannot change tenant_id of existing rows")
-        if tenant_id is not None:
-            options.append(
-                with_loader_criteria(cls, cls.tenant_id == tenant_id, include_aliases=True)
-            )
-        elif strict:
-            op = "SELECT" if is_select else ("UPDATE" if execute_state.is_update else "DELETE")
-            raise missing_tenant_error(cls.__name__, op)
+        if is_multi_tenant:
+            _register(cls)
+            named.append(cls)
+    if not skip_tenant:
+        options.extend(_tenant_criteria(execute_state, named, tenant_id, strict))
 
     if options:
         execute_state.statement = execute_state.statement.options(*options)
     return None
+
+
+def _core_tenant_tables(execute_state: ORMExecuteState) -> list[Any]:
+    """Tenant tables a statement uses as plain Core tables (``Model.__table__``).
+
+    Only the top level: the FROM list of a select, the target of an
+    update/delete. ORM-annotated occurrences are covered by loader criteria.
+    """
+    stmt = execute_state.statement
+    if execute_state.is_select:
+        froms = [*getattr(stmt, "columns_clause_froms", ()), *getattr(stmt, "_from_obj", ())]
+    else:
+        froms = [getattr(stmt, "table", None)]
+    return [
+        f
+        for f in froms
+        if getattr(f, "name", None) in _tenant_table_names
+        and "parententity" not in getattr(f, "_annotations", {})
+    ]
+
+
+def _tenant_criteria(
+    execute_state: ORMExecuteState, named: list[type], tenant_id: str | None, strict: bool
+) -> list[Any]:
+    core = _core_tenant_tables(execute_state)
+    if execute_state.is_update and (named or core) and _assigned_tenant_ids(execute_state):
+        raise TenantIsolationError("Cannot change tenant_id of existing rows")
+    op = (
+        "SELECT" if execute_state.is_select else ("UPDATE" if execute_state.is_update else "DELETE")
+    )
+    if tenant_id is None:
+        if not strict:
+            return []
+        if named or core:
+            raise missing_tenant_error(named[0].__name__ if named else core[0].name, op)
+        # Indirect references (joins, subqueries) with no tenant bound match
+        # nothing — tenant_id is NOT NULL — rather than every tenant.
+        return [
+            with_loader_criteria(c, c.tenant_id.is_(None), include_aliases=True)
+            for c in _tenant_classes
+        ]
+    for table in core:
+        execute_state.statement = execute_state.statement.where(table.c.tenant_id == tenant_id)
+    return [
+        with_loader_criteria(c, c.tenant_id == tenant_id, include_aliases=True)
+        for c in _tenant_classes | set(named)
+    ]
 
 
 def _bound_value(value: Any) -> Any:
@@ -154,7 +215,10 @@ def _assigned_tenant_ids(execute_state: ORMExecuteState) -> list[Any]:
 
 
 def _guard_insert(execute_state: ORMExecuteState) -> Any:
-    mappers = [m.class_ for m in execute_state.all_mappers if _flags(m.class_)[1]]
+    mappers = [m.class_.__name__ for m in execute_state.all_mappers if _flags(m.class_)[1]]
+    target = getattr(execute_state.statement, "table", None)
+    if not mappers and getattr(target, "name", None) in _tenant_table_names:
+        mappers = [target.name]  # Core insert(Model.__table__)
     if not mappers or execute_state.execution_options.get(ALL_TENANTS_OPTION, False):
         return None
     if is_all_tenants():
@@ -175,7 +239,7 @@ def _guard_insert(execute_state: ORMExecuteState) -> Any:
         return None
     if tenant_id is None:
         if _strict_configured(execute_state.session):
-            raise missing_tenant_error(mappers[0].__name__, "INSERT")
+            raise missing_tenant_error(mappers[0], "INSERT")
         return None
     if rows:
         stamped = [{**r, TENANT_COLUMN: r.get(TENANT_COLUMN, tenant_id)} for r in rows]

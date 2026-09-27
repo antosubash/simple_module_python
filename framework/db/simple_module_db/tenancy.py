@@ -21,10 +21,13 @@ uses ``with tenant_context(tenant_id): ...``.
 
 from __future__ import annotations
 
+import functools
+import inspect
 import re
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
+from typing import Any
 
 # Set by tenant middleware on each request
 current_tenant_id: ContextVar[str | None] = ContextVar("current_tenant_id", default=None)
@@ -95,6 +98,48 @@ def all_tenants() -> Iterator[None]:
         current_tenant_id.reset(tenant_token)
 
 
+def bind_current_tenant[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
+    """Wrap ``fn`` so it runs as the tenant bound *now*, whenever it is called.
+
+    For work a module defers past the point where the request's tenant is
+    reset (#364) — its own after-response queue, a thread pool, a callback
+    registry. ``db.on_commit`` callbacks and FastAPI ``BackgroundTasks`` do
+    not need it: both run inside the request's tenant scope already.
+    Works for sync and async callables; captures ``all_tenants()`` too.
+    """
+    tenant_id = current_tenant_id.get()
+    bypass = _all_tenants.get()
+
+    def _enter() -> tuple[Any, Any]:
+        return current_tenant_id.set(tenant_id), _all_tenants.set(bypass)
+
+    def _exit(tokens: tuple[Any, Any]) -> None:
+        _all_tenants.reset(tokens[1])
+        current_tenant_id.reset(tokens[0])
+
+    if inspect.iscoroutinefunction(fn):
+
+        @functools.wraps(fn)
+        async def run_async(*args: P.args, **kwargs: P.kwargs) -> Any:
+            tokens = _enter()
+            try:
+                return await fn(*args, **kwargs)
+            finally:
+                _exit(tokens)
+
+        return run_async  # ty: ignore[invalid-return-type]
+
+    @functools.wraps(fn)
+    def run(*args: P.args, **kwargs: P.kwargs) -> R:
+        tokens = _enter()
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            _exit(tokens)
+
+    return run
+
+
 def is_all_tenants() -> bool:
     """True inside an ``all_tenants()`` block."""
     return _all_tenants.get()
@@ -115,6 +160,7 @@ __all__ = [
     "MissingTenantError",
     "TenantIsolationError",
     "all_tenants",
+    "bind_current_tenant",
     "current_tenant_id",
     "is_all_tenants",
     "is_valid_tenant_id",

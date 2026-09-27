@@ -145,6 +145,10 @@ def install_middleware(
     )
     if settings.multi_tenant:
         app.add_middleware(TenantMiddleware, header=settings.tenant_header or None)
+    elif settings.default_tenant:
+        # Single-tenant host with tenant-scoped tables: every request is the
+        # one tenant (#359). Never used with multi_tenant — no shared fallback.
+        app.add_middleware(TenantMiddleware, fixed=settings.default_tenant)
     for mod in modules:
         mod.register_middleware(app)
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)

@@ -1,7 +1,8 @@
 """Two owners demoting each other at once must leave one owner.
 
 Runs on a file-backed SQLite database with the real connection pool, so the
-two sessions really are two connections. The ``app`` fixture's in-memory
+two sessions really are two connections — and on Postgres too when
+``SM_TEST_DATABASE_URL`` points at one. The ``app`` fixture's in-memory
 database shares one connection between sessions, which cannot model two
 concurrent transactions at all.
 """
@@ -10,8 +11,15 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
+from simple_module_test.database import (
+    database_url_for_tests,
+    init_db_kwargs,
+    is_sqlite,
+    reset_schema,
+)
 from tenants.constants import MembershipRole
 from tenants.contracts.schemas import TenantCreate
 from tenants.errors import TenantError
@@ -19,8 +27,21 @@ from tenants.models import Base
 from tenants.service import TenantService
 
 
-async def test_concurrent_demotion_of_the_two_owners_keeps_one(tmp_path):
-    state = init_db(f"sqlite+aiosqlite:///{tmp_path}/race.db")
+def _backends() -> list[str]:
+    backends = ["sqlite-file"]
+    if not is_sqlite(database_url_for_tests()):
+        backends.append("postgres")
+    return backends
+
+
+@pytest.mark.parametrize("backend", _backends())
+async def test_concurrent_demotion_of_the_two_owners_keeps_one(tmp_path, backend: str):
+    if backend == "postgres":
+        url = database_url_for_tests()
+        state = init_db(url, **init_db_kwargs(url))
+        await reset_schema(state.engine)
+    else:
+        state = init_db(f"sqlite+aiosqlite:///{tmp_path}/race.db")
     register_listeners(state)
     try:
         async with state.engine.begin() as conn:

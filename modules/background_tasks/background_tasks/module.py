@@ -152,6 +152,7 @@ class BackgroundTasksModule(ModuleBase):
         from background_tasks.celery_app import build_celery
         from background_tasks.signals import bind_event_bus
         from background_tasks.sync_db import set_database_url
+        from background_tasks.tenant_context import set_default_tenant
 
         services = app.state.background_tasks
         # Pin the sync engine to the same URL the host's async settings
@@ -159,9 +160,9 @@ class BackgroundTasksModule(ModuleBase):
         # to ``os.environ``, so signals would otherwise fall back to the
         # SQLite default and silently drop ``TaskExecution`` rows.
         host = app.state.sm.settings
-        set_database_url(
-            host.database_url, tenant_strict=bool(getattr(host, "multi_tenant", False))
-        )
+        multi = bool(getattr(host, "multi_tenant", False))
+        set_database_url(host.database_url, tenant_strict=multi)
+        set_default_tenant(None if multi else getattr(host, "default_tenant", "") or None)
         # build_celery imports `signals` for side effects and runs
         # `autodiscover_tasks` across every installed module.
         services.celery = build_celery(services.settings)

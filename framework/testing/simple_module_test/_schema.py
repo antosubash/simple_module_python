@@ -51,8 +51,11 @@ async def _create_all_tables(engine) -> None:
     """
     from sqlalchemy import text
 
+    from simple_module_test.database import reset_schema
+
     bases = _ensure_models_imported()
     heads = _alembic_heads()
+    await reset_schema(engine)  # Postgres: start empty; SQLite memory already is
 
     async with engine.begin() as conn:
 

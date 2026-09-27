@@ -54,6 +54,10 @@ DB-backed (Settings screen):
 - `allow_self_service` (default on) — any signed-in user may create an
   organisation.
 - `invitation_ttl_hours` (default 72).
+- `subdomain_base` (default empty) — with `example.com`, `acme.example.com`
+  resolves to the tenant whose slug is `acme`. Members get their role there;
+  anonymous visitors and signed-in non-members get the tenant on **public
+  routes only**; an unknown or suspended subdomain resolves to nothing.
 - `public_base_url` (default empty) — origin invitation links are built on.
   Empty makes them root-relative: they are never built from the request's
   `Host` header, because the same link travels in `InvitationCreated` for a

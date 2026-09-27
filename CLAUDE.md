@@ -114,7 +114,7 @@ Meaningful codes when reading `make doctor` output: `SM001` missing meta (error)
 ## Tests & fixtures
 
 The `simple_module_test` plugin provides app-level fixtures available to every test directory — auto-loaded via its `pytest11` entry point (defined in `framework/testing/simple_module_test/fixtures.py`), so the root `conftest.py` is intentionally thin:
-- `settings` — in-memory SQLite `Settings` with `multi_tenant=True`.
+- `settings` — in-memory SQLite `Settings` with `multi_tenant=True`. Set `SM_TEST_DATABASE_URL=postgresql+asyncpg://…` to run the fixtures (and the tenancy DB tests) on Postgres instead; each test then starts from an empty `public` schema (`simple_module_test.database`).
 - `db_state`, `engine`, `db_session` — fresh in-memory `DatabaseState` per test; `db_session` also creates all module tables and stamps `alembic_version` at head so the boot-time migration check passes.
 - `app` — `create_app(settings)` with lifespan started/stopped.
 - `client` / `authenticated_client` — `httpx.AsyncClient`; `authenticated_client` seeds an admin via `users.bootstrap.create_admin` and carries a forged session cookie.

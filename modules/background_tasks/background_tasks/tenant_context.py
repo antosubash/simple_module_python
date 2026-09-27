@@ -21,6 +21,14 @@ TENANT_HEADER = "sm_tenant_id"
 
 _log = logging.getLogger(__name__)
 _tokens: dict[str, Token[str | None]] = {}
+# Single-tenant hosts (``default_tenant``): tasks with no tenant on the message
+# — beat jobs, tasks enqueued outside a request — run as that tenant.
+_default_tenant: str | None = None
+
+
+def set_default_tenant(tenant_id: str | None) -> None:
+    global _default_tenant
+    _default_tenant = tenant_id or None
 
 
 def stamp_tenant(headers: dict[str, Any] | None) -> None:
@@ -68,7 +76,7 @@ def restore_tenant(*, task_id: str | None, task: Any) -> None:
     """Enter the message's tenant for the task body (prerun)."""
     if not task_id:
         return
-    tenant_id = _tenant_of(task)
+    tenant_id = _tenant_of(task) or _default_tenant
     if tenant_id is not None:
         _tokens[task_id] = current_tenant_id.set(tenant_id)
 
@@ -87,4 +95,10 @@ def release_tenant(*, task_id: str | None) -> None:
         current_tenant_id.set(None)
 
 
-__all__ = ["TENANT_HEADER", "release_tenant", "restore_tenant", "stamp_tenant"]
+__all__ = [
+    "TENANT_HEADER",
+    "release_tenant",
+    "restore_tenant",
+    "set_default_tenant",
+    "stamp_tenant",
+]

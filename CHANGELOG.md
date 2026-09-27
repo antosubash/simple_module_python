@@ -85,6 +85,14 @@ All notable changes to this project are documented in this file. The format is b
   no longer switches it off for the first. The Celery worker's session gets the
   tenant listeners and the host's `multi_tenant` setting too (#371).
 - New `MissingTenantError` (a `TenantIsolationError`) for "no tenant bound".
+- Tenant criteria reach join targets, ORM subqueries, `count().select_from()`
+  and top-level Core statements on `Model.__table__` (#332 — the tenant half;
+  soft-delete is #344's).
+- `HostSettings.default_tenant`: single-tenant hosts run mixin tables as one
+  tenant (#359). `bind_current_tenant(fn)` carries the tenant into work a
+  module defers past the request (#364). The `tenants` module resolves a
+  tenant from the subdomain (`subdomain_base`), anonymous visitors included
+  (#363).
 
 ### Security
 - The tenant header (`tenant_header`) is no longer honoured for an

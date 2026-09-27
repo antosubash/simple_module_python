@@ -13,14 +13,19 @@ from _models import _TenantBase, _TenantItem
 from simple_module_db import TenantIsolationError, all_tenants, tenant_context
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
+from simple_module_test.database import database_url_for_tests, init_db_kwargs, reset_schema
 from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+_URL = database_url_for_tests()
 
-async def _session(strict: bool) -> tuple:
-    state = init_db("sqlite+aiosqlite:///:memory:")
+
+async def _session(strict: bool, *, fresh: bool = True) -> tuple:
+    state = init_db(_URL, **init_db_kwargs(_URL))
     state.tenant_strict = strict
     register_listeners(state)
+    if fresh:  # on Postgres the second state shares the first one's database
+        await reset_schema(state.engine)
     async with state.engine.begin() as conn:
         await conn.run_sync(_TenantBase.metadata.create_all)
     return state, state.session_factory()
@@ -120,7 +125,7 @@ async def test_second_database_state_does_not_disable_strict_mode(
     strict_session: AsyncSession,
 ):
     await _seed(strict_session)
-    other_state, other_session = await _session(strict=False)
+    other_state, other_session = await _session(strict=False, fresh=False)
     try:
         with pytest.raises(TenantIsolationError):
             await strict_session.execute(select(_TenantItem))

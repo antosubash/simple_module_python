@@ -20,6 +20,14 @@ class TenantsSettings(DbBackedSettings):
             "Empty: links are root-relative and never taken from the request's Host header."
         ),
     )
+    subdomain_base: str = Field(
+        default="",
+        description=(
+            "Resolve the tenant from the host: with 'example.com', acme.example.com "
+            "is the tenant whose slug is 'acme' — also for anonymous visitors on "
+            "public routes. Empty: off."
+        ),
+    )
     invitation_ttl_hours: int = Field(
         default=72, ge=1, le=24 * 30, description="How long an invitation link stays valid."
     )

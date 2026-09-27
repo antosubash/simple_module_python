@@ -28,13 +28,22 @@ reading every tenant's data.
 
 ### What the filter can see
 
-Scoping works on the ORM entities a statement *names*: `select(Model)`,
-`update(Model)`, `delete(Model)`, `insert(Model)`, relationship loads. It does
-**not** reach a tenant table that appears only as a join target, inside an
-`exists()` / `in_()` / scalar subquery, as `select(func.count()).select_from(Model)`,
-or in a Core statement on `Model.__table__` (#332). Such statements are neither
-filtered nor, under strict mode, refused — name the entity, or add the
-`tenant_id` predicate yourself.
+Tenant criteria are attached for **every** tenant-scoped model, not only the
+entities a statement names, so these are all scoped (#332):
+
+- `select(Model)`, relationship loads, ORM `update()`/`delete()`/`insert()`;
+- a tenant table as a **join target**: `select(Project).join(Doc)`;
+- ORM subqueries: `select(Doc.id).where(...).exists()`, `in_(select(Doc.x))`,
+  scalar subqueries;
+- counts: `select(func.count()).select_from(Doc)`, counts over a subquery;
+- Core statements on `Doc.__table__` at the top level — `select`, `update`,
+  `delete` get `WHERE tenant_id = …`, `insert` is stamped.
+
+With no tenant under strict mode, a statement that *names* a tenant model or
+table raises; an indirect reference (a join, a subquery) matches nothing.
+
+The one shape left unscoped is a bare Core `exists().where(Doc.x == ...)`;
+write `select(Doc.id).where(...).exists()` instead.
 
 ### One session, one tenant
 
@@ -74,6 +83,31 @@ for tenant_id in tenant_ids:
 A task or asyncio task started inside `all_tenants()` inherits the bypass
 (ordinary contextvar semantics).
 
+## Work deferred past the request
+
+`db.on_commit(...)` callbacks and FastAPI `BackgroundTasks` run inside the
+request's tenant scope — use them and nothing needs capturing. A module with
+its own queue (a middleware that drains jobs after the response, a thread
+pool, a callback registry) wraps the callable when it is *enqueued*:
+
+```python
+from simple_module_db import bind_current_tenant
+
+queue.append(bind_current_tenant(reindex))  # runs as today's tenant, later
+```
+
+It captures the tenant (and an `all_tenants()` bypass) and restores it around
+the call, sync or async (#364).
+
+## Single-tenant hosts
+
+A host with `multi_tenant` off can still install modules whose tables use the
+mixin: set `default_tenant` (a `HostSettings` field, e.g. `main`) and every
+request, and every background task with no tenant on its message, acts as
+that tenant (#359). CLI commands and scripts use
+`tenant_context(settings.default_tenant)`. It is ignored when `multi_tenant`
+is on — a multi-tenant install never falls back to a shared tenant.
+
 ## Background jobs
 
 `background_tasks` stamps the enqueuing request's tenant onto the Celery
@@ -94,7 +128,10 @@ same — `attach_session_listeners(MySession)` plus
 
 `TenantMiddleware` asks `app.state.tenant_resolver` (an
 `async (Request) -> str | None`) when a module registered one — `tenants`
-does — and its answer is final. Without one it falls back to the principal's
+does — and its answer is final. The `tenants` resolver takes, in order: the
+subdomain (with its `subdomain_base` setting — the one source that also works
+for anonymous visitors, on public routes), the tenant header (members only),
+then the session's choice validated against a membership (#363). Without one it falls back to the principal's
 `tenant_id` claim, and for **anonymous** requests only, the configured
 `tenant_header`. An authenticated user can never pick a tenant by header.
 

@@ -31,6 +31,7 @@ from simple_module_hosting.settings import Settings
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from simple_module_test._schema import _create_all_tables
+from simple_module_test.database import database_url_for_tests, init_db_kwargs
 from simple_module_test.session_cookie import forge_session_cookie
 
 _AUTH_PROVIDER_ENV = "SM_AUTH_PROVIDER"
@@ -78,7 +79,7 @@ def settings() -> Settings:
     that expects ``/users/login``.
     """
     return Settings(
-        database_url="sqlite+aiosqlite:///:memory:",
+        database_url=database_url_for_tests(),
         environment="testing",
         secret_key="test-secret-key",
         multi_tenant=True,
@@ -92,7 +93,8 @@ async def db_state() -> AsyncGenerator[DatabaseState, None]:
     """Create a fresh in-memory DatabaseState with listeners registered."""
     from simple_module_db.listeners import register_listeners
 
-    state = init_db("sqlite+aiosqlite:///:memory:")
+    url = database_url_for_tests()
+    state = init_db(url, **init_db_kwargs(url))
     register_listeners(state)
     yield state
     await state.engine.dispose()

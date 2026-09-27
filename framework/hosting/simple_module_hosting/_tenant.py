@@ -45,9 +45,13 @@ class TenantMiddleware:
        to name anyone's.
     """
 
-    def __init__(self, app: ASGIApp, *, header: str | None = None) -> None:
+    def __init__(
+        self, app: ASGIApp, *, header: str | None = None, fixed: str | None = None
+    ) -> None:
         self.app = app
         self.header = header
+        # Single-tenant hosts: one tenant for every request, nothing resolved.
+        self.fixed = fixed
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != _SCOPE_HTTP:
@@ -69,6 +73,8 @@ class TenantMiddleware:
         await self.app(scope, receive, send)
 
     async def _resolve(self, request: Request, scope: Scope) -> str | None:
+        if self.fixed is not None:
+            return self.fixed
         app = scope.get("app")
         resolver: TenantResolver | None = getattr(
             getattr(app, "state", None), "tenant_resolver", None
