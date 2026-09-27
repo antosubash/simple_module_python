@@ -130,6 +130,16 @@ E2E tests live in `tests/e2e/` behind the `e2e` pytest marker and run against a 
 
 To exempt a genuinely technical literal: wrap it in `<code>`/`<pre>`, or mark the line `// i18n-exempt: <reason>`; `i18n-exempt-file: <reason>` in a file's first lines skips the whole file.
 
+## Delegating to subagents
+
+Pick the subagent's model for the task, not the most capable one available. Don't run everything on `opus` or `fable`:
+
+- **`haiku`**: search, file discovery, and mechanical work like renames, checking docs against code, or collecting test output.
+- **`sonnet`**: routine implementation, functional and end-to-end testing, and regression runs.
+- **`opus`**: design, security and isolation reasoning, and adversarial review, where a wrong answer is expensive.
+
+Pass `model` explicitly on every `Agent` call, even when the default would be correct.
+
 ## Authoritative references
 
 When conventions are unclear, these docs are the source of truth (don't reverse-engineer the code):
