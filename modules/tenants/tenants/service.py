@@ -21,6 +21,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tenants._owner_guard import demote_owner, remove_owner
 from tenants.constants import (
     ENTITLEMENT_SEATS,
     MAX_SLUG_LEN,
@@ -160,8 +161,9 @@ class TenantService:
 
         Serialises check-then-act rules per tenant — "at least one owner",
         "within the seat limit" — so two concurrent requests cannot both pass
-        the check and together break the rule. (No-op on SQLite, which
-        serialises writers anyway.)
+        the check and together break the rule. On SQLite ``FOR UPDATE``
+        compiles away; there the database's own writer lock serialises the
+        two transactions (see ``tests/test_owner_race.py``).
         """
         stmt = select(Tenant).where(Tenant.id == tenant_id).with_for_update()
         tenant = (await self.db.execute(stmt)).scalar_one_or_none()
@@ -264,10 +266,12 @@ class TenantService:
         if touches_owner and actor_role != MembershipRole.OWNER:
             raise TenantError("owner_required", status_code=403)
         demotes_owner = membership.role == MembershipRole.OWNER and role != MembershipRole.OWNER
-        if demotes_owner and await self._owner_count(tenant_id) <= 1:
-            raise TenantError("last_owner", status_code=409)
-        membership.role = role
-        await self.db.flush()
+        if demotes_owner:
+            if not await demote_owner(self.db, membership, role):
+                raise TenantError("last_owner", status_code=409)
+        else:
+            membership.role = role
+            await self.db.flush()
         self._after_commit(invalidate=[user_id])
         return membership
 
@@ -279,8 +283,9 @@ class TenantService:
         if membership.role == MembershipRole.OWNER:
             if actor_role != MembershipRole.OWNER:
                 raise TenantError("owner_required", status_code=403)
-            if await self._owner_count(tenant_id) <= 1:
+            if not await remove_owner(self.db, membership):
                 raise TenantError("last_owner", status_code=409)
-        await self.db.delete(membership)
-        await self.db.flush()
+        else:
+            await self.db.delete(membership)
+            await self.db.flush()
         self._after_commit(MembershipRemoved(tenant_id, user_id), invalidate=[user_id])
