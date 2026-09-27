@@ -43,7 +43,7 @@ function AcceptInvitation() {
         setError(await describe(response));
         return;
       }
-      router.visit('/tenants');
+      router.visit('/tenants/');
     } catch {
       setError(t(keys.tenants.errors.generic));
     } finally {

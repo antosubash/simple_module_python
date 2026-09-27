@@ -85,8 +85,8 @@ class TenantsModule(ModuleBase):
             MenuItem(
                 label="Organisations",
                 label_key="tenants.nav.organisations",
-                url="/tenants",
-                icon="building",
+                url="/tenants/",
+                icon="briefcase",
                 order=90,
                 section=MenuSection.SIDEBAR,
             )
@@ -106,8 +106,8 @@ class TenantsModule(ModuleBase):
             MenuItem(
                 label="Tenants",
                 label_key="tenants.nav.tenants",
-                url="/admin/tenants",
-                icon="building",
+                url="/admin/tenants/",
+                icon="briefcase",
                 order=105,
                 section=MenuSection.ADMIN_SIDEBAR,
                 permissions=[c.PERM_PLATFORM_VIEW],

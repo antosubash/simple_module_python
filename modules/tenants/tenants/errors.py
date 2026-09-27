@@ -12,7 +12,7 @@ from tenants.contracts.entitlements import EntitlementExceededError
 
 logger = logging.getLogger(__name__)
 
-_INDEX_URL = "/tenants"
+_INDEX_URL = "/tenants/"
 
 
 class TenantError(Exception):

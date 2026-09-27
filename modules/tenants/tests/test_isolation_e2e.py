@@ -71,7 +71,7 @@ async def test_no_tenant_fails_closed(notes_app, user_client):
         assert api.json()["detail"] == "tenant_required"
         page = await client.get("/e2e/notes")
         assert page.status_code == 303
-        assert page.headers["location"].startswith("/tenants?reason=tenant_required")
+        assert page.headers["location"].startswith("/tenants/?reason=tenant_required")
 
 
 async def test_removed_member_loses_access_immediately(notes_app, user_client):

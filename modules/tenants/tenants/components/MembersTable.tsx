@@ -88,7 +88,7 @@ export function MembersTable({
       }
       if (isSelf) {
         toast.success(t(keys.tenants.members.toast_left));
-        window.location.href = '/tenants';
+        window.location.href = '/tenants/';
         return;
       }
       toast.success(t(keys.tenants.members.toast_removed));

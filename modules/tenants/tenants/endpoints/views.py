@@ -64,7 +64,7 @@ async def members(
     tenant_id = getattr(request.state, "tenant_id", None)
     tenant = await service.get(tenant_id) if tenant_id else None
     if tenant is None:
-        return RedirectResponse("/tenants?reason=tenant_required", status_code=303)
+        return RedirectResponse("/tenants/?reason=tenant_required", status_code=303)
     can_manage = _perm(request, PERM_MEMBERS_MANAGE)
     pending = await invitations.list_pending(tenant.id) if can_manage else []
     limit = await service.entitlements.limit(tenant.id, ENTITLEMENT_SEATS)
