@@ -28,10 +28,10 @@ tenant errors instead of reading every tenant's data.
 ```python
 from simple_module_db import all_tenants, tenant_context
 
-with tenant_context(tenant_id):   # a job or CLI command working for one tenant
+with tenant_context(tenant_id):  # a job or CLI command working for one tenant
     ...
 
-with all_tenants():               # platform code that deliberately spans tenants
+with all_tenants():  # platform code that deliberately spans tenants
     ...
 
 stmt = select(Order).execution_options(all_tenants=True)  # one statement
