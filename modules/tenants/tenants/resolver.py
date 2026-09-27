@@ -21,6 +21,7 @@ from typing import Any
 from cachetools import TTLCache
 from fastapi import FastAPI
 from simple_module_core.invalidation import Invalidation, InvalidationBus
+from simple_module_db import is_valid_tenant_id
 from starlette.requests import Request
 
 from tenants.constants import (
@@ -118,7 +119,10 @@ async def resolve_tenant(request: Request) -> str | None:
     requested = _header_tenant(request)
     if requested is not None:
         # An explicit per-request choice (API clients). Never fall back to
-        # another tenant: a client that asked for X must not act on Y.
+        # another tenant: a client that asked for X — or sent junk — must not
+        # act on Y.
+        if not is_valid_tenant_id(requested):
+            return None
         active = next(
             (m for m in memberships if m.id == requested and m.status == TenantStatus.ACTIVE),
             None,
@@ -144,7 +148,7 @@ async def resolve_tenant(request: Request) -> str | None:
 def _header_tenant(request: Request) -> str | None:
     settings = getattr(getattr(request.app.state, "sm", None), "settings", None)
     header = getattr(settings, "tenant_header", "") or ""
-    return (request.headers.get(header) or None) if header else None
+    return request.headers.get(header) if header else None
 
 
 def _enter(request: Request, user: Any, active: MyTenantView) -> str:

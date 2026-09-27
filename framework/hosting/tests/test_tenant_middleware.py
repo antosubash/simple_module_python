@@ -197,3 +197,17 @@ class TestTenantMiddlewareIntegration:
         app = create_app(single_tenant_settings)
         middleware_classes = [m.cls for m in app.user_middleware]
         assert TenantMiddleware not in middleware_classes
+
+
+@pytest.mark.parametrize("value", [b"a" * 51, b"-leading-dash", b"sp ace", b"semi;colon"])
+async def test_invalid_header_value_is_not_bound(value):
+    """#366: an over-long or malformed header must not become the tenant."""
+    captured: dict = {}
+
+    async def inner_app(scope, receive, send):
+        captured["tenant_id"] = current_tenant_id.get()
+
+    scope = _http_scope(headers=[(b"x-tenant-id", value)])
+    await TenantMiddleware(inner_app, header="X-Tenant-ID")(scope, _noop_receive, _noop_send)
+
+    assert captured["tenant_id"] is None

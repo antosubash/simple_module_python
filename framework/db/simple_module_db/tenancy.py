@@ -21,6 +21,7 @@ uses ``with tenant_context(tenant_id): ...``.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -35,6 +36,15 @@ _all_tenants: ContextVar[bool] = ContextVar("sm_all_tenants", default=False)
 ALL_TENANTS_OPTION = "all_tenants"
 """Execution option that exempts one statement from tenant scoping."""
 
+TENANT_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,49}$")
+"""What a tenant id may look like: fits ``MultiTenantMixin.tenant_id``
+(``VARCHAR(50)``) and is a printable identifier. Anything taken from a request
+(a header, a path) must pass this before it is bound."""
+
+
+def is_valid_tenant_id(value: object) -> bool:
+    return isinstance(value, str) and TENANT_ID_PATTERN.fullmatch(value) is not None
+
 
 class TenantIsolationError(Exception):
     """Raised when a multi-tenancy isolation constraint is violated."""
@@ -43,8 +53,8 @@ class TenantIsolationError(Exception):
 @contextmanager
 def tenant_context(tenant_id: str) -> Iterator[None]:
     """Run the block as ``tenant_id`` — for jobs, CLI commands and tests."""
-    if not tenant_id:
-        raise ValueError("tenant_context() needs a non-empty tenant id")
+    if not is_valid_tenant_id(tenant_id):
+        raise ValueError(f"tenant_context() needs a valid tenant id, got {tenant_id!r}")
     token = current_tenant_id.set(tenant_id)
     try:
         yield
@@ -85,10 +95,12 @@ def missing_tenant_error(entity: str, operation: str) -> TenantIsolationError:
 
 __all__ = [
     "ALL_TENANTS_OPTION",
+    "TENANT_ID_PATTERN",
     "TenantIsolationError",
     "all_tenants",
     "current_tenant_id",
     "is_all_tenants",
+    "is_valid_tenant_id",
     "missing_tenant_error",
     "tenant_context",
 ]

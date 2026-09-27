@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
-from simple_module_db import current_tenant_id
+from simple_module_db import current_tenant_id, is_valid_tenant_id
 from starlette.datastructures import Headers
 from starlette.requests import Request
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -81,7 +81,10 @@ class TenantMiddleware:
             return getattr(user, "tenant_id", None)
 
         if self.header:
-            return Headers(scope=scope).get(self.header) or None
+            value = Headers(scope=scope).get(self.header)
+            # Unvalidated, an over-long value is a 500 on the first stamped
+            # write (VARCHAR(50)) and any junk becomes a tenant name (#366).
+            return value if is_valid_tenant_id(value) else None
         return None
 
 

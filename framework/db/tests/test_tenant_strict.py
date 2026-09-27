@@ -104,3 +104,9 @@ async def test_unscoped_code_cannot_move_rows_between_tenants(strict_session: As
 def test_tenant_context_rejects_empty_id():
     with pytest.raises(ValueError), tenant_context(""):
         pass
+
+
+@pytest.mark.parametrize("bad", ["x" * 51, "has space", "-dash-first"])
+def test_tenant_context_rejects_malformed_ids(bad):
+    with pytest.raises(ValueError), tenant_context(bad):
+        pass

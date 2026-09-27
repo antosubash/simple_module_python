@@ -16,9 +16,11 @@ from simple_module_db.search import LIKE_ESCAPE_CHAR, like_contains_pattern, lik
 from simple_module_db.session import DatabaseState, RequestSession, init_db
 from simple_module_db.tenancy import (
     ALL_TENANTS_OPTION,
+    TENANT_ID_PATTERN,
     TenantIsolationError,
     all_tenants,
     current_tenant_id,
+    is_valid_tenant_id,
     tenant_context,
 )
 from simple_module_db.transaction import CommitBeforeResponseMiddleware, finalize_session
@@ -26,6 +28,7 @@ from simple_module_db.transaction import CommitBeforeResponseMiddleware, finaliz
 __all__ = [
     "ALL_TENANTS_OPTION",
     "LIKE_ESCAPE_CHAR",
+    "TENANT_ID_PATTERN",
     "AuditMixin",
     "AuditRecord",
     "CommitBeforeResponseMiddleware",
@@ -45,6 +48,7 @@ __all__ = [
     "finalize_session",
     "get_db",
     "init_db",
+    "is_valid_tenant_id",
     "like_contains_pattern",
     "like_prefix_pattern",
     "make_include_object",

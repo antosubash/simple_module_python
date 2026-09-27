@@ -103,3 +103,10 @@ async def test_header_selects_a_tenant_the_user_belongs_to(user_client):
         # A tenant the user is not in resolves to nothing — no silent fallback.
         resp = await a.get("/api/tenants/current/members", headers={"X-Tenant-ID": foreign["id"]})
         assert resp.status_code == 403
+
+
+async def test_malformed_header_resolves_to_nothing(user_client):
+    async with user_client("a@x.io") as (a, _):
+        await _create(a, "One")
+        resp = await a.get("/api/tenants/current/members", headers={"X-Tenant-ID": "x" * 60})
+        assert resp.status_code == 403
