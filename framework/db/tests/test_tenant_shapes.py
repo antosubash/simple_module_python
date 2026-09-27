@@ -14,7 +14,7 @@ from simple_module_db import (
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 from simple_module_test.database import database_url_for_tests, init_db_kwargs, reset_schema
-from sqlalchemy import delete, func, insert, select, update
+from sqlalchemy import delete, exists, func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Field
 
@@ -69,6 +69,9 @@ def _shapes():
         "count select_from": select(func.count()).select_from(_Doc),
         "count of subquery": select(func.count()).select_from(select(_Doc).subquery()),
         "core table": select(doc.c.name),
+        "bare core exists": select(_Project.id).where(
+            exists().where(_Doc.project_id == _Project.id, _Doc.name == "doc-b")
+        ),
     }
 
 
@@ -81,6 +84,7 @@ _EXPECTED_FOR_A = {
     "count select_from": [(1,)],
     "count of subquery": [(1,)],
     "core table": [("doc-a",)],
+    "bare core exists": [],
 }
 
 
@@ -91,10 +95,10 @@ async def test_bound_tenant_never_sees_other_tenants(db: AsyncSession, shape: st
     assert [tuple(r) for r in rows] == _EXPECTED_FOR_A[shape]
 
 
-@pytest.mark.parametrize("shape", ["core table", "count select_from"])
+@pytest.mark.parametrize("shape", ["core table", "count select_from", "bare core exists"])
 async def test_strict_without_tenant_fails_closed(db: AsyncSession, shape: str):
     stmt = _shapes()[shape]
-    if shape == "core table":
+    if shape in ("core table", "bare core exists"):
         with pytest.raises(MissingTenantError):
             await db.execute(stmt)
     else:  # indirect reference: matches nothing rather than every tenant

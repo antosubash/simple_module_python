@@ -28,22 +28,24 @@ reading every tenant's data.
 
 ### What the filter can see
 
-Tenant criteria are attached for **every** tenant-scoped model, not only the
-entities a statement names, so these are all scoped (#332):
+Tenant criteria — and soft-delete criteria, on reads — are attached for
+**every** tenant-scoped / soft-deletable model, not only the entities a
+statement names, so all of these are scoped (#332):
 
 - `select(Model)`, relationship loads, ORM `update()`/`delete()`/`insert()`;
-- a tenant table as a **join target**: `select(Project).join(Doc)`;
-- ORM subqueries: `select(Doc.id).where(...).exists()`, `in_(select(Doc.x))`,
-  scalar subqueries;
+- a table as a **join target**: `select(Project).join(Doc)`;
+- subqueries: `select(Doc.id).where(...).exists()`, a bare Core
+  `exists().where(Doc.x == ...)`, `in_(select(Doc.x))`, scalar subqueries;
 - counts: `select(func.count()).select_from(Doc)`, counts over a subquery;
 - Core statements on `Doc.__table__` at the top level — `select`, `update`,
-  `delete` get `WHERE tenant_id = …`, `insert` is stamped.
+  `delete` get `WHERE tenant_id = …` (and `is_deleted IS false` on reads),
+  `insert` is stamped.
 
 With no tenant under strict mode, a statement that *names* a tenant model or
-table raises; an indirect reference (a join, a subquery) matches nothing.
-
-The one shape left unscoped is a bare Core `exists().where(Doc.x == ...)`;
-write `select(Doc.id).where(...).exists()` instead.
+table — or reads one through a bare Core `exists()` — raises; an indirect ORM
+reference (a join, a subquery) matches nothing. The one-time cost is a scan of
+the WHERE/column clauses for `exists()` (about 10 µs per statement), skipped
+when no tenant-scoped or soft-deletable model is installed.
 
 ### One session, one tenant
 
