@@ -1,6 +1,6 @@
 # Bundled modules
 
-simple_module_python ships with twelve first-party modules. Each is a regular Python package — same shape as a module you'd write yourself — registered through the `simple_module` entry point and discovered at boot. They are independent: install only what you need.
+simple_module_python ships with thirteen first-party modules. Each is a regular Python package — same shape as a module you'd write yourself — registered through the `simple_module` entry point and discovered at boot. They are independent: install only what you need.
 
 | Module | Depends on | What it provides |
 |---|---|---|
@@ -15,6 +15,7 @@ simple_module_python ships with twelve first-party modules. Each is a regular Py
 | [`background_tasks`](/modules/background_tasks) | `users` | Celery + Redis workers, persistent task history, retry, stuck-task sweep, live worker dashboard. |
 | [`audit_log`](/modules/audit_log) | `users` | Automatic field-level audit trail for SQLModel entities, with an admin UI to browse change history. |
 | [`dashboard`](/modules/dashboard) | `users` | Authenticated landing page with system overview (user counts, module list, health checks). |
+| [`tenants`](/modules/tenants) | `auth`, `settings` | SaaS organisations: tenants, many-to-many memberships with per-tenant roles, invitations, the membership-validated tenant resolver, and the entitlement/lifecycle seams billing plugs into. |
 | [`site_lock`](/modules/site_lock) | `settings`, `auth` | Optional site-wide shared-password gate for staging / pre-launch sites. Off by default. |
 
 ## How modules are wired in

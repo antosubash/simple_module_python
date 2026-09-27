@@ -11,6 +11,7 @@ from simple_module_core.diagnostics._css import check_module_css
 from simple_module_core.diagnostics._inertia_api import check_inertia_api_calls
 from simple_module_core.diagnostics._js_workspace import check_js_workspace_files
 from simple_module_core.diagnostics._pages import check_pages, find_render_calls
+from simple_module_core.diagnostics._tenancy import check_tenant_unique_keys, module_tables
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 
 if TYPE_CHECKING:
@@ -29,6 +30,8 @@ class ModuleDiagnostics:
         diagnostics.extend(self._check_views_without_menu(modules))
         diagnostics.extend(self._check_auth_provider_conflict(modules))
         diagnostics.extend(check_framework_module_coupling(modules))
+        for mod in modules:
+            diagnostics.extend(check_tenant_unique_keys(module_tables(mod), mod.meta.name))
 
         # File-based checks (need to find module source directories)
         for mod in modules:

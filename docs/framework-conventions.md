@@ -234,7 +234,7 @@ Base = create_module_base("orders")
 
 - `AuditMixin` — `created_at`, `updated_at`, `created_by`, `updated_by` (auto-populated from the current user in listeners).
 - `SoftDeleteMixin` — `is_deleted`, `deleted_at`, `deleted_by`. `delete()` converts to soft-delete; `SELECT` auto-filters. Bypass with `stmt.execution_options(include_deleted=True)`.
-- `MultiTenantMixin` — `tenant_id`. Auto-populated on insert; `SELECT` auto-filters when `current_tenant_id` is set.
+- `MultiTenantMixin` — `tenant_id`. Auto-populated on insert; `SELECT`, ORM `UPDATE` and `DELETE` are scoped to `current_tenant_id`. With `multi_tenant` on, a query with **no** tenant raises `TenantIsolationError` (fail closed) — cross-tenant code opts out with `all_tenants()` / `execution_options(all_tenants=True)`. See [multi-tenancy](/framework/multi-tenancy).
 - `VersionedMixin` — `version`, auto-incremented on update.
 
 ### Session lifecycle (`get_db`)

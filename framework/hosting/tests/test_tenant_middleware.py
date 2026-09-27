@@ -126,8 +126,8 @@ class TestTenantMiddleware:
 
         assert current_tenant_id.get() is None
 
-    async def test_user_without_tenant_id_falls_back_to_header(self):
-        """An authenticated user whose tenant_id is None shouldn't block header fallback."""
+    async def test_user_without_tenant_id_cannot_pick_tenant_by_header(self):
+        """An authenticated user with no tenant must not be able to name one by header."""
         captured: dict = {}
 
         async def inner_app(scope, receive, send):
@@ -138,7 +138,46 @@ class TestTenantMiddleware:
 
         await TenantMiddleware(inner_app, header="X-Tenant-ID")(scope, _noop_receive, _noop_send)
 
-        assert captured["tenant_id"] == "from-header"
+        assert captured["tenant_id"] is None
+
+    async def test_registered_resolver_owns_resolution(self):
+        """app.state.tenant_resolver's answer is final, over user claim and header."""
+        captured: dict = {}
+        seen: dict = {}
+
+        async def inner_app(scope, receive, send):
+            captured["tenant_id"] = current_tenant_id.get()
+
+        async def resolver(request):
+            seen["path"] = request.url.path
+            return "resolved"
+
+        scope = _http_scope(headers=[(b"x-tenant-id", b"from-header")])
+        scope["state"]["user"] = SimpleNamespace(tenant_id="claim")
+        scope["app"] = SimpleNamespace(state=SimpleNamespace(tenant_resolver=resolver))
+
+        await TenantMiddleware(inner_app, header="X-Tenant-ID")(scope, _noop_receive, _noop_send)
+
+        assert captured["tenant_id"] == "resolved"
+        assert seen["path"] == "/"
+
+    async def test_resolver_returning_none_is_final(self):
+        """A resolver that answers None must not fall back to the unvalidated claim."""
+        captured: dict = {}
+
+        async def inner_app(scope, receive, send):
+            captured["tenant_id"] = current_tenant_id.get()
+
+        async def resolver(request):
+            return None
+
+        scope = _http_scope()
+        scope["state"]["user"] = SimpleNamespace(tenant_id="claim")
+        scope["app"] = SimpleNamespace(state=SimpleNamespace(tenant_resolver=resolver))
+
+        await TenantMiddleware(inner_app)(scope, _noop_receive, _noop_send)
+
+        assert captured["tenant_id"] is None
 
 
 class TestTenantMiddlewareIntegration:

@@ -1,0 +1,19 @@
+{
+  "name": "@simple-module-py/tenants",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Frontend assets for the Tenants module",
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@inertiajs/react": "^3.7.0",
+    "@simple-module-py/ui": "*"
+  },
+  "devDependencies": {
+    "@simple-module-py/tsconfig": "*"
+  },
+  "dependencies": {
+    "lucide-react": "^1.43.0",
+    "sonner": "^2.0.8"
+  }
+}

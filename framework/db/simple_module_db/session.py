@@ -37,6 +37,10 @@ class DatabaseState:
     session_factory: async_sessionmaker[RequestSession]
     sync_session_class: type[Session] = field(repr=False, default=Session)
     audit_callback: Callable | None = field(default=None, repr=False)
+    # Fail closed: a query on a MultiTenantMixin model with no tenant context
+    # raises instead of reading every tenant. The host turns this on whenever
+    # it runs with ``multi_tenant``; see ``simple_module_db.tenancy``.
+    tenant_strict: bool = False
     _listeners_registered: bool = field(default=False, repr=False)
 
 

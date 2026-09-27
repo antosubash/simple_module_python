@@ -12,6 +12,24 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- **`tenants` module** — SaaS organisations: tenants, many-to-many memberships
+  with per-tenant roles (`owner`/`admin`/`member`, surfaced as `tenant:<role>`
+  on the active tenant only), email-bound invitations, platform suspend /
+  reactivate, and the membership-validated tenant resolver. Ships the seams a
+  billing module needs: an `EntitlementProvider` on
+  `app.state.tenants.entitlements` (seat limits enforced, HTTP 402), lifecycle
+  via `TenantService.set_status`, and after-commit domain events. See
+  [docs/framework/multi-tenancy.md](docs/framework/multi-tenancy.md).
+- `simple_module_db.tenant_context()` / `all_tenants()` and the
+  `all_tenants=True` execution option, for acting as one tenant — or
+  deliberately across tenants — outside a request.
+- `TenantMiddleware` consults `app.state.tenant_resolver` when a module
+  registers one.
+- `background_tasks` carries the enqueuing request's tenant into the Celery
+  task and restores it around the task body.
+- Doctor check `SM024`: a unique key on a `MultiTenantMixin` table that omits
+  `tenant_id`.
+
 - `InvalidationBus` — a framework-level cache-invalidation channel any module can
   publish on (`ModuleBase.register_invalidations`, `app.state.sm.invalidation`).
   In-process by default; `background_tasks` installs a Redis pub/sub transport on
@@ -44,6 +62,19 @@ All notable changes to this project are documented in this file. The format is b
   worker/beat run the same image with a celery command. `smpy new` also
   generates real `SM_USERS_*_TOKEN_SECRET` values into `.env.example` so the
   production-mode containers pass `UsersSettings` boot validation.
+
+### Changed
+- **Tenant isolation fails closed.** With `multi_tenant` on, a query, bulk
+  `update()`/`delete()` or insert on a `MultiTenantMixin` model with no tenant
+  context raises `TenantIsolationError` instead of reading or writing every
+  tenant's rows. ORM `update()`/`delete()` are now tenant-scoped too; they were
+  not before.
+
+### Security
+- The tenant header (`tenant_header`) is no longer honoured for an
+  authenticated user without a tenant of their own: such a user could name any
+  tenant. On the legacy path it applies to anonymous requests only; with the
+  `tenants` resolver it selects among the user's own memberships.
 
 ### Fixed
 - Public pages no longer reload the whole document when a visitor clicks a link

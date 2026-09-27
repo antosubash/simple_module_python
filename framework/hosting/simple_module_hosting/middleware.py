@@ -13,8 +13,7 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from simple_module_db import current_tenant_id
-from starlette.datastructures import Headers, MutableHeaders
+from starlette.datastructures import MutableHeaders
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -27,6 +26,7 @@ from simple_module_hosting._observability import (
     CorrelationIdMiddleware,
     RequestLoggingMiddleware,
 )
+from simple_module_hosting._tenant import TENANT_HEADER, TenantMiddleware, TenantResolver
 from simple_module_hosting.permissions import expand_permissions, resolve_permissions
 
 if TYPE_CHECKING:
@@ -62,6 +62,7 @@ __all__ = [
     "RequestLoggingMiddleware",
     "SecurityHeadersMiddleware",
     "TenantMiddleware",
+    "TenantResolver",
 ]
 
 
@@ -153,61 +154,6 @@ class SecurityHeadersMiddleware:
             await send(message)
 
         await self.app(scope, receive, send_with_headers)
-
-
-TENANT_HEADER = "X-Tenant-ID"
-
-
-class TenantMiddleware:
-    """Extract tenant context from authenticated user or request header.
-
-    Sets the ``current_tenant_id`` context var so that DB queries on
-    :class:`~simple_module_db.mixins.MultiTenantMixin` models are
-    automatically filtered, and new objects get ``tenant_id`` populated.
-
-    Also stores the resolved value on ``request.state.tenant_id``.
-
-    Tenant is resolved from (in priority order):
-
-    1. Authenticated user's ``tenant_id`` attribute (from auth token claims).
-    2. The configured request header, if any — useful for API clients
-       and tests. Pass ``header=None`` (the default) to disable the
-       header source and force tenant resolution through the auth token
-       only. Pass the header name (e.g. ``"X-Tenant-ID"``) to enable.
-    """
-
-    def __init__(self, app: ASGIApp, *, header: str | None = None) -> None:
-        self.app = app
-        self.header = header
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != _SCOPE_HTTP:
-            await self.app(scope, receive, send)
-            return
-
-        request = Request(scope)
-        tenant_id: str | None = None
-
-        user = getattr(request.state, "user", None)
-        if user is not None:
-            tenant_id = getattr(user, "tenant_id", None)
-
-        if tenant_id is None and self.header:
-            header_value = Headers(scope=scope).get(self.header)
-            if header_value:
-                tenant_id = header_value
-
-        request.state.tenant_id = tenant_id
-
-        if tenant_id is not None:
-            token = current_tenant_id.set(tenant_id)
-            try:
-                await self.app(scope, receive, send)
-            finally:
-                current_tenant_id.reset(token)
-            return
-
-        await self.app(scope, receive, send)
 
 
 PrincipalSerializer = Callable[[Any], dict[str, Any]]

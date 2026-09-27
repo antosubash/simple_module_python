@@ -235,6 +235,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         pool_pre_ping=settings.db_pool_pre_ping,
         pool_recycle=settings.db_pool_recycle,
     )
+    # Multi-tenant installs fail closed: a tenant-scoped query with no tenant
+    # context raises instead of reading every tenant's rows.
+    db_state.tenant_strict = settings.multi_tenant
     register_listeners(db_state)
     # The host's own readiness signal, and the only probe-safe check in a
     # default install — module checks reach third parties and are on-demand.

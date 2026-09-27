@@ -41,6 +41,7 @@ from background_tasks.contracts.events import TaskFailed
 from background_tasks.log_context import signal_task_finished, signal_task_started
 from background_tasks.models import TaskExecution
 from background_tasks.sync_db import sync_session
+from background_tasks.tenant_context import release_tenant, restore_tenant, stamp_tenant
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +127,7 @@ def on_task_publish(
     **_kwargs: Any,
 ) -> None:
     """Record a row the moment a task is pushed onto the broker."""
+    stamp_tenant(headers)
     task_id = (headers or {}).get("id")
     task_name = sender or (headers or {}).get("task") or "unknown"
 
@@ -179,6 +181,7 @@ def on_task_prerun(
         },
     )
     signal_task_started(task_id=task_id, task_name=name)
+    restore_tenant(task_id=task_id, task=task)
 
 
 @signals.task_postrun.connect
@@ -199,6 +202,7 @@ def on_task_postrun(
         celery_task_id=task_id,
         defaults={"task_name": task_name_of(sender, task), "heartbeat_at": now_utc()},
     )
+    release_tenant(task_id=task_id)
     signal_task_finished(task_id=task_id)
 
 

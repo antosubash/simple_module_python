@@ -8,24 +8,22 @@ from datetime import UTC, datetime
 
 from sqlalchemy import event
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy.orm import ORMExecuteState, Session, with_loader_criteria
+from sqlalchemy.orm import Session
 
 from simple_module_db.mixins import AuditMixin, MultiTenantMixin, SoftDeleteMixin, VersionedMixin
+from simple_module_db.query_filter import configure_query_filter, filter_statements, is_strict
 from simple_module_db.session import DatabaseState
+from simple_module_db.tenancy import (
+    TenantIsolationError,
+    current_tenant_id,
+    missing_tenant_error,
+)
 
 logger = logging.getLogger(__name__)
 _db_logger = logging.getLogger("simple_module.db")
 
 # Set by auth middleware on each request
 current_user_id: ContextVar[str | None] = ContextVar("current_user_id", default=None)
-
-# Set by tenant middleware on each request
-current_tenant_id: ContextVar[str | None] = ContextVar("current_tenant_id", default=None)
-
-
-class TenantIsolationError(Exception):
-    """Raised when a multi-tenancy isolation constraint is violated."""
-
 
 # Key on ``Session.info`` stamped by the after_flush listener so
 # ``get_db`` can distinguish read-only requests from write requests after
@@ -93,11 +91,12 @@ def register_listeners(db_state: DatabaseState) -> None:
 
     global _db_state
     _db_state = db_state
+    configure_query_filter(db_state)
 
     event.listen(db_state.sync_session_class, "before_flush", _before_flush_listener)
     event.listen(db_state.sync_session_class, "after_flush", _mark_session_written)
     event.listen(db_state.sync_session_class, "after_flush_postexec", _after_flush_audit)
-    event.listen(db_state.sync_session_class, "do_orm_execute", _filter_select_statements)
+    event.listen(db_state.sync_session_class, "do_orm_execute", filter_statements)
     db_state._listeners_registered = True
     logger.info("Registered SQLAlchemy entity listeners")
 
@@ -122,6 +121,8 @@ def _before_flush_listener(
         if isinstance(obj, MultiTenantMixin):
             if obj.tenant_id is None and tenant_id is not None:
                 obj.tenant_id = tenant_id
+            elif obj.tenant_id is None and is_strict():
+                raise missing_tenant_error(_entity_label(obj), "INSERT")
             elif tenant_id is not None and obj.tenant_id != tenant_id:
                 raise TenantIsolationError(
                     f"Cannot create object for tenant '{obj.tenant_id}' "
@@ -148,8 +149,10 @@ def _before_flush_listener(
         if isinstance(obj, VersionedMixin):
             obj.version += 1
 
-        # Prevent tenant_id from being changed on existing objects
-        if isinstance(obj, MultiTenantMixin) and tenant_id is not None:
+        # Prevent tenant_id from being changed on existing objects — also for
+        # unscoped platform code under strict mode: moving a row between
+        # tenants is never a routine edit.
+        if isinstance(obj, MultiTenantMixin) and (tenant_id is not None or is_strict()):
             hist = sa_inspect(obj).attrs.tenant_id.history
             if hist.has_changes():
                 raise TenantIsolationError("Cannot change tenant_id of an existing object")
@@ -233,47 +236,3 @@ def _after_flush_audit(session: Session, flush_context: object) -> None:
     records = finalize_records(pending)
     if records:
         _db_state.audit_callback(session, records)
-
-
-# Cache ``(is_soft_delete, is_multi_tenant)`` flags per mapper class so the
-# ``do_orm_execute`` hot path skips redundant ``issubclass`` work on every query.
-_mixin_flags_cache: dict[type, tuple[bool, bool]] = {}
-
-
-def _filter_select_statements(execute_state: ORMExecuteState) -> None:
-    """Attach per-mapper ``with_loader_criteria`` for soft-delete and tenant isolation.
-
-    The criteria are attached per concrete mapper because SQLModel mixins
-    expose Pydantic ``FieldInfo`` (not SQLAlchemy ``InstrumentedAttribute``)
-    at the mixin-class level, which breaks the lambda form of
-    ``with_loader_criteria`` that was used before the SQLModel migration.
-
-    Soft-delete bypass: ``stmt.execution_options(include_deleted=True)``.
-    """
-    if not execute_state.is_select:
-        return
-
-    skip_soft_delete = execute_state.execution_options.get("include_deleted", False)
-    tenant_id = current_tenant_id.get()
-    if skip_soft_delete and tenant_id is None:
-        return
-
-    options = []
-    for mapper in execute_state.all_mappers:
-        cls = mapper.class_
-        flags = _mixin_flags_cache.get(cls)
-        if flags is None:
-            flags = (issubclass(cls, SoftDeleteMixin), issubclass(cls, MultiTenantMixin))
-            _mixin_flags_cache[cls] = flags
-        is_soft_delete, is_multi_tenant = flags
-        if is_soft_delete and not skip_soft_delete:
-            options.append(
-                with_loader_criteria(cls, cls.is_deleted.is_(False), include_aliases=True)
-            )
-        if is_multi_tenant and tenant_id is not None:
-            options.append(
-                with_loader_criteria(cls, cls.tenant_id == tenant_id, include_aliases=True)
-            )
-
-    if options:
-        execute_state.statement = execute_state.statement.options(*options)
