@@ -8,10 +8,30 @@ from datetime import UTC, datetime
 
 from sqlalchemy import event
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy.orm import ORMExecuteState, Session, with_loader_criteria
+from sqlalchemy.orm import Session
 
 from simple_module_db.mixins import AuditMixin, MultiTenantMixin, SoftDeleteMixin, VersionedMixin
 from simple_module_db.session import DatabaseState
+from simple_module_db.writes import (
+    _HARD_DELETE_KEY,
+    SESSION_HAS_WRITES_KEY,
+    _is_purge,
+    _mark_dml_written,
+    _mark_session_written,
+    hard_delete,
+    mark_written,
+)
+
+# Re-exported: ``transaction`` and published modules import these from here.
+__all__ = [
+    "SESSION_HAS_WRITES_KEY",
+    "TenantIsolationError",
+    "current_tenant_id",
+    "current_user_id",
+    "hard_delete",
+    "mark_written",
+    "register_listeners",
+]
 
 logger = logging.getLogger(__name__)
 _db_logger = logging.getLogger("simple_module.db")
@@ -26,11 +46,6 @@ current_tenant_id: ContextVar[str | None] = ContextVar("current_tenant_id", defa
 class TenantIsolationError(Exception):
     """Raised when a multi-tenancy isolation constraint is violated."""
 
-
-# Key on ``Session.info`` stamped by the after_flush listener so
-# ``get_db`` can distinguish read-only requests from write requests after
-# flush has cleared ``session.new/.dirty/.deleted``.
-SESSION_HAS_WRITES_KEY = "has_writes"
 
 # Key on ``Session.info`` for pending audit snapshots produced in before_flush
 # and consumed in after_flush_postexec (when DB-assigned PKs are populated).
@@ -70,17 +85,6 @@ def _entity_pk(obj: object) -> object:
         return None
 
 
-def _mark_session_written(session: Session, flush_context: object) -> None:
-    """Flag the session as having performed write work.
-
-    ``get_db`` reads this flag to decide between commit and rollback at
-    request end. Checking ``session.new/.dirty/.deleted`` directly after
-    a flush is useless — flush empties those sets — so we stash a tag on
-    ``session.info`` that survives the rest of the request.
-    """
-    session.info[SESSION_HAS_WRITES_KEY] = True
-
-
 def register_listeners(db_state: DatabaseState) -> None:
     """Register SQLAlchemy event listeners for audit, soft delete, versioning, and tenancy.
 
@@ -94,10 +98,15 @@ def register_listeners(db_state: DatabaseState) -> None:
     global _db_state
     _db_state = db_state
 
+    # Imported here rather than at module scope: query_filters needs
+    # ``current_tenant_id`` from this module, so a top-level import would cycle.
+    from simple_module_db.query_filters import apply_query_filters
+
     event.listen(db_state.sync_session_class, "before_flush", _before_flush_listener)
     event.listen(db_state.sync_session_class, "after_flush", _mark_session_written)
     event.listen(db_state.sync_session_class, "after_flush_postexec", _after_flush_audit)
-    event.listen(db_state.sync_session_class, "do_orm_execute", _filter_select_statements)
+    event.listen(db_state.sync_session_class, "do_orm_execute", _mark_dml_written)
+    event.listen(db_state.sync_session_class, "do_orm_execute", apply_query_filters)
     db_state._listeners_registered = True
     logger.info("Registered SQLAlchemy entity listeners")
 
@@ -165,8 +174,9 @@ def _before_flush_listener(
         )
 
     # Deleted objects — convert to soft delete if applicable
+    hard_delete_ids = session.info.pop(_HARD_DELETE_KEY, frozenset())
     for obj in list(session.deleted):
-        if isinstance(obj, SoftDeleteMixin):
+        if isinstance(obj, SoftDeleteMixin) and not _is_purge(obj, hard_delete_ids):
             # Cancel the hard delete
             session.expunge(obj)
             # Merge back as modified with soft-delete fields set
@@ -233,47 +243,3 @@ def _after_flush_audit(session: Session, flush_context: object) -> None:
     records = finalize_records(pending)
     if records:
         _db_state.audit_callback(session, records)
-
-
-# Cache ``(is_soft_delete, is_multi_tenant)`` flags per mapper class so the
-# ``do_orm_execute`` hot path skips redundant ``issubclass`` work on every query.
-_mixin_flags_cache: dict[type, tuple[bool, bool]] = {}
-
-
-def _filter_select_statements(execute_state: ORMExecuteState) -> None:
-    """Attach per-mapper ``with_loader_criteria`` for soft-delete and tenant isolation.
-
-    The criteria are attached per concrete mapper because SQLModel mixins
-    expose Pydantic ``FieldInfo`` (not SQLAlchemy ``InstrumentedAttribute``)
-    at the mixin-class level, which breaks the lambda form of
-    ``with_loader_criteria`` that was used before the SQLModel migration.
-
-    Soft-delete bypass: ``stmt.execution_options(include_deleted=True)``.
-    """
-    if not execute_state.is_select:
-        return
-
-    skip_soft_delete = execute_state.execution_options.get("include_deleted", False)
-    tenant_id = current_tenant_id.get()
-    if skip_soft_delete and tenant_id is None:
-        return
-
-    options = []
-    for mapper in execute_state.all_mappers:
-        cls = mapper.class_
-        flags = _mixin_flags_cache.get(cls)
-        if flags is None:
-            flags = (issubclass(cls, SoftDeleteMixin), issubclass(cls, MultiTenantMixin))
-            _mixin_flags_cache[cls] = flags
-        is_soft_delete, is_multi_tenant = flags
-        if is_soft_delete and not skip_soft_delete:
-            options.append(
-                with_loader_criteria(cls, cls.is_deleted.is_(False), include_aliases=True)
-            )
-        if is_multi_tenant and tenant_id is not None:
-            options.append(
-                with_loader_criteria(cls, cls.tenant_id == tenant_id, include_aliases=True)
-            )
-
-    if options:
-        execute_state.statement = execute_state.statement.options(*options)

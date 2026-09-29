@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -49,6 +50,9 @@ def init_db(
     pool_pre_ping: bool = True,
     pool_recycle: int = 1800,
     poolclass: type | None = None,
+    sqlite_wal: bool = True,
+    sqlite_busy_timeout_ms: int = 5000,
+    sqlite_foreign_keys: bool = True,
 ) -> DatabaseState:
     """Create an async engine and session factory.
 
@@ -57,6 +61,20 @@ def init_db(
     fixtures running against asyncpg/Postgres so pytest-asyncio's per-test
     event loops don't outlive pooled connections; the pool-tuning kwargs
     are ignored in that case.
+
+    The ``sqlite_*`` arguments configure PRAGMAs that the driver otherwise
+    leaves at defaults that do not match the framework's promises (GH #339):
+
+    * ``sqlite_wal`` — WAL journalling, so a reader no longer blocks a writer.
+      Applied to **file** databases only: ``:memory:`` has no journal file, and
+      a shared-cache in-memory DB rejects the change. Persistent on the file and
+      idempotent, so re-opening an existing database is a no-op.
+    * ``sqlite_busy_timeout_ms`` — explicit rather than inheriting the driver's
+      undocumented 5 s, so lock contention is a tuned wait instead of an
+      unexplained multi-second stall.
+    * ``sqlite_foreign_keys`` — SQLite ships with FK enforcement **off**, which
+      silently makes ``ondelete="RESTRICT"``/``CASCADE`` a no-op and lets SQLite
+      and Postgres disagree about a delete that should have been refused.
 
     Returns a ``DatabaseState`` that should be stored on ``app.state.db``.
     """
@@ -77,6 +95,14 @@ def init_db(
         )
 
     engine = create_async_engine(database_url, **engine_kwargs)
+    if provider == DatabaseProvider.SQLITE:
+        _configure_sqlite(
+            engine,
+            database_url,
+            wal=sqlite_wal,
+            busy_timeout_ms=sqlite_busy_timeout_ms,
+            foreign_keys=sqlite_foreign_keys,
+        )
     # Scoped Session subclass so event listeners only fire for this engine's sessions
     scoped_session_class = type("ScopedSession", (Session,), {})
     session_factory = async_sessionmaker(
@@ -91,3 +117,41 @@ def init_db(
         session_factory=session_factory,
         sync_session_class=scoped_session_class,
     )
+
+
+def _is_file_database(database_url: str) -> bool:
+    """Whether this SQLite URL points at a file rather than an in-memory DB."""
+    path = database_url.partition("://")[2].lstrip("/")
+    path = path.partition("?")[0]
+    return bool(path) and path != ":memory:"
+
+
+def _configure_sqlite(
+    engine: AsyncEngine,
+    database_url: str,
+    *,
+    wal: bool,
+    busy_timeout_ms: int,
+    foreign_keys: bool,
+) -> None:
+    """Apply per-connection PRAGMAs to every SQLite connection this engine opens.
+
+    Registered on the *sync* engine's ``connect`` event — the async engine is a
+    facade, and ``connect`` fires on the DBAPI connection underneath it. All
+    three PRAGMAs must be re-issued per connection except ``journal_mode``,
+    which is a property of the file; re-issuing it is cheap and idempotent.
+    """
+    apply_wal = wal and _is_file_database(database_url)
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_sqlite_pragmas(dbapi_connection, _connection_record) -> None:  # type: ignore[misc]
+        cursor = dbapi_connection.cursor()
+        try:
+            if foreign_keys:
+                cursor.execute("PRAGMA foreign_keys=ON")
+            if busy_timeout_ms is not None:
+                cursor.execute(f"PRAGMA busy_timeout={int(busy_timeout_ms)}")
+            if apply_wal:
+                cursor.execute("PRAGMA journal_mode=WAL")
+        finally:
+            cursor.close()

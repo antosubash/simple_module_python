@@ -230,18 +230,86 @@ Base = create_module_base("orders")
 
 `create_module_base` returns a SQLModel base bound to its own `MetaData`, but all modules share the host's single schema (same layout on Postgres and SQLite). Prefix `__tablename__` with the module name to avoid collisions (`orders_order`).
 
+### SQLite defaults
+
+`init_db` sets three PRAGMAs that the driver otherwise leaves at values which
+break promises the framework makes elsewhere (GH #339):
+
+| PRAGMA | Default here | Why |
+|---|---|---|
+| `journal_mode` | `WAL` (file DBs only) | Under the driver's `delete` journal a writer's commit waits for every reader. WAL removes reader-vs-writer blocking. `:memory:` has no journal file and is left alone. |
+| `busy_timeout` | `5000` ms | Explicit rather than inheriting the driver's undocumented 5 s, so contention is a tuned wait instead of an unexplained stall. Tune with `init_db(..., sqlite_busy_timeout_ms=…)`. |
+| `foreign_keys` | `ON` | SQLite ships with FK enforcement **off**, which makes `ondelete="RESTRICT"`/`CASCADE` a silent no-op and lets SQLite and Postgres disagree about a write that should have been refused. |
+
+Two consequences worth knowing when writing a module:
+
+- **Both sides of a foreign key must use the same column type.** Types that are
+  identical on Postgres can differ on SQLite — `sa.Uuid` stores the bare hex
+  while fastapi-users' `GUID` stores the dashed form, so an FK between them
+  never matches and any join across it returns nothing.
+- **Flush parents before children.** SQLAlchemy orders a flush by
+  `relationship()` edges, not by raw FK columns, so `add_all([parent, child])`
+  on a pair with no relationship can emit the child INSERT first. Add the
+  parent, `await session.flush()`, then add the child.
+
 ### Mixins
 
 - `AuditMixin` — `created_at`, `updated_at`, `created_by`, `updated_by` (auto-populated from the current user in listeners).
-- `SoftDeleteMixin` — `is_deleted`, `deleted_at`, `deleted_by`. `delete()` converts to soft-delete; `SELECT` auto-filters. Bypass with `stmt.execution_options(include_deleted=True)`.
+- `SoftDeleteMixin` — `is_deleted`, `deleted_at`, `deleted_by`. `delete()` converts to soft-delete; `SELECT` auto-filters. Bypass the read filter with `stmt.execution_options(include_deleted=True)`; see **Trash vs purge** below for the write side.
 - `MultiTenantMixin` — `tenant_id`. Auto-populated on insert; `SELECT` auto-filters when `current_tenant_id` is set.
 - `VersionedMixin` — `version`, auto-incremented on update.
+
+### Trash vs purge
+
+`session.delete()` on a `SoftDeleteMixin` row is intercepted and rewritten into
+a soft delete — the row is stamped, not removed. Two ways to actually purge:
+
+```python
+# 1. Delete a row that is already trashed. The second delete goes through.
+await session.delete(already_trashed_row)
+
+# 2. Purge a live row in one step.
+from simple_module_db import hard_delete
+
+await hard_delete(session, row)
+```
+
+The "already trashed" test reads the value **loaded from the database**, not the
+current one, so setting `is_deleted = True` and deleting in the same flush still
+means trash — a caller asking for a soft delete in a slightly redundant way does
+not get the row torn out from under them.
+
+### Query filters and the shapes they cover
+
+The soft-delete and tenant filters are attached by a `do_orm_execute` listener,
+which walks both the statement's entities **and** its FROM clause. All of these
+are filtered:
+
+```python
+select(Model)  # entity select
+select(func.count(Model.id))  # count naming the entity
+select(func.count()).select_from(Model)  # bare count
+select(func.count()).select_from(select(Model).subquery())
+select(func.count()).select_from(Model.__table__)  # pure Core
+select(A).outerjoin(B)  # B filtered in the ON clause
+```
+
+Before GH #332 only the first two were — the rest returned trashed rows, and on
+a multi-tenant host other tenants' rows.
 
 ### Session lifecycle (`get_db`)
 
 Each request opens one session:
 
-- Commit fires on success **only if** the session has pending writes (`has_writes` flag set by `after_flush` listener, or live `.new/.dirty/.deleted`).
+- Commit fires on success **only if** the session has pending writes (`has_writes` flag, or live `.new/.dirty/.deleted`). The flag is stamped by the `after_flush` listener for ORM work, and by a `do_orm_execute` listener for DML executed through the session — `session.execute(update(Model)...)`, `delete(...)`, `insert(...)` — which never runs the unit of work and so used to be rolled back silently (GH #336).
+- A write the ORM never sees at all — `session.execute(text("UPDATE ..."))`, or DML against a bare `Table` — still needs to say so:
+
+  ```python
+  from simple_module_db import mark_written
+
+  await session.execute(text("UPDATE orders_order SET ..."))
+  mark_written(session)
+  ```
 - Read-only requests exit via rollback — cheaper, and keeps the session out of write-side profiling.
 - Exceptions always rollback.
 

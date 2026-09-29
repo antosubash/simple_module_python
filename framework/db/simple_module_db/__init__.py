@@ -4,7 +4,12 @@ from simple_module_db.audit import AuditRecord
 from simple_module_db.base import create_module_base
 from simple_module_db.callbacks import OnCommitCallback
 from simple_module_db.deps import get_db
-from simple_module_db.listeners import TenantIsolationError, current_tenant_id
+from simple_module_db.listeners import (
+    TenantIsolationError,
+    current_tenant_id,
+    hard_delete,
+    mark_written,
+)
 from simple_module_db.migrations import (
     build_module_metadata,
     make_include_object,
@@ -36,10 +41,12 @@ __all__ = [
     "detect_provider",
     "finalize_session",
     "get_db",
+    "hard_delete",
     "init_db",
     "like_contains_pattern",
     "like_prefix_pattern",
     "make_include_object",
     "make_process_revision_directives",
+    "mark_written",
     "render_item",
 ]

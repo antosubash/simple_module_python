@@ -10,7 +10,7 @@ import uuid
 import pytest
 import sqlalchemy as sa
 from fastapi_users_db_sqlalchemy.generics import GUID
-from sqlalchemy import inspect, select, text
+from sqlalchemy import inspect, select
 from sqlalchemy.orm import selectinload
 
 
@@ -47,7 +47,14 @@ async def test_user_role_composite_pk(db_session):
     role = Role(id=role_id, name="testrole")
     link = UserRole(user_id=user_id, role_id=role_id)
 
-    db_session.add_all([user, role, link])
+    # Parents first: SQLAlchemy orders a flush by ``relationship()`` edges, and
+    # UserRole declares none, so a single add_all can emit the association
+    # INSERT before the rows it references. That is an FK violation on Postgres
+    # and — since PRAGMA foreign_keys=ON — on SQLite too. Production code
+    # (``users.bootstrap``, ``users.admin.service``) already flushes first.
+    db_session.add_all([user, role])
+    await db_session.flush()
+    db_session.add(link)
     await db_session.commit()
 
     result = await db_session.execute(
@@ -80,11 +87,15 @@ async def test_fk_cascade_delete_user_removes_user_role(db_session):
     role = Role(id=role_id, name="cascade_role")
     link = UserRole(user_id=user_id, role_id=role_id)
 
-    db_session.add_all([user, role, link])
+    # Parents first: SQLAlchemy orders a flush by ``relationship()`` edges, and
+    # UserRole declares none, so a single add_all can emit the association
+    # INSERT before the rows it references. That is an FK violation on Postgres
+    # and — since PRAGMA foreign_keys=ON — on SQLite too. Production code
+    # (``users.bootstrap``, ``users.admin.service``) already flushes first.
+    db_session.add_all([user, role])
+    await db_session.flush()
+    db_session.add(link)
     await db_session.commit()
-
-    # Enable FK enforcement for SQLite (it's off by default)
-    await db_session.execute(text("PRAGMA foreign_keys=ON"))
 
     await db_session.delete(user)
     await db_session.commit()
