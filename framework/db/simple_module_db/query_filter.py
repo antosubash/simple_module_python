@@ -16,9 +16,10 @@ from weakref import WeakKeyDictionary
 
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import ORMExecuteState, Session, with_loader_criteria
-from sqlalchemy.sql.selectable import Join
+from sqlalchemy.sql.selectable import Alias, Join
 
 from simple_module_db import model_registry as registry
+from simple_module_db.insert_guard import assigned_tenant_ids, guard_insert
 from simple_module_db.subquery_guard import scope_exists_subqueries
 from simple_module_db.tenancy import (
     ALL_TENANTS_OPTION,
@@ -75,7 +76,7 @@ def filter_statements(execute_state: ORMExecuteState) -> Any:
     ``all_tenants()``; soft-delete bypass: ``include_deleted=True``.
     """
     if execute_state.is_insert:
-        return _guard_insert(execute_state)
+        return guard_insert(execute_state, strict=_strict_configured(execute_state.session))
     is_select = execute_state.is_select
     if not (is_select or execute_state.is_update or execute_state.is_delete):
         return None
@@ -85,6 +86,10 @@ def filter_statements(execute_state: ORMExecuteState) -> Any:
     tenant_id = current_tenant_id.get()
     skip_tenant = options_in.get(ALL_TENANTS_OPTION, False) or is_all_tenants()
     strict = _strict_configured(execute_state.session)
+    if execute_state.is_update and not skip_tenant:
+        # Before the early return: moving rows between tenants is refused
+        # bound or not (#356), like the unit-of-work rule in flush_guard.
+        _refuse_tenant_move(execute_state)
     if skip_soft_delete and (skip_tenant or (tenant_id is None and not strict)):
         return None
 
@@ -121,7 +126,12 @@ def _subquery_predicates(
     skip_soft_delete: bool, skip_tenant: bool, tenant_id: str | None, strict: bool
 ):
     def predicates_for(from_obj: Any) -> list[Any]:
-        name = getattr(from_obj, "name", None)
+        # ``aliased(Model)`` / ``table.alias()`` is named after the alias, not
+        # the table: resolve to the underlying table, filter on the alias.
+        base = from_obj
+        while isinstance(base, Alias):  # ``table.alias().alias()`` nests
+            base = base.element
+        name = getattr(base, "name", None)
         preds = []
         if not skip_soft_delete and name in registry.soft_delete_table_names:
             preds.append(from_obj.c.is_deleted.is_(False))
@@ -172,8 +182,6 @@ def _tenant_criteria(
     execute_state: ORMExecuteState, named: list[type], tenant_id: str | None, strict: bool
 ) -> list[Any]:
     core = _plain_tables(execute_state, registry.tenant_table_names)
-    if execute_state.is_update and (named or core) and _assigned_tenant_ids(execute_state):
-        raise TenantIsolationError("Cannot change tenant_id of existing rows")
     op = (
         "SELECT" if execute_state.is_select else ("UPDATE" if execute_state.is_update else "DELETE")
     )
@@ -196,65 +204,8 @@ def _tenant_criteria(
     ]
 
 
-def _bound_value(value: Any) -> Any:
-    return getattr(value, "value", value)
-
-
-def _column_name(key: Any) -> str:
-    return getattr(key, "key", None) or getattr(key, "name", None) or str(key)
-
-
-def _statement_values(execute_state: ORMExecuteState) -> dict[str, Any]:
-    raw = getattr(execute_state.statement, "_values", None) or {}
-    return {_column_name(k): _bound_value(v) for k, v in raw.items()}
-
-
-def _param_rows(execute_state: ORMExecuteState) -> list[dict[str, Any]]:
-    params = execute_state.parameters
-    if isinstance(params, dict):
-        return [params] if params else []
-    return [p for p in (params or []) if isinstance(p, dict)]
-
-
-def _assigned_tenant_ids(execute_state: ORMExecuteState) -> list[Any]:
-    found = []
-    stmt_values = _statement_values(execute_state)
-    if TENANT_COLUMN in stmt_values:
-        found.append(stmt_values[TENANT_COLUMN])
-    found.extend(row[TENANT_COLUMN] for row in _param_rows(execute_state) if TENANT_COLUMN in row)
-    return found
-
-
-def _guard_insert(execute_state: ORMExecuteState) -> Any:
-    mappers = [m.class_.__name__ for m in execute_state.all_mappers if registry.flags(m.class_)[1]]
-    target = getattr(execute_state.statement, "table", None)
-    if not mappers and getattr(target, "name", None) in registry.tenant_table_names:
-        mappers = [target.name]  # Core insert(Model.__table__)
-    if not mappers or execute_state.execution_options.get(ALL_TENANTS_OPTION, False):
-        return None
-    if is_all_tenants():
-        return None
-    tenant_id = current_tenant_id.get()
-    for value in _assigned_tenant_ids(execute_state):
-        if tenant_id is not None and value != tenant_id:
-            raise TenantIsolationError(
-                f"Cannot insert rows for tenant '{value}' in context of tenant '{tenant_id}'"
-            )
-
-    rows = _param_rows(execute_state)
-    stmt_has_tenant = TENANT_COLUMN in _statement_values(execute_state)
-    missing = (
-        [r for r in rows if TENANT_COLUMN not in r] if rows else ([] if stmt_has_tenant else [None])
-    )
-    if not missing:
-        return None
-    if tenant_id is None:
-        if _strict_configured(execute_state.session):
-            raise missing_tenant_error(mappers[0], "INSERT")
-        return None
-    if rows:
-        stamped = [{**r, TENANT_COLUMN: r.get(TENANT_COLUMN, tenant_id)} for r in rows]
-        payload = stamped if isinstance(execute_state.parameters, list) else stamped[0]
-        return execute_state.invoke_statement(params=payload)
-    execute_state.statement = execute_state.statement.values(**{TENANT_COLUMN: tenant_id})
-    return None
+def _refuse_tenant_move(execute_state: ORMExecuteState) -> None:
+    named = any(registry.flags(m.class_)[1] for m in execute_state.all_mappers)
+    core = _plain_tables(execute_state, registry.tenant_table_names)
+    if (named or core) and assigned_tenant_ids(execute_state):
+        raise TenantIsolationError("Cannot change tenant_id of existing rows")

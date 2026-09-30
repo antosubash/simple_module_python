@@ -14,8 +14,9 @@ from simple_module_db import TenantIsolationError, all_tenants, tenant_context
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 from simple_module_test.database import database_url_for_tests, init_db_kwargs, reset_schema
-from sqlalchemy import insert, select, update
+from sqlalchemy import exists, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 _URL = database_url_for_tests()
 
@@ -133,3 +134,32 @@ async def test_second_database_state_does_not_disable_strict_mode(
             await other_session.execute(select(_TenantItem))
     finally:
         await other_state.engine.dispose()
+
+
+async def test_multi_values_insert_is_stamped_and_checked(strict_session: AsyncSession):
+    with tenant_context("a"):
+        await strict_session.execute(insert(_TenantItem).values([{"name": "x"}, {"name": "y"}]))
+        with pytest.raises(TenantIsolationError):
+            await strict_session.execute(
+                insert(_TenantItem).values([{"name": "z", "tenant_id": "b"}])
+            )
+    assert await _names(strict_session) == ["a:x", "a:y"]
+
+
+async def test_aliased_core_exists_is_scoped(strict_session: AsyncSession):
+    await _seed(strict_session)
+    other = aliased(_TenantItem)
+    with tenant_context("a"):
+        found = await strict_session.scalar(select(exists().where(other.name == "item-b")))
+    assert found is False
+    with pytest.raises(TenantIsolationError):
+        await strict_session.scalar(select(exists().where(other.name == "item-b")))
+
+
+async def test_unbound_bulk_update_cannot_move_rows(tenant_session: AsyncSession):
+    """#356 for bulk UPDATE: non-strict and unbound still may not move a row."""
+    with tenant_context("a"):
+        tenant_session.add(_TenantItem(name="q"))
+        await tenant_session.flush()
+    with pytest.raises(TenantIsolationError):
+        await tenant_session.execute(update(_TenantItem).values(tenant_id="b"))
