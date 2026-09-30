@@ -124,15 +124,6 @@ async def test_slug_shape_is_enforced(user_client):
         assert ok.status_code == 201
 
 
-async def test_concurrent_creates_with_one_slug_give_201_and_409(user_client):
-    async with user_client("a@x.io") as (a, _), user_client("b@x.io") as (b, _):
-        results = await asyncio.gather(
-            a.post("/api/tenants/", json={"name": "A", "slug": "dupe"}),
-            b.post("/api/tenants/", json={"name": "B", "slug": "dupe"}),
-        )
-        assert sorted(r.status_code for r in results) == [201, 409]
-
-
 async def test_concurrent_accepts_of_one_invitation_give_200_and_409(user_client):
     async with user_client("o@x.io") as (owner, _), user_client("n@x.io") as (new, _):
         await _org(owner, "Acme")

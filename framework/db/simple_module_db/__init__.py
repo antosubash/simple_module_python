@@ -26,6 +26,7 @@ from simple_module_db.tenancy import (
     tenant_context,
 )
 from simple_module_db.transaction import CommitBeforeResponseMiddleware, finalize_session
+from simple_module_db.writes import hard_delete, mark_written
 
 __all__ = [
     "ALL_TENANTS_OPTION",
@@ -51,12 +52,14 @@ __all__ = [
     "detect_provider",
     "finalize_session",
     "get_db",
+    "hard_delete",
     "init_db",
     "is_valid_tenant_id",
     "like_contains_pattern",
     "like_prefix_pattern",
     "make_include_object",
     "make_process_revision_directives",
+    "mark_written",
     "render_item",
     "tenant_context",
 ]

@@ -14,20 +14,35 @@ from simple_module_db.flush_guard import guard_flush
 from simple_module_db.mixins import AuditMixin, SoftDeleteMixin, VersionedMixin
 from simple_module_db.query_filter import bind_engine_policy, filter_statements
 from simple_module_db.session import DatabaseState
+from simple_module_db.writes import (
+    _HARD_DELETE_KEY,
+    SESSION_HAS_WRITES_KEY,
+    _is_purge,
+    _mark_dml_written,
+    _mark_session_written,
+    hard_delete,
+    mark_written,
+)
+
+# Re-exported: ``transaction`` and published modules import these from here.
+__all__ = [
+    "SESSION_HAS_WRITES_KEY",
+    "TenantIsolationError",
+    "current_tenant_id",
+    "current_user_id",
+    "hard_delete",
+    "mark_written",
+    "register_listeners",
+]
 
 # Re-exported: callers import these from here since before tenancy.py existed.
-from simple_module_db.tenancy import TenantIsolationError, current_tenant_id  # noqa: F401
+from simple_module_db.tenancy import TenantIsolationError, current_tenant_id
 
 logger = logging.getLogger(__name__)
 _db_logger = logging.getLogger("simple_module.db")
 
 # Set by auth middleware on each request
 current_user_id: ContextVar[str | None] = ContextVar("current_user_id", default=None)
-
-# Key on ``Session.info`` stamped by the after_flush listener so
-# ``get_db`` can distinguish read-only requests from write requests after
-# flush has cleared ``session.new/.dirty/.deleted``.
-SESSION_HAS_WRITES_KEY = "has_writes"
 
 # Key on ``Session.info`` for pending audit snapshots produced in before_flush
 # and consumed in after_flush_postexec (when DB-assigned PKs are populated).
@@ -67,17 +82,6 @@ def _entity_pk(obj: object) -> object:
         return None
 
 
-def _mark_session_written(session: Session, flush_context: object) -> None:
-    """Flag the session as having performed write work.
-
-    ``get_db`` reads this flag to decide between commit and rollback at
-    request end. Checking ``session.new/.dirty/.deleted`` directly after
-    a flush is useless — flush empties those sets — so we stash a tag on
-    ``session.info`` that survives the rest of the request.
-    """
-    session.info[SESSION_HAS_WRITES_KEY] = True
-
-
 def register_listeners(db_state: DatabaseState) -> None:
     """Register SQLAlchemy event listeners for audit, soft delete, versioning, and tenancy.
 
@@ -107,6 +111,7 @@ def attach_session_listeners(session_class: type[Session]) -> None:
         ("before_flush", _before_flush_listener),
         ("after_flush", _mark_session_written),
         ("after_flush_postexec", _after_flush_audit),
+        ("do_orm_execute", _mark_dml_written),
         ("do_orm_execute", filter_statements),
     ):
         if not event.contains(session_class, name, fn):
@@ -160,8 +165,9 @@ def _before_flush_listener(
         )
 
     # Deleted objects — convert to soft delete if applicable
+    hard_delete_ids = session.info.pop(_HARD_DELETE_KEY, frozenset())
     for obj in list(session.deleted):
-        if isinstance(obj, SoftDeleteMixin):
+        if isinstance(obj, SoftDeleteMixin) and not _is_purge(obj, hard_delete_ids):
             # Cancel the hard delete
             session.expunge(obj)
             # Merge back as modified with soft-delete fields set

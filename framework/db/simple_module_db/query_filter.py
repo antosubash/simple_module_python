@@ -16,6 +16,7 @@ from weakref import WeakKeyDictionary
 
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import ORMExecuteState, Session, with_loader_criteria
+from sqlalchemy.sql.selectable import Join
 
 from simple_module_db import model_registry as registry
 from simple_module_db.subquery_guard import scope_exists_subqueries
@@ -137,15 +138,34 @@ def _subquery_predicates(
 def _plain_tables(execute_state: ORMExecuteState, names: set[str]) -> list[Any]:
     """Tables a statement uses as plain Core tables (``Model.__table__``).
 
-    Only the top level: the FROM list of a select, the target of an
-    update/delete. ORM-annotated occurrences are covered by loader criteria.
+    Only the top level: the FROM list of a select (including the sides of a
+    join), the target of an update/delete. ORM-annotated occurrences are
+    covered by loader criteria.
     """
     stmt = execute_state.statement
     if execute_state.is_select:
         froms = [*getattr(stmt, "columns_clause_froms", ()), *getattr(stmt, "_from_obj", ())]
     else:
         froms = [getattr(stmt, "table", None)]
-    return [f for f in froms if registry.is_plain_table(f, names)]
+    return [f for f in _where_able(froms) if registry.is_plain_table(f, names)]
+
+
+def _where_able(froms: list[Any]) -> list[Any]:
+    """Expand joins into the sides a ``WHERE`` can filter without changing them.
+
+    Both sides of an INNER join qualify. Of an OUTER join only the preserved
+    (left) side does: a ``WHERE`` on the nullable side would drop the very rows
+    the outer join was written to keep, turning it into an inner join.
+    """
+    out: list[Any] = []
+    for f in froms:
+        if isinstance(f, Join):
+            sides = [f.left] if f.isouter else [f.left, f.right]
+            if not getattr(f, "full", False):
+                out.extend(_where_able(sides))
+        else:
+            out.append(f)
+    return out
 
 
 def _tenant_criteria(
