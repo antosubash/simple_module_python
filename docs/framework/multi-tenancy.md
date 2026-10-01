@@ -211,6 +211,22 @@ model refuses a name that starts with it, so no platform role (and no
 `RolePermission` row, and nothing `sync_admin_all_permissions` writes) can
 collide with a tenant role (#377).
 
+## Feature flags
+
+`is_flag_enabled`, `flag_enabled` and `require_flag` read the request's tenant
+(`request.state.tenant_id`), so a per-tenant override beats the system value,
+which beats the definition default. Boot hydration loads every tenant's
+overrides with no tenant bound — deliberately cross-tenant (the table is not
+`MultiTenantMixin`), so keep it that way. No tenant role holds
+`feature_flags.manage`; the tenant-override admin screens are platform-only.
+
+Screens that take a tenant id from the URL can vet it without importing
+`tenants`: the module publishes `app.state.tenant_exists`, and
+`await simple_module_core.tenancy.tenant_exists(app, tenant_id)` answers
+`True`/`False`, or `None` when no module can say (the id is then accepted).
+`feature_flags` uses it to 404 on an unknown tenant when setting or listing
+overrides; clearing stays unvalidated so a stale override can still be removed.
+
 ## Testing
 
 The `simple_module_test` plugin ships `tenant_client` (needs the `users` and

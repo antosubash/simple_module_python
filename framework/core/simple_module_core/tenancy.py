@@ -13,7 +13,9 @@ permissions without depending on ``tenants``::
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from enum import StrEnum
+from typing import Any
 
 TENANT_ROLE_PREFIX = "tenant:"
 
@@ -46,4 +48,29 @@ def is_tenant_role(role: str) -> bool:
     return role.startswith(TENANT_ROLE_PREFIX)
 
 
-__all__ = ["TENANT_ROLE_PREFIX", "TenantRole", "is_tenant_role", "tenant_role"]
+TenantExists = Callable[[str], Awaitable[bool]]
+"""``async (tenant_id) -> bool``: whether a tenant with that id exists."""
+
+
+async def tenant_exists(app: Any, tenant_id: str) -> bool | None:
+    """Whether ``tenant_id`` names a known tenant, or ``None`` when nobody can say.
+
+    A module that owns tenants (``tenants``) publishes ``app.state.tenant_exists``
+    (a :data:`TenantExists`). Platform screens that take a tenant id from the
+    URL ask through this, so they can refuse a typo without importing that
+    module; with none installed the answer is ``None`` and they accept the id.
+    """
+    check: TenantExists | None = getattr(app.state, "tenant_exists", None)
+    if check is None:
+        return None
+    return bool(await check(tenant_id))
+
+
+__all__ = [
+    "TENANT_ROLE_PREFIX",
+    "TenantExists",
+    "TenantRole",
+    "is_tenant_role",
+    "tenant_exists",
+    "tenant_role",
+]

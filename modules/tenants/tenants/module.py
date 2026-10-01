@@ -23,8 +23,20 @@ if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
     from simple_module_core.invalidation import InvalidationBus
     from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.tenancy import TenantExists
 
 logger = logging.getLogger(__name__)
+
+
+def _tenant_exists(app: FastAPI) -> TenantExists:
+    """The ``app.state.tenant_exists`` callable core's ``tenant_exists()`` reads."""
+    from tenants.models import Tenant
+
+    async def exists(tenant_id: str) -> bool:
+        async with app.state.sm.db.session_factory() as db:
+            return await db.get(Tenant, tenant_id) is not None
+
+    return exists
 
 
 class TenantsModule(ModuleBase):
@@ -53,6 +65,7 @@ class TenantsModule(ModuleBase):
             app, c.MODULE_PACKAGE, TenantsSettings, lambda s: TenantsServices(settings=s)
         )
         app.state.tenant_resolver = resolve_tenant
+        app.state.tenant_exists = _tenant_exists(app)
         register_inertia_shared_provider(app, tenant_shared_props)
 
     def register_exception_handlers(self, app: FastAPI) -> None:

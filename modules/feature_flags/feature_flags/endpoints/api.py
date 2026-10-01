@@ -12,7 +12,11 @@ from feature_flags.constants import (
     SCOPE_TENANT,
 )
 from feature_flags.contracts.schemas import FeatureFlagView, ToggleRequest
-from feature_flags.deps import FeatureFlagRegistryDep, FeatureFlagServiceDep
+from feature_flags.deps import (
+    FeatureFlagRegistryDep,
+    FeatureFlagServiceDep,
+    require_known_tenant,
+)
 
 router = APIRouter()
 
@@ -87,7 +91,10 @@ async def clear_override(
 @router.get(
     "/tenant/{tenant_id}",
     response_model=list[FeatureFlagView],
-    dependencies=[Depends(RequiresPermission(PERM_FEATURE_FLAGS_VIEW))],
+    dependencies=[
+        Depends(RequiresPermission(PERM_FEATURE_FLAGS_VIEW)),
+        Depends(require_known_tenant),
+    ],
 )
 async def list_flags_for_tenant(
     tenant_id: str,
@@ -100,7 +107,10 @@ async def list_flags_for_tenant(
 @router.put(
     "/tenant/{tenant_id}/{name}",
     response_model=FeatureFlagView,
-    dependencies=[Depends(RequiresPermission(PERM_FEATURE_FLAGS_MANAGE))],
+    dependencies=[
+        Depends(RequiresPermission(PERM_FEATURE_FLAGS_MANAGE)),
+        Depends(require_known_tenant),
+    ],
 )
 async def set_tenant_override(
     tenant_id: str,
@@ -118,6 +128,8 @@ async def set_tenant_override(
     return view
 
 
+# Clearing is not validated: an override left behind for a tenant that has
+# since gone must stay removable.
 @router.delete(
     "/tenant/{tenant_id}/{name}",
     status_code=204,
