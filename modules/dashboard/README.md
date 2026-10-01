@@ -13,6 +13,7 @@ pip install simple_module_dashboard
 ## What it provides
 
 - `/dashboard` Inertia view, a single entry point for logged-in users.
+- Platform-wide stats gated by the `dashboard.view` permission (held by `admin` through `*`; mapped onto the platform `user` role only when `multi_tenant` is off, and to no tenant role): the counts span every tenant, so `/api/dashboard/stats` answers 403 without it and `/dashboard` renders only a welcome for viewers who lack it.
 - Global sidebar renderer — aggregates `register_menu_items()` calls from all modules into one tree.
 - Breadcrumb + page-title provider used by downstream module pages.
 
