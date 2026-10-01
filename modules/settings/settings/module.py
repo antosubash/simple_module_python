@@ -77,6 +77,11 @@ class SettingsModule(ModuleBase):
         # Self-register so the UI lists our own settings alongside other modules.
         services.module_registry.register("settings", SettingsSettings)
 
+    def register_exception_handlers(self, app: FastAPI) -> None:
+        from settings.errors import install_exception_handlers
+
+        install_exception_handlers(app)
+
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from settings.endpoints.api import router as api
         from settings.endpoints.module_api import router as module_api

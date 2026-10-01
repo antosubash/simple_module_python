@@ -14,6 +14,7 @@ import math
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import ValidationError
+from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.inertia_utils import redirect_back_with_errors, validation_errors_to_dict
 from simple_module_hosting.permissions import RequiresPermission
@@ -21,6 +22,7 @@ from simple_module_inertia import InertiaResponse
 from starlette.responses import RedirectResponse
 
 from settings import browse_query, known_keys
+from settings._managed_keys import ManagedKeyError
 from settings._module_settings import (
     _package_of,
     collect_module_settings,
@@ -54,7 +56,7 @@ from settings.contracts.schemas import SettingUpdate
 from settings.deps import get_setting_service
 from settings.endpoints._create_form import create_from_form
 from settings.service import SettingService
-from settings.tenant_scope import guard_row_delete, tenant_update_error
+from settings.tenant_scope import tenant_update_error
 
 _PAGE_BROWSE = "Settings/Browse"
 _PAGE_CREATE = "Settings/Create"
@@ -186,13 +188,22 @@ async def update_action(
 @router.delete(
     "/{setting_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_DELETE)), Depends(guard_row_delete)],
+    dependencies=[Depends(RequiresPermission(PERM_DELETE))],
 )
 async def delete_action(
     setting_id: int,
+    request: Request,
+    t: TranslatorDep,
     service: SettingService = Depends(get_setting_service),
 ) -> RedirectResponse:
-    await service.delete(setting_id)
+    try:
+        await service.delete(setting_id)
+    except ManagedKeyError as exc:
+        # Shown by the page as a toast; a bare row delete would orphan the file.
+        message = t.t(
+            "settings.browse.delete_managed_error", setting=exc.key, clear_via=exc.clear_via
+        )
+        return redirect_back_with_errors(request, {"delete": message})
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 
 

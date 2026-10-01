@@ -9,6 +9,7 @@ import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { Plus, Search, Settings as SettingsIcon, Trash2 } from 'lucide-react';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { type ScopeCounts, type ScopeFilter, ScopeTabs } from './components/ScopeTabs';
 import { StoreCards } from './components/StoreCards';
 import { StoreTable } from './components/StoreTable';
@@ -57,7 +58,9 @@ function Browse({ settings, pagination, counts, filters }: Props) {
 
   function confirmDelete() {
     if (!pendingDelete) return;
-    router.delete(ROUTES.byId(pendingDelete.id));
+    router.delete(ROUTES.byId(pendingDelete.id), {
+      onError: (errors) => toast.error(errors.delete ?? t(keys.settings.browse.delete_failed)),
+    });
     setPendingDelete(null);
   }
 

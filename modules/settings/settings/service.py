@@ -4,17 +4,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from settings._announce import announce
+from settings._listing import SettingListing
+from settings._managed_keys import TenantIsLive, ensure_deletable
 from settings._row_masking import drop_placeholder_write, is_placeholder_write, out
 from settings._unique_write import DuplicateSettingError, insert_if_free
 from settings.constants import (
-    ALL_SCOPES,
-    DEFAULT_PER_PAGE,
-    SCOPE_ALL,
     SYSTEM_SCOPE_ID,
     VALUE_TYPE_STRING,
 )
@@ -30,120 +28,35 @@ from settings.models import Setting
 if TYPE_CHECKING:
     from simple_module_core.invalidation import InvalidationBus
 
+    from settings.contracts.registry import SettingsRegistry
 
-class SettingService:
+
+class SettingService(SettingListing):
     """Async CRUD + scope resolution for key/value settings.
 
     Resolution precedence when calling ``resolve`` / ``get_resolved_value``:
     USER > TENANT > SYSTEM. The first match in that chain is returned.
     """
 
-    def __init__(self, db: AsyncSession, invalidation: InvalidationBus | None = None) -> None:
+    def __init__(
+        self,
+        db: AsyncSession,
+        invalidation: InvalidationBus | None = None,
+        registry: SettingsRegistry | None = None,
+        tenant_is_live: TenantIsLive | None = None,
+    ) -> None:
         self.db = db
+        # With a registry, ``delete``/``delete_scoped`` refuse a ``clear_via``
+        # key (see ``_managed_keys``); ``tenant_is_live`` lets a deleted
+        # tenant's leftover row through.
+        self.registry = registry
+        self.tenant_is_live = tenant_is_live
         # When given, SYSTEM/TENANT writes announce themselves after commit so
         # per-tenant caches elsewhere drop the (tenant, key) they hold.
         self.invalidation = invalidation
 
     def _changed(self, entity: Setting) -> None:
         announce(self.db, self.invalidation, entity.scope, entity.scope_id, entity.key)
-
-    # ── Listing ─────────────────────────────────────────────────────
-
-    async def list_all(self) -> list[SettingOut]:
-        result = await self.db.execute(
-            select(Setting).order_by(Setting.scope, Setting.scope_id, Setting.key)
-        )
-        return [out(row) for row in result.scalars()]
-
-    async def list_filtered(
-        self,
-        scope: SettingScope | None = None,
-        q: str | None = None,
-        page: int = 1,
-        per_page: int = DEFAULT_PER_PAGE,
-    ) -> tuple[list[SettingOut], int]:
-        """One page of rows plus the unpaged total for the same filters.
-
-        The browse screen used to receive every row and filter in the browser,
-        which made the payload, the render and find-in-page all scale with the
-        whole table instead of with what was asked for. ``q`` matches the key
-        only — the search box says "Search keys…", and quietly matching values
-        would surface rows whose key has nothing to do with the query.
-        """
-        conditions = self._filter_conditions(scope, q)
-        total = await self.db.scalar(select(func.count()).select_from(Setting).where(*conditions))
-        stmt = (
-            select(Setting)
-            .where(*conditions)
-            .order_by(Setting.scope, Setting.scope_id, Setting.key)
-            .offset(max(page - 1, 0) * per_page)
-            .limit(per_page)
-        )
-        result = await self.db.execute(stmt)
-        return [out(row) for row in result.scalars()], int(total or 0)
-
-    async def count_by_scope(self, q: str | None = None) -> dict[str, int]:
-        """Per-scope tallies for the filter tabs, plus ``all``.
-
-        Every scope is named even at zero: a tab that disappears when its count
-        drops to nothing moves the other tabs under the cursor mid-search.
-        The scope filter itself is deliberately not applied — the tabs describe
-        what each of them *would* show, so selecting one must not zero the rest.
-        """
-        conditions = self._filter_conditions(None, q)
-        stmt = select(Setting.scope, func.count()).where(*conditions).group_by(Setting.scope)
-        result = await self.db.execute(stmt)
-        tallies = {str(scope): int(count) for scope, count in result.all()}
-        counts = {name: tallies.get(name, 0) for name in ALL_SCOPES}
-        return {SCOPE_ALL: sum(counts.values()), **counts}
-
-    @staticmethod
-    def _filter_conditions(scope: SettingScope | None, q: str | None) -> list:
-        conditions = []
-        if scope is not None:
-            conditions.append(Setting.scope == scope.value)
-        needle = (q or "").strip()
-        if needle:
-            # Setting keys are full of underscores, and `_` is a LIKE wildcard:
-            # unescaped, a search for "smtp_host" also matches "smtpXhost", and
-            # a stray "%" matches the entire table. ``ilike`` is emulated by
-            # SQLAlchemy on SQLite (lower() on both sides), so one expression
-            # is case-insensitive on both databases.
-            conditions.append(
-                Setting.key.ilike(like_contains_pattern(needle), escape=LIKE_ESCAPE_CHAR)
-            )
-        return conditions
-
-    async def list_by_scope(
-        self, scope: SettingScope, scope_id: str = SYSTEM_SCOPE_ID
-    ) -> list[SettingOut]:
-        result = await self.db.execute(self._scope_stmt(scope, scope_id))
-        return [out(row) for row in result.scalars()]
-
-    async def list_by_scope_unmasked(
-        self, scope: SettingScope, scope_id: str = SYSTEM_SCOPE_ID
-    ) -> list[SettingOut]:
-        """The same rows with their real values, for code that *applies* them.
-
-        The masking in :func:`_out` is for the screens. Hydration is not a
-        screen: ``SettingsStore`` feeds these values back into the live module
-        settings objects at boot, so a masked read writes a row of dots over the
-        real secret — a mailer that cannot authenticate, and a
-        ``reset_password_token_secret`` that no longer verifies the tokens it
-        signed. This is the one read that must see through the mask, and it is
-        spelled out rather than reached by passing a flag so that every caller
-        of it is one grep away.
-        """
-        result = await self.db.execute(self._scope_stmt(scope, scope_id))
-        return [SettingOut.model_validate(row) for row in result.scalars()]
-
-    @staticmethod
-    def _scope_stmt(scope: SettingScope, scope_id: str):
-        return (
-            select(Setting)
-            .where(Setting.scope == scope.value, Setting.scope_id == scope_id)
-            .order_by(Setting.key)
-        )
 
     # ── Lookup ──────────────────────────────────────────────────────
 
@@ -265,23 +178,31 @@ class SettingService:
         self._changed(entity)
         return out(entity)
 
-    async def delete(self, setting_id: int) -> bool:
+    async def delete(self, setting_id: int, *, as_owner: bool = False) -> bool:
         entity = await self.db.get(Setting, setting_id)
         if entity is None:
             return False
-        self._changed(entity)
-        await self.db.delete(entity)
-        await self.db.flush()
+        await self._remove(entity, as_owner)
         return True
 
-    async def delete_scoped(self, scope: SettingScope, scope_id: str, key: str) -> bool:
+    async def delete_scoped(
+        self, scope: SettingScope, scope_id: str, key: str, *, as_owner: bool = False
+    ) -> bool:
+        """Delete one row; ``as_owner`` is for the module that reaps a ``clear_via`` key's file."""
         entity = await self._find(scope, scope_id, key)
         if entity is None:
             return False
+        await self._remove(entity, as_owner)
+        return True
+
+    async def _remove(self, entity: Setting, as_owner: bool) -> None:
+        if not as_owner:
+            await ensure_deletable(
+                self.registry, self.tenant_is_live, entity.scope, entity.scope_id, entity.key
+            )
         self._changed(entity)
         await self.db.delete(entity)
         await self.db.flush()
-        return True
 
     # ── Internals ───────────────────────────────────────────────────
 
