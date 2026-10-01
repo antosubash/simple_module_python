@@ -774,7 +774,9 @@ export const keys = {
     browse: {
       delete_confirm_button: 'settings.browse.delete_confirm_button',
       delete_description: 'settings.browse.delete_description',
+      delete_failed: 'settings.browse.delete_failed',
       delete_link: 'settings.browse.delete_link',
+      delete_managed_error: 'settings.browse.delete_managed_error',
       delete_title: 'settings.browse.delete_title',
       description: 'settings.browse.description',
       edit_link: 'settings.browse.edit_link',

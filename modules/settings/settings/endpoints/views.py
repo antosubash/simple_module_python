@@ -28,7 +28,7 @@ from settings._module_settings import (
     collect_module_settings,
     overrides_by_package,
 )
-from settings._module_settings_props import serialize
+from settings._module_settings_props import serialize, testable_packages
 from settings.constants import (
     DEFAULT_PER_PAGE,
     ERR_SETTING_NOT_FOUND,
@@ -228,30 +228,9 @@ async def modules_view(
             PROP_MODULES: serialize(views),
             # Which packages can be connection-tested, so the page only offers
             # the button where something is actually reachable.
-            PROP_TESTABLE: _testable_packages(request),
+            PROP_TESTABLE: testable_packages(request.app),
         },
     )
-
-
-def _testable_packages(request: Request) -> dict[str, list[str]]:
-    """Package -> the names of the health checks its module registered.
-
-    "Test connection" is just that module's health checks run on demand —
-    reusing the registry means settings never learns what an SMTP or an S3
-    connection is. The names come back with the packages so the button can say
-    what it is about to dial ("Test mailer connection") instead of the useless
-    "Test connection" a bare package list can produce.
-    """
-    checks_by_owner: dict[str, list[str]] = {}
-    for check in request.app.state.sm.health_registry.all_checks:
-        if check.module:
-            checks_by_owner.setdefault(check.module, []).append(check.name)
-
-    return {
-        _package_of(mod): sorted(checks_by_owner[mod.meta.name])
-        for mod in getattr(request.app.state.sm, "modules", ())
-        if mod.meta.name in checks_by_owner
-    }
 
 
 @router.post(
