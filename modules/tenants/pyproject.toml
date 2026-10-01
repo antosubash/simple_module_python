@@ -16,6 +16,7 @@ dependencies = [
     "simple_module_settings==0.0.35",
     "simple_module_auth==0.0.35",
     "cachetools>=5.3",
+    "email-validator>=2.1",
 ]
 
 [project.entry-points.simple_module]
