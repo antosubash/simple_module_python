@@ -176,6 +176,13 @@ class FileStorageModule(ModuleBase):
         from file_storage.aggregates import register_invalidation
         from file_storage.backends import build_backend
 
+        # With multi_tenant off the install is the only tenant, so ordinary
+        # users keep deleting their files. With it on every tenant member also
+        # holds ``user``, so the grant stays on the organisation-admin roles.
+        # Done here because register_permissions cannot see the settings.
+        if not getattr(app.state.sm.settings, "multi_tenant", False):
+            app.state.sm.permissions.map_role(constants.USER_ROLE, [constants.Permission.DELETE])
+
         services = app.state.file_storage
         settings = services.settings
         services.backend = build_backend(settings)

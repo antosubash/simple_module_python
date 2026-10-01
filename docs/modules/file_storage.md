@@ -177,12 +177,14 @@ Register it in your module's `register_settings` so the file_storage service can
 |---|---|---|
 | `file_storage.upload` | `user`, `admin`, `tenant:member`/`admin`/`owner` | upload files |
 | `file_storage.download` | `user`, `admin`, `tenant:member`/`admin`/`owner` | list / get / download |
-| `file_storage.delete` | `admin`, `tenant:admin`, `tenant:owner` | delete |
-
-Delete is an organisation-admin act: the platform `user` role, which every
-account holds, no longer carries it (it would hand it back to every tenant
-member).
+| `file_storage.delete` | `admin`, `tenant:admin`, `tenant:owner`; also `user` when `multi_tenant` is off | delete |
 | `file_storage.manage` | `admin` | reserved for future admin operations |
+
+With `multi_tenant` on, delete is an organisation-admin act: the platform
+`user` role, which every account holds, does not carry it (it would hand it to
+every tenant member). With `multi_tenant` off the install is the only tenant,
+so `on_startup` maps `file_storage.delete` onto `user` and ordinary users keep
+deleting their files.
 
 ## Menu
 
