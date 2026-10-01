@@ -129,6 +129,9 @@ class UsersAuthProvider:
             # sign out a browser this process has never seen — the alternative
             # is a button that only logs out the person pressing it.
             if await self._version_still_current(request.scope, user_uuid, session):
+                # Cookies minted before #381 still cache the retired user-row
+                # tenant; the active tenant now comes from memberships alone.
+                cached.tenant_id = None
                 return cached
             _forget(session)
             return None

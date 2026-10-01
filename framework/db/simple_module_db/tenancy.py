@@ -52,8 +52,9 @@ DEFAULT_TENANT_ID = "default"
 A single-tenant install (``multi_tenant`` off) has no tenant to bind, but
 ``MultiTenantMixin.tenant_id`` is NOT NULL, so inserts are stamped with this.
 Adoption migrations backfill existing rows with the same value. It is not the
-``default_tenant`` host setting: that one *binds* a tenant per request; this
-is only the fallback when nothing is bound. Strict mode never uses it.
+``default_tenant`` host setting: that one *binds* a tenant per request, and
+when set it replaces this constant as the fallback
+(``DatabaseState.default_tenant_id``). Strict mode never uses either.
 """
 
 
