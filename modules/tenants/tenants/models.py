@@ -11,9 +11,11 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from simple_module_db import is_valid_tenant_id
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin
 from sqlalchemy import Column, DateTime, Index, UniqueConstraint, text
+from sqlalchemy.orm import validates
 from sqlmodel import Field
 
 from tenants.constants import (
@@ -41,6 +43,14 @@ class Tenant(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
     slug: str = Field(max_length=MAX_SLUG_LEN, unique=True, index=True)
     name: str = Field(max_length=MAX_NAME_LEN)
     status: str = Field(default=TenantStatus.ACTIVE, max_length=20, index=True)
+
+    @validates("id")
+    def _check_id(self, _key: str, value: str) -> str:
+        # Refuses the reserved ``PLATFORM_TENANT_ID`` (and any malformed id):
+        # a tenant with that id would own every platform file.
+        if not is_valid_tenant_id(value):
+            raise ValueError(f"{value!r} cannot be a tenant id")
+        return value
 
 
 class Membership(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]

@@ -59,6 +59,13 @@ def test_default_tenant_must_be_a_valid_id():
         HostSettings(default_tenant="has space")
 
 
+def test_default_tenant_cannot_be_the_platform_owner():
+    from simple_module_db import PLATFORM_TENANT_ID
+
+    with pytest.raises(ValidationError, match="reserved"):
+        HostSettings(default_tenant=PLATFORM_TENANT_ID)
+
+
 async def test_fixed_tenant_middleware_binds_every_request():
     seen = {}
 

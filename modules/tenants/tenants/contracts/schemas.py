@@ -7,6 +7,7 @@ from datetime import datetime
 
 from email_validator import EmailNotValidError, validate_email
 from pydantic import field_validator
+from simple_module_db import PLATFORM_TENANT_ID
 from sqlmodel import Field, SQLModel
 
 from tenants.constants import MAX_EMAIL_LEN, MAX_NAME_LEN, MembershipRole
@@ -33,6 +34,8 @@ class TenantCreate(SQLModel):
     def _slug_shape(cls, value: str | None) -> str | None:
         if value is not None and not _SLUG_RE.fullmatch(value):
             raise ValueError("slug must be 1-50 lowercase letters, digits or inner dashes")
+        if value == PLATFORM_TENANT_ID:
+            raise ValueError(f"slug {value!r} is reserved")
         return value
 
 

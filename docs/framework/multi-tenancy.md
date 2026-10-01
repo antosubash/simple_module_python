@@ -118,6 +118,12 @@ op.execute(sa.text("UPDATE files_file SET tenant_id = :t").bindparams(t=DEFAULT_
 op.alter_column("files_file", "tenant_id", nullable=False)
 ```
 
+`PLATFORM_TENANT_ID` (`"platform"`) is the other reserved value: the owner of
+rows that belong to the install rather than to a tenant (`file_storage`'s
+platform files). `is_valid_tenant_id` refuses it, so nothing can be bound to it
+and no organisation or `default_tenant` can take it; a re-stamp script must
+leave those rows alone.
+
 Unbound reads are deliberately *not* narrowed to `DEFAULT_TENANT_ID`: on a
 single-tenant install every row is the install's, whatever `tenant_id` it
 carries — rows written under `default_tenant`, or while `multi_tenant` was

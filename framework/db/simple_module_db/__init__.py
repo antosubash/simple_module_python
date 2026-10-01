@@ -17,6 +17,7 @@ from simple_module_db.session import DatabaseState, RequestSession, init_db
 from simple_module_db.tenancy import (
     ALL_TENANTS_OPTION,
     DEFAULT_TENANT_ID,
+    PLATFORM_TENANT_ID,
     TENANT_ID_PATTERN,
     MissingTenantError,
     TenantIsolationError,
@@ -33,6 +34,7 @@ __all__ = [
     "ALL_TENANTS_OPTION",
     "DEFAULT_TENANT_ID",
     "LIKE_ESCAPE_CHAR",
+    "PLATFORM_TENANT_ID",
     "TENANT_ID_PATTERN",
     "AuditMixin",
     "AuditRecord",

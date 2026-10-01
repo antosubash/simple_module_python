@@ -56,7 +56,9 @@ class TestTenantAdminIsNotPlatformAdmin:
             key = tenant_role(role)
             assert key != ADMIN_ROLE and is_tenant_role(key)
             assert WILDCARD not in role_map[key]
-            assert set(role_map[key]) == set(ROLE_PERMISSIONS[role])
+            # Other modules map their own permissions onto tenant roles too
+            # (file_storage, #383), so tenants' own grants are a floor.
+            assert set(ROLE_PERMISSIONS[role]) <= set(role_map[key])
             assert not any(".platform." in p for p in role_map[key])
 
     async def test_tenant_admin_is_refused_platform_routes(self, tenant_client):

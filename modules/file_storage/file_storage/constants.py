@@ -110,6 +110,5 @@ UNKNOWN_UPLOADER: Final = "—"
 # ── Menu ─────────────────────────────────────────────────────────────
 MENU_ICON: Final = "files"
 MENU_ORDER: Final = 40
-MENU_ROLES: Final = ("admin",)
 ADMIN_ROLE: Final = "admin"
 USER_ROLE: Final = "user"

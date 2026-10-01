@@ -13,6 +13,7 @@ from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagR
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.tenancy import TenantRole, tenant_role
 
 from file_storage import constants
 
@@ -43,11 +44,13 @@ async def _resolve_file_labels(db: AsyncSession, ids: list[str]) -> dict[str, st
             continue
     if not wanted:
         return {}
-    rows = (
-        await db.execute(
-            select(StoredFile.id, StoredFile.filename).where(StoredFile.id.in_(list(wanted)))
-        )
-    ).all()
+    # Deliberately cross-tenant: the audit log is a platform screen listing
+    # every tenant's entries, and the entry it labels already records the
+    # filename among its captured fields, so naming it discloses nothing new.
+    # Scoped to the bound tenant instead, it would fail closed for a platform
+    # admin with no organisation and leave every other tenant's file a uuid.
+    stmt = select(StoredFile.id, StoredFile.filename).where(StoredFile.id.in_(list(wanted)))
+    rows = (await db.execute(stmt.execution_options(all_tenants=True))).all()
     return {wanted.get(file_id, str(file_id)): filename for file_id, filename in rows}
 
 
@@ -123,14 +126,14 @@ class FileStorageModule(ModuleBase):
                 constants.Permission.MANAGE,
             ],
         )
-        registry.map_role(
-            constants.USER_ROLE,
-            [
-                constants.Permission.UPLOAD,
-                constants.Permission.DOWNLOAD,
-                constants.Permission.DELETE,
-            ],
-        )
+        read_write = [constants.Permission.UPLOAD, constants.Permission.DOWNLOAD]
+        # Deleting is an organisation-admin act (#383). The platform ``user``
+        # role used to carry it too, which — every account holds ``user`` —
+        # would hand it straight back to each tenant member.
+        registry.map_role(constants.USER_ROLE, read_write)
+        registry.map_role(tenant_role(TenantRole.MEMBER), read_write)
+        for role in (TenantRole.ADMIN, TenantRole.OWNER):
+            registry.map_role(tenant_role(role), [*read_write, constants.Permission.DELETE])
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
@@ -141,7 +144,9 @@ class FileStorageModule(ModuleBase):
                 icon=constants.MENU_ICON,
                 order=constants.MENU_ORDER,
                 section=MenuSection.SIDEBAR,
-                roles=list(constants.MENU_ROLES),
+                # Platform admins, and every member of the active organisation
+                # (the files screen is where a tenant's own uploads live).
+                roles=[constants.ADMIN_ROLE, *(tenant_role(r) for r in TenantRole)],
                 group="Content",
                 group_key="ui.nav_groups.content",
             )
@@ -170,6 +175,13 @@ class FileStorageModule(ModuleBase):
         """
         from file_storage.aggregates import register_invalidation
         from file_storage.backends import build_backend
+
+        # With multi_tenant off the install is the only tenant, so ordinary
+        # users keep deleting their files. With it on every tenant member also
+        # holds ``user``, so the grant stays on the organisation-admin roles.
+        # Done here because register_permissions cannot see the settings.
+        if not getattr(app.state.sm.settings, "multi_tenant", False):
+            app.state.sm.permissions.map_role(constants.USER_ROLE, [constants.Permission.DELETE])
 
         services = app.state.file_storage
         settings = services.settings

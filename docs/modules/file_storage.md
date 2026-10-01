@@ -62,7 +62,8 @@ from file_storage.contracts import (
 | Column | Type | Notes |
 |---|---|---|
 | `id` | `UUID` | PK |
-| `key` | `str(512)` | backend-relative path; **unique** |
+| `tenant_id` | `str(50)` | owning tenant, from `MultiTenantMixin` |
+| `key` | `str(512)` | backend-relative path; **unique per tenant** |
 | `filename` | `str(255)` | original upload filename |
 | `content_type` | `str(128)` | sniffed / declared MIME type |
 | `size_bytes` | `int` | |
@@ -71,7 +72,56 @@ from file_storage.contracts import (
 | `extra_metadata` | `dict` | per-backend extras |
 | audit + soft-delete | from `AuditMixin` + `SoftDeleteMixin` | |
 
-Indexes on `key` (unique), `created_by`, `is_deleted`.
+Indexes on `(tenant_id, key)` (unique), `tenant_id`, `created_by`, `is_deleted`.
+
+## Multi-tenancy
+
+`StoredFile` is [`MultiTenantMixin`](/framework/multi-tenancy) (#383). Every
+route acts for the request's active tenant: another tenant's file id answers
+`404` exactly like an unknown one, listings and the browse screen's totals and
+facets count only the tenant's rows, and bulk delete skips ids it cannot see.
+The aggregate cache is keyed per tenant, and a write drops only the slots of
+the tenants it wrote (plus the unscoped slot).
+
+New storage keys are `{tenant_id}/YYYY/MM/DD/<uuid><ext>`, so each tenant's
+objects live under their own backend prefix. Rows written before the adoption
+migration keep their un-prefixed key (the column stores the full path) and were
+back-filled into `DEFAULT_TENANT_ID` (branding's system images into the
+platform owner, below). A single-tenant install (`multi_tenant`
+off) stamps uploads with `DEFAULT_TENANT_ID` and reads every row; with
+`multi_tenant` on and no tenant bound, an upload fails closed *before* any
+bytes reach the backend.
+
+**Platform files.** Files that belong to the install rather than to a tenant —
+branding's logo and favicon — are written and read with `platform=True` on
+`FileStorageService.upload` / `get` / `download` / `delete`. They are owned by
+`PLATFORM_TENANT_ID` (`"platform"`, exported by `simple_module_db`) and looked
+up under `all_tenants()` **restricted to that owner**, so they resolve from
+anonymous requests while no tenant's file can be reached that way. The id is
+reserved — `is_valid_tenant_id` refuses it, so no request, header, claim, task
+message, `default_tenant` setting or `tenants` organisation can ever be bound
+to it — and it is distinct from `DEFAULT_TENANT_ID`, the owner of a
+single-tenant install's ordinary rows. The adoption migration made only the
+files the system branding settings referenced platform files; every other
+existing row went to `DEFAULT_TENANT_ID`. **Never re-stamp platform rows**: a
+script adopting `default_tenant` must update `WHERE tenant_id = 'default'`,
+never every row.
+
+The bypass covers only the platform row. `platform_scope` flushes the
+session's other pending writes *before* lifting isolation — so they are
+stamped with, and checked against, the bound tenant as usual — and turns
+autoflush off inside, so a platform read cannot carry them through unguarded.
+
+Platform files are not listed on any tenant's Files screen.
+
+The audit-log label resolver names files across tenants on purpose: the audit
+log is a platform screen over every tenant's entries, each of which already
+records the filename.
+
+The module has no background jobs, sweeps or CLI commands. Anything added
+later that touches `StoredFile` outside a request must run under
+`tenant_context(row.tenant_id)` for per-tenant work, or `all_tenants()` for a
+deliberate platform-wide sweep.
 
 ## Settings
 
@@ -125,16 +175,22 @@ Register it in your module's `register_settings` so the file_storage service can
 
 | Code | Granted to | Purpose |
 |---|---|---|
-| `file_storage.upload` | `user`, `admin` | upload files |
-| `file_storage.download` | `user`, `admin` | list / get / download |
-| `file_storage.delete` | `user`, `admin` | delete |
+| `file_storage.upload` | `user`, `admin`, `tenant:member`/`admin`/`owner` | upload files |
+| `file_storage.download` | `user`, `admin`, `tenant:member`/`admin`/`owner` | list / get / download |
+| `file_storage.delete` | `admin`, `tenant:admin`, `tenant:owner`; also `user` when `multi_tenant` is off | delete |
 | `file_storage.manage` | `admin` | reserved for future admin operations |
+
+With `multi_tenant` on, delete is an organisation-admin act: the platform
+`user` role, which every account holds, does not carry it (it would hand it to
+every tenant member). With `multi_tenant` off the install is the only tenant,
+so `on_startup` maps `file_storage.delete` onto `user` and ordinary users keep
+deleting their files.
 
 ## Menu
 
 | Label | URL | Icon | Section | Group | Order | Roles |
 |---|---|---|---|---|---|---|
-| `Files` | `/file-storage` | `files` | `SIDEBAR` | `Content` | `40` | `["admin"]` |
+| `Files` | `/file-storage` | `files` | `SIDEBAR` | `Content` | `40` | `["admin", "tenant:owner", "tenant:admin", "tenant:member"]` |
 
 ## Events
 

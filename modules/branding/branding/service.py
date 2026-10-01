@@ -99,7 +99,7 @@ class BrandingService:
         if self.storage is None:
             return
         try:
-            await self.storage.delete(uuid.UUID(file_id))
+            await self.storage.delete(uuid.UUID(file_id), platform=True)
         except Exception:
             # Deliberately broad: any failure here is a cleanup problem, never
             # a reason to reject a rebrand the admin already succeeded at.

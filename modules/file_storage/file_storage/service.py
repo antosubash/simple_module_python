@@ -26,6 +26,7 @@ from file_storage.contracts.schemas import StoredFileOut
 from file_storage.contracts.service import StorageNotFoundError
 from file_storage.models import StoredFile
 from file_storage.reads import FileStorageReads
+from file_storage.scope import PLATFORM_TENANT_ID, owning_tenant, platform_scope
 
 if TYPE_CHECKING:
     from file_storage.aggregates import AggregateCache
@@ -89,10 +90,18 @@ class FileStorageService(FileStorageReads):
 
     # ── Upload ───────────────────────────────────────────────────────
 
-    async def upload(self, upload: UploadFile) -> StoredFileOut:
-        """Validate, stream-hash, persist to backend, and record metadata."""
+    async def upload(self, upload: UploadFile, *, platform: bool = False) -> StoredFileOut:
+        """Validate, stream-hash, persist to backend, and record metadata.
+
+        The row belongs to the bound tenant, or — with ``platform=True`` — to
+        no tenant (:data:`~file_storage.scope.PLATFORM_TENANT_ID`), for files
+        the whole install serves, such as branding images. The owner is
+        settled first: the key is prefixed with it, and a strict install with
+        no tenant must fail before an object is written, not after.
+        """
         content_type = upload.content_type or "application/octet-stream"
         self._check_content_type(content_type)
+        tenant_id = owning_tenant(self.db, platform=platform)
 
         size = 0
         sha = hashlib.sha256()
@@ -110,7 +119,7 @@ class FileStorageService(FileStorageReads):
                 sha.update(chunk)
                 yield chunk
 
-        key = _generate_key(upload.filename or "file")
+        key = _generate_key(tenant_id, upload.filename or "file")
         await self.backend.put(
             key,
             _hashing_stream(),
@@ -125,6 +134,7 @@ class FileStorageService(FileStorageReads):
         # by a janitor sweep.
         try:
             row = StoredFile(
+                tenant_id=tenant_id,
                 key=key,
                 filename=upload.filename or key,
                 content_type=content_type,
@@ -132,9 +142,10 @@ class FileStorageService(FileStorageReads):
                 backend=self.backend.backend_id,
                 checksum_sha256=sha.hexdigest(),
             )
-            self.db.add(row)
-            await self.db.flush()
-            await self.db.refresh(row)
+            async with platform_scope(self.db, platform):
+                self.db.add(row)
+                await self.db.flush()
+                await self.db.refresh(row)
         except Exception:
             try:
                 await self.backend.delete(key)
@@ -152,20 +163,31 @@ class FileStorageService(FileStorageReads):
         if allowed is not None and content_type not in allowed:
             raise ContentTypeNotAllowedError(f"Content-Type {content_type!r} not in allow-list.")
 
-    async def get(self, file_id: uuid.UUID) -> StoredFile:
-        row = await self.db.get(StoredFile, file_id)
+    async def get(self, file_id: uuid.UUID, *, platform: bool = False) -> StoredFile:
+        """The bound tenant's file, or with ``platform=True`` a platform file.
+
+        Another tenant's id misses exactly like an unknown one. ``platform``
+        needs no tenant bound (anonymous branding requests have none) and only
+        ever matches a platform-owned row, so a tenant's file id handed to a
+        platform caller — say, pasted into a branding setting — still misses.
+        """
+        stmt = select(StoredFile).where(StoredFile.id == file_id)
+        if platform:
+            stmt = stmt.where(StoredFile.tenant_id == PLATFORM_TENANT_ID)
+        async with platform_scope(self.db, platform):
+            row = (await self.db.execute(stmt)).scalar_one_or_none()
         if row is None:
             raise StoredFileNotFoundError(str(file_id))
         return row
 
-    async def download(self, file_id: uuid.UUID) -> Download:
+    async def download(self, file_id: uuid.UUID, *, platform: bool = False) -> Download:
         """Return either a streamed body or a redirect URL.
 
         Dispatch on ``backend.supports_presigned_url`` so the service stays
         provider-agnostic — adding a new backend that supports presigning
         works without touching this method.
         """
-        row = await self.get(file_id)
+        row = await self.get(file_id, platform=platform)
         if self.backend.supports_presigned_url:
             url = await self.backend.presigned_get_url(
                 row.key, self.settings.s3_presign_ttl_seconds
@@ -221,21 +243,30 @@ class FileStorageService(FileStorageReads):
                 )
         return rows
 
-    async def delete(self, file_id: uuid.UUID) -> StoredFile:
-        row = await self.get(file_id)
-        # Soft-delete in DB first; if the backend delete fails afterwards we
-        # still have a row marked deleted that can be reaped by a janitor.
-        row.is_deleted = True
-        row.deleted_at = datetime.now(UTC)
-        await self.db.flush()
+    async def delete(self, file_id: uuid.UUID, *, platform: bool = False) -> StoredFile:
+        # One scope around read + write: its opening flush runs before the
+        # platform row is touched, so the guard never sees that change.
+        async with platform_scope(self.db, platform):
+            row = await self.get(file_id, platform=platform)
+            # Soft-delete in DB first; if the backend delete fails afterwards we
+            # still have a row marked deleted that can be reaped by a janitor.
+            row.is_deleted = True
+            row.deleted_at = datetime.now(UTC)
+            await self.db.flush()
         # Object is acceptably absent — eg. a previous delete partially succeeded.
         with contextlib.suppress(StorageNotFoundError):
             await self.backend.delete(row.key)
         return row
 
 
-def _generate_key(filename: str) -> str:
-    """Build a date-sharded, collision-proof key from the original filename."""
+def _generate_key(tenant_id: str, filename: str) -> str:
+    """Build a tenant-prefixed, date-sharded, collision-proof key.
+
+    The ``{tenant_id}/`` prefix keeps each tenant's objects in a disjoint
+    namespace on the backend (one prefix to export, purge or bill per tenant).
+    Tenant ids are validated to ``TENANT_ID_PATTERN``, which has no ``/`` and
+    cannot be ``..``, so the prefix is always exactly one path segment.
+    """
     today = datetime.now(UTC)
     suffix = Path(filename).suffix
-    return f"{today:%Y/%m/%d}/{uuid.uuid4().hex}{suffix}"
+    return f"{tenant_id}/{today:%Y/%m/%d}/{uuid.uuid4().hex}{suffix}"
