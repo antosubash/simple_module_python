@@ -233,6 +233,14 @@ Screens that take a tenant id from the URL can vet it without importing
 `feature_flags` uses it to 404 on an unknown tenant when setting or listing
 overrides; clearing stays unvalidated so a stale override can still be removed.
 
+## Audit log
+
+`audit_log` stamps every entry with the tenant bound when the write flushed,
+`NULL` when none was (#372); the table is platform-wide, read with a tenant
+filter. A platform admin's actions are attributed to their **active**
+organisation when one is active — the write itself is scoped to it — and to the
+platform only when nothing is bound. See [audit_log](/modules/audit_log#multi-tenancy).
+
 ## Testing
 
 The `simple_module_test` plugin ships `tenant_client` (needs the `users` and

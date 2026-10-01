@@ -134,6 +134,27 @@ async def create_admin(
     return CreateAdminResult(user=existing, created=False)
 
 
+async def ensure_user_role(db: AsyncSession) -> Role:
+    """The standard ``user`` Role row, created (and flushed) if it is missing.
+
+    The seed migration normally inserts it; tests build the schema with
+    ``create_all`` and get no seed rows, so callers that attach the role must
+    not assume it exists.
+    """
+    user_role = (
+        await db.execute(select(Role).where(Role.name == USER_ROLE_NAME))
+    ).scalar_one_or_none()
+    if user_role is None:
+        user_role = (
+            await db.execute(select(Role).where(Role.id == USER_ROLE_ID))
+        ).scalar_one_or_none()
+    if user_role is None:
+        user_role = Role(id=USER_ROLE_ID, name=USER_ROLE_NAME, description=USER_ROLE_DESCRIPTION)
+        db.add(user_role)
+        await db.flush()
+    return user_role
+
+
 async def create_standard_user(
     db: AsyncSession,
     *,
@@ -153,18 +174,7 @@ async def create_standard_user(
         logger.info(_EVT_USER_NOOP, extra={"email": email, "id": str(existing.id)})
         return CreateAdminResult(user=existing, created=False)
 
-    user_role = (
-        await db.execute(select(Role).where(Role.name == USER_ROLE_NAME))
-    ).scalar_one_or_none()
-    if user_role is None:
-        user_role = (
-            await db.execute(select(Role).where(Role.id == USER_ROLE_ID))
-        ).scalar_one_or_none()
-    if user_role is None:
-        # Safety net — the seed migration normally inserts this row.
-        user_role = Role(id=USER_ROLE_ID, name=USER_ROLE_NAME, description=USER_ROLE_DESCRIPTION)
-        db.add(user_role)
-        await db.flush()
+    user_role = await ensure_user_role(db)
 
     user = User(
         email=email,
