@@ -100,6 +100,25 @@ class TestUploadAndServe:
             assert (await a.client.get(LOGO_URL)).status_code == 404
         assert [r.is_deleted for r in await _files(app)] == [True, True]
 
+    async def test_a_deleted_tenant_logo_falls_back_to_the_platform_logo(
+        self, app, authenticated_client, tenant_client
+    ):
+        """qa BUG-005: deleting the file via Files left a dangling override that 404'd."""
+        await authenticated_client.post(
+            "/api/branding/logo", files={"file": ("p.png", _PNG + b"p", "image/png")}
+        )
+        async with tenant_client() as a:
+            out = await _upload(a.client)
+            [_, row] = await _files(app)
+            gone = await a.client.delete(f"/api/file-storage/files/{row.id}")
+            assert gone.status_code == 204, gone.text
+            tenant_branding.forget(app)
+
+            resp = await a.client.get(out["logo_url"])  # the tenant's now-dead URL
+            assert resp.status_code == 200
+            assert resp.content == _PNG + b"p"
+            assert resp.headers["cache-control"] == "private, no-cache"
+
     async def test_member_cannot_upload(self, tenant_client):
         async with (
             tenant_client() as owner,

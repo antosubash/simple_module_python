@@ -96,6 +96,14 @@ def _configured_file_id(resolved: ResolvedBranding, field: str) -> uuid.UUID:
         raise HTTPException(status_code=404, detail="No branding image is set.") from exc
 
 
+async def _download(storage: FileStorageService, file_id: uuid.UUID, owner: str | None):
+    """The file as its owner sees it: a platform file when ``owner`` is ``None``."""
+    if owner is None:
+        return await storage.download(file_id, platform=True)
+    with tenant_context(owner):
+        return await storage.download(file_id)
+
+
 async def _serve(
     request: Request, storage: FileStorageService, field: str
 ) -> RedirectResponse | StreamingResponse:
@@ -106,16 +114,24 @@ async def _serve(
     request_tenant = resolved.tenant_id
     owner = resolved.owner_of(field)
     try:
-        if owner is None:
-            download = await storage.download(file_id, platform=True)
-        else:
-            with tenant_context(owner):
-                download = await storage.download(file_id)
+        download = await _download(storage, file_id, owner)
     except StoredFileNotFoundError as exc:
-        # Referenced file went away underneath us. 404 uncached, so the next
-        # request retries once the setting is fixed rather than caching a miss.
-        logger.warning("Branding %s references missing file %s.", field, file_id)
-        raise HTTPException(status_code=404, detail="Branding image is unavailable.") from exc
+        if owner is None:
+            # Referenced file went away underneath us. 404 uncached, so the next
+            # request retries once the setting is fixed rather than caching a miss.
+            logger.warning("Branding %s references missing file %s.", field, file_id)
+            raise HTTPException(status_code=404, detail="Branding image is unavailable.") from exc
+        # The tenant's own image was deleted (through the Files API, say) while
+        # its override still names it. Show the platform's image instead of a
+        # dead one; the override is left for the tenant to replace or reset.
+        logger.warning("Tenant %s branding %s references missing file %s.", owner, field, file_id)
+        file_id = _configured_file_id(ResolvedBranding(request.app.state.branding.settings), field)
+        try:
+            download = await _download(storage, file_id, None)
+        except StoredFileNotFoundError as missing:
+            raise HTTPException(
+                status_code=404, detail="Branding image is unavailable."
+            ) from missing
 
     if normalize_content_type(download.file.content_type) not in ALLOWED_IMAGE_TYPES:
         # Uploads are validated, so this is a hand-edited (or pre-validation)
