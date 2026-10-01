@@ -204,6 +204,13 @@ there for code that inspects a principal's roles. A role maps only what it is
 given — map `owner` and `admin` too if they should hold a member's
 permissions.
 
+Role→permission grants stay global and combine with these mappings: a user's
+platform roles and their active `tenant:<role>` resolve through the same
+registry, additively. The `tenant:` prefix is reserved — the `users` `Role`
+model refuses a name that starts with it, so no platform role (and no
+`RolePermission` row, and nothing `sync_admin_all_permissions` writes) can
+collide with a tenant role (#377).
+
 ## Testing
 
 The `simple_module_test` plugin ships `tenant_client` (needs the `users` and
