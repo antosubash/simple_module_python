@@ -19,6 +19,7 @@ class AuditEntryRead(SQLModel):
     changes: list[dict]
     user_id: str | None = None
     correlation_id: str | None = None
+    tenant_id: str | None = None
     created_at: datetime
 
 

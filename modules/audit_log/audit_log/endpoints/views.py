@@ -20,6 +20,7 @@ from audit_log.constants import (
     MAX_PAGE_SIZE,
     PAGE_BROWSE,
     PERM_VIEW,
+    PLATFORM_TENANT_FILTER,
 )
 from audit_log.deps import AuditLogServiceDep
 from audit_log.filters import EntryFilters
@@ -77,6 +78,7 @@ async def browse(
     action: str | None = Query(default=None),
     user_id: str | None = Query(default=None),
     correlation_id: str | None = Query(default=None),
+    tenant_id: str | None = Query(default=None),
     from_date: datetime | None = Query(default=None),
     to_date: datetime | None = Query(default=None),
     page: str | None = Query(default=None),
@@ -97,6 +99,7 @@ async def browse(
         correlation_id=correlation_id,
         from_date=from_date,
         to_date=to_date,
+        tenant_id=tenant_id or None,
     )
 
     result = await service.list_filtered(filters, page=page_int, page_size=page_size_int)
@@ -152,6 +155,8 @@ async def browse(
             "page": result.page,
             "page_size": result.page_size,
             "entity_types": entity_types,
+            "tenant_ids": await service.distinct_tenant_ids(),
+            "platform_tenant_value": PLATFORM_TENANT_FILTER,
             "export_url": f"{API_PREFIX}/export.csv",
             "filters": {
                 "entity_type": entity_type,
@@ -161,6 +166,7 @@ async def browse(
                 # what was typed into it.
                 "user_id": actor_term or None,
                 "correlation_id": correlation_id,
+                "tenant_id": tenant_id or None,
                 "from_date": from_date.date().isoformat() if from_date else None,
                 "to_date": to_date.date().isoformat() if to_date else None,
             },

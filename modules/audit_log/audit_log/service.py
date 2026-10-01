@@ -9,7 +9,7 @@ from simple_module_db.provider import DatabaseProvider
 from sqlalchemy import Select, and_, func, literal_column, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from audit_log.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
+from audit_log.constants import DEFAULT_PAGE_SIZE, MAX_PAGE, MAX_PAGE_SIZE
 from audit_log.contracts.schemas import AuditEntryList, AuditEntryRead
 from audit_log.filters import EntryFilters
 from audit_log.models import AuditEntry
@@ -27,6 +27,7 @@ _READ_COLUMNS = (
     AuditEntry.changes,
     AuditEntry.user_id,
     AuditEntry.correlation_id,
+    AuditEntry.tenant_id,
     AuditEntry.created_at,
 )
 
@@ -78,6 +79,7 @@ class AuditLogService:
         action: str | None = None,
         user_id: str | None = None,
         correlation_id: str | None = None,
+        tenant_id: str | None = None,
         from_date: datetime | None = None,
         to_date: datetime | None = None,
         page: int = 1,
@@ -90,6 +92,7 @@ class AuditLogService:
                 action=action,
                 user_id=user_id,
                 correlation_id=correlation_id,
+                tenant_id=tenant_id,
                 from_date=from_date,
                 to_date=to_date,
             ),
@@ -105,7 +108,7 @@ class AuditLogService:
         page_size: int = DEFAULT_PAGE_SIZE,
     ) -> AuditEntryList:
         page_size = min(max(page_size, 1), MAX_PAGE_SIZE)
-        page = max(page, 1)
+        page = min(max(page, 1), MAX_PAGE)
         conditions = filters.conditions()
 
         # Count the same conditions directly rather than wrapping the row query
@@ -179,3 +182,17 @@ class AuditLogService:
         provider = DatabaseProvider(self.db.bind.dialect.name)
         result = await self.db.execute(_distinct_stmt_for_dialect(provider))
         return list(result.scalars())
+
+    async def distinct_tenant_ids(self) -> list[str]:
+        """Every tenant id that has written an entry — feeds the tenant filter.
+
+        Platform entries (NULL) are not listed; the screen offers them as a
+        fixed "Platform" option.
+        """
+        stmt = (
+            select(AuditEntry.tenant_id)
+            .where(AuditEntry.tenant_id.isnot(None))
+            .distinct()
+            .order_by(AuditEntry.tenant_id)
+        )
+        return list((await self.db.execute(stmt)).scalars())

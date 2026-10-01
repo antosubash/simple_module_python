@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from simple_module_db import current_tenant_id
 from simple_module_db.audit import AuditRecord
 from sqlalchemy.orm import Session
 
@@ -13,6 +14,9 @@ logger = logging.getLogger(__name__)
 
 
 def audit_callback(session: Session, records: list[AuditRecord]) -> None:
+    # NULL = a platform action (no tenant bound). Deliberately not
+    # MultiTenantMixin: strict mode would raise inside the flush for those.
+    tenant_id = current_tenant_id.get()
     try:
         for record in records:
             entry = AuditEntry(
@@ -22,6 +26,7 @@ def audit_callback(session: Session, records: list[AuditRecord]) -> None:
                 changes=record.changes,
                 user_id=record.user_id,
                 correlation_id=record.correlation_id,
+                tenant_id=tenant_id,
             )
             session.add(entry)
     except Exception:
