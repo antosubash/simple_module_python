@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_inertia"
-version = "0.0.34"
+version = "0.0.35"
 description = "Inertia.js v3 server adapter for FastAPI — the protocol half of simple_module's React frontend"
 readme = "README.md"
 license = "MIT"
