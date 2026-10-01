@@ -13,7 +13,7 @@ from datetime import datetime
 
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin
-from sqlalchemy import Column, DateTime, Index, UniqueConstraint
+from sqlalchemy import Column, DateTime, Index, UniqueConstraint, text
 from sqlmodel import Field
 
 from tenants.constants import (
@@ -71,6 +71,20 @@ class Invitation(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
     """A pending invitation. Only the token's SHA-256 is stored."""
 
     __tablename__ = "tenants_invitation"
+    __table_args__ = (
+        # One open invitation per address: the service's duplicate check is a
+        # read, so concurrent requests need the database to say no (SQLite
+        # has no row lock to serialise them). Expired rows are reaped by the
+        # service before a re-invite, so only ``accepted_at`` is in the predicate.
+        Index(
+            "uq_tenants_invitation_open_email",
+            "tenant_id",
+            "email",
+            unique=True,
+            sqlite_where=text("accepted_at IS NULL"),
+            postgresql_where=text("accepted_at IS NULL"),
+        ),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
     tenant_id: str = Field(
