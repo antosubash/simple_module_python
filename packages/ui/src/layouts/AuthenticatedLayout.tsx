@@ -1,4 +1,3 @@
-import { Toaster } from '@simple-module-py/ui/components/ui/sonner';
 import type React from 'react';
 import { DEFAULT_SIDEBAR_THEME, SidebarLayout } from './SidebarLayout';
 
@@ -14,7 +13,6 @@ export function AuthenticatedLayout({ children }: { children: React.ReactNode })
     // the wordmark, where it read as part of the branding rather than a setting.
     <SidebarLayout menuKey="sidebar" theme={THEME}>
       {children}
-      <Toaster richColors position="top-right" />
     </SidebarLayout>
   );
 }
