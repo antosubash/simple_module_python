@@ -39,6 +39,9 @@ interface BrowseEmptyProps {
   /** Same options the filter dropdown offers, so the summary names the type
    * the way the control that set it does. */
   entityTypes: EntityTypeOption[];
+  /** The filter value meaning "platform actions" (no tenant) — a sentinel the
+   * reader must never see raw. */
+  platformTenantValue: string;
   onClear: () => void;
 }
 
@@ -52,7 +55,12 @@ interface BrowseEmptyProps {
  * filtered case therefore names the filters doing the excluding, so the reader
  * can see it is their query and not the record that is empty.
  */
-export function BrowseEmpty({ applied, entityTypes, onClear }: BrowseEmptyProps) {
+export function BrowseEmpty({
+  applied,
+  entityTypes,
+  platformTenantValue,
+  onClear,
+}: BrowseEmptyProps) {
   const { t } = useT();
 
   if (!hasActiveFilters(applied)) {
@@ -72,7 +80,12 @@ export function BrowseEmpty({ applied, entityTypes, onClear }: BrowseEmptyProps)
       `${t(keys.audit_log.filters.entity_type_label)}: ${typeLabel(entityTypes, applied.entity_type)}`,
     applied.action &&
       `${t(keys.audit_log.filters.action_label)}: ${actionLabel(t, applied.action)}`,
-    applied.tenant_id && `${t(keys.audit_log.filters.tenant_label)}: ${applied.tenant_id}`,
+    applied.tenant_id &&
+      `${t(keys.audit_log.filters.tenant_label)}: ${
+        applied.tenant_id === platformTenantValue
+          ? t(keys.audit_log.filters.tenant_platform)
+          : applied.tenant_id
+      }`,
     applied.user_id && `${t(keys.audit_log.filters.user_label)}: ${applied.user_id}`,
     applied.correlation_id &&
       `${t(keys.audit_log.correlation.view_related)}: ${applied.correlation_id}`,
