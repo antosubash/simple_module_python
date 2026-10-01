@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from settings._announce import announce
 from settings._row_masking import drop_placeholder_write, is_placeholder_write, out
 from settings.constants import (
     ALL_SCOPES,
@@ -23,6 +26,9 @@ from settings.contracts.schemas import (
 )
 from settings.models import Setting
 
+if TYPE_CHECKING:
+    from simple_module_core.invalidation import InvalidationBus
+
 
 class SettingService:
     """Async CRUD + scope resolution for key/value settings.
@@ -31,8 +37,14 @@ class SettingService:
     USER > TENANT > SYSTEM. The first match in that chain is returned.
     """
 
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, invalidation: InvalidationBus | None = None) -> None:
         self.db = db
+        # When given, SYSTEM/TENANT writes announce themselves after commit so
+        # per-tenant caches elsewhere drop the (tenant, key) they hold.
+        self.invalidation = invalidation
+
+    def _changed(self, entity: Setting) -> None:
+        announce(self.db, self.invalidation, entity.scope, entity.scope_id, entity.key)
 
     # ── Listing ─────────────────────────────────────────────────────
 
@@ -196,6 +208,7 @@ class SettingService:
         self.db.add(entity)
         await self.db.flush()
         await self.db.refresh(entity)
+        self._changed(entity)
         return out(entity)
 
     async def update(self, setting_id: int, data: SettingUpdate) -> SettingOut | None:
@@ -208,6 +221,7 @@ class SettingService:
             setattr(entity, field, value)
         await self.db.flush()
         await self.db.refresh(entity)
+        self._changed(entity)
         return out(entity)
 
     async def upsert_scoped(
@@ -240,12 +254,14 @@ class SettingService:
                 entity.description = data.description
         await self.db.flush()
         await self.db.refresh(entity)
+        self._changed(entity)
         return out(entity)
 
     async def delete(self, setting_id: int) -> bool:
         entity = await self.db.get(Setting, setting_id)
         if entity is None:
             return False
+        self._changed(entity)
         await self.db.delete(entity)
         await self.db.flush()
         return True
@@ -254,6 +270,7 @@ class SettingService:
         entity = await self._find(scope, scope_id, key)
         if entity is None:
             return False
+        self._changed(entity)
         await self.db.delete(entity)
         await self.db.flush()
         return True

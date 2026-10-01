@@ -3,12 +3,24 @@
 from __future__ import annotations
 
 import httpx
+import pytest
 from settings.constants import (
     API_PREFIX,
     STATUS_CREATED,
     STATUS_NO_CONTENT,
     STATUS_NOT_FOUND,
 )
+
+
+@pytest.fixture(autouse=True)
+async def _known_tenants(app):
+    """The tenant ids these tests write to must name real tenants (#382)."""
+    from tenants.models import Tenant
+
+    async with app.state.sm.db.session_factory() as db:
+        for tenant_id in ("acme", "t1", "t2"):
+            db.add(Tenant(id=tenant_id, slug=tenant_id, name=tenant_id))
+        await db.commit()
 
 
 def _url(path: str = "") -> str:

@@ -50,9 +50,10 @@ from settings.constants import (
     VIEW_PREFIX,
     VIEW_STORE_PATH,
 )
-from settings.contracts.schemas import SettingCreate, SettingUpdate
+from settings.contracts.schemas import SettingCreate, SettingScope, SettingUpdate
 from settings.deps import get_setting_service
 from settings.service import SettingService
+from settings.tenant_scope import tenant_write_error
 
 _PAGE_BROWSE = "Settings/Browse"
 _PAGE_CREATE = "Settings/Create"
@@ -162,6 +163,10 @@ async def create_action(
         data = SettingCreate(**body)
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
+    if data.scope is SettingScope.TENANT:
+        error = await tenant_write_error(request, data.scope_id, data.key, data.value)
+        if error:
+            return redirect_back_with_errors(request, {"scope_id": error})
     await service.create(data)
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 

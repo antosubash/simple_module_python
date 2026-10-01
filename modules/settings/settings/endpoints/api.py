@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from simple_module_hosting.permissions import RequiresPermission
 
 from settings.constants import (
@@ -12,6 +12,7 @@ from settings.constants import (
     API_TENANT_PATH,
     API_USER_PATH,
     ERR_SETTING_NOT_FOUND,
+    ERR_UNKNOWN_TENANT,
     PERM_CREATE,
     PERM_DELETE,
     PERM_EDIT,
@@ -23,6 +24,7 @@ from settings.constants import (
     STATUS_CREATED,
     STATUS_NO_CONTENT,
     STATUS_NOT_FOUND,
+    STATUS_UNPROCESSABLE,
     SYSTEM_SCOPE_ID,
 )
 from settings.contracts.schemas import (
@@ -34,6 +36,7 @@ from settings.contracts.schemas import (
 )
 from settings.deps import get_setting_service
 from settings.service import SettingService
+from settings.tenant_scope import is_known_tenant, require_known_tenant, run_check
 
 router = APIRouter()
 
@@ -112,12 +115,19 @@ async def delete_system_setting(
         raise _not_found()
 
 
+# Platform-operator routes: the tenant comes from the URL, so it must name a
+# real tenant (#382). DELETE stays unvalidated so a row left behind by a
+# deleted tenant can still be cleared.
+
+
 @router.get(API_TENANT_PATH, response_model=SettingOut, dependencies=_VIEW)
 async def get_tenant_setting(
     scope_id: str,
     key: str,
+    request: Request,
     service: SettingService = Depends(get_setting_service),
 ) -> SettingOut:
+    await require_known_tenant(request, scope_id)
     result = await service.get_scoped(SettingScope.TENANT, scope_id, key)
     if result is None:
         raise _not_found()
@@ -129,8 +139,11 @@ async def upsert_tenant_setting(
     scope_id: str,
     key: str,
     data: SettingUpsert,
+    request: Request,
     service: SettingService = Depends(get_setting_service),
 ) -> SettingOut:
+    await require_known_tenant(request, scope_id)
+    await run_check(request, scope_id, key, data.value)
     return await service.upsert_scoped(SettingScope.TENANT, scope_id, key, data)
 
 
@@ -182,8 +195,14 @@ async def delete_user_setting(
 @router.post("/", response_model=SettingOut, status_code=STATUS_CREATED, dependencies=_CREATE)
 async def create_setting(
     data: SettingCreate,
+    request: Request,
     service: SettingService = Depends(get_setting_service),
 ) -> SettingOut:
+    if data.scope is SettingScope.TENANT:
+        # A body field, not a path segment: an unknown tenant is invalid input.
+        if not await is_known_tenant(request, data.scope_id):
+            raise HTTPException(status_code=STATUS_UNPROCESSABLE, detail=ERR_UNKNOWN_TENANT)
+        await run_check(request, data.scope_id, data.key, data.value)
     return await service.create(data)
 
 
@@ -201,8 +220,12 @@ async def get_setting(
 async def update_setting(
     setting_id: int,
     data: SettingUpdate,
+    request: Request,
     service: SettingService = Depends(get_setting_service),
 ) -> SettingOut:
+    current = await service.get_by_id(setting_id)
+    if current is not None and current.scope is SettingScope.TENANT and data.value is not None:
+        await run_check(request, current.scope_id, current.key, data.value)
     result = await service.update(setting_id, data)
     if result is None:
         raise _not_found()

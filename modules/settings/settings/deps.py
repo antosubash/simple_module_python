@@ -21,9 +21,11 @@ from settings.service import SettingService
 
 
 async def get_setting_service(
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> SettingService:
-    return SettingService(db)
+    bus = getattr(getattr(request.app.state, "sm", None), "invalidation", None)
+    return SettingService(db, invalidation=bus)
 
 
 def get_settings_registry(request: Request) -> SettingsRegistry:

@@ -43,18 +43,23 @@ MANAGER_ROLES = frozenset({MembershipRole.OWNER, MembershipRole.ADMIN})
 # (wildcard) or an explicit role grant.
 PERM_MEMBERS_VIEW = "tenants.members.view"
 PERM_MEMBERS_MANAGE = "tenants.members.manage"
-PERM_SETTINGS_MANAGE = "tenants.settings.manage"
+# Owned and mapped by ``settings`` (#382); named here for the page guard and
+# the sidebar entry only.
+PERM_TENANT_SETTINGS = "settings.tenant.edit"
 PERM_PLATFORM_VIEW = "tenants.platform.view"
 PERM_PLATFORM_MANAGE = "tenants.platform.manage"
 
 ROLE_PERMISSIONS: dict[MembershipRole, list[str]] = {
-    MembershipRole.OWNER: [PERM_MEMBERS_VIEW, PERM_MEMBERS_MANAGE, PERM_SETTINGS_MANAGE],
+    # Tenant settings are ``settings.tenant.edit``, which the settings module
+    # owns and maps onto owner + admin itself (#382).
+    MembershipRole.OWNER: [PERM_MEMBERS_VIEW, PERM_MEMBERS_MANAGE],
     MembershipRole.ADMIN: [PERM_MEMBERS_VIEW, PERM_MEMBERS_MANAGE],
     MembershipRole.MEMBER: [PERM_MEMBERS_VIEW],
 }
 
 PAGE_INDEX = "Tenants/Index"
 PAGE_MEMBERS = "Tenants/Members"
+PAGE_SETTINGS = "Tenants/Settings"
 PAGE_ACCEPT = "Tenants/AcceptInvitation"
 PAGE_ADMIN = "Tenants/AdminBrowse"
 

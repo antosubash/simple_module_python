@@ -25,21 +25,43 @@ second registration almost always means two owners contended for the same key.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from settings.constants import ERR_KEY_ALREADY_EXISTS
 from settings.contracts.schemas import SettingScope, SettingValueType
 
+if TYPE_CHECKING:
+    from starlette.requests import Request
+
+TenantValueCheck = Callable[["Request", str, str], Awaitable[None]]
+"""``async (request, tenant_id, value)`` run before a TENANT-scope write.
+
+Raise ``ValueError`` to reject the value (422) or ``LookupError`` when it names
+something the tenant does not have (404) — e.g. a file id owned by another
+tenant. ``tenant_id`` is the scope being written, which on the platform routes
+is not the caller's own active tenant."""
+
 
 @dataclass(frozen=True, slots=True)
 class SettingDefinition:
-    """Declared metadata for a setting key."""
+    """Declared metadata for a setting key.
+
+    ``tenant_overridable`` opts the key into tenant self-service (#382): a
+    tenant owner/admin may write it for their *own* active tenant through
+    ``/api/settings/tenant/current/{key}``. Keys without it are writable at
+    tenant scope only by platform operators (``settings.edit``). ``check``
+    vets every TENANT-scope write of the key, from either surface.
+    """
 
     key: str
     default: str = ""
     description: str = ""
     scope: SettingScope = SettingScope.SYSTEM
     value_type: SettingValueType = SettingValueType.STRING
+    tenant_overridable: bool = False
+    check: TenantValueCheck | None = field(default=None, compare=False)
 
 
 @dataclass(slots=True)
@@ -61,6 +83,11 @@ class SettingsRegistry:
     @property
     def all_definitions(self) -> list[SettingDefinition]:
         return list(self._defs.values())
+
+    @property
+    def tenant_overridable(self) -> list[SettingDefinition]:
+        """Definitions a tenant may override for itself, sorted by key."""
+        return sorted((d for d in self._defs.values() if d.tenant_overridable), key=lambda d: d.key)
 
     def __contains__(self, key: str) -> bool:
         return key in self._defs

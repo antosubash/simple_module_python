@@ -19,9 +19,11 @@ from tenants.constants import (
     PAGE_ACCEPT,
     PAGE_INDEX,
     PAGE_MEMBERS,
+    PAGE_SETTINGS,
     PERM_MEMBERS_MANAGE,
     PERM_MEMBERS_VIEW,
     PERM_PLATFORM_MANAGE,
+    PERM_TENANT_SETTINGS,
 )
 from tenants.deps import InvitationServiceDep, TenantServiceDep, UserIdDep
 from tenants.resolver import memberships_for
@@ -91,6 +93,39 @@ async def members(
             ],
             "invitations": [i.model_dump(mode="json", exclude={"token_hash"}) for i in pending],
             "seats": {"used": await service.seats_used(tenant.id), "limit": limit},
+        },
+    )
+
+
+@router.get(
+    "/settings",
+    response_model=None,
+    dependencies=[Depends(RequiresPermission(PERM_TENANT_SETTINGS))],
+)
+async def tenant_settings(
+    request: Request, inertia: InertiaDep, service: TenantServiceDep
+) -> InertiaResponse | RedirectResponse:
+    """The active organisation's overridable settings (#382).
+
+    Rendered here, next to Members, because it is the organisation's page; the
+    rows and the writes belong to ``settings`` (``/api/settings/tenant/current``),
+    which acts on the active tenant only.
+    """
+    from settings.deps import get_setting_service
+    from settings.tenant_scope import registry_of
+    from settings.tenant_view import list_for_tenant
+
+    tenant_id = getattr(request.state, "tenant_id", None)
+    tenant = await service.get(tenant_id) if tenant_id else None
+    if tenant is None:
+        return RedirectResponse("/tenants/?reason=tenant_required", status_code=303)
+    settings = await get_setting_service(request, service.db)
+    rows = await list_for_tenant(settings, registry_of(request), tenant.id)
+    return await inertia.render(
+        PAGE_SETTINGS,
+        {
+            "tenant": {"id": tenant.id, "name": tenant.name, "slug": tenant.slug},
+            "settings": [row.model_dump(mode="json") for row in rows],
         },
     )
 

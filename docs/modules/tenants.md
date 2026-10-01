@@ -34,6 +34,7 @@ scoped to them.
 |---|---|---|
 | `GET /tenants/` | signed in | My organisations: switch, create |
 | `GET /tenants/members` | `tenants.members.view` | Members and invitations of the active tenant |
+| `GET /tenants/settings` | `settings.tenant.edit` | The active tenant's overrides of `tenant_overridable` settings |
 | `GET /tenants/invitations/accept?token=` | signed in | Accept an invitation |
 | `GET /admin/tenants/` | `tenants.platform.view` | Platform list of all tenants |
 | `GET/POST /api/tenants/` | signed in | List mine / create |
@@ -46,6 +47,12 @@ scoped to them.
 
 Tenant-level routes act on the *active* tenant (`/current`), never on an id
 from the URL.
+
+Organisation settings use `settings.tenant.edit`, which the `settings` module
+owns and maps onto owner and admin (#382); the page writes through
+`/api/settings/tenant/current/{key}`. The former `tenants.settings.manage`
+permission — declared, owner-only, and checked by nothing — is retired, so
+there is one permission for the one surface.
 
 ## Configuration
 
