@@ -7,11 +7,14 @@ from datetime import UTC
 from typing import TYPE_CHECKING, Any
 
 from auth.contracts.schemas import UserContext
+from simple_module_core.tenancy import is_tenant_role
+from simple_module_db import is_valid_tenant_id
 from starlette.requests import Request
 
 if TYPE_CHECKING:
     from keycloak.jwks import JWKSCache
     from keycloak.settings import KeycloakSettings
+    from keycloak.state import KeycloakState
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +27,21 @@ class KeycloakAuthProvider:
     name = "keycloak"
     _is_auth_provider = True
 
-    def __init__(self, settings: KeycloakSettings | None = None) -> None:
-        self._settings = settings
+    def __init__(
+        self, settings: KeycloakSettings | None = None, *, state: KeycloakState | None = None
+    ) -> None:
+        self._initial_settings = settings
+        # The module's state object: a settings save or the boot-time DB
+        # hydration swaps ``state.settings``, so reading through it keeps
+        # ``trust_tenant_claim`` / ``role_mapping`` edits live.
+        self._state = state
         self.jwks_cache: JWKSCache | None = None
+        self._warned_tenant_roles: set[str] = set()
+
+    @property
+    def _settings(self) -> KeycloakSettings | None:
+        live = getattr(self._state, "settings", None)
+        return live if live is not None else self._initial_settings
 
     async def resolve_user(self, request: Request) -> UserContext | None:
         auth_header = request.headers.get("authorization", "")
@@ -34,7 +49,14 @@ class KeycloakAuthProvider:
             return await self._resolve_bearer(request, auth_header[7:])
 
         session = request.scope.get("session", {})
-        return UserContext.from_session_dict(session.get(_SESSION_USER_CTX_KEY))
+        ctx = UserContext.from_session_dict(session.get(_SESSION_USER_CTX_KEY))
+        if ctx is not None:
+            # The cookie froze what was decided at login; re-decide with the
+            # current settings, so turning trust_tenant_claim off takes effect
+            # on sessions that already exist.
+            ctx.tenant_id = self._trusted_tenant(ctx.tenant_id)
+            ctx.roles = self._without_tenant_roles(ctx.roles)
+        return ctx
 
     def get_login_url(self, request: Request | None, next_url: str | None = None) -> str:
         return "/keycloak/login"
@@ -86,17 +108,45 @@ class KeycloakAuthProvider:
             for r in (roles_raw or [])
             if self._settings and r in self._settings.role_mapping
         ]
-        # The claim is the IdP's word, not ours: it is ignored unless the
-        # operator vouches for the realm mapper (``trust_tenant_claim``), and
-        # even then a registered tenant resolver overrides it every request.
-        trusted = bool(self._settings and self._settings.trust_tenant_claim)
         return UserContext(
             id=cache_id,
             email=claims.get("email", ""),
             name=(claims.get("preferred_username") or claims.get("name", "")),
-            roles=mapped,
-            tenant_id=claims.get("tenant_id") if trusted else None,
+            roles=self._without_tenant_roles(mapped),
+            tenant_id=self._trusted_tenant(claims.get("tenant_id")),
         )
+
+    def _trusted_tenant(self, value: Any) -> str | None:
+        """The ``tenant_id`` claim, if the operator trusts it and it is well-formed.
+
+        The claim is the IdP's word, not ours: it is ignored unless the operator
+        vouches for the realm mapper (``trust_tenant_claim``), and even then a
+        registered tenant resolver overrides it every request. It must also pass
+        the same id check as any other tenant id taken from outside.
+        """
+        if value is None or not (self._settings and self._settings.trust_tenant_claim):
+            return None
+        if not is_valid_tenant_id(value):
+            logger.warning("Ignoring malformed tenant_id claim %r", value)
+            return None
+        return value
+
+    def _without_tenant_roles(self, roles: list[str]) -> list[str]:
+        """Drop ``tenant:*`` roles: only the tenants module may grant them, for
+        the active tenant. A ``role_mapping`` entry producing one would
+        otherwise hand every user that tenant role in every tenant."""
+        kept = []
+        for role in roles:
+            if not is_tenant_role(role):
+                kept.append(role)
+            elif role not in self._warned_tenant_roles:
+                self._warned_tenant_roles.add(role)
+                logger.warning(
+                    "Keycloak role_mapping produced tenant role %r; ignored "
+                    "(tenant roles come from memberships only)",
+                    role,
+                )
+        return kept
 
     async def _upsert_user_cache(self, request: Request, claims: dict) -> str:
         try:

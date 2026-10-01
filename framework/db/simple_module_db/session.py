@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from simple_module_db.callbacks import OnCommitCallback, register_on_commit
 from simple_module_db.provider import DatabaseProvider, detect_provider
+from simple_module_db.tenancy import DEFAULT_TENANT_ID
 
 
 class RequestSession(AsyncSession):
@@ -42,6 +43,9 @@ class DatabaseState:
     # raises instead of reading every tenant. The host turns this on whenever
     # it runs with ``multi_tenant``; see ``simple_module_db.tenancy``.
     tenant_strict: bool = False
+    # Where a non-strict write with no tenant bound (or inside ``all_tenants()``)
+    # lands: the host's ``default_tenant``, else ``DEFAULT_TENANT_ID``.
+    default_tenant_id: str = DEFAULT_TENANT_ID
     _listeners_registered: bool = field(default=False, repr=False)
 
 
