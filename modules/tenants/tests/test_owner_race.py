@@ -23,8 +23,9 @@ from simple_module_test.database import (
     reset_schema,
 )
 from tenants.constants import MembershipRole
-from tenants.contracts.schemas import TenantCreate
+from tenants.contracts.schemas import InvitationCreate, TenantCreate
 from tenants.errors import TenantError
+from tenants.invitations import InvitationService
 from tenants.models import Base
 from tenants.service import TenantService
 
@@ -100,3 +101,34 @@ async def test_concurrent_demotion_of_the_two_owners_keeps_one(tmp_path, backend
             owners = await TenantService(db)._owner_count(tenant.id)
         assert sorted(outcomes) == ["last_owner", "ok"]
         assert owners == 1
+
+
+@pytest.mark.parametrize("backend", _backends())
+async def test_concurrent_invites_to_one_address_give_one(tmp_path, backend: str):
+    """qa BUG-004: the loser of an invite race gets ``already_invited``, not a second row."""
+    async with _database(tmp_path, backend) as state:
+        async with state.session_factory() as db:
+            tenant = await TenantService(db).create_tenant(
+                TenantCreate(name="Inv"), owner_user_id="a"
+            )
+            await db.commit()
+
+        async def invite() -> str:
+            async with state.session_factory() as db:
+                try:
+                    await InvitationService(TenantService(db), ttl_hours=1).create(
+                        tenant.id, InvitationCreate(email="dup@x.io"), base_url="http://t"
+                    )
+                    await db.commit()
+                    return "ok"
+                except TenantError as exc:
+                    await db.rollback()
+                    return exc.code
+
+        outcomes = await asyncio.gather(*(invite() for _ in range(5)))
+        assert sorted(outcomes) == ["already_invited"] * 4 + ["ok"]
+        async with state.session_factory() as db:
+            pending = await InvitationService(TenantService(db), ttl_hours=1).list_pending(
+                tenant.id
+            )
+        assert len(pending) == 1
