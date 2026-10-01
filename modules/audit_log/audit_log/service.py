@@ -9,7 +9,7 @@ from simple_module_db.provider import DatabaseProvider
 from sqlalchemy import Select, and_, func, literal_column, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from audit_log.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
+from audit_log.constants import DEFAULT_PAGE_SIZE, MAX_PAGE, MAX_PAGE_SIZE
 from audit_log.contracts.schemas import AuditEntryList, AuditEntryRead
 from audit_log.filters import EntryFilters
 from audit_log.models import AuditEntry
@@ -108,7 +108,7 @@ class AuditLogService:
         page_size: int = DEFAULT_PAGE_SIZE,
     ) -> AuditEntryList:
         page_size = min(max(page_size, 1), MAX_PAGE_SIZE)
-        page = max(page, 1)
+        page = min(max(page, 1), MAX_PAGE)
         conditions = filters.conditions()
 
         # Count the same conditions directly rather than wrapping the row query
