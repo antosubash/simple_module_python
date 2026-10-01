@@ -137,6 +137,25 @@ then the session's choice validated against a membership (#363). Without one it 
 `tenant_id` claim, and for **anonymous** requests only, the configured
 `tenant_header`. An authenticated user can never pick a tenant by header.
 
+### Source and `Vary`
+
+The middleware records where the tenant came from on
+`request.state.tenant_source`: `fixed` (`default_tenant`), `subdomain`,
+`header` (a member's explicit per-request choice), `session`, `claim` (the
+principal's `tenant_id`), `anon_header` (anonymous requests only),
+`resolver` (a custom resolver that returned a bare string), or `None` when no
+tenant was bound. Use it to tell a deliberate per-request choice from an
+ambient session default.
+
+A resolver may return `str | None` (source `resolver`), a
+`(tenant_id, source)` pair, or `TenantResolution(tenant_id, source, vary)` from
+`simple_module_hosting.middleware`. `vary` lists the request headers the answer
+depended on; the middleware merges them into the response `Vary` (existing
+entries are kept, duplicates are dropped case-insensitively, `Vary: *` is left
+alone). The `tenants` resolver reports `Host` when subdomains are enabled and
+the tenant header whenever it is configured, even if the answer was `None`, so
+a shared cache cannot serve one tenant's response to another.
+
 ## Unique keys
 
 On a tenant-scoped table every business key is per tenant: put `tenant_id` in

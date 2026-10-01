@@ -26,7 +26,12 @@ from simple_module_hosting._observability import (
     CorrelationIdMiddleware,
     RequestLoggingMiddleware,
 )
-from simple_module_hosting._tenant import TENANT_HEADER, TenantMiddleware, TenantResolver
+from simple_module_hosting._tenant import (
+    TENANT_HEADER,
+    TenantMiddleware,
+    TenantResolution,
+    TenantResolver,
+)
 from simple_module_hosting.permissions import expand_permissions, resolve_permissions
 
 if TYPE_CHECKING:
@@ -62,6 +67,7 @@ __all__ = [
     "RequestLoggingMiddleware",
     "SecurityHeadersMiddleware",
     "TenantMiddleware",
+    "TenantResolution",
     "TenantResolver",
 ]
 
