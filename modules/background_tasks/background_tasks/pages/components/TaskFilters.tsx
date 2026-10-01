@@ -9,7 +9,13 @@ import {
   SelectValue,
 } from '@simple-module-py/ui/components/ui/select';
 import { Search } from 'lucide-react';
-import { QUEUE_ALL, SEGMENT_LABEL_KEY, SEGMENT_STATUSES, STATUS_ALL } from '../constants';
+import {
+  QUEUE_ALL,
+  SEGMENT_LABEL_KEY,
+  SEGMENT_STATUSES,
+  STATUS_ALL,
+  TENANT_ALL,
+} from '../constants';
 
 interface Props {
   search: string;
@@ -22,6 +28,13 @@ interface Props {
   onQueueChange: (next: string) => void;
   /** Every queue that has run work, for the dropdown. */
   queues: string[];
+  /** Active tenant filter, or `TENANT_ALL`. */
+  tenant: string;
+  onTenantChange: (next: string) => void;
+  /** Tenants that have published work, for the dropdown. */
+  tenantIds: string[];
+  /** Filter value selecting executions with no tenant (platform publishes). */
+  platformTenantValue: string;
 }
 
 /**
@@ -40,6 +53,10 @@ export function TaskFilters({
   queue,
   onQueueChange,
   queues,
+  tenant,
+  onTenantChange,
+  tenantIds,
+  platformTenantValue,
 }: Props) {
   const { t } = useT();
   const options = SEGMENT_STATUSES.map((value) => ({
@@ -83,6 +100,30 @@ export function TaskFilters({
             {queues.map((q) => (
               <SelectItem key={q} value={q} className="font-mono">
                 {q}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={tenant || TENANT_ALL} onValueChange={onTenantChange}>
+          <SelectTrigger
+            aria-label={t(keys.background_tasks.filters.tenant_aria)}
+            className="gap-1.5 max-lg:min-h-11"
+          >
+            <span className="text-muted-foreground">
+              {t(keys.background_tasks.filters.tenant_label)}
+            </span>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={TENANT_ALL}>
+              {t(keys.background_tasks.filters.tenant_all)}
+            </SelectItem>
+            <SelectItem value={platformTenantValue}>
+              {t(keys.background_tasks.filters.tenant_platform)}
+            </SelectItem>
+            {tenantIds.map((id) => (
+              <SelectItem key={id} value={id} className="font-mono">
+                {id}
               </SelectItem>
             ))}
           </SelectContent>

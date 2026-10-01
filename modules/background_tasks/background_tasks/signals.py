@@ -41,7 +41,12 @@ from background_tasks.contracts.events import TaskFailed
 from background_tasks.log_context import signal_task_finished, signal_task_started
 from background_tasks.models import TaskExecution
 from background_tasks.sync_db import sync_session
-from background_tasks.tenant_context import release_tenant, restore_tenant, stamp_tenant
+from background_tasks.tenant_context import (
+    published_tenant,
+    release_tenant,
+    restore_tenant,
+    stamp_tenant,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -138,18 +143,19 @@ def on_task_publish(
         args_in, kwargs_in = body[0], body[1]
     args, kwargs = coerce_args_kwargs(args_in, kwargs_in)
 
-    _apply(
-        "on_task_publish",
-        celery_task_id=task_id,
-        defaults={
-            "task_name": task_name,
-            "status": TaskStatus.PENDING,
-            "queue": routing_key or DEFAULT_QUEUE,
-            "args": args,
-            "kwargs": kwargs,
-            "queued_at": now_utc(),
-        },
-    )
+    defaults: dict[str, Any] = {
+        "task_name": task_name,
+        "status": TaskStatus.PENDING,
+        "queue": routing_key or DEFAULT_QUEUE,
+        "args": args,
+        "kwargs": kwargs,
+        "queued_at": now_utc(),
+    }
+    # Omitted when none, so a platform publish never blanks a stamped row.
+    if tenant_id := published_tenant(headers):
+        defaults["tenant_id"] = tenant_id
+
+    _apply("on_task_publish", celery_task_id=task_id, defaults=defaults)
 
 
 # ── Execution lifecycle ─────────────────────────────────────────

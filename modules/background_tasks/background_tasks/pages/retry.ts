@@ -4,7 +4,7 @@
 
 import { keys, t } from '@simple-module-py/i18n';
 import { toast } from 'sonner';
-import { API_BASE, QUEUE_ALL, STATUS_ALL, type TaskStatus } from './constants';
+import { API_BASE, QUEUE_ALL, STATUS_ALL, type TaskStatus, TENANT_ALL } from './constants';
 
 export interface Execution {
   id: string;
@@ -12,6 +12,8 @@ export interface Execution {
   task_name: string;
   status: TaskStatus;
   queue: string;
+  /** Tenant that published the task; null for beat / platform publishes. */
+  tenant_id: string | null;
   // Shown by the retry confirm before it re-enqueues them — see the list schema.
   args: unknown[];
   kwargs: Record<string, unknown>;
@@ -63,11 +65,13 @@ export async function retryAllFailed(filters: {
   status: string;
   taskName: string;
   queue: string;
+  tenant: string;
 }): Promise<number | null> {
   const params = new URLSearchParams();
   if (filters.status && filters.status !== STATUS_ALL) params.set('status', filters.status);
   if (filters.taskName) params.set('q', filters.taskName);
   if (filters.queue && filters.queue !== QUEUE_ALL) params.set('queue', filters.queue);
+  if (filters.tenant && filters.tenant !== TENANT_ALL) params.set('tenant_id', filters.tenant);
   const query = params.toString();
   try {
     const res = await fetch(`${API_BASE}/executions/retry-failed${query ? `?${query}` : ''}`, {

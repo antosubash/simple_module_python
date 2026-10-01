@@ -55,6 +55,15 @@ def stamp_tenant(headers: dict[str, Any] | None) -> None:
         headers[TENANT_HEADER] = tenant_id
 
 
+def published_tenant(headers: dict[str, Any] | None) -> str | None:
+    """The tenant an outgoing message is for: its header, else the publisher's.
+
+    Call after :func:`stamp_tenant`. The header may also have been set by
+    platform code naming a tenant while none is bound.
+    """
+    return (headers or {}).get(TENANT_HEADER) or current_tenant_id.get()
+
+
 def _tenant_of(task: Any) -> str | None:
     request = getattr(task, "request", None)
     if request is None:
@@ -97,6 +106,7 @@ def release_tenant(*, task_id: str | None) -> None:
 
 __all__ = [
     "TENANT_HEADER",
+    "published_tenant",
     "release_tenant",
     "restore_tenant",
     "set_default_tenant",

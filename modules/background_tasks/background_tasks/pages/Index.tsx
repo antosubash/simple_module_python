@@ -12,7 +12,7 @@ import { type StatusCounts, StatusStrip } from './components/StatusStrip';
 import { TaskFilters } from './components/TaskFilters';
 import { TasksEmptyRow, type WorkerPresence } from './components/TasksEmpty';
 import { WorkerHealthBanner } from './components/WorkerHealthBanner';
-import { QUEUE_ALL, STATUS_ALL, TASK_STATUS, VIEW_BASE } from './constants';
+import { QUEUE_ALL, STATUS_ALL, TASK_STATUS, TENANT_ALL, VIEW_BASE } from './constants';
 import { type Execution, retryAllFailed, retryExecution } from './retry';
 
 interface Pagination {
@@ -25,6 +25,7 @@ interface Filters {
   status: string;
   task_name: string;
   queue: string;
+  tenant: string;
 }
 
 interface Props {
@@ -34,6 +35,10 @@ interface Props {
   status_counts: StatusCounts;
   /** Every queue that has run work, for the dropdown. */
   queues: string[];
+  /** Tenants that have published work, for the dropdown. */
+  tenant_ids: string[];
+  /** Filter value selecting executions with no tenant. */
+  platform_tenant_value: string;
   /** Null unless the unfiltered list came back empty — see the index view. */
   worker_presence: WorkerPresence | null;
 }
@@ -47,6 +52,7 @@ function pushFilters(filters: Filters, page: number): void {
   if (filters.task_name) params.q = filters.task_name;
   if (filters.status && filters.status !== STATUS_ALL) params.status = filters.status;
   if (filters.queue && filters.queue !== QUEUE_ALL) params.queue = filters.queue;
+  if (filters.tenant && filters.tenant !== TENANT_ALL) params.tenant = filters.tenant;
   if (page > 1) params.page = String(page);
   router.get(VIEW_BASE, params, { preserveState: true, preserveScroll: true });
 }
@@ -58,6 +64,8 @@ function Index() {
     filters: initialFilters,
     status_counts: statusCounts,
     queues,
+    tenant_ids: tenantIds,
+    platform_tenant_value: platformTenantValue,
     worker_presence: workerPresence,
   } = usePage<{ props: Props }>().props as unknown as Props;
 
@@ -71,16 +79,21 @@ function Index() {
   const [busy, setBusy] = useState(false);
   const statusValue = initialFilters.status || STATUS_ALL;
   const queueValue = initialFilters.queue || QUEUE_ALL;
+  const tenantValue = initialFilters.tenant || TENANT_ALL;
   // Derived from the server-confirmed filters, not the live `search` input:
   // `workerPresence` reflects the last committed request, so mixing it with
   // unsubmitted local state would flash the wrong empty-state copy during the
   // debounce window between a keystroke and the resulting navigation.
   const isFiltered =
-    !!(initialFilters.task_name ?? '') || statusValue !== STATUS_ALL || queueValue !== QUEUE_ALL;
+    !!(initialFilters.task_name ?? '') ||
+    statusValue !== STATUS_ALL ||
+    queueValue !== QUEUE_ALL ||
+    tenantValue !== TENANT_ALL;
   const filters: Filters = {
     status: statusValue,
     task_name: search,
     queue: queueValue,
+    tenant: tenantValue,
   };
 
   // Work that is supposed to be moving. Counting `running` too is deliberate:
@@ -101,7 +114,7 @@ function Index() {
     // clear, and an armed flag would swallow the user's next keystroke.
     if (search !== '') skipNextDebounceRef.current = true;
     setSearch('');
-    pushFilters({ status: STATUS_ALL, task_name: '', queue: QUEUE_ALL }, 1);
+    pushFilters({ status: STATUS_ALL, task_name: '', queue: QUEUE_ALL, tenant: TENANT_ALL }, 1);
   }
 
   // Debounce search: any change from the server-provided value kicks off a
@@ -113,11 +126,15 @@ function Index() {
     }
     if (search === (initialFilters.task_name ?? '')) return;
     const timeout = setTimeout(
-      () => pushFilters({ status: statusValue, task_name: search, queue: queueValue }, 1),
+      () =>
+        pushFilters(
+          { status: statusValue, task_name: search, queue: queueValue, tenant: tenantValue },
+          1,
+        ),
       300,
     );
     return () => clearTimeout(timeout);
-  }, [search, initialFilters.task_name, statusValue, queueValue]);
+  }, [search, initialFilters.task_name, statusValue, queueValue, tenantValue]);
 
   async function handleRetry() {
     if (!retryTarget) return;
@@ -134,6 +151,7 @@ function Index() {
       status: statusValue,
       taskName: initialFilters.task_name ?? '',
       queue: queueValue,
+      tenant: tenantValue,
     });
     setBusy(false);
     setRetryAllOpen(false);
@@ -188,6 +206,10 @@ function Index() {
           queue={queueValue}
           onQueueChange={(queue) => pushFilters({ ...filters, queue }, 1)}
           queues={queues ?? []}
+          tenant={tenantValue}
+          onTenantChange={(tenant) => pushFilters({ ...filters, tenant }, 1)}
+          tenantIds={tenantIds ?? []}
+          platformTenantValue={platformTenantValue}
         />
 
         <ExecutionsTable

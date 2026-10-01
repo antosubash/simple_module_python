@@ -43,6 +43,9 @@ export function ExecutionRow({ execution, canRetry, onRetry }: Props) {
       <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
         {execution.queue}
       </TableCell>
+      <TableCell className="hidden font-mono text-xs text-muted-foreground md:table-cell">
+        {execution.tenant_id ?? t(keys.background_tasks.filters.tenant_platform)}
+      </TableCell>
       <TableCell className="hidden text-sm text-muted-foreground lg:table-cell">
         {ago(execution.queued_at)}
       </TableCell>

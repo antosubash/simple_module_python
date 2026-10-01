@@ -12,6 +12,7 @@ from simple_module_inertia import InertiaResponse
 
 from background_tasks.constants import (
     PERM_VIEW,
+    PLATFORM_TENANT_FILTER,
     TaskStatus,
 )
 from background_tasks.deps import get_background_task_service
@@ -53,6 +54,7 @@ async def index(
     status: TaskStatus | None = Query(default=None),
     task_name: str = Query(default="", alias="q"),
     queue: str = Query(default=""),
+    tenant_id: str = Query(default="", alias="tenant"),
     page: int = Query(default=1),
     service: BackgroundTaskService = Depends(get_background_task_service),
 ) -> InertiaResponse:
@@ -60,22 +62,28 @@ async def index(
         status=status,
         task_name=task_name or None,
         queue=queue or None,
+        tenant_id=tenant_id or None,
         page=page,
         per_page=PER_PAGE,
     )
     # A filtered-empty list says nothing about the fleet, so don't pay to poll
     # it: the screen already knows to blame the filter.
-    unfiltered_and_empty = response.total == 0 and not task_name and not queue and status is None
+    unfiltered_and_empty = (
+        response.total == 0 and not task_name and not queue and not tenant_id and status is None
+    )
 
     async def strip_data() -> tuple[dict[str, int], list[str]]:
         """Everything above the table. Serial: one session, one connection."""
-        counts = await service.status_counts(task_name=task_name or None, queue=queue or None)
+        counts = await service.status_counts(
+            task_name=task_name or None, queue=queue or None, tenant_id=tenant_id or None
+        )
         # The strip's third tile is a windowed throughput reading rather than a
         # status total, so it needs its own count — see `success_count_since`.
         counts["success_24h"] = await service.success_count_since(
             hours=SUCCESS_WINDOW_HOURS,
             task_name=task_name or None,
             queue=queue or None,
+            tenant_id=tenant_id or None,
         )
         # Deliberately unfiltered: the dropdown is how an operator leaves the
         # queue they are in, so it keeps offering the ones they are not in.
@@ -97,6 +105,8 @@ async def index(
                 "success_24h": counts["success_24h"],
             },
             "queues": queues,
+            "tenant_ids": await service.tenant_ids(),
+            "platform_tenant_value": PLATFORM_TENANT_FILTER,
             "worker_presence": presence,
             "pagination": {
                 "page": response.page,
@@ -107,6 +117,7 @@ async def index(
                 "status": status.value if status else "",
                 "task_name": task_name,
                 "queue": queue,
+                "tenant": tenant_id,
             },
         },
     )
