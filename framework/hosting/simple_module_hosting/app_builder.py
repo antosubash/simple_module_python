@@ -240,6 +240,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Multi-tenant installs fail closed: a tenant-scoped query with no tenant
     # context raises instead of reading every tenant's rows.
     db_state.tenant_strict = settings.multi_tenant
+    # Where unbound / all_tenants() writes land on a single-tenant install:
+    # its ``default_tenant`` when set, so they stay visible to its requests.
+    if not settings.multi_tenant and settings.default_tenant:
+        db_state.default_tenant_id = settings.default_tenant
     register_listeners(db_state)
     # The host's own readiness signal, and the only probe-safe check in a
     # default install — module checks reach third parties and are on-demand.
