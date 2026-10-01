@@ -3,17 +3,13 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { detail } from './apiDetail';
 
 interface Props {
   inputId: string;
   uploadUrl: string;
   overridden: boolean;
   onChanged: () => void;
-}
-
-async function detail(response: Response): Promise<string | null> {
-  const data = await response.json().catch(() => ({}) as Record<string, unknown>);
-  return typeof data.detail === 'string' ? data.detail : null;
 }
 
 /**

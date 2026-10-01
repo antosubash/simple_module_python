@@ -5,6 +5,7 @@ import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { detail } from './apiDetail';
 import { TenantImageControl } from './TenantImageControl';
 
 export interface TenantSetting {
@@ -27,11 +28,6 @@ interface Props {
 }
 
 const API = '/api/settings/tenant/current';
-
-async function detail(response: Response): Promise<string | null> {
-  const data = await response.json().catch(() => ({}) as Record<string, unknown>);
-  return typeof data.detail === 'string' ? data.detail : null;
-}
 
 /** One overridable key: its inherited value, the organisation's override, save/reset. */
 export function TenantSettingRow({ setting, onChanged }: Props) {
