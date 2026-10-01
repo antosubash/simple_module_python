@@ -101,6 +101,17 @@ All notable changes to this project are documented in this file. The format is b
   (#363).
 
 ### Security
+- **Settings scopes on multi-tenant hosts** (#368). The settings routes checked
+  `settings.view`/`.edit`/`.delete` only, so any holder could write the
+  host-wide system scope and any tenant's or user's scope by naming it in the
+  URL. With `multi_tenant` on, a caller now reaches only its own tenant scope
+  (the request's tenant) and its own user scope; the system scope, other
+  scopes, `resolve` for another tenant/user, id-based CRUD, the module-settings
+  API and the `/admin/settings` screens need a platform settings admin — the
+  new `settings.system` permission (held by `admin` via the wildcard). On a
+  host **without** a tenant resolver, a user whose record carries a
+  `tenant_id` is that tenant's admin and never a platform one, even with the
+  `admin` role. Single-tenant hosts are unchanged.
 - The tenant header (`tenant_header`) is no longer honoured for an
   authenticated user without a tenant of their own: such a user could name any
   tenant. On the legacy path it applies to anonymous requests only; with the

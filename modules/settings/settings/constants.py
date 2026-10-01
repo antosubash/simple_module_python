@@ -85,7 +85,12 @@ PERM_VIEW: Final = "settings.view"
 PERM_CREATE: Final = "settings.create"
 PERM_EDIT: Final = "settings.edit"
 PERM_DELETE: Final = "settings.delete"
-ALL_PERMISSIONS: Final = (PERM_VIEW, PERM_CREATE, PERM_EDIT, PERM_DELETE)
+# Host-wide settings on a multi-tenant host: the system scope, other tenants'
+# and users' scopes, and the cross-scope admin screens (GH #368). Never granted
+# by a tenant role, and withheld from a principal whose identity is bound to a
+# tenant — see ``settings.scope_guard``.
+PERM_SYSTEM: Final = "settings.system"
+ALL_PERMISSIONS: Final = (PERM_VIEW, PERM_CREATE, PERM_EDIT, PERM_DELETE, PERM_SYSTEM)
 
 # ── Database ─────────────────────────────────────────────────────────
 DB_SCHEMA: Final = MODULE_PACKAGE

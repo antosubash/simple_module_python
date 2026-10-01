@@ -24,6 +24,7 @@ from settings.contracts.events import SettingsReloaded
 from settings.deps import get_setting_service
 from settings.hydrate import hydrate_settings
 from settings.reload import apply_changes_and_reload
+from settings.scope_guard import require_platform
 from settings.service import SettingService
 from settings.store import SettingsStore
 
@@ -31,10 +32,13 @@ router = APIRouter(prefix="/modules", tags=["Settings Modules"])
 
 # Per-module settings UI exposes raw secret values (mailer password, JWT
 # signing keys, etc.) — every endpoint here is gated on the same permissions
-# the scoped API uses so a non-admin can't read or mutate module config.
-_VIEW = [Depends(RequiresPermission(PERM_VIEW))]
-_EDIT = [Depends(RequiresPermission(PERM_EDIT))]
-_DELETE = [Depends(RequiresPermission(PERM_DELETE))]
+# the scoped API uses so a non-admin can't read or mutate module config. Module
+# settings live in the system scope, so on a multi-tenant host they are also
+# platform-only (GH #368).
+_PLATFORM = Depends(require_platform)
+_VIEW = [Depends(RequiresPermission(PERM_VIEW)), _PLATFORM]
+_EDIT = [Depends(RequiresPermission(PERM_EDIT)), _PLATFORM]
+_DELETE = [Depends(RequiresPermission(PERM_DELETE)), _PLATFORM]
 
 
 def _masked_fields(app: FastAPI, package: str) -> frozenset[str]:
