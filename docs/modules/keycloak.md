@@ -85,11 +85,13 @@ By default the token's `tenant_id` claim is **ignored**: `UserContext.tenant_id`
 
 Set `trust_tenant_claim` (`SM_KEYCLOAK_TRUST_TENANT_CLAIM=true`) only when the realm alone controls the claim (a hardcoded or admin-only protocol mapper) and the [`tenants`](/modules/tenants) module is not installed. When `tenants` is installed its resolver decides the active tenant from `tenants_membership` on every request and the claim never wins, whether or not this setting is on, so realms may stop issuing it.
 
+The setting is read on every request, not only at sign-in: turning it off drops the tenant from sessions that already exist, without anyone signing out. A trusted claim must also be a well-formed tenant id (letters, digits, `_ . : -`, at most 50 characters); anything else is ignored and logged.
+
 Keycloak registers no setup steps: its local `users` table is legitimately empty, so a first-run wizard keyed on a superuser count would lock the install out. A Keycloak-only install creates its first organisation from `/tenants` after the first login.
 
 ### Role mapping
 
-`role_mapping` translates Keycloak realm roles (read from `roles_claim_path`) into the framework's role names. Roles the user has that aren't in the mapping are dropped, so only explicitly mapped roles reach the `UserContext`.
+`role_mapping` translates Keycloak realm roles (read from `roles_claim_path`) into the framework's role names. Roles the user has that aren't in the mapping are dropped, so only explicitly mapped roles reach the `UserContext`. A mapping onto a tenant role (`tenant:owner`, `tenant:admin`, `tenant:member`) is ignored, with a warning logged once per role: those roles come only from the `tenants` module, for the active tenant.
 
 ## Models
 

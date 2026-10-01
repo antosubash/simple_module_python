@@ -19,7 +19,7 @@ It's intentionally simple — a place for new installs to land that proves the p
 
 | Method + path | Inertia component | Permission |
 |---|---|---|
-| `GET /dashboard/` | `Dashboard/Home` | authenticated user (any role) |
+| `GET /dashboard/` | `Dashboard/Home` | authenticated user (any role); the stats need `dashboard.view` |
 | `GET /admin/doctor/` | `Dashboard/Doctor` | `admin` role |
 
 `/admin/doctor/` is a browser mirror of `make doctor` — it shows the same module list, static checks, dev-server and environment info from the stats payload. It is served from the module's `admin_view_prefix` (`/admin/doctor`) rather than its `view_prefix`, because dashboard owns both a public-facing screen and an admin one and a module gets only one view router.
@@ -30,7 +30,16 @@ The route is guarded by an admin dependency, and its menu entry carries the matc
 
 | Method + path | Returns | Permission |
 |---|---|---|
-| `GET /api/dashboard/stats` | `dict` (see below) | authenticated user (any role) |
+| `GET /api/dashboard/stats` | `dict` (see below) | `dashboard.view` |
+
+The stats count the whole install (`User` is not tenant-scoped), so they sit
+behind `dashboard.view`. `admin` holds it through `*`. On a single-tenant
+install (`multi_tenant` off) the module also maps it onto the platform `user`
+role, so every signed-in user keeps the numbers they always had. With
+`multi_tenant` on it is mapped to no other role — every tenant member holds
+`user`, and one tenant must not learn the size of the install — so ordinary
+users see only the welcome on `/dashboard/`, and the API answers 403. Grant it
+to a role in the role editor to change that.
 
 `/api/dashboard/stats` is what the page itself calls; you can hit it from your own UI or scripts. Response shape:
 
