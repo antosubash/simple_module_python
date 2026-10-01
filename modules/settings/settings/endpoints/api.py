@@ -36,7 +36,13 @@ from settings.contracts.schemas import (
 )
 from settings.deps import get_setting_service
 from settings.service import SettingService
-from settings.tenant_scope import is_known_tenant, require_known_tenant, run_check
+from settings.tenant_scope import (
+    is_known_tenant,
+    refuse_managed_key_delete_for_tenant,
+    refuse_tenant_managed_row_delete,
+    require_known_tenant,
+    run_check,
+)
 
 router = APIRouter()
 
@@ -117,7 +123,8 @@ async def delete_system_setting(
 
 # Platform-operator routes: the tenant comes from the URL, so it must name a
 # real tenant (#382). DELETE stays unvalidated so a row left behind by a
-# deleted tenant can still be cleared.
+# deleted tenant can still be cleared — but while the tenant exists, a key set
+# by upload is cleared through its upload route, which reaps the file.
 
 
 @router.get(API_TENANT_PATH, response_model=SettingOut, dependencies=_VIEW)
@@ -151,8 +158,10 @@ async def upsert_tenant_setting(
 async def delete_tenant_setting(
     scope_id: str,
     key: str,
+    request: Request,
     service: SettingService = Depends(get_setting_service),
 ) -> None:
+    await refuse_managed_key_delete_for_tenant(request, scope_id, key)
     if not await service.delete_scoped(SettingScope.TENANT, scope_id, key):
         raise _not_found()
 
@@ -234,7 +243,8 @@ async def update_setting(
 
 @router.delete(API_BY_ID_PATH, status_code=STATUS_NO_CONTENT, dependencies=_DELETE)
 async def delete_setting(
-    setting_id: int, service: SettingService = Depends(get_setting_service)
+    setting_id: int, request: Request, service: SettingService = Depends(get_setting_service)
 ) -> None:
+    await refuse_tenant_managed_row_delete(request, service, setting_id)
     if not await service.delete(setting_id):
         raise _not_found()

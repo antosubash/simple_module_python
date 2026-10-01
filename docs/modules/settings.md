@@ -117,7 +117,7 @@ per-tenant value subscribes and forgets.
 
 ### Generic K/V API (`/api/settings/...`)
 
-All write endpoints require `settings.edit` / `settings.create` / `settings.delete`; reads need `settings.view`. These are platform-operator permissions: no tenant role holds them, and the holder may write any key at system scope or at any tenant's scope. A TENANT `scope_id` must name a real tenant when a tenant-owning module is installed (`simple_module_core.tenancy.tenant_exists`): 404 on the `/tenant/{scope_id}/…` GET/PUT, 422 for a `POST /` body. `DELETE` stays unvalidated so a deleted tenant's leftovers can be cleared.
+All write endpoints require `settings.edit` / `settings.create` / `settings.delete`; reads need `settings.view`. These are platform-operator permissions: no tenant role holds them, and the holder may write any key at system scope or at any tenant's scope. A TENANT `scope_id` must name a real tenant when a tenant-owning module is installed (`simple_module_core.tenancy.tenant_exists`): 404 on the `/tenant/{scope_id}/…` GET/PUT, 422 for a `POST /` body. `DELETE` stays unvalidated so a deleted tenant's leftovers can be cleared. A key declaring `SettingDefinition.clear_via` (a file set through an upload route, which reaps the stored file) is refused on every generic delete (self-service, platform tenant route, by-id, admin form) with 422 naming that route while its tenant exists; only rows of tenants that no longer exist can be cleared by hand.
 
 | Method + path | Purpose |
 |---|---|

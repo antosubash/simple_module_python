@@ -27,7 +27,13 @@ from settings.constants import (
 from settings.contracts.schemas import SettingOut, SettingScope, SettingUpsert
 from settings.deps import get_setting_service
 from settings.service import SettingService
-from settings.tenant_scope import active_tenant, overridable_definition, registry_of, run_check
+from settings.tenant_scope import (
+    active_tenant,
+    overridable_definition,
+    refuse_managed_key_delete,
+    registry_of,
+    run_check,
+)
 from settings.tenant_view import TenantSettingView, list_for_tenant
 
 router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_TENANT_EDIT))])
@@ -79,5 +85,6 @@ async def delete_current(
 ) -> None:
     tenant_id = active_tenant(request)
     overridable_definition(request, key)
+    refuse_managed_key_delete(request, key)
     if not await service.delete_scoped(SettingScope.TENANT, tenant_id, key):
         raise HTTPException(status_code=STATUS_NOT_FOUND, detail=ERR_SETTING_NOT_FOUND)
