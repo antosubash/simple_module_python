@@ -8,9 +8,10 @@ an admin saves changes.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from branding.settings import BrandingSettings
+from branding.tenant_branding import TenantCache
 
 
 @dataclass
@@ -18,6 +19,8 @@ class BrandingServices:
     """Branding module singletons."""
 
     settings: BrandingSettings
+    #: Per-app cache of tenants' merged branding (see ``tenant_branding``).
+    tenant_cache: TenantCache = field(default_factory=TenantCache)
 
     @property
     def favicon_url(self) -> str | None:

@@ -103,5 +103,7 @@ async def branding_shared_props(request: Request) -> dict:
         return {}
     resolved = await resolve(request)
     if resolved.tenant_fields:
-        request.state.branding = BrandingServices(settings=resolved.settings)
+        request.state.branding = BrandingServices(
+            settings=resolved.settings, tenant_cache=request.app.state.branding.tenant_cache
+        )
     return {"branding": branding_payload(resolved.settings)}

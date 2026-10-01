@@ -59,7 +59,7 @@ class BrandingModule(ModuleBase):
     def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
         from branding.tenant_branding import subscribe
 
-        subscribe(bus)
+        subscribe(bus, app)
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(

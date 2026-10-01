@@ -42,16 +42,27 @@ logger = logging.getLogger(__name__)
 
 _PREFIX = f"{PACKAGE}."
 
-# tenant id -> (raw overrides, system object merged against, merged result)
-_CACHE: TTLCache[str, tuple[dict[str, str], BrandingSettings, ResolvedBranding]] = TTLCache(
-    maxsize=10_000, ttl=TENANT_CACHE_TTL_SECONDS
-)
-# Bumped by every forget, so a read that started before an invalidation does
-# not store its (possibly stale) result after it.
-_epoch = 0
-# tenant id -> (epoch the read started in, the read). Single-flight: concurrent
-# misses for one tenant share one read instead of each opening a session.
-_INFLIGHT: dict[str, tuple[int, asyncio.Future[dict[str, str]]]] = {}
+
+@dataclass(slots=True)
+class TenantCache:
+    """One app's tenant-branding cache, held as ``app.state.branding.tenant_cache``.
+
+    Per app, not per process: two apps in one process (tests, embedding) must
+    not serve each other's overrides, and an invalidation heard by one must
+    not drop the other's.
+    """
+
+    # tenant id -> (raw overrides, system object merged against, merged result)
+    entries: TTLCache[str, tuple[dict[str, str], BrandingSettings, ResolvedBranding]] = field(
+        default_factory=lambda: TTLCache(maxsize=10_000, ttl=TENANT_CACHE_TTL_SECONDS)
+    )
+    # Bumped by every forget, so a read that started before an invalidation does
+    # not store its (possibly stale) result after it.
+    epoch: int = 0
+    # tenant id -> (epoch the read started in, the read). Single-flight:
+    # concurrent misses for one tenant share one read instead of each opening a
+    # session.
+    inflight: dict[str, tuple[int, asyncio.Future[dict[str, str]]]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,34 +78,32 @@ class ResolvedBranding:
         return self.tenant_id if name in self.tenant_fields else None
 
 
-def forget(tenant_id: str | None = None) -> None:
-    """Drop one tenant's entry, or every entry when ``tenant_id`` is ``None``."""
-    global _epoch
-    _epoch += 1
+def forget(app: FastAPI, tenant_id: str | None = None) -> None:
+    """Drop one tenant's entry in ``app``, or every entry when ``tenant_id`` is ``None``."""
+    cache: TenantCache = app.state.branding.tenant_cache
+    cache.epoch += 1
     # A read already in flight may predate the change: later misses must start
     # a fresh one rather than join it (its own waiters still get their answer).
     if tenant_id is None:
-        _CACHE.clear()
-        _INFLIGHT.clear()
+        cache.entries.clear()
+        cache.inflight.clear()
     else:
-        _CACHE.pop(tenant_id, None)
-        _INFLIGHT.pop(tenant_id, None)
+        cache.entries.pop(tenant_id, None)
+        cache.inflight.pop(tenant_id, None)
 
 
-def _on_settings_changed(inv: Invalidation) -> None:
+def subscribe(bus: InvalidationBus, app: FastAPI) -> None:
+    from settings.constants import INVALIDATION_CHANNEL
     from settings.contracts.invalidation import parse_invalidation_key
 
-    tenant_id, key = parse_invalidation_key(inv.key)
-    if key is not None and not key.startswith(_PREFIX):
-        return  # someone else's setting
-    # A system value is inherited by every tenant without its own override.
-    forget(tenant_id)
+    def on_settings_changed(inv: Invalidation) -> None:
+        tenant_id, key = parse_invalidation_key(inv.key)
+        if key is not None and not key.startswith(_PREFIX):
+            return  # someone else's setting
+        # A system value is inherited by every tenant without its own override.
+        forget(app, tenant_id)
 
-
-def subscribe(bus: InvalidationBus) -> None:
-    from settings.constants import INVALIDATION_CHANNEL
-
-    bus.subscribe(INVALIDATION_CHANNEL, _on_settings_changed)
+    bus.subscribe(INVALIDATION_CHANNEL, on_settings_changed)
 
 
 def tenancy_active(app: FastAPI) -> bool:
@@ -139,12 +148,24 @@ def merge(system: BrandingSettings, tenant_id: str, overrides: dict[str, str]) -
 
     Writes are validated, so a bad value means a hand-edited row — it must
     degrade to the system value for that field, not break every page render.
+
+    An empty-string override is *unset*: the field inherits the platform's
+    value. To go back to inheriting, delete the override; storing ``""`` has
+    the same effect rather than blanking the platform's value.
+
+    The dark logo is paired with the light one: a tenant that overrides the
+    logo but not the dark logo must not be shown the *platform's* dark logo
+    beside its own logo, so the inherited dark logo is dropped and dark
+    surfaces fall back to the tenant's logo.
     """
-    good = dict(overrides)
+    good = {name: value for name, value in overrides.items() if value != ""}
     base: dict[str, Any] = system.model_dump()
     while good:
         try:
-            merged = BrandingSettings(**{**base, **good})
+            values = {**base, **good}
+            if "logo_file_id" in good and "logo_dark_file_id" not in good:
+                values["logo_dark_file_id"] = ""
+            merged = BrandingSettings(**values)
             return ResolvedBranding(merged, tenant_id, frozenset(good))
         except ValidationError as exc:
             bad = {str(err["loc"][0]) for err in exc.errors() if err.get("loc")}
@@ -156,18 +177,20 @@ def merge(system: BrandingSettings, tenant_id: str, overrides: dict[str, str]) -
     return ResolvedBranding(system, tenant_id, frozenset())
 
 
-def _shared_read(app: FastAPI, tenant_id: str) -> tuple[int, asyncio.Future[dict[str, str]]]:
+def _shared_read(
+    app: FastAPI, cache: TenantCache, tenant_id: str
+) -> tuple[int, asyncio.Future[dict[str, str]]]:
     """The in-flight override read for ``tenant_id``, started if there is none."""
-    entry = _INFLIGHT.get(tenant_id)
+    entry = cache.inflight.get(tenant_id)
     if entry is not None:
         return entry
     read = asyncio.ensure_future(read_overrides(app, tenant_id))
-    entry = (_epoch, read)
-    _INFLIGHT[tenant_id] = entry
+    entry = (cache.epoch, read)
+    cache.inflight[tenant_id] = entry
 
     def _done(_: asyncio.Future[dict[str, str]]) -> None:
-        if _INFLIGHT.get(tenant_id) is entry:
-            del _INFLIGHT[tenant_id]
+        if cache.inflight.get(tenant_id) is entry:
+            del cache.inflight[tenant_id]
 
     read.add_done_callback(_done)
     return entry
@@ -177,19 +200,20 @@ async def resolve_for(app: FastAPI, tenant_id: str | None) -> ResolvedBranding:
     system: BrandingSettings = app.state.branding.settings
     if not tenant_id:
         return ResolvedBranding(system)
-    hit = _CACHE.get(tenant_id)
+    cache: TenantCache = app.state.branding.tenant_cache
+    hit = cache.entries.get(tenant_id)
     if hit is not None:
         overrides, merged_against, resolved = hit
         if merged_against is system:
             return resolved
     else:
-        started, read = _shared_read(app, tenant_id)
+        started, read = _shared_read(app, cache, tenant_id)
         # Shielded: one waiter being cancelled must not cancel everyone's read.
         overrides = await asyncio.shield(read)
-        if _epoch != started:
+        if cache.epoch != started:
             return merge(system, tenant_id, overrides)  # don't cache a racing read
     resolved = merge(system, tenant_id, overrides)
-    _CACHE[tenant_id] = (overrides, system, resolved)
+    cache.entries[tenant_id] = (overrides, system, resolved)
     return resolved
 
 
@@ -200,6 +224,7 @@ async def resolve(request: Request) -> ResolvedBranding:
 
 __all__ = [
     "ResolvedBranding",
+    "TenantCache",
     "forget",
     "merge",
     "overrides_from",

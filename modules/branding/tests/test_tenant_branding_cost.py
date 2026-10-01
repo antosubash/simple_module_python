@@ -16,10 +16,10 @@ from starlette.requests import Request
 
 
 @pytest.fixture(autouse=True)
-def _fresh_cache():
-    tenant_branding.forget()
+def _fresh_cache(app):
+    tenant_branding.forget(app)
     yield
-    tenant_branding.forget()
+    tenant_branding.forget(app)
 
 
 def _request(path: str, **headers: str) -> Request:
@@ -93,7 +93,7 @@ async def test_a_miss_after_a_forget_does_not_join_the_older_read(app, monkeypat
     monkeypatch.setattr(tenant_branding, "read_overrides", slow)
     first = asyncio.create_task(tenant_branding.resolve_for(app, "acme"))
     await asyncio.sleep(0)
-    tenant_branding.forget("acme")  # the row changed while the read was in flight
+    tenant_branding.forget(app, "acme")  # the row changed while the read was in flight
     second = asyncio.create_task(tenant_branding.resolve_for(app, "acme"))
     await asyncio.sleep(0)
     release.set()

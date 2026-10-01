@@ -47,6 +47,13 @@ The tenant is always the request's active one — never an id from the URL. See
 | `POST /api/branding/tenant/{logo,logo-dark,favicon}` | `multipart` (field `file`) → the tenant's effective `BrandingOut` |
 | `DELETE /api/branding/tenant/{logo,logo-dark,favicon}` | → `BrandingOut` (the tenant falls back to the system image) |
 
+Rules for tenant overrides:
+
+- **Clearing = deleting the override.** An empty-string override is treated as unset: the tenant inherits the platform value (it never blanks it).
+- **Dark logo pairing.** A tenant that overrides the logo but not the dark logo does not get the platform's dark logo; dark surfaces fall back to the tenant's own logo.
+- **Images are cleared only here.** The generic settings deletes (`DELETE /api/settings/tenant/current/{key}`, the platform `tenant/{scope_id}/{key}` and by-id routes) answer `422` for image keys, pointing at `DELETE /api/branding/tenant/{asset}`, because only this route reaps the stored file. A platform operator can still delete the leftover row of a tenant that no longer exists.
+- **The cache is per app** (`app.state.branding.tenant_cache`), and system theme saves publish `settings.values` so other workers drop their merged tenant entries.
+
 Uploads are validated **before** the bytes reach `file_storage`: an unsupported or unconvincing type returns `415`, an oversized image `413` (see [Image guard-rails](#image-guard-rails)).
 
 ### Public assets (anonymous)

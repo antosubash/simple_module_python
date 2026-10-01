@@ -8,12 +8,17 @@ platform operator writing on a tenant's behalf — runs :func:`_check` first:
 
 * a scalar must pass the same validator the system value does (422);
 * a design pack must be one an installed module provides (422);
-* an image key is refused on every generic settings route (422): images are
-  set and cleared only through ``/api/branding/tenant/{asset}``, which
-  validates the bytes as an image, stores them as the tenant's own file and
-  reaps the file it replaces once the write commits. A generic write could do
-  none of that — it could point the logo at any file the tenant owns (a PDF),
-  and the file it displaced would never be reaped.
+* an image key is refused on every generic settings write *and delete* route
+  (422, ``clear_via``): images are set and cleared only through
+  ``/api/branding/tenant/{asset}``, which validates the bytes as an image,
+  stores them as the tenant's own file and reaps the file it replaces or
+  clears once the write commits. A generic write could do none of that — it
+  could point the logo at any file the tenant owns (a PDF), and a generic
+  delete would leave the file behind. (A row left by a deleted tenant is the
+  one thing a platform operator may still delete by hand.)
+
+An empty override is the same as none: the tenant inherits the platform's
+value. To go back to inheriting, delete the override.
 """
 
 from __future__ import annotations
@@ -38,11 +43,11 @@ if TYPE_CHECKING:
 
 _DESCRIPTIONS = {
     "app_name": "Application name shown in the header, page titles and emails.",
-    "primary_color": "Accent colour as #rrggbb; empty uses the theme default.",
-    "design_pack": "Design pack slug; empty uses the base look.",
-    "footer_text": "Footer caption; empty shows the platform's.",
+    "primary_color": "Accent colour as #rrggbb. Delete the override to use the platform's.",
+    "design_pack": "Design pack slug. Delete the override to use the platform's.",
+    "footer_text": "Footer caption. Delete the override to show the platform's.",
     "logo_file_id": "Logo image.",
-    "logo_dark_file_id": "Logo for dark surfaces; falls back to the logo.",
+    "logo_dark_file_id": "Logo for dark surfaces; falls back to the tenant's own logo.",
     "favicon_file_id": "Browser tab icon.",
 }
 _ASSET_OF = {field: asset for asset, field in TENANT_ASSETS.items()}
@@ -71,6 +76,7 @@ def register_tenant_definitions(app: FastAPI) -> None:
     defaults = BrandingSettings().model_dump()
     for name in TENANT_FIELDS:
         asset = _ASSET_OF.get(name)
+        upload_url = f"{ROUTE_PREFIX}/tenant/{asset}" if asset else ""
         registry.add(
             SettingDefinition(
                 key=f"{PACKAGE}.{name}",
@@ -79,7 +85,8 @@ def register_tenant_definitions(app: FastAPI) -> None:
                 description_key=f"{PACKAGE}.tenant_settings.{name}",
                 tenant_overridable=True,
                 check=_make_check(name),
-                upload_url=f"{ROUTE_PREFIX}/tenant/{asset}" if asset else "",
+                upload_url=upload_url,
+                clear_via=upload_url,
             )
         )
 

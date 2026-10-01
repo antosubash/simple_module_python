@@ -68,7 +68,10 @@ class BrandingService:
         from settings.service import SettingService
         from settings.store import SettingsStore
 
-        store = SettingsStore(SettingService(self.db))
+        # With the bus, so the write publishes ``settings.values`` and other
+        # workers' merged tenant caches (which inherit system values) drop.
+        invalidation = getattr(self.app.state.sm, "invalidation", None)
+        store = SettingsStore(SettingService(self.db, invalidation=invalidation))
         bus = self.app.state.sm.event_bus
         await apply_changes_and_reload(self.app, bus, store, package=PACKAGE, changes=changes)
         return self.current()

@@ -27,10 +27,10 @@ CURRENT = "/api/settings/tenant/current"
 
 
 @pytest.fixture(autouse=True)
-def _fresh_cache():
-    tenant_branding.forget()
+def _fresh_cache(app):
+    tenant_branding.forget(app)
     yield
-    tenant_branding.forget()
+    tenant_branding.forget(app)
 
 
 async def _upload(client: httpx.AsyncClient, body: bytes = _PNG) -> dict:
@@ -259,5 +259,5 @@ class TestOnlyImagesAreServed:
                     SettingUpsert(value=pdf),
                 )
                 await db.commit()
-            tenant_branding.forget()
+            tenant_branding.forget(app)
             assert (await a.client.get(LOGO_URL)).status_code == 404

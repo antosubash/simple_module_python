@@ -22,10 +22,10 @@ TENANT_LOGO = "/api/branding/tenant/logo"
 
 
 @pytest.fixture(autouse=True)
-def _fresh_cache():
-    tenant_branding.forget()
+def _fresh_cache(app):
+    tenant_branding.forget(app)
     yield
-    tenant_branding.forget()
+    tenant_branding.forget(app)
 
 
 async def _upload(client, url: str = TENANT_LOGO, body: bytes = _PNG) -> None:
