@@ -248,6 +248,11 @@ the platform routes take a tenant id from the URL and 404 an unknown one. Every
 write publishes a per-(tenant, key) notice on the `settings.values`
 invalidation channel. See [settings](/modules/settings#tenant-overridable-keys).
 
+`branding` builds on it: a tenant overrides its name, colour, design pack,
+footer caption and images, resolved per request with a tenant-keyed cache that
+listens on that channel; anonymous visitors get the subdomain's tenant's theme.
+See [branding](/modules/branding#per-tenant-branding).
+
 Screens that take a tenant id from the URL can vet it without importing
 `tenants`: the module publishes `app.state.tenant_exists`, and
 `await simple_module_core.tenancy.tenant_exists(app, tenant_id)` answers

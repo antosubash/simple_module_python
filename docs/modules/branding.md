@@ -36,6 +36,24 @@ Every JSON endpoint — including the reads — requires `branding.manage`; they
 
 `PUT /` only touches the text fields (`app_name`, `primary_color`, `design_pack`, `banner_message`, `banner_severity`); images are set and cleared through their dedicated upload/delete routes. A `design_pack` slug that no installed module registered is rejected with `422` — accepting it would put `"<slug>-root"` on the document with no stylesheet behind it, so the site would look unchanged with nothing in the UI explaining why.
 
+### API (tenant)
+
+A tenant's own images, for tenant owners and admins (`settings.tenant.edit`).
+The tenant is always the request's active one — never an id from the URL. See
+[Per-tenant branding](#per-tenant-branding).
+
+| Method + path | Body / response |
+|---|---|
+| `POST /api/branding/tenant/{logo,logo-dark,favicon}` | `multipart` (field `file`) → the tenant's effective `BrandingOut` |
+| `DELETE /api/branding/tenant/{logo,logo-dark,favicon}` | → `BrandingOut` (the tenant falls back to the system image) |
+
+Rules for tenant overrides:
+
+- **Clearing = deleting the override.** An empty-string override is treated as unset: the tenant inherits the platform value (it never blanks it).
+- **Dark logo pairing.** A tenant that overrides the logo but not the dark logo does not get the platform's dark logo; dark surfaces fall back to the tenant's own logo.
+- **Images are cleared only here.** `SettingService.delete`/`delete_scoped` refuse an image key at **every** scope (SYSTEM, TENANT and USER rows alike) and for every caller that holds a service built through settings' dependency: the generic settings deletes (`DELETE /api/settings/tenant/current/{key}`, the platform `tenant/{scope_id}/{key}` and by-id routes, the admin store screen) answer `422` pointing at `DELETE /api/branding/tenant/{asset}`, because only this route reaps the stored file. This route deletes with `as_owner=True`. A platform operator can still delete the leftover TENANT row of a tenant that no longer exists. A service constructed without the settings registry (`SettingService(db)`, e.g. branding's own system-scope writes) does not enforce the guard.
+- **The cache is per app** (`app.state.branding.tenant_cache`), and system theme saves publish `settings.values` so other workers drop their merged tenant entries.
+
 Uploads are validated **before** the bytes reach `file_storage`: an unsupported or unconvincing type returns `415`, an oversized image `413` (see [Image guard-rails](#image-guard-rails)).
 
 ### Public assets (anonymous)
@@ -50,13 +68,17 @@ Registered through the [`register_public_routes`](/framework/public-routes) hook
 
 Branding serves these itself rather than linking `file_storage`'s download route, which is gated by `file_storage.download` — no logged-out visitor carries that permission, and the sign-in page, the public landing page and every `<link rel="icon">` are exactly where the logo has to appear. Each route resolves **only** the id currently held in branding settings and streams that one file, so it is not a way to read arbitrary files out of `file_storage`.
 
-Branding images are **platform files** (`platform=True` in `file_storage`):
-uploaded as the install rather than as the admin's active organisation, and
-served to anonymous visitors — who have no tenant bound — by a lookup that only
-ever matches platform-owned rows. A setting pointed at a tenant's upload
-therefore `404`s instead of publishing it. Images uploaded before
-`file_storage` adopted tenancy were back-filled into the platform owner and
-keep working.
+The **system** images are **platform files** (`platform=True` in
+`file_storage`): uploaded as the install rather than as the admin's active
+organisation, and served by a lookup that only ever matches platform-owned rows.
+Images uploaded before `file_storage` adopted tenancy were back-filled into the
+platform owner and keep working.
+
+Which image a request gets follows its tenant — the subdomain for an anonymous
+visitor (`tenants`' `subdomain_base`), the active organisation for a member —
+else the system's. A value the **tenant** set is read as the tenant's own file
+(under `tenant_context(tenant)`); a system value as a platform file. Either way
+a setting pointed at anyone else's upload `404`s instead of publishing it.
 
 Responses carry `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`. Both are ignored for subresource loads (`<img>`, `<link rel="icon">`) but stop a direct visit rendering the bytes as a document at the app's own origin.
 
@@ -74,12 +96,25 @@ Current branding reaches the page through the shared `branding` prop. The endpoi
 
 The published URL carries `?v=<file id>`. Replacing an image stores a **new** `file_storage` file, so the id doubles as a content address — the URL changes and caches invalidate for free.
 
+The same URL answers per tenant (session, tenant header or subdomain), and a
+shared cache keys on the URL alone — so only a URL that pins the bytes by
+itself may be shared:
+
 | Request | `Cache-Control` |
 |---|---|
-| With a `?v=` version | `public, max-age=31536000, immutable` (one year) |
-| Without a version | `public, max-age=3600` (one hour) |
+| No tenant on the request, `?v=` naming the file served | `public, max-age=31536000, immutable` (one year) |
+| A tenant on the request, `?v=` naming the file served | `private, max-age=31536000, immutable`, `Vary: Cookie` (+ the tenant header when one is configured) |
+| No `?v=`, or one naming another file | `private, no-cache` |
 
-An unversioned URL can serve new bytes later, so it must never be immutable; the short TTL lets it self-correct. A `404` is never cached, so the next request retries once the setting is fixed.
+A tenant request is `private` even for the platform's image, so a shared cache
+never answers the tenant-less URL with it (or the reverse). An unversioned URL
+— or a `?v=` left over from another tenant's page, or from before a replace —
+can serve other bytes later, so it is never pinned: `no-cache` revalidates on
+the next page, which may be in another organisation. A `404` is never cached,
+so the next request retries once the setting is fixed.
+
+The route only ever serves a file whose type is on the image allow-list: a
+setting pointed at anything else (a hand-edited row) answers `404`.
 
 ## Public contracts
 
@@ -132,7 +167,11 @@ Note the exact property: the bytes must look like **some** allowed image format,
 
 ### Asset lifecycle
 
-Replacing or clearing an image deletes the file it stopped referencing, so repeated logo tweaks don't leave orphans in `file_storage`. Cleanup is **best effort**: the setting change has already been persisted, so a storage fault is logged rather than failing an otherwise-successful rebrand.
+Replacing or clearing an image deletes the file it stopped referencing, so repeated logo tweaks don't leave orphans in `file_storage` — system and tenant images alike (`branding.reaper`):
+
+- **After commit.** The delete is queued with `register_on_commit` and runs, in a session of its own, once the settings write is durable. Deleting in the request removed the bytes before that: a late rollback left the setting pointing at a file that was gone.
+- **Only when unreferenced.** A file another image field of the same owner still holds — the logo and the dark logo sharing one upload — is kept; the check runs again at reap time.
+- **Best effort.** The rebrand already succeeded, so a storage fault is logged and leaves an orphan, never a broken setting.
 
 ## Presets
 
@@ -197,6 +236,51 @@ On startup the module registers a shared-props provider (`register_inertia_share
 
 The provider is defensive — it returns `{}` if branding state isn't mounted yet, so a half-booted app never errors a render. Because changes go through the settings store, a save hot-reloads `app.state.branding.settings`; the next render reflects the new values without a restart.
 
+## Per-tenant branding
+
+With `multi_tenant` on, a tenant can override part of the theme for itself
+(#373): `app_name`, `primary_color`, `design_pack`, `footer_text` and the three
+images. Each is a settings key (`branding.<field>`) declared
+`tenant_overridable`, stored at settings' TENANT scope, and edited by tenant
+owners/admins on the organisation settings page (`/tenants/settings`) — scalars
+through `/api/settings/tenant/current/{key}`, images through
+`/api/branding/tenant/{asset}`. The banner and footer links stay platform-only:
+the banner is how the platform announces maintenance, and a tenant must not be
+able to silence it.
+
+Every tenant-scope write is checked first, by the same validators as the system
+value (`422`). The three **image keys are refused on every generic settings
+route** (`422` — the self-service route, the platform routes and the admin
+forms alike): an image is set and cleared only through
+`/api/branding/tenant/{asset}`, which validates the bytes as an image, stores
+them as the tenant's own file and reaps the one it replaced. A generic write
+could do none of that — it could point the logo at any file the tenant owns
+(a PDF) and would never reap what it displaced. (A generic `DELETE` of an
+image key is not checked; it drops the override and leaves the file behind for
+a janitor rather than reaping it.)
+
+The organisation settings page shows each key's `description`; definitions
+also send a `description_key` (`branding.tenant_settings.<field>`) that the
+page translates, with the English text as fallback. Server-side error details
+(validator messages) are still shown as sent — they come from pydantic and are
+not keyed.
+
+Reads resolve per request (`branding.tenant_branding.resolve`): the request's
+tenant overrides on top of the system theme, falling back field by field. The
+provider leaves the merged object on `request.state.branding`, which the root
+template's pre-hydration `<head>` prefers. A hand-edited invalid override
+degrades to the system value for that field.
+
+**Cost.** The shared-props provider only resolves for requests that can render
+a page — nothing under `/api/` or `/static/`, and only Inertia visits or
+requests accepting HTML. With `multi_tenant` off, or no tenant on the request,
+the system object is used as is — no lookup. A tenant's overrides are read at
+most once per 30 s per process (a TTL cache keyed by tenant id, with concurrent
+misses for one tenant sharing a single read); the cache subscribes to
+settings' `settings.values` invalidation channel and forgets a tenant when one
+of its `branding.*` keys changes — every tenant when a system one does — so
+edits show at once, in every worker once a transport is installed.
+
 ## Permissions
 
 | Code | Granted to | Purpose |
@@ -220,5 +304,5 @@ The provider is defensive — it returns `{}` if branding state isn't mounted ye
 
 ## Notes
 
-- Branding is SYSTEM-scoped (one identity per deployment). The settings store already supports tenant/user scope, leaving room for per-tenant branding later.
+- Branding has no table: the system identity is SYSTEM-scope settings, a tenant's overrides are TENANT-scope settings (see [Per-tenant branding](#per-tenant-branding)).
 - The primary colour overrides the `--primary` / `--sidebar-primary` CSS variables from a single hex; the full OKLCH colour scale is not regenerated.

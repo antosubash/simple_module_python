@@ -151,6 +151,7 @@
     "reset": "Reset to platform value",
     "toast_saved": "Setting saved",
     "toast_reset": "Setting reset to the platform value",
-    "toast_failed": "Could not save the setting"
+    "toast_failed": "Could not save the setting",
+    "toast_uploaded": "Image uploaded"
   }
 }

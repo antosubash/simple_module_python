@@ -22,6 +22,8 @@ configureI18n({
     'tenants.settings.toast_saved': 'Setting saved',
     'tenants.settings.toast_reset': 'Setting reset',
     'tenants.settings.toast_failed': 'Could not save',
+    'tenants.settings.toast_uploaded': 'Image uploaded',
+    'branding.tenant_settings.app_name': 'Nom de l’application',
   },
 });
 
@@ -32,6 +34,7 @@ const base: TenantSetting = {
   inherited: 'hi',
   value: null,
   effective: 'hi',
+  upload_url: '',
 };
 
 afterEach(() => vi.restoreAllMocks());
@@ -62,5 +65,44 @@ describe('TenantSettingRow', () => {
     rerender(<TenantSettingRow setting={{ ...base, value: 'ours' }} onChanged={() => {}} />);
     expect(screen.getByRole('button', { name: 'Reset to platform value' })).toBeInTheDocument();
     expect(screen.getByText('Overridden')).toBeInTheDocument();
+  });
+
+  test('a file-id key offers an upload, not a text box for the id', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('{}', { status: 200 }));
+    const setting = {
+      ...base,
+      key: 'branding.logo_file_id',
+      upload_url: '/api/branding/tenant/logo',
+    };
+    render(<TenantSettingRow setting={setting} onChanged={() => {}} />);
+
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    const file = new File(['png'], 'logo.png', { type: 'image/png' });
+    await userEvent.upload(screen.getByLabelText('branding.logo_file_id'), file);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/branding/tenant/logo',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  test('the description is translated by its key, with the English as fallback', () => {
+    const { rerender } = render(
+      <TenantSettingRow
+        setting={{ ...base, description_key: 'branding.tenant_settings.app_name' }}
+        onChanged={() => {}}
+      />,
+    );
+    expect(screen.getByText('Nom de l’application')).toBeInTheDocument();
+
+    rerender(
+      <TenantSettingRow
+        setting={{ ...base, description_key: 'branding.tenant_settings.unknown' }}
+        onChanged={() => {}}
+      />,
+    );
+    expect(screen.getByText('A motto')).toBeInTheDocument();
   });
 });

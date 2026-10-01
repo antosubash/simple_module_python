@@ -294,6 +294,15 @@ export const keys = {
     nav: {
       branding: 'branding.nav.branding',
     },
+    tenant_settings: {
+      app_name: 'branding.tenant_settings.app_name',
+      design_pack: 'branding.tenant_settings.design_pack',
+      favicon_file_id: 'branding.tenant_settings.favicon_file_id',
+      footer_text: 'branding.tenant_settings.footer_text',
+      logo_dark_file_id: 'branding.tenant_settings.logo_dark_file_id',
+      logo_file_id: 'branding.tenant_settings.logo_file_id',
+      primary_color: 'branding.tenant_settings.primary_color',
+    },
   },
   dashboard: {
     doctor: {
@@ -1054,6 +1063,7 @@ export const keys = {
       toast_failed: 'tenants.settings.toast_failed',
       toast_reset: 'tenants.settings.toast_reset',
       toast_saved: 'tenants.settings.toast_saved',
+      toast_uploaded: 'tenants.settings.toast_uploaded',
     },
     status: {
       active: 'tenants.status.active',

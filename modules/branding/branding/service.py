@@ -8,12 +8,11 @@ and publishes ``SettingsReloaded``.
 
 from __future__ import annotations
 
-import logging
-import uuid
 from typing import TYPE_CHECKING, Any
 
-from branding.constants import FAVICON_URL, LOGO_DARK_URL, LOGO_URL, PACKAGE
+from branding.constants import FAVICON_URL, LOGO_DARK_URL, LOGO_URL, PACKAGE, TENANT_IMAGE_FIELDS
 from branding.contracts.schemas import BrandingOut
+from branding.reaper import schedule_reap
 from branding.shared_props import asset_url
 
 if TYPE_CHECKING:
@@ -21,7 +20,23 @@ if TYPE_CHECKING:
     from file_storage.service import FileStorageService
     from sqlalchemy.ext.asyncio import AsyncSession
 
-logger = logging.getLogger(__name__)
+    from branding.settings import BrandingSettings
+
+
+def to_out(settings: BrandingSettings) -> BrandingOut:
+    """The API view of one branding settings object (system or a tenant's)."""
+    return BrandingOut(
+        app_name=settings.app_name,
+        primary_color=settings.primary_color,
+        design_pack=settings.design_pack,
+        logo_url=asset_url(LOGO_URL, settings.logo_file_id),
+        logo_dark_url=asset_url(LOGO_DARK_URL, settings.logo_dark_file_id),
+        favicon_url=asset_url(FAVICON_URL, settings.favicon_file_id),
+        banner_message=settings.banner_message,
+        banner_severity=settings.banner_severity,
+        footer_text=settings.footer_text,
+        footer_links=list(settings.footer_links),
+    )
 
 
 class BrandingService:
@@ -41,19 +56,9 @@ class BrandingService:
         self.storage = storage
 
     def current(self) -> BrandingOut:
-        settings = self.app.state.branding.settings
-        return BrandingOut(
-            app_name=settings.app_name,
-            primary_color=settings.primary_color,
-            design_pack=settings.design_pack,
-            logo_url=asset_url(LOGO_URL, settings.logo_file_id),
-            logo_dark_url=asset_url(LOGO_DARK_URL, settings.logo_dark_file_id),
-            favicon_url=asset_url(FAVICON_URL, settings.favicon_file_id),
-            banner_message=settings.banner_message,
-            banner_severity=settings.banner_severity,
-            footer_text=settings.footer_text,
-            footer_links=list(settings.footer_links),
-        )
+        """The *system* branding — what platform admins edit here. A tenant's
+        effective theme is ``tenant_branding.resolve``."""
+        return to_out(self.app.state.branding.settings)
 
     async def apply(self, changes: dict[str, Any]) -> BrandingOut:
         """Persist and hot-swap the given field changes, then return current."""
@@ -63,7 +68,10 @@ class BrandingService:
         from settings.service import SettingService
         from settings.store import SettingsStore
 
-        store = SettingsStore(SettingService(self.db))
+        # With the bus, so the write publishes ``settings.values`` and other
+        # workers' merged tenant caches (which inherit system values) drop.
+        invalidation = getattr(self.app.state.sm, "invalidation", None)
+        store = SettingsStore(SettingService(self.db, invalidation=invalidation))
         bus = self.app.state.sm.event_bus
         await apply_changes_and_reload(self.app, bus, store, package=PACKAGE, changes=changes)
         return self.current()
@@ -72,38 +80,21 @@ class BrandingService:
         """Point *field* at *file_id* ("" to clear) and reap what it replaced.
 
         Every upload mints a new ``file_storage`` id, so the file we stop
-        referencing here would otherwise sit in the store forever with nothing
-        left to reference or reap it.
+        referencing here would otherwise sit in the store forever. The reap is
+        queued for after the commit (:mod:`branding.reaper`): deleting the
+        bytes in the request would leave a rolled-back setting pointing at a
+        file that is gone. A file another system image field still references
+        (logo and dark logo sharing one upload) is kept.
         """
         previous = getattr(self.app.state.branding.settings, field, "")
         out = await self.apply({field: file_id})
-        if previous and previous != file_id:
-            await self._reap(previous)
+        live = self.app.state.branding.settings
+        still_used = {getattr(live, name, "") for name in TENANT_IMAGE_FIELDS}
+        # No storage handed in (a hand-built service): nothing is reaped.
+        replaced = previous and previous != file_id and previous not in still_used
+        if replaced and self.storage is not None:
+            schedule_reap(self.app, self.db, previous, tenant_id=None)
         return out
-
-    async def _reap(self, file_id: str) -> None:
-        """Delete a no-longer-referenced branding image, best effort.
-
-        The setting change has already been persisted and is what the admin
-        asked for, so a storage fault (or a hand-edited, non-UUID setting) must
-        be logged rather than turned into a 500 on a successful rebrand.
-
-        The realistic failures are fully contained: a missing row raises before
-        any write, and a failed backend delete is already suppressed inside
-        ``file_storage`` (the row stays flagged for a janitor). Swallowing here
-        cannot rescue a *flush* failure, though — that leaves the shared request
-        session dirty and the commit at request end would surface it anyway.
-        Reaping in the same session is the deliberate trade: it keeps the delete
-        atomic with the settings write instead of orphaning on a late rollback.
-        """
-        if self.storage is None:
-            return
-        try:
-            await self.storage.delete(uuid.UUID(file_id), platform=True)
-        except Exception:
-            # Deliberately broad: any failure here is a cleanup problem, never
-            # a reason to reject a rebrand the admin already succeeded at.
-            logger.warning("Could not delete replaced branding image %s.", file_id, exc_info=True)
 
     async def set_logo(self, file_id: str) -> BrandingOut:
         return await self._swap_asset("logo_file_id", file_id)
