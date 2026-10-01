@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 
+from email_validator import EmailNotValidError, validate_email
 from pydantic import field_validator
 from sqlmodel import Field, SQLModel
 
@@ -67,10 +68,13 @@ class InvitationCreate(SQLModel):
     @field_validator("email")
     @classmethod
     def _normalise(cls, value: str) -> str:
-        value = value.strip().lower()
-        if "@" not in value:
-            raise ValueError("invalid email")
-        return value
+        try:
+            checked = validate_email(
+                value.strip(), check_deliverability=False, test_environment=True
+            )
+        except EmailNotValidError as exc:
+            raise ValueError("invalid email") from exc
+        return checked.normalized.lower()
 
     @field_validator("role")
     @classmethod
