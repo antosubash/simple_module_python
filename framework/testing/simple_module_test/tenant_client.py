@@ -32,7 +32,6 @@ from typing import Any, NamedTuple
 import httpx
 import pytest
 from simple_module_core.tenancy import TenantRole
-from sqlalchemy import select
 
 from simple_module_test.session_cookie import forge_session_cookie
 
@@ -45,7 +44,8 @@ class TenantClient(NamedTuple):
 
 async def create_user(app: Any, email: str) -> str:
     """A real, active, non-superuser ``users`` row with the ``user`` role; its id."""
-    from users.models import Role, User, UserRole
+    from users.bootstrap import ensure_user_role
+    from users.models import User, UserRole
 
     async with app.state.sm.db.session_factory() as session:
         user = User(
@@ -58,9 +58,10 @@ async def create_user(app: Any, email: str) -> str:
         )
         session.add(user)
         await session.flush()
-        role = (await session.execute(select(Role).where(Role.name == "user"))).scalar_one_or_none()
-        if role is not None:
-            session.add(UserRole(user_id=user.id, role_id=role.id))
+        # Seeded lazily: test schemas come from ``create_all`` with no seed rows,
+        # and a missing role must not silently leave the user role-less.
+        role = await ensure_user_role(session)
+        session.add(UserRole(user_id=user.id, role_id=role.id))
         await session.commit()
         return str(user.id)
 
