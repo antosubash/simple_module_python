@@ -142,7 +142,7 @@ class FileStorageService(FileStorageReads):
                 backend=self.backend.backend_id,
                 checksum_sha256=sha.hexdigest(),
             )
-            with platform_scope(platform):
+            async with platform_scope(self.db, platform):
                 self.db.add(row)
                 await self.db.flush()
                 await self.db.refresh(row)
@@ -174,7 +174,7 @@ class FileStorageService(FileStorageReads):
         stmt = select(StoredFile).where(StoredFile.id == file_id)
         if platform:
             stmt = stmt.where(StoredFile.tenant_id == PLATFORM_TENANT_ID)
-        with platform_scope(platform):
+        async with platform_scope(self.db, platform):
             row = (await self.db.execute(stmt)).scalar_one_or_none()
         if row is None:
             raise StoredFileNotFoundError(str(file_id))
@@ -244,12 +244,14 @@ class FileStorageService(FileStorageReads):
         return rows
 
     async def delete(self, file_id: uuid.UUID, *, platform: bool = False) -> StoredFile:
-        row = await self.get(file_id, platform=platform)
-        # Soft-delete in DB first; if the backend delete fails afterwards we
-        # still have a row marked deleted that can be reaped by a janitor.
-        row.is_deleted = True
-        row.deleted_at = datetime.now(UTC)
-        with platform_scope(platform):
+        # One scope around read + write: its opening flush runs before the
+        # platform row is touched, so the guard never sees that change.
+        async with platform_scope(self.db, platform):
+            row = await self.get(file_id, platform=platform)
+            # Soft-delete in DB first; if the backend delete fails afterwards we
+            # still have a row marked deleted that can be reaped by a janitor.
+            row.is_deleted = True
+            row.deleted_at = datetime.now(UTC)
             await self.db.flush()
         # Object is acceptably absent — eg. a previous delete partially succeeded.
         with contextlib.suppress(StorageNotFoundError):

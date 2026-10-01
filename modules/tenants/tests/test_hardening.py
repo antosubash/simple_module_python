@@ -124,6 +124,21 @@ async def test_slug_shape_is_enforced(user_client):
         assert ok.status_code == 201
 
 
+async def test_the_platform_owner_is_never_a_tenant(user_client):
+    """``PLATFORM_TENANT_ID`` owns platform files; no tenant may take it."""
+    import pytest
+    from simple_module_db import PLATFORM_TENANT_ID
+    from tenants.models import Tenant
+
+    async with user_client("o@x.io") as (owner, _):
+        resp = await owner.post("/api/tenants/", json={"name": "X", "slug": PLATFORM_TENANT_ID})
+        assert resp.status_code == 422
+        derived = (await owner.post("/api/tenants/", json={"name": "Platform"})).json()
+        assert derived["slug"] != PLATFORM_TENANT_ID
+    with pytest.raises(ValueError):
+        Tenant(id=PLATFORM_TENANT_ID, slug="p", name="P")
+
+
 async def test_concurrent_accepts_of_one_invitation_give_200_and_409(user_client):
     async with user_client("o@x.io") as (owner, _), user_client("n@x.io") as (new, _):
         await _org(owner, "Acme")
