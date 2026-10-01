@@ -178,6 +178,10 @@ for anonymous visitors, on public routes), the tenant header (members only),
 then the session's choice validated against a membership (#363). Without one it falls back to the principal's
 `tenant_id` claim, and for **anonymous** requests only, the configured
 `tenant_header`. An authenticated user can never pick a tenant by header.
+The `users` module's `User` is platform-global and has no `tenant_id`
+column (dropped in #381): a user belongs to tenants only through
+`tenants_membership`, and a membership change applies on their next request,
+no re-login needed.
 Most auth providers set no `tenant_id` claim, so `multi_tenant` with no
 resolver fails every tenant-scoped query closed; the boot reports that as
 `SM025`.

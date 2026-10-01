@@ -9,8 +9,8 @@ resulting IntegrityError tells the second tenant the value exists elsewhere.
 
 Duck-typed on SQLAlchemy ``Table`` objects (core does not depend on
 SQLAlchemy). Only tables of models that inherit ``MultiTenantMixin`` count: a
-plain ``tenant_id`` column (``users_user``'s legacy one, the ``tenants``
-registry's own tables) carries no isolation and no per-tenant key rule.
+plain ``tenant_id`` column (the ``tenants`` registry's own tables) carries no
+isolation and no per-tenant key rule.
 
 SM025: ``multi_tenant`` is on but no module registered
 ``app.state.tenant_resolver`` — see :func:`check_tenant_resolver`.
