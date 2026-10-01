@@ -2,7 +2,7 @@
 
 Explicit ``tenant_id`` values in an insert must match the bound tenant, and
 missing ones are stamped with it (#357) — or, unbound on a non-strict
-install, with ``DEFAULT_TENANT_ID`` (#380); the same value readers let the
+install, with the install's fallback tenant (#380); the same value readers let the
 query filter refuse an UPDATE that assigns ``tenant_id`` (#356).
 """
 
@@ -60,7 +60,9 @@ def _foreign_insert(value: Any, tenant_id: str) -> TenantIsolationError:
     )
 
 
-def guard_insert(execute_state: ORMExecuteState, *, strict: bool) -> Any:
+def guard_insert(
+    execute_state: ORMExecuteState, *, strict: bool, fallback: str = DEFAULT_TENANT_ID
+) -> Any:
     mappers = [m.class_.__name__ for m in execute_state.all_mappers if registry.flags(m.class_)[1]]
     target = getattr(execute_state.statement, "table", None)
     if not mappers and getattr(target, "name", None) in registry.tenant_table_names:
@@ -70,11 +72,13 @@ def guard_insert(execute_state: ORMExecuteState, *, strict: bool) -> Any:
     bypass = execute_state.execution_options.get(ALL_TENANTS_OPTION, False) or is_all_tenants()
     if bypass and strict:
         return None
-    # Unbound on a non-strict install (bypassed or not): nothing to check
-    # explicit values against, missing ones get DEFAULT_TENANT_ID (#380).
-    tenant_id = None if bypass else current_tenant_id.get()
+    # A non-strict bypass checks no explicit values; missing ones still get
+    # the bound tenant, else the install's fallback (#380).
+    bound = current_tenant_id.get()
+    tenant_id = None if bypass else bound
+    stamp = bound or fallback
     if getattr(execute_state.statement, "_multi_values", None):
-        return _guard_multi_values(execute_state, tenant_id, mappers[0], strict)
+        return _guard_multi_values(execute_state, tenant_id, stamp, mappers[0], strict)
     for value in assigned_tenant_ids(execute_state):
         if tenant_id is not None and value != tenant_id:
             raise _foreign_insert(value, tenant_id)
@@ -88,7 +92,6 @@ def guard_insert(execute_state: ORMExecuteState, *, strict: bool) -> Any:
         return None
     if tenant_id is None and strict:
         raise missing_tenant_error(mappers[0], "INSERT")
-    stamp = tenant_id or DEFAULT_TENANT_ID
     if rows:
         stamped = [{**r, TENANT_COLUMN: r.get(TENANT_COLUMN, stamp)} for r in rows]
         payload = stamped if isinstance(execute_state.parameters, list) else stamped[0]
@@ -98,7 +101,7 @@ def guard_insert(execute_state: ORMExecuteState, *, strict: bool) -> Any:
 
 
 def _guard_multi_values(
-    execute_state: ORMExecuteState, tenant_id: str | None, entity: str, strict: bool
+    execute_state: ORMExecuteState, tenant_id: str | None, stamp: str, entity: str, strict: bool
 ) -> Any:
     """``insert(M).values([{...}, {...}])``: check and stamp each row.
 
@@ -120,7 +123,7 @@ def _guard_multi_values(
                     raise _foreign_insert(value, tenant_id)
             else:
                 missing = True
-                mapping[tenant_col] = tenant_id or DEFAULT_TENANT_ID
+                mapping[tenant_col] = stamp
             rows.append(mapping)
         groups.append(rows)
     if not missing:
