@@ -35,6 +35,9 @@ interface SystemInfo {
 }
 
 interface Props {
+  welcome: string;
+  /** False for a viewer without `dashboard.view`: the stats props are absent. */
+  can_view_stats: boolean;
   total_users: number;
   active_users_7d: number;
   users_created_this_month: number;
@@ -47,6 +50,23 @@ function Home() {
   const props = page.props as unknown as Props;
   const { menus } = page.props as unknown as SharedProps;
   const { t } = useT();
+
+  // The stats span every tenant and need `dashboard.view`; anyone else lands
+  // here after login too, so they get the welcome and no numbers.
+  if (!props.can_view_stats) {
+    return (
+      <>
+        <Head title={t(keys.dashboard.home.title)} />
+        <PageShell title={t(keys.dashboard.home.title)}>
+          <Card className="border-border">
+            <CardContent className="pt-5">
+              <p>{props.welcome}</p>
+            </CardContent>
+          </Card>
+        </PageShell>
+      </>
+    );
+  }
 
   const { health_checks: healthChecks } = props.system_info;
   const unhealthy = healthChecks.filter((c) => c.status !== 'healthy').length;

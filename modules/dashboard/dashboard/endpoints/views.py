@@ -9,14 +9,16 @@ from __future__ import annotations
 import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from simple_module_core.permissions import is_admin
+from simple_module_core.permissions import grants, is_admin
 from simple_module_db.deps import get_db
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.permissions import resolved_permissions_for
 from simple_module_inertia import InertiaResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
+from dashboard.constants import PERM_VIEW
 from dashboard.stats import fetch_dashboard_stats
 
 router = APIRouter()
@@ -47,15 +49,18 @@ async def dashboard(
     t: TranslatorDep,
     db: AsyncSession = Depends(get_db),
 ) -> InertiaResponse:
-    """Authenticated dashboard — requires login (enforced by AuthMiddleware)."""
-    stats = await fetch_dashboard_stats(db, request.app)
-    return await inertia.render(
-        _PAGE_HOME,
-        {
-            "welcome": t.t("dashboard.home.welcome_message"),
-            **stats,
-        },
-    )
+    """Authenticated dashboard — requires login (enforced by AuthMiddleware).
+
+    This is every signed-in user's post-login landing page, so the route stays
+    open; only the platform-wide stats are gated on ``dashboard.view``. A viewer
+    without it gets the welcome and no numbers (``can_view_stats`` false).
+    """
+    props: dict = {"welcome": t.t("dashboard.home.welcome_message")}
+    can_view = grants(resolved_permissions_for(request), PERM_VIEW)
+    props["can_view_stats"] = can_view
+    if can_view:
+        props.update(await fetch_dashboard_stats(db, request.app))
+    return await inertia.render(_PAGE_HOME, props)
 
 
 @admin_router.get("/", response_model=None)
