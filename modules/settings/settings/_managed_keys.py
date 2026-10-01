@@ -23,7 +23,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 
 from settings.constants import ERR_MANAGED_KEY_DELETE
-from settings.contracts.registry import SettingsRegistry
+from settings.contracts.registry import SettingsRegistry, clear_route
 from settings.contracts.schemas import SettingScope
 
 TenantIsLive = Callable[[str], Awaitable[bool]]
@@ -56,4 +56,4 @@ async def ensure_deletable(
     )
     if orphaned:
         return
-    raise ManagedKeyError(key, definition.clear_via)
+    raise ManagedKeyError(key, clear_route(definition, scope))
