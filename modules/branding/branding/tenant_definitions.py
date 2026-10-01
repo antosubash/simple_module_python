@@ -74,12 +74,23 @@ def _make_check(name: str):
 
 def register_tenant_definitions(app: FastAPI) -> None:
     from settings.contracts.registry import SettingDefinition
+    from settings.contracts.schemas import SettingScope
 
     registry = app.state.settings.registry
     defaults = BrandingSettings().model_dump()
     for name in TENANT_FIELDS:
         asset = _ASSET_OF.get(name)
         upload_url = f"{ROUTE_PREFIX}/tenant/{asset}" if asset else ""
+        # The system row clears through the platform's own DELETE route; the
+        # tenant route cannot touch it.
+        clear_via = (
+            {
+                SettingScope.SYSTEM: f"{ROUTE_PREFIX}/{asset}",
+                SettingScope.TENANT: upload_url,
+            }
+            if asset
+            else ""
+        )
         registry.add(
             SettingDefinition(
                 key=f"{PACKAGE}.{name}",
@@ -89,7 +100,7 @@ def register_tenant_definitions(app: FastAPI) -> None:
                 tenant_overridable=True,
                 check=_make_check(name),
                 upload_url=upload_url,
-                clear_via=upload_url,
+                clear_via=clear_via,
             )
         )
 
