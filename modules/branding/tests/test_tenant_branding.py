@@ -186,3 +186,11 @@ class TestSingleTenantInstall:
 
         got = await _branding(authenticated_client, "/admin/branding/")
         assert got["appName"] == "Single"
+
+
+async def test_tenant_rows_carry_a_description_key_for_the_client(tenant_client):
+    async with tenant_client() as a:
+        rows = (await a.client.get(CURRENT)).json()
+    mine = {r["key"]: r for r in rows if r["key"].startswith("branding.")}
+    assert mine["branding.app_name"]["description_key"] == "branding.tenant_settings.app_name"
+    assert mine["branding.app_name"]["description"]  # the English fallback

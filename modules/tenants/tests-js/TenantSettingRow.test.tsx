@@ -23,6 +23,7 @@ configureI18n({
     'tenants.settings.toast_reset': 'Setting reset',
     'tenants.settings.toast_failed': 'Could not save',
     'tenants.settings.toast_uploaded': 'Image uploaded',
+    'branding.tenant_settings.app_name': 'Nom de l’application',
   },
 });
 
@@ -85,5 +86,23 @@ describe('TenantSettingRow', () => {
       '/api/branding/tenant/logo',
       expect.objectContaining({ method: 'POST' }),
     );
+  });
+
+  test('the description is translated by its key, with the English as fallback', () => {
+    const { rerender } = render(
+      <TenantSettingRow
+        setting={{ ...base, description_key: 'branding.tenant_settings.app_name' }}
+        onChanged={() => {}}
+      />,
+    );
+    expect(screen.getByText('Nom de l’application')).toBeInTheDocument();
+
+    rerender(
+      <TenantSettingRow
+        setting={{ ...base, description_key: 'branding.tenant_settings.unknown' }}
+        onChanged={() => {}}
+      />,
+    );
+    expect(screen.getByText('A motto')).toBeInTheDocument();
   });
 });

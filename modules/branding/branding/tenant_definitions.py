@@ -8,21 +8,22 @@ platform operator writing on a tenant's behalf — runs :func:`_check` first:
 
 * a scalar must pass the same validator the system value does (422);
 * a design pack must be one an installed module provides (422);
-* an image id must name a live file **owned by the tenant being written**
-  (404 otherwise) — a tenant cannot point its logo at another tenant's upload,
-  nor at a platform file.
+* an image key is refused on every generic settings route (422): images are
+  set and cleared only through ``/api/branding/tenant/{asset}``, which
+  validates the bytes as an image, stores them as the tenant's own file and
+  reaps the file it replaces once the write commits. A generic write could do
+  none of that — it could point the logo at any file the tenant owns (a PDF),
+  and the file it displaced would never be reaped.
 """
 
 from __future__ import annotations
 
-import uuid
 from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
-from simple_module_db import all_tenants
-from sqlalchemy import select
 
 from branding.constants import (
+    IMAGE_KEY_GENERIC_WRITE_ERROR,
     PACKAGE,
     ROUTE_PREFIX,
     TENANT_ASSETS,
@@ -47,28 +48,10 @@ _DESCRIPTIONS = {
 _ASSET_OF = {field: asset for asset, field in TENANT_ASSETS.items()}
 
 
-async def tenant_owns_file(app: FastAPI, tenant_id: str, raw: str) -> bool:
-    """Whether ``raw`` is the id of a live (not deleted) file owned by ``tenant_id``."""
-    from file_storage.models import StoredFile
-
-    try:
-        file_id = uuid.UUID(raw)
-    except ValueError:
-        return False
-    stmt = select(StoredFile.id).where(StoredFile.id == file_id, StoredFile.tenant_id == tenant_id)
-    # An explicit owner condition, so the answer does not depend on which
-    # tenant (if any) the caller happens to be bound to.
-    with all_tenants():
-        async with app.state.sm.db.session_factory() as db:
-            return (await db.execute(stmt)).first() is not None
-
-
 def _make_check(name: str):
     async def check(request: Request, tenant_id: str, value: str) -> None:
         if name in TENANT_IMAGE_FIELDS:
-            if value and not await tenant_owns_file(request.app, tenant_id, value):
-                raise LookupError("No such image in this organisation.")
-            return
+            raise ValueError(IMAGE_KEY_GENERIC_WRITE_ERROR.format(asset=_ASSET_OF[name]))
         try:
             BrandingSettings(**{name: value})
         except ValidationError as exc:
@@ -93,6 +76,7 @@ def register_tenant_definitions(app: FastAPI) -> None:
                 key=f"{PACKAGE}.{name}",
                 default=str(defaults[name]),
                 description=_DESCRIPTIONS[name],
+                description_key=f"{PACKAGE}.tenant_settings.{name}",
                 tenant_overridable=True,
                 check=_make_check(name),
                 upload_url=f"{ROUTE_PREFIX}/tenant/{asset}" if asset else "",
@@ -100,4 +84,4 @@ def register_tenant_definitions(app: FastAPI) -> None:
         )
 
 
-__all__ = ["register_tenant_definitions", "tenant_owns_file"]
+__all__ = ["register_tenant_definitions"]

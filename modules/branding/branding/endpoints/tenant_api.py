@@ -4,7 +4,8 @@
 ``platform=True``: it lands in the tenant's ``file_storage`` namespace) and
 points the tenant's ``branding.<field>`` override at it; ``DELETE`` removes the
 override, so the tenant falls back to the system image. The replaced file is
-reaped in the tenant's own scope.
+reaped in the tenant's own scope once the write commits, unless another of the
+tenant's image fields still references it (:mod:`branding.reaper`).
 
 Guarded like every other tenant-settings write: ``settings.tenant.edit``
 (tenant owner/admin) and the tenant comes from ``request.state.tenant_id``
@@ -13,9 +14,6 @@ only. Scalar fields go through settings' generic
 """
 
 from __future__ import annotations
-
-import logging
-import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from file_storage.deps import get_file_storage_service
@@ -27,14 +25,14 @@ from settings.service import SettingService
 from settings.tenant_scope import active_tenant
 from simple_module_hosting.permissions import RequiresPermission
 
-from branding.constants import PACKAGE, PATH_TENANT_ASSET, TENANT_ASSETS
+from branding.constants import PACKAGE, PATH_TENANT_ASSET, TENANT_ASSETS, TENANT_IMAGE_FIELDS
 from branding.contracts.schemas import BrandingOut
 from branding.images import validate_image
+from branding.reaper import schedule_reap
 from branding.service import to_out
 from branding.tenant_branding import merge, overrides_from
 
 router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_TENANT_EDIT))])
-logger = logging.getLogger(__name__)
 
 
 def _field(asset: str) -> str:
@@ -61,18 +59,14 @@ async def _swap(
         await settings.upsert_scoped(
             SettingScope.TENANT, tenant_id, key, SettingUpsert(value=file_id)
         )
-    if previous is not None and previous.value and previous.value != file_id:
-        try:
-            # Bound to the tenant already (it is the request's), so this can
-            # only ever delete the tenant's own file.
-            await storage.delete(uuid.UUID(previous.value))
-        except Exception:
-            logger.warning(
-                "Could not delete replaced tenant branding image %s.", previous.value, exc_info=True
-            )
     # Caches drop this tenant when settings' after-commit notice fires; the
     # reply reads through this request's session, which sees the write.
     overrides = await overrides_from(settings, tenant_id)
+    old = previous.value if previous is not None else ""
+    if old and old != file_id and old not in {overrides.get(f) for f in TENANT_IMAGE_FIELDS}:
+        # After commit, and only if still unreferenced: a rollback must not
+        # leave the restored setting pointing at deleted bytes.
+        schedule_reap(request.app, storage.db, old, tenant_id=tenant_id)
     return to_out(merge(request.app.state.branding.settings, tenant_id, overrides).settings)
 
 

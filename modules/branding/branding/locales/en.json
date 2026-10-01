@@ -53,5 +53,14 @@
   },
   "nav": {
     "branding": "Branding"
+  },
+  "tenant_settings": {
+    "app_name": "Application name shown in the header, page titles and emails.",
+    "primary_color": "Accent colour as #rrggbb; empty uses the theme default.",
+    "design_pack": "Design pack slug; empty uses the base look.",
+    "footer_text": "Footer caption; empty shows the platform's.",
+    "logo_file_id": "Logo image.",
+    "logo_dark_file_id": "Logo for dark surfaces; falls back to the logo.",
+    "favicon_file_id": "Browser tab icon."
   }
 }

@@ -222,5 +222,9 @@ TENANT_ASSETS: Final = {
     "logo-dark": "logo_dark_file_id",
     "favicon": "favicon_file_id",
 }
+#: Detail of the 422 a generic settings write of a tenant image key gets.
+IMAGE_KEY_GENERIC_WRITE_ERROR: Final = (
+    "Branding images are set through /api/branding/tenant/{asset}, not the settings routes."
+)
 #: Floor for the per-tenant cache; settings' invalidation notices clear it sooner.
 TENANT_CACHE_TTL_SECONDS: Final = 30

@@ -62,6 +62,28 @@ def branding_payload(settings: BrandingSettings) -> dict:
     }
 
 
+_NO_PAGE_PREFIXES = ("/api/", "/static/")
+
+
+def renders_a_page(request: Request) -> bool:
+    """Whether ``request`` can render an Inertia page (or the HTML shell).
+
+    Providers run on every request, API and static ones included; resolving a
+    tenant's branding there is a cache lookup — or a DB read on a miss — for a
+    prop nobody reads. The same path rule the error handlers use: nothing under
+    ``/api/`` or ``/static/`` is a page (Inertia views never live under
+    ``/api/``, SM018). Elsewhere an Inertia visit, or anything a browser could
+    be navigating with (``text/html``, ``*/*``, or no ``Accept``), counts.
+    """
+    if request.headers.get("x-inertia"):
+        return True
+    path = request.url.path
+    if path == "/api" or path.startswith(_NO_PAGE_PREFIXES):
+        return False
+    accept = request.headers.get("accept", "")
+    return not accept or "text/html" in accept or "*/*" in accept
+
+
 async def branding_shared_props(request: Request) -> dict:
     """Provider: emit ``{"branding": {...}}`` for the request's tenant (#373).
 
@@ -77,7 +99,7 @@ async def branding_shared_props(request: Request) -> dict:
     from branding.services import BrandingServices
     from branding.tenant_branding import resolve
 
-    if getattr(request.app.state, "branding", None) is None:
+    if getattr(request.app.state, "branding", None) is None or not renders_a_page(request):
         return {}
     resolved = await resolve(request)
     if resolved.tenant_fields:

@@ -141,8 +141,9 @@ async def test_a_request_without_a_usable_version_is_not_immutable(
 
     cache_control = (await client.get(f"/api/branding/logo{query}")).headers["cache-control"]
 
-    assert "max-age=3600" in cache_control
-    assert "immutable" not in cache_control
+    # Nor shared: the same URL answers per tenant, and only a ``?v=`` naming
+    # the served file makes the URL a content address a shared cache may keep.
+    assert cache_control == "private, no-cache"
 
 
 async def test_an_unset_image_is_an_uncached_404(client: httpx.AsyncClient) -> None:

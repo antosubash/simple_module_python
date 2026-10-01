@@ -21,6 +21,7 @@ tenant inherits); the TTL is the floor when a notice is lost.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -48,6 +49,9 @@ _CACHE: TTLCache[str, tuple[dict[str, str], BrandingSettings, ResolvedBranding]]
 # Bumped by every forget, so a read that started before an invalidation does
 # not store its (possibly stale) result after it.
 _epoch = 0
+# tenant id -> (epoch the read started in, the read). Single-flight: concurrent
+# misses for one tenant share one read instead of each opening a session.
+_INFLIGHT: dict[str, tuple[int, asyncio.Future[dict[str, str]]]] = {}
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,10 +71,14 @@ def forget(tenant_id: str | None = None) -> None:
     """Drop one tenant's entry, or every entry when ``tenant_id`` is ``None``."""
     global _epoch
     _epoch += 1
+    # A read already in flight may predate the change: later misses must start
+    # a fresh one rather than join it (its own waiters still get their answer).
     if tenant_id is None:
         _CACHE.clear()
+        _INFLIGHT.clear()
     else:
         _CACHE.pop(tenant_id, None)
+        _INFLIGHT.pop(tenant_id, None)
 
 
 def _on_settings_changed(inv: Invalidation) -> None:
@@ -148,6 +156,23 @@ def merge(system: BrandingSettings, tenant_id: str, overrides: dict[str, str]) -
     return ResolvedBranding(system, tenant_id, frozenset())
 
 
+def _shared_read(app: FastAPI, tenant_id: str) -> tuple[int, asyncio.Future[dict[str, str]]]:
+    """The in-flight override read for ``tenant_id``, started if there is none."""
+    entry = _INFLIGHT.get(tenant_id)
+    if entry is not None:
+        return entry
+    read = asyncio.ensure_future(read_overrides(app, tenant_id))
+    entry = (_epoch, read)
+    _INFLIGHT[tenant_id] = entry
+
+    def _done(_: asyncio.Future[dict[str, str]]) -> None:
+        if _INFLIGHT.get(tenant_id) is entry:
+            del _INFLIGHT[tenant_id]
+
+    read.add_done_callback(_done)
+    return entry
+
+
 async def resolve_for(app: FastAPI, tenant_id: str | None) -> ResolvedBranding:
     system: BrandingSettings = app.state.branding.settings
     if not tenant_id:
@@ -158,8 +183,9 @@ async def resolve_for(app: FastAPI, tenant_id: str | None) -> ResolvedBranding:
         if merged_against is system:
             return resolved
     else:
-        started = _epoch
-        overrides = await read_overrides(app, tenant_id)
+        started, read = _shared_read(app, tenant_id)
+        # Shielded: one waiter being cancelled must not cancel everyone's read.
+        overrides = await asyncio.shield(read)
         if _epoch != started:
             return merge(system, tenant_id, overrides)  # don't cache a racing read
     resolved = merge(system, tenant_id, overrides)

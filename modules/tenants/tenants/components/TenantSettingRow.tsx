@@ -16,6 +16,9 @@ export interface TenantSetting {
   effective: string;
   /** Set for a file-id key (a logo): upload/clear there instead of typing an id. */
   upload_url: string;
+  /** i18n key for `description`, owned by the module that declared the key;
+   * `description` (English) is the fallback when it is unset or missing. */
+  description_key?: string;
 }
 
 interface Props {
@@ -36,6 +39,11 @@ export function TenantSettingRow({ setting, onChanged }: Props) {
   const [draft, setDraft] = useState(setting.value ?? '');
   const [busy, setBusy] = useState(false);
   const overridden = setting.value !== null;
+  // A key declared by another module: not in this file's typed key set, so it
+  // is looked up dynamically, with the server's English text as the default.
+  const description = setting.description_key
+    ? t(setting.description_key as never, { defaultValue: setting.description })
+    : setting.description;
   const inputId = `tenant-setting-${setting.key}`;
 
   async function send(method: 'PUT' | 'DELETE') {
@@ -72,9 +80,7 @@ export function TenantSettingRow({ setting, onChanged }: Props) {
           {t(overridden ? keys.tenants.settings.overridden : keys.tenants.settings.inherited)}
         </Badge>
       </div>
-      {setting.description && (
-        <p className="text-sm text-muted-foreground">{setting.description}</p>
-      )}
+      {description && <p className="text-sm text-muted-foreground">{description}</p>}
       {setting.upload_url ? (
         <TenantImageControl
           inputId={inputId}

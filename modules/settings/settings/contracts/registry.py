@@ -55,7 +55,9 @@ class SettingDefinition:
     vets every TENANT-scope write of the key, from either surface.
     ``upload_url`` marks a key whose value is a file id set by uploading: the
     tenant settings page POSTs the file there and DELETEs it to clear, instead
-    of offering a text box for an opaque id.
+    of offering a text box for an opaque id. ``description_key`` is the i18n
+    key the tenant settings page translates ``description`` with (the English
+    ``description`` stays the fallback when the key is missing or unset).
     """
 
     key: str
@@ -66,6 +68,7 @@ class SettingDefinition:
     tenant_overridable: bool = False
     check: TenantValueCheck | None = field(default=None, compare=False)
     upload_url: str = ""
+    description_key: str = ""
 
 
 @dataclass(slots=True)

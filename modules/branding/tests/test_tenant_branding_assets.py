@@ -68,6 +68,7 @@ class TestUploadAndServe:
             # Private: the same URL answers differently for another tenant.
             assert resp.headers["cache-control"].startswith("private")
             assert "immutable" in resp.headers["cache-control"]
+            assert "Cookie" in resp.headers["vary"]
 
             assert (await b.client.get(LOGO_URL)).status_code == 404  # no system logo
 
@@ -81,7 +82,9 @@ class TestUploadAndServe:
             # The tenant has no logo of its own: it inherits the platform's.
             resp = await a.client.get(LOGO_URL)
             assert resp.content == _PNG + b"p"
-            assert resp.headers["cache-control"].startswith("public")
+            # Even the platform's file: the request has a tenant, so a shared
+            # cache must not serve this answer to the tenant-less URL.
+            assert resp.headers["cache-control"] == "private, no-cache"
             await _upload(a.client)
             assert (await a.client.get(LOGO_URL)).content == _PNG
         owners = {r.tenant_id for r in await _files(app)}
@@ -143,18 +146,23 @@ class TestSubdomain:
             assert (await visitor.get(LOGO_URL)).status_code == 404  # the system's: none
 
 
-class TestOwnership:
-    async def test_a_tenant_cannot_point_its_logo_at_another_tenants_file(self, tenant_client):
+class TestGenericRoutesRefuseImageKeys:
+    """Images go through ``/api/branding/tenant/{asset}`` only: a generic
+    settings write could point the logo at any file (a PDF, another tenant's
+    upload, a platform file) and would never reap the file it displaced."""
+
+    async def test_self_service_writes_are_422_whatever_the_value(self, tenant_client):
         async with tenant_client() as a, tenant_client() as b:
             theirs = await _plain_upload(b.client)
             ours = await _plain_upload(a.client)
             key = f"{CURRENT}/branding.logo_file_id"
-            assert (await a.client.put(key, json={"value": theirs})).status_code == 404
-            assert (await a.client.put(key, json={"value": "not-a-uuid"})).status_code == 404
-            assert (await a.client.put(key, json={"value": ours})).status_code == 200
-            assert (await a.client.get(LOGO_URL)).status_code == 200
+            for value in (theirs, ours, "not-a-uuid", ""):
+                resp = await a.client.put(key, json={"value": value})
+                assert resp.status_code == 422, value
+                assert "/api/branding/tenant/logo" in resp.json()["detail"]
+            assert (await a.client.get(LOGO_URL)).status_code == 404
 
-    async def test_nor_at_a_platform_file(self, app, authenticated_client, tenant_client):
+    async def test_nor_can_it_name_a_platform_file(self, app, authenticated_client, tenant_client):
         await authenticated_client.post(
             "/api/branding/logo", files={"file": ("p.png", _PNG, "image/png")}
         )
@@ -163,16 +171,18 @@ class TestOwnership:
             resp = await a.client.put(
                 f"{CURRENT}/branding.logo_file_id", json={"value": platform_id}
             )
-        assert resp.status_code == 404
+        assert resp.status_code == 422
 
-    async def test_a_platform_operator_writing_for_a_tenant_is_checked_too(
+    async def test_a_platform_operator_writing_for_a_tenant_is_refused_too(
         self, authenticated_client, tenant_client
     ):
-        async with tenant_client() as a, tenant_client() as b:
-            theirs = await _plain_upload(b.client)
-            url = f"/api/settings/tenant/{a.tenant_id}/branding.logo_file_id"
-            assert (await authenticated_client.put(url, json={"value": theirs})).status_code == 404
+        async with tenant_client() as a:
+            ours = await _plain_upload(a.client)
+            url = f"/api/settings/tenant/{a.tenant_id}/branding.favicon_file_id"
+            assert (await authenticated_client.put(url, json={"value": ours})).status_code == 422
 
+
+class TestOwnership:
     async def test_a_hand_edited_row_naming_another_tenants_file_serves_404(
         self, app, tenant_client
     ):
@@ -188,3 +198,66 @@ class TestOwnership:
                 await db.commit()
             assert (await a.client.get(LOGO_URL)).status_code == 404
             assert (await b.client.get(f"/api/file-storage/files/{theirs}")).status_code == 200
+
+
+class TestCacheHeaders:
+    """Only a tenant-less request whose ``?v=`` names the served file is public."""
+
+    async def test_a_platform_logo_on_a_tenant_request_is_never_public(
+        self, app, authenticated_client, tenant_client
+    ):
+        await authenticated_client.post(
+            "/api/branding/logo", files={"file": ("p.png", _PNG, "image/png")}
+        )
+        versioned = f"{LOGO_URL}?v={app.state.branding.settings.logo_file_id}"
+        async with tenant_client() as a:
+            resp = await a.client.get(versioned)
+        assert resp.headers["cache-control"].startswith("private")
+        assert "immutable" in resp.headers["cache-control"]
+        assert {"Cookie", "X-Tenant-ID"} <= {v.strip() for v in resp.headers["vary"].split(",")}
+
+    async def test_a_stale_version_on_a_tenant_request_is_no_cache(self, tenant_client):
+        async with tenant_client() as a:
+            out = await _upload(a.client)
+            await _upload(a.client, _PNG + b"2")
+            resp = await a.client.get(out["logo_url"])  # names the replaced file
+        assert resp.status_code == 200
+        assert resp.headers["cache-control"] == "private, no-cache"
+
+    async def test_the_tenant_header_is_part_of_vary(self, app, tenant_client, monkeypatch):
+        monkeypatch.setattr(app.state.sm.settings, "tenant_header", "X-Tenant")
+        async with tenant_client() as a:
+            out = await _upload(a.client)
+            resp = await a.client.get(out["logo_url"])
+        assert "X-Tenant" in {v.strip() for v in resp.headers["vary"].split(",")}
+
+    async def test_an_anonymous_versioned_platform_logo_is_public(
+        self, app, authenticated_client, client
+    ):
+        await authenticated_client.post(
+            "/api/branding/logo", files={"file": ("p.png", _PNG, "image/png")}
+        )
+        versioned = f"{LOGO_URL}?v={app.state.branding.settings.logo_file_id}"
+        resp = await client.get(versioned)
+        assert resp.headers["cache-control"].startswith("public")
+        assert "X-Tenant-ID" not in resp.headers.get("vary", "")
+
+
+class TestOnlyImagesAreServed:
+    async def test_a_setting_naming_a_non_image_file_serves_404(self, app, tenant_client):
+        async with tenant_client() as a:
+            resp = await a.client.post(
+                "/api/file-storage/upload",
+                files={"file": ("x.pdf", b"%PDF-1.4", "application/pdf")},
+            )
+            pdf = resp.json()["id"]
+            async with app.state.sm.db.session_factory() as db:
+                await SettingService(db).upsert_scoped(
+                    SettingScope.TENANT,
+                    a.tenant_id,
+                    "branding.logo_file_id",
+                    SettingUpsert(value=pdf),
+                )
+                await db.commit()
+            tenant_branding.forget()
+            assert (await a.client.get(LOGO_URL)).status_code == 404

@@ -89,14 +89,25 @@ Current branding reaches the page through the shared `branding` prop. The endpoi
 
 The published URL carries `?v=<file id>`. Replacing an image stores a **new** `file_storage` file, so the id doubles as a content address — the URL changes and caches invalidate for free.
 
+The same URL answers per tenant (session, tenant header or subdomain), and a
+shared cache keys on the URL alone — so only a URL that pins the bytes by
+itself may be shared:
+
 | Request | `Cache-Control` |
 |---|---|
-| `?v=` naming the file served | `public, max-age=31536000, immutable` (one year) |
-| No `?v=`, or one naming another file | `public, max-age=3600` (one hour) |
+| No tenant on the request, `?v=` naming the file served | `public, max-age=31536000, immutable` (one year) |
+| A tenant on the request, `?v=` naming the file served | `private, max-age=31536000, immutable`, `Vary: Cookie` (+ the tenant header when one is configured) |
+| No `?v=`, or one naming another file | `private, no-cache` |
 
-A **tenant's** image is sent `private` instead of `public`: the same URL serves a different image to another tenant on the same host, so no shared cache may store it.
+A tenant request is `private` even for the platform's image, so a shared cache
+never answers the tenant-less URL with it (or the reverse). An unversioned URL
+— or a `?v=` left over from another tenant's page, or from before a replace —
+can serve other bytes later, so it is never pinned: `no-cache` revalidates on
+the next page, which may be in another organisation. A `404` is never cached,
+so the next request retries once the setting is fixed.
 
-An unversioned URL can serve new bytes later, so it must never be immutable; the short TTL lets it self-correct. Since the URL answers per tenant, a `?v=` left over from another tenant's page is treated the same way. A `404` is never cached, so the next request retries once the setting is fixed.
+The route only ever serves a file whose type is on the image allow-list: a
+setting pointed at anything else (a hand-edited row) answers `404`.
 
 ## Public contracts
 
@@ -149,7 +160,11 @@ Note the exact property: the bytes must look like **some** allowed image format,
 
 ### Asset lifecycle
 
-Replacing or clearing an image deletes the file it stopped referencing, so repeated logo tweaks don't leave orphans in `file_storage`. Cleanup is **best effort**: the setting change has already been persisted, so a storage fault is logged rather than failing an otherwise-successful rebrand.
+Replacing or clearing an image deletes the file it stopped referencing, so repeated logo tweaks don't leave orphans in `file_storage` — system and tenant images alike (`branding.reaper`):
+
+- **After commit.** The delete is queued with `register_on_commit` and runs, in a session of its own, once the settings write is durable. Deleting in the request removed the bytes before that: a late rollback left the setting pointing at a file that was gone.
+- **Only when unreferenced.** A file another image field of the same owner still holds — the logo and the dark logo sharing one upload — is kept; the check runs again at reap time.
+- **Best effort.** The rebrand already succeeded, so a storage fault is logged and leaves an orphan, never a broken setting.
 
 ## Presets
 
@@ -226,11 +241,22 @@ through `/api/settings/tenant/current/{key}`, images through
 the banner is how the platform announces maintenance, and a tenant must not be
 able to silence it.
 
-Every tenant-scope write is checked first — by the same validators as the system
-value (`422`), and for an image id, that the file is a live upload **owned by
-the tenant being written** (`404` otherwise; a platform file or another tenant's
-upload is refused). Platform operators writing a tenant's keys through the
-settings platform routes go through the same check.
+Every tenant-scope write is checked first, by the same validators as the system
+value (`422`). The three **image keys are refused on every generic settings
+route** (`422` — the self-service route, the platform routes and the admin
+forms alike): an image is set and cleared only through
+`/api/branding/tenant/{asset}`, which validates the bytes as an image, stores
+them as the tenant's own file and reaps the one it replaced. A generic write
+could do none of that — it could point the logo at any file the tenant owns
+(a PDF) and would never reap what it displaced. (A generic `DELETE` of an
+image key is not checked; it drops the override and leaves the file behind for
+a janitor rather than reaping it.)
+
+The organisation settings page shows each key's `description`; definitions
+also send a `description_key` (`branding.tenant_settings.<field>`) that the
+page translates, with the English text as fallback. Server-side error details
+(validator messages) are still shown as sent — they come from pydantic and are
+not keyed.
 
 Reads resolve per request (`branding.tenant_branding.resolve`): the request's
 tenant overrides on top of the system theme, falling back field by field. The
@@ -238,9 +264,12 @@ provider leaves the merged object on `request.state.branding`, which the root
 template's pre-hydration `<head>` prefers. A hand-edited invalid override
 degrades to the system value for that field.
 
-**Cost.** With `multi_tenant` off, or no tenant on the request, the system
-object is used as is — no lookup. A tenant's overrides are read at most once per
-30 s per process (a TTL cache keyed by tenant id); the cache subscribes to
+**Cost.** The shared-props provider only resolves for requests that can render
+a page — nothing under `/api/` or `/static/`, and only Inertia visits or
+requests accepting HTML. With `multi_tenant` off, or no tenant on the request,
+the system object is used as is — no lookup. A tenant's overrides are read at
+most once per 30 s per process (a TTL cache keyed by tenant id, with concurrent
+misses for one tenant sharing a single read); the cache subscribes to
 settings' `settings.values` invalidation channel and forgets a tenant when one
 of its `branding.*` keys changes — every tenant when a system one does — so
 edits show at once, in every worker once a transport is installed.
