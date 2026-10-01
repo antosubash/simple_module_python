@@ -137,4 +137,4 @@ def test_the_audit_log_export_downloads_a_csv_with_a_header_row(
     with Path(download.path()).open(encoding="utf-8") as handle:
         first_line = handle.readline().rstrip("\r\n")
 
-    assert first_line == "time,action,entity_type,entity_id,entity_label,actor,changes"
+    assert first_line == "time,action,entity_type,entity_id,entity_label,actor,changes,tenant_id"
