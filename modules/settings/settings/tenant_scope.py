@@ -20,7 +20,7 @@ Both run the definition's ``check`` (:func:`run_check`) before writing.
 
 from __future__ import annotations
 
-from fastapi import HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 from simple_module_core.tenancy import tenant_exists
 
 from settings.constants import (
@@ -35,6 +35,7 @@ from settings.constants import (
 )
 from settings.contracts.registry import SettingDefinition, SettingsRegistry
 from settings.contracts.schemas import SettingOut, SettingScope
+from settings.deps import get_setting_service
 from settings.service import SettingService
 
 
@@ -108,6 +109,15 @@ async def refuse_tenant_managed_row_delete(
         await refuse_managed_key_delete_for_tenant(request, row.scope_id, row.key)
 
 
+async def guard_row_delete(
+    setting_id: int,
+    request: Request,
+    service: SettingService = Depends(get_setting_service),
+) -> None:
+    """Route dependency form of :func:`refuse_tenant_managed_row_delete`."""
+    await refuse_tenant_managed_row_delete(request, service, setting_id)
+
+
 async def run_check(request: Request, tenant_id: str, key: str, value: str) -> None:
     """Run the key's declared ``check`` for a write at ``tenant_id``, if any."""
     registry = registry_of(request)
@@ -156,6 +166,7 @@ async def tenant_update_error(
 
 __all__ = [
     "active_tenant",
+    "guard_row_delete",
     "is_known_tenant",
     "overridable_definition",
     "refuse_managed_key_delete",
