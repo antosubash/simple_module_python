@@ -38,6 +38,10 @@ CORRELATION_ID_MAX_LENGTH: Final = 255
 
 DEFAULT_PAGE_SIZE: Final = 50
 MAX_PAGE_SIZE: Final = 200
+# Upper bound on ``page``: keeps OFFSET inside a 64-bit int (a ?page= of 10**20
+# overflowed the driver and returned 500). Anything past the end is clamped to
+# the last page by the view.
+MAX_PAGE: Final = 1_000_000
 
 PAGE_BROWSE: Final = f"{MODULE_NAME}/Browse"
 
