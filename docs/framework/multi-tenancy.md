@@ -182,6 +182,8 @@ The `users` module's `User` is platform-global and has no `tenant_id`
 column (dropped in #381): a user belongs to tenants only through
 `tenants_membership`, and a membership change applies on their next request,
 no re-login needed.
+`keycloak` ignores its token's `tenant_id` claim unless `trust_tenant_claim` is
+set (see [keycloak](/modules/keycloak#tenant-claim)).
 Most auth providers set no `tenant_id` claim, so `multi_tenant` with no
 resolver fails every tenant-scoped query closed; the boot reports that as
 `SM025`.
