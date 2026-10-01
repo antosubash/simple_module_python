@@ -30,6 +30,12 @@ def test_permission_is_registered_and_mapped_to_no_tenant_role(app):
         assert PERM_VIEW not in registry.role_map[tenant_role(role)]
 
 
+def test_user_role_is_not_mapped_when_multi_tenant(app):
+    """Every tenant member holds ``user``; mapping it would leak the counts."""
+    assert app.state.sm.settings.multi_tenant
+    assert PERM_VIEW not in app.state.sm.permissions.role_map.get("user", [])
+
+
 async def test_anonymous_is_refused(client):
     resp = await client.get(_STATS, follow_redirects=False)
     assert resp.status_code in (302, 401, 403)
