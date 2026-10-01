@@ -151,6 +151,7 @@ ERR_UNKNOWN_SCOPE: Final = "unknown scope"
 ERR_VALUE_MISMATCH: Final = "value does not parse as declared value_type"
 ERR_UNKNOWN_TENANT: Final = "Unknown tenant"
 ERR_NO_ACTIVE_TENANT: Final = "No active organisation for this request"
+ERR_MANAGED_KEY_DELETE: Final = "This setting is managed elsewhere; clear it at {clear_via}"
 ERR_NOT_TENANT_OVERRIDABLE: Final = "This setting cannot be changed per organisation"
 
 # ── HTTP ─────────────────────────────────────────────────────────────

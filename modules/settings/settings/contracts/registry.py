@@ -58,6 +58,10 @@ class SettingDefinition:
     of offering a text box for an opaque id. ``description_key`` is the i18n
     key the tenant settings page translates ``description`` with (the English
     ``description`` stays the fallback when the key is missing or unset).
+    ``clear_via`` names the route that owns clearing the key (e.g. an upload
+    route that also reaps the stored file): the generic DELETE routes answer
+    422 pointing there while the tenant exists. A platform operator may still
+    delete the row left behind by a tenant that no longer exists.
     """
 
     key: str
@@ -67,6 +71,7 @@ class SettingDefinition:
     value_type: SettingValueType = SettingValueType.STRING
     tenant_overridable: bool = False
     check: TenantValueCheck | None = field(default=None, compare=False)
+    clear_via: str = ""
     upload_url: str = ""
     description_key: str = ""
 

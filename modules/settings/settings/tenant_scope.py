@@ -12,6 +12,9 @@ Two surfaces write tenant-scope rows, and they trust different things:
   only (:func:`active_tenant`), and only for keys declared
   ``tenant_overridable`` (:func:`overridable_definition`).
 
+A key with an ``clear_via`` cannot be deleted by a generic route while its
+tenant exists (:func:`refuse_managed_key_delete`): the upload route reaps the file.
+
 Both run the definition's ``check`` (:func:`run_check`) before writing.
 """
 
@@ -21,6 +24,7 @@ from fastapi import HTTPException, Request
 from simple_module_core.tenancy import tenant_exists
 
 from settings.constants import (
+    ERR_MANAGED_KEY_DELETE,
     ERR_NO_ACTIVE_TENANT,
     ERR_NOT_TENANT_OVERRIDABLE,
     ERR_UNKNOWN_TENANT,
@@ -31,6 +35,7 @@ from settings.constants import (
 )
 from settings.contracts.registry import SettingDefinition, SettingsRegistry
 from settings.contracts.schemas import SettingOut, SettingScope
+from settings.service import SettingService
 
 
 def registry_of(request: Request) -> SettingsRegistry | None:
@@ -67,6 +72,40 @@ def overridable_definition(request: Request, key: str) -> SettingDefinition:
     if definition is None or not definition.tenant_overridable:
         raise HTTPException(status_code=STATUS_UNPROCESSABLE, detail=ERR_NOT_TENANT_OVERRIDABLE)
     return definition
+
+
+def refuse_managed_key_delete(request: Request, key: str) -> None:
+    """422 when ``key`` is a file set by upload, naming the route that clears it.
+
+    A bare row delete would leave the stored file behind, so the owner of the
+    upload route (``SettingDefinition.clear_via``) is the only one to clear
+    it — that is where the file is reaped.
+    """
+    registry = registry_of(request)
+    definition = registry.get(key) if registry is not None else None
+    if definition is not None and definition.clear_via:
+        detail = ERR_MANAGED_KEY_DELETE.format(clear_via=definition.clear_via)
+        raise HTTPException(status_code=STATUS_UNPROCESSABLE, detail=detail)
+
+
+async def refuse_managed_key_delete_for_tenant(request: Request, tenant_id: str, key: str) -> None:
+    """:func:`refuse_managed_key_delete` for platform routes that name the tenant.
+
+    Only while the tenant still exists. A row left behind by a deleted tenant
+    has no live owner to clear it through the upload route (and no file the
+    tenant's reaper still tracks), so the operator may delete it by hand.
+    """
+    if await is_known_tenant(request, tenant_id):
+        refuse_managed_key_delete(request, key)
+
+
+async def refuse_tenant_managed_row_delete(
+    request: Request, service: SettingService, setting_id: int
+) -> None:
+    """The by-id delete routes: refuse when the row is a live tenant's upload key."""
+    row = await service.get_by_id(setting_id)
+    if row is not None and row.scope == SettingScope.TENANT:
+        await refuse_managed_key_delete_for_tenant(request, row.scope_id, row.key)
 
 
 async def run_check(request: Request, tenant_id: str, key: str, value: str) -> None:
@@ -119,6 +158,9 @@ __all__ = [
     "active_tenant",
     "is_known_tenant",
     "overridable_definition",
+    "refuse_managed_key_delete",
+    "refuse_managed_key_delete_for_tenant",
+    "refuse_tenant_managed_row_delete",
     "registry_of",
     "require_known_tenant",
     "run_check",
