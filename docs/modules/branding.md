@@ -50,6 +50,14 @@ Registered through the [`register_public_routes`](/framework/public-routes) hook
 
 Branding serves these itself rather than linking `file_storage`'s download route, which is gated by `file_storage.download` — no logged-out visitor carries that permission, and the sign-in page, the public landing page and every `<link rel="icon">` are exactly where the logo has to appear. Each route resolves **only** the id currently held in branding settings and streams that one file, so it is not a way to read arbitrary files out of `file_storage`.
 
+Branding images are **platform files** (`platform=True` in `file_storage`):
+uploaded as the install rather than as the admin's active organisation, and
+served to anonymous visitors — who have no tenant bound — by a lookup that only
+ever matches platform-owned rows. A setting pointed at a tenant's upload
+therefore `404`s instead of publishing it. Images uploaded before
+`file_storage` adopted tenancy were back-filled into the platform owner and
+keep working.
+
 Responses carry `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`. Both are ignored for subresource loads (`<img>`, `<link rel="icon">`) but stop a direct visit rendering the bytes as a document at the app's own origin.
 
 When `file_storage` is backed by S3-compatible storage, the route returns a `302` to a presigned URL. That redirect is deliberately **uncached** — the target expires, so caching it would hand out a dead link after the TTL.

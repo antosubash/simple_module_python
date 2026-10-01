@@ -195,7 +195,8 @@ async def test_logo_upload_sets_logo_url(
 ) -> None:
     fake_id = uuid.uuid4()
 
-    async def fake_upload(self, upload):
+    async def fake_upload(self, upload, *, platform: bool = False):
+        assert platform, "branding must act on platform-owned files"
         return SimpleNamespace(id=fake_id)
 
     monkeypatch.setattr("file_storage.service.FileStorageService.upload", fake_upload, raising=True)

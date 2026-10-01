@@ -24,7 +24,10 @@ Two things fix that, and this module holds both:
 
 The cache is per-app (held on ``FileStorageServices``), not per-process: a
 process running two apps — the test suite does — must not serve one app's
-totals from the other's database.
+totals from the other's database. Within an app it is keyed by tenant (#383):
+the scan is tenant-filtered, so one tenant's totals must never answer another
+tenant's render. A write drops only the slots it could have changed — the
+tenants of the rows it wrote, plus the unscoped slot that counts everyone.
 """
 
 from __future__ import annotations
@@ -34,6 +37,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import TYPE_CHECKING
 
+from simple_module_db import current_tenant_id
 from sqlalchemy import event, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -51,7 +55,7 @@ old; long enough to collapse a burst of pagination into a single scan.
 """
 
 _WROTE_FILES_KEY = "file_storage_wrote_files"
-"""``Session.info`` flag set at flush and read at commit.
+"""``Session.info`` set of written tenants, filled at flush and read at commit.
 
 Stamped in ``before_flush`` because that is the last point at which
 ``session.new``/``.dirty``/``.deleted`` still name the objects being written;
@@ -132,63 +136,84 @@ def _facets(counts: dict[str, int]) -> tuple[Facet, ...]:
     return tuple(Facet(value=value, count=count) for value, count in sorted(counts.items()))
 
 
+_Slot = tuple[StorageAggregates, float]
+"""Cached totals and the monotonic time they expire at."""
+
+
 @dataclass
 class AggregateCache:
-    """One slot's worth of memoised totals, with an expiry and a manual drop.
+    """Memoised totals per tenant, each with an expiry, and a manual drop.
 
-    Deliberately not ``cachetools``: a single entry with one expiry is two
-    fields, and ``file_storage`` would otherwise grow a dependency to hold them.
+    Keyed by the bound tenant id — ``None`` for an unscoped read (a
+    single-tenant install, or an ``all_tenants()`` block), which counts every
+    tenant's rows and so is a slot of its own. Expired slots are pruned on
+    store, so the map holds at most the tenants seen within one TTL.
+
+    Deliberately not ``cachetools``: a dict of (value, expiry) pairs is all
+    this needs, and ``file_storage`` would otherwise grow a dependency for it.
     """
 
     ttl_seconds: float = AGGREGATE_TTL_SECONDS
-    _value: StorageAggregates | None = field(default=None, init=False, repr=False)
-    _expires_at: float = field(default=0.0, init=False, repr=False)
+    _slots: dict[str | None, _Slot] = field(default_factory=dict, init=False, repr=False)
     _wired: bool = field(default=False, init=False, repr=False)
     """Whether :func:`register_invalidation` has already attached this cache."""
 
-    def invalidate(self) -> None:
-        """Forget the cached totals — the next read re-scans."""
-        self._value = None
-        self._expires_at = 0.0
+    def invalidate(self, tenant_ids: set[str | None] | None = None) -> None:
+        """Forget cached totals — for ``tenant_ids``, or every slot if ``None``."""
+        if tenant_ids is None:
+            self._slots.clear()
+            return
+        for tenant_id in tenant_ids:
+            self._slots.pop(tenant_id, None)
 
     def peek(self) -> StorageAggregates | None:
-        """The cached totals if still fresh, else ``None``. No DB access."""
-        if self._value is None or time.monotonic() >= self._expires_at:
+        """The bound tenant's cached totals if still fresh, else ``None``."""
+        slot = self._slots.get(current_tenant_id.get())
+        if slot is None or time.monotonic() >= slot[1]:
             return None
-        return self._value
+        return slot[0]
 
     async def get(self, db: AsyncSession) -> StorageAggregates:
-        """Cached totals, computing them on a miss."""
+        """Cached totals for the bound tenant, computing them on a miss."""
         cached = self.peek()
         if cached is not None:
             return cached
+        # Read the key before the await: the scan is filtered by the tenant
+        # bound *now*, and that is the slot its answer belongs in.
+        tenant_id = current_tenant_id.get()
         value = await compute(db)
-        self._value = value
-        self._expires_at = time.monotonic() + self.ttl_seconds
+        now = time.monotonic()
+        self._slots = {k: v for k, v in self._slots.items() if v[1] > now}
+        self._slots[tenant_id] = (value, now + self.ttl_seconds)
         return value
 
 
 def _mark_stored_file_writes(session, flush_context, instances) -> None:
-    """Flag the session if this flush touches a stored file."""
-    if session.info.get(_WROTE_FILES_KEY):
-        return
+    """Record which tenants' stored files this flush writes.
+
+    The flush guard runs in its own ``before_flush`` and may stamp
+    ``tenant_id`` after this one, so the bound tenant is recorded alongside:
+    an unstamped new row is about to become the bound tenant's.
+    """
+    written: set[str | None] = session.info.setdefault(_WROTE_FILES_KEY, set())
     for obj in (*session.new, *session.dirty, *session.deleted):
         if isinstance(obj, StoredFile):
-            session.info[_WROTE_FILES_KEY] = True
-            return
+            written.add(obj.tenant_id or current_tenant_id.get())
 
 
 def _drop_on_commit(cache: AggregateCache, session) -> None:
-    """Drop the cached totals once a file-writing session has committed.
+    """Drop the written tenants' totals once a file-writing session committed.
 
-    The flag is read, not consumed: a session can commit more than once — the
+    The unscoped slot (``None``) counts every tenant, so any write drops it.
+    The set is read, not consumed: a session can commit more than once — the
     commit-before-response middleware is deliberately re-armable — and a
-    listener that ate the flag would leave a second cache on the same session
+    listener that ate the set would leave a second cache on the same session
     class, or a second commit, with nothing to act on. Re-dropping an already
     dropped cache costs nothing; missing a drop serves a stale number.
     """
-    if session.info.get(_WROTE_FILES_KEY):
-        cache.invalidate()
+    written = session.info.get(_WROTE_FILES_KEY)
+    if written:
+        cache.invalidate({*written, None})
 
 
 def register_invalidation(db_state: DatabaseState, cache: AggregateCache) -> None:

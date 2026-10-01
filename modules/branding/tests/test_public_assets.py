@@ -36,10 +36,16 @@ def stored_logo(monkeypatch: pytest.MonkeyPatch) -> StoredFile:
         checksum_sha256="a" * 64,
     )
 
-    async def fake_upload(self: FileStorageService, upload: Any) -> StoredFile:
+    async def fake_upload(
+        self: FileStorageService, upload: Any, *, platform: bool = False
+    ) -> StoredFile:
+        assert platform, "branding must act on platform-owned files"
         return row
 
-    async def fake_download(self: FileStorageService, file_id: uuid.UUID) -> StreamDownload:
+    async def fake_download(
+        self: FileStorageService, file_id: uuid.UUID, *, platform: bool = False
+    ) -> StreamDownload:
+        assert platform, "branding must act on platform-owned files"
         assert file_id == row.id, f"asked for {file_id}, only {row.id} is stored"
 
         async def body() -> AsyncIterator[bytes]:

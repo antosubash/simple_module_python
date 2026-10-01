@@ -4,6 +4,12 @@ These are the only unauthenticated routes branding registers. They resolve the
 file id from ``app.state.branding.settings`` and stream that one file, so they
 expose exactly the two images an administrator designated as public branding
 and nothing else in ``file_storage``.
+
+They run with no tenant bound (anonymous visitors), so the file is read as a
+*platform* file (``platform=True``): an ``all_tenants()`` lookup restricted to
+rows owned by ``file_storage.scope.PLATFORM_TENANT_ID``. That is safe because
+the id comes from SYSTEM-scope settings, never from the request, and the owner
+condition means even a setting pointed at a tenant's file id cannot publish it.
 """
 
 from __future__ import annotations
@@ -55,7 +61,7 @@ async def _serve(
 ) -> RedirectResponse | StreamingResponse:
     file_id = _configured_file_id(request, field)
     try:
-        download = await storage.download(file_id)
+        download = await storage.download(file_id, platform=True)
     except StoredFileNotFoundError as exc:
         # Referenced file went away underneath us. 404 uncached, so the next
         # request retries once the setting is fixed rather than caching a miss.
