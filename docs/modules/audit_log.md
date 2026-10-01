@@ -105,8 +105,28 @@ from audit_log.contracts.schemas import AuditEntryRead, AuditEntryList
 | `user_id` | `str(255) \| None` | indexed; from the request's `current_user_id` |
 | `correlation_id` | `str(255) \| None` | request correlation id |
 | `created_at` | `datetime` | indexed; tz-aware, `server_default = now()` |
+| `tenant_id` | `str(50) \| None` | indexed; the tenant bound when the write happened, `NULL` for platform writes |
 
 The table itself carries `__audit_exclude__ = True` so audit writes never re-enter the capture loop.
+
+## Multi-tenancy
+
+Each entry records the tenant bound when its write flushed (#372). The table is
+deliberately **not** `MultiTenantMixin`: the audit log is a platform screen over
+every tenant's entries, filtered by a *Tenant* control whose *Platform* choice
+selects the entries with no tenant (writes made with nothing bound, or inside
+`all_tenants()`).
+
+The CSV export carries the tenant as its **last** column, after `changes`, so a
+consumer that reads the file by position keeps working.
+
+**Attribution follows the active tenant, not the actor's role.** A platform
+admin who has an organisation active when they act is acting *in* that
+organisation: the write is scoped to it, so its entry carries that tenant id
+and appears under the tenant's filter, not under *Platform*. Only work done
+with no tenant bound (no organisation active, a CLI command, a platform job)
+is recorded as a platform entry. Filter by user to see everything one admin
+did across tenants.
 
 ## Entity and actor names
 
