@@ -17,8 +17,8 @@ tenant a request acts for.
 |---|---|---|---|
 | `SELECT` | filtered to the tenant | `MissingTenantError` | unfiltered |
 | ORM `update()` / `delete()` | filtered to the tenant; `update().values(tenant_id=…)` raises | `MissingTenantError` | unfiltered |
-| `session.add` + flush | `tenant_id` filled in; a different explicit value raises | `MissingTenantError` unless `tenant_id` is set explicitly | DB `NOT NULL` error unless set |
-| ORM `insert(Model)` (bulk / `.values()`) | `tenant_id` filled in; a different explicit value raises | `MissingTenantError` unless every row sets `tenant_id` | DB `NOT NULL` error unless set |
+| `session.add` + flush | `tenant_id` filled in; a different explicit value raises | `MissingTenantError` unless `tenant_id` is set explicitly | `tenant_id` filled in with `DEFAULT_TENANT_ID` unless set |
+| ORM `insert(Model)` (bulk / `.values()`) | `tenant_id` filled in; a different explicit value raises | `MissingTenantError` unless every row sets `tenant_id` | `tenant_id` filled in with `DEFAULT_TENANT_ID` unless set |
 | Flushing a change to, or a delete of, a loaded object | only if it belongs to the bound tenant | `MissingTenantError` | allowed |
 | Changing `tenant_id` | raises | raises | raises (only an `all_tenants()` block may move a row) |
 
@@ -103,12 +103,35 @@ the call, sync or async (#364).
 
 ## Single-tenant hosts
 
-A host with `multi_tenant` off can still install modules whose tables use the
-mixin: set `default_tenant` (a `HostSettings` field, e.g. `main`) and every
-request, and every background task with no tenant on its message, acts as
-that tenant (#359). CLI commands and scripts use
-`tenant_context(settings.default_tenant)`. It is ignored when `multi_tenant`
-is on — a multi-tenant install never falls back to a shared tenant.
+A host with `multi_tenant` off can install modules whose tables use the mixin
+with no configuration at all. With no tenant bound, an insert is stamped with
+`DEFAULT_TENANT_ID` (`"default"`, exported by `simple_module_db`) — inside an
+`all_tenants()` block too — and reads stay unfiltered, so the install behaves
+as one tenant that owns every row (#380). A module adopting the mixin backfills
+its existing rows with the same constant in its migration:
+
+```python
+from simple_module_db import DEFAULT_TENANT_ID
+
+op.add_column("files_file", sa.Column("tenant_id", sa.String(50), nullable=True))
+op.execute(sa.text("UPDATE files_file SET tenant_id = :t").bindparams(t=DEFAULT_TENANT_ID))
+op.alter_column("files_file", "tenant_id", nullable=False)
+```
+
+Unbound reads are deliberately *not* narrowed to `DEFAULT_TENANT_ID`: on a
+single-tenant install every row is the install's, whatever `tenant_id` it
+carries — rows written under `default_tenant`, or while `multi_tenant` was
+briefly on, must not vanish. Strict mode never uses the constant; it raises.
+
+To give the single tenant a name of your choosing instead, set
+`default_tenant` (a `HostSettings` field, e.g. `main`): every request, and
+every background task with no tenant on its message, then *binds* that tenant
+(#359), and inserts are stamped with it rather than the constant. Reads are
+then scoped to it as well, so rows already stamped `DEFAULT_TENANT_ID` need
+re-stamping when an existing install adopts `default_tenant`. CLI commands
+and scripts use `tenant_context(settings.default_tenant)`. It is ignored when
+`multi_tenant` is on — a multi-tenant install never falls back to a shared
+tenant.
 
 ## Background jobs
 
@@ -136,6 +159,52 @@ for anonymous visitors, on public routes), the tenant header (members only),
 then the session's choice validated against a membership (#363). Without one it falls back to the principal's
 `tenant_id` claim, and for **anonymous** requests only, the configured
 `tenant_header`. An authenticated user can never pick a tenant by header.
+Most auth providers set no `tenant_id` claim, so `multi_tenant` with no
+resolver fails every tenant-scoped query closed; the boot reports that as
+`SM025`.
+
+## Tenant roles
+
+A membership role — `owner`, `admin` or `member` — reaches the request
+principal as `tenant:<role>`, for the active tenant only, so a tenant `admin`
+is never the platform `admin`. The vocabulary lives in core, so a module maps
+these onto its own permissions without depending on `tenants`:
+
+```python
+from simple_module_core.tenancy import TenantRole, tenant_role
+
+
+def register_permissions(self, registry):
+    registry.map_role(tenant_role(TenantRole.MEMBER), ["files.view", "files.upload"])
+    registry.map_role(tenant_role(TenantRole.ADMIN), ["files.manage"])
+```
+
+`tenant_role()` rejects a name outside `TenantRole`, so a typo fails at boot
+rather than granting nothing. `TENANT_ROLE_PREFIX` and `is_tenant_role()` are
+there for code that inspects a principal's roles. A role maps only what it is
+given — map `owner` and `admin` too if they should hold a member's
+permissions.
+
+## Testing
+
+The `simple_module_test` plugin ships `tenant_client` (needs the `users` and
+`tenants` modules): a factory yielding a client signed in as a fresh user with
+`role` in a new tenant — or in `tenant_id=` — with that tenant active.
+
+```python
+async def test_isolation(tenant_client):
+    async with tenant_client() as a, tenant_client("member") as b:
+        await a.client.post("/api/things", json={"name": "x"})
+        assert (await b.client.get("/api/things")).json() == []
+
+
+async def test_same_tenant(tenant_client):
+    async with (
+        tenant_client("owner") as (owner, tenant_id, _),
+        tenant_client("member", tenant_id=tenant_id) as (member, _, member_id),
+    ):
+        ...
+```
 
 ## Unique keys
 

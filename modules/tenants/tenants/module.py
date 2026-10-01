@@ -35,7 +35,7 @@ class TenantsModule(ModuleBase):
         admin_view_prefix="/admin/tenants",
         # Auth: its middleware must have set request.state.user before the
         # resolver runs. Settings: register_module_settings.
-        depends_on=["Auth", "Settings"],
+        depends_on=[c._MODULE_AUTH, c._MODULE_SETTINGS],
     )
 
     def register_settings(self, app: FastAPI) -> None:
@@ -128,7 +128,7 @@ class TenantsModule(ModuleBase):
             ],
         )
         for role, perms in c.ROLE_PERMISSIONS.items():
-            registry.map_role(f"{c.TENANT_ROLE_PREFIX}{role}", perms)
+            registry.map_role(c.tenant_role(role), perms)
 
     async def on_startup(self, app: FastAPI) -> None:
         if not getattr(app.state.sm.settings, "multi_tenant", False):

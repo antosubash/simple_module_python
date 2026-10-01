@@ -61,13 +61,8 @@ async def test_invitations_cannot_grant_owner(user_client):
         assert resp.status_code == 422
 
 
-async def test_plain_member_cannot_invite(user_client):
-    async with user_client("owner@x.io") as (owner, _), user_client("m@x.io") as (member, _):
-        await _setup(owner)
-        token = (
-            await owner.post("/api/tenants/current/invitations", json={"email": "m@x.io"})
-        ).json()["token"]
-        await member.post("/api/tenants/invitations/accept", json={"token": token})
+async def test_plain_member_cannot_invite(tenant_client):
+    async with tenant_client("member") as (member, _, _):
         resp = await member.post("/api/tenants/current/invitations", json={"email": "z@x.io"})
         assert resp.status_code == 403
 

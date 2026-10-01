@@ -51,7 +51,7 @@ def bind_engine_policy(engine: Engine, policy: Any) -> None:
     _engine_policy[engine] = policy
 
 
-def _strict_configured(session: Session) -> bool:
+def strict_configured(session: Session) -> bool:
     bind = session.bind
     policy = _engine_policy.get(bind) if isinstance(bind, Engine) else None
     return bool(policy is not None and policy.tenant_strict)
@@ -59,7 +59,7 @@ def _strict_configured(session: Session) -> bool:
 
 def is_strict(session: Session) -> bool:
     """Strict isolation is on for this session's engine and not waived."""
-    return _strict_configured(session) and not is_all_tenants()
+    return strict_configured(session) and not is_all_tenants()
 
 
 def filter_statements(execute_state: ORMExecuteState) -> Any:
@@ -76,7 +76,7 @@ def filter_statements(execute_state: ORMExecuteState) -> Any:
     ``all_tenants()``; soft-delete bypass: ``include_deleted=True``.
     """
     if execute_state.is_insert:
-        return guard_insert(execute_state, strict=_strict_configured(execute_state.session))
+        return guard_insert(execute_state, strict=strict_configured(execute_state.session))
     is_select = execute_state.is_select
     if not (is_select or execute_state.is_update or execute_state.is_delete):
         return None
@@ -85,7 +85,7 @@ def filter_statements(execute_state: ORMExecuteState) -> Any:
     skip_soft_delete = not is_select or options_in.get("include_deleted", False)
     tenant_id = current_tenant_id.get()
     skip_tenant = options_in.get(ALL_TENANTS_OPTION, False) or is_all_tenants()
-    strict = _strict_configured(execute_state.session)
+    strict = strict_configured(execute_state.session)
     if execute_state.is_update and not skip_tenant:
         # Before the early return: moving rows between tenants is refused
         # bound or not (#356), like the unit-of-work rule in flush_guard.

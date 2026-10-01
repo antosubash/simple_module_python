@@ -1,7 +1,8 @@
 """INSERT guard and statement-value helpers for the tenant query filter.
 
 Explicit ``tenant_id`` values in an insert must match the bound tenant, and
-missing ones are stamped with it (#357); the same value readers let the
+missing ones are stamped with it (#357) — or, unbound on a non-strict
+install, with ``DEFAULT_TENANT_ID`` (#380); the same value readers let the
 query filter refuse an UPDATE that assigns ``tenant_id`` (#356).
 """
 
@@ -14,6 +15,7 @@ from sqlalchemy.orm import ORMExecuteState
 from simple_module_db import model_registry as registry
 from simple_module_db.tenancy import (
     ALL_TENANTS_OPTION,
+    DEFAULT_TENANT_ID,
     TenantIsolationError,
     current_tenant_id,
     is_all_tenants,
@@ -63,11 +65,14 @@ def guard_insert(execute_state: ORMExecuteState, *, strict: bool) -> Any:
     target = getattr(execute_state.statement, "table", None)
     if not mappers and getattr(target, "name", None) in registry.tenant_table_names:
         mappers = [target.name]  # Core insert(Model.__table__)
-    if not mappers or execute_state.execution_options.get(ALL_TENANTS_OPTION, False):
+    if not mappers:
         return None
-    if is_all_tenants():
+    bypass = execute_state.execution_options.get(ALL_TENANTS_OPTION, False) or is_all_tenants()
+    if bypass and strict:
         return None
-    tenant_id = current_tenant_id.get()
+    # Unbound on a non-strict install (bypassed or not): nothing to check
+    # explicit values against, missing ones get DEFAULT_TENANT_ID (#380).
+    tenant_id = None if bypass else current_tenant_id.get()
     if getattr(execute_state.statement, "_multi_values", None):
         return _guard_multi_values(execute_state, tenant_id, mappers[0], strict)
     for value in assigned_tenant_ids(execute_state):
@@ -81,15 +86,14 @@ def guard_insert(execute_state: ORMExecuteState, *, strict: bool) -> Any:
     )
     if not missing:
         return None
-    if tenant_id is None:
-        if strict:
-            raise missing_tenant_error(mappers[0], "INSERT")
-        return None
+    if tenant_id is None and strict:
+        raise missing_tenant_error(mappers[0], "INSERT")
+    stamp = tenant_id or DEFAULT_TENANT_ID
     if rows:
-        stamped = [{**r, TENANT_COLUMN: r.get(TENANT_COLUMN, tenant_id)} for r in rows]
+        stamped = [{**r, TENANT_COLUMN: r.get(TENANT_COLUMN, stamp)} for r in rows]
         payload = stamped if isinstance(execute_state.parameters, list) else stamped[0]
         return execute_state.invoke_statement(params=payload)
-    execute_state.statement = execute_state.statement.values(**{TENANT_COLUMN: tenant_id})
+    execute_state.statement = execute_state.statement.values(**{TENANT_COLUMN: stamp})
     return None
 
 
@@ -116,15 +120,13 @@ def _guard_multi_values(
                     raise _foreign_insert(value, tenant_id)
             else:
                 missing = True
-                mapping[tenant_col] = tenant_id
+                mapping[tenant_col] = tenant_id or DEFAULT_TENANT_ID
             rows.append(mapping)
         groups.append(rows)
     if not missing:
         return None
-    if tenant_id is None:
-        if strict:
-            raise missing_tenant_error(entity, "INSERT")
-        return None
+    if tenant_id is None and strict:
+        raise missing_tenant_error(entity, "INSERT")
     stamped = stmt._generate()
     stamped._multi_values = tuple(groups)
     execute_state.statement = stamped

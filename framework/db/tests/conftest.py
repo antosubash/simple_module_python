@@ -14,10 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 _URL = database_url_for_tests()
 
 
-@pytest.fixture
-async def tenant_session() -> AsyncGenerator[AsyncSession, None]:
-    """Session backed by in-memory SQLite with tenant listeners registered."""
+async def _tenant_session(*, strict: bool) -> AsyncGenerator[AsyncSession, None]:
     db_state = init_db(_URL, **init_db_kwargs(_URL))
+    db_state.tenant_strict = strict
     try:
         register_listeners(db_state)
         await reset_schema(db_state.engine)
@@ -26,4 +25,19 @@ async def tenant_session() -> AsyncGenerator[AsyncSession, None]:
         async with db_state.session_factory() as session:
             yield session
     finally:
+        db_state.tenant_strict = False
         await db_state.engine.dispose()
+
+
+@pytest.fixture
+async def tenant_session() -> AsyncGenerator[AsyncSession, None]:
+    """Session backed by in-memory SQLite with tenant listeners registered."""
+    async for session in _tenant_session(strict=False):
+        yield session
+
+
+@pytest.fixture
+async def strict_session() -> AsyncGenerator[AsyncSession, None]:
+    """Like ``tenant_session``, with fail-closed isolation (``multi_tenant`` on)."""
+    async for session in _tenant_session(strict=True):
+        yield session

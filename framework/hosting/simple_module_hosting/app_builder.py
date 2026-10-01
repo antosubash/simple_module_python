@@ -24,6 +24,7 @@ from simple_module_core.setup_steps import SetupRegistry
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 
+from simple_module_hosting._boot_checks import report_tenant_resolution
 from simple_module_hosting._db_health import register_database_check
 from simple_module_hosting._dev_boot import run_dev_boot
 from simple_module_hosting._inertia_setup import setup_inertia
@@ -210,6 +211,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     attach_public_routes(app, settings, public_route_registry)
+    report_tenant_resolution(app, settings, diagnostics_state)  # SM025
 
     # Branding reads the packs off app.state directly: its API validates a
     # submitted slug before persisting it, and its view builds the dropdown.
