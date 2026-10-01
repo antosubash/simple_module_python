@@ -33,3 +33,22 @@ async def test_tenant_roles_reach_the_permission_registry(app):
     role_map = app.state.sm.permissions.role_map
     for role, perms in ROLE_PERMISSIONS.items():
         assert set(perms) <= set(role_map[tenant_role(role)])
+
+
+async def test_fixture_user_holds_the_platform_user_role(app, tenant_client):
+    """The ``user`` Role row is seeded on demand, never silently skipped."""
+    from sqlalchemy import select
+    from users.constants import USER_ROLE_NAME
+    from users.models import Role, UserRole
+
+    async with tenant_client("member") as (_, _, user_id):
+        pass
+    async with app.state.sm.db.session_factory() as session:
+        names = (
+            await session.execute(
+                select(Role.name)
+                .join(UserRole, UserRole.role_id == Role.id)
+                .where(UserRole.user_id == user_id)
+            )
+        ).scalars()
+        assert list(names) == [USER_ROLE_NAME]
