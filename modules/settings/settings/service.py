@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from settings._announce import announce
 from settings._row_masking import drop_placeholder_write, is_placeholder_write, out
+from settings._unique_write import DuplicateSettingError, insert_if_free
 from settings.constants import (
     ALL_SCOPES,
     DEFAULT_PER_PAGE,
@@ -205,8 +206,8 @@ class SettingService:
 
     async def create(self, data: SettingCreate) -> SettingOut:
         entity = Setting(**data.model_dump())
-        self.db.add(entity)
-        await self.db.flush()
+        if not await insert_if_free(self.db, entity):
+            raise DuplicateSettingError(f"{data.scope.value}/{data.scope_id}/{data.key}")
         await self.db.refresh(entity)
         self._changed(entity)
         return out(entity)
@@ -243,15 +244,22 @@ class SettingService:
                 ),
                 description=data.description,
             )
-            self.db.add(entity)
-        else:
-            if not is_placeholder_write(entity, data.value):
-                entity.value = data.value
-            if data.value_type is not None:
-                entity.value_type = data.value_type.value
-            # Honor explicit description=None as "clear"; skip only when unset.
-            if "description" in data.model_fields_set:
-                entity.description = data.description
+            # Two first-time writers can both get here; the loser's insert is
+            # refused by the unique key, and it becomes an update of the winner's row.
+            if await insert_if_free(self.db, entity):
+                await self.db.refresh(entity)
+                self._changed(entity)
+                return out(entity)
+            entity = await self._find(scope, scope_id, key)
+            if entity is None:  # deleted again between the two statements
+                raise DuplicateSettingError(f"{scope.value}/{scope_id}/{key}")
+        if not is_placeholder_write(entity, data.value):
+            entity.value = data.value
+        if data.value_type is not None:
+            entity.value_type = data.value_type.value
+        # Honor explicit description=None as "clear"; skip only when unset.
+        if "description" in data.model_fields_set:
+            entity.description = data.description
         await self.db.flush()
         await self.db.refresh(entity)
         self._changed(entity)
