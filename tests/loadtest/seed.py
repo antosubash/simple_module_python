@@ -110,7 +110,6 @@ async def main() -> None:
                     "is_superuser": False,
                     "is_verified": i % 3 != 0,
                     "full_name": fake.name(),
-                    "tenant_id": None,
                     "disabled_at": NOW if disabled else None,
                     "last_login_at": NOW - timedelta(days=i % 90) if i % 4 else None,
                     "created_at": NOW - timedelta(days=i % 365),

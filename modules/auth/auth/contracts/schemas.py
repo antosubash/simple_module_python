@@ -26,7 +26,10 @@ class UserContext:
         """Build a UserContext from a users.models.User with eagerly-loaded roles.
 
         Duck-typed to avoid importing users.models at runtime — any object
-        exposing .id, .email, .full_name, .roles[*].name, .tenant_id works.
+        exposing .id, .email, .full_name, .roles[*].name works. The user row
+        carries no tenant: the active tenant is resolved per request from
+        ``tenants_membership``, so ``tenant_id`` stays ``None`` here (only a
+        generic provider's claim path sets it).
         The caller is responsible for eager-loading roles (selectinload).
         """
         return cls(
@@ -34,7 +37,6 @@ class UserContext:
             email=user.email,
             name=user.full_name or user.email,
             roles=[r.name for r in user.roles],
-            tenant_id=user.tenant_id,
         )
 
     def to_session_dict(self) -> dict[str, Any]:

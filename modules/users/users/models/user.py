@@ -56,7 +56,6 @@ class User(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
     )
 
     full_name: str | None = Field(default=None, max_length=255)
-    tenant_id: str | None = Field(default=None, max_length=50, index=True)
     disabled_at: datetime | None = Field(
         default=None,
         sa_type=DateTime(timezone=True),

@@ -47,7 +47,6 @@ class UserRead(CreateUpdateDictModel, SQLModel):
     is_verified: bool = False
     is_external: bool = False
     full_name: str | None = None
-    tenant_id: str | None = None
     disabled_at: datetime | None = None
     last_login_at: datetime | None = None
 

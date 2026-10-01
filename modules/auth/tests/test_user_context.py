@@ -18,14 +18,14 @@ class TestUserContextFromUser:
             email="charlie@example.com",
             full_name="Charlie Brown",
             roles=[role_a, role_b],
-            tenant_id="tenant-42",
         )
         ctx = UserContext.from_user(fake_user)
         assert ctx.id == "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
         assert ctx.email == "charlie@example.com"
         assert ctx.name == "Charlie Brown"
         assert ctx.roles == ["admin", "editor"]
-        assert ctx.tenant_id == "tenant-42"
+        # The user row carries no tenant; the resolver supplies it per request.
+        assert ctx.tenant_id is None
 
     async def test_from_user_name_fallback_to_email(self):
         """When full_name is None, ctx.name falls back to the user's email."""
