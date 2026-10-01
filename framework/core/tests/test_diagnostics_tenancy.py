@@ -113,3 +113,25 @@ def test_module_tables_only_counts_mixin_models(monkeypatch):
 
     mod_cls = type("DemoModule", (), {"__module__": "sm024pkg.module"})
     assert [t.name for t in module_tables(mod_cls())] == ["demo_scoped"]
+
+
+# ── SM025: multi_tenant on, but nothing resolves the tenant ─────────────
+
+
+def test_multi_tenant_without_resolver_warns():
+    from simple_module_core.diagnostics import DiagnosticLevel, check_tenant_resolver
+
+    diags = check_tenant_resolver(multi_tenant=True, resolver=None)
+    assert [d.code for d in diags] == ["SM025"]
+    assert diags[0].level == DiagnosticLevel.WARNING
+    assert "tenant_resolver" in diags[0].message
+
+
+def test_resolver_registered_or_tenancy_off_is_fine():
+    from simple_module_core.diagnostics import check_tenant_resolver
+
+    async def resolver(request):  # pragma: no cover - never called
+        return None
+
+    assert check_tenant_resolver(multi_tenant=True, resolver=resolver) == []
+    assert check_tenant_resolver(multi_tenant=False, resolver=None) == []

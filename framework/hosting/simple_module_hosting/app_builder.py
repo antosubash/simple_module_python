@@ -24,6 +24,7 @@ from simple_module_core.setup_steps import SetupRegistry
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 
+from simple_module_hosting._boot_checks import report_tenant_resolution
 from simple_module_hosting._db_health import register_database_check
 from simple_module_hosting._dev_boot import run_dev_boot
 from simple_module_hosting._inertia_setup import setup_inertia
@@ -210,6 +211,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     attach_public_routes(app, settings, public_route_registry)
+    report_tenant_resolution(app, settings, diagnostics_state)  # SM025
 
     # Branding reads the packs off app.state directly: its API validates a
     # submitted slug before persisting it, and its view builds the dropdown.
@@ -238,6 +240,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Multi-tenant installs fail closed: a tenant-scoped query with no tenant
     # context raises instead of reading every tenant's rows.
     db_state.tenant_strict = settings.multi_tenant
+    # Where unbound / all_tenants() writes land on a single-tenant install:
+    # its ``default_tenant`` when set, so they stay visible to its requests.
+    if not settings.multi_tenant and settings.default_tenant:
+        db_state.default_tenant_id = settings.default_tenant
     register_listeners(db_state)
     # The host's own readiness signal, and the only probe-safe check in a
     # default install — module checks reach third parties and are on-demand.

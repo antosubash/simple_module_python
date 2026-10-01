@@ -47,11 +47,13 @@ from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRoute, PublicRouteRegistry
 from simple_module_core.services import Services
 from simple_module_core.setup_steps import SetupRegistry, SetupStep
+from simple_module_core.tenancy import TENANT_ROLE_PREFIX, TenantRole, is_tenant_role, tenant_role
 from simple_module_core.versioning import FRAMEWORK_API_VERSION, check_framework_compatibility
 
 __all__ = [
     "DEFAULT_AUTH_PROVIDER",
     "FRAMEWORK_API_VERSION",
+    "TENANT_ROLE_PREFIX",
     "AuditLink",
     "AuditLinkRegistry",
     "CircularDependencyError",
@@ -89,6 +91,7 @@ __all__ = [
     "Services",
     "SetupRegistry",
     "SetupStep",
+    "TenantRole",
     "Translator",
     "ValidationError",
     "check_framework_compatibility",
@@ -97,10 +100,12 @@ __all__ = [
     "flag_enabled",
     "get_module_package_name",
     "is_flag_enabled",
+    "is_tenant_role",
     "print_diagnostics",
     "require_flag",
     "resolve_auth_provider",
     "run_diagnostics",
     "select_auth_provider",
+    "tenant_role",
     "topological_sort",
 ]

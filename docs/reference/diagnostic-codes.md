@@ -33,6 +33,7 @@ The framework runs a set of static checks over installed modules at app boot. Th
 | `SM022` | WARNING | A module's `styles.css` contains a top-level `@theme`, `@custom-variant` or `@utility` block. That file is imported into `layer(components)`, where those at-rules are inert. | Move the block to the module's `theme.css`, which is imported unlayered so its tokens actually register. |
 | `SM023` | WARNING | A module's `theme.css` contains an unlayered plain rule (anything but an at-rule or a `:root`-style selector). Unlayered CSS outranks every Tailwind utility. | Move the rule to the module's `styles.css`, which is imported into `layer(components)` so utilities still win. |
 | `SM024` | WARNING | A unique column, constraint or index on a `MultiTenantMixin` table does not include `tenant_id`, so the first tenant to claim a value locks every other tenant out of it. | Make the key per tenant: add `tenant_id` to it (`Index(..., "tenant_id", "slug", unique=True)`). |
+| `SM025` | WARNING | `multi_tenant` is on but no module registered `app.state.tenant_resolver`, so only the principal's `tenant_id` claim can bind a tenant — with most auth providers every tenant-scoped query then fails closed. Checked at boot (it needs the built app), in every environment, not by `make doctor`. | Install the `tenants` module, or register your own `async (Request) -> str \| None` resolver on `app.state.tenant_resolver`. |
 
 `SM022`/`SM023` are the two halves of the same invariant: a module's optional [`theme.css` is imported unlayered and `styles.css` into `layer(components)`](/module-authoring#styling), and CSS put in the wrong one silently does nothing (or silently wins everything).
 
@@ -41,7 +42,7 @@ The framework runs a set of static checks over installed modules at app boot. Th
 | Context | What runs |
 |---|---|
 | App boot in development | Full structural/page/i18n suite, results logged to stderr. ERRORS abort boot. |
-| App boot in non-development | Strict module discovery (raises on SM001-class failures) + the migration check (SM010). The page/locale static suite is dev-only. |
+| App boot in non-development | Strict module discovery (raises on SM001-class failures) + the migration check (SM010) + SM025 (logged as a warning). The page/locale static suite is dev-only. |
 
 Sample dev-mode output:
 

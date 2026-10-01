@@ -16,6 +16,7 @@ from simple_module_db.search import LIKE_ESCAPE_CHAR, like_contains_pattern, lik
 from simple_module_db.session import DatabaseState, RequestSession, init_db
 from simple_module_db.tenancy import (
     ALL_TENANTS_OPTION,
+    DEFAULT_TENANT_ID,
     TENANT_ID_PATTERN,
     MissingTenantError,
     TenantIsolationError,
@@ -30,6 +31,7 @@ from simple_module_db.writes import hard_delete, mark_written
 
 __all__ = [
     "ALL_TENANTS_OPTION",
+    "DEFAULT_TENANT_ID",
     "LIKE_ESCAPE_CHAR",
     "TENANT_ID_PATTERN",
     "AuditMixin",

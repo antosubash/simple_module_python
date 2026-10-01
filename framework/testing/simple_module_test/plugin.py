@@ -34,6 +34,7 @@ from simple_module_test.fixtures import (  # noqa: F401
     setup_pending_app,
 )
 from simple_module_test.redis_server import redis_server  # noqa: F401
+from simple_module_test.tenant_client import tenant_client  # noqa: F401
 
 
 def _bootstrap_eager_celery() -> None:

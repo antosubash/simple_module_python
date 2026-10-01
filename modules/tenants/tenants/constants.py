@@ -4,17 +4,21 @@ from __future__ import annotations
 
 from enum import StrEnum
 
+# The role vocabulary lives in core so other modules can map ``tenant:<role>``
+# onto their permissions without depending on this module (#380).
+from simple_module_core.tenancy import TENANT_ROLE_PREFIX, tenant_role
+from simple_module_core.tenancy import TenantRole as MembershipRole
+
 MODULE_PACKAGE = "tenants"
 DISPLAY_NAME = "Tenants"
+
+# Names of the modules this one depends on (``ModuleMeta.depends_on``).
+_MODULE_AUTH = "Auth"
+_MODULE_SETTINGS = "Settings"
 
 # Session key holding the tenant the signed-in user last switched to. Only a
 # preference: the resolver re-validates it against a membership every request.
 SESSION_ACTIVE_TENANT = "sm_active_tenant"
-
-# Effective-role prefix: a membership role becomes ``tenant:<role>`` on the
-# request principal for the active tenant only, so a tenant ``admin`` can
-# never be confused with the platform ``admin`` role.
-TENANT_ROLE_PREFIX = "tenant:"
 
 INVALIDATION_CHANNEL = "tenants.membership"
 
@@ -30,12 +34,6 @@ TENANT_ID_LEN = 32
 class TenantStatus(StrEnum):
     ACTIVE = "active"
     SUSPENDED = "suspended"
-
-
-class MembershipRole(StrEnum):
-    OWNER = "owner"
-    ADMIN = "admin"
-    MEMBER = "member"
 
 
 MANAGER_ROLES = frozenset({MembershipRole.OWNER, MembershipRole.ADMIN})
@@ -59,3 +57,5 @@ PAGE_INDEX = "Tenants/Index"
 PAGE_MEMBERS = "Tenants/Members"
 PAGE_ACCEPT = "Tenants/AcceptInvitation"
 PAGE_ADMIN = "Tenants/AdminBrowse"
+
+__all__ = ["TENANT_ROLE_PREFIX", "MembershipRole", "tenant_role"]

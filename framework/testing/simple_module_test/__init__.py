@@ -20,16 +20,21 @@ real broker (cross-worker cache invalidation) and skips when the binary is absen
 See ``simple_module_test.plugin`` (and ``simple_module_test.fixtures``) for
 their definitions. ``authenticated_client`` additionally requires the ``users``
 module to be installed — it seeds an admin via ``users.bootstrap``.
+``tenant_client`` (``users`` + ``tenants``) is a factory yielding a client signed
+in as an ``owner``/``admin``/``member`` of a real tenant — see
+``simple_module_test.tenant_client``.
 """
 
 from simple_module_test.app_factory import build_test_app
 from simple_module_test.fake_events import FakeEventBus, RecordedEvent
 from simple_module_test.routes import effective_route_paths
 from simple_module_test.session_cookie import forge_session_cookie
+from simple_module_test.tenant_client import TenantClient
 
 __all__ = [
     "FakeEventBus",
     "RecordedEvent",
+    "TenantClient",
     "build_test_app",
     "effective_route_paths",
     "forge_session_cookie",

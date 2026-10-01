@@ -43,15 +43,13 @@ async def _org(client, name):
     return (await client.post("/api/tenants/", json={"name": name})).json()
 
 
-async def test_each_tenant_sees_only_its_rows(notes_app, user_client):
-    async with user_client("a@x.io") as (a, _), user_client("b@x.io") as (b, _):
-        ta = await _org(a, "Alpha")
-        tb = await _org(b, "Beta")
+async def test_each_tenant_sees_only_its_rows(notes_app, tenant_client):
+    async with tenant_client() as (a, ta, _), tenant_client() as (b, tb, _):
         assert (await a.post("/api/e2e/notes", json={"body": "a1"})).status_code == 200
         assert (await b.post("/api/e2e/notes", json={"body": "b1"})).status_code == 200
 
-        assert (await a.get("/api/e2e/notes")).json() == [{"body": "a1", "tenant_id": ta["id"]}]
-        assert (await b.get("/api/e2e/notes")).json() == [{"body": "b1", "tenant_id": tb["id"]}]
+        assert (await a.get("/api/e2e/notes")).json() == [{"body": "a1", "tenant_id": ta}]
+        assert (await b.get("/api/e2e/notes")).json() == [{"body": "b1", "tenant_id": tb}]
 
 
 async def test_switching_changes_the_visible_data(notes_app, user_client):
@@ -74,13 +72,11 @@ async def test_no_tenant_fails_closed(notes_app, user_client):
         assert page.headers["location"].startswith("/tenants/?reason=tenant_required")
 
 
-async def test_removed_member_loses_access_immediately(notes_app, user_client):
-    async with user_client("o@x.io") as (owner, _), user_client("m@x.io") as (member, member_id):
-        await _org(owner, "Acme")
-        token = (
-            await owner.post("/api/tenants/current/invitations", json={"email": "m@x.io"})
-        ).json()["token"]
-        await member.post("/api/tenants/invitations/accept", json={"token": token})
+async def test_removed_member_loses_access_immediately(notes_app, tenant_client):
+    async with (
+        tenant_client() as (owner, tenant_id, _),
+        tenant_client("member", tenant_id=tenant_id) as (member, _, member_id),
+    ):
         await owner.post("/api/e2e/notes", json={"body": "secret"})
         assert len((await member.get("/api/e2e/notes")).json()) == 1
 
@@ -88,18 +84,17 @@ async def test_removed_member_loses_access_immediately(notes_app, user_client):
         assert (await member.get("/api/e2e/notes")).status_code == 403
 
 
-async def test_suspended_tenant_is_not_resolved(notes_app, user_client, authenticated_client):
-    async with user_client("o@x.io") as (owner, _):
-        tenant = await _org(owner, "Late Payer")
+async def test_suspended_tenant_is_not_resolved(notes_app, tenant_client, authenticated_client):
+    async with tenant_client() as (owner, tenant_id, _):
         assert (await owner.get("/api/e2e/notes")).status_code == 200
 
-        resp = await authenticated_client.post(f"/api/tenants/admin/{tenant['id']}/suspend")
+        resp = await authenticated_client.post(f"/api/tenants/admin/{tenant_id}/suspend")
         assert resp.status_code == 200 and resp.json()["status"] == "suspended"
         assert (await owner.get("/api/e2e/notes")).status_code == 403
         page = await owner.get("/tenants/", headers={"X-Inertia": "true"})
         assert page.json()["props"]["suspended"] is True
 
-        await authenticated_client.post(f"/api/tenants/admin/{tenant['id']}/reactivate")
+        await authenticated_client.post(f"/api/tenants/admin/{tenant_id}/reactivate")
         assert (await owner.get("/api/e2e/notes")).status_code == 200
 
 

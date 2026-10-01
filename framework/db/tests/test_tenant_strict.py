@@ -2,34 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator
-
 import pytest
-from _models import _TenantBase, _TenantItem
+from _models import _TenantItem
 from simple_module_db import TenantIsolationError, all_tenants, current_tenant_id, tenant_context
-from simple_module_db.listeners import register_listeners
-from simple_module_db.session import init_db
-from simple_module_test.database import database_url_for_tests, init_db_kwargs, reset_schema
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-
-_URL = database_url_for_tests()
-
-
-@pytest.fixture
-async def strict_session() -> AsyncGenerator[AsyncSession, None]:
-    db_state = init_db(_URL, **init_db_kwargs(_URL))
-    db_state.tenant_strict = True
-    try:
-        register_listeners(db_state)
-        await reset_schema(db_state.engine)
-        async with db_state.engine.begin() as conn:
-            await conn.run_sync(_TenantBase.metadata.create_all)
-        async with db_state.session_factory() as session:
-            yield session
-    finally:
-        db_state.tenant_strict = False
-        await db_state.engine.dispose()
 
 
 async def _seed(session: AsyncSession) -> None:
