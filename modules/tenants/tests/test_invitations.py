@@ -1,0 +1,100 @@
+"""Invitations: issue, accept (email-bound), revoke, seat entitlements."""
+
+from __future__ import annotations
+
+from tenants.contracts.entitlements import UnlimitedEntitlements
+
+
+class _Seats:
+    def __init__(self, n: int) -> None:
+        self.n = n
+
+    async def limit(self, tenant_id: str, key: str) -> int | None:
+        return self.n if key == "tenants.seats" else None
+
+    async def has_feature(self, tenant_id: str, key: str) -> bool:
+        return True
+
+
+async def _setup(client) -> dict:
+    return (await client.post("/api/tenants/", json={"name": "Acme"})).json()
+
+
+async def test_invite_and_accept(user_client):
+    async with user_client("owner@x.io") as (owner, _), user_client("new@x.io") as (new, new_id):
+        tenant = await _setup(owner)
+        issued = await owner.post(
+            "/api/tenants/current/invitations", json={"email": "New@X.io", "role": "admin"}
+        )
+        assert issued.status_code == 201, issued.text
+        token = issued.json()["token"]
+        assert token in issued.json()["accept_url"]
+
+        accepted = await new.post("/api/tenants/invitations/accept", json={"token": token})
+        assert accepted.status_code == 200, accepted.text
+        assert accepted.json()["id"] == tenant["id"]
+        assert accepted.json()["role"] == "admin"
+
+        members = (await owner.get("/api/tenants/current/members")).json()
+        assert {m["user_id"] for m in members} >= {new_id}
+
+        again = await new.post("/api/tenants/invitations/accept", json={"token": token})
+        assert again.status_code == 409
+
+
+async def test_invitation_is_bound_to_its_email(user_client):
+    async with user_client("owner@x.io") as (owner, _), user_client("thief@x.io") as (thief, _):
+        await _setup(owner)
+        token = (
+            await owner.post("/api/tenants/current/invitations", json={"email": "friend@x.io"})
+        ).json()["token"]
+        resp = await thief.post("/api/tenants/invitations/accept", json={"token": token})
+        assert resp.status_code == 403
+
+
+async def test_invitations_cannot_grant_owner(user_client):
+    async with user_client("owner@x.io") as (owner, _):
+        await _setup(owner)
+        resp = await owner.post(
+            "/api/tenants/current/invitations", json={"email": "x@x.io", "role": "owner"}
+        )
+        assert resp.status_code == 422
+
+
+async def test_plain_member_cannot_invite(user_client):
+    async with user_client("owner@x.io") as (owner, _), user_client("m@x.io") as (member, _):
+        await _setup(owner)
+        token = (
+            await owner.post("/api/tenants/current/invitations", json={"email": "m@x.io"})
+        ).json()["token"]
+        await member.post("/api/tenants/invitations/accept", json={"token": token})
+        resp = await member.post("/api/tenants/current/invitations", json={"email": "z@x.io"})
+        assert resp.status_code == 403
+
+
+async def test_seat_limit_blocks_invites(app, user_client):
+    app.state.tenants.entitlements = _Seats(2)
+    try:
+        async with user_client("owner@x.io") as (owner, _):
+            await _setup(owner)
+            ok = await owner.post("/api/tenants/current/invitations", json={"email": "a@x.io"})
+            assert ok.status_code == 201
+            # owner + one pending invitation = 2 seats used
+            full = await owner.post("/api/tenants/current/invitations", json={"email": "b@x.io"})
+            assert full.status_code == 402
+            assert full.json()["key"] == "tenants.seats"
+    finally:
+        app.state.tenants.entitlements = UnlimitedEntitlements()
+
+
+async def test_revoked_invitation_cannot_be_accepted(user_client):
+    async with user_client("owner@x.io") as (owner, _), user_client("n@x.io") as (new, _):
+        await _setup(owner)
+        issued = (
+            await owner.post("/api/tenants/current/invitations", json={"email": "n@x.io"})
+        ).json()
+        assert (
+            await owner.delete(f"/api/tenants/current/invitations/{issued['id']}")
+        ).status_code == 204
+        resp = await new.post("/api/tenants/invitations/accept", json={"token": issued["token"]})
+        assert resp.status_code == 404

@@ -35,6 +35,12 @@ class HostSettings(BaseSettings):
 
     multi_tenant: bool = False
     tenant_header: str = ""
+    default_tenant: str = ""
+    """Single-tenant hosts (``multi_tenant`` off): the tenant every request acts
+    as, so a module's ``MultiTenantMixin`` tables work without a tenant
+    resolver. Ignored when ``multi_tenant`` is on — a multi-tenant install
+    never falls back to a shared tenant. Jobs and CLI commands use
+    ``tenant_context(settings.default_tenant)``."""
 
     maintenance_mode: bool = False
     """Serve everyone but admins a 503 page.
@@ -122,6 +128,16 @@ class HostSettings(BaseSettings):
         if value is None:
             return None
         return value.strip() or None
+
+    @field_validator("default_tenant", mode="after")
+    @classmethod
+    def _check_default_tenant(cls, value: str) -> str:
+        from simple_module_db import is_valid_tenant_id
+
+        value = value.strip()
+        if value and not is_valid_tenant_id(value):
+            raise ValueError(f"default_tenant {value!r} is not a valid tenant id")
+        return value
 
     @model_validator(mode="after")
     def _check_default_locale_supported(self) -> HostSettings:

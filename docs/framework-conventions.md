@@ -255,8 +255,8 @@ Two consequences worth knowing when writing a module:
 ### Mixins
 
 - `AuditMixin` — `created_at`, `updated_at`, `created_by`, `updated_by` (auto-populated from the current user in listeners).
-- `SoftDeleteMixin` — `is_deleted`, `deleted_at`, `deleted_by`. `delete()` converts to soft-delete; `SELECT` auto-filters. Bypass the read filter with `stmt.execution_options(include_deleted=True)`; see **Trash vs purge** below for the write side.
-- `MultiTenantMixin` — `tenant_id`. Auto-populated on insert; `SELECT` auto-filters when `current_tenant_id` is set.
+- `SoftDeleteMixin` — `is_deleted`, `deleted_at`, `deleted_by`. `delete()` converts to soft-delete; reads auto-filter trashed rows wherever the table appears — joins, subqueries, counts, top-level Core statements (#332). Bypass the read filter with `stmt.execution_options(include_deleted=True)`; see **Trash vs purge** below for the write side.
+- `MultiTenantMixin` — `tenant_id`. Auto-populated on insert; `SELECT`, ORM `UPDATE` and `DELETE` are scoped to `current_tenant_id`. With `multi_tenant` on, a query with **no** tenant raises `TenantIsolationError` (fail closed) — cross-tenant code opts out with `all_tenants()` / `execution_options(all_tenants=True)`. See [multi-tenancy](/framework/multi-tenancy).
 - `VersionedMixin` — `version`, auto-incremented on update.
 
 ### Trash vs purge
@@ -281,9 +281,10 @@ not get the row torn out from under them.
 
 ### Query filters and the shapes they cover
 
-The soft-delete and tenant filters are attached by a `do_orm_execute` listener,
-which walks both the statement's entities **and** its FROM clause. All of these
-are filtered:
+The soft-delete and tenant filters are attached by a `do_orm_execute` listener
+(`simple_module_db.query_filter`). Loader criteria go on for *every* registered
+soft-deletable / tenant-scoped model, not only the entities a statement names,
+and top-level Core tables get an explicit `WHERE`. All of these are filtered:
 
 ```python
 select(Model)  # entity select
@@ -292,6 +293,7 @@ select(func.count()).select_from(Model)  # bare count
 select(func.count()).select_from(select(Model).subquery())
 select(func.count()).select_from(Model.__table__)  # pure Core
 select(A).outerjoin(B)  # B filtered in the ON clause
+select(func.count()).select_from(A.__table__.join(B.__table__, ...))  # Core inner join
 ```
 
 Before GH #332 only the first two were — the rest returned trashed rows, and on

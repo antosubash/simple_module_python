@@ -12,6 +12,28 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- **Postgres test runs** (#343) — `SM_TEST_DATABASE_URL` points the
+  `simple_module_test` fixtures at Postgres, and `make test-py-pg` runs the
+  whole Python suite there. The schema is reset once per test, so `app` and
+  `db_session` see each other's rows as they would in production.
+- **`tenants` module** — SaaS organisations: tenants, many-to-many memberships
+  with per-tenant roles (`owner`/`admin`/`member`, surfaced as `tenant:<role>`
+  on the active tenant only), email-bound invitations, platform suspend /
+  reactivate, and the membership-validated tenant resolver. Ships the seams a
+  billing module needs: an `EntitlementProvider` on
+  `app.state.tenants.entitlements` (seat limits enforced, HTTP 402), lifecycle
+  via `TenantService.set_status`, and after-commit domain events. See
+  [docs/framework/multi-tenancy.md](docs/framework/multi-tenancy.md).
+- `simple_module_db.tenant_context()` / `all_tenants()` and the
+  `all_tenants=True` execution option, for acting as one tenant — or
+  deliberately across tenants — outside a request.
+- `TenantMiddleware` consults `app.state.tenant_resolver` when a module
+  registers one.
+- `background_tasks` carries the enqueuing request's tenant into the Celery
+  task and restores it around the task body.
+- Doctor check `SM024`: a unique key on a `MultiTenantMixin` table that omits
+  `tenant_id`.
+
 - `InvalidationBus` — a framework-level cache-invalidation channel any module can
   publish on (`ModuleBase.register_invalidations`, `app.state.sm.invalidation`).
   In-process by default; `background_tasks` installs a Redis pub/sub transport on
@@ -44,6 +66,45 @@ All notable changes to this project are documented in this file. The format is b
   worker/beat run the same image with a celery command. `smpy new` also
   generates real `SM_USERS_*_TOKEN_SECRET` values into `.env.example` so the
   production-mode containers pass `UsersSettings` boot validation.
+
+### Changed
+- **Tenant isolation fails closed.** With `multi_tenant` on, a query, bulk
+  `update()`/`delete()` or insert on a `MultiTenantMixin` model with no tenant
+  context raises `TenantIsolationError` instead of reading or writing every
+  tenant's rows. ORM `update()`/`delete()` are now tenant-scoped too; they were
+  not before.
+- Changing a row's `tenant_id` is refused whether or not a tenant is bound
+  (it used to be checked only inside a tenant context); only an `all_tenants()`
+  block may move a row between tenants.
+- Tenant rules now cover every ORM write path, not only `session.add`: an
+  ORM `insert(Model)` (bulk or `.values()`) is stamped with the bound tenant
+  and refused for a different one (#357); `update(Model).values(tenant_id=…)`
+  is refused; a flush that writes or deletes an object belonging to another
+  tenant (e.g. one returned from the identity map after a `tenant_context`
+  switch) is refused.
+- `tenant_context()` nested in `all_tenants()` now scopes its block; it used
+  to be ignored there, so a per-tenant loop inside a platform job ran
+  unscoped.
+- Strict mode is held per engine, so a second `DatabaseState` in the process
+  no longer switches it off for the first. The Celery worker's session gets the
+  tenant listeners and the host's `multi_tenant` setting too (#371).
+- New `MissingTenantError` (a `TenantIsolationError`) for "no tenant bound".
+- Tenant and soft-delete criteria reach join targets, subqueries (including a
+  bare Core `exists().where(...)`), `count().select_from()` and top-level Core
+  statements on `Model.__table__` (#332). **Behaviour change:** a join or count
+  over a soft-deletable model now excludes trashed rows, as a plain `select`
+  already did; `include_deleted=True` still reveals them.
+- `HostSettings.default_tenant`: single-tenant hosts run mixin tables as one
+  tenant (#359). `bind_current_tenant(fn)` carries the tenant into work a
+  module defers past the request (#364). The `tenants` module resolves a
+  tenant from the subdomain (`subdomain_base`), anonymous visitors included
+  (#363).
+
+### Security
+- The tenant header (`tenant_header`) is no longer honoured for an
+  authenticated user without a tenant of their own: such a user could name any
+  tenant. On the legacy path it applies to anonymous requests only; with the
+  `tenants` resolver it selects among the user's own memberships.
 
 ### Fixed
 - Public pages no longer reload the whole document when a visitor clicks a link

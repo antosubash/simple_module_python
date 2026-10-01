@@ -10,7 +10,9 @@ from sqlalchemy import event
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
-from simple_module_db.mixins import AuditMixin, MultiTenantMixin, SoftDeleteMixin, VersionedMixin
+from simple_module_db.flush_guard import guard_flush
+from simple_module_db.mixins import AuditMixin, SoftDeleteMixin, VersionedMixin
+from simple_module_db.query_filter import bind_engine_policy, filter_statements
 from simple_module_db.session import DatabaseState
 from simple_module_db.writes import (
     _HARD_DELETE_KEY,
@@ -33,19 +35,14 @@ __all__ = [
     "register_listeners",
 ]
 
+# Re-exported: callers import these from here since before tenancy.py existed.
+from simple_module_db.tenancy import TenantIsolationError, current_tenant_id
+
 logger = logging.getLogger(__name__)
 _db_logger = logging.getLogger("simple_module.db")
 
 # Set by auth middleware on each request
 current_user_id: ContextVar[str | None] = ContextVar("current_user_id", default=None)
-
-# Set by tenant middleware on each request
-current_tenant_id: ContextVar[str | None] = ContextVar("current_tenant_id", default=None)
-
-
-class TenantIsolationError(Exception):
-    """Raised when a multi-tenancy isolation constraint is violated."""
-
 
 # Key on ``Session.info`` for pending audit snapshots produced in before_flush
 # and consumed in after_flush_postexec (when DB-assigned PKs are populated).
@@ -97,18 +94,28 @@ def register_listeners(db_state: DatabaseState) -> None:
 
     global _db_state
     _db_state = db_state
-
-    # Imported here rather than at module scope: query_filters needs
-    # ``current_tenant_id`` from this module, so a top-level import would cycle.
-    from simple_module_db.query_filters import apply_query_filters
-
-    event.listen(db_state.sync_session_class, "before_flush", _before_flush_listener)
-    event.listen(db_state.sync_session_class, "after_flush", _mark_session_written)
-    event.listen(db_state.sync_session_class, "after_flush_postexec", _after_flush_audit)
-    event.listen(db_state.sync_session_class, "do_orm_execute", _mark_dml_written)
-    event.listen(db_state.sync_session_class, "do_orm_execute", apply_query_filters)
+    # Strict mode is read from db_state at query time, per engine.
+    bind_engine_policy(db_state.engine.sync_engine, db_state)
+    attach_session_listeners(db_state.sync_session_class)
     db_state._listeners_registered = True
     logger.info("Registered SQLAlchemy entity listeners")
+
+
+def attach_session_listeners(session_class: type[Session]) -> None:
+    """Attach the entity listeners to a session class; idempotent.
+
+    For a process with no ``DatabaseState`` (the Celery worker's sync engine),
+    call this and ``bind_engine_policy(engine, EngineTenancy(...))``.
+    """
+    for name, fn in (
+        ("before_flush", _before_flush_listener),
+        ("after_flush", _mark_session_written),
+        ("after_flush_postexec", _after_flush_audit),
+        ("do_orm_execute", _mark_dml_written),
+        ("do_orm_execute", filter_statements),
+    ):
+        if not event.contains(session_class, name, fn):
+            event.listen(session_class, name, fn)
 
 
 def _before_flush_listener(
@@ -116,8 +123,8 @@ def _before_flush_listener(
     flush_context: object,
     instances: object,
 ) -> None:
+    guard_flush(session)
     user_id = current_user_id.get()
-    tenant_id = current_tenant_id.get()
     now = datetime.now(UTC)
 
     for obj in session.new:
@@ -126,16 +133,6 @@ def _before_flush_listener(
                 obj.created_by = user_id
             if obj.updated_by is None:
                 obj.updated_by = user_id
-
-        # Auto-populate tenant_id; reject cross-tenant creation
-        if isinstance(obj, MultiTenantMixin):
-            if obj.tenant_id is None and tenant_id is not None:
-                obj.tenant_id = tenant_id
-            elif tenant_id is not None and obj.tenant_id != tenant_id:
-                raise TenantIsolationError(
-                    f"Cannot create object for tenant '{obj.tenant_id}' "
-                    f"in context of tenant '{tenant_id}'"
-                )
 
         _db_logger.info(
             _EVENT_ENTITY_CREATED,
@@ -156,12 +153,6 @@ def _before_flush_listener(
 
         if isinstance(obj, VersionedMixin):
             obj.version += 1
-
-        # Prevent tenant_id from being changed on existing objects
-        if isinstance(obj, MultiTenantMixin) and tenant_id is not None:
-            hist = sa_inspect(obj).attrs.tenant_id.history
-            if hist.has_changes():
-                raise TenantIsolationError("Cannot change tenant_id of an existing object")
 
         _db_logger.info(
             _EVENT_ENTITY_UPDATED,

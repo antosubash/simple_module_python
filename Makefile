@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings ci-check-untranslated ci-build-packages worker beat worker-docker
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history docker-up docker-down kill new-module gen-pages gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings ci-check-untranslated ci-build-packages worker beat worker-docker
 
 # Install
 install:
@@ -47,6 +47,16 @@ test: test-py test-js
 
 test-py:
 	uv run pytest
+
+# The Python suite on Postgres (#343). Needs an empty database the tests may
+# drop and recreate `public` in. `-p no:anyio`: tests marked
+# `@pytest.mark.anyio` would otherwise run on anyio's event loop while the
+# async fixtures ran on pytest-asyncio's, and an asyncpg connection cannot
+# cross loops (aiosqlite's thread hides this on SQLite). asyncio_mode=auto
+# still runs those tests.
+SM_TEST_PG_URL ?= postgresql+asyncpg://postgres:postgres@localhost:5432/sm_test
+test-py-pg:
+	SM_TEST_DATABASE_URL=$(SM_TEST_PG_URL) uv run pytest -p no:anyio
 
 test-js:
 	npm test
