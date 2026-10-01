@@ -164,9 +164,16 @@ bound may name one. Beat tasks have no request: wrap cross-tenant work in
 The worker never builds the app, so `background_tasks.sync_db` attaches the
 same listeners to its own session class and reads `multi_tenant` from the host
 settings (`scripts/run_worker.py`): task bodies get the same fail-closed rules
-as request code. A process that talks to the DB some other way must do the
+as request code. It also passes `default_tenant`, so an unbound insert in a
+task body (an `all_tenants()` block) lands in that tenant exactly as it would
+in the web process. A process that talks to the DB some other way must do the
 same — `attach_session_listeners(MySession)` plus
-`bind_engine_policy(engine, EngineTenancy(tenant_strict=...))`.
+`bind_engine_policy(engine, EngineTenancy(tenant_strict=..., default_tenant_id=...))`.
+
+The worker-side signals (prerun, success, failure, retry, revoked) stamp the
+`TaskExecution` row with the tenant on the message header themselves — the
+publish signal may never have written the row — and a signal whose message
+carries no tenant never blanks a row already stamped.
 
 ## Resolution
 
