@@ -5,12 +5,14 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from simple_module_hosting.permissions import RequiresPermission
 
+from settings._unique_write import DuplicateSettingError
 from settings.constants import (
     API_BY_ID_PATH,
     API_RESOLVE_PATH,
     API_SYSTEM_PATH,
     API_TENANT_PATH,
     API_USER_PATH,
+    ERR_SETTING_EXISTS,
     ERR_SETTING_NOT_FOUND,
     ERR_UNKNOWN_TENANT,
     PERM_CREATE,
@@ -21,6 +23,7 @@ from settings.constants import (
     QP_SCOPE_ID,
     QP_TENANT_ID,
     QP_USER_ID,
+    STATUS_CONFLICT,
     STATUS_CREATED,
     STATUS_NO_CONTENT,
     STATUS_NOT_FOUND,
@@ -212,7 +215,10 @@ async def create_setting(
         if not await is_known_tenant(request, data.scope_id):
             raise HTTPException(status_code=STATUS_UNPROCESSABLE, detail=ERR_UNKNOWN_TENANT)
         await run_check(request, data.scope_id, data.key, data.value)
-    return await service.create(data)
+    try:
+        return await service.create(data)
+    except DuplicateSettingError as exc:
+        raise HTTPException(status_code=STATUS_CONFLICT, detail=ERR_SETTING_EXISTS) from exc
 
 
 @router.get(API_BY_ID_PATH, response_model=SettingOut, dependencies=_VIEW)

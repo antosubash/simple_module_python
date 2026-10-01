@@ -145,6 +145,7 @@ MAX_PER_PAGE: Final = 200
 # ── User-facing error messages ───────────────────────────────────────
 ERR_SETTING_NOT_FOUND: Final = "Setting not found"
 ERR_KEY_ALREADY_EXISTS: Final = "Setting key already exists"
+ERR_SETTING_EXISTS: Final = "A setting with this scope and key already exists"
 ERR_SYSTEM_SCOPE_NO_ID: Final = "system scope must not have a scope_id"
 ERR_SCOPED_REQUIRES_ID: Final = "tenant/user scope requires a scope_id"
 ERR_UNKNOWN_SCOPE: Final = "unknown scope"
