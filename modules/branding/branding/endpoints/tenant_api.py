@@ -54,7 +54,9 @@ async def _swap(
     key = f"{PACKAGE}.{field}"
     previous = await settings.get_scoped(SettingScope.TENANT, tenant_id, key)
     if file_id is None:
-        await settings.delete_scoped(SettingScope.TENANT, tenant_id, key)
+        # The owner of the key (``clear_via``): the reap below is what a bare
+        # row delete would skip, so the service's guard is stood down here.
+        await settings.delete_scoped(SettingScope.TENANT, tenant_id, key, as_owner=True)
     else:
         await settings.upsert_scoped(
             SettingScope.TENANT, tenant_id, key, SettingUpsert(value=file_id)

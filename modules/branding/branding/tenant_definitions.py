@@ -8,14 +8,17 @@ platform operator writing on a tenant's behalf — runs :func:`_check` first:
 
 * a scalar must pass the same validator the system value does (422);
 * a design pack must be one an installed module provides (422);
-* an image key is refused on every generic settings write *and delete* route
-  (422, ``clear_via``): images are set and cleared only through
-  ``/api/branding/tenant/{asset}``, which validates the bytes as an image,
-  stores them as the tenant's own file and reaps the file it replaces or
-  clears once the write commits. A generic write could do none of that — it
-  could point the logo at any file the tenant owns (a PDF), and a generic
-  delete would leave the file behind. (A row left by a deleted tenant is the
-  one thing a platform operator may still delete by hand.)
+* an image key is refused by ``SettingService.delete``/``delete_scoped`` at
+  every scope (422, ``clear_via``), whichever route or caller holds a service
+  built through settings' ``get_setting_service``: images are set only through
+  ``/api/branding/tenant/{asset}`` and cleared there, which validates the
+  bytes as an image, stores them as the tenant's own file and reaps the file it
+  replaces or clears once the write commits. A generic write could do none of
+  that — it could point the logo at any file the tenant owns (a PDF) — and a
+  generic delete would leave the file behind. That route deletes with
+  ``as_owner=True``. A TENANT row left by a deleted tenant is the one thing a
+  platform operator may still delete by hand. A service built without the
+  registry (``SettingService(db)``) does not enforce the guard.
 
 An empty override is the same as none: the tenant inherits the platform's
 value. To go back to inheriting, delete the override.
