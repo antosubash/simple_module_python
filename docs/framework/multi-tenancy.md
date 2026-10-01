@@ -146,8 +146,9 @@ in a migration or a one-off script, before switching it on:
 
 ```python
 op.execute(
-    sa.text("UPDATE files_file SET tenant_id = :new WHERE tenant_id = :old")
-    .bindparams(new="main", old=DEFAULT_TENANT_ID)
+    sa.text("UPDATE files_file SET tenant_id = :new WHERE tenant_id = :old").bindparams(
+        new="main", old=DEFAULT_TENANT_ID
+    )
 )
 ```
 
