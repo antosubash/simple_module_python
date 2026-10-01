@@ -42,3 +42,7 @@ MAX_PAGE_SIZE: Final = 200
 PAGE_BROWSE: Final = f"{MODULE_NAME}/Browse"
 
 STATUS_OK: Final = 200
+
+TENANT_ID_MAX_LENGTH = 50
+# Filter value meaning "entries with no tenant" (platform actions).
+PLATFORM_TENANT_FILTER = "__platform__"

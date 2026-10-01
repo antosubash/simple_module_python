@@ -26,7 +26,16 @@ from audit_log.filters import EntryFilters
 from audit_log.resolve import resolve_actors, resolve_entity_labels
 from audit_log.service import AuditLogService
 
-CSV_COLUMNS = ("time", "action", "entity_type", "entity_id", "entity_label", "actor", "changes")
+CSV_COLUMNS = (
+    "time",
+    "action",
+    "entity_type",
+    "entity_id",
+    "entity_label",
+    "actor",
+    "tenant_id",
+    "changes",
+)
 CSV_MEDIA_TYPE = "text/csv; charset=utf-8"
 CSV_FILENAME = "audit-log.csv"
 _ARROW = " → "
@@ -87,6 +96,7 @@ def _row(entry: AuditEntryRead, *, entity_label: str, actor: str) -> list[str]:
             entry.entity_id,
             entity_label,
             actor,
+            entry.tenant_id or "",
             format_changes(entry.changes),
         )
     ]

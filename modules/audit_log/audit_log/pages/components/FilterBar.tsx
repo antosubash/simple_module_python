@@ -27,6 +27,7 @@ export interface EntityTypeOption {
 export interface FilterState {
   entityType: string;
   action: string;
+  tenantId: string;
   userId: string;
   fromDate: string;
   toDate: string;
@@ -38,6 +39,7 @@ export interface FilterState {
 export interface AppliedFilters {
   entity_type: string | null;
   action: string | null;
+  tenant_id: string | null;
   user_id: string | null;
   correlation_id: string | null;
   from_date: string | null;
@@ -47,6 +49,10 @@ export interface AppliedFilters {
 interface FilterBarProps {
   state: FilterState;
   entity_types: EntityTypeOption[];
+  /** Tenant ids that have entries; the screen is platform-wide. */
+  tenant_ids: string[];
+  /** Filter value that selects entries with no tenant (platform actions). */
+  platform_tenant_value: string;
   onChange: (next: FilterState) => void;
   onSubmit: () => void;
   onClear: () => void;
@@ -73,14 +79,22 @@ function Field({
   );
 }
 
-export function FilterBar({ state, entity_types, onChange, onSubmit, onClear }: FilterBarProps) {
+export function FilterBar({
+  state,
+  entity_types,
+  tenant_ids,
+  platform_tenant_value,
+  onChange,
+  onSubmit,
+  onClear,
+}: FilterBarProps) {
   const { t } = useT();
   const set = (patch: Partial<FilterState>) => onChange({ ...state, ...patch });
 
   return (
     <Card className="mb-4 p-4">
       <form
-        className="grid items-end gap-3.5 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_auto]"
+        className="grid items-end gap-3.5 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto]"
         onSubmit={(e) => {
           e.preventDefault();
           onSubmit();
@@ -112,6 +126,25 @@ export function FilterBar({ state, entity_types, onChange, onSubmit, onClear }: 
               {ACTIONS.map((a) => (
                 <SelectItem key={a} value={a}>
                   {t(keys.audit_log.actions[a])}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field htmlFor="audit-tenant" label={t(keys.audit_log.filters.tenant_label)}>
+          <Select value={state.tenantId} onValueChange={(v) => set({ tenantId: v })}>
+            <SelectTrigger id="audit-tenant" className="w-full max-lg:min-h-11">
+              <SelectValue placeholder={t(keys.audit_log.filters.tenant_all)} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{t(keys.audit_log.filters.tenant_all)}</SelectItem>
+              <SelectItem value={platform_tenant_value}>
+                {t(keys.audit_log.filters.tenant_platform)}
+              </SelectItem>
+              {tenant_ids.map((id) => (
+                <SelectItem key={id} value={id}>
+                  {id}
                 </SelectItem>
               ))}
             </SelectContent>

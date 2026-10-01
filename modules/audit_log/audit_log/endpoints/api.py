@@ -30,6 +30,7 @@ async def list_audit_entries(
     action: str | None = Query(default=None),
     user_id: str | None = Query(default=None),
     correlation_id: str | None = Query(default=None),
+    tenant_id: str | None = Query(default=None),
     from_date: datetime | None = Query(default=None),
     to_date: datetime | None = Query(default=None),
     page: int = Query(default=1, ge=1),
@@ -41,6 +42,7 @@ async def list_audit_entries(
         action=action,
         user_id=user_id,
         correlation_id=correlation_id,
+        tenant_id=tenant_id,
         from_date=from_date,
         to_date=to_date,
         page=page,
@@ -58,6 +60,7 @@ async def export_audit_entries(
     action: str | None = Query(default=None),
     user_id: str | None = Query(default=None),
     correlation_id: str | None = Query(default=None),
+    tenant_id: str | None = Query(default=None),
     from_date: datetime | None = Query(default=None),
     to_date: datetime | None = Query(default=None),
 ) -> StreamingResponse:
@@ -80,6 +83,7 @@ async def export_audit_entries(
         correlation_id=correlation_id,
         from_date=from_date,
         to_date=to_date,
+        tenant_id=tenant_id,
     )
 
     return StreamingResponse(

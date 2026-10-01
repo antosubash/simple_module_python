@@ -52,7 +52,7 @@ class TestExportShape:
 
         assert resp.status_code == 200, resp.text
         header = resp.text.splitlines()[0]
-        assert header == "time,action,entity_type,entity_id,entity_label,actor,changes"
+        assert header == "time,action,entity_type,entity_id,entity_label,actor,tenant_id,changes"
 
     async def test_response_is_offered_as_a_download(
         self, authenticated_client: httpx.AsyncClient

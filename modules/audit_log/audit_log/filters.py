@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime, time
 from typing import Any
 
+from audit_log.constants import PLATFORM_TENANT_FILTER
 from audit_log.models import AuditEntry
 
 
@@ -47,6 +48,8 @@ class EntryFilters:
     correlation_id: str | None = None
     from_date: datetime | None = None
     to_date: datetime | None = None
+    # A tenant id, or PLATFORM_TENANT_FILTER for entries with no tenant.
+    tenant_id: str | None = None
 
     @classmethod
     def for_date_only_range(
@@ -59,6 +62,7 @@ class EntryFilters:
         correlation_id: str | None = None,
         from_date: datetime | None = None,
         to_date: datetime | None = None,
+        tenant_id: str | None = None,
     ) -> EntryFilters:
         """Filters for the screen's controls, whose Date range is date-only.
 
@@ -79,6 +83,7 @@ class EntryFilters:
             correlation_id=correlation_id,
             from_date=from_date,
             to_date=end_of_day(to_date),
+            tenant_id=tenant_id,
         )
 
     def conditions(self) -> list[Any]:
@@ -88,6 +93,10 @@ class EntryFilters:
             conditions.append(AuditEntry.entity_type == self.entity_type)
         if self.entity_id:
             conditions.append(AuditEntry.entity_id == self.entity_id)
+        if self.tenant_id == PLATFORM_TENANT_FILTER:
+            conditions.append(AuditEntry.tenant_id.is_(None))
+        elif self.tenant_id:
+            conditions.append(AuditEntry.tenant_id == self.tenant_id)
         if self.action:
             conditions.append(AuditEntry.action == self.action)
         if self.user_id:
