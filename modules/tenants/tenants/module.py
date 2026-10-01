@@ -117,6 +117,17 @@ class TenantsModule(ModuleBase):
         )
         registry.add(
             MenuItem(
+                label="Organisation settings",
+                label_key="tenants.nav.settings",
+                url="/tenants/settings",
+                icon="settings",
+                order=92,
+                section=MenuSection.SIDEBAR,
+                permissions=[c.PERM_TENANT_SETTINGS],
+            )
+        )
+        registry.add(
+            MenuItem(
                 label="Tenants",
                 label_key="tenants.nav.tenants",
                 url="/admin/tenants/",
@@ -135,7 +146,6 @@ class TenantsModule(ModuleBase):
             [
                 c.PERM_MEMBERS_VIEW,
                 c.PERM_MEMBERS_MANAGE,
-                c.PERM_SETTINGS_MANAGE,
                 c.PERM_PLATFORM_VIEW,
                 c.PERM_PLATFORM_MANAGE,
             ],

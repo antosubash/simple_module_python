@@ -72,11 +72,52 @@ class OrdersModule(ModuleBase):
 
 The browse UI uses these definitions to render meaningful empty states for unset keys.
 
+### Tenant-overridable keys
+
+A definition with `tenant_overridable=True` can be changed by a tenant for
+itself (#382). Tenant owners and admins hold `settings.tenant.edit` (mapped onto
+`tenant:owner` / `tenant:admin`; members get nothing) and write through
+`/api/settings/tenant/current/{key}`, which acts on `request.state.tenant_id`
+only — the tenant never comes from the URL. Keys without the flag answer 422
+there; a request acting for no tenant gets 403. The `tenants` module renders
+these keys at `/tenants/settings`.
+
+```python
+async def check_logo(request, tenant_id: str, value: str) -> None:
+    if value and not await tenant_owns_file(request.app, tenant_id, value):
+        raise LookupError("unknown file")  # -> 404; ValueError -> 422
+
+
+registry.add(
+    SettingDefinition(
+        key="orders.checkout_note",
+        tenant_overridable=True,
+        check=check_logo,
+    )
+)
+```
+
+`check` runs before **every** TENANT-scope write of the key — the self-service
+route and the platform routes alike, with the tenant being written (not the
+caller's). The declared `value_type` wins over the one a tenant sends.
+
+Runtime reads need nothing new: `SettingsDep` is already bound to the active
+tenant, so `await settings.get(key)` resolves **tenant → system → default**.
+
+### Cache invalidation
+
+Every SYSTEM / TENANT write publishes on the `settings.values`
+[invalidation](/framework/invalidation) channel after commit, keyed per
+(tenant, key): `"<tenant_id>|<key>"`, or `"|<key>"` for a system write (every
+tenant inheriting it is affected). `settings.contracts.invalidation` builds and
+parses the key. Settings caches nothing itself; a module that caches a resolved
+per-tenant value subscribes and forgets.
+
 ## Routes
 
 ### Generic K/V API (`/api/settings/...`)
 
-All write endpoints require `settings.edit` / `settings.create` / `settings.delete`; reads need `settings.view`.
+All write endpoints require `settings.edit` / `settings.create` / `settings.delete`; reads need `settings.view`. These are platform-operator permissions: no tenant role holds them, and the holder may write any key at system scope or at any tenant's scope. A TENANT `scope_id` must name a real tenant when a tenant-owning module is installed (`simple_module_core.tenancy.tenant_exists`): 404 on the `/tenant/{scope_id}/…` GET/PUT, 422 for a `POST /` body. `DELETE` stays unvalidated so a deleted tenant's leftovers can be cleared. A key declaring `SettingDefinition.clear_via` (a file set through an upload route, which reaps the stored file) is protected inside `SettingService.delete` / `delete_scoped`, so it holds for every scope (SYSTEM, TENANT, USER) and every caller: a generic delete raises `ManagedKeyError`, which the API maps to 422 naming that route (`clear_via` may be a `{SettingScope: route}` mapping when system and tenant rows clear differently; the 422 names the route for the row's scope, via `clear_route`) and the Inertia store screen shows as a toast. Two deliberate ways through: the owner of the key passes `as_owner=True` after taking responsibility for the file (branding's tenant clear route reaps it), and a TENANT row whose tenant no longer exists may be cleared by a platform operator. The guard needs the registry, which `get_setting_service` supplies; a bare `SettingService(db)` guards nothing.
 
 | Method + path | Purpose |
 |---|---|
@@ -85,6 +126,8 @@ All write endpoints require `settings.edit` / `settings.create` / `settings.dele
 | `GET / PUT / DELETE /api/settings/system/{key}` | system-scope CRUD |
 | `GET / PUT / DELETE /api/settings/tenant/{scope_id}/{key}` | tenant-scope CRUD |
 | `GET / PUT / DELETE /api/settings/user/{scope_id}/{key}` | user-scope CRUD |
+| `GET /api/settings/tenant/current` | the active tenant's overridable keys: `inherited`, own `value`, `effective` (`settings.tenant.edit`) |
+| `GET / PUT / DELETE /api/settings/tenant/current/{key}` | the active tenant's override of an overridable key (`settings.tenant.edit`) |
 | `POST /api/settings/` | create with explicit `scope` + `scope_id` (`SettingCreate`) |
 | `GET / PUT / DELETE /api/settings/{setting_id}` | by-id CRUD |
 

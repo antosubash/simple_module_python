@@ -239,6 +239,15 @@ overrides with no tenant bound — deliberately cross-tenant (the table is not
 `MultiTenantMixin`), so keep it that way. No tenant role holds
 `feature_flags.manage`; the tenant-override admin screens are platform-only.
 
+## Settings
+
+`settings` keeps its explicit `(scope, scope_id, key)` rows — no mixin. A key
+declared `tenant_overridable` can be changed by a tenant owner/admin for their
+active tenant (`/api/settings/tenant/current/{key}`, `settings.tenant.edit`);
+the platform routes take a tenant id from the URL and 404 an unknown one. Every
+write publishes a per-(tenant, key) notice on the `settings.values`
+invalidation channel. See [settings](/modules/settings#tenant-overridable-keys).
+
 Screens that take a tenant id from the URL can vet it without importing
 `tenants`: the module publishes `app.state.tenant_exists`, and
 `await simple_module_core.tenancy.tenant_exists(app, tenant_id)` answers

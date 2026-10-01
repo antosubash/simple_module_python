@@ -18,12 +18,21 @@ from settings.constants import MODULE_PACKAGE
 from settings.contracts.accessor import SettingsAccessor
 from settings.contracts.registry import SettingsRegistry
 from settings.service import SettingService
+from settings.tenant_scope import is_known_tenant, registry_of
 
 
 async def get_setting_service(
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> SettingService:
-    return SettingService(db)
+    bus = getattr(getattr(request.app.state, "sm", None), "invalidation", None)
+
+    async def tenant_is_live(tenant_id: str) -> bool:
+        return await is_known_tenant(request, tenant_id)
+
+    return SettingService(
+        db, invalidation=bus, registry=registry_of(request), tenant_is_live=tenant_is_live
+    )
 
 
 def get_settings_registry(request: Request) -> SettingsRegistry:
