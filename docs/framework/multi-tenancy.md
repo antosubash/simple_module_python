@@ -17,8 +17,8 @@ tenant a request acts for.
 |---|---|---|---|
 | `SELECT` | filtered to the tenant | `MissingTenantError` | unfiltered |
 | ORM `update()` / `delete()` | filtered to the tenant; `update().values(tenant_id=…)` raises | `MissingTenantError` | unfiltered |
-| `session.add` + flush | `tenant_id` filled in; a different explicit value raises | `MissingTenantError` unless `tenant_id` is set explicitly | `tenant_id` filled in with `DEFAULT_TENANT_ID` unless set |
-| ORM `insert(Model)` (bulk / `.values()`) | `tenant_id` filled in; a different explicit value raises | `MissingTenantError` unless every row sets `tenant_id` | `tenant_id` filled in with `DEFAULT_TENANT_ID` unless set |
+| `session.add` + flush | `tenant_id` filled in; a different explicit value raises | `MissingTenantError` unless `tenant_id` is set explicitly | `tenant_id` filled in with the install's fallback tenant unless set |
+| ORM `insert(Model)` (bulk / `.values()`) | `tenant_id` filled in; a different explicit value raises | `MissingTenantError` unless every row sets `tenant_id` | `tenant_id` filled in with the install's fallback tenant unless set |
 | Flushing a change to, or a delete of, a loaded object | only if it belongs to the bound tenant | `MissingTenantError` | allowed |
 | Changing `tenant_id` | raises | raises | raises (only an `all_tenants()` block may move a row) |
 
@@ -126,12 +126,30 @@ briefly on, must not vanish. Strict mode never uses the constant; it raises.
 To give the single tenant a name of your choosing instead, set
 `default_tenant` (a `HostSettings` field, e.g. `main`): every request, and
 every background task with no tenant on its message, then *binds* that tenant
-(#359), and inserts are stamped with it rather than the constant. Reads are
-then scoped to it as well, so rows already stamped `DEFAULT_TENANT_ID` need
-re-stamping when an existing install adopts `default_tenant`. CLI commands
-and scripts use `tenant_context(settings.default_tenant)`. It is ignored when
+(#359), and inserts are stamped with it rather than the constant. The host
+also publishes it as the install's fallback (`DatabaseState.default_tenant_id`),
+so writes with nothing bound — a CLI command, an `all_tenants()` block — land
+in `main` too instead of in `DEFAULT_TENANT_ID`, where the install's own
+(scoped) requests would never see them. CLI commands and scripts should still
+prefer `tenant_context(settings.default_tenant)`. It is ignored when
 `multi_tenant` is on — a multi-tenant install never falls back to a shared
 tenant.
+
+The fallback only fills a *missing* `tenant_id`, and only when nothing is
+bound: a statement run with `execution_options(all_tenants=True)` inside a
+request keeps the request's tenant on the rows it inserts.
+
+Reads under `default_tenant` are scoped to it, so an existing install that
+adopts the setting must re-stamp the rows it already wrote under
+`DEFAULT_TENANT_ID` (and any it wrote while `multi_tenant` was briefly on),
+in a migration or a one-off script, before switching it on:
+
+```python
+op.execute(
+    sa.text("UPDATE files_file SET tenant_id = :new WHERE tenant_id = :old")
+    .bindparams(new="main", old=DEFAULT_TENANT_ID)
+)
+```
 
 ## Background jobs
 
