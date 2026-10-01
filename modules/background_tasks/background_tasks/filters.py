@@ -11,7 +11,7 @@ from __future__ import annotations
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from sqlalchemy import ColumnElement, select
 
-from background_tasks.constants import RETRYABLE_STATUSES, TaskStatus
+from background_tasks.constants import PLATFORM_TENANT_FILTER, RETRYABLE_STATUSES, TaskStatus
 from background_tasks.models import TaskExecution
 
 Conditions = list[ColumnElement[bool]]
@@ -22,9 +22,19 @@ def execution_filters(
     status: TaskStatus | None = None,
     task_name: str | None = None,
     queue: str | None = None,
+    tenant_id: str | None = None,
 ) -> Conditions:
-    """The three axes the executions screen filters on."""
+    """The axes the executions screen filters on.
+
+    *tenant_id* is a tenant id, or :data:`PLATFORM_TENANT_FILTER` for
+    executions published with no tenant. The screen is platform-wide; tenant is
+    a filter, not a scope.
+    """
     conditions: Conditions = []
+    if tenant_id == PLATFORM_TENANT_FILTER:
+        conditions.append(TaskExecution.tenant_id.is_(None))
+    elif tenant_id:
+        conditions.append(TaskExecution.tenant_id == tenant_id)
     if status is not None:
         conditions.append(TaskExecution.status == status)
     if task_name:
@@ -41,6 +51,7 @@ def bulk_retry_conditions(
     status: TaskStatus | None = None,
     task_name: str | None = None,
     queue: str | None = None,
+    tenant_id: str | None = None,
 ) -> Conditions | None:
     """What the bulk sweep may touch, or ``None`` when it may touch nothing.
 
@@ -64,6 +75,6 @@ def bulk_retry_conditions(
     already_retried = select(child.c.id).where(child.c.retried_from_id == TaskExecution.id).exists()
     return [
         TaskExecution.status.in_(sorted(wanted)),
-        *execution_filters(task_name=task_name, queue=queue),
+        *execution_filters(task_name=task_name, queue=queue, tenant_id=tenant_id),
         ~already_retried,
     ]

@@ -101,6 +101,7 @@ export const keys = {
       retried_from: 'background_tasks.detail.retried_from',
       retry_button: 'background_tasks.detail.retry_button',
       started_at: 'background_tasks.detail.started_at',
+      tenant: 'background_tasks.detail.tenant',
       traceback: 'background_tasks.detail.traceback',
       worker: 'background_tasks.detail.worker',
     },
@@ -113,6 +114,10 @@ export const keys = {
       running: 'background_tasks.filters.running',
       status_label: 'background_tasks.filters.status_label',
       stuck: 'background_tasks.filters.stuck',
+      tenant_all: 'background_tasks.filters.tenant_all',
+      tenant_aria: 'background_tasks.filters.tenant_aria',
+      tenant_label: 'background_tasks.filters.tenant_label',
+      tenant_platform: 'background_tasks.filters.tenant_platform',
     },
     index: {
       description: 'background_tasks.index.description',
@@ -176,6 +181,7 @@ export const keys = {
       retry: 'background_tasks.table.retry',
       status: 'background_tasks.table.status',
       task: 'background_tasks.table.task',
+      tenant: 'background_tasks.table.tenant',
     },
     tasks_empty: {
       broker_unreachable_description: 'background_tasks.tasks_empty.broker_unreachable_description',

@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from simple_module_core.events import EventBus
-from simple_module_db import RequestSession
+from simple_module_db import RequestSession, all_tenants, tenant_context
 from sqlalchemy import Select, func, select
 
 from background_tasks.constants import RETRY_ALL_BATCH, TaskStatus
@@ -95,6 +95,7 @@ class RetryCoordinator:
         status: TaskStatus | None = None,
         task_name: str | None = None,
         queue: str | None = None,
+        tenant_id: str | None = None,
         limit: int | None = None,
     ) -> RetryFailedResult:
         """Re-enqueue the retryable executions the current view can see.
@@ -120,7 +121,9 @@ class RetryCoordinator:
         # Read at call time, not bound as a default argument, so the cap has
         # exactly one source of truth that tests and operators can move.
         batch = RETRY_ALL_BATCH if limit is None else limit
-        conditions = bulk_retry_conditions(status=status, task_name=task_name, queue=queue)
+        conditions = bulk_retry_conditions(
+            status=status, task_name=task_name, queue=queue, tenant_id=tenant_id
+        )
         if conditions is None:
             return RetryFailedResult(queued=0, remaining=0)
 
@@ -179,7 +182,16 @@ class RetryCoordinator:
         }
         if task_id is not None:
             options["task_id"] = task_id
-        return self.celery.send_task(row.task_name, **options).id
+        # Publish as the row's own tenant, never the operator's: a platform
+        # admin who is also a member of some org must not re-run another
+        # tenant's job stamped with theirs (``stamp_tenant`` would refuse the
+        # mismatch). A row with no tenant is a platform publish, so it goes out
+        # with none bound.
+        if row.tenant_id:
+            with tenant_context(row.tenant_id):
+                return self.celery.send_task(row.task_name, **options).id
+        with all_tenants():
+            return self.celery.send_task(row.task_name, **options).id
 
     def _new_attempt(self, row: TaskExecution, celery_task_id: str) -> TaskExecution:
         """The row recording a fresh attempt at *row*. Not yet flushed."""
@@ -188,6 +200,7 @@ class RetryCoordinator:
             task_name=row.task_name,
             status=TaskStatus.PENDING,
             queue=row.queue,
+            tenant_id=row.tenant_id,
             args=list(row.args or []),
             kwargs=dict(row.kwargs or {}),
             retried_from_id=row.id,

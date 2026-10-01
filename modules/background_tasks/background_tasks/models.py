@@ -15,6 +15,7 @@ from background_tasks.constants import (
     DEFAULT_QUEUE,
     MODULE_NAME,
     TABLE_TASK_EXECUTION,
+    TENANT_ID_MAX_LENGTH,
     TaskStatus,
 )
 
@@ -48,6 +49,12 @@ class TaskExecution(Base, AuditMixin, table=True):  # ty: ignore[unsupported-bas
     )
     queue: str = Field(default=DEFAULT_QUEUE, max_length=64)
 
+    # The tenant the task was published for; NULL for beat and other platform
+    # publishes. Deliberately not MultiTenantMixin: those rows have no tenant
+    # and strict mode would raise on their insert. The admin screens are
+    # platform-wide and filter on this column.
+    tenant_id: str | None = Field(default=None, index=True, max_length=TENANT_ID_MAX_LENGTH)
+
     args: list[Any] = Field(default_factory=list, sa_column=Column(JSON))
     kwargs: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     result: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
@@ -76,6 +83,12 @@ class TaskExecution(Base, AuditMixin, table=True):  # ty: ignore[unsupported-bas
     __table_args__ = (
         Index(
             "ix_background_tasks_task_execution_status_queued",
+            "status",
+            "queued_at",
+        ),
+        Index(
+            "ix_background_tasks_task_execution_tenant_status_queued",
+            "tenant_id",
             "status",
             "queued_at",
         ),
