@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -103,19 +104,22 @@ def build_menu_translator(request: Request) -> Callable[[str], str] | None:
     return translator.t
 
 
-def merge_shared_prop_providers(app: Any, request: Request, shared: dict) -> None:
+async def merge_shared_prop_providers(app: Any, request: Request, shared: dict) -> None:
     """Merge module-registered Inertia shared-prop providers into ``shared`` in place.
 
     Providers are read off ``app.state.inertia_shared_providers`` (never importing
     the plugin — preserves SM009). A provider that raises is skipped and logged; a
     provider may not clobber a framework-owned key (auth/menus/i18n) or an earlier
-    provider's key.
+    provider's key. A provider may be ``async`` (its result is awaited) — a
+    per-tenant lookup cannot be answered from a process-wide object.
     """
     providers = getattr(app.state, "inertia_shared_providers", None) or ()
     for provider in providers:
         name = getattr(provider, "__name__", provider)
         try:
             extra = provider(request)
+            if inspect.isawaitable(extra):
+                extra = await extra
         except Exception:  # a bad provider must not break the page render
             logger.warning("shared-prop provider %r raised; skipping", name, exc_info=True)
             continue

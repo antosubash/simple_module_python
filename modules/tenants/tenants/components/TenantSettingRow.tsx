@@ -5,6 +5,7 @@ import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { TenantImageControl } from './TenantImageControl';
 
 export interface TenantSetting {
   key: string;
@@ -13,6 +14,8 @@ export interface TenantSetting {
   inherited: string;
   value: string | null;
   effective: string;
+  /** Set for a file-id key (a logo): upload/clear there instead of typing an id. */
+  upload_url: string;
 }
 
 interface Props {
@@ -72,30 +75,41 @@ export function TenantSettingRow({ setting, onChanged }: Props) {
       {setting.description && (
         <p className="text-sm text-muted-foreground">{setting.description}</p>
       )}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <Input
-          id={inputId}
-          value={draft}
-          placeholder={setting.inherited}
-          onChange={(event) => setDraft(event.target.value)}
-          disabled={busy}
+      {setting.upload_url ? (
+        <TenantImageControl
+          inputId={inputId}
+          uploadUrl={setting.upload_url}
+          overridden={overridden}
+          onChanged={onChanged}
         />
-        <div className="flex shrink-0 gap-2">
-          <Button size="sm" disabled={busy} onClick={() => send('PUT')}>
-            {t(keys.tenants.settings.save)}
-          </Button>
-          {overridden && (
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => send('DELETE')}>
-              {t(keys.tenants.settings.reset)}
+      ) : (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Input
+            id={inputId}
+            value={draft}
+            placeholder={setting.inherited}
+            onChange={(event) => setDraft(event.target.value)}
+            disabled={busy}
+          />
+          <div className="flex shrink-0 gap-2">
+            <Button size="sm" disabled={busy} onClick={() => send('PUT')}>
+              {t(keys.tenants.settings.save)}
             </Button>
-          )}
+            {overridden && (
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => send('DELETE')}>
+                {t(keys.tenants.settings.reset)}
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {t(keys.tenants.settings.inherited_value, {
-          value: setting.inherited || t(keys.tenants.settings.none),
-        })}
-      </p>
+      )}
+      {!setting.upload_url && (
+        <p className="text-xs text-muted-foreground">
+          {t(keys.tenants.settings.inherited_value, {
+            value: setting.inherited || t(keys.tenants.settings.none),
+          })}
+        </p>
+      )}
     </div>
   );
 }

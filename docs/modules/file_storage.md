@@ -92,12 +92,14 @@ off) stamps uploads with `DEFAULT_TENANT_ID` and reads every row; with
 bytes reach the backend.
 
 **Platform files.** Files that belong to the install rather than to a tenant —
-branding's logo and favicon — are written and read with `platform=True` on
+branding's *system* logo and favicon — are written and read with `platform=True` on
 `FileStorageService.upload` / `get` / `download` / `delete`. They are owned by
 `file_storage.scope.PLATFORM_TENANT_ID` (`DEFAULT_TENANT_ID`, which tenant ids
 never collide with) and looked up under `all_tenants()` **restricted to that
 owner**, so they resolve from anonymous requests while no tenant's file can be
-reached that way. Platform files are not listed on any tenant's Files screen.
+reached that way. Platform files are not listed on any tenant's Files screen. A tenant's own
+branding images are ordinary tenant files (no `platform=True`), uploaded and
+served in that tenant's scope.
 
 The audit-log label resolver names files across tenants on purpose: the audit
 log is a platform screen over every tenant's entries, each of which already

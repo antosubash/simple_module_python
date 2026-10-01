@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.resources
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, FastAPI
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
@@ -18,6 +19,9 @@ from simple_module_core.public_routes import PublicRouteRegistry
 
 from branding import constants
 from branding.constants import MENU_URL
+
+if TYPE_CHECKING:
+    from simple_module_core.invalidation import InvalidationBus
 
 
 class BrandingModule(ModuleBase):
@@ -46,6 +50,16 @@ class BrandingModule(ModuleBase):
             # editor links there instead of double-editing the same fields.
             manage_url=MENU_URL,
         )
+        # Tenants may override a subset for themselves (#373), through
+        # settings' tenant surface; resolved per request by tenant_branding.
+        from branding.tenant_definitions import register_tenant_definitions
+
+        register_tenant_definitions(app)
+
+    def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
+        from branding.tenant_branding import subscribe
+
+        subscribe(bus)
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
@@ -84,9 +98,12 @@ class BrandingModule(ModuleBase):
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from branding.endpoints.api import router as api
         from branding.endpoints.assets import router as assets
+        from branding.endpoints.tenant_api import router as tenant_api
         from branding.endpoints.views import router as views
 
         api_router.include_router(api)
+        # Tenant owners/admins upload their organisation's own images (#373).
+        api_router.include_router(tenant_api)
         # Anonymous logo/favicon routes — a guest sees them on the sign-in and
         # public pages, so they carry no permission dependency.
         api_router.include_router(assets)

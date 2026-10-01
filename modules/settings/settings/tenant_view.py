@@ -28,6 +28,8 @@ class TenantSettingView(SQLModel):
     value: str | None
     """The tenant's own override, ``None`` while it inherits."""
     effective: str
+    upload_url: str = ""
+    """Set for a file-id key: upload here (POST) / clear here (DELETE)."""
 
 
 def _shown(key: str, value: str | None, value_type: str) -> str | None:
@@ -68,6 +70,7 @@ async def list_for_tenant(
                 value=_shown(d.key, value, d.value_type),
                 effective=_shown(d.key, value if value is not None else inherited, d.value_type)
                 or "",
+                upload_url=d.upload_url,
             )
         )
     return views

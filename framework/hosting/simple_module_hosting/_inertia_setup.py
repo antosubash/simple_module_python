@@ -48,7 +48,11 @@ def branding_head(request: Request) -> dict:
     rather than ``None``, because omitting the tag sends the browser to
     ``/favicon.ico``, which this app does not serve.
     """
-    services = getattr(request.app.state, "branding", None)
+    # A per-request object (same duck shape) wins: branding resolves a tenant's
+    # own theme into ``request.state.branding`` from its shared-props provider.
+    services = getattr(getattr(request, "state", None), "branding", None) or getattr(
+        request.app.state, "branding", None
+    )
     settings = getattr(services, "settings", None)
     app_name = getattr(settings, "app_name", "") or _DEFAULT_APP_NAME
     accent = getattr(settings, "primary_color", "") or ""

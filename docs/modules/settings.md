@@ -99,7 +99,7 @@ registry.add(
 
 `check` runs before **every** TENANT-scope write of the key — the self-service
 route and the platform routes alike, with the tenant being written (not the
-caller's). The declared `value_type` wins over the one a tenant sends.
+caller's). The declared `value_type` wins over the one a tenant sends. `upload_url` marks a file-id key (a logo): the tenant settings page offers an upload to that URL (POST, DELETE to clear) instead of a text box.
 
 Runtime reads need nothing new: `SettingsDep` is already bound to the active
 tenant, so `await settings.get(key)` resolves **tenant → system → default**.

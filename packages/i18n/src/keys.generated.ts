@@ -1052,6 +1052,7 @@ export const keys = {
       toast_failed: 'tenants.settings.toast_failed',
       toast_reset: 'tenants.settings.toast_reset',
       toast_saved: 'tenants.settings.toast_saved',
+      toast_uploaded: 'tenants.settings.toast_uploaded',
     },
     status: {
       active: 'tenants.status.active',

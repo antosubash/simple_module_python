@@ -198,3 +198,29 @@ def clean_footer_href(value: str) -> str:
     if not relative and not lowered.startswith(FOOTER_LINK_SCHEMES):
         raise ValueError(FOOTER_LINK_HREF_ERROR)
     return cleaned
+
+
+# ── Per-tenant branding (#373) ─────────────────────────────────────────
+# The fields a tenant may override for itself, as ``branding.<field>`` rows at
+# settings' TENANT scope. Deliberately not the banner (the platform's channel
+# for maintenance notices, which a tenant must not be able to silence) nor the
+# footer links (a JSON list with an XSS-relevant allow-list, kept platform-only
+# until it has a tenant-facing editor).
+TENANT_IMAGE_FIELDS: Final = ("logo_file_id", "logo_dark_file_id", "favicon_file_id")
+TENANT_FIELDS: Final = (
+    "app_name",
+    "primary_color",
+    "design_pack",
+    "footer_text",
+    *TENANT_IMAGE_FIELDS,
+)
+#: ``/api/branding/tenant/{asset}`` — upload (POST) / clear (DELETE) one of the
+#: active tenant's own images.
+PATH_TENANT_ASSET: Final = "/tenant/{asset}"
+TENANT_ASSETS: Final = {
+    "logo": "logo_file_id",
+    "logo-dark": "logo_dark_file_id",
+    "favicon": "favicon_file_id",
+}
+#: Floor for the per-tenant cache; settings' invalidation notices clear it sooner.
+TENANT_CACHE_TTL_SECONDS: Final = 30

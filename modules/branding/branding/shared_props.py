@@ -62,13 +62,24 @@ def branding_payload(settings: BrandingSettings) -> dict:
     }
 
 
-def branding_shared_props(request: Request) -> dict:
-    """Provider: emit ``{"branding": {...}}`` from the live module settings.
+async def branding_shared_props(request: Request) -> dict:
+    """Provider: emit ``{"branding": {...}}`` for the request's tenant (#373).
+
+    The system theme when ``multi_tenant`` is off or no tenant is bound — the
+    process-wide object, with no lookup. For a tenant, its overrides on top
+    (``tenant_branding.resolve``), which are also left on
+    ``request.state.branding`` so the root template's pre-hydration ``<head>``
+    (title, theme colour, favicon) matches the page.
 
     Defensive — returns ``{}`` if the branding state isn't mounted yet, so a
     half-booted app never errors a page render.
     """
-    services = getattr(request.app.state, "branding", None)
-    if services is None:
+    from branding.services import BrandingServices
+    from branding.tenant_branding import resolve
+
+    if getattr(request.app.state, "branding", None) is None:
         return {}
-    return {"branding": branding_payload(services.settings)}
+    resolved = await resolve(request)
+    if resolved.tenant_fields:
+        request.state.branding = BrandingServices(settings=resolved.settings)
+    return {"branding": branding_payload(resolved.settings)}

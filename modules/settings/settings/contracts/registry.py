@@ -53,6 +53,9 @@ class SettingDefinition:
     ``/api/settings/tenant/current/{key}``. Keys without it are writable at
     tenant scope only by platform operators (``settings.edit``). ``check``
     vets every TENANT-scope write of the key, from either surface.
+    ``upload_url`` marks a key whose value is a file id set by uploading: the
+    tenant settings page POSTs the file there and DELETEs it to clear, instead
+    of offering a text box for an opaque id.
     """
 
     key: str
@@ -62,6 +65,7 @@ class SettingDefinition:
     value_type: SettingValueType = SettingValueType.STRING
     tenant_overridable: bool = False
     check: TenantValueCheck | None = field(default=None, compare=False)
+    upload_url: str = ""
 
 
 @dataclass(slots=True)

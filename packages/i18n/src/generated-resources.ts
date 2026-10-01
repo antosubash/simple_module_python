@@ -831,6 +831,7 @@ export default {
     'tenants.settings.toast_failed': '',
     'tenants.settings.toast_reset': '',
     'tenants.settings.toast_saved': '',
+    'tenants.settings.toast_uploaded': '',
     'tenants.status.active': '',
     'tenants.status.suspended': '',
     'ui.admin.back_to_app': '',

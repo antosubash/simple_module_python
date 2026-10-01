@@ -21,7 +21,25 @@ if TYPE_CHECKING:
     from file_storage.service import FileStorageService
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from branding.settings import BrandingSettings
+
 logger = logging.getLogger(__name__)
+
+
+def to_out(settings: BrandingSettings) -> BrandingOut:
+    """The API view of one branding settings object (system or a tenant's)."""
+    return BrandingOut(
+        app_name=settings.app_name,
+        primary_color=settings.primary_color,
+        design_pack=settings.design_pack,
+        logo_url=asset_url(LOGO_URL, settings.logo_file_id),
+        logo_dark_url=asset_url(LOGO_DARK_URL, settings.logo_dark_file_id),
+        favicon_url=asset_url(FAVICON_URL, settings.favicon_file_id),
+        banner_message=settings.banner_message,
+        banner_severity=settings.banner_severity,
+        footer_text=settings.footer_text,
+        footer_links=list(settings.footer_links),
+    )
 
 
 class BrandingService:
@@ -41,19 +59,9 @@ class BrandingService:
         self.storage = storage
 
     def current(self) -> BrandingOut:
-        settings = self.app.state.branding.settings
-        return BrandingOut(
-            app_name=settings.app_name,
-            primary_color=settings.primary_color,
-            design_pack=settings.design_pack,
-            logo_url=asset_url(LOGO_URL, settings.logo_file_id),
-            logo_dark_url=asset_url(LOGO_DARK_URL, settings.logo_dark_file_id),
-            favicon_url=asset_url(FAVICON_URL, settings.favicon_file_id),
-            banner_message=settings.banner_message,
-            banner_severity=settings.banner_severity,
-            footer_text=settings.footer_text,
-            footer_links=list(settings.footer_links),
-        )
+        """The *system* branding — what platform admins edit here. A tenant's
+        effective theme is ``tenant_branding.resolve``."""
+        return to_out(self.app.state.branding.settings)
 
     async def apply(self, changes: dict[str, Any]) -> BrandingOut:
         """Persist and hot-swap the given field changes, then return current."""

@@ -5,11 +5,18 @@ file id from ``app.state.branding.settings`` and stream that one file, so they
 expose exactly the two images an administrator designated as public branding
 and nothing else in ``file_storage``.
 
-They run with no tenant bound (anonymous visitors), so the file is read as a
-*platform* file (``platform=True``): an ``all_tenants()`` lookup restricted to
-rows owned by ``file_storage.scope.PLATFORM_TENANT_ID``. That is safe because
-the id comes from SYSTEM-scope settings, never from the request, and the owner
-condition means even a setting pointed at a tenant's file id cannot publish it.
+Which image, and whose (#373): the request's tenant — from the subdomain for
+an anonymous visitor, the active organisation for a member — else the system.
+The file id is never taken from the request (``?v=`` is only a cache key):
+
+* a value the **tenant** set is read as that tenant's file — under
+  ``tenant_context(tenant)``, so only a row the tenant owns matches;
+* a **system** value is read as a *platform* file (``platform=True``): an
+  ``all_tenants()`` lookup restricted to rows owned by
+  ``file_storage.scope.PLATFORM_TENANT_ID``.
+
+Either way a setting pointed at someone else's file id serves a 404, never
+their file.
 """
 
 from __future__ import annotations
@@ -26,25 +33,33 @@ from file_storage.service import (
     StoredFileNotFoundError,
     StreamDownload,
 )
+from simple_module_db import tenant_context
 
 from branding import constants
+from branding.tenant_branding import ResolvedBranding, resolve
 
 router = APIRouter()
 
 logger = logging.getLogger(__name__)
 
 
-def _cache_control(request: Request) -> str:
-    """Long-lived + immutable only for a request that carries a real version."""
+def _cache_control(request: Request, file_id: uuid.UUID, tenant_id: str | None) -> str:
+    """Long-lived + immutable only when ``?v=`` names the file actually served.
+
+    The same URL answers differently per tenant, so a ``?v=`` left over from
+    another tenant's (or the system's) page must not pin these bytes for a
+    year. A tenant's image is ``private``: a shared cache keyed on the URL must
+    not hand it to a visitor of another tenant on the same host.
+    """
     version = request.query_params.get(constants.ASSET_VERSION_QUERY_KEY)
-    if version:
-        return f"public, max-age={constants.ASSET_MAX_AGE_VERSIONED}, immutable"
-    return f"public, max-age={constants.ASSET_MAX_AGE_UNVERSIONED}"
+    visibility = "private" if tenant_id else "public"
+    if version and version == str(file_id):
+        return f"{visibility}, max-age={constants.ASSET_MAX_AGE_VERSIONED}, immutable"
+    return f"{visibility}, max-age={constants.ASSET_MAX_AGE_UNVERSIONED}"
 
 
-def _configured_file_id(request: Request, field: str) -> uuid.UUID:
-    services = getattr(request.app.state, "branding", None)
-    raw = getattr(services.settings, field, "") if services is not None else ""
+def _configured_file_id(resolved: ResolvedBranding, field: str) -> uuid.UUID:
+    raw = getattr(resolved.settings, field, "")
     if not raw:
         raise HTTPException(status_code=404, detail="No branding image is set.")
     try:
@@ -59,9 +74,17 @@ def _configured_file_id(request: Request, field: str) -> uuid.UUID:
 async def _serve(
     request: Request, storage: FileStorageService, field: str
 ) -> RedirectResponse | StreamingResponse:
-    file_id = _configured_file_id(request, field)
+    if getattr(request.app.state, "branding", None) is None:
+        raise HTTPException(status_code=404, detail="No branding image is set.")
+    resolved = await resolve(request)
+    file_id = _configured_file_id(resolved, field)
+    owner = resolved.owner_of(field)
     try:
-        download = await storage.download(file_id, platform=True)
+        if owner is None:
+            download = await storage.download(file_id, platform=True)
+        else:
+            with tenant_context(owner):
+                download = await storage.download(file_id)
     except StoredFileNotFoundError as exc:
         # Referenced file went away underneath us. 404 uncached, so the next
         # request retries once the setting is fixed rather than caching a miss.
@@ -79,7 +102,7 @@ async def _serve(
         download.body,
         media_type=row.content_type,
         headers={
-            "Cache-Control": _cache_control(request),
+            "Cache-Control": _cache_control(request, file_id, owner),
             "Content-Length": str(row.size_bytes),
             "ETag": f'"{row.checksum_sha256}"',
             # `attachment` is ignored for subresource loads (<img>, <link
