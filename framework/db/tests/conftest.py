@@ -14,9 +14,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 _URL = database_url_for_tests()
 
 
-async def _tenant_session(*, strict: bool) -> AsyncGenerator[AsyncSession, None]:
+async def _tenant_session(
+    *, strict: bool, default_tenant: str | None = None
+) -> AsyncGenerator[AsyncSession, None]:
     db_state = init_db(_URL, **init_db_kwargs(_URL))
     db_state.tenant_strict = strict
+    if default_tenant:
+        db_state.default_tenant_id = default_tenant
     try:
         register_listeners(db_state)
         await reset_schema(db_state.engine)
@@ -40,4 +44,11 @@ async def tenant_session() -> AsyncGenerator[AsyncSession, None]:
 async def strict_session() -> AsyncGenerator[AsyncSession, None]:
     """Like ``tenant_session``, with fail-closed isolation (``multi_tenant`` on)."""
     async for session in _tenant_session(strict=True):
+        yield session
+
+
+@pytest.fixture
+async def acme_default_session() -> AsyncGenerator[AsyncSession, None]:
+    """Single-tenant install with ``default_tenant="acme"``."""
+    async for session in _tenant_session(strict=False, default_tenant="acme"):
         yield session
