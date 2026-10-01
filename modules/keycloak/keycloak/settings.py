@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import SettingsConfigDict
-from simple_module_core.dotenv import env_str
+from simple_module_core.dotenv import env_bool, env_str
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.redirect_safety import non_empty_redirect
 from simple_module_core.settings_base import DbBackedSettings
@@ -24,6 +24,13 @@ class KeycloakSettings(DbBackedSettings):
     realm: str = env_str("SM_KEYCLOAK_REALM", "")
     client_id: str = env_str("SM_KEYCLOAK_CLIENT_ID", "")
     client_secret: str = env_str("SM_KEYCLOAK_CLIENT_SECRET", "")
+
+    # Off by default: the JWT ``tenant_id`` claim is only as trustworthy as the
+    # realm mapper that produces it. A mapper reading an attribute the user can
+    # edit lets them name their own tenant. Turn on only for a realm whose
+    # protocol mapper users cannot influence; the ``tenants`` module's
+    # resolver ignores the claim either way.
+    trust_tenant_claim: bool = env_bool("SM_KEYCLOAK_TRUST_TENANT_CLAIM", False)
 
     roles_claim_path: str = "realm_access.roles"
     admin_role: str = "admin"

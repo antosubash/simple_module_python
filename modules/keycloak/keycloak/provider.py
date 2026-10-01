@@ -86,12 +86,16 @@ class KeycloakAuthProvider:
             for r in (roles_raw or [])
             if self._settings and r in self._settings.role_mapping
         ]
+        # The claim is the IdP's word, not ours: it is ignored unless the
+        # operator vouches for the realm mapper (``trust_tenant_claim``), and
+        # even then a registered tenant resolver overrides it every request.
+        trusted = bool(self._settings and self._settings.trust_tenant_claim)
         return UserContext(
             id=cache_id,
             email=claims.get("email", ""),
             name=(claims.get("preferred_username") or claims.get("name", "")),
             roles=mapped,
-            tenant_id=claims.get("tenant_id"),
+            tenant_id=claims.get("tenant_id") if trusted else None,
         )
 
     async def _upsert_user_cache(self, request: Request, claims: dict) -> str:
