@@ -25,7 +25,7 @@ second registration almost always means two owners contended for the same key.
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -61,7 +61,9 @@ class SettingDefinition:
     ``clear_via`` names the route that owns clearing the key (e.g. an upload
     route that also reaps the stored file): the generic DELETE routes answer
     422 pointing there while the tenant exists. A platform operator may still
-    delete the row left behind by a tenant that no longer exists.
+    delete the row left behind by a tenant that no longer exists. A key whose
+    system and tenant rows are cleared through different routes passes a
+    ``{SettingScope: route}`` mapping; read it with :func:`clear_route`.
     """
 
     key: str
@@ -71,9 +73,23 @@ class SettingDefinition:
     value_type: SettingValueType = SettingValueType.STRING
     tenant_overridable: bool = False
     check: TenantValueCheck | None = field(default=None, compare=False)
-    clear_via: str = ""
+    clear_via: str | Mapping[SettingScope, str] = ""
     upload_url: str = ""
     description_key: str = ""
+
+
+def clear_route(definition: SettingDefinition, scope: SettingScope | str) -> str:
+    """The route that clears ``definition`` at ``scope`` ("" if unmanaged).
+
+    A scope the mapping does not name falls back to its first route, so the
+    refusal still points somewhere rather than at nothing.
+    """
+    via = definition.clear_via
+    if isinstance(via, str):
+        return via
+    if not via:
+        return ""
+    return via.get(SettingScope(scope)) or next(iter(via.values()))
 
 
 @dataclass(slots=True)
