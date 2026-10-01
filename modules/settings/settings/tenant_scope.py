@@ -30,6 +30,7 @@ from settings.constants import (
     STATUS_UNPROCESSABLE,
 )
 from settings.contracts.registry import SettingDefinition, SettingsRegistry
+from settings.contracts.schemas import SettingOut, SettingScope
 
 
 def registry_of(request: Request) -> SettingsRegistry | None:
@@ -97,6 +98,23 @@ async def tenant_write_error(request: Request, tenant_id: str, key: str, value: 
     return None
 
 
+async def tenant_update_error(
+    request: Request, current: SettingOut | None, value: str | None
+) -> str | None:
+    """:func:`tenant_write_error` for the edit form (``PUT /settings/{id}``).
+
+    The row's own scope, tenant and key decide — an update cannot move a row.
+    Only a TENANT row whose value actually changes is checked: a
+    description-only edit, or the masked echo of an unchanged secret, writes
+    nothing the check could object to.
+    """
+    if current is None or current.scope != SettingScope.TENANT:
+        return None
+    if value is None or value == current.value:
+        return None
+    return await tenant_write_error(request, current.scope_id, current.key, value)
+
+
 __all__ = [
     "active_tenant",
     "is_known_tenant",
@@ -104,5 +122,6 @@ __all__ = [
     "registry_of",
     "require_known_tenant",
     "run_check",
+    "tenant_update_error",
     "tenant_write_error",
 ]

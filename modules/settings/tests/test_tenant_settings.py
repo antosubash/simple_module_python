@@ -210,6 +210,29 @@ class TestPlatformScopeIdValidation:
         assert ok.status_code == 200
         assert refused.status_code == 404
 
+    async def test_the_edit_form_runs_the_check_on_a_tenant_row(
+        self, app, authenticated_client, tenant_client
+    ):
+        """``PUT /admin/settings/{id}`` is a second door onto a TENANT row: it
+        must refuse what the create form and the JSON routes refuse."""
+        async with tenant_client() as t:
+            async with app.state.sm.db.session_factory() as db:
+                row = await SettingService(db).upsert_scoped(
+                    SettingScope.TENANT, t.tenant_id, CHECKED, SettingUpsert(value="fine")
+                )
+                await db.commit()
+            url = f"/admin/settings/{row.id}"
+            back = {"Referer": f"http://testserver{url}/edit"}
+
+            refused = await authenticated_client.put(url, json={"value": "bad"}, headers=back)
+            assert refused.status_code == 303
+            assert refused.headers["location"].endswith(f"{url}/edit")
+            assert await _tenant_value(app, t.tenant_id, CHECKED) == "fine"
+
+            ok = await authenticated_client.put(url, json={"value": "better"}, headers=back)
+            assert ok.headers["location"].endswith("/admin/settings/store")
+            assert await _tenant_value(app, t.tenant_id, CHECKED) == "better"
+
 
 class TestInvalidation:
     async def test_writes_publish_per_tenant_and_key_after_commit(self, app, tenant_client):

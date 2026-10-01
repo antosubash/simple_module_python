@@ -86,7 +86,8 @@ the tenants it wrote (plus the unscoped slot).
 New storage keys are `{tenant_id}/YYYY/MM/DD/<uuid><ext>`, so each tenant's
 objects live under their own backend prefix. Rows written before the adoption
 migration keep their un-prefixed key (the column stores the full path) and were
-back-filled into `DEFAULT_TENANT_ID`. A single-tenant install (`multi_tenant`
+back-filled into `DEFAULT_TENANT_ID` (branding's system images into the
+platform owner, below). A single-tenant install (`multi_tenant`
 off) stamps uploads with `DEFAULT_TENANT_ID` and reads every row; with
 `multi_tenant` on and no tenant bound, an upload fails closed *before* any
 bytes reach the backend.
@@ -94,10 +95,24 @@ bytes reach the backend.
 **Platform files.** Files that belong to the install rather than to a tenant —
 branding's *system* logo and favicon — are written and read with `platform=True` on
 `FileStorageService.upload` / `get` / `download` / `delete`. They are owned by
-`file_storage.scope.PLATFORM_TENANT_ID` (`DEFAULT_TENANT_ID`, which tenant ids
-never collide with) and looked up under `all_tenants()` **restricted to that
-owner**, so they resolve from anonymous requests while no tenant's file can be
-reached that way. Platform files are not listed on any tenant's Files screen. A tenant's own
+`PLATFORM_TENANT_ID` (`"platform"`, exported by `simple_module_db`) and looked
+up under `all_tenants()` **restricted to that owner**, so they resolve from
+anonymous requests while no tenant's file can be reached that way. The id is
+reserved — `is_valid_tenant_id` refuses it, so no request, header, claim, task
+message, `default_tenant` setting or `tenants` organisation can ever be bound
+to it — and it is distinct from `DEFAULT_TENANT_ID`, the owner of a
+single-tenant install's ordinary rows. The adoption migration made only the
+files the system branding settings referenced platform files; every other
+existing row went to `DEFAULT_TENANT_ID`. **Never re-stamp platform rows**: a
+script adopting `default_tenant` must update `WHERE tenant_id = 'default'`,
+never every row.
+
+The bypass covers only the platform row. `platform_scope` flushes the
+session's other pending writes *before* lifting isolation — so they are
+stamped with, and checked against, the bound tenant as usual — and turns
+autoflush off inside, so a platform read cannot carry them through unguarded.
+
+Platform files are not listed on any tenant's Files screen. A tenant's own
 branding images are ordinary tenant files (no `platform=True`), uploaded and
 served in that tenant's scope.
 

@@ -53,7 +53,7 @@ from settings.constants import (
 from settings.contracts.schemas import SettingCreate, SettingScope, SettingUpdate
 from settings.deps import get_setting_service
 from settings.service import SettingService
-from settings.tenant_scope import tenant_write_error
+from settings.tenant_scope import tenant_update_error, tenant_write_error
 
 _PAGE_BROWSE = "Settings/Browse"
 _PAGE_CREATE = "Settings/Create"
@@ -163,10 +163,10 @@ async def create_action(
         data = SettingCreate(**body)
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
-    if data.scope is SettingScope.TENANT:
-        error = await tenant_write_error(request, data.scope_id, data.key, data.value)
-        if error:
-            return redirect_back_with_errors(request, {"scope_id": error})
+    if data.scope is SettingScope.TENANT and (
+        error := await tenant_write_error(request, data.scope_id, data.key, data.value)
+    ):
+        return redirect_back_with_errors(request, {"scope_id": error})
     await service.create(data)
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 
@@ -186,6 +186,8 @@ async def update_action(
         data = SettingUpdate(**body)
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
+    if error := await tenant_update_error(request, await service.get_by_id(setting_id), data.value):
+        return redirect_back_with_errors(request, {"value": error})
     await service.update(setting_id, data)
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 

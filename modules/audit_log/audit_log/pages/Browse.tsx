@@ -161,7 +161,12 @@ function Browse() {
 
         <Card className="border-border overflow-hidden p-0">
           {items.length === 0 ? (
-            <BrowseEmpty applied={filters} entityTypes={entity_types} onClear={handleClear} />
+            <BrowseEmpty
+              applied={filters}
+              entityTypes={entity_types}
+              platformTenantValue={platform_tenant_value}
+              onClear={handleClear}
+            />
           ) : (
             <EntriesTable
               items={items}

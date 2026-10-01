@@ -33,8 +33,11 @@ CSV_COLUMNS = (
     "entity_id",
     "entity_label",
     "actor",
-    "tenant_id",
     "changes",
+    # Appended last, not slotted in beside ``actor``: consumers that read the
+    # file by position (a spreadsheet macro, ``cut -d,``) predate the column
+    # and must keep finding ``changes`` where it always was.
+    "tenant_id",
 )
 CSV_MEDIA_TYPE = "text/csv; charset=utf-8"
 CSV_FILENAME = "audit-log.csv"
@@ -96,8 +99,8 @@ def _row(entry: AuditEntryRead, *, entity_label: str, actor: str) -> list[str]:
             entry.entity_id,
             entity_label,
             actor,
-            entry.tenant_id or "",
             format_changes(entry.changes),
+            entry.tenant_id or "",
         )
     ]
 

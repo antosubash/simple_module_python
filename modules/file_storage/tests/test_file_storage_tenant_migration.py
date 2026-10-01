@@ -1,9 +1,10 @@
-"""Migration ``c7f2d9a41e83``: existing files are back-filled into the default tenant.
+"""Migration ``c7f2d9a41e83``: back-fill existing files into the default tenant or the platform.
 
 Runs the real Alembic chain against a throwaway SQLite file: rows written
-before the migration keep their key and land in ``DEFAULT_TENANT_ID`` (which is
-also the platform owner, so pre-existing branding images stay servable), the
-unique key widens to ``(tenant_id, key)``, and the downgrade puts it all back.
+before the migration keep their key and land in ``DEFAULT_TENANT_ID``, except
+the files the system branding settings reference, which become platform files
+(``PLATFORM_TENANT_ID``) so they stay servable; the unique key widens to
+``(tenant_id, key)``, and the downgrade puts it all back.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ import pytest
 import sqlalchemy as sa
 from alembic import command
 from alembic.config import Config
-from simple_module_db import DEFAULT_TENANT_ID
+from simple_module_db import DEFAULT_TENANT_ID, PLATFORM_TENANT_ID
 from sqlalchemy.exc import IntegrityError
 
 BEFORE = "b5d3f08a6e17"
@@ -37,7 +38,8 @@ def migrate(tmp_path, monkeypatch):
     engine.dispose()
 
 
-def _insert(conn, key: str, **extra) -> None:
+def _insert(conn, key: str, **extra) -> str:
+    file_id = uuid.uuid4()
     conn.execute(
         sa.text(
             f"INSERT INTO {TABLE} (id, key, filename, content_type, size_bytes, backend,"
@@ -47,7 +49,19 @@ def _insert(conn, key: str, **extra) -> None:
             + "".join(f", :{k}" for k in extra)
             + ")"
         ),
-        {"id": uuid.uuid4().hex, "key": key, "sum": "0" * 64, **extra},
+        {"id": file_id.hex, "key": key, "sum": "0" * 64, **extra},
+    )
+    return str(file_id)
+
+
+def _setting(conn, key: str, value: str, *, scope: str = "system", scope_id: str = "") -> None:
+    conn.execute(
+        sa.text(
+            "INSERT INTO settings_setting (scope, scope_id, key, value, value_type, created_at,"
+            " updated_at) VALUES (:scope, :scope_id, :key, :value, 'string',"
+            " CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+        ),
+        {"scope": scope, "scope_id": scope_id, "key": key, "value": value},
     )
 
 
@@ -89,3 +103,31 @@ def test_upgrade_backfills_and_downgrade_restores(migrate):
         assert conn.execute(sa.text(f"SELECT key FROM {TABLE}")).scalars().all() == [
             "2026/01/01/old.txt"
         ]
+
+
+@pytest.mark.filterwarnings("ignore:Skipped unsupported reflection")
+def test_branding_referenced_files_become_platform_files(migrate):
+    config, engine = migrate
+    command.upgrade(config, BEFORE)
+    with engine.begin() as conn:
+        logo = _insert(conn, "2026/01/01/logo.png")
+        favicon = _insert(conn, "2026/01/01/favicon.ico")
+        _insert(conn, "2026/01/01/report.pdf")
+        unrelated = _insert(conn, "2026/01/01/other.png")
+        _setting(conn, "branding.logo_file_id", logo)
+        _setting(conn, "branding.favicon_file_id", favicon)
+        _setting(conn, "branding.logo_dark_file_id", "not-a-uuid")
+        # Only SYSTEM scope names platform files.
+        _setting(conn, "branding.logo_file_id", unrelated, scope="user", scope_id="u1")
+
+    command.upgrade(config, REVISION)
+
+    with engine.begin() as conn:
+        owners = dict(conn.execute(sa.text(f"SELECT key, tenant_id FROM {TABLE}")).all())
+    assert owners == {
+        "2026/01/01/logo.png": PLATFORM_TENANT_ID,
+        "2026/01/01/favicon.ico": PLATFORM_TENANT_ID,
+        "2026/01/01/report.pdf": DEFAULT_TENANT_ID,
+        "2026/01/01/other.png": DEFAULT_TENANT_ID,
+    }
+    assert PLATFORM_TENANT_ID != DEFAULT_TENANT_ID

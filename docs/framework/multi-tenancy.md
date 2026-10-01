@@ -118,6 +118,12 @@ op.execute(sa.text("UPDATE files_file SET tenant_id = :t").bindparams(t=DEFAULT_
 op.alter_column("files_file", "tenant_id", nullable=False)
 ```
 
+`PLATFORM_TENANT_ID` (`"platform"`) is the other reserved value: the owner of
+rows that belong to the install rather than to a tenant (`file_storage`'s
+platform files). `is_valid_tenant_id` refuses it, so nothing can be bound to it
+and no organisation or `default_tenant` can take it; a re-stamp script must
+leave those rows alone.
+
 Unbound reads are deliberately *not* narrowed to `DEFAULT_TENANT_ID`: on a
 single-tenant install every row is the install's, whatever `tenant_id` it
 carries — rows written under `default_tenant`, or while `multi_tenant` was
@@ -164,9 +170,16 @@ bound may name one. Beat tasks have no request: wrap cross-tenant work in
 The worker never builds the app, so `background_tasks.sync_db` attaches the
 same listeners to its own session class and reads `multi_tenant` from the host
 settings (`scripts/run_worker.py`): task bodies get the same fail-closed rules
-as request code. A process that talks to the DB some other way must do the
+as request code. It also passes `default_tenant`, so an unbound insert in a
+task body (an `all_tenants()` block) lands in that tenant exactly as it would
+in the web process. A process that talks to the DB some other way must do the
 same — `attach_session_listeners(MySession)` plus
-`bind_engine_policy(engine, EngineTenancy(tenant_strict=...))`.
+`bind_engine_policy(engine, EngineTenancy(tenant_strict=..., default_tenant_id=...))`.
+
+The worker-side signals (prerun, success, failure, retry, revoked) stamp the
+`TaskExecution` row with the tenant on the message header themselves — the
+publish signal may never have written the row — and a signal whose message
+carries no tenant never blanks a row already stamped.
 
 ## Resolution
 
@@ -246,6 +259,14 @@ Screens that take a tenant id from the URL can vet it without importing
 `True`/`False`, or `None` when no module can say (the id is then accepted).
 `feature_flags` uses it to 404 on an unknown tenant when setting or listing
 overrides; clearing stays unvalidated so a stale override can still be removed.
+
+## Audit log
+
+`audit_log` stamps every entry with the tenant bound when the write flushed,
+`NULL` when none was (#372); the table is platform-wide, read with a tenant
+filter. A platform admin's actions are attributed to their **active**
+organisation when one is active — the write itself is scoped to it — and to the
+platform only when nothing is bound. See [audit_log](/modules/audit_log#multi-tenancy).
 
 ## Testing
 

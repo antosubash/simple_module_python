@@ -17,6 +17,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
 from simple_module_core.events import Event, EventBus
+from simple_module_db import PLATFORM_TENANT_ID
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -93,7 +94,10 @@ class TenantService:
 
     async def _free_slug(self, wanted: str) -> str:
         slug = wanted
-        while await self.db.scalar(select(Tenant.id).where(Tenant.slug == slug)):
+        # The reserved platform owner is never handed out, even as a slug.
+        while slug == PLATFORM_TENANT_ID or await self.db.scalar(
+            select(Tenant.id).where(Tenant.slug == slug)
+        ):
             suffix = secrets.token_hex(2)
             slug = f"{wanted[: MAX_SLUG_LEN - len(suffix) - 1]}-{suffix}"
         return slug

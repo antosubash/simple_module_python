@@ -58,8 +58,25 @@ when set it replaces this constant as the fallback
 """
 
 
+PLATFORM_TENANT_ID = "platform"
+"""Reserved owner of rows that belong to the install, not to any tenant.
+
+``file_storage`` stamps platform files (branding's system logo and favicon)
+with it and reads them under ``all_tenants()`` restricted to this owner. It is
+distinct from :data:`DEFAULT_TENANT_ID` — the single-tenant fallback every
+unbound insert lands in — so a platform lookup can never reach an ordinary
+single-tenant row. :func:`is_valid_tenant_id` refuses it: no request, header,
+claim, task message or ``default_tenant`` setting can bind it, and no tenant
+can be created with it.
+"""
+
+
 def is_valid_tenant_id(value: object) -> bool:
-    return isinstance(value, str) and TENANT_ID_PATTERN.fullmatch(value) is not None
+    return (
+        isinstance(value, str)
+        and value != PLATFORM_TENANT_ID
+        and TENANT_ID_PATTERN.fullmatch(value) is not None
+    )
 
 
 class TenantIsolationError(Exception):
@@ -170,6 +187,7 @@ def missing_tenant_error(entity: str, operation: str) -> MissingTenantError:
 __all__ = [
     "ALL_TENANTS_OPTION",
     "DEFAULT_TENANT_ID",
+    "PLATFORM_TENANT_ID",
     "TENANT_ID_PATTERN",
     "MissingTenantError",
     "TenantIsolationError",
