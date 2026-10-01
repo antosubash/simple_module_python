@@ -40,6 +40,16 @@ def test_default_tenant_is_ignored_when_multi_tenant():
     assert "fixed" not in mw.kwargs
 
 
+@pytest.mark.parametrize(
+    ("multi_tenant", "default_tenant", "expected"),
+    [(False, "main", "main"), (False, "", "default"), (True, "main", "default")],
+)
+def test_default_tenant_is_published_as_the_write_fallback(multi_tenant, default_tenant, expected):
+    """Unbound / all_tenants() writes land in the install's own tenant."""
+    app = create_app(_settings(multi_tenant=multi_tenant, default_tenant=default_tenant))
+    assert app.state.sm.db.default_tenant_id == expected
+
+
 def test_no_tenant_middleware_without_either():
     assert _tenant_middleware(create_app(_settings(multi_tenant=False))) == []
 
