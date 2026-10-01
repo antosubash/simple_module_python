@@ -40,9 +40,7 @@ from settings.contracts.schemas import (
 from settings.deps import get_setting_service
 from settings.service import SettingService
 from settings.tenant_scope import (
-    guard_row_delete,
     is_known_tenant,
-    refuse_managed_key_delete_for_tenant,
     require_known_tenant,
     run_check,
 )
@@ -161,10 +159,8 @@ async def upsert_tenant_setting(
 async def delete_tenant_setting(
     scope_id: str,
     key: str,
-    request: Request,
     service: SettingService = Depends(get_setting_service),
 ) -> None:
-    await refuse_managed_key_delete_for_tenant(request, scope_id, key)
     if not await service.delete_scoped(SettingScope.TENANT, scope_id, key):
         raise _not_found()
 
@@ -247,11 +243,7 @@ async def update_setting(
     return result
 
 
-@router.delete(
-    API_BY_ID_PATH,
-    status_code=STATUS_NO_CONTENT,
-    dependencies=[*_DELETE, Depends(guard_row_delete)],
-)
+@router.delete(API_BY_ID_PATH, status_code=STATUS_NO_CONTENT, dependencies=_DELETE)
 async def delete_setting(
     setting_id: int, service: SettingService = Depends(get_setting_service)
 ) -> None:
