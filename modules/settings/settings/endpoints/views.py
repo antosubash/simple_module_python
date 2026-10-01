@@ -53,11 +53,7 @@ from settings.constants import (
 from settings.contracts.schemas import SettingCreate, SettingScope, SettingUpdate
 from settings.deps import get_setting_service
 from settings.service import SettingService
-from settings.tenant_scope import (
-    refuse_tenant_managed_row_delete,
-    tenant_update_error,
-    tenant_write_error,
-)
+from settings.tenant_scope import guard_row_delete, tenant_update_error, tenant_write_error
 
 _PAGE_BROWSE = "Settings/Browse"
 _PAGE_CREATE = "Settings/Create"
@@ -199,14 +195,12 @@ async def update_action(
 @router.delete(
     "/{setting_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_DELETE))],
+    dependencies=[Depends(RequiresPermission(PERM_DELETE)), Depends(guard_row_delete)],
 )
 async def delete_action(
     setting_id: int,
-    request: Request,
     service: SettingService = Depends(get_setting_service),
 ) -> RedirectResponse:
-    await refuse_tenant_managed_row_delete(request, service, setting_id)
     await service.delete(setting_id)
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 
