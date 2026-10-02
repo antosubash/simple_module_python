@@ -36,6 +36,10 @@ def forget_hosts() -> None:
     _BY_SLUG.clear()
 
 
+def subdomains_enabled(request: Request) -> bool:
+    return bool(request.app.state.tenants.settings.subdomain_base.strip().strip("."))
+
+
 def subdomain_slug(request: Request) -> str | None:
     """The tenant slug named by the request's host, if subdomains are enabled."""
     base = request.app.state.tenants.settings.subdomain_base.strip().lower().strip(".")
