@@ -90,11 +90,19 @@ PERM_VIEW: Final = "settings.view"
 PERM_CREATE: Final = "settings.create"
 PERM_EDIT: Final = "settings.edit"
 PERM_DELETE: Final = "settings.delete"
-# Edit the *active* tenant's overrides of ``tenant_overridable`` keys — and
-# nothing else. Mapped onto ``tenant:owner`` / ``tenant:admin``; the four
-# above stay platform-operator permissions (system scope, any tenant's scope).
+# Cross-scope platform administration on multi-tenant hosts (GH #368).
+# Never granted to tenant roles; see ``settings.scope_guard``.
+PERM_SYSTEM: Final = "settings.system"
+# Self-service edits to the active tenant's overridable keys (GH #382).
 PERM_TENANT_EDIT: Final = "settings.tenant.edit"
-ALL_PERMISSIONS: Final = (PERM_VIEW, PERM_CREATE, PERM_EDIT, PERM_DELETE, PERM_TENANT_EDIT)
+ALL_PERMISSIONS: Final = (
+    PERM_VIEW,
+    PERM_CREATE,
+    PERM_EDIT,
+    PERM_DELETE,
+    PERM_SYSTEM,
+    PERM_TENANT_EDIT,
+)
 
 # ── Cache invalidation ───────────────────────────────────────────────
 # Published (after commit) for every SYSTEM / TENANT write, keyed per

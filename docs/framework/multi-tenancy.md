@@ -289,6 +289,17 @@ async def test_same_tenant(tenant_client):
         ...
 ```
 
+## Host-wide settings
+
+The `settings` module's scopes follow the same rule (#368): with `multi_tenant`
+on, `settings.*` lets a caller manage its **own** tenant scope (the request's
+tenant) and its own user scope. The system scope — where every module's
+DB-backed configuration lives — other tenants' and users' scopes, and the
+`/admin/settings` screens need `settings.system`, which no tenant role should
+be mapped to. On a host without a tenant resolver, a user with a `tenant_id` on
+their record never counts as a platform admin, whatever their roles: there the
+global `admin` role is the only admin role a tenant's operator can have.
+
 ## Unique keys
 
 On a tenant-scoped table every business key is per tenant: put `tenant_id` in

@@ -38,6 +38,13 @@ from settings.contracts.schemas import (
     SettingUpsert,
 )
 from settings.deps import get_setting_service
+from settings.scope_guard import (
+    require_listable,
+    require_own_tenant,
+    require_own_user,
+    require_platform,
+    require_resolvable,
+)
 from settings.service import SettingService
 from settings.tenant_scope import (
     is_known_tenant,
@@ -57,6 +64,13 @@ _CREATE = [Depends(RequiresPermission(PERM_CREATE))]
 _EDIT = [Depends(RequiresPermission(PERM_EDIT))]
 _DELETE = [Depends(RequiresPermission(PERM_DELETE))]
 
+# On a multi-tenant host the permissions above say what, not whose: each route
+# also names the scopes it may touch (GH #368, ``settings.scope_guard``). The
+# permission check runs first, so a caller without it still gets its 401/403.
+_PLATFORM = [Depends(require_platform)]
+_OWN_TENANT = [Depends(require_own_tenant)]
+_OWN_USER = [Depends(require_own_user)]
+
 
 def _not_found() -> HTTPException:
     return HTTPException(status_code=STATUS_NOT_FOUND, detail=ERR_SETTING_NOT_FOUND)
@@ -65,7 +79,7 @@ def _not_found() -> HTTPException:
 # ── List / filter ───────────────────────────────────────────────────
 
 
-@router.get("/", response_model=list[SettingOut], dependencies=_VIEW)
+@router.get("/", response_model=list[SettingOut], dependencies=[*_VIEW, Depends(require_listable)])
 async def list_settings(
     scope: SettingScope | None = Query(default=None, alias=QP_SCOPE),
     scope_id: str = Query(default=SYSTEM_SCOPE_ID, alias=QP_SCOPE_ID),
@@ -79,7 +93,9 @@ async def list_settings(
 # ── Resolution (USER > TENANT > SYSTEM) ─────────────────────────────
 
 
-@router.get(API_RESOLVE_PATH, response_model=SettingOut, dependencies=_VIEW)
+@router.get(
+    API_RESOLVE_PATH, response_model=SettingOut, dependencies=[*_VIEW, Depends(require_resolvable)]
+)
 async def resolve_setting(
     key: str,
     user_id: str | None = Query(default=None, alias=QP_USER_ID),
@@ -95,7 +111,7 @@ async def resolve_setting(
 # ── Scoped (system / tenant / user) ─────────────────────────────────
 
 
-@router.get(API_SYSTEM_PATH, response_model=SettingOut, dependencies=_VIEW)
+@router.get(API_SYSTEM_PATH, response_model=SettingOut, dependencies=[*_VIEW, *_PLATFORM])
 async def get_system_setting(
     key: str, service: SettingService = Depends(get_setting_service)
 ) -> SettingOut:
@@ -105,7 +121,7 @@ async def get_system_setting(
     return result
 
 
-@router.put(API_SYSTEM_PATH, response_model=SettingOut, dependencies=_EDIT)
+@router.put(API_SYSTEM_PATH, response_model=SettingOut, dependencies=[*_EDIT, *_PLATFORM])
 async def upsert_system_setting(
     key: str,
     data: SettingUpsert,
@@ -114,7 +130,7 @@ async def upsert_system_setting(
     return await service.upsert_scoped(SettingScope.SYSTEM, SYSTEM_SCOPE_ID, key, data)
 
 
-@router.delete(API_SYSTEM_PATH, status_code=STATUS_NO_CONTENT, dependencies=_DELETE)
+@router.delete(API_SYSTEM_PATH, status_code=STATUS_NO_CONTENT, dependencies=[*_DELETE, *_PLATFORM])
 async def delete_system_setting(
     key: str, service: SettingService = Depends(get_setting_service)
 ) -> None:
@@ -122,13 +138,12 @@ async def delete_system_setting(
         raise _not_found()
 
 
-# Platform-operator routes: the tenant comes from the URL, so it must name a
-# real tenant (#382). DELETE stays unvalidated so a row left behind by a
-# deleted tenant can still be cleared — but while the tenant exists, a key set
-# by upload is cleared through its upload route, which reaps the file.
+# Explicit tenant-id routes require either the caller's own tenant or platform
+# authority (#368). Reads/writes validate that the tenant still exists (#382);
+# DELETE stays unvalidated so orphaned rows can still be cleared.
 
 
-@router.get(API_TENANT_PATH, response_model=SettingOut, dependencies=_VIEW)
+@router.get(API_TENANT_PATH, response_model=SettingOut, dependencies=[*_VIEW, *_OWN_TENANT])
 async def get_tenant_setting(
     scope_id: str,
     key: str,
@@ -142,7 +157,7 @@ async def get_tenant_setting(
     return result
 
 
-@router.put(API_TENANT_PATH, response_model=SettingOut, dependencies=_EDIT)
+@router.put(API_TENANT_PATH, response_model=SettingOut, dependencies=[*_EDIT, *_OWN_TENANT])
 async def upsert_tenant_setting(
     scope_id: str,
     key: str,
@@ -155,7 +170,9 @@ async def upsert_tenant_setting(
     return await service.upsert_scoped(SettingScope.TENANT, scope_id, key, data)
 
 
-@router.delete(API_TENANT_PATH, status_code=STATUS_NO_CONTENT, dependencies=_DELETE)
+@router.delete(
+    API_TENANT_PATH, status_code=STATUS_NO_CONTENT, dependencies=[*_DELETE, *_OWN_TENANT]
+)
 async def delete_tenant_setting(
     scope_id: str,
     key: str,
@@ -165,7 +182,7 @@ async def delete_tenant_setting(
         raise _not_found()
 
 
-@router.get(API_USER_PATH, response_model=SettingOut, dependencies=_VIEW)
+@router.get(API_USER_PATH, response_model=SettingOut, dependencies=[*_VIEW, *_OWN_USER])
 async def get_user_setting(
     scope_id: str,
     key: str,
@@ -177,7 +194,7 @@ async def get_user_setting(
     return result
 
 
-@router.put(API_USER_PATH, response_model=SettingOut, dependencies=_EDIT)
+@router.put(API_USER_PATH, response_model=SettingOut, dependencies=[*_EDIT, *_OWN_USER])
 async def upsert_user_setting(
     scope_id: str,
     key: str,
@@ -187,7 +204,7 @@ async def upsert_user_setting(
     return await service.upsert_scoped(SettingScope.USER, scope_id, key, data)
 
 
-@router.delete(API_USER_PATH, status_code=STATUS_NO_CONTENT, dependencies=_DELETE)
+@router.delete(API_USER_PATH, status_code=STATUS_NO_CONTENT, dependencies=[*_DELETE, *_OWN_USER])
 async def delete_user_setting(
     scope_id: str,
     key: str,
@@ -200,7 +217,9 @@ async def delete_user_setting(
 # ── Id-based CRUD (admin tooling) ───────────────────────────────────
 
 
-@router.post("/", response_model=SettingOut, status_code=STATUS_CREATED, dependencies=_CREATE)
+@router.post(
+    "/", response_model=SettingOut, status_code=STATUS_CREATED, dependencies=[*_CREATE, *_PLATFORM]
+)
 async def create_setting(
     data: SettingCreate,
     request: Request,
@@ -217,7 +236,7 @@ async def create_setting(
         raise HTTPException(status_code=STATUS_CONFLICT, detail=ERR_SETTING_EXISTS) from exc
 
 
-@router.get(API_BY_ID_PATH, response_model=SettingOut, dependencies=_VIEW)
+@router.get(API_BY_ID_PATH, response_model=SettingOut, dependencies=[*_VIEW, *_PLATFORM])
 async def get_setting(
     setting_id: int, service: SettingService = Depends(get_setting_service)
 ) -> SettingOut:
@@ -227,7 +246,7 @@ async def get_setting(
     return result
 
 
-@router.put(API_BY_ID_PATH, response_model=SettingOut, dependencies=_EDIT)
+@router.put(API_BY_ID_PATH, response_model=SettingOut, dependencies=[*_EDIT, *_PLATFORM])
 async def update_setting(
     setting_id: int,
     data: SettingUpdate,
@@ -243,7 +262,7 @@ async def update_setting(
     return result
 
 
-@router.delete(API_BY_ID_PATH, status_code=STATUS_NO_CONTENT, dependencies=_DELETE)
+@router.delete(API_BY_ID_PATH, status_code=STATUS_NO_CONTENT, dependencies=[*_DELETE, *_PLATFORM])
 async def delete_setting(
     setting_id: int, service: SettingService = Depends(get_setting_service)
 ) -> None:

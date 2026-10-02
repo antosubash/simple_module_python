@@ -55,6 +55,7 @@ from settings.constants import (
 from settings.contracts.schemas import SettingUpdate
 from settings.deps import get_setting_service
 from settings.endpoints._create_form import create_from_form
+from settings.scope_guard import require_platform
 from settings.service import SettingService
 from settings.tenant_scope import tenant_update_error
 
@@ -74,8 +75,10 @@ _REDIRECT_MODULES = f"{VIEW_PREFIX}/"
 # their env var names, and now which of the two is in force. The matching JSON
 # API (``/api/settings/...``) has always required ``settings.view``, so leaving
 # these unguarded let any signed-in account read the same data by asking for
-# the page instead. Mutating routes add their own stricter guard on top.
-router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_VIEW))])
+# the page instead. Mutating routes add their own stricter guard on top. The
+# screens span every scope, so on a multi-tenant host they are platform-only
+# (GH #368).
+router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_VIEW)), Depends(require_platform)])
 
 
 @router.get(VIEW_STORE_PATH, response_model=None)
