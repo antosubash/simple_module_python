@@ -5,9 +5,12 @@ from __future__ import annotations
 import importlib.resources
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, FastAPI
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.permissions import PermissionRegistry
+
+from dashboard.constants import PERM_GROUP, PERM_VIEW
 
 _MODULE_USERS = "Users"
 _URL_DASHBOARD = "/dashboard/"
@@ -38,6 +41,23 @@ class DashboardModule(ModuleBase):
         from dashboard.endpoints.views import admin_router as doctor_views
 
         admin_router.include_router(doctor_views)
+
+    def register_permissions(self, registry: PermissionRegistry) -> None:
+        # Platform-wide: the stats span every tenant (User is not tenant-scoped),
+        # so no tenant role is mapped to this. ``admin`` holds it through ``*``.
+        registry.add_group(PERM_GROUP, [PERM_VIEW])
+
+    async def on_startup(self, app: FastAPI) -> None:
+        # A single-tenant install has one tenant, so "every tenant" is just the
+        # install and ordinary users keep the stats they always had. With
+        # multi_tenant on every tenant member also holds ``user``, so mapping
+        # it there would hand each tenant the install-wide counts. Done here
+        # rather than in register_permissions, which cannot see the settings.
+        if getattr(app.state.sm.settings, "multi_tenant", False):
+            return
+        from users.constants import USER_ROLE_NAME
+
+        app.state.sm.permissions.map_role(USER_ROLE_NAME, [PERM_VIEW])
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(

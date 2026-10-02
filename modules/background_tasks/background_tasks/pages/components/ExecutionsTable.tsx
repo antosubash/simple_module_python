@@ -12,8 +12,8 @@ import type { ReactNode } from 'react';
 import type { Execution } from '../retry';
 import { ExecutionRow } from './ExecutionRow';
 
-/** Task, Status, Queue, Queued, Duration, Actions. */
-export const COLUMN_COUNT = 6;
+/** Task, Status, Queue, Tenant, Queued, Duration, Actions. */
+export const COLUMN_COUNT = 7;
 
 // Same header treatment as the other admin tables (users, audit log, flags).
 const TH = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground';
@@ -62,6 +62,9 @@ export function ExecutionsTable({
             <TableHead className={TH}>{t(keys.background_tasks.table.status)}</TableHead>
             <TableHead className={`${TH} hidden md:table-cell`}>
               {t(keys.background_tasks.table.queue)}
+            </TableHead>
+            <TableHead className={`${TH} hidden md:table-cell`}>
+              {t(keys.background_tasks.table.tenant)}
             </TableHead>
             <TableHead className={`${TH} hidden lg:table-cell`}>
               {t(keys.background_tasks.table.queued_at)}

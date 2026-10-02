@@ -62,17 +62,15 @@ async def test_member_without_tenant_gets_403_on_tenant_api(user_client):
         assert resp.status_code == 403
 
 
-async def test_last_owner_cannot_leave_or_be_demoted(user_client):
-    async with user_client("solo@x.io") as (client, user_id):
-        await _create(client, "Solo")
+async def test_last_owner_cannot_leave_or_be_demoted(tenant_client):
+    async with tenant_client("owner") as (client, _, user_id):
         assert (await client.delete("/api/tenants/current/membership")).status_code == 409
         resp = await client.patch(f"/api/tenants/current/members/{user_id}", json={"role": "admin"})
         assert resp.status_code == 409
 
 
-async def test_tenant_admin_is_not_platform_admin(user_client):
-    async with user_client("owner@x.io") as (client, _):
-        await _create(client, "Mine")
+async def test_tenant_admin_is_not_platform_admin(tenant_client):
+    async with tenant_client("owner") as (client, _, _):
         assert (await client.get("/api/tenants/admin/")).status_code == 403
         assert (await client.get("/admin/tenants/")).status_code in (302, 303, 403)
 

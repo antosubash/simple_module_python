@@ -61,13 +61,8 @@ async def test_invitations_cannot_grant_owner(user_client):
         assert resp.status_code == 422
 
 
-async def test_plain_member_cannot_invite(user_client):
-    async with user_client("owner@x.io") as (owner, _), user_client("m@x.io") as (member, _):
-        await _setup(owner)
-        token = (
-            await owner.post("/api/tenants/current/invitations", json={"email": "m@x.io"})
-        ).json()["token"]
-        await member.post("/api/tenants/invitations/accept", json={"token": token})
+async def test_plain_member_cannot_invite(tenant_client):
+    async with tenant_client("member") as (member, _, _):
         resp = await member.post("/api/tenants/current/invitations", json={"email": "z@x.io"})
         assert resp.status_code == 403
 
@@ -98,3 +93,31 @@ async def test_revoked_invitation_cannot_be_accepted(user_client):
         ).status_code == 204
         resp = await new.post("/api/tenants/invitations/accept", json={"token": issued["token"]})
         assert resp.status_code == 404
+
+
+async def test_malformed_invite_emails_are_rejected(user_client):
+    """qa BUG-003: only an "@" was checked, so junk reached the table."""
+    async with user_client("owner@x.io") as (owner, _):
+        await _setup(owner)
+        for bad in ("a b@x.com", "@x.com", "<script>alert(1)</script>@x.com", "nodomain@", "a@b"):
+            r = await owner.post("/api/tenants/current/invitations", json={"email": bad})
+            assert r.status_code == 422, (bad, r.text)
+
+
+async def test_open_invitation_is_unique_in_the_database(db_session):
+    """The partial index itself, independent of the service pre-check."""
+    from datetime import UTC, datetime, timedelta
+
+    import pytest
+    from sqlalchemy.exc import IntegrityError
+    from tenants.models import Invitation, Tenant
+
+    tenant = Tenant(name="T", slug="t-uniq")
+    db_session.add(tenant)
+    await db_session.flush()
+    exp = datetime.now(UTC) + timedelta(days=1)
+    db_session.add(Invitation(tenant_id=tenant.id, email="a@x.io", token_hash="h1", expires_at=exp))
+    await db_session.flush()
+    db_session.add(Invitation(tenant_id=tenant.id, email="a@x.io", token_hash="h2", expires_at=exp))
+    with pytest.raises(IntegrityError):
+        await db_session.flush()

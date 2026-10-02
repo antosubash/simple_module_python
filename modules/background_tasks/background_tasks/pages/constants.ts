@@ -95,6 +95,7 @@ export interface TaskDetail {
   task_name: string;
   status: TaskStatus;
   queue: string;
+  tenant_id: string | null;
   args: unknown[];
   kwargs: Record<string, unknown>;
   result: Record<string, unknown> | null;
@@ -191,6 +192,9 @@ export const STATUS_ALL = 'all';
  * whatever a module chose and one of them could legitimately be called "all".
  */
 export const QUEUE_ALL = '__all__';
+
+/** Sentinel for "no tenant filter" in the tenant dropdown. */
+export const TENANT_ALL = '__all__';
 
 /**
  * The four the segmented control offers: everything, plus the three states an

@@ -89,3 +89,15 @@ def test_provider_cannot_clobber_framework_keys(caplog) -> None:
     assert isinstance(body["auth"], dict)
     assert body["branding"] == {"ok": True}
     assert any("reserved shared-prop" in rec.message for rec in caplog.records)
+
+
+def test_async_provider_is_awaited() -> None:
+    """A provider may be async — branding resolves the request's tenant (#373)."""
+    app = _build_app()
+
+    async def provider(_req: Request) -> dict:
+        return {"branding": {"appName": "Tenant"}}
+
+    register_inertia_shared_provider(app, provider)
+
+    assert TestClient(app).get("/shared").json()["branding"] == {"appName": "Tenant"}

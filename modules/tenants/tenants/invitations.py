@@ -11,7 +11,8 @@ import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tenants.constants import MembershipRole, TenantStatus
@@ -63,6 +64,16 @@ class InvitationService:
         tenant = await self.tenants.lock(tenant_id)
         if await self.tenants.has_member_email(tenant_id, data.email):
             raise TenantError("already_member", status_code=409)
+        # An expired, unaccepted invite no longer counts as pending but would
+        # still occupy the unique index; drop it so the address can be re-invited.
+        await self.db.execute(
+            delete(Invitation).where(
+                Invitation.tenant_id == tenant_id,
+                Invitation.email == data.email,
+                Invitation.accepted_at.is_(None),
+                Invitation.expires_at <= _now(),
+            )
+        )
         duplicate = await self.db.scalar(
             select(Invitation.id).where(_pending_clause(tenant_id), Invitation.email == data.email)
         )
@@ -78,7 +89,13 @@ class InvitationService:
             expires_at=_now() + self.ttl,
         )
         self.db.add(invitation)
-        await self.db.flush()
+        try:
+            await self.db.flush()
+        except IntegrityError as exc:
+            # A concurrent invite for the same address won the race past the
+            # read above; the partial unique index caught it. The request
+            # fails as a whole, so no savepoint is needed.
+            raise TenantError("already_invited", status_code=409) from exc
         accept_url = f"{base_url.rstrip('/')}{ACCEPT_PATH}?token={token}"
         self.tenants._after_commit(
             InvitationCreated(tenant_id, tenant.name, data.email, data.role, accept_url)

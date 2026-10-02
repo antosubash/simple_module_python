@@ -9,9 +9,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
 
-from settings._module_settings import ModuleSettingsView
+from settings._module_settings import ModuleSettingsView, _package_of
 
 
 def serialize(views: list[ModuleSettingsView]) -> list[dict[str, Any]]:
@@ -54,3 +55,24 @@ def serialize(views: list[ModuleSettingsView]) -> list[dict[str, Any]]:
         }
         for v in views
     ]
+
+
+def testable_packages(app: FastAPI) -> dict[str, list[str]]:
+    """Package -> the names of the health checks its module registered.
+
+    "Test connection" is just that module's health checks run on demand —
+    reusing the registry means settings never learns what an SMTP or an S3
+    connection is. The names come back with the packages so the button can say
+    what it is about to dial ("Test mailer connection") instead of the useless
+    "Test connection" a bare package list can produce.
+    """
+    checks_by_owner: dict[str, list[str]] = {}
+    for check in app.state.sm.health_registry.all_checks:
+        if check.module:
+            checks_by_owner.setdefault(check.module, []).append(check.name)
+
+    return {
+        _package_of(mod): sorted(checks_by_owner[mod.meta.name])
+        for mod in getattr(app.state.sm, "modules", ())
+        if mod.meta.name in checks_by_owner
+    }

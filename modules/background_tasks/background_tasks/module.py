@@ -161,8 +161,9 @@ class BackgroundTasksModule(ModuleBase):
         # SQLite default and silently drop ``TaskExecution`` rows.
         host = app.state.sm.settings
         multi = bool(getattr(host, "multi_tenant", False))
-        set_database_url(host.database_url, tenant_strict=multi)
-        set_default_tenant(None if multi else getattr(host, "default_tenant", "") or None)
+        default_tenant = None if multi else getattr(host, "default_tenant", "") or None
+        set_database_url(host.database_url, tenant_strict=multi, default_tenant=default_tenant)
+        set_default_tenant(default_tenant)
         # build_celery imports `signals` for side effects and runs
         # `autodiscover_tasks` across every installed module.
         services.celery = build_celery(services.settings)

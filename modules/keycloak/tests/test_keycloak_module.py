@@ -45,3 +45,15 @@ class TestKeycloakLoginRedirectUrl:
         from keycloak.settings import KeycloakSettings
 
         assert KeycloakSettings(login_redirect_url="/home/").login_redirect_url == "/home/"
+
+
+def test_keycloak_registers_no_setup_steps():
+    """Opt-out: a Keycloak install's local users table is empty forever, so any
+    required step (e.g. "create a superuser") would lock it out of the app."""
+    from keycloak.module import KeycloakModule
+    from simple_module_core.setup_steps import SetupRegistry
+
+    registry = SetupRegistry()
+    KeycloakModule().register_setup_steps(registry)
+    assert not registry
+    assert registry.required_steps == []

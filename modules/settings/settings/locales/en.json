@@ -11,6 +11,8 @@
     "delete_title": "Delete override",
     "delete_description": "\"{key}\" will be removed and the key falls back to the next scope down. This cannot be undone.",
     "delete_confirm_button": "Delete override",
+    "delete_failed": "The override could not be deleted.",
+    "delete_managed_error": "\"{setting}\" is managed elsewhere and cannot be deleted here. Clear it at {clear_via}.",
     "description": "Database overrides. Precedence: user beats tenant beats system beats env default.",
     "search_placeholder": "Search keys…",
     "scope_filter_label": "Filter overrides by scope",

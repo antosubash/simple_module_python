@@ -55,13 +55,27 @@ def stamp_tenant(headers: dict[str, Any] | None) -> None:
         headers[TENANT_HEADER] = tenant_id
 
 
+def published_tenant(headers: dict[str, Any] | None) -> str | None:
+    """The tenant an outgoing message is for: its header, else the publisher's.
+
+    Call after :func:`stamp_tenant`. The header may also have been set by
+    platform code naming a tenant while none is bound.
+    """
+    return (headers or {}).get(TENANT_HEADER) or current_tenant_id.get()
+
+
 def _tenant_of(task: Any) -> str | None:
-    request = getattr(task, "request", None)
+    return _tenant_of_request(getattr(task, "request", None))
+
+
+def _tenant_of_request(request: Any) -> str | None:
     if request is None:
         return None
     value = getattr(request, TENANT_HEADER, None)
-    if value is None and isinstance(getattr(request, "headers", None), dict):
-        value = request.headers.get(TENANT_HEADER)
+    # A worker ``Request`` (revoked signal) keeps headers in a dict instead.
+    for attr in ("headers", "request_dict"):
+        if value is None and isinstance(getattr(request, attr, None), dict):
+            value = getattr(request, attr).get(TENANT_HEADER)
     if not value:
         return None
     if not is_valid_tenant_id(value):
@@ -70,6 +84,18 @@ def _tenant_of(task: Any) -> str | None:
         _log.warning("Ignoring invalid tenant id on task message: %r", str(value)[:80])
         return None
     return str(value)
+
+
+def message_tenant(*, task: Any = None, request: Any = None) -> str | None:
+    """The tenant named on a running task's message header, if any.
+
+    Signal handlers stamp it onto the ``TaskExecution`` row: the publish signal
+    may never have written the row (it fires in the publisher's process, which
+    can have a different DB, or none bound), so the worker-side upsert must
+    carry the tenant itself. The configured default tenant is deliberately not
+    returned — a platform message stays a platform row.
+    """
+    return _tenant_of_request(request) if request is not None else _tenant_of(task)
 
 
 def restore_tenant(*, task_id: str | None, task: Any) -> None:
@@ -97,6 +123,8 @@ def release_tenant(*, task_id: str | None) -> None:
 
 __all__ = [
     "TENANT_HEADER",
+    "message_tenant",
+    "published_tenant",
     "release_tenant",
     "restore_tenant",
     "set_default_tenant",

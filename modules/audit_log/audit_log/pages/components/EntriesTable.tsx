@@ -29,6 +29,8 @@ export interface AuditEntryRead {
    * for another (see `AuditLink.label_permission`). */
   entity: EntityRef;
   correlation_id: string | null;
+  /** Tenant that wrote the entry; null for a platform action. */
+  tenant_id: string | null;
   created_at: string;
 }
 
@@ -52,7 +54,7 @@ interface Props {
   onCorrelationSelect: (id: string) => void;
 }
 
-/** The audit table itself: five columns, one row per entry.
+/** The audit table itself: six columns, one row per entry.
  *
  * Split out of `Browse` so the page keeps its filter/pagination/navigation
  * logic in one screenful and the row rendering in another — the two change for
@@ -70,6 +72,9 @@ export function EntriesTable({ items, correlationId, onCorrelationSelect }: Prop
           <TableHead className={TH}>{t(keys.audit_log.table.entity)}</TableHead>
           <TableHead className={`${TH} hidden sm:table-cell`}>
             {t(keys.audit_log.table.user)}
+          </TableHead>
+          <TableHead className={`${TH} hidden sm:table-cell`}>
+            {t(keys.audit_log.table.tenant)}
           </TableHead>
           <TableHead className={`${TH} hidden md:table-cell`}>
             {t(keys.audit_log.table.changes)}
@@ -106,6 +111,11 @@ export function EntriesTable({ items, correlationId, onCorrelationSelect }: Prop
             </TableCell>
             <TableCell className={`${TD} hidden sm:table-cell text-sm text-muted-foreground`}>
               <ActorCell entry={entry} />
+            </TableCell>
+            <TableCell
+              className={`${TD} hidden font-mono text-xs text-muted-foreground sm:table-cell`}
+            >
+              {entry.tenant_id ?? t(keys.audit_log.filters.tenant_platform)}
             </TableCell>
             {/* `TableCell` is `whitespace-nowrap` by default, which made one
                 long value push the table wider than the card and cut every

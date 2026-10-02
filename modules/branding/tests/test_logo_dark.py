@@ -31,7 +31,10 @@ _PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 def stored(monkeypatch: pytest.MonkeyPatch) -> dict[uuid.UUID, StoredFile]:
     rows: dict[uuid.UUID, StoredFile] = {}
 
-    async def fake_upload(self: FileStorageService, upload: Any) -> StoredFile:
+    async def fake_upload(
+        self: FileStorageService, upload: Any, *, platform: bool = False
+    ) -> StoredFile:
+        assert platform, "branding must act on platform-owned files"
         row = StoredFile(
             id=uuid.uuid4(),
             key=f"2026/06/{uuid.uuid4()}.png",
@@ -44,13 +47,20 @@ def stored(monkeypatch: pytest.MonkeyPatch) -> dict[uuid.UUID, StoredFile]:
         rows[row.id] = row
         return row
 
-    async def fake_download(self: FileStorageService, file_id: uuid.UUID) -> StreamDownload:
+    async def fake_download(
+        self: FileStorageService, file_id: uuid.UUID, *, platform: bool = False
+    ) -> StreamDownload:
+        assert platform, "branding must act on platform-owned files"
+
         async def body() -> AsyncIterator[bytes]:
             yield _PNG
 
         return StreamDownload(file=rows[file_id], body=body())
 
-    async def fake_delete(self: FileStorageService, file_id: uuid.UUID) -> StoredFile:
+    async def fake_delete(
+        self: FileStorageService, file_id: uuid.UUID, *, platform: bool = False
+    ) -> StoredFile:
+        assert platform, "branding must act on platform-owned files"
         return rows.pop(file_id)
 
     monkeypatch.setattr(FileStorageService, "upload", fake_upload, raising=True)

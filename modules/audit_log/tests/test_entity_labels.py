@@ -139,19 +139,23 @@ class TestOtherModuleLabels:
         that owns the table is still the only thing that can name the row.
         """
         from file_storage.models import StoredFile
+        from simple_module_db import tenant_context
 
-        async with app.state.sm.db.session_factory() as session:
-            stored = StoredFile(
-                key="k/q3-report.pdf",
-                filename="q3-report.pdf",
-                content_type="application/pdf",
-                size_bytes=12,
-                backend="filesystem",
-                checksum_sha256="0" * 64,
-            )
-            session.add(stored)
-            await session.commit()
-            file_id = str(stored.id)
+        # StoredFile is tenant-scoped (#383); the platform audit log still
+        # names it, read by an admin with no tenant bound.
+        with tenant_context("files-tenant"):
+            async with app.state.sm.db.session_factory() as session:
+                stored = StoredFile(
+                    key="k/q3-report.pdf",
+                    filename="q3-report.pdf",
+                    content_type="application/pdf",
+                    size_bytes=12,
+                    backend="filesystem",
+                    checksum_sha256="0" * 64,
+                )
+                session.add(stored)
+                await session.commit()
+                file_id = str(stored.id)
 
         await _seed_entry(app, entity_type="StoredFile", entity_id=file_id)
 

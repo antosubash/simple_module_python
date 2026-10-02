@@ -36,10 +36,16 @@ def stored_logo(monkeypatch: pytest.MonkeyPatch) -> StoredFile:
         checksum_sha256="a" * 64,
     )
 
-    async def fake_upload(self: FileStorageService, upload: Any) -> StoredFile:
+    async def fake_upload(
+        self: FileStorageService, upload: Any, *, platform: bool = False
+    ) -> StoredFile:
+        assert platform, "branding must act on platform-owned files"
         return row
 
-    async def fake_download(self: FileStorageService, file_id: uuid.UUID) -> StreamDownload:
+    async def fake_download(
+        self: FileStorageService, file_id: uuid.UUID, *, platform: bool = False
+    ) -> StreamDownload:
+        assert platform, "branding must act on platform-owned files"
         assert file_id == row.id, f"asked for {file_id}, only {row.id} is stored"
 
         async def body() -> AsyncIterator[bytes]:
@@ -135,8 +141,9 @@ async def test_a_request_without_a_usable_version_is_not_immutable(
 
     cache_control = (await client.get(f"/api/branding/logo{query}")).headers["cache-control"]
 
-    assert "max-age=3600" in cache_control
-    assert "immutable" not in cache_control
+    # Nor shared: the same URL answers per tenant, and only a ``?v=`` naming
+    # the served file makes the URL a content address a shared cache may keep.
+    assert cache_control == "private, no-cache"
 
 
 async def test_an_unset_image_is_an_uncached_404(client: httpx.AsyncClient) -> None:

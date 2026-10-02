@@ -13,12 +13,12 @@ So on such a host:
 - everything else — the system scope, another tenant's or user's scope, and
   the admin tooling that spans scopes — needs a *platform settings admin*.
 
-A platform settings admin holds ``settings.system`` and, on a host without a
-tenant resolver, has no tenant on its own identity: there the only admin role
-is the global ``admin``, so a user record bound to ``acme`` is acme's admin,
-not the host's. With a resolver (the ``tenants`` module) the request's tenant
-is a choice the user made, and tenant roles arrive as ``tenant:<role>``, so
-``admin`` stays a platform role even while working inside an organisation.
+A platform settings admin holds ``settings.system``. On hosts with a resolver
+(the ``tenants`` module), the request's tenant is a choice the user made and
+tenant roles arrive as ``tenant:<role>``; global ``admin`` stays a platform
+role even while working inside an organisation. On hosts without a resolver,
+any legacy tenant-bound identity is not a platform admin either. New users no
+longer carry a ``tenant_id`` column; tenancy is defined by memberships.
 
 Single-tenant hosts are untouched: every check passes when ``multi_tenant`` is
 off.

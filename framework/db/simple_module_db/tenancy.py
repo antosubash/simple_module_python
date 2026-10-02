@@ -6,7 +6,8 @@ happens when it is *unset* is the dangerous case, and depends on
 ``DatabaseState.tenant_strict``:
 
 * **not strict** (single-tenant installs, the historical default): no filter
-  is applied — the query sees every tenant's rows.
+  is applied — the query sees every tenant's rows — and an insert is stamped
+  with :data:`DEFAULT_TENANT_ID`.
 * **strict** (enabled whenever the host runs with ``multi_tenant``): the query
   raises :class:`TenantIsolationError` instead. A request, background job or
   CLI command that forgot to establish a tenant fails loudly rather than
@@ -45,8 +46,37 @@ TENANT_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,49}$")
 (a header, a path) must pass this before it is bound."""
 
 
+DEFAULT_TENANT_ID = "default"
+"""The tenant a row lands in when tenancy is not strict and none is bound.
+
+A single-tenant install (``multi_tenant`` off) has no tenant to bind, but
+``MultiTenantMixin.tenant_id`` is NOT NULL, so inserts are stamped with this.
+Adoption migrations backfill existing rows with the same value. It is not the
+``default_tenant`` host setting: that one *binds* a tenant per request, and
+when set it replaces this constant as the fallback
+(``DatabaseState.default_tenant_id``). Strict mode never uses either.
+"""
+
+
+PLATFORM_TENANT_ID = "platform"
+"""Reserved owner of rows that belong to the install, not to any tenant.
+
+``file_storage`` stamps platform files (branding's system logo and favicon)
+with it and reads them under ``all_tenants()`` restricted to this owner. It is
+distinct from :data:`DEFAULT_TENANT_ID` — the single-tenant fallback every
+unbound insert lands in — so a platform lookup can never reach an ordinary
+single-tenant row. :func:`is_valid_tenant_id` refuses it: no request, header,
+claim, task message or ``default_tenant`` setting can bind it, and no tenant
+can be created with it.
+"""
+
+
 def is_valid_tenant_id(value: object) -> bool:
-    return isinstance(value, str) and TENANT_ID_PATTERN.fullmatch(value) is not None
+    return (
+        isinstance(value, str)
+        and value != PLATFORM_TENANT_ID
+        and TENANT_ID_PATTERN.fullmatch(value) is not None
+    )
 
 
 class TenantIsolationError(Exception):
@@ -156,6 +186,8 @@ def missing_tenant_error(entity: str, operation: str) -> MissingTenantError:
 
 __all__ = [
     "ALL_TENANTS_OPTION",
+    "DEFAULT_TENANT_ID",
+    "PLATFORM_TENANT_ID",
     "TENANT_ID_PATTERN",
     "MissingTenantError",
     "TenantIsolationError",

@@ -14,6 +14,7 @@ import math
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import ValidationError
+from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.inertia_utils import redirect_back_with_errors, validation_errors_to_dict
 from simple_module_hosting.permissions import RequiresPermission
@@ -21,12 +22,13 @@ from simple_module_inertia import InertiaResponse
 from starlette.responses import RedirectResponse
 
 from settings import browse_query, known_keys
+from settings._managed_keys import ManagedKeyError
 from settings._module_settings import (
     _package_of,
     collect_module_settings,
     overrides_by_package,
 )
-from settings._module_settings_props import serialize
+from settings._module_settings_props import serialize, testable_packages
 from settings.constants import (
     DEFAULT_PER_PAGE,
     ERR_SETTING_NOT_FOUND,
@@ -50,10 +52,12 @@ from settings.constants import (
     VIEW_PREFIX,
     VIEW_STORE_PATH,
 )
-from settings.contracts.schemas import SettingCreate, SettingUpdate
+from settings.contracts.schemas import SettingUpdate
 from settings.deps import get_setting_service
+from settings.endpoints._create_form import create_from_form
 from settings.scope_guard import require_platform
 from settings.service import SettingService
+from settings.tenant_scope import tenant_update_error
 
 _PAGE_BROWSE = "Settings/Browse"
 _PAGE_CREATE = "Settings/Create"
@@ -160,13 +164,7 @@ async def create_action(
     request: Request,
     service: SettingService = Depends(get_setting_service),
 ) -> RedirectResponse:
-    body = await request.json()
-    try:
-        data = SettingCreate(**body)
-    except ValidationError as exc:
-        return redirect_back_with_errors(request, validation_errors_to_dict(exc))
-    await service.create(data)
-    return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
+    return await create_from_form(request, service, _REDIRECT_SETTINGS)
 
 
 @router.put(
@@ -184,6 +182,8 @@ async def update_action(
         data = SettingUpdate(**body)
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
+    if error := await tenant_update_error(request, await service.get_by_id(setting_id), data.value):
+        return redirect_back_with_errors(request, {"value": error})
     await service.update(setting_id, data)
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 
@@ -195,9 +195,18 @@ async def update_action(
 )
 async def delete_action(
     setting_id: int,
+    request: Request,
+    t: TranslatorDep,
     service: SettingService = Depends(get_setting_service),
 ) -> RedirectResponse:
-    await service.delete(setting_id)
+    try:
+        await service.delete(setting_id)
+    except ManagedKeyError as exc:
+        # Shown by the page as a toast; a bare row delete would orphan the file.
+        message = t.t(
+            "settings.browse.delete_managed_error", setting=exc.key, clear_via=exc.clear_via
+        )
+        return redirect_back_with_errors(request, {"delete": message})
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 
 
@@ -222,30 +231,9 @@ async def modules_view(
             PROP_MODULES: serialize(views),
             # Which packages can be connection-tested, so the page only offers
             # the button where something is actually reachable.
-            PROP_TESTABLE: _testable_packages(request),
+            PROP_TESTABLE: testable_packages(request.app),
         },
     )
-
-
-def _testable_packages(request: Request) -> dict[str, list[str]]:
-    """Package -> the names of the health checks its module registered.
-
-    "Test connection" is just that module's health checks run on demand —
-    reusing the registry means settings never learns what an SMTP or an S3
-    connection is. The names come back with the packages so the button can say
-    what it is about to dial ("Test mailer connection") instead of the useless
-    "Test connection" a bare package list can produce.
-    """
-    checks_by_owner: dict[str, list[str]] = {}
-    for check in request.app.state.sm.health_registry.all_checks:
-        if check.module:
-            checks_by_owner.setdefault(check.module, []).append(check.name)
-
-    return {
-        _package_of(mod): sorted(checks_by_owner[mod.meta.name])
-        for mod in getattr(request.app.state.sm, "modules", ())
-        if mod.meta.name in checks_by_owner
-    }
 
 
 @router.post(

@@ -92,3 +92,47 @@ def test_extract_roles_custom_claim_path(settings):
     }
     ctx = provider._claims_to_user_context(claims, cache_id="cccc")
     assert ctx.roles == ["admin"]
+
+
+def _claims(tenant="forged-tenant"):
+    return {"sub": "kc-t", "email": "t@example.com", "tenant_id": tenant}
+
+
+class TestTenantClaim:
+    """The JWT ``tenant_id`` claim is the IdP's word, trusted only by opt-in."""
+
+    def test_default_is_off(self):
+        assert KeycloakSettings().trust_tenant_claim is False
+
+    def test_env_var_turns_it_on(self):
+        # The env default is read when the class is defined, so it needs a
+        # fresh interpreter rather than a monkeypatch.
+        import os
+        import subprocess
+        import sys
+
+        code = "from keycloak.settings import KeycloakSettings as K; print(K().trust_tenant_claim)"
+        env = {**os.environ, "SM_KEYCLOAK_TRUST_TENANT_CLAIM": "true"}
+        out = subprocess.run(
+            [sys.executable, "-c", code], env=env, capture_output=True, text=True, check=True
+        )
+        assert out.stdout.strip() == "True"
+
+    def test_claim_ignored_by_default(self, provider):
+        assert provider._claims_to_user_context(_claims(), cache_id="a").tenant_id is None
+
+    def test_claim_ignored_without_settings(self):
+        ctx = KeycloakAuthProvider()._claims_to_user_context(_claims(), cache_id="a")
+        assert ctx.tenant_id is None
+
+    def test_claim_honoured_when_trusted(self, settings):
+        settings.trust_tenant_claim = True
+        ctx = KeycloakAuthProvider(settings)._claims_to_user_context(_claims("acme"), cache_id="a")
+        assert ctx.tenant_id == "acme"
+
+    def test_trusted_but_no_claim_is_none(self, settings):
+        settings.trust_tenant_claim = True
+        ctx = KeycloakAuthProvider(settings)._claims_to_user_context(
+            {"sub": "x", "email": "e@x.io"}, cache_id="a"
+        )
+        assert ctx.tenant_id is None

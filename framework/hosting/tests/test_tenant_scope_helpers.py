@@ -40,6 +40,16 @@ def test_default_tenant_is_ignored_when_multi_tenant():
     assert "fixed" not in mw.kwargs
 
 
+@pytest.mark.parametrize(
+    ("multi_tenant", "default_tenant", "expected"),
+    [(False, "main", "main"), (False, "", "default"), (True, "main", "default")],
+)
+def test_default_tenant_is_published_as_the_write_fallback(multi_tenant, default_tenant, expected):
+    """Unbound / all_tenants() writes land in the install's own tenant."""
+    app = create_app(_settings(multi_tenant=multi_tenant, default_tenant=default_tenant))
+    assert app.state.sm.db.default_tenant_id == expected
+
+
 def test_no_tenant_middleware_without_either():
     assert _tenant_middleware(create_app(_settings(multi_tenant=False))) == []
 
@@ -47,6 +57,13 @@ def test_no_tenant_middleware_without_either():
 def test_default_tenant_must_be_a_valid_id():
     with pytest.raises(ValidationError):
         HostSettings(default_tenant="has space")
+
+
+def test_default_tenant_cannot_be_the_platform_owner():
+    from simple_module_db import PLATFORM_TENANT_ID
+
+    with pytest.raises(ValidationError, match="reserved"):
+        HostSettings(default_tenant=PLATFORM_TENANT_ID)
 
 
 async def test_fixed_tenant_middleware_binds_every_request():

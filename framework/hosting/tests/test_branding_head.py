@@ -73,3 +73,19 @@ def test_the_default_follows_the_configured_brand_colour() -> None:
     favicon = branding_head(_request(services))["favicon_url"]
     assert favicon == default_favicon_data_uri("Acme", "#1a7dd1")
     assert favicon != default_favicon_data_uri("Acme")
+
+
+def test_a_per_request_branding_wins_over_the_process_wide_one() -> None:
+    """A tenant's theme left on ``request.state.branding`` by branding's
+    provider is what the pre-hydration head shows (#373)."""
+    system = SimpleNamespace(settings=SimpleNamespace(app_name="Platform", primary_color=""))
+    tenant = SimpleNamespace(
+        settings=SimpleNamespace(app_name="Acme", primary_color="#112233"),
+        favicon_url="/api/branding/favicon?v=t",
+    )
+    request = _request(system)
+    request.state = SimpleNamespace(branding=tenant)
+    meta = branding_head(request)
+    assert meta["app_name"] == "Acme"
+    assert meta["theme_color"] == "#112233"
+    assert meta["favicon_url"] == "/api/branding/favicon?v=t"

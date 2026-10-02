@@ -43,7 +43,9 @@ class KeycloakModule(ModuleBase):
             lambda s: KeycloakState(settings=s),
         )
 
-        app.state.auth.auth_provider = KeycloakAuthProvider(app.state.keycloak.settings)
+        app.state.auth.auth_provider = KeycloakAuthProvider(
+            app.state.keycloak.settings, state=app.state.keycloak
+        )
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(

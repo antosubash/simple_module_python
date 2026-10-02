@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from simple_module_hosting.permissions import RequiresPermission
 
+from settings._unique_write import DuplicateSettingError
 from settings.constants import (
     API_BY_ID_PATH,
     API_RESOLVE_PATH,
     API_SYSTEM_PATH,
     API_TENANT_PATH,
     API_USER_PATH,
+    ERR_SETTING_EXISTS,
     ERR_SETTING_NOT_FOUND,
+    ERR_UNKNOWN_TENANT,
     PERM_CREATE,
     PERM_DELETE,
     PERM_EDIT,
@@ -20,9 +23,11 @@ from settings.constants import (
     QP_SCOPE_ID,
     QP_TENANT_ID,
     QP_USER_ID,
+    STATUS_CONFLICT,
     STATUS_CREATED,
     STATUS_NO_CONTENT,
     STATUS_NOT_FOUND,
+    STATUS_UNPROCESSABLE,
     SYSTEM_SCOPE_ID,
 )
 from settings.contracts.schemas import (
@@ -41,6 +46,11 @@ from settings.scope_guard import (
     require_resolvable,
 )
 from settings.service import SettingService
+from settings.tenant_scope import (
+    is_known_tenant,
+    require_known_tenant,
+    run_check,
+)
 
 router = APIRouter()
 
@@ -128,12 +138,19 @@ async def delete_system_setting(
         raise _not_found()
 
 
+# Explicit tenant-id routes require either the caller's own tenant or platform
+# authority (#368). Reads/writes validate that the tenant still exists (#382);
+# DELETE stays unvalidated so orphaned rows can still be cleared.
+
+
 @router.get(API_TENANT_PATH, response_model=SettingOut, dependencies=[*_VIEW, *_OWN_TENANT])
 async def get_tenant_setting(
     scope_id: str,
     key: str,
+    request: Request,
     service: SettingService = Depends(get_setting_service),
 ) -> SettingOut:
+    await require_known_tenant(request, scope_id)
     result = await service.get_scoped(SettingScope.TENANT, scope_id, key)
     if result is None:
         raise _not_found()
@@ -145,8 +162,11 @@ async def upsert_tenant_setting(
     scope_id: str,
     key: str,
     data: SettingUpsert,
+    request: Request,
     service: SettingService = Depends(get_setting_service),
 ) -> SettingOut:
+    await require_known_tenant(request, scope_id)
+    await run_check(request, scope_id, key, data.value)
     return await service.upsert_scoped(SettingScope.TENANT, scope_id, key, data)
 
 
@@ -202,9 +222,18 @@ async def delete_user_setting(
 )
 async def create_setting(
     data: SettingCreate,
+    request: Request,
     service: SettingService = Depends(get_setting_service),
 ) -> SettingOut:
-    return await service.create(data)
+    if data.scope is SettingScope.TENANT:
+        # A body field, not a path segment: an unknown tenant is invalid input.
+        if not await is_known_tenant(request, data.scope_id):
+            raise HTTPException(status_code=STATUS_UNPROCESSABLE, detail=ERR_UNKNOWN_TENANT)
+        await run_check(request, data.scope_id, data.key, data.value)
+    try:
+        return await service.create(data)
+    except DuplicateSettingError as exc:
+        raise HTTPException(status_code=STATUS_CONFLICT, detail=ERR_SETTING_EXISTS) from exc
 
 
 @router.get(API_BY_ID_PATH, response_model=SettingOut, dependencies=[*_VIEW, *_PLATFORM])
@@ -221,8 +250,12 @@ async def get_setting(
 async def update_setting(
     setting_id: int,
     data: SettingUpdate,
+    request: Request,
     service: SettingService = Depends(get_setting_service),
 ) -> SettingOut:
+    current = await service.get_by_id(setting_id)
+    if current is not None and current.scope is SettingScope.TENANT and data.value is not None:
+        await run_check(request, current.scope_id, current.key, data.value)
     result = await service.update(setting_id, data)
     if result is None:
         raise _not_found()

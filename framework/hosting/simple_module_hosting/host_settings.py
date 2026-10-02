@@ -132,9 +132,11 @@ class HostSettings(BaseSettings):
     @field_validator("default_tenant", mode="after")
     @classmethod
     def _check_default_tenant(cls, value: str) -> str:
-        from simple_module_db import is_valid_tenant_id
+        from simple_module_db import PLATFORM_TENANT_ID, is_valid_tenant_id
 
         value = value.strip()
+        if value == PLATFORM_TENANT_ID:
+            raise ValueError(f"default_tenant {value!r} is reserved for platform-owned rows")
         if value and not is_valid_tenant_id(value):
             raise ValueError(f"default_tenant {value!r} is not a valid tenant id")
         return value

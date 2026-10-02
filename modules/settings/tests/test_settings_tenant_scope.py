@@ -35,11 +35,11 @@ def _fresh_membership_cache():
 
 @pytest.fixture
 def client_for(app) -> Callable:
-    """``async with client_for("a@x.io", role="admin", tenant_id="acme") as (c, uid)``."""
+    """``async with client_for("a@x.io", role="admin") as (c, uid)``."""
 
     @asynccontextmanager
     async def factory(
-        email: str, *, role: str = "user", tenant_id: str | None = None
+        email: str, *, role: str = "user"
     ) -> AsyncGenerator[tuple[httpx.AsyncClient, str], None]:
         from users.models import Role, User, UserRole
 
@@ -50,7 +50,6 @@ def client_for(app) -> Callable:
                 hashed_password="x",
                 is_active=True,
                 is_verified=True,
-                tenant_id=tenant_id,
             )
             session.add(user)
             await session.flush()
@@ -78,19 +77,25 @@ def test_system_permission_is_registered(app):
     assert PERM_SYSTEM in app.state.sm.permissions.all_permissions
 
 
-# ── Legacy path: no tenant resolver, tenant from users_user.tenant_id ──
+# Tenant roles now come from memberships, not the removed User.tenant_id column.
 
 
 @pytest.fixture
-def legacy_app(app):
-    """The host as it runs without the ``tenants`` module."""
-    app.state.tenant_resolver = None
+def owners_edit_settings(app):
+    """An org owner with the older scoped settings permissions as well as self-service."""
+    app.state.sm.permissions.map_role("tenant:owner", _SETTINGS_PERMS)
     return app
 
 
-async def test_tenant_bound_admin_cannot_write_the_system_scope(legacy_app, client_for):
-    """The issue's first repro: acme's admin changed a host-wide setting."""
-    async with client_for("acme-admin@x.io", role="admin", tenant_id="acme") as (c, _):
+async def _org(client: httpx.AsyncClient, name: str) -> str:
+    resp = await client.post("/api/tenants/", json={"name": name})
+    assert resp.status_code in (200, 201), resp.text
+    return resp.json()["id"]
+
+
+async def test_tenant_owner_cannot_write_the_system_scope(owners_edit_settings, client_for):
+    async with client_for("acme-admin@x.io") as (c, _):
+        await _org(c, "Acme")
         resp = await c.put(_url("system/records.flag"), json={"value": "true"})
         assert resp.status_code == 403, resp.text
         assert PERM_SYSTEM in resp.json()["detail"]
@@ -98,37 +103,42 @@ async def test_tenant_bound_admin_cannot_write_the_system_scope(legacy_app, clie
         assert (await c.delete(_url("system/records.flag"))).status_code == 403
 
 
-async def test_tenant_bound_admin_cannot_write_another_tenant(legacy_app, client_for):
-    """The issue's second repro: acme's admin wrote into globex's scope."""
-    async with client_for("acme-admin@x.io", role="admin", tenant_id="acme") as (c, _):
-        assert (await c.put(_url("tenant/globex/k"), json={"value": "x"})).status_code == 403
-        assert (await c.get(_url("tenant/globex/k"))).status_code == 403
-        assert (await c.delete(_url("tenant/globex/k"))).status_code == 403
+async def test_tenant_owner_cannot_write_another_tenant(owners_edit_settings, client_for):
+    async with client_for("acme-admin@x.io") as (c, _), client_for("globex@x.io") as (other, _):
+        await _org(c, "Acme")
+        globex = await _org(other, "Globex")
+        assert (await c.put(_url(f"tenant/{globex}/k"), json={"value": "x"})).status_code == 403
+        assert (await c.get(_url(f"tenant/{globex}/k"))).status_code == 403
+        assert (await c.delete(_url(f"tenant/{globex}/k"))).status_code == 403
 
 
-async def test_tenant_bound_admin_manages_its_own_tenant(legacy_app, client_for):
-    async with client_for("acme-admin@x.io", role="admin", tenant_id="acme") as (c, _):
-        assert (await c.put(_url("tenant/acme/k"), json={"value": "x"})).status_code == 200
-        assert (await c.get(_url("tenant/acme/k"))).json()["value"] == "x"
-        listed = await c.get(_url(), params={"scope": "tenant", "scope_id": "acme"})
-        assert [r["scope_id"] for r in listed.json()] == ["acme"]
-        assert (await c.delete(_url("tenant/acme/k"))).status_code == 204
+async def test_tenant_owner_manages_its_own_tenant(owners_edit_settings, client_for):
+    async with client_for("acme-admin@x.io") as (c, _):
+        acme = await _org(c, "Acme")
+        assert (await c.put(_url(f"tenant/{acme}/k"), json={"value": "x"})).status_code == 200
+        assert (await c.get(_url(f"tenant/{acme}/k"))).json()["value"] == "x"
+        listed = await c.get(_url(), params={"scope": "tenant", "scope_id": acme})
+        assert [r["scope_id"] for r in listed.json()] == [acme]
+        assert (await c.delete(_url(f"tenant/{acme}/k"))).status_code == 204
 
 
-async def test_user_scope_is_limited_to_the_caller(legacy_app, client_for):
-    async with client_for("acme-admin@x.io", role="admin", tenant_id="acme") as (c, uid):
+async def test_user_scope_is_limited_to_the_caller(owners_edit_settings, client_for):
+    async with client_for("acme-admin@x.io") as (c, uid):
+        await _org(c, "Acme")
         assert (await c.put(_url(f"user/{uid}/k"), json={"value": "me"})).status_code == 200
         other = str(uuid.uuid4())
         assert (await c.put(_url(f"user/{other}/k"), json={"value": "x"})).status_code == 403
         assert (await c.get(_url(f"user/{other}/k"))).status_code == 403
 
 
-async def test_resolve_only_for_own_tenant_and_user(legacy_app, client_for):
-    async with client_for("acme-admin@x.io", role="admin", tenant_id="acme") as (c, uid):
-        await c.put(_url("tenant/acme/k"), json={"value": "ten"})
-        own = await c.get(_url("resolve/k"), params={"tenant_id": "acme", "user_id": uid})
+async def test_resolve_only_for_own_tenant_and_user(owners_edit_settings, client_for):
+    async with client_for("acme-admin@x.io") as (c, uid), client_for("globex@x.io") as (b, _):
+        acme = await _org(c, "Acme")
+        globex = await _org(b, "Globex")
+        await c.put(_url(f"tenant/{acme}/k"), json={"value": "ten"})
+        own = await c.get(_url("resolve/k"), params={"tenant_id": acme, "user_id": uid})
         assert own.json()["value"] == "ten"
-        other = await c.get(_url("resolve/k"), params={"tenant_id": "globex"})
+        other = await c.get(_url("resolve/k"), params={"tenant_id": globex})
         assert other.status_code == 403
 
 
@@ -145,16 +155,20 @@ async def test_resolve_only_for_own_tenant_and_user(legacy_app, client_for):
         ("GET", "modules", None),
     ],
 )
-async def test_cross_scope_tooling_is_platform_only(legacy_app, client_for, method, path, params):
+async def test_cross_scope_tooling_is_platform_only(
+    owners_edit_settings, client_for, method, path, params
+):
     body = {"key": "k", "value": "x"} if method in ("POST", "PUT") else None
-    async with client_for("acme-admin@x.io", role="admin", tenant_id="acme") as (c, _):
+    async with client_for("acme-admin@x.io") as (c, _):
+        await _org(c, "Acme")
         resp = await c.request(method, _url(path), params=params, json=body)
         assert resp.status_code == 403, resp.text
 
 
 @pytest.mark.parametrize("path", ["/admin/settings/", "/admin/settings/store"])
-async def test_settings_screens_are_platform_only(legacy_app, client_for, path):
-    async with client_for("acme-admin@x.io", role="admin", tenant_id="acme") as (c, _):
+async def test_settings_screens_are_platform_only(owners_edit_settings, client_for, path):
+    async with client_for("acme-admin@x.io") as (c, _):
+        await _org(c, "Acme")
         assert (await c.get(path, follow_redirects=False)).status_code == 403
 
 
@@ -170,46 +184,36 @@ async def test_settings_screens_are_platform_only(legacy_app, client_for, path):
     ],
 )
 async def test_settings_writes_outside_the_scoped_api_are_platform_only(
-    legacy_app, client_for, method, path
+    owners_edit_settings, client_for, method, path
 ):
     """The screens' actions and the module-settings API write the system scope."""
-    async with client_for("acme-admin@x.io", role="admin", tenant_id="acme") as (c, _):
+    async with client_for("acme-admin@x.io") as (c, _):
+        await _org(c, "Acme")
         body = {"key": "k", "value": "x", "scope": "system"} if method != "DELETE" else None
         resp = await c.request(method, path, json=body, follow_redirects=False)
         assert resp.status_code == 403, resp.text
         assert PERM_SYSTEM in resp.text
 
 
-async def test_platform_admin_keeps_every_scope(legacy_app, authenticated_client):
+async def test_platform_admin_keeps_every_scope(authenticated_client):
     c = authenticated_client
+    globex = await _org(c, "Globex")
     assert (await c.put(_url("system/k"), json={"value": "s"})).status_code == 200
-    assert (await c.put(_url("tenant/globex/k"), json={"value": "t"})).status_code == 200
+    assert (await c.put(_url(f"tenant/{globex}/k"), json={"value": "t"})).status_code == 200
     assert (await c.put(_url(f"user/{uuid.uuid4()}/k"), json={"value": "u"})).status_code == 200
     assert (await c.get(_url())).status_code == 200
     assert (await c.get("/admin/settings/", follow_redirects=False)).status_code == 200
 
 
-async def test_single_tenant_host_is_unchanged(legacy_app, client_for):
-    legacy_app.state.sm.settings.multi_tenant = False
-    async with client_for("acme-admin@x.io", role="admin", tenant_id="acme") as (c, _):
+async def test_single_tenant_host_is_unchanged(app, client_for):
+    app.state.sm.settings.multi_tenant = False
+    async with client_for("acme-admin@x.io", role="admin") as (c, _):
+        globex = await _org(c, "Globex")
         assert (await c.put(_url("system/k"), json={"value": "s"})).status_code == 200
-        assert (await c.put(_url("tenant/globex/k"), json={"value": "t"})).status_code == 200
+        assert (await c.put(_url(f"tenant/{globex}/k"), json={"value": "t"})).status_code == 200
 
 
 # ── tenants module: membership roles mapped onto settings permissions ──
-
-
-@pytest.fixture
-def owners_edit_settings(app):
-    """A host letting org owners manage settings — where #368 still bites."""
-    app.state.sm.permissions.map_role("tenant:owner", _SETTINGS_PERMS)
-    return app
-
-
-async def _org(client: httpx.AsyncClient, name: str) -> str:
-    resp = await client.post("/api/tenants/", json={"name": name})
-    assert resp.status_code in (200, 201), resp.text
-    return resp.json()["id"]
 
 
 async def test_org_owner_is_confined_to_its_org(owners_edit_settings, client_for):
@@ -227,4 +231,6 @@ async def test_platform_admin_inside_an_org_stays_platform(owners_edit_settings,
     async with client_for("root@x.io", role="admin") as (c, _):
         await _org(c, "Mine")
         assert (await c.put(_url("system/k"), json={"value": "s"})).status_code == 200
-        assert (await c.put(_url("tenant/elsewhere/k"), json={"value": "t"})).status_code == 200
+        async with client_for("elsewhere@x.io") as (other, _):
+            elsewhere = await _org(other, "Elsewhere")
+        assert (await c.put(_url(f"tenant/{elsewhere}/k"), json={"value": "t"})).status_code == 200

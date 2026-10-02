@@ -23,8 +23,20 @@ if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
     from simple_module_core.invalidation import InvalidationBus
     from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.tenancy import TenantExists
 
 logger = logging.getLogger(__name__)
+
+
+def _tenant_exists(app: FastAPI) -> TenantExists:
+    """The ``app.state.tenant_exists`` callable core's ``tenant_exists()`` reads."""
+    from tenants.models import Tenant
+
+    async def exists(tenant_id: str) -> bool:
+        async with app.state.sm.db.session_factory() as db:
+            return await db.get(Tenant, tenant_id) is not None
+
+    return exists
 
 
 class TenantsModule(ModuleBase):
@@ -35,7 +47,7 @@ class TenantsModule(ModuleBase):
         admin_view_prefix="/admin/tenants",
         # Auth: its middleware must have set request.state.user before the
         # resolver runs. Settings: register_module_settings.
-        depends_on=["Auth", "Settings"],
+        depends_on=[c._MODULE_AUTH, c._MODULE_SETTINGS],
     )
 
     def register_settings(self, app: FastAPI) -> None:
@@ -53,6 +65,7 @@ class TenantsModule(ModuleBase):
             app, c.MODULE_PACKAGE, TenantsSettings, lambda s: TenantsServices(settings=s)
         )
         app.state.tenant_resolver = resolve_tenant
+        app.state.tenant_exists = _tenant_exists(app)
         register_inertia_shared_provider(app, tenant_shared_props)
 
     def register_exception_handlers(self, app: FastAPI) -> None:
@@ -104,6 +117,17 @@ class TenantsModule(ModuleBase):
         )
         registry.add(
             MenuItem(
+                label="Organisation settings",
+                label_key="tenants.nav.settings",
+                url="/tenants/settings",
+                icon="settings",
+                order=92,
+                section=MenuSection.SIDEBAR,
+                permissions=[c.PERM_TENANT_SETTINGS],
+            )
+        )
+        registry.add(
+            MenuItem(
                 label="Tenants",
                 label_key="tenants.nav.tenants",
                 url="/admin/tenants/",
@@ -122,13 +146,12 @@ class TenantsModule(ModuleBase):
             [
                 c.PERM_MEMBERS_VIEW,
                 c.PERM_MEMBERS_MANAGE,
-                c.PERM_SETTINGS_MANAGE,
                 c.PERM_PLATFORM_VIEW,
                 c.PERM_PLATFORM_MANAGE,
             ],
         )
         for role, perms in c.ROLE_PERMISSIONS.items():
-            registry.map_role(f"{c.TENANT_ROLE_PREFIX}{role}", perms)
+            registry.map_role(c.tenant_role(role), perms)
 
     async def on_startup(self, app: FastAPI) -> None:
         if not getattr(app.state.sm.settings, "multi_tenant", False):
