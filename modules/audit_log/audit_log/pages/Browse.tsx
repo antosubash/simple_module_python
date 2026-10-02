@@ -25,6 +25,8 @@ interface Props {
   page: number;
   page_size: number;
   entity_types: EntityTypeOption[];
+  tenant_ids: string[];
+  platform_tenant_value: string;
   /** Where the CSV lives; the current filters are appended to it. */
   export_url: string;
   /** `correlation_id` is set only by the per-row "Related" pivot — it has no
@@ -35,6 +37,7 @@ interface Props {
 const CLEARED: FilterState = {
   entityType: ALL,
   action: ALL,
+  tenantId: ALL,
   userId: '',
   fromDate: '',
   toDate: '',
@@ -51,6 +54,7 @@ function queryFor(
   const p: Record<string, string> = {};
   if (next.entityType && next.entityType !== ALL) p.entity_type = next.entityType;
   if (next.action && next.action !== ALL) p.action = next.action;
+  if (next.tenantId && next.tenantId !== ALL) p.tenant_id = next.tenantId;
   if (next.userId) p.user_id = next.userId;
   if (correlationId) p.correlation_id = correlationId;
   if (next.fromDate) p.from_date = next.fromDate;
@@ -61,7 +65,17 @@ function queryFor(
 }
 
 function Browse() {
-  const { items, total, page, page_size, entity_types, export_url, filters } = usePage<{
+  const {
+    items,
+    total,
+    page,
+    page_size,
+    entity_types,
+    tenant_ids,
+    platform_tenant_value,
+    export_url,
+    filters,
+  } = usePage<{
     props: Props;
   }>().props as unknown as Props;
   const { t } = useT();
@@ -69,6 +83,7 @@ function Browse() {
   const [state, setState] = useState<FilterState>({
     entityType: filters.entity_type ?? ALL,
     action: filters.action ?? ALL,
+    tenantId: filters.tenant_id ?? ALL,
     userId: filters.user_id ?? '',
     fromDate: filters.from_date ?? '',
     toDate: filters.to_date ?? '',
@@ -105,6 +120,7 @@ function Browse() {
     {
       entityType: filters.entity_type ?? ALL,
       action: filters.action ?? ALL,
+      tenantId: filters.tenant_id ?? ALL,
       userId: filters.user_id ?? '',
       fromDate: filters.from_date ?? '',
       toDate: filters.to_date ?? '',
@@ -132,6 +148,8 @@ function Browse() {
         <FilterBar
           state={state}
           entity_types={entity_types}
+          tenant_ids={tenant_ids}
+          platform_tenant_value={platform_tenant_value}
           onChange={setState}
           onSubmit={() => navigate(state)}
           onClear={handleClear}
@@ -143,7 +161,12 @@ function Browse() {
 
         <Card className="border-border overflow-hidden p-0">
           {items.length === 0 ? (
-            <BrowseEmpty applied={filters} entityTypes={entity_types} onClear={handleClear} />
+            <BrowseEmpty
+              applied={filters}
+              entityTypes={entity_types}
+              platformTenantValue={platform_tenant_value}
+              onClear={handleClear}
+            />
           ) : (
             <EntriesTable
               items={items}

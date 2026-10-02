@@ -46,6 +46,10 @@ export function DetailFacts({ execution, className }: Props) {
   const facts: Fact[] = [
     { label: t(keys.background_tasks.detail.queue), value: execution.queue },
     {
+      label: t(keys.background_tasks.detail.tenant),
+      value: execution.tenant_id ?? t(keys.background_tasks.filters.tenant_platform),
+    },
+    {
       label: t(keys.background_tasks.detail.worker),
       value: execution.worker ? (
         <code className="font-mono text-xs">{execution.worker}</code>

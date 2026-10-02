@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
+import { Toaster } from '@simple-module-py/ui/components/ui/sonner';
 import {
   Tooltip,
   TooltipContent,
@@ -268,6 +269,8 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
           />
         </main>
       </div>
+      {/* Mounted here, not in a concrete layout, so every sidebar shell (app and admin) can toast. */}
+      <Toaster richColors position="top-right" />
     </TooltipProvider>
   );
 }

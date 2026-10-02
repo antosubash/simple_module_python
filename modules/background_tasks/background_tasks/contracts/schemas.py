@@ -28,6 +28,7 @@ class TaskExecutionListItem(SQLModel):
     task_name: str
     status: TaskStatus
     queue: str
+    tenant_id: str | None = None
     args: list[Any] = []
     kwargs: dict[str, Any] = {}
     retries: int
@@ -49,6 +50,7 @@ class TaskExecutionDetail(SQLModel):
     task_name: str
     status: TaskStatus
     queue: str
+    tenant_id: str | None = None
     args: list[Any] = []
     kwargs: dict[str, Any] = {}
     result: dict[str, Any] | None = None

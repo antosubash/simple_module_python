@@ -41,8 +41,11 @@ from simple_module_hosting import merge_host_settings  # noqa: E402
 # host/main.py does (env → DB → default): task bodies must hit the same
 # database with the same fail-closed tenant rules as request code.
 _host = merge_host_settings()
-set_database_url(_host.database_url, tenant_strict=_host.multi_tenant)
-set_default_tenant(None if _host.multi_tenant else _host.default_tenant or None)
+_default_tenant = None if _host.multi_tenant else _host.default_tenant or None
+set_database_url(
+    _host.database_url, tenant_strict=_host.multi_tenant, default_tenant=_default_tenant
+)
+set_default_tenant(_default_tenant)
 
 # Module-level name ``celery`` is what ``celery -A scripts.run_worker:celery``
 # looks for. Keep it stable.

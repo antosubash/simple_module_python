@@ -140,25 +140,27 @@ class TestCachedTotalsStayHonest:
         assert props["uploaders"] == []
 
     async def test_a_write_outside_the_request_path_still_drops_the_cache(
-        self, app, authenticated_client: httpx.AsyncClient
+        self, app, authenticated_client: httpx.AsyncClient, admin_tenant_id: str
     ):
         """Invalidation hangs off the commit, not off ``FileUploaded`` — so a
         seed script or a fix-up in the shell is seen too."""
         from file_storage.models import StoredFile
+        from simple_module_db import tenant_context
 
         assert (await _browse(authenticated_client))["used_bytes"] == 0
 
-        async with app.state.sm.db.session_factory() as session:
-            session.add(
-                StoredFile(
-                    key="2026/01/01/seeded.txt",
-                    filename="seeded.txt",
-                    content_type="text/plain",
-                    size_bytes=42,
-                    backend=constants.BackendId.FILESYSTEM,
-                    checksum_sha256="0" * 64,
+        with tenant_context(admin_tenant_id):
+            async with app.state.sm.db.session_factory() as session:
+                session.add(
+                    StoredFile(
+                        key="2026/01/01/seeded.txt",
+                        filename="seeded.txt",
+                        content_type="text/plain",
+                        size_bytes=42,
+                        backend=constants.BackendId.FILESYSTEM,
+                        checksum_sha256="0" * 64,
+                    )
                 )
-            )
-            await session.commit()
+                await session.commit()
 
         assert (await _browse(authenticated_client))["used_bytes"] == 42

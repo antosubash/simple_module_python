@@ -49,7 +49,6 @@ async def _build_app(db_state, inner_handler=None, *, principal_resolvers=None):
                         "email": user.email,
                         "name": user.name,
                         "roles": user.roles,
-                        "tenant_id": user.tenant_id,
                     }
                     if user is not None
                     else None
@@ -106,7 +105,6 @@ async def mw_active_user(db_session, _mw_seed_roles):
         is_superuser=False,
         is_verified=True,
         full_name="Middleware Tester",
-        tenant_id="acme",
     )
     link = UserRole(user_id=user_id, role_id=ADMIN_ROLE_ID)
     db_session.add_all([user, link])

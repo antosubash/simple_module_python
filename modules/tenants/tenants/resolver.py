@@ -21,6 +21,7 @@ from typing import Any
 from cachetools import TTLCache
 from fastapi import FastAPI
 from simple_module_core.invalidation import Invalidation, InvalidationBus
+from simple_module_core.tenancy import is_tenant_role
 from simple_module_db import is_valid_tenant_id
 from simple_module_hosting.middleware import TenantResolution
 from starlette.requests import Request
@@ -119,7 +120,7 @@ def pick_active(memberships: list[MyTenantView], preferred: str | None) -> MyTen
 def _with_tenant_role(user: Any, tenant_id: str, role: str) -> Any:
     if not dataclasses.is_dataclass(user) or isinstance(user, type):
         return user
-    roles = [r for r in getattr(user, "roles", []) if not r.startswith(TENANT_ROLE_PREFIX)]
+    roles = [r for r in getattr(user, "roles", []) if not is_tenant_role(r)]
     changes: dict[str, Any] = {"roles": [*roles, f"{TENANT_ROLE_PREFIX}{role}"]}
     if "tenant_id" in {f.name for f in dataclasses.fields(user)}:
         changes["tenant_id"] = tenant_id

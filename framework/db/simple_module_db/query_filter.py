@@ -23,6 +23,7 @@ from simple_module_db.insert_guard import assigned_tenant_ids, guard_insert
 from simple_module_db.subquery_guard import scope_exists_subqueries
 from simple_module_db.tenancy import (
     ALL_TENANTS_OPTION,
+    DEFAULT_TENANT_ID,
     TenantIsolationError,
     current_tenant_id,
     is_all_tenants,
@@ -34,16 +35,18 @@ TENANT_COLUMN = "tenant_id"
 # Per-engine tenancy policy. Keyed by engine rather than held in a module
 # global so two ``DatabaseState``s in one process (tests, a CLI next to an
 # app) cannot switch each other's strict mode off. Values expose
-# ``tenant_strict`` — a ``DatabaseState``, or an ``EngineTenancy`` for a bare
-# sync engine such as the Celery worker's.
+# ``tenant_strict`` (and optionally ``default_tenant_id``) — a
+# ``DatabaseState``, or an ``EngineTenancy`` for a bare sync engine such as
+# the Celery worker's.
 _engine_policy: WeakKeyDictionary[Engine, Any] = WeakKeyDictionary()
 
 
 class EngineTenancy:
     """Tenancy policy for an engine that has no ``DatabaseState``."""
 
-    def __init__(self, *, tenant_strict: bool) -> None:
+    def __init__(self, *, tenant_strict: bool, default_tenant_id: str = DEFAULT_TENANT_ID) -> None:
         self.tenant_strict = tenant_strict
+        self.default_tenant_id = default_tenant_id
 
 
 def bind_engine_policy(engine: Engine, policy: Any) -> None:
@@ -51,15 +54,29 @@ def bind_engine_policy(engine: Engine, policy: Any) -> None:
     _engine_policy[engine] = policy
 
 
-def _strict_configured(session: Session) -> bool:
+def _policy(session: Session) -> Any:
     bind = session.bind
-    policy = _engine_policy.get(bind) if isinstance(bind, Engine) else None
+    return _engine_policy.get(bind) if isinstance(bind, Engine) else None
+
+
+def strict_configured(session: Session) -> bool:
+    policy = _policy(session)
     return bool(policy is not None and policy.tenant_strict)
+
+
+def fallback_tenant_id(session: Session) -> str:
+    """The tenant a non-strict write lands in when none is bound.
+
+    The install's ``default_tenant`` when the host set one (published as
+    ``DatabaseState.default_tenant_id``), else :data:`DEFAULT_TENANT_ID`.
+    """
+    policy = _policy(session)
+    return getattr(policy, "default_tenant_id", None) or DEFAULT_TENANT_ID
 
 
 def is_strict(session: Session) -> bool:
     """Strict isolation is on for this session's engine and not waived."""
-    return _strict_configured(session) and not is_all_tenants()
+    return strict_configured(session) and not is_all_tenants()
 
 
 def filter_statements(execute_state: ORMExecuteState) -> Any:
@@ -76,7 +93,12 @@ def filter_statements(execute_state: ORMExecuteState) -> Any:
     ``all_tenants()``; soft-delete bypass: ``include_deleted=True``.
     """
     if execute_state.is_insert:
-        return guard_insert(execute_state, strict=_strict_configured(execute_state.session))
+        session = execute_state.session
+        return guard_insert(
+            execute_state,
+            strict=strict_configured(session),
+            fallback=fallback_tenant_id(session),
+        )
     is_select = execute_state.is_select
     if not (is_select or execute_state.is_update or execute_state.is_delete):
         return None
@@ -85,7 +107,7 @@ def filter_statements(execute_state: ORMExecuteState) -> Any:
     skip_soft_delete = not is_select or options_in.get("include_deleted", False)
     tenant_id = current_tenant_id.get()
     skip_tenant = options_in.get(ALL_TENANTS_OPTION, False) or is_all_tenants()
-    strict = _strict_configured(execute_state.session)
+    strict = strict_configured(execute_state.session)
     if execute_state.is_update and not skip_tenant:
         # Before the early return: moving rows between tenants is refused
         # bound or not (#356), like the unit-of-work rule in flush_guard.

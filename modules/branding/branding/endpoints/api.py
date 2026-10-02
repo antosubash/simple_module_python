@@ -15,6 +15,10 @@ from branding.presets import find_preset
 
 router = APIRouter()
 
+# Branding images are uploaded with ``platform=True``: they are the install's,
+# not the uploading admin's active organisation's, and the anonymous asset
+# routes must find them with no tenant bound (see ``file_storage.scope``).
+
 _MANAGE = Depends(RequiresPermission(constants.PERM_MANAGE))
 
 
@@ -63,7 +67,7 @@ async def upload_logo(
     storage: FileStorageService = Depends(get_file_storage_service),
 ) -> BrandingOut:
     await validate_image(file)
-    stored = await storage.upload(file)
+    stored = await storage.upload(file, platform=True)
     return await service.set_logo(str(stored.id))
 
 
@@ -87,7 +91,7 @@ async def upload_logo_dark(
     storage: FileStorageService = Depends(get_file_storage_service),
 ) -> BrandingOut:
     await validate_image(file)
-    stored = await storage.upload(file)
+    stored = await storage.upload(file, platform=True)
     return await service.set_logo_dark(str(stored.id))
 
 
@@ -103,7 +107,7 @@ async def upload_favicon(
     storage: FileStorageService = Depends(get_file_storage_service),
 ) -> BrandingOut:
     await validate_image(file)
-    stored = await storage.upload(file)
+    stored = await storage.upload(file, platform=True)
     return await service.set_favicon(str(stored.id))
 
 

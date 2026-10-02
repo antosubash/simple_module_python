@@ -1,4 +1,6 @@
-"""SM024: a unique key on a tenant-scoped table that ignores the tenant.
+"""Tenancy diagnostics.
+
+SM024: a unique key on a tenant-scoped table that ignores the tenant.
 
 On a ``MultiTenantMixin`` table every business key is per tenant. A unique
 constraint without ``tenant_id`` in it means the first tenant to claim a value
@@ -7,8 +9,11 @@ resulting IntegrityError tells the second tenant the value exists elsewhere.
 
 Duck-typed on SQLAlchemy ``Table`` objects (core does not depend on
 SQLAlchemy). Only tables of models that inherit ``MultiTenantMixin`` count: a
-plain ``tenant_id`` column (``users_user``'s legacy one, the ``tenants``
-registry's own tables) carries no isolation and no per-tenant key rule.
+plain ``tenant_id`` column (the ``tenants`` registry's own tables) carries no
+isolation and no per-tenant key rule.
+
+SM025: ``multi_tenant`` is on but no module registered
+``app.state.tenant_resolver`` — see :func:`check_tenant_resolver`.
 """
 
 from __future__ import annotations
@@ -105,4 +110,32 @@ def module_tables(mod: ModuleBase) -> list[Any]:
     return list(seen.values())
 
 
-__all__ = ["check_tenant_unique_keys", "module_tables"]
+def check_tenant_resolver(*, multi_tenant: bool, resolver: object | None) -> list[Diagnostic]:
+    """SM025: strict tenancy with nothing but the legacy claim path to feed it.
+
+    Without a resolver ``TenantMiddleware`` binds only the principal's
+    ``tenant_id`` claim (or, for anonymous requests, the tenant header). Most
+    providers set no such claim, so every tenant-scoped query fails closed with
+    ``MissingTenantError``. Needs the built app, so it runs at boot (after the
+    module registrations), not from the ``make doctor`` CLI.
+    """
+    if not multi_tenant or resolver is not None:
+        return []
+    return [
+        Diagnostic(
+            level=DiagnosticLevel.WARNING,
+            code="SM025",
+            message=(
+                "multi_tenant is on but no module registered app.state.tenant_resolver — "
+                "only the principal's tenant_id claim can bind a tenant"
+            ),
+            module_name="<host>",
+            suggestion=(
+                "Install the 'tenants' module (or register your own async "
+                "(Request) -> str | None resolver on app.state.tenant_resolver)"
+            ),
+        )
+    ]
+
+
+__all__ = ["check_tenant_resolver", "check_tenant_unique_keys", "module_tables"]

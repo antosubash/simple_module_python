@@ -26,7 +26,11 @@ from feature_flags.constants import (
     SCOPE_TENANT,
     SYSTEM_SCOPE_ID,
 )
-from feature_flags.deps import FeatureFlagRegistryDep, FeatureFlagServiceDep
+from feature_flags.deps import (
+    FeatureFlagRegistryDep,
+    FeatureFlagServiceDep,
+    require_known_tenant,
+)
 
 router = APIRouter()
 
@@ -61,7 +65,10 @@ def _scope_args(tenant_id: str | None) -> dict[str, str]:
 @router.get(
     "/",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_FEATURE_FLAGS_VIEW))],
+    dependencies=[
+        Depends(RequiresPermission(PERM_FEATURE_FLAGS_VIEW)),
+        Depends(require_known_tenant),
+    ],
 )
 async def browse(
     request: Request,
@@ -86,7 +93,10 @@ async def browse(
 @router.post(
     "/{name}/toggle",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_FEATURE_FLAGS_MANAGE))],
+    dependencies=[
+        Depends(RequiresPermission(PERM_FEATURE_FLAGS_MANAGE)),
+        Depends(require_known_tenant),
+    ],
 )
 async def toggle_action(
     name: str,

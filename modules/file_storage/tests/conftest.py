@@ -47,3 +47,39 @@ def _sync_engine(target) -> Engine:
     """Accept an app, an ``AsyncEngine`` or a sync ``Engine`` interchangeably."""
     engine = target.state.sm.db.engine if hasattr(target, "state") else target
     return getattr(engine, "sync_engine", engine)
+
+
+@pytest.fixture
+async def admin_tenant_id(app) -> str:
+    """Give the seeded admin an organisation it owns; that tenant's id.
+
+    ``StoredFile`` is tenant-scoped and the suite runs strict, so a request
+    with no active tenant fails closed (403 ``tenant_required``). The tenants
+    resolver falls back to a user's first membership, so one membership is
+    enough to make every ``authenticated_client`` request act for this tenant.
+    """
+    from simple_module_test.fixtures import SETUP_ADMIN_EMAIL
+    from sqlalchemy import select
+    from tenants.models import Membership, Tenant
+    from tenants.resolver import forget
+    from users.models import User
+
+    async with app.state.sm.db.session_factory() as session:
+        admin = (
+            await session.execute(select(User).where(User.email == SETUP_ADMIN_EMAIL))
+        ).scalar_one()
+        tenant = Tenant(slug="admin-org", name="Admin Org")
+        session.add(tenant)
+        await session.flush()
+        session.add(
+            Membership(tenant_id=tenant.id, user_id=str(admin.id), role="owner", email=admin.email)
+        )
+        await session.commit()
+        forget(str(admin.id))
+        return tenant.id
+
+
+@pytest.fixture
+async def authenticated_client(authenticated_client, admin_tenant_id):
+    """The plugin's admin client, acting for the admin's own organisation."""
+    return authenticated_client

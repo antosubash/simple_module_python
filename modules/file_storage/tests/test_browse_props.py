@@ -16,22 +16,24 @@ INERTIA_HEADERS = {"X-Inertia": "true", "Accept": "application/json"}
 UNKNOWN_UPLOADER = constants.UNKNOWN_UPLOADER
 
 
-async def _seed_orphan_row(app) -> None:
+async def _seed_orphan_row(app, tenant_id: str) -> None:
     """Insert a file with no uploader, the way pre-audit rows look."""
     from file_storage.models import StoredFile
+    from simple_module_db import tenant_context
 
-    async with app.state.sm.db.session_factory() as session:
-        session.add(
-            StoredFile(
-                key="2026/01/01/orphan.txt",
-                filename="orphan.txt",
-                content_type="text/plain",
-                size_bytes=3,
-                backend=constants.BackendId.FILESYSTEM,
-                checksum_sha256="0" * 64,
+    with tenant_context(tenant_id):
+        async with app.state.sm.db.session_factory() as session:
+            session.add(
+                StoredFile(
+                    key="2026/01/01/orphan.txt",
+                    filename="orphan.txt",
+                    content_type="text/plain",
+                    size_bytes=3,
+                    backend=constants.BackendId.FILESYSTEM,
+                    checksum_sha256="0" * 64,
+                )
             )
-        )
-        await session.commit()
+            await session.commit()
 
 
 async def _upload(client: httpx.AsyncClient, name: str, body: bytes = b"hi") -> str:
@@ -129,10 +131,10 @@ class TestUploaderLabels:
         assert [f["uploaded_by_label"] for f in props["files"]] == ["Test Admin"]
 
     async def test_unknown_uploader_falls_back_to_a_dash(
-        self, app, authenticated_client: httpx.AsyncClient
+        self, app, authenticated_client: httpx.AsyncClient, admin_tenant_id: str
     ):
         """Rows predating authenticated uploads carry no ``created_by``."""
-        await _seed_orphan_row(app)
+        await _seed_orphan_row(app, admin_tenant_id)
 
         props = await _browse(authenticated_client)
 

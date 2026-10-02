@@ -30,7 +30,10 @@ class FakeStore:
     def install(self, monkeypatch: pytest.MonkeyPatch) -> None:
         store = self
 
-        async def fake_upload(self: FileStorageService, upload: Any) -> StoredFile:
+        async def fake_upload(
+            self: FileStorageService, upload: Any, *, platform: bool = False
+        ) -> StoredFile:
+            assert platform, "branding must act on platform-owned files"
             row = StoredFile(
                 id=uuid.uuid4(),
                 key=f"2026/06/{uuid.uuid4()}.png",
@@ -43,7 +46,10 @@ class FakeStore:
             store.uploaded.append(row.id)
             return row
 
-        async def fake_delete(self: FileStorageService, file_id: uuid.UUID) -> StoredFile:
+        async def fake_delete(
+            self: FileStorageService, file_id: uuid.UUID, *, platform: bool = False
+        ) -> StoredFile:
+            assert platform, "branding must act on platform-owned files"
             if file_id in store.deleted:
                 raise StoredFileNotFoundError(str(file_id))
             store.deleted.append(file_id)
@@ -136,7 +142,9 @@ async def test_a_failed_cleanup_does_not_fail_the_rebrand(
     # reach by design; see BrandingService._reap.
     await _upload(authenticated_client, "logo")
 
-    async def boom(self: FileStorageService, file_id: uuid.UUID) -> StoredFile:
+    async def boom(
+        self: FileStorageService, file_id: uuid.UUID, *, platform: bool = False
+    ) -> StoredFile:
         raise RuntimeError("backend unavailable")
 
     monkeypatch.setattr(FileStorageService, "delete", boom, raising=True)

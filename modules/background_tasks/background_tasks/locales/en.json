@@ -26,7 +26,11 @@
     "stuck": "Stuck",
     "queue_label": "Queue:",
     "queue_all": "all",
-    "queue_aria": "Filter by queue"
+    "queue_aria": "Filter by queue",
+    "tenant_label": "Tenant:",
+    "tenant_all": "all",
+    "tenant_platform": "Platform",
+    "tenant_aria": "Filter by tenant"
   },
   "status": {
     "queued": "queued",
@@ -44,7 +48,8 @@
     "queued_at": "Queued",
     "duration": "Duration",
     "actions": "Actions",
-    "retry": "Retry"
+    "retry": "Retry",
+    "tenant": "Tenant"
   },
   "detail": {
     "head_title": "Task detail",
@@ -69,7 +74,8 @@
     "traceback": "Traceback",
     "copy": "Copy",
     "copied": "Copied",
-    "no_traceback": "No traceback recorded."
+    "no_traceback": "No traceback recorded.",
+    "tenant": "Tenant"
   },
   "retry_dialog": {
     "title": "Retry {name}?",

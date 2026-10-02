@@ -53,5 +53,14 @@
   },
   "nav": {
     "branding": "Branding"
+  },
+  "tenant_settings": {
+    "app_name": "Application name shown in the header, page titles and emails.",
+    "primary_color": "Accent colour as #rrggbb. Reset to use the platform's.",
+    "design_pack": "Design pack slug. Reset to use the platform's.",
+    "footer_text": "Footer caption. Reset to show the platform's.",
+    "logo_file_id": "Logo image.",
+    "logo_dark_file_id": "Logo for dark surfaces; falls back to this organisation's own logo.",
+    "favicon_file_id": "Browser tab icon."
   }
 }

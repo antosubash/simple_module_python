@@ -26,7 +26,19 @@ from audit_log.filters import EntryFilters
 from audit_log.resolve import resolve_actors, resolve_entity_labels
 from audit_log.service import AuditLogService
 
-CSV_COLUMNS = ("time", "action", "entity_type", "entity_id", "entity_label", "actor", "changes")
+CSV_COLUMNS = (
+    "time",
+    "action",
+    "entity_type",
+    "entity_id",
+    "entity_label",
+    "actor",
+    "changes",
+    # Appended last, not slotted in beside ``actor``: consumers that read the
+    # file by position (a spreadsheet macro, ``cut -d,``) predate the column
+    # and must keep finding ``changes`` where it always was.
+    "tenant_id",
+)
 CSV_MEDIA_TYPE = "text/csv; charset=utf-8"
 CSV_FILENAME = "audit-log.csv"
 _ARROW = " → "
@@ -88,6 +100,7 @@ def _row(entry: AuditEntryRead, *, entity_label: str, actor: str) -> list[str]:
             entity_label,
             actor,
             format_changes(entry.changes),
+            entry.tenant_id or "",
         )
     ]
 

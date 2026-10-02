@@ -1,7 +1,7 @@
 """Settings contracts — public interface for other modules."""
 
 from settings.contracts.accessor import SettingsAccessor
-from settings.contracts.registry import SettingDefinition, SettingsRegistry
+from settings.contracts.registry import SettingDefinition, SettingsRegistry, clear_route
 from settings.contracts.schemas import (
     SettingCreate,
     SettingOut,
@@ -21,4 +21,5 @@ __all__ = [
     "SettingValueType",
     "SettingsAccessor",
     "SettingsRegistry",
+    "clear_route",
 ]

@@ -2,7 +2,8 @@
   "nav": {
     "organisations": "Organisations",
     "members": "Members",
-    "tenants": "Tenants"
+    "tenants": "Tenants",
+    "settings": "Organisation settings"
   },
   "roles": {
     "owner": "Owner",
@@ -135,5 +136,22 @@
     "already_member": "That person is already a member of this organisation.",
     "tenant_manager_required": "Only an owner or admin of this organisation can do that.",
     "tenant_isolation": "That action is not allowed across organisations."
+  },
+  "settings": {
+    "head_title": "Organisation settings",
+    "title": "Organisation settings",
+    "description": "Settings {name} can change for itself. Anything you leave alone keeps the platform's value.",
+    "empty_title": "Nothing to configure",
+    "empty_description": "The platform does not let organisations change any settings yet.",
+    "overridden": "Overridden",
+    "inherited": "Platform value",
+    "inherited_value": "Platform value: {value}",
+    "none": "(empty)",
+    "save": "Save",
+    "reset": "Reset to platform value",
+    "toast_saved": "Setting saved",
+    "toast_reset": "Setting reset to the platform value",
+    "toast_failed": "Could not save the setting",
+    "toast_uploaded": "Image uploaded"
   }
 }

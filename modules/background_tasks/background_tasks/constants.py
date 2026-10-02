@@ -102,3 +102,7 @@ INTERNAL_TASK_PURGE_OLD = "background_tasks.purge_old_executions"
 # Harmless round-trip task; only wired into CI smoke tests and local dev —
 # not scheduled, not invoked by other modules.
 DEMO_ECHO_TASK = "background_tasks.demo_echo"
+
+TENANT_ID_MAX_LENGTH = 50
+# Filter value meaning "executions with no tenant" (beat / platform publishes).
+PLATFORM_TENANT_FILTER = "__platform__"

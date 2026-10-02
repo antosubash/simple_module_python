@@ -23,6 +23,7 @@ from settings.constants import (
     MODULE_NAME,
     MODULE_PACKAGE,
     PERM_GROUP,
+    PERM_TENANT_EDIT,
     PERM_VIEW,
     VIEW_PREFIX,
 )
@@ -76,12 +77,21 @@ class SettingsModule(ModuleBase):
         # Self-register so the UI lists our own settings alongside other modules.
         services.module_registry.register("settings", SettingsSettings)
 
+    def register_exception_handlers(self, app: FastAPI) -> None:
+        from settings.errors import install_exception_handlers
+
+        install_exception_handlers(app)
+
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from settings.endpoints.api import router as api
         from settings.endpoints.module_api import router as module_api
+        from settings.endpoints.tenant_api import router as tenant_api
         from settings.endpoints.views import router as views
 
         api_router.include_router(module_api)
+        # Before ``api``: its ``/tenant/{scope_id}/{key}`` would capture
+        # ``/tenant/current/{key}`` with ``scope_id="current"``.
+        api_router.include_router(tenant_api)
         api_router.include_router(api)
         view_router.include_router(views)
 
@@ -103,7 +113,14 @@ class SettingsModule(ModuleBase):
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
+        from simple_module_core.tenancy import TenantRole, tenant_role
+
         registry.add_group(PERM_GROUP, list(ALL_PERMISSIONS))
+        # Tenant owners and admins edit their own tenant's overridable keys
+        # (#382). The one permission for it — ``tenants`` no longer ships its
+        # own unused ``tenants.settings.manage``. Members get nothing here.
+        for role in (TenantRole.OWNER, TenantRole.ADMIN):
+            registry.map_role(tenant_role(role), [PERM_TENANT_EDIT])
 
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
         from settings.models import Setting

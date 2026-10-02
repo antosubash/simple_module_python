@@ -70,6 +70,7 @@ def seed_execution(app):
         status: TaskStatus = TaskStatus.FAILED,
         queue: str = "default",
         queued_at: datetime | None = None,
+        tenant_id: str | None = None,
     ) -> TaskExecution:
         row = TaskExecution(
             celery_task_id=str(uuid.uuid4()),
@@ -79,6 +80,7 @@ def seed_execution(app):
             args=[],
             kwargs={},
             queued_at=queued_at or datetime.now(UTC),
+            tenant_id=tenant_id,
         )
         async with app.state.sm.db.session_factory() as session:
             session.add(row)

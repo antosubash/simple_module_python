@@ -23,14 +23,18 @@
     "date_range_any": "Any date",
     "date_range_reset": "Clear dates",
     "apply": "Apply",
-    "clear": "Clear"
+    "clear": "Clear",
+    "tenant_label": "Tenant",
+    "tenant_all": "All tenants",
+    "tenant_platform": "Platform"
   },
   "table": {
     "timestamp": "Time",
     "action": "Action",
     "entity": "Entity",
     "user": "Actor",
-    "changes": "Changes"
+    "changes": "Changes",
+    "tenant": "Tenant"
   },
   "actions": {
     "created": "created",

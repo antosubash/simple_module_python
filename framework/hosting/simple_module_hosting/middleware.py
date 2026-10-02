@@ -240,7 +240,7 @@ class InertiaLayoutDataMiddleware:
 
         # Merge module-registered shared-prop providers (e.g. branding) — read off
         # app.state without importing the plugin (SM009), defensively.
-        merge_shared_prop_providers(scope["app"], request, shared)
+        await merge_shared_prop_providers(scope["app"], request, shared)
 
         request.state.inertia_shared = shared
 

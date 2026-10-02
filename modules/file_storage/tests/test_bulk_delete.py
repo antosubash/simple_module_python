@@ -15,7 +15,6 @@ import httpx
 from fastapi import UploadFile
 from file_storage import constants
 from file_storage.contracts.events import FileDeleted
-from simple_module_test import forge_session_cookie
 
 BULK_DELETE = f"{constants.ROUTE_PREFIX_API}{constants.PATH_FILES_BULK_DELETE}"
 LIST_FILES = f"{constants.ROUTE_PREFIX_API}{constants.PATH_FILES}"
@@ -157,14 +156,15 @@ class TestPermissions:
 
         assert resp.status_code in {302, 401, 403}
 
-    async def test_download_only_caller_cannot_delete(self, app):
-        """Reading the bucket and emptying it are separate grants.
+    async def test_tenant_member_can_read_but_not_delete(self, tenant_client):
+        """Reading the bucket and emptying it are separate grants (#383).
 
-        The module maps its own ``user`` role to upload+download+delete, so a
-        plain account proves nothing here — this caller holds exactly
-        ``file_storage.download`` and must be refused.
+        A tenant ``member`` holds upload and download; delete is mapped onto
+        the organisation's ``admin``/``owner`` only — and no longer onto the
+        platform ``user`` role every account carries, which would have handed
+        it straight back to the member.
         """
-        async with await _reader_client(app) as reader:
+        async with tenant_client("member") as (reader, _, _):
             listed = await reader.get(LIST_FILES)
             forbidden = await reader.post(BULK_DELETE, json={"ids": []})
 
@@ -172,44 +172,3 @@ class TestPermissions:
         # permission rather than a caller who never authenticated at all.
         assert listed.status_code == 200, listed.text
         assert forbidden.status_code == 403
-
-
-READER_ROLE = "file_storage_reader"
-
-
-async def _reader_client(app) -> httpx.AsyncClient:
-    """A signed-in caller holding ``file_storage.download`` and nothing else.
-
-    Built rather than reused: the module maps its own ``user`` role to
-    upload+download+delete, so no seeded account can stand in for "may read the
-    bucket, may not empty it".
-    """
-    from users.models import Role, User, UserRole
-
-    # Role → permission mapping lives in the registry, not the DB.
-    app.state.sm.permissions.map_role(READER_ROLE, [constants.Permission.DOWNLOAD])
-
-    async with app.state.sm.db.session_factory() as session:
-        role = Role(name=READER_ROLE, description="Download only")
-        user = User(
-            email="reader@test",
-            hashed_password="not-a-real-hash",
-            is_active=True,
-            is_verified=True,
-            is_superuser=False,
-        )
-        session.add_all([role, user])
-        await session.flush()
-        session.add(UserRole(user_id=user.id, role_id=role.id))
-        await session.commit()
-        user_id = str(user.id)
-
-    return httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app),
-        base_url="http://testserver",
-        cookies={
-            "session": forge_session_cookie(
-                str(app.state.sm.settings.secret_key), {"user_id": user_id}
-            )
-        },
-    )

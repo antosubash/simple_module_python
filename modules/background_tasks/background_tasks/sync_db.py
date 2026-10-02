@@ -18,6 +18,7 @@ import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 
+from simple_module_db import DEFAULT_TENANT_ID
 from simple_module_db.listeners import attach_session_listeners
 from simple_module_db.query_filter import EngineTenancy, bind_engine_policy
 from sqlalchemy import create_engine
@@ -30,6 +31,7 @@ _engine: Engine | None = None
 _session_factory: sessionmaker[Session] | None = None
 _url_override: str | None = None
 _tenant_strict: bool = False
+_default_tenant: str | None = None
 
 
 class WorkerSession(Session):
@@ -47,7 +49,9 @@ def _sync_url(async_url: str) -> str:
     return async_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
 
 
-def set_database_url(url: str | None, *, tenant_strict: bool = False) -> None:
+def set_database_url(
+    url: str | None, *, tenant_strict: bool = False, default_tenant: str | None = None
+) -> None:
     """Pin the URL used to build the sync engine.
 
     The web process loads ``.env`` via pydantic-settings, but those values
@@ -60,12 +64,20 @@ def set_database_url(url: str | None, *, tenant_strict: bool = False) -> None:
 
     ``tenant_strict`` mirrors the host's ``multi_tenant``: task bodies get the
     same fail-closed tenant rules as request code.
+
+    ``default_tenant`` mirrors the host's ``default_tenant`` (ignored when
+    strict): an insert with no tenant bound — an ``all_tenants()`` block in a
+    task body — is stamped with it, as ``DatabaseState.default_tenant_id`` does
+    in the web process, instead of landing in ``DEFAULT_TENANT_ID`` where the
+    install's own scoped reads never see it.
     """
-    global _url_override, _engine, _session_factory, _tenant_strict
-    if _url_override == url and _tenant_strict == tenant_strict:
+    global _url_override, _engine, _session_factory, _tenant_strict, _default_tenant
+    default_tenant = None if tenant_strict else (default_tenant or None)
+    if (_url_override, _tenant_strict, _default_tenant) == (url, tenant_strict, default_tenant):
         return
     _url_override = url
     _tenant_strict = tenant_strict
+    _default_tenant = default_tenant
     if _engine is not None:
         _engine.dispose()
     _engine = None
@@ -86,7 +98,10 @@ def _build_engine() -> Engine:
     # no tenant filter at all: the tenant restored around a task body would
     # scope nothing (#371).
     attach_session_listeners(WorkerSession)
-    bind_engine_policy(engine, EngineTenancy(tenant_strict=_tenant_strict))
+    policy = EngineTenancy(
+        tenant_strict=_tenant_strict, default_tenant_id=_default_tenant or DEFAULT_TENANT_ID
+    )
+    bind_engine_policy(engine, policy)
     return engine
 
 
@@ -106,13 +121,14 @@ def dispose_sync_engine() -> None:
     restarts within one process (test runners, uvicorn dev reload) don't
     accumulate engines against the old DB URL.
     """
-    global _engine, _session_factory, _url_override, _tenant_strict
+    global _engine, _session_factory, _url_override, _tenant_strict, _default_tenant
     if _engine is not None:
         _engine.dispose()
     _engine = None
     _session_factory = None
     _url_override = None
     _tenant_strict = False
+    _default_tenant = None
 
 
 @contextmanager

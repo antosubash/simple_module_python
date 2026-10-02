@@ -13,7 +13,7 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from simple_module_db.mixins import MultiTenantMixin
-from simple_module_db.query_filter import is_strict
+from simple_module_db.query_filter import fallback_tenant_id, is_strict, strict_configured
 from simple_module_db.tenancy import (
     TenantIsolationError,
     current_tenant_id,
@@ -30,11 +30,30 @@ def _owner(obj: MultiTenantMixin) -> str | None:
     return obj.tenant_id
 
 
+def _stamp_unbound(session: Session) -> None:
+    """Non-strict and unscoped (unbound, or an ``all_tenants()`` block).
+
+    New rows go to the bound tenant if there is one — a bypass widens what a
+    block may *read*, it does not move its writes elsewhere — else to the
+    install's fallback (``default_tenant`` or ``DEFAULT_TENANT_ID``).
+    """
+    stamp = current_tenant_id.get() or fallback_tenant_id(session)
+    for obj in session.new:
+        if isinstance(obj, MultiTenantMixin) and obj.tenant_id is None:
+            obj.tenant_id = stamp
+
+
 def guard_flush(session: Session) -> None:
     if is_all_tenants():
+        # A bypass block is never scoped; on a single-tenant install its new
+        # rows still need a tenant to satisfy NOT NULL (strict: left to the DB).
+        if not strict_configured(session):
+            _stamp_unbound(session)
         return
     tenant_id = current_tenant_id.get()
     strict = is_strict(session)
+    if tenant_id is None and not strict:
+        _stamp_unbound(session)
 
     for obj in session.new:
         if not isinstance(obj, MultiTenantMixin):

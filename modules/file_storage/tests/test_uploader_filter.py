@@ -16,6 +16,7 @@ from file_storage.backends.filesystem import FilesystemBackend
 from file_storage.models import StoredFile
 from file_storage.service import FileStorageService
 from file_storage.settings import FileStorageSettings
+from simple_module_db import tenant_context
 from sqlalchemy.ext.asyncio import AsyncSession
 
 VIEW_BASE = f"{constants.ROUTE_PREFIX_VIEW}/"
@@ -91,11 +92,12 @@ class TestUploaderFacets:
 
 class TestBrowseView:
     async def test_filters_the_table_by_uploader(
-        self, app, authenticated_client: httpx.AsyncClient
+        self, app, authenticated_client: httpx.AsyncClient, admin_tenant_id: str
     ):
-        async with app.state.sm.db.session_factory() as session:
-            await _seed(session, ("mine.txt", ALICE), ("theirs.txt", BOB))
-            await session.commit()
+        with tenant_context(admin_tenant_id):
+            async with app.state.sm.db.session_factory() as session:
+                await _seed(session, ("mine.txt", ALICE), ("theirs.txt", BOB))
+                await session.commit()
 
         resp = await authenticated_client.get(
             VIEW_BASE, params={"uploaded_by": ALICE}, headers=INERTIA_HEADERS
@@ -107,12 +109,13 @@ class TestBrowseView:
         assert props["pagination"]["total"] == 1
 
     async def test_uploader_facet_is_not_narrowed_by_the_active_filter(
-        self, app, authenticated_client: httpx.AsyncClient
+        self, app, authenticated_client: httpx.AsyncClient, admin_tenant_id: str
     ):
         """A filter that hides its own alternatives is a dead end."""
-        async with app.state.sm.db.session_factory() as session:
-            await _seed(session, ("mine.txt", ALICE), ("theirs.txt", BOB))
-            await session.commit()
+        with tenant_context(admin_tenant_id):
+            async with app.state.sm.db.session_factory() as session:
+                await _seed(session, ("mine.txt", ALICE), ("theirs.txt", BOB))
+                await session.commit()
 
         resp = await authenticated_client.get(
             VIEW_BASE, params={"uploaded_by": ALICE}, headers=INERTIA_HEADERS

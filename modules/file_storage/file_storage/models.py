@@ -6,7 +6,7 @@ import uuid
 
 import sqlalchemy as sa
 from simple_module_db.base import create_module_base
-from simple_module_db.mixins import AuditMixin, SoftDeleteMixin
+from simple_module_db.mixins import AuditMixin, MultiTenantMixin, SoftDeleteMixin
 from sqlalchemy import Index
 from sqlmodel import Field
 
@@ -15,12 +15,19 @@ from file_storage import constants
 Base = create_module_base(constants.MODULE_NAME)
 
 
-class StoredFile(Base, AuditMixin, SoftDeleteMixin, table=True):  # ty: ignore[unsupported-base]
+class StoredFile(Base, AuditMixin, SoftDeleteMixin, MultiTenantMixin, table=True):  # ty: ignore[unsupported-base]
     """A file persisted to a configured storage backend.
 
     The ``backend`` column records which provider holds the bytes — important
     if the active backend is changed after ingest, since old rows still need
     to be located on their original provider until they're migrated.
+
+    Tenant-scoped (#383): every read, update and delete is filtered to the
+    bound tenant, so a file id from another tenant simply does not resolve.
+    ``key`` is unique per tenant — new keys start with ``{tenant_id}/`` so the
+    backend namespaces are disjoint too, while rows written before adoption
+    keep the un-prefixed key they were stored under (the column holds the full
+    object path; nothing derives it).
     """
 
     __tablename__ = constants.TABLE_STORED_FILE
@@ -38,7 +45,7 @@ class StoredFile(Base, AuditMixin, SoftDeleteMixin, table=True):  # ty: ignore[u
     )
 
     __table_args__ = (
-        Index(f"ix_{constants.TABLE_STORED_FILE}_key", "key", unique=True),
+        Index(f"ix_{constants.TABLE_STORED_FILE}_tenant_key", "tenant_id", "key", unique=True),
         Index(f"ix_{constants.TABLE_STORED_FILE}_created_by", "created_by"),
         Index(f"ix_{constants.TABLE_STORED_FILE}_is_deleted", "is_deleted"),
     )

@@ -37,6 +37,7 @@ async def list_executions(
     q: str | None = Query(default=None),
     task_name: str | None = Query(default=None, deprecated=True),
     queue: str | None = Query(default=None),
+    tenant_id: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=200),
     service: BackgroundTaskService = Depends(get_background_task_service),
@@ -50,7 +51,12 @@ async def list_executions(
     existing API callers keep working, and ``q`` wins when both are given.
     """
     return await service.list(
-        status=status, task_name=q or task_name, queue=queue, page=page, per_page=per_page
+        status=status,
+        task_name=q or task_name,
+        queue=queue,
+        tenant_id=tenant_id,
+        page=page,
+        per_page=per_page,
     )
 
 
@@ -74,15 +80,18 @@ async def retry_failed_executions(
     status: TaskStatus | None = Query(default=None),
     task_name: str | None = Query(default=None, alias="q"),
     queue: str | None = Query(default=None),
+    tenant_id: str | None = Query(default=None),
     service: BackgroundTaskService = Depends(get_background_task_service),
 ) -> RetryFailedResult:
     """Re-enqueue every failed or stuck execution the current filter can see.
 
-    Takes the same three filters as the listing — status, search, queue — so
+    Takes the same filters as the listing — status, search, queue, tenant — so
     the sweep covers exactly the rows the operator is looking at and nothing
     else. Capped per call; the response says how many eligible rows are left.
     """
-    return await service.retry_failed(status=status, task_name=task_name, queue=queue)
+    return await service.retry_failed(
+        status=status, task_name=task_name, queue=queue, tenant_id=tenant_id
+    )
 
 
 @router.post(

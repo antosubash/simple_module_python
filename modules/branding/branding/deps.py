@@ -19,8 +19,8 @@ async def get_branding_service(
     storage: FileStorageService = Depends(get_file_storage_service),
 ) -> BrandingService:
     # FastAPI caches dependencies per request, so ``storage`` shares this very
-    # session: reaping a replaced image commits or rolls back with the settings
-    # write rather than in a transaction of its own.
+    # session; a replaced image is reaped only after it commits (see
+    # ``branding.reaper``), so a rollback never strands the setting.
     return BrandingService(request.app, db, storage)
 
 

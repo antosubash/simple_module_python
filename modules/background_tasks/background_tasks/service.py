@@ -58,6 +58,7 @@ class BackgroundTaskService:
         status: TaskStatus | None = None,
         task_name: str | None = None,
         queue: str | None = None,
+        tenant_id: str | None = None,
         page: int = 1,
         per_page: int = 20,
     ) -> TaskExecutionListResponse:
@@ -65,7 +66,9 @@ class BackgroundTaskService:
         page = max(page, 1)
         per_page = max(1, min(per_page, 200))
 
-        conditions = execution_filters(status=status, task_name=task_name, queue=queue)
+        conditions = execution_filters(
+            status=status, task_name=task_name, queue=queue, tenant_id=tenant_id
+        )
 
         # A window-function total lets us fetch the page and the count in a
         # single round trip. SQLAlchemy's ``AsyncSession`` serialises calls on
@@ -106,10 +109,15 @@ class BackgroundTaskService:
             status=status,
             task_name=task_name,
             queue=queue,
+            tenant_id=tenant_id,
         )
 
     async def status_counts(
-        self, *, task_name: str | None = None, queue: str | None = None
+        self,
+        *,
+        task_name: str | None = None,
+        queue: str | None = None,
+        tenant_id: str | None = None,
     ) -> dict[str, int]:
         """Count executions per status for the ops strip above the table.
 
@@ -122,7 +130,7 @@ class BackgroundTaskService:
         """
         query = (
             select(TaskExecution.status, func.count().label("n"))
-            .where(*execution_filters(task_name=task_name, queue=queue))
+            .where(*execution_filters(task_name=task_name, queue=queue, tenant_id=tenant_id))
             .group_by(TaskExecution.status)
         )
 
@@ -137,6 +145,7 @@ class BackgroundTaskService:
         hours: int = 24,
         task_name: str | None = None,
         queue: str | None = None,
+        tenant_id: str | None = None,
     ) -> int:
         """Successes that *finished* inside the window.
 
@@ -152,7 +161,12 @@ class BackgroundTaskService:
             select(func.count())
             .select_from(TaskExecution)
             .where(
-                *execution_filters(status=TaskStatus.SUCCESS, task_name=task_name, queue=queue),
+                *execution_filters(
+                    status=TaskStatus.SUCCESS,
+                    task_name=task_name,
+                    queue=queue,
+                    tenant_id=tenant_id,
+                ),
                 TaskExecution.finished_at.is_not(None),
                 TaskExecution.finished_at >= cutoff,
             )
@@ -169,6 +183,19 @@ class BackgroundTaskService:
         """
         query = select(TaskExecution.queue).distinct().order_by(TaskExecution.queue)
         return [q for q in (await self.db.execute(query)).scalars() if q]
+
+    async def tenant_ids(self) -> QueueNames:
+        """Every tenant that has published work, for the tenant dropdown.
+
+        Platform (NULL) executions are offered as a fixed option by the screen.
+        """
+        query = (
+            select(TaskExecution.tenant_id)
+            .where(TaskExecution.tenant_id.is_not(None))
+            .distinct()
+            .order_by(TaskExecution.tenant_id)
+        )
+        return [t for t in (await self.db.execute(query)).scalars() if t]
 
     async def get(self, execution_id: uuid.UUID) -> TaskExecutionDetail | None:
         row = await self.db.get(TaskExecution, execution_id)
@@ -204,9 +231,10 @@ class BackgroundTaskService:
         status: TaskStatus | None = None,
         task_name: str | None = None,
         queue: str | None = None,
+        tenant_id: str | None = None,
         limit: int | None = None,
     ) -> RetryFailedResult:
         """Re-enqueue the retryable executions the current view can see."""
         return await self.retries.retry_failed(
-            status=status, task_name=task_name, queue=queue, limit=limit
+            status=status, task_name=task_name, queue=queue, tenant_id=tenant_id, limit=limit
         )
