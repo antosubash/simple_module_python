@@ -2,16 +2,26 @@
 
 from __future__ import annotations
 
+import logging
+from typing import TYPE_CHECKING, Any
+
 from fastapi import HTTPException, Request
 from simple_module_core.permissions import DEFAULT_ROLE_PERMISSIONS, WILDCARD, grants
+
+if TYPE_CHECKING:
+    from simple_module_core.permissions import PermissionRegistry
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "DEFAULT_ROLE_PERMISSIONS",
     "PERMISSION_DENIED_PREFIX",
     "WILDCARD",
     "RequiresPermission",
+    "ensure_resolved_permissions",
     "expand_permissions",
     "resolve_permissions",
+    "resolve_principal_permissions",
     "resolved_permissions_for",
 ]
 
@@ -33,6 +43,57 @@ def resolve_permissions(
     permissions: set[str] = set()
     for role in roles:
         permissions.update(role_map.get(role, []))
+    return permissions
+
+
+async def resolve_principal_permissions(
+    request: Request,
+    user: Any,
+    registry: PermissionRegistry | None,
+) -> set[str]:
+    """Everything *user* holds: its roles' permissions plus every grant source.
+
+    The one resolution both ``InertiaLayoutDataMiddleware`` and
+    ``RequiresPermission`` use, so the door, the menu and the frontend cannot
+    disagree about what a principal may do (GH #337).
+
+    A source that raises contributes nothing — failing closed, a denied page
+    rather than an unauthorised one — and is logged rather than turned into a
+    500 on every request. A principal already holding the wildcard skips the
+    sources: nothing they return could widen it, and a source may cost a read.
+    """
+    role_map = registry.role_map if registry is not None else None
+    permissions = resolve_permissions(getattr(user, "roles", []), role_map=role_map)
+    if registry is None or WILDCARD in permissions:
+        return permissions
+    for source in registry.grant_sources:
+        try:
+            permissions.update(await source(request, user))
+        except Exception:
+            logger.exception("Grant source %r raised; contributing nothing", source)
+    return permissions
+
+
+def _registry_for(request: Request) -> PermissionRegistry | None:
+    sm = getattr(getattr(request.app, "state", None), "sm", None)
+    return getattr(sm, "permissions", None) if sm is not None else None
+
+
+async def ensure_resolved_permissions(request: Request) -> set[str]:
+    """:func:`resolved_permissions_for`, grant sources included on a cache miss.
+
+    The middleware has normally resolved and cached the set already; this is
+    the fallback for a bare router without it, which — unlike the synchronous
+    reader — can await the grant sources.
+    """
+    cached: set[str] | None = getattr(request.state, "resolved_permissions", None)
+    if cached is not None:
+        return cached
+    user = getattr(request.state, "user", None)
+    if user is None:
+        return set()
+    permissions = await resolve_principal_permissions(request, user, _registry_for(request))
+    request.state.resolved_permissions = permissions
     return permissions
 
 
@@ -59,9 +120,11 @@ def resolved_permissions_for(request: Request) -> set[str]:
     labels, for one — and that decision must read the same permission set the
     door did.
 
-    Role-derived only, matching ``RequiresPermission``: the ``permissions``
-    module's direct per-user grants are its own dependency's business, and a
-    caller wanting those consults ``permissions.deps.RequiresPermission``.
+    Includes every registered grant source (the ``permissions`` module's
+    direct per-user grants) whenever the middleware or ``RequiresPermission``
+    resolved first — which is always in a real app. Only the bare-router
+    fallback below is role-derived, because it cannot await a source; a caller
+    that may run there first should use :func:`ensure_resolved_permissions`.
     """
     cached: set[str] | None = getattr(request.state, "resolved_permissions", None)
     if cached is not None:
@@ -71,8 +134,7 @@ def resolved_permissions_for(request: Request) -> set[str]:
     if user is None:
         return set()
 
-    sm = getattr(getattr(request.app, "state", None), "sm", None)
-    perm_registry = getattr(sm, "permissions", None) if sm is not None else None
+    perm_registry = _registry_for(request)
     role_map = perm_registry.role_map if perm_registry is not None else None
     permissions = resolve_permissions(user.roles, role_map=role_map)
     request.state.resolved_permissions = permissions
@@ -81,6 +143,9 @@ def resolved_permissions_for(request: Request) -> set[str]:
 
 class RequiresPermission:
     """FastAPI dependency that enforces a specific permission.
+
+    Honours roles *and* every registered grant source, so a direct per-user
+    grant from the ``permissions`` module takes effect here too.
 
     Usage::
 
@@ -92,12 +157,12 @@ class RequiresPermission:
     def __init__(self, permission: str) -> None:
         self.permission = permission
 
-    def __call__(self, request: Request) -> None:
+    async def __call__(self, request: Request) -> None:
         user = getattr(request.state, "user", None)
         if user is None:
             raise HTTPException(status_code=401, detail="Authentication required")
 
-        if not grants(resolved_permissions_for(request), self.permission):
+        if not grants(await ensure_resolved_permissions(request), self.permission):
             raise HTTPException(
                 status_code=403,
                 detail=f"{PERMISSION_DENIED_PREFIX}{self.permission}",

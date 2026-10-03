@@ -21,6 +21,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
+    "cachetools>=5.3",
     "simple_module_core==0.0.35",
     "simple_module_db==0.0.35",
     "simple_module_hosting==0.0.35",
