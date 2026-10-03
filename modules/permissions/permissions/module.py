@@ -16,6 +16,7 @@ from permissions.constants import _MODULE_AUTH, _MODULE_USERS
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+    from simple_module_core.invalidation import InvalidationBus
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -78,11 +79,21 @@ class PermissionsModule(ModuleBase):
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         from permissions.constants import PERM_MANAGE, PERM_VIEW, PERMISSION_GROUP
+        from permissions.grants import direct_grant_source
 
         registry.add_group(
             PERMISSION_GROUP,
             [PERM_VIEW, PERM_MANAGE],
         )
+        # Direct per-user grants join the framework's one resolution, so every
+        # module's RequiresPermission, the menu and the frontend honour them.
+        registry.add_grant_source(direct_grant_source)
+
+    def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
+        """Let another worker's grant change drop this worker's cached grants."""
+        from permissions.grants import subscribe
+
+        subscribe(bus)
 
     def locale_dirs(self) -> dict[str, Path]:
         base = Path(str(importlib.resources.files(__package__) / "locales"))

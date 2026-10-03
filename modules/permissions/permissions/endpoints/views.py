@@ -16,7 +16,12 @@ from starlette.responses import RedirectResponse
 
 from permissions.constants import PERM_MANAGE
 from permissions.contracts.schemas import RolePermissionsUpdate, UserPermissionsUpdate
-from permissions.deps import RequiresPermission, assigned_by, get_permission_service
+from permissions.deps import (
+    RequiresPermission,
+    assigned_by,
+    get_permission_service,
+    invalidate_grants_on_commit,
+)
 from permissions.service import PermissionService
 
 router = APIRouter()
@@ -121,4 +126,5 @@ async def update_user(
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
     await service.set_user_permissions(user_id, data.permissions, assigned_by(request))
+    invalidate_grants_on_commit(request, service, user_id)
     return RedirectResponse(_ADMIN_URL, status_code=303)

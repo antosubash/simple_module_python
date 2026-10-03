@@ -1,24 +1,23 @@
-"""FastAPI dependencies for the Permissions module.
-
-In addition to the standard service wiring this module exports a
-:class:`RequiresPermission` dependency that honours *both* role-based
-and direct user grants — the framework's own
-:class:`simple_module_hosting.permissions.RequiresPermission` checks
-only roles, because the framework has no concept of user-direct grants.
-Endpoints that want users to be able to hold individual permissions on
-top of their roles should depend on this version instead.
-"""
+"""FastAPI dependencies for the Permissions module."""
 
 from __future__ import annotations
 
-import uuid
-
-from fastapi import Depends, HTTPException, Request
-from simple_module_core.permissions import WILDCARD, PermissionRegistry
+from fastapi import Depends, Request
+from simple_module_core.permissions import PermissionRegistry
 from simple_module_db.deps import get_db
+from simple_module_hosting.permissions import RequiresPermission as _HostingRequiresPermission
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from permissions.grants import publish_grants_changed
 from permissions.service import PermissionService
+
+__all__ = [
+    "RequiresPermission",
+    "assigned_by",
+    "get_permission_registry",
+    "get_permission_service",
+    "invalidate_grants_on_commit",
+]
 
 
 def get_permission_registry(request: Request) -> PermissionRegistry:
@@ -38,35 +37,17 @@ def assigned_by(request: Request) -> str | None:
     return str(user.id) if user is not None else None
 
 
-class RequiresPermission:
-    """FastAPI dependency enforcing a permission across roles *and* user grants.
+def invalidate_grants_on_commit(request: Request, service: PermissionService, user_id) -> None:
+    """Evict *user_id*'s cached direct grants in every worker once this commits."""
+    service.db.on_commit(lambda: publish_grants_changed(request.app, user_id))
 
-    Behaves like the framework's ``simple_module_hosting.RequiresPermission``
-    but additionally consults the ``permissions_user_permission`` table, so
-    a direct grant on a single user takes effect without inventing a role.
-    """
 
-    def __init__(self, permission: str) -> None:
-        self.permission = permission
+RequiresPermission = _HostingRequiresPermission
+"""Kept for existing imports: the framework's class now honours direct grants.
 
-    async def __call__(
-        self,
-        request: Request,
-        service: PermissionService = Depends(get_permission_service),
-    ) -> None:
-        user = getattr(request.state, "user", None)
-        if user is None:
-            raise HTTPException(status_code=401, detail="Authentication required")
-
-        role_perms: set[str] = getattr(request.state, "resolved_permissions", set()) or set()
-        if WILDCARD in role_perms or self.permission in role_perms:
-            return
-
-        direct = await service.get_user_direct_keys(uuid.UUID(str(user.id)))
-        if self.permission in direct:
-            return
-
-        raise HTTPException(
-            status_code=403,
-            detail=f"Permission required: {self.permission}",
-        )
+This used to be a separate class that read the ``permissions_user_permission``
+table itself, while the framework's read roles only — so a direct grant worked
+on this module's routes and nowhere else (GH #337). The grants now reach every
+check through :func:`permissions.grants.direct_grant_source`, and one class is
+the only way the two cannot drift apart again.
+"""

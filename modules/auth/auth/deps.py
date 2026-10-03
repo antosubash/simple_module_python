@@ -5,7 +5,9 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request
+from simple_module_core.permissions import grants
 from simple_module_hosting.i18n_deps import TranslatorDep
+from simple_module_hosting.permissions import ensure_resolved_permissions
 
 from auth.contracts.schemas import UserContext
 
@@ -44,11 +46,11 @@ def require_permission(*permissions: str):
         if _ADMIN_ROLE in user.roles:
             return
 
-        # Get permission registry from app state
-        perm_registry = request.app.state.sm.permissions
-        user_perms = perm_registry.get_permissions_for_roles(user.roles)
-
-        if not any(p in user_perms for p in permissions):
+        # The same resolution RequiresPermission reads: the registry's role map
+        # plus module grant sources. This used to call get_permissions_for_roles
+        # without a map, which grants every non-admin role nothing (GH #337).
+        held = await ensure_resolved_permissions(request)
+        if not any(grants(held, p) for p in permissions):
             raise HTTPException(
                 status_code=403,
                 detail=t.t(

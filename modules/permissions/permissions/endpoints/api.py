@@ -14,7 +14,12 @@ from permissions.contracts.schemas import (
     UserPermissionsOut,
     UserPermissionsUpdate,
 )
-from permissions.deps import RequiresPermission, assigned_by, get_permission_service
+from permissions.deps import (
+    RequiresPermission,
+    assigned_by,
+    get_permission_service,
+    invalidate_grants_on_commit,
+)
 from permissions.service import PermissionService
 
 router = APIRouter()
@@ -99,4 +104,5 @@ async def set_user_permissions(
     result = await service.set_user_permissions(user_id, data.permissions, assigned_by(request))
     if result is None:
         raise HTTPException(status_code=404, detail="User not found")
+    invalidate_grants_on_commit(request, service, user_id)
     return result
