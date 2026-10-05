@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import warnings
 from typing import TYPE_CHECKING
 
 from PIL import Image, ImageOps
@@ -51,32 +52,69 @@ def variant_key(key: str, width: int) -> str:
     return f"{key}.w{width}.webp"
 
 
-def render(data: bytes, width: int) -> bytes:
+_FORMATS_BY_TYPE = {
+    "image/jpeg": "JPEG",
+    "image/png": "PNG",
+    "image/webp": "WEBP",
+    "image/gif": "GIF",
+}
+# Pillow's decoders are a large native attack surface; only these four are ever
+# opened (``formats=``), never SVG/EPS/PSD/TIFF/PDF-style containers.
+_ALLOWED_FORMATS = tuple(_FORMATS_BY_TYPE.values())
+
+# At most this many decodes run at once, so a burst of cold-cache requests
+# cannot pin every CPU or hold N decoded canvases in memory together.
+_DECODE_SLOTS = asyncio.Semaphore(constants.THUMBNAIL_MAX_CONCURRENCY)
+
+
+def render(data: bytes, width: int, content_type: str | None = None) -> bytes:
     """Resize ``data`` to at most ``width`` px wide, keeping aspect; WebP out.
 
-    Never enlarges. The header is read lazily by ``Image.open``, so the pixel
+    Never enlarges. The header is parsed lazily by ``Image.open``, so the pixel
     budget is checked *before* any decode — a few KB of PNG can declare a
-    gigapixel canvas.
+    gigapixel canvas. The sniffed format must be on the allowlist *and* match
+    the declared content type (a ``.png`` that is really a PSD is refused).
+    Animated inputs yield their first frame; the output is re-encoded from
+    pixels only, so EXIF/XMP/ICC and other metadata are not carried over.
     """
+    previous = Image.MAX_IMAGE_PIXELS
+    Image.MAX_IMAGE_PIXELS = constants.THUMBNAIL_MAX_PIXELS
     try:
-        with Image.open(io.BytesIO(data)) as img:
-            if img.width * img.height > constants.THUMBNAIL_MAX_PIXELS:
-                raise UnreadableImageError("image exceeds the pixel budget")
-            img.draft("RGB", (width * 2, width * 2))  # cheap JPEG downscale on decode
-            img = ImageOps.exif_transpose(img)  # honour camera rotation
-            img.thumbnail((width, width * 64), Image.Resampling.LANCZOS)
-            mode = "RGBA" if img.mode in ("RGBA", "LA", "PA", "P") else "RGB"
-            out = io.BytesIO()
-            img.convert(mode).save(out, format="WEBP", quality=80)
-            return out.getvalue()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(data), formats=_ALLOWED_FORMATS) as img:
+                if content_type is not None and img.format != _FORMATS_BY_TYPE.get(
+                    content_type.split(";")[0].strip().lower()
+                ):
+                    raise UnreadableImageError("content does not match the declared type")
+                if img.width * img.height > constants.THUMBNAIL_MAX_PIXELS:
+                    raise UnreadableImageError("image exceeds the pixel budget")
+                img.seek(0)  # first frame only
+                img.draft("RGB", (width * 2, width * 2))  # cheap JPEG downscale on decode
+                frame = ImageOps.exif_transpose(img)
+                frame.thumbnail((width, width * 64), Image.Resampling.LANCZOS)
+                mode = "RGBA" if frame.mode in ("RGBA", "LA", "PA", "P") else "RGB"
+                out = io.BytesIO()
+                frame.convert(mode).save(out, format="WEBP", quality=80)
+                return out.getvalue()
     except UnreadableImageError:
         raise
-    except (OSError, ValueError, Image.DecompressionBombError) as exc:
+    except (OSError, ValueError, EOFError, Image.DecompressionBombError, Warning) as exc:
         raise UnreadableImageError(str(exc)) from exc
+    finally:
+        Image.MAX_IMAGE_PIXELS = previous
 
 
-async def _read_all(backend: StorageBackend, key: str) -> bytes:
-    return b"".join([chunk async for chunk in await backend.get(key)])
+async def _read_all(backend: StorageBackend, key: str, *, limit: int | None = None) -> bytes:
+    """Whole object, aborting once ``limit`` bytes are exceeded (no unbounded buffer)."""
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in await backend.get(key):
+        total += len(chunk)
+        if limit is not None and total > limit:
+            raise UnreadableImageError("source image is too large to thumbnail")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 async def get_or_create(
@@ -92,8 +130,9 @@ async def get_or_create(
     except StorageNotFoundError:
         pass
 
-    source = await _read_all(backend, key)
-    data = await asyncio.to_thread(render, source, snapped)
+    async with _DECODE_SLOTS:
+        source = await _read_all(backend, key, limit=constants.THUMBNAIL_MAX_SOURCE_BYTES)
+        data = await asyncio.to_thread(render, source, snapped, content_type)
 
     async def _once():
         yield data

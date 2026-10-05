@@ -43,8 +43,11 @@ preserved, never enlarged. `w` is clamped to 32–1024 and **snapped up** to one
 of `64, 128, 256, 512, 1024` (default 256), so a file has at most five
 variants. Only `image/jpeg`, `png`, `webp` and `gif` (first frame) have
 thumbnails; everything else, including SVG, is `404`. An undecodable image is
-`422 file_storage.bad_image`, and an image over 64 megapixels is refused from
-its header, before any decode (decompression-bomb guard).
+`422 file_storage.bad_image`, and an image over 25 megapixels, or a source over 20 MB, is refused before any
+decode (decompression-bomb guard; `DecompressionBombWarning` is an error). Only
+JPEG/PNG/WebP/GIF are ever opened (Pillow `formats=` allowlist), the sniffed
+format must match the declared type, animated images yield their first frame,
+metadata is not carried into the output, and at most two decodes run at once.
 
 Variants are cached **in the storage backend** next to the original, under
 `{key}.w{width}.webp`: they survive restarts, are shared by all workers, are

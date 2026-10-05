@@ -144,7 +144,9 @@ THUMBNAIL_CONTENT_TYPE: Final = "image/webp"
 THUMBNAIL_SOURCE_TYPES: Final = frozenset({"image/jpeg", "image/png", "image/webp", "image/gif"})
 # Decode budget: refuse an image whose pixel count would balloon memory
 # (decompression bomb) before Pillow ever decodes it.
-THUMBNAIL_MAX_PIXELS: Final = 64_000_000
+THUMBNAIL_MAX_PIXELS: Final = 25_000_000
+THUMBNAIL_MAX_SOURCE_BYTES: Final = 20 * 1024 * 1024
+THUMBNAIL_MAX_CONCURRENCY: Final = 2
 THUMBNAIL_MAX_AGE_SECONDS: Final = 86400
 
 # ── Listing ──────────────────────────────────────────────────────────
