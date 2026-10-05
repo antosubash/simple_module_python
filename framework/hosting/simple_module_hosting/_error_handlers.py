@@ -25,7 +25,7 @@ from simple_module_hosting.permissions import PERMISSION_DENIED_PREFIX
 
 logger = logging.getLogger(__name__)
 
-_INERTIA_ERROR_STATUSES = frozenset({401, 403, 404, 419, 422, 429, 500, 503})
+_INERTIA_ERROR_STATUSES = frozenset({401, 403, 404, 413, 419, 422, 429, 500, 503})
 
 # Statuses whose remedy is "sign in", so the page offers that as its primary
 # action rather than sending the visitor to the landing page.

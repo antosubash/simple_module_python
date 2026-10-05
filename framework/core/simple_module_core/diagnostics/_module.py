@@ -102,6 +102,7 @@ class ModuleDiagnostics:
                     "register_middleware",
                     "register_health_checks",
                     "register_public_routes",
+                    "register_body_limits",
                     "register_csp_sources",
                     "register_exception_handlers",
                     "register_settings",

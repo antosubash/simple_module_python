@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
-from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
 from simple_module_core.exceptions import NotFoundError
 from simple_module_db import CommitBeforeResponseMiddleware
 from simple_module_inertia import (
@@ -25,16 +24,16 @@ from starlette.exceptions import HTTPException
 from starlette.middleware.gzip import GZipMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
+from simple_module_hosting._body_limit import BodyLimitMiddleware
 from simple_module_hosting._error_handlers import (
     http_exception_handler,
     not_found_error_handler,
     request_validation_error_handler,
     unhandled_exception_handler,
 )
-from simple_module_hosting._host_services import _HostServices
 from simple_module_hosting._inertia_cache import InertiaCacheMiddleware
 from simple_module_hosting._module_routes import wire_module_routes
-from simple_module_hosting.host_settings import HostSettings
+from simple_module_hosting._rate_limit import RateLimitMiddleware, build_store
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.maintenance import MaintenanceMiddleware
 from simple_module_hosting.middleware import (
@@ -105,8 +104,9 @@ def install_middleware(
 
     Order matters: last added = first executed. Execution order:
     (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging
-    → Security → Session → [module] → (Tenant, if multi_tenant) → Locale
-    → Inertia → InertiaCache → Setup → Maintenance → CommitBeforeResponse.
+    → BodyLimit → GZip → Security → Session → [module] → (Tenant, if
+    multi_tenant) → Locale → Inertia → InertiaCache → RateLimit → Setup
+    → Maintenance → CommitBeforeResponse.
     """
     # Added first, so it is innermost and its send-wrapper is the first to see
     # the response: the request's DB work commits before any byte reaches the
@@ -131,6 +131,15 @@ def install_middleware(
     # user's auth, permissions and menus into every Inertia payload: this one
     # makes sure the payload that results is never stored where a page request
     # can be answered with it.
+    # Added before InertiaCache so it executes just after it: auth has run (it
+    # can tell anonymous from signed-in), locale/shared props are in place for
+    # the error page, and a 429 is still marked non-cacheable.
+    app.add_middleware(
+        RateLimitMiddleware,
+        public_rate=settings.rate_limit_public,
+        authenticated_rate=settings.rate_limit_authenticated,
+        store=build_store(settings.redis_url),
+    )
     app.add_middleware(InertiaCacheMiddleware)
     app.add_middleware(
         InertiaLayoutDataMiddleware,
@@ -168,6 +177,13 @@ def install_middleware(
     # JS bundle compresses about 3x. Uncompressed assets dominated cold page
     # load, several times larger than anything on the server request path.
     app.add_middleware(GZipMiddleware, minimum_size=COMPRESSION_MIN_BYTES)
+    # Right inside RequestLogging (so a 413 is logged) and outside GZip and the
+    # whole module tier: an oversized body is refused before anything reads it.
+    app.add_middleware(
+        BodyLimitMiddleware,
+        max_bytes=settings.max_request_body_bytes,
+        registry=getattr(app.state, "body_limits", None),
+    )
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
     # Outermost: rewrite scheme/client from X-Forwarded-* before anything else
@@ -228,67 +244,6 @@ def mount_module_static_dirs(app: FastAPI, modules: list) -> None:
                 StaticFiles(directory=directory_path),
                 name=f"static:{mod.meta.name}",
             )
-
-
-def register_host_settings(app: FastAPI) -> None:
-    """Register host-level settings under ``package="host"`` (DB-backed).
-
-    The Settings module must already have run ``register_settings`` — topo
-    order puts it early, since its ``meta.depends_on`` is empty. When the
-    Settings module isn't enabled there's no registry to register against, so
-    this skips quietly.
-
-    ``settings.registration`` is resolved via importlib rather than a plain
-    ``from settings.registration import ...``: the SM009 coupling check is
-    AST-based and forbids any static import of a plugin package name from
-    within ``framework/*``. Dynamic resolution keeps the framework AST
-    plugin-free while still hitting the real helper at runtime.
-    """
-    if not hasattr(app.state, "settings"):
-        return
-
-    import importlib
-
-    register_module_settings = importlib.import_module(
-        "settings.registration"
-    ).register_module_settings
-
-    register_module_settings(app, "host", HostSettings, lambda s: _HostServices(settings=s))
-
-
-def check_settings_registration(app: FastAPI, modules: list) -> list[Diagnostic]:
-    """SM012: warn if a module overrides register_settings but added nothing to app.state.
-
-    Must run after Phase 4 (register_settings) and therefore can't join the
-    Phase 2 diagnostics pass; returning a list lets the caller route it through
-    the same ``print_diagnostics`` sink.
-    """
-    diagnostics: list[Diagnostic] = []
-    for mod in modules:
-        cls = type(mod)
-        if "register_settings" not in cls.__dict__:
-            continue
-        # Match the convention actually used by modules: `app.state.<package>`
-        # (snake_case package name, e.g. `background_tasks`), which aligns
-        # with Settings-module autodiscovery in `settings._module_settings`.
-        package = cls.__module__.split(".", 1)[0]
-        candidates = (package, mod.meta.name.lower())
-        if any(hasattr(app.state, c) for c in candidates):
-            continue
-        mod_prefix = package
-        diagnostics.append(
-            Diagnostic(
-                level=DiagnosticLevel.WARNING,
-                code="SM012",
-                message="register_settings() was overridden but added nothing to app.state",
-                module_name=mod.meta.name,
-                suggestion=(
-                    f"Store your module state on app.state "
-                    f"(e.g., app.state.{mod_prefix} = {mod.meta.name}Services(...))"
-                ),
-            )
-        )
-    return diagnostics
 
 
 __all__ = ["wire_module_routes"]

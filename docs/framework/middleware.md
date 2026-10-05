@@ -11,6 +11,7 @@ The actual `add_middleware` call order (in `install_middleware`) is the
 # Added first → executed last (closest to the app)
 app.add_middleware(CommitBeforeResponseMiddleware)
 app.add_middleware(MaintenanceMiddleware)
+app.add_middleware(RateLimitMiddleware, ...)
 app.add_middleware(InertiaCacheMiddleware)
 app.add_middleware(InertiaLayoutDataMiddleware, ...)
 app.add_middleware(LocaleMiddleware, ...)
@@ -24,6 +25,7 @@ for module in discovered_modules:
 app.add_middleware(SessionMiddleware, secret_key=...)
 app.add_middleware(SecurityHeadersMiddleware, ...)
 app.add_middleware(GZipMiddleware, minimum_size=...)
+app.add_middleware(BodyLimitMiddleware, ...)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
 
@@ -41,6 +43,8 @@ CorrelationId
   ↓
 RequestLogging
   ↓
+BodyLimit                   (413 on an oversized body)
+  ↓
 GZip
   ↓
 SecurityHeaders
@@ -57,6 +61,8 @@ InertiaLayoutData
   ↓
 InertiaCache
   ↓
+RateLimit                   (429 for anonymous public-route traffic)
+  ↓
 Maintenance
   ↓
 CommitBeforeResponse
@@ -71,6 +77,8 @@ The last three are ordered relative to each other for reasons worth stating, bec
 - **`Maintenance` sits *inside* `InertiaCache`.** Its 503 is an Inertia payload produced by short-circuiting, carrying this user's auth block and menus like any other. Short-circuiting outside the cache guard would ship exactly the per-user payload that guard exists to keep out of caches. Because its `self.app` is the middleware below it, the 503 still travels back out through `InertiaCache`'s send-wrapper and picks up the same headers.
 - **`Maintenance` runs *after* `InertiaLayoutData`, `Locale` and auth.** It needs the shared props to render with a layout instead of bare, the locale to answer in the right language, and the resolved user to know whether the caller is an admin who should pass through.
 - **`CommitBeforeResponse` is innermost.** It hooks the `send` channel, so being added first makes its wrapper the first to see the response — which is what lets the commit land before any byte is written.
+
+The two request guards, `BodyLimit` and `RateLimit`, are documented in [request-guards.md](request-guards.md): `BodyLimit` is early so a huge body never reaches GZip or any module, `RateLimit` is late because it needs the auth result and the shared props its error page renders with.
 
 ## What each built-in does
 

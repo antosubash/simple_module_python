@@ -37,6 +37,10 @@ dependencies = [
     "uvicorn[standard]>=0.34",
 ]
 
+[project.optional-dependencies]
+# Shared rate-limiter store (SM_REDIS_URL). Without it the limiter counts per worker.
+redis = ["redis>=5"]
+
 [project.scripts]
 sm-host = "simple_module_hosting.host_cli:app"
 
