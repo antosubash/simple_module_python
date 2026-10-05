@@ -9,6 +9,8 @@
 export interface PermissionGroup {
   name: string;
   permissions: string[];
+  /** Human labels a runtime permission source supplied, keyed by permission. */
+  labels?: Record<string, string>;
 }
 
 /** A module, narrowed to the rows the current filters keep. */

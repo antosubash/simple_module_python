@@ -25,6 +25,8 @@ async def test_source_permission_listed_grantable_and_invalidated(
     records = next(g for g in groups if g["name"] == "records")
     assert records["permissions"] == ["records.product.edit"]
     assert records["labels"] == {"records.product.edit": "Edit product"}
+    # Labels stay inside their own group: static groups carry none.
+    assert all(g["labels"] == {} for g in groups if g["name"] != "records")
 
     put = await authenticated_client.put(
         f"/api/permissions/roles/{USER_ROLE_ID}", json={"permissions": ["records.product.edit"]}

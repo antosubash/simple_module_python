@@ -71,11 +71,12 @@ export function RoleGroupCard({ group, permissions, assigned, onToggle, onToggle
                 onCheckedChange={(checked) => onToggle(key, checked === true)}
               />
               <code
+                title={group.labels?.[key] ? key : undefined}
                 className={`min-w-0 truncate font-mono text-[12px] ${
                   on ? 'text-foreground' : 'text-muted-foreground'
                 }`}
               >
-                {key}
+                {group.labels?.[key] ?? key}
               </code>
             </label>
           );

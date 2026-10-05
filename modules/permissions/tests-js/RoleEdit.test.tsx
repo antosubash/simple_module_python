@@ -85,6 +85,28 @@ const keyRow = (permissionKey: string) =>
 const filterBox = () => screen.getByPlaceholderText('Filter modules or permissions…');
 
 describe('RoleEdit', () => {
+  test('shows a source-supplied label for a permission, falling back to the key', () => {
+    render(
+      <RoleEdit
+        role={{ id: 'r1', name: 'editor', description: null }}
+        assigned={[]}
+        groups={[
+          {
+            name: 'records',
+            permissions: ['records.faq.edit', 'records.product.edit'],
+            labels: { 'records.product.edit': 'Edit products' },
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Edit products', { selector: 'code' })).toHaveAttribute(
+      'title',
+      'records.product.edit',
+    );
+    expect(screen.getByText('records.faq.edit', { selector: 'code' })).toBeVisible();
+  });
+
   test('renders the deck header, actions and granted summary', () => {
     renderPage();
 

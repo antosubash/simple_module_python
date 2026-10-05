@@ -16,7 +16,8 @@ def test_source_permissions_in_all_permissions_and_groups() -> None:
     assert reg.has("records.faq.edit")
     group = next(g for g in reg.groups if g.name == "records")
     assert sorted(group.permissions) == ["records.faq.edit", "records.product.edit"]
-    assert reg.source_labels() == {"records.faq.edit": "Edit FAQ"}
+    assert reg.source_labels("records") == {"records.faq.edit": "Edit FAQ"}
+    assert reg.source_labels("users") == {}
 
 
 def test_invalidate_source_refreshes() -> None:

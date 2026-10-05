@@ -120,12 +120,9 @@ class PermissionRegistry:
         self._source_cache[name] = out
         return out
 
-    def source_labels(self) -> dict[str, str]:
-        """Human labels supplied by sources, keyed by permission string."""
-        labels: dict[str, str] = {}
-        for name in self._sources:
-            labels.update(self._source_output(name)[1])
-        return labels
+    def source_labels(self, name: str) -> dict[str, str]:
+        """Human labels supplied by source *name*, keyed by permission string."""
+        return dict(self._source_output(name)[1]) if name in self._sources else {}
 
     def add_group(self, name: str, permissions: list[str]) -> None:
         """Register a group of related permissions."""

@@ -42,9 +42,12 @@ class PermissionService:
     # ── Registry read-outs ─────────────────────────────────────
 
     def list_registered_groups(self) -> list[PermissionGroupOut]:
-        labels = self.registry.source_labels()
         return [
-            PermissionGroupOut(name=g.name, permissions=sorted(g.permissions), labels=labels)
+            PermissionGroupOut(
+                name=g.name,
+                permissions=sorted(g.permissions),
+                labels=self.registry.source_labels(g.name),
+            )
             for g in self.registry.groups
         ]
 
@@ -112,9 +115,7 @@ class PermissionService:
             for key in wanted - existing
         )
         await self.db.flush()
-
-        # `map_role` is additive — reset the role entry so removals take effect
-        # without a restart. No public replace API on PermissionRegistry yet.
+        # `map_role` is additive — reset the entry so removals apply without a restart.
         self.registry._role_map.pop(role.name, None)
         self.registry.map_role(role.name, sorted(wanted))
 
