@@ -21,12 +21,13 @@ from fastapi import UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from file_storage import constants, queries
+from file_storage import constants, queries, thumbnails
 from file_storage.contracts.schemas import StoredFileOut
 from file_storage.contracts.service import StorageNotFoundError
 from file_storage.models import StoredFile
 from file_storage.reads import FileStorageReads
 from file_storage.scope import PLATFORM_TENANT_ID, owning_tenant, platform_scope
+from file_storage.visibility import FileStoragePublic
 
 if TYPE_CHECKING:
     from file_storage.aggregates import AggregateCache
@@ -68,7 +69,7 @@ class RedirectDownload:
 Download = StreamDownload | RedirectDownload
 
 
-class FileStorageService(FileStorageReads):
+class FileStorageService(FileStoragePublic, FileStorageReads):
     """Orchestrates validation, hashing, backend IO, and DB lifecycle."""
 
     def __init__(
@@ -90,7 +91,9 @@ class FileStorageService(FileStorageReads):
 
     # ── Upload ───────────────────────────────────────────────────────
 
-    async def upload(self, upload: UploadFile, *, platform: bool = False) -> StoredFileOut:
+    async def upload(
+        self, upload: UploadFile, *, platform: bool = False, public: bool = False
+    ) -> StoredFileOut:
         """Validate, stream-hash, persist to backend, and record metadata.
 
         The row belongs to the bound tenant, or — with ``platform=True`` — to
@@ -141,6 +144,7 @@ class FileStorageService(FileStorageReads):
                 size_bytes=size,
                 backend=self.backend.backend_id,
                 checksum_sha256=sha.hexdigest(),
+                public=public,
             )
             async with platform_scope(self.db, platform):
                 self.db.add(row)
@@ -232,6 +236,7 @@ class FileStorageService(FileStorageReads):
             # problem, not the caller's.
             try:
                 await self.backend.delete(row.key)
+                await thumbnails.delete_variants(self.backend, row.key)
             except StorageNotFoundError:
                 # Acceptably absent — eg. a previous delete partially succeeded.
                 pass
@@ -256,6 +261,7 @@ class FileStorageService(FileStorageReads):
         # Object is acceptably absent — eg. a previous delete partially succeeded.
         with contextlib.suppress(StorageNotFoundError):
             await self.backend.delete(row.key)
+        await thumbnails.delete_variants(self.backend, row.key)
         return row
 
 

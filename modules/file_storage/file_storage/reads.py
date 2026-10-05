@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from file_storage import aggregates, queries
+from file_storage import aggregates, constants, queries
 from file_storage.contracts.schemas import StoredFileOut
 
 if TYPE_CHECKING:
@@ -38,6 +38,7 @@ class FileStorageReads:
         created_by: str | None = None,
         search: str | None = None,
         content_type: str | None = None,
+        sort: str = constants.DEFAULT_SORT,
     ) -> tuple[list[StoredFileOut], int]:
         return await queries.list_files(
             self.db,
@@ -46,6 +47,7 @@ class FileStorageReads:
             created_by=created_by,
             search=search,
             content_type=content_type,
+            sort=sort,
         )
 
     async def count_files(
@@ -67,6 +69,7 @@ class FileStorageReads:
         created_by: str | None = None,
         search: str | None = None,
         content_type: str | None = None,
+        sort: str = constants.DEFAULT_SORT,
     ) -> list[StoredFileOut]:
         return await queries.page_of_files(
             self.db,
@@ -75,6 +78,7 @@ class FileStorageReads:
             created_by=created_by,
             search=search,
             content_type=content_type,
+            sort=sort,
         )
 
     async def storage_aggregates(self) -> StorageAggregates:

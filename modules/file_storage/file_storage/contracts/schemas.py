@@ -26,6 +26,17 @@ class StoredFileOut(SQLModel):
         description="User id from AuditMixin.created_by — populated by the audit listener.",
     )
     created_at: datetime | None = None
+    public: bool = Field(default=False, description="Whether anonymous visitors may fetch it.")
+    public_url: str | None = Field(
+        default=None,
+        description="Anonymous URL, present only while the file is public.",
+    )
+
+
+class StoredFileUpdate(SQLModel):
+    """Body for PATCH /api/file-storage/files/{id}."""
+
+    public: bool
 
 
 class BulkDeleteRequest(SQLModel):

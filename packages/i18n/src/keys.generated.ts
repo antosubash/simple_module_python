@@ -452,6 +452,8 @@ export const keys = {
   file_storage: {
     actions: {
       download: 'file_storage.actions.download',
+      make_private: 'file_storage.actions.make_private',
+      make_public: 'file_storage.actions.make_public',
     },
     audit: {
       file: 'file_storage.audit.file',
@@ -490,6 +492,7 @@ export const keys = {
     },
     errors: {
       backend_error: 'file_storage.errors.backend_error',
+      bad_image: 'file_storage.errors.bad_image',
       bad_type: 'file_storage.errors.bad_type',
       not_found: 'file_storage.errors.not_found',
       too_large: 'file_storage.errors.too_large',
@@ -509,6 +512,7 @@ export const keys = {
     table: {
       actions: 'file_storage.table.actions',
       filename: 'file_storage.table.filename',
+      public: 'file_storage.table.public',
       select_all: 'file_storage.table.select_all',
       select_row: 'file_storage.table.select_row',
       size: 'file_storage.table.size',
@@ -521,11 +525,14 @@ export const keys = {
       deleted: 'file_storage.toasts.deleted',
       deleted_one: 'file_storage.toasts.deleted_one',
       deleted_other: 'file_storage.toasts.deleted_other',
+      made_private: 'file_storage.toasts.made_private',
+      made_public: 'file_storage.toasts.made_public',
       upload_failed: 'file_storage.toasts.upload_failed',
       upload_failed_named: 'file_storage.toasts.upload_failed_named',
       uploaded_count: 'file_storage.toasts.uploaded_count',
       uploaded_count_one: 'file_storage.toasts.uploaded_count_one',
       uploaded_count_other: 'file_storage.toasts.uploaded_count_other',
+      visibility_failed: 'file_storage.toasts.visibility_failed',
     },
     upload: {
       any_type: 'file_storage.upload.any_type',

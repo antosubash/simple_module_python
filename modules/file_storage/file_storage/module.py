@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.resources
 import logging
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -13,6 +14,7 @@ from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagR
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.tenancy import TenantRole, tenant_role
 
 from file_storage import constants
@@ -88,10 +90,22 @@ class FileStorageModule(ModuleBase):
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from file_storage.endpoints.api import router as api
+        from file_storage.endpoints.public import router as public
         from file_storage.endpoints.views import router as views
 
         api_router.include_router(api)
+        api_router.include_router(public)
         view_router.include_router(views)
+
+    def register_public_routes(self, registry: PublicRouteRegistry) -> None:
+        """Let anyone GET a file its owner marked public (#353).
+
+        GET-only and anchored to ``/public/{id}[/{name}|/thumbnail]``, so
+        uploads, deletes and the authenticated download keep requiring a
+        session. The handler itself still refuses anything not ``public``.
+        """
+        base = re.escape(f"{constants.ROUTE_PREFIX_API}{constants.PUBLIC_SEGMENT}")
+        registry.add_regex(rf"{base}/[^/]+(/[^/]+)?$", methods={"GET"})
 
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
         """Name file rows in the audit log, and tag them with their table.

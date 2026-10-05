@@ -147,7 +147,9 @@ class SecurityHeadersMiddleware:
                 headers[_HEADER_X_FRAME_OPTIONS] = _XFO_SAMEORIGIN
                 headers[_HEADER_X_XSS_PROTECTION] = _XXSS_DISABLED
                 headers[_HEADER_REFERRER_POLICY] = _REFERRER_STRICT_ORIGIN
-                if self.csp:
+                # A response that carries its own policy (file_storage sandboxes
+                # user-uploaded bytes) keeps it; the app-wide one is the default.
+                if self.csp and _HEADER_CSP not in headers:
                     headers[_HEADER_CSP] = self.csp
                 if self.hsts:
                     headers[_HEADER_HSTS] = self.hsts

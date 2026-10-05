@@ -3,20 +3,32 @@
 from __future__ import annotations
 
 import uuid
+from typing import Literal
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.responses import RedirectResponse, StreamingResponse
 from simple_module_core.events import EventBus
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import RequiresPermission
 
-from file_storage import constants
+from file_storage import constants, queries
 from file_storage.contracts.events import FileDeleted, FileUploaded
 from file_storage.contracts.schemas import (
     BulkDeleteRequest,
     BulkDeleteResult,
     StoredFileListOut,
     StoredFileOut,
+    StoredFileUpdate,
 )
 from file_storage.deps import get_event_bus, get_file_storage_service
 from file_storage.format import format_bytes
@@ -28,6 +40,7 @@ from file_storage.service import (
     StoredFileNotFoundError,
     StreamDownload,
 )
+from file_storage.serving import thumbnail_response
 
 router = APIRouter()
 
@@ -41,11 +54,12 @@ router = APIRouter()
 async def upload_file(
     t: TranslatorDep,
     file: UploadFile = File(...),
+    public: bool = Form(default=False),
     service: FileStorageService = Depends(get_file_storage_service),
     bus: EventBus = Depends(get_event_bus),
 ) -> StoredFileOut:
     try:
-        out = await service.upload(file)
+        out = await service.upload(file, public=public)
     except FileTooLargeError as exc:
         # The limit belongs in the sentence: "too large" is not actionable to
         # someone holding a 40 MB file, and every client that shows this
@@ -93,9 +107,21 @@ async def list_files(
     # a 422 for out-of-range paging, while the Inertia views clamp instead.
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=200),
+    q: str | None = Query(
+        default=None, description="Case-insensitive substring of the original filename."
+    ),
+    content_type: str | None = Query(
+        default=None,
+        description="Exact content type, or a family ending in '/' such as 'image/'.",
+    ),
+    sort: Literal["created_at", "-created_at", "name", "-name", "size", "-size"] = Query(
+        default=constants.DEFAULT_SORT
+    ),
     service: FileStorageService = Depends(get_file_storage_service),
 ) -> StoredFileListOut:
-    items, total = await service.list_files(page=page, per_page=per_page)
+    items, total = await service.list_files(
+        page=page, per_page=per_page, search=q, content_type=content_type, sort=sort
+    )
     return StoredFileListOut(items=items, total=total, page=page, per_page=per_page)
 
 
@@ -119,18 +145,45 @@ async def get_file(
                 "message": t.t(constants.I18nKey.ERR_NOT_FOUND),
             },
         ) from exc
-    return StoredFileOut.model_validate(
-        {
-            "id": row.id,
-            "key": row.key,
-            "filename": row.filename,
-            "content_type": row.content_type,
-            "size_bytes": row.size_bytes,
-            "backend": row.backend,
-            "checksum_sha256": row.checksum_sha256,
-            "uploaded_by": row.created_by,
-            "created_at": row.created_at,
-        }
+    return StoredFileOut.model_validate(queries.to_out_dict(row))
+
+
+@router.patch(
+    constants.PATH_FILE_BY_ID,
+    response_model=StoredFileOut,
+    dependencies=[Depends(RequiresPermission(constants.Permission.UPLOAD))],
+)
+async def update_file(
+    file_id: uuid.UUID,
+    body: StoredFileUpdate,
+    t: TranslatorDep,
+    service: FileStorageService = Depends(get_file_storage_service),
+) -> StoredFileOut:
+    """Publish or unpublish a file (anyone allowed to upload may decide)."""
+    try:
+        row = await service.set_public(file_id, body.public)
+    except StoredFileNotFoundError as exc:
+        raise _not_found(t) from exc
+    return StoredFileOut.model_validate(queries.to_out_dict(row))
+
+
+@router.get(
+    constants.PATH_FILE_THUMBNAIL,
+    response_model=None,
+    dependencies=[Depends(RequiresPermission(constants.Permission.DOWNLOAD))],
+)
+async def file_thumbnail(
+    file_id: uuid.UUID,
+    t: TranslatorDep,
+    w: int | None = Query(default=None, description="Width in px; clamped and snapped."),
+    service: FileStorageService = Depends(get_file_storage_service),
+) -> Response:
+    try:
+        row = await service.get(file_id)
+    except StoredFileNotFoundError as exc:
+        raise _not_found(t) from exc
+    return await thumbnail_response(
+        service, row, w, t, cache_control=f"private, max-age={constants.THUMBNAIL_MAX_AGE_SECONDS}"
     )
 
 
@@ -218,3 +271,13 @@ async def delete_file(
             },
         ) from exc
     await bus.publish(FileDeleted(file_id=row.id, key=row.key))
+
+
+def _not_found(t: TranslatorDep) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail={
+            "code": constants.ErrorCode.NOT_FOUND,
+            "message": t.t(constants.I18nKey.ERR_NOT_FOUND),
+        },
+    )
