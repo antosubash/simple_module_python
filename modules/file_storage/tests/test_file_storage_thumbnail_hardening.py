@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
+import threading
 from uuid import uuid4
 
 import pytest
@@ -116,3 +118,66 @@ async def test_anonymous_cannot_use_authenticated_thumbnail(authenticated_client
     body = await _upload(authenticated_client, "q.png", _png(), "image/png", public="true")
     resp = await client.get(f"{API}/files/{body['id']}/thumbnail")
     assert resp.status_code in (401, 302, 403)
+
+
+class _MemBackend:
+    backend_id = "mem"
+    supports_presigned_url = False
+
+    def __init__(self, objects):
+        self.objects = dict(objects)
+
+    async def get(self, key):
+        from file_storage.contracts.service import StorageNotFoundError
+
+        if key not in self.objects:
+            raise StorageNotFoundError(key)
+
+        async def gen():
+            yield self.objects[key]
+
+        return gen()
+
+    async def put(self, key, stream, *, content_type, size):
+        self.objects[key] = b"".join([c async for c in stream])
+
+    async def delete(self, key):
+        self.objects.pop(key, None)
+
+
+async def test_cancelled_waiter_does_not_free_the_decode_slot(monkeypatch):
+    entered, release = threading.Event(), threading.Event()
+    calls = []
+
+    def blocking_render(data, width, content_type=None):
+        calls.append(width)
+        entered.set()
+        release.wait(5)
+        return b"webp"
+
+    monkeypatch.setattr(thumbnails, "render", blocking_render)
+    backend = _MemBackend({"k": _png()})
+
+    def request():
+        return asyncio.ensure_future(
+            thumbnails.get_or_create(backend, key="k", content_type="image/png", width=64)
+        )
+
+    first = request()
+    await asyncio.get_running_loop().run_in_executor(None, entered.wait, 5)
+    first.cancel()  # the client went away
+    second = request()  # retry joins the same decode (single flight)
+    await asyncio.sleep(0.05)
+    assert thumbnails._slots()._value == constants.THUMBNAIL_MAX_CONCURRENCY - 1
+    assert len(calls) == 1
+    release.set()
+    assert (await second)[0] == b"webp"
+    await asyncio.sleep(0.05)
+    assert thumbnails._slots()._value == constants.THUMBNAIL_MAX_CONCURRENCY
+    assert not thumbnails._INFLIGHT
+
+
+def test_render_leaves_the_global_pixel_cap_alone():
+    before = Image.MAX_IMAGE_PIXELS
+    thumbnails.render(_png(20, 20), 64, "image/png")
+    assert before == Image.MAX_IMAGE_PIXELS

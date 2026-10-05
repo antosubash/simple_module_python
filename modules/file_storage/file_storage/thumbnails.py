@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import io
-import warnings
+import weakref
 from typing import TYPE_CHECKING
 
 from PIL import Image, ImageOps
@@ -63,8 +63,20 @@ _FORMATS_BY_TYPE = {
 _ALLOWED_FORMATS = tuple(_FORMATS_BY_TYPE.values())
 
 # At most this many decodes run at once, so a burst of cold-cache requests
-# cannot pin every CPU or hold N decoded canvases in memory together.
-_DECODE_SLOTS = asyncio.Semaphore(constants.THUMBNAIL_MAX_CONCURRENCY)
+# cannot pin every CPU or hold N decoded canvases in memory together. One
+# semaphore per event loop (an asyncio primitive belongs to one loop).
+_SLOTS: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Semaphore] = (
+    weakref.WeakKeyDictionary()
+)
+# Single-flight: concurrent cold requests for one variant share one decode.
+_INFLIGHT: dict[tuple[int, str], asyncio.Task[bytes]] = {}
+
+
+def _slots() -> asyncio.Semaphore:
+    loop = asyncio.get_running_loop()
+    if loop not in _SLOTS:
+        _SLOTS[loop] = asyncio.Semaphore(constants.THUMBNAIL_MAX_CONCURRENCY)
+    return _SLOTS[loop]
 
 
 def render(data: bytes, width: int, content_type: str | None = None) -> bytes:
@@ -77,32 +89,30 @@ def render(data: bytes, width: int, content_type: str | None = None) -> bytes:
     Animated inputs yield their first frame; the output is re-encoded from
     pixels only, so EXIF/XMP/ICC and other metadata are not carried over.
     """
-    previous = Image.MAX_IMAGE_PIXELS
-    Image.MAX_IMAGE_PIXELS = constants.THUMBNAIL_MAX_PIXELS
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", Image.DecompressionBombWarning)
-            with Image.open(io.BytesIO(data), formats=_ALLOWED_FORMATS) as img:
-                if content_type is not None and img.format != _FORMATS_BY_TYPE.get(
-                    content_type.split(";")[0].strip().lower()
-                ):
-                    raise UnreadableImageError("content does not match the declared type")
-                if img.width * img.height > constants.THUMBNAIL_MAX_PIXELS:
-                    raise UnreadableImageError("image exceeds the pixel budget")
-                img.seek(0)  # first frame only
-                img.draft("RGB", (width * 2, width * 2))  # cheap JPEG downscale on decode
-                frame = ImageOps.exif_transpose(img)
-                frame.thumbnail((width, width * 64), Image.Resampling.LANCZOS)
-                mode = "RGBA" if frame.mode in ("RGBA", "LA", "PA", "P") else "RGB"
-                out = io.BytesIO()
-                frame.convert(mode).save(out, format="WEBP", quality=80)
-                return out.getvalue()
+        with Image.open(io.BytesIO(data), formats=_ALLOWED_FORMATS) as img:
+            if content_type is not None and img.format != _FORMATS_BY_TYPE.get(
+                content_type.split(";")[0].strip().lower()
+            ):
+                raise UnreadableImageError("content does not match the declared type")
+            # Header-only so far: refuse before any pixel is decoded. This is
+            # our own budget; the process-wide ``Image.MAX_IMAGE_PIXELS`` is
+            # left alone (it is shared with every other Pillow user and racy
+            # to mutate from worker threads).
+            if img.width * img.height > constants.THUMBNAIL_MAX_PIXELS:
+                raise UnreadableImageError("image exceeds the pixel budget")
+            img.seek(0)  # first frame only
+            img.draft("RGB", (width * 2, width * 2))  # cheap JPEG downscale on decode
+            frame = ImageOps.exif_transpose(img)
+            frame.thumbnail((width, width * 64), Image.Resampling.LANCZOS)
+            mode = "RGBA" if frame.mode in ("RGBA", "LA", "PA", "P") else "RGB"
+            out = io.BytesIO()
+            frame.convert(mode).save(out, format="WEBP", quality=80)
+            return out.getvalue()
     except UnreadableImageError:
         raise
-    except (OSError, ValueError, EOFError, Image.DecompressionBombError, Warning) as exc:
+    except (OSError, ValueError, EOFError, Image.DecompressionBombError) as exc:
         raise UnreadableImageError(str(exc)) from exc
-    finally:
-        Image.MAX_IMAGE_PIXELS = previous
 
 
 async def _read_all(backend: StorageBackend, key: str, *, limit: int | None = None) -> bytes:
@@ -115,6 +125,12 @@ async def _read_all(backend: StorageBackend, key: str, *, limit: int | None = No
             raise UnreadableImageError("source image is too large to thumbnail")
         chunks.append(chunk)
     return b"".join(chunks)
+
+
+def _finished(flight: tuple[int, str], task: asyncio.Task[bytes]) -> None:
+    _INFLIGHT.pop(flight, None)
+    if not task.cancelled():
+        task.exception()  # mark retrieved: every waiter may have gone away
 
 
 async def get_or_create(
@@ -130,9 +146,27 @@ async def get_or_create(
     except StorageNotFoundError:
         pass
 
-    async with _DECODE_SLOTS:
+    # The work runs in its own task and callers only *await* it through
+    # ``shield``: a client that disconnects cancels its wait, not the decode,
+    # so the semaphore slot is held until the worker thread has really
+    # finished and abort-and-retry loops cannot multiply concurrent decodes.
+    flight = (id(asyncio.get_running_loop()), cached_key)
+    task = _INFLIGHT.get(flight)
+    if task is None:
+        task = asyncio.ensure_future(_generate(backend, key, cached_key, content_type, snapped))
+        _INFLIGHT[flight] = task
+        task.add_done_callback(
+            lambda t: (_INFLIGHT.pop(flight, None), t.cancelled() or t.exception())
+        )
+    return await asyncio.shield(task), snapped
+
+
+async def _generate(
+    backend: StorageBackend, key: str, cached_key: str, content_type: str, width: int
+) -> bytes:
+    async with _slots():
         source = await _read_all(backend, key, limit=constants.THUMBNAIL_MAX_SOURCE_BYTES)
-        data = await asyncio.to_thread(render, source, snapped, content_type)
+        data = await asyncio.to_thread(render, source, width, content_type)
 
     async def _once():
         yield data
@@ -140,7 +174,7 @@ async def get_or_create(
     await backend.put(
         cached_key, _once(), content_type=constants.THUMBNAIL_CONTENT_TYPE, size=len(data)
     )
-    return data, snapped
+    return data
 
 
 async def delete_variants(backend: StorageBackend, key: str) -> None:
