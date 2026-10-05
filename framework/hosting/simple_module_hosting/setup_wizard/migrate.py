@@ -38,8 +38,15 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
     try:
         await asyncio.to_thread(_upgrade)
     except Exception as exc:
-        logger.exception("Setup: migration run failed")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        # The caller is anonymous, and a migration error routinely carries the
+        # database URL, SQL or filesystem paths — so the detail goes to the
+        # log only, and the response points the operator at it.
+        correlation_id = getattr(request.state, "correlation_id", "") or ""
+        logger.exception("Setup: migration run failed (correlation_id=%s)", correlation_id)
+        detail = "Migrations failed; see the server log"
+        if correlation_id:
+            detail += f" (correlation id {correlation_id})"
+        raise HTTPException(status_code=500, detail=detail + ".") from exc
 
     request.app.state.migration = await migration_status(request.app.state.sm.db.engine)
     logger.info("Setup: migrations applied")
