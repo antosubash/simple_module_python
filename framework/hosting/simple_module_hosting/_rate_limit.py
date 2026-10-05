@@ -6,8 +6,10 @@ anonymous from signed-in requests, and after ``ProxyHeaders`` so
 
 Policy:
 
-* a request is limited by ``rate_limit_public`` only when the public-route
-  registry exempts its method + path from auth **and** nobody is signed in;
+* a request is limited by ``rate_limit_public`` only when the auth middleware judged
+  it anonymous-allowed (``scope["state"]["auth_public"]``: framework defaults, the
+  registry and the provider legacy paths; the registry alone if no auth provider
+  is installed) **and** nobody is signed in. Health/static are never limited;
 * a matching rule's own ``rate=`` replaces that default for the rule;
 * ``rate_limit_authenticated`` (off by default) limits signed-in traffic;
 * every other request is untouched.
@@ -38,6 +40,7 @@ logger = logging.getLogger("simple_module.request_guard")
 
 _MESSAGE = "Too many requests. Please slow down and try again shortly."
 _KEY_PREFIX = "sm:rl:"
+_OPERATIONAL_PREFIXES = ("/health", "/static/")
 # Re-warn about a dead Redis at most this often, not once per request.
 _WARN_EVERY = 60.0
 
@@ -114,9 +117,14 @@ class RateLimitMiddleware:
             return "auth", self.authenticated_rate
         registry = getattr(scope["app"].state, "public_routes", None)
         rule = registry.match(scope["method"], scope["path"]) if registry is not None else None
-        if rule is None:
+        flag = scope.get("state", {}).get("auth_public")
+        if flag is None:  # no auth provider recorded a decision: registry is the truth
+            flag = rule is not None
+        if not flag:
             return None
-        if rule.rate is not None:
+        if rule is None and scope["path"].startswith(_OPERATIONAL_PREFIXES):
+            return None  # health probes and static assets are not an API surface
+        if rule is not None and rule.rate is not None:
             spec = parse_rate(rule.rate)
             return (f"rule:{rule.kind}:{rule.pattern}", spec) if spec is not None else None
         if self.public_rate is None:

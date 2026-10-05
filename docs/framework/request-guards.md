@@ -70,9 +70,14 @@ and render a translated error page.
 
 Policy:
 
-1. A request is limited by `rate_limit_public` only if the public-route registry
-   (`register_public_routes`, `SM_AUTH_PUBLIC_PATHS`) exempts its method and
-   path **and** nobody is signed in.
+1. A request is limited by `rate_limit_public` only if the auth middleware
+   judged it anonymous-allowed **and** nobody is signed in. `AuthMiddleware`
+   records that decision as `scope["state"]["auth_public"]` (framework defaults,
+   the public-route registry and the provider's legacy public paths), and the
+   limiter reads the flag, so the two cannot disagree, path variants included.
+   The key is a plain scope-state contract (no import, SM009-safe). With no auth
+   provider installed the registry match is used instead. `/health` and
+   `/static/` are never limited.
 2. A matching public rule's own `rate=` replaces that default and gets its own
    bucket per client.
 3. `rate_limit_authenticated` (blank by default) opts signed-in traffic in.
