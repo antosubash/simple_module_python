@@ -28,6 +28,11 @@ from sqlalchemy import Column, Index, MetaData
 from sqlalchemy.schema import SchemaItem
 
 from simple_module_db.base import all_module_bases
+from simple_module_db.migration_portability import (
+    render_boolean_default,
+    rewrite_boolean_defaults,
+    warn_unverifiable_expression_indexes,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +144,11 @@ def make_process_revision_directives(
     Any index already named in the op tree — at any nesting depth — is left
     alone, which keeps this dialect-agnostic rather than special-casing SQLite.
 
+    It also rewrites ``0``/``1``/``false``/``true`` server defaults on Boolean
+    columns to ``sa.false()``/``sa.true()`` and, when running on SQLite, warns
+    that expression indexes cannot be verified (see
+    :mod:`simple_module_db.migration_portability`).
+
     Call as::
 
         context.configure(
@@ -153,10 +163,15 @@ def make_process_revision_directives(
                 expression_indexes.setdefault(table.name, []).append(index)
 
     def process_revision_directives(context, revision, directives):
-        if not expression_indexes:
-            return
+        warn_unverifiable_expression_indexes(
+            getattr(getattr(context, "dialect", None), "name", None), metadata
+        )
         for script in directives:
             upgrade_ops = getattr(script, "upgrade_ops", None)
+            if upgrade_ops is not None:
+                rewrite_boolean_defaults(upgrade_ops)
+            if not expression_indexes:
+                continue
             if upgrade_ops is not None:
                 _inject_create_index_after_create_table(upgrade_ops, expression_indexes)
             downgrade_ops = getattr(script, "downgrade_ops", None)
@@ -241,12 +256,16 @@ def render_item(type_, obj, autogen_context):
       Postgres enum labels match the lowercase ``StrEnum`` values rather than
       SQLAlchemy's default of using uppercase attribute names. This means raw
       SQL like ``WHERE status = 'ready'`` actually works against the live DB.
+    * Renders ``true()``/``false()`` server defaults as ``sa.true()``/``sa.false()``
+      instead of the dialect-specific ``sa.text('1')``/``sa.text('0')`` (GH #342).
     * Adds the necessary imports for ``fastapi_users_db_sqlalchemy.generics``
       and ``geoalchemy2`` types (rendered by their own classes elsewhere) so
       the generated migration is importable.
 
     Pass to :func:`alembic.context.configure` as ``render_item=render_item``.
     """
+    if type_ == "server_default":
+        return render_boolean_default(type_, obj, autogen_context)
     if type_ != "type":
         return False
     cls_name = type(obj).__name__
