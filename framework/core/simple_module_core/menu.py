@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import inspect
+import logging
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from starlette.requests import Request
+
+logger = logging.getLogger(__name__)
 
 MenuItemMethod = Literal["get", "post"]
 
@@ -67,12 +74,17 @@ class MenuItem:
     is set by the lowest-ordered item that belongs to it."""
 
 
+MenuProvider = Callable[["Request"], "Awaitable[Iterable[MenuItem]] | Iterable[MenuItem]"]
+"""Per-request source of menu items; sync or async."""
+
+
 class MenuRegistry:
     """Collects menu items from all modules and filters them per-request."""
 
     def __init__(self) -> None:
         self._items: list[MenuItem] = []
         self._sorted: list[MenuItem] | None = None
+        self._providers: list[MenuProvider] = []
 
     def _invalidate(self) -> None:
         self._sorted = None
@@ -85,11 +97,60 @@ class MenuRegistry:
         self._items.extend(items)
         self._invalidate()
 
+    def remove(self, predicate: Callable[[MenuItem], bool]) -> int:
+        """Drop static items for which *predicate* is true; return how many."""
+        kept = [i for i in self._items if not predicate(i)]
+        removed = len(self._items) - len(kept)
+        self._items = kept
+        self._invalidate()
+        return removed
+
+    def add_provider(self, provider: MenuProvider) -> None:
+        """Register a per-request provider of extra menu items.
+
+        Evaluated inside ``InertiaLayoutDataMiddleware`` (auth and
+        ``request.state.tenant_id`` already resolved) and then filtered,
+        translated, ordered and grouped like static items. A provider that
+        raises is logged and contributes nothing.
+        """
+        self._providers.append(provider)
+
+    async def collect_provider_items(self, request: Request) -> list[MenuItem]:
+        items: list[MenuItem] = []
+        for provider in self._providers:
+            try:
+                result = provider(request)
+                if inspect.isawaitable(result):
+                    result = await result
+                items.extend(result)
+            except Exception:
+                logger.exception("Menu provider %r failed; contributing nothing", provider)
+        return items
+
     @property
     def all_items(self) -> list[MenuItem]:
         if self._sorted is None:
             self._sorted = sorted(self._items, key=lambda i: i.order)
         return self._sorted
+
+    async def get_for_request(
+        self,
+        request: Request,
+        *,
+        is_authenticated: bool,
+        roles: list[str] | None = None,
+        permissions: list[str] | None = None,
+        translate: Callable[[str], str] | None = None,
+    ) -> dict[str, list[dict]]:
+        """:meth:`get_for_user` over static items plus this request's provider items."""
+        extra = await self.collect_provider_items(request) if self._providers else []
+        return self.get_for_user(
+            is_authenticated=is_authenticated,
+            roles=roles,
+            permissions=permissions,
+            translate=translate,
+            extra_items=extra,
+        )
 
     def get_for_user(
         self,
@@ -98,6 +159,7 @@ class MenuRegistry:
         roles: list[str] | None = None,
         permissions: list[str] | None = None,
         translate: Callable[[str], str] | None = None,
+        extra_items: Iterable[MenuItem] = (),
     ) -> dict[str, list[dict]]:
         """Return menu items grouped by section, filtered by auth/roles/permissions.
 
@@ -124,7 +186,10 @@ class MenuRegistry:
             translated = translate(key)
             return fallback if translated == key else translated
 
-        for item in self.all_items:
+        items = self.all_items
+        if extra := list(extra_items):
+            items = sorted([*items, *extra], key=lambda i: i.order)
+        for item in items:
             if item.requires_auth and not is_authenticated:
                 continue
             if item.roles and not any(r in item.roles for r in roles):

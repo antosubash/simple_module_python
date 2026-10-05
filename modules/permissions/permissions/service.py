@@ -42,8 +42,9 @@ class PermissionService:
     # ── Registry read-outs ─────────────────────────────────────
 
     def list_registered_groups(self) -> list[PermissionGroupOut]:
+        labels = self.registry.source_labels()
         return [
-            PermissionGroupOut(name=g.name, permissions=sorted(g.permissions))
+            PermissionGroupOut(name=g.name, permissions=sorted(g.permissions), labels=labels)
             for g in self.registry.groups
         ]
 

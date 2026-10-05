@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Collection
+import logging
+from collections.abc import Callable, Collection, Iterable
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
+
+PermissionSourceProvider = Callable[[], "Iterable[str] | Iterable[tuple[str, str]]"]
+"""Sync callable returning permission keys, or ``(key, label)`` pairs."""
 
 WILDCARD = "*"
 
@@ -66,10 +72,60 @@ class PermissionRegistry:
         self._role_map: dict[str, set[str]] = {}
         self._all_permissions_cache: list[str] | None = None
         self._role_map_cache: dict[str, list[str]] | None = None
+        self._sources: dict[str, PermissionSourceProvider] = {}
+        self._source_cache: dict[str, tuple[list[str], dict[str, str]]] = {}
 
     def _invalidate(self) -> None:
         self._all_permissions_cache = None
         self._role_map_cache = None
+
+    # ── Runtime sources ────────────────────────────────────────
+
+    def add_source(self, name: str, provider: PermissionSourceProvider) -> None:
+        """Register a runtime permission source under group *name*.
+
+        For modules whose protected resources are created after boot. *provider*
+        is **sync** and should read a module-maintained in-memory cache — the
+        registry is consulted on every request. Its output is cached here until
+        :meth:`invalidate_source` is called. A provider that raises is logged
+        and contributes nothing.
+        """
+        self._sources[name] = provider
+        self._source_cache.pop(name, None)
+        self._invalidate()
+
+    def invalidate_source(self, name: str) -> None:
+        """Drop the cached output of source *name*; re-read on next access."""
+        self._source_cache.pop(name, None)
+        self._invalidate()
+
+    def _source_output(self, name: str) -> tuple[list[str], dict[str, str]]:
+        cached = self._source_cache.get(name)
+        if cached is not None:
+            return cached
+        keys: list[str] = []
+        labels: dict[str, str] = {}
+        try:
+            for entry in self._sources[name]():
+                if isinstance(entry, str):
+                    keys.append(entry)
+                else:
+                    key, label = entry
+                    keys.append(key)
+                    labels[key] = label
+        except Exception:
+            logger.exception("Permission source %r failed; contributing nothing", name)
+            keys, labels = [], {}
+        out = (sorted(set(keys)), labels)
+        self._source_cache[name] = out
+        return out
+
+    def source_labels(self) -> dict[str, str]:
+        """Human labels supplied by sources, keyed by permission string."""
+        labels: dict[str, str] = {}
+        for name in self._sources:
+            labels.update(self._source_output(name)[1])
+        return labels
 
     def add_group(self, name: str, permissions: list[str]) -> None:
         """Register a group of related permissions."""
@@ -93,17 +149,26 @@ class PermissionRegistry:
         """All registered permission strings, sorted."""
         if self._all_permissions_cache is None:
             perms: set[str] = set()
-            for group in self._groups.values():
+            for group in self.groups:
                 perms.update(group.permissions)
             self._all_permissions_cache = sorted(perms)
         return self._all_permissions_cache
 
     @property
     def groups(self) -> list[PermissionGroup]:
-        return list(self._groups.values())
+        """Static groups plus one group per source (merged by name)."""
+        merged = {
+            n: PermissionGroup(name=n, permissions=list(g.permissions))
+            for n, g in self._groups.items()
+        }
+        for name in self._sources:
+            keys = self._source_output(name)[0]
+            group = merged.setdefault(name, PermissionGroup(name=name))
+            group.permissions.extend(k for k in keys if k not in group.permissions)
+        return list(merged.values())
 
     def has(self, permission: str) -> bool:
-        return any(permission in g.permissions for g in self._groups.values())
+        return permission in self.all_permissions
 
     def map_role(self, role: str, permissions: list[str]) -> None:
         """Register a role→permission mapping.
