@@ -153,12 +153,6 @@ def _configure_sqlite(
 
     @event.listens_for(engine.sync_engine, "connect")
     def _set_sqlite_pragmas(dbapi_connection, _connection_record) -> None:  # type: ignore[misc]
-        # Take transaction control away from pysqlite, which otherwise emits
-        # BEGIN lazily before the first DML only. An outermost SAVEPOINT would
-        # then start the transaction and its RELEASE would COMMIT it (GH #350).
-        # Done first: PRAGMAs below then run in autocommit, which WAL and
-        # ``foreign_keys`` both require.
-        dbapi_connection.isolation_level = None
         cursor = dbapi_connection.cursor()
         try:
             if foreign_keys:
@@ -170,9 +164,14 @@ def _configure_sqlite(
         finally:
             cursor.close()
 
-    @event.listens_for(engine.sync_engine, "begin")
-    def _explicit_begin(conn) -> None:  # type: ignore[misc]
-        # Sessions sharing one DBAPI connection (a StaticPool in tests) would
-        # otherwise issue BEGIN inside the first one's open transaction.
+    @event.listens_for(engine.sync_engine, "savepoint")
+    def _begin_before_outermost_savepoint(conn, _name) -> None:  # type: ignore[misc]
+        # pysqlite only emits BEGIN lazily before DML, so a SAVEPOINT that is
+        # the first statement would *start* the transaction and its RELEASE
+        # would COMMIT it, leaving the outer rollback nothing to undo (GH #350).
+        # Open the transaction ourselves, only in that case. SQLAlchemy's
+        # blanket recipe (isolation_level=None + BEGIN on every transaction)
+        # was rejected: it turns every read into a snapshot, so a later write
+        # fails with SQLITE_BUSY_SNAPSHOT, which ignores busy_timeout.
         if not getattr(conn.connection.driver_connection, "in_transaction", False):
             conn.exec_driver_sql("BEGIN")
