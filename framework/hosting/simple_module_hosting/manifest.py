@@ -26,10 +26,12 @@ from simple_module_core import ModuleBase, get_module_package_name
 
 from simple_module_hosting.assets import (
     compute_module_assets,
+    framework_assets,
     render_assets_json,
     render_modules_css,
 )
 from simple_module_hosting.page_globs import glob_patterns_for
+from simple_module_hosting.setup_wizard import pages_dir as wizard_pages_dir
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +161,11 @@ def write_module_pages_manifest(
     if repo_root is None:
         repo_root = repo_root_from_client_app(output_dir)
 
-    pages_map = compute_module_pages(modules)
+    # The framework's own frontend (the setup wizard) is emitted alongside the
+    # modules', so every host's resolver finds ``Setup/Wizard`` and its Vite
+    # config serves it from the wheel — with no host-side file to add.
+    framework = framework_assets()
+    pages_map = {**compute_module_pages(modules), framework.name: wizard_pages_dir()}
 
     manifest_path = output_dir / "modules.manifest.json"
     manifest_payload = {name: path.as_posix() for name, path in pages_map.items()}
@@ -186,7 +192,7 @@ def write_module_pages_manifest(
 
     # Rendered from the richer asset record rather than pages_map, so that a
     # module shipping CSS but no pages/ still contributes its stylesheets.
-    assets = compute_module_assets(modules)
+    assets = [*compute_module_assets(modules), framework]
     css_path = output_dir / "modules.generated.css"
     css_text = render_modules_css(assets, in_repo=lambda p: _is_in_repo_module(p, repo_root))
 

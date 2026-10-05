@@ -87,18 +87,25 @@ def register_migration_step(registry) -> None:
     Host-owned rather than module-owned because no module owns the schema as a
     whole — it is the union of whatever modules are installed.
     """
-    from simple_module_core.setup_steps import SetupStep
+    from simple_module_core.setup_steps import SetupAction, SetupStep
+
+    from simple_module_hosting.setup_wizard.migrate import apply_migrations
 
     registry.set_owner("Host")
     registry.add(
         SetupStep(
             id=STEP_MIGRATIONS,
             title="Apply database migrations",
-            title_key="host.setup.steps.migrations.title",
+            title_key="hosting.setup.steps.migrations.title",
             description="Bring the database schema up to the version this code expects.",
-            description_key="host.setup.steps.migrations.description",
+            description_key="hosting.setup.steps.migrations.description",
             is_complete=_database_migrated,
             order=20,
+            action=SetupAction(
+                handler=apply_migrations,
+                submit_label="Apply migrations",
+                submit_label_key="hosting.setup.migrations.apply",
+            ),
         )
     )
     registry.set_owner("")
@@ -111,6 +118,7 @@ class SetupMiddleware:
         self.app = app
         self._verdict: bool | None = None
         self._verdict_expires: float = 0.0
+        self._announced = False
 
     async def _is_complete(self, registry, starlette_app) -> bool:
         """``registry.is_setup_complete`` behind a short TTL cache.
@@ -168,6 +176,15 @@ class SetupMiddleware:
             await self.app(scope, receive, send)
             return
 
+        if not self._announced:
+            # Once per process: a fresh install answering 302 to everything is
+            # baffling without a line in the log that says why.
+            self._announced = True
+            logger.warning(
+                "Setup is incomplete; redirecting requests to %s until every "
+                "required setup step is complete.",
+                SETUP_PATH,
+            )
         await self._redirect(scope, receive, send)
 
     async def _redirect(self, scope: Scope, receive: Receive, send: Send) -> None:

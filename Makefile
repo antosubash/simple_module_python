@@ -135,7 +135,7 @@ ci-js-typecheck:
 			exit 1; \
 		fi; \
 	done
-	@for cfg in modules/*/tsconfig.json packages/*/tsconfig.json; do \
+	@for cfg in modules/*/tsconfig.json packages/*/tsconfig.json framework/*/tsconfig.json; do \
 		[ -f "$$cfg" ] || continue; \
 		echo "tsc -p $$cfg"; \
 		npx tsc --noEmit -p "$$cfg" || exit 1; \

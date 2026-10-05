@@ -1,6 +1,6 @@
 """What the setup wizard displays.
 
-Split from ``routes_setup`` so that module holds the routes and the gating that
+Split from ``routes`` so that module holds the routes and the gating that
 guards them, while this one holds the read-only shaping of what the page
 renders. They change for different reasons: a new dependency to probe touches
 this file, a new security condition touches that one.
@@ -13,6 +13,8 @@ import asyncio
 from fastapi import Request
 
 CHECK_DATABASE = "host.database"
+# A health-check *name*, not an import: the check exists only when the
+# background_tasks module registered it, and is skipped otherwise.
 CHECK_REDIS = "background_tasks.redis"
 
 
@@ -53,14 +55,12 @@ async def connection_status(request: Request) -> list[dict]:
     return [r for r in results if r is not None]
 
 
-def steps_payload(registry, pending_ids: set[str], translate=None) -> list[dict]:
-    """Shape the registered steps for the wizard, resolving their catalog keys.
+def _resolver(translate):
+    """``(key, fallback) -> str`` with the ``MenuRegistry`` fallback rule.
 
-    Steps are contributed by arbitrary modules, so their titles arrive as
-    backend data and cannot go through ``useT()`` in the page. Resolved here
-    instead, with the same fallback rule ``MenuRegistry`` uses: an unresolved
-    key keeps the English literal, because rendering ``users.administrator`` in
-    the UI would be worse than the text it replaced.
+    An unresolved key keeps the English literal, because rendering
+    ``users.setup.administrator.title`` in the UI would be worse than the text
+    it replaced.
     """
 
     def render(key: str, fallback: str) -> str:
@@ -69,12 +69,48 @@ def steps_payload(registry, pending_ids: set[str], translate=None) -> list[dict]
         translated = translate(key)
         return fallback if translated == key else translated
 
-    return [
-        {
-            "id": step.id,
-            "title": render(step.title_key, step.title),
-            "description": render(step.description_key, step.description),
-            "complete": step.id not in pending_ids,
-        }
-        for step in registry.all_steps
-    ]
+    return render
+
+
+def _action_payload(action, render) -> dict:
+    return {
+        "submitLabel": render(action.submit_label_key, action.submit_label),
+        "fields": [
+            {
+                "name": f.name,
+                "label": render(f.label_key, f.label),
+                "type": f.type,
+                "required": f.required,
+                "autocomplete": f.autocomplete,
+                "minLength": f.min_length,
+            }
+            for f in action.fields
+        ],
+    }
+
+
+def steps_payload(registry, pending_ids: set[str], translate=None) -> list[dict]:
+    """Shape the registered steps for the wizard, resolving their catalog keys.
+
+    Steps are contributed by arbitrary modules, so their titles arrive as
+    backend data and cannot go through ``useT()`` in the page. Resolved here
+    instead.
+
+    A step's form is sent only while that step is pending: the action route
+    refuses a completed step anyway, and offering the form would only invite
+    a request that is bound to fail.
+    """
+    render = _resolver(translate)
+    out: list[dict] = []
+    for step in registry.all_steps:
+        pending = step.id in pending_ids
+        out.append(
+            {
+                "id": step.id,
+                "title": render(step.title_key, step.title),
+                "description": render(step.description_key, step.description),
+                "complete": not pending,
+                "action": _action_payload(step.action, render) if pending and step.action else None,
+            }
+        )
+    return out

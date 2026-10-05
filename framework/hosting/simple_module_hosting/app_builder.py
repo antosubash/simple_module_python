@@ -45,6 +45,7 @@ from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry
 from simple_module_hosting.settings import Settings
 from simple_module_hosting.setup_gate import register_migration_step
+from simple_module_hosting.setup_wizard import mount_setup_wizard
 from simple_module_hosting.static_files import PrecompressedStaticFiles
 
 logger = logging.getLogger(__name__)
@@ -265,6 +266,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         wire_module_routes(app, mod)
 
     app.include_router(health_router)
+    mount_setup_wizard(app, setup_registry)  # /setup — what SetupMiddleware redirects to
 
     static_dir = _PROJECT_ROOT / "host" / _STATIC_DIR_NAME
     if static_dir.is_dir():
