@@ -142,7 +142,7 @@ def test_login_mid_session_reships_messages_on_an_inertia_partial(tmp_path) -> N
 
 def test_inertia_partial_with_unchanged_audience_still_skips_messages(tmp_path) -> None:
     client = TestClient(_build_audience_app(tmp_path))
-    client.get("/shared")
+    client.get("/shared", headers={"Accept": "text/html"})  # a real page load
     body = client.get("/shared", headers={"X-Inertia": "true"}).json()
     assert body["i18n"]["messages"] is None
 
