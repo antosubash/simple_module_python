@@ -80,7 +80,7 @@ make migration msg="add orders tables"
 Open `host/migrations/versions/XXXX_add_orders_tables.py` and eyeball it (`make migration` runs Alembic from the host dir):
 
 - It should create the `orders_order` table.
-- Add `branch_labels = ("orders",)` to the revision so you can later `alembic downgrade orders@base` to roll the module back to empty without touching other modules.
+- Add `branch_labels = ("orders",)` to the revision to give it a named target. The label does not isolate the module: `alembic downgrade orders@base` rolls back the whole chain beneath it, other modules included. See [Removing one module's schema](/database/migrations#removing-one-modules-schema).
 
 Apply:
 
