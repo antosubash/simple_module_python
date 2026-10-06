@@ -60,7 +60,7 @@ def get_overrides_sync(session: Session, package: str) -> dict[str, tuple[str, s
         Setting.scope_id == SYSTEM_SCOPE_ID,
         Setting.key.startswith(f"{package}.", autoescape=True),
     )
-    return package_overrides(((k, v, t) for k, v, t in session.execute(stmt)), package)
+    return package_overrides(session.execute(stmt).tuples(), package)
 
 
 class SettingsStore:

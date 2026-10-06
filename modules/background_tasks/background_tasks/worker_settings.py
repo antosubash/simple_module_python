@@ -41,12 +41,14 @@ def settings_for[T: BaseSettings](
     with _lock:
         hit = _cache.get(key)
         if hit is not None and ttl > 0 and now - hit[0] < ttl:
-            return cast(T, hit[1])
+            # A copy: BaseSettings is mutable, so one task editing its settings
+            # must not change what the next task in this process sees.
+            return cast(T, hit[1]).model_copy(deep=True)
     with sync_session() as session:
         value = hydrate_settings_sync(cls, session, package)
     with _lock:
         _cache[key] = (now, value)
-    return value
+    return value.model_copy(deep=True)
 
 
 def clear_settings_cache() -> None:
