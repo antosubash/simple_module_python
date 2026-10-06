@@ -122,7 +122,8 @@ class MenuRegistry:
                 result = provider(request)
                 if inspect.isawaitable(result):
                     result = await result
-                items.extend(result)
+                # Materialise first: a generator failing midway must add nothing.
+                items.extend(list(result))
             except Exception:
                 logger.exception("Menu provider %r failed; contributing nothing", provider)
         return items

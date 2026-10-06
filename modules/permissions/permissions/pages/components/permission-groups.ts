@@ -70,7 +70,10 @@ export function filterGroups(
     if (!moduleMatches && !matchKeys) continue;
     const permissions = group.permissions.filter(
       (key) =>
-        (moduleMatches || key.toLowerCase().includes(needle)) && (keepKey ? keepKey(key) : true),
+        (moduleMatches ||
+          key.toLowerCase().includes(needle) ||
+          (group.labels?.[key] ?? '').toLowerCase().includes(needle)) &&
+        (keepKey ? keepKey(key) : true),
     );
     if (permissions.length > 0) result.push({ group, permissions });
   }

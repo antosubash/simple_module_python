@@ -4,6 +4,8 @@ import { Switch } from '@simple-module-py/ui/components/ui/switch';
 
 interface Props {
   permissionKey: string;
+  /** Human label from a runtime permission source; the key shows when absent. */
+  label?: string;
   /** Granted directly to this user — the only thing the switch controls. */
   direct: boolean;
   /** Roles granting this key, empty when none do. */
@@ -22,6 +24,7 @@ interface Props {
  */
 export function PermissionRow({
   permissionKey,
+  label,
   direct,
   viaRoles,
   onToggle,
@@ -52,11 +55,12 @@ export function PermissionRow({
           the right — `settings.create`, `settings.delete` — so cutting the end
           off removes the half that tells them apart. */}
       <code
+        title={label ? permissionKey : undefined}
         className={`min-w-0 flex-1 break-all font-mono text-[12px] sm:truncate ${
           effective ? 'text-foreground' : 'text-muted-foreground'
         }`}
       >
-        {permissionKey}
+        {label ?? permissionKey}
       </code>
 
       {direct && (

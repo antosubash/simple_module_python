@@ -101,7 +101,9 @@ class PermissionService:
 
         wanted = {k for k in keys if k in self._registered_keys()}
         existing = set(await self._get_role_keys(role.name))
-        to_remove = existing - wanted
+        # Unregistered keys (e.g. a runtime source that is empty right now) are left
+        # alone: pruning them would silently drop grants that return with the source.
+        to_remove = (existing - wanted) & self._registered_keys()
 
         if to_remove:
             await self.db.execute(
@@ -192,7 +194,7 @@ class PermissionService:
 
         wanted = {k for k in keys if k in self._registered_keys()}
         existing = set(await self.get_user_direct_keys(user.id))
-        to_remove = existing - wanted
+        to_remove = (existing - wanted) & self._registered_keys()
 
         if to_remove:
             await self.db.execute(

@@ -58,3 +58,29 @@ async def test_source_permission_enforced_by_requires_permission(app: FastAPI):
 
     # Admin's implicit grant covers source permissions.
     assert "records.product.edit" in registry.get_permissions_for_roles(["admin"])
+
+
+async def test_saving_role_keeps_grants_of_currently_unregistered_source_keys(
+    authenticated_client: httpx.AsyncClient, app: FastAPI
+):
+    from permissions.service import PermissionService
+    from users.constants import USER_ROLE_ID, USER_ROLE_NAME
+    from users.models import Role
+
+    registry = app.state.sm.permissions
+    registry.add_source("records", lambda: ["records.product.edit"])
+    async with app.state.sm.db.session_factory() as db:
+        if await db.get(Role, USER_ROLE_ID) is None:
+            db.add(Role(id=USER_ROLE_ID, name=USER_ROLE_NAME, description="Standard user"))
+            await db.commit()
+    url = f"/api/permissions/roles/{USER_ROLE_ID}"
+    await authenticated_client.put(url, json={"permissions": ["records.product.edit"]})
+
+    # The source goes empty (e.g. restart before its cache warms); an unrelated save
+    # must not prune the stored grant.
+    registry.add_source("records", lambda: [])
+    await authenticated_client.put(url, json={"permissions": []})
+
+    async with app.state.sm.db.session_factory() as db:
+        keys = await PermissionService(db, registry)._get_role_keys(USER_ROLE_NAME)
+    assert keys == ["records.product.edit"]
