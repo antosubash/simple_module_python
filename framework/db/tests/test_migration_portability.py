@@ -145,3 +145,20 @@ def test_drop_enums_on_postgres(monkeypatch):
     monkeypatch.setattr(postgresql.ENUM, "drop", fake_drop)
     drop_enums_if_postgres(_FakeOp("postgresql"), "status", "kind")
     assert calls == [("status", True), ("kind", True)]
+
+
+def test_downgrade_recreated_boolean_defaults_render_portably():
+    """A dropped table's downgrade re-creates it from reflected ``sa.text('0')`` defaults."""
+    engine = sa.create_engine("sqlite://")
+    _metadata().create_all(engine)
+    empty = sa.MetaData()
+    with engine.connect() as conn:
+        ctx = MigrationContext.configure(conn, opts={"render_item": render_item})
+        script = produce_migrations(ctx, empty)
+        make_process_revision_directives(empty)(ctx, None, [script])
+        code = render_python_code(
+            script.downgrade_ops, render_item=render_item, migration_context=ctx
+        )
+
+    assert code.count("sa.false()") == 2
+    assert code.count("sa.true()") == 2

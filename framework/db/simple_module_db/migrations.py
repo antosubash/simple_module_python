@@ -23,8 +23,9 @@ from typing import Literal
 import sqlalchemy as sa
 from alembic.operations.ops import CreateIndexOp, CreateTableOp, DropIndexOp, DropTableOp
 from simple_module_core import ModuleBase
+from simple_module_core.diagnostics._expression_index import index_is_expression_based
 from simple_module_core.discovery import discover_modules, get_module_package_name
-from sqlalchemy import Column, Index, MetaData
+from sqlalchemy import Index, MetaData
 from sqlalchemy.schema import SchemaItem
 
 from simple_module_db.base import all_module_bases
@@ -160,7 +161,7 @@ def make_process_revision_directives(
     expression_indexes: dict[str, list[Index]] = {}
     for table in metadata.tables.values():
         for index in table.indexes:
-            if _index_is_expression_based(index):
+            if index_is_expression_based(index):
                 expression_indexes.setdefault(table.name, []).append(index)
 
     def process_revision_directives(context, revision, directives):
@@ -174,15 +175,14 @@ def make_process_revision_directives(
                 if expression_indexes:
                     _inject_create_index_after_create_table(upgrade_ops, expression_indexes)
             downgrade_ops = getattr(script, "downgrade_ops", None)
-            if downgrade_ops is not None and expression_indexes:
-                _inject_drop_index_before_drop_table(downgrade_ops, expression_indexes)
+            if downgrade_ops is not None:
+                # A downgrade re-creates dropped tables/columns from reflected
+                # state, so it carries the same ``sa.text('0')`` Boolean defaults.
+                rewrite_boolean_defaults(downgrade_ops)
+                if expression_indexes:
+                    _inject_drop_index_before_drop_table(downgrade_ops, expression_indexes)
 
     return process_revision_directives
-
-
-def _index_is_expression_based(index: Index) -> bool:
-    """An index is expression-based when any of its expressions is not a plain ``Column``."""
-    return any(not isinstance(expr, Column) for expr in index.expressions)
 
 
 def _existing_index_names(container, op_type) -> set[str | None]:

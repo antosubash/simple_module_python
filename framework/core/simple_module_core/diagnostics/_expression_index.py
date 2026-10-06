@@ -58,7 +58,14 @@ def module_all_tables(mod: ModuleBase) -> list[Any]:
     seen: dict[str, Any] = {}
     for value in vars(models).values():
         table = getattr(value, "__table__", None)
-        if isinstance(value, type) and table is not None and hasattr(table, "indexes"):
+        if (
+            isinstance(value, type)
+            and table is not None
+            and hasattr(table, "indexes")
+            # Skip models re-imported from another module, or each importer would
+            # be told about an index it does not own.
+            and getattr(value, "__module__", "").startswith(pkg)
+        ):
             seen.setdefault(table.name, table)
     return list(seen.values())
 
