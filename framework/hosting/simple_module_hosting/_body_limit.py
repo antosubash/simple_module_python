@@ -94,14 +94,18 @@ class BodyLimitMiddleware:
 
         async def guarded_send(message: Message) -> None:
             nonlocal refused, started
-            if exceeded:
+            if exceeded and not started:
                 # The app is answering a body we cut off (often with a 400 from
                 # its own parser). Swallow it; the 413 below is the real answer.
-                if not refused and not started:
+                if not refused:
                     refused = True
                     self._log(scope, limit, seen)
                     await self._refuse(scope, receive, send, limit)
                 return
+            # Once the app's own response has started it is passed through whole:
+            # swallowing the rest would leave the client hanging on a half-sent
+            # response. (Any exception it raises for the cut-off body is re-raised
+            # below, which aborts the connection instead.)
             if message["type"] == "http.response.start":
                 started = True
             await send(message)
@@ -109,7 +113,9 @@ class BodyLimitMiddleware:
         try:
             await self.app(scope, counting_receive, guarded_send)
         except Exception:
-            if not exceeded:
+            if not exceeded or started:
+                if exceeded:
+                    self._log(scope, limit, seen)
                 raise
         if exceeded and not refused and not started:
             self._log(scope, limit, seen)

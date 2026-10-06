@@ -139,8 +139,20 @@ class PublicRouteRegistry:
         return any(route.matches(method, path) for route in self._routes)
 
     def match(self, method: str, path: str) -> PublicRoute | None:
-        """The first rule that exempts *method* + *path*, if any."""
-        return next((r for r in self._routes if r.matches(method, path)), None)
+        """The rule that governs *method* + *path*, if any.
+
+        A rule carrying its own ``rate=`` beats an overlapping one without, so a
+        broad rule registered earlier cannot silently shadow a narrower rate
+        override; among equals the first registered wins.
+        """
+        first = None
+        for route in self._routes:
+            if not route.matches(method, path):
+                continue
+            if route.rate is not None:
+                return route
+            first = first or route
+        return first
 
     @property
     def routes(self) -> list[PublicRoute]:
