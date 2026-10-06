@@ -116,6 +116,7 @@ class PermissionService:
         )
         await self.db.flush()
         # `map_role` is additive — reset the entry so removals apply without a restart.
+        # No public replace API on PermissionRegistry yet.
         self.registry._role_map.pop(role.name, None)
         self.registry.map_role(role.name, sorted(wanted))
 

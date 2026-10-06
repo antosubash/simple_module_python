@@ -57,6 +57,7 @@ export function RoleGroupCard({ group, permissions, assigned, onToggle, onToggle
       <div className="grid sm:grid-cols-2">
         {permissions.map((key, index) => {
           const on = assigned.has(key);
+          const label = group.labels?.[key];
           return (
             <label
               key={key}
@@ -71,12 +72,12 @@ export function RoleGroupCard({ group, permissions, assigned, onToggle, onToggle
                 onCheckedChange={(checked) => onToggle(key, checked === true)}
               />
               <code
-                title={group.labels?.[key] ? key : undefined}
+                title={label ? key : undefined}
                 className={`min-w-0 truncate font-mono text-[12px] ${
                   on ? 'text-foreground' : 'text-muted-foreground'
                 }`}
               >
-                {group.labels?.[key] ?? key}
+                {label ?? key}
               </code>
             </label>
           );
