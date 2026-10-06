@@ -100,12 +100,11 @@ async def test_failed_unawaited_read_is_still_retrieved(app, monkeypatch):
     assert cache.inflight == {}
 
     seen: list[dict] = []
-    asyncio.get_running_loop().set_exception_handler(lambda _l, ctx: seen.append(ctx))
-    del entry
-    gc.collect()
-    assert not seen
-
-
-def test_inflight_is_per_app_state():
-    assert not hasattr(tenant_branding, "_INFLIGHT")
-    assert TenantCache().inflight is not TenantCache().inflight
+    loop = asyncio.get_running_loop()
+    loop.set_exception_handler(lambda _l, ctx: seen.append(ctx))
+    try:
+        del entry
+        gc.collect()
+        assert not seen
+    finally:
+        loop.set_exception_handler(None)

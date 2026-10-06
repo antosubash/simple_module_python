@@ -48,11 +48,7 @@ def stored(monkeypatch: pytest.MonkeyPatch) -> dict[uuid.UUID, StoredFile]:
         return row
 
     async def fake_download(
-        self: FileStorageService,
-        file_id: uuid.UUID,
-        *,
-        platform: bool = False,
-        drop_object: bool = True,
+        self: FileStorageService, file_id: uuid.UUID, *, platform: bool = False
     ) -> StreamDownload:
         assert platform, "branding must act on platform-owned files"
 
