@@ -62,7 +62,12 @@ class BodyLimitMiddleware:
             return
 
         declared = Headers(scope=scope).get("content-length")
-        too_big = declared is not None and declared.isdigit() and int(declared) > limit
+        too_big = (
+            declared is not None
+            and declared.isascii()
+            and declared.isdigit()
+            and int(declared) > limit
+        )
         # A browser-shaped request is answered with the Inertia error page, which
         # needs the session / locale / shared props the layers *inside* this one
         # set up. So it is not refused here: the body read raises an
