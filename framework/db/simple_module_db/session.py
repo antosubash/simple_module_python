@@ -148,6 +148,9 @@ def _configure_sqlite(
     facade, and ``connect`` fires on the DBAPI connection underneath it. All
     three PRAGMAs must be re-issued per connection except ``journal_mode``,
     which is a property of the file; re-issuing it is cheap and idempotent.
+
+    Also registers a ``savepoint`` listener that opens the transaction before an
+    outermost SAVEPOINT (pysqlite would otherwise let its RELEASE commit; GH #350).
     """
     apply_wal = wal and _is_file_database(database_url)
 

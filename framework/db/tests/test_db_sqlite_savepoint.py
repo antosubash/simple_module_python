@@ -51,3 +51,25 @@ async def test_committed_work_with_savepoint_persists(db_state):
             await db.execute(text("insert into t values (3)"))
         await db.commit()
     assert await _count(db_state, "id = 3") == 1
+
+
+async def test_failed_savepoint_rolls_back_only_itself(db_state):
+    from sqlalchemy.exc import IntegrityError
+
+    async with db_state.session_factory() as db:
+        await db.execute(text("insert into t values (4)"))
+        with pytest.raises(IntegrityError):
+            async with db.begin_nested():
+                await db.execute(text("insert into t values (5)"))
+                await db.execute(text("insert into t values (4)"))
+        await db.commit()
+    assert await _count(db_state, "id = 4") == 1
+    assert await _count(db_state, "id = 5") == 0
+
+
+async def test_nested_savepoints_do_not_double_begin(db_state):
+    async with db_state.session_factory() as db:
+        async with db.begin_nested(), db.begin_nested():
+            await db.execute(text("insert into t values (6)"))
+        await db.rollback()
+    assert await _count(db_state, "id = 6") == 0
