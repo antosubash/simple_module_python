@@ -9,11 +9,44 @@ the sharpest edge in the whole onboarding path.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+from collections.abc import Iterator
 
 from fastapi import HTTPException, Request
 
 logger = logging.getLogger(__name__)
+
+# The endpoint is anonymous, so nothing stops two requests (a double click, a
+# second tab) from starting two Alembic runs against one database at once.
+# Serialized here; the second run then finds the schema at head and is a no-op.
+_MIGRATION_LOCK = asyncio.Lock()
+
+
+@contextlib.contextmanager
+def _preserve_logging() -> Iterator[None]:
+    """Undo what the migration env's ``fileConfig`` does to the process's logging.
+
+    ``fileConfig`` replaces the root logger's handlers and level with
+    ``alembic.ini``'s (a bare WARN console handler) and, for an ``env.py`` that
+    predates ``disable_existing_loggers=False``, disables every existing
+    logger. Run in-process, that would strip the app's JSON formatter and
+    correlation filter and silence its INFO logs until restart.
+    """
+    root = logging.getLogger()
+    handlers, level = list(root.handlers), root.level
+    disabled = {
+        name: lg.disabled
+        for name, lg in logging.root.manager.loggerDict.items()
+        if isinstance(lg, logging.Logger)
+    }
+    try:
+        yield
+    finally:
+        root.handlers[:] = handlers
+        root.setLevel(level)
+        for name, was_disabled in disabled.items():
+            logging.getLogger(name).disabled = was_disabled
 
 
 async def apply_migrations(request: Request, _data: dict) -> dict:
@@ -33,10 +66,12 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
         # branch_labels, so the history legitimately has several heads and
         # "head" raises CommandError("Multiple head revisions are present").
         # This is what `make migrate` runs.
-        command.upgrade(AlembicConfig(ini_path), "heads")
+        with _preserve_logging():
+            command.upgrade(AlembicConfig(ini_path), "heads")
 
     try:
-        await asyncio.to_thread(_upgrade)
+        async with _MIGRATION_LOCK:
+            await asyncio.to_thread(_upgrade)
     except Exception as exc:
         # The caller is anonymous, and a migration error routinely carries the
         # database URL, SQL or filesystem paths — so the detail goes to the

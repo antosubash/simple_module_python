@@ -78,6 +78,16 @@ async def _database_migrated(app) -> bool:
         logger.debug("Migration re-check failed, using the boot snapshot: %s", exc)
         return False
     app.state.migration = status
+    if status["is_current"]:
+        # Finish starting the modules whose on_startup needed these tables —
+        # this worker may not be the one that ran the migrations. Never lets
+        # a failure there change the verdict, which only reports the schema.
+        from simple_module_hosting._lifespan import run_deferred_startup
+
+        try:
+            await run_deferred_startup(app)
+        except Exception:
+            logger.exception("Replaying deferred on_startup hooks failed")
     return bool(status["is_current"])
 
 

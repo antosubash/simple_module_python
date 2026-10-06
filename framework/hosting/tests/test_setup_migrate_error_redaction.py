@@ -27,3 +27,29 @@ async def test_migration_failure_detail_is_redacted(monkeypatch, caplog) -> None
     assert "cid-123" in str(info.value.detail)
     # The operator still gets the real error, in the log.
     assert _SECRET in caplog.text
+
+
+async def test_in_process_migration_keeps_app_logging(monkeypatch) -> None:
+    """alembic's fileConfig must not leave the app's root logging replaced."""
+    import logging
+
+    root = logging.getLogger()
+    sentinel = logging.NullHandler()
+    root.addHandler(sentinel)
+    level = root.level
+
+    def _clobber(*_args, **_kwargs) -> None:
+        # What env.py's fileConfig does to the root logger.
+        root.handlers[:] = [logging.StreamHandler()]
+        root.setLevel(logging.ERROR)
+        raise RuntimeError("stop after clobbering")
+
+    monkeypatch.setattr(command, "upgrade", _clobber)
+    request = SimpleNamespace(state=SimpleNamespace(correlation_id=""))
+    try:
+        with pytest.raises(HTTPException):
+            await apply_migrations(request, {})
+        assert sentinel in root.handlers
+        assert root.level == level
+    finally:
+        root.removeHandler(sentinel)

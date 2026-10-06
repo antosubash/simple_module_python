@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -73,3 +74,21 @@ async def test_failing_hook_still_aborts_boot_when_schema_is_current():
     app = _app()
     with pytest.raises(RuntimeError, match="no such table"):
         await _boot(app, [_module("bad", fail_first=True)], is_current=True, first_run=False)
+
+
+async def test_replay_survives_a_failing_hook_and_runs_once():
+    app, bad = _app(), _module("bad", fail_first=False)
+
+    async def boom(app_):
+        bad.calls["n"] += 1
+        raise RuntimeError("still broken")
+
+    bad.on_startup = boom
+    ok = _module("ok", fail_first=False)
+    app.state.deferred_startup = [bad, ok]
+    with patch("simple_module_hosting._lifespan.hydrate_settings_from_db", AsyncMock()):
+        await asyncio.gather(run_deferred_startup(app), run_deferred_startup(app))
+
+    assert bad.calls["n"] == 1
+    assert ok.calls["n"] == 1
+    assert app.state.deferred_startup == []

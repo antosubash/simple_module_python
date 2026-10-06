@@ -13,6 +13,7 @@ can still reach the database.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncGenerator, Callable, Sequence
 from contextlib import asynccontextmanager
@@ -102,14 +103,31 @@ async def _is_first_run(app: FastAPI) -> bool:
 
 
 async def run_deferred_startup(app: FastAPI) -> None:
-    """Replay the ``on_startup`` hooks that could not run on an unmigrated DB."""
-    deferred = getattr(app.state, "deferred_startup", [])
+    """Replay the ``on_startup`` hooks that could not run on an unmigrated DB.
+
+    Called from the wizard's migrations action and from the setup gate's
+    schema re-check, so a worker that did not itself run the migrations (or an
+    operator's out-of-band ``make migrate``) still finishes starting its
+    modules. Serialised per app; a hook that fails again is logged and dropped
+    rather than raised, because this runs after the migrations have already
+    committed and a 500 there would help nobody.
+    """
+    deferred = getattr(app.state, "deferred_startup", None)
     if not deferred:
         return
-    await hydrate_settings_from_db(app)
-    while deferred:
-        await deferred[0].on_startup(app)
-        deferred.pop(0)
+    lock = getattr(app.state, "deferred_startup_lock", None)
+    if lock is None:  # no await between check and set, so this cannot race
+        lock = app.state.deferred_startup_lock = asyncio.Lock()
+    async with lock:
+        if not deferred:
+            return
+        await hydrate_settings_from_db(app)
+        while deferred:
+            mod = deferred.pop(0)
+            try:
+                await mod.on_startup(app)
+            except Exception:
+                logger.exception("Deferred on_startup of %s failed after migrations", mod.meta.name)
 
 
 def build_lifespan(modules: Sequence) -> Callable:
