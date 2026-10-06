@@ -125,7 +125,7 @@ class RateLimitMiddleware:
         if rule is None and scope["path"].startswith(_OPERATIONAL_PREFIXES):
             return None  # health probes and static assets are not an API surface
         if rule is not None and rule.rate is not None:
-            spec = parse_rate(rule.rate)
+            spec = rule.rate_spec
             return (f"rule:{rule.kind}:{rule.pattern}", spec) if spec is not None else None
         if self.public_rate is None:
             return None
@@ -146,15 +146,13 @@ class RateLimitMiddleware:
         if result.allowed:
             await self.app(scope, receive, send)
             return
-        cid = scope.get("state", {}).get("correlation_id", "")
         logger.warning(
-            "Rate limit exceeded: %s %s ip=%s bucket=%s limit=%s correlation_id=%s",
+            "Rate limit exceeded: %s %s ip=%s bucket=%s limit=%s",
             scope["method"],
             scope["path"],
             ip,
             bucket,
             spec,
-            cid,
         )
         await send_guard_response(
             scope,

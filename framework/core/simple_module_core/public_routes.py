@@ -41,7 +41,7 @@ class PublicRoute:
             the rule from rate limiting. Validated at construction.
     """
 
-    __slots__ = ("_regex", "kind", "methods", "pattern", "rate")
+    __slots__ = ("_regex", "kind", "methods", "pattern", "rate", "rate_spec")
 
     def __init__(
         self,
@@ -58,8 +58,8 @@ class PublicRoute:
             None if methods is None else frozenset(m.upper() for m in methods)
         )
         self.kind = kind
-        if rate is not None:
-            parse_rate(rate)  # fail at registration, not on the first request
+        # Parsed here so a bad value fails at registration, not on the first request.
+        self.rate_spec = parse_rate(rate)
         self.rate = rate
         self._regex = re.compile(pattern) if kind == "regex" else None
 
