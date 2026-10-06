@@ -6,7 +6,6 @@ Mixed into the service so ``service.py`` stays about upload/download/delete.
 from __future__ import annotations
 
 import uuid
-from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select
@@ -61,15 +60,8 @@ class FileStoragePublic:
         await self.db.refresh(row)
         return row
 
-    async def thumbnail(self, row: StoredFile, width: int | None) -> tuple[bytes, int]:
-        """Cached resized variant of ``row`` (see :mod:`file_storage.thumbnails`)."""
+    async def thumbnail(self, row: StoredFile, width: int) -> bytes:
+        """Cached variant of ``row`` at an already-snapped ``width``."""
         return await thumbnails.get_or_create(
             self.backend, key=row.key, content_type=row.content_type, width=width
         )
-
-    async def stream(self, row: StoredFile) -> AsyncIterator[bytes]:
-        """The object's bytes, for a row the caller has already authorised."""
-        return await self.backend.get(row.key)
-
-    async def presigned_url(self, row: StoredFile) -> str:
-        return await self.backend.presigned_get_url(row.key, self.settings.s3_presign_ttl_seconds)

@@ -141,7 +141,6 @@ THUMBNAIL_DEFAULT_WIDTH: Final = 256
 THUMBNAIL_MIN_WIDTH: Final = 32
 THUMBNAIL_MAX_WIDTH: Final = 1024
 THUMBNAIL_CONTENT_TYPE: Final = "image/webp"
-THUMBNAIL_SOURCE_TYPES: Final = frozenset({"image/jpeg", "image/png", "image/webp", "image/gif"})
 # Decode budget: refuse an image whose pixel count would balloon memory
 # (decompression bomb) before Pillow ever decodes it.
 THUMBNAIL_MAX_PIXELS: Final = 25_000_000

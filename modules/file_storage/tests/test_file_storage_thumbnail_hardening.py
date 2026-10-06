@@ -171,7 +171,7 @@ async def test_cancelled_waiter_does_not_free_the_decode_slot(monkeypatch):
     assert thumbnails._slots()._value == constants.THUMBNAIL_MAX_CONCURRENCY - 1
     assert len(calls) == 1
     release.set()
-    assert (await second)[0] == b"webp"
+    assert await second == b"webp"
     await asyncio.sleep(0.05)
     assert thumbnails._slots()._value == constants.THUMBNAIL_MAX_CONCURRENCY
     assert not thumbnails._INFLIGHT

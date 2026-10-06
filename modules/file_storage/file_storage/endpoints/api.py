@@ -40,7 +40,7 @@ from file_storage.service import (
     StoredFileNotFoundError,
     StreamDownload,
 )
-from file_storage.serving import thumbnail_response
+from file_storage.serving import not_found, thumbnail_response
 
 router = APIRouter()
 
@@ -138,13 +138,7 @@ async def get_file(
     try:
         row = await service.get(file_id)
     except StoredFileNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "code": constants.ErrorCode.NOT_FOUND,
-                "message": t.t(constants.I18nKey.ERR_NOT_FOUND),
-            },
-        ) from exc
+        raise not_found(t) from exc
     return StoredFileOut.model_validate(queries.to_out_dict(row))
 
 
@@ -163,7 +157,7 @@ async def update_file(
     try:
         row = await service.set_public(file_id, body.public)
     except StoredFileNotFoundError as exc:
-        raise _not_found(t) from exc
+        raise not_found(t) from exc
     return StoredFileOut.model_validate(queries.to_out_dict(row))
 
 
@@ -181,7 +175,7 @@ async def file_thumbnail(
     try:
         row = await service.get(file_id)
     except StoredFileNotFoundError as exc:
-        raise _not_found(t) from exc
+        raise not_found(t) from exc
     return await thumbnail_response(
         service, row, w, t, cache_control=f"private, max-age={constants.THUMBNAIL_MAX_AGE_SECONDS}"
     )
@@ -200,13 +194,7 @@ async def download_file(
     try:
         download = await service.download(file_id)
     except StoredFileNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "code": constants.ErrorCode.NOT_FOUND,
-                "message": t.t(constants.I18nKey.ERR_NOT_FOUND),
-            },
-        ) from exc
+        raise not_found(t) from exc
 
     if isinstance(download, RedirectDownload):
         return RedirectResponse(url=download.url, status_code=status.HTTP_302_FOUND)
@@ -263,21 +251,5 @@ async def delete_file(
     try:
         row = await service.delete(file_id)
     except StoredFileNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "code": constants.ErrorCode.NOT_FOUND,
-                "message": t.t(constants.I18nKey.ERR_NOT_FOUND),
-            },
-        ) from exc
+        raise not_found(t) from exc
     await bus.publish(FileDeleted(file_id=row.id, key=row.key))
-
-
-def _not_found(t: TranslatorDep) -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail={
-            "code": constants.ErrorCode.NOT_FOUND,
-            "message": t.t(constants.I18nKey.ERR_NOT_FOUND),
-        },
-    )

@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response
 from simple_module_hosting.i18n_deps import TranslatorDep
 
 from file_storage import constants
 from file_storage.deps import get_file_storage_service
 from file_storage.service import FileStorageService, StoredFileNotFoundError
-from file_storage.serving import public_file_response, thumbnail_response
+from file_storage.serving import not_found, public_file_response, thumbnail_response
 
 router = APIRouter()
 
@@ -24,13 +24,7 @@ async def _public_row(service: FileStorageService, file_id: uuid.UUID, t: Transl
     try:
         return await service.get_public(file_id)
     except StoredFileNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "code": constants.ErrorCode.NOT_FOUND,
-                "message": t.t(constants.I18nKey.ERR_NOT_FOUND),
-            },
-        ) from exc
+        raise not_found(t) from exc
 
 
 # Declared before the ``{filename}`` route so "thumbnail" is not read as a name.

@@ -37,8 +37,13 @@ class UnreadableImageError(Exception):
     """The bytes are not a decodable image, or are too large to decode safely."""
 
 
+def base_type(content_type: str) -> str:
+    """The media type without parameters, lowercased (``Image/PNG; x=y`` -> ``image/png``)."""
+    return content_type.split(";")[0].strip().lower()
+
+
 def is_thumbnailable(content_type: str) -> bool:
-    return content_type.split(";")[0].strip().lower() in constants.THUMBNAIL_SOURCE_TYPES
+    return base_type(content_type) in _FORMATS_BY_TYPE
 
 
 def snap_width(width: int | None) -> int:
@@ -92,7 +97,7 @@ def render(data: bytes, width: int, content_type: str | None = None) -> bytes:
     try:
         with Image.open(io.BytesIO(data), formats=_ALLOWED_FORMATS) as img:
             if content_type is not None and img.format != _FORMATS_BY_TYPE.get(
-                content_type.split(";")[0].strip().lower()
+                base_type(content_type)
             ):
                 raise UnreadableImageError("content does not match the declared type")
             # Header-only so far: refuse before any pixel is decoded. This is
@@ -127,22 +132,19 @@ async def _read_all(backend: StorageBackend, key: str, *, limit: int | None = No
     return b"".join(chunks)
 
 
-def _finished(flight: tuple[int, str], task: asyncio.Task[bytes]) -> None:
-    _INFLIGHT.pop(flight, None)
-    if not task.cancelled():
-        task.exception()  # mark retrieved: every waiter may have gone away
-
-
 async def get_or_create(
-    backend: StorageBackend, *, key: str, content_type: str, width: int | None
-) -> tuple[bytes, int]:
-    """The variant's bytes and the snapped width, generating it on first use."""
+    backend: StorageBackend, *, key: str, content_type: str, width: int
+) -> bytes:
+    """The variant's bytes, generating it on first use.
+
+    ``width`` must already be snapped (:func:`snap_width`) so the number of
+    cached variants stays bounded.
+    """
     if not is_thumbnailable(content_type):
         raise NotAnImageError(content_type)
-    snapped = snap_width(width)
-    cached_key = variant_key(key, snapped)
+    cached_key = variant_key(key, width)
     try:
-        return await _read_all(backend, cached_key), snapped
+        return await _read_all(backend, cached_key)
     except StorageNotFoundError:
         pass
 
@@ -153,12 +155,12 @@ async def get_or_create(
     flight = (id(asyncio.get_running_loop()), cached_key)
     task = _INFLIGHT.get(flight)
     if task is None:
-        task = asyncio.ensure_future(_generate(backend, key, cached_key, content_type, snapped))
+        task = asyncio.ensure_future(_generate(backend, key, cached_key, content_type, width))
         _INFLIGHT[flight] = task
         task.add_done_callback(
             lambda t: (_INFLIGHT.pop(flight, None), t.cancelled() or t.exception())
         )
-    return await asyncio.shield(task), snapped
+    return await asyncio.shield(task)
 
 
 async def _generate(
@@ -179,8 +181,7 @@ async def _generate(
 
 async def delete_variants(backend: StorageBackend, key: str) -> None:
     """Drop every cached variant of ``key``; absent ones are fine."""
-    for width in constants.THUMBNAIL_WIDTHS:
-        try:
-            await backend.delete(variant_key(key, width))
-        except Exception:
-            continue
+    await asyncio.gather(
+        *(backend.delete(variant_key(key, width)) for width in constants.THUMBNAIL_WIDTHS),
+        return_exceptions=True,
+    )
