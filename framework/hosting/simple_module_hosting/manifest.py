@@ -31,7 +31,6 @@ from simple_module_hosting.assets import (
     render_modules_css,
 )
 from simple_module_hosting.page_globs import glob_patterns_for
-from simple_module_hosting.setup_wizard import pages_dir as wizard_pages_dir
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +164,7 @@ def write_module_pages_manifest(
     # modules', so every host's resolver finds ``Setup/Wizard`` and its Vite
     # config serves it from the wheel — with no host-side file to add.
     framework = framework_assets()
-    pages_map = {**compute_module_pages(modules), framework.name: wizard_pages_dir()}
+    pages_map = {**compute_module_pages(modules), framework.name: framework.pages_dir}
 
     manifest_path = output_dir / "modules.manifest.json"
     manifest_payload = {name: path.as_posix() for name, path in pages_map.items()}

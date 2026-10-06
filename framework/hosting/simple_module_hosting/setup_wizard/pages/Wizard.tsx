@@ -44,7 +44,6 @@ function Wizard() {
 
   const appName = branding?.appName ?? BRAND_DEFAULT_APP_NAME;
   const brandInitial = appName.trim().charAt(0).toUpperCase() || 'S';
-  const actionable = steps.filter((step) => step.action !== null);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -86,7 +85,7 @@ function Wizard() {
           </CardContent>
         </Card>
 
-        {actionable.map((step) =>
+        {steps.map((step) =>
           step.action ? (
             <Card key={step.id}>
               <CardHeader>

@@ -12,7 +12,8 @@ import asyncio
 
 from fastapi import Request
 
-CHECK_DATABASE = "host.database"
+from simple_module_hosting._db_health import CHECK_DATABASE
+
 # A health-check *name*, not an import: the check exists only when the
 # background_tasks module registered it, and is skipped otherwise.
 CHECK_REDIS = "background_tasks.redis"
