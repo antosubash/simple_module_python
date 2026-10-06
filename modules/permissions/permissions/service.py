@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
+from simple_module_core.permissions import WILDCARD
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -99,11 +100,10 @@ class PermissionService:
         if role is None:
             return None
 
-        wanted = {k for k in keys if k in self._registered_keys()}
+        registered = self._registered_keys()
+        wanted = {k for k in keys if k in registered}
         existing = set(await self._get_role_keys(role.name))
-        # Unregistered keys (e.g. a runtime source that is empty right now) are left
-        # alone: pruning them would silently drop grants that return with the source.
-        to_remove = (existing - wanted) & self._registered_keys()
+        to_remove = (existing - wanted) & registered  # unregistered grants are never pruned
 
         if to_remove:
             await self.db.execute(
@@ -117,12 +117,10 @@ class PermissionService:
             for key in wanted - existing
         )
         await self.db.flush()
-        # `map_role` is additive — reset the entry so removals apply without a restart.
-        # No public replace API on PermissionRegistry yet.
+        # `map_role` is additive — reset the role entry so removals take effect without a
+        # restart (no public replace API yet); unregistered grants stay mapped.
         self.registry._role_map.pop(role.name, None)
-        # Keep unregistered-but-stored grants in memory too, so they are live again
-        # the moment their source repopulates.
-        self.registry.map_role(role.name, sorted(wanted | (existing - self._registered_keys())))
+        self.registry.map_role(role.name, sorted(wanted | (existing - registered)))
 
         return RolePermissionsOut(role=role, permissions=sorted(wanted))
 
@@ -194,9 +192,10 @@ class PermissionService:
         if user is None:
             return None
 
-        wanted = {k for k in keys if k in self._registered_keys()}
+        registered = self._registered_keys()
+        wanted = {k for k in keys if k in registered}
         existing = set(await self.get_user_direct_keys(user.id))
-        to_remove = (existing - wanted) & self._registered_keys()
+        to_remove = (existing - wanted) & registered
 
         if to_remove:
             await self.db.execute(
@@ -225,8 +224,6 @@ class PermissionService:
 
     def _resolve_role_permissions(self, role_names: list[str]) -> set[str]:
         """Resolve role names to their permission keys via the registry."""
-        from simple_module_core.permissions import WILDCARD
-
         role_map = self.registry.role_map
         resolved: set[str] = set()
         for name in role_names:
@@ -243,8 +240,6 @@ class PermissionService:
         know *which* role to edit. Two roles can grant the same key, so the
         value is a list.
         """
-        from simple_module_core.permissions import WILDCARD
-
         role_map = self.registry.role_map
         sources: dict[str, list[str]] = {}
         for name in sorted(role_names):

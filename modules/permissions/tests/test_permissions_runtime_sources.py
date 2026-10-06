@@ -78,7 +78,7 @@ async def test_saving_role_keeps_grants_of_currently_unregistered_source_keys(
 
     # The source goes empty (e.g. restart before its cache warms); an unrelated save
     # must not prune the stored grant.
-    registry.add_source("records", lambda: [])
+    registry.add_source("records", list)
     await authenticated_client.put(url, json={"permissions": []})
 
     async with app.state.sm.db.session_factory() as db:
