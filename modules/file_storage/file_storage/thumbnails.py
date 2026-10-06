@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import logging
 import struct
 import weakref
 from typing import TYPE_CHECKING
@@ -28,6 +29,8 @@ from file_storage.contracts.service import StorageNotFoundError
 
 if TYPE_CHECKING:
     from file_storage.contracts.service import StorageBackend
+
+_logger = logging.getLogger(__name__)
 
 
 class NotAnImageError(Exception):
@@ -206,7 +209,12 @@ async def _generate(
 
 async def delete_variants(backend: StorageBackend, key: str) -> None:
     """Drop every cached variant of ``key``; absent ones are fine."""
-    await asyncio.gather(
+    results = await asyncio.gather(
         *(backend.delete(variant_key(key, width)) for width in constants.THUMBNAIL_WIDTHS),
         return_exceptions=True,
     )
+    for result in results:
+        # An absent variant is the common case; anything else is an orphan
+        # nobody would otherwise learn about.
+        if isinstance(result, Exception) and not isinstance(result, StorageNotFoundError):
+            _logger.warning("file_storage.variant_delete_failed key=%s error=%r", key, result)
