@@ -127,10 +127,6 @@ def install_middleware(
     # reason Maintenance is — this short-circuits, and the redirect must not
     # be stored by any cache.
     app.add_middleware(SetupMiddleware)
-    # Paired with InertiaLayoutDataMiddleware below, which is what puts this
-    # user's auth, permissions and menus into every Inertia payload: this one
-    # makes sure the payload that results is never stored where a page request
-    # can be answered with it.
     # Added before InertiaCache so it executes just after it: auth has run (it
     # can tell anonymous from signed-in), locale/shared props are in place for
     # the error page, and a 429 is still marked non-cacheable.
@@ -140,6 +136,10 @@ def install_middleware(
         authenticated_rate=settings.rate_limit_authenticated,
         store=build_store(settings.redis_url),
     )
+    # Paired with InertiaLayoutDataMiddleware below, which is what puts this
+    # user's auth, permissions and menus into every Inertia payload: this one
+    # makes sure the payload that results is never stored where a page request
+    # can be answered with it.
     app.add_middleware(InertiaCacheMiddleware)
     app.add_middleware(
         InertiaLayoutDataMiddleware,

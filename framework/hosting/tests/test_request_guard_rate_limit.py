@@ -201,7 +201,10 @@ class _FakeRedis:
 
 
 class _DeadRedis:
+    calls = 0
+
     async def eval(self, *a, **k):
+        type(self).calls += 1
         raise ConnectionError("redis down")
 
 
@@ -228,6 +231,17 @@ class TestRedisStore:
                     assert (await c.get("/api/pub/thing")).status_code == 200
         warnings = [r for r in caplog.records if "failing open" in r.getMessage()]
         assert len(warnings) == 1  # throttled, not one per request
+
+    async def test_redis_down_backs_off_instead_of_retrying_each_request(self) -> None:
+        _DeadRedis.calls = 0
+        now = [100.0]
+        store = RedisWindowStore(_DeadRedis(), clock=lambda: now[0])
+        for _ in range(20):
+            assert (await store.hit("k", RateSpec(1, 60))).allowed
+        assert _DeadRedis.calls == 1
+        now[0] += 6  # backoff elapsed: Redis is probed again
+        await store.hit("k", RateSpec(1, 60))
+        assert _DeadRedis.calls == 2
 
 
 class TestWiredIntoApp:

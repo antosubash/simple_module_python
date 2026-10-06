@@ -137,7 +137,23 @@ class BodyLimitMiddleware:
                     raise HTTPException(status_code=413, detail=_MESSAGE)
             return message
 
-        await self.app(scope, receive_or_413, send)
+        started = False
+
+        async def tracking_send(message: Message) -> None:
+            nonlocal started
+            if message["type"] == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive_or_413, tracking_send)
+        except HTTPException as exc:
+            # Raised by a middleware that reads the body *outside* the router's
+            # exception handling (e.g. a form gate). Without this it would
+            # surface as a bare 500 from ServerErrorMiddleware.
+            if exc.status_code != 413 or started:
+                raise
+            await self._refuse(scope, receive, send, limit)
 
     @staticmethod
     def _log(scope: Scope, limit: int, size: int) -> None:

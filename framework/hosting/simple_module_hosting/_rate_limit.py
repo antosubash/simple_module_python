@@ -43,6 +43,9 @@ _KEY_PREFIX = "sm:rl:"
 _OPERATIONAL_PREFIXES = ("/health", "/static/")
 # Re-warn about a dead Redis at most this often, not once per request.
 _WARN_EVERY = 60.0
+# After a Redis error, skip Redis entirely for this long. Without it a blackholed
+# Redis costs every anonymous request the full socket timeout.
+_BACKOFF = 5.0
 
 _LUA = """
 local c = redis.call('INCR', KEYS[1])
@@ -62,6 +65,7 @@ class RedisWindowStore:
         self._client = client
         self._clock = clock
         self._last_warn = float("-inf")
+        self._down_until = float("-inf")
 
     @classmethod
     def from_url(cls, url: str) -> RedisWindowStore:
@@ -73,10 +77,13 @@ class RedisWindowStore:
         return cls(client)
 
     async def hit(self, key: str, spec: RateSpec) -> WindowResult:
+        if self._clock() < self._down_until:
+            return WindowResult(allowed=True, retry_after=0, count=0)
         try:
             count, pttl = await self._client.eval(_LUA, 1, _KEY_PREFIX + key, spec.period * 1000)
         except Exception as exc:
             now = self._clock()
+            self._down_until = now + _BACKOFF
             if now - self._last_warn >= _WARN_EVERY:
                 self._last_warn = now
                 logger.warning("Rate limiter Redis unavailable (%s); failing open", exc)
@@ -126,7 +133,12 @@ class RateLimitMiddleware:
             return None  # health probes and static assets are not an API surface
         if rule is not None and rule.rate is not None:
             spec = rule.rate_spec
-            return (f"rule:{rule.kind}:{rule.pattern}", spec) if spec is not None else None
+            # Methods are part of the bucket: two rules with one pattern but different
+            # verbs/rates must not share a counter (Redis fixes the window length on
+            # the first hit, so a shared key would apply the wrong period).
+            methods = ",".join(sorted(rule.methods)) if rule.methods else "*"
+            bucket = f"rule:{rule.kind}:{methods}:{rule.pattern}"
+            return (bucket, spec) if spec is not None else None
         if self.public_rate is None:
             return None
         return "public", self.public_rate

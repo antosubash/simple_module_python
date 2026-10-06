@@ -22,7 +22,6 @@ Prefix is always `SM_`. These are the pre-DB knobs read by `simple_module_hostin
 | `SM_LOG_FORMAT` | `json` | `json` (structured) or `text`. |
 | `SM_MODULES_ENABLED` | unset (all enabled) | Comma-separated allow-list to disable modules without uninstalling them. |
 | `SM_AUTH_PUBLIC_PATHS` | `[]` | JSON array of anonymous-access path prefixes — a host-level escape hatch. Modules should prefer the `register_public_routes` hook. |
-
 | `SM_REDIS_URL` | unset | Optional. Shared store for the rate limiter (and the background-tasks broker). Unset means per-worker in-process counters. See [request guards](../framework/request-guards.md). |
 
 Request guards (`max_request_body_bytes`, `rate_limit_public`, `rate_limit_authenticated`) are DB-backed host settings read at boot; changing them needs a restart. Multi-tenancy (`multi_tenant`, `tenant_header`) and i18n (`i18n_default_locale`, `i18n_supported_locales`, `i18n_cookie_name`) are **DB-backed host settings** now, not env vars — edit them under `host` at `/admin/settings/`. (`smpy new --tenancy` still writes `SM_MULTI_TENANT=true` into `.env.example` as a scaffold convenience, and tests can override these.)

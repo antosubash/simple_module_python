@@ -96,6 +96,10 @@ Rates read `<count>/<period>` with `second`, `minute`, `hour` or `day`
 (`5/10s` for a multiple). A malformed rate fails at boot rather than silently
 disabling protection.
 
+Without `SM_TRUSTED_PROXY`, every client behind a reverse proxy appears as the
+proxy's address and shares one anonymous bucket. Set it (or raise
+`rate_limit_public`) before putting the host behind a proxy.
+
 ### Per-rule override
 
 ```python
