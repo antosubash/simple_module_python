@@ -147,7 +147,8 @@ class NamespaceRemovalError(RuntimeError):
         super().__init__(
             f"regenerating would drop {detail} — the module(s) are not installed in "
             "this environment. Run `uv sync --all-packages` first, or pass "
-            "--allow-removals if the module was genuinely deleted."
+            "--allow-removals (`make gen-i18n ARGS=--allow-removals`) if the module was "
+            "genuinely deleted."
         )
 
 

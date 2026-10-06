@@ -96,7 +96,7 @@ The shipped `CMD` runs a single Uvicorn worker. Tune worker count with `--worker
 
 ### Migrations on container start
 
-The shipped `CMD` runs `alembic upgrade heads && uvicorn …`. Note **`heads` (plural)**: each module's first migration sets its own `branch_labels`, so once a second module ships one, `upgrade head` (singular) errors out.
+The shipped `CMD` runs `alembic upgrade heads && uvicorn …`. Note **`heads` (plural)**: a history that carries per-module `branch_labels` can end up with several heads, and `upgrade head` (singular) errors out when it does.
 
 That default is right for a single container. Once you run more than one replica, move migrations to a one-shot job instead — see [Running migrations on deploy](#running-migrations-on-deploy).
 
