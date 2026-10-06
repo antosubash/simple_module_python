@@ -28,13 +28,13 @@ from fastapi import HTTPException, Request
 from fastapi_users import exceptions as fu_exceptions
 from pydantic import EmailStr
 from pydantic import ValidationError as PydanticValidationError
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel
 
 from users.bootstrap import create_admin
 from users.manager import UserManager
 from users.models import User
+from users.setup import session_has_administrator
 
 logger = logging.getLogger(__name__)
 
@@ -77,15 +77,6 @@ async def _lock_admin_creation(session: AsyncSession) -> None:
     )
 
 
-async def _has_active_superuser(session: AsyncSession) -> bool:
-    count = await session.scalar(
-        select(func.count())
-        .select_from(User)
-        .where(User.is_superuser.is_(True), User.is_active.is_(True))
-    )
-    return bool(count)
-
-
 def _process_lock(app) -> asyncio.Lock:
     """One in-process lock per app.
 
@@ -113,7 +104,7 @@ async def create_first_administrator(request: Request, data: dict) -> dict:
 
     async with _process_lock(request.app), request.app.state.sm.db.session_factory() as session:
         await _lock_admin_creation(session)
-        if await _has_active_superuser(session):
+        if await session_has_administrator(session):
             await session.rollback()
             raise HTTPException(status_code=409, detail="An administrator already exists.")
         # create_admin commits, which is what releases the database lock —

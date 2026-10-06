@@ -30,8 +30,8 @@ _MIN_PASSWORD_LENGTH = 8
 
 def _admin_action() -> SetupAction:
     """The wizard form that completes the step — see ``users.setup_action``."""
-    # Imported lazily: the handler pulls in the user manager and fastapi-users,
-    # which registering a step at boot has no need for.
+    # Imported lazily: ``users.setup_action`` imports this module for
+    # ``session_has_administrator``, so a top-level import would be circular.
     from users.setup_action import create_first_administrator
 
     return SetupAction(
@@ -79,6 +79,16 @@ def build_admin_step() -> SetupStep:
     )
 
 
+async def session_has_administrator(session) -> bool:
+    """True when *session* sees at least one active superuser."""
+    count = await session.scalar(
+        select(func.count())
+        .select_from(User)
+        .where(User.is_superuser.is_(True), User.is_active.is_(True))
+    )
+    return bool(count)
+
+
 async def has_administrator(app) -> bool:
     """True once at least one active superuser exists.
 
@@ -88,9 +98,4 @@ async def has_administrator(app) -> bool:
     """
     session_factory = app.state.sm.db.session_factory
     async with session_factory() as session:
-        count = await session.scalar(
-            select(func.count())
-            .select_from(User)
-            .where(User.is_superuser.is_(True), User.is_active.is_(True))
-        )
-    return bool(count)
+        return await session_has_administrator(session)
