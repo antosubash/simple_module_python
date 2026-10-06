@@ -76,7 +76,7 @@ async def setup_index(
     # predicate says.
     pending = {s.id for s in await registry.incomplete_all(request.app)}
 
-    return await inertia.render(
+    response = await inertia.render(
         _PAGE_WIZARD,
         {
             "checks": await connection_status(request),
@@ -84,6 +84,10 @@ async def setup_index(
             "csrfToken": get_csrf_token(request),
         },
     )
+    # The document embeds the session's CSRF token and connection diagnostics;
+    # the Inertia payload is already no-store via InertiaCache, the HTML is not.
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @router.post("/test-connections")
