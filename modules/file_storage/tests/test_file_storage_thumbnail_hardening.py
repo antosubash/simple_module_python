@@ -49,6 +49,22 @@ def test_exif_metadata_is_not_carried_over():
         assert not img.getexif()
 
 
+@pytest.mark.parametrize("width", constants.THUMBNAIL_WIDTHS)
+def test_16bit_grayscale_png_renders_at_every_width(width):
+    """``I;16`` cannot be ``reduce()``d; it must render at small widths too."""
+    src = Image.new("I;16", (1200, 600))
+    src.paste(Image.new("I;16", (600, 600), 40000), (0, 0))  # left mid-high, right black
+    buf = io.BytesIO()
+    src.save(buf, format="PNG")
+    out = thumbnails.render(buf.getvalue(), width, "image/png")
+    with Image.open(io.BytesIO(out)) as img:
+        assert img.width == min(width, 1200)
+        left = img.convert("L").getpixel((1, img.height // 2))
+        right = img.convert("L").getpixel((img.width - 2, img.height // 2))
+    assert 140 < left < 175  # 40000 / 256 ≈ 156: scaled, not clipped to white
+    assert right < 10
+
+
 def test_sniffed_format_must_match_declared_type():
     with pytest.raises(thumbnails.UnreadableImageError):
         thumbnails.render(_png(10, 10), 64, "image/jpeg")

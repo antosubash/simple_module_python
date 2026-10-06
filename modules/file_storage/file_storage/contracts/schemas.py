@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, StrictBool
 from sqlmodel import Field, SQLModel
 
 
@@ -36,7 +36,10 @@ class StoredFileOut(SQLModel):
 class StoredFileUpdate(SQLModel):
     """Body for PATCH /api/file-storage/files/{id}."""
 
-    public: bool
+    # Strict: a JSON body says ``true``/``false``. Lax coercion would publish a
+    # file on ``"yes"``, ``"true"`` or ``1`` from a client bug. The upload form
+    # stays lax on purpose — multipart values are always strings.
+    public: StrictBool
 
 
 class BulkDeleteRequest(SQLModel):

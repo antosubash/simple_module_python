@@ -40,6 +40,11 @@ than ``request.state.user``, so it needs nothing Auth provides. It also
 cannot hide SiteLock from an anonymous visitor, because acquiring a demo
 session means POSTing to the demo endpoint, which SiteLock blocks first.
 
+CookielessPublicFilesMiddleware (``file_storage``) keeps the session cookie and
+``Vary: Cookie`` off anonymous public-file reads. Its place among the module
+middlewares does not matter: it clears the session's accessed/modified flags as
+the response starts, so reads by Auth or SiteLock further out are forgotten too.
+
 Maintenance sits after InertiaLayoutData because its 503 page renders
 through Inertia and needs the shared props (auth, menus, i18n) — placed any
 further out it would render bare, with no layout and untranslated copy. It is
@@ -74,6 +79,7 @@ _EXPECTED_MULTI_TENANT = (
     "SessionMiddleware",
     "DemoReadOnlyMiddleware",
     "SiteLockMiddleware",
+    "CookielessPublicFilesMiddleware",
     "AuthMiddleware",
     "TenantMiddleware",
     "LocaleMiddleware",
@@ -92,6 +98,7 @@ _EXPECTED_SINGLE_TENANT = (
     "SessionMiddleware",
     "DemoReadOnlyMiddleware",
     "SiteLockMiddleware",
+    "CookielessPublicFilesMiddleware",
     "AuthMiddleware",
     "LocaleMiddleware",
     "InertiaLayoutDataMiddleware",

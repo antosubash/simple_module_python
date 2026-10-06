@@ -133,3 +133,13 @@ async def test_cross_tenant_public_file_served_but_private_not(app, client):
     await services.backend.put("acme/pub", _gen(), content_type="text/plain", size=1)
     assert (await client.get(f"{API}/public/{ids['pub']}")).status_code == 200
     assert (await client.get(f"{API}/public/{ids['priv']}")).status_code == 404
+
+
+async def test_patch_public_rejects_non_boolean(authenticated_client, client):
+    body = await _upload(authenticated_client)
+    url = f"{API}/files/{body['id']}"
+    for value in ("yes", "true", 1, 0, None):
+        resp = await authenticated_client.patch(url, json={"public": value})
+        assert resp.status_code == 422, (value, resp.text)
+    assert (await authenticated_client.get(url)).json()["public"] is False
+    assert (await client.get(f"{API}/public/{body['id']}")).status_code == 404

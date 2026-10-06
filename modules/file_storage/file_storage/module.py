@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib.resources
 import logging
-import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -104,8 +103,15 @@ class FileStorageModule(ModuleBase):
         uploads, deletes and the authenticated download keep requiring a
         session. The handler itself still refuses anything not ``public``.
         """
-        base = re.escape(f"{constants.ROUTE_PREFIX_API}{constants.PUBLIC_SEGMENT}")
-        registry.add_regex(rf"{base}/[^/]+(/[^/]+)?$", methods={"GET"})
+        from file_storage.cookieless import PUBLIC_PATH_PATTERN
+
+        registry.add_regex(PUBLIC_PATH_PATTERN, methods={"GET"})
+
+    def register_middleware(self, app: FastAPI) -> None:
+        """Serve public files without a session cookie or ``Vary: Cookie``."""
+        from file_storage.cookieless import CookielessPublicFilesMiddleware
+
+        app.add_middleware(CookielessPublicFilesMiddleware)
 
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
         """Name file rows in the audit log, and tag them with their table.

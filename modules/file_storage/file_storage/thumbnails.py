@@ -109,7 +109,7 @@ def render(data: bytes, width: int, content_type: str | None = None) -> bytes:
                 raise UnreadableImageError("image exceeds the pixel budget")
             img.seek(0)  # first frame only
             img.draft("RGB", (width * 2, width * 2))  # cheap JPEG downscale on decode
-            frame = ImageOps.exif_transpose(img)
+            frame = _to_8bit(ImageOps.exif_transpose(img))
             frame.thumbnail((width, width * 64), Image.Resampling.LANCZOS)
             mode = "RGBA" if frame.mode in ("RGBA", "LA", "PA", "P") else "RGB"
             out = io.BytesIO()
@@ -126,6 +126,23 @@ def render(data: bytes, width: int, content_type: str | None = None) -> bytes:
         Image.DecompressionBombError,
     ) as exc:
         raise UnreadableImageError(str(exc)) from exc
+
+
+_WIDE_GRAY_MODES = frozenset({"I", "I;16", "I;16B", "I;16L", "I;16N"})
+
+
+def _to_8bit(frame: Image.Image) -> Image.Image:
+    """Map 16/32-bit grayscale (a 16-bit PNG opens as ``I;16``) onto 8-bit ``L``.
+
+    Pillow cannot ``reduce()`` these modes, which ``thumbnail`` uses for large
+    downscales, so a valid 16-bit PNG would render at some widths and fail at
+    others. Scaled by 1/256 rather than clipped, so a 16-bit image keeps its
+    tones instead of turning almost entirely white. Runs after the pixel-budget
+    check, so the wider intermediate is bounded like every other decode.
+    """
+    if frame.mode not in _WIDE_GRAY_MODES:
+        return frame
+    return frame.convert("I").point(lambda v: v * (1 / 256)).convert("L")
 
 
 async def _read_all(backend: StorageBackend, key: str, *, limit: int | None = None) -> bytes:
