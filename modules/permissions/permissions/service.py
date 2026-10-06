@@ -120,7 +120,9 @@ class PermissionService:
         # `map_role` is additive — reset the entry so removals apply without a restart.
         # No public replace API on PermissionRegistry yet.
         self.registry._role_map.pop(role.name, None)
-        self.registry.map_role(role.name, sorted(wanted))
+        # Keep unregistered-but-stored grants in memory too, so they are live again
+        # the moment their source repopulates.
+        self.registry.map_role(role.name, sorted(wanted | (existing - self._registered_keys())))
 
         return RolePermissionsOut(role=role, permissions=sorted(wanted))
 

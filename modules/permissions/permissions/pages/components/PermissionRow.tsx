@@ -1,6 +1,7 @@
 import { keys, useT } from '@simple-module-py/i18n';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Switch } from '@simple-module-py/ui/components/ui/switch';
+import { PermissionLabel } from './PermissionLabel';
 
 interface Props {
   permissionKey: string;
@@ -54,14 +55,12 @@ export function PermissionRow({
       {/* Wrapping beats truncating on a phone: a permission key is read from
           the right — `settings.create`, `settings.delete` — so cutting the end
           off removes the half that tells them apart. */}
-      <code
-        title={label ? permissionKey : undefined}
-        className={`min-w-0 flex-1 break-all font-mono text-[12px] sm:truncate ${
-          effective ? 'text-foreground' : 'text-muted-foreground'
-        }`}
-      >
-        {label ?? permissionKey}
-      </code>
+      <PermissionLabel
+        permissionKey={permissionKey}
+        label={label}
+        dimmed={!effective}
+        className="flex-1"
+      />
 
       {direct && (
         <Badge className="shrink-0 border-0 bg-primary-600/10 px-2 py-0 text-[11px] font-medium text-primary-700">

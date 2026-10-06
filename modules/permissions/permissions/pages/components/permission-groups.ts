@@ -80,6 +80,24 @@ export function filterGroups(
   return result;
 }
 
+const MAX_LABEL_LENGTH = 80;
+
+/**
+ * A source-supplied label, made safe to show beside a key: trimmed, capped, and
+ * undefined when nothing is left. The key is always rendered too, so a label can
+ * never stand in for the permission it describes.
+ */
+export function cleanLabel(raw: string | undefined): string | undefined {
+  const trimmed = raw?.trim();
+  if (!trimmed) return undefined;
+  return trimmed.length > MAX_LABEL_LENGTH ? `${trimmed.slice(0, MAX_LABEL_LENGTH)}…` : trimmed;
+}
+
+/** Accessible name for a permission control: the key is always part of it. */
+export function permissionAriaLabel(key: string, label: string | undefined): string {
+  return label ? `${label} (${key})` : key;
+}
+
 /**
  * Index at which the last row of a two-column grid starts, so every earlier
  * row gets a bottom border and the last one does not.
