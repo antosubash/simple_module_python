@@ -15,8 +15,8 @@ Policy:
 * every other request is untouched.
 
 Counting goes to Redis (``SM_REDIS_URL``, atomic Lua INCR + PEXPIRE) so all
-workers share one budget; with no Redis, or if Redis fails, it fails open to
-per-process counters / no limit — the limiter must never take requests down.
+workers share one budget; with no Redis, or while Redis is failing, it counts in
+per-process counters — the limiter must never take requests down.
 """
 
 from __future__ import annotations
@@ -49,16 +49,23 @@ _BACKOFF = 5.0
 
 _LUA = """
 local c = redis.call('INCR', KEYS[1])
-if c == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
-return {c, redis.call('PTTL', KEYS[1])}
+local t = redis.call('PTTL', KEYS[1])
+-- t < 0 heals a counter that somehow lost its TTL, which would block that IP forever.
+if c == 1 or t < 0 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+  t = tonumber(ARGV[1])
+end
+return {c, t}
 """
 
 
 class RedisWindowStore:
     """Fixed-window counters in Redis; shared across workers and processes.
 
-    Fails open: any Redis error is logged (rate-limited) and the request is
-    allowed, so an outage degrades to "no limit" rather than "no site".
+    Never takes requests down: on a Redis error the hit is counted in a per-process
+    fallback store instead (bounded, weaker than the shared budget but not "no
+    limit"), and Redis is re-probed after ``_BACKOFF`` seconds, so recovery is
+    automatic and nothing latches.
     """
 
     def __init__(self, client: Any, *, clock=time.monotonic) -> None:
@@ -66,6 +73,7 @@ class RedisWindowStore:
         self._clock = clock
         self._last_warn = float("-inf")
         self._down_until = float("-inf")
+        self._fallback = InProcessWindowStore()
 
     @classmethod
     def from_url(cls, url: str) -> RedisWindowStore:
@@ -78,7 +86,7 @@ class RedisWindowStore:
 
     async def hit(self, key: str, spec: RateSpec) -> WindowResult:
         if self._clock() < self._down_until:
-            return WindowResult(allowed=True, retry_after=0, count=0)
+            return await self._fallback.hit(key, spec)
         try:
             count, pttl = await self._client.eval(_LUA, 1, _KEY_PREFIX + key, spec.period * 1000)
         except Exception as exc:
@@ -86,8 +94,10 @@ class RedisWindowStore:
             self._down_until = now + _BACKOFF
             if now - self._last_warn >= _WARN_EVERY:
                 self._last_warn = now
-                logger.warning("Rate limiter Redis unavailable (%s); failing open", exc)
-            return WindowResult(allowed=True, retry_after=0, count=0)
+                logger.warning(
+                    "Rate limiter Redis unavailable (%s); using per-worker counters", exc
+                )
+            return await self._fallback.hit(key, spec)
         retry = max(1, -(-int(pttl) // 1000)) if int(pttl) > 0 else spec.period
         return WindowResult(allowed=int(count) <= spec.limit, retry_after=retry, count=int(count))
 

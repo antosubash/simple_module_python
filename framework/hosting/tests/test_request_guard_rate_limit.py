@@ -223,13 +223,14 @@ class TestRedisStore:
         result = await store.hit("k", RateSpec(1, 30))
         assert result.retry_after == 30
 
-    async def test_redis_down_fails_open_with_warning(self, caplog) -> None:
+    async def test_redis_down_falls_back_to_per_worker_limit(self, caplog) -> None:
         app = _build(_public(), store=RedisWindowStore(_DeadRedis()))
         with caplog.at_level("WARNING", logger="simple_module.request_guard"):
             async with _client(app) as c:
-                for _ in range(10):
-                    assert (await c.get("/api/pub/thing")).status_code == 200
-        warnings = [r for r in caplog.records if "failing open" in r.getMessage()]
+                codes = [(await c.get("/api/pub/thing")).status_code for _ in range(10)]
+        assert codes[:3] == [200, 200, 200]  # an outage must not take the site down...
+        assert set(codes[3:]) == {429}  # ...nor silently remove the limit
+        warnings = [r for r in caplog.records if "per-worker counters" in r.getMessage()]
         assert len(warnings) == 1  # throttled, not one per request
 
     async def test_redis_down_backs_off_instead_of_retrying_each_request(self) -> None:
@@ -237,11 +238,38 @@ class TestRedisStore:
         now = [100.0]
         store = RedisWindowStore(_DeadRedis(), clock=lambda: now[0])
         for _ in range(20):
-            assert (await store.hit("k", RateSpec(1, 60))).allowed
+            await store.hit("k", RateSpec(1, 60))
         assert _DeadRedis.calls == 1
         now[0] += 6  # backoff elapsed: Redis is probed again
         await store.hit("k", RateSpec(1, 60))
         assert _DeadRedis.calls == 2
+
+    async def test_redis_recovers_and_limits_apply_again(self) -> None:
+        class _Flaky(_FakeRedis):
+            down = True
+
+            async def eval(self, *a, **k):
+                if self.down:
+                    raise ConnectionError("redis down")
+                return await super().eval(*a, **k)
+
+        now = [100.0]
+        redis = _Flaky()
+        store = RedisWindowStore(redis, clock=lambda: now[0])
+        spec = RateSpec(2, 60)
+        await store.hit("k", spec)  # outage: served by the per-worker fallback
+        assert redis.calls == 0
+        redis.down = False
+        now[0] += 6  # backoff elapsed: Redis is the source of truth again
+        results = [await store.hit("k", spec) for _ in range(3)]
+        assert [r.allowed for r in results] == [True, True, False]
+        assert redis.calls == 3
+
+    def test_script_heals_a_counter_without_ttl(self) -> None:
+        from simple_module_hosting._rate_limit import _LUA
+
+        # A key that lost its TTL would block that IP forever; the script re-arms it.
+        assert "t < 0" in _LUA and "PEXPIRE" in _LUA
 
 
 class TestWiredIntoApp:

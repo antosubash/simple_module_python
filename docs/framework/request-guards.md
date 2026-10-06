@@ -117,9 +117,11 @@ def register_public_routes(self, registry) -> None:
   a stalled Redis from hanging requests.
 - **In process** otherwise: counters live in one worker, so with N workers the
   effective limit is up to N times the configured rate.
-- **Fail open.** If Redis errors (down, timeout), the request is allowed and a
-  warning is logged (at most once a minute). The limiter never takes requests
-  down.
+- **Degrades, never latches.** If Redis errors (down, timeout), hits are counted
+  in per-worker counters instead (so the limit is weaker, not gone), a warning is
+  logged (at most once a minute), and Redis is probed again after 5 seconds, so
+  recovery is automatic. The script also re-arms a counter that lost its TTL, so
+  no key can block an IP permanently. The limiter never takes requests down.
 
 ### Response shape
 
