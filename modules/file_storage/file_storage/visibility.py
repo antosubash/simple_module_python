@@ -8,6 +8,8 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
+from simple_module_db import finalize_session
+from simple_module_db.listeners import SESSION_HAS_WRITES_KEY
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,7 +63,31 @@ class FileStoragePublic:
         return row
 
     async def thumbnail(self, row: StoredFile, width: int) -> bytes:
-        """Cached variant of ``row`` at an already-snapped ``width``."""
+        """Cached variant of ``row`` at an already-snapped ``width``.
+
+        A cold variant means reading the original, waiting for a decode slot
+        and decoding — seconds, not milliseconds. The request's DB connection
+        is handed back first so a burst of cold (possibly anonymous) requests
+        cannot pin the whole pool on work that needs no database.
+        """
+        key, content_type = row.key, row.content_type
+        await self._release_connection(row)
         return await thumbnails.get_or_create(
-            self.backend, key=row.key, content_type=row.content_type, width=width
+            self.backend, key=key, content_type=content_type, width=width
         )
+
+    async def _release_connection(self, row: StoredFile) -> None:
+        """End a read-only request transaction early, returning its connection.
+
+        ``row`` is detached first so its loaded attributes stay readable — the
+        rollback would otherwise expire it and the next access would try lazy
+        IO. A session holding writes is left alone: those commit (or roll back)
+        with the request as usual. ``finalize_session`` is re-armable, so any
+        later work in the request still opens a fresh transaction and commits.
+        """
+        db = self.db
+        if db.info.get(SESSION_HAS_WRITES_KEY) or db.new or db.dirty or db.deleted:
+            return
+        if row in db:
+            db.expunge(row)
+        await finalize_session(db)

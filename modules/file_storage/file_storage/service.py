@@ -235,8 +235,11 @@ class FileStorageService(FileStoragePublic, FileStorageReads):
             # no row left pointing at them. A failure here is a janitor's
             # problem, not the caller's.
             try:
-                await self.backend.delete(row.key)
-                await thumbnails.delete_variants(self.backend, row.key)
+                try:
+                    await self.backend.delete(row.key)
+                finally:
+                    # Variants go even when the original's delete fails.
+                    await thumbnails.delete_variants(self.backend, row.key)
             except StorageNotFoundError:
                 # Acceptably absent — eg. a previous delete partially succeeded.
                 pass
@@ -258,10 +261,14 @@ class FileStorageService(FileStoragePublic, FileStorageReads):
             row.is_deleted = True
             row.deleted_at = datetime.now(UTC)
             await self.db.flush()
-        # Object is acceptably absent — eg. a previous delete partially succeeded.
-        with contextlib.suppress(StorageNotFoundError):
-            await self.backend.delete(row.key)
-        await thumbnails.delete_variants(self.backend, row.key)
+        try:
+            # Object is acceptably absent — eg. a previous delete partially succeeded.
+            with contextlib.suppress(StorageNotFoundError):
+                await self.backend.delete(row.key)
+        finally:
+            # A failed original delete still raises, but must not orphan the
+            # variants (``delete_variants`` itself never raises).
+            await thumbnails.delete_variants(self.backend, row.key)
         return row
 
 
