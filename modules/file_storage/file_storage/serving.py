@@ -9,6 +9,7 @@ from fastapi import HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse, StreamingResponse
 
 from file_storage import constants, thumbnails
+from file_storage.contracts.service import StorageNotFoundError
 from file_storage.models import StoredFile
 from file_storage.service import FileStorageService
 
@@ -47,7 +48,9 @@ def is_active_content(content_type: str) -> bool:
 
 
 def content_disposition(filename: str, *, attachment: bool) -> str:
-    ascii_name = filename.encode("ascii", "ignore").decode().replace('"', "").replace("\\", "")
+    ascii_name = "".join(
+        c for c in filename.encode("ascii", "ignore").decode() if c.isprintable() and c not in '"\\'
+    )
     kind = "attachment" if attachment else "inline"
     return f"{kind}; filename=\"{ascii_name or 'file'}\"; filename*=UTF-8''{quote(filename)}"
 
@@ -73,7 +76,8 @@ async def thumbnail_response(
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
     try:
         data = await service.thumbnail(row, snapped)
-    except thumbnails.NotAnImageError as exc:
+    except (thumbnails.NotAnImageError, StorageNotFoundError) as exc:
+        # A row whose object is gone is a miss, not a server error.
         raise not_found(t) from exc
     except thumbnails.UnreadableImageError as exc:
         raise HTTPException(
@@ -87,7 +91,7 @@ async def thumbnail_response(
 
 
 async def public_file_response(
-    service: FileStorageService, row: StoredFile, request: Request
+    service: FileStorageService, row: StoredFile, request: Request, t
 ) -> Response:
     """Serve a file already authorised as public.
 
@@ -114,7 +118,10 @@ async def public_file_response(
             headers={**headers, "Cache-Control": f"public, max-age={redirect_age}"},
         )
 
-    body = await service.backend.get(row.key)
+    try:
+        body = await service.backend.get(row.key)
+    except StorageNotFoundError as exc:
+        raise not_found(t) from exc
     return StreamingResponse(
         body,
         media_type=row.content_type,

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import struct
 import weakref
 from typing import TYPE_CHECKING
 
@@ -116,7 +117,14 @@ def render(data: bytes, width: int, content_type: str | None = None) -> bytes:
             return out.getvalue()
     except UnreadableImageError:
         raise
-    except (OSError, ValueError, EOFError, Image.DecompressionBombError) as exc:
+    except (
+        OSError,
+        ValueError,
+        EOFError,
+        SyntaxError,  # Pillow raises this for some malformed PNG/ICO chunks
+        struct.error,
+        Image.DecompressionBombError,
+    ) as exc:
         raise UnreadableImageError(str(exc)) from exc
 
 

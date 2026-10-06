@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -49,9 +51,19 @@ class FilesystemBackend:
     ) -> None:
         path = self._resolve(key)
         path.parent.mkdir(parents=True, exist_ok=True)
-        async with aiofiles.open(path, "wb") as fh:
-            async for chunk in stream:
-                await fh.write(chunk)
+        # Write beside the target and rename into place: a concurrent ``get`` (a
+        # thumbnail cache hit mid-generation) must never see a half-written
+        # object, and a crash must not leave a truncated one behind.
+        tmp = path.with_name(f"{path.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            async with aiofiles.open(tmp, "wb") as fh:
+                async for chunk in stream:
+                    await fh.write(chunk)
+            tmp.replace(path)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                tmp.unlink(missing_ok=True)
+            raise
 
     async def get(self, key: str) -> AsyncIterator[bytes]:
         path = self._resolve(key)

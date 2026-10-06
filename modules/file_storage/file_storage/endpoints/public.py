@@ -57,4 +57,4 @@ async def public_file(
     service: FileStorageService = Depends(get_file_storage_service),
 ) -> Response:
     row = await _public_row(service, file_id, t)
-    return await public_file_response(service, row, request)
+    return await public_file_response(service, row, request, t)

@@ -159,7 +159,9 @@ async def content_type_facets(db: AsyncSession, *, created_by: str | None = None
 def public_url_for(file_id: object, filename: str) -> str:
     """The anonymous URL of a public file, with its name as a trailing segment."""
     name = quote(filename, safe="")
-    return f"{constants.ROUTE_PREFIX_API}{constants.PUBLIC_SEGMENT}/{file_id}/{name}"
+    base = f"{constants.ROUTE_PREFIX_API}{constants.PUBLIC_SEGMENT}/{file_id}"
+    # "thumbnail" as a trailing segment is the thumbnail route, not a filename.
+    return base if name.lower() == "thumbnail" else f"{base}/{name}"
 
 
 def to_out_dict(row: StoredFile) -> dict:
