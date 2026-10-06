@@ -29,6 +29,7 @@ from sqlalchemy.schema import SchemaItem
 
 from simple_module_db.base import all_module_bases
 from simple_module_db.migration_portability import (
+    iter_ops_recursive,
     render_boolean_default,
     rewrite_boolean_defaults,
     warn_unverifiable_expression_indexes,
@@ -170,12 +171,10 @@ def make_process_revision_directives(
             upgrade_ops = getattr(script, "upgrade_ops", None)
             if upgrade_ops is not None:
                 rewrite_boolean_defaults(upgrade_ops)
-            if not expression_indexes:
-                continue
-            if upgrade_ops is not None:
-                _inject_create_index_after_create_table(upgrade_ops, expression_indexes)
+                if expression_indexes:
+                    _inject_create_index_after_create_table(upgrade_ops, expression_indexes)
             downgrade_ops = getattr(script, "downgrade_ops", None)
-            if downgrade_ops is not None:
+            if downgrade_ops is not None and expression_indexes:
                 _inject_drop_index_before_drop_table(downgrade_ops, expression_indexes)
 
     return process_revision_directives
@@ -186,28 +185,11 @@ def _index_is_expression_based(index: Index) -> bool:
     return any(not isinstance(expr, Column) for expr in index.expressions)
 
 
-def _iter_ops_recursive(container):
-    """Yield every op under ``container``, descending into nested op groups.
-
-    Autogenerate does not emit a flat op list: index operations for a table are
-    grouped inside a ``ModifyTableOps`` container alongside the top-level
-    ``CreateTableOp``/``DropTableOp``. A dedup check that only looks at
-    ``container.ops`` therefore sees no ``CreateIndexOp`` at all and re-injects
-    an index the dialect already emitted — which is exactly how a dialect that
-    *can* reflect expression-based indexes (PostgreSQL) ended up with a
-    duplicate ``CREATE INDEX`` in its initial migration.
-    """
-    for op in container.ops:
-        yield op
-        if hasattr(op, "ops"):
-            yield from _iter_ops_recursive(op)
-
-
 def _existing_index_names(container, op_type) -> set[str | None]:
     """Names of every ``op_type`` index op already present anywhere under ``container``."""
     return {
         getattr(op, "index_name", None)
-        for op in _iter_ops_recursive(container)
+        for op in iter_ops_recursive(container)
         if isinstance(op, op_type)
     }
 
@@ -265,7 +247,7 @@ def render_item(type_, obj, autogen_context):
     Pass to :func:`alembic.context.configure` as ``render_item=render_item``.
     """
     if type_ == "server_default":
-        return render_boolean_default(type_, obj, autogen_context)
+        return render_boolean_default(obj, autogen_context)
     if type_ != "type":
         return False
     cls_name = type(obj).__name__

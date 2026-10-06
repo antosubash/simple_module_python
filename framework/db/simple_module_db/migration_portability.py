@@ -57,15 +57,13 @@ def boolean_default_for(default: Any) -> ColumnElement[bool] | None:
     return None
 
 
-def render_boolean_default(type_: str, obj: Any, autogen_context: Any) -> str | bool:
+def render_boolean_default(obj: Any, autogen_context: Any) -> str | bool:
     """``render_item`` branch: render ``true()``/``false()`` defaults as such.
 
     SQLAlchemy compiles ``false()`` under SQLite to ``0``, which Alembic then
     renders as ``sa.text('0')``. Intercepting the ``server_default`` item keeps
     the portable expression the model declared.
     """
-    if type_ != "server_default":
-        return False
     arg = obj.arg if isinstance(obj, DefaultClause) else obj
     if not isinstance(arg, (True_, False_)):
         return False
@@ -73,21 +71,30 @@ def render_boolean_default(type_: str, obj: Any, autogen_context: Any) -> str | 
     return f"{prefix}{'true' if isinstance(arg, True_) else 'false'}()"
 
 
-def _iter_ops(container: Any) -> Iterator[Any]:
+def iter_ops_recursive(container: Any) -> Iterator[Any]:
+    """Yield every op under ``container``, descending into nested op groups.
+
+    Autogenerate does not emit a flat op list: index operations for a table are
+    grouped inside a ``ModifyTableOps`` container alongside the top-level
+    ``CreateTableOp``/``DropTableOp``. A dedup check that only looks at
+    ``container.ops`` therefore sees no ``CreateIndexOp`` at all and re-injects
+    an index the dialect already emitted — which is exactly how a dialect that
+    *can* reflect expression-based indexes (PostgreSQL) ended up with a
+    duplicate ``CREATE INDEX`` in its initial migration.
+    """
     for op in container.ops:
         yield op
         if hasattr(op, "ops"):
-            yield from _iter_ops(op)
+            yield from iter_ops_recursive(op)
 
 
-def rewrite_boolean_defaults(upgrade_ops: Any) -> int:
+def rewrite_boolean_defaults(upgrade_ops: Any) -> None:
     """Rewrite integer-looking defaults on Boolean columns in a revision's op tree.
 
     Covers columns of ``create_table``, ``add_column`` and ``alter_column``
-    (the latter via ``existing_type``). Returns the number rewritten.
+    (the latter via ``existing_type``).
     """
-    changed = 0
-    for op in _iter_ops(upgrade_ops):
+    for op in iter_ops_recursive(upgrade_ops):
         if isinstance(op, CreateTableOp):
             columns = [c for c in op.columns if isinstance(c, sa.Column)]
         elif isinstance(op, AddColumnOp):
@@ -98,7 +105,6 @@ def rewrite_boolean_defaults(upgrade_ops: Any) -> int:
                 replacement = boolean_default_for(op.modify_server_default)
             if replacement is not None:
                 op.modify_server_default = replacement
-                changed += 1
             continue
         else:
             continue
@@ -108,8 +114,6 @@ def rewrite_boolean_defaults(upgrade_ops: Any) -> int:
             replacement = boolean_default_for(column.server_default)
             if replacement is not None:
                 column.server_default = DefaultClause(replacement)
-                changed += 1
-    return changed
 
 
 def warn_unverifiable_expression_indexes(dialect_name: str | None, metadata: sa.MetaData) -> list:
