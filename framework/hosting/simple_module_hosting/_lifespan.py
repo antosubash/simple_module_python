@@ -13,6 +13,7 @@ can still reach the database.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncGenerator, Callable, Sequence
 from contextlib import asynccontextmanager
 
@@ -20,6 +21,8 @@ from fastapi import FastAPI
 
 from simple_module_hosting.migrations import migration_status
 from simple_module_hosting.setup_gate import STEP_MIGRATIONS
+
+logger = logging.getLogger(__name__)
 
 
 async def hydrate_settings_from_db(app: FastAPI) -> None:
@@ -98,6 +101,17 @@ async def _is_first_run(app: FastAPI) -> bool:
     return False
 
 
+async def run_deferred_startup(app: FastAPI) -> None:
+    """Replay the ``on_startup`` hooks that could not run on an unmigrated DB."""
+    deferred = getattr(app.state, "deferred_startup", [])
+    if not deferred:
+        return
+    await hydrate_settings_from_db(app)
+    while deferred:
+        await deferred[0].on_startup(app)
+        deferred.pop(0)
+
+
 def build_lifespan(modules: Sequence) -> Callable:
     """Return the ``lifespan`` context manager for an app over *modules*."""
 
@@ -120,8 +134,25 @@ def build_lifespan(modules: Sequence) -> Callable:
 
         await hydrate_settings_from_db(app)
 
+        # Behind head on a first run the tables a module's on_startup reads do
+        # not exist yet. Boot must still reach the wizard, so a hook that fails
+        # here is deferred and replayed once the wizard has applied the
+        # migrations (run_deferred_startup) rather than aborting the process.
+        app.state.deferred_startup = []
+        tolerate = not app.state.migration["is_current"]
         for mod in modules:
-            await mod.on_startup(app)
+            try:
+                await mod.on_startup(app)
+            except Exception:
+                if not tolerate:
+                    raise
+                logger.warning(
+                    "on_startup of %s failed on an unmigrated database; "
+                    "deferring it until the setup wizard has run the migrations",
+                    mod.meta.name,
+                    exc_info=True,
+                )
+                app.state.deferred_startup.append(mod)
         yield
         for mod in reversed(modules):
             await mod.on_shutdown(app)
