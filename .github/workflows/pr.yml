@@ -37,6 +37,13 @@ jobs:
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
       - run: make install-py
       - run: make ci-python-lint
+      # The checked-in typed-key files must match what the installed modules'
+      # catalogs emit. Catches a catalog edit committed without regenerating, and
+      # (with the namespace guard in gen_i18n.py) a regeneration that dropped keys.
+      - name: i18n generated files are up to date
+        run: |
+          uv run --project host python scripts/gen_i18n.py
+          git diff --exit-code packages/i18n/src/
 
   python-typecheck:
     name: Python typecheck

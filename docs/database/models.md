@@ -170,4 +170,4 @@ Do not re-enable these rules in module-local configs. Real bugs caused by wrong 
 - [Per-module Base](/database/per-module-base) — how `create_module_base` and `build_module_metadata` work.
 - [Mixins](/database/mixins) — `AuditMixin`, `SoftDeleteMixin`, `MultiTenantMixin`, `VersionedMixin`.
 - [Session lifecycle](/database/sessions) — the `get_db` dependency and why you don't call `commit()`.
-- [Migrations](/database/migrations) — Alembic autogenerate and per-module branch labels.
+- [Migrations](/database/migrations) — Alembic autogenerate and branch labels (named revision targets).
