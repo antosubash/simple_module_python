@@ -112,10 +112,9 @@ class PermissionService:
         )
         await self.db.flush()
 
-        # `map_role` is additive — reset the role entry so removals take effect
-        # without a restart. No public replace API on PermissionRegistry yet.
-        self.registry._role_map.pop(role.name, None)
-        self.registry.map_role(role.name, sorted(wanted))
+        # Replace only the DB overlay: code-registered mappings stay in effect
+        # and removed DB keys drop immediately, without a restart.
+        self.registry.set_role_overlay(role.name, wanted)
 
         return RolePermissionsOut(role=role, permissions=sorted(wanted))
 
@@ -273,7 +272,7 @@ class PermissionService:
         for name, key in result.all():
             by_role.setdefault(name, []).append(key)
         for name, keys in by_role.items():
-            self.registry.map_role(name, keys)
+            self.registry.set_role_overlay(name, keys)
 
     async def sync_admin_all_permissions(self, assigned_by: str | None = None) -> None:
         """Ensure the admin role holds every registered permission key.
@@ -295,4 +294,4 @@ class PermissionService:
             for key in missing
         )
         await self.db.flush()
-        self.registry.map_role(ADMIN_ROLE_NAME, sorted(registered))
+        self.registry.set_role_overlay(ADMIN_ROLE_NAME, registered)

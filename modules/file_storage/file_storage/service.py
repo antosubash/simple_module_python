@@ -243,7 +243,15 @@ class FileStorageService(FileStorageReads):
                 )
         return rows
 
-    async def delete(self, file_id: uuid.UUID, *, platform: bool = False) -> StoredFile:
+    async def delete(
+        self, file_id: uuid.UUID, *, platform: bool = False, drop_object: bool = True
+    ) -> StoredFile:
+        """Soft-delete the row and (by default) drop the backend object.
+
+        ``drop_object=False`` only flushes the soft-delete: a caller that must
+        commit first (so a failed commit never leaves a live row with no bytes)
+        then calls :meth:`drop_object` with the returned row.
+        """
         # One scope around read + write: its opening flush runs before the
         # platform row is touched, so the guard never sees that change.
         async with platform_scope(self.db, platform):
@@ -253,10 +261,15 @@ class FileStorageService(FileStorageReads):
             row.is_deleted = True
             row.deleted_at = datetime.now(UTC)
             await self.db.flush()
-        # Object is acceptably absent — eg. a previous delete partially succeeded.
+        if drop_object:
+            await self.drop_object(row)
+        return row
+
+    async def drop_object(self, row: StoredFile) -> None:
+        """Delete ``row``'s backend object; an already-absent object is fine."""
+        # Acceptably absent — eg. a previous delete partially succeeded.
         with contextlib.suppress(StorageNotFoundError):
             await self.backend.delete(row.key)
-        return row
 
 
 def _generate_key(tenant_id: str, filename: str) -> str:

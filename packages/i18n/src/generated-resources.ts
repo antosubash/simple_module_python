@@ -889,6 +889,7 @@ export default {
     'ui.sidebar.back': '',
     'ui.sidebar.close': '',
     'ui.sidebar.open': '',
+    'ui.sidebar.skip_to_content': '',
     'ui.switcher.label': '',
     'ui.switcher.single_locale': '',
     'ui.topbar.log_out': '',
