@@ -25,7 +25,7 @@ an app that has neither — the same rule ``authenticated_client`` follows.
 from __future__ import annotations
 
 import uuid
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncGenerator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from typing import Any, NamedTuple
 
@@ -83,7 +83,7 @@ async def _join(app: Any, user_id: str, email: str, role: TenantRole, tenant_id:
 
 
 @asynccontextmanager
-async def session_client(app: Any, data: dict[str, Any]) -> AsyncIterator[httpx.AsyncClient]:
+async def session_client(app: Any, data: dict[str, Any]) -> AsyncGenerator[httpx.AsyncClient]:
     """An ``httpx`` client for ``app`` whose signed session cookie holds ``data``."""
     cookie = forge_session_cookie(app.state.sm.settings.secret_key, data)
     async with httpx.AsyncClient(
@@ -110,7 +110,7 @@ def tenant_client(app: Any) -> Callable[..., AbstractAsyncContextManager[TenantC
         *,
         tenant_id: str | None = None,
         email: str | None = None,
-    ) -> AsyncIterator[TenantClient]:
+    ) -> AsyncGenerator[TenantClient]:
         member_role = TenantRole(role)
         email = email or f"{member_role}-{uuid.uuid4().hex[:8]}@example.com"
         user_id = await create_user(app, email)
