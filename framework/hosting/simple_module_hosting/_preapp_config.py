@@ -48,7 +48,7 @@ def _settings_table() -> tuple[str, str, str] | None:
     """Resolve the settings module's table name and system-scope markers.
 
     Resolved through ``importlib`` rather than a static import for the same
-    reason as ``_phase_helpers.register_host_settings``: the SM009 coupling
+    reason as ``_settings_registration.register_host_settings``: the SM009 coupling
     check is AST-based and forbids ``framework/*`` from naming a plugin
     package. Returns ``None`` when the settings module isn't installed, which
     makes the whole pre-app read a no-op rather than an error.

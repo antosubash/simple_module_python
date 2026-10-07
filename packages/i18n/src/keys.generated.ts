@@ -562,6 +562,8 @@ export const keys = {
       maintenance_title: 'host.error.maintenance_title',
       not_found_description: 'host.error.not_found_description',
       not_found_title: 'host.error.not_found_title',
+      payload_too_large_description: 'host.error.payload_too_large_description',
+      payload_too_large_title: 'host.error.payload_too_large_title',
       rate_limited_description: 'host.error.rate_limited_description',
       rate_limited_title: 'host.error.rate_limited_title',
       retry: 'host.error.retry',

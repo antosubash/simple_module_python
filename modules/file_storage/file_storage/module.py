@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
+from simple_module_core.body_limits import BodyLimitRegistry
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
@@ -150,6 +151,19 @@ class FileStorageModule(ModuleBase):
                 group="Content",
                 group_key="ui.nav_groups.content",
             )
+        )
+
+    def register_body_limits(self, registry: BodyLimitRegistry) -> None:
+        # The upload is multipart and its own ceiling (``max_file_size_bytes``,
+        # a runtime setting, 100 MB by default) is far above the host's global
+        # body guard. Track it, plus headroom for the multipart framing.
+        registry.add_exact(
+            constants.ROUTE_PREFIX_API + constants.PATH_UPLOAD,
+            lambda app: (
+                app.state.file_storage.settings.max_file_size_bytes
+                + constants.MULTIPART_OVERHEAD_BYTES
+            ),
+            methods={"POST"},
         )
 
     def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
