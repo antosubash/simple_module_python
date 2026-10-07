@@ -7,6 +7,10 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from simple_module_core.diagnostics._expression_index import (
+    check_expression_indexes_unverifiable,
+    module_all_tables,
+)
 from simple_module_core.diagnostics._migration import MigrationDiagnostics
 from simple_module_core.diagnostics._module import ModuleDiagnostics
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
@@ -26,6 +30,7 @@ def run_diagnostics(
     i18n_supported_locales: list[str] | None = None,
     i18n_default_locale: str | None = None,
     i18n_extra_sources: list[tuple[str, str, Path]] | None = None,
+    database_dialect: str | None = None,
 ) -> list[Diagnostic]:
     """Convenience function to run all diagnostics.
 
@@ -35,8 +40,18 @@ def run_diagnostics(
     whatever locale files are on disk instead of skipping them entirely (see
     :class:`I18nDiagnostics`). ``i18n_extra_sources`` lets callers include
     host/ui locale dirs that aren't owned by a ``ModuleBase``.
+    ``database_dialect`` (``"sqlite"``, ``"postgresql"``...) enables SM026, which
+    flags expression indexes a SQLite database cannot verify.
     """
     diagnostics = ModuleDiagnostics().run(modules)
+
+    if database_dialect is not None:
+        for mod in modules:
+            diagnostics.extend(
+                check_expression_indexes_unverifiable(
+                    module_all_tables(mod), database_dialect, mod.meta.name
+                )
+            )
 
     if i18n_default_locale:
         from simple_module_core.diagnostics._i18n import I18nDiagnostics

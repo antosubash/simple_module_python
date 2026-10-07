@@ -23,11 +23,18 @@ from typing import Literal
 import sqlalchemy as sa
 from alembic.operations.ops import CreateIndexOp, CreateTableOp, DropIndexOp, DropTableOp
 from simple_module_core import ModuleBase
+from simple_module_core.diagnostics._expression_index import index_is_expression_based
 from simple_module_core.discovery import discover_modules, get_module_package_name
-from sqlalchemy import Column, Index, MetaData
+from sqlalchemy import Index, MetaData
 from sqlalchemy.schema import SchemaItem
 
 from simple_module_db.base import all_module_bases
+from simple_module_db.migration_portability import (
+    iter_ops_recursive,
+    render_boolean_default,
+    rewrite_boolean_defaults,
+    warn_unverifiable_expression_indexes,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +146,11 @@ def make_process_revision_directives(
     Any index already named in the op tree — at any nesting depth — is left
     alone, which keeps this dialect-agnostic rather than special-casing SQLite.
 
+    It also rewrites ``0``/``1``/``false``/``true`` server defaults on Boolean
+    columns to ``sa.false()``/``sa.true()`` and, when running on SQLite, warns
+    that expression indexes cannot be verified (see
+    :mod:`simple_module_db.migration_portability`).
+
     Call as::
 
         context.configure(
@@ -149,50 +161,35 @@ def make_process_revision_directives(
     expression_indexes: dict[str, list[Index]] = {}
     for table in metadata.tables.values():
         for index in table.indexes:
-            if _index_is_expression_based(index):
+            if index_is_expression_based(index):
                 expression_indexes.setdefault(table.name, []).append(index)
 
     def process_revision_directives(context, revision, directives):
-        if not expression_indexes:
-            return
+        warn_unverifiable_expression_indexes(
+            getattr(getattr(context, "dialect", None), "name", None), metadata
+        )
         for script in directives:
             upgrade_ops = getattr(script, "upgrade_ops", None)
             if upgrade_ops is not None:
-                _inject_create_index_after_create_table(upgrade_ops, expression_indexes)
+                rewrite_boolean_defaults(upgrade_ops)
+                if expression_indexes:
+                    _inject_create_index_after_create_table(upgrade_ops, expression_indexes)
             downgrade_ops = getattr(script, "downgrade_ops", None)
             if downgrade_ops is not None:
-                _inject_drop_index_before_drop_table(downgrade_ops, expression_indexes)
+                # A downgrade re-creates dropped tables/columns from reflected
+                # state, so it carries the same ``sa.text('0')`` Boolean defaults.
+                rewrite_boolean_defaults(downgrade_ops)
+                if expression_indexes:
+                    _inject_drop_index_before_drop_table(downgrade_ops, expression_indexes)
 
     return process_revision_directives
-
-
-def _index_is_expression_based(index: Index) -> bool:
-    """An index is expression-based when any of its expressions is not a plain ``Column``."""
-    return any(not isinstance(expr, Column) for expr in index.expressions)
-
-
-def _iter_ops_recursive(container):
-    """Yield every op under ``container``, descending into nested op groups.
-
-    Autogenerate does not emit a flat op list: index operations for a table are
-    grouped inside a ``ModifyTableOps`` container alongside the top-level
-    ``CreateTableOp``/``DropTableOp``. A dedup check that only looks at
-    ``container.ops`` therefore sees no ``CreateIndexOp`` at all and re-injects
-    an index the dialect already emitted — which is exactly how a dialect that
-    *can* reflect expression-based indexes (PostgreSQL) ended up with a
-    duplicate ``CREATE INDEX`` in its initial migration.
-    """
-    for op in container.ops:
-        yield op
-        if hasattr(op, "ops"):
-            yield from _iter_ops_recursive(op)
 
 
 def _existing_index_names(container, op_type) -> set[str | None]:
     """Names of every ``op_type`` index op already present anywhere under ``container``."""
     return {
         getattr(op, "index_name", None)
-        for op in _iter_ops_recursive(container)
+        for op in iter_ops_recursive(container)
         if isinstance(op, op_type)
     }
 
@@ -241,12 +238,16 @@ def render_item(type_, obj, autogen_context):
       Postgres enum labels match the lowercase ``StrEnum`` values rather than
       SQLAlchemy's default of using uppercase attribute names. This means raw
       SQL like ``WHERE status = 'ready'`` actually works against the live DB.
+    * Renders ``true()``/``false()`` server defaults as ``sa.true()``/``sa.false()``
+      instead of the dialect-specific ``sa.text('1')``/``sa.text('0')`` (GH #342).
     * Adds the necessary imports for ``fastapi_users_db_sqlalchemy.generics``
       and ``geoalchemy2`` types (rendered by their own classes elsewhere) so
       the generated migration is importable.
 
     Pass to :func:`alembic.context.configure` as ``render_item=render_item``.
     """
+    if type_ == "server_default":
+        return render_boolean_default(obj, autogen_context)
     if type_ != "type":
         return False
     cls_name = type(obj).__name__

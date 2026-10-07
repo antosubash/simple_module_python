@@ -91,7 +91,7 @@ The scaffolded Makefile intentionally doesn't wrap one-off things. Run them dire
 |---|---|
 | New Alembic migration | `uv run alembic revision --autogenerate -m "..."` |
 | Downgrade one revision | `uv run alembic downgrade -1` |
-| Roll back a single module | `uv run alembic downgrade <module>@base` |
+| Remove one module's schema | See [Removing one module's schema](/database/migrations#removing-one-modules-schema); `<module>@base` rolls back the whole chain beneath it |
 | Single Python test | `uv run pytest path/to/test_file.py::test_name` |
 | Single JS test | `cd client_app && npx vitest run <path>` |
 | Format + lint Python | `uv run ruff format . && uv run ruff check .` |

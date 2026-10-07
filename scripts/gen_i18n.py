@@ -1,15 +1,28 @@
 """Regenerate the typed i18n key files without booting the host. `make gen-i18n`."""
 
+import argparse
 import logging
+import sys
 from pathlib import Path
 
 from simple_module_core.discovery import discover_modules
-from simple_module_hosting.i18n_manifest import emit_frontend_types_for_modules
+from simple_module_hosting.i18n_manifest import (
+    NamespaceRemovalError,
+    emit_frontend_types_for_modules,
+)
 from simple_module_hosting.settings import Settings
 
 ROOT = Path(__file__).resolve().parent.parent
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--allow-removals",
+        action="store_true",
+        help="permit dropping key namespaces of modules not installed here "
+        "(a deleted module, or a deliberate SM_MODULES_ENABLED subset)",
+    )
+    args = parser.parse_args()
     # i18n_manifest logs one INFO line per file it actually writes. Without a
     # handler those lines are below the root logger's default threshold, and the
     # script's own closing line reads identically whether it regenerated both
@@ -31,5 +44,11 @@ if __name__ == "__main__":
     # strict: a live boot prefers stale types to a failed start, but this command
     # exists only to write those files. Failing here beats handing `tsc` a stale
     # union and letting it report a missing key that the catalog does contain.
-    emit_frontend_types_for_modules(settings, modules, ROOT, strict=True)
+    try:
+        emit_frontend_types_for_modules(
+            settings, modules, ROOT, strict=True, allow_removals=args.allow_removals
+        )
+    except NamespaceRemovalError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
     print("i18n key files up to date")

@@ -76,7 +76,7 @@ make migration msg="add orders tables"
 make migrate
 ```
 
-`make migration` runs Alembic from the host directory (where `alembic.ini` lives). Autogenerate picks up the new `orders_*` tables and writes `host/migrations/versions/XXXX_add_orders_tables.py`. Add `branch_labels = ("orders",)` to that revision so you can later `alembic downgrade orders@base` to roll the module back in isolation.
+`make migration` runs Alembic from the host directory (where `alembic.ini` lives). Autogenerate picks up the new `orders_*` tables and writes `host/migrations/versions/XXXX_add_orders_tables.py`. Add `branch_labels = ("orders",)` to that revision to give it a named target. The label does not isolate the module: `alembic downgrade orders@base` rolls back the whole chain beneath it. See [Removing one module's schema](/database/migrations#removing-one-modules-schema).
 
 ## 7. Hit the module
 
