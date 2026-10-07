@@ -81,42 +81,5 @@
     "title": "Sin conexión",
     "description": "Es posible que los cambios no se guarden hasta que se restablezca la conexión.",
     "restored": "Conexión restablecida"
-  },
-  "setup": {
-    "title": "Configura tu instalación",
-    "subtitle": "Unas cuantas cosas antes de que esta aplicación esté lista para usarse.",
-    "connections": {
-      "heading": "Conexiones",
-      "description": "Comprobando los servicios de los que depende esta instalación.",
-      "retest": "Probar de nuevo",
-      "testing": "Probando…"
-    },
-    "migrations": {
-      "heading": "Esquema de la base de datos",
-      "behind": "La base de datos está por detrás de la versión que espera este código.",
-      "current": "El esquema de la base de datos está actualizado.",
-      "apply": "Aplicar migraciones",
-      "applying": "Aplicando…"
-    },
-    "administrator": {
-      "heading": "Crea un administrador",
-      "description": "Esta cuenta puede iniciar sesión y administrar la instalación.",
-      "email": "Correo electrónico",
-      "password": "Contraseña",
-      "full_name": "Nombre completo",
-      "submit": "Crear administrador",
-      "submitting": "Creando…",
-      "created": "Administrador creado. Recargando…"
-    },
-    "steps": {
-      "heading": "Pasos de configuración",
-      "complete": "Hecho",
-      "pending": "Pendiente",
-      "migrations": {
-        "title": "Aplicar las migraciones de la base de datos",
-        "description": "Actualiza el esquema de la base de datos a la versión que espera este código."
-      }
-    },
-    "error": "Algo ha salido mal. Consulta el detalle de arriba."
   }
 }

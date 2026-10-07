@@ -17,7 +17,13 @@ export interface CheckResult {
  * different fixes, and an operator staring at a red dot has no way to tell
  * which one they have.
  */
-export function ConnectionList({ initial }: { initial: CheckResult[] }) {
+export function ConnectionList({
+  initial,
+  csrfToken,
+}: {
+  initial: CheckResult[];
+  csrfToken: string;
+}) {
   const { t } = useT();
   const [checks, setChecks] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -29,7 +35,7 @@ export function ConnectionList({ initial }: { initial: CheckResult[] }) {
     try {
       const resp = await fetch('/setup/test-connections', {
         method: 'POST',
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', 'X-CSRF-Token': csrfToken },
       });
       // A 404 here means setup completed in another tab, and the body is not
       // the JSON this expects. Without the check, `resp.json()` throws into an
@@ -69,7 +75,9 @@ export function ConnectionList({ initial }: { initial: CheckResult[] }) {
 
       <Button type="button" variant="outline" size="sm" disabled={busy} onClick={retest}>
         <PlugZap className="size-4" />
-        {busy ? t(keys.host.setup.connections.testing) : t(keys.host.setup.connections.retest)}
+        {busy
+          ? t(keys.hosting.setup.connections.testing)
+          : t(keys.hosting.setup.connections.retest)}
       </Button>
     </div>
   );

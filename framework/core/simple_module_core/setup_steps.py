@@ -28,6 +28,55 @@ from dataclasses import dataclass, field
 # real check is a database query.
 SetupCheckFn = Callable[..., Awaitable[bool]]
 
+# Takes ``(request, data)`` — the Starlette request and the submitted form as a
+# dict — and returns a JSON-able dict (or ``None``). Typed loosely so core does
+# not depend on Starlette; the wizard in ``simple_module_hosting`` calls it.
+SetupActionFn = Callable[..., Awaitable[dict | None]]
+
+
+@dataclass
+class SetupField:
+    """One input the wizard renders for a :class:`SetupAction`.
+
+    ``label`` reaches the page as backend data, so it is resolved server-side
+    through ``label_key`` with the literal as the fallback — the same rule as
+    ``SetupStep.title``.
+    """
+
+    name: str
+    label: str
+    label_key: str = ""
+    type: str = "text"
+    """The HTML input type: ``text``, ``email``, ``password``, ..."""
+    required: bool = True
+    autocomplete: str = ""
+    min_length: int | None = None
+
+
+@dataclass
+class SetupAction:
+    """How the wizard lets an operator complete a step from the browser.
+
+    The wizard renders ``fields`` as a form and POSTs it as JSON to
+    ``/setup/steps/<step id>``, which calls ``handler(request, data)``.
+
+    The wizard only calls the handler while **this step** reports incomplete,
+    never merely while "setup mode" is on: an install whose schema falls behind
+    head re-enters setup mode with its administrators intact, and an action
+    gated on the weaker condition would let an anonymous request perform it
+    there. The handler still owns its own race: two requests can both pass that
+    check, so a handler that creates something unique must re-check inside the
+    transaction that creates it.
+
+    A step without an action can only be completed out of band (a CLI, an
+    environment variable); the host logs such steps at boot.
+    """
+
+    handler: SetupActionFn
+    fields: list[SetupField] = field(default_factory=list)
+    submit_label: str = "Continue"
+    submit_label_key: str = ""
+
 
 @dataclass
 class SetupStep:
@@ -63,6 +112,8 @@ class SetupStep:
     """Catalog key for ``description``, with the same fallback rule."""
     required: bool = True
     order: int = 100
+    action: SetupAction | None = None
+    """How the wizard completes this step; ``None`` for out-of-band steps."""
     module: str = field(default="")
 
 
@@ -95,6 +146,10 @@ class SetupRegistry:
     def all_steps(self) -> list[SetupStep]:
         """Every registered step, required or not, in display order."""
         return sorted(self._steps, key=lambda s: s.order)
+
+    def get(self, step_id: str) -> SetupStep | None:
+        """The step registered under *step_id*, or ``None``."""
+        return next((s for s in self._steps if s.id == step_id), None)
 
     @property
     def required_steps(self) -> list[SetupStep]:
@@ -136,6 +191,15 @@ class SetupRegistry:
         them.
         """
         return await self._evaluate(app, self.all_steps)
+
+    async def is_pending(self, app, step: SetupStep) -> bool:
+        """Whether *step* specifically is still unsatisfied.
+
+        Same fail-safe as :meth:`incomplete`: a raising predicate counts as
+        complete, so a database hiccup closes a step's action rather than
+        opening it.
+        """
+        return bool(await self._evaluate(app, [step]))
 
     async def is_setup_complete(self, app) -> bool:
         return not await self.incomplete(app)

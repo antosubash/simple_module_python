@@ -574,16 +574,23 @@ origin/scheme token, validated at boot. See
 ## First-run setup steps
 
 A module can declare what an install still needs before it is usable. While
-any required step reports incomplete, `SetupMiddleware` serves the wizard at
-`/setup` instead of the app:
+any required step reports incomplete, `SetupMiddleware` redirects every
+request to the wizard at `/setup`. The wizard ships with
+`simple_module_hosting`: `create_app` mounts its routes and `smpy gen-pages`
+registers its page (`Setup/Wizard`), so a host needs no code of its own for it.
 
 ```python
-from simple_module_core import SetupRegistry, SetupStep
+from simple_module_core import SetupAction, SetupField, SetupRegistry, SetupStep
 
 
 async def has_administrator(app) -> bool:
     async with app.state.sm.db.session_factory() as session:
         ...  # return True once satisfied
+
+
+async def create_administrator(request, data: dict) -> dict:
+    ...  # validate `data`, lock, re-check, create; raise HTTPException to refuse
+    return {"created": True}
 
 
 class MyModule(ModuleBase):
@@ -592,20 +599,53 @@ class MyModule(ModuleBase):
             SetupStep(
                 id="mymodule.administrator",
                 title="Create an administrator",
+                title_key="mymodule.setup.administrator.title",
                 description="An account that can sign in and manage this install.",
                 is_complete=has_administrator,
                 order=30,
+                action=SetupAction(
+                    handler=create_administrator,
+                    fields=[
+                        SetupField(name="email", label="Email", type="email"),
+                        SetupField(name="password", label="Password", type="password"),
+                    ],
+                    submit_label="Create administrator",
+                ),
             )
         )
 ```
 
-Three things are worth knowing before you add one.
+The wizard lists every registered step and, for each pending step with an
+`action`, renders `fields` as a form. Submitting it POSTs the values as JSON to
+`/setup/steps/<step id>`, which calls `handler(request, data)` and returns its
+dict. Titles, descriptions, field labels and the submit label reach the page as
+backend data, so give each a `*_key` into your module's catalog; an unresolved
+key falls back to the literal. A step with no `action` can only be completed
+out of band (a CLI command, an environment variable); the host logs each such
+required step at boot so an operator facing a form-less wizard can find out why.
+
+A few things are worth knowing before you add one.
 
 **Registering nothing is a valid answer, and it is how a module opts out.** The
 `users` module contributes the "an administrator exists" step; `keycloak`
 deliberately does not, because an install using an external identity provider
 has a legitimately empty local users table and a host-level superuser count
 would hold it behind the wizard forever.
+
+**An action runs only while its own step is pending.** The wizard answers 404
+once setup is complete, and 409 for a step that is already done even while
+other steps keep the wizard open. "Setup mode" alone is not a safe gate: the
+host always registers `host.migrations`, so an install whose schema falls
+behind head re-enters setup mode with its administrators intact. Every
+`/setup` mutation also carries the session's CSRF token
+(`simple_module_hosting.csrf`); the wizard page sends it for you.
+
+**An action that creates something unique must re-check under a lock.** The
+step check runs before your handler and outside its transaction, so two
+concurrent requests can both pass it. `users.setup_action` shows the pattern:
+take a database lock (`pg_advisory_xact_lock` on Postgres, a no-op `UPDATE`
+that claims SQLite's write lock), re-check the predicate, then insert, all in
+one transaction.
 
 **A step whose predicate raises counts as complete.** Failing closed on a
 transient database error would open an anonymous admin-creation form on a

@@ -50,6 +50,12 @@ def build_i18n_registry(
         for namespace, locale_dir in mod.locale_dirs().items():
             registry.add_source(namespace, locale_dir, audience=audience)
 
+    # The framework's own catalog — the setup wizard ships with this package,
+    # so its strings must too, whatever host is serving it.
+    hosting_locales = Path(__file__).resolve().parent / "locales"
+    registry.add_source("hosting", hosting_locales)
+    extra_sources.append(("simple_module_hosting", "hosting", hosting_locales))
+
     host_locales = project_root / "host" / "locales"
     if host_locales.is_dir():
         registry.add_source("host", host_locales)
