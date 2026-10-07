@@ -63,3 +63,29 @@ def test_value_type_for_bool_int_float_str_list() -> None:
     assert value_type_for_field(_Cfg, "rate") == "float"
     assert value_type_for_field(_Cfg, "host") == "string"
     assert value_type_for_field(_Cfg, "tags") == "json"
+
+
+def test_hydrate_sync_matches_async_parsing(tmp_path) -> None:
+    from settings.hydrate import hydrate_settings_sync
+    from settings.models import Setting
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    engine = create_engine(f"sqlite:///{tmp_path / 's.db'}")
+    Setting.metadata.create_all(engine)
+    with Session(engine) as session:
+        for k, v, t in [
+            ("demo.port", "587", "int"),
+            ("demo.allow", "true", "bool"),
+            ("demo.tags", '["x","y"]', "json"),
+            ("demo.unknown", "1", "int"),
+            ("demo.a.b", "1", "int"),
+            ("other.port", "1", "int"),
+        ]:
+            session.add(Setting(key=k, value=v, value_type=t))
+        session.add(
+            Setting(scope="user", scope_id="7", key="demo.host", value="no", value_type="string")
+        )
+        session.commit()
+        cfg = hydrate_settings_sync(_Cfg, session, "demo")
+    assert (cfg.port, cfg.allow, cfg.tags, cfg.host) == (587, True, ["x", "y"], "localhost")

@@ -20,6 +20,10 @@ _INERTIA_HEADER = "x-inertia"
 _INERTIA_HEADER_TRUE = "true"
 
 
+def _accepts_html(scope: Scope) -> bool:
+    return "text/html" in Headers(scope=scope).get("accept", "").lower()
+
+
 def build_i18n_block(scope: Scope, request: Request, *, is_authenticated: bool = True) -> dict:
     """Assemble the ``i18n`` shared-props block for the current request.
 
@@ -57,13 +61,21 @@ def build_i18n_block(scope: Scope, request: Request, *, is_authenticated: bool =
     # skip the messages payload. Non-Inertia requests will always ship them
     # regardless of the session state.
     if session_dict is not None:
+        # Remembering the locale only pays off for a client that will come back
+        # with an Inertia XHR (to skip re-sending the catalog). A bare API or
+        # health-check call from a cookie-less client will not, and writing
+        # here would make Starlette's SessionMiddleware emit a two-week
+        # Set-Cookie on every anonymous response, which keeps shared caches
+        # from storing it (GH #349). So persist only when a session already
+        # exists (it has data) or the caller is page-shaped.
+        persist = bool(session_dict) or is_inertia or _accepts_html(scope)
         last_locale = session_dict.get(_I18N_SESSION_LOCALE_KEY)
         locale_changed = last_locale != locale
-        if locale_changed:
+        if locale_changed and persist:
             session_dict[_I18N_SESSION_LOCALE_KEY] = locale
         last_audience = session_dict.get(_I18N_SESSION_AUDIENCE_KEY)
         audience_changed = last_audience != audience
-        if audience_changed:
+        if audience_changed and persist:
             session_dict[_I18N_SESSION_AUDIENCE_KEY] = audience
     else:
         locale_changed = False

@@ -47,7 +47,11 @@ class FakeStore:
             return row
 
         async def fake_delete(
-            self: FileStorageService, file_id: uuid.UUID, *, platform: bool = False
+            self: FileStorageService,
+            file_id: uuid.UUID,
+            *,
+            platform: bool = False,
+            drop_object: bool = True,
         ) -> StoredFile:
             assert platform, "branding must act on platform-owned files"
             if file_id in store.deleted:
@@ -65,6 +69,7 @@ class FakeStore:
 
         monkeypatch.setattr(FileStorageService, "upload", fake_upload, raising=True)
         monkeypatch.setattr(FileStorageService, "delete", fake_delete, raising=True)
+        monkeypatch.setattr(FileStorageService, "drop_object", _noop_drop, raising=True)
 
 
 @pytest.fixture
@@ -143,7 +148,11 @@ async def test_a_failed_cleanup_does_not_fail_the_rebrand(
     await _upload(authenticated_client, "logo")
 
     async def boom(
-        self: FileStorageService, file_id: uuid.UUID, *, platform: bool = False
+        self: FileStorageService,
+        file_id: uuid.UUID,
+        *,
+        platform: bool = False,
+        drop_object: bool = True,
     ) -> StoredFile:
         raise RuntimeError("backend unavailable")
 
@@ -153,3 +162,7 @@ async def test_a_failed_cleanup_does_not_fail_the_rebrand(
 
     assert resp.status_code == 200, resp.text
     assert resp.json()["logo_url"] is None
+
+
+async def _noop_drop(self: FileStorageService, row: StoredFile) -> None:
+    """The fake rows have no backend object to drop."""

@@ -20,7 +20,7 @@ tenant bound. Two callers need something else, and both go through here:
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from simple_module_db import PLATFORM_TENANT_ID, all_tenants, current_tenant_id
@@ -48,7 +48,7 @@ def owning_tenant(db: AsyncSession, *, platform: bool = False) -> str:
 
 
 @asynccontextmanager
-async def platform_scope(db: AsyncSession, platform: bool) -> AsyncIterator[None]:
+async def platform_scope(db: AsyncSession, platform: bool) -> AsyncGenerator[None]:
     """``all_tenants()`` for platform-file access, a no-op otherwise.
 
     Callers pair it with a ``tenant_id == PLATFORM_TENANT_ID`` condition, so

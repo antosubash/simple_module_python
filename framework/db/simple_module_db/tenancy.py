@@ -25,7 +25,7 @@ from __future__ import annotations
 import functools
 import inspect
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any
@@ -93,7 +93,7 @@ class MissingTenantError(TenantIsolationError):
 
 
 @contextmanager
-def tenant_context(tenant_id: str) -> Iterator[None]:
+def tenant_context(tenant_id: str) -> Generator[None]:
     """Run the block as ``tenant_id`` — for jobs, CLI commands and tests.
 
     Wins over an enclosing ``all_tenants()``: the natural platform job is
@@ -112,7 +112,7 @@ def tenant_context(tenant_id: str) -> Iterator[None]:
 
 
 @contextmanager
-def all_tenants() -> Iterator[None]:
+def all_tenants() -> Generator[None]:
     """Run the block unscoped: reads see every tenant, strict mode is waived.
 
     Also clears any active tenant, so a platform job started from inside a
