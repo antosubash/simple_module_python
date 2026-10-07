@@ -8,7 +8,7 @@ All migrations live in `host/migrations/versions/` — **not** in module package
 - **Autogenerate sees everything.** `host/migrations/env.py` calls `build_module_metadata()` to union every installed module's `MetaData`. Autogenerate diffs the DB against that union and writes one migration covering all changes.
 - **Operators run one command.** `make migrate` is the only target. No "did you also run `orders/migrate`?" footgun.
 
-Each module's *first* migration sets `branch_labels = ("<module_name>",)` so you can still downgrade one module at a time with `alembic downgrade <module>@base`.
+Each module's *first* migration sets `branch_labels = ("<module_name>",)`. The label is a named target for that revision; it does **not** isolate the module's history, because every first revision chains off the previous head. `alembic downgrade <module>@base` therefore walks the whole chain beneath it, other modules included. See [Removing one module's schema](#removing-one-modules-schema).
 
 ## Day-to-day workflow
 
@@ -39,10 +39,14 @@ Runs `alembic -c host/alembic.ini upgrade heads`. Idempotent.
 ```bash
 make downgrade                                                 # back one revision
 uv run --project host alembic -c host/alembic.ini downgrade <revision_id>   # to a specific revision
-uv run --project host alembic -c host/alembic.ini downgrade orders@base     # back to the state before the orders module existed
 ```
 
-`orders@base` uses the `branch_labels` marker from the module's first migration. Module-level downgrade is the mechanism for uninstalling a module cleanly.
+Do **not** use `downgrade orders@base` to roll back just the orders module. The `branch_labels` marker names a revision, but `orders@base` resolves to the base of the linear chain that revision sits on, so it rolls back every revision beneath it, including other modules'.
+
+### Removing one module's schema
+
+- If the module's revisions are the latest in the chain (nothing from another module sits above them), downgrade to the `down_revision` of the module's *first* revision: `alembic -c host/alembic.ini downgrade <that down_revision id>`.
+- Otherwise write a dedicated migration that drops the module's tables (and anything depending on them). History stays linear and other modules are untouched.
 
 ## First migration of a new module
 
@@ -57,7 +61,7 @@ branch_labels = ("orders",)  # ← add this
 depends_on = None
 ```
 
-Once the marker is in place, all future `orders` migrations inherit the branch.
+The marker names the revision so you can target it (for example `alembic upgrade orders@head`); later `orders` revisions do not need it. It does not turn the module into an independent branch.
 
 ## Alembic environment setup
 

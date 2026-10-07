@@ -64,7 +64,7 @@ make migration msg="add orders module"
 make migrate
 ```
 
-`make migrate` runs `alembic -c host/alembic.ini upgrade heads` — note **`heads`** (plural). Branch labels create multiple independent heads, so `upgrade head` (singular) would error or under-apply.
+`make migrate` runs `alembic -c host/alembic.ini upgrade heads` — note **`heads`** (plural). Histories with a branch label can end up with multiple heads, so `upgrade head` (singular) may error or under-apply.
 
 ### Branch labels — set on the FIRST revision per module
 
@@ -78,16 +78,14 @@ branch_labels = ("audit_log",)  # ← add by hand on this first revision
 depends_on = None
 ```
 
-Why: it lets operators roll back **just one module's** schema, which is how a module is uninstalled cleanly:
+Why: the label is a named target for that revision (`upgrade audit_log@head`, the module column in the Doctor). It does **not** isolate the module: autogenerate chains the revision off the current head, so history is one linear chain and `downgrade audit_log@base` walks the **entire chain beneath it, other modules included**. Never use it as a per-module rollback.
 
-```bash
-make downgrade   # back one revision; OR, to a target:
-uv run --project host alembic -c host/alembic.ini downgrade audit_log@base
-```
+To remove one module's schema:
 
-`audit_log@base` drops everything that module owns and leaves the others. Without the label, downgrading to a bare revision id walks linear history and rolls back unrelated modules' migrations sitting between.
+- If the module's revisions are the latest in the chain, downgrade to the `down_revision` of its first revision: `uv run --project host alembic -c host/alembic.ini downgrade <that down_revision id>`.
+- Otherwise write a dedicated migration that drops that module's tables.
 
-Subsequent revisions for the same module **don't** need a `branch_labels` — only the first; they inherit the branch.
+Subsequent revisions for the same module **don't** need a `branch_labels` — only the first; they chain off it as ordinary revisions.
 
 > Exception: the repo's bootstrap `initial_schema` revision bundles several core modules (users, permissions, settings, file_storage, feature_flags, background_tasks) into one unlabeled root migration. The per-module `branch_labels` convention applies to modules added **after** that bootstrap.
 
@@ -112,7 +110,7 @@ SM010/SM011 are **not** emitted at boot or by `make doctor`. They only surface w
 
 ## Pitfalls
 
-- **Skipped the branch label on the first revision.** `alembic downgrade <module>@base` then fails or silently rolls back unrelated revisions. Fix by editing the migration file before applying; if already deployed, write a no-op revision that adds the label retroactively.
+- **Treating `downgrade <module>@base` as a per-module rollback.** It rolls back every revision beneath the labelled one, other modules included. See the recipe under "Branch labels".
 - **Renamed a column.** Autogenerate emits `drop_column` + `add_column`, which loses data. Edit to `op.alter_column(..., new_column_name=...)` and write the matching `downgrade()`.
 - **Hand-edited operations with stubbed `downgrade()`.** Server defaults, CHECK constraints, expression indexes — Alembic can't always infer these. When you fill in `upgrade()`, fill in `downgrade()` too.
 - **Concurrent `make migrate` (`upgrade heads`) from multiple processes.** The `alembic_version` table isn't race-safe across all backends. Run upgrades from one place (a release pipeline step), not from the booting app.

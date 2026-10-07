@@ -358,6 +358,8 @@ way.
 
   Sidebar items can also set `group="<Label>"` on the `MenuItem` to render under a group header. The frontend clusters consecutive items with the same group label and prints the label as a section heading; the group's position is set by the lowest-`order` item that joins it. Built-in groups are `Content`, `Administration`, and `System`. Items with no `group` (the default) render flat — Dashboard intentionally stays ungrouped above the headed groups.
 
+  **Dynamic menus.** Items that depend on the request (per-tenant entries, resources admins create at runtime) come from a provider registered in `register_menu_items`: `registry.add_provider(fn)`, where `fn(request)` returns an iterable of `MenuItem` (sync or async). Providers run per request inside `InertiaLayoutDataMiddleware`, after auth and `request.state.tenant_id` are resolved, and their items are role/permission-filtered, translated, sorted and grouped like static ones. A provider that raises is logged and contributes nothing. `registry.remove(predicate)` drops static items.
+
   **Translating menu labels.** Set `label_key` (and `group_key`) alongside `label`/`group` to name a catalog entry:
 
   ```python

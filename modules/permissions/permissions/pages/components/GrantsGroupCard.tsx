@@ -46,6 +46,7 @@ export function GrantsGroupCard({
           <PermissionRow
             key={key}
             permissionKey={key}
+            label={group.labels?.[key]}
             direct={direct.has(key)}
             viaRoles={inheritedBy[key] ?? []}
             onToggle={onToggle}
