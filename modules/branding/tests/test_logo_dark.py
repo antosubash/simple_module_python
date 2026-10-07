@@ -58,7 +58,11 @@ def stored(monkeypatch: pytest.MonkeyPatch) -> dict[uuid.UUID, StoredFile]:
         return StreamDownload(file=rows[file_id], body=body())
 
     async def fake_delete(
-        self: FileStorageService, file_id: uuid.UUID, *, platform: bool = False
+        self: FileStorageService,
+        file_id: uuid.UUID,
+        *,
+        platform: bool = False,
+        drop_object: bool = True,
     ) -> StoredFile:
         assert platform, "branding must act on platform-owned files"
         return rows.pop(file_id)
@@ -66,6 +70,7 @@ def stored(monkeypatch: pytest.MonkeyPatch) -> dict[uuid.UUID, StoredFile]:
     monkeypatch.setattr(FileStorageService, "upload", fake_upload, raising=True)
     monkeypatch.setattr(FileStorageService, "download", fake_download, raising=True)
     monkeypatch.setattr(FileStorageService, "delete", fake_delete, raising=True)
+    monkeypatch.setattr(FileStorageService, "drop_object", _noop_drop, raising=True)
     return rows
 
 
@@ -177,3 +182,7 @@ async def test_an_unset_dark_logo_is_a_404(client: httpx.AsyncClient) -> None:
     # The frontend never requests it in this state — it falls back to logoUrl —
     # but a hand-typed URL must not 500.
     assert (await client.get("/api/branding/logo-dark")).status_code == 404
+
+
+async def _noop_drop(self: FileStorageService, row: StoredFile) -> None:
+    """The fake rows have no backend object to drop."""

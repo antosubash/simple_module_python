@@ -72,8 +72,12 @@ async def reap(app: FastAPI, file_id: str, *, tenant_id: str | None) -> None:
                     return
                 services = app.state.file_storage
                 storage = FileStorageService(db, services.backend, services.settings)
-                await storage.delete(parsed, platform=tenant_id is None)
+                # Soft-delete and commit first, drop the bytes after: a failed
+                # commit must never leave a live row with no object. A failure
+                # after the commit only orphans an object, which is acceptable.
+                row = await storage.delete(parsed, platform=tenant_id is None, drop_object=False)
                 await db.commit()
+                await storage.drop_object(row)
     except Exception:
         # Deliberately broad: a cleanup failure is never a reason to fail (or,
         # running after commit, to misreport) a rebrand that succeeded.
