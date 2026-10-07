@@ -29,10 +29,13 @@
     "when": "When",
     "actions": "Actions",
     "select_all": "Select every file on this page",
-    "select_row": "Select {name}"
+    "select_row": "Select {name}",
+    "public": "Public"
   },
   "actions": {
-    "download": "Download"
+    "download": "Download",
+    "make_public": "Make public",
+    "make_private": "Make private"
   },
   "delete_dialog": {
     "title_one": "Delete “{name}”?",
@@ -48,6 +51,9 @@
     "deleted_one": "“{name}” deleted",
     "deleted_other": "{count} files deleted",
     "delete_failed": "Failed to delete file",
+    "made_public": "“{name}” is now public",
+    "made_private": "“{name}” is now private",
+    "visibility_failed": "Could not change visibility",
     "uploaded_count_one": "{count} file uploaded",
     "uploaded_count_other": "{count} files uploaded",
     "upload_failed_named": "“{name}” failed to upload"
@@ -56,7 +62,8 @@
     "not_found": "File not found",
     "too_large": "File exceeds the {max_size} limit for a single upload",
     "bad_type": "This file type is not allowed",
-    "backend_error": "Storage backend error"
+    "backend_error": "Storage backend error",
+    "bad_image": "This image could not be processed"
   },
   "filters": {
     "search_placeholder": "Search filenames…",

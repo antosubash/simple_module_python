@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, StrictBool
 from sqlmodel import Field, SQLModel
 
 
@@ -26,6 +26,20 @@ class StoredFileOut(SQLModel):
         description="User id from AuditMixin.created_by — populated by the audit listener.",
     )
     created_at: datetime | None = None
+    public: bool = Field(default=False, description="Whether anonymous visitors may fetch it.")
+    public_url: str | None = Field(
+        default=None,
+        description="Anonymous URL, present only while the file is public.",
+    )
+
+
+class StoredFileUpdate(SQLModel):
+    """Body for PATCH /api/file-storage/files/{id}."""
+
+    # Strict: a JSON body says ``true``/``false``. Lax coercion would publish a
+    # file on ``"yes"``, ``"true"`` or ``1`` from a client bug. The upload form
+    # stays lax on purpose — multipart values are always strings.
+    public: StrictBool
 
 
 class BulkDeleteRequest(SQLModel):

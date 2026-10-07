@@ -147,7 +147,13 @@ class SecurityHeadersMiddleware:
                 headers[_HEADER_X_FRAME_OPTIONS] = _XFO_SAMEORIGIN
                 headers[_HEADER_X_XSS_PROTECTION] = _XXSS_DISABLED
                 headers[_HEADER_REFERRER_POLICY] = _REFERRER_STRICT_ORIGIN
-                if self.csp:
+                # A response may only *tighten* the app-wide policy: one that
+                # carries its own ``sandbox`` directive (file_storage serving
+                # user-uploaded bytes) keeps it. Any other response-supplied
+                # policy is overwritten, so a module cannot weaken the default.
+                own = headers.get(_HEADER_CSP) or ""
+                keeps_own = "sandbox" in {d.strip().split(" ")[0].lower() for d in own.split(";")}
+                if self.csp and not keeps_own:
                     headers[_HEADER_CSP] = self.csp
                 if self.hsts:
                     headers[_HEADER_HSTS] = self.hsts

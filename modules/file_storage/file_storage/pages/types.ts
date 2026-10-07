@@ -10,6 +10,9 @@ export interface StoredFile {
   /** ``uploaded_by`` resolved server-side to a name; "—" when nobody was recorded. */
   uploaded_by_label: string;
   created_at: string | null;
+  /** Anonymous visitors may fetch it at ``public_url``. */
+  public: boolean;
+  public_url: string | null;
 }
 
 export interface Pagination {

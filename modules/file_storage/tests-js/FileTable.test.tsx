@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { configureI18n } from '@simple-module-py/i18n';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
 configureI18n({
@@ -15,6 +15,9 @@ configureI18n({
     'file_storage.table.when': 'When',
     'file_storage.table.actions': 'Actions',
     'file_storage.actions.download': 'Download',
+    'file_storage.actions.make_public': 'Make public',
+    'file_storage.actions.make_private': 'Make private',
+    'file_storage.table.public': 'Public',
   },
 });
 
@@ -32,12 +35,16 @@ const FILES: StoredFile[] = [
   } as StoredFile,
 ];
 
+const onTogglePublic = vi.fn();
+
 function renderTable(selectedIds: string[] = []) {
   return render(
     <FileTable
       files={FILES}
       selectedIds={selectedIds}
       canDelete
+      canPublish
+      onTogglePublic={onTogglePublic}
       onToggleRow={vi.fn()}
       onToggleAll={vi.fn()}
       empty={null}
@@ -82,5 +89,15 @@ describe('FileTable selection checkboxes', () => {
     renderTable(['f1']);
 
     expect(screen.getByRole('checkbox', { name: 'Select every file on this page' })).toBeChecked();
+  });
+});
+
+describe('FileTable visibility', () => {
+  test('a private file offers Make public and calls back with the row', () => {
+    renderTable();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Make public' }));
+
+    expect(onTogglePublic).toHaveBeenCalledWith(FILES[0]);
   });
 });

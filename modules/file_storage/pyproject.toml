@@ -26,6 +26,7 @@ dependencies = [
     "simple_module_hosting==0.0.35",
     "simple_module_settings==0.0.35",
     "aiofiles>=23",
+    "pillow>=10",
 ]
 
 [project.optional-dependencies]

@@ -39,6 +39,13 @@ class StoredFile(Base, AuditMixin, SoftDeleteMixin, MultiTenantMixin, table=True
     size_bytes: int = Field()
     backend: str = Field(max_length=32)
     checksum_sha256: str = Field(max_length=64)
+    # Opt-in anonymous serving (#353): only ``public`` rows are reachable from
+    # ``GET {prefix}/public/{id}``. ``sa.false()`` renders as ``0`` on SQLite and
+    # ``false`` on Postgres, which a literal ``text("0")`` default would not.
+    public: bool = Field(
+        default=False,
+        sa_column=sa.Column(sa.Boolean(), nullable=False, server_default=sa.false()),
+    )
     extra_metadata: dict = Field(
         default_factory=dict,
         sa_type=sa.JSON,

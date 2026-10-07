@@ -13,12 +13,26 @@ answers all three and the result can be cached.
 
 from __future__ import annotations
 
+from urllib.parse import quote
+
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern, like_prefix_pattern
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from file_storage import constants
 from file_storage.contracts.schemas import StoredFileOut
 from file_storage.models import StoredFile
+
+
+def order_clauses(sort: str) -> list:
+    """ORDER BY for a ``sort`` token; ``id`` breaks ties so pages never overlap."""
+    field = sort.lstrip("-")
+    column = {
+        "created_at": StoredFile.created_at,
+        "name": func.lower(StoredFile.filename),
+        "size": StoredFile.size_bytes,
+    }.get(field, StoredFile.created_at)
+    return [column.desc() if sort.startswith("-") else column.asc(), StoredFile.id]
 
 
 def filter_clauses(
@@ -91,13 +105,14 @@ async def page_of_files(
     created_by: str | None = None,
     search: str | None = None,
     content_type: str | None = None,
+    sort: str = constants.DEFAULT_SORT,
 ) -> list[StoredFileOut]:
-    """One page of rows, newest first, narrowed by the same filters as the count."""
+    """One page of rows, narrowed by the same filters as the count (newest first by default)."""
     query = select(StoredFile)
     for clause in filter_clauses(created_by=created_by, search=search, content_type=content_type):
         query = query.where(clause)
     result = await db.execute(
-        query.order_by(StoredFile.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
+        query.order_by(*order_clauses(sort)).offset((page - 1) * per_page).limit(per_page)
     )
     return [StoredFileOut.model_validate(to_out_dict(r)) for r in result.scalars().all()]
 
@@ -110,6 +125,7 @@ async def list_files(
     created_by: str | None = None,
     search: str | None = None,
     content_type: str | None = None,
+    sort: str = constants.DEFAULT_SORT,
 ) -> tuple[list[StoredFileOut], int]:
     """Page plus total, for callers whose page number is already known good.
 
@@ -118,7 +134,7 @@ async def list_files(
     """
     filters = {"created_by": created_by, "search": search, "content_type": content_type}
     total = await count_files(db, **filters)
-    items = await page_of_files(db, page=page, per_page=per_page, **filters)
+    items = await page_of_files(db, page=page, per_page=per_page, sort=sort, **filters)
     return items, total
 
 
@@ -140,9 +156,19 @@ async def content_type_facets(db: AsyncSession, *, created_by: str | None = None
     return [{"value": str(row[0]), "count": int(row[1])} for row in rows]
 
 
+def public_url_for(file_id: object, filename: str) -> str:
+    """The anonymous URL of a public file, with its name as a trailing segment."""
+    name = quote(filename, safe="")
+    base = f"{constants.ROUTE_PREFIX_API}{constants.PUBLIC_SEGMENT}/{file_id}"
+    # "thumbnail" as a trailing segment is the thumbnail route, not a filename.
+    return base if name.lower() == "thumbnail" else f"{base}/{name}"
+
+
 def to_out_dict(row: StoredFile) -> dict:
     """Project ORM row → DTO dict, mapping ``created_by`` to ``uploaded_by``."""
     return {
+        "public": row.public,
+        "public_url": public_url_for(row.id, row.filename) if row.public else None,
         "id": row.id,
         "key": row.key,
         "filename": row.filename,
