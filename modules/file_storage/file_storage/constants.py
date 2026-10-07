@@ -109,6 +109,9 @@ class I18nKey:
 DEFAULT_BACKEND: Final = BackendId.FILESYSTEM
 DEFAULT_FS_ROOT: Final = "./uploads"
 DEFAULT_MAX_FILE_SIZE_BYTES: Final = 100 * 1024 * 1024  # 100 MB
+# Multipart boundaries and part headers on top of the file bytes, for the
+# host request-body guard.
+MULTIPART_OVERHEAD_BYTES: Final = 1024 * 1024
 DEFAULT_PRESIGN_TTL_SECONDS: Final = 300  # 5 minutes
 DEFAULT_CHUNK_SIZE: Final = 64 * 1024  # 64 KB
 SPOOL_MAX_SIZE_BYTES: Final = 10 * 1024 * 1024  # 10 MB before disk-spill
