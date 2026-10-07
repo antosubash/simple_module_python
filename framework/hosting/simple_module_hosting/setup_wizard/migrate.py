@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from collections.abc import Iterator
+from collections.abc import Generator
 
 from fastapi import HTTPException, Request
 
@@ -24,7 +24,7 @@ _MIGRATION_LOCK = asyncio.Lock()
 
 
 @contextlib.contextmanager
-def _preserve_logging() -> Iterator[None]:
+def _preserve_logging() -> Generator[None]:
     """Undo what the migration env's ``fileConfig`` does to the process's logging.
 
     ``fileConfig`` replaces the root logger's handlers and level with
