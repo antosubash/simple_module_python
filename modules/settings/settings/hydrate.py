@@ -13,8 +13,9 @@ import json
 from typing import get_origin
 
 from pydantic_settings import BaseSettings
+from sqlalchemy.orm import Session
 
-from settings.store import SettingsStore
+from settings.store import SettingsStore, get_overrides_sync
 
 
 def value_type_for_field(cls: type[BaseSettings], field_name: str) -> str:
@@ -52,12 +53,30 @@ def _parse(raw: str, value_type: str):
     return raw
 
 
-async def hydrate_settings[T: BaseSettings](cls: type[T], store: SettingsStore, package: str) -> T:
-    """Construct ``cls`` with DB overrides merged over pydantic defaults."""
-    raw_overrides = await store.get_overrides(package)
+def build_settings[T: BaseSettings](cls: type[T], raw_overrides: dict[str, tuple[str, str]]) -> T:
+    """Construct ``cls`` from ``{field: (raw, value_type)}``, skipping unknown fields.
+
+    Shared by the async and sync hydrators so parsing cannot drift.
+    """
     parsed: dict[str, object] = {}
     for field_name, (raw, vtype) in raw_overrides.items():
         if field_name not in cls.model_fields:
             continue
         parsed[field_name] = _parse(raw, vtype)
     return cls(**parsed)
+
+
+async def hydrate_settings[T: BaseSettings](cls: type[T], store: SettingsStore, package: str) -> T:
+    """Construct ``cls`` with DB overrides merged over pydantic defaults."""
+    return build_settings(cls, await store.get_overrides(package))
+
+
+def hydrate_settings_sync[T: BaseSettings](cls: type[T], session: Session, package: str) -> T:
+    """Sync :func:`hydrate_settings` for Celery workers and other non-async code.
+
+    Workers never run the hosting lifespan, so a bare ``cls()`` there returns
+    pydantic defaults (``DbBackedSettings`` ignores the environment on purpose).
+    Takes a plain sync ``Session`` and applies the same SYSTEM-scope overrides
+    with the same ``value_type`` parsing as the web process.
+    """
+    return build_settings(cls, get_overrides_sync(session, package))

@@ -55,7 +55,8 @@
   "sidebar": {
     "open": "Abrir barra lateral",
     "close": "Cerrar barra lateral",
-    "back": "Volver"
+    "back": "Volver",
+    "skip_to_content": "Saltar al contenido"
   },
   "public_nav": {
     "docs": "Documentación",

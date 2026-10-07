@@ -1136,6 +1136,7 @@ export const keys = {
       back: 'ui.sidebar.back',
       close: 'ui.sidebar.close',
       open: 'ui.sidebar.open',
+      skip_to_content: 'ui.sidebar.skip_to_content',
     },
     switcher: {
       label: 'ui.switcher.label',

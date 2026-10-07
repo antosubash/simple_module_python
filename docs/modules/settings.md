@@ -27,6 +27,18 @@ The pattern (pydantic `BaseSettings` subclass + `register_module_settings` in `r
 - **Admin editing**: registered fields appear under that package at `/admin/settings/` with type-aware inputs.
 - **Hot reload**: saving via the admin UI calls `apply_changes_and_reload`, which validates the diff against the pydantic class, persists deltas, swaps the live `app.state.<package>.settings`, and publishes [`SettingsReloaded`](#events) so dependents (SMTP clients, Celery configs, …) can rebuild.
 
+### Read DB-backed settings outside the web process
+
+`DbBackedSettings` subclasses ignore the environment, and only the hosting lifespan hydrates `app.state.<package>.settings`. A Celery worker (or CLI script) never runs that lifespan, so a bare `FileStorageSettings()` there silently returns pydantic defaults. Hydrate synchronously instead:
+
+```python
+from settings.hydrate import hydrate_settings_sync
+
+cfg = hydrate_settings_sync(FileStorageSettings, session, "file_storage")
+```
+
+`session` is a plain sync SQLAlchemy `Session`. Precedence matches the web process (SYSTEM-scope DB overrides over pydantic defaults, same `value_type` parsing, no env). Inside a Celery task prefer `background_tasks.settings_for(FileStorageSettings, "file_storage")`, which opens the worker's sync session and caches the result per process for 30 seconds (`ttl=` to change, `0` to always re-read).
+
 ### Read settings at request time (generic K/V)
 
 ```python
