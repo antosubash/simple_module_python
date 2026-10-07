@@ -70,6 +70,9 @@ class PermissionRegistry:
     def __init__(self) -> None:
         self._groups: dict[str, PermissionGroup] = {}
         self._role_map: dict[str, set[str]] = {}
+        # Admin-editor grants (DB-backed). Kept apart from ``_role_map`` (code
+        # mappings) so replacing a role's DB keys never drops a code grant.
+        self._role_overlay: dict[str, set[str]] = {}
         self._all_permissions_cache: list[str] | None = None
         self._role_map_cache: dict[str, list[str]] | None = None
         self._sources: dict[str, PermissionSourceProvider] = {}
@@ -178,6 +181,16 @@ class PermissionRegistry:
         self._role_map[role].update(permissions)
         self._invalidate()
 
+    def set_role_overlay(self, role: str, permissions: Collection[str]) -> None:
+        """Replace *role*'s persisted (admin-editor) grants.
+
+        Unlike :meth:`map_role` this is a replace, so removals take effect; the
+        code-registered mappings from :meth:`map_role` are left untouched and
+        stay merged into :attr:`role_map`.
+        """
+        self._role_overlay[role] = set(permissions)
+        self._invalidate()
+
     @property
     def role_map(self) -> dict[str, list[str]]:
         """Merged role→permission mapping (``DEFAULT_ROLE_PERMISSIONS`` + module maps)."""
@@ -185,11 +198,9 @@ class PermissionRegistry:
             merged: dict[str, list[str]] = {
                 role: list(perms) for role, perms in DEFAULT_ROLE_PERMISSIONS.items()
             }
-            for role, perms in self._role_map.items():
-                if role in merged:
-                    merged[role] = list(set(merged[role]) | perms)
-                else:
-                    merged[role] = list(perms)
+            for source in (self._role_map, self._role_overlay):
+                for role, perms in source.items():
+                    merged[role] = list(set(merged.get(role, ())) | perms)
             self._role_map_cache = merged
         return self._role_map_cache
 

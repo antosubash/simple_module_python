@@ -186,6 +186,22 @@ function LegacyPage() {
   return null;
 }
 
+describe('PageShell actions', () => {
+  it('lets the actions wrap and shrink instead of overflowing', () => {
+    render(
+      <PageHeadingProvider>
+        <PageShell title="Records" actions={<button type="button">New</button>}>
+          body
+        </PageShell>
+      </PageHeadingProvider>,
+    );
+    const slot = screen.getByRole('button', { name: 'New' }).parentElement as HTMLElement;
+    expect(slot.className).toContain('flex-wrap');
+    expect(slot.className).toContain('min-w-0');
+    expect(slot.className).not.toContain('flex-shrink-0');
+  });
+});
+
 describe('useReportPageHeading positional overload', () => {
   it('still reports title and section', () => {
     render(

@@ -148,6 +148,9 @@ def _configure_sqlite(
     facade, and ``connect`` fires on the DBAPI connection underneath it. All
     three PRAGMAs must be re-issued per connection except ``journal_mode``,
     which is a property of the file; re-issuing it is cheap and idempotent.
+
+    Also registers a ``savepoint`` listener that opens the transaction before an
+    outermost SAVEPOINT (pysqlite would otherwise let its RELEASE commit; GH #350).
     """
     apply_wal = wal and _is_file_database(database_url)
 
@@ -163,3 +166,15 @@ def _configure_sqlite(
                 cursor.execute("PRAGMA journal_mode=WAL")
         finally:
             cursor.close()
+
+    @event.listens_for(engine.sync_engine, "savepoint")
+    def _begin_before_outermost_savepoint(conn, _name) -> None:  # type: ignore[misc]
+        # pysqlite only emits BEGIN lazily before DML, so a SAVEPOINT that is
+        # the first statement would *start* the transaction and its RELEASE
+        # would COMMIT it, leaving the outer rollback nothing to undo (GH #350).
+        # Open the transaction ourselves, only in that case. SQLAlchemy's
+        # blanket recipe (isolation_level=None + BEGIN on every transaction)
+        # was rejected: it turns every read into a snapshot, so a later write
+        # fails with SQLITE_BUSY_SNAPSHOT, which ignores busy_timeout.
+        if not getattr(conn.connection.driver_connection, "in_transaction", False):
+            conn.exec_driver_sql("BEGIN")
