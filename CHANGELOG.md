@@ -12,6 +12,21 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- **The `/setup` wizard ships with the framework** (#351). Since 0.0.33
+  `SetupMiddleware` redirected a fresh install to `/setup`, but the route and
+  page lived only in this repository's unpublished host, so any other host got
+  `/` → `/setup` → 404. `create_app` now mounts the wizard
+  (`simple_module_hosting.setup_wizard`) and `gen-pages` registers its page
+  (`Setup/Wizard`) from the wheel; a host needs no setup code and should delete
+  any copy it carries. Steps complete from the browser through a new
+  `SetupStep.action` (`SetupAction` / `SetupField` in `simple_module_core`),
+  POSTed to `/setup/steps/<id>` with the session CSRF token. An action runs only
+  while its own step is pending (409 otherwise); `users` ships the
+  first-administrator action, which re-checks under a database lock inside the
+  inserting transaction so concurrent requests create one superuser. Required
+  steps without an action are logged at boot. The old host-only
+  `/setup/administrator`, `/setup/migrations` and the UI-less
+  `/setup/site-basics` endpoints are gone.
 - **Postgres test runs** (#343) — `SM_TEST_DATABASE_URL` points the
   `simple_module_test` fixtures at Postgres, and `make test-py-pg` runs the
   whole Python suite there. The schema is reset once per test, so `app` and

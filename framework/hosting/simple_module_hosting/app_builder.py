@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
-from pathlib import Path
 
 from fastapi import FastAPI
 from simple_module_core import BodyLimitRegistry, CspSourceRegistry
@@ -37,6 +35,7 @@ from simple_module_hosting._phase_helpers import (
     wire_module_routes,
 )
 from simple_module_hosting._preapp_config import merge_host_settings
+from simple_module_hosting._project_root import resolve_project_root as _resolve_project_root
 from simple_module_hosting._registrations import run_module_registrations
 from simple_module_hosting._secret_key import assert_not_placeholder
 from simple_module_hosting._settings_registration import (
@@ -47,6 +46,7 @@ from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry
 from simple_module_hosting.settings import Settings
 from simple_module_hosting.setup_gate import register_migration_step
+from simple_module_hosting.setup_wizard import mount_setup_wizard
 from simple_module_hosting.static_files import PrecompressedStaticFiles
 
 logger = logging.getLogger(__name__)
@@ -57,40 +57,6 @@ _DOCS_URL = "/api/docs"
 _REDOC_URL = "/api/redoc"
 _STATIC_MOUNT_PATH = "/static"
 _STATIC_DIR_NAME = "static"
-_ENV_PROJECT_ROOT = "SM_PROJECT_ROOT"
-
-
-_PROJECT_ROOT_SENTINELS = ("pyproject.toml", ".env", "alembic.ini")
-
-
-def _resolve_project_root() -> Path:
-    """Return the project root directory.
-
-    Prefers the ``SM_PROJECT_ROOT`` environment variable when set.
-
-    Otherwise walks up from the current working directory looking for a
-    project sentinel (``pyproject.toml``, ``.env`` or ``alembic.ini``). This
-    works whether the framework is installed as a wheel into ``site-packages``
-    or run from a workspace clone.
-
-    Falls back to ``parents[3]`` for the in-tree dev loop only when the walk
-    finds nothing — which still keeps ``framework/`` users working without
-    setting the env var explicitly.
-
-    Compare ``simple_module_core.dotenv.find_env_file``: both honor
-    ``SM_PROJECT_ROOT`` first, but this anchors the static/i18n root while
-    that anchors which ``.env`` loads — different sentinels, kept separate.
-    """
-    override = os.environ.get(_ENV_PROJECT_ROOT)
-    if override:
-        return Path(override)
-    cwd = Path.cwd().resolve()
-    for candidate in (cwd, *cwd.parents):
-        if any((candidate / s).exists() for s in _PROJECT_ROOT_SENTINELS):
-            return candidate
-    return Path(__file__).resolve().parents[3]
-
-
 _PROJECT_ROOT = _resolve_project_root()
 
 
@@ -270,6 +236,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         wire_module_routes(app, mod)
 
     app.include_router(health_router)
+    mount_setup_wizard(app, setup_registry)  # /setup — what SetupMiddleware redirects to
 
     static_dir = _PROJECT_ROOT / "host" / _STATIC_DIR_NAME
     if static_dir.is_dir():

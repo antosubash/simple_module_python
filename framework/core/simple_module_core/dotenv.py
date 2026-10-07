@@ -38,7 +38,7 @@ def find_env_file() -> Path:
     settings layer (``BootstrapSettings``) and every out-of-process tool
     (diagnostics CLI, worker entrypoints, users bootstrap) resolve through
     here, so they can never disagree about which file is in effect. Compare
-    ``app_builder._resolve_project_root`` in the hosting package — a
+    ``_project_root.resolve_project_root`` in the hosting package — a
     separate walk that anchors the static/i18n root instead; the two are
     kept distinct on purpose (see that function's docstring).
     """
