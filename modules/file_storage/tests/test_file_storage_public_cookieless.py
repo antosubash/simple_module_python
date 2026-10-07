@@ -81,6 +81,7 @@ async def test_file_storage_signed_in_session_survives_public_fetch(authenticate
 
 async def test_file_storage_other_routes_keep_session_behaviour(client):
     """Only the public file reads are cookieless; an anonymous page still writes it."""
-    resp = await client.get("/users/login")
+    # A real page load (Accept: text/html) — anonymous non-page calls stay cookieless (#349).
+    resp = await client.get("/users/login", headers={"Accept": "text/html"})
     assert resp.status_code == 200
     assert resp.headers.get("set-cookie", "").startswith("session=")

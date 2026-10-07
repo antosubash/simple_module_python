@@ -80,7 +80,9 @@ async def test_bytes_are_dropped_only_after_the_commit(app, tenant_client, monke
         monkeypatch.setattr(backend, "delete", delete)
         await reaper.reap(app, file_id, tenant_id=a.tenant_id)
 
-    assert events == ["commit", "delete"]
+    # The original and any cached thumbnail variants: every delete after the commit.
+    assert events[0] == "commit" and "delete" in events
+    assert set(events[1:]) == {"delete"}
     assert (await _row(app, file_id)).is_deleted is True
 
 
