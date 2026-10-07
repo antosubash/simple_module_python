@@ -5,7 +5,7 @@ Opt-in anonymous serving (GH #353). Existing rows stay private.
 Postgres, so the same migration runs on both.
 
 Revision ID: e5a8c1f27b94
-Revises: c7f2d9a41e83
+Revises: e5f2a8c1d7b3
 Create Date: 2026-10-05 10:00:00.000000
 """
 
@@ -16,7 +16,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "e5a8c1f27b94"
-down_revision: str | None = "c7f2d9a41e83"
+down_revision: str | None = "e5f2a8c1d7b3"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
