@@ -1,9 +1,12 @@
 import { keys, useT } from '@simple-module-py/i18n';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Switch } from '@simple-module-py/ui/components/ui/switch';
+import { PermissionLabel } from './PermissionLabel';
 
 interface Props {
   permissionKey: string;
+  /** Human label from a runtime permission source; the key shows when absent. */
+  label?: string;
   /** Granted directly to this user — the only thing the switch controls. */
   direct: boolean;
   /** Roles granting this key, empty when none do. */
@@ -22,6 +25,7 @@ interface Props {
  */
 export function PermissionRow({
   permissionKey,
+  label,
   direct,
   viaRoles,
   onToggle,
@@ -51,13 +55,12 @@ export function PermissionRow({
       {/* Wrapping beats truncating on a phone: a permission key is read from
           the right — `settings.create`, `settings.delete` — so cutting the end
           off removes the half that tells them apart. */}
-      <code
-        className={`min-w-0 flex-1 break-all font-mono text-[12px] sm:truncate ${
-          effective ? 'text-foreground' : 'text-muted-foreground'
-        }`}
-      >
-        {permissionKey}
-      </code>
+      <PermissionLabel
+        permissionKey={permissionKey}
+        label={label}
+        dimmed={!effective}
+        className="flex-1"
+      />
 
       {direct && (
         <Badge className="shrink-0 border-0 bg-primary-600/10 px-2 py-0 text-[11px] font-medium text-primary-700">

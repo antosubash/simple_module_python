@@ -29,9 +29,9 @@ gen-pages:
 
 # Regenerate packages/i18n/src/{generated-resources,keys.generated}.ts from every
 # installed module's locales/, plus host/locales and packages/ui/locales — without
-# booting the app.
+# booting the app. Pass flags with ARGS, e.g. `make gen-i18n ARGS=--allow-removals`.
 gen-i18n:
-	uv run --project host python scripts/gen_i18n.py
+	uv run --project host python scripts/gen_i18n.py $(ARGS)
 
 # Install JS deps declared by installed modules into host/client_app/node_modules.
 # Wheel-installed modules need this; in-repo workspace modules do not.

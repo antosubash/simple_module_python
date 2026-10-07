@@ -365,8 +365,23 @@ the module name:
 branch_labels = ("my_module",)
 ```
 
-This lets operators roll back a single module's schema with
-`alembic downgrade my_module@base` without touching other modules.
+The label gives the revision a stable, readable name you can target
+(`alembic downgrade my_module@<rev>`, `alembic upgrade my_module@head`), and
+it is what the Doctor's migration list shows as the owning module. It does
+**not** isolate the module's history. `alembic revision --autogenerate` sets
+`down_revision` to the current head, so every module's first revision chains
+linearly off the previous one, and a label on a revision that has a
+`down_revision` does not make it a separate branch. `<label>@base` resolves to
+the base of the *chain*, so `alembic downgrade my_module@base` rolls back every
+revision beneath it, other modules' included.
+
+To remove one module's schema safely:
+
+- If the module's revisions are the latest in the chain (no other module has
+  added a revision above them), downgrade to the `down_revision` of the
+  module's *first* revision: `alembic downgrade <that down_revision id>`.
+- Otherwise write a dedicated migration that drops that module's tables (and
+  their dependents), so history stays linear and other modules are untouched.
 
 ## Frontend assets
 

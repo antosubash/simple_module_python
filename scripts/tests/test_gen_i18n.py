@@ -52,7 +52,7 @@ class TestTheCommandReportsWhatHappened:
 
         monkeypatch.setattr(i18n_manifest, "write_generated_resources", explode)
         with pytest.raises(OSError, match="disk full"):
-            i18n_manifest.emit_frontend_types(_registry(), ROOT, strict=True)
+            i18n_manifest.emit_frontend_types(_registry(), ROOT, strict=True, allow_removals=True)
 
     def test_the_boot_path_still_prefers_stale_types_to_a_failed_start(
         self, monkeypatch: pytest.MonkeyPatch
@@ -64,7 +64,85 @@ class TestTheCommandReportsWhatHappened:
             raise OSError("disk full")
 
         monkeypatch.setattr(i18n_manifest, "write_generated_resources", explode)
-        i18n_manifest.emit_frontend_types(_registry(), ROOT)  # logged, not raised
+        i18n_manifest.emit_frontend_types(
+            _registry(), ROOT, allow_removals=True
+        )  # logged, not raised
+
+
+class TestItRefusesToDropANamespace:
+    """GH #329: a venv missing a module must not silently delete its keys."""
+
+    def _tree(self, tmp_path: Path) -> Path:
+        src = tmp_path / "packages" / "i18n" / "src"
+        src.mkdir(parents=True)
+        (src / "generated-resources.ts").write_text(
+            "export default {\n  translation: {\n"
+            "    'host.landing.title': '',\n"
+            "    'keycloak.login.a': '',\n"
+            "    'keycloak.login.b': '',\n"
+            "  },\n} as const;\n"
+        )
+        return src
+
+    def test_strict_raises_naming_the_namespace_and_count(self, tmp_path: Path) -> None:
+        from simple_module_hosting import i18n_manifest
+
+        src = self._tree(tmp_path)
+        before = (src / "generated-resources.ts").read_text()
+
+        with pytest.raises(i18n_manifest.NamespaceRemovalError) as exc:
+            i18n_manifest.emit_frontend_types(_registry(), tmp_path, strict=True)
+
+        assert exc.value.dropped == {"keycloak": 2}
+        assert "'keycloak.*' (2 keys)" in str(exc.value)
+        assert "uv sync --all-packages" in str(exc.value)
+        assert (src / "generated-resources.ts").read_text() == before
+
+    def test_allow_removals_writes(self, tmp_path: Path) -> None:
+        from simple_module_hosting import i18n_manifest
+
+        src = self._tree(tmp_path)
+
+        i18n_manifest.emit_frontend_types(_registry(), tmp_path, strict=True, allow_removals=True)
+
+        assert "keycloak" not in (src / "generated-resources.ts").read_text()
+
+    def test_boot_path_warns_and_skips_without_raising(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        from simple_module_hosting import i18n_manifest
+
+        src = self._tree(tmp_path)
+        before = (src / "generated-resources.ts").read_text()
+
+        with caplog.at_level("WARNING"):
+            i18n_manifest.emit_frontend_types(_registry(), tmp_path)
+
+        assert "keycloak" in caplog.text
+        assert (src / "generated-resources.ts").read_text() == before
+
+    def test_adding_a_namespace_is_not_a_removal(self, tmp_path: Path) -> None:
+        from simple_module_hosting import i18n_manifest
+
+        src = self._tree(tmp_path)
+        reg = _registry()
+        reg._messages["en"]["keycloak.login.a"] = "x"
+        reg._messages["en"]["brand.new"] = "y"
+
+        i18n_manifest.emit_frontend_types(reg, tmp_path, strict=True)
+
+        assert "brand.new" in (src / "generated-resources.ts").read_text()
+
+    def test_cli_accepts_allow_removals(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--help"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0
+        assert "--allow-removals" in result.stdout
 
 
 def _registry():
