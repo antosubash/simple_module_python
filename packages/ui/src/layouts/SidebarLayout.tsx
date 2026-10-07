@@ -120,6 +120,12 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
       <BrandingHead />
       <BrandingBanner />
       <DemoBanner />
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-lg focus:ring-2 focus:ring-ring focus:outline-none"
+      >
+        {t(keys.ui.sidebar.skip_to_content)}
+      </a>
       {/* --app-chrome-h names the height of the bar above the content — the
           topbar on lg, the mobile bar below it, both mutually exclusive.
           Both bars size themselves off this one variable (h-[var(--app-chrome-h)])
@@ -259,7 +265,9 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
             currentUrl={currentUrl}
             activeMenuItem={active}
           />
-          <div className="flex-1">{children}</div>
+          <div id="main" tabIndex={-1} className="flex-1 outline-none">
+            {children}
+          </div>
           <BrandingFooter
             appName={appName}
             logoUrl={logoUrl}
