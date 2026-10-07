@@ -221,7 +221,8 @@ class InertiaLayoutDataMiddleware:
                 "isAuthenticated": is_authenticated,
                 "permissions": frontend_permissions,
             },
-            "menus": self.menu_registry.get_for_user(
+            "menus": await self.menu_registry.get_for_request(
+                request,
                 is_authenticated=is_authenticated,
                 roles=roles,
                 # Already expanded above (wildcards resolved), which is exactly
