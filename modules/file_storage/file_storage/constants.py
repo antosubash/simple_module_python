@@ -122,6 +122,9 @@ UNKNOWN_UPLOADER: Final = "—"
 
 # ── Public serving & thumbnails ──────────────────────────────────────
 PUBLIC_MAX_AGE_SECONDS: Final = 3600
+# Per-IP budget for anonymous public file GETs (its own bucket in the shared
+# rate limiter, #347), wider than the default because one page embeds many.
+PUBLIC_FILES_RATE: Final = "600/minute"
 # Types a browser would execute or render as a document on our origin. They are
 # served as attachments (and sandboxed) so a public upload cannot become stored
 # XSS on the app's origin.

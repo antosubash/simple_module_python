@@ -104,9 +104,12 @@ class FileStorageModule(ModuleBase):
         uploads, deletes and the authenticated download keep requiring a
         session. The handler itself still refuses anything not ``public``.
         """
+        from file_storage.constants import PUBLIC_FILES_RATE
         from file_storage.cookieless import PUBLIC_PATH_PATTERN
 
-        registry.add_regex(PUBLIC_PATH_PATTERN, methods={"GET"})
+        # Its own, wider bucket: one public page can embed dozens of images and
+        # thumbnails, which would exhaust the shared anonymous default.
+        registry.add_regex(PUBLIC_PATH_PATTERN, methods={"GET"}, rate=PUBLIC_FILES_RATE)
 
     def register_middleware(self, app: FastAPI) -> None:
         """Serve public files without a session cookie or ``Vary: Cookie``."""
