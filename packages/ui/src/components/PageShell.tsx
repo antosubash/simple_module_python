@@ -97,7 +97,7 @@ export function PageShell({
           // control in the phone bar; repeating it here is a duplicate button.
           <div
             className={cn(
-              'flex flex-shrink-0 items-center gap-2',
+              'flex min-w-0 flex-wrap items-center justify-end gap-2',
               mobileAction && 'hidden sm:flex',
             )}
           >
