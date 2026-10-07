@@ -40,8 +40,9 @@ target_metadata = build_module_metadata()
 # host's user-added tables or framework internals.
 include_object = make_include_object(target_metadata)
 
-# Re-emit expression-based indexes (e.g. ``lower(email)``) that autogenerate
-# silently drops under SQLite — see make_process_revision_directives docstring.
+# Re-emit expression-based indexes that autogenerate drops under SQLite, rewrite
+# Boolean 0/1 server defaults to sa.false()/sa.true(), and warn that SQLite cannot
+# verify expression indexes (GH #342) — see make_process_revision_directives.
 process_revision_directives = make_process_revision_directives(target_metadata)
 
 

@@ -20,6 +20,8 @@
     "maintenance_title": "Down for maintenance",
     "not_found_description": "That page or record doesn't exist. It may have been deleted.",
     "not_found_title": "Not found",
+    "payload_too_large_description": "What you sent is larger than this server accepts. Send something smaller and try again.",
+    "payload_too_large_title": "Request too large",
     "rate_limited_description": "You've made a lot of requests in a short time. Wait a moment and try again.",
     "rate_limited_title": "Too many requests",
     "retry": "Retry",

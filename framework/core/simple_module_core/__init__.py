@@ -1,6 +1,7 @@
 """SimpleModule Core - Module system, menu, permissions, events, and diagnostics."""
 
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry, LabelResolver
+from simple_module_core.body_limits import BodyLimitRegistry
 from simple_module_core.csp import CspSourceError, CspSourceRegistry
 from simple_module_core.design_packs import DesignPack, DesignPackRegistry
 from simple_module_core.diagnostics import (
@@ -56,6 +57,7 @@ __all__ = [
     "TENANT_ROLE_PREFIX",
     "AuditLink",
     "AuditLinkRegistry",
+    "BodyLimitRegistry",
     "CircularDependencyError",
     "CspSourceError",
     "CspSourceRegistry",

@@ -20,6 +20,8 @@
     "maintenance_title": "En mantenimiento",
     "not_found_description": "Esa página o registro no existe. Puede que se haya eliminado.",
     "not_found_title": "No encontrado",
+    "payload_too_large_description": "Lo que enviaste es mayor de lo que acepta este servidor. Envía algo más pequeño e inténtalo de nuevo.",
+    "payload_too_large_title": "Solicitud demasiado grande",
     "rate_limited_description": "Has hecho muchas solicitudes en poco tiempo. Espera un momento e inténtalo de nuevo.",
     "rate_limited_title": "Demasiadas solicitudes",
     "retry": "Reintentar",

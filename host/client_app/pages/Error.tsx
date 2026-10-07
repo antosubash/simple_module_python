@@ -74,6 +74,11 @@ function useStatusCopy(status: number, maintenance: boolean): StatusCopy {
       description: t(e.session_expired_description),
       accent: 'warning',
     },
+    413: {
+      title: t(e.payload_too_large_title),
+      description: t(e.payload_too_large_description),
+      accent: 'warning',
+    },
     422: {
       title: t(e.invalid_request_title),
       description: t(e.invalid_request_description),

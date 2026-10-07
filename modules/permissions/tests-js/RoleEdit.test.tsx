@@ -85,6 +85,56 @@ const keyRow = (permissionKey: string) =>
 const filterBox = () => screen.getByPlaceholderText('Filter modules or permissions…');
 
 describe('RoleEdit', () => {
+  test('shows a source-supplied label for a permission, falling back to the key', () => {
+    render(
+      <RoleEdit
+        role={{ id: 'r1', name: 'editor', description: null }}
+        assigned={[]}
+        groups={[
+          {
+            name: 'records',
+            permissions: ['records.faq.edit', 'records.product.edit'],
+            labels: { 'records.product.edit': 'Edit products' },
+          },
+        ]}
+      />,
+    );
+
+    // The label is secondary text; the real key is always shown beside it.
+    expect(screen.getByText('Edit products')).toBeVisible();
+    expect(screen.getByText('records.product.edit', { selector: 'code' })).toBeVisible();
+    expect(screen.getByText('records.faq.edit', { selector: 'code' })).toBeVisible();
+    expect(
+      screen.getByRole('switch', { name: 'Edit products (records.product.edit)' }),
+    ).toBeVisible();
+  });
+
+  test('a label never replaces its key, renders as text, and is length-capped', () => {
+    const spoof = 'x'.repeat(200);
+    render(
+      <RoleEdit
+        role={{ id: 'r1', name: 'editor', description: null }}
+        assigned={[]}
+        groups={[
+          {
+            name: 'records',
+            permissions: ['records.admin.delete', 'records.faq.edit'],
+            labels: {
+              'records.admin.delete': '<b>View faq</b> records.faq.edit',
+              'records.faq.edit': spoof,
+            },
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('records.admin.delete', { selector: 'code' })).toBeVisible();
+    // Markup in a label is shown literally, never interpreted.
+    expect(screen.getByText('<b>View faq</b> records.faq.edit')).toBeVisible();
+    expect(screen.queryByText(spoof)).toBeNull();
+    expect(screen.getByText(`${'x'.repeat(80)}…`)).toBeVisible();
+  });
+
   test('renders the deck header, actions and granted summary', () => {
     renderPage();
 

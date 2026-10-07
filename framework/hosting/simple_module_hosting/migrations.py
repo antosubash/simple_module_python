@@ -198,6 +198,33 @@ async def migration_status(engine, alembic_ini_path: str | None = None) -> dict:
     }
 
 
+def _note_unverifiable_expression_indexes(engine) -> None:
+    """Say so when the dialect cannot verify the models' expression indexes.
+
+    "At head" on SQLite does not cover ``lower(email)``-style indexes: the
+    dialect cannot reflect them, so neither this check nor ``alembic check``
+    can tell whether the schema has them (GH #342, diagnostic SM026).
+    """
+    if engine.dialect.name != "sqlite":
+        return
+    try:
+        from simple_module_core.diagnostics._expression_index import find_expression_indexes
+        from simple_module_db.base import all_module_bases
+
+        found = find_expression_indexes(
+            table for base in all_module_bases for table in base.metadata.tables.values()
+        )
+    except Exception:  # pragma: no cover - purely advisory
+        logger.debug("Could not inspect expression indexes", exc_info=True)
+        return
+    if found:
+        logger.info(
+            "Migrations are at head, but SQLite cannot verify expression indexes (%s); "
+            "check them on PostgreSQL (make migrations-roundtrip-pg). See SM026.",
+            ", ".join(f"{index} ({table})" for table, index in found),
+        )
+
+
 async def check_migrations(engine, alembic_ini_path: str | None = None) -> dict:
     """Return migration state, raising if the database is behind head.
 
@@ -214,4 +241,5 @@ async def check_migrations(engine, alembic_ini_path: str | None = None) -> dict:
             f"(at {status['current_revision']!r}, head is "
             f"{status['head_revision']!r}). Run: make migrate"
         )
+    _note_unverifiable_expression_indexes(engine)
     return status

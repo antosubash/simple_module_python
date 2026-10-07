@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI
-from simple_module_core import CspSourceRegistry
+from simple_module_core import BodyLimitRegistry, CspSourceRegistry
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.design_packs import DesignPackRegistry
 from simple_module_core.diagnostics import print_diagnostics
@@ -31,16 +31,18 @@ from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._lifespan import build_lifespan
 from simple_module_hosting._phase_helpers import (
     attach_public_routes,
-    check_settings_registration,
     install_middleware,
     mount_module_static_dirs,
     register_exception_handlers,
-    register_host_settings,
     wire_module_routes,
 )
 from simple_module_hosting._preapp_config import merge_host_settings
 from simple_module_hosting._registrations import run_module_registrations
 from simple_module_hosting._secret_key import assert_not_placeholder
+from simple_module_hosting._settings_registration import (
+    check_settings_registration,
+    register_host_settings,
+)
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry
 from simple_module_hosting.settings import Settings
@@ -195,6 +197,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # ── Phase 5: Module registrations ──────────────────────
     csp_registry = CspSourceRegistry()
+    body_limit_registry = BodyLimitRegistry()
     run_module_registrations(
         modules,
         app=app,
@@ -209,7 +212,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         design_pack_registry=design_pack_registry,
         audit_link_registry=audit_link_registry,
         csp_registry=csp_registry,
+        body_limit_registry=body_limit_registry,
     )
+    app.state.body_limits = body_limit_registry
 
     attach_public_routes(app, settings, public_route_registry)
     report_tenant_resolution(app, settings, diagnostics_state)  # SM025

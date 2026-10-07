@@ -4,6 +4,7 @@ from simple_module_db.audit import AuditRecord
 from simple_module_db.base import create_module_base
 from simple_module_db.callbacks import OnCommitCallback
 from simple_module_db.deps import get_db
+from simple_module_db.migration_portability import drop_enums_if_postgres
 from simple_module_db.migrations import (
     build_module_metadata,
     make_include_object,
@@ -54,6 +55,7 @@ __all__ = [
     "create_module_base",
     "current_tenant_id",
     "detect_provider",
+    "drop_enums_if_postgres",
     "finalize_session",
     "get_db",
     "hard_delete",

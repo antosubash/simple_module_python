@@ -13,6 +13,7 @@ register_event_handlers
 register_invalidations
 register_health_checks
 register_public_routes
+register_body_limits
 register_csp_sources
 register_design_packs
 register_audit_links
@@ -146,6 +147,19 @@ async def _check_db(self) -> HealthCheckResult: ...
 ```
 
 Each check returns a `HealthCheckResult(status=HealthStatus.HEALTHY | DEGRADED | UNHEALTHY, detail=...)`. The `/health/ready` endpoint runs all checks concurrently and reports the worst status (a raising check counts as `UNHEALTHY`).
+
+## `register_body_limits(registry)`
+
+Raise (or lower) the request-body ceiling for specific routes — the host
+refuses any body over `max_request_body_bytes` (10 MiB by default) with a 413
+before the route runs. A multipart upload endpoint declares what it needs:
+
+```python
+def register_body_limits(self, registry) -> None:
+    registry.add_exact("/api/media/upload", 200 * 1024 * 1024, methods={"POST"})
+```
+
+See [request-guards.md](request-guards.md).
 
 ## `register_csp_sources(registry)`
 
@@ -305,6 +319,7 @@ class OrdersModule(ModuleBase):
     def register_event_handlers(self, bus, app=None): ...
     def register_health_checks(self, registry): ...
     def register_public_routes(self, registry): ...
+    def register_body_limits(self, registry): ...
     def register_csp_sources(self, registry): ...
     def register_exception_handlers(self, app): ...
     def register_middleware(self, app): ...
