@@ -39,6 +39,13 @@ class TestResolvePrincipalPermissions:
         held = await resolve_principal_permissions(None, _user(["clerk"]), reg)
         assert held == {"orders.view", "orders.edit"}
 
+    async def test_source_cannot_grant_the_wildcard(self):
+        async def _wildcard(_request, _user):
+            return {"*", "orders.view"}
+
+        held = await resolve_principal_permissions(None, _user(), _registry(_wildcard))
+        assert held == {"orders.view"}
+
     async def test_raising_source_fails_closed(self):
         held = await resolve_principal_permissions(None, _user(), _registry(_raises, _grants_view))
         assert held == {"orders.view"}

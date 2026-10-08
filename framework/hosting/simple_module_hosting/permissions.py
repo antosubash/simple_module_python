@@ -68,7 +68,9 @@ async def resolve_principal_permissions(
         return permissions
     for source in registry.grant_sources:
         try:
-            permissions.update(await source(request, user))
+            # Grants are additive keys only: the wildcard (admin) comes from
+            # roles, never from a source, so a stray ``*`` row can't escalate.
+            permissions.update(k for k in await source(request, user) if k != WILDCARD)
         except Exception:
             logger.exception("Grant source %r raised; contributing nothing", source)
     return permissions
