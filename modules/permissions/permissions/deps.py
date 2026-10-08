@@ -20,7 +20,7 @@ __all__ = [
 ]
 
 
-def get_permission_registry(request: Request) -> PermissionRegistry:
+async def get_permission_registry(request: Request) -> PermissionRegistry:
     return request.app.state.sm.permissions
 
 

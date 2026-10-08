@@ -24,7 +24,7 @@ from dashboard.stats import fetch_dashboard_stats
 router = APIRouter()
 
 
-def _require_admin(request: Request) -> None:
+async def _require_admin(request: Request) -> None:
     """Doctor exposes migration status, module list and system info — admin
     only. The ``/admin`` prefix is a URL convention, not a permission, so this
     is the guard that actually keeps a non-admin, signed-in user out."""

@@ -16,7 +16,7 @@ from tenants.resolver import make_invalidator
 from tenants.service import TenantService
 
 
-def get_tenant_service(request: Request, db: AsyncSession = Depends(get_db)) -> TenantService:
+async def get_tenant_service(request: Request, db: AsyncSession = Depends(get_db)) -> TenantService:
     app = request.app
     return TenantService(
         db,
@@ -29,7 +29,7 @@ def get_tenant_service(request: Request, db: AsyncSession = Depends(get_db)) -> 
 TenantServiceDep = Annotated[TenantService, Depends(get_tenant_service)]
 
 
-def get_invitation_service(request: Request, tenants: TenantServiceDep) -> InvitationService:
+async def get_invitation_service(request: Request, tenants: TenantServiceDep) -> InvitationService:
     ttl = request.app.state.tenants.settings.invitation_ttl_hours
     return InvitationService(tenants, ttl_hours=ttl)
 
@@ -44,17 +44,21 @@ class ActiveTenantContext:
     user_id: str
 
 
-def require_user_id(request: Request) -> str:
+def _current_user_id(request: Request) -> str:
     user = getattr(request.state, "user", None)
     if user is None:
         raise TenantError("not_authenticated", status_code=401)
     return str(user.id)
 
 
-def require_active_tenant(request: Request) -> ActiveTenantContext:
+async def require_user_id(request: Request) -> str:
+    return _current_user_id(request)
+
+
+async def require_active_tenant(request: Request) -> ActiveTenantContext:
     """The tenant resolved for this request. Operations act on it — never on an
     id from the URL — so a tenant-level permission cannot reach another tenant."""
-    user_id = require_user_id(request)
+    user_id = _current_user_id(request)
     tenant_id = getattr(request.state, "tenant_id", None)
     role = getattr(request.state, "tenant_role", None)
     if tenant_id is None or role is None:
@@ -62,7 +66,7 @@ def require_active_tenant(request: Request) -> ActiveTenantContext:
     return ActiveTenantContext(tenant_id=tenant_id, role=role, user_id=user_id)
 
 
-def require_tenant_manager(
+async def require_tenant_manager(
     ctx: Annotated[ActiveTenantContext, Depends(require_active_tenant)],
 ) -> ActiveTenantContext:
     """An owner or admin *of the active tenant*.

@@ -114,6 +114,23 @@ All notable changes to this project are documented in this file. The format is b
   module defers past the request (#364). The `tenants` module resolves a
   tenant from the subdomain (`subdomain_base`), anonymous visitors included
   (#363).
+- **Request-path performance** (Postgres load test,
+  [docs/perf/2026-10-08-postgres-loadtest.md](docs/perf/2026-10-08-postgres-loadtest.md)).
+  Route matching skips any included router whose routes cannot match the path:
+  FastAPI ≥ 0.140 regex-tested nearly all ~190 routes per request, ~30% of a
+  cheap request's CPU (`/health` 1.98 → 1.46 ms). The guards are built at
+  startup, which also takes FastAPI's lazy per-route build off the first
+  request after boot (360 → 32 ms). GZip runs at level 5 instead of 9: about
+  1% larger output for 2.4× less CPU. Trivial sync FastAPI dependencies
+  (`get_permission_registry`, `get_feature_flag_registry`, the `file_storage`,
+  `tenants` and `users` accessors) are now `async`, so they no longer
+  take a threadpool round-trip. `/admin/users` counts its status cards in one
+  query instead of three.
+- `SetupMiddleware` refreshes its cached verdict single-flight. When the 5 s
+  TTL lapsed under load, every in-flight request ran the setup steps itself,
+  each checking out a pooled connection. Behind a saturated pool those
+  checkouts queued and fed `QueuePool limit … reached` timeouts. The expired
+  *complete* verdict now keeps answering while one refresh runs.
 
 ### Security
 - The tenant header (`tenant_header`) is no longer honoured for an

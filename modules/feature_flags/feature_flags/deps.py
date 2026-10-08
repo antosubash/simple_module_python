@@ -19,7 +19,7 @@ async def get_feature_flag_service(
     return FeatureFlagService(db)
 
 
-def get_feature_flag_registry(request: Request) -> FeatureFlagRegistry:
+async def get_feature_flag_registry(request: Request) -> FeatureFlagRegistry:
     """Return the process-wide FeatureFlagRegistry owned by the framework."""
     return request.app.state.sm.feature_flags
 

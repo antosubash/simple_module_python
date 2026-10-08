@@ -58,6 +58,11 @@ logger = logging.getLogger(__name__)
 # Below this, gzip framing costs more than it saves. Starlette's own default.
 COMPRESSION_MIN_BYTES = 500
 
+# Starlette defaults to 9, which buys almost nothing on JSON and HTML: a 76 KB
+# first-load page compresses 1.2% smaller at 9 than at 5, for 2.4x the CPU
+# (6.4 ms vs 2.7 ms), spent on the event loop that serves every other request.
+COMPRESSION_LEVEL = 5
+
 # Re-exported for back-compat: static-file serving now lives in static_files.
 ImmutableStaticFiles = PrecompressedStaticFiles
 
@@ -176,7 +181,9 @@ def install_middleware(
     # matters most: the built CSS is ~139 KB raw and ~21 KB gzipped, and the
     # JS bundle compresses about 3x. Uncompressed assets dominated cold page
     # load, several times larger than anything on the server request path.
-    app.add_middleware(GZipMiddleware, minimum_size=COMPRESSION_MIN_BYTES)
+    app.add_middleware(
+        GZipMiddleware, minimum_size=COMPRESSION_MIN_BYTES, compresslevel=COMPRESSION_LEVEL
+    )
     # Right inside RequestLogging (so a 413 is logged) and outside GZip and the
     # whole module tier: an oversized body is refused before anything reads it.
     app.add_middleware(

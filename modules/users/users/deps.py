@@ -48,12 +48,12 @@ current_active_user = fastapi_users.current_user(active=True)
 current_superuser = fastapi_users.current_user(active=True, superuser=True)
 
 
-def get_mailer(request: Request):
+async def get_mailer(request: Request):
     """Return the mailer from app.state.users (built in UsersModule.on_startup)."""
     return request.app.state.users.mailer
 
 
-def get_event_bus(request: Request) -> EventBus:
+async def get_event_bus(request: Request) -> EventBus:
     """Return the event bus from app.state.sm."""
     return request.app.state.sm.event_bus
 
