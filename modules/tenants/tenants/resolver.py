@@ -23,6 +23,7 @@ from fastapi import FastAPI
 from simple_module_core.invalidation import Invalidation, InvalidationBus
 from simple_module_core.tenancy import is_tenant_role
 from simple_module_db import is_valid_tenant_id
+from simple_module_hosting.middleware import TenantResolution
 from starlette.requests import Request
 
 from tenants.constants import (
@@ -37,6 +38,7 @@ from tenants.host_resolver import (
     is_public_route,
     resolve_from_host,
     subdomain_slug,
+    subdomains_enabled,
 )
 from tenants.service import TenantService
 
@@ -125,34 +127,48 @@ def _with_tenant_role(user: Any, tenant_id: str, role: str) -> Any:
     return dataclasses.replace(user, **changes)
 
 
-async def resolve_tenant(request: Request) -> str | None:
-    """``TenantResolver`` for the framework's ``TenantMiddleware``."""
+async def resolve_tenant(request: Request) -> TenantResolution:
+    """``TenantResolver`` for the framework's ``TenantMiddleware``.
+
+    Reports the source (``subdomain`` / ``header`` / ``session``) and the headers
+    the answer depended on, so the middleware can set ``Vary``.
+    """
+    tenant_id, source, vary = await _resolve(request)
+    return TenantResolution(tenant_id, source if tenant_id is not None else None, vary)
+
+
+async def _resolve(request: Request) -> tuple[str | None, str | None, tuple[str, ...]]:
     request.state.tenant_role = None
     request.state.tenant_suspended = False
     request.state.suspended_tenant_name = None
     user = getattr(request.state, "user", None)
     slug = subdomain_slug(request)
     if slug is not None:
-        return await _resolve_subdomain(request, user, slug)
+        return await _resolve_subdomain(request, user, slug), "subdomain", ("Host",)
+    # No slug in the host is still an answer that depended on the host.
+    vary: tuple[str, ...] = ("Host",) if subdomains_enabled(request) else ()
     if user is None:
-        return None
+        return None, None, vary
     user_id = str(user.id)
     memberships = await memberships_for(request.app, user_id)
 
-    requested = _header_tenant(request)
+    header_name = _header_name(request)
+    if header_name:
+        vary = (*vary, header_name)
+    requested = request.headers.get(header_name) if header_name else None
     if requested is not None:
         # An explicit per-request choice (API clients). Never fall back to
         # another tenant: a client that asked for X — or sent junk — must not
         # act on Y.
         if not is_valid_tenant_id(requested):
-            return None
+            return None, None, vary
         active = next(
             (m for m in memberships if m.id == requested and m.status == TenantStatus.ACTIVE),
             None,
         )
         if active is None:
-            return None
-        return _enter(request, user, active)
+            return None, None, vary
+        return _enter(request, user, active), "header", vary
 
     session = request.scope.get("session")
     preferred = session.get(SESSION_ACTIVE_TENANT) if session is not None else None
@@ -170,10 +186,10 @@ async def resolve_tenant(request: Request) -> str | None:
         request.state.tenant_suspended = any(
             m.status == TenantStatus.SUSPENDED for m in memberships
         )
-        return None
+        return None, None, vary
     if session is not None and preferred != active.id and not chosen_suspended:
         session[SESSION_ACTIVE_TENANT] = active.id
-    return _enter(request, user, active)
+    return _enter(request, user, active), "session", vary
 
 
 async def _resolve_subdomain(request: Request, user: Any, slug: str) -> str | None:
@@ -190,10 +206,9 @@ async def _resolve_subdomain(request: Request, user: Any, slug: str) -> str | No
     return tenant_id
 
 
-def _header_tenant(request: Request) -> str | None:
+def _header_name(request: Request) -> str:
     settings = getattr(getattr(request.app.state, "sm", None), "settings", None)
-    header = getattr(settings, "tenant_header", "") or ""
-    return request.headers.get(header) if header else None
+    return getattr(settings, "tenant_header", "") or ""
 
 
 def _enter(request: Request, user: Any, active: MyTenantView) -> str:
