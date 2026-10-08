@@ -2,9 +2,9 @@
 
 CLAUDE.md spells out the pipeline:
 
-    CorrelationId → RequestLogging → GZip → Security → Session → <module>
+    CorrelationId → RequestLogging → BodyLimit → GZip → Security → Session → <module>
                   → Tenant (opt-in) → Locale → InertiaLayoutData
-                  → InertiaCache → Setup → Maintenance
+                  → InertiaCache → RateLimit → Setup → Maintenance
                   → CommitBeforeResponse → app
 
 Setup runs before Maintenance: an install that has never been set up has
@@ -40,6 +40,11 @@ than ``request.state.user``, so it needs nothing Auth provides. It also
 cannot hide SiteLock from an anonymous visitor, because acquiring a demo
 session means POSTing to the demo endpoint, which SiteLock blocks first.
 
+CookielessPublicFilesMiddleware (``file_storage``) keeps the session cookie and
+``Vary: Cookie`` off anonymous public-file reads. Its place among the module
+middlewares does not matter: it clears the session's accessed/modified flags as
+the response starts, so reads by Auth or SiteLock further out are forgotten too.
+
 Maintenance sits after InertiaLayoutData because its 503 page renders
 through Inertia and needs the shared props (auth, menus, i18n) — placed any
 further out it would render bare, with no layout and untranslated copy. It is
@@ -54,6 +59,12 @@ run after the commit.
 GZip sits inside the observability pair so
 those still see every request, but outside everything that produces a body
 — including the /static mount, which is where compression pays off most.
+BodyLimit sits just inside RequestLogging (a 413 is still logged) and outside
+GZip and every module, so an oversized body is refused before anything reads
+it. RateLimit sits inside InertiaCache, after auth and locale/layout data: it
+must know whether the caller is signed in, and its 429 page renders through
+Inertia with the shared props.
+
 Order matters and a swap is the kind of
 regression that breaks production without breaking any happy-path test.
 ``app.user_middleware`` lists middlewares in execution order (Starlette
@@ -69,16 +80,19 @@ from simple_module_hosting.settings import Settings
 _EXPECTED_MULTI_TENANT = (
     "CorrelationIdMiddleware",
     "RequestLoggingMiddleware",
+    "BodyLimitMiddleware",
     "GZipMiddleware",
     "SecurityHeadersMiddleware",
     "SessionMiddleware",
     "DemoReadOnlyMiddleware",
     "SiteLockMiddleware",
+    "CookielessPublicFilesMiddleware",
     "AuthMiddleware",
     "TenantMiddleware",
     "LocaleMiddleware",
     "InertiaLayoutDataMiddleware",
     "InertiaCacheMiddleware",
+    "RateLimitMiddleware",
     "SetupMiddleware",
     "MaintenanceMiddleware",
     "CommitBeforeResponseMiddleware",
@@ -87,15 +101,18 @@ _EXPECTED_MULTI_TENANT = (
 _EXPECTED_SINGLE_TENANT = (
     "CorrelationIdMiddleware",
     "RequestLoggingMiddleware",
+    "BodyLimitMiddleware",
     "GZipMiddleware",
     "SecurityHeadersMiddleware",
     "SessionMiddleware",
     "DemoReadOnlyMiddleware",
     "SiteLockMiddleware",
+    "CookielessPublicFilesMiddleware",
     "AuthMiddleware",
     "LocaleMiddleware",
     "InertiaLayoutDataMiddleware",
     "InertiaCacheMiddleware",
+    "RateLimitMiddleware",
     "SetupMiddleware",
     "MaintenanceMiddleware",
     "CommitBeforeResponseMiddleware",

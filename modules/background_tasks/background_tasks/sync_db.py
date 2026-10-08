@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 
 from simple_module_db import DEFAULT_TENANT_ID
@@ -132,7 +132,7 @@ def dispose_sync_engine() -> None:
 
 
 @contextmanager
-def sync_session() -> Iterator[Session]:
+def sync_session() -> Generator[Session]:
     """Open a short-lived sync session; commit on success, rollback on error."""
     factory = get_sync_session_factory()
     session = factory()

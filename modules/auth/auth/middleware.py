@@ -76,6 +76,11 @@ class AuthMiddleware:
             prefix_paths, exact_paths = provider.get_public_paths()
             is_public = any(path.startswith(p) for p in prefix_paths) or path in exact_paths
 
+        # Contract with the host's RateLimitMiddleware (plain scope key, no import
+        # between them): whether *this* middleware treats the request as anonymous-
+        # allowed, from all three sources above. One source of truth.
+        scope.setdefault("state", {})["auth_public"] = is_public
+
         request = Request(scope)
         user_ctx = await provider.resolve_user(request)
 

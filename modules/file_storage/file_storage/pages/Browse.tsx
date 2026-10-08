@@ -19,7 +19,7 @@ import { UploadDropzone } from './components/UploadDropzone';
 import { UploadsCard } from './components/UploadsCard';
 import { PERMISSIONS, RELOAD_PROPS, ROUTES } from './constants';
 import { describeTypes, formatBytes } from './format';
-import type { BrowseProps, FileFilters } from './types';
+import type { BrowseProps, FileFilters, StoredFile } from './types';
 import { useUploadQueue } from './upload-queue';
 
 function Browse() {
@@ -84,6 +84,30 @@ function Browse() {
     // the user has already scrolled away from the card.
     for (const name of failed) {
       toast.error(t(keys.file_storage.toasts.upload_failed_named, { name }));
+    }
+  }
+
+  async function handleTogglePublic(file: StoredFile) {
+    try {
+      const resp = await fetch(ROUTES.apiFile(file.id), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ public: !file.public }),
+      });
+      if (!resp.ok) throw new Error('visibility change failed');
+      toast.success(
+        t(
+          file.public
+            ? keys.file_storage.toasts.made_private
+            : keys.file_storage.toasts.made_public,
+          {
+            name: file.filename,
+          },
+        ),
+      );
+      router.reload({ only: RELOAD_PROPS });
+    } catch {
+      toast.error(t(keys.file_storage.toasts.visibility_failed));
     }
   }
 
@@ -188,6 +212,8 @@ function Browse() {
             files={files}
             selectedIds={selectedIds}
             canDelete={canDelete}
+            canPublish={canUpload}
+            onTogglePublic={handleTogglePublic}
             onToggleRow={(id, on) =>
               select(on ? [...selectedIds, id] : selectedIds.filter((x) => x !== id))
             }

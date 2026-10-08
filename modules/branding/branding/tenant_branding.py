@@ -188,7 +188,11 @@ def _shared_read(
     entry = (cache.epoch, read)
     cache.inflight[tenant_id] = entry
 
-    def _done(_: asyncio.Future[dict[str, str]]) -> None:
+    def _done(fut: asyncio.Future[dict[str, str]]) -> None:
+        # Retrieve the outcome so a failed read whose every waiter was
+        # cancelled never logs "exception was never retrieved".
+        if not fut.cancelled():
+            fut.exception()
         if cache.inflight.get(tenant_id) is entry:
             del cache.inflight[tenant_id]
 

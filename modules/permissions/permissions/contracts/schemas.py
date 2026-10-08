@@ -13,6 +13,8 @@ class PermissionGroupOut(SQLModel):
 
     name: str
     permissions: list[str]
+    labels: dict[str, str] = Field(default_factory=dict)
+    """Human labels for keys a runtime permission source supplied one for."""
 
 
 class RoleOut(SQLModel):

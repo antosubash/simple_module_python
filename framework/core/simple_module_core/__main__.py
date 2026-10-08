@@ -73,6 +73,16 @@ def _load_i18n_settings_from_env() -> tuple[list[str] | None, str]:
     return supported, default
 
 
+def _database_dialect() -> str:
+    """Dialect name of ``SM_DATABASE_URL`` (``.env`` merged by the i18n loader first).
+
+    Defaults to ``sqlite`` like ``Settings.database_url``. Reads the env var
+    directly for the same reason the i18n settings do: no hosting import.
+    """
+    url = os.environ.get("SM_DATABASE_URL", "sqlite+aiosqlite:///./app.db")
+    return url.split(":", 1)[0].split("+", 1)[0]
+
+
 def _discover_extra_locale_sources() -> list[tuple[str, str, Path]]:
     """Return ``[(reporter, namespace, path), ...]`` for host + ui locale dirs."""
     # Anchor on the same project root the `.env` was loaded from
@@ -135,6 +145,7 @@ def main() -> int:
         i18n_supported_locales=supported,
         i18n_default_locale=default,
         i18n_extra_sources=extra,
+        database_dialect=_database_dialect(),
     )
     print_diagnostics(diagnostics)
 

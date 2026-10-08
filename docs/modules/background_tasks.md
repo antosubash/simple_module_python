@@ -220,3 +220,19 @@ Production deployments running multiple workers can write concurrently because e
 ## Locales
 
 Top-level keys in `background_tasks/locales/en.json`: `index`, `filters`, `status` (per-state labels), `table`, `detail`, `retry_dialog`, `toasts`.
+
+## Reading DB-backed settings in a task
+
+Workers never run the hosting lifespan, so `FileStorageSettings()` (or any `DbBackedSettings`) built inside a task returns pydantic defaults, not what the admin UI saved. Use `background_tasks.settings_for(cls, package)`:
+
+```python
+from background_tasks import settings_for
+from file_storage.settings import FileStorageSettings
+
+
+@celery.task
+def convert(file_id: int) -> None:
+    cfg = settings_for(FileStorageSettings, "file_storage")
+```
+
+It reads SYSTEM-scope overrides through the worker's sync session and caches per process for 30 seconds (`ttl=0` always re-reads; `clear_settings_cache()` drops the cache). The underlying sync helper is `settings.hydrate.hydrate_settings_sync`.

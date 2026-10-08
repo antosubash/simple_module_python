@@ -21,11 +21,12 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from simple_module_hosting._inertia_shared import _INERTIA_HEADER
+from simple_module_hosting._observability import CorrelationIdMiddleware
 from simple_module_hosting.permissions import PERMISSION_DENIED_PREFIX
 
 logger = logging.getLogger(__name__)
 
-_INERTIA_ERROR_STATUSES = frozenset({401, 403, 404, 419, 422, 429, 500, 503})
+_INERTIA_ERROR_STATUSES = frozenset({401, 403, 404, 413, 419, 422, 429, 500, 503})
 
 # Statuses whose remedy is "sign in", so the page offers that as its primary
 # action rather than sending the visitor to the landing page.
@@ -278,5 +279,16 @@ async def request_validation_error_handler(
 async def unhandled_exception_handler(request: Request, exc: Exception) -> Response:
     logger.exception("Unhandled exception: %s", exc)
     if _wants_json(request):
-        return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
-    return await render_error_page(request, 500, "")
+        response: Response = JSONResponse(
+            status_code=500, content={"detail": "Internal Server Error"}
+        )
+    else:
+        response = await render_error_page(request, 500, "")
+    # A catch-all `Exception` handler runs in Starlette's ServerErrorMiddleware,
+    # which wraps *outside* CorrelationIdMiddleware, so the response never
+    # passes through it. Without this the 500 — the one response a caller most
+    # needs to quote back to support — is the one without the header.
+    cid = getattr(request.state, "correlation_id", "")
+    if cid:
+        response.headers.setdefault(CorrelationIdMiddleware.HEADER, cid)
+    return response

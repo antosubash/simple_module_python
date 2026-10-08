@@ -34,6 +34,14 @@ PATH_UPLOAD: Final = "/upload"
 PATH_FILES: Final = "/files"
 PATH_FILE_BY_ID: Final = "/files/{file_id}"
 PATH_FILE_DOWNLOAD: Final = "/files/{file_id}/download"
+PATH_FILE_THUMBNAIL: Final = "/files/{file_id}/thumbnail"
+# Anonymous serving of ``public`` files (#353). The thumbnail route is declared
+# before the named one, so a file literally called "thumbnail" is reachable
+# only through the id-only form.
+PUBLIC_SEGMENT: Final = "/public"
+PATH_PUBLIC: Final = "/public/{file_id}"
+PATH_PUBLIC_THUMBNAIL: Final = "/public/{file_id}/thumbnail"
+PATH_PUBLIC_NAMED: Final = "/public/{file_id}/{filename}"
 # POST, not DELETE: a selection is a body, and DELETE with a body is refused
 # or silently stripped by enough proxies that it cannot be relied on.
 PATH_FILES_BULK_DELETE: Final = "/files/bulk-delete"
@@ -84,6 +92,7 @@ class ErrorCode:
     BAD_TYPE: Final = "file_storage.bad_type"
     NOT_FOUND: Final = "file_storage.not_found"
     BACKEND_ERROR: Final = "file_storage.backend_error"
+    BAD_IMAGE: Final = "file_storage.bad_image"
 
 
 class I18nKey:
@@ -93,12 +102,16 @@ class I18nKey:
     ERR_TOO_LARGE: Final = "file_storage.errors.too_large"
     ERR_BAD_TYPE: Final = "file_storage.errors.bad_type"
     ERR_BACKEND: Final = "file_storage.errors.backend_error"
+    ERR_BAD_IMAGE: Final = "file_storage.errors.bad_image"
 
 
 # ── Defaults ─────────────────────────────────────────────────────────
 DEFAULT_BACKEND: Final = BackendId.FILESYSTEM
 DEFAULT_FS_ROOT: Final = "./uploads"
 DEFAULT_MAX_FILE_SIZE_BYTES: Final = 100 * 1024 * 1024  # 100 MB
+# Multipart boundaries and part headers on top of the file bytes, for the
+# host request-body guard.
+MULTIPART_OVERHEAD_BYTES: Final = 1024 * 1024
 DEFAULT_PRESIGN_TTL_SECONDS: Final = 300  # 5 minutes
 DEFAULT_CHUNK_SIZE: Final = 64 * 1024  # 64 KB
 SPOOL_MAX_SIZE_BYTES: Final = 10 * 1024 * 1024  # 10 MB before disk-spill
@@ -106,6 +119,43 @@ SPOOL_MAX_SIZE_BYTES: Final = 10 * 1024 * 1024  # 10 MB before disk-spill
 # Shown where a file has no uploader at all — rows predating authenticated
 # uploads. The label is resolved server-side, so this is the only copy.
 UNKNOWN_UPLOADER: Final = "—"
+
+# ── Public serving & thumbnails ──────────────────────────────────────
+PUBLIC_MAX_AGE_SECONDS: Final = 3600
+# Per-IP budget for anonymous public file GETs (its own bucket in the shared
+# rate limiter, #347), wider than the default because one page embeds many.
+PUBLIC_FILES_RATE: Final = "600/minute"
+# Types a browser would execute or render as a document on our origin. They are
+# served as attachments (and sandboxed) so a public upload cannot become stored
+# XSS on the app's origin.
+ACTIVE_CONTENT_TYPES: Final = frozenset(
+    {
+        "text/html",
+        "application/xhtml+xml",
+        "image/svg+xml",
+        "text/xml",
+        "application/xml",
+        "text/javascript",
+        "application/javascript",
+        "application/x-shockwave-flash",
+    }
+)
+PUBLIC_CSP: Final = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+
+THUMBNAIL_WIDTHS: Final = (64, 128, 256, 512, 1024)
+THUMBNAIL_DEFAULT_WIDTH: Final = 256
+THUMBNAIL_MIN_WIDTH: Final = 32
+THUMBNAIL_MAX_WIDTH: Final = 1024
+THUMBNAIL_CONTENT_TYPE: Final = "image/webp"
+# Decode budget: refuse an image whose pixel count would balloon memory
+# (decompression bomb) before Pillow ever decodes it.
+THUMBNAIL_MAX_PIXELS: Final = 25_000_000
+THUMBNAIL_MAX_SOURCE_BYTES: Final = 20 * 1024 * 1024
+THUMBNAIL_MAX_CONCURRENCY: Final = 2
+THUMBNAIL_MAX_AGE_SECONDS: Final = 86400
+
+# ── Listing ──────────────────────────────────────────────────────────
+DEFAULT_SORT: Final = "-created_at"
 
 # ── Menu ─────────────────────────────────────────────────────────────
 MENU_ICON: Final = "files"

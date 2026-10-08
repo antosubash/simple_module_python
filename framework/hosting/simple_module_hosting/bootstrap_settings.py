@@ -88,6 +88,11 @@ class BootstrapSettings(BaseSettings):
 
     modules_enabled: list[str] | None = None
 
+    redis_url: str | None = None
+    """Optional Redis for the shared rate limiter (``SM_REDIS_URL``). Env only —
+    it carries credentials and the limiter is built before the DB is read. Unset
+    means per-worker in-process counters."""
+
     @property
     def is_development(self) -> bool:
         return self.environment == "development"

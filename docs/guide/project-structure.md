@@ -101,7 +101,7 @@ Never hand-edit the `.generated.*` files — they are overwritten on the next `m
 
 ## Where things intentionally *don't* live
 
-- **No per-module `migrations/` folder.** All migrations live in `host/migrations/versions/`. Autogenerate discovers every installed module's metadata via `build_module_metadata()` in `host/migrations/env.py`. Each module's first migration sets a `branch_labels` marker to enable `alembic downgrade <module>@base`.
+- **No per-module `migrations/` folder.** All migrations live in `host/migrations/versions/`. Autogenerate discovers every installed module's metadata via `build_module_metadata()` in `host/migrations/env.py`. Each module's first migration sets a `branch_labels` marker, a named target for that revision (it does not make `alembic downgrade <module>@base` a per-module rollback; see [Migrations](/database/migrations)).
 - **No host-level `api/` folder.** REST endpoints are attached by each module via `register_routes(api_router, view_router)`. `/api/*` is the union of every module's API router.
 - **No `schemas/` top-level folder.** DTOs live inside the owning module's `contracts/` so other modules import them by name — the reverse of a monolith's "shared schemas" directory.
 

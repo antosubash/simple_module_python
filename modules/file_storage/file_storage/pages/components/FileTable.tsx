@@ -1,5 +1,6 @@
 import { keys, useT } from '@simple-module-py/i18n';
 import { TableEmptyRow } from '@simple-module-py/ui/components/TableEmptyRow';
+import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Checkbox } from '@simple-module-py/ui/components/ui/checkbox';
 import {
@@ -21,6 +22,9 @@ interface Props {
   files: StoredFile[];
   selectedIds: string[];
   canDelete: boolean;
+  /** Whether the viewer may publish/unpublish (the upload permission). */
+  canPublish: boolean;
+  onTogglePublic: (file: StoredFile) => void;
   onToggleRow: (id: string, selected: boolean) => void;
   onToggleAll: (selected: boolean) => void;
   /** Rendered in place of the rows when there is nothing to show. */
@@ -52,6 +56,8 @@ export function FileTable({
   files,
   selectedIds,
   canDelete,
+  canPublish,
+  onTogglePublic,
   onToggleRow,
   onToggleAll,
   empty,
@@ -108,7 +114,14 @@ export function FileTable({
                   />
                 </TableCell>
               )}
-              <TableCell className="sm:px-6 font-medium">{file.filename}</TableCell>
+              <TableCell className="sm:px-6 font-medium">
+                {file.filename}
+                {file.public && (
+                  <Badge variant="secondary" className="ml-2">
+                    {t(keys.file_storage.table.public)}
+                  </Badge>
+                )}
+              </TableCell>
               <TableCell className="hidden md:table-cell sm:px-6 text-muted-foreground">
                 {file.content_type}
               </TableCell>
@@ -130,6 +143,20 @@ export function FileTable({
                 >
                   <a href={ROUTES.apiDownload(file.id)}>{t(keys.file_storage.actions.download)}</a>
                 </Button>
+                {canPublish && (
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="ml-3 h-auto p-0 text-primary-700 max-lg:min-h-11"
+                    onClick={() => onTogglePublic(file)}
+                  >
+                    {t(
+                      file.public
+                        ? keys.file_storage.actions.make_private
+                        : keys.file_storage.actions.make_public,
+                    )}
+                  </Button>
+                )}
               </TableCell>
             </TableRow>
           );

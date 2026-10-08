@@ -55,7 +55,8 @@
   "sidebar": {
     "open": "Open sidebar",
     "close": "Close sidebar",
-    "back": "Back"
+    "back": "Back",
+    "skip_to_content": "Skip to content"
   },
   "public_nav": {
     "docs": "Docs",

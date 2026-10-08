@@ -21,12 +21,13 @@ from fastapi import UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from file_storage import constants, queries
+from file_storage import constants, queries, thumbnails
 from file_storage.contracts.schemas import StoredFileOut
 from file_storage.contracts.service import StorageNotFoundError
 from file_storage.models import StoredFile
 from file_storage.reads import FileStorageReads
 from file_storage.scope import PLATFORM_TENANT_ID, owning_tenant, platform_scope
+from file_storage.visibility import FileStoragePublic
 
 if TYPE_CHECKING:
     from file_storage.aggregates import AggregateCache
@@ -68,7 +69,7 @@ class RedirectDownload:
 Download = StreamDownload | RedirectDownload
 
 
-class FileStorageService(FileStorageReads):
+class FileStorageService(FileStoragePublic, FileStorageReads):
     """Orchestrates validation, hashing, backend IO, and DB lifecycle."""
 
     def __init__(
@@ -90,7 +91,9 @@ class FileStorageService(FileStorageReads):
 
     # ── Upload ───────────────────────────────────────────────────────
 
-    async def upload(self, upload: UploadFile, *, platform: bool = False) -> StoredFileOut:
+    async def upload(
+        self, upload: UploadFile, *, platform: bool = False, public: bool = False
+    ) -> StoredFileOut:
         """Validate, stream-hash, persist to backend, and record metadata.
 
         The row belongs to the bound tenant, or — with ``platform=True`` — to
@@ -141,6 +144,7 @@ class FileStorageService(FileStorageReads):
                 size_bytes=size,
                 backend=self.backend.backend_id,
                 checksum_sha256=sha.hexdigest(),
+                public=public,
             )
             async with platform_scope(self.db, platform):
                 self.db.add(row)
@@ -231,7 +235,11 @@ class FileStorageService(FileStorageReads):
             # no row left pointing at them. A failure here is a janitor's
             # problem, not the caller's.
             try:
-                await self.backend.delete(row.key)
+                try:
+                    await self.backend.delete(row.key)
+                finally:
+                    # Variants go even when the original's delete fails.
+                    await thumbnails.delete_variants(self.backend, row.key)
             except StorageNotFoundError:
                 # Acceptably absent — eg. a previous delete partially succeeded.
                 pass
@@ -243,7 +251,15 @@ class FileStorageService(FileStorageReads):
                 )
         return rows
 
-    async def delete(self, file_id: uuid.UUID, *, platform: bool = False) -> StoredFile:
+    async def delete(
+        self, file_id: uuid.UUID, *, platform: bool = False, drop_object: bool = True
+    ) -> StoredFile:
+        """Soft-delete the row and (by default) drop the backend object.
+
+        ``drop_object=False`` only flushes the soft-delete: a caller that must
+        commit first (so a failed commit never leaves a live row with no bytes)
+        then calls :meth:`drop_object` with the returned row.
+        """
         # One scope around read + write: its opening flush runs before the
         # platform row is touched, so the guard never sees that change.
         async with platform_scope(self.db, platform):
@@ -253,10 +269,20 @@ class FileStorageService(FileStorageReads):
             row.is_deleted = True
             row.deleted_at = datetime.now(UTC)
             await self.db.flush()
-        # Object is acceptably absent — eg. a previous delete partially succeeded.
-        with contextlib.suppress(StorageNotFoundError):
-            await self.backend.delete(row.key)
+        if drop_object:
+            await self.drop_object(row)
         return row
+
+    async def drop_object(self, row: StoredFile) -> None:
+        """Delete ``row``'s backend object and its thumbnails; absent ones are fine."""
+        try:
+            # Acceptably absent — eg. a previous delete partially succeeded.
+            with contextlib.suppress(StorageNotFoundError):
+                await self.backend.delete(row.key)
+        finally:
+            # A failed original delete still raises, but must not orphan the
+            # variants (``delete_variants`` itself never raises).
+            await thumbnails.delete_variants(self.backend, row.key)
 
 
 def _generate_key(tenant_id: str, filename: str) -> str:

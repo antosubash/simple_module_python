@@ -24,6 +24,9 @@ from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
 _RESTART_DB = {"requires_restart": True, "group": "Database"}
 
 
+_RESTART_GUARD = {"requires_restart": True, "group": "Request guards"}
+
+
 class HostSettings(BaseSettings):
     """DB-backed host configuration — defaults live here, overrides in DB."""
 
@@ -96,10 +99,39 @@ class HostSettings(BaseSettings):
     ``register_public_routes`` hook, which is method-aware.
     """
 
+    max_request_body_bytes: int = Field(default=10 * 1024 * 1024, json_schema_extra=_RESTART_GUARD)
+    """Global request-body ceiling in bytes; larger bodies get a 413 before any
+    route runs. ``0`` disables the guard. Modules override it per path with
+    ``register_body_limits``."""
+
+    rate_limit_public: str = Field(default="120/minute", json_schema_extra=_RESTART_GUARD)
+    """Per-client-IP limit for *anonymous* requests to routes the public-route
+    registry exempts from auth, e.g. ``"120/minute"``. Blank / ``off``
+    disables. A public rule may override it with its own ``rate=``."""
+
+    rate_limit_authenticated: str = Field(default="", json_schema_extra=_RESTART_GUARD)
+    """Opt-in per-IP limit for signed-in traffic, same syntax. Blank (default)
+    leaves authenticated requests unlimited."""
+
     db_pool_size: int = Field(default=10, json_schema_extra=_RESTART_DB)
     db_max_overflow: int = Field(default=20, json_schema_extra=_RESTART_DB)
     db_pool_pre_ping: bool = Field(default=True, json_schema_extra=_RESTART_DB)
     db_pool_recycle: int = Field(default=1800, json_schema_extra=_RESTART_DB)
+
+    @field_validator("rate_limit_public", "rate_limit_authenticated", mode="after")
+    @classmethod
+    def _check_rate(cls, value: str) -> str:
+        from simple_module_core.rate_limit import parse_rate
+
+        parse_rate(value)  # raises RateLimitError (a ValueError) on a typo
+        return value.strip()
+
+    @field_validator("max_request_body_bytes", mode="after")
+    @classmethod
+    def _check_body_bytes(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError("max_request_body_bytes must be >= 0 (0 disables the guard)")
+        return value
 
     @field_validator("auth_provider", mode="after")
     @classmethod

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
 
     from simple_module_core.audit_links import AuditLinkRegistry
+    from simple_module_core.body_limits import BodyLimitRegistry
     from simple_module_core.csp import CspSourceRegistry
     from simple_module_core.design_packs import DesignPackRegistry
     from simple_module_core.events import EventBus
@@ -160,14 +161,15 @@ class ModuleBase(ABC):
 
             def register_public_routes(self, registry):
                 registry.add_prefix("/api/gis/stac")
-                registry.add_regex(
-                    r"/api/gis/datasets/[^/]+/tilejson$", methods={"GET"}
-                )
+                registry.add_regex(r"/api/gis/datasets/[^/]+/tilejson$", methods={"GET"})
 
         Rules are method-aware, so a GET read route nested under a prefix that
         also carries POST/PATCH mutations can be exempted without opening the
         mutations. Called once at boot, in dependency order.
         """
+
+    def register_body_limits(self, registry: BodyLimitRegistry) -> None:
+        """Per-route request-body ceilings; see docs/framework/request-guards.md."""
 
     def register_csp_sources(self, registry: CspSourceRegistry) -> None:
         """Declare external origins this module's frontend loads assets from.

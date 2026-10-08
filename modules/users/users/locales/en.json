@@ -356,7 +356,11 @@
   "setup": {
     "administrator": {
       "title": "Create an administrator",
-      "description": "An account that can sign in and manage this install."
+      "description": "An account that can sign in and manage this install.",
+      "email": "Email",
+      "password": "Password",
+      "full_name": "Full name",
+      "submit": "Create administrator"
     }
   },
   "user_row": {
