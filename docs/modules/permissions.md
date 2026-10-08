@@ -4,9 +4,9 @@ The permissions module decouples role-based and per-user permission grants from 
 
 - Two assignment tables (`permissions_role_permission`, `permissions_user_permission`).
 - An admin UI to edit them.
-- A `RequiresPermission` dependency that consults *both* roles and direct user grants.
+- A grant source that feeds direct user grants into the framework's permission resolution.
 
-The framework ships its own simpler `RequiresPermission` in `simple_module_hosting.permissions` that only checks roles; if you install the `permissions` module, prefer the one re-exported from `permissions.deps` because it also honours direct grants.
+There is one `RequiresPermission`, in `simple_module_hosting.permissions`. With this module installed it honours direct user grants as well as roles, and so does everything else that reads the resolved set: `resolved_permissions_for`, the menu filter, and the frontend's `auth.permissions`. `permissions.deps.RequiresPermission` is the same class, kept so existing imports still work. Before GH #337 they were separate classes, and a direct grant took effect only on routes that imported the `permissions.deps` one.
 
 ## ModuleMeta
 
@@ -45,7 +45,7 @@ All require authentication. Read endpoints need `permissions.view`; mutate endpo
 
 ```python
 from fastapi import APIRouter, Depends
-from permissions.deps import RequiresPermission
+from simple_module_hosting.permissions import RequiresPermission
 
 router = APIRouter()
 
@@ -59,11 +59,15 @@ async def delete_order(order_id: int) -> None: ...
 
 `RequiresPermission(permission)` takes a **single** permission key and 403s unless the request's user holds it, considering:
 
-1. The keys assigned to any of the user's roles (read from the request-cached `resolved_permissions`).
-2. The keys assigned directly to the user (`permissions_user_permission`).
-3. The implicit `WILDCARD` grant — the `admin` role is synced to hold every permission key at startup, so admins pass any check.
+1. The keys assigned to any of the user's roles.
+2. The keys assigned directly to the user (`permissions_user_permission`), contributed by `permissions.grants.direct_grant_source` via `PermissionRegistry.add_grant_source`.
+3. The implicit `WILDCARD` grant. The `admin` role is synced to hold every permission key at startup, so admins pass any check.
 
-For something tied to *only* role membership (no direct grants), use `auth.deps.require_permission` instead — it's a hair cheaper.
+All three are resolved once per request by `InertiaLayoutDataMiddleware` and cached on `request.state.resolved_permissions`. `auth.deps.require_permission(*keys)` reads the same set, with any-of semantics.
+
+### Caching and propagation
+
+The grant source runs on every authenticated request, so each process caches a user's direct grants for 30 seconds (`permissions.grants.GRANTS_TTL_SECONDS`). Saving a user's grants publishes `permissions.user_grants` on the `InvalidationBus` once the transaction commits. The worker that made the change sees it on the next request. Other workers see it immediately when `background_tasks` provides a Redis transport, and otherwise within the TTL.
 
 ## Public contracts
 
