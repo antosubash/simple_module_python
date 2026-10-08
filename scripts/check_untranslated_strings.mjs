@@ -18,7 +18,13 @@ import { findUntranslated } from './lib/untranslated-strings.mjs';
 const ROOT = cwd();
 
 /** Everything whose rendered text a user can read. */
-const INCLUDE = ['modules/*/*/**/*.tsx', 'packages/ui/src/**/*.tsx', 'host/client_app/**/*.tsx'];
+const INCLUDE = [
+  'modules/*/*/**/*.tsx',
+  'packages/ui/src/**/*.tsx',
+  'host/client_app/**/*.tsx',
+  // Pages the framework ships itself (the /setup wizard).
+  'framework/hosting/simple_module_hosting/**/*.tsx',
+];
 
 /**
  * Vendored shadcn primitives are upstream code we re-sync, so their few

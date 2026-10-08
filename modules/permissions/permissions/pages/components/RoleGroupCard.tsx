@@ -4,7 +4,13 @@ import { Checkbox } from '@simple-module-py/ui/components/ui/checkbox';
 import { Switch } from '@simple-module-py/ui/components/ui/switch';
 import { Minus } from 'lucide-react';
 import { GroupHeading } from './GroupHeading';
-import { lastRowStart, type PermissionGroup } from './permission-groups';
+import { PermissionLabel } from './PermissionLabel';
+import {
+  cleanLabel,
+  lastRowStart,
+  type PermissionGroup,
+  permissionAriaLabel,
+} from './permission-groups';
 
 interface Props {
   /** The whole module: the header counts and its checkbox speak for all of it. */
@@ -57,6 +63,7 @@ export function RoleGroupCard({ group, permissions, assigned, onToggle, onToggle
       <div className="grid sm:grid-cols-2">
         {permissions.map((key, index) => {
           const on = assigned.has(key);
+          const label = group.labels?.[key];
           return (
             <label
               key={key}
@@ -69,14 +76,9 @@ export function RoleGroupCard({ group, permissions, assigned, onToggle, onToggle
                 id={`perm-${key}`}
                 checked={on}
                 onCheckedChange={(checked) => onToggle(key, checked === true)}
+                aria-label={permissionAriaLabel(key, cleanLabel(label))}
               />
-              <code
-                className={`min-w-0 truncate font-mono text-[12px] ${
-                  on ? 'text-foreground' : 'text-muted-foreground'
-                }`}
-              >
-                {key}
-              </code>
+              <PermissionLabel permissionKey={key} label={label} dimmed={!on} />
             </label>
           );
         })}

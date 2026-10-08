@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Collection
+import logging
+from collections.abc import Awaitable, Callable, Collection, Iterable
 from dataclasses import dataclass, field
 from typing import Any
+
+logger = logging.getLogger(__name__)
+
+PermissionSourceProvider = Callable[[], "Iterable[str] | Iterable[tuple[str, str]]"]
+"""Sync callable returning permission keys, or ``(key, label)`` pairs."""
 
 WILDCARD = "*"
 
@@ -77,13 +83,63 @@ class PermissionRegistry:
     def __init__(self) -> None:
         self._groups: dict[str, PermissionGroup] = {}
         self._role_map: dict[str, set[str]] = {}
+        # Admin-editor grants (DB-backed). Kept apart from ``_role_map`` (code
+        # mappings) so replacing a role's DB keys never drops a code grant.
+        self._role_overlay: dict[str, set[str]] = {}
         self._all_permissions_cache: list[str] | None = None
         self._role_map_cache: dict[str, list[str]] | None = None
         self._grant_sources: list[GrantSource] = []
+        self._sources: dict[str, PermissionSourceProvider] = {}
+        self._source_cache: dict[str, tuple[list[str], dict[str, str]]] = {}
 
     def _invalidate(self) -> None:
         self._all_permissions_cache = None
         self._role_map_cache = None
+
+    # ── Runtime sources ────────────────────────────────────────
+
+    def add_source(self, name: str, provider: PermissionSourceProvider) -> None:
+        """Register a runtime permission source under group *name*.
+
+        For modules whose protected resources are created after boot. *provider*
+        is **sync** and should read a module-maintained in-memory cache — the
+        registry is consulted on every request. Its output is cached here until
+        :meth:`invalidate_source` is called. A provider that raises is logged
+        and contributes nothing.
+        """
+        self._sources[name] = provider
+        self._source_cache.pop(name, None)
+        self._invalidate()
+
+    def invalidate_source(self, name: str) -> None:
+        """Drop the cached output of source *name*; re-read on next access."""
+        self._source_cache.pop(name, None)
+        self._invalidate()
+
+    def _source_output(self, name: str) -> tuple[list[str], dict[str, str]]:
+        cached = self._source_cache.get(name)
+        if cached is not None:
+            return cached
+        keys: list[str] = []
+        labels: dict[str, str] = {}
+        try:
+            for entry in self._sources[name]():
+                if isinstance(entry, str):
+                    keys.append(entry)
+                else:
+                    key, label = entry
+                    keys.append(key)
+                    labels[key] = label
+        except Exception:
+            logger.exception("Permission source %r failed; contributing nothing", name)
+            keys, labels = [], {}
+        out = (sorted(set(keys)), labels)
+        self._source_cache[name] = out
+        return out
+
+    def source_labels(self, name: str) -> dict[str, str]:
+        """Human labels supplied by source *name*, keyed by permission string."""
+        return dict(self._source_output(name)[1]) if name in self._sources else {}
 
     def add_group(self, name: str, permissions: list[str]) -> None:
         """Register a group of related permissions."""
@@ -107,17 +163,26 @@ class PermissionRegistry:
         """All registered permission strings, sorted."""
         if self._all_permissions_cache is None:
             perms: set[str] = set()
-            for group in self._groups.values():
+            for group in self.groups:
                 perms.update(group.permissions)
             self._all_permissions_cache = sorted(perms)
         return self._all_permissions_cache
 
     @property
     def groups(self) -> list[PermissionGroup]:
-        return list(self._groups.values())
+        """Static groups plus one group per source (merged by name)."""
+        merged = {
+            n: PermissionGroup(name=n, permissions=list(g.permissions))
+            for n, g in self._groups.items()
+        }
+        for name in self._sources:
+            keys = self._source_output(name)[0]
+            group = merged.setdefault(name, PermissionGroup(name=name))
+            group.permissions.extend(k for k in keys if k not in group.permissions)
+        return list(merged.values())
 
     def has(self, permission: str) -> bool:
-        return any(permission in g.permissions for g in self._groups.values())
+        return permission in self.all_permissions
 
     def map_role(self, role: str, permissions: list[str]) -> None:
         """Register a role→permission mapping.
@@ -146,6 +211,16 @@ class PermissionRegistry:
     def grant_sources(self) -> tuple[GrantSource, ...]:
         return tuple(self._grant_sources)
 
+    def set_role_overlay(self, role: str, permissions: Collection[str]) -> None:
+        """Replace *role*'s persisted (admin-editor) grants.
+
+        Unlike :meth:`map_role` this is a replace, so removals take effect; the
+        code-registered mappings from :meth:`map_role` are left untouched and
+        stay merged into :attr:`role_map`.
+        """
+        self._role_overlay[role] = set(permissions)
+        self._invalidate()
+
     @property
     def role_map(self) -> dict[str, list[str]]:
         """Merged role→permission mapping (``DEFAULT_ROLE_PERMISSIONS`` + module maps)."""
@@ -153,11 +228,9 @@ class PermissionRegistry:
             merged: dict[str, list[str]] = {
                 role: list(perms) for role, perms in DEFAULT_ROLE_PERMISSIONS.items()
             }
-            for role, perms in self._role_map.items():
-                if role in merged:
-                    merged[role] = list(set(merged[role]) | perms)
-                else:
-                    merged[role] = list(perms)
+            for source in (self._role_map, self._role_overlay):
+                for role, perms in source.items():
+                    merged[role] = list(set(merged.get(role, ())) | perms)
             self._role_map_cache = merged
         return self._role_map_cache
 

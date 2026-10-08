@@ -73,6 +73,17 @@ Host apps customize this by:
 
 The framework ships only `admin: ["*"]`. The wildcard grants every declared permission.
 
+## Runtime permission sources
+
+`register_permissions` runs before the database is open, so it cannot declare permissions for resources admins create later (per-record-type keys such as `records.product.edit`). Register a **source** instead:
+
+```python
+def register_permissions(self, registry: PermissionRegistry) -> None:
+    registry.add_source("records", lambda: [("records.product.edit", "Edit products")])
+```
+
+The provider is **sync** and must read a module-maintained in-memory cache, because the registry is consulted on every request. It returns permission keys or `(key, label)` pairs. Its output is cached by the registry; call `registry.invalidate_source("records")` when the underlying resources change. Source permissions appear in `all_permissions`, in the role editor under the source's group name (labels ship in `PermissionGroupOut.labels`), in admin's implicit all-permissions, and are enforced by `RequiresPermission`. They are grantable and persisted like any other key. A source that raises is logged and contributes nothing.
+
 ## User resolution
 
 For each request, `AuthMiddleware` resolves the authenticated user onto `request.state.user` as a `UserContext` (from `auth.contracts.schemas`):

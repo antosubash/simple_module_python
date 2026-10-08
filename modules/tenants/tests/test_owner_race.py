@@ -10,7 +10,7 @@ concurrent transactions at all.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import pytest
@@ -38,7 +38,7 @@ def _backends() -> list[str]:
 
 
 @asynccontextmanager
-async def _database(tmp_path, backend: str) -> AsyncIterator[DatabaseState]:
+async def _database(tmp_path, backend: str) -> AsyncGenerator[DatabaseState]:
     if backend == "postgres":
         url = database_url_for_tests()
         state = init_db(url, **init_db_kwargs(url))

@@ -10,7 +10,7 @@ day someone adds a fourth full-table scan to a fast machine.
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Iterator
+from collections.abc import Generator
 
 import pytest
 from sqlalchemy import event
@@ -27,7 +27,7 @@ def record_statements():
     """
 
     @contextlib.contextmanager
-    def _watch(target) -> Iterator[list[str]]:
+    def _watch(target) -> Generator[list[str]]:
         engine = _sync_engine(target)
         seen: list[str] = []
 

@@ -9,6 +9,8 @@
 export interface PermissionGroup {
   name: string;
   permissions: string[];
+  /** Human labels a runtime permission source supplied, keyed by permission. */
+  labels?: Record<string, string>;
 }
 
 /** A module, narrowed to the rows the current filters keep. */
@@ -68,11 +70,32 @@ export function filterGroups(
     if (!moduleMatches && !matchKeys) continue;
     const permissions = group.permissions.filter(
       (key) =>
-        (moduleMatches || key.toLowerCase().includes(needle)) && (keepKey ? keepKey(key) : true),
+        (moduleMatches ||
+          key.toLowerCase().includes(needle) ||
+          (group.labels?.[key] ?? '').toLowerCase().includes(needle)) &&
+        (keepKey ? keepKey(key) : true),
     );
     if (permissions.length > 0) result.push({ group, permissions });
   }
   return result;
+}
+
+const MAX_LABEL_LENGTH = 80;
+
+/**
+ * A source-supplied label, made safe to show beside a key: trimmed, capped, and
+ * undefined when nothing is left. The key is always rendered too, so a label can
+ * never stand in for the permission it describes.
+ */
+export function cleanLabel(raw: string | undefined): string | undefined {
+  const trimmed = raw?.trim();
+  if (!trimmed) return undefined;
+  return trimmed.length > MAX_LABEL_LENGTH ? `${trimmed.slice(0, MAX_LABEL_LENGTH)}…` : trimmed;
+}
+
+/** Accessible name for a permission control: the key is always part of it. */
+export function permissionAriaLabel(key: string, label: string | undefined): string {
+  return label ? `${label} (${key})` : key;
 }
 
 /**

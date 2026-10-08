@@ -29,6 +29,7 @@ def run_module_registrations(
     design_pack_registry,
     audit_link_registry,
     csp_registry,
+    body_limit_registry=None,
 ) -> None:
     """Invoke each module's registration hooks, in dependency order.
 
@@ -47,6 +48,8 @@ def run_module_registrations(
         health_registry.set_owner(mod.meta.name)
         mod.register_health_checks(health_registry)
         mod.register_public_routes(public_route_registry)
+        if body_limit_registry is not None:
+            mod.register_body_limits(body_limit_registry)
         setup_registry.set_owner(mod.meta.name)
         mod.register_setup_steps(setup_registry)
         # csp before design packs — the documented lifecycle order

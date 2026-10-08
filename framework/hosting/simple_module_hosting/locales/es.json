@@ -1,0 +1,24 @@
+{
+  "setup": {
+    "title": "Configura tu instalación",
+    "subtitle": "Unas cuantas cosas antes de que esta aplicación esté lista para usarse.",
+    "connections": {
+      "heading": "Conexiones",
+      "description": "Comprobando los servicios de los que depende esta instalación.",
+      "retest": "Probar de nuevo",
+      "testing": "Probando…"
+    },
+    "migrations": {
+      "apply": "Aplicar migraciones"
+    },
+    "steps": {
+      "heading": "Pasos de configuración",
+      "migrations": {
+        "title": "Aplicar las migraciones de la base de datos",
+        "description": "Actualiza el esquema de la base de datos a la versión que espera este código."
+      }
+    },
+    "working": "Procesando…",
+    "done": "Hecho. Recargando…"
+  }
+}

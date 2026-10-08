@@ -27,12 +27,15 @@ logger = logging.getLogger("alembic.env")
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Not the default disable_existing_loggers=True: the setup wizard runs this
+    # in-process, and that default would silence every app logger until restart.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = build_module_metadata()
 include_object = make_include_object(target_metadata)
-# Re-emit expression-based indexes (e.g. ``lower(email)``) that autogenerate
-# silently drops under SQLite. See ``make_process_revision_directives`` docstring.
+# Re-emit expression-based indexes that autogenerate drops under SQLite, rewrite
+# Boolean 0/1 server defaults to sa.false()/sa.true(), and warn that SQLite cannot
+# verify expression indexes (GH #342) — see make_process_revision_directives.
 process_revision_directives = make_process_revision_directives(target_metadata)
 
 

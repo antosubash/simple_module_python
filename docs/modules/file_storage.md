@@ -17,11 +17,73 @@ Pluggable file storage with two shipped backends — local filesystem and S3-com
 
 | Method + path | Body / response | Permission |
 |---|---|---|
-| `POST /api/file-storage/upload` | `multipart` → `StoredFileOut` (201) | `file_storage.upload` |
-| `GET /api/file-storage/files` | `?page=&per_page=` → `StoredFileListOut` | `file_storage.download` |
+| `POST /api/file-storage/upload` | `multipart` (`file`, optional `public=true`) → `StoredFileOut` (201) | `file_storage.upload` |
+| `GET /api/file-storage/files` | `?page=&per_page=&q=&content_type=&sort=` → `StoredFileListOut` | `file_storage.download` |
 | `GET /api/file-storage/files/{file_id}` | → `StoredFileOut` | `file_storage.download` |
+| `PATCH /api/file-storage/files/{file_id}` | `{"public": bool}` → `StoredFileOut` | `file_storage.upload` |
+| `GET /api/file-storage/files/{file_id}/thumbnail` | `?w=` → `image/webp` | `file_storage.download` |
 | `GET /api/file-storage/files/{file_id}/download` | → 302 (S3) or stream (filesystem) | `file_storage.download` |
 | `DELETE /api/file-storage/files/{file_id}` | → 204 | `file_storage.delete` |
+| `GET /api/file-storage/public/{file_id}[/{filename}]` | bytes (**anonymous**) | none, `public` files only |
+| `GET /api/file-storage/public/{file_id}/thumbnail` | `?w=` → `image/webp` (**anonymous**) | none, `public` files only |
+
+### Listing: search, filter, sort
+
+`GET /files` takes `q` (case-insensitive substring of the original filename;
+`%` and `_` match literally), `content_type` (an exact type, or a family
+ending in `/` such as `image/`) and `sort` — one of `created_at`, `-created_at`
+(default), `name`, `-name`, `size`, `-size` (anything else is a `422`). `name`
+sorts case-insensitively; ties break on `id` so pages never overlap. `total`
+reflects the filters.
+
+### Thumbnails
+
+`GET /files/{id}/thumbnail?w=` returns a Pillow-resized WebP, aspect ratio
+preserved, never enlarged. `w` is clamped to 32–1024 and **snapped up** to one
+of `64, 128, 256, 512, 1024` (default 256), so a file has at most five
+variants. Only `image/jpeg`, `png`, `webp` and `gif` (first frame) have
+thumbnails; everything else, including SVG, is `404`. An undecodable image is
+`422 file_storage.bad_image`, and an image over 25 megapixels, or a source over 20 MB, is refused before any
+decode (decompression-bomb guard; `DecompressionBombWarning` is an error). Only
+JPEG/PNG/WebP/GIF are ever opened (Pillow `formats=` allowlist), the sniffed
+format must match the declared type, animated images yield their first frame,
+metadata is not carried into the output, and at most two decodes run at once.
+
+Variants are cached **in the storage backend** next to the original, under
+`{key}.w{width}.webp`: they survive restarts, are shared by all workers, are
+bounded by the width whitelist, inherit the tenant key prefix, and are deleted
+with the file. A cache hit never re-reads the original. A concurrent first
+request may render twice; both write identical bytes.
+
+### Public files
+
+`StoredFile.public` (default `false`) opts a file into anonymous serving.
+Set it with `public=true` on upload or `PATCH /files/{id}`; both need
+`file_storage.upload`, so anyone who may add files may publish them. `StoredFileOut` carries
+`public` and, while public, `public_url` (`/api/file-storage/public/{id}/{filename}`),
+so consumers never build the URL themselves — an `<img src>` on a public page
+can use it, or `.../public/{id}/thumbnail?w=256`.
+
+The public routes are exempt from `AuthMiddleware` through
+`register_public_routes` (GET only; uploads, PATCH and deletes stay gated).
+Serving rules:
+
+- Only `public=True`, non-deleted rows resolve; unknown, private and deleted
+  ids are the same `404`, so existence is not leaked.
+- Tenancy: an anonymous request binds no tenant, so the single lookup by
+  (unguessable) id runs under `all_tenants()` and requires `public=True`.
+  Making a file public is the owner's explicit choice to publish it
+  cross-tenant; nothing else is reachable this way.
+- `Cache-Control: public, max-age=3600`, a checksum `ETag` (`304` on
+  `If-None-Match`) and `X-Content-Type-Options: nosniff`.
+- Every public response carries `Content-Security-Policy: default-src 'none';
+  style-src 'unsafe-inline'; sandbox` (the security-headers middleware now
+  keeps a CSP the response already set). Active content — HTML, XHTML, SVG,
+  XML, JavaScript — is forced to `Content-Disposition: attachment` and is
+  always streamed, so stored XSS on the app origin is not possible. Other
+  types are `inline`.
+- Presigning backends (S3) answer with a `302` to the presigned URL, cached
+  for at most half the signature's TTL; filesystem backends stream.
 
 ### View
 
@@ -48,7 +110,7 @@ from file_storage.contracts import (
 
 | Class | Purpose |
 |---|---|
-| `StoredFileOut` | File metadata: `id`, `key`, `filename`, `content_type`, `size_bytes`, `backend`, `checksum_sha256`, `uploaded_by`, `created_at`. |
+| `StoredFileOut` | File metadata: `id`, `key`, `filename`, `content_type`, `size_bytes`, `backend`, `checksum_sha256`, `uploaded_by`, `created_at`, `public`, `public_url`. |
 | `StoredFileListOut` | `items`, `total`, `page`, `per_page`. |
 | `FileUploaded` (event) | `file_id`, `key`, `backend`, `size_bytes`, `uploaded_by`. Topic: `file_storage.file.uploaded`. |
 | `FileDeleted` (event) | `file_id`, `key`. Topic: `file_storage.file.deleted`. |
@@ -69,6 +131,7 @@ from file_storage.contracts import (
 | `size_bytes` | `int` | |
 | `backend` | `str(32)` | `"filesystem"` or `"s3"` — recorded at upload time |
 | `checksum_sha256` | `str(64)` | computed during stream-upload |
+| `public` | `bool` | default `false`; opt-in anonymous serving |
 | `extra_metadata` | `dict` | per-backend extras |
 | audit + soft-delete | from `AuditMixin` + `SoftDeleteMixin` | |
 
@@ -216,9 +279,9 @@ class MyModule(ModuleBase):
 
 ## Inertia pages
 
-- `FileStorage/Browse.tsx` — file list + upload dropzone; handles the upload progress + delete confirmation flow.
+- `FileStorage/Browse.tsx` — file list + upload dropzone; handles the upload progress + delete confirmation flow. Each row shows a "Public" badge and a make public / make private action.
 - `FileStorage/components/UploadDropzone.tsx` — drag-drop upload child component.
 
 ## Locales
 
-Top-level keys in `file_storage/locales/en.json`: `browse`, `table`, `actions`, `delete_dialog`, `toasts`, `errors`. The `errors` namespace is keyed by error *code* (`not_found`, `too_large`, `bad_type`, `backend_error`) so the UI can render a deterministic message per `StorageError` subclass.
+Top-level keys in `file_storage/locales/en.json`: `browse`, `table`, `actions`, `delete_dialog`, `toasts`, `errors`. The `errors` namespace is keyed by error *code* (`not_found`, `too_large`, `bad_type`, `backend_error`, `bad_image`) so the UI can render a deterministic message per `StorageError` subclass.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
+from simple_module_core.permissions import WILDCARD
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,7 +44,11 @@ class PermissionService:
 
     def list_registered_groups(self) -> list[PermissionGroupOut]:
         return [
-            PermissionGroupOut(name=g.name, permissions=sorted(g.permissions))
+            PermissionGroupOut(
+                name=g.name,
+                permissions=sorted(g.permissions),
+                labels=self.registry.source_labels(g.name),
+            )
             for g in self.registry.groups
         ]
 
@@ -95,9 +100,10 @@ class PermissionService:
         if role is None:
             return None
 
-        wanted = {k for k in keys if k in self._registered_keys()}
+        registered = self._registered_keys()
+        wanted = {k for k in keys if k in registered}
         existing = set(await self._get_role_keys(role.name))
-        to_remove = existing - wanted
+        to_remove = (existing - wanted) & registered  # unregistered grants are never pruned
 
         if to_remove:
             await self.db.execute(
@@ -111,11 +117,9 @@ class PermissionService:
             for key in wanted - existing
         )
         await self.db.flush()
-
-        # `map_role` is additive — reset the role entry so removals take effect
-        # without a restart. No public replace API on PermissionRegistry yet.
-        self.registry._role_map.pop(role.name, None)
-        self.registry.map_role(role.name, sorted(wanted))
+        # Replace only the DB overlay: code-registered mappings stay in effect, removed
+        # DB keys drop without a restart, and unregistered stored grants stay mapped.
+        self.registry.set_role_overlay(role.name, wanted | (existing - registered))
 
         return RolePermissionsOut(role=role, permissions=sorted(wanted))
 
@@ -187,9 +191,10 @@ class PermissionService:
         if user is None:
             return None
 
-        wanted = {k for k in keys if k in self._registered_keys()}
+        registered = self._registered_keys()
+        wanted = {k for k in keys if k in registered}
         existing = set(await self.get_user_direct_keys(user.id))
-        to_remove = existing - wanted
+        to_remove = (existing - wanted) & registered
 
         if to_remove:
             await self.db.execute(
@@ -218,8 +223,6 @@ class PermissionService:
 
     def _resolve_role_permissions(self, role_names: list[str]) -> set[str]:
         """Resolve role names to their permission keys via the registry."""
-        from simple_module_core.permissions import WILDCARD
-
         role_map = self.registry.role_map
         resolved: set[str] = set()
         for name in role_names:
@@ -236,8 +239,6 @@ class PermissionService:
         know *which* role to edit. Two roles can grant the same key, so the
         value is a list.
         """
-        from simple_module_core.permissions import WILDCARD
-
         role_map = self.registry.role_map
         sources: dict[str, list[str]] = {}
         for name in sorted(role_names):
@@ -273,7 +274,7 @@ class PermissionService:
         for name, key in result.all():
             by_role.setdefault(name, []).append(key)
         for name, keys in by_role.items():
-            self.registry.map_role(name, keys)
+            self.registry.set_role_overlay(name, keys)
 
     async def sync_admin_all_permissions(self, assigned_by: str | None = None) -> None:
         """Ensure the admin role holds every registered permission key.
@@ -295,4 +296,4 @@ class PermissionService:
             for key in missing
         )
         await self.db.flush()
-        self.registry.map_role(ADMIN_ROLE_NAME, sorted(registered))
+        self.registry.set_role_overlay(ADMIN_ROLE_NAME, registered)

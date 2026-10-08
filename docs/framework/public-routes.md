@@ -53,6 +53,19 @@ verb matches.
 `registry.add(route_or_pattern, *, methods=, kind=)` is the general form;
 pass a prebuilt `PublicRoute` or a string.
 
+## Rate limiting anonymous callers
+
+Every anonymous request that matches a public rule is rate-limited per client
+IP by the host (`rate_limit_public`, `120/minute` by default). A rule can carry
+its own budget, or opt out:
+
+```python
+registry.add_regex(r"/api/gis/datasets/[^/]+/tilejson$", methods={"GET"}, rate="600/minute")
+registry.add_prefix("/api/gis/stac", rate="off")
+```
+
+See [request-guards.md](request-guards.md).
+
 ## Why method-awareness matters
 
 `/api/gis/datasets/{id}/` carries both reads and mutations:
