@@ -20,6 +20,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from simple_module_hosting._route_guard import guard_included_routers
 from simple_module_hosting.migrations import migration_status
 from simple_module_hosting.setup_gate import STEP_MIGRATIONS
 
@@ -171,6 +172,9 @@ def build_lifespan(modules: Sequence) -> Callable:
                     exc_info=True,
                 )
                 app.state.deferred_startup.append(mod)
+        # Here rather than in create_app: the host includes its own routers
+        # after create_app returns, and those should be guarded too.
+        guard_included_routers(app)
         yield
         for mod in reversed(modules):
             await mod.on_shutdown(app)

@@ -226,16 +226,16 @@ class _UserServiceBase:
         deck labels "Pending invites" means outstanding *invitations*: a
         self-registered account that never clicked its verification mail is
         nobody's to chase.
+
+        One scan with ``COUNT(*) FILTER (WHERE …)`` per state rather than a
+        round-trip each (Postgres and SQLite >= 3.30 both support it).
         """
-        counts: dict[str, int] = {}
-        for key, condition in (
-            ("active", STATUS_CONDITIONS["active"]),
-            ("unverified", STATUS_CONDITIONS["unverified"]),
-            ("invited", STATUS_CONDITIONS["invited"]),
-        ):
-            stmt = select(func.count()).select_from(User).where(condition())
-            counts[key] = int((await self._db.execute(stmt)).scalar_one())
-        return counts
+        keys = ("active", "unverified", "invited")
+        stmt = select(*(func.count().filter(STATUS_CONDITIONS[k]()) for k in keys)).select_from(
+            User
+        )
+        row = (await self._db.execute(stmt)).one()
+        return {key: int(value) for key, value in zip(keys, row, strict=True)}
 
     async def get_with_roles(self, user_id: uuid.UUID) -> User | None:
         return await self._get_user_with_roles(user_id)

@@ -53,7 +53,7 @@ __all__ = ["enforce_auth_throughput_limit", "router"]
 # ── Rate limit ───────────────────────────────────────────────────────────────
 
 
-def get_rate_limiter(request: Request) -> LoginRateLimiter:
+async def get_rate_limiter(request: Request) -> LoginRateLimiter:
     """Return the per-app LoginRateLimiter built in UsersModule.on_startup."""
     return request.app.state.users.rate_limiter
 

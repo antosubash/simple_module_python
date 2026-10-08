@@ -11,7 +11,7 @@ from file_storage.service import FileStorageService
 from file_storage.services import FileStorageServices
 
 
-def get_file_storage_services(request: Request) -> FileStorageServices:
+async def get_file_storage_services(request: Request) -> FileStorageServices:
     return request.app.state.file_storage
 
 
@@ -22,5 +22,5 @@ async def get_file_storage_service(
     return FileStorageService(db, services.backend, services.settings, services.aggregates)
 
 
-def get_event_bus(request: Request) -> EventBus:
+async def get_event_bus(request: Request) -> EventBus:
     return request.app.state.sm.event_bus

@@ -12,6 +12,7 @@ set up has nothing to put into maintenance.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 
@@ -128,6 +129,7 @@ class SetupMiddleware:
         self.app = app
         self._verdict: bool | None = None
         self._verdict_expires: float = 0.0
+        self._refresh: asyncio.Future[bool] | None = None
         self._announced = False
 
     async def _is_complete(self, registry, starlette_app) -> bool:
@@ -149,15 +151,39 @@ class SetupMiddleware:
         The cache lives on the middleware instance rather than on ``app.state``
         so it cannot leak between two apps built in the same process — the test
         suite builds many — and is discarded with the app that owns it.
+
+        Refreshes are single-flight. When the TTL lapses under load, every
+        request in flight used to run its own evaluation, each checking out a
+        pooled connection; behind a saturated pool those checkouts queued for
+        seconds and starved the requests that actually needed the database.
+        Now one evaluation runs, and while it does, the expired *complete*
+        verdict keeps answering — the refresh still lands every TTL, so a lost
+        administrator still brings the wizard back. With no complete verdict to
+        fall back on, callers share the in-flight evaluation instead.
         """
         now = time.monotonic()
         if self._verdict and now < self._verdict_expires:
             return True
-        verdict = await registry.is_setup_complete(starlette_app)
-        if verdict:
+        refresh = self._refresh
+        if refresh is None:
+            refresh = asyncio.ensure_future(registry.is_setup_complete(starlette_app))
+            refresh.add_done_callback(self._refresh_done)
+            self._refresh = refresh
+        elif self._verdict:
+            return True
+        # Shielded so a caller that is cancelled (client gone) does not cancel
+        # the evaluation every other waiter is sharing.
+        return await asyncio.shield(refresh)
+
+    def _refresh_done(self, refresh: asyncio.Future) -> None:
+        self._refresh = None
+        if refresh.cancelled() or refresh.exception() is not None:
+            return
+        if refresh.result():
             self._verdict = True
-            self._verdict_expires = now + _VERDICT_TTL_SECONDS
-        return verdict
+            self._verdict_expires = time.monotonic() + _VERDICT_TTL_SECONDS
+        else:
+            self._verdict = False
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
