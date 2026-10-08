@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Collection, Iterable
+from collections.abc import Awaitable, Callable, Collection, Iterable
 from dataclasses import dataclass, field
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,18 @@ def grants(held: Collection[str], required: str) -> bool:
     return WILDCARD in held or required in held
 
 
+GrantSource = Callable[[Any, Any], Awaitable[Collection[str]]]
+"""``async (request, user) -> keys`` — permissions a principal holds beyond its roles.
+
+How a module that stores grants of its own (``permissions``' per-user grants)
+gets them into the one set every check reads, without the framework importing
+it (SM009). Called once per authenticated request by
+``simple_module_hosting.permissions.resolve_principal_permissions``, so a
+source that reads the database must cache: it sits on the hot path of every
+page load.
+"""
+
+
 @dataclass
 class PermissionGroup:
     """A named group of related permissions (typically one per module)."""
@@ -75,6 +88,7 @@ class PermissionRegistry:
         self._role_overlay: dict[str, set[str]] = {}
         self._all_permissions_cache: list[str] | None = None
         self._role_map_cache: dict[str, list[str]] | None = None
+        self._grant_sources: list[GrantSource] = []
         self._sources: dict[str, PermissionSourceProvider] = {}
         self._source_cache: dict[str, tuple[list[str], dict[str, str]]] = {}
 
@@ -180,6 +194,22 @@ class PermissionRegistry:
             self._role_map[role] = set()
         self._role_map[role].update(permissions)
         self._invalidate()
+
+    def add_grant_source(self, source: GrantSource) -> None:
+        """Contribute permissions a principal holds beyond its roles (GH #337).
+
+        Whatever *source* returns is merged into the request's resolved set, so
+        ``RequiresPermission``, ``resolved_permissions_for``, the menu filter and
+        the frontend's ``auth.permissions`` all honour it. Before this seam the
+        ``permissions`` module's direct grants were seen by its own dependency
+        and nothing else, so a grant made in the admin UI did nothing on any
+        route guarded by the framework's ``RequiresPermission``.
+        """
+        self._grant_sources.append(source)
+
+    @property
+    def grant_sources(self) -> tuple[GrantSource, ...]:
+        return tuple(self._grant_sources)
 
     def set_role_overlay(self, role: str, permissions: Collection[str]) -> None:
         """Replace *role*'s persisted (admin-editor) grants.

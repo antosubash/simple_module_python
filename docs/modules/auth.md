@@ -68,7 +68,7 @@ async def delete_order(order_id: int, user: CurrentUser) -> None:
     ...
 ```
 
-For permission checks that need to honour **direct user grants** (not just role-derived perms), use [`RequiresPermission` from the permissions module](/modules/permissions#using-requirespermission) instead.
+`require_permission` passes when the user holds *any* of the listed keys. It reads the same per-request permission set as `simple_module_hosting.permissions.RequiresPermission`, which covers roles from the registry's role map plus every grant source (direct user grants, when the [permissions module](/modules/permissions#using-requirespermission) is installed).
 
 ## Pluggable auth
 

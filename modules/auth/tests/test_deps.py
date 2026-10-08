@@ -27,6 +27,14 @@ def _translator() -> Translator:
     return Translator(registry, locale="en", default_locale="en")
 
 
+def _request(app, user: UserContext) -> MagicMock:
+    """A request whose state is real, so the permission cache reads as absent."""
+    request = MagicMock()
+    request.app.state.sm = SimpleNamespace(permissions=app.state.sm.permissions)
+    request.state = SimpleNamespace(user=user)
+    return request
+
+
 class TestGetCurrentUser:
     async def test_raises_401_when_no_user(self):
         """get_current_user raises 401 when request.state has no user."""
@@ -53,10 +61,8 @@ class TestRequirePermission:
         dep = require_permission("products.delete")
         check_fn = dep.dependency
 
-        request = MagicMock()
-        request.app.state.sm = SimpleNamespace(permissions=app.state.sm.permissions)
-
         user = UserContext(id="u1", email="u@test.com", name="User", roles=["viewer"])
+        request = _request(app, user)
 
         with pytest.raises(HTTPException) as exc_info:
             await check_fn(request, _translator(), user)
@@ -67,10 +73,8 @@ class TestRequirePermission:
         dep = require_permission("products.delete")
         check_fn = dep.dependency
 
-        request = MagicMock()
-        request.app.state.sm = SimpleNamespace(permissions=app.state.sm.permissions)
-
         admin_user = UserContext(id="a1", email="admin@test.com", name="Admin", roles=["admin"])
+        request = _request(app, admin_user)
         await check_fn(request, _translator(), admin_user)
 
 
@@ -80,21 +84,28 @@ class TestRequirePermissionAdvanced:
         dep = require_permission("products.view", "products.edit")
         check_fn = dep.dependency
 
-        request = MagicMock()
-        request.app.state.sm = SimpleNamespace(permissions=app.state.sm.permissions)
-
         admin = UserContext(id="a1", email="a@t.com", name="Admin", roles=["admin"])
+        request = _request(app, admin)
         await check_fn(request, _translator(), admin)
 
     async def test_non_admin_without_permission_fails(self, app):
         dep = require_permission("products.delete")
         check_fn = dep.dependency
 
-        request = MagicMock()
-        request.app.state.sm = SimpleNamespace(permissions=app.state.sm.permissions)
-
         user = UserContext(id="u1", email="u@t.com", name="User", roles=["user"])
+        request = _request(app, user)
         with pytest.raises(HTTPException) as exc_info:
             await check_fn(request, _translator(), user)
         assert exc_info.value.status_code == 403
         assert "products.delete" in str(exc_info.value.detail)
+
+    async def test_non_admin_role_mapped_in_registry_passes(self, app):
+        """A role granted the key via the registry's role map is admitted.
+
+        Regression for GH #337: the check resolved roles without the role map,
+        so every non-admin role held nothing and this was a 403.
+        """
+        app.state.sm.permissions.map_role("clerk", ["products.delete"])
+        dep = require_permission("products.delete")
+        user = UserContext(id="u1", email="u@t.com", name="User", roles=["clerk"])
+        await dep.dependency(_request(app, user), _translator(), user)

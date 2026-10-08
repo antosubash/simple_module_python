@@ -32,7 +32,7 @@ from simple_module_hosting._tenant import (
     TenantResolution,
     TenantResolver,
 )
-from simple_module_hosting.permissions import expand_permissions, resolve_permissions
+from simple_module_hosting.permissions import expand_permissions, resolve_principal_permissions
 
 if TYPE_CHECKING:
     from simple_module_core.menu import MenuRegistry
@@ -206,9 +206,10 @@ class InertiaLayoutDataMiddleware:
         is_authenticated = user is not None
         roles = getattr(user, "roles", []) if user else []
 
-        # Resolve permissions once and cache on request.state for RequiresPermission
+        # Resolve permissions once — roles plus module grant sources (GH #337) —
+        # and cache on request.state for RequiresPermission and the menu filter.
         resolved = (
-            resolve_permissions(roles, role_map=self.permission_registry.role_map)
+            await resolve_principal_permissions(request, user, self.permission_registry)
             if is_authenticated
             else set()
         )
