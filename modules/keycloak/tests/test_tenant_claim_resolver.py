@@ -43,7 +43,7 @@ async def test_forged_claim_is_not_the_tenant_when_a_resolver_is_registered(app)
     # Trusting the claim is the worst case: it is on the UserContext, yet the
     # resolver answers from memberships (this user has none).
     ctx = _ctx(True, "forged-tenant")
-    assert await app.state.tenant_resolver(_request(app, ctx)) is None
+    assert (await app.state.tenant_resolver(_request(app, ctx))).tenant_id is None
 
 
 async def test_forged_claim_never_overrides_a_real_membership(app, tenant_client):
@@ -51,5 +51,5 @@ async def test_forged_claim_never_overrides_a_real_membership(app, tenant_client
         ctx = _ctx(True, "forged-tenant")
         ctx.id = member.user_id
         request = _request(app, ctx)
-        assert await app.state.tenant_resolver(request) == member.tenant_id
+        assert (await app.state.tenant_resolver(request)).tenant_id == member.tenant_id
         assert request.state.user.tenant_id == member.tenant_id
