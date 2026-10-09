@@ -31,6 +31,8 @@ describe('ModulesEdit', () => {
     const h1 = screen.getAllByRole('heading', { level: 1 });
     expect(h1).toHaveLength(1);
     expect(h1[0]).toHaveTextContent('Module Settings');
+    // Visible, like the other admin pages' headings (#422), not screen-reader-only.
+    expect(h1[0]).not.toHaveClass('sr-only');
   });
 
   test('keeps the single h1 when a module is managed elsewhere', () => {

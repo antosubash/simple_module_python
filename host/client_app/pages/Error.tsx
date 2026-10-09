@@ -6,7 +6,7 @@ import { InterpolatedText } from '@simple-module-py/ui/components/InterpolatedTe
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import type { SharedProps } from '@simple-module-py/ui/types';
 import type { ReactNode } from 'react';
-import { ErrorShell, useInAdminShell } from './ErrorShell';
+import { ErrorShell, useInAdminShell } from '../components/ErrorShell';
 
 interface Props {
   status: number;
