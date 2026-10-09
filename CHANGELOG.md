@@ -172,6 +172,13 @@ All notable changes to this project are documented in this file. The format is b
   path (`.outerjoin(Parent.children)`, with or without `of_type`). A raw-table
   target or a `secondary` relationship stays filtered in `WHERE`, so this never
   leaks another tenant's rows.
+- `attach_session_listeners` (simple_module_db) now marks each session class it
+  wires instead of asking SQLAlchemy's `event.contains`, which keys on `id()`.
+  A new session class that reused the id of a garbage-collected one was treated
+  as already wired and got no tenant filter, soft-delete filter or write
+  markers, so tenant isolation failed open. A single-app worker process was not
+  affected; any process that builds more than one app or DatabaseState and
+  drops an earlier one was (the test suite, scripts, embedders).
 - `gen-pages` emits `@source` lines for subdirectories of wheel modules (#419);
   uv's `.venv/.gitignore` made Tailwind skip them, so their utility classes
   were missing from the built CSS.
