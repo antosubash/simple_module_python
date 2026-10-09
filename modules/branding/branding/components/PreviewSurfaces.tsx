@@ -1,5 +1,5 @@
 import { keys, useT } from '@simple-module-py/i18n';
-import { type PreviewBrand, previewFooterLinks } from './BrandingPreview';
+import { type PreviewBrand, previewFooterLinks, previewInk } from './BrandingPreview';
 
 function Logo({ brand }: { brand: PreviewBrand }) {
   return brand.logoUrl ? (
@@ -38,8 +38,8 @@ export function SignInPreview({ brand }: { brand: PreviewBrand }) {
         <div className="mt-2 h-6 rounded border border-border bg-background" />
         <div className="mt-1.5 h-6 rounded border border-border bg-background" />
         <div
-          className="mt-2.5 flex h-6 items-center justify-center rounded text-[9px] font-semibold text-white"
-          style={{ backgroundColor: brand.accent }}
+          className="mt-2.5 flex h-6 items-center justify-center rounded text-[9px] font-semibold"
+          style={{ backgroundColor: brand.accent, color: previewInk(brand.accent) }}
         >
           {t(keys.branding.manage.preview_signin_action)}
         </div>
@@ -63,11 +63,9 @@ export function EmailPreview({ brand }: { brand: PreviewBrand }) {
     <div className="flex min-h-52 flex-col overflow-hidden rounded-[10px] border border-border bg-background">
       <div
         className="flex items-center gap-2 px-3 py-2.5"
-        style={{ backgroundColor: brand.accent }}
+        style={{ backgroundColor: brand.accent, color: previewInk(brand.accent) }}
       >
-        <span className="truncate text-[11px] font-bold text-white font-display">
-          {brand.appName}
-        </span>
+        <span className="truncate text-[11px] font-bold font-display">{brand.appName}</span>
       </div>
       <div className="flex flex-1 flex-col gap-2 p-3.5">
         <div className="text-[11px] font-semibold">
@@ -76,8 +74,8 @@ export function EmailPreview({ brand }: { brand: PreviewBrand }) {
         <div className="h-2 w-full rounded bg-secondary" />
         <div className="h-2 w-4/5 rounded bg-secondary" />
         <div
-          className="mt-1 flex h-6 w-32 items-center justify-center rounded text-[9px] font-semibold text-white"
-          style={{ backgroundColor: brand.accent }}
+          className="mt-1 flex h-6 w-32 items-center justify-center rounded text-[9px] font-semibold"
+          style={{ backgroundColor: brand.accent, color: previewInk(brand.accent) }}
         >
           {t(keys.branding.manage.preview_email_action)}
         </div>
