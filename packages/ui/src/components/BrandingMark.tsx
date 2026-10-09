@@ -65,9 +65,8 @@ export function BrandingMark({
         />
       ) : (
         <div className={`${box} ${accentColor} flex items-center justify-center ${badgeShadow}`}>
-          <span className={`text-primary-foreground font-bold ${initialSize} font-display`}>
-            {initial}
-          </span>
+          {/* Stays white: the gradient uses fixed-lightness ramp steps, so the brand-hex ink does not apply. */}
+          <span className={`text-white font-bold ${initialSize} font-display`}>{initial}</span>
         </div>
       )}
       {caption ? (
