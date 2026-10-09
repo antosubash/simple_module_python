@@ -12,6 +12,10 @@ from typing import Any
 
 from babel import Locale
 
+from simple_module_core._i18n_flatten import flatten_messages
+
+__all__ = ["PLURAL_CATEGORIES", "I18nRegistry", "Translator", "flatten_messages"]
+
 logger = logging.getLogger(__name__)
 
 #: CLDR plural categories, in spec order. Used both for runtime resolution and
@@ -36,32 +40,6 @@ def _plural_form(locale: str, count: float) -> str:
     except Exception:
         return "other"
     return rule(count)
-
-
-def flatten_messages(
-    nested: dict[str, Any],
-    *,
-    prefix: str = "",
-) -> dict[str, str]:
-    """Flatten a nested dict of string leaves to dotted keys.
-
-    {"browse": {"title": "X"}} -> {"browse.title": "X"}
-
-    Raises ValueError if any leaf is not a string.
-    """
-    out: dict[str, str] = {}
-    for key, value in nested.items():
-        composed = f"{prefix}.{key}" if prefix else key
-        if isinstance(value, dict):
-            out.update(flatten_messages(value, prefix=composed))
-        elif isinstance(value, str):
-            out[composed] = value
-        else:
-            raise ValueError(
-                f"Locale value at '{composed}' must be string or nested dict, "
-                f"got {type(value).__name__}"
-            )
-    return out
 
 
 class I18nRegistry:
