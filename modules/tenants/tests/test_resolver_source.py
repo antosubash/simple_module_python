@@ -75,3 +75,12 @@ async def test_vary_has_no_duplicates(probe, user_client):
         resp = await a.get("/probe", headers={"X-Tenant-ID": "nope"})
         tokens = _vary(resp)
         assert len(tokens) == len(set(tokens))
+
+
+async def test_session_source_varies_on_cookie(probe, user_client):
+    """The tenant came from the session cookie, so a shared cache must key on it (#418)."""
+    async with user_client("a@x.io") as (a, _):
+        await _create(a, "One")
+        resp = await a.get("/probe")
+        assert resp.json()["source"] == "session"
+        assert "cookie" in _vary(resp)

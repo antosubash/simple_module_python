@@ -170,6 +170,10 @@ async def _resolve(request: Request) -> tuple[str | None, str | None, tuple[str,
             return None, None, vary
         return _enter(request, user, active), "header", vary
 
+    # From here the answer depends on the session cookie (the stored
+    # preference) — say so, or a shared cache serves one member's tenant to
+    # another on the same URL (#418).
+    vary = (*vary, "Cookie")
     session = request.scope.get("session")
     preferred = session.get(SESSION_ACTIVE_TENANT) if session is not None else None
     active = pick_active(memberships, preferred)
