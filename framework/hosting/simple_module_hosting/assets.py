@@ -171,6 +171,29 @@ _CSS_HEADER = """\
  */"""
 
 
+_SKIP_DIRS = frozenset({"__pycache__", "node_modules"})
+
+
+def _source_dirs(base: Path) -> list[Path]:
+    """``base`` plus every descendant directory that directly holds a .ts/.tsx file.
+
+    uv writes ``.venv/.gitignore`` = ``*`` and Tailwind's scanner honours ignore
+    files *below* an ``@source`` base, so a wheel module's base directory was
+    scanned but none of its subdirectories (#419). Each one becomes its own
+    base. A directory that doesn't exist yields just ``base``.
+    """
+    found: set[Path] = set()
+    if base.is_dir():
+        for path in base.rglob("*.ts*"):
+            if (
+                path.suffix in {".ts", ".tsx"}
+                and path.parent != base
+                and not _SKIP_DIRS.intersection(path.relative_to(base).parts)
+            ):
+                found.add(path.parent)
+    return [base, *sorted(found)]
+
+
 def render_modules_css(
     assets: Sequence[ModuleAssets],
     *,
@@ -193,14 +216,19 @@ def render_modules_css(
     every widget class on Windows. Emitting the resolved absolute path here
     works on both. See GH #258.
 
+    Each subdirectory holding sources gets its own ``@source`` too, because
+    uv's ``.venv/.gitignore`` hides everything below a base from Tailwind
+    (GH #419).
+
     Every path is absolute, so nothing here depends on the host's
     ``vite.config.ts`` — see the module docstring for why that matters.
     """
     source_lines = [
-        f'@source "{d.as_posix()}/**/*.{{ts,tsx}}";'
+        f'@source "{s.as_posix()}/**/*.{{ts,tsx}}";'
         for e in assets
         for d in (e.pages_dir, e.components_dir)
         if d and not in_repo(d)
+        for s in _source_dirs(d)
     ]
     theme_lines = [f'@import "{e.theme_css.as_posix()}";' for e in assets if e.theme_css]
     style_lines = [
