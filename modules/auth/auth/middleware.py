@@ -33,6 +33,27 @@ def _query_suffix(request: Request) -> str:
     return f"?{request.url.query}" if request.url.query else ""
 
 
+def _is_navigation(request: Request) -> bool:
+    """Whether this request is the page the visitor asked for, not something it loaded.
+
+    Only a navigation may become the post-login target: the sign-in page's
+    own favicon request used to overwrite it, so sign-in landed on
+    /favicon.ico (#416). Inertia visits count — a session expiring mid-click
+    must still return the user to that page. Without fetch metadata (old
+    clients, scripts) keep the previous behaviour.
+    """
+    headers = request.headers
+    if headers.get("x-inertia") == "true":
+        return True
+    dest = headers.get("sec-fetch-dest")
+    if dest is not None:
+        return dest == "document"
+    mode = headers.get("sec-fetch-mode")
+    if mode is not None:
+        return mode == "navigate"
+    return True
+
+
 class AuthMiddleware:
     """Authenticate requests via the registered AuthProvider.
 
@@ -108,7 +129,13 @@ class AuthMiddleware:
                 # goes to the provider — session-based providers ignore it,
                 # but a redirect-based one (OIDC) needs it in the auth URL.
                 session = scope.get("session", {})
-                next_url = safe_next_or_none(request.url.path + _query_suffix(request))
+                # Only a navigation is a target: a subresource (the sign-in
+                # page's own favicon) would overwrite it (#416).
+                next_url = (
+                    safe_next_or_none(request.url.path + _query_suffix(request))
+                    if _is_navigation(request)
+                    else None
+                )
                 if next_url is not None:
                     session[SESSION_NEXT_KEY] = next_url
                 response = RedirectResponse(
