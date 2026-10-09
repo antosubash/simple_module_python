@@ -153,10 +153,9 @@ class TenantMiddleware:
                 # reads one, and assigning drops the rest — including a
                 # ``Vary: *`` on a later line.
                 if not any("*" in _tokens(line) for line in lines):
-                    merged = merge_vary(", ".join(lines) or None, vary)
-                    if merged is not None:
-                        del headers["vary"]
-                        headers["vary"] = merged
+                    merged = merge_vary(", ".join(lines), vary)
+                    del headers["vary"]
+                    headers["vary"] = merged
             await send(message)
 
         return wrapped

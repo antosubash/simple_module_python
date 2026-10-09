@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
-from simple_module_core.i18n import flatten_messages
+from simple_module_core.i18n import I18nRegistry, flatten_messages
 
 if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
@@ -173,8 +173,6 @@ def unknown_overrides_for(
     Lets ``make doctor`` report SM027 without booting the app. Overrides live
     in ``overrides/`` beside the ``host`` source's locale directory.
     """
-    from simple_module_core.i18n import I18nRegistry
-
     host_dirs = [d for _, ns, d in extra_sources if ns == "host" and (d / "overrides").is_dir()]
     if not host_dirs:
         return {}
@@ -185,7 +183,7 @@ def unknown_overrides_for(
     registry = I18nRegistry(default_locale=default_locale, supported_locales=locales)
     for mod in modules:
         for namespace, locale_dir in mod.locale_dirs().items():
-            registry.add_source(namespace, Path(locale_dir))
+            registry.add_source(namespace, locale_dir)
     for _, namespace, locale_dir in extra_sources:
         registry.add_source(namespace, locale_dir)
     registry.add_overrides(overrides_dir)

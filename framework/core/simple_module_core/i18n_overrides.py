@@ -19,7 +19,7 @@ def load_overrides(overrides_dir: Path, locale: str) -> dict[str, str]:
     path = overrides_dir / f"{locale}.json"
     if not path.is_file():
         return {}
-    return flatten_messages(read_catalog(path), prefix="")
+    return flatten_messages(read_catalog(path))
 
 
 def apply_overrides(
