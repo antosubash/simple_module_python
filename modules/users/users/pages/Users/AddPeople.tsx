@@ -1,4 +1,4 @@
-import { Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { InlineBanner } from '@simple-module-py/ui/components/InlineBanner';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
@@ -180,110 +180,117 @@ function AddPeople() {
       : t(keys.users.add_people.submit_create);
 
   return (
-    <PageShell
-      title={t(keys.users.add_people.title)}
-      description={t(keys.users.add_people.description)}
-      back={USERS_INDEX}
-    >
-      <SegmentedControl
-        value={mode}
-        onChange={(next) => {
-          setMode(next);
-          setError(null);
-        }}
-        aria-label={t(keys.users.add_people.tablist_label)}
-        options={[
-          { value: 'invite', label: t(keys.users.add_people.mode_invite) },
-          { value: 'create', label: t(keys.users.add_people.mode_create) },
-        ]}
-        className="mb-4"
-      />
+    <>
+      <Head title={t(keys.users.add_people.title)} />
+      <PageShell
+        title={t(keys.users.add_people.title)}
+        description={t(keys.users.add_people.description)}
+        back={USERS_INDEX}
+      >
+        <SegmentedControl
+          value={mode}
+          onChange={(next) => {
+            setMode(next);
+            setError(null);
+          }}
+          aria-label={t(keys.users.add_people.tablist_label)}
+          options={[
+            { value: 'invite', label: t(keys.users.add_people.mode_invite) },
+            { value: 'create', label: t(keys.users.add_people.mode_create) },
+          ]}
+          className="mb-4"
+        />
 
-      {!mailerDelivers && (
-        // One sentence, as the deck has it — a title/body pair reads as two
-        // separate facts when it is really one: which mailer, and what that
-        // means for the links. The "Configure SMTP" link ends the sentence
-        // rather than sitting right-aligned away from what it refers to.
-        <InlineBanner
-          icon={TriangleAlert}
-          tone="warning"
-          align="start"
-          title={
-            <span className="font-normal">
-              {t(keys.users.add_people.mailer_banner_prefix)} <b>{mailerName}</b>{' '}
-              {t(keys.users.add_people.mailer_banner_suffix)}{' '}
-              {/* The 44px tap area is grown with a pseudo-element: an inline
+        {!mailerDelivers && (
+          // One sentence, as the deck has it — a title/body pair reads as two
+          // separate facts when it is really one: which mailer, and what that
+          // means for the links. The "Configure SMTP" link ends the sentence
+          // rather than sitting right-aligned away from what it refers to.
+          <InlineBanner
+            icon={TriangleAlert}
+            tone="warning"
+            align="start"
+            title={
+              <span className="font-normal">
+                {t(keys.users.add_people.mailer_banner_prefix)} <b>{mailerName}</b>{' '}
+                {t(keys.users.add_people.mailer_banner_suffix)}{' '}
+                {/* The 44px tap area is grown with a pseudo-element: an inline
                   link inside a sentence cannot take `min-h-11` without
                   stretching the line box around it. */}
-              <Link
-                href={SETTINGS_URL}
-                className="relative font-medium underline max-lg:after:absolute max-lg:after:top-1/2 max-lg:after:left-0 max-lg:after:h-11 max-lg:after:w-full max-lg:after:-translate-y-1/2 max-lg:after:content-['']"
-              >
-                {t(keys.users.add_people.configure_smtp)}
-              </Link>
-            </span>
-          }
-        />
-      )}
-
-      {/* "Last batch" belongs to the invite flow; creating one account with a
-          password you set has no batch to report. */}
-      <div
-        className={
-          mode === 'invite' ? 'grid gap-4 lg:grid-cols-[1.25fr_1fr]' : 'grid gap-4 lg:max-w-2xl'
-        }
-      >
-        <Card className="border-border">
-          <CardContent className="pt-6">
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {mode === 'invite' ? (
-                <InviteFields
-                  emails={emails}
-                  onEmailsChange={setEmails}
-                  roles={roles}
-                  selectedRoles={selectedRoles}
-                  onToggleRole={toggleRole}
-                  message={message}
-                  onMessageChange={setMessage}
-                />
-              ) : (
-                <>
-                  <CreateUserFields
-                    email={email}
-                    fullName={fullName}
-                    password={password}
-                    onEmailChange={setEmail}
-                    onFullNameChange={setFullName}
-                    onPasswordChange={setPassword}
-                  />
-                  <RolePicker roles={roles} selected={selectedRoles} onToggle={toggleRole} />
-                </>
-              )}
-
-              {error && <p className="text-sm text-destructive">{error}</p>}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button asChild variant="outline" className="max-lg:min-h-11">
-                  <Link href={USERS_INDEX}>{t(keys.users.common.cancel)}</Link>
-                </Button>
-                <Button type="submit" disabled={loading || !canSubmit} className="max-lg:min-h-11">
-                  {submitLabel}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
-        {mode === 'invite' && (
-          <InviteResults
-            results={results}
-            expiryDays={expiryDays}
-            onRetry={retry}
-            retrying={retrying}
+                <Link
+                  href={SETTINGS_URL}
+                  className="relative font-medium underline max-lg:after:absolute max-lg:after:top-1/2 max-lg:after:left-0 max-lg:after:h-11 max-lg:after:w-full max-lg:after:-translate-y-1/2 max-lg:after:content-['']"
+                >
+                  {t(keys.users.add_people.configure_smtp)}
+                </Link>
+              </span>
+            }
           />
         )}
-      </div>
-    </PageShell>
+
+        {/* "Last batch" belongs to the invite flow; creating one account with a
+          password you set has no batch to report. */}
+        <div
+          className={
+            mode === 'invite' ? 'grid gap-4 lg:grid-cols-[1.25fr_1fr]' : 'grid gap-4 lg:max-w-2xl'
+          }
+        >
+          <Card className="border-border">
+            <CardContent className="pt-6">
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {mode === 'invite' ? (
+                  <InviteFields
+                    emails={emails}
+                    onEmailsChange={setEmails}
+                    roles={roles}
+                    selectedRoles={selectedRoles}
+                    onToggleRole={toggleRole}
+                    message={message}
+                    onMessageChange={setMessage}
+                  />
+                ) : (
+                  <>
+                    <CreateUserFields
+                      email={email}
+                      fullName={fullName}
+                      password={password}
+                      onEmailChange={setEmail}
+                      onFullNameChange={setFullName}
+                      onPasswordChange={setPassword}
+                    />
+                    <RolePicker roles={roles} selected={selectedRoles} onToggle={toggleRole} />
+                  </>
+                )}
+
+                {error && <p className="text-sm text-destructive">{error}</p>}
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button asChild variant="outline" className="max-lg:min-h-11">
+                    <Link href={USERS_INDEX}>{t(keys.users.common.cancel)}</Link>
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={loading || !canSubmit}
+                    className="max-lg:min-h-11"
+                  >
+                    {submitLabel}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+
+          {mode === 'invite' && (
+            <InviteResults
+              results={results}
+              expiryDays={expiryDays}
+              onRetry={retry}
+              retrying={retrying}
+            />
+          )}
+        </div>
+      </PageShell>
+    </>
   );
 }
 

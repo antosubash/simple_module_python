@@ -27,7 +27,8 @@
   --color-landing-bg: oklch(0.13 0.02 250);
   --color-dark-text: oklch(0.9 0.005 250);
   --color-dark-text-muted: oklch(0.6 0.01 250);
-  --color-dark-text-subtle: oklch(0.45 0.01 250);
+  /* 5.5:1 on the auth aside (#03080f), above AA's 4.5 (#414). */
+  --color-dark-text-subtle: oklch(0.62 0.01 250);
   --color-dark-border: oklch(0.35 0.01 250);
   --color-dark-border-hover: oklch(0.5 0.01 250);
 

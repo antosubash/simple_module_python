@@ -33,7 +33,7 @@ export const DEFAULT_SIDEBAR_THEME: Omit<SidebarTheme, 'mobileTitleLabel'> = {
   // Solid pill, per the deck: a tinted row with a left rule read as a hover
   // state next to the near-black surface, and lost the current page at a
   // glance on a phone.
-  activeClass: 'bg-primary text-white',
+  activeClass: 'bg-primary text-primary-foreground',
   inactiveClass: 'text-app-sidebar-text hover:bg-app-sidebar-hover hover:text-white',
   mutedTextClass: 'text-app-sidebar-text-muted',
 };

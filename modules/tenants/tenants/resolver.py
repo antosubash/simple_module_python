@@ -142,9 +142,14 @@ async def _resolve(request: Request) -> tuple[str | None, str | None, tuple[str,
     request.state.tenant_suspended = False
     request.state.suspended_tenant_name = None
     user = getattr(request.state, "user", None)
+    # A signed-in answer depended on the credential (membership is checked on
+    # every branch), so a shared cache must key on it too; an anonymous one did
+    # not, and anonymous public pages stay cacheable (#418).
+    credential: tuple[str, ...] = ("Cookie",) if user is not None else ()
     slug = subdomain_slug(request)
     if slug is not None:
-        return await _resolve_subdomain(request, user, slug), "subdomain", ("Host",)
+        tenant_id = await _resolve_subdomain(request, user, slug)
+        return tenant_id, "subdomain", ("Host", *credential)
     # No slug in the host is still an answer that depended on the host.
     vary: tuple[str, ...] = ("Host",) if subdomains_enabled(request) else ()
     if user is None:
@@ -155,6 +160,7 @@ async def _resolve(request: Request) -> tuple[str | None, str | None, tuple[str,
     header_name = _header_name(request)
     if header_name:
         vary = (*vary, header_name)
+    vary = (*vary, *credential)
     requested = request.headers.get(header_name) if header_name else None
     if requested is not None:
         # An explicit per-request choice (API clients). Never fall back to
@@ -170,6 +176,8 @@ async def _resolve(request: Request) -> tuple[str | None, str | None, tuple[str,
             return None, None, vary
         return _enter(request, user, active), "header", vary
 
+    # From here the answer also depends on the stored preference in the
+    # session cookie, which ``vary`` already names.
     session = request.scope.get("session")
     preferred = session.get(SESSION_ACTIVE_TENANT) if session is not None else None
     active = pick_active(memberships, preferred)

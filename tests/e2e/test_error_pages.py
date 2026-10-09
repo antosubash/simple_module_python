@@ -66,3 +66,16 @@ def test_fetch_callers_get_json_detail(page: Page, e2e_username: str, e2e_passwo
     )
     assert bare.status == 404
     assert "detail" in bare.json()
+
+
+def test_admin_not_found_renders_inside_the_admin_shell(
+    page: Page, e2e_username: str, e2e_password: str
+) -> None:
+    """A missing admin record keeps the admin in the admin layout (#422)."""
+    _login(page, e2e_username, e2e_password)
+    response = page.goto("/admin/users/00000000-0000-0000-0000-000000000000")
+    assert response is not None
+    assert response.status == 404
+    expect(page.get_by_role("heading", level=1)).to_be_visible(timeout=10_000)
+    # The admin panel badge links to /admin; the bare public error page has none.
+    expect(page.locator("a[href='/admin']").first).to_be_attached()

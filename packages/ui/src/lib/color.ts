@@ -91,11 +91,44 @@ function oklchString({ l, c, h }: Oklch): string {
   return `oklch(${round(l, 4)} ${round(c, 4)} ${round(h, 2)})`;
 }
 
+/** WCAG 2.x relative luminance of an `#rrggbb` colour (null if unparseable). */
+function relativeLuminance(hex: string): number | null {
+  const lin = parseHex(hex);
+  if (!lin) return null;
+  const [r, g, b] = lin;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** WCAG contrast ratio between two `#rrggbb` colours (1-21; 1 when either is unparseable). */
+export function contrastRatio(a: string, b: string): number {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  if (la === null || lb === null) return 1;
+  const [hi, lo] = la > lb ? [la, lb] : [lb, la];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+const WHITE_INK = 'oklch(1 0 0)';
+const DARK_INK = 'oklch(0.2 0.02 250)';
+// DARK_INK converted to sRGB (OKLCH -> OKLab -> linear sRGB -> gamma); used only
+// for the contrast ratio, never emitted as a colour.
+const DARK_INK_HEX = '#0f171f';
+const AA_NORMAL_TEXT = 4.5;
+
+/** Text colour for a brand-coloured surface: white when it passes AA, else the higher-contrast ink. */
+function foregroundFor(hex: string): string {
+  const white = contrastRatio(hex, '#ffffff');
+  if (white >= AA_NORMAL_TEXT) return WHITE_INK;
+  return contrastRatio(hex, DARK_INK_HEX) > white ? DARK_INK : WHITE_INK;
+}
+
 /**
  * Derive the CSS custom properties that re-theme the primary ramp to `hex`.
  *
  * Returns a map of `--color-primary-<step>` → `oklch(…)` (plus the base
- * `--primary` / `--sidebar-primary` set to the brand colour itself). Returns
+ * `--primary` / `--sidebar-primary` set to the brand colour itself, and
+ * `--primary-foreground` / `--sidebar-primary-foreground` set to white or a dark
+ * ink, whichever reads better on it). Returns
  * null for an unparseable colour so callers can leave the default theme intact.
  */
 export function deriveBrandRamp(hex: string): Record<string, string> | null {
@@ -111,5 +144,10 @@ export function deriveBrandRamp(hex: string): Record<string, string> | null {
   // precisely what the admin chose, while the ramp drives gradients/tints.
   vars['--primary'] = hex;
   vars['--sidebar-primary'] = hex;
+  // White text on a light brand colour fails AA (2.2:1 on #62B8E2, #420), so
+  // the ink follows the colour rather than staying the stylesheet's white.
+  const ink = foregroundFor(hex);
+  vars['--primary-foreground'] = ink;
+  vars['--sidebar-primary-foreground'] = ink;
   return vars;
 }

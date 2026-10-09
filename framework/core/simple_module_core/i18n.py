@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Mapping
 from functools import lru_cache
@@ -11,6 +10,11 @@ from types import MappingProxyType
 from typing import Any
 
 from babel import Locale
+
+from simple_module_core._i18n_flatten import flatten_messages, read_catalog
+from simple_module_core.i18n_overrides import apply_overrides, load_overrides
+
+__all__ = ["PLURAL_CATEGORIES", "I18nRegistry", "Translator", "flatten_messages"]
 
 logger = logging.getLogger(__name__)
 
@@ -36,32 +40,6 @@ def _plural_form(locale: str, count: float) -> str:
     except Exception:
         return "other"
     return rule(count)
-
-
-def flatten_messages(
-    nested: dict[str, Any],
-    *,
-    prefix: str = "",
-) -> dict[str, str]:
-    """Flatten a nested dict of string leaves to dotted keys.
-
-    {"browse": {"title": "X"}} -> {"browse.title": "X"}
-
-    Raises ValueError if any leaf is not a string.
-    """
-    out: dict[str, str] = {}
-    for key, value in nested.items():
-        composed = f"{prefix}.{key}" if prefix else key
-        if isinstance(value, dict):
-            out.update(flatten_messages(value, prefix=composed))
-        elif isinstance(value, str):
-            out[composed] = value
-        else:
-            raise ValueError(
-                f"Locale value at '{composed}' must be string or nested dict, "
-                f"got {type(value).__name__}"
-            )
-    return out
 
 
 class I18nRegistry:
@@ -93,7 +71,14 @@ class I18nRegistry:
         self._available_locales_list: list[str] = []
         self._empty_view: MappingProxyType[str, str] = MappingProxyType({})
         self._empty_snapshot: dict[str, str] = {}
+        self._override_dirs: list[Path] = []
+        #: locale -> override keys that matched no catalog key (set by ``load()``).
+        self.unknown_override_keys: dict[str, list[str]] = {}
         self._loaded = False
+
+    def add_overrides(self, overrides_dir: Path) -> None:
+        """Queue a host directory of ``<locale>.json`` overrides, applied last by ``load()``."""
+        self._override_dirs.append(Path(overrides_dir))
 
     def add_source(self, namespace: str, locale_dir: Path, *, audience: str = "public") -> None:
         """Queue a module's locale directory for loading under a namespace.
@@ -126,16 +111,26 @@ class I18nRegistry:
                         path,
                     )
                     continue
-                try:
-                    raw = json.loads(path.read_text(encoding="utf-8"))
-                except json.JSONDecodeError as exc:
-                    raise ValueError(f"invalid JSON in {path}: {exc}") from exc
-                if not isinstance(raw, dict):
-                    raise ValueError(f"{path} must contain a JSON object at the top level")
-                flat = flatten_messages(raw, prefix=namespace)
+                flat = flatten_messages(read_catalog(path), prefix=namespace)
                 self._messages[locale].update(flat)
                 if audience != "admin":
                     public_messages[locale].update(flat)
+
+        self.unknown_override_keys = {}
+        for overrides_dir in self._override_dirs:
+            for locale in self.supported_locales:
+                skipped = apply_overrides(
+                    load_overrides(overrides_dir, locale),
+                    self._messages[locale],
+                    public_messages[locale],
+                    default_messages=self._messages.get(self.default_locale),
+                    default_public=public_messages.get(self.default_locale),
+                )
+                if skipped:
+                    self.unknown_override_keys.setdefault(locale, []).extend(skipped)
+                    logger.warning(
+                        "Ignoring host overrides for unknown keys (%s): %s", locale, skipped
+                    )
 
         # Cache the derived views now that loading is complete. Downstream
         # (middleware, translator, switcher) reads these on every request.

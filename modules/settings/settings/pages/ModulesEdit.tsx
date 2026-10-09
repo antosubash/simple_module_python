@@ -110,6 +110,11 @@ function ModulesEdit({ modules, testable = {} }: Props) {
         {/* `pb-10` rather than a fade: the fields list ends on a full row with
             breathing room under it, not half a row cut off by the pane edge. */}
         <main className="flex min-w-0 flex-1 flex-col p-4 sm:p-6 lg:px-8 lg:pb-10">
+          {/* One h1 per screen (#422); the selected module's own heading in
+              ModuleForm is an h2 beneath it. */}
+          <h1 className="mb-4 font-display text-[27px] font-bold tracking-[-0.02em]">
+            {t(keys.settings.modules.title)}
+          </h1>
           {current?.manage_url ? (
             <Card className="border-border p-8">
               {/* No second editor for these fields — the module's own page is

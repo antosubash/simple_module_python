@@ -9,6 +9,7 @@
     "publishing": "Publishing…",
     "app_name_label": "App name",
     "primary_color_label": "Primary colour",
+    "primary_color_invalid": "Enter a hex colour such as #0f766e or #0fe.",
     "design_pack_label": "Design pack",
     "design_pack_inline": "Design pack: {name}",
     "design_pack_none": "None (base tokens)",

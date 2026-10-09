@@ -1,4 +1,5 @@
 import { BRAND_FOOTER_LINKS, BRAND_LICENSE } from '@simple-module-py/ui/lib/brand';
+import { deriveBrandRamp } from '@simple-module-py/ui/lib/color';
 import type { FooterLink } from './dirty';
 
 /** Everything the three preview surfaces read, straight from form state. */
@@ -15,6 +16,15 @@ export interface PreviewBrand {
   footerLinks: FooterLink[];
   /** The viewer's own sidebar entries, so the mini nav shows a real menu. */
   menuLabels: string[];
+}
+
+/**
+ * Text colour for a surface filled with the brand colour: the same ink the real
+ * app picks (`--primary-foreground`), so the preview cannot show white on a
+ * light colour the live site renders dark on.
+ */
+export function previewInk(accent: string): string {
+  return deriveBrandRamp(accent)?.['--primary-foreground'] ?? '#fff';
 }
 
 const MAX_NAV_ROWS = 4;
@@ -38,8 +48,8 @@ function BannerStrip({ brand }: { brand: PreviewBrand }) {
   if (!brand.bannerMessage) return null;
   return (
     <div
-      className="truncate px-2.5 py-1.5 text-[11px] text-white"
-      style={{ backgroundColor: brand.accent }}
+      className="truncate px-2.5 py-1.5 text-[11px]"
+      style={{ backgroundColor: brand.accent, color: previewInk(brand.accent) }}
     >
       {brand.bannerMessage}
     </div>

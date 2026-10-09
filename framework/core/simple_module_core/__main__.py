@@ -19,6 +19,7 @@ current working dir).
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import sys
@@ -30,6 +31,7 @@ from simple_module_core.diagnostics import (
     print_diagnostics,
     run_diagnostics,
 )
+from simple_module_core.diagnostics._i18n import unknown_overrides_for
 from simple_module_core.discovery import (
     discover_modules,
     resolve_auth_provider,
@@ -83,14 +85,34 @@ def _database_dialect() -> str:
     return url.split(":", 1)[0].split("+", 1)[0]
 
 
+def _hosting_locales() -> Path | None:
+    """The framework's own ``hosting`` catalog (setup wizard), found without importing it.
+
+    The running app's ``build_i18n_registry`` always adds it, so doctor must
+    too, or every ``hosting.*`` host override reads as unknown (SM027). Core
+    may not import ``simple_module_hosting``: locate the package on disk.
+    """
+    try:
+        spec = importlib.util.find_spec("simple_module_hosting")
+    except (ImportError, ValueError):
+        return None
+    if spec is None or not spec.origin:
+        return None
+    locales = Path(spec.origin).resolve().parent / "locales"
+    return locales if locales.is_dir() else None
+
+
 def _discover_extra_locale_sources() -> list[tuple[str, str, Path]]:
-    """Return ``[(reporter, namespace, path), ...]`` for host + ui locale dirs."""
+    """Return ``[(reporter, namespace, path), ...]`` for hosting + host + ui locale dirs."""
     # Anchor on the same project root the `.env` was loaded from
     # (`parse_dotenv` walks up from the cwd) — resolving against the bare cwd
     # here would look for `host/locales` in the wrong directory whenever
     # doctor runs from a subdirectory.
     root = find_env_file().parent
     out: list[tuple[str, str, Path]] = []
+    hosting_locales = _hosting_locales()
+    if hosting_locales is not None:
+        out.append(("simple_module_hosting", "hosting", hosting_locales))
     host_locales = root / "host" / "locales"
     if host_locales.is_dir():
         out.append(("host", "host", host_locales))
@@ -140,13 +162,17 @@ def main() -> int:
     supported, default = _load_i18n_settings_from_env()
     extra = _discover_extra_locale_sources()
 
+    unknown_overrides, override_findings = unknown_overrides_for(modules, extra, supported, default)
+
     diagnostics = run_diagnostics(
         modules,
         i18n_supported_locales=supported,
         i18n_default_locale=default,
         i18n_extra_sources=extra,
+        i18n_unknown_overrides=unknown_overrides,
         database_dialect=_database_dialect(),
     )
+    diagnostics.extend(override_findings)
     print_diagnostics(diagnostics)
 
     errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]

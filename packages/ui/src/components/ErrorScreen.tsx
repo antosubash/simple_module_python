@@ -9,6 +9,8 @@ interface Props {
   children: ReactNode;
   /** Visual accent for the numeral (403=warning, 404=primary, 5xx=destructive). */
   accent?: 'primary' | 'warning' | 'destructive';
+  /** Inside an app shell: no full-viewport frame or page background (#422). */
+  inline?: boolean;
 }
 
 /**
@@ -30,9 +32,16 @@ export function ErrorScreen({
   details,
   children,
   accent = 'primary',
+  inline = false,
 }: Props) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+    <div
+      className={
+        inline
+          ? 'flex items-center justify-center px-4 py-16'
+          : 'flex min-h-screen items-center justify-center bg-background px-4 py-10'
+      }
+    >
       <div className="flex w-full max-w-md flex-col items-center gap-3.5 rounded-2xl border border-border bg-card p-8 text-center shadow-sm sm:p-10">
         <p
           className={`text-[64px] font-bold leading-none tracking-[-0.03em] font-display ${ACCENT_NUMERAL[accent]}`}

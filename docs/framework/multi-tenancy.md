@@ -201,6 +201,44 @@ Most auth providers set no `tenant_id` claim, so `multi_tenant` with no
 resolver fails every tenant-scoped query closed; the boot reports that as
 `SM025`.
 
+## For module authors
+
+`simple_module_hosting.tenancy` answers the questions a module used to answer by
+reading the middleware stack or hardcoding `"default"` (#418):
+
+| Name | What it gives you |
+|---|---|
+| `TenancyMode` | `SINGLE` (one tenant for every request: no `TenantMiddleware`, or one pinned by `default_tenant`) or `MULTI` (`multi_tenant` on, each request resolves its own). |
+| `tenancy_mode(app)` | The host's mode, recorded on `app.state.sm.tenancy` where `create_app` decides on `TenantMiddleware`. |
+| `single_tenant_id(app)` | The tenant a single-tenant host runs in: `default_tenant`, else `DEFAULT_TENANT_ID`. Use it instead of a literal `"default"`. |
+| `require_tenant(*, on_missing=403, detail="tenant_required")` | A dependency that binds the request's tenant and yields it. |
+| `tenant_vary(request)` | The request headers the resolved tenant depended on, for a route that sets its own cache headers. |
+
+Put `require_tenant()` on every router that reads or writes `MultiTenantMixin`
+tables. On a single-tenant host it binds `single_tenant_id(app)`, so the route
+works whether or not `TenantMiddleware` is installed; on a multi-tenant host it
+binds what the middleware resolved and refuses the request when nothing was:
+
+```python
+from fastapi import APIRouter, Depends, HTTPException
+from simple_module_hosting.tenancy import require_tenant
+
+# Admin surface: no tenant is a 403 {"detail": "tenant_required"}.
+admin = APIRouter(dependencies=[Depends(require_tenant())])
+
+# Public surface: a page that does not exist for this visitor is a 404.
+public = APIRouter(dependencies=[Depends(require_tenant(on_missing=lambda _r: HTTPException(404)))])
+```
+
+`on_missing` is a status code, or a callable taking the request and returning
+the exception to raise.
+
+**Order matters.** List `require_tenant()` *before* `get_db`. Yield
+dependencies exit in reverse order, and the session's commit has to run while
+the tenant is still bound. A router-level dependency, as above, always runs
+before the route's own parameters, so `db: RequestSession = Depends(get_db)` on
+the endpoint is safe.
+
 ## Tenant roles
 
 A membership role — `owner`, `admin` or `member` — reaches the request
@@ -307,6 +345,24 @@ entries are kept, duplicates are dropped case-insensitively, `Vary: *` is left
 alone). The `tenants` resolver reports `Host` when subdomains are enabled and
 the tenant header whenever it is configured, even if the answer was `None`, so
 a shared cache cannot serve one tenant's response to another.
+
+The rules for the merged header:
+
+- Every `Vary` line already on the response is merged into one, and a `*` in
+  any of them is never dropped.
+- `tenant_source` is `None` whenever no tenant is bound, whatever the resolver
+  reported as its source.
+- A tenant taken from the principal's `tenant_id` claim varies on
+  `Cookie, Authorization`: the claim came from whichever credential
+  authenticated the request.
+- The `tenants` resolver adds `Cookie` whenever a user is signed in, on every
+  branch — subdomain, header and session, resolved or not — since membership
+  is checked against the signed-in user (and the session cookie also carries
+  the stored choice). An anonymous request does not vary on `Cookie`, so an
+  anonymous public page stays cacheable.
+
+A route that builds its own cache headers reads the same list with
+`tenant_vary(request)` (see [For module authors](#for-module-authors)).
 
 ## Unique keys
 
