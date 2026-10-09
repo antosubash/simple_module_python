@@ -6,6 +6,7 @@ import { InterpolatedText } from '@simple-module-py/ui/components/InterpolatedTe
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import type { SharedProps } from '@simple-module-py/ui/types';
 import type { ReactNode } from 'react';
+import { ErrorShell, useInAdminShell } from './ErrorShell';
 
 interface Props {
   status: number;
@@ -121,6 +122,7 @@ function ErrorPage({
   const { t } = useT();
   const { auth } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
   const copy = useStatusCopy(status, Boolean(maintenance));
+  const inline = useInAdminShell();
 
   // Three sources, most specific first. A named permission beats everything:
   // it is the only wording that tells the reader what to go and ask for, and
@@ -160,6 +162,7 @@ function ErrorPage({
         title={copy.title}
         description={description}
         accent={copy.accent}
+        inline={inline}
         details={
           // Only where it is actionable. The id is the handle on a server
           // failure worth reporting; on a 403 or a 404 it is a hex string
@@ -208,5 +211,8 @@ function ErrorPage({
     </>
   );
 }
+
+// An admin who hits a 404/422 under /admin stays in the admin shell (#422).
+ErrorPage.layout = (page: ReactNode) => <ErrorShell>{page}</ErrorShell>;
 
 export default ErrorPage;

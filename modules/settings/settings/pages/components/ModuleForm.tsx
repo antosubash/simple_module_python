@@ -117,10 +117,10 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
           card for the fields alone. */}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight">
+          <h2 className="font-display text-2xl font-bold tracking-tight">
             <code className="font-mono text-[22px]">{m.package}</code>{' '}
             {t(keys.settings.modules.heading_suffix)}
-          </h1>
+          </h2>
           <p className="mt-1.5 text-sm text-muted-foreground">
             {t(keys.settings.modules.description)}
           </p>

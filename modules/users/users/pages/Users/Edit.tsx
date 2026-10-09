@@ -1,4 +1,4 @@
-import { usePage } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { useRelativeTime } from '@simple-module-py/ui/hooks/use-relative-time';
@@ -57,68 +57,71 @@ function Edit() {
   const actions = useUserActions(user.id, user.is_active, user.is_verified);
 
   return (
-    <PageShell
-      title={user.full_name || user.email}
-      back="/admin/users/"
-      leading={
-        <span className="inline-flex h-13 w-13 shrink-0 items-center justify-center rounded-full bg-primary-600/10 text-lg font-bold text-primary-700 font-display dark:text-primary-400">
-          {initials(user.full_name, user.email)}
-        </span>
-      }
-      badge={
-        <StatusPill state={deriveState(actions.isActive, actions.isVerified, user.invited_at)} />
-      }
-      description={t(keys.users.edit.subtitle, {
-        email: user.email,
-        joined: joinedMonth(user.created_at),
-        lastLogin: user.last_login_at ? ago(user.last_login_at) : t(keys.users.edit.never),
-      })}
-      actions={
-        <EditHeaderActions
-          dirtyCount={form.dirtyCount}
-          saving={form.saving}
-          onDiscard={form.discard}
-          onSave={form.save}
-        />
-      }
-    >
-      <div className="grid items-stretch gap-4 lg:grid-cols-[1.3fr_1fr]">
-        <DetailsCard
-          email={form.form.email}
-          fullName={form.form.fullName}
-          onEmailChange={(email) => form.setForm((prev) => ({ ...prev, email }))}
-          onFullNameChange={(fullName) => form.setForm((prev) => ({ ...prev, fullName }))}
-          roles={roles}
-          selectedRoles={form.form.roles}
-          onToggleRole={form.toggleRole}
-          userId={user.id}
-          hasPermissionsModule={has_permissions_module}
-          error={form.error}
-        />
+    <>
+      <Head title={user.full_name || user.email} />
+      <PageShell
+        title={user.full_name || user.email}
+        back="/admin/users/"
+        leading={
+          <span className="inline-flex h-13 w-13 shrink-0 items-center justify-center rounded-full bg-primary-600/10 text-lg font-bold text-primary-700 font-display dark:text-primary-400">
+            {initials(user.full_name, user.email)}
+          </span>
+        }
+        badge={
+          <StatusPill state={deriveState(actions.isActive, actions.isVerified, user.invited_at)} />
+        }
+        description={t(keys.users.edit.subtitle, {
+          email: user.email,
+          joined: joinedMonth(user.created_at),
+          lastLogin: user.last_login_at ? ago(user.last_login_at) : t(keys.users.edit.never),
+        })}
+        actions={
+          <EditHeaderActions
+            dirtyCount={form.dirtyCount}
+            saving={form.saving}
+            onDiscard={form.discard}
+            onSave={form.save}
+          />
+        }
+      >
+        <div className="grid items-stretch gap-4 lg:grid-cols-[1.3fr_1fr]">
+          <DetailsCard
+            email={form.form.email}
+            fullName={form.form.fullName}
+            onEmailChange={(email) => form.setForm((prev) => ({ ...prev, email }))}
+            onFullNameChange={(fullName) => form.setForm((prev) => ({ ...prev, fullName }))}
+            roles={roles}
+            selectedRoles={form.form.roles}
+            onToggleRole={form.toggleRole}
+            userId={user.id}
+            hasPermissionsModule={has_permissions_module}
+            error={form.error}
+          />
 
-        <AccountCard
-          email={user.email}
-          isExternal={user.is_external}
-          createdAt={user.created_at}
-          disabledAt={user.disabled_at ?? null}
-          isActive={actions.isActive}
-          isVerified={actions.isVerified}
-          savingStatus={actions.savingStatus}
-          savingVerify={actions.savingVerify}
-          onDisable={actions.disable}
-          onEnable={actions.enable}
-          onMarkVerified={actions.markVerified}
-          onCopyResetLink={actions.copyResetLink}
-        />
+          <AccountCard
+            email={user.email}
+            isExternal={user.is_external}
+            createdAt={user.created_at}
+            disabledAt={user.disabled_at ?? null}
+            isActive={actions.isActive}
+            isVerified={actions.isVerified}
+            savingStatus={actions.savingStatus}
+            savingVerify={actions.savingVerify}
+            onDisable={actions.disable}
+            onEnable={actions.enable}
+            onMarkVerified={actions.markVerified}
+            onCopyResetLink={actions.copyResetLink}
+          />
 
-        {/* Absent, not empty, when the deployment records nothing. */}
-        {recentActivity !== null && (
-          <RecentActivityCard entries={recentActivity} userId={user.id} />
-        )}
+          {/* Absent, not empty, when the deployment records nothing. */}
+          {recentActivity !== null && (
+            <RecentActivityCard entries={recentActivity} userId={user.id} />
+          )}
 
-        <DangerZone userId={user.id} email={user.email} isSelf={isSelf} />
-      </div>
-    </PageShell>
+          <DangerZone userId={user.id} email={user.email} isSelf={isSelf} />
+        </div>
+      </PageShell>
+    </>
   );
 }
 

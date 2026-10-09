@@ -13,6 +13,7 @@
 import '@testing-library/jest-dom/vitest';
 import { configureI18n } from '@simple-module-py/i18n';
 import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { describe, expect, test, vi } from 'vitest';
 
 configureI18n({
@@ -38,20 +39,40 @@ configureI18n({
   },
 });
 
+const mocks = vi.hoisted(() => ({
+  page: { url: '/', props: { auth: { user: null } } } as {
+    url: string;
+    props: Record<string, unknown>;
+  },
+}));
+
 vi.mock('@inertiajs/react', () => ({
   Head: () => null,
   Link: ({ children, ...rest }: { children?: unknown }) => <a {...rest}>{children as never}</a>,
   router: { visit: vi.fn(), reload: vi.fn() },
-  // Only `auth` comes from the page props here — the rest are ordinary
+  // Only shared props come from the page here — the rest are ordinary
   // component props, which is what Inertia passes a page component.
-  usePage: () => ({ props: { auth: { user: null } } }),
+  usePage: () => mocks.page,
+}));
+
+vi.mock('@simple-module-py/ui/layouts/AdminLayout', () => ({
+  AdminLayout: ({ children }: { children?: ReactNode }) => (
+    <div data-testid="admin-layout">{children}</div>
+  ),
 }));
 
 const { default: ErrorPage } = await import('./Error');
 
 function renderError(props: Record<string, unknown>) {
-  render(<ErrorPage {...(props as never)} />);
+  const layout = (ErrorPage as unknown as { layout: (page: ReactNode) => ReactNode }).layout;
+  render(<>{layout(<ErrorPage {...(props as never)} />)}</>);
 }
+
+function setPage(url: string, props: Record<string, unknown>) {
+  mocks.page = { url, props };
+}
+
+const ADMIN_MENUS = { menus: { adminSidebar: [{ label: 'Users', url: '/admin/users/' }] } };
 
 describe('a 403 from a permission guard', () => {
   test('it names the permission, so the reader knows what to ask for', () => {
@@ -103,5 +124,43 @@ describe('a 403 with no single permission to name', () => {
     });
 
     expect(screen.getByText('This workspace is read-only.')).toBeInTheDocument();
+  });
+});
+
+describe('an error under /admin', () => {
+  test('renders inside AdminLayout for a signed-in admin', () => {
+    setPage('/admin/users/999999', { auth: { isAuthenticated: true }, ...ADMIN_MENUS });
+    renderError({ status: 404, message: '' });
+
+    expect(screen.getByTestId('admin-layout')).toBeInTheDocument();
+    expect(screen.getByText('That page is not here.')).toBeInTheDocument();
+  });
+
+  test('renders bare for an anonymous 401', () => {
+    setPage('/admin/users/', { auth: { isAuthenticated: false }, ...ADMIN_MENUS });
+    renderError({ status: 401, message: '' });
+
+    expect(screen.queryByTestId('admin-layout')).not.toBeInTheDocument();
+  });
+
+  test('renders bare outside /admin, matching whole path segments', () => {
+    setPage('/administer', { auth: { isAuthenticated: true }, ...ADMIN_MENUS });
+    renderError({ status: 404, message: '' });
+
+    expect(screen.queryByTestId('admin-layout')).not.toBeInTheDocument();
+  });
+
+  test('renders bare when the admin menu is empty', () => {
+    setPage('/admin/users/', { auth: { isAuthenticated: true }, menus: { adminSidebar: [] } });
+    renderError({ status: 403, message: '' });
+
+    expect(screen.queryByTestId('admin-layout')).not.toBeInTheDocument();
+  });
+
+  test('renders bare, without throwing, when shared props never arrived', () => {
+    setPage('/admin/users/', {});
+    renderError({ status: 500, message: '' });
+
+    expect(screen.queryByTestId('admin-layout')).not.toBeInTheDocument();
   });
 });
