@@ -46,6 +46,18 @@ async def _client(app):
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t")
 
 
+def _mount_probe(app, dep=None) -> None:
+    """Mount a public ``GET /api/probe-tenant`` guarded by ``dep`` (``require_tenant()``)."""
+    router = APIRouter(dependencies=[Depends(dep if dep is not None else require_tenant())])
+
+    @router.get("/api/probe-tenant")
+    async def probe() -> dict:
+        return {"tenant": current_tenant_id.get()}
+
+    app.include_router(router)
+    app.state.public_routes.add_prefix("/api/probe-tenant", methods={"GET"})
+
+
 async def test_multi_tenant_host_reports_multi(app):
     assert tenancy_mode(app) is TenancyMode.MULTI
 
@@ -61,27 +73,13 @@ async def test_pinned_single_host_reports_its_tenant(pinned_app):
 
 
 async def test_require_tenant_binds_single_tenant_without_middleware(single_app):
-    router = APIRouter(dependencies=[Depends(require_tenant())])
-
-    @router.get("/api/probe-tenant")
-    async def probe() -> dict:
-        return {"tenant": current_tenant_id.get()}
-
-    single_app.include_router(router)
-    single_app.state.public_routes.add_prefix("/api/probe-tenant", methods={"GET"})
+    _mount_probe(single_app)
     async with await _client(single_app) as c:
         assert (await c.get("/api/probe-tenant")).json() == {"tenant": DEFAULT_TENANT_ID}
 
 
 async def test_require_tenant_403_when_multi_and_unresolved(app):
-    router = APIRouter(dependencies=[Depends(require_tenant())])
-
-    @router.get("/api/probe-tenant")
-    async def probe() -> dict:
-        return {}
-
-    app.include_router(router)
-    app.state.public_routes.add_prefix("/api/probe-tenant", methods={"GET"})
+    _mount_probe(app)
     async with await _client(app) as c:
         resp = await c.get("/api/probe-tenant")
     assert resp.status_code == 403
@@ -93,14 +91,7 @@ async def test_require_tenant_binds_the_resolved_tenant_when_multi(app, monkeypa
         return "acme"
 
     monkeypatch.setattr(app.state, "tenant_resolver", resolver, raising=False)
-    router = APIRouter(dependencies=[Depends(require_tenant())])
-
-    @router.get("/api/probe-tenant")
-    async def probe() -> dict:
-        return {"tenant": current_tenant_id.get()}
-
-    app.include_router(router)
-    app.state.public_routes.add_prefix("/api/probe-tenant", methods={"GET"})
+    _mount_probe(app)
     async with await _client(app) as c:
         resp = await c.get("/api/probe-tenant")
     assert resp.json() == {"tenant": "acme"}
@@ -108,14 +99,7 @@ async def test_require_tenant_binds_the_resolved_tenant_when_multi(app, monkeypa
 
 async def test_require_tenant_custom_missing_response(app):
     dep = require_tenant(on_missing=lambda _r: HTTPException(404, "Page not found"))
-    router = APIRouter(dependencies=[Depends(dep)])
-
-    @router.get("/api/probe-tenant")
-    async def probe() -> dict:
-        return {}
-
-    app.include_router(router)
-    app.state.public_routes.add_prefix("/api/probe-tenant", methods={"GET"})
+    _mount_probe(app, dep)
     async with await _client(app) as c:
         assert (await c.get("/api/probe-tenant")).status_code == 404
 

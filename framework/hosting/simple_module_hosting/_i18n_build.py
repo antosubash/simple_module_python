@@ -43,7 +43,7 @@ def build_i18n_registry(
         registry.add_source("host", host_locales)
         extra_sources.append(("host", "host", host_locales))
 
-    overrides = project_root / "host" / "locales" / "overrides"
+    overrides = host_locales / "overrides"
     if overrides.is_dir():
         registry.add_overrides(overrides)
 

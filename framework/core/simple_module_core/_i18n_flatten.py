@@ -1,8 +1,21 @@
-"""Flatten nested locale dicts to dotted keys."""
+"""Read locale catalogs and flatten nested locale dicts to dotted keys."""
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
+
+
+def read_catalog(path: Path) -> dict[str, Any]:
+    """Parse a ``<locale>.json`` catalog; ValueError if it is not a JSON object."""
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid JSON in {path}: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise ValueError(f"{path} must contain a JSON object at the top level")
+    return raw
 
 
 def flatten_messages(

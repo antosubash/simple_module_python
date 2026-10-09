@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Mapping
 from functools import lru_cache
@@ -12,7 +11,7 @@ from typing import Any
 
 from babel import Locale
 
-from simple_module_core._i18n_flatten import flatten_messages
+from simple_module_core._i18n_flatten import flatten_messages, read_catalog
 from simple_module_core.i18n_overrides import apply_overrides, load_overrides
 
 __all__ = ["PLURAL_CATEGORIES", "I18nRegistry", "Translator", "flatten_messages"]
@@ -112,13 +111,7 @@ class I18nRegistry:
                         path,
                     )
                     continue
-                try:
-                    raw = json.loads(path.read_text(encoding="utf-8"))
-                except json.JSONDecodeError as exc:
-                    raise ValueError(f"invalid JSON in {path}: {exc}") from exc
-                if not isinstance(raw, dict):
-                    raise ValueError(f"{path} must contain a JSON object at the top level")
-                flat = flatten_messages(raw, prefix=namespace)
+                flat = flatten_messages(read_catalog(path), prefix=namespace)
                 self._messages[locale].update(flat)
                 if audience != "admin":
                     public_messages[locale].update(flat)
