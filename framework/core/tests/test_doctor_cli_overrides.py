@@ -38,3 +38,29 @@ def test_doctor_cli_reports_unknown_override_key(tmp_path, monkeypatch, capsys):
     assert "SM027" in err
     assert "users.login.typo" in err
     assert "aside_heading" not in err.split("SM027", 1)[1]
+
+
+def test_doctor_cli_accepts_hosting_overrides(tmp_path, monkeypatch, capsys):
+    """The setup wizard's ``hosting.*`` keys are real: only the typo is SM027.
+
+    The app's registry always loads the ``hosting`` catalog; doctor must too.
+    """
+    mod_dir = tmp_path / "mod"
+    mod_dir.mkdir()
+    (mod_dir / "en.json").write_text(json.dumps({"login": {"aside_heading": "X"}}))
+    ov = tmp_path / "host" / "locales" / "overrides"
+    ov.mkdir(parents=True)
+    (ov / "en.json").write_text(
+        json.dumps({"hosting.setup.title": "Welcome", "hosting.setup.titel": "typo"})
+    )
+    mod = _Mod(mod_dir)
+    monkeypatch.setattr(doctor, "discover_modules", lambda strict=True: [mod])
+    monkeypatch.setattr(doctor, "find_env_file", lambda: tmp_path / ".env")
+    monkeypatch.setattr(doctor, "parse_dotenv", dict)
+    monkeypatch.delenv("SM_I18N_SUPPORTED_LOCALES", raising=False)
+
+    doctor.main()
+    err = capsys.readouterr().err
+    assert "SM027" in err
+    reported = err.split("(skipped):", 1)[1].splitlines()[0]
+    assert [k.strip() for k in reported.split(",")] == ["hosting.setup.titel"]

@@ -16,6 +16,7 @@ from simple_module_core._i18n_flatten import flatten_messages
 
 
 def load_overrides(overrides_dir: Path, locale: str) -> dict[str, str]:
+    """Flattened ``{dotted.key: text}`` from ``<overrides_dir>/<locale>.json``; ``{}`` if absent."""
     path = overrides_dir / f"{locale}.json"
     if not path.is_file():
         return {}
