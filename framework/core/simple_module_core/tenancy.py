@@ -80,6 +80,7 @@ async def tenant_exists(app: Any, tenant_id: str) -> bool | None:
 
 __all__ = [
     "TENANT_ROLE_PREFIX",
+    "TenancyMode",
     "TenantExists",
     "TenantRole",
     "is_tenant_role",

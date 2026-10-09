@@ -17,7 +17,6 @@ from simple_module_db import DEFAULT_TENANT_ID, is_valid_tenant_id, tenant_conte
 
 __all__ = [
     "TenancyMode",
-    "mode_for",
     "require_tenant",
     "single_tenant_id",
     "tenancy_mode",
@@ -26,7 +25,11 @@ __all__ = [
 
 
 def mode_for(settings: Any) -> TenancyMode:
-    """The mode ``create_app`` builds for ``settings`` — the one place it is decided."""
+    """The mode ``create_app`` builds for ``settings`` — the one place it is decided.
+
+    Internal to ``create_app``; not part of the public contract. Modules read
+    the mode from the app with :func:`tenancy_mode`.
+    """
     return TenancyMode.MULTI if getattr(settings, "multi_tenant", False) else TenancyMode.SINGLE
 
 

@@ -168,8 +168,10 @@ All notable changes to this project are documented in this file. The format is b
   requests that carry no fetch metadata keep the old behaviour.
 - The tenant filter no longer turns an outer join into an inner join when the
   joined table is only referenced inside a function such as
-  `func.count(Child.id)` (#417). A raw-table outer join target stays filtered in
-  `WHERE`, so this never leaks another tenant's rows.
+  `func.count(Child.id)` (#417), whether it joins the entity or a relationship
+  path (`.outerjoin(Parent.children)`, with or without `of_type`). A raw-table
+  target or a `secondary` relationship stays filtered in `WHERE`, so this never
+  leaks another tenant's rows.
 - `gen-pages` emits `@source` lines for subdirectories of wheel modules (#419);
   uv's `.venv/.gitignore` made Tailwind skip them, so their utility classes
   were missing from the built CSS.
