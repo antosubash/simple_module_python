@@ -13,6 +13,7 @@ from typing import Any
 from babel import Locale
 
 from simple_module_core._i18n_flatten import flatten_messages
+from simple_module_core.i18n_overrides import apply_overrides, load_overrides
 
 __all__ = ["PLURAL_CATEGORIES", "I18nRegistry", "Translator", "flatten_messages"]
 
@@ -71,7 +72,14 @@ class I18nRegistry:
         self._available_locales_list: list[str] = []
         self._empty_view: MappingProxyType[str, str] = MappingProxyType({})
         self._empty_snapshot: dict[str, str] = {}
+        self._override_dirs: list[Path] = []
+        #: locale -> override keys that matched no catalog key (set by ``load()``).
+        self.unknown_override_keys: dict[str, list[str]] = {}
         self._loaded = False
+
+    def add_overrides(self, overrides_dir: Path) -> None:
+        """Queue a host directory of ``<locale>.json`` overrides, applied last by ``load()``."""
+        self._override_dirs.append(Path(overrides_dir))
 
     def add_source(self, namespace: str, locale_dir: Path, *, audience: str = "public") -> None:
         """Queue a module's locale directory for loading under a namespace.
@@ -114,6 +122,20 @@ class I18nRegistry:
                 self._messages[locale].update(flat)
                 if audience != "admin":
                     public_messages[locale].update(flat)
+
+        self.unknown_override_keys = {}
+        for overrides_dir in self._override_dirs:
+            for locale in self.supported_locales:
+                skipped = apply_overrides(
+                    load_overrides(overrides_dir, locale),
+                    self._messages[locale],
+                    public_messages[locale],
+                )
+                if skipped:
+                    self.unknown_override_keys.setdefault(locale, []).extend(skipped)
+                    logger.warning(
+                        "Ignoring host overrides for unknown keys (%s): %s", locale, skipped
+                    )
 
         # Cache the derived views now that loading is complete. Downstream
         # (middleware, translator, switcher) reads these on every request.

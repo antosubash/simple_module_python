@@ -123,6 +123,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             modules,
             installed_modules,
             i18n_extra=i18n_extra,
+            i18n_unknown_overrides=i18n_registry.unknown_override_keys,
             diagnostics_state=diagnostics_state,
             project_root=_PROJECT_ROOT,
         )

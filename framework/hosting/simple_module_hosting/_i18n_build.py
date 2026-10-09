@@ -43,6 +43,10 @@ def build_i18n_registry(
         registry.add_source("host", host_locales)
         extra_sources.append(("host", "host", host_locales))
 
+    overrides = project_root / "host" / "locales" / "overrides"
+    if overrides.is_dir():
+        registry.add_overrides(overrides)
+
     ui_locales = project_root / "packages" / "ui" / "locales"
     if ui_locales.is_dir():
         registry.add_source("ui", ui_locales)

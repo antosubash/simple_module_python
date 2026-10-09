@@ -143,3 +143,20 @@ class I18nDiagnostics:
         if not locale_dir.is_dir():
             return []
         return sorted(path.stem for path in locale_dir.glob("*.json"))
+
+
+def check_unknown_overrides(unknown: dict[str, list[str]]) -> list[Diagnostic]:
+    """SM027: host locale overrides naming keys no catalog defines (skipped)."""
+    return [
+        Diagnostic(
+            level=DiagnosticLevel.WARNING,
+            code="SM027",
+            message=(
+                f"Host locale override ({locale}) names keys no catalog defines "
+                f"(skipped): {', '.join(keys)}"
+            ),
+            module_name="host",
+            suggestion="Overrides replace an existing key by its full dotted path; fix the typo.",
+        )
+        for locale, keys in sorted(unknown.items())
+    ]
