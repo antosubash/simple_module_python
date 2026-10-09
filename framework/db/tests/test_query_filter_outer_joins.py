@@ -27,6 +27,7 @@ from sqlmodel import Field
 _TagBase = create_module_base("qfoj_tag")
 _LinkBase = create_module_base("qfoj_link")
 _SoftBase = create_module_base("qfoj_soft")
+_PlainBase = create_module_base("qfoj_plain")
 
 
 class _Tag(_TagBase, MultiTenantMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
@@ -48,13 +49,21 @@ class _SoftLink(_SoftBase, SoftDeleteMixin, table=True):  # type: ignore[call-ar
     tag_id: int | None = None  # no FK: each model has its own MetaData
 
 
+class _Plain(_PlainBase, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+    """Neither tenant-scoped nor soft-deletable: a FULL join's left side with no filter."""
+
+    __tablename__ = "qfoj_plain_plain"
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(default="", max_length=100)
+
+
 @pytest.fixture
 async def seeded() -> AsyncGenerator[AsyncSession, None]:
     db_state = init_db("sqlite+aiosqlite:///:memory:", poolclass=StaticPool)
     try:
         register_listeners(db_state)
         async with db_state.engine.begin() as conn:
-            for base in (_TagBase, _LinkBase, _SoftBase):
+            for base in (_TagBase, _LinkBase, _SoftBase, _PlainBase):
                 await conn.run_sync(base.metadata.create_all)
         async with db_state.session_factory() as session:
             token = current_tenant_id.set("A")
@@ -62,6 +71,8 @@ async def seeded() -> AsyncGenerator[AsyncSession, None]:
             session.add_all([used, unused])
             await session.flush()
             session.add(_TagLink(tag_id=used.id, article_id=1))
+            # Same id as ``used``: every link and soft link points at it too.
+            session.add(_Plain(id=used.id, name="p1"))
             session.add_all([_SoftLink(tag_id=used.id), _SoftLink(tag_id=used.id, is_deleted=True)])
             await session.flush()
             current_tenant_id.reset(token)
@@ -212,3 +223,28 @@ async def test_strict_mode_without_tenant_still_refuses_an_outer_child(seeded):
     )
     with pytest.raises(TenantIsolationError):
         await seeded.execute(stmt)
+
+
+async def test_full_join_never_returns_other_tenants_children(seeded):
+    """A FULL join preserves its right side: ON cannot filter it, WHERE must.
+
+    Tenant B's links fail the ON predicate and would come back as unmatched
+    ``(None, …)`` rows if the child's WHERE predicate were dropped.
+    """
+    stmt = (
+        select(_Plain.name, func.count(_TagLink.id))
+        .select_from(_Plain)
+        .outerjoin(_TagLink, _TagLink.tag_id == _Plain.id, full=True)
+        .group_by(_Plain.name)
+    )
+    assert (await seeded.execute(stmt)).all() == [("p1", 1)]
+
+
+async def test_full_join_never_returns_trashed_children(seeded):
+    stmt = (
+        select(_Plain.name, func.count(_SoftLink.id))
+        .select_from(_Plain)
+        .outerjoin(_SoftLink, _SoftLink.tag_id == _Plain.id, full=True)
+        .group_by(_Plain.name)
+    )
+    assert (await seeded.execute(stmt)).all() == [("p1", 1)]

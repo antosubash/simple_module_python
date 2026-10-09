@@ -1,4 +1,4 @@
-"""Tables an ORM entity outer-joins in, whose criteria already sit in ``ON`` (#417).
+"""Tables an ORM entity LEFT-joins in, whose criteria already sit in ``ON`` (#417).
 
 ``select(Parent, func.count(Child.id)).outerjoin(Child, ...)``: the column
 wrapped in ``func.count`` strips the ORM annotation, so ``columns_clause_froms``
@@ -8,9 +8,16 @@ is false for every row the outer join padded with NULLs — the LEFT JOIN became
 an inner one and parents without children vanished.
 
 Excluding such a table from the ``WHERE`` is only safe when something else
-filters it. That holds for exactly one shape: the join target is a plain ORM
-entity (``.outerjoin(Child, ...)``) whose class carries the loader criteria,
-because ``with_loader_criteria`` renders them into the join's ``ON``. So:
+filters it. That holds for exactly one shape: the target of a LEFT outer join
+is a plain ORM entity (``.outerjoin(Child, ...)``) whose class carries the
+loader criteria, because ``with_loader_criteria`` renders them into the join's
+``ON``, and an ``ON`` predicate fully filters a LEFT join's nullable side. So:
+
+* a FULL outer join (``full=True``) is deliberately NOT exempted: it preserves
+  its right side too, and an ``ON`` predicate never removes a preserved row —
+  another tenant's (or a trashed) child that fails ``ON`` still comes back as
+  an unmatched row. Only the ``WHERE`` predicate keeps it out (over-filters,
+  never leaks);
 
 * a raw ``Model.__table__`` target gets no loader criteria and keeps its
   ``WHERE`` predicate (over-filters, never leaks);
@@ -35,7 +42,7 @@ def _plain(element: Any) -> Any:
 
 
 def orm_outer_join_tables(stmt: Any, covered: set[type] | frozenset[type]) -> list[Any]:
-    """Un-annotated tables of ORM entities ``stmt`` outer- or full-joins in.
+    """Un-annotated tables of ORM entities ``stmt`` LEFT-outer-joins in (never FULL).
 
     Only entities whose class is in ``covered`` count: those are the ones the
     filter gives ``with_loader_criteria``, which is what puts their predicate
@@ -45,7 +52,8 @@ def orm_outer_join_tables(stmt: Any, covered: set[type] | frozenset[type]) -> li
     for entry in getattr(stmt, "_setup_joins", ()):
         # SQLAlchemy 2.0: (target, onclause, from_, {"isouter": .., "full": ..})
         target, flags = entry[0], entry[-1]
-        if not isinstance(flags, dict) or not (flags.get("isouter") or flags.get("full")):
+        # LEFT only: ON cannot filter a FULL join's preserved right side.
+        if not isinstance(flags, dict) or not flags.get("isouter") or flags.get("full"):
             continue
         mapper = getattr(target, "_annotations", {}).get("parententity")
         if not isinstance(mapper, Mapper) or mapper.class_ not in covered:
@@ -57,5 +65,7 @@ def orm_outer_join_tables(stmt: Any, covered: set[type] | frozenset[type]) -> li
 
 
 def is_excluded(from_obj: Any, excluded: list[Any]) -> bool:
+    # Table-object identity on purpose: matching by name would also drop the
+    # WHERE on a raw duplicate occurrence (an alias, another FROM) of the table.
     plain = _plain(from_obj)
     return any(plain is t for t in excluded)
