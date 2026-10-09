@@ -16,6 +16,8 @@ beforeEach(() => {
   document.documentElement.style.removeProperty('--primary');
   document.documentElement.style.removeProperty('--sidebar-primary');
   document.documentElement.style.removeProperty('--color-primary-600');
+  document.documentElement.style.removeProperty('--primary-foreground');
+  document.documentElement.style.removeProperty('--sidebar-primary-foreground');
 });
 
 afterEach(() => cleanup());
@@ -45,6 +47,17 @@ describe('BrandingHead', () => {
     const { unmount } = render(<BrandingHead />);
     unmount();
     expect(document.documentElement.style.getPropertyValue('--color-primary-600')).toBe('');
+  });
+
+  test('picks a dark foreground ink for a light brand and clears it on unmount (#420)', () => {
+    state.branding = { appName: 'Acme', primaryColor: '#62B8E2', logoUrl: null, faviconUrl: null };
+    const { unmount } = render(<BrandingHead />);
+    const style = document.documentElement.style;
+    expect(style.getPropertyValue('--primary-foreground')).toBe('oklch(0.2 0.02 250)');
+    expect(style.getPropertyValue('--sidebar-primary-foreground')).toBe('oklch(0.2 0.02 250)');
+    unmount();
+    expect(style.getPropertyValue('--primary-foreground')).toBe('');
+    expect(style.getPropertyValue('--sidebar-primary-foreground')).toBe('');
   });
 
   test('keeps the server-rendered theme-color meta in sync, restoring on unmount', () => {

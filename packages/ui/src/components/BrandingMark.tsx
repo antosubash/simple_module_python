@@ -65,7 +65,9 @@ export function BrandingMark({
         />
       ) : (
         <div className={`${box} ${accentColor} flex items-center justify-center ${badgeShadow}`}>
-          <span className={`text-white font-bold ${initialSize} font-display`}>{initial}</span>
+          <span className={`text-primary-foreground font-bold ${initialSize} font-display`}>
+            {initial}
+          </span>
         </div>
       )}
       {caption ? (
