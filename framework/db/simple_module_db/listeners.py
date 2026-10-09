@@ -62,6 +62,8 @@ _OP_UPDATE = "update"
 _OP_SOFT_DELETE = "soft_delete"
 _OP_DELETE = "delete"
 
+_LISTENERS_ATTACHED = "_sm_entity_listeners_attached"
+
 
 def _entity_label(obj: object) -> str:
     """Return 'ClassName' for a mapped entity instance."""
@@ -106,7 +108,15 @@ def attach_session_listeners(session_class: type[Session]) -> None:
 
     For a process with no ``DatabaseState`` (the Celery worker's sync engine),
     call this and ``bind_engine_policy(engine, EngineTenancy(...))``.
+
+    Idempotence is a marker in the class's own ``__dict__``, not
+    ``event.contains``: SQLAlchemy keys its event registry on ``id(target)``,
+    so a fresh session class that reuses a garbage-collected one's id reads as
+    already wired and would silently get no tenant, soft-delete or write
+    listeners at all.
     """
+    if session_class.__dict__.get(_LISTENERS_ATTACHED):
+        return
     for name, fn in (
         ("before_flush", _before_flush_listener),
         ("after_flush", _mark_session_written),
@@ -114,8 +124,8 @@ def attach_session_listeners(session_class: type[Session]) -> None:
         ("do_orm_execute", _mark_dml_written),
         ("do_orm_execute", filter_statements),
     ):
-        if not event.contains(session_class, name, fn):
-            event.listen(session_class, name, fn)
+        event.listen(session_class, name, fn)
+    setattr(session_class, _LISTENERS_ATTACHED, True)
 
 
 def _before_flush_listener(
