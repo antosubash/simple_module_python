@@ -355,8 +355,11 @@ The rules for the merged header:
 - A tenant taken from the principal's `tenant_id` claim varies on
   `Cookie, Authorization`: the claim came from whichever credential
   authenticated the request.
-- The `tenants` resolver adds `Cookie` when the tenant came from the session,
-  since the session cookie carries that choice.
+- The `tenants` resolver adds `Cookie` whenever a user is signed in, on every
+  branch — subdomain, header and session, resolved or not — since membership
+  is checked against the signed-in user (and the session cookie also carries
+  the stored choice). An anonymous request does not vary on `Cookie`, so an
+  anonymous public page stays cacheable.
 
 A route that builds its own cache headers reads the same list with
 `tenant_vary(request)` (see [For module authors](#for-module-authors)).

@@ -36,6 +36,7 @@ from __future__ import annotations
 import importlib.resources
 import json
 import logging
+import os
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -182,15 +183,13 @@ def _source_dirs(base: Path) -> list[Path]:
     scanned but none of its subdirectories (#419). Each one becomes its own
     base. A directory that doesn't exist yields just ``base``.
     """
-    found: set[Path] = set()
+    found: list[Path] = []
     if base.is_dir():
-        for path in base.rglob("*.ts*"):
-            if (
-                path.suffix in {".ts", ".tsx"}
-                and path.parent != base
-                and not _SKIP_DIRS.intersection(path.relative_to(base).parts)
-            ):
-                found.add(path.parent)
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]  # prune, don't walk
+            here = Path(dirpath)
+            if here != base and any(Path(f).suffix in {".ts", ".tsx"} for f in filenames):
+                found.append(here)
     return [base, *sorted(found)]
 
 

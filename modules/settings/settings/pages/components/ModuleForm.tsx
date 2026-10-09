@@ -148,7 +148,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
         <div className="flex flex-col gap-4">
           {groups.map(([group, fields]) => (
             <section key={group} className="flex flex-col gap-4">
-              {group && <h2 className="text-sm font-semibold text-muted-foreground">{group}</h2>}
+              {group && <h3 className="text-sm font-semibold text-muted-foreground">{group}</h3>}
               {fields.map((f) => (
                 <ModuleFieldRow
                   key={f.name}

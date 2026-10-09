@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 from simple_module_core.i18n import I18nRegistry, flatten_messages
+from simple_module_core.i18n_overrides import load_overrides
 
 if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
@@ -167,19 +168,24 @@ def unknown_overrides_for(
     extra_sources: list[tuple[str, str, Path]],
     supported_locales: list[str] | None,
     default_locale: str,
-) -> dict[str, list[str]]:
-    """Load the catalogs like the host does and return the unknown override keys.
+) -> tuple[dict[str, list[str]], list[Diagnostic]]:
+    """Load the catalogs like the host does; return unknown override keys and findings.
 
     Lets ``make doctor`` report SM027 without booting the app. Overrides live
-    in ``overrides/`` beside the ``host`` source's locale directory.
+    in ``overrides/`` beside the ``host`` source's locale directory. A malformed
+    overrides file is reported as SM016 rather than raised (the running app
+    still refuses to boot on it).
     """
     host_dirs = [d for _, ns, d in extra_sources if ns == "host" and (d / "overrides").is_dir()]
     if not host_dirs:
-        return {}
+        return {}, []
     overrides_dir = host_dirs[0] / "overrides"
     locales = list(supported_locales or [])
     if not locales:
         locales = sorted({default_locale, *(p.stem for p in overrides_dir.glob("*.json"))})
+    malformed = _malformed_overrides(overrides_dir, locales)
+    if malformed:
+        return {}, malformed
     registry = I18nRegistry(default_locale=default_locale, supported_locales=locales)
     for mod in modules:
         for namespace, locale_dir in mod.locale_dirs().items():
@@ -187,5 +193,29 @@ def unknown_overrides_for(
     for _, namespace, locale_dir in extra_sources:
         registry.add_source(namespace, locale_dir)
     registry.add_overrides(overrides_dir)
-    registry.load()
-    return registry.unknown_override_keys
+    try:
+        registry.load()
+    except ValueError:
+        # A malformed module or host catalog: I18nDiagnostics reports it as SM016.
+        return {}, []
+    return registry.unknown_override_keys, []
+
+
+def _malformed_overrides(overrides_dir: Path, locales: list[str]) -> list[Diagnostic]:
+    """SM016 for each ``<locale>.json`` override file that does not parse."""
+    findings: list[Diagnostic] = []
+    for locale in locales:
+        path = overrides_dir / f"{locale}.json"
+        try:
+            load_overrides(overrides_dir, locale)
+        except ValueError as exc:
+            findings.append(
+                Diagnostic(
+                    level=DiagnosticLevel.ERROR,
+                    code="SM016",
+                    message=f"Invalid host locale overrides ({locale}): {exc}",
+                    module_name="host",
+                    file=str(path),
+                )
+            )
+    return findings

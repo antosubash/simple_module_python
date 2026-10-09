@@ -162,7 +162,7 @@ def main() -> int:
     supported, default = _load_i18n_settings_from_env()
     extra = _discover_extra_locale_sources()
 
-    unknown_overrides = unknown_overrides_for(modules, extra, supported, default)
+    unknown_overrides, override_findings = unknown_overrides_for(modules, extra, supported, default)
 
     diagnostics = run_diagnostics(
         modules,
@@ -172,6 +172,7 @@ def main() -> int:
         i18n_unknown_overrides=unknown_overrides,
         database_dialect=_database_dialect(),
     )
+    diagnostics.extend(override_findings)
     print_diagnostics(diagnostics)
 
     errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]

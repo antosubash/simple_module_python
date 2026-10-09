@@ -109,13 +109,15 @@ def attach_session_listeners(session_class: type[Session]) -> None:
     For a process with no ``DatabaseState`` (the Celery worker's sync engine),
     call this and ``bind_engine_policy(engine, EngineTenancy(...))``.
 
-    Idempotence is a marker in the class's own ``__dict__``, not
+    Idempotence is a marker in the ``__dict__`` of the class or a base, not
     ``event.contains``: SQLAlchemy keys its event registry on ``id(target)``,
     so a fresh session class that reuses a garbage-collected one's id reads as
     already wired and would silently get no tenant, soft-delete or write
-    listeners at all.
+    listeners at all. A subclass of a wired class is skipped because SQLAlchemy
+    propagates class-level session listeners to subclasses (even ones defined
+    later); wiring it again would fire every listener twice.
     """
-    if session_class.__dict__.get(_LISTENERS_ATTACHED):
+    if any(base.__dict__.get(_LISTENERS_ATTACHED) for base in session_class.__mro__):
         return
     for name, fn in (
         ("before_flush", _before_flush_listener),
