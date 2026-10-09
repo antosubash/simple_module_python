@@ -30,6 +30,7 @@ from simple_module_core.diagnostics import (
     print_diagnostics,
     run_diagnostics,
 )
+from simple_module_core.diagnostics._i18n import unknown_overrides_for
 from simple_module_core.discovery import (
     discover_modules,
     resolve_auth_provider,
@@ -140,11 +141,14 @@ def main() -> int:
     supported, default = _load_i18n_settings_from_env()
     extra = _discover_extra_locale_sources()
 
+    unknown_overrides = unknown_overrides_for(modules, extra, supported, default)
+
     diagnostics = run_diagnostics(
         modules,
         i18n_supported_locales=supported,
         i18n_default_locale=default,
         i18n_extra_sources=extra,
+        i18n_unknown_overrides=unknown_overrides,
         database_dialect=_database_dialect(),
     )
     print_diagnostics(diagnostics)

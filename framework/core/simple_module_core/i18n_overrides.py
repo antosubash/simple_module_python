@@ -29,15 +29,26 @@ def load_overrides(overrides_dir: Path, locale: str) -> dict[str, str]:
 
 
 def apply_overrides(
-    overrides: dict[str, str], messages: dict[str, str], public: dict[str, str]
+    overrides: dict[str, str],
+    messages: dict[str, str],
+    public: dict[str, str],
+    *,
+    default_messages: dict[str, str] | None = None,
+    default_public: dict[str, str] | None = None,
 ) -> list[str]:
-    """Apply ``overrides`` in place; return the keys that matched nothing."""
+    """Apply ``overrides`` in place; return the keys that matched nothing.
+
+    A key exists if this locale or the default locale defines it, so a
+    translation of copy the locale has not translated yet still lands. The
+    public map only gains a key that is public here or in the default locale,
+    so an admin-only key never leaks.
+    """
     unknown: list[str] = []
     for key, value in overrides.items():
-        if key not in messages:
+        if key not in messages and key not in (default_messages or {}):
             unknown.append(key)
             continue
         messages[key] = value
-        if key in public:
+        if key in public or key in (default_public or {}):
             public[key] = value
     return sorted(unknown)

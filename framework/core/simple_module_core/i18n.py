@@ -130,6 +130,8 @@ class I18nRegistry:
                     load_overrides(overrides_dir, locale),
                     self._messages[locale],
                     public_messages[locale],
+                    default_messages=self._messages.get(self.default_locale),
+                    default_public=public_messages.get(self.default_locale),
                 )
                 if skipped:
                     self.unknown_override_keys.setdefault(locale, []).extend(skipped)
