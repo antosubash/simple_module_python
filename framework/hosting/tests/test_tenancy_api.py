@@ -120,34 +120,62 @@ async def test_require_tenant_custom_missing_response(app):
         assert (await c.get("/api/probe-tenant")).status_code == 404
 
 
-async def test_require_tenant_stamps_writes_single_host(single_app):
-    """Review focus 2: a write after require_tenant() commits under the bound tenant."""
-    async with single_app.state.sm.db.engine.begin() as conn:
+async def _post_unflushed_note(app, *dependencies) -> list[tuple[str, str | None]]:
+    """POST a row the endpoint only ``add``s, then read back what was committed.
+
+    No flush in the endpoint: the row is stamped when the request's session
+    commits (``CommitBeforeResponseMiddleware``), so the tenant ``require_tenant``
+    bound has to still be bound at that point, not just inside the handler.
+    """
+    async with app.state.sm.db.engine.begin() as conn:
         await conn.run_sync(_Base.metadata.create_all)
 
-    # Router-level dependency: require_tenant() is entered before the route's
-    # get_db, so it exits after it — the commit runs while the tenant is bound.
-    router = APIRouter(dependencies=[Depends(require_tenant())])
+    # Router-level dependencies run before the route's own get_db.
+    router = APIRouter(dependencies=[*dependencies, Depends(require_tenant())])
 
     @router.post("/api/probe-notes")
     async def create_note(db=Depends(get_db)) -> dict:
-        note = _Note(body="hello")
-        db.add(note)
-        await db.flush()
-        return {"id": note.id, "bound": current_tenant_id.get()}
+        db.add(_Note(body="hello"))
+        return {"bound": current_tenant_id.get()}
 
-    single_app.include_router(router)
-    single_app.state.public_routes.add_prefix("/api/probe-notes", methods={"POST"})
-    async with await _client(single_app) as c:
+    app.include_router(router)
+    app.state.public_routes.add_prefix("/api/probe-notes", methods={"POST"})
+    async with await _client(app) as c:
         resp = await c.post("/api/probe-notes")
     assert resp.status_code == 200, resp.text
-    assert resp.json()["bound"] == DEFAULT_TENANT_ID
 
-    # A fresh session proves the row was committed, not just flushed.
-    async with single_app.state.sm.db.session_factory() as session:
+    # A fresh session proves the row was committed, not just added.
+    async with app.state.sm.db.session_factory() as session:
         with all_tenants():
             rows = (await session.execute(select(_Note))).scalars().all()
-    assert [(r.body, r.tenant_id) for r in rows] == [("hello", DEFAULT_TENANT_ID)]
+    return [(r.body, r.tenant_id) for r in rows]
+
+
+async def test_require_tenant_stamps_writes_single_host(single_app):
+    """Review focus 2: a write after require_tenant() commits under the bound tenant."""
+    assert await _post_unflushed_note(single_app) == [("hello", DEFAULT_TENANT_ID)]
+
+
+async def test_require_tenant_binding_outlives_the_commit_in_strict_mode(app, monkeypatch):
+    """Review focus 2, pinned: only require_tenant() binds, and strict mode is on.
+
+    The resolver answers ``None``, so ``TenantMiddleware`` binds nothing; a
+    dependency ahead of ``require_tenant()`` records ``acme`` on
+    ``request.state`` the way the middleware would. If the binding were gone
+    by the time the session commits, the strict-mode flush would raise instead
+    of stamping ``acme``.
+    """
+
+    async def no_tenant(_request: Request) -> None:
+        return None
+
+    async def resolved_elsewhere(request: Request) -> None:
+        request.state.tenant_id = "acme"
+
+    monkeypatch.setattr(app.state, "tenant_resolver", no_tenant, raising=False)
+    assert app.state.sm.db.tenant_strict
+    rows = await _post_unflushed_note(app, Depends(resolved_elsewhere))
+    assert rows == [("hello", "acme")]
 
 
 async def test_tenant_vary_reads_what_the_middleware_recorded():
