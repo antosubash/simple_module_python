@@ -13,6 +13,13 @@ import pytest
 _FIXTURE_ENV = ("SM_AUTH_PROVIDER", "SM_BG_TASKS_BROADCAST_INVALIDATIONS")
 
 
+@pytest.fixture(autouse=True)
+def _isolate_project_root(monkeypatch, tmp_path) -> None:
+    # import_from_env reads ``.env`` via find_env_file(); pin it to an empty dir
+    # so no test picks up the developer's real repo ``.env``.
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+
+
 def _drop_fixture_env(monkeypatch) -> None:
     for name in _FIXTURE_ENV:
         monkeypatch.delenv(name, raising=False)
