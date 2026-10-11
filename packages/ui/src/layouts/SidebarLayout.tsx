@@ -21,6 +21,7 @@ import { LocaleSwitcher, useHasMultipleLocales } from '../components/LocaleSwitc
 import { NavIcon } from '../components/NavIcon';
 import { PageHeadingProvider, usePageSection } from '../components/page-heading';
 import { darkSurfaceLogo } from '../lib/brand';
+import { useHomeUrl } from '../lib/home-url';
 import type { MenuItem, SharedProps } from '../types';
 import { AdminSectionLink } from './AdminSectionLink';
 import { MobileBar } from './MobileBar';
@@ -78,6 +79,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
   const { t } = useT();
   const page = usePage<{ props: SharedProps }>();
   const { auth, menus, branding } = page.props as unknown as SharedProps;
+  const homeUrl = useHomeUrl();
   const currentUrl = page.url;
   const appName = branding?.appName ?? theme.mobileTitleLabel;
   const logoUrl = branding?.logoUrl ?? null;
@@ -173,7 +175,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
             >
               <X aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
             </Button>
-            <Link href="/dashboard/" className="flex items-center gap-2.5 group">
+            <Link href={homeUrl} className="flex items-center gap-2.5 group">
               <BrandingMark
                 appName={appName}
                 logoUrl={darkLogoUrl}

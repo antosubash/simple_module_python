@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 
 def users_shared_props(request: Request) -> dict:
-    """Whether local self-signup is accepted, and whether this is a demo session.
+    """Whether local self-signup is accepted, whether this is a demo session, and ``homeUrl``.
 
     Runs on every request, so it only reads already-hydrated state. Defaults to
     closed: if settings are missing, the safe answer is "no signup link" rather
@@ -40,10 +40,16 @@ def users_shared_props(request: Request) -> dict:
     demo_active = is_demo_session(
         getattr(request, "scope", {}), getattr(state, "demo_user_ids", ())
     )
-    return {
+    props: dict = {
         "signup": {"allowed": bool(getattr(settings, "allow_signup", False))},
         "demo": {
             "active": demo_active,
             "readOnly": demo_active and bool(getattr(settings, "demo_read_only", True)),
         },
     }
+    # Read per request so the startup fallback rewrite and admin edits apply.
+    # Omitted when unknown: the client falls back to "/".
+    home_url = getattr(settings, "login_redirect_url", None)
+    if home_url:
+        props["homeUrl"] = home_url
+    return props

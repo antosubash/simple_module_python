@@ -10,11 +10,13 @@ import { BrandingHead } from '../components/BrandingHead';
 import { LocaleSwitcher } from '../components/LocaleSwitcher';
 import { LOGIN_PATH } from '../lib/auth-routes';
 import { BRAND_ACCENT, BRAND_DEFAULT_APP_NAME, BRAND_REPO_URL } from '../lib/brand';
+import { useHomeUrl } from '../lib/home-url';
 import type { SharedProps } from '../types';
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
   const { t } = useT();
   const { auth, branding } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const homeUrl = useHomeUrl();
   const [menuOpen, setMenuOpen] = useState(false);
   const appName = branding?.appName ?? BRAND_DEFAULT_APP_NAME;
   const logoUrl = branding?.logoUrl ?? null;
@@ -24,7 +26,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
   // closed instance and made the public entry point look like a decision.
   // A visitor either has a session or does not; nothing else belongs here.
   const entry = auth?.isAuthenticated
-    ? { href: '/dashboard/', labelKey: keys.ui.public_nav.open_dashboard }
+    ? { href: homeUrl, labelKey: keys.ui.public_nav.open_dashboard }
     : { href: LOGIN_PATH, labelKey: keys.ui.public_nav.sign_in };
 
   return (

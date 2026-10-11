@@ -35,7 +35,7 @@ export interface BrandingShared {
   banner: { message: string; severity: string } | null;
   /**
    * Caption line set by an administrator, or `null` when unset — in which case
-   * the framework's own `© {year} · {BRAND_LICENSE}` is shown.
+   * the framework's own `© {year} {appName}` is shown.
    */
   footerText: string | null;
   /**
@@ -62,6 +62,10 @@ export interface SharedProps {
   // auth provider is installed (e.g. a Keycloak-only deployment), which reads
   // the same as "closed" — the host isn't the one taking signups.
   signup?: { allowed: boolean };
+  // Where the app's "home" is (the users module's `login_redirect_url`). Layouts
+  // link their logo / back-to-app / dashboard entry here instead of hardcoding
+  // a module's URL. Absent without the users module; callers fall back to `/`.
+  homeUrl?: string;
   // Also from the users module. `active` is true only for the shared demo
   // account's own session — an operator signed in normally on a demo instance
   // sees nothing. `readOnly` mirrors the `demo_read_only` setting that makes

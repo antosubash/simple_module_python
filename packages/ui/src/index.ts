@@ -24,6 +24,7 @@ export { AuthenticatedLayout } from './layouts/AuthenticatedLayout';
 export { AuthSplitAside } from './layouts/AuthSplitAside';
 export { PublicLayout } from './layouts/PublicLayout';
 export { SidebarLayout } from './layouts/SidebarLayout';
+export { useHomeUrl } from './lib/home-url';
 export { initials } from './lib/initials';
 export {
   ageOf,
