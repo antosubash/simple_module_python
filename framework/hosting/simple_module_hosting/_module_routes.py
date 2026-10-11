@@ -23,6 +23,14 @@ def wire_module_routes(app: FastAPI, module) -> None:
     view_router = APIRouter(prefix=module.meta.view_prefix, tags=[f"{module.meta.name} Views"])
     module.register_routes(api_router, view_router)
     _clone_bare_prefix_route(view_router, module.meta.view_prefix)
+    if view_router.routes:
+        # ``view_prefix=""`` means both "no views" and "mounted at /", so only
+        # a router that actually received routes says which one it is (#435).
+        # Dict order is discovery order. Lives on app.state until ``Services``
+        # exists, then ``create_app`` hands it over as ``sm.view_prefixes``.
+        if not hasattr(app.state, "view_prefixes"):
+            app.state.view_prefixes = {}
+        app.state.view_prefixes[module.meta.name] = module.meta.view_prefix
     app.include_router(api_router)
     app.include_router(view_router)
 

@@ -265,6 +265,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         invalidation=invalidation_bus,
         diagnostics=diagnostics_state,
         tenancy=mode_for(settings),
+        view_prefixes=getattr(app.state, "view_prefixes", {}),
     )
 
     return app

@@ -104,3 +104,6 @@ class Services:
     #: How the host scopes requests (#418), recorded where ``create_app``
     #: decides on ``TenantMiddleware``. Defaulted for apps built outside it.
     tenancy: TenancyMode = TenancyMode.SINGLE
+    #: Module name -> ``view_prefix`` for modules whose view router received
+    #: routes, in discovery order. ``""`` here means mounted at ``/`` (#435).
+    view_prefixes: dict[str, str] = field(default_factory=dict)
