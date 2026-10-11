@@ -45,7 +45,7 @@ export function BrandingFooter({
   // Trimmed for the same reason the link list is length-checked: whitespace is
   // what an admin leaves behind when clearing the field, and a blank caption
   // reads as a broken footer rather than a deliberate one.
-  const caption = footerText?.trim() || `© ${FOOTER_YEAR} ${appName}`;
+  const caption = footerText?.trim() || `© ${FOOTER_YEAR} ${appName}`.trim();
   const container =
     variant === 'public' ? 'mx-auto max-w-6xl px-4 py-6 sm:px-8' : 'px-4 py-6 sm:px-6 lg:px-8';
 

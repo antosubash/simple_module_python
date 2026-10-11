@@ -90,4 +90,10 @@ describe('BrandingFooter', () => {
     expect(screen.getByText(`© ${year} Acme`)).toBeInTheDocument();
     expect(screen.queryByText(/MIT/)).not.toBeInTheDocument();
   });
+
+  it('drops the trailing space when the app name is blank', () => {
+    const year = new Date().getFullYear();
+    render(<BrandingFooter appName="" />);
+    expect(screen.getByText(`© ${year}`)).toBeInTheDocument();
+  });
 });
