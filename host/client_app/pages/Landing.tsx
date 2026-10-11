@@ -4,6 +4,7 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { PublicLayout } from '@simple-module-py/ui/layouts/PublicLayout';
 import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
+import { useHomeUrl } from '@simple-module-py/ui/lib/home-url';
 import type { SharedProps } from '@simple-module-py/ui/types';
 import { Database, LayoutTemplate, Package, Route, ShieldCheck, Stethoscope } from 'lucide-react';
 import { CopyCommand } from '../components/CopyCommand';
@@ -38,12 +39,13 @@ const QUICKSTART: { comment: string; command: string; ok?: string }[] = [
 function Landing() {
   const { t } = useT();
   const { auth } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const appHome = useHomeUrl();
 
   // The admin UI is the only thing behind a session here, so the one CTA that
   // leads anywhere private is auth-aware: a signed-in visitor is offered the
   // dashboard, everyone else the sign-in page. Never /auth/* — that is the
   // JSON API prefix and has no page (see host/tests/test_public_auth_links).
-  const adminHref = auth?.isAuthenticated ? '/dashboard/' : LOGIN_PATH;
+  const adminHref = auth?.isAuthenticated ? appHome : LOGIN_PATH;
 
   const features = [
     {

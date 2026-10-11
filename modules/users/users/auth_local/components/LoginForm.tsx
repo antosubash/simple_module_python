@@ -105,7 +105,11 @@ export function LoginForm({
           </Label>
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
 
         <Button type="submit" size="lg" className="w-full" disabled={loading}>
           {loading ? t(keys.users.login.submitting) : t(keys.users.login.submit)}

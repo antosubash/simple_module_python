@@ -4,6 +4,7 @@ import { CopyableId } from '@simple-module-py/ui/components/CopyableId';
 import { ErrorScreen } from '@simple-module-py/ui/components/ErrorScreen';
 import { InterpolatedText } from '@simple-module-py/ui/components/InterpolatedText';
 import { Button } from '@simple-module-py/ui/components/ui/button';
+import { useHomeUrl } from '@simple-module-py/ui/lib/home-url';
 import type { SharedProps } from '@simple-module-py/ui/types';
 import type { ReactNode } from 'react';
 import { ErrorShell, useInAdminShell } from '../components/ErrorShell';
@@ -121,6 +122,7 @@ function ErrorPage({
 }: Props) {
   const { t } = useT();
   const { auth } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const appHome = useHomeUrl();
   const copy = useStatusCopy(status, Boolean(maintenance));
   const inline = useInAdminShell();
 
@@ -150,7 +152,7 @@ function ErrorPage({
   const showSignIn = Boolean(login_url);
   // "Home" is wherever this visitor's app starts. Sending a signed-in user to
   // the marketing page makes them navigate back in through the nav.
-  const homeHref = auth?.isAuthenticated ? '/dashboard/' : '/';
+  const homeHref = auth?.isAuthenticated ? appHome : '/';
 
   return (
     <>

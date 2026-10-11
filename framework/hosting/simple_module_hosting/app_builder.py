@@ -234,8 +234,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     # ── Phase 9: Routes, health, static files ──────────────
+    view_prefixes: dict[str, str] = {}  # discovery order; only modules with view routes
     for mod in modules:
-        wire_module_routes(app, mod)
+        if wire_module_routes(app, mod):
+            view_prefixes[mod.meta.name] = mod.meta.view_prefix
 
     app.include_router(health_router)
     mount_setup_wizard(app, setup_registry)  # /setup — what SetupMiddleware redirects to
@@ -265,6 +267,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         invalidation=invalidation_bus,
         diagnostics=diagnostics_state,
         tenancy=mode_for(settings),
+        view_prefixes=view_prefixes,
     )
 
     return app

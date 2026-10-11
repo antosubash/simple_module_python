@@ -96,9 +96,10 @@ class UserContext:
     name: str
     roles: list[str] = field(default_factory=list)
     tenant_id: str | None = None
+    permissions: list[str] = field(default_factory=list)
 ```
 
-The active auth provider (the `users` or `keycloak` module) owns extraction from the session cookie / bearer token. `InertiaLayoutDataMiddleware` then expands roles into a permission set (cached on `request.state.resolved_permissions`) and serializes `auth.user`, `auth.isAuthenticated`, `auth.permissions` into the Inertia shared props. `UserContext` carries roles, not permissions — permissions are derived from the `PermissionRegistry.role_map`.
+The active auth provider (the `users` or `keycloak` module) owns extraction from the session cookie / bearer token. `InertiaLayoutDataMiddleware` then expands roles into a permission set (cached on `request.state.resolved_permissions`) and serializes `auth.user`, `auth.isAuthenticated`, `auth.permissions` into the Inertia shared props. Permissions are derived mostly from roles via the `PermissionRegistry.role_map`. `UserContext.permissions` adds keys the principal carries itself — a token scope or IdP claim a provider or principal resolver maps in. `resolve_principal_permissions` (and so `RequiresPermission`, `require_permission` and `auth.permissions`) merges them into the role-derived set, **dropping `*`**: like a grant source, a claim can never confer the wildcard; admin comes from roles only. They are written into the session cookie with `roles` and frozen there until the next sign-in, so anything an admin must be able to revoke belongs in a grant source, not here. `UserContext.has_permission(key)` is an exact-match check against that list alone.
 
 ## Role shorthand for menus
 

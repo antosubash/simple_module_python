@@ -179,6 +179,22 @@ can be extended — never `default-src`, `base-uri`, `form-action`, or
 single origin/scheme token; invalid declarations raise at boot. The origins
 land in both the development (Vite-widened) and production policies.
 
+The hook runs before DB-backed settings are hydrated, so an origin that comes
+from a setting can't be a static `add()`. Register a provider instead — it is
+called on every response with the app and returns `(directive, source)` pairs:
+
+```python
+def register_csp_sources(self, registry) -> None:
+    registry.add_provider(lambda app: [("img-src", app.state.maps.settings.tile_origin)])
+```
+
+Providers must be synchronous and read only in-memory state
+(`app.state.<pkg>.settings`), never the database. Their pairs go through the
+same validation as `add()`; a provider that raises, or an invalid pair, is
+logged once and dropped — the static policy still applies. The finished policy
+is cached by the pairs returned, so a settings edit takes effect on the next
+response. With no providers the header is the precomputed boot-time string.
+
 ## `register_exception_handlers(app)`
 
 Register FastAPI exception handlers scoped to your module's exceptions:

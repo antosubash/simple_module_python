@@ -100,4 +100,22 @@ async def test_s3_presigned_url_format(s3_settings):
     url = await backend.presigned_get_url("any/key.txt", ttl_seconds=300)
     assert url.startswith("http")
     assert "any/key.txt" in url
-    assert "X-Amz-Signature" in url or "Signature" in url
+    assert "X-Amz-Algorithm=AWS4-HMAC-SHA256" in url
+    assert "AWSAccessKeyId=" not in url
+
+
+async def test_s3_signature_version_is_configurable(s3_settings):
+    s3_settings.s3_signature_version = "s3"
+    backend = build_backend(s3_settings)
+    url = await backend.presigned_get_url("any/key.txt", ttl_seconds=300)
+    assert "AWSAccessKeyId=" in url
+
+
+@pytest.mark.parametrize("value", ["s3v5", "", "v4"])
+def test_unknown_signature_version_is_rejected_at_config_time(value) -> None:
+    # A typo saved in the admin UI must fail validation, not every upload.
+    from file_storage.settings import FileStorageSettings
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        FileStorageSettings(s3_signature_version=value)

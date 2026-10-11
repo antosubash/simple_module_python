@@ -182,10 +182,10 @@ class ModuleBase(ABC):
                 registry.add("style-src", "https://rsms.me")
                 registry.add("font-src", "https://rsms.me")
 
-        Only fetch directives can be extended (never default-src,
-        base-uri, form-action, frame-ancestors), and each source must be a
-        single origin/scheme token — invalid declarations raise at boot.
-        Called once, in dependency order.
+        Fetch directives only; invalid declarations raise at boot. Runs once,
+        *before* DB settings hydrate — for an origin read from settings use
+        ``registry.add_provider(lambda app: [(directive, source)])`` (sync,
+        in-memory state only, evaluated per response).
         """
 
     def register_design_packs(self, registry: DesignPackRegistry) -> None:

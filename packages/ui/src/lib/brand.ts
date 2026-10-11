@@ -6,9 +6,6 @@
  */
 export const BRAND_REPO_URL = 'https://github.com/antosubash/simple_module_python';
 
-/** Licence shown in the footer caption. */
-export const BRAND_LICENSE = 'MIT';
-
 /** Short technology tag shown beneath the wordmark on auth screens. */
 export const BRAND_TECH = 'python';
 

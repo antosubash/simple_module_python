@@ -18,21 +18,26 @@ type Props = {
 
 function ModulesEdit({ modules, testable = {} }: Props) {
   const { t } = useT();
-  const [selected, setSelected] = useState(modules[0]?.package);
+  // A module with no fields and no page of its own has nothing to show.
+  const visible = useMemo(
+    () => modules.filter((m) => m.fields.length > 0 || m.manage_url),
+    [modules],
+  );
+  const [selected, setSelected] = useState(visible[0]?.package);
   const [q, setQ] = useState('');
 
   const filtered = useMemo(() => {
-    if (!q) return modules;
+    if (!q) return visible;
     const query = q.toLowerCase();
-    return modules.filter(
+    return visible.filter(
       (m) =>
         m.module_name.toLowerCase().includes(query) ||
         m.package.toLowerCase().includes(query) ||
         m.fields.some((f) => f.name.toLowerCase().includes(query)),
     );
-  }, [modules, q]);
+  }, [visible, q]);
 
-  const current = modules.find((m) => m.package === selected);
+  const current = visible.find((m) => m.package === selected);
 
   return (
     <>

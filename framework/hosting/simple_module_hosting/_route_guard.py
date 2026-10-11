@@ -53,7 +53,9 @@ def _common_prefix(paths: list[str]) -> str:
     """The literal leading part every path shares — never past a ``{param}``."""
     if not paths:
         return ""
-    return os.path.commonprefix(paths).split("{", 1)[0]
+    # Character-wise on purpose: the cut happens at the first "{param}", which
+    # path-component comparison (commonpath) cannot express.
+    return os.path.commonprefix(paths).split("{", 1)[0]  # noqa: RUF071
 
 
 class _PrefixGuard:

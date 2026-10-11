@@ -109,3 +109,18 @@ class TestProviderIsRegistered:
         settings module, and a stub would pass while the wiring was broken."""
         providers = getattr(app.state, "inertia_shared_providers", [])
         assert users_shared_props in providers
+
+
+class TestHomeUrlSharedProp:
+    def test_reflects_login_redirect_url(self) -> None:
+        request = _request(SimpleNamespace(settings=SimpleNamespace(login_redirect_url="/home/")))
+        assert users_shared_props(request)["homeUrl"] == "/home/"
+
+    def test_tracks_runtime_edits(self) -> None:
+        settings = SimpleNamespace(login_redirect_url="/a/")
+        request = _request(SimpleNamespace(settings=settings))
+        settings.login_redirect_url = "/b/"
+        assert users_shared_props(request)["homeUrl"] == "/b/"
+
+    def test_omitted_when_settings_are_missing(self) -> None:
+        assert "homeUrl" not in users_shared_props(_request(SimpleNamespace()))

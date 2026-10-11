@@ -28,8 +28,9 @@ from auth.contracts import UserContext, AuthProvider
 | `name` | `str` | display name — `full_name or email` of the user |
 | `roles` | `list[str]` | role names, e.g. `["admin"]` |
 | `tenant_id` | `str \| None` | only set when multi-tenant |
+| `permissions` | `list[str]` | keys the principal carries itself (token scope / IdP claim), merged into the role-derived set by the resolver with `*` dropped; empty from `from_user`. Frozen in the session cookie like `roles` — revocable grants belong in a [grant source](/framework/permissions) |
 
-Helpers: `has_role(role)` / `has_any_role(roles)` for in-handler role checks; `from_user(user)` builds a context from a duck-typed user object (`.id`, `.email`, `.full_name`, `.roles[*].name`, `.tenant_id`); `to_session_dict()` / `from_session_dict()` (de)serialise it into the signed session cookie.
+Helpers: `has_role(role)` / `has_any_role(roles)` for in-handler role checks; `has_permission(key)` (exact match against `permissions` only — gate routes with `require_permission`, which also folds in roles and grant sources); `from_user(user)` builds a context from a duck-typed user object (`.id`, `.email`, `.full_name`, `.roles[*].name`, `.tenant_id`); `to_session_dict()` / `from_session_dict()` (de)serialise it into the signed session cookie (a cookie without `permissions` decodes to `[]`).
 
 `AuthProvider` is the `Protocol` an auth-provider module implements (`resolve_user`, `get_login_url`, `get_logout_url`, `get_public_paths`, `is_bearer_request`) — see [Pluggable auth](#pluggable-auth) below.
 

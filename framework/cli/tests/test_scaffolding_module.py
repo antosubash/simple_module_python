@@ -30,6 +30,16 @@ class TestCreateModule:
         # pytest try to register `tests.conftest` as a plugin twice.
         assert not (dest / "tests" / "__init__.py").exists()
 
+    async def test_generated_test_uses_effective_route_paths(self, tmp_path):
+        """#431: app.routes hides lazily-included routers on FastAPI >= 0.137."""
+        from simple_module_cli.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-my-feature"
+        create_module(dest, name="MyFeature")
+        text = (dest / "tests" / "test_my_feature.py").read_text()
+        assert "effective_route_paths(app)" in text
+        assert "app.routes" not in text.replace("``app.routes``", "")
+
     async def test_test_file_basename_is_unique_per_module(self, tmp_path):
         """Two modules in one workspace must not ship same-named test files.
 

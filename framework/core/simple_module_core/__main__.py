@@ -11,10 +11,9 @@ i18n checks always run. ``SM_I18N_SUPPORTED_LOCALES`` (env or ``.env``)
 declares the locale set this install promises, which also enables SM013 for a
 namespace that never shipped one; with it unset, each namespace is checked
 against the locale files it actually has, so key drift between two shipped
-translations is still caught. Host-level ``host/locales/`` and shared
-``packages/ui/locales/`` are picked up relative to the project root
-(``SM_PROJECT_ROOT``, else the directory of the discovered ``.env``, else the
-current working dir).
+translations is still caught. Host-level ``host/locales/`` is picked up
+relative to the project root (``SM_PROJECT_ROOT``, else the directory of the
+discovered ``.env``, else the current working dir).
 """
 
 from __future__ import annotations
@@ -102,6 +101,15 @@ def _hosting_locales() -> Path | None:
     return locales if locales.is_dir() else None
 
 
+def _hosting_ui_locales() -> Path | None:
+    """The shared ``ui`` catalog, which ships inside ``simple_module_hosting`` (#426)."""
+    hosting = _hosting_locales()
+    if hosting is None:
+        return None
+    ui = hosting.parent / "ui_locales"
+    return ui if ui.is_dir() else None
+
+
 def _discover_extra_locale_sources() -> list[tuple[str, str, Path]]:
     """Return ``[(reporter, namespace, path), ...]`` for hosting + host + ui locale dirs."""
     # Anchor on the same project root the `.env` was loaded from
@@ -116,9 +124,9 @@ def _discover_extra_locale_sources() -> list[tuple[str, str, Path]]:
     host_locales = root / "host" / "locales"
     if host_locales.is_dir():
         out.append(("host", "host", host_locales))
-    ui_locales = root / "packages" / "ui" / "locales"
-    if ui_locales.is_dir():
-        out.append(("packages/ui", "ui", ui_locales))
+    ui_locales = _hosting_ui_locales()
+    if ui_locales is not None:
+        out.append(("simple_module_hosting/ui", "ui", ui_locales))
     return out
 
 

@@ -46,6 +46,18 @@ def resolve_permissions(
     return permissions
 
 
+def _role_and_claimed(user: Any, role_map: dict[str, list[str]] | None) -> set[str]:
+    """The role-derived set plus the principal's own ``permissions`` (GH #436).
+
+    Read duck-typed (``UserContext.permissions`` lives in the auth module, which
+    framework code must not import). The claimed keys never include the
+    wildcard: like a grant source, a token or IdP claim cannot make an admin.
+    """
+    permissions = resolve_permissions(getattr(user, "roles", None) or [], role_map=role_map)
+    permissions.update(p for p in getattr(user, "permissions", None) or () if p != WILDCARD)
+    return permissions
+
+
 async def resolve_principal_permissions(
     request: Request,
     user: Any,
@@ -63,7 +75,7 @@ async def resolve_principal_permissions(
     sources: nothing they return could widen it, and a source may cost a read.
     """
     role_map = registry.role_map if registry is not None else None
-    permissions = resolve_permissions(getattr(user, "roles", []), role_map=role_map)
+    permissions = _role_and_claimed(user, role_map)
     if registry is None or WILDCARD in permissions:
         return permissions
     for source in registry.grant_sources:
@@ -138,7 +150,7 @@ def resolved_permissions_for(request: Request) -> set[str]:
 
     perm_registry = _registry_for(request)
     role_map = perm_registry.role_map if perm_registry is not None else None
-    permissions = resolve_permissions(user.roles, role_map=role_map)
+    permissions = _role_and_claimed(user, role_map)
     request.state.resolved_permissions = permissions
     return permissions
 

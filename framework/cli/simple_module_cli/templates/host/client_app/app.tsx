@@ -1,6 +1,8 @@
 import { createInertiaApp, router } from '@inertiajs/react';
 import { configureI18n, updateI18n } from '@simple-module-py/i18n';
+import { formatTitle, setTitleAppName } from '@simple-module-py/ui/lib/app-title';
 import { startSpaLinkInterception } from '@simple-module-py/ui/lib/spa-links';
+import { initTheme } from '@simple-module-py/ui/lib/theme';
 import { createRoot } from 'react-dom/client';
 import { resolvePage } from './pages';
 
@@ -11,11 +13,19 @@ type I18nBlock = {
 };
 
 createInertiaApp({
+  title: (title) => formatTitle(title),
   resolve: async (name) => {
     return await resolvePage(name);
   },
   setup({ el, App, props }) {
-    const initial = (props.initialPage.props as { i18n?: I18nBlock }).i18n;
+    const pageProps = props.initialPage.props as {
+      i18n?: I18nBlock;
+      branding?: { appName?: string | null };
+    };
+    setTitleAppName(pageProps.branding?.appName);
+    // Before the first render, so a dark-theme user never sees a light frame.
+    initTheme();
+    const initial = pageProps.i18n;
     configureI18n({
       locale: initial?.locale ?? 'en',
       messages: initial?.messages ?? {},

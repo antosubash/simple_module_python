@@ -150,6 +150,22 @@ class TestDashboardStatsEndpoint:
         for mod in resp.json()["system_info"]["modules"]:
             assert mod["url"] == "" or mod["url"].startswith("/"), mod
 
+    async def test_root_mounted_module_gets_slash_url(
+        self, app, authenticated_client: httpx.AsyncClient, monkeypatch
+    ):
+        """#435: view_prefix "" with real view routes is `/`; without, still empty."""
+        sm = app.state.sm
+        name = sm.modules[0].meta.name
+        monkeypatch.setitem(sm.view_prefixes, name, "")
+        resp = await authenticated_client.get(_STATS_URL)
+        urls = {m["name"]: m["url"] for m in resp.json()["system_info"]["modules"]}
+        assert urls[name] == "/"
+        monkeypatch.delitem(sm.view_prefixes, name)
+        invalidate_stats_cache()
+        resp = await authenticated_client.get(_STATS_URL)
+        urls = {m["name"]: m["url"] for m in resp.json()["system_info"]["modules"]}
+        assert urls[name] == ""
+
     async def test_every_module_entry_reports_health(self, authenticated_client: httpx.AsyncClient):
         resp = await authenticated_client.get(_STATS_URL)
         for mod in resp.json()["system_info"]["modules"]:

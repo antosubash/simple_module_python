@@ -1,4 +1,4 @@
-import { BRAND_ACCENT, BRAND_FOOTER_LINKS, BRAND_LICENSE, type BrandLink } from '../lib/brand';
+import { BRAND_ACCENT, BRAND_FOOTER_LINKS, type BrandLink } from '../lib/brand';
 import { BrandingMark } from './BrandingMark';
 
 /** Stable for the lifetime of the bundle — the year only matters at page load. */
@@ -23,7 +23,7 @@ interface BrandingFooterProps {
   links?: BrandLink[] | null;
   /**
    * Caption shown under the app name. Omitted, `null` or blank falls back to
-   * the framework's own `© {year} · {BRAND_LICENSE}`, so a host that
+   * the framework's own `© {year} {appName}`, so a host that
    * configures nothing is unchanged — and one that does stops publishing the
    * framework's licence as its own.
    */
@@ -45,7 +45,7 @@ export function BrandingFooter({
   // Trimmed for the same reason the link list is length-checked: whitespace is
   // what an admin leaves behind when clearing the field, and a blank caption
   // reads as a broken footer rather than a deliberate one.
-  const caption = footerText?.trim() || `© ${FOOTER_YEAR} · ${BRAND_LICENSE}`;
+  const caption = footerText?.trim() || `© ${FOOTER_YEAR} ${appName}`.trim();
   const container =
     variant === 'public' ? 'mx-auto max-w-6xl px-4 py-6 sm:px-8' : 'px-4 py-6 sm:px-6 lg:px-8';
 

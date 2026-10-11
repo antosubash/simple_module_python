@@ -174,7 +174,9 @@ def install_middleware(
     }
     if settings.is_development:
         security_kwargs["strict_transport_security"] = None
-    app.add_middleware(SecurityHeadersMiddleware, **security_kwargs)
+    # Providers registered via ``registry.add_provider`` follow DB-backed
+    # settings, so the middleware evaluates them per response (#434).
+    app.add_middleware(SecurityHeadersMiddleware, csp_registry=csp_registry, **security_kwargs)
     # Compress response bodies. Added here so it sits inside CorrelationId and
     # RequestLogging (which set headers and read request state) but outside
     # everything that produces a body — including the /static mount, where it

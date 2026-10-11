@@ -3,13 +3,13 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
+import { useHomeUrl } from '@simple-module-py/ui/lib/home-url';
 import { CheckCircle2, TimerOff } from 'lucide-react';
 import { useState } from 'react';
 import { AuthStateCard } from '../auth_local/components/AuthStateCard';
 import { PasswordFields } from '../auth_local/components/PasswordFields';
 
 const FORGOT_PATH = '/users/forgot-password';
-const DASHBOARD_PATH = '/dashboard/';
 
 interface Props {
   token: string;
@@ -21,6 +21,7 @@ interface Props {
 }
 
 function ResetPassword() {
+  const homeUrl = useHomeUrl();
   const {
     token,
     email,
@@ -79,7 +80,7 @@ function ResetPassword() {
           return;
         }
         if (await signIn()) {
-          router.visit(DASHBOARD_PATH);
+          router.visit(homeUrl);
           return;
         }
         // The password *was* saved — the reset returned 200. Reporting a

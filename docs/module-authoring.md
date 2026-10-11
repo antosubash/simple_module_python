@@ -568,7 +568,22 @@ def register_csp_sources(self, registry):
 ```
 
 Only fetch directives can be extended; each source must be a single
-origin/scheme token, validated at boot. See
+origin/scheme token, validated at boot.
+
+An origin that comes from a DB-backed setting (a configurable tile server)
+can't be added at boot — the hook runs before settings hydrate. Register a
+provider, evaluated per response:
+
+```python
+def register_csp_sources(self, registry):
+    registry.add_provider(lambda app: [("img-src", app.state.maps.settings.tile_origin)])
+```
+
+Providers must be synchronous and read in-memory state only
+(`app.state.<pkg>.settings`); a raising provider or an invalid pair is logged
+once and dropped, leaving the static policy in force. Sources must be
+printable ASCII, as CSP's own grammar requires, so an internationalised domain
+is written in its punycode form (`https://xn--exmple-cua.com`). See
 [docs/framework/lifecycle.md](framework/lifecycle.md#register_csp_sourcesregistry).
 
 ## First-run setup steps

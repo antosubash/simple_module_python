@@ -374,7 +374,7 @@ way.
 
   Menus are translated **on the server**, in `MenuRegistry.get_for_user(translate=…)`, so the Inertia payload carries finished text and every render site (sidebar, topbar, command palette) keeps reading `item.label`. Two consequences worth knowing: an admin-audience module's labels don't need to be in the anonymous catalog snapshot to render, and a key that resolves to nothing falls back to `label` — a missing translation degrades to English, never to a raw dotted key on screen. Both fields are optional, so modules written before them keep working unchanged.
 
-  Group headers are shared across modules, so they live in the `ui` namespace (`ui.nav_groups.access|appearance|content|system`) rather than each module inventing its own key — otherwise one module's "System" could translate differently from another's and split a single header in two. Those four are the whole vocabulary the bundled modules use; adding a fifth means adding the key to `packages/ui/locales/*.json` so every module can share it.
+  Group headers are shared across modules, so they live in the `ui` namespace (`ui.nav_groups.access|appearance|content|system`) rather than each module inventing its own key — otherwise one module's "System" could translate differently from another's and split a single header in two. Those four are the whole vocabulary the bundled modules use; adding a fifth means adding the key to `simple_module_hosting/ui_locales/*.json` so every module can share it.
 - `i18n` — active locale and translation bundle.
 
 The framework does not know the shape of `auth.user`. The `auth` module registers a `principal_serializer: Callable[[UserContext], dict]` on `app.state.principal_serializer` during `register_settings(app)`; the middleware calls it with `request.state.user` to build the `auth.user` payload. Without a registered serializer, `auth.user` is `None` even when a user is authenticated.
@@ -676,7 +676,7 @@ Do NOT declare `const schema = z.object({ ... t('...') })` at module scope — i
 ### Host and shared-package strings
 
 - Host strings (landing page, error page) live in `host/locales/` and are namespaced `host.*`.
-- Shared UI strings (`packages/ui/`) live in `packages/ui/locales/`, namespaced `ui.*`.
+- Shared UI strings (`packages/ui/`) live in `simple_module_hosting/ui_locales/`, namespaced `ui.*`.
 - Both are auto-discovered at boot alongside module contributions.
 
 ### Strings the server composes

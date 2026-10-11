@@ -149,11 +149,7 @@ def apply_login_redirect_fallback(
     if any(m.meta.name == _DASHBOARD_MODULE for m in app.state.sm.modules):
         return
     first_view = next(
-        (
-            m.meta.view_prefix
-            for m in app.state.sm.modules
-            if m.meta.view_prefix and m.meta.name != module_name
-        ),
+        (prefix for name, prefix in app.state.sm.view_prefixes.items() if name != module_name),
         None,
     )
-    settings.login_redirect_url = f"{first_view}/" if first_view else _FALLBACK_REDIRECT
+    settings.login_redirect_url = _FALLBACK_REDIRECT if first_view is None else f"{first_view}/"

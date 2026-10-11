@@ -51,4 +51,36 @@ describe('ModulesEdit', () => {
 
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
+  test('does not list a module with no fields and no manage_url, and skips it initially', () => {
+    render(
+      <ModulesEdit
+        modules={[
+          { package: 'alpha', module_name: 'Alpha', manage_url: null, fields: [] } as never,
+          {
+            package: 'beta',
+            module_name: 'Beta',
+            manage_url: null,
+            fields: [{ name: 'x', db_override: false }],
+          } as never,
+        ]}
+      />,
+    );
+
+    expect(screen.queryByText('alpha')).not.toBeInTheDocument();
+    expect(screen.getAllByText('beta').length).toBeGreaterThan(1); // list + selected form
+    // Initial selection is the first *visible* module, not the hidden one.
+    expect(screen.queryByText('No modules with settings')).not.toBeInTheDocument();
+  });
+
+  test('still lists a zero-field module that has a manage_url', () => {
+    render(
+      <ModulesEdit
+        modules={[
+          { package: 'branding', module_name: 'Branding', manage_url: '/x/', fields: [] } as never,
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('branding')).toBeInTheDocument();
+  });
 });

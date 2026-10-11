@@ -44,7 +44,7 @@ class I18nDiagnostics:
         ``extra_sources`` is an optional list of ``(reporter_name, namespace,
         locale_dir)`` triples for locale directories that aren't owned by any
         ``ModuleBase`` instance — notably the host's ``host/locales/`` and
-        the shared ``packages/ui/locales/``. ``reporter_name`` is used as the
+        the shared ``simple_module_hosting/ui_locales/``. ``reporter_name`` is used as the
         ``module_name`` field on findings for display purposes.
         """
         self.supported_locales = None if supported_locales is None else list(supported_locales)

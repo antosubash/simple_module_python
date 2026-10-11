@@ -17,9 +17,11 @@ from starlette.datastructures import MutableHeaders
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from simple_module_hosting._csp_dynamic import DynamicCsp
 from simple_module_hosting._inertia_shared import (
     build_i18n_block,
     build_menu_translator,
+    default_home_url,
     merge_shared_prop_providers,
 )
 from simple_module_hosting._observability import (
@@ -35,6 +37,7 @@ from simple_module_hosting._tenant import (
 from simple_module_hosting.permissions import expand_permissions, resolve_principal_permissions
 
 if TYPE_CHECKING:
+    from simple_module_core.csp import CspSourceRegistry
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.permissions import PermissionRegistry
 
@@ -136,10 +139,18 @@ class SecurityHeadersMiddleware:
         *,
         content_security_policy: str | None = DEFAULT_CSP,
         strict_transport_security: str | None = _DEFAULT_HSTS,
+        csp_registry: CspSourceRegistry | None = None,
     ) -> None:
         self.app = app
         self.csp = content_security_policy
         self.hsts = strict_transport_security
+        # Providers (settings-driven origins, #434) are evaluated per response;
+        # with none, the precomputed string above is the whole story.
+        self._dynamic = (
+            DynamicCsp(content_security_policy, csp_registry)
+            if content_security_policy and csp_registry is not None and csp_registry.providers
+            else None
+        )
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != _SCOPE_HTTP:
@@ -160,7 +171,8 @@ class SecurityHeadersMiddleware:
                 own = headers.get(_HEADER_CSP) or ""
                 keeps_own = "sandbox" in {d.strip().split(" ")[0].lower() for d in own.split(";")}
                 if self.csp and not keeps_own:
-                    headers[_HEADER_CSP] = self.csp
+                    dyn = self._dynamic
+                    headers[_HEADER_CSP] = dyn.policy_for(scope.get("app")) if dyn else self.csp
                 if self.hsts:
                     headers[_HEADER_HSTS] = self.hsts
             await send(message)
@@ -249,6 +261,8 @@ class InertiaLayoutDataMiddleware:
         # Merge module-registered shared-prop providers (e.g. branding) — read off
         # app.state without importing the plugin (SM009), defensively.
         await merge_shared_prop_providers(scope["app"], request, shared)
+        # After the providers, so a module's own value (users) wins.
+        shared.setdefault("homeUrl", default_home_url(scope["app"]))
 
         request.state.inertia_shared = shared
 

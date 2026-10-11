@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import type React from 'react';
+import { useHomeUrl } from '../lib/home-url';
 import { DEFAULT_SIDEBAR_THEME, SidebarLayout } from './SidebarLayout';
 
 // Same visual language as the app sidebar — the admin area announces itself
@@ -48,10 +49,11 @@ function AdminBadge() {
 
 function BackToApp() {
   const { t } = useT();
+  const homeUrl = useHomeUrl();
   return (
     <div className="pt-4 mt-4 border-t border-white/[0.06]">
       <Link
-        href="/dashboard/"
+        href={homeUrl}
         className="flex min-h-11 lg:min-h-0 items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium text-app-sidebar-text-muted hover:bg-app-sidebar-hover hover:text-white transition-colors"
       >
         <svg

@@ -10,8 +10,13 @@ origin fails loudly at boot instead of silently weakening the header.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable, Iterable
+from typing import Any
 
-__all__ = ["CspSourceError", "CspSourceRegistry"]
+__all__ = ["CspProvider", "CspSourceError", "CspSourceRegistry", "is_valid_source"]
+
+CspProvider = Callable[[Any], Iterable[tuple[str, str]]]
+"""``fn(app) -> [(directive, source), ...]`` evaluated per response."""
 
 # Fetch directives a module may extend. Deliberately excludes the policy's
 # structural directives (default-src, base-uri, form-action, frame-ancestors,
@@ -37,8 +42,10 @@ _EXTENDABLE_DIRECTIVES = frozenset(
 # a data-ish scheme keyword. One token — anything that could smuggle a second
 # token or terminate/extend the clause (whitespace, ";", ",", quotes) is
 # rejected, and a wildcard prefix must be followed by a real host (`*.` alone
-# is not a source).
-_SOURCE_RE = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:(?://)?)?(?:(?:\*\.)?[^\s;,'\"*]+)?$")
+# is not a source). Only printable ASCII: the header is latin-1 encoded and
+# h11 rejects control bytes, so anything else would fail at send time — on
+# every response, for a provider reading an admin-edited setting.
+_SOURCE_RE = re.compile(r"(?:[A-Za-z][A-Za-z0-9+.-]*:(?://)?)?(?:(?:\*\.)?(?:(?![;,'\"*])[!-~])+)?")
 
 # CSP3 fallback chains: when a directive is absent from a policy, the browser
 # consults these directives in order (ending at ``default-src``). A clause we
@@ -59,33 +66,64 @@ class CspSourceError(ValueError):
     """Invalid CSP directive or source declared by a module."""
 
 
+def _checked(directive: str, source: str) -> str:
+    """Validate one pair and return the normalized source token, or raise."""
+    if directive not in _EXTENDABLE_DIRECTIVES:
+        raise CspSourceError(
+            f"CSP directive {directive!r} is not extendable; "
+            f"choose one of {sorted(_EXTENDABLE_DIRECTIVES)}"
+        )
+    token = source.strip()
+    if not token or not _SOURCE_RE.fullmatch(token):
+        raise CspSourceError(
+            f"invalid CSP source {source!r} for {directive}: must be a single "
+            "origin or scheme token (no spaces, quotes, wildcards-only, or ';')"
+        )
+    return token
+
+
+def is_valid_source(directive: str, source: str) -> bool:
+    """Whether ``add(directive, source)`` would accept the pair (never raises)."""
+    try:
+        _checked(directive, source)
+    except (CspSourceError, AttributeError, TypeError):
+        return False
+    return True
+
+
 class CspSourceRegistry:
     """Collects per-directive extra CSP sources from modules."""
 
     def __init__(self) -> None:
         self._sources: dict[str, list[str]] = {}
+        self._providers: list[CspProvider] = []
 
     def add(self, directive: str, source: str) -> None:
         """Allow ``source`` in ``directive``, e.g. ``add("style-src", "https://rsms.me")``."""
-        if directive not in _EXTENDABLE_DIRECTIVES:
-            raise CspSourceError(
-                f"CSP directive {directive!r} is not extendable; "
-                f"choose one of {sorted(_EXTENDABLE_DIRECTIVES)}"
-            )
-        token = source.strip()
-        if not token or not _SOURCE_RE.match(token):
-            raise CspSourceError(
-                f"invalid CSP source {source!r} for {directive}: must be a single "
-                "origin or scheme token (no spaces, quotes, wildcards-only, or ';')"
-            )
+        token = _checked(directive, source)
         bucket = self._sources.setdefault(directive, [])
         if token not in bucket:
             bucket.append(token)
 
+    def add_provider(self, provider: CspProvider) -> None:
+        """Contribute sources that depend on runtime state (e.g. DB settings).
+
+        ``provider(app)`` runs on every response and returns
+        ``(directive, source)`` pairs. It must be synchronous and read only
+        in-memory state (``app.state.<pkg>.settings``) — never the DB. Pairs
+        that fail ``add()``'s validation, and providers that raise, are
+        dropped and logged by the host: the static policy still applies.
+        """
+        self._providers.append(provider)
+
+    @property
+    def providers(self) -> tuple[CspProvider, ...]:
+        return tuple(self._providers)
+
     def __bool__(self) -> bool:
         return bool(self._sources)
 
-    def extend_policy(self, policy: str) -> str:
+    def extend_policy(self, policy: str, extra: Iterable[tuple[str, str]] = ()) -> str:
         """Fold the registered sources into an existing policy string.
 
         Existing clauses keep their order and gain only sources they don't
@@ -94,8 +132,16 @@ class CspSourceRegistry:
         back to (per ``_FALLBACK_CHAINS``, ending at ``default-src``) —
         without that seed the new clause would *narrow* the policy, since the
         browser stops consulting the fallback once the directive exists.
+
+        ``extra`` adds already-validated ``(directive, source)`` pairs (from
+        providers) for this call only — the registry itself is not mutated.
         """
-        if not self._sources:
+        sources = {d: list(v) for d, v in self._sources.items()}
+        for directive, source in extra:
+            bucket = sources.setdefault(directive, [])
+            if source not in bucket:
+                bucket.append(source)
+        if not sources:
             return policy
         directives: dict[str, list[str]] = {}
         order: list[str] = []
@@ -106,7 +152,7 @@ class CspSourceRegistry:
             directive, _, rest = clause.partition(" ")
             directives[directive] = rest.split()
             order.append(directive)
-        for directive, extras in self._sources.items():
+        for directive, extras in sources.items():
             if directive not in directives:
                 directives[directive] = list(self._seed_sources(directive, directives))
                 order.append(directive)
@@ -126,7 +172,7 @@ class CspSourceRegistry:
                 continue
             bucket = directives[shadowing]
             for base in chain:
-                extras = self._sources.get(base)
+                extras = sources.get(base)
                 if extras:
                     bucket.extend(e for e in extras if e not in bucket)
         return "; ".join(f"{d} {' '.join(directives[d])}".rstrip() for d in order)

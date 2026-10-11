@@ -127,6 +127,7 @@ def _get_module_info(app: FastAPI, health_checks: list[dict[str, str]]) -> list[
     # caller's permissions here: this whole payload is process-wide cached for
     # 30s, so anything user-specific would leak across sessions. The page gates
     # each link against the per-user `menus` prop instead.
+    prefixes = app.state.sm.view_prefixes
     return [
         {
             "name": m.meta.name,
@@ -135,7 +136,7 @@ def _get_module_info(app: FastAPI, health_checks: list[dict[str, str]]) -> list[
             # in a mono face and read as the thing you would `uv add`.
             "package": get_module_package_name(m),
             "status": "loaded",
-            "url": f"{m.meta.view_prefix}/" if m.meta.view_prefix else "",
+            "url": f"{prefixes[m.meta.name]}/" if m.meta.name in prefixes else "",
             # A partly-administrative module (users) mounts its management
             # screens outside its own view_prefix, so the tile cannot find
             # them by prefix alone — ship the second mount point too.
