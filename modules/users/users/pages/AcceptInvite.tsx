@@ -5,6 +5,7 @@ import { Input } from '@simple-module-py/ui/components/ui/input';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { BRAND_DEFAULT_APP_NAME } from '@simple-module-py/ui/lib/brand';
+import { useHomeUrl } from '@simple-module-py/ui/lib/home-url';
 import { TimerOff } from 'lucide-react';
 import { useState } from 'react';
 import { AuthField } from '../auth_local/components/AuthField';
@@ -12,8 +13,6 @@ import { AuthIntro } from '../auth_local/components/AuthIntro';
 import { AuthStateCard } from '../auth_local/components/AuthStateCard';
 import { InviteSummary } from '../auth_local/components/InviteSummary';
 import { PasswordFields } from '../auth_local/components/PasswordFields';
-
-const DASHBOARD_PATH = '/dashboard/';
 
 interface InvitePreview {
   email: string;
@@ -33,6 +32,7 @@ interface Props {
 }
 
 function AcceptInvite() {
+  const homeUrl = useHomeUrl();
   const { token, invite, branding } = usePage<{ props: Props }>().props as unknown as Props;
   const { t } = useT();
 
@@ -59,7 +59,7 @@ function AcceptInvite() {
     })
       .then(async (res) => {
         if (res.status === 204 || res.status === 200) {
-          router.visit(DASHBOARD_PATH);
+          router.visit(homeUrl);
         } else {
           const data = await res.json().catch(() => ({}));
           const detail = typeof data?.detail === 'string' ? data.detail : '';

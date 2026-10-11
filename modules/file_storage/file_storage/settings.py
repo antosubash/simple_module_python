@@ -13,11 +13,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import SettingsConfigDict
 from simple_module_core.settings_base import DbBackedSettings
 
 from file_storage import constants
+
+# "s3" is SigV2, kept only for legacy S3-compatible stores that lack SigV4.
+_SIGNATURE_VERSIONS = frozenset({"s3v4", "s3"})
 
 
 class FileStorageSettings(DbBackedSettings):
@@ -77,6 +80,15 @@ class FileStorageSettings(DbBackedSettings):
         default=None,
         description="Total storage the browse screen measures usage against. None = unmeasured.",
     )
+
+    @field_validator("s3_signature_version")
+    @classmethod
+    def _known_signature_version(cls, value: str) -> str:
+        # botocore only fails on an unknown version when the first client is
+        # built, so an admin-UI typo would otherwise surface as failed uploads.
+        if value not in _SIGNATURE_VERSIONS:
+            raise ValueError(f"s3_signature_version must be one of {sorted(_SIGNATURE_VERSIONS)}")
+        return value
 
     @model_validator(mode="after")
     def _validate_backend_config(self) -> FileStorageSettings:
