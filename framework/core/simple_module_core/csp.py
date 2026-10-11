@@ -42,8 +42,10 @@ _EXTENDABLE_DIRECTIVES = frozenset(
 # a data-ish scheme keyword. One token — anything that could smuggle a second
 # token or terminate/extend the clause (whitespace, ";", ",", quotes) is
 # rejected, and a wildcard prefix must be followed by a real host (`*.` alone
-# is not a source).
-_SOURCE_RE = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:(?://)?)?(?:(?:\*\.)?[^\s;,'\"*]+)?$")
+# is not a source). Only printable ASCII: the header is latin-1 encoded and
+# h11 rejects control bytes, so anything else would fail at send time — on
+# every response, for a provider reading an admin-edited setting.
+_SOURCE_RE = re.compile(r"(?:[A-Za-z][A-Za-z0-9+.-]*:(?://)?)?(?:(?:\*\.)?(?:(?![;,'\"*])[!-~])+)?")
 
 # CSP3 fallback chains: when a directive is absent from a policy, the browser
 # consults these directives in order (ending at ``default-src``). A clause we
@@ -72,7 +74,7 @@ def _checked(directive: str, source: str) -> str:
             f"choose one of {sorted(_EXTENDABLE_DIRECTIVES)}"
         )
     token = source.strip()
-    if not token or not _SOURCE_RE.match(token):
+    if not token or not _SOURCE_RE.fullmatch(token):
         raise CspSourceError(
             f"invalid CSP source {source!r} for {directive}: must be a single "
             "origin or scheme token (no spaces, quotes, wildcards-only, or ';')"

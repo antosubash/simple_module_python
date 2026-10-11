@@ -163,3 +163,20 @@ class TestProviders:
         )
         assert out.count("https://rsms.me") == 1
         assert out.count("https://fonts.googleapis.com") == 1
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "https://ex\u00e4mple.com",
+        "https://x.example\x00",
+        "https://x\x7f.example",
+        "https://a\u2028b",
+    ],
+)
+def test_source_must_be_printable_ascii(source) -> None:
+    # The header is latin-1 encoded and h11 rejects control bytes, so anything
+    # outside printable ASCII would fail at send time on every response.
+    assert not is_valid_source("img-src", source)
+    with pytest.raises(CspSourceError):
+        CspSourceRegistry().add("img-src", source)

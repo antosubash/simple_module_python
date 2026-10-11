@@ -43,7 +43,18 @@ class DynamicCsp:
             if len(self._cache) >= _CACHE_MAX:
                 self._cache.clear()
             # Sorted so the clause order is stable for a given set of pairs.
-            policy = self._registry.extend_policy(self.base, extra=sorted(pairs))
+            try:
+                policy = self._registry.extend_policy(self.base, extra=sorted(pairs))
+            except Exception as exc:
+                # Last line of the fail-closed guarantee: this runs inside the
+                # response for every page, so a bug here must cost the extra
+                # origins, never the response.
+                self._warn_once(
+                    f"build:{type(exc).__name__}:{exc}",
+                    "CSP provider policy build failed (%r); serving the static policy",
+                    exc,
+                )
+                return self.base
             self._cache[pairs] = policy
         return policy
 

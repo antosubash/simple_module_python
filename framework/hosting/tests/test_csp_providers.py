@@ -134,3 +134,25 @@ class TestMiddleware:
         csp = await _csp(_app(reg, {"api": "https://api.example"}, base), "/")
         assert "https://rsms.me" in csp
         assert "connect-src 'self' https://api.example" in csp
+
+    @pytest.mark.parametrize(
+        "source",
+        ["https://exämple.com", "https://x.example\x00", "https://x.example\x7f", "https://x\u2028y"],
+    )
+    async def test_unencodable_source_never_breaks_the_response(self, source) -> None:
+        # An admin-edited setting is the usual input: a value the header
+        # encoder cannot carry must be dropped, not 500 every page — including
+        # the settings page needed to correct it.
+        reg = CspSourceRegistry()
+        reg.add_provider(lambda app: [("img-src", source)])
+        assert await _csp(_app(reg), "/") == SecurityHeadersMiddleware.DEFAULT_CSP
+
+    async def test_policy_build_failure_falls_back_to_static(self, monkeypatch) -> None:
+        reg = CspSourceRegistry()
+        reg.add_provider(lambda app: [("img-src", "https://ok.example")])
+
+        def broken(*_a, **_k):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(reg, "extend_policy", broken)
+        assert await _csp(_app(reg), "/") == SecurityHeadersMiddleware.DEFAULT_CSP
