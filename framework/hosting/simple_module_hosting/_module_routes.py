@@ -12,8 +12,12 @@ from fastapi.routing import APIRoute
 __all__ = ["wire_module_routes"]
 
 
-def wire_module_routes(app: FastAPI, module) -> None:
+def wire_module_routes(app: FastAPI, module) -> bool:
     """Attach a module's API + view (+ admin view) routers to ``app``.
+
+    Returns whether the module mounted any view routes. ``view_prefix=""`` means
+    both "no views" and "mounted at /", so only a router that actually received
+    routes says which one it is (#435).
 
     The single canonical implementation so ``create_app`` and the test harness
     in ``simple_module_test`` stay in lockstep if ``ModuleBase`` ever gains
@@ -23,14 +27,7 @@ def wire_module_routes(app: FastAPI, module) -> None:
     view_router = APIRouter(prefix=module.meta.view_prefix, tags=[f"{module.meta.name} Views"])
     module.register_routes(api_router, view_router)
     _clone_bare_prefix_route(view_router, module.meta.view_prefix)
-    if view_router.routes:
-        # ``view_prefix=""`` means both "no views" and "mounted at /", so only
-        # a router that actually received routes says which one it is (#435).
-        # Dict order is discovery order. Lives on app.state until ``Services``
-        # exists, then ``create_app`` hands it over as ``sm.view_prefixes``.
-        if not hasattr(app.state, "view_prefixes"):
-            app.state.view_prefixes = {}
-        app.state.view_prefixes[module.meta.name] = module.meta.view_prefix
+    has_views = bool(view_router.routes)
     app.include_router(api_router)
     app.include_router(view_router)
 
@@ -46,6 +43,7 @@ def wire_module_routes(app: FastAPI, module) -> None:
         module.register_admin_routes(admin_router)
         _clone_bare_prefix_route(admin_router, admin_prefix)
         app.include_router(admin_router)
+    return has_views
 
 
 def _clone_bare_prefix_route(router: APIRouter, prefix: str) -> None:

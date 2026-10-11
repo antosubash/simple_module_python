@@ -20,13 +20,20 @@ def _module(name: str, view_prefix: str, *, views: bool, api: bool = False) -> M
     return _M()
 
 
-def test_records_only_modules_with_view_routes_in_order():
+def test_returns_whether_module_mounted_view_routes():
     app = FastAPI()
-    for m in (
-        _module("Api", "", views=False, api=True),
-        _module("Root", "", views=True),
-        _module("Blog", "/blog", views=True),
-        _module("Empty", "/empty", views=False),
-    ):
-        wire_module_routes(app, m)
-    assert list(app.state.view_prefixes.items()) == [("Root", ""), ("Blog", "/blog")]
+    assert wire_module_routes(app, _module("Root", "", views=True)) is True
+    assert wire_module_routes(app, _module("Blog", "/blog", views=True)) is True
+    assert wire_module_routes(app, _module("Api", "", views=False, api=True)) is False
+    assert wire_module_routes(app, _module("Empty", "/empty", views=False)) is False
+
+
+def test_services_view_prefixes_follow_discovery_order(app):
+    names = [m.meta.name for m in app.state.sm.modules]
+    recorded = list(app.state.sm.view_prefixes)
+    assert recorded == [n for n in names if n in recorded]
+    # Real module set: Users and Dashboard serve views, and each records its
+    # own prefix, not a placeholder.
+    by_name = {m.meta.name: m.meta.view_prefix for m in app.state.sm.modules}
+    assert {"Users", "Dashboard"} <= set(recorded)
+    assert all(app.state.sm.view_prefixes[n] == by_name[n] for n in recorded)

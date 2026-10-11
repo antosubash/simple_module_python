@@ -23,6 +23,10 @@ from file_storage.settings import FileStorageSettings
 if TYPE_CHECKING:
     pass
 
+_MISSING_S3_EXTRA = (
+    "S3 backend requires the 'aioboto3' package. Install with: uv add --optional s3 aioboto3"
+)
+
 
 class S3Backend:
     """S3-compatible object storage.
@@ -40,10 +44,7 @@ class S3Backend:
         try:
             import aioboto3
         except ImportError as exc:
-            raise ConfigurationError(
-                "S3 backend requires the 'aioboto3' package. "
-                "Install with: uv add --optional s3 aioboto3"
-            ) from exc
+            raise ConfigurationError(_MISSING_S3_EXTRA) from exc
         self._aioboto3 = aioboto3
         self._session = aioboto3.Session()
         self.bucket = bucket
@@ -152,10 +153,7 @@ def _build(settings: FileStorageSettings) -> S3Backend:
     try:
         from botocore.config import Config
     except ImportError as exc:
-        raise ConfigurationError(
-            "S3 backend requires the 'aioboto3' package. "
-            "Install with: uv add --optional s3 aioboto3"
-        ) from exc
+        raise ConfigurationError(_MISSING_S3_EXTRA) from exc
     # Without an explicit version, botocore presigns SigV2 for custom endpoints.
     client_kwargs["config"] = Config(signature_version=settings.s3_signature_version)
     return S3Backend(
