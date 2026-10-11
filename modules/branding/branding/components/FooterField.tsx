@@ -17,7 +17,7 @@ export const MAX_FOOTER_HREF = 500;
 export const MAX_FOOTER_TEXT = 200;
 
 interface FooterFieldProps {
-  /** The caption line. Blank keeps the framework's own `© {year} · MIT`. */
+  /** The caption line. Blank keeps the framework's own `© {year} {appName}`. */
   text: string;
   onTextChange: (next: string) => void;
   links: FooterLink[];

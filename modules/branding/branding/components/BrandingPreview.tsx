@@ -1,4 +1,4 @@
-import { BRAND_FOOTER_LINKS, BRAND_LICENSE } from '@simple-module-py/ui/lib/brand';
+import { BRAND_FOOTER_LINKS } from '@simple-module-py/ui/lib/brand';
 import { deriveBrandRamp } from '@simple-module-py/ui/lib/color';
 import type { FooterLink } from './dirty';
 
@@ -76,7 +76,7 @@ function FooterStrip({ brand }: { brand: PreviewBrand }) {
   return (
     <div className="flex items-center justify-between gap-2 border-t border-border bg-card px-2.5 py-1 text-[8px] text-muted-foreground">
       <span className="truncate">
-        {brand.footerText.trim() || `© ${PREVIEW_YEAR} ${brand.appName} · ${BRAND_LICENSE}`}
+        {brand.footerText.trim() || `© ${PREVIEW_YEAR} ${brand.appName}`}
       </span>
       <span className="truncate">
         {previewFooterLinks(brand)

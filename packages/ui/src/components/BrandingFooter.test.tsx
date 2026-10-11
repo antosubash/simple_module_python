@@ -11,10 +11,11 @@ describe('BrandingFooter', () => {
     expect(screen.getByRole('link', { name: 'Changelog' })).toBeInTheDocument();
   });
 
-  test('shows the current year and licence in the caption', () => {
+  test('shows the current year and app name in the caption, not a licence', () => {
     render(<BrandingFooter appName="Acme" />);
     const year = new Date().getFullYear();
-    expect(screen.getByText(new RegExp(`${year}.*MIT`))).toBeInTheDocument();
+    expect(screen.getByText(`© ${year} Acme`)).toBeInTheDocument();
+    expect(screen.queryByText(/MIT/)).not.toBeInTheDocument();
   });
 
   test('renders host-configured links instead of the framework ones', () => {
@@ -83,9 +84,10 @@ describe('BrandingFooter', () => {
     ['null', null],
     ['undefined', undefined],
     ['blank', '   '],
-  ])('falls back to the licence caption when footerText is %s', (_name, footerText) => {
+  ])('falls back to the default caption when footerText is %s', (_name, footerText) => {
     render(<BrandingFooter appName="Acme" footerText={footerText} />);
     const year = new Date().getFullYear();
-    expect(screen.getByText(new RegExp(`${year}.*MIT`))).toBeInTheDocument();
+    expect(screen.getByText(`© ${year} Acme`)).toBeInTheDocument();
+    expect(screen.queryByText(/MIT/)).not.toBeInTheDocument();
   });
 });

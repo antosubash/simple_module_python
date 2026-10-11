@@ -13,7 +13,7 @@ interface BrandingMarkProps {
   labelClassName?: string;
   /** Override for the badge shadow (defaults to `shadow-sm`; e.g. a coloured glow). */
   badgeClassName?: string;
-  /** Optional muted sub-caption stacked under the wordmark (e.g. `python`, `© 2026 · MIT`). */
+  /** Optional muted sub-caption stacked under the wordmark (e.g. `python`, `© 2026 Acme`). */
   caption?: string;
   /** Classes for the caption text. Defaults to a muted mono line. */
   captionClassName?: string;
