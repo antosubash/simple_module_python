@@ -60,3 +60,42 @@ async def test_import_ignores_unknown_env(db_session, monkeypatch, app) -> None:
     n = await import_from_env_impl(app, store)
     assert n == 0
     assert await store.get_overrides("users") == {}
+
+
+@pytest.mark.asyncio
+async def test_import_reads_dotenv_by_default(db_session, monkeypatch, app, tmp_path) -> None:
+    _drop_fixture_env(monkeypatch)
+    monkeypatch.delenv("SM_USERS_SMTP_PORT", raising=False)
+    monkeypatch.delenv("SM_USERS_ALLOW_SIGNUP", raising=False)
+    (tmp_path / ".env").write_text("SM_USERS_SMTP_PORT=2626\nSM_USERS_ALLOW_SIGNUP=true\n")
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+    # Real env wins over the file.
+    monkeypatch.setenv("SM_USERS_ALLOW_SIGNUP", "false")
+
+    from settings.cli import import_from_env_impl
+    from settings.service import SettingService
+    from settings.store import SettingsStore
+
+    store = SettingsStore(SettingService(db_session))
+    n = await import_from_env_impl(app, store)
+
+    users = await store.get_overrides("users")
+    assert users["smtp_port"] == ("2626", "int")
+    assert users["allow_signup"] == ("false", "bool")
+    assert n == 2
+
+
+@pytest.mark.asyncio
+async def test_import_accepts_explicit_environ(db_session, monkeypatch, app) -> None:
+    _drop_fixture_env(monkeypatch)
+    monkeypatch.delenv("SM_USERS_SMTP_PORT", raising=False)
+
+    from settings.cli import import_from_env_impl
+    from settings.service import SettingService
+    from settings.store import SettingsStore
+
+    store = SettingsStore(SettingService(db_session))
+    n = await import_from_env_impl(app, store, environ={"SM_USERS_SMTP_PORT": "2727"})
+
+    assert (await store.get_overrides("users"))["smtp_port"] == ("2727", "int")
+    assert n == 1
