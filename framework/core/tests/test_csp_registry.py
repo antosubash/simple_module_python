@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 from simple_module_core import ModuleBase, ModuleMeta
-from simple_module_core.csp import CspSourceError, CspSourceRegistry
+from simple_module_core.csp import CspSourceError, CspSourceRegistry, is_valid_source
 
 _POLICY = (
     "default-src 'self'; "
@@ -114,3 +114,52 @@ class TestHook:
         reg = CspSourceRegistry()
         Quiet().register_csp_sources(reg)
         assert not reg
+
+
+class TestProviders:
+    """Settings-driven origins (#434): providers run per response, not at boot."""
+
+    def test_add_provider_registers_without_static_sources(self) -> None:
+        reg = CspSourceRegistry()
+
+        def provider(app):
+            return [("img-src", "https://tiles.example")]
+
+        reg.add_provider(provider)
+        assert reg.providers == (provider,)
+        # A provider is not a static source: the boot-time policy is unchanged.
+        assert reg.extend_policy(_POLICY) == _POLICY
+
+    def test_providers_is_read_only(self) -> None:
+        reg = CspSourceRegistry()
+        assert reg.providers == ()
+        assert isinstance(reg.providers, tuple)
+
+    def test_is_valid_source_matches_add_validation(self) -> None:
+        assert is_valid_source("img-src", "https://tiles.example")
+        assert not is_valid_source("default-src", "https://tiles.example")
+        assert not is_valid_source("img-src", "https://x; script-src *")
+        assert not is_valid_source("img-src", "")
+
+    def test_extend_policy_with_extra_pairs(self) -> None:
+        reg = CspSourceRegistry()
+        reg.add("style-src", "https://rsms.me")
+        out = reg.extend_policy(_POLICY, extra=[("connect-src", "https://api.example")])
+        assert "https://rsms.me" in out
+        assert "connect-src 'self' https://api.example" in out
+
+    def test_extra_pairs_do_not_mutate_the_registry(self) -> None:
+        reg = CspSourceRegistry()
+        reg.extend_policy(_POLICY, extra=[("connect-src", "https://api.example")])
+        assert not reg
+        assert reg.extend_policy(_POLICY) == _POLICY
+
+    def test_extra_pairs_are_deduplicated_against_static_and_policy(self) -> None:
+        reg = CspSourceRegistry()
+        reg.add("style-src", "https://rsms.me")
+        out = reg.extend_policy(
+            _POLICY,
+            extra=[("style-src", "https://rsms.me"), ("style-src", "https://fonts.googleapis.com")],
+        )
+        assert out.count("https://rsms.me") == 1
+        assert out.count("https://fonts.googleapis.com") == 1
