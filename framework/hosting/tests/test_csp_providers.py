@@ -137,7 +137,12 @@ class TestMiddleware:
 
     @pytest.mark.parametrize(
         "source",
-        ["https://exämple.com", "https://x.example\x00", "https://x.example\x7f", "https://x\u2028y"],
+        [
+            "https://exämple.com",
+            "https://x.example\x00",
+            "https://x.example\x7f",
+            "https://x\u2028y",
+        ],
     )
     async def test_unencodable_source_never_breaks_the_response(self, source) -> None:
         # An admin-edited setting is the usual input: a value the header

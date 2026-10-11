@@ -185,9 +185,7 @@ called on every response with the app and returns `(directive, source)` pairs:
 
 ```python
 def register_csp_sources(self, registry) -> None:
-    registry.add_provider(
-        lambda app: [("img-src", app.state.maps.settings.tile_origin)]
-    )
+    registry.add_provider(lambda app: [("img-src", app.state.maps.settings.tile_origin)])
 ```
 
 Providers must be synchronous and read only in-memory state
