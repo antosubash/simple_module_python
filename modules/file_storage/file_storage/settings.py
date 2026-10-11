@@ -53,6 +53,11 @@ class FileStorageSettings(DbBackedSettings):
         json_schema_extra={"group": "S3"},
         description="Custom endpoint for MinIO / R2. Blank uses AWS default.",
     )
+    s3_signature_version: str = Field(
+        default="s3v4",
+        json_schema_extra={"group": "S3"},
+        description="Presign signature version. Keep s3v4; SigV2 is rejected by most providers.",
+    )
     s3_presign_ttl_seconds: int = Field(
         default=constants.DEFAULT_PRESIGN_TTL_SECONDS,
         json_schema_extra={"group": "S3"},

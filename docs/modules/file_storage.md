@@ -201,6 +201,7 @@ DB-backed via `register_module_settings`; pydantic defaults seed at boot. Live e
 | `s3_access_key_id` | `""` | optional — falls back to env / IAM if empty |
 | `s3_secret_access_key` | `""` | optional |
 | `s3_endpoint_url` | `""` | optional — set for MinIO / Cloudflare R2 |
+| `s3_signature_version` | `"s3v4"` | presign signature version; pinned so custom endpoints get SigV4 |
 | `s3_presign_ttl_seconds` | `300` | TTL for presigned `GET` URLs |
 | `max_file_size_bytes` | `100 * 1024 * 1024` | upload limit (100 MB) |
 | `allowed_content_types` | `None` | optional MIME-type whitelist; `None` ⇒ any |

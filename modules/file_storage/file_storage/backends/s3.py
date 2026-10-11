@@ -149,6 +149,15 @@ def _build(settings: FileStorageSettings) -> S3Backend:
     if settings.s3_access_key_id and settings.s3_secret_access_key:
         client_kwargs["aws_access_key_id"] = settings.s3_access_key_id
         client_kwargs["aws_secret_access_key"] = settings.s3_secret_access_key
+    try:
+        from botocore.config import Config
+    except ImportError as exc:
+        raise ConfigurationError(
+            "S3 backend requires the 'aioboto3' package. "
+            "Install with: uv add --optional s3 aioboto3"
+        ) from exc
+    # Without an explicit version, botocore presigns SigV2 for custom endpoints.
+    client_kwargs["config"] = Config(signature_version=settings.s3_signature_version)
     return S3Backend(
         bucket=settings.s3_bucket,
         region=settings.s3_region,

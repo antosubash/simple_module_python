@@ -100,4 +100,12 @@ async def test_s3_presigned_url_format(s3_settings):
     url = await backend.presigned_get_url("any/key.txt", ttl_seconds=300)
     assert url.startswith("http")
     assert "any/key.txt" in url
-    assert "X-Amz-Signature" in url or "Signature" in url
+    assert "X-Amz-Algorithm=AWS4-HMAC-SHA256" in url
+    assert "AWSAccessKeyId=" not in url
+
+
+async def test_s3_signature_version_is_configurable(s3_settings):
+    s3_settings.s3_signature_version = "s3"
+    backend = build_backend(s3_settings)
+    url = await backend.presigned_get_url("any/key.txt", ttl_seconds=300)
+    assert "AWSAccessKeyId=" in url
