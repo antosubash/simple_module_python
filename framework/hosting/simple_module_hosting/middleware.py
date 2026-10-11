@@ -21,6 +21,7 @@ from simple_module_hosting._csp_dynamic import DynamicCsp
 from simple_module_hosting._inertia_shared import (
     build_i18n_block,
     build_menu_translator,
+    default_home_url,
     merge_shared_prop_providers,
 )
 from simple_module_hosting._observability import (
@@ -260,6 +261,8 @@ class InertiaLayoutDataMiddleware:
         # Merge module-registered shared-prop providers (e.g. branding) — read off
         # app.state without importing the plugin (SM009), defensively.
         await merge_shared_prop_providers(scope["app"], request, shared)
+        # After the providers, so a module's own value (users) wins.
+        shared.setdefault("homeUrl", default_home_url(scope["app"]))
 
         request.state.inertia_shared = shared
 

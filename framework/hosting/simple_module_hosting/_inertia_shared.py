@@ -144,3 +144,16 @@ async def merge_shared_prop_providers(app: Any, request: Request, shared: dict) 
                 )
                 continue
             shared[key] = value
+
+
+def default_home_url(app: Any) -> str:
+    """Where the layouts' "home" links point when no module publishes ``homeUrl``.
+
+    The users module publishes its configured landing URL and wins; this covers
+    installs without it (Keycloak). Dashboard is the conventional landing page,
+    named by string from ``sm.view_prefixes`` so nothing is imported (SM009);
+    ``/`` is a host route in every app, so the link can never 404.
+    """
+    sm = getattr(app.state, "sm", None)
+    prefix = getattr(sm, "view_prefixes", {}).get("Dashboard")
+    return f"{prefix}/" if prefix else "/"
