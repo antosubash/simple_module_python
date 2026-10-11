@@ -20,6 +20,10 @@ class UserContext:
     name: str
     roles: list[str] = field(default_factory=list)
     tenant_id: str | None = None
+    # Permissions the principal carries itself — a token scope or IdP claim a
+    # provider maps in. Frozen in the session cookie like ``roles``; anything
+    # revocable belongs in a grant source. The resolver drops ``*`` from here.
+    permissions: list[str] = field(default_factory=list)
 
     @classmethod
     def from_user(cls, user: User | Any) -> UserContext:
@@ -51,6 +55,7 @@ class UserContext:
             "name": self.name,
             "roles": list(self.roles),
             "tenant_id": self.tenant_id,
+            "permissions": list(self.permissions),
         }
 
     @classmethod
@@ -66,12 +71,21 @@ class UserContext:
                 name=str(payload["name"]),
                 roles=list(payload.get("roles") or []),
                 tenant_id=payload.get("tenant_id"),
+                # Absent on cookies written before the field existed.
+                permissions=list(payload.get("permissions") or []),
             )
         except (KeyError, TypeError, ValueError):
             return None
 
     def has_role(self, role: str) -> bool:
         return role in self.roles
+
+    def has_permission(self, permission: str) -> bool:
+        """Exact match against :attr:`permissions` only — no roles, no wildcard.
+
+        Gate routes with ``RequiresPermission``, which also folds in roles and
+        grant sources; this is for the principal's own claims alone."""
+        return permission in self.permissions
 
     def has_any_role(self, roles: list[str]) -> bool:
         return bool(set(self.roles) & set(roles))
