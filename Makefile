@@ -28,7 +28,7 @@ gen-pages:
 	uv run --project host smpy host gen-pages --host-dir=host/client_app
 
 # Regenerate packages/i18n/src/{generated-resources,keys.generated}.ts from every
-# installed module's locales/, plus host/locales and packages/ui/locales — without
+# installed module's locales/, plus host/locales and the hosting package's ui_locales — without
 # booting the app. Pass flags with ARGS, e.g. `make gen-i18n ARGS=--allow-removals`.
 gen-i18n:
 	uv run --project host python scripts/gen_i18n.py $(ARGS)

@@ -11,10 +11,9 @@ i18n checks always run. ``SM_I18N_SUPPORTED_LOCALES`` (env or ``.env``)
 declares the locale set this install promises, which also enables SM013 for a
 namespace that never shipped one; with it unset, each namespace is checked
 against the locale files it actually has, so key drift between two shipped
-translations is still caught. Host-level ``host/locales/`` and shared
-``packages/ui/locales/`` are picked up relative to the project root
-(``SM_PROJECT_ROOT``, else the directory of the discovered ``.env``, else the
-current working dir).
+translations is still caught. Host-level ``host/locales/`` is picked up
+relative to the project root (``SM_PROJECT_ROOT``, else the directory of the
+discovered ``.env``, else the current working dir).
 """
 
 from __future__ import annotations

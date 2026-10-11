@@ -47,10 +47,12 @@ def build_i18n_registry(
     if overrides.is_dir():
         registry.add_overrides(overrides)
 
-    ui_locales = project_root / "packages" / "ui" / "locales"
-    if ui_locales.is_dir():
-        registry.add_source("ui", ui_locales)
-        extra_sources.append(("packages/ui", "ui", ui_locales))
+    # Shared UI strings ship inside this package (not ``packages/ui``) so a
+    # scaffolded app, which has no ``packages/ui`` checkout, still resolves
+    # every ``ui.*`` key.
+    ui_locales = Path(__file__).resolve().parent / "ui_locales"
+    registry.add_source("ui", ui_locales)
+    extra_sources.append(("simple_module_hosting/ui", "ui", ui_locales))
 
     registry.load()
     return registry, extra_sources
