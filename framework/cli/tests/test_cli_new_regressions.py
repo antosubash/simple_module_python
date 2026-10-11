@@ -230,6 +230,19 @@ def test_scaffold_adopts_every_locale_catalog_the_server_sends(tmp_path: Path) -
     )
 
 
+def test_sm_new_host_app_tsx_wires_theme_and_title(tmp_path: Path) -> None:
+    """Issue #429: the scaffolded app.tsx must init the theme and brand titles."""
+    from simple_module_cli.scaffolding import create_host
+
+    dest = tmp_path / "demo"
+    create_host(dest, name="demo-host", modules=["Dashboard", "Auth"])
+
+    app_tsx = (dest / "client_app" / "app.tsx").read_text()
+    assert "initTheme(" in app_tsx
+    assert "formatTitle" in app_tsx
+    assert "setTitleAppName" in app_tsx
+
+
 def test_sm_new_no_install_next_steps_include_initial_migration(tmp_path: Path) -> None:
     """Issue #135: ``host/migrations/versions/`` ships empty, so a fresh
     ``make migrate`` is a no-op. The printed next-steps must therefore
