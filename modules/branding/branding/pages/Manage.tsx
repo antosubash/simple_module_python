@@ -10,9 +10,11 @@ import type { SharedProps } from '@simple-module-py/ui/types';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { BannerField, type BannerSeverity } from '../components/BannerField';
+import { ColorField } from '../components/ColorField';
 import { DesignPackField, type DesignPackOption } from '../components/DesignPackField';
 import { type BrandingForm, countBrandingChanges } from '../components/dirty';
 import { FooterField } from '../components/FooterField';
+import { isValidColor, normalizeHex } from '../components/hex';
 import { ImageDropzones, type ImageKind } from '../components/ImageDropzones';
 import { PresetField, type PresetOption } from '../components/PresetField';
 import { PreviewTabs } from '../components/PreviewTabs';
@@ -65,6 +67,8 @@ function Manage() {
   const [busy, setBusy] = useState(false);
   const changes = countBrandingChanges(form, baseline);
   const locked = !canManage || busy;
+  const colorValid = isValidColor(form.color);
+  const accent = normalizeHex(form.color) ?? DEFAULT_SWATCH;
 
   const set = (patch: Partial<BrandingForm>) => setForm((current) => ({ ...current, ...patch }));
 
@@ -90,7 +94,7 @@ function Manage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             app_name: form.appName,
-            primary_color: form.color,
+            primary_color: normalizeHex(form.color) ?? '',
             design_pack: form.designPack,
             banner_message: form.bannerMessage,
             banner_severity: form.bannerSeverity,
@@ -144,7 +148,7 @@ function Manage() {
             <Button
               size="sm"
               className="max-lg:min-h-11"
-              disabled={locked || changes === 0}
+              disabled={locked || changes === 0 || !colorValid}
               onClick={publish}
             >
               {busy ? t(keys.branding.manage.publishing) : t(keys.branding.manage.publish)}
@@ -171,32 +175,12 @@ function Manage() {
                     onChange={(e) => set({ appName: e.target.value })}
                   />
                 </div>
-                <div className="flex flex-col gap-2">
-                  <Label
-                    htmlFor="primary_color"
-                    className="text-[12.5px] font-medium text-muted-foreground"
-                  >
-                    {t(keys.branding.manage.primary_color_label)}
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      aria-label={t(keys.branding.manage.primary_color_label)}
-                      value={form.color || DEFAULT_SWATCH}
-                      disabled={locked}
-                      onChange={(e) => set({ color: e.target.value })}
-                      className="h-9 w-9 shrink-0 cursor-pointer rounded-[9px] border bg-transparent"
-                    />
-                    <Input
-                      id="primary_color"
-                      value={form.color}
-                      placeholder={DEFAULT_SWATCH}
-                      disabled={locked}
-                      onChange={(e) => set({ color: e.target.value })}
-                      className="min-w-0 flex-1 font-mono"
-                    />
-                  </div>
-                </div>
+                <ColorField
+                  value={form.color}
+                  fallback={DEFAULT_SWATCH}
+                  disabled={locked}
+                  onChange={(color) => set({ color })}
+                />
               </div>
 
               {/* The *effective* colour, not the stored one: with nothing set
@@ -204,7 +188,7 @@ function Manage() {
                   chip is active claims the opposite. */}
               <PresetField
                 options={page.presets ?? []}
-                activeColor={form.color || DEFAULT_SWATCH}
+                activeColor={accent}
                 onSelect={(swatch) => set({ color: swatch })}
                 disabled={locked}
               />
@@ -251,7 +235,7 @@ function Manage() {
           <PreviewTabs
             brand={{
               appName: form.appName || DEFAULT_APP_NAME,
-              accent: form.color || DEFAULT_SWATCH,
+              accent,
               logoUrl: branding?.logoUrl ?? null,
               logoDarkUrl: branding?.logoDarkUrl ?? null,
               bannerMessage: form.bannerMessage,

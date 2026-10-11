@@ -1,4 +1,4 @@
-import { Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { SegmentedControl } from '@simple-module-py/ui/components/SegmentedControl';
@@ -109,77 +109,80 @@ function Index() {
   }, [navigate]);
 
   return (
-    <PageShell
-      title={t(keys.users.index.title)}
-      description={t(keys.users.index.description)}
-      mobileAction={{ label: t(keys.users.index.add_people_short), href: ADD_PEOPLE_URL }}
-      actions={
-        // One entry point: invite-vs-create is a choice inside the form, not
-        // a choice between two buttons made before seeing either.
-        <Button asChild className="gap-1.5">
-          <Link href={ADD_PEOPLE_URL}>
-            <Plus className="h-4 w-4" />
-            {t(keys.users.index.add_people)}
-          </Link>
-        </Button>
-      }
-    >
-      <UserStats
-        total={pagination.total}
-        active={aggregates.active}
-        invited={aggregates.invited}
-        roleCount={roles.length}
-      />
-
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <SegmentedControl
-          value={view}
-          onChange={setView}
-          aria-label={t(keys.users.index.view_label)}
-          options={[
-            { value: 'users', label: t(keys.users.index.tab_users), count: pagination.total },
-            { value: 'roles', label: t(keys.users.index.tab_roles), count: roles.length },
-          ]}
+    <>
+      <Head title={t(keys.users.index.title)} />
+      <PageShell
+        title={t(keys.users.index.title)}
+        description={t(keys.users.index.description)}
+        mobileAction={{ label: t(keys.users.index.add_people_short), href: ADD_PEOPLE_URL }}
+        actions={
+          // One entry point: invite-vs-create is a choice inside the form, not
+          // a choice between two buttons made before seeing either.
+          <Button asChild className="gap-1.5">
+            <Link href={ADD_PEOPLE_URL}>
+              <Plus className="h-4 w-4" />
+              {t(keys.users.index.add_people)}
+            </Link>
+          </Button>
+        }
+      >
+        <UserStats
+          total={pagination.total}
+          active={aggregates.active}
+          invited={aggregates.invited}
+          roleCount={roles.length}
         />
-        {view === 'users' && (
-          <>
-            <div className="relative min-w-60 flex-1">
-              <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder={t(keys.users.index.search_placeholder)}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 max-lg:min-h-11"
+
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <SegmentedControl
+            value={view}
+            onChange={setView}
+            aria-label={t(keys.users.index.view_label)}
+            options={[
+              { value: 'users', label: t(keys.users.index.tab_users), count: pagination.total },
+              { value: 'roles', label: t(keys.users.index.tab_roles), count: roles.length },
+            ]}
+          />
+          {view === 'users' && (
+            <>
+              <div className="relative min-w-60 flex-1">
+                <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder={t(keys.users.index.search_placeholder)}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 max-lg:min-h-11"
+                />
+              </div>
+              <IndexFilters
+                filters={filters}
+                roles={roles.map((r) => r.name)}
+                onChange={(next) => navigate(next)}
               />
-            </div>
-            <IndexFilters
+            </>
+          )}
+        </div>
+
+        {view === 'users' ? (
+          <>
+            {pagination.total === 1 && !isFiltered && <SoloAccountPrompt />}
+            <UsersTable
+              users={users}
               filters={filters}
-              roles={roles.map((r) => r.name)}
-              onChange={(next) => navigate(next)}
+              page={pagination.page}
+              perPage={pagination.per_page}
+              total={pagination.total}
+              filtered={isFiltered}
+              onSort={toggleSort}
+              onPage={(page) => navigate({ page })}
+              onClearFilters={clearFilters}
             />
           </>
+        ) : (
+          <RolesTab roles={roles} />
         )}
-      </div>
-
-      {view === 'users' ? (
-        <>
-          {pagination.total === 1 && !isFiltered && <SoloAccountPrompt />}
-          <UsersTable
-            users={users}
-            filters={filters}
-            page={pagination.page}
-            perPage={pagination.per_page}
-            total={pagination.total}
-            filtered={isFiltered}
-            onSort={toggleSort}
-            onPage={(page) => navigate({ page })}
-            onClearFilters={clearFilters}
-          />
-        </>
-      ) : (
-        <RolesTab roles={roles} />
-      )}
-    </PageShell>
+      </PageShell>
+    </>
   );
 }
 

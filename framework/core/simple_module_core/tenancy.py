@@ -28,6 +28,18 @@ class TenantRole(StrEnum):
     MEMBER = "member"
 
 
+class TenancyMode(StrEnum):
+    """Whether a host scopes requests to tenants (#418).
+
+    ``SINGLE``: one tenant for every request: no ``TenantMiddleware``, or one
+    pinned with ``fixed=``. ``MULTI``: ``multi_tenant`` is on and each request
+    resolves its own.
+    """
+
+    SINGLE = "single"
+    MULTI = "multi"
+
+
 def tenant_role(name: str) -> str:
     """The effective principal role for membership role ``name``: ``tenant:<name>``.
 
@@ -68,6 +80,7 @@ async def tenant_exists(app: Any, tenant_id: str) -> bool | None:
 
 __all__ = [
     "TENANT_ROLE_PREFIX",
+    "TenancyMode",
     "TenantExists",
     "TenantRole",
     "is_tenant_role",

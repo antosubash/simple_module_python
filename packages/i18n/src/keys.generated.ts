@@ -279,6 +279,7 @@ export const keys = {
       preview_tab_signin: 'branding.manage.preview_tab_signin',
       preview_tabs_label: 'branding.manage.preview_tabs_label',
       preview_title: 'branding.manage.preview_title',
+      primary_color_invalid: 'branding.manage.primary_color_invalid',
       primary_color_label: 'branding.manage.primary_color_label',
       publish: 'branding.manage.publish',
       publish_note: 'branding.manage.publish_note',

@@ -12,6 +12,19 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- **Host override layer for module copy** (#415). A host ships
+  `host/locales/overrides/<lang>.json` (nested or flat dotted keys) and it is
+  applied after every module, framework and host catalog, so the server-side
+  `Translator`, menus and Inertia props all see it. An override only replaces an
+  existing key: an unknown key is skipped with a warning and reported by
+  `make doctor`. Admin-only keys stay admin-only.
+- **Public tenancy API** (#418): `simple_module_hosting.tenancy` exposes
+  `tenancy_mode(app)`, `single_tenant_id(app)`, `require_tenant(...)` (binds
+  the single-tenant id, or the request's tenant else `on_missing`) and
+  `tenant_vary(request)`; `TenancyMode` lives in `simple_module_core.tenancy`.
+  Modules no longer need to read the middleware stack.
+- `NativeSelect` takes a `wrapperClassName` for sizing the control (#421).
+  `className` still targets the `<select>`.
 - **The `/setup` wizard ships with the framework** (#351). Since 0.0.33
   `SetupMiddleware` redirected a fresh install to `/setup`, but the route and
   page lived only in this repository's unpublished host, so any other host got
@@ -83,6 +96,10 @@ All notable changes to this project are documented in this file. The format is b
   production-mode containers pass `UsersSettings` boot validation.
 
 ### Changed
+- `TenantMiddleware` now varies on `Cookie` when the tenant came from the
+  session, and on `Cookie, Authorization` when it came from an authentication
+  claim, so a shared cache can no longer serve one tenant's response to another
+  (#418).
 - **Tenant isolation fails closed.** With `multi_tenant` on, a query, bulk
   `update()`/`delete()` or insert on a `MultiTenantMixin` model with no tenant
   context raises `TenantIsolationError` instead of reading or writing every
@@ -139,6 +156,42 @@ All notable changes to this project are documented in this file. The format is b
   `tenants` resolver it selects among the user's own memberships.
 
 ### Fixed
+- `/admin/background-tasks` returned 500 on Postgres (#413): `TaskExecution`'s
+  timestamps were declared naive although the columns are `timestamptz` since
+  `e5f2a8c1d7b3`. This was already fixed on `main` by #406 (unreleased since
+  v0.0.35); this branch only pins it with tests. No migration.
+- Sign-in aside footer text met only 2.7:1 contrast; `--color-dark-text-subtle`
+  is lighter and clears WCAG AA (#414).
+- Only top-level navigations record the post-login target (#416): a favicon,
+  script, image or `fetch()` hitting an unauthenticated route no longer
+  overwrites it. Navigations and Inertia visits record the target as before;
+  requests that carry no fetch metadata keep the old behaviour.
+- The tenant filter no longer turns an outer join into an inner join when the
+  joined table is only referenced inside a function such as
+  `func.count(Child.id)` (#417), whether it joins the entity or a relationship
+  path (`.outerjoin(Parent.children)`, with or without `of_type`). A raw-table
+  target or a `secondary` relationship stays filtered in `WHERE`, so this never
+  leaks another tenant's rows.
+- `attach_session_listeners` (simple_module_db) now marks each session class it
+  wires instead of asking SQLAlchemy's `event.contains`, which keys on `id()`.
+  A new session class that reused the id of a garbage-collected one was treated
+  as already wired and got no tenant filter, soft-delete filter or write
+  markers, so tenant isolation failed open. A single-app worker process was not
+  affected; any process that builds more than one app or DatabaseState and
+  drops an earlier one was (the test suite, scripts, embedders).
+- `gen-pages` emits `@source` lines for subdirectories of wheel modules (#419);
+  uv's `.venv/.gitignore` made Tailwind skip them, so their utility classes
+  were missing from the built CSS.
+- Brand foreground ink follows the brand colour (#420): `deriveBrandRamp` sets
+  `--primary-foreground` and `--sidebar-primary-foreground` by WCAG contrast
+  (white or dark ink), so buttons and the active sidebar row stay legible on a
+  light brand colour; the logo badge initial stays white on the ramp gradient.
+- Admin screens (#422): `/admin/users/` has a document title, `/admin/settings/`
+  has a visible `<h1>`, and error pages under `/admin` for a signed-in admin
+  render inside the admin shell.
+- `TenantMiddleware` merges every `Vary` response line and leaves a `Vary: *`
+  response untouched (#423), and `tenant_source` is `None` whenever no tenant is
+  bound (#424).
 - Public pages no longer reload the whole document when a visitor clicks a link
   in authored content. A simple_module app is client-rendered — the root
   template ships `<div id="app"></div>` empty — so a navigation that creates a

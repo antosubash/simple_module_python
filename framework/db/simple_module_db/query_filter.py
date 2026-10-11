@@ -19,6 +19,7 @@ from sqlalchemy.orm import ORMExecuteState, Session, with_loader_criteria
 from sqlalchemy.sql.selectable import Alias, Join
 
 from simple_module_db import model_registry as registry
+from simple_module_db._outer_joins import is_excluded, orm_outer_join_tables
 from simple_module_db.insert_guard import assigned_tenant_ids, guard_insert
 from simple_module_db.subquery_guard import scope_exists_subqueries
 from simple_module_db.tenancy import (
@@ -136,7 +137,10 @@ def filter_statements(execute_state: ORMExecuteState) -> Any:
 
 
 def _soft_delete_criteria(execute_state: ORMExecuteState) -> list[Any]:
-    for table in _plain_tables(execute_state, registry.soft_delete_table_names):
+    plain = _plain_tables(
+        execute_state, registry.soft_delete_table_names, registry.soft_delete_classes
+    )
+    for table in plain:
         execute_state.statement = execute_state.statement.where(table.c.is_deleted.is_(False))
     return [
         with_loader_criteria(c, c.is_deleted.is_(False), include_aliases=True)
@@ -167,18 +171,28 @@ def _subquery_predicates(
     return predicates_for
 
 
-def _plain_tables(execute_state: ORMExecuteState, names: set[str]) -> list[Any]:
+def _plain_tables(
+    execute_state: ORMExecuteState, names: set[str], covered: set[type] | None = None
+) -> list[Any]:
     """Tables a statement uses as plain Core tables (``Model.__table__``).
 
     Only the top level: the FROM list of a select (including the sides of a
     join), the target of an update/delete. ORM-annotated occurrences are
     covered by loader criteria.
+
+    ``covered`` names the classes the caller gives loader criteria. A bare
+    columns-clause table that one of them outer-joins in (``func.count(
+    Child.id)`` strips the annotation) is that join's own ``FROM``, already
+    filtered in ``ON``; a ``WHERE`` on it would make the join inner (#417).
     """
     stmt = execute_state.statement
-    if execute_state.is_select:
-        froms = [*getattr(stmt, "columns_clause_froms", ()), *getattr(stmt, "_from_obj", ())]
-    else:
+    if not execute_state.is_select:
         froms = [getattr(stmt, "table", None)]
+        return [f for f in _where_able(froms) if registry.is_plain_table(f, names)]
+    columns = getattr(stmt, "columns_clause_froms", ())
+    outer = orm_outer_join_tables(stmt, covered) if covered else []
+    columns = [f for f in columns if not (outer and is_excluded(f, outer))]
+    froms = [*columns, *getattr(stmt, "_from_obj", ())]
     return [f for f in _where_able(froms) if registry.is_plain_table(f, names)]
 
 
@@ -203,7 +217,10 @@ def _where_able(froms: list[Any]) -> list[Any]:
 def _tenant_criteria(
     execute_state: ORMExecuteState, named: list[type], tenant_id: str | None, strict: bool
 ) -> list[Any]:
-    core = _plain_tables(execute_state, registry.tenant_table_names)
+    # The ON-covered exclusion only applies once a tenant is bound: strict mode
+    # without one still refuses a table it would otherwise have WHERE-filtered.
+    covered = registry.tenant_classes if tenant_id is not None else None
+    core = _plain_tables(execute_state, registry.tenant_table_names, covered)
     op = (
         "SELECT" if execute_state.is_select else ("UPDATE" if execute_state.is_update else "DELETE")
     )

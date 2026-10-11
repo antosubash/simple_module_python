@@ -25,6 +25,7 @@ pytestmark = pytest.mark.e2e
 _TITLED_PAGES = [
     ("/dashboard/", "Dashboard"),
     ("/admin", "Administration"),
+    ("/admin/users/", "Users"),
 ]
 
 

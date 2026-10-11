@@ -48,6 +48,7 @@ from simple_module_hosting.settings import Settings
 from simple_module_hosting.setup_gate import register_migration_step
 from simple_module_hosting.setup_wizard import mount_setup_wizard
 from simple_module_hosting.static_files import PrecompressedStaticFiles
+from simple_module_hosting.tenancy import mode_for
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +123,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             modules,
             installed_modules,
             i18n_extra=i18n_extra,
+            i18n_unknown_overrides=i18n_registry.unknown_override_keys,
             diagnostics_state=diagnostics_state,
             project_root=_PROJECT_ROOT,
         )
@@ -262,6 +264,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         modules=tuple(modules),
         invalidation=invalidation_bus,
         diagnostics=diagnostics_state,
+        tenancy=mode_for(settings),
     )
 
     return app

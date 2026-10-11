@@ -222,6 +222,7 @@ export default {
     'branding.manage.preview_tab_signin': '',
     'branding.manage.preview_tabs_label': '',
     'branding.manage.preview_title': '',
+    'branding.manage.primary_color_invalid': '',
     'branding.manage.primary_color_label': '',
     'branding.manage.publish': '',
     'branding.manage.publish_note': '',

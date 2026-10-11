@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { BASE_PRIMARY_RAMP, deriveBrandRamp, hexToOklch } from './color';
+import { BASE_PRIMARY_RAMP, contrastRatio, deriveBrandRamp, hexToOklch } from './color';
 
 describe('hexToOklch', () => {
   test('white is light and (near) achromatic', () => {
@@ -58,5 +58,30 @@ describe('deriveBrandRamp', () => {
 
   test('returns null for malformed input', () => {
     expect(deriveBrandRamp('not-a-color')).toBeNull();
+  });
+});
+
+const DARK_INK = 'oklch(0.2 0.02 250)';
+const WHITE = 'oklch(1 0 0)';
+
+describe('brand foreground ink (#420)', () => {
+  test.each([
+    ['#62B8E2', DARK_INK],
+    ['#9AD3EF', DARK_INK],
+    ['#2E6DB0', WHITE],
+    ['#16276E', WHITE],
+  ])('%s gets %s', (hex, ink) => {
+    const ramp = deriveBrandRamp(hex);
+    expect(ramp?.['--primary-foreground']).toBe(ink);
+    expect(ramp?.['--sidebar-primary-foreground']).toBe(ink);
+  });
+
+  test('white is rejected on light brands because it fails WCAG AA', () => {
+    expect(contrastRatio('#62B8E2', '#ffffff')).toBeLessThan(4.5);
+  });
+
+  test('contrastRatio is 21 for black on white and 1 for unparseable input', () => {
+    expect(contrastRatio('#000000', '#ffffff')).toBeCloseTo(21, 5);
+    expect(contrastRatio('nope', '#ffffff')).toBe(1);
   });
 });

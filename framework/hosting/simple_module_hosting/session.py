@@ -28,8 +28,11 @@ import time
 from collections.abc import Mapping, MutableMapping
 from typing import Any
 
+from starlette.datastructures import MutableHeaders
 from starlette.middleware.sessions import SessionMiddleware as _StarletteSessionMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+from simple_module_hosting._tenant import merge_vary
 
 SESSION_SIGNATURE_MAX_AGE = 30 * 24 * 60 * 60
 """Oldest session signature still accepted. The ceiling on "keep me signed in"."""
@@ -108,11 +111,27 @@ class SessionMiddleware(_StarletteSessionMiddleware):
         async def send_with_cookie_window(message: Message) -> None:
             if message["type"] == "http.response.start":
                 _retime_session_cookie(message, self.session_cookie, _window(scope))
+                _dedupe_vary(message)
             await send(message)
 
         # Delegates every decision about *whether* to write a cookie to the
         # parent; this only edits the one it wrote.
         await super().__call__(scope, receive, send_with_cookie_window)
+
+
+def _dedupe_vary(message: Message) -> None:
+    """Drop the duplicate ``Cookie`` the parent appends to ``Vary``.
+
+    Starlette adds ``Cookie`` to ``Vary`` whenever the session was touched,
+    without checking whether an inner layer (the tenant resolver) already
+    listed it.
+    """
+    headers = MutableHeaders(scope=message)
+    joined = ", ".join(headers.getlist("vary"))
+    merged = merge_vary(joined, ())
+    if merged and merged != joined:
+        del headers["vary"]
+        headers["vary"] = merged
 
 
 def _window(scope: Scope) -> int:

@@ -31,6 +31,7 @@ def run_diagnostics(
     i18n_default_locale: str | None = None,
     i18n_extra_sources: list[tuple[str, str, Path]] | None = None,
     database_dialect: str | None = None,
+    i18n_unknown_overrides: dict[str, list[str]] | None = None,
 ) -> list[Diagnostic]:
     """Convenience function to run all diagnostics.
 
@@ -42,6 +43,7 @@ def run_diagnostics(
     host/ui locale dirs that aren't owned by a ``ModuleBase``.
     ``database_dialect`` (``"sqlite"``, ``"postgresql"``...) enables SM026, which
     flags expression indexes a SQLite database cannot verify.
+    ``i18n_unknown_overrides`` (``I18nRegistry.unknown_override_keys``) enables SM027.
     """
     diagnostics = ModuleDiagnostics().run(modules)
 
@@ -63,6 +65,11 @@ def run_diagnostics(
                 extra_sources=i18n_extra_sources,
             ).run(modules)
         )
+
+    if i18n_unknown_overrides:
+        from simple_module_core.diagnostics._i18n import check_unknown_overrides
+
+        diagnostics.extend(check_unknown_overrides(i18n_unknown_overrides))
 
     if migration_state is not None:
         migration_diag = MigrationDiagnostics()

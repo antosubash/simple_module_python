@@ -15,6 +15,8 @@ _SCOPE_HTTP = "http"
 
 TENANT_HEADER = "X-Tenant-ID"
 
+_CREDENTIAL_VARY = ("Cookie", "Authorization")
+
 
 @dataclass(frozen=True, slots=True)
 class TenantResolution:
@@ -48,6 +50,10 @@ report the source and the headers consulted."""
 
 def _normalise(result: object) -> TenantResolution:
     if isinstance(result, TenantResolution):
+        # No tenant, no source (#424) — whatever the resolver said. The vary
+        # names stay: the header's absence was an input too.
+        if result.tenant_id is None and result.source is not None:
+            return TenantResolution(None, None, result.vary)
         return result
     if isinstance(result, tuple):
         tenant_id, source = result[0], (result[1] if len(result) > 1 else None)
@@ -55,17 +61,26 @@ def _normalise(result: object) -> TenantResolution:
     return TenantResolution(result, "resolver" if result is not None else None)  # type: ignore[arg-type]
 
 
+def _tokens(value: str) -> list[str]:
+    return [v.strip() for v in value.split(",") if v.strip()]
+
+
 def merge_vary(existing: str | None, names: tuple[str, ...]) -> str | None:
-    """``existing`` with ``names`` appended, case-insensitively de-duplicated."""
-    present = [v.strip() for v in (existing or "").split(",") if v.strip()]
+    """``existing`` plus ``names``, de-duplicated case-insensitively (first spelling wins).
+
+    ``*`` anywhere in ``existing`` returns it unchanged: the response is
+    already uncacheable, and a finite list would make it cacheable.
+    """
+    present = _tokens(existing or "")
     if "*" in present:
         return existing
-    seen = {v.lower() for v in present}
-    for name in names:
+    out: list[str] = []
+    seen: set[str] = set()
+    for name in (*present, *names):
         if name.lower() not in seen:
-            present.append(name)
+            out.append(name)
             seen.add(name.lower())
-    return ", ".join(present) if present else None
+    return ", ".join(out) if out else None
 
 
 class TenantMiddleware:
@@ -78,7 +93,8 @@ class TenantMiddleware:
     Also stores the resolved value on ``request.state.tenant_id`` and where it
     came from on ``request.state.tenant_source`` (``fixed``, ``subdomain``,
     ``header``, ``session``, ``claim``, ``anon_header``, ``resolver`` or ``None``).
-    Headers the answer depended on are added to the response ``Vary``.
+    Headers the answer depended on are added to the response ``Vary`` and
+    recorded as ``request.state.tenant_vary`` (a tuple of header names).
 
     Resolution:
 
@@ -111,6 +127,7 @@ class TenantMiddleware:
         tenant_id = resolution.tenant_id
         request.state.tenant_id = tenant_id
         request.state.tenant_source = resolution.source
+        request.state.tenant_vary = resolution.vary
 
         send = self._vary_sender(send, resolution.vary)
         if tenant_id is not None:
@@ -131,8 +148,13 @@ class TenantMiddleware:
         async def wrapped(message: MutableMapping[str, Any]) -> None:
             if message["type"] == "http.response.start":
                 headers = MutableHeaders(scope=message)
-                merged = merge_vary(headers.get("vary"), vary)
-                if merged is not None:
+                lines = headers.getlist("vary")
+                # Every line, not just the first (#423): MutableHeaders.get
+                # reads one, and assigning drops the rest — including a
+                # ``Vary: *`` on a later line.
+                if not any("*" in _tokens(line) for line in lines):
+                    merged = merge_vary(", ".join(lines), vary)
+                    del headers["vary"]
                     headers["vary"] = merged
             await send(message)
 
@@ -151,7 +173,9 @@ class TenantMiddleware:
         user = getattr(request.state, "user", None)
         if user is not None:
             claim = getattr(user, "tenant_id", None)
-            return TenantResolution(claim, "claim" if claim is not None else None)
+            # The claim came from whichever credential authenticated the
+            # request, so the answer varies with it (#418).
+            return TenantResolution(claim, "claim" if claim is not None else None, _CREDENTIAL_VARY)
 
         if self.header:
             value = Headers(scope=scope).get(self.header)

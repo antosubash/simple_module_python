@@ -35,6 +35,7 @@ def run_dev_boot(
     installed_modules: list[ModuleBase],
     *,
     i18n_extra,
+    i18n_unknown_overrides: dict[str, list[str]] | None = None,
     diagnostics_state: DiagnosticsState,
     project_root: Path,
 ) -> None:
@@ -54,6 +55,7 @@ def run_dev_boot(
         i18n_supported_locales=settings.i18n_supported_locales,
         i18n_default_locale=settings.i18n_default_locale,
         i18n_extra_sources=i18n_extra,
+        i18n_unknown_overrides=i18n_unknown_overrides,
         database_dialect=settings.database_url.split(":", 1)[0].split("+", 1)[0],
     )
     diagnostics = diagnostics_state.rerun()

@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from simple_module_core.invalidation import InvalidationBus
+from simple_module_core.tenancy import TenancyMode
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -100,3 +101,6 @@ class Services:
     #: Defaulted so an app built outside ``create_app`` still has a holder to
     #: read; that one simply reports the checks as unsupported.
     diagnostics: DiagnosticsState = field(default_factory=DiagnosticsState)
+    #: How the host scopes requests (#418), recorded where ``create_app``
+    #: decides on ``TenantMiddleware``. Defaulted for apps built outside it.
+    tenancy: TenancyMode = TenancyMode.SINGLE

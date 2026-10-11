@@ -1,10 +1,15 @@
-"""TenantMiddleware records where the tenant came from and merges ``Vary``."""
+"""TenantMiddleware records where the tenant came from and merges ``Vary``.
+
+Also: every Vary line is merged (#423); no tenant bound means no source (#424).
+"""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from types import SimpleNamespace
 
 import pytest
+from simple_module_hosting._tenant import merge_vary
 from simple_module_hosting.middleware import TenantMiddleware, TenantResolution
 
 
@@ -26,14 +31,17 @@ async def _receive():  # pragma: no cover
     return {"type": "http.request", "body": b"", "more_body": False}
 
 
-async def _run(mw_kwargs, scope, vary_header: bytes | None = None):
+async def _run(mw_kwargs, scope, vary_lines: Sequence[bytes] = ()):
     sent: list[dict] = []
 
     async def inner(scope, receive, send):
-        start = {"type": "http.response.start", "status": 200, "headers": []}
-        if vary_header is not None:
-            start["headers"].append((b"vary", vary_header))
-        await send(start)
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [(b"vary", v) for v in vary_lines],
+            }
+        )
 
     async def send(message):
         sent.append(message)
@@ -100,7 +108,7 @@ async def test_resolver_vary_is_merged_not_clobbered():
     async def resolver(request):
         return TenantResolution("acme", "header", ("Host", "X-Tenant-ID"))
 
-    _, vary = await _run({}, _scope(resolver=resolver), vary_header=b"Accept-Encoding, host")
+    _, vary = await _run({}, _scope(resolver=resolver), vary_lines=[b"Accept-Encoding, host"])
     assert vary == ["Accept-Encoding, host, X-Tenant-ID"]  # Host already present
 
 
@@ -108,5 +116,56 @@ async def test_vary_star_is_left_alone():
     async def resolver(request):
         return TenantResolution("acme", "header", ("X-Tenant-ID",))
 
-    _, vary = await _run({}, _scope(resolver=resolver), vary_header=b"*")
+    _, vary = await _run({}, _scope(resolver=resolver), vary_lines=[b"*"])
     assert vary == ["*"]
+
+
+def _resolver(result):
+    async def resolve(_request):
+        return result
+
+    return resolve
+
+
+async def test_every_vary_line_is_merged_into_one():
+    _, vary = await _run(
+        {},
+        _scope(resolver=_resolver(TenantResolution("acme", "header", ("Host",)))),
+        [b"Accept", b"Accept-Language"],
+    )
+    assert vary == ["Accept, Accept-Language, Host"]
+
+
+async def test_a_wildcard_on_any_line_leaves_the_response_untouched():
+    _, vary = await _run(
+        {},
+        _scope(resolver=_resolver(TenantResolution("acme", "header", ("Host",)))),
+        [b"Accept", b"*"],
+    )
+    assert vary == ["Accept", "*"]
+
+
+def test_existing_duplicates_are_collapsed_case_insensitively():
+    assert merge_vary("Accept, accept", ("Host",)) == "Accept, Host"
+
+
+async def test_no_tenant_means_no_source_but_vary_is_kept():
+    state, vary = await _run(
+        {}, _scope(resolver=_resolver(TenantResolution(None, "header", ("X-Tenant-ID",))))
+    )
+    assert state["tenant_id"] is None
+    assert state["tenant_source"] is None
+    assert vary == ["X-Tenant-ID"]
+
+
+async def test_resolution_vary_is_recorded_on_request_state():
+    state, _ = await _run(
+        {}, _scope(resolver=_resolver(TenantResolution("acme", "subdomain", ("Host",))))
+    )
+    assert state["tenant_vary"] == ("Host",)
+
+
+async def test_claim_source_varies_on_the_credential_headers():
+    state, vary = await _run({}, _scope(user=SimpleNamespace(tenant_id="acme")))
+    assert state["tenant_source"] == "claim"
+    assert vary == ["Cookie, Authorization"]

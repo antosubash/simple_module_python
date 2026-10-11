@@ -117,10 +117,10 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
           card for the fields alone. */}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight">
+          <h2 className="font-display text-2xl font-bold tracking-tight">
             <code className="font-mono text-[22px]">{m.package}</code>{' '}
             {t(keys.settings.modules.heading_suffix)}
-          </h1>
+          </h2>
           <p className="mt-1.5 text-sm text-muted-foreground">
             {t(keys.settings.modules.description)}
           </p>
@@ -148,7 +148,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
         <div className="flex flex-col gap-4">
           {groups.map(([group, fields]) => (
             <section key={group} className="flex flex-col gap-4">
-              {group && <h2 className="text-sm font-semibold text-muted-foreground">{group}</h2>}
+              {group && <h3 className="text-sm font-semibold text-muted-foreground">{group}</h3>}
               {fields.map((f) => (
                 <ModuleFieldRow
                   key={f.name}

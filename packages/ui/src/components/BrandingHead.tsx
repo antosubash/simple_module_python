@@ -9,7 +9,9 @@ import type { SharedProps } from '../types';
  *
  * - the favicon `<link>` when a custom favicon is set,
  * - the primary brand colour — derived into the full `--color-primary-*` ramp
- *   (plus base `--primary` / `--sidebar-primary`) and written as inline CSS
+ *   (plus base `--primary` / `--sidebar-primary`, and the matching
+ *   `--primary-foreground` / `--sidebar-primary-foreground` ink chosen by WCAG
+ *   contrast) and written as inline CSS
  *   variables on `:root`. Inline wins over the stylesheet's `:root`/`.dark`
  *   rules, so every Tailwind `primary` utility — solid buttons *and* the
  *   `primary-600/700/800` gradient tints used by the brand badge — follows the

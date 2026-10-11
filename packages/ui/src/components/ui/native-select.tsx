@@ -2,14 +2,26 @@ import { cn } from '@simple-module-py/ui/lib/utils';
 import { ChevronDownIcon } from 'lucide-react';
 import type * as React from 'react';
 
+/**
+ * `className` styles the `<select>`. Width utilities belong on
+ * `wrapperClassName`: the select is `w-full` of a `w-fit` wrapper, so a width
+ * on the select alone cannot widen it (#421).
+ */
 function NativeSelect({
   className,
+  wrapperClassName,
   size = 'default',
   ...props
-}: Omit<React.ComponentProps<'select'>, 'size'> & { size?: 'sm' | 'default' }) {
+}: Omit<React.ComponentProps<'select'>, 'size'> & {
+  size?: 'sm' | 'default';
+  wrapperClassName?: string;
+}) {
   return (
     <div
-      className="group/native-select relative w-fit has-[select:disabled]:opacity-50"
+      className={cn(
+        'group/native-select relative w-fit has-[select:disabled]:opacity-50',
+        wrapperClassName,
+      )}
       data-slot="native-select-wrapper"
     >
       <select
