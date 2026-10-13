@@ -39,7 +39,7 @@ def comment_out_env_key(text: str, key: str) -> str:
 
 def write_local_env(
     target: Path, *, secret_keys: Iterable[str], overrides: dict[str, str] | None = None
-) -> Path:
+) -> None:
     """Write ``target/.env`` from ``.env.example`` plus generated secrets.
 
     ``secret_keys`` get a fresh random value each; ``overrides`` are written
@@ -60,4 +60,3 @@ def write_local_env(
         else:
             text = set_env_key(text, key, value)
     env_path.write_text(text, encoding="utf-8")
-    return env_path

@@ -108,10 +108,10 @@ def create_host(
 def _echo_workspace_hint(target: Path, package: str) -> None:
     """Tell the user how to wire a workspace-member module into the host (GH #442)."""
     root = find_workspace_root(target.parent)
-    host = root / "host" if root else None
-    if root is None or host is None or not (host / "pyproject.toml").is_file():
+    if root is None:
         return
-    if not is_workspace_member(host, target):
+    host = root / "host"
+    if not (host / "pyproject.toml").is_file() or not is_workspace_member(host, target):
         return
     rel = os.path.relpath(target.resolve(), host.resolve())
     host_arg = os.path.relpath(host.resolve(), Path.cwd())
