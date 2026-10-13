@@ -23,7 +23,7 @@ def _noop(cmd: list[str], cwd: Path) -> int:
 def _write_module(root: Path) -> None:
     (root / DIST).mkdir(parents=True)
     (root / "pyproject.toml").write_text(
-        f'[project]\nname = "{DIST.replace("_", "-")}"\nversion = "0.1.0"\n'
+        f'[project]\nname = "{DEP}"\nversion = "0.1.0"\n'
         f'[project.entry-points.simple_module]\n{DIST} = "{DIST}.module:M"\n',
         encoding="utf-8",
     )
@@ -31,6 +31,10 @@ def _write_module(root: Path) -> None:
 
 def _host_data(workspace: Path) -> dict:
     return tomllib.loads((workspace / "host" / "pyproject.toml").read_text(encoding="utf-8"))
+
+
+def _add(workspace: Path, spec: str) -> None:
+    run_add(spec, pyproject=workspace / "host" / "pyproject.toml", no_sync=True, exec_runner=_noop)
 
 
 @pytest.fixture
@@ -43,12 +47,7 @@ def workspace(tmp_path: Path) -> Path:
 
 def test_workspace_member_gets_workspace_source_and_unpinned_dep(workspace: Path) -> None:
     _write_module(workspace / "modules" / "forest_plots")
-    run_add(
-        "../modules/forest_plots",
-        pyproject=workspace / "host" / "pyproject.toml",
-        no_sync=True,
-        exec_runner=_noop,
-    )
+    _add(workspace, "../modules/forest_plots")
     data = _host_data(workspace)
     assert data["project"]["dependencies"] == [DEP]
     assert data["tool"]["uv"]["sources"][DEP] == {"workspace": True}
@@ -56,12 +55,7 @@ def test_workspace_member_gets_workspace_source_and_unpinned_dep(workspace: Path
 
 def test_excluded_workspace_dir_keeps_path_source(workspace: Path) -> None:
     _write_module(workspace / "modules" / "skipped")
-    run_add(
-        "../modules/skipped",
-        pyproject=workspace / "host" / "pyproject.toml",
-        no_sync=True,
-        exec_runner=_noop,
-    )
+    _add(workspace, "../modules/skipped")
     data = _host_data(workspace)
     assert data["tool"]["uv"]["sources"][DEP] == {"path": "../modules/skipped", "editable": True}
     assert data["project"]["dependencies"] == [f"{DEP}>=0.1.0,<1.0"]
@@ -78,12 +72,7 @@ def test_cwd_relative_path_falls_back_and_is_rewritten(
 ) -> None:
     _write_module(workspace / "modules" / "forest_plots")
     monkeypatch.chdir(workspace)
-    run_add(
-        "./modules/forest_plots",
-        pyproject=workspace / "host" / "pyproject.toml",
-        no_sync=True,
-        exec_runner=_noop,
-    )
+    _add(workspace, "./modules/forest_plots")
     assert _host_data(workspace)["tool"]["uv"]["sources"][DEP] == {"workspace": True}
 
 

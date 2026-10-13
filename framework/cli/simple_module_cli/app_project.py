@@ -174,14 +174,12 @@ def create_app_project(
         # The compose `postgres` service takes its password from .env, and
         # the dev SM_DATABASE_URL must match it (GH #444).
         env_text = set_env_key(env_text, "POSTGRES_PASSWORD", "")
-        env_text = set_env_key(env_text, "SM_DATABASE_URL", _db_url(db, db_name, flat=flat))
         password = _secrets.token_urlsafe(24)
         local_overrides = {
             "POSTGRES_PASSWORD": password,
             "SM_DATABASE_URL": _db_url(db, db_name, flat=flat, password=password),
         }
-    else:
-        env_text = set_env_key(env_text, "SM_DATABASE_URL", _db_url(db, db_name, flat=flat))
+    env_text = set_env_key(env_text, "SM_DATABASE_URL", _db_url(db, db_name, flat=flat))
     env_text = set_env_key(env_text, "SM_MULTI_TENANT", "true" if tenancy else "false")
     env_path.write_text(env_text, encoding="utf-8")
 

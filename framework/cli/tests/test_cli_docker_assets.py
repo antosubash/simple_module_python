@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from simple_module_cli._env import env_values
 from simple_module_cli.app_project import create_app_project
 
 
@@ -77,11 +78,7 @@ def test_postgres_compose_has_no_default_password_or_public_port(tmp_path: Path)
 def test_postgres_scaffold_env_matches_compose_password(tmp_path: Path) -> None:
     target = tmp_path / "demo"
     _create(target, db="postgres")
-    env = dict(
-        ln.split("=", 1)
-        for ln in (target / ".env").read_text().splitlines()
-        if "=" in ln and ln[0] != "#"
-    )
+    env = env_values((target / ".env").read_text())
     password = env["POSTGRES_PASSWORD"]
     assert len(password) >= 20
     assert (

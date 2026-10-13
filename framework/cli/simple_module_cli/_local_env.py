@@ -12,7 +12,7 @@ import secrets
 from collections.abc import Iterable
 from pathlib import Path
 
-from simple_module_cli._env import set_env_key
+from simple_module_cli._env import env_values, set_env_key
 
 __all__ = ["comment_out_env_key", "write_local_env"]
 
@@ -49,7 +49,7 @@ def write_local_env(
     existing = env_path.exists()
     source = env_path if existing else target / ".env.example"
     text = source.read_text(encoding="utf-8") if source.exists() else ""
-    defined = {ln.split("=", 1)[0] for ln in text.splitlines() if "=" in ln and ln[:1] != "#"}
+    defined = env_values(text).keys()
     values = {key: secrets.token_urlsafe(32) for key in secret_keys} | (overrides or {})
     for key, value in values.items():
         if existing and key in defined:

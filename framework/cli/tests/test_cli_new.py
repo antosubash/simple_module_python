@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from simple_module_cli._env import env_values
+from simple_module_cli._local_env import write_local_env
 from simple_module_cli.cli import app
 from typer.testing import CliRunner
 
@@ -64,11 +66,6 @@ _SECRET_KEYS = (
 )
 
 
-def _env_values(path: Path) -> dict[str, str]:
-    lines = path.read_text().splitlines()
-    return dict(ln.split("=", 1) for ln in lines if "=" in ln and not ln.startswith("#"))
-
-
 def test_sm_new_writes_generated_secrets_to_gitignored_env(tmp_path: Path) -> None:
     # GH #441: the committed .env.example must not carry real secrets. The
     # users token secrets are needed because UsersSettings refuses its
@@ -79,9 +76,9 @@ def test_sm_new_writes_generated_secrets_to_gitignored_env(tmp_path: Path) -> No
         app,
         ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
-    env = _env_values(target / ".env")
+    env = env_values((target / ".env").read_text())
     example_text = (target / ".env.example").read_text()
-    example = _env_values(target / ".env.example")
+    example = env_values((target / ".env.example").read_text())
     for key in _SECRET_KEYS:
         assert len(env[key]) >= 20
         assert env[key] not in example_text
@@ -93,12 +90,10 @@ def test_sm_new_writes_generated_secrets_to_gitignored_env(tmp_path: Path) -> No
 
 
 def test_sm_new_keeps_an_existing_env(tmp_path: Path) -> None:
-    from simple_module_cli._local_env import write_local_env
-
     (tmp_path / ".env.example").write_text("A=1\nSM_SECRET_KEY=\n")
     (tmp_path / ".env").write_text("SM_SECRET_KEY=mine\n")
     write_local_env(tmp_path, secret_keys=["SM_SECRET_KEY", "OTHER"])
-    env = _env_values(tmp_path / ".env")
+    env = env_values((tmp_path / ".env").read_text())
     assert env["SM_SECRET_KEY"] == "mine"
     assert len(env["OTHER"]) >= 20
 

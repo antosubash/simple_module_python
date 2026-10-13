@@ -91,6 +91,15 @@ def _uv_sources(doc: tomlkit.TOMLDocument) -> Table:
     return uv.setdefault("sources", tomlkit.table())
 
 
+def _set_source(doc: tomlkit.TOMLDocument, dist_name: str, src: Any) -> bool:
+    """Write ``src`` under ``[tool.uv.sources]``; False when already identical."""
+    sources = _uv_sources(doc)
+    if dist_name in sources and dict(sources[dist_name]) == dict(src):
+        return False
+    sources[dist_name] = src
+    return True
+
+
 def write_git_source(
     doc: tomlkit.TOMLDocument,
     dist_name: str,
@@ -105,33 +114,21 @@ def write_git_source(
         src[ref_info.kind] = ref_info.value
     if subdirectory:
         src["subdirectory"] = subdirectory
-    sources = _uv_sources(doc)
-    if dist_name in sources and dict(sources[dist_name]) == dict(src):
-        return False
-    sources[dist_name] = src
-    return True
+    return _set_source(doc, dist_name, src)
 
 
 def write_path_source(doc: tomlkit.TOMLDocument, dist_name: str, *, path: str) -> bool:
     src = tomlkit.inline_table()
     src["path"] = path
     src["editable"] = True
-    sources = _uv_sources(doc)
-    if dist_name in sources and dict(sources[dist_name]) == dict(src):
-        return False
-    sources[dist_name] = src
-    return True
+    return _set_source(doc, dist_name, src)
 
 
 def write_workspace_source(doc: tomlkit.TOMLDocument, dist_name: str) -> bool:
     """``dist = { workspace = true }`` — required for uv workspace members."""
     src = tomlkit.inline_table()
     src["workspace"] = True
-    sources = _uv_sources(doc)
-    if dist_name in sources and dict(sources[dist_name]) == dict(src):
-        return False
-    sources[dist_name] = src
-    return True
+    return _set_source(doc, dist_name, src)
 
 
 def _sources_dict(doc: tomlkit.TOMLDocument) -> dict[str, Any]:
