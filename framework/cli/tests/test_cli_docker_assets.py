@@ -53,10 +53,44 @@ def test_postgres_scaffold_compose_ships_postgres(tmp_path: Path) -> None:
     target = tmp_path / "demo"
     _create(target, db="postgres")
     compose = (target / "docker-compose.yml").read_text()
-    assert 'POSTGRES_DB: "demo-app"' in compose
-    assert "postgresql+asyncpg://postgres:postgres@postgres:5432/demo-app" in compose
+    # snake_case: a kebab DB name needs quoting in every psql call (GH #443).
+    assert 'POSTGRES_DB: "demo_app"' in compose
+    assert "@postgres:5432/demo_app" in compose
     assert "pgdata:" in compose
     assert "sqlite" not in compose
+
+
+def test_postgres_compose_has_no_default_password_or_public_port(tmp_path: Path) -> None:
+    # GH #444: the containers run in production mode, so the DB must not be
+    # reachable from the network with a well-known superuser password.
+    target = tmp_path / "demo"
+    _create(target, db="postgres", selected=["users", "background_tasks"])
+    compose = (target / "docker-compose.yml").read_text()
+    assert "postgres:postgres" not in compose
+    assert "POSTGRES_PASSWORD: postgres" not in compose
+    assert '"5432:5432"' not in compose
+    assert '"6379:6379"' not in compose
+    assert '"127.0.0.1:5432:5432"' in compose
+    assert compose.count("${POSTGRES_PASSWORD:?") == 4  # postgres, app, worker, beat
+
+
+def test_postgres_scaffold_env_matches_compose_password(tmp_path: Path) -> None:
+    target = tmp_path / "demo"
+    _create(target, db="postgres")
+    env = dict(
+        ln.split("=", 1)
+        for ln in (target / ".env").read_text().splitlines()
+        if "=" in ln and ln[0] != "#"
+    )
+    password = env["POSTGRES_PASSWORD"]
+    assert len(password) >= 20
+    assert (
+        env["SM_DATABASE_URL"]
+        == f"postgresql+asyncpg://postgres:{password}@localhost:5432/demo_app"
+    )
+    example = (target / ".env.example").read_text()
+    assert password not in example
+    assert "POSTGRES_PASSWORD=\n" in example
 
 
 def test_compose_containers_run_production_env(tmp_path: Path) -> None:

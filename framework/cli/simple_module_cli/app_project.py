@@ -20,7 +20,8 @@ from pathlib import Path
 from typing import Any
 
 from simple_module_cli._env import set_env_key
-from simple_module_cli.case import to_kebab_case, to_pascal_case
+from simple_module_cli._local_env import comment_out_env_key, write_local_env
+from simple_module_cli.case import to_kebab_case, to_pascal_case, to_snake_case
 from simple_module_cli.catalog import CATALOG, PRESETS, expand_deps
 from simple_module_cli.docker_assets import scaffold_docker_assets
 from simple_module_cli.recipes import RECIPES, ScaffoldCtx
@@ -52,6 +53,8 @@ _APP_PY_DEV_DEPS = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "pytest-playwright>=0.7.2",
+    # Floor: unpinned, uv backtracks playwright to 1.18 (GH #445).
+    "playwright>=1.45",
     "ruff>=0.8",
     "ty>=0.0.29",
 ]
@@ -150,19 +153,35 @@ def create_app_project(
         py_deps.append(_SAMPLE_MODULE_PKG)
         workspace_sources.append(_SAMPLE_MODULE_PKG)
 
-    env_path = target / ".env.example"
-    env_text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
-    env_text = set_env_key(env_text, "SM_SECRET_KEY", _secrets.token_urlsafe(32))
+    # Generated secrets go to the gitignored .env, never the committed
+    # .env.example (GH #441) — see write_local_env below.
+    secret_keys = ["SM_SECRET_KEY"]
     if "users" in resolved:
         # UsersSettings refuses its placeholder token secrets when
         # SM_ENVIRONMENT=production — the mode the compose containers run
-        # in — so generate real ones, same as SM_SECRET_KEY above.
-        for key in (
+        # in — so generate real ones, same as SM_SECRET_KEY.
+        secret_keys += [
             "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",
             "SM_USERS_VERIFICATION_TOKEN_SECRET",
-        ):
-            env_text = set_env_key(env_text, key, _secrets.token_urlsafe(32))
-    env_text = set_env_key(env_text, "SM_DATABASE_URL", _db_url(db, to_kebab_case(name), flat=flat))
+        ]
+    db_name = to_snake_case(name)
+    env_path = target / ".env.example"
+    env_text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
+    for key in secret_keys:
+        env_text = comment_out_env_key(env_text, key)
+    local_overrides: dict[str, str] = {}
+    if db == "postgres":
+        # The compose `postgres` service takes its password from .env, and
+        # the dev SM_DATABASE_URL must match it (GH #444).
+        env_text = set_env_key(env_text, "POSTGRES_PASSWORD", "")
+        env_text = set_env_key(env_text, "SM_DATABASE_URL", _db_url(db, db_name, flat=flat))
+        password = _secrets.token_urlsafe(24)
+        local_overrides = {
+            "POSTGRES_PASSWORD": password,
+            "SM_DATABASE_URL": _db_url(db, db_name, flat=flat, password=password),
+        }
+    else:
+        env_text = set_env_key(env_text, "SM_DATABASE_URL", _db_url(db, db_name, flat=flat))
     env_text = set_env_key(env_text, "SM_MULTI_TENANT", "true" if tenancy else "false")
     env_path.write_text(env_text, encoding="utf-8")
 
@@ -198,6 +217,8 @@ def create_app_project(
             RECIPES[recipe_key].apply(target, ctx)
 
     scaffold_docker_assets(target, ctx, flat=flat)
+    # Last, so .env picks up every key the recipes added to .env.example.
+    write_local_env(target, secret_keys=secret_keys, overrides=local_overrides)
 
     return host_dir, preserved
 
@@ -234,9 +255,9 @@ def _seed_static_dist_placeholder(static_dist: Path) -> None:
     (static_dist / ".gitkeep").touch()
 
 
-def _db_url(db: str, slug: str, *, flat: bool) -> str:
+def _db_url(db: str, db_name: str, *, flat: bool, password: str = "<POSTGRES_PASSWORD>") -> str:
     if db == "postgres":
-        return f"postgresql+asyncpg://postgres:postgres@localhost:5432/{slug}"
+        return f"postgresql+asyncpg://postgres:{password}@localhost:5432/{db_name}"
     # Workspace mode keeps the SQLite file next to host/'s alembic.ini so
     # `cd host && uvicorn` and `cd host && alembic` resolve the same path.
     return "sqlite+aiosqlite:///./app.db" if flat else "sqlite+aiosqlite:///./host/app.db"

@@ -24,6 +24,7 @@ __all__ = [
     "write_dependency",
     "write_git_source",
     "write_path_source",
+    "write_workspace_source",
 ]
 
 
@@ -115,6 +116,17 @@ def write_path_source(doc: tomlkit.TOMLDocument, dist_name: str, *, path: str) -
     src = tomlkit.inline_table()
     src["path"] = path
     src["editable"] = True
+    sources = _uv_sources(doc)
+    if dist_name in sources and dict(sources[dist_name]) == dict(src):
+        return False
+    sources[dist_name] = src
+    return True
+
+
+def write_workspace_source(doc: tomlkit.TOMLDocument, dist_name: str) -> bool:
+    """``dist = { workspace = true }`` — required for uv workspace members."""
+    src = tomlkit.inline_table()
+    src["workspace"] = True
     sources = _uv_sources(doc)
     if dist_name in sources and dict(sources[dist_name]) == dict(src):
         return False

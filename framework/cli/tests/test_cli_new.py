@@ -57,33 +57,50 @@ def test_sm_new_pins_client_app_simple_module_deps_to_framework_version(tmp_path
         )
 
 
-def test_sm_new_writes_generated_secret_key(tmp_path: Path) -> None:
+_SECRET_KEYS = (
+    "SM_SECRET_KEY",
+    "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",
+    "SM_USERS_VERIFICATION_TOKEN_SECRET",
+)
+
+
+def _env_values(path: Path) -> dict[str, str]:
+    lines = path.read_text().splitlines()
+    return dict(ln.split("=", 1) for ln in lines if "=" in ln and not ln.startswith("#"))
+
+
+def test_sm_new_writes_generated_secrets_to_gitignored_env(tmp_path: Path) -> None:
+    # GH #441: the committed .env.example must not carry real secrets. The
+    # users token secrets are needed because UsersSettings refuses its
+    # placeholders in production, the mode the compose containers boot in.
     runner = CliRunner()
     target = tmp_path / "my-app"
     runner.invoke(
         app,
         ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
-    env_text = (target / ".env.example").read_text()
-    assert "SM_SECRET_KEY=" in env_text
-    assert "CHANGE-ME" not in env_text
-    secret_line = next(ln for ln in env_text.splitlines() if ln.startswith("SM_SECRET_KEY="))
-    assert len(secret_line.split("=", 1)[1]) >= 20
+    env = _env_values(target / ".env")
+    example_text = (target / ".env.example").read_text()
+    example = _env_values(target / ".env.example")
+    for key in _SECRET_KEYS:
+        assert len(env[key]) >= 20
+        assert env[key] not in example_text
+        assert key not in example
+        assert f"# {key}=" in example_text
+    assert ".env" in (target / ".gitignore").read_text().splitlines()
+    # Non-secret settings stay in step between the two files.
+    assert env["SM_DATABASE_URL"] == example["SM_DATABASE_URL"]
 
 
-def test_sm_new_writes_generated_users_token_secrets(tmp_path: Path) -> None:
-    # UsersSettings refuses its placeholder token secrets in production —
-    # the mode the scaffold's compose containers boot in.
-    runner = CliRunner()
-    target = tmp_path / "my-app"
-    runner.invoke(
-        app,
-        ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
-    )
-    env_text = (target / ".env.example").read_text()
-    for key in ("SM_USERS_RESET_PASSWORD_TOKEN_SECRET", "SM_USERS_VERIFICATION_TOKEN_SECRET"):
-        line = next(ln for ln in env_text.splitlines() if ln.startswith(f"{key}="))
-        assert len(line.split("=", 1)[1]) >= 20
+def test_sm_new_keeps_an_existing_env(tmp_path: Path) -> None:
+    from simple_module_cli._local_env import write_local_env
+
+    (tmp_path / ".env.example").write_text("A=1\nSM_SECRET_KEY=\n")
+    (tmp_path / ".env").write_text("SM_SECRET_KEY=mine\n")
+    write_local_env(tmp_path, secret_keys=["SM_SECRET_KEY", "OTHER"])
+    env = _env_values(tmp_path / ".env")
+    assert env["SM_SECRET_KEY"] == "mine"
+    assert len(env["OTHER"]) >= 20
 
 
 def test_create_app_project_with_selected_kwarg(tmp_path: Path) -> None:
