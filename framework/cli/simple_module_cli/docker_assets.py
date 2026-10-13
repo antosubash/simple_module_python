@@ -19,7 +19,7 @@ import importlib.resources
 import shutil
 from pathlib import Path
 
-from simple_module_cli.case import to_kebab_case
+from simple_module_cli.case import to_snake_case
 from simple_module_cli.recipes import ScaffoldCtx
 
 __all__ = ["scaffold_docker_assets"]
@@ -70,7 +70,8 @@ def scaffold_docker_assets(target: Path, ctx: ScaffoldCtx, *, flat: bool = False
     # compiles to DEFAULT 0 on SQLite, which Postgres rejects), so pointing
     # a sqlite-scaffolded app at a Postgres container fails on first boot.
     db = "postgres" if ctx.db == "postgres" else "sqlite"
-    pg_db = to_kebab_case(ctx.name)
+    # snake_case: a kebab name needs quoting in every psql call (GH #443).
+    pg_db = to_snake_case(ctx.name)
     with_tasks = "background_tasks" in ctx.selected
     compose = (
         _read(templates / f"compose-base-{db}.yml.tpl")

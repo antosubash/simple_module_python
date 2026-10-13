@@ -76,7 +76,7 @@ Hit `http://localhost:8000`. You should see the landing page.
 
 ## Database choice
 
-`smpy new` writes a `.env.example`. The default is SQLite (zero setup):
+`smpy new` writes a committed `.env.example` (placeholders only) and a gitignored `.env` holding the generated secrets. The default is SQLite (zero setup):
 
 ```bash
 SM_DATABASE_URL=sqlite+aiosqlite:///./app.db
@@ -85,10 +85,13 @@ SM_DATABASE_URL=sqlite+aiosqlite:///./app.db
 For Postgres, scaffold with `--db postgres` (or pick Postgres in the wizard) and `smpy new` writes a matching `SM_DATABASE_URL`:
 
 ```bash
-SM_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/myapp
+POSTGRES_PASSWORD=<generated>
+SM_DATABASE_URL=postgresql+asyncpg://postgres:<generated>@localhost:5432/my_app
 ```
 
-Every scaffold ships a `docker-compose.yml` that matches your `--db` choice (a migration history is dialect-frozen at autogenerate time, so containers must run the same database the migrations were generated against). With `--db postgres` it brings up `postgres` (db named after your app, user `postgres`/`postgres`) on `:5432` and the `app` service; the default SQLite scaffold runs the `app` container alone with the database on a named volume. Including the `background_tasks` module adds `redis` on `:6379` plus `worker`/`beat` services that reuse the app image. With `--db postgres`, the container also doubles as a local dev database:
+The database name is the snake_case app name. `POSTGRES_PASSWORD` is shared with the compose `postgres` service below.
+
+Every scaffold ships a `docker-compose.yml` that matches your `--db` choice (a migration history is dialect-frozen at autogenerate time, so containers must run the same database the migrations were generated against). With `--db postgres` it brings up `postgres` (db named after your app, user `postgres`, password from `POSTGRES_PASSWORD` in `.env`) on `127.0.0.1:5432` and the `app` service; the default SQLite scaffold runs the `app` container alone with the database on a named volume. Including the `background_tasks` module adds `redis` on `127.0.0.1:6379` plus `worker`/`beat` services that reuse the app image. With `--db postgres`, the container also doubles as a local dev database:
 
 ```bash
 docker compose up -d postgres

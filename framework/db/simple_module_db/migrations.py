@@ -232,8 +232,10 @@ def _inject_drop_index_before_drop_table(downgrade_ops, expression_indexes) -> N
 def render_item(type_, obj, autogen_context):
     """Alembic ``render_item`` callback for SQLModel + extension types.
 
-    * Collapses SQLModel's ``AutoString`` to ``sa.String`` so migrations don't
-      need to ``import sqlmodel``.
+    * Collapses SQLModel's ``AutoString`` to ``sa.String`` and ``UTCDateTime``
+      to ``sa.DateTime(timezone=True)`` so migrations don't need to
+      ``import sqlmodel`` (GH #440). Any other ``sqlmodel`` type still gets
+      the import added, so the migration stays importable.
     * Renders Python ``StrEnum`` columns with ``values_callable`` so the
       Postgres enum labels match the lowercase ``StrEnum`` values rather than
       SQLAlchemy's default of using uppercase attribute names. This means raw
@@ -257,6 +259,11 @@ def render_item(type_, obj, autogen_context):
     if cls_name == "AutoString":
         length = getattr(obj, "length", None)
         return f"sa.String(length={length})" if length is not None else "sa.String()"
+    if cls_name == "UTCDateTime" and cls_module.startswith("sqlmodel"):
+        return "sa.DateTime(timezone=True)"
+
+    if imports is not None and cls_module.startswith("sqlmodel"):
+        imports.add("import sqlmodel")
 
     if imports is not None and cls_module.startswith("fastapi_users_db_sqlalchemy"):
         imports.add("import fastapi_users_db_sqlalchemy.generics")

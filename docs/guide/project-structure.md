@@ -6,7 +6,8 @@
 myapp/
 ├── pyproject.toml             # uv workspace root (members: host, modules/*) — not itself installed
 ├── package.json               # npm workspace root (host/client_app, modules/*)
-├── .env.example               # default env vars; copy to .env
+├── .env.example               # committed template, no secrets
+├── .env                       # generated secrets (gitignored)
 ├── Makefile                   # thin wrapper: install / dev / migrate / build / gen-pages
 ├── README.md
 │

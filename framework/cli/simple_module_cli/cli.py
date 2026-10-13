@@ -14,6 +14,7 @@ group are mounted as named subgroups (e.g. ``smpy host gen-pages``).
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Annotated
 
@@ -30,6 +31,7 @@ from simple_module_cli.scaffolding import create_module as _create_module
 from simple_module_cli.scaffolding import is_inside_existing_repo, resolve_framework_version
 from simple_module_cli.skills_cmd import app as skills_app
 from simple_module_cli.update_cmd import update_modules
+from simple_module_cli.uv_workspace import find_workspace_root, is_workspace_member
 
 app = typer.Typer(
     help="SimpleModule developer CLI.",
@@ -103,6 +105,25 @@ def create_host(
     typer.echo("  python main.py")
 
 
+def _echo_workspace_hint(target: Path) -> None:
+    """Tell the user how to wire a workspace-member module into the host (GH #442)."""
+    root = find_workspace_root(target.parent)
+    if root is None:
+        return
+    host = root / "host"
+    if not (host / "pyproject.toml").is_file() or not is_workspace_member(host, target):
+        return
+    rel = os.path.relpath(target.resolve(), host.resolve())
+    host_arg = os.path.relpath(host.resolve(), Path.cwd())
+    if host_arg.startswith(".."):
+        host_arg = str(host.resolve())
+    typer.echo(
+        f"\nThis module is a uv workspace member. Wire it into the host with:\n"
+        f"  smpy add {rel} --path {host_arg}"
+        "   # adds it as { workspace = true }"
+    )
+
+
 @app.command("create-module")
 def create_module(
     name: Annotated[str, typer.Argument(help="Module name (any case).")],
@@ -149,6 +170,7 @@ def create_module(
             "Skipped .github/ workflows: this module is inside an existing repo, "
             "where nested workflows never run. Use --standalone to emit them."
         )
+    _echo_workspace_hint(target)
     typer.echo("\nNext steps:")
     typer.echo(f"  cd {target}")
     typer.echo("  uv sync --extra dev")

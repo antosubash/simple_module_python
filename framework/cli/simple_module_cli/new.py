@@ -170,6 +170,7 @@ def new_project(
         for path in preserved:
             rel = path.relative_to(target) if path.is_relative_to(target) else path
             typer.echo(f"  {rel}")
+    typer.echo("\nGenerated secrets were written to .env (gitignored), not .env.example.")
     typer.echo("\nNext steps:")
     typer.echo(f"  cd {target}")
     if no_install:

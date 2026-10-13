@@ -162,3 +162,32 @@ def test_downgrade_recreated_boolean_defaults_render_portably():
 
     assert code.count("sa.false()") == 2
     assert code.count("sa.true()") == 2
+
+
+def test_sqlmodel_utc_datetime_renders_without_sqlmodel():
+    """GH #440: sqlmodel>=0.0.48 maps ``datetime`` fields to ``UTCDateTime``."""
+    from sqlmodel.sql.sqltypes import UTCDateTime
+
+    md = sa.MetaData()
+    sa.Table(
+        "stamps",
+        md,
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("created_at", UTCDateTime(), nullable=False),
+    )
+    code, _, _ = _autogenerate(md)
+
+    assert "sa.Column('created_at', sa.DateTime(timezone=True), nullable=False)" in code
+    assert "sqlmodel" not in code
+
+
+def test_other_sqlmodel_types_add_the_import():
+    class FakeType(sa.types.TypeDecorator):
+        impl = sa.Integer
+        cache_ok = True
+
+    FakeType.__module__ = "sqlmodel.sql.sqltypes"
+    autogen_context = SimpleNamespace(imports=set())
+
+    assert render_item("type", FakeType(), autogen_context) is False
+    assert autogen_context.imports == {"import sqlmodel"}

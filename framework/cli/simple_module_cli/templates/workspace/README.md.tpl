@@ -1,6 +1,6 @@
 # {{HOST_NAME}}
 
-A SimpleModule application, scaffolded by `sm new`.
+A SimpleModule application, scaffolded by `smpy new`.
 
 ## Layout
 
@@ -21,8 +21,8 @@ A SimpleModule application, scaffolded by `sm new`.
 # Install Python + JS deps (uv workspace + npm workspace)
 make install
 
-# Copy and customize env
-cp .env.example .env
+# `smpy new` wrote .env (gitignored) with generated secrets; adjust it as
+# needed. .env.example is the committed template and holds no secrets.
 
 # Apply DB migrations
 # (`smpy new` already generated the initial migration for you; if you started
@@ -56,13 +56,12 @@ container alone (DB on a named volume), `--db postgres` apps also get a
 
 ```bash
 # Workspace mode — drops a new module under modules/<name>/
-uv run sm create-module my-feature --dest modules/my-feature
+uv run smpy create-module my-feature --dest modules/my-feature
 
-# Wire it into the host
-#   1) Add `simple_module_my_feature` to host/pyproject.toml dependencies
-#   2) Add `simple_module_my_feature = { workspace = true }` to host's
-#      [tool.uv.sources] (so uv resolves it from the workspace, not PyPI)
-#   3) make install && make migration msg="add my-feature" && make migrate
+# Wire it into the host: adds the dependency and a `{ workspace = true }`
+# source to host/pyproject.toml (the path is relative to host/)
+uv run smpy add ../modules/my-feature --path host
+make migration msg="add my-feature" && make migrate
 ```
 
 ## How the workspace fits together
@@ -78,4 +77,4 @@ uv run sm create-module my-feature --dest modules/my-feature
 ## Falling back to a flat layout
 
 If you only consume published modules (no in-repo authoring), regenerate
-with `sm new <name> --flat` to skip the `modules/` tree entirely.
+with `smpy new <name> --flat` to skip the `modules/` tree entirely.

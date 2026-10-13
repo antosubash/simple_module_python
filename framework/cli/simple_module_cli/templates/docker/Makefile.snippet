@@ -5,7 +5,9 @@ docker-build:               ## Build the app image
 	docker compose build
 
 docker-up:                  ## Run the full stack in containers
-	@test -f .env || cp .env.example .env
+	@test -f .env || { cp .env.example .env; \
+		echo "Created .env from .env.example: set POSTGRES_PASSWORD (Postgres apps) and the"; \
+		echo "commented SM_* secrets in .env; production containers refuse to boot without them."; }
 	docker compose up --build
 
 docker-down:                ## Stop the compose stack

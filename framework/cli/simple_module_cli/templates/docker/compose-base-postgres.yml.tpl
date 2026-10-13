@@ -4,9 +4,11 @@ services:
     environment:
       POSTGRES_DB: "{{PG_DB}}"
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}"
     ports:
-      - "5432:5432"
+      # Loopback only: reachable as a local dev database, never from the
+      # network. The app reaches it over the compose network (GH #444).
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -26,7 +28,7 @@ services:
       # Containers serve the built bundle; development mode would emit
       # asset tags pointing at the (absent) Vite dev server.
       SM_ENVIRONMENT: production
-      SM_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/{{PG_DB}}
+      SM_DATABASE_URL: "postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/{{PG_DB}}"
 {{APP_EXTRA_ENV}}    ports:
       - "8000:8000"
     depends_on:

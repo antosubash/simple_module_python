@@ -150,12 +150,35 @@ All notable changes to this project are documented in this file. The format is b
   *complete* verdict now keeps answering while one refresh runs.
 
 ### Security
+- `smpy new` no longer writes generated secrets into the committed
+  `.env.example` (#441). `SM_SECRET_KEY` and the users token secrets go to a
+  gitignored `.env` (created if absent; an existing one only gains missing
+  keys), and `.env.example` keeps `# KEY=` placeholders. Apps scaffolded
+  earlier should rotate those secrets if `.env.example` was committed.
+- The scaffold's `docker-compose.yml` no longer publishes Postgres on
+  `0.0.0.0:5432` with `postgres`/`postgres` while the app runs in production
+  mode (#444). The password comes from `POSTGRES_PASSWORD` (generated into
+  `.env`; compose refuses to start without it), and Postgres and Redis bind
+  `127.0.0.1` only.
 - The tenant header (`tenant_header`) is no longer honoured for an
   authenticated user without a tenant of their own: such a user could name any
   tenant. On the legacy path it applies to anonymous requests only; with the
   `tenants` resolver it selects among the user's own memberships.
 
 ### Fixed
+- `render_item` renders sqlmodel>=0.0.48's `UTCDateTime` as
+  `sa.DateTime(timezone=True)` and adds `import sqlmodel` for any other
+  sqlmodel type, so an initial autogenerate no longer emits a migration that
+  dies with `NameError: name 'sqlmodel' is not defined` (#440).
+- `smpy add <path>` for a module inside the host's uv workspace writes
+  `{ workspace = true }` and an unpinned dependency instead of a path source uv
+  rejects (#442). A relative path missing under `--path` falls back to the cwd,
+  and `smpy create-module` inside a workspace prints the `smpy add` command.
+- Scaffold hygiene (#443): templates name the `smpy` CLI (not `sm`), `uv.lock`
+  is committed rather than gitignored, and the Postgres database name is
+  snake_case (`demo_app`, not `demo-app`).
+- Scaffolded dev groups floor `playwright>=1.45`; without it uv resolved
+  playwright 1.18 and every `pytest` run failed at plugin load (#445).
 - `/admin/background-tasks` returned 500 on Postgres (#413): `TaskExecution`'s
   timestamps were declared naive although the columns are `timestamptz` since
   `e5f2a8c1d7b3`. This was already fixed on `main` by #406 (unreleased since
