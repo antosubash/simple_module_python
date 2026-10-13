@@ -244,3 +244,22 @@ def test_sm_new_refuses_to_overwrite(tmp_path: Path) -> None:
     )
     assert result.exit_code != 0
     assert "exists" in result.output.lower() or "exists" in (result.stderr or "").lower()
+
+
+def test_write_local_env_fills_placeholder_on_last_line_without_newline(tmp_path: Path) -> None:
+    (tmp_path / ".env").write_text("A=1\n# SM_SECRET_KEY=")
+    write_local_env(tmp_path, secret_keys=["SM_SECRET_KEY"])
+    env = env_values((tmp_path / ".env").read_text())
+    assert len(env["SM_SECRET_KEY"]) >= 20
+
+
+def test_write_local_env_keeps_existing_postgres_password_and_url_together(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / ".env").write_text("POSTGRES_PASSWORD=kept\n")
+    write_local_env(
+        tmp_path,
+        secret_keys=[],
+        overrides={"POSTGRES_PASSWORD": "new", "SM_DATABASE_URL": "postgresql://postgres:new@x/db"},
+    )
+    assert env_values((tmp_path / ".env").read_text()) == {"POSTGRES_PASSWORD": "kept"}

@@ -43,20 +43,30 @@ def write_local_env(
     """Write ``target/.env`` from ``.env.example`` plus generated secrets.
 
     ``secret_keys`` get a fresh random value each; ``overrides`` are written
-    verbatim (e.g. a database URL carrying a generated password).
+    verbatim (e.g. a database URL carrying a generated password). Overrides
+    belong together, so an existing ``.env`` defining any of them gets none:
+    a fresh URL must not disagree with a kept ``POSTGRES_PASSWORD``.
     """
     env_path = target / ".env"
     existing = env_path.exists()
     source = env_path if existing else target / ".env.example"
     text = source.read_text(encoding="utf-8") if source.exists() else ""
     defined = env_values(text).keys()
-    values = {key: secrets.token_urlsafe(32) for key in secret_keys} | (overrides or {})
+    overrides = overrides or {}
+    if existing and defined & overrides.keys():
+        overrides = {}
+    values = {key: secrets.token_urlsafe(32) for key in secret_keys} | overrides
     for key, value in values.items():
         if existing and key in defined:
             continue
         placeholder = f"# {key}="
-        if placeholder in text.splitlines():
-            text = text.replace(f"{placeholder}\n", f"{key}={value}\n", 1)
+        lines = text.splitlines()
+        if placeholder in lines:
+            # Line-based, so a placeholder on the last line (no trailing
+            # newline) is handled too.
+            lines[lines.index(placeholder)] = f"{key}={value}"
+            text = "\n".join(lines) + "\n"
         else:
             text = set_env_key(text, key, value)
     env_path.write_text(text, encoding="utf-8")
+    env_path.chmod(0o600)  # holds generated secrets

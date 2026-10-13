@@ -105,7 +105,7 @@ def create_host(
     typer.echo("  python main.py")
 
 
-def _echo_workspace_hint(target: Path, package: str) -> None:
+def _echo_workspace_hint(target: Path) -> None:
     """Tell the user how to wire a workspace-member module into the host (GH #442)."""
     root = find_workspace_root(target.parent)
     if root is None:
@@ -120,7 +120,7 @@ def _echo_workspace_hint(target: Path, package: str) -> None:
     typer.echo(
         f"\nThis module is a uv workspace member. Wire it into the host with:\n"
         f"  smpy add {rel} --path {host_arg}"
-        f"   # adds simple_module_{package} as {{ workspace = true }}"
+        "   # adds it as { workspace = true }"
     )
 
 
@@ -170,7 +170,7 @@ def create_module(
             "Skipped .github/ workflows: this module is inside an existing repo, "
             "where nested workflows never run. Use --standalone to emit them."
         )
-    _echo_workspace_hint(target, package)
+    _echo_workspace_hint(target)
     typer.echo("\nNext steps:")
     typer.echo(f"  cd {target}")
     typer.echo("  uv sync --extra dev")
