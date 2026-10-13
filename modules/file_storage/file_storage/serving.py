@@ -6,11 +6,12 @@ from __future__ import annotations
 from urllib.parse import quote
 
 from fastapi import HTTPException, Request, Response, status
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import RedirectResponse
 
 from file_storage import constants, thumbnails
 from file_storage.contracts.service import StorageNotFoundError
 from file_storage.models import StoredFile
+from file_storage.ranges import file_body_response
 from file_storage.service import FileStorageService
 
 
@@ -119,15 +120,15 @@ async def public_file_response(
         )
 
     try:
-        body = await service.backend.get(row.key)
+        return await file_body_response(
+            service.backend,
+            row,
+            request,
+            headers={
+                **headers,
+                "Content-Disposition": content_disposition(row.filename, attachment=active),
+            },
+            etag=etag,
+        )
     except StorageNotFoundError as exc:
         raise not_found(t) from exc
-    return StreamingResponse(
-        body,
-        media_type=row.content_type,
-        headers={
-            **headers,
-            "Content-Disposition": content_disposition(row.filename, attachment=active),
-            "Content-Length": str(row.size_bytes),
-        },
-    )

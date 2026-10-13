@@ -384,6 +384,17 @@ Built-in provider keys (the `{provider}` URL segment):
 
 A single dispatcher pair (`/api/users/auth/{provider}/login` + `/callback`) serves every provider; the client is resolved per request from the cache. The `/callback` returns a 303 redirect (not the stock fastapi-users 204) so Inertia lands on a real page, with the auth cookie attached. Find-or-create + email association goes through `UserManager.oauth_callback` (`associate_by_email=True`, `is_verified_by_default=True`); state CSRF uses the signed session cookie. Linked accounts are stored in `users_oauth_account`. A **newly provisioned** OAuth account is marked external (see below); an existing password account linked by email keeps its password and is left unchanged.
 
+## Importing users from another system
+
+`users` stores passwords through fastapi-users' default `PasswordHelper`, so you can import `hashed_password` values from another system and users keep their existing passwords (no reset needed). Accepted formats:
+
+| Format | Prefix | Role |
+|---|---|---|
+| Argon2 (`argon2id`/`argon2i`/`argon2d`, PHC string) | `$argon2...` | Current scheme, used for all new hashes |
+| bcrypt | `$2a$` / `$2b$` / `$2y$` | Accepted on import (deprecated) |
+
+Other formats (PBKDF2, scrypt, SHA-based, plain text) are **not** recognised, and such users cannot sign in until they reset their password. A bcrypt hash is verified as-is and transparently re-hashed to Argon2 on the user's next successful sign-in, through both the session login (`/api/users/auth/login`) and the bearer-token login (`/api/users/auth/token`). Leave `hashed_password` as `NULL` for accounts that should only sign in through an external IdP (see below).
+
 ## External / SSO users
 
 Users created through an external IdP (Google, GitHub, Microsoft/Entra ID, or generic OIDC) are provisioned with `is_external=True` and **no local password** (`hashed_password` is `NULL`). The OAuth callback's find-or-create only nulls the password + marks external for accounts it *creates* — an existing password account that gets linked by email keeps its password and stays non-external. External users sign in **only** through their IdP; roles are still assigned locally like any other user.

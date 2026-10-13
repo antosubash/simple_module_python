@@ -22,7 +22,7 @@ Pluggable file storage with two shipped backends — local filesystem and S3-com
 | `GET /api/file-storage/files/{file_id}` | → `StoredFileOut` | `file_storage.download` |
 | `PATCH /api/file-storage/files/{file_id}` | `{"public": bool}` → `StoredFileOut` | `file_storage.upload` |
 | `GET /api/file-storage/files/{file_id}/thumbnail` | `?w=` → `image/webp` | `file_storage.download` |
-| `GET /api/file-storage/files/{file_id}/download` | → 302 (S3) or stream (filesystem) | `file_storage.download` |
+| `GET /api/file-storage/files/{file_id}/download` | → 302 (S3) or stream (filesystem); honours `Range` (see [Range requests](#range-requests)) | `file_storage.download` |
 | `DELETE /api/file-storage/files/{file_id}` | → 204 | `file_storage.delete` |
 | `GET /api/file-storage/public/{file_id}[/{filename}]` | bytes (**anonymous**) | none, `public` files only |
 | `GET /api/file-storage/public/{file_id}/thumbnail` | `?w=` → `image/webp` (**anonymous**) | none, `public` files only |
@@ -84,6 +84,29 @@ Serving rules:
   types are `inline`.
 - Presigning backends (S3) answer with a `302` to the presigned URL, cached
   for at most half the signature's TTL; filesystem backends stream.
+
+### Range requests
+
+Whenever bytes stream through the app (the download endpoint on a
+non-presigning backend, and the public route for filesystem backends or active
+content), a single `Range` is honoured so COG / PMTiles readers can fetch
+just the tiles they need:
+
+- `bytes=a-b`, `bytes=a-` and the suffix form `bytes=-n` answer `206 Partial
+  Content` with `Content-Range: bytes a-b/size` and the slice's
+  `Content-Length`. An end past the object is clamped to `size - 1`.
+- A range starting at or past the end (or `bytes=-0`) is `416` with
+  `Content-Range: bytes */size`.
+- Multiple ranges, another unit, or a malformed header are ignored and the
+  whole file is sent with `200` (RFC 9110 allows this). So is a request whose
+  `If-Range` does not match the current `ETag`.
+- Streamed responses advertise `Accept-Ranges: bytes`. Auth, `ETag`,
+  `Content-Disposition`, `Cache-Control` and CSP headers are the same as for
+  the full response.
+
+Redirected (presigned) downloads are served by the object store, which handles
+`Range` itself. Always redirecting large downloads to a presigned URL, as an
+opt-in setting, is not implemented.
 
 ### View
 
@@ -229,11 +252,18 @@ class GcsBackend(StorageBackend):
     supports_presigned_url = True
 
     async def put(self, key, stream, content_type, size): ...
-    async def get(self, key): ...
+    async def get(self, key): ...  # awaited; returns an AsyncIterator[bytes]
+    async def get_range(self, key, start, end): ...  # end inclusive
     async def delete(self, key): ...
     async def exists(self, key) -> bool: ...
     async def presigned_get_url(self, key, ttl_seconds: int) -> str: ...
 ```
+
+`get` and `get_range` must stream in bounded chunks (never buffer the whole
+object) and raise `StorageNotFoundError` from the awaited call, before the
+first byte. `get_range(key, start, end)` uses HTTP semantics — `end` is
+inclusive — and receives an already-validated `0 <= start <= end < size`. A
+backend without `get_range` still works: the endpoints then ignore `Range`.
 
 Register it in your module's `register_settings` so the file_storage service can pick it up. (The shipped two backends are wired into a private `BACKEND_REGISTRY`; see `backends/__init__.py` for the pattern.)
 

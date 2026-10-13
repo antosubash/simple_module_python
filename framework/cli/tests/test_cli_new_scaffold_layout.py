@@ -128,6 +128,38 @@ def test_sm_new_makefile_has_quality_gate_targets(tmp_path: Path) -> None:
     assert "upgrade head\n" not in makefile  # the buggy singular form is gone
 
 
+def test_sm_new_makefile_kill_is_port_scoped(tmp_path: Path) -> None:
+    """Regression #461: `make kill` must free only this app's ports, never
+    pkill every uvicorn/vite (other apps, vitest) on the machine."""
+    from simple_module_cli.app_project import create_app_project
+
+    target = tmp_path / "demo"
+    create_app_project(target, name="demo", db="sqlite", tenancy=False, selected=[])
+    makefile = (target / "Makefile").read_text()
+    assert "pkill" not in makefile
+    assert "lsof -ti:$(API_PORT),$(VITE_PORT)" in makefile
+    assert "--port $(API_PORT)" in makefile
+    assert "SM_VITE_DEV_URL" in makefile
+
+
+def test_sm_new_makefile_has_gen_i18n_target(tmp_path: Path) -> None:
+    """Regression #449: scaffolded apps regenerate the typed i18n keys on demand."""
+    from simple_module_cli.app_project import create_app_project
+
+    target = tmp_path / "demo"
+    create_app_project(target, name="demo", db="sqlite", tenancy=False, selected=[])
+    makefile = (target / "Makefile").read_text()
+    assert "gen-i18n:" in makefile
+    assert "simple_module_hosting gen-i18n" in makefile
+
+
+def test_host_template_makefile_has_no_pkill() -> None:
+    from simple_module_cli import app_project
+
+    host_makefile = Path(app_project.__file__).parent / "templates" / "host" / "Makefile"
+    assert "pkill" not in host_makefile.read_text()
+
+
 def test_sm_new_root_pyproject_has_dev_tooling_and_config(tmp_path: Path) -> None:
     """Regression #201: the workspace root must ship the dev tooling + pytest /
     ruff / ty config so `make test` and `make lint` work out of the box."""

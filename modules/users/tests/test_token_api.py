@@ -72,6 +72,27 @@ class TestTokenLogin:
         assert resp.status_code == 401
 
     @pytest.mark.anyio
+    async def test_legacy_hash_is_upgraded_on_token_login(self, anon_client, users_db):
+        from pwdlib.hashers.bcrypt import BcryptHasher
+
+        legacy = BcryptHasher().hash("SecurePass1!")
+        assert legacy.startswith("$2")
+        user = await _seed_user(users_db, email="legacy@example.com")
+        user.hashed_password = legacy
+        await users_db.commit()
+
+        for _ in range(2):  # second login proves the upgraded hash still verifies
+            resp = await anon_client.post(
+                "/api/users/auth/token",
+                json={"email": "legacy@example.com", "password": "SecurePass1!"},
+            )
+            assert resp.status_code == 200
+
+        await users_db.refresh(user)
+        assert user.hashed_password != legacy
+        assert user.hashed_password.startswith("$argon2")
+
+    @pytest.mark.anyio
     async def test_valid_credentials_returns_token_pair(self, anon_client, users_db):
         await _seed_user(users_db)
         resp = await anon_client.post(

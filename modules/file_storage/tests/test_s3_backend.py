@@ -82,7 +82,7 @@ async def test_s3_put_get_delete_roundtrip(s3_settings):
         size=len(payload),
     )
     assert await backend.exists("2026/04/19/abc.bin") is True
-    out = await _drain(backend.get("2026/04/19/abc.bin"))
+    out = await _drain(await backend.get("2026/04/19/abc.bin"))
     assert out == payload
 
     await backend.delete("2026/04/19/abc.bin")
@@ -91,8 +91,78 @@ async def test_s3_put_get_delete_roundtrip(s3_settings):
 
 async def test_s3_get_missing_raises_not_found(s3_settings):
     backend = build_backend(s3_settings)
+    # Raised by the awaited call itself, before any response could start.
     with pytest.raises(StorageNotFoundError):
-        await _drain(backend.get("missing"))
+        await backend.get("missing")
+    with pytest.raises(StorageNotFoundError):
+        await backend.get_range("missing", 0, 9)
+
+
+_BIG = bytes(range(256)) * 1000  # 256,000 bytes: four 64 KiB reads
+
+
+async def _put(backend, key: str, data: bytes) -> None:
+    await backend.put(
+        key, _bytes_stream(data), content_type="application/octet-stream", size=len(data)
+    )
+
+
+@pytest.fixture
+def body_reads(monkeypatch) -> list[int | None]:
+    """Record the ``amt`` of every ``StreamingBody.read`` (``None`` = read-all)."""
+    from aiobotocore.response import StreamingBody
+
+    calls: list[int | None] = []
+    real = StreamingBody.read
+
+    async def spy(self, amt=None):
+        calls.append(amt)
+        return await real(self, amt)
+
+    monkeypatch.setattr(StreamingBody, "read", spy)
+    return calls
+
+
+async def test_s3_get_streams_in_bounded_reads(s3_settings, body_reads):
+    # #453: the body used to be read whole before the first byte was sent.
+    backend = build_backend(s3_settings)
+    await _put(backend, "big.bin", _BIG)
+    chunks = [chunk async for chunk in await backend.get("big.bin")]
+    assert b"".join(chunks) == _BIG
+    assert len(chunks) > 1
+    assert max(map(len, chunks)) <= constants.DEFAULT_CHUNK_SIZE
+    assert body_reads and None not in body_reads
+    assert set(body_reads) == {constants.DEFAULT_CHUNK_SIZE}
+
+
+async def test_s3_get_range_is_inclusive_and_streamed(s3_settings, body_reads):
+    backend = build_backend(s3_settings)
+    await _put(backend, "big.bin", _BIG)
+    assert await _drain(await backend.get_range("big.bin", 0, 16383)) == _BIG[:16384]
+    assert await _drain(await backend.get_range("big.bin", 5, 5)) == _BIG[5:6]
+    tail = await _drain(await backend.get_range("big.bin", 100_000, len(_BIG) - 1))
+    assert tail == _BIG[100_000:]
+    assert None not in body_reads
+
+
+async def test_s3_closing_stream_early_releases_body(s3_settings, monkeypatch):
+    from aiobotocore.response import StreamingBody
+
+    closed: list[bool] = []
+    monkeypatch.setattr(StreamingBody, "close", lambda self: closed.append(True), raising=False)
+    backend = build_backend(s3_settings)
+    await _put(backend, "big.bin", _BIG)
+    stream = await backend.get("big.bin")
+    first = await anext(aiter(stream))
+    assert len(first) <= constants.DEFAULT_CHUNK_SIZE
+    await stream.aclose()  # what Starlette does when the client disconnects
+    assert closed == [True]
+
+
+async def test_s3_get_empty_object(s3_settings):
+    backend = build_backend(s3_settings)
+    await _put(backend, "empty.bin", b"")
+    assert await _drain(await backend.get("empty.bin")) == b""
 
 
 async def test_s3_presigned_url_format(s3_settings):

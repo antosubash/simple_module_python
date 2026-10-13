@@ -9,19 +9,17 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from tempfile import SpooledTemporaryFile
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from file_storage import constants
 from file_storage.backends import register_backend
 from file_storage.contracts.service import (
     ConfigurationError,
     StorageBackendError,
+    StorageError,
     StorageNotFoundError,
 )
 from file_storage.settings import FileStorageSettings
-
-if TYPE_CHECKING:
-    pass
 
 _MISSING_S3_EXTRA = (
     "S3 backend requires the 'aioboto3' package. Install with: uv add --optional s3 aioboto3"
@@ -83,20 +81,37 @@ class S3Backend:
                 raise StorageBackendError(f"S3 put_object failed: {exc}") from exc
 
     async def get(self, key: str) -> AsyncIterator[bytes]:
+        return await _open(self._stream(key, {}))
+
+    async def get_range(self, key: str, start: int, end: int) -> AsyncIterator[bytes]:
+        return await _open(self._stream(key, {"Range": f"bytes={start}-{end}"}))
+
+    async def _stream(self, key: str, extra: dict[str, str]) -> AsyncIterator[bytes]:
+        """Stream ``get_object``'s body in ``DEFAULT_CHUNK_SIZE`` reads.
+
+        Never ``Body.read()`` without a size: that buffers the whole object,
+        and these can be multi-GB rasters. The client and the HTTP body stay
+        open only while the generator runs; closing it — exhaustion, an
+        error, or the server cancelling on client disconnect — releases both.
+        """
         try:
             async with self._client() as client:
-                resp = await client.get_object(Bucket=self.bucket, Key=key)
-                # ``Body.read()`` works uniformly across aioboto3 (real) and
-                # moto's patched aiobotocore (tests); ``iter_chunks`` is sync
-                # under moto, breaking ``async for``.
-                data = await resp["Body"].read()
+                try:
+                    resp = await client.get_object(Bucket=self.bucket, Key=key, **extra)
+                except Exception as exc:
+                    if _is_not_found(exc):
+                        raise StorageNotFoundError(key) from exc
+                    raise StorageBackendError(f"S3 get_object failed: {exc}") from exc
+                body = resp["Body"]
+                try:
+                    while chunk := await body.read(constants.DEFAULT_CHUNK_SIZE):
+                        yield chunk
+                finally:
+                    body.close()
+        except StorageError:
+            raise
         except Exception as exc:
-            if _is_not_found(exc):
-                raise StorageNotFoundError(key) from exc
-            raise StorageBackendError(f"S3 get_object failed: {exc}") from exc
-
-        for offset in range(0, len(data), constants.DEFAULT_CHUNK_SIZE):
-            yield data[offset : offset + constants.DEFAULT_CHUNK_SIZE]
+            raise StorageBackendError(f"S3 get_object stream failed: {exc}") from exc
 
     async def delete(self, key: str) -> None:
         try:
@@ -125,6 +140,33 @@ class S3Backend:
                 )
         except Exception as exc:
             raise StorageBackendError(f"presign failed: {exc}") from exc
+
+
+async def _open(stream: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
+    """Start ``stream`` now so a missing key raises before any response begins.
+
+    Pulling the first chunk sends ``get_object``; a ``StorageNotFoundError``
+    therefore surfaces from the awaited ``get``/``get_range`` call, where the
+    endpoints turn it into a 404, instead of after a 200 is already on the wire.
+    """
+    iterator = aiter(stream)
+    try:
+        first = await anext(iterator)
+    except StopAsyncIteration:
+        return _chain(None, iterator)
+    return _chain(first, iterator)
+
+
+async def _chain(first: bytes | None, rest: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
+    try:
+        if first is not None:
+            yield first
+        async for chunk in rest:
+            yield chunk
+    finally:
+        aclose = getattr(rest, "aclose", None)
+        if aclose is not None:
+            await aclose()
 
 
 def _is_not_found(exc: Exception) -> bool:

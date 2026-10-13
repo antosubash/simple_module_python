@@ -53,6 +53,47 @@ def gen_pages(
     )
 
 
+@app.command("gen-i18n")
+def gen_i18n(
+    allow_removals: Annotated[
+        bool,
+        typer.Option(
+            "--allow-removals",
+            help="Permit dropping key namespaces of modules not installed here.",
+        ),
+    ] = False,
+) -> None:
+    """Regenerate the typed i18n key files (keys.generated.ts) without booting the app.
+
+    Writes into packages/i18n/src in the monorepo, else into the installed
+    @simple-module-py/i18n package under node_modules. Fails loudly if neither
+    exists.
+    """
+    from simple_module_hosting._project_root import resolve_project_root
+    from simple_module_hosting.i18n_manifest import (
+        NamespaceRemovalError,
+        emit_frontend_types_for_modules,
+    )
+    from simple_module_hosting.settings import Settings
+
+    logging.basicConfig(level=logging.WARNING, format="%(message)s")
+    logging.getLogger("simple_module_hosting.i18n_manifest").setLevel(logging.INFO)
+    settings = Settings()
+    modules = discover_modules(enabled=settings.modules_enabled, strict=not settings.is_development)
+    try:
+        emit_frontend_types_for_modules(
+            settings,
+            modules,
+            resolve_project_root(),
+            strict=True,
+            allow_removals=allow_removals,
+        )
+    except (NamespaceRemovalError, FileNotFoundError) as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo("i18n key files up to date")
+
+
 @app.command("sync-js-deps")
 def sync_js_deps(
     host_client_app: Annotated[

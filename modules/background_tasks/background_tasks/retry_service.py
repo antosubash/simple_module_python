@@ -8,15 +8,15 @@ must not happen twice. The read paths have none of those questions.
 
 from __future__ import annotations
 
-import asyncio
 import uuid
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
 from simple_module_core.events import EventBus
 from simple_module_db import RequestSession, all_tenants, tenant_context
 from sqlalchemy import Select, func, select
 
+from background_tasks.after_commit import after_commit
 from background_tasks.constants import RETRY_ALL_BATCH, TaskStatus
 from background_tasks.contracts.events import TaskRetried
 from background_tasks.contracts.schemas import RetryFailedResult
@@ -75,17 +75,25 @@ class RetryCoordinator:
         self.event_bus = event_bus
 
     async def retry_one(self, row: TaskExecution) -> TaskExecution:
-        """Re-enqueue a single execution.
+        """Re-enqueue a single execution, once the row recording it commits.
 
-        Publishes inline rather than on a thread: it is one call, and keeping
-        it on the event loop keeps Celery's eager mode — which runs the task
-        body inside ``send_task`` — on the same thread the signal handlers are
-        bound to. The sweep below, which sends hundreds, goes to a thread.
+        The broker id is reserved so the row names the task before it is
+        sent; the publish itself waits for the commit (GH #452). Sending first
+        queued a task against a row that a failed commit then never wrote,
+        and a fast worker could start before the row was visible at all.
+
+        Published inline from the post-commit hook rather than on a thread:
+        it is one call, and keeping it on the event loop keeps Celery's eager
+        mode — which runs the task body inside ``send_task`` — on the same
+        thread the signal handlers are bound to. The sweep below, which sends
+        hundreds, goes to a thread.
         """
-        new_row = self._new_attempt(row, self._publish(row))
+        task_id = str(uuid.uuid4())
+        new_row = self._new_attempt(row, task_id)
         self.db.add(new_row)
         await self.db.flush()
         await self.db.refresh(new_row)
+        after_commit(self.db, [self._publisher(row, task_id)])
         self._announce_after_commit([(row, new_row)])
         return new_row
 
@@ -114,9 +122,9 @@ class RetryCoordinator:
         Two operators pressing the button at once used to run every task twice:
         both read the same batch, and the child rows that would have excluded
         it were only written afterwards. :func:`claim_query` locks the batch,
-        and the children are written *before* the tasks are published — an
+        and the children are *committed* before the tasks are published — an
         orphaned ``pending`` row that was never sent is a far cheaper failure
-        than a task that ran twice.
+        than a task that ran twice, or one that ran with no row at all.
         """
         # Read at call time, not bound as a default argument, so the cap has
         # exactly one source of truth that tests and operators can move.
@@ -146,8 +154,7 @@ class RetryCoordinator:
 
         # The broker id is reserved here rather than read back from ``send_task``
         # so the row recording the attempt can be written first and still name
-        # the task that will carry it. Held as plain strings, not read back off
-        # the ORM objects, because the publish below runs on another thread.
+        # the task that will carry it.
         reserved = [(row, str(uuid.uuid4())) for row in rows]
         new_rows = [self._new_attempt(row, task_id) for row, task_id in reserved]
         self.db.add_all(new_rows)
@@ -155,43 +162,45 @@ class RetryCoordinator:
         # the sweep's real cost, and the rows have no reason to land singly.
         await self.db.flush()
 
-        # One thread for the whole batch. ``send_task`` is a blocking publish,
-        # and a few hundred of them inline would stall every other request for
-        # the length of the sweep.
-        await asyncio.to_thread(
-            lambda: [self._publish(row, task_id=task_id) for row, task_id in reserved]
+        # Sent only once the children commit (GH #452), and on one thread for
+        # the whole batch: ``send_task`` is a blocking publish, and a few
+        # hundred of them inline would stall every other request.
+        after_commit(
+            self.db, [self._publisher(row, task_id) for row, task_id in reserved], offload=True
         )
 
         self._announce_after_commit(list(zip(rows, new_rows, strict=True)))
         return RetryFailedResult(queued=len(rows), remaining=max(0, eligible - len(rows)))
 
-    def _publish(self, row: TaskExecution, task_id: str | None = None) -> str:
-        """Send one task to the broker and return its Celery id.
+    def _publisher(self, row: TaskExecution, task_id: str) -> Callable[[], str]:
+        """A call that sends *row*'s task again under the reserved *task_id*.
 
-        *task_id* pre-assigns that id, for callers that wrote the row naming it
-        before sending. Omitted, the broker assigns one and the caller stamps
-        the row with what comes back.
-
-        Blocking — kombu publishes synchronously. Call it off the event loop
-        when sending more than one.
+        Built while the row is attached and run after commit, possibly on
+        another thread — so everything it needs is read off the row now.
+        Blocking when run: kombu publishes synchronously.
         """
+        name = row.task_name
+        tenant_id = row.tenant_id
         options: dict[str, Any] = {
             "args": list(row.args or []),
             "kwargs": dict(row.kwargs or {}),
             "queue": row.queue,
+            "task_id": task_id,
         }
-        if task_id is not None:
-            options["task_id"] = task_id
-        # Publish as the row's own tenant, never the operator's: a platform
-        # admin who is also a member of some org must not re-run another
-        # tenant's job stamped with theirs (``stamp_tenant`` would refuse the
-        # mismatch). A row with no tenant is a platform publish, so it goes out
-        # with none bound.
-        if row.tenant_id:
-            with tenant_context(row.tenant_id):
-                return self.celery.send_task(row.task_name, **options).id
-        with all_tenants():
-            return self.celery.send_task(row.task_name, **options).id
+
+        def publish() -> str:
+            # Publish as the row's own tenant, never the operator's: a platform
+            # admin who is also a member of some org must not re-run another
+            # tenant's job stamped with theirs (``stamp_tenant`` would refuse
+            # the mismatch). A row with no tenant is a platform publish, so it
+            # goes out with none bound.
+            if tenant_id:
+                with tenant_context(tenant_id):
+                    return self.celery.send_task(name, **options).id
+            with all_tenants():
+                return self.celery.send_task(name, **options).id
+
+        return publish
 
     def _new_attempt(self, row: TaskExecution, celery_task_id: str) -> TaskExecution:
         """The row recording a fresh attempt at *row*. Not yet flushed."""

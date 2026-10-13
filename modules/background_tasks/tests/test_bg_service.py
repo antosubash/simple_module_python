@@ -185,21 +185,23 @@ class TestRetry:
 
         detail = await service.retry(original.id)
 
+        assert detail.retried_from_id == original.id
+        assert detail.status == TaskStatus.PENDING
+        # Nothing is sent or announced while the retry is still a pending
+        # write — a worker or subscriber acting on a transaction that rolls
+        # back acts on a retry that never happened (GH #452).
+        mock_celery.send_task.assert_not_called()
+        assert received == []
+
+        await finalize_session(db_session)
+
         mock_celery.send_task.assert_called_once_with(
             "orders.ship",
             args=[42],
             kwargs={"priority": "high"},
             queue="orders",
+            task_id=detail.celery_task_id,
         )
-        assert detail.retried_from_id == original.id
-        assert detail.status == TaskStatus.PENDING
-        assert detail.celery_task_id == "new-celery-id-123"
-        # Nothing is announced while the retry is still a pending write — a
-        # subscriber acting on a transaction that rolls back acts on a retry
-        # that never happened.
-        assert received == []
-
-        await finalize_session(db_session)
 
         assert len(received) == 1
         assert received[0].original_id == original.id

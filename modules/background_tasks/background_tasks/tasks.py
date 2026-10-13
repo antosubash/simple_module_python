@@ -12,10 +12,12 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
-from celery import shared_task
-from sqlalchemy import delete, update
+from celery import Task, shared_task
+from sqlalchemy import ColumnElement, and_, delete, or_, update
 
 from background_tasks.constants import (
     DEFAULT_RETENTION_DAYS,
@@ -23,6 +25,7 @@ from background_tasks.constants import (
     DEMO_ECHO_TASK,
     INTERNAL_TASK_PURGE_OLD,
     INTERNAL_TASK_SWEEP_STUCK,
+    TASK_STUCK_AFTER_ATTR,
     TERMINAL_STATUSES,
     TaskStatus,
 )
@@ -54,9 +57,51 @@ def demo_echo(message: str = "hello") -> dict[str, str]:
     return {"message": message, "at": datetime.now(UTC).isoformat()}
 
 
-@shared_task(name=INTERNAL_TASK_SWEEP_STUCK)
-def sweep_stuck_tasks() -> int:
+def stuck_thresholds(registry: Mapping[str, Any]) -> dict[str, int]:
+    """Per-task stuck thresholds declared on the tasks in *registry*.
+
+    A task opts in with ``@shared_task(name=..., stuck_after=seconds)``; Celery
+    copies the option onto the task class. Read from the registry of the
+    process running the sweep, which autodiscovers every module's tasks, so
+    the threshold lives next to the task and needs no column or migration.
+    """
+    found: dict[str, int] = {}
+    for name, task in registry.items():
+        value = getattr(task, TASK_STUCK_AFTER_ATTR, None)
+        if isinstance(value, int | float) and not isinstance(value, bool) and value > 0:
+            found[name] = int(value)
+    return found
+
+
+def _stale(now: datetime, stuck_after: int, overrides: dict[str, int]) -> ColumnElement[bool]:
+    """Rows whose heartbeat is older than their own task's threshold."""
+    clauses = [
+        and_(
+            TaskExecution.task_name.in_(names),
+            TaskExecution.heartbeat_at < now - timedelta(seconds=seconds),
+        )
+        for seconds, names in _group_by_threshold(overrides).items()
+    ]
+    default = TaskExecution.heartbeat_at < now - timedelta(seconds=stuck_after)
+    if overrides:
+        default = and_(TaskExecution.task_name.not_in(list(overrides)), default)
+    return or_(default, *clauses)
+
+
+def _group_by_threshold(overrides: dict[str, int]) -> dict[int, list[str]]:
+    groups: dict[int, list[str]] = {}
+    for name, seconds in overrides.items():
+        groups.setdefault(seconds, []).append(name)
+    return groups
+
+
+@shared_task(name=INTERNAL_TASK_SWEEP_STUCK, bind=True)
+def sweep_stuck_tasks(self: Task) -> int:
     """Flip ``running`` rows with stale heartbeats to ``stuck``.
+
+    "Stale" is per task: a task's own ``stuck_after`` (see
+    :func:`stuck_thresholds`) wins over the global setting. Long jobs should
+    also call :func:`background_tasks.heartbeat` as they go.
 
     Returns the number of rows flipped — handy for metrics/log scraping.
     """
@@ -65,16 +110,17 @@ def sweep_stuck_tasks() -> int:
     stuck_after = int(
         os.environ.get("SM_BG_TASKS_STUCK_AFTER_SECONDS", DEFAULT_STUCK_AFTER_SECONDS)
     )
-    cutoff = datetime.now(UTC) - timedelta(seconds=stuck_after)
+    now = datetime.now(UTC)
+    overrides = stuck_thresholds(self.app.tasks)
 
     with sync_session() as session:
         stmt = (
             update(TaskExecution)
             .where(
                 TaskExecution.status == TaskStatus.RUNNING,
-                TaskExecution.heartbeat_at < cutoff,
+                _stale(now, stuck_after, overrides),
             )
-            .values(status=TaskStatus.STUCK, finished_at=datetime.now(UTC))
+            .values(status=TaskStatus.STUCK, finished_at=now)
         )
         result = session.execute(stmt)
         count = result.rowcount or 0

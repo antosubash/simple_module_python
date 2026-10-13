@@ -165,7 +165,7 @@ Pass `--loosen` to rewrite every constraint to `>=<latest>` instead.
 Run `uv tool update-shell` (or restart your shell) so the tool's bin dir is on PATH.
 
 **Port already in use.**
-Free `:8000` and `:5050` before the next `make dev`. On Linux/macOS: `lsof -ti:8000,5050 | xargs kill -9`.
+Run `make kill` to free the app's API and Vite ports (`:8000` and the port in `SM_VITE_DEV_URL`, default `:5050`) before the next `make dev`. It only touches those ports, never other apps' servers. To run two apps side by side, give each its own `API_PORT` (`make dev API_PORT=8010`) and `SM_VITE_DEV_URL`.
 
 **Alembic complains about a revision mismatch.**
 The DB is ahead of or behind the migration files. For a dev DB: `rm app.db && make migrate`. For Postgres: `docker compose down -v && docker compose up -d postgres && make migrate`.
