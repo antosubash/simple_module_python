@@ -15,6 +15,8 @@ Requires a Redis broker. The broker / result-backend URLs are module settings (`
 - Zero-config task discovery — any installed module that ships a `tasks.py` has its tasks autodiscovered (`celery.autodiscover_tasks` imports `<package>.tasks` for every installed module). No per-module registration hook.
 - Admin UI at `/admin/background-tasks` — list recent runs, retry failed, inspect tracebacks (gated by the `background_tasks.view` permission).
 - `build_celery(settings)` factory in `background_tasks.celery_app`, plus `bind_task_context` / `get_log_context` / `install_log_filter` exported from the package root (import name `background_tasks`, distribution name `simple_module_background_tasks`).
+- `enqueue_after_commit(db, task, *args, **kwargs)` — publish a task only once the session's transaction commits, never on rollback.
+- `heartbeat()` — called from a long task body, keeps the stuck sweep from flagging it; `@shared_task(stuck_after=seconds)` sets a per-task stuck threshold. See the module docs for both.
 
 ## Usage
 

@@ -12,6 +12,19 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- `from background_tasks import heartbeat` (#451): a long-running task calls
+  `heartbeat()` to refresh `heartbeat_at` (throttled to one write per 30 s; a
+  no-op outside a task). `@shared_task(..., stuck_after=<seconds>)` sets a
+  per-task stuck threshold that the sweep honours ahead of
+  `SM_BG_TASKS_STUCK_AFTER_SECONDS`. No migration.
+- `from background_tasks import enqueue_after_commit` (#452): publishes a task
+  only once the caller's transaction commits (nothing on rollback), and
+  returns the reserved task id so a row can name it up front.
+- HTTP `Range` support on file downloads (#453): single ranges answer `206`
+  (`416` when unsatisfiable, multi-range falls back to `200`), honouring
+  `If-Range`. Storage backends gain `get_range(key, start, end)` (inclusive
+  end); a third-party backend without it keeps serving full `200`s.
+- `smpy host gen-i18n` and a scaffold `make gen-i18n` target (#449).
 - **Host override layer for module copy** (#415). A host ships
   `host/locales/overrides/<lang>.json` (nested or flat dotted keys) and it is
   applied after every module, framework and host catalog, so the server-side
@@ -166,6 +179,40 @@ All notable changes to this project are documented in this file. The format is b
   `tenants` resolver it selects among the user's own memberships.
 
 ### Fixed
+- Timezone-aware timestamp columns read back aware on SQLite (#468). Columns
+  declared `sa_type=DateTime(timezone=True)` (the `AuditMixin`/`SoftDeleteMixin`
+  timestamps, audit log, users, permissions, tenant invitations) came back
+  naive, so the API sent them with no offset and browsers showed UTC as local
+  time. New `simple_module_db.AwareDateTime` replaces that column type; it
+  migrates as `sa.DateTime(timezone=True)`, so no schema change.
+- Background-task Retry sends one request per execution while one is in
+  flight (#467); a burst of confirm clicks no longer queues duplicate retries.
+- The background-tasks list shows its plain empty state when no executions
+  exist at all, instead of claiming some exist outside the search (#469).
+- Deleting files another tab already deleted says so, instead of a success
+  toast reading "0 files deleted" (#470).
+- `smpy`'s workspace-member hint prints `./modules/...` for a module inside
+  the host directory, so the suggested `smpy add` reads it as a path, not a
+  PyPI name (#471).
+- Scaffolded compose apps require a URL-safe `POSTGRES_PASSWORD`: compose puts
+  it unencoded into `SM_DATABASE_URL`, so `make docker-up` now refuses other
+  characters with a clear message (#472).
+- `S3Backend.get` streams objects in 64 KiB reads instead of buffering the
+  whole object in memory (#453). It is now awaited like the filesystem
+  backend, which also fixes S3 thumbnails and the streamed public-file path
+  (they raised `TypeError`), and a missing object answers `404`, not `500`.
+- Admin task retries publish to the broker only after the new
+  `TaskExecution` rows commit (#452); a rolled-back request no longer leaves a
+  queued task with no execution row.
+- `POST /api/users/auth/token` persists the upgraded password hash, as the
+  browser login already did (#457), so bcrypt hashes imported from another
+  system migrate to Argon2 on API/mobile sign-in too.
+- Scaffolded apps regenerate `keys.generated.ts` in development (#449): when
+  `packages/i18n/src` is absent the host writes into the installed
+  `@simple-module-py/i18n` package, merging the keys it already ships.
+- Scaffolded `make kill` stops only this app's ports (`API_PORT`, and
+  `VITE_PORT` read from `SM_VITE_DEV_URL`) instead of `pkill`-ing every
+  uvicorn and vite on the machine, vitest runs included (#461).
 - `render_item` renders sqlmodel>=0.0.48's `UTCDateTime` as
   `sa.DateTime(timezone=True)` and adds `import sqlmodel` for any other
   sqlmodel type, so an initial autogenerate no longer emits a migration that

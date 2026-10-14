@@ -84,6 +84,13 @@ DEFAULT_BROKER_URL = "redis://localhost:6379/0"
 DEFAULT_RESULT_BACKEND = "redis://localhost:6379/1"
 DEFAULT_STUCK_AFTER_SECONDS = 300
 DEFAULT_STUCK_SWEEP_INTERVAL_SECONDS = 60
+# ``heartbeat()`` writes at most this often per task, however often a task body
+# calls it. Keep stuck thresholds well above it.
+HEARTBEAT_MIN_INTERVAL_SECONDS = 30
+# Task attribute giving one task its own stuck threshold, in seconds:
+# ``@shared_task(name=..., stuck_after=4 * 3600)``. Celery copies extra
+# decorator options onto the task class, so the sweep reads it off the registry.
+TASK_STUCK_AFTER_ATTR = "stuck_after"
 DEFAULT_PURGE_INTERVAL_SECONDS = 60 * 60 * 24
 DEFAULT_RETENTION_DAYS = 14
 DEFAULT_MAX_RETRIES = 3

@@ -35,6 +35,11 @@ class _DummyBackend:
 
         return empty()
 
+    async def get_range(  # pragma: no cover - unused
+        self, key: str, start: int, end: int
+    ) -> AsyncIterator[bytes]:
+        return await self.get(key)
+
     async def delete(self, key: str) -> None: ...
     async def exists(self, key: str) -> bool:
         return False

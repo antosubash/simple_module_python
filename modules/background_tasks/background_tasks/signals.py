@@ -40,6 +40,7 @@ from background_tasks.contracts.events import TaskFailed
 from background_tasks.log_context import signal_task_finished, signal_task_started
 from background_tasks.models import TaskExecution
 from background_tasks.sync_db import sync_session
+from background_tasks.task_heartbeat import forget_heartbeat
 from background_tasks.tenant_context import (
     message_tenant,
     published_tenant,
@@ -172,6 +173,7 @@ def on_task_postrun(
         tenant_id=message_tenant(task=task),
     )
     release_tenant(task_id=task_id)
+    forget_heartbeat(task_id)
     signal_task_finished(task_id=task_id)
 
 

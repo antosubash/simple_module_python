@@ -16,7 +16,8 @@ from typing import TYPE_CHECKING
 
 from fastapi_users_db_sqlalchemy.generics import GUID
 from simple_module_db.mixins import AuditMixin
-from sqlalchemy import DateTime, Index, false, text
+from simple_module_db.types import AwareDateTime
+from sqlalchemy import Index, false, text
 from sqlmodel import Field, Relationship
 
 from users.models._base import Base
@@ -58,11 +59,11 @@ class User(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
     full_name: str | None = Field(default=None, max_length=255)
     disabled_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),
+        sa_type=AwareDateTime(),
     )
     last_login_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),
+        sa_type=AwareDateTime(),
         index=True,
     )
     # Set when an admin created this account on someone's behalf; ``None`` for
@@ -74,7 +75,7 @@ class User(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
     # lifetime.
     invited_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),
+        sa_type=AwareDateTime(),
     )
     # Bumped by "sign out everywhere". Browser auth is a signed cookie, not a
     # server-side session store, so there is no row to delete for a device that

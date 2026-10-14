@@ -85,13 +85,13 @@ class TestRetryPublish:
     def test_publishes_as_the_row_tenant_not_the_operators(self):
         coordinator, seen = _coordinator()
         with tenant_context("operators-org"):
-            coordinator._publish(_row("acme"))
+            coordinator._publisher(_row("acme"), "new-id")()
         assert seen == ["acme"]
 
     def test_a_platform_row_is_published_with_no_tenant(self):
         coordinator, seen = _coordinator()
         with tenant_context("operators-org"):
-            coordinator._publish(_row(None))
+            coordinator._publisher(_row(None), "new-id")()
         assert seen == [None]
 
     def test_the_new_attempt_copies_the_tenant(self):

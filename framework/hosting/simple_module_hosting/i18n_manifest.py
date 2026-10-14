@@ -14,8 +14,8 @@ Both files are consumed by ``@simple-module-py/i18n``:
 from __future__ import annotations
 
 import logging
-import re
 from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +23,7 @@ from simple_module_core import ModuleBase
 from simple_module_core.i18n import PLURAL_CATEGORIES, I18nRegistry
 
 from simple_module_hosting._i18n_build import build_i18n_registry
+from simple_module_hosting._i18n_target import read_resource_keys, resolve_i18n_types_dir
 from simple_module_hosting.manifest import _write_if_changed
 from simple_module_hosting.settings import Settings
 
@@ -77,14 +78,25 @@ def emit_frontend_types(
     skips the check, for a namespace that was deleted on purpose or a
     deliberate ``SM_MODULES_ENABLED`` subset.
     """
-    pkg_src = project_root / "packages" / "i18n" / "src"
-    if not pkg_src.is_dir():
+    pkg_src, published = resolve_i18n_types_dir(project_root)
+    if pkg_src is None:
         if strict:
-            raise FileNotFoundError(f"{pkg_src} does not exist — nothing to regenerate")
+            raise FileNotFoundError(
+                f"no @simple-module-py/i18n found for {project_root} (packages/i18n/src or "
+                "node_modules/@simple-module-py/i18n/src) — run `npm install` first"
+            )
         return
-    if not allow_removals:
+    resources_path = pkg_src / "generated-resources.ts"
+    # In the monorepo the checked-in file is ours, so a vanished namespace is a
+    # mistake to guard against. A published package's file is the framework's
+    # full catalog: this app has fewer modules by design, so those keys are
+    # carried over instead of treated as removals.
+    extra_keys: frozenset[str] = frozenset()
+    if published:
+        extra_keys = read_resource_keys(resources_path)
+    elif not allow_removals:
         dropped = find_dropped_namespaces(
-            pkg_src / "generated-resources.ts", registry.messages(registry.default_locale)
+            resources_path, registry.messages(registry.default_locale)
         )
         if dropped:
             error = NamespaceRemovalError(dropped)
@@ -93,14 +105,11 @@ def emit_frontend_types(
             logger.warning("%s Not writing the generated i18n files.", error)
             return
     try:
-        write_generated_resources(registry, pkg_src)
+        write_generated_resources(registry, pkg_src, extra_keys=extra_keys)
     except Exception:
         if strict:
             raise
         logger.exception("Failed to write generated-resources.ts — frontend types will be stale")
-
-
-_RESOURCE_KEY_RE = re.compile(r"^\s+'([^']+)': '',$", re.MULTILINE)
 
 
 class NamespaceRemovalError(RuntimeError):
@@ -123,11 +132,7 @@ def find_dropped_namespaces(resources_path: Path, new_messages: Any) -> dict[str
     Returns ``{namespace: existing key count}``. Empty when the file is absent
     or unreadable (nothing to lose).
     """
-    try:
-        existing = resources_path.read_text(encoding="utf-8")
-    except OSError:
-        return {}
-    old = Counter(key.split(".", 1)[0] for key in _RESOURCE_KEY_RE.findall(existing))
+    old = Counter(key.split(".", 1)[0] for key in read_resource_keys(resources_path))
     new = {key.split(".", 1)[0] for key in new_messages}
     return {ns: n for ns, n in old.items() if ns not in new}
 
@@ -142,18 +147,21 @@ _KEYS_HEADER = _RESOURCES_HEADER
 _PLURAL_SUFFIXES: tuple[str, ...] = tuple(f"_{c}" for c in PLURAL_CATEGORIES)
 
 
-def write_generated_resources(registry: I18nRegistry, output_dir: Path) -> Path:
+def write_generated_resources(
+    registry: I18nRegistry, output_dir: Path, *, extra_keys: Iterable[str] = ()
+) -> Path:
     """Write both ``generated-resources.ts`` and ``keys.generated.ts``.
 
     Returns the path of the resources file. Both files skip the disk write
     when content matches what's already on disk (to avoid bumping mtimes
-    that would trigger spurious Vite HMR).
+    that would trigger spurious Vite HMR). ``extra_keys`` are unioned into the
+    registry's keys (the published package's catalog, for a scaffolded app).
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     messages = registry.messages(registry.default_locale)
-    keys = sorted(messages.keys())
+    keys = sorted({*messages.keys(), *extra_keys})
 
     resources_path = output_dir / "generated-resources.ts"
     if _write_if_changed(resources_path, _render_resources(keys)):

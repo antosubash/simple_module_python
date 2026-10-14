@@ -59,6 +59,7 @@ When a module declares a `simple_module_cli.cli_plugins` entry point, the CLI mo
 | Command | From | What |
 |---|---|---|
 | `smpy host gen-pages` | `simple_module_hosting` | Regenerate `client_app/modules.{manifest.json,generated.ts,generated.css}` from the installed modules. Run when you add or remove pages. |
+| `smpy host gen-i18n` | `simple_module_hosting` | Regenerate the typed i18n keys (`keys.generated.ts`) into the installed `@simple-module-py/i18n` package (or `packages/i18n/src` in the framework repo) without booting the app. Fails if neither exists. |
 | `smpy host sync-js-deps` | `simple_module_hosting` | Install JS deps declared by wheel-installed modules into `client_app/node_modules`. In-repo workspace modules don't need this. |
 | `smpy settings import-from-env` | `simple_module_settings` | One-shot migration: read every `SM_<MODULE>_*` env var and seed it as a SYSTEM-scope row in the DB-backed settings store. Idempotent. |
 
@@ -80,6 +81,8 @@ uv run smpy users create-admin --email admin@example.com --password changeme
 | `make build` | `cd client_app && npm run build`. Produces the production frontend bundle. |
 | `make gen-pages` | Regenerate the page manifest. Auto-runs before `make dev`. Same effect as `smpy host gen-pages`. |
 | `make sync-js-deps` | Install JS deps from wheel-installed modules. Same effect as `smpy host sync-js-deps`. |
+| `make gen-i18n` | Regenerate the typed `t(keys.<ns>...)` union in `node_modules/@simple-module-py/i18n/src`. Dev boot does this too; `make install` runs it once so `tsc` works before the first boot. Same effect as `smpy host gen-i18n`. |
+| `make kill` | Free the dev ports with `lsof`, nothing else: `API_PORT` (default `8000`) and `VITE_PORT` (read from `SM_VITE_DEV_URL` in `.env`, default `5050`). Never pkills by process name, so other apps' servers and test runs survive. Override with `make dev API_PORT=8010`. |
 
 If you included `background_tasks` in `smpy new`, the scaffold appends `worker`, `beat`, and `worker-docker` targets that wrap the Celery commands — read your `Makefile` to see the exact invocations.
 
@@ -98,7 +101,7 @@ The scaffolded Makefile intentionally doesn't wrap one-off things. Run them dire
 | Type-check Python | `uv run ty check` |
 | Format + lint JS | `cd client_app && npx biome check .` |
 | Type-check JS | `cd client_app && npx tsc --noEmit` |
-| Free stuck dev ports | `lsof -ti:8000,5050 \| xargs kill -9` |
+| Free stuck dev ports | `make kill` (frees only `API_PORT`/`VITE_PORT`) |
 
 ## Working on the framework itself
 

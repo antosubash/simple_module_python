@@ -114,6 +114,8 @@ def _echo_workspace_hint(target: Path) -> None:
     if not (host / "pyproject.toml").is_file() or not is_workspace_member(host, target):
         return
     rel = os.path.relpath(target.resolve(), host.resolve())
+    if not rel.startswith("."):
+        rel = f"./{rel}"  # parse_add_spec reads a bare "a/b" as a PyPI requirement
     host_arg = os.path.relpath(host.resolve(), Path.cwd())
     if host_arg.startswith(".."):
         host_arg = str(host.resolve())

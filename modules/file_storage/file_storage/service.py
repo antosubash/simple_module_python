@@ -55,7 +55,7 @@ class StreamDownload:
     """Response shape for backends that proxy bytes through the app."""
 
     file: StoredFile
-    body: AsyncIterator[bytes]
+    body: AsyncIterator[bytes] | None  # None when the caller opted out via open_body=False
 
 
 @dataclass
@@ -184,7 +184,9 @@ class FileStorageService(FileStoragePublic, FileStorageReads):
             raise StoredFileNotFoundError(str(file_id))
         return row
 
-    async def download(self, file_id: uuid.UUID, *, platform: bool = False) -> Download:
+    async def download(
+        self, file_id: uuid.UUID, *, platform: bool = False, open_body: bool = True
+    ) -> Download:
         """Return either a streamed body or a redirect URL.
 
         Dispatch on ``backend.supports_presigned_url`` so the service stays
@@ -197,7 +199,7 @@ class FileStorageService(FileStoragePublic, FileStorageReads):
                 row.key, self.settings.s3_presign_ttl_seconds
             )
             return RedirectDownload(file=row, url=url)
-        body = await self.backend.get(row.key)
+        body = await self.backend.get(row.key) if open_body else None
         return StreamDownload(file=row, body=body)
 
     # ── Delete ───────────────────────────────────────────────────────

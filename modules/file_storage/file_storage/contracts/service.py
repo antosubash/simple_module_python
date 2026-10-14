@@ -5,8 +5,8 @@ a new provider (Azure Blob, GCS, R2 with custom auth, in-memory for tests)
 means writing one module that implements this Protocol and self-registers via
 :func:`file_storage.backends.register_backend`.
 
-The Protocol is deliberately narrow: ``put``, ``get``, ``delete``, ``exists``,
-plus capability flags so the service layer can dispatch (e.g. presigned-URL
+The Protocol is deliberately narrow: ``put``, ``get``, ``get_range``,
+``delete``, ``exists``, plus capability flags so the service layer can dispatch (e.g. presigned-URL
 download vs proxied stream) without inspecting backend identity.
 """
 
@@ -65,7 +65,22 @@ class StorageBackend(Protocol):
         """Persist ``stream`` under ``key``. ``size`` is the total byte count."""
 
     async def get(self, key: str) -> AsyncIterator[bytes]:
-        """Yield the object's bytes in chunks. Raises :class:`StorageNotFoundError`."""
+        """Return an iterator over the object's bytes in bounded chunks.
+
+        Awaiting the call opens the object, so a missing key raises
+        :class:`StorageNotFoundError` here rather than mid-stream. The object
+        must be streamed, never buffered whole: files can be many GB.
+        """
+
+    async def get_range(self, key: str, start: int, end: int) -> AsyncIterator[bytes]:
+        """Like :meth:`get`, for bytes ``start`` through ``end`` *inclusive*.
+
+        HTTP ``Range`` semantics: ``get_range(k, 0, 0)`` is the first byte. The
+        caller has already validated ``0 <= start <= end < size``; backends need
+        not re-check against the object's size. Optional for third-party
+        backends — without it the download endpoints ignore ``Range`` and send
+        the whole object.
+        """
 
     async def delete(self, key: str) -> None:
         """Remove the object at ``key``. No-op if absent."""

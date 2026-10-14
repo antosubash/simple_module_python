@@ -20,7 +20,11 @@ from pathlib import Path
 from typing import Any
 
 from simple_module_cli._env import set_env_key
-from simple_module_cli._local_env import comment_out_env_key, write_local_env
+from simple_module_cli._local_env import (
+    add_postgres_password_placeholder,
+    comment_out_env_key,
+    write_local_env,
+)
 from simple_module_cli.case import to_kebab_case, to_pascal_case, to_snake_case
 from simple_module_cli.catalog import CATALOG, PRESETS, expand_deps
 from simple_module_cli.docker_assets import scaffold_docker_assets
@@ -173,7 +177,7 @@ def create_app_project(
     if db == "postgres":
         # The compose `postgres` service takes its password from .env, and
         # the dev SM_DATABASE_URL must match it (GH #444).
-        env_text = set_env_key(env_text, "POSTGRES_PASSWORD", "")
+        env_text = add_postgres_password_placeholder(env_text)
         password = _secrets.token_urlsafe(24)
         local_overrides = {
             "POSTGRES_PASSWORD": password,

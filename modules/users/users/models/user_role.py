@@ -4,7 +4,8 @@ import uuid
 from datetime import datetime
 
 from fastapi_users_db_sqlalchemy.generics import GUID, now_utc
-from sqlalchemy import DateTime, Index
+from simple_module_db.types import AwareDateTime
+from sqlalchemy import Index
 from sqlmodel import Field
 
 from users.models._base import Base
@@ -29,7 +30,7 @@ class UserRole(Base, table=True):  # ty: ignore[unsupported-base]
     )
     assigned_at: datetime = Field(
         default_factory=now_utc,
-        sa_type=DateTime(timezone=True),
+        sa_type=AwareDateTime(),
     )
     assigned_by: str | None = Field(default=None, max_length=255)
 

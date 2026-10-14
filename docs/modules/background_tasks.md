@@ -32,6 +32,63 @@ send_receipt.delay(order_id=42)
 
 Every dispatch / start / completion / failure / retry / revoke is recorded in the `background_tasks_task_execution` table by Celery signal handlers, so you can see history even after the Celery result backend has expired the result.
 
+## Enqueueing from inside a transaction
+
+`send_receipt.delay(...)` publishes *now*. If the request that called it is still writing the row the task will read, two things go wrong: a fast worker (or eager mode, which runs the task inside the publish) starts before the row is visible, and if the commit then fails the task is queued against a row that never existed. Publish after commit instead:
+
+```python
+from background_tasks import enqueue_after_commit
+
+
+async def place(self, data: OrderCreate) -> OrderOut:
+    order = Order(**data.model_dump())
+    self.db.add(order)
+    await self.db.flush()
+    enqueue_after_commit(self.db, send_receipt, order.id)
+    return OrderOut.model_validate(order)
+```
+
+`enqueue_after_commit(db, task, *args, **kwargs)` sends `task` once `db`'s transaction commits and drops it if the transaction rolls back or the commit fails. It returns the Celery task id the message will carry, reserved up front, so you can store it on your own row in the same transaction.
+
+- `task` is a task (`send_receipt`), a signature for routing options (`send_receipt.s().set(queue="mail", countdown=30)`), or a registered task name (`"orders.send_receipt"`, sent through `celery.current_app`).
+- In a request (`get_db`), the publish runs from the session's `on_commit` hook — after the commit, before the response leaves.
+- Any other session — a task body's sync session, a CLI script's own `async with session.begin()` — hangs it off SQLAlchemy's `after_commit` event instead, and drops it when the outermost transaction ends without committing. Publishing then blocks the committing thread for the length of one kombu publish.
+- The task runs as the tenant bound when you called `enqueue_after_commit`, not whatever is bound at commit time.
+- A publish that fails after the commit is logged, not raised: the transaction is already durable.
+
+The admin retry buttons follow the same rule — the new `pending` row commits first, then the task is sent (GH #452). An orphaned `pending` row that was never sent is visible and retryable; a task with no row is neither.
+
+## Long-running tasks: heartbeats and stuck thresholds
+
+The beat sweep flips a `running` row to `stuck` once its `heartbeat_at` is older than the stuck threshold (`stuck_after_seconds`, default 300), which makes it retry-eligible. The signal handlers only stamp the heartbeat when a task starts and finishes, so a task that runs longer than the threshold must say it is still alive, or it can be retried — and run twice — while the first run is still working.
+
+Call `heartbeat()` from the task body's loop:
+
+```python
+from background_tasks import heartbeat
+from celery import shared_task
+
+
+@shared_task(name="reports.rebuild")
+def rebuild(report_id: int) -> None:
+    for chunk in chunks(report_id):
+        process(chunk)
+        heartbeat()
+```
+
+It refreshes `heartbeat_at` on the current execution's row (found through Celery's `current_task`), writing at most once every 30 seconds per task however often you call it, so calling it on every iteration is fine; `heartbeat(force=True)` skips the throttle. Outside a running task it does nothing and returns `False`, so shared helpers can call it unconditionally. It only touches a row that is still `running` — a heartbeat never revives a row the sweep already declared stuck.
+
+A task whose steps are legitimately longer than the global threshold can declare its own, in seconds:
+
+```python
+@shared_task(name="exports.full_dump", stuck_after=4 * 3600)
+def full_dump() -> None: ...
+```
+
+Celery copies extra decorator options onto the task class; the sweep reads `stuck_after` off the task registry of the worker running it (which autodiscovers every module's tasks), and falls back to `SM_BG_TASKS_STUCK_AFTER_SECONDS` / the default for tasks without one. No column or migration is involved, so the threshold always matches the deployed code. A shorter `stuck_after` works too, for tasks that should never take long. Keep any threshold well above 30 seconds, or the heartbeat throttle alone can let a live task look stale.
+
+Not provided: an automatic heartbeat thread. A task that blocks in one long call (a single huge query, an external process) cannot heartbeat from inside it — give it a `stuck_after` that covers the call instead.
+
 ## Scheduling periodic work (beat)
 
 A module schedules recurring work the same way it registers tasks — by shipping a `tasks.py` — and additionally exporting a module-level `BEAT_SCHEDULE` dict. `build_celery` merges every installed module's `BEAT_SCHEDULE` into the beat schedule at boot (identically in the web and worker processes), so `make beat` runs them alongside the built-ins:
@@ -145,7 +202,7 @@ DB-backed; defaults are in `BackgroundTasksSettings`. Several are marked `requir
 | `task_default_queue` | `"default"` | restart required |
 | `task_always_eager` | `False` | runs tasks in-process (test mode) |
 | `task_eager_propagates` | `True` | re-raises eager-mode errors |
-| `stuck_after_seconds` | `300` | heartbeat-staleness threshold |
+| `stuck_after_seconds` | `300` | heartbeat-staleness threshold; a task's own `stuck_after` overrides it — see [Long-running tasks](#long-running-tasks-heartbeats-and-stuck-thresholds) |
 | `stuck_sweep_interval_seconds` | `60` | beat cadence for the stuck sweep |
 | `purge_interval_seconds` | `86_400` | beat cadence for old-row purge |
 | `retention_days` | `14` | how long to keep terminal rows; range 1-3650 |
@@ -170,7 +227,7 @@ Bootstrap env-var equivalents (`SM_BG_TASKS_*`) only seed pydantic defaults at f
 
 | Task | Schedule | What |
 |---|---|---|
-| `background_tasks.sweep_stuck_tasks` | every `stuck_sweep_interval_seconds` | flips `running` rows with stale heartbeats to `stuck` |
+| `background_tasks.sweep_stuck_tasks` | every `stuck_sweep_interval_seconds` | flips `running` rows whose heartbeat is older than their task's `stuck_after` (else `stuck_after_seconds`) to `stuck` |
 | `background_tasks.purge_old_executions` | every `purge_interval_seconds` | deletes terminal rows older than `retention_days` |
 
 A `background_tasks.demo_echo` task is also registered for smoke tests; not scheduled.
@@ -202,7 +259,7 @@ Synchronous handlers in `signals.py`, all bound through Celery's `signals.<name>
 |---|---|
 | `before_task_publish` | inserts a `pending` row |
 | `task_prerun` | flips to `running`, stamps `started_at` + `heartbeat_at` |
-| `task_postrun` | refreshes `heartbeat_at` |
+| `task_postrun` | refreshes `heartbeat_at` (between prerun and postrun, only `heartbeat()` from the task body does) |
 | `task_success` | flips to `success`, stores `result`, sets `finished_at` |
 | `task_failure` | flips to `failed`, stores `traceback` + `exception_type`, publishes `TaskFailed` |
 | `task_retry` | flips to `retrying`, increments `retries` |

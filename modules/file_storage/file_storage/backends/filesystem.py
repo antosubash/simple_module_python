@@ -65,11 +65,17 @@ class FilesystemBackend:
                 tmp.unlink(missing_ok=True)
             raise
 
-    async def get(self, key: str) -> AsyncIterator[bytes]:
+    def _existing(self, key: str) -> Path:
         path = self._resolve(key)
         if not path.exists():
             raise StorageNotFoundError(key)
-        return _stream_file(path)
+        return path
+
+    async def get(self, key: str) -> AsyncIterator[bytes]:
+        return _stream_file(self._existing(key))
+
+    async def get_range(self, key: str, start: int, end: int) -> AsyncIterator[bytes]:
+        return _stream_file(self._existing(key), start=start, length=end - start + 1)
 
     async def delete(self, key: str) -> None:
         path = self._resolve(key)
@@ -82,12 +88,22 @@ class FilesystemBackend:
         raise NotSupportedError("Filesystem backend cannot mint presigned URLs.")
 
 
-async def _stream_file(path: Path) -> AsyncIterator[bytes]:
+async def _stream_file(
+    path: Path, *, start: int = 0, length: int | None = None
+) -> AsyncIterator[bytes]:
+    """Yield ``length`` bytes from ``start`` (to EOF when ``None``), chunk by chunk."""
+    remaining = length
     async with aiofiles.open(path, "rb") as fh:
-        while True:
-            chunk = await fh.read(constants.DEFAULT_CHUNK_SIZE)
+        await fh.seek(start)
+        while remaining is None or remaining > 0:
+            size = constants.DEFAULT_CHUNK_SIZE
+            if remaining is not None:
+                size = min(size, remaining)
+            chunk = await fh.read(size)
             if not chunk:
                 break
+            if remaining is not None:
+                remaining -= len(chunk)
             yield chunk
 
 

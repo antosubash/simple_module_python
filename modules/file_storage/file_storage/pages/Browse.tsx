@@ -125,9 +125,17 @@ function Browse() {
       // of a selection can already be gone, and naming the first file the user
       // ticked would credit a deletion that did not happen.
       const removed = ids.length === 1 ? files.find((f) => f.id === ids[0]) : undefined;
-      toast.success(
-        t(keys.file_storage.toasts.deleted, { count: deleted, name: removed?.filename ?? '' }),
-      );
+      const requested = selectedIds.length;
+      if (deleted === 0) {
+        // A stale tab: every selected file was removed elsewhere already.
+        toast.info(t(keys.file_storage.toasts.already_deleted, { count: requested }));
+      } else if (deleted < requested) {
+        toast.success(t(keys.file_storage.toasts.deleted_partial, { deleted, total: requested }));
+      } else {
+        toast.success(
+          t(keys.file_storage.toasts.deleted, { count: deleted, name: removed?.filename ?? '' }),
+        );
+      }
       select([]);
       router.reload({ only: RELOAD_PROPS });
     } catch {

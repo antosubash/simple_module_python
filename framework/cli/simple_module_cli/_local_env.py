@@ -14,7 +14,12 @@ from pathlib import Path
 
 from simple_module_cli._env import env_values, set_env_key
 
-__all__ = ["comment_out_env_key", "write_local_env"]
+__all__ = ["add_postgres_password_placeholder", "comment_out_env_key", "write_local_env"]
+
+_PG_PASSWORD_NOTE = (
+    "# Compose puts this into SM_DATABASE_URL unencoded: use only URL-safe\n"
+    "# characters (letters, digits, - _ . ~). `make docker-up` rejects others (GH #472).\n"
+)
 
 _SECRET_NOTE = (
     "# Secrets — `smpy new` generated these into .env (gitignored); keep them\n"
@@ -35,6 +40,12 @@ def comment_out_env_key(text: str, key: str) -> str:
             lines += ["", *_SECRET_NOTE.splitlines()]
         lines.append(placeholder)
     return "\n".join(lines) + "\n"
+
+
+def add_postgres_password_placeholder(text: str) -> str:
+    """Add an empty ``POSTGRES_PASSWORD=`` to ``.env.example``, with its URL-safe note."""
+    text = set_env_key(text, "POSTGRES_PASSWORD", "")
+    return text.replace("POSTGRES_PASSWORD=\n", _PG_PASSWORD_NOTE + "POSTGRES_PASSWORD=\n", 1)
 
 
 def write_local_env(

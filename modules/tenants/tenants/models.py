@@ -14,7 +14,8 @@ from datetime import datetime
 from simple_module_db import is_valid_tenant_id
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin
-from sqlalchemy import Column, DateTime, Index, UniqueConstraint, text
+from simple_module_db.types import AwareDateTime
+from sqlalchemy import Column, Index, UniqueConstraint, text
 from sqlalchemy.orm import validates
 from sqlmodel import Field
 
@@ -103,7 +104,7 @@ class Invitation(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
     email: str = Field(max_length=MAX_EMAIL_LEN)
     role: str = Field(default=MembershipRole.MEMBER, max_length=20)
     token_hash: str = Field(max_length=64, unique=True, index=True)
-    expires_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
+    expires_at: datetime = Field(sa_column=Column(AwareDateTime(), nullable=False))
     accepted_at: datetime | None = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+        default=None, sa_column=Column(AwareDateTime(), nullable=True)
     )

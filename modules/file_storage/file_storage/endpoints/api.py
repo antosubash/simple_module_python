@@ -12,11 +12,12 @@ from fastapi import (
     Form,
     HTTPException,
     Query,
+    Request,
     Response,
     UploadFile,
     status,
 )
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import RedirectResponse
 from simple_module_core.events import EventBus
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import RequiresPermission
@@ -30,8 +31,10 @@ from file_storage.contracts.schemas import (
     StoredFileOut,
     StoredFileUpdate,
 )
+from file_storage.contracts.service import StorageNotFoundError
 from file_storage.deps import get_event_bus, get_file_storage_service
 from file_storage.format import format_bytes
+from file_storage.ranges import file_body_response
 from file_storage.service import (
     ContentTypeNotAllowedError,
     FileStorageService,
@@ -40,7 +43,7 @@ from file_storage.service import (
     StoredFileNotFoundError,
     StreamDownload,
 )
-from file_storage.serving import not_found, thumbnail_response
+from file_storage.serving import etag_for, not_found, thumbnail_response
 
 router = APIRouter()
 
@@ -188,28 +191,30 @@ async def file_thumbnail(
 )
 async def download_file(
     file_id: uuid.UUID,
+    request: Request,
     t: TranslatorDep,
     service: FileStorageService = Depends(get_file_storage_service),
-) -> RedirectResponse | StreamingResponse:
+) -> Response:
     try:
-        download = await service.download(file_id)
-    except StoredFileNotFoundError as exc:
+        download = await service.download(file_id, open_body=False)
+        if isinstance(download, RedirectDownload):
+            return RedirectResponse(url=download.url, status_code=status.HTTP_302_FOUND)
+
+        assert isinstance(download, StreamDownload)
+        row = download.file
+        etag = etag_for(row)
+        return await file_body_response(
+            service.backend,
+            row,
+            request,
+            headers={
+                "Content-Disposition": f'attachment; filename="{row.filename}"',
+                "ETag": etag,
+            },
+            etag=etag,
+        )
+    except (StoredFileNotFoundError, StorageNotFoundError) as exc:
         raise not_found(t) from exc
-
-    if isinstance(download, RedirectDownload):
-        return RedirectResponse(url=download.url, status_code=status.HTTP_302_FOUND)
-
-    assert isinstance(download, StreamDownload)
-    row = download.file
-    return StreamingResponse(
-        download.body,
-        media_type=row.content_type,
-        headers={
-            "Content-Disposition": f'attachment; filename="{row.filename}"',
-            "Content-Length": str(row.size_bytes),
-            "ETag": f'"{row.checksum_sha256}"',
-        },
-    )
 
 
 @router.post(

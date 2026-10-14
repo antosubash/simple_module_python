@@ -79,9 +79,15 @@ async def token_login(
         helper.verify_and_update(body.password, _DUMMY_HASH)
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    verified, _ = helper.verify_and_update(body.password, user.hashed_password)
+    verified, updated_hash = helper.verify_and_update(body.password, user.hashed_password)
     if not verified:
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    if updated_hash is not None:
+        # A legacy-scheme hash (e.g. bcrypt) was accepted and re-hashed with the
+        # current scheme; persist it, as ``UserManager.authenticate`` does for
+        # the session login. ``get_db`` commits since this is a pending write.
+        user.hashed_password = updated_hash
+        await db.flush()
 
     settings = request.app.state.users.settings
     return await _create_token_pair(db, user.id, settings, user.session_version)
