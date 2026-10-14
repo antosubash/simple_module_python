@@ -179,6 +179,24 @@ All notable changes to this project are documented in this file. The format is b
   `tenants` resolver it selects among the user's own memberships.
 
 ### Fixed
+- Timezone-aware timestamp columns read back aware on SQLite (#468). Columns
+  declared `sa_type=DateTime(timezone=True)` (the `AuditMixin`/`SoftDeleteMixin`
+  timestamps, audit log, users, permissions, tenant invitations) came back
+  naive, so the API sent them with no offset and browsers showed UTC as local
+  time. New `simple_module_db.AwareDateTime` replaces that column type; it
+  migrates as `sa.DateTime(timezone=True)`, so no schema change.
+- Background-task Retry sends one request per execution while one is in
+  flight (#467); a burst of confirm clicks no longer queues duplicate retries.
+- The background-tasks list shows its plain empty state when no executions
+  exist at all, instead of claiming some exist outside the search (#469).
+- Deleting files another tab already deleted says so, instead of a success
+  toast reading "0 files deleted" (#470).
+- `smpy`'s workspace-member hint prints `./modules/...` for a module inside
+  the host directory, so the suggested `smpy add` reads it as a path, not a
+  PyPI name (#471).
+- Scaffolded compose apps require a URL-safe `POSTGRES_PASSWORD`: compose puts
+  it unencoded into `SM_DATABASE_URL`, so `make docker-up` now refuses other
+  characters with a clear message (#472).
 - `S3Backend.get` streams objects in 64 KiB reads instead of buffering the
   whole object in memory (#453). It is now awaited like the filesystem
   backend, which also fixes S3 thumbnails and the streamed public-file path
