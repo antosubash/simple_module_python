@@ -65,17 +65,17 @@ class FilesystemBackend:
                 tmp.unlink(missing_ok=True)
             raise
 
-    async def get(self, key: str) -> AsyncIterator[bytes]:
+    def _existing(self, key: str) -> Path:
         path = self._resolve(key)
         if not path.exists():
             raise StorageNotFoundError(key)
-        return _stream_file(path)
+        return path
+
+    async def get(self, key: str) -> AsyncIterator[bytes]:
+        return _stream_file(self._existing(key))
 
     async def get_range(self, key: str, start: int, end: int) -> AsyncIterator[bytes]:
-        path = self._resolve(key)
-        if not path.exists():
-            raise StorageNotFoundError(key)
-        return _stream_file(path, start=start, length=end - start + 1)
+        return _stream_file(self._existing(key), start=start, length=end - start + 1)
 
     async def delete(self, key: str) -> None:
         path = self._resolve(key)

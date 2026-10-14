@@ -43,7 +43,7 @@ from file_storage.service import (
     StoredFileNotFoundError,
     StreamDownload,
 )
-from file_storage.serving import not_found, thumbnail_response
+from file_storage.serving import etag_for, not_found, thumbnail_response
 
 router = APIRouter()
 
@@ -197,16 +197,12 @@ async def download_file(
 ) -> Response:
     try:
         download = await service.download(file_id)
-    except (StoredFileNotFoundError, StorageNotFoundError) as exc:
-        raise not_found(t) from exc
+        if isinstance(download, RedirectDownload):
+            return RedirectResponse(url=download.url, status_code=status.HTTP_302_FOUND)
 
-    if isinstance(download, RedirectDownload):
-        return RedirectResponse(url=download.url, status_code=status.HTTP_302_FOUND)
-
-    assert isinstance(download, StreamDownload)
-    row = download.file
-    etag = f'"{row.checksum_sha256}"'
-    try:
+        assert isinstance(download, StreamDownload)
+        row = download.file
+        etag = etag_for(row)
         return await file_body_response(
             service.backend,
             row,
@@ -218,7 +214,7 @@ async def download_file(
             etag=etag,
             body=download.body,
         )
-    except StorageNotFoundError as exc:
+    except (StoredFileNotFoundError, StorageNotFoundError) as exc:
         raise not_found(t) from exc
 
 

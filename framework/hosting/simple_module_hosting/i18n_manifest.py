@@ -23,11 +23,7 @@ from simple_module_core import ModuleBase
 from simple_module_core.i18n import PLURAL_CATEGORIES, I18nRegistry
 
 from simple_module_hosting._i18n_build import build_i18n_registry
-from simple_module_hosting._i18n_target import (
-    RESOURCE_KEY_RE,
-    read_resource_keys,
-    resolve_i18n_types_dir,
-)
+from simple_module_hosting._i18n_target import read_resource_keys, resolve_i18n_types_dir
 from simple_module_hosting.manifest import _write_if_changed
 from simple_module_hosting.settings import Settings
 
@@ -136,11 +132,7 @@ def find_dropped_namespaces(resources_path: Path, new_messages: Any) -> dict[str
     Returns ``{namespace: existing key count}``. Empty when the file is absent
     or unreadable (nothing to lose).
     """
-    try:
-        existing = resources_path.read_text(encoding="utf-8")
-    except OSError:
-        return {}
-    old = Counter(key.split(".", 1)[0] for key in RESOURCE_KEY_RE.findall(existing))
+    old = Counter(key.split(".", 1)[0] for key in read_resource_keys(resources_path))
     new = {key.split(".", 1)[0] for key in new_messages}
     return {ns: n for ns, n in old.items() if ns not in new}
 
