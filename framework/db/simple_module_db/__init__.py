@@ -29,6 +29,7 @@ from simple_module_db.tenancy import (
     tenant_context,
 )
 from simple_module_db.transaction import CommitBeforeResponseMiddleware, finalize_session
+from simple_module_db.types import AwareDateTime
 from simple_module_db.writes import hard_delete, mark_written
 
 __all__ = [
@@ -39,6 +40,7 @@ __all__ = [
     "TENANT_ID_PATTERN",
     "AuditMixin",
     "AuditRecord",
+    "AwareDateTime",
     "CommitBeforeResponseMiddleware",
     "DatabaseProvider",
     "DatabaseState",

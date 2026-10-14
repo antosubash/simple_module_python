@@ -27,6 +27,7 @@ from simple_module_core.diagnostics._expression_index import index_is_expression
 from simple_module_core.discovery import discover_modules, get_module_package_name
 from sqlalchemy import Index, MetaData
 from sqlalchemy.schema import SchemaItem
+from sqlmodel.sql.sqltypes import UTCDateTime
 
 from simple_module_db.base import all_module_bases
 from simple_module_db.migration_portability import (
@@ -259,7 +260,7 @@ def render_item(type_, obj, autogen_context):
     if cls_name == "AutoString":
         length = getattr(obj, "length", None)
         return f"sa.String(length={length})" if length is not None else "sa.String()"
-    if cls_name == "UTCDateTime" and cls_module.startswith("sqlmodel"):
+    if isinstance(obj, UTCDateTime):  # includes our ``AwareDateTime`` subclass
         return "sa.DateTime(timezone=True)"
 
     if imports is not None and cls_module.startswith("sqlmodel"):

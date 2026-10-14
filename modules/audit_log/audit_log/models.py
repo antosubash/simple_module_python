@@ -6,7 +6,8 @@ import uuid
 from datetime import UTC, datetime
 
 from simple_module_db.base import create_module_base
-from sqlalchemy import JSON, DateTime, Index, func
+from simple_module_db.types import AwareDateTime
+from sqlalchemy import JSON, Index, func
 from sqlmodel import Column, Field
 
 from audit_log.constants import (
@@ -48,6 +49,6 @@ class AuditEntry(Base, table=True):  # ty: ignore[unsupported-base]
     tenant_id: str | None = Field(default=None, max_length=TENANT_ID_MAX_LENGTH, index=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
-        sa_type=DateTime(timezone=True),
+        sa_type=AwareDateTime(),
         sa_column_kwargs={"server_default": func.now()},
     )
