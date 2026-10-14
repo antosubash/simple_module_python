@@ -32,18 +32,16 @@ def settings() -> Settings:
 
 @pytest.fixture
 async def app_with_host_routes(app):  # type: ignore[no-untyped-def]
-    """``app`` fixture + host-level routers (landing, switcher).
+    """``app`` fixture + host-level routers (landing).
 
     The stock ``app`` fixture builds via ``create_app()``, which only wires
-    module routes. The host's own routers (``host.routes``, ``host.routes_i18n``)
-    are included in ``host/main.py``, not ``create_app``. Reproduce that here
+    module routes. The host's own routers (``host.routes``)
+    is included in ``host/main.py``, not ``create_app``. Reproduce that here
     so integration tests can hit ``/`` and ``/i18n/set-locale``.
     """
     from host.routes import router as host_router
-    from host.routes_i18n import router as i18n_router
 
     app.include_router(host_router)
-    app.include_router(i18n_router)
     return app
 
 

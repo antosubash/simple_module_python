@@ -17,7 +17,6 @@ from simple_module_hosting import create_app, merge_host_settings  # noqa: E402
 from simple_module_hosting.logging import setup_logging  # noqa: E402
 
 from host.routes import router as host_router  # noqa: E402
-from host.routes_i18n import router as i18n_router  # noqa: E402
 from host.routes_legacy import router as legacy_router  # noqa: E402
 
 # merge_host_settings, not Settings(): log_level and the rest of the host
@@ -33,7 +32,6 @@ setup_logging(
 
 app = create_app(settings)
 app.include_router(host_router)
-app.include_router(i18n_router)
 # Mounted last: its catch-all {path:path} routes must not shadow a real
 # route that happens to share a legacy prefix.
 app.include_router(legacy_router)

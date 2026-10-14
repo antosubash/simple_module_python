@@ -8,8 +8,9 @@ a same-origin Referer (falls back to ``/`` for off-origin or missing).
 from __future__ import annotations
 
 from fastapi import APIRouter, Form, HTTPException, Request
-from simple_module_hosting.redirects import safe_referer_or_root
 from starlette.responses import RedirectResponse
+
+from simple_module_hosting.redirects import safe_referer_or_root
 
 router = APIRouter()
 
