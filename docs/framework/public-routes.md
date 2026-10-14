@@ -93,6 +93,19 @@ A public path still resolves the user when a valid session is present (so a
 public landing page can show "Open Dashboard" to a logged-in visitor) — it just
 never *redirects* an anonymous caller away.
 
+## Unknown paths
+
+A path that matches **no route** is not gated: an anonymous visitor gets the
+same 404 a signed-in user does (the Inertia Error page, or JSON for `/api/*`),
+and nothing is stored as the post-login target. Only when the path isn't public
+and nobody is signed in does `AuthMiddleware` probe the app's router. A path
+counts as existing — and is gated exactly as before — if any route matches it
+fully, matches it under another method (the `405` case), or matches it only
+through the `redirect_slashes` toggle (`/admin/users/` → `/admin/users`). A
+probe that errors fails closed (gated). The 404 reveals only that the path does
+not exist, which the public 404s (an unknown `/p/{slug}`) already reveal. An
+anonymous 404 counts as an anonymous-allowed request for `rate_limit_public`.
+
 ## Host-level escape hatch
 
 When no module owns a route, an app can expose prefixes from the environment
