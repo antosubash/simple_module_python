@@ -26,10 +26,26 @@ export interface Execution {
   retried_from_id: string | null;
 }
 
-export async function retryExecution(execution: {
+const inFlight = new Map<string, Promise<Execution | null>>();
+
+/**
+ * Re-enqueue one execution. Clicks that land while a retry for the same row is
+ * still in flight share its request: the dialog's `busy` state only disables the
+ * button after a re-render, so a burst of clicks would otherwise each POST.
+ * Retrying a row again *after* the first retry settles stays allowed.
+ */
+export function retryExecution(execution: {
   id: string;
   task_name: string;
 }): Promise<Execution | null> {
+  const pending = inFlight.get(execution.id);
+  if (pending) return pending;
+  const request = postRetry(execution).finally(() => inFlight.delete(execution.id));
+  inFlight.set(execution.id, request);
+  return request;
+}
+
+async function postRetry(execution: { id: string; task_name: string }): Promise<Execution | null> {
   try {
     const res = await fetch(`${API_BASE}/executions/${execution.id}/retry`, {
       method: 'POST',
