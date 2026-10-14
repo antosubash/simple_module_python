@@ -94,8 +94,7 @@ async def _stream_file(
     """Yield ``length`` bytes from ``start`` (to EOF when ``None``), chunk by chunk."""
     remaining = length
     async with aiofiles.open(path, "rb") as fh:
-        if start:
-            await fh.seek(start)
+        await fh.seek(start)
         while remaining is None or remaining > 0:
             size = constants.DEFAULT_CHUNK_SIZE
             if remaining is not None:

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections import defaultdict
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -89,9 +90,9 @@ def _stale(now: datetime, stuck_after: int, overrides: dict[str, int]) -> Column
 
 
 def _group_by_threshold(overrides: dict[str, int]) -> dict[int, list[str]]:
-    groups: dict[int, list[str]] = {}
+    groups: defaultdict[int, list[str]] = defaultdict(list)
     for name, seconds in overrides.items():
-        groups.setdefault(seconds, []).append(name)
+        groups[seconds].append(name)
     return groups
 
 

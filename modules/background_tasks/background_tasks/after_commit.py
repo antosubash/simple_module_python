@@ -81,15 +81,9 @@ def after_commit(
     committed, and an unsent ``pending`` row is visible and retryable.
     """
     batch = list(publishes)
-    if not batch:
-        return
     if isinstance(db, RequestSession) and SESSION_START_KEY in db.info:
         if offload:
-
-            async def run_offloaded() -> None:
-                await asyncio.to_thread(_run_all, batch)
-
-            db.on_commit(run_offloaded)
+            db.on_commit(lambda: asyncio.to_thread(_run_all, batch))
         else:
             db.on_commit(lambda: _run_all(batch))
         return

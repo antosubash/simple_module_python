@@ -7,7 +7,7 @@ even when the optional S3 extra isn't installed; the failure mode is a clear
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from tempfile import SpooledTemporaryFile
 from typing import Any
 
@@ -86,7 +86,7 @@ class S3Backend:
     async def get_range(self, key: str, start: int, end: int) -> AsyncIterator[bytes]:
         return await _open(self._stream(key, {"Range": f"bytes={start}-{end}"}))
 
-    async def _stream(self, key: str, extra: dict[str, str]) -> AsyncIterator[bytes]:
+    async def _stream(self, key: str, extra: dict[str, str]) -> AsyncGenerator[bytes]:
         """Stream ``get_object``'s body in ``DEFAULT_CHUNK_SIZE`` reads.
 
         Never ``Body.read()`` without a size: that buffers the whole object,
@@ -142,7 +142,7 @@ class S3Backend:
             raise StorageBackendError(f"presign failed: {exc}") from exc
 
 
-async def _open(stream: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
+async def _open(stream: AsyncGenerator[bytes]) -> AsyncIterator[bytes]:
     """Start ``stream`` now so a missing key raises before any response begins.
 
     Pulling the first chunk sends ``get_object``; a ``StorageNotFoundError``
@@ -157,16 +157,14 @@ async def _open(stream: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
     return _chain(first, iterator)
 
 
-async def _chain(first: bytes | None, rest: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
+async def _chain(first: bytes | None, rest: AsyncGenerator[bytes]) -> AsyncIterator[bytes]:
     try:
         if first is not None:
             yield first
         async for chunk in rest:
             yield chunk
     finally:
-        aclose = getattr(rest, "aclose", None)
-        if aclose is not None:
-            await aclose()
+        await rest.aclose()
 
 
 def _is_not_found(exc: Exception) -> bool:
