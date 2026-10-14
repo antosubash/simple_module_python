@@ -45,8 +45,6 @@ def comment_out_env_key(text: str, key: str) -> str:
 def add_postgres_password_placeholder(text: str) -> str:
     """Add an empty ``POSTGRES_PASSWORD=`` to ``.env.example``, with its URL-safe note."""
     text = set_env_key(text, "POSTGRES_PASSWORD", "")
-    if _PG_PASSWORD_NOTE in text:
-        return text
     return text.replace("POSTGRES_PASSWORD=\n", _PG_PASSWORD_NOTE + "POSTGRES_PASSWORD=\n", 1)
 
 
