@@ -196,7 +196,7 @@ async def download_file(
     service: FileStorageService = Depends(get_file_storage_service),
 ) -> Response:
     try:
-        download = await service.download(file_id)
+        download = await service.download(file_id, open_body=False)
         if isinstance(download, RedirectDownload):
             return RedirectResponse(url=download.url, status_code=status.HTTP_302_FOUND)
 
@@ -212,7 +212,6 @@ async def download_file(
                 "ETag": etag,
             },
             etag=etag,
-            body=download.body,
         )
     except (StoredFileNotFoundError, StorageNotFoundError) as exc:
         raise not_found(t) from exc

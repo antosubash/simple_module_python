@@ -125,3 +125,24 @@ async def test_public_route_serves_ranges_with_its_headers(authenticated_client,
     bad = await client.get(url, headers={"Range": "bytes=999999-"})
     assert bad.status_code == 416
     assert bad.headers["content-range"] == f"bytes */{SIZE}"
+
+
+async def test_ranged_download_never_opens_the_full_body(authenticated_client, monkeypatch):
+    from file_storage.backends.filesystem import FilesystemBackend
+
+    body = await _upload(authenticated_client)
+    opened: list[str] = []
+    real_get = FilesystemBackend.get
+
+    async def spy_get(self, key):
+        opened.append(key)
+        return await real_get(self, key)
+
+    monkeypatch.setattr(FilesystemBackend, "get", spy_get)
+    url = f"{API}/files/{body['id']}/download"
+    resp = await authenticated_client.get(url, headers={"Range": "bytes=0-9"})
+    assert resp.status_code == 206
+    assert opened == []
+    full = await authenticated_client.get(url, headers={"Accept-Encoding": "identity"})
+    assert full.status_code == 200
+    assert len(opened) == 1
