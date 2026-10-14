@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -98,8 +101,42 @@ def test_postgres_password_must_be_url_safe_is_documented_and_enforced(tmp_path:
     assert "URL-safe" in example
     assert example.index("URL-safe") < example.index("POSTGRES_PASSWORD=")
     makefile = (target / "Makefile").read_text()
-    assert "[A-Za-z0-9._~-]*$$' .env" in makefile
     assert makefile.index("URL-safe") < makefile.index("docker compose up")
+
+
+@pytest.mark.skipif(shutil.which("make") is None, reason="needs make")
+@pytest.mark.parametrize(
+    ("env_body", "ok"),
+    [
+        ("POSTGRES_PASSWORD=abc-_.~123\n", True),
+        ('POSTGRES_PASSWORD="abc123"\n', True),
+        ("POSTGRES_PASSWORD='abc123'\n", True),
+        ("POSTGRES_PASSWORD=abc123\r\n", True),
+        ("POSTGRES_PASSWORD=abc123 # local only\n", True),
+        ("POSTGRES_PASSWORD=\n", True),
+        ("# POSTGRES_PASSWORD=a/b\nPOSTGRES_PASSWORD=ok\n", True),
+        ("POSTGRES_PASSWORD=a/b@c\n", False),
+        ('POSTGRES_PASSWORD="a:b"\n', False),
+        ("POSTGRES_PASSWORD=ok\nPOSTGRES_PASSWORD=p#ss word\n", False),
+    ],
+)
+def test_docker_up_guard_reads_password_like_compose(
+    tmp_path: Path, env_body: str, ok: bool
+) -> None:
+    target = tmp_path / "demo"
+    _create(target, db="postgres")
+    (target / ".env").write_bytes(env_body.encode())
+    # Stub `docker` so a passing guard does not start anything.
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    stub = bin_dir / "docker"
+    stub.write_text("#!/bin/sh\nexit 0\n")
+    stub.chmod(0o755)
+    env = {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"}
+    result = subprocess.run(
+        ["make", "docker-up"], cwd=target, env=env, capture_output=True, text=True, check=False
+    )
+    assert (result.returncode == 0) is ok, result.stderr
 
 
 def test_compose_containers_run_production_env(tmp_path: Path) -> None:
