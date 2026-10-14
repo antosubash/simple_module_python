@@ -109,6 +109,19 @@ All notable changes to this project are documented in this file. The format is b
   production-mode containers pass `UsersSettings` boot validation.
 
 ### Changed
+- **Dashboard stats are admin-only on single-tenant installs too** (#464).
+  `dashboard.view` was mapped to the ordinary `user` role when
+  `multi_tenant` was off, so any self-registered account could read user
+  counts and system info. Only `admin` holds it now; grant it to another role
+  in the role editor to restore the old behaviour. `/dashboard/` still renders
+  for everyone, without the stats.
+- **Error-page copy moved from `host.error.*` to `ui.error_page.*`** (#475),
+  shipped with `simple_module_hosting`'s `ui` catalog so scaffolded apps get
+  it. A host that overrides `host.error.*` in
+  `host/locales/overrides/<lang>.json` must rename those keys.
+- An anonymous request to a path that matches no route now gets the 404 page
+  instead of a redirect to sign-in (#473). Every path that matches a route is
+  gated exactly as before.
 - `TenantMiddleware` now varies on `Cookie` when the tenant came from the
   session, and on `Cookie, Authorization` when it came from an authentication
   claim, so a shared cache can no longer serve one tenant's response to another
@@ -179,6 +192,18 @@ All notable changes to this project are documented in this file. The format is b
   `tenants` resolver it selects among the user's own memberships.
 
 ### Fixed
+- `POST /i18n/set-locale` is mounted by `create_app` (#462), so the language
+  switcher works in scaffolded apps instead of posting to a 404.
+- The Register page shows field-level errors (weak password, existing
+  account, invalid email) under the right field, translated, and blocks
+  submit until the password meets the server's policy (#465).
+- Auth screens drop the framework "python" caption once branding sets an app
+  name, and only mention Keycloak SSO when Keycloak is installed (#466).
+- `@simple-module-py/ui` loads `@tailwindcss/typography`, so `prose` content
+  (e.g. markdown widgets) is styled in scaffolded hosts (#474).
+- Scaffolded apps render the real Error page (layout, per-status copy,
+  sign-in link, correlation id) instead of a bare "Something went wrong"
+  (#475).
 - Timezone-aware timestamp columns read back aware on SQLite (#468). Columns
   declared `sa_type=DateTime(timezone=True)` (the `AuditMixin`/`SoftDeleteMixin`
   timestamps, audit log, users, permissions, tenant invitations) came back
