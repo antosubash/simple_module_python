@@ -217,6 +217,12 @@ jobs:
       # never in the generic module editor" rule is actually exercised — the
       # server-side half of that is a 409 guard, which is worth CI coverage.
       SM_MODULES_ENABLED: '["Auth","Users","Dashboard","Permissions","Settings","BackgroundTasks","FileStorage","FeatureFlags","AuditLog","Branding"]'
+      # Every test signs in from scratch, all from 127.0.0.1: the login page,
+      # the login POST and the landing page are anonymous public-route hits,
+      # ~120 a minute for the whole suite — right at the default
+      # ``rate_limit_public`` of 120/minute, so a fast runner 429s whichever
+      # test logs in last. The limiter itself is covered by unit tests.
+      SM_RATE_LIMIT_PUBLIC: 1000/minute
       E2E_BASE_URL: http://localhost:8000
     steps:
       - uses: actions/checkout@v7
