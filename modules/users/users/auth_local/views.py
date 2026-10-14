@@ -102,6 +102,11 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
                 or users_settings.login_redirect_url
             ),
             "oauth_providers": users_state.oauth_providers,
+            # Gates the "Keycloak SSO" line of the split aside: copy that
+            # advertises a module should not render where it isn't installed.
+            "keycloak_installed": any(
+                m.meta.name == "Keycloak" for m in request.app.state.sm.modules
+            ),
             # "Keep me signed in for N days" reads this rather than spelling
             # the number in the copy, so shortening the window in settings
             # cannot leave the checkbox lying about what it does.

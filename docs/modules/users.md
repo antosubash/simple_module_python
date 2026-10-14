@@ -427,6 +427,10 @@ Anything else without a session redirects to `/users/login` (or returns 401 JSON
 
 `roles_cache.py` keeps an in-memory list of `RoleSummary(id, name)` on `app.state.users.roles_cache`. Refreshed at startup and on demand via `refresh_roles_cache(app)`. Used by the admin UI to render role pickers without hitting the DB on every request.
 
+## Branding the auth screens
+
+The sign-in aside copy lives under `users.login.aside_*` (`aside_heading`, `aside_body`, `aside_check_sessions`, `aside_check_sso`). A host replaces any of them with an override file `host/locales/overrides/<lang>.json`, keyed by the full dotted path (for example `{"users.login.aside_heading": "Forest Observation System"}`); overrides apply after every module catalog. The "Keycloak SSO" line renders only when the Keycloak module is installed (the login page receives a `keycloak_installed` prop). The `python` caption under the wordmark is hidden once `branding.appName` differs from the default `SimpleModule`.
+
 ## Inertia pages
 
 Auth flow:

@@ -257,3 +257,10 @@ class TestAcceptInviteFullName:
                 await session.execute(select(User).where(User.email == "joins@example.com"))
             ).scalar_one()
         assert stored.full_name == "Rob Meyer"
+
+
+class TestLoginAsideProps:
+    @pytest.mark.anyio
+    async def test_keycloak_flag_is_false_without_the_module(self, anon_client):
+        props = _props(await anon_client.get("/users/login", headers=_INERTIA_HEADERS))
+        assert props["keycloak_installed"] is False

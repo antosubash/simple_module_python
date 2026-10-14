@@ -1,8 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+const page = vi.hoisted(() => ({ appName: 'Acme' as string | null }));
+
 vi.mock('@inertiajs/react', () => ({
-  usePage: () => ({ props: { branding: { appName: 'Acme', logoUrl: null, banner: null } } }),
+  usePage: () => ({
+    props: page.appName ? { branding: { appName: page.appName, logoUrl: null, banner: null } } : {},
+  }),
   Head: () => null,
 }));
 
@@ -80,6 +84,25 @@ describe('AuthCardShell', () => {
       </AuthCardShell>,
     );
     expect(container.querySelector('[class*="border-amber-600/35"]')).not.toBeNull();
+  });
+});
+
+describe('AuthCardShell framework caption', () => {
+  it('hides the "python" caption once a deployment has its own app name', () => {
+    page.appName = 'Acme';
+    render(<AuthCardShell>x</AuthCardShell>);
+    expect(screen.queryByText('python')).toBeNull();
+  });
+
+  it('keeps the caption for the default name and when branding is absent', () => {
+    page.appName = 'SimpleModule';
+    const { unmount } = render(<AuthCardShell>x</AuthCardShell>);
+    expect(screen.getByText('python')).toBeInTheDocument();
+    unmount();
+    page.appName = null;
+    render(<AuthCardShell>x</AuthCardShell>);
+    expect(screen.getByText('python')).toBeInTheDocument();
+    page.appName = 'Acme';
   });
 });
 
