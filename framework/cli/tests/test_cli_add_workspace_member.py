@@ -8,6 +8,8 @@ from pathlib import Path
 import pytest
 import typer
 from simple_module_cli.add_cmd import run_add
+from simple_module_cli.cli import _echo_workspace_hint
+from simple_module_cli.git_source import parse_add_spec
 from simple_module_cli.uv_workspace import is_workspace_member
 
 HOST = '[project]\nname = "myhost"\nversion = "0.1.0"\ndependencies = []\n'
@@ -87,3 +89,24 @@ def test_missing_path_error_names_the_resolution_base(
             exec_runner=_noop,
         )
     assert "--path project" in capsys.readouterr().err
+
+
+def test_workspace_hint_inside_host_dir_prints_a_path_spec(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # GH #471: a bare "modules/x" would be parsed by `smpy add` as a PyPI requirement.
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.uv.workspace]\nmembers = ["host", "host/modules/*"]\n', encoding="utf-8"
+    )
+    (tmp_path / "host").mkdir()
+    (tmp_path / "host" / "pyproject.toml").write_text(HOST, encoding="utf-8")
+    module = tmp_path / "host" / "modules" / "forest_plots"
+    _write_module(module)
+    monkeypatch.chdir(tmp_path)
+
+    _echo_workspace_hint(module)
+
+    out = capsys.readouterr().out
+    spec = out.split("smpy add ", 1)[1].split(" --path", 1)[0]
+    assert spec == "./modules/forest_plots"
+    assert parse_add_spec(spec).kind == "path"

@@ -263,3 +263,8 @@ def test_write_local_env_keeps_existing_postgres_password_and_url_together(
         overrides={"POSTGRES_PASSWORD": "new", "SM_DATABASE_URL": "postgresql://postgres:new@x/db"},
     )
     assert env_values((tmp_path / ".env").read_text()) == {"POSTGRES_PASSWORD": "kept"}
+
+
+def test_env_values_ignores_indented_comments_and_strips_key_spacing() -> None:
+    text = "  # SM_SECRET_KEY=nope\nA = 1\n# B=2\nC=3\n"
+    assert env_values(text) == {"A": " 1", "C": "3"}

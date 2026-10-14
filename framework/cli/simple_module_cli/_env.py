@@ -15,4 +15,5 @@ def set_env_key(text: str, key: str, value: str) -> str:
 def env_values(text: str) -> dict[str, str]:
     """Parse the ``KEY=VALUE`` lines of an env-style file body (comments skipped)."""
     lines = text.splitlines()
-    return dict(ln.split("=", 1) for ln in lines if "=" in ln and not ln.startswith("#"))
+    pairs = (ln.split("=", 1) for ln in lines if "=" in ln and not ln.lstrip().startswith("#"))
+    return {key.strip(): value for key, value in pairs}
