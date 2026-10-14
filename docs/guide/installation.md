@@ -89,7 +89,7 @@ POSTGRES_PASSWORD=<generated>
 SM_DATABASE_URL=postgresql+asyncpg://postgres:<generated>@localhost:5432/my_app
 ```
 
-The database name is the snake_case app name. `POSTGRES_PASSWORD` is shared with the compose `postgres` service below.
+The database name is the snake_case app name. `POSTGRES_PASSWORD` is shared with the compose `postgres` service below. Compose interpolates it unencoded into the container's `SM_DATABASE_URL`, so it must be URL-safe (letters, digits, `-`, `_`, `.`, `~`); `make docker-up` refuses to start otherwise. The generated value always is.
 
 Every scaffold ships a `docker-compose.yml` that matches your `--db` choice (a migration history is dialect-frozen at autogenerate time, so containers must run the same database the migrations were generated against). With `--db postgres` it brings up `postgres` (db named after your app, user `postgres`, password from `POSTGRES_PASSWORD` in `.env`) on `127.0.0.1:5432` and the `app` service; the default SQLite scaffold runs the `app` container alone with the database on a named volume. Including the `background_tasks` module adds `redis` on `127.0.0.1:6379` plus `worker`/`beat` services that reuse the app image. With `--db postgres`, the container also doubles as a local dev database:
 

@@ -90,6 +90,18 @@ def test_postgres_scaffold_env_matches_compose_password(tmp_path: Path) -> None:
     assert "POSTGRES_PASSWORD=\n" in example
 
 
+def test_postgres_password_must_be_url_safe_is_documented_and_enforced(tmp_path: Path) -> None:
+    # GH #472: compose cannot URL-encode, so the raw password lands in the URL.
+    target = tmp_path / "demo"
+    _create(target, db="postgres")
+    example = (target / ".env.example").read_text()
+    assert "URL-safe" in example
+    assert example.index("URL-safe") < example.index("POSTGRES_PASSWORD=")
+    makefile = (target / "Makefile").read_text()
+    assert "[A-Za-z0-9._~-]*$$' .env" in makefile
+    assert makefile.index("URL-safe") < makefile.index("docker compose up")
+
+
 def test_compose_containers_run_production_env(tmp_path: Path) -> None:
     # Development mode emits asset tags pointing at the (absent) Vite dev
     # server, so containers must boot in production mode.

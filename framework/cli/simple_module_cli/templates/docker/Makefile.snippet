@@ -8,6 +8,12 @@ docker-up:                  ## Run the full stack in containers
 	@test -f .env || { cp .env.example .env; \
 		echo "Created .env from .env.example: set POSTGRES_PASSWORD (Postgres apps) and the"; \
 		echo "commented SM_* secrets in .env; production containers refuse to boot without them."; }
+	@# compose interpolates POSTGRES_PASSWORD raw into the SM_DATABASE_URL, so it must be URL-safe.
+	@if grep -q '^POSTGRES_PASSWORD=' .env && ! grep -Eq '^POSTGRES_PASSWORD=[A-Za-z0-9._~-]*$$' .env; then \
+		echo "POSTGRES_PASSWORD in .env must be URL-safe (letters, digits, - _ . ~ only):" >&2; \
+		echo "compose puts it into SM_DATABASE_URL unencoded. Pick another password." >&2; \
+		exit 1; \
+	fi
 	docker compose up --build
 
 docker-down:                ## Stop the compose stack

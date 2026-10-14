@@ -174,6 +174,12 @@ def create_app_project(
         # The compose `postgres` service takes its password from .env, and
         # the dev SM_DATABASE_URL must match it (GH #444).
         env_text = set_env_key(env_text, "POSTGRES_PASSWORD", "")
+        env_text = env_text.replace(
+            "POSTGRES_PASSWORD=\n",
+            "# Compose puts this into SM_DATABASE_URL unencoded: use only URL-safe\n"
+            "# characters (letters, digits, - _ . ~). `make docker-up` rejects others.\n"
+            "POSTGRES_PASSWORD=\n",
+        )
         password = _secrets.token_urlsafe(24)
         local_overrides = {
             "POSTGRES_PASSWORD": password,
