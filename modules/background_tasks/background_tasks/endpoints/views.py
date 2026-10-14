@@ -72,6 +72,12 @@ async def index(
         response.total == 0 and not task_name and not queue and not tenant_id and status is None
     )
 
+    # `total` is the filtered count; the page must tell "the filters hide rows"
+    # from "nothing exists at all".
+    has_executions = response.total > 0
+    if not has_executions and not unfiltered_and_empty:
+        has_executions = (await service.list(page=1, per_page=1)).total > 0
+
     async def strip_data() -> tuple[dict[str, int], list[str]]:
         """Everything above the table. Serial: one session, one connection."""
         counts = await service.status_counts(
@@ -108,6 +114,7 @@ async def index(
             "tenant_ids": await service.tenant_ids(),
             "platform_tenant_value": PLATFORM_TENANT_FILTER,
             "worker_presence": presence,
+            "has_executions": has_executions,
             "pagination": {
                 "page": response.page,
                 "per_page": response.per_page,

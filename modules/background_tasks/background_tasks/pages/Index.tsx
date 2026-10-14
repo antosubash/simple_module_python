@@ -41,6 +41,8 @@ interface Props {
   platform_tenant_value: string;
   /** Null unless the unfiltered list came back empty — see the index view. */
   worker_presence: WorkerPresence | null;
+  /** Whether any execution exists at all, ignoring the active filters. */
+  has_executions: boolean;
 }
 
 // A retry moves a row out of "failed", so the strip and the queue list are
@@ -67,6 +69,7 @@ function Index() {
     tenant_ids: tenantIds,
     platform_tenant_value: platformTenantValue,
     worker_presence: workerPresence,
+    has_executions: hasExecutions,
   } = usePage<{ props: Props }>().props as unknown as Props;
 
   const { t } = useT();
@@ -222,7 +225,7 @@ function Index() {
           onPageChange={(page) => pushFilters(filters, page)}
           empty={
             <TasksEmptyRow
-              filtered={isFiltered}
+              filtered={isFiltered && hasExecutions !== false}
               columnCount={COLUMN_COUNT}
               presence={workerPresence ?? null}
               onClear={clearFilters}
