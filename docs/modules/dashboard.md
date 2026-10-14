@@ -33,13 +33,13 @@ The route is guarded by an admin dependency, and its menu entry carries the matc
 | `GET /api/dashboard/stats` | `dict` (see below) | `dashboard.view` |
 
 The stats count the whole install (`User` is not tenant-scoped), so they sit
-behind `dashboard.view`. `admin` holds it through `*`. On a single-tenant
-install (`multi_tenant` off) the module also maps it onto the platform `user`
-role, so every signed-in user keeps the numbers they always had. With
-`multi_tenant` on it is mapped to no other role — every tenant member holds
-`user`, and one tenant must not learn the size of the install — so ordinary
-users see only the welcome on `/dashboard/`, and the API answers 403. Grant it
-to a role in the role editor to change that.
+behind `dashboard.view`. `admin` holds it through `*`; it is mapped to no
+other role, in single- and multi-tenant installs alike — with self sign-up on,
+any registered account holds `user`, and the numbers (user counts, installed
+modules, system info) are administrative (#464). Ordinary users therefore see
+only the welcome on `/dashboard/` — which stays every account's post-login
+landing page and sidebar entry — and the API answers 403. Grant it to a role in
+the role editor to change that.
 
 `/api/dashboard/stats` is what the page itself calls; you can hit it from your own UI or scripts. Response shape:
 
@@ -67,7 +67,7 @@ The result is cached process-wide for 30 seconds. If you mutate something that s
 
 ## Permissions
 
-_(none registered)_ — `/dashboard/` is gated by authentication only, via the `users` module's `AuthMiddleware`. `/admin/doctor/` is gated by the `admin` role rather than a registered permission.
+`dashboard.view` (group `Dashboard`) — the platform-wide stats, on `/api/dashboard/stats` and the `/dashboard/` page. Held by `admin` only by default. `/dashboard/` itself is gated by authentication only, via the `users` module's `AuthMiddleware`. `/admin/doctor/` is gated by the `admin` role rather than a registered permission.
 
 ## Inertia pages
 

@@ -1,9 +1,9 @@
-"""Single-tenant installs keep the stats for ordinary users (review of #374).
+"""Single-tenant installs keep the stats admin-only too (#464).
 
-With ``multi_tenant`` off there is one tenant — the install — so the counts
-leak nothing, and every signed-in ``user`` had them before ``dashboard.view``
-existed. With it on, every tenant member also holds ``user``, so the mapping
-must not be made there (``test_dashboard_permission.py``).
+The stats are administrative — user counts, installed modules, system info — so
+with self sign-up on, mapping ``dashboard.view`` onto ``user`` handed them to
+every account that registered. Only ``admin`` (via ``*``) holds it now; the
+dashboard still renders for everyone as the post-login landing page.
 """
 
 from __future__ import annotations
@@ -30,8 +30,8 @@ def settings(settings: Settings) -> Settings:
     return settings.model_copy(update={"multi_tenant": False, "tenant_header": ""})
 
 
-def test_user_role_is_mapped_to_dashboard_view(app):
-    assert PERM_VIEW in app.state.sm.permissions.role_map["user"]
+def test_user_role_is_not_mapped_to_dashboard_view(app):
+    assert PERM_VIEW not in app.state.sm.permissions.role_map.get("user", [])
 
 
 async def _plain_user(app) -> str:
@@ -43,9 +43,28 @@ async def _plain_user(app) -> str:
         return str(result.user.id)
 
 
-async def test_ordinary_user_sees_the_stats(app):
+async def test_ordinary_user_is_refused_the_stats(app):
     async with session_client(app, {"user_id": await _plain_user(app)}) as c:
-        assert (await c.get(_STATS)).status_code == 200
+        resp = await c.get(_STATS)
+        page = await c.get("/dashboard/", headers=_INERTIA)
+    assert resp.status_code == 403
+    assert page.status_code == 200
+    props = page.json()["props"]
+    assert props["can_view_stats"] is False
+    assert props["welcome"]
+    for leaked in ("total_users", "active_users_7d", "module_count", "system_info"):
+        assert leaked not in props
+
+
+async def test_ordinary_user_still_sees_the_dashboard_menu_entry(app):
+    async with session_client(app, {"user_id": await _plain_user(app)}) as c:
         props = (await c.get("/dashboard/", headers=_INERTIA)).json()["props"]
+    urls = [item["url"] for item in props["menus"]["sidebar"]]
+    assert "/dashboard/" in urls
+
+
+async def test_admin_still_sees_the_stats(authenticated_client):
+    assert (await authenticated_client.get(_STATS)).status_code == 200
+    props = (await authenticated_client.get("/dashboard/", headers=_INERTIA)).json()["props"]
     assert props["can_view_stats"] is True
     assert props["total_users"] >= 1
