@@ -10,7 +10,7 @@ or past the end of the object is ``416`` with ``Content-Range: bytes */size``.
 from __future__ import annotations
 
 import re
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Final, Literal
 
@@ -80,12 +80,6 @@ def _range_header(request: Request, etag: str) -> str | None:
     return request.headers.get("range")
 
 
-async def _discard(body: AsyncIterator[bytes] | None) -> None:
-    aclose = getattr(body, "aclose", None)
-    if aclose is not None:
-        await aclose()
-
-
 async def file_body_response(
     backend: StorageBackend,
     row: StoredFile,
@@ -93,14 +87,13 @@ async def file_body_response(
     *,
     headers: Mapping[str, str],
     etag: str,
-    body: AsyncIterator[bytes] | None = None,
 ) -> Response:
     """Stream ``row`` as ``200``, or the requested slice as ``206`` / ``416``.
 
     ``headers`` are the caller's headers for the full response, minus
-    ``Content-Length``, which is set here. ``body`` is an already-opened full
-    stream to reuse (closed unread if a range is served instead). Raises
-    :class:`StorageNotFoundError` if the object is gone.
+    ``Content-Length``, which is set here. The backend is opened only for the
+    response actually served, so a ranged request never opens the full object.
+    Raises :class:`StorageNotFoundError` if the object is gone.
     """
     size = row.size_bytes
     get_range = getattr(backend, "get_range", None)
@@ -110,12 +103,10 @@ async def file_body_response(
         out["Accept-Ranges"] = "bytes"
 
     if parsed is None:
-        if body is None:
-            body = await backend.get(row.key)
+        body = await backend.get(row.key)
         out["Content-Length"] = str(size)
         return StreamingResponse(body, media_type=row.content_type, headers=out)
 
-    await _discard(body)
     if parsed == UNSATISFIABLE:
         out["Content-Range"] = f"bytes */{size}"
         return Response(status_code=status.HTTP_416_RANGE_NOT_SATISFIABLE, headers=out)
