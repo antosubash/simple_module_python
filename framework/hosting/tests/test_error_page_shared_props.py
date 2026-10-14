@@ -3,7 +3,7 @@
 ``render_error_page`` builds its own ``Inertia`` instance instead of going
 through ``get_inertia``, so it skipped the ``inertia.share(**shared)`` step.
 The consequence was visible: a 404 rendered its copy as raw translation keys
-— ``host.error.not_found_title``, ``host.error.go_home`` — because the page
+— ``ui.error_page.not_found_title``, ``host.error.go_home`` — because the page
 received no ``i18n`` block at all. It also lost ``auth`` and ``menus``, so the
 error page could not render the layout a signed-in user expects.
 """
@@ -91,7 +91,7 @@ class TestErrorPageSharedProps:
     async def test_error_page_carries_i18n_messages(
         self, authenticated_client: httpx.AsyncClient
     ) -> None:
-        """Without this the page prints raw keys like host.error.not_found_title."""
+        """Without this the page prints raw keys like ui.error_page.not_found_title."""
         resp = await authenticated_client.get(_MISSING_PATH)
         props = _inertia_page(resp.text)["props"]
         assert "i18n" in props, f"error page has no i18n block; props={sorted(props)}"

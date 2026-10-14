@@ -70,5 +70,35 @@
   "demo": {
     "banner_read_only": "Modo demostración: has iniciado sesión en una cuenta compartida y los cambios no se guardan.",
     "banner_writable": "Modo demostración: has iniciado sesión en una cuenta compartida que usan todas las personas que exploran este sitio."
+  },
+  "error_page": {
+    "correlation_id_copy": "Copiar ID de referencia",
+    "forbidden_description": "Tu rol no incluye el permiso que necesita esta página. Pide a un administrador que te lo conceda.",
+    "forbidden_permission": "Tu rol no incluye {permission}. Pide a un administrador que te lo conceda.",
+    "forbidden_title": "Sin acceso",
+    "generic_description": "Ocurrió un error inesperado.",
+    "generic_title": "Error",
+    "go_back": "Volver",
+    "go_home": "Ir al inicio",
+    "invalid_request_description": "La dirección que seguiste contiene parámetros que no pudimos leer.",
+    "invalid_request_title": "Solicitud no válida",
+    "maintenance_description": "Estamos haciendo algunos cambios y volveremos en breve. Gracias por tu paciencia.",
+    "maintenance_title": "En mantenimiento",
+    "not_found_description": "Esa página o registro no existe. Puede que se haya eliminado.",
+    "not_found_title": "No encontrado",
+    "payload_too_large_description": "Lo que enviaste es mayor de lo que acepta este servidor. Envía algo más pequeño e inténtalo de nuevo.",
+    "payload_too_large_title": "Solicitud demasiado grande",
+    "rate_limited_description": "Has hecho muchas solicitudes en poco tiempo. Espera un momento e inténtalo de nuevo.",
+    "rate_limited_title": "Demasiadas solicitudes",
+    "retry": "Reintentar",
+    "server_error_description": "El servidor encontró un error. Menciona este id si lo reportas.",
+    "server_error_title": "Algo se ha roto",
+    "session_expired_description": "Se cerró tu sesión tras un periodo de inactividad. Inicia sesión de nuevo para continuar donde lo dejaste.",
+    "session_expired_title": "Sesión caducada",
+    "sign_in": "Iniciar sesión",
+    "unauthorized_description": "Debes iniciar sesión para ver esta página.",
+    "unauthorized_title": "Inicio de sesión requerido",
+    "unavailable_description": "El servicio no está disponible temporalmente. Inténtalo de nuevo en unos momentos.",
+    "unavailable_title": "Servicio no disponible"
   }
 }

@@ -70,5 +70,35 @@
   "demo": {
     "banner_read_only": "Demo mode — you are signed in to a shared account and changes are not saved.",
     "banner_writable": "Demo mode — you are signed in to a shared account that everyone exploring this site uses."
+  },
+  "error_page": {
+    "correlation_id_copy": "Copy reference ID",
+    "forbidden_description": "Your role doesn't include the permission this page needs. Ask an admin to grant it.",
+    "forbidden_permission": "Your role doesn't include {permission}. Ask an admin to grant it.",
+    "forbidden_title": "No access",
+    "generic_description": "An unexpected error occurred.",
+    "generic_title": "Error",
+    "go_back": "Go back",
+    "go_home": "Go home",
+    "invalid_request_description": "The address you followed contains parameters we couldn't read.",
+    "invalid_request_title": "Invalid request",
+    "maintenance_description": "We're making some changes and will be back shortly. Thanks for your patience.",
+    "maintenance_title": "Down for maintenance",
+    "not_found_description": "That page or record doesn't exist. It may have been deleted.",
+    "not_found_title": "Not found",
+    "payload_too_large_description": "What you sent is larger than this server accepts. Send something smaller and try again.",
+    "payload_too_large_title": "Request too large",
+    "rate_limited_description": "You've made a lot of requests in a short time. Wait a moment and try again.",
+    "rate_limited_title": "Too many requests",
+    "retry": "Retry",
+    "server_error_description": "The server hit an error. Quote this id if you report it.",
+    "server_error_title": "Something broke",
+    "session_expired_description": "You were signed out after a period of inactivity. Sign in again to pick up where you left off.",
+    "session_expired_title": "Session expired",
+    "sign_in": "Sign in",
+    "unauthorized_description": "You need to be signed in to view this page.",
+    "unauthorized_title": "Sign in required",
+    "unavailable_description": "The service is temporarily unavailable. Please try again shortly.",
+    "unavailable_title": "Service unavailable"
   }
 }

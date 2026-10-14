@@ -187,7 +187,7 @@ async def render_error_page(
             inertia = Inertia(request, config)
         # This does not go through get_inertia, so the share step has to be
         # repeated here. Without it the error page renders raw translation keys
-        # (host.error.not_found_title) and loses auth/menus, so a signed-in
+        # (ui.error_page.not_found_title) and loses auth/menus, so a signed-in
         # user's 404 has no layout.
         shared = getattr(request.state, "inertia_shared", None)
         if shared:

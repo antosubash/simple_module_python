@@ -19,23 +19,23 @@ import { describe, expect, test, vi } from 'vitest';
 configureI18n({
   locale: 'en',
   messages: {
-    'host.error.forbidden_title': 'No access',
-    'host.error.forbidden_description':
+    'ui.error_page.forbidden_title': 'No access',
+    'ui.error_page.forbidden_description':
       "Your role doesn't include the permission this page needs. Ask an admin to grant it.",
-    'host.error.forbidden_permission':
+    'ui.error_page.forbidden_permission':
       "Your role doesn't include {permission}. Ask an admin to grant it.",
-    'host.error.not_found_title': 'Not found',
-    'host.error.not_found_description': 'That page is not here.',
-    'host.error.go_home': 'Go home',
-    'host.error.sign_in': 'Sign in',
-    'host.error.retry': 'Retry',
-    'host.error.server_title': 'Something broke',
-    'host.error.server_description': 'Something went wrong on our side.',
-    'host.error.unauthorized_title': 'Sign in to continue',
-    'host.error.unauthorized_description': 'You need to be signed in.',
-    'host.error.maintenance_title': 'Back shortly',
-    'host.error.maintenance_description': 'Planned maintenance.',
-    'host.error.correlation_label': 'Reference',
+    'ui.error_page.not_found_title': 'Not found',
+    'ui.error_page.not_found_description': 'That page is not here.',
+    'ui.error_page.go_home': 'Go home',
+    'ui.error_page.sign_in': 'Sign in',
+    'ui.error_page.retry': 'Retry',
+    'ui.error_page.server_title': 'Something broke',
+    'ui.error_page.server_description': 'Something went wrong on our side.',
+    'ui.error_page.unauthorized_title': 'Sign in to continue',
+    'ui.error_page.unauthorized_description': 'You need to be signed in.',
+    'ui.error_page.maintenance_title': 'Back shortly',
+    'ui.error_page.maintenance_description': 'Planned maintenance.',
+    'ui.error_page.correlation_label': 'Reference',
   },
 });
 
@@ -55,13 +55,13 @@ vi.mock('@inertiajs/react', () => ({
   usePage: () => mocks.page,
 }));
 
-vi.mock('@simple-module-py/ui/layouts/AdminLayout', () => ({
+vi.mock('../layouts/AdminLayout', () => ({
   AdminLayout: ({ children }: { children?: ReactNode }) => (
     <div data-testid="admin-layout">{children}</div>
   ),
 }));
 
-const { default: ErrorPage } = await import('./Error');
+const { default: ErrorPage } = await import('./ErrorPage');
 
 function renderError(props: Record<string, unknown>) {
   const layout = (ErrorPage as unknown as { layout: (page: ReactNode) => ReactNode }).layout;
