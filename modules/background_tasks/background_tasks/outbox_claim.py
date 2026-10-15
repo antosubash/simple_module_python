@@ -134,6 +134,14 @@ async def claim(
         )
         if _is_postgres(session):
             candidates = candidates.with_for_update(skip_locked=True)
+        # A materialized CTE runs the candidate select exactly once. Inlined as
+        # ``IN (SELECT ... LIMIT n FOR UPDATE SKIP LOCKED)``, Postgres may plan
+        # it as the inner side of a semi-join and rescan it per outer row, and
+        # each rescan can lock and return a different ``n`` rows — one claim
+        # then takes far more than its batch, starving concurrent claimers.
+        claimable = candidates.cte("outbox_claimable").prefix_with(
+            "MATERIALIZED", dialect="postgresql"
+        )
         # One statement, so the claim takes the write lock up front: a separate
         # SELECT then UPDATE would, on SQLite, have two claimers both holding a
         # read lock and deadlock upgrading it. Re-checking ``status = pending``
@@ -141,7 +149,10 @@ async def claim(
         # winning a row where there is no SKIP LOCKED.
         result = await session.execute(
             update(OutboxMessage)
-            .where(OutboxMessage.id.in_(candidates), OutboxMessage.status == OutboxStatus.PENDING)
+            .where(
+                OutboxMessage.id.in_(select(claimable.c.id)),
+                OutboxMessage.status == OutboxStatus.PENDING,
+            )
             .values(
                 status=OutboxStatus.RUNNING,
                 attempts=OutboxMessage.attempts + 1,

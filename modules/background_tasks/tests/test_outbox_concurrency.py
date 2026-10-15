@@ -25,7 +25,12 @@ from simple_module_core.durable_events import event_key, serialize_event
 from simple_module_core.events import Event, EventBus
 from simple_module_db import init_db
 from simple_module_db.listeners import register_listeners
-from simple_module_test.database import database_url_for_tests, init_db_kwargs, is_sqlite
+from simple_module_test.database import (
+    database_url_for_tests,
+    init_db_kwargs,
+    is_sqlite,
+    reset_schema,
+)
 from sqlalchemy import func, select
 
 POLICY = OutboxPolicy(max_attempts=8, lease_seconds=60)
@@ -43,6 +48,9 @@ async def factory(tmp_path: Path) -> AsyncIterator:
         url = f"sqlite+aiosqlite:///{tmp_path / 'outbox_concurrency.db'}"
     state = init_db(url, **init_db_kwargs(url))
     register_listeners(state)
+    # On Postgres the suite shares one database: rows an earlier test left in
+    # the outbox would otherwise be claimed here and skew every count.
+    await reset_schema(state.engine)
     async with state.engine.begin() as conn:
         await conn.run_sync(OutboxMessage.metadata.create_all)
     yield state.session_factory
