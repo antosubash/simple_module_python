@@ -417,7 +417,7 @@ In the admin UI, the user list and edit page show an **"External · SSO"** badge
 - For a `Bearer` token, looks the token up in `users_access_token` and returns the active user.
 - Otherwise reads `session["user_id"]`, returns the cached context from `session["user_ctx"]` on a hit, else loads the User row with eagerly-loaded roles, builds a `UserContext`, caches it in `session["user_ctx"]`, and clears stale session keys when the user is missing/disabled.
 
-`get_login_url()` → `/users/login`, `get_logout_url()` → `/users/logout`. The provider's `get_public_paths()` declares these prefixes anonymous (in addition to the framework defaults `/health`, `/static/`, `/api/docs`, `/api/redoc`, `/openapi.json`, `/i18n/`, `/`):
+`get_login_url()` → `/users/login`, `get_logout_url()` → `/users/logout`. The provider's `get_public_paths()` declares these prefixes anonymous (in addition to the framework defaults `/health`, `/static/`, `/api/docs`, `/api/redoc`, `/api/openapi.json` (only when served), `/i18n/`, `/`):
 
 `/users/login`, `/users/register`, `/users/forgot-password`, `/users/reset-password`, `/users/verify`, `/users/invite/accept`, `/api/users/auth/`, `/api/users/register`.
 

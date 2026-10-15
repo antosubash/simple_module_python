@@ -110,3 +110,23 @@ async def test_unserved_schema_is_not_reachable(settings: Settings) -> None:
     app = create_app(s)
     assert (await _get(app, "/api/openapi.json")).status_code != 200
     assert (await _get(app, "/openapi.json")).status_code != 200
+
+
+def test_default_api_version_reads_scaffolded_host_pyproject(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A scaffolded host is never installed, so its version comes from pyproject."""
+    from importlib.metadata import PackageNotFoundError
+
+    from simple_module_hosting import host_settings
+
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "acme"\nversion = "4.5.6"\n')
+
+    def missing(_name: str) -> str:
+        raise PackageNotFoundError
+
+    monkeypatch.setattr("importlib.metadata.version", missing)
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+    assert host_settings._default_api_version() == "4.5.6"
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path / "nope"))
+    assert host_settings._default_api_version() == "0.0.0"

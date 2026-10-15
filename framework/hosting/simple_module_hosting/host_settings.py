@@ -30,13 +30,31 @@ _RESTART_API = {"requires_restart": True, "group": "API"}
 
 
 def _default_api_version() -> str:
-    """The host distribution's version, else ``0.0.0``."""
+    """The host project's version, else ``0.0.0``.
+
+    This repo's host is the installed ``simple-module-host`` distribution. A
+    scaffolded host is ``package = false`` (never installed), so there is no
+    distribution to ask: read ``[project].version`` from its ``pyproject.toml``
+    under ``SM_PROJECT_ROOT`` (or the cwd) instead.
+    """
+    import os
+    import tomllib
     from importlib.metadata import PackageNotFoundError, version
+    from pathlib import Path
 
     try:
         return version("simple-module-host")
     except PackageNotFoundError:
-        return "0.0.0"
+        pass
+    root = Path(os.environ.get("SM_PROJECT_ROOT") or Path.cwd())
+    for candidate in (root / "host" / "pyproject.toml", root / "pyproject.toml"):
+        try:
+            found = tomllib.loads(candidate.read_text(encoding="utf-8"))["project"]["version"]
+        except (OSError, KeyError, tomllib.TOMLDecodeError):
+            continue
+        if isinstance(found, str) and found:
+            return found
+    return "0.0.0"
 
 
 class HostSettings(BaseSettings):

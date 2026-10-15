@@ -75,7 +75,7 @@ async def delete_order(order_id: int, user: CurrentUser) -> None:
 
 `AuthModule.register_settings` puts an empty `AuthState` on `app.state.auth` (holding `auth_provider` and `principal_resolvers`), and `register_middleware` installs `AuthMiddleware`. On each HTTP request the middleware:
 
-1. Skips authentication for public paths — framework defaults (`/health`, `/static/`, `/api/docs`, `/api/redoc`, `/openapi.json`, `/i18n/`, and the exact path `/`), method-aware rules contributed via the [`register_public_routes`](/framework/lifecycle) hook (plus the `SM_AUTH_PUBLIC_PATHS` host escape hatch), and the provider's own `get_public_paths()` (prefix-only, kept for back-compat).
+1. Skips authentication for public paths — framework defaults (`/health`, `/static/`, `/api/docs`, `/api/redoc`, `/api/openapi.json` (only when served), `/i18n/`, and the exact path `/`), method-aware rules contributed via the [`register_public_routes`](/framework/lifecycle) hook (plus the `SM_AUTH_PUBLIC_PATHS` host escape hatch), and the provider's own `get_public_paths()` (prefix-only, kept for back-compat).
 2. Calls `provider.resolve_user(request)` (the `AuthProvider` registered by `users` or `keycloak`).
 3. On a miss, walks the **principal-resolver chain** (`app.state.auth.principal_resolvers`) in order — async callables `(Request) -> UserContext | None` for extra credential sources (PAT bearer tokens, API keys). The first non-`None` wins; each is wrapped in `try/except` so a raising resolver is treated as no-match.
 4. If still unauthenticated and the path isn't public: returns `401` JSON for `/api/*` or bearer requests, otherwise stashes `next` in the session and redirects to `provider.get_login_url(request)`.
