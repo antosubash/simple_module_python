@@ -20,6 +20,7 @@ export const keys = {
       warning: 'api_tokens.created.warning',
     },
     errors: {
+      account_required: 'api_tokens.errors.account_required',
       invalid_kind: 'api_tokens.errors.invalid_kind',
       lifetime_too_long: 'api_tokens.errors.lifetime_too_long',
       not_found: 'api_tokens.errors.not_found',
@@ -87,6 +88,13 @@ export const keys = {
       description: 'api_tokens.revoke.description',
       title: 'api_tokens.revoke.title',
     },
+    revoke_all: {
+      button: 'api_tokens.revoke_all.button',
+      cancel: 'api_tokens.revoke_all.cancel',
+      confirm: 'api_tokens.revoke_all.confirm',
+      description: 'api_tokens.revoke_all.description',
+      title: 'api_tokens.revoke_all.title',
+    },
     status: {
       active: 'api_tokens.status.active',
       expired: 'api_tokens.status.expired',
@@ -96,6 +104,9 @@ export const keys = {
       created: 'api_tokens.toasts.created',
       failed: 'api_tokens.toasts.failed',
       revoked: 'api_tokens.toasts.revoked',
+      revoked_all: 'api_tokens.toasts.revoked_all',
+      revoked_all_one: 'api_tokens.toasts.revoked_all_one',
+      revoked_all_other: 'api_tokens.toasts.revoked_all_other',
     },
   },
   audit_log: {
@@ -704,6 +715,9 @@ export const keys = {
     },
   },
   hosting: {
+    errors: {
+      token_not_allowed: 'hosting.errors.token_not_allowed',
+    },
     setup: {
       connections: {
         description: 'hosting.setup.connections.description',

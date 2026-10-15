@@ -19,6 +19,7 @@ from typing import Any
 
 from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import AUTH_KIND_PAT, AUTH_KIND_SERVICE, is_api_token
+from simple_module_core.tenancy import is_tenant_role
 from simple_module_db import ALL_TENANTS_OPTION
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import noload, selectinload
@@ -66,7 +67,12 @@ async def _personal(db: Any, token: ApiToken) -> UserContext | None:
     user = (await db.execute(stmt)).scalar_one_or_none()
     if user is None or not user.is_active or user.disabled_at is not None:
         return None
-    return UserContext.from_user(user, auth_kind=AUTH_KIND_PAT, scopes=list(token.scopes))
+    principal = UserContext.from_user(user, auth_kind=AUTH_KIND_PAT, scopes=list(token.scopes))
+    # Pinned to the tenant it was created in, like a service key: the tenant
+    # resolver acts for this tenant only (and only while the owner is still an
+    # active member of it), never one named by a header, subdomain or session.
+    principal.tenant_id = token.tenant_id
+    return principal
 
 
 def _service(token: ApiToken) -> UserContext:
@@ -75,8 +81,11 @@ def _service(token: ApiToken) -> UserContext:
         email="",
         name=token.name,
         # Refused at creation; dropped here too so a hand-edited row cannot
-        # turn a service key into an admin.
-        roles=[r for r in token.roles if r not in FORBIDDEN_SERVICE_ROLES],
+        # turn a service key into an admin — or a tenant owner: ``tenant:*``
+        # roles come only from a membership, which a service key never has.
+        roles=[
+            r for r in token.roles if r not in FORBIDDEN_SERVICE_ROLES and not is_tenant_role(r)
+        ],
         tenant_id=token.tenant_id,
         auth_kind=AUTH_KIND_SERVICE,
         scopes=list(token.scopes),

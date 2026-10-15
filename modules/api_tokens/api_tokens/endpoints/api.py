@@ -16,7 +16,12 @@ from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import RequiresPermission
 
 from api_tokens.constants import PERM_USE, TokenKind
-from api_tokens.contracts.schemas import CreatedToken, PersonalTokenCreate, TokenView
+from api_tokens.contracts.schemas import (
+    CreatedToken,
+    PersonalTokenCreate,
+    RevokedCount,
+    TokenView,
+)
 from api_tokens.deps import (
     ApiTokenServiceDep,
     SessionPrincipal,
@@ -56,6 +61,10 @@ async def create_token(
     t: TranslatorDep,
 ) -> CreatedToken:
     owner = user_uuid(user, t)
+    if not await service.has_usable_account(owner):
+        # No local account the resolver could load (e.g. Keycloak): refuse
+        # instead of minting a token that can never authenticate.
+        raise HTTPException(status_code=400, detail=t.t("api_tokens.errors.account_required"))
     try:
         scopes = check_subset(
             body.scopes, await assignable_scopes(request), "api_tokens.errors.scope_not_held"
@@ -75,6 +84,18 @@ async def create_token(
             status_code=409, detail=t.t("api_tokens.errors.tenant_required")
         ) from None
     return CreatedToken(token=plaintext, item=service.to_view(token))
+
+
+@router.post("/revoke-all", response_model=RevokedCount)
+async def revoke_all_tokens(
+    user: SessionPrincipal, service: ApiTokenServiceDep, t: TranslatorDep
+) -> RevokedCount:
+    """Revoke every personal token the signed-in user holds — the panic button.
+
+    Tokens deliberately survive a password change and "sign out everywhere"
+    (see docs/modules/api_tokens.md, Security model); this is how to end them.
+    """
+    return RevokedCount(revoked=await service.revoke_all_for_owner(user_uuid(user, t)))
 
 
 @router.post("/{token_id}/revoke", response_model=TokenView)

@@ -12,7 +12,13 @@ actually owns the token never gets to see it.
 from __future__ import annotations
 
 AUTH_KIND_SESSION = "session"
-"""A browser sign-in or an identity provider's own bearer token."""
+"""A browser sign-in: the principal came from the session cookie."""
+
+AUTH_KIND_BEARER = "bearer"
+"""An auth provider's own ``Authorization: Bearer`` credential — a ``users``
+access token or an identity provider's JWT. Unscoped (it carries its user's
+full rights, as before), but not a person at a keyboard: it may not manage
+API tokens, so a short-lived access token cannot mint a year-long PAT."""
 
 AUTH_KIND_PAT = "pat"
 """A personal access token acting for its owner, capped by its scopes."""
@@ -32,6 +38,7 @@ def is_api_token(credential: str) -> bool:
 
 __all__ = [
     "API_TOKEN_PREFIXES",
+    "AUTH_KIND_BEARER",
     "AUTH_KIND_PAT",
     "AUTH_KIND_SERVICE",
     "AUTH_KIND_SESSION",

@@ -64,8 +64,12 @@ bearer format needs the same carve-out.
 
 The shipped [`api_tokens`](/modules/api_tokens) module is the reference
 implementation: it sets `UserContext.auth_kind` and `scopes`, and the framework
-caps the principal's permissions at those scopes (`apply_scope_cap`) and skips
-admin-role shortcuts for it (`is_admin_principal`).
+caps the principal's permissions at those scopes (`apply_scope_cap`), skips
+admin-role shortcuts for it (`is_admin_principal`), and refuses it on every
+route without a permission gate and on every page (`token_guard`, see
+[Permissions](/framework/permissions#scoped-principals-api-tokens-and-ungated-routes)).
+A provider's own bearer credential (a `users` access token, a Keycloak JWT)
+reports `auth_kind = "bearer"`: unscoped, full rights, but not a cookie session.
 
 ## Worked example — bearer-token resolver
 

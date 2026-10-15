@@ -18,9 +18,10 @@ All notable changes to this project are documented in this file. The format is b
   cache), so a revoke applies on the next request. Every token carries scopes
   that cap the principal's permissions on top of the owner's live grants (an
   admin's token is worth its scopes only). Service keys get roles chosen at
-  creation (never `admin`) and are pinned to their tenant. Self-service page at
+  creation (never `admin`); every token is pinned to the tenant it was created
+  in (a PAT only while its owner is still a member). Self-service page at
   `/api-tokens/` (user menu), admin screen at `/admin/api-tokens/`; tokens can
-  only be managed from a session, with `RequiresCsrf`. New PyPI package
+  only be managed from a cookie session, with `RequiresCsrf`. New PyPI package
   `simple_module_api_tokens`; not added to the `smpy new` scaffold. Needs a
   migration (`branch_labels = ("api_tokens",)`).
 - `UserContext` gains `auth_kind` (`"session"` by default; `"pat"` /
@@ -30,6 +31,16 @@ All notable changes to this project are documented in this file. The format is b
 - `simple_module_hosting.permissions.apply_scope_cap` and
   `simple_module_core.permissions.is_admin_principal`. A role-only admin gate
   should use `is_admin_principal(user)`, which is `False` for any token.
+- `simple_module_hosting.token_guard` (#455): an app-wide dependency that
+  refuses an API token (403) on every route without a permission gate
+  (`RequiresPermission` / `require_permission`) and on every page; a public
+  route serves it as anonymous. `TokenAllowed()` opts a route in explicitly.
+  Sessions and provider bearer tokens are unaffected. **Behaviour change** for
+  any module that relied on a token reaching an ungated route: gate it with a
+  permission, or mark it `TokenAllowed`.
+- `auth.contracts.tokens.AUTH_KIND_BEARER`: a `users` access token or Keycloak
+  JWT now reports `auth_kind == "bearer"` (was `"session"`). Same rights; it
+  only stops such credentials from managing API tokens.
 - `from background_tasks import heartbeat` (#451): a long-running task calls
   `heartbeat()` to refresh `heartbeat_at` (throttled to one write per 30 s; a
   no-op outside a task). `@shared_task(..., stuck_after=<seconds>)` sets a

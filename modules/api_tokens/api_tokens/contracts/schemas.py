@@ -62,3 +62,9 @@ class ServiceKeyCreate(_CreateBase):
     """Create a service key. ``roles`` may not include ``admin``."""
 
     roles: list[str] = Field(default_factory=list, max_length=50)
+
+
+class RevokedCount(SQLModel):
+    """How many tokens a bulk revoke ended."""
+
+    revoked: int

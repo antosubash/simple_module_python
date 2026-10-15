@@ -23,6 +23,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from auth.contracts.schemas import UserContext
+from auth.contracts.tokens import AUTH_KIND_BEARER
 from fastapi_users import exceptions, models
 from fastapi_users.authentication.strategy.db import AccessTokenDatabase, DatabaseStrategy
 from fastapi_users.manager import BaseUserManager
@@ -158,7 +159,9 @@ async def resolve_bearer(scope, token: str) -> UserContext | None:
             # already collected. Free here — the row is already loaded.
             if not token_is_live(access, user, now):
                 return None
-            return UserContext.from_user(user)
+            # Full rights, but a bearer credential: it may not manage API
+            # tokens (``auth.contracts.tokens.AUTH_KIND_BEARER``).
+            return UserContext.from_user(user, auth_kind=AUTH_KIND_BEARER)
     except Exception:
         logger.exception("Bearer token resolution failed")
         return None

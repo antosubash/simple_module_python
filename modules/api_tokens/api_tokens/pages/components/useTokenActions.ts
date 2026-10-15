@@ -9,6 +9,8 @@ interface Options {
   csrfToken: string;
   createUrl: string;
   revokeUrl: (id: string) => string;
+  /** Bulk revoke of every token the caller holds; omitted on the admin page. */
+  revokeAllUrl?: string;
 }
 
 interface Created {
@@ -17,10 +19,11 @@ interface Created {
 }
 
 /** Create / revoke through the JSON API, then reload the page's `tokens` prop. */
-export function useTokenActions({ csrfToken, createUrl, revokeUrl }: Options) {
+export function useTokenActions({ csrfToken, createUrl, revokeUrl, revokeAllUrl }: Options) {
   const { t } = useT();
   const [created, setCreated] = useState<string | null>(null);
   const [pendingRevoke, setPendingRevoke] = useState<ApiToken | null>(null);
+  const [pendingRevokeAll, setPendingRevokeAll] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function create(payload: CreatePayload): Promise<boolean> {
@@ -50,6 +53,20 @@ export function useTokenActions({ csrfToken, createUrl, revokeUrl }: Options) {
     router.reload({ only: ['tokens'] });
   }
 
+  async function confirmRevokeAll() {
+    if (!revokeAllUrl) return;
+    setBusy(true);
+    const result = await postJson<{ revoked: number }>(revokeAllUrl, csrfToken);
+    setBusy(false);
+    setPendingRevokeAll(false);
+    if (!result.ok || !result.data) {
+      toast.error(result.detail ?? t(keys.api_tokens.toasts.failed));
+      return;
+    }
+    toast.success(t(keys.api_tokens.toasts.revoked_all, { count: result.data.revoked }));
+    router.reload({ only: ['tokens'] });
+  }
+
   return {
     busy,
     created,
@@ -58,5 +75,8 @@ export function useTokenActions({ csrfToken, createUrl, revokeUrl }: Options) {
     pendingRevoke,
     setPendingRevoke,
     confirmRevoke,
+    pendingRevokeAll,
+    setPendingRevokeAll,
+    confirmRevokeAll,
   };
 }

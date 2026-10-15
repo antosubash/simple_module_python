@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any
 from fastapi import HTTPException, Request
 from simple_module_core.permissions import DEFAULT_ROLE_PERMISSIONS, WILDCARD, grants
 
+from simple_module_hosting.token_guard import GATE_PERMISSION
+
 if TYPE_CHECKING:
     from simple_module_core.permissions import PermissionRegistry
 
@@ -192,6 +194,10 @@ class RequiresPermission:
         async def create_product(...):
             ...
     """
+
+    # Tells ``token_guard`` this route is permission-gated, so an API token
+    # may reach it — capped at its scopes by the check below.
+    __sm_token_gate__ = GATE_PERMISSION
 
     def __init__(self, permission: str) -> None:
         self.permission = permission

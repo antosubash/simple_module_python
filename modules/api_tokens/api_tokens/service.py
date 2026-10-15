@@ -80,6 +80,30 @@ class ApiTokenService:
         await self.db.flush()
         return token, new.plaintext
 
+    async def has_usable_account(self, user_id: uuid.UUID) -> bool:
+        """Whether *user_id* is an active ``users_user`` row the resolver can load.
+
+        Under an auth provider that keeps no local account (Keycloak without a
+        cached user), a token minted for the id would be dead on arrival.
+        """
+        from users.models import User
+
+        stmt = select(User.id).where(
+            User.id == user_id, User.is_active.is_(True), User.disabled_at.is_(None)
+        )
+        return (await self.db.execute(stmt)).first() is not None
+
+    async def revoke_all_for_owner(self, owner_user_id: uuid.UUID) -> int:
+        """Revoke every live personal token *owner_user_id* holds, in any tenant."""
+        tokens = [t for t in await self.list_for_owner(owner_user_id) if t.revoked_at is None]
+        now = _utcnow()
+        for token in tokens:
+            token.revoked_at = now
+        if tokens:
+            with all_tenants():
+                await self.db.flush()
+        return len(tokens)
+
     async def list_for_owner(self, owner_user_id: uuid.UUID) -> list[ApiToken]:
         """Every personal token *owner_user_id* holds, in any tenant.
 

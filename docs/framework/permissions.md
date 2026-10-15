@@ -101,6 +101,29 @@ class UserContext:
 
 The active auth provider (the `users` or `keycloak` module) owns extraction from the session cookie / bearer token. `InertiaLayoutDataMiddleware` then expands roles into a permission set (cached on `request.state.resolved_permissions`) and serializes `auth.user`, `auth.isAuthenticated`, `auth.permissions` into the Inertia shared props. Permissions are derived mostly from roles via the `PermissionRegistry.role_map`. `UserContext.permissions` adds keys the principal carries itself — a token scope or IdP claim a provider or principal resolver maps in. `resolve_principal_permissions` (and so `RequiresPermission`, `require_permission` and `auth.permissions`) merges them into the role-derived set, **dropping `*`**: like a grant source, a claim can never confer the wildcard; admin comes from roles only. They are written into the session cookie with `roles` and frozen there until the next sign-in, so anything an admin must be able to revoke belongs in a grant source, not here. `UserContext.has_permission(key)` is an exact-match check against that list alone.
 
+## Scoped principals (API tokens) and ungated routes
+
+A principal with `UserContext.scopes` set — an [`api_tokens`](/modules/api_tokens)
+personal access token or service key — has its permission set capped at those
+scopes. Because the cap can only constrain a route that asks for a permission,
+`simple_module_hosting.token_guard` (installed by `create_app` as an app-wide
+dependency) applies a fail-closed rule to every route:
+
+- a route whose dependency tree contains `RequiresPermission(...)` or
+  `auth.deps.require_permission(...)` admits tokens — the gate decides;
+- a page (a module view router, or any route depending on `InertiaDep`)
+  refuses tokens with 403, gated or not;
+- `Depends(TokenAllowed())` from `simple_module_hosting.token_guard` admits
+  tokens explicitly, without a permission;
+- every other route refuses tokens with 403 — except a public route, where the
+  token's principal is dropped and the request runs anonymously.
+
+So **gate a route with a permission dependency if API tokens should reach it**;
+a permission checked inline in the handler does not count. Sessions and a
+provider's own bearer tokens (`auth_kind == "bearer"`) are unscoped and
+unaffected. A custom gate dependency can mark itself with
+`mark_token_gate(fn, GATE_PERMISSION)`.
+
 ## Role shorthand for menus
 
 `MenuItem.roles` hides an item from users who hold none of the listed roles (an empty list = visible to all authenticated users); `requires_auth` (default `True`) hides it from anonymous visitors. Filtering happens in `MenuRegistry.get_for_user`, called by `InertiaLayoutDataMiddleware` *before* the menu reaches the client — so the client never sees menu items it can't use.

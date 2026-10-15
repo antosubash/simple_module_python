@@ -27,7 +27,8 @@ class UserContext:
     # revocable belongs in a grant source. The resolver drops ``*`` from here.
     permissions: list[str] = field(default_factory=list)
     # Which credential authenticated the request: ``"session"`` for a browser
-    # sign-in or an IdP bearer token, ``"pat"`` / ``"service"`` for an
+    # sign-in, ``"bearer"`` for a provider's own bearer token (a ``users``
+    # access token, an IdP JWT), ``"pat"`` / ``"service"`` for an
     # ``api_tokens`` credential (see ``auth.contracts.tokens``). Code that must
     # only ever act for a person at a keyboard — minting more credentials —
     # refuses anything but ``"session"``.

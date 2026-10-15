@@ -1,16 +1,17 @@
 import { Head, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActionDialog';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import { Plus } from 'lucide-react';
+import { Ban, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { CreatedTokenDialog } from './components/CreatedTokenDialog';
 import { CreateTokenDialog } from './components/CreateTokenDialog';
 import { RevokeTokenDialog } from './components/RevokeTokenDialog';
 import { TokenTable } from './components/TokenTable';
 import { useTokenActions } from './components/useTokenActions';
-import type { CreatePayload, TokenFormProps } from './types';
+import { type CreatePayload, type TokenFormProps, tokenStatus } from './types';
 
 /** Your own personal access tokens: list, create (secret shown once), revoke. */
 function Index() {
@@ -21,7 +22,9 @@ function Index() {
     csrfToken: props.csrf_token,
     createUrl: `${props.api_url}/tokens/`,
     revokeUrl: (id) => `${props.api_url}/tokens/${id}/revoke`,
+    revokeAllUrl: `${props.api_url}/tokens/revoke-all`,
   });
+  const hasLive = props.tokens.some((tok) => tokenStatus(tok) === 'active');
 
   async function submit(payload: CreatePayload) {
     const ok = await actions.create(payload);
@@ -36,10 +39,20 @@ function Index() {
         title={t(keys.api_tokens.index.title)}
         description={t(keys.api_tokens.index.description)}
         actions={
-          <Button onClick={() => setCreating(true)} disabled={props.scopes.length === 0}>
-            <Plus className="size-4" />
-            {t(keys.api_tokens.form.new_token)}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => actions.setPendingRevokeAll(true)}
+              disabled={!hasLive}
+            >
+              <Ban className="size-4" />
+              {t(keys.api_tokens.revoke_all.button)}
+            </Button>
+            <Button onClick={() => setCreating(true)} disabled={props.scopes.length === 0}>
+              <Plus className="size-4" />
+              {t(keys.api_tokens.form.new_token)}
+            </Button>
+          </div>
         }
       >
         <p className="text-sm text-muted-foreground">{t(keys.api_tokens.index.usage)}</p>
@@ -61,6 +74,18 @@ function Index() {
         busy={actions.busy}
         onCancel={() => actions.setPendingRevoke(null)}
         onConfirm={actions.confirmRevoke}
+      />
+      <ConfirmActionDialog
+        open={actions.pendingRevokeAll}
+        onOpenChange={(open) => !open && actions.setPendingRevokeAll(false)}
+        tone="destructive"
+        icon={Ban}
+        title={t(keys.api_tokens.revoke_all.title)}
+        description={t(keys.api_tokens.revoke_all.description)}
+        confirmLabel={t(keys.api_tokens.revoke_all.confirm)}
+        cancelLabel={t(keys.api_tokens.revoke_all.cancel)}
+        busy={actions.busy}
+        onConfirm={actions.confirmRevokeAll}
       />
     </>
   );

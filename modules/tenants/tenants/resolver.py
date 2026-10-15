@@ -42,6 +42,7 @@ from tenants.host_resolver import (
     subdomains_enabled,
 )
 from tenants.service import TenantService
+from tenants.token_tenant import pinned_token_tenant
 
 logger = logging.getLogger(__name__)
 
@@ -147,15 +148,14 @@ async def _resolve(request: Request) -> tuple[str | None, str | None, tuple[str,
     # every branch), so a shared cache must key on it too; an anonymous one did
     # not, and anonymous public pages stay cacheable (#418).
     credential: tuple[str, ...] = ("Cookie",) if user is not None else ()
-    if getattr(user, "auth_kind", AUTH_KIND_SESSION) == AUTH_KIND_PAT:
-        # A personal token is carried by the Authorization header, not a cookie.
+    kind = getattr(user, "auth_kind", AUTH_KIND_SESSION)
+    if kind != AUTH_KIND_SESSION:
+        # A bearer credential is carried by the Authorization header, not a cookie.
         credential = ("Authorization",)
-    if getattr(user, "auth_kind", None) == AUTH_KIND_SERVICE:
-        # A service key is pinned to the tenant it was created in. It has no
-        # memberships to validate against and no session preference; neither a
-        # header nor a subdomain may move it to another tenant.
-        tenant_id = await _service_tenant(request, getattr(user, "tenant_id", None))
-        return tenant_id, "token", ("Authorization",)
+    if kind in (AUTH_KIND_PAT, AUTH_KIND_SERVICE):
+        # An API token is pinned to the tenant it was created in: neither a
+        # header, a subdomain nor a session preference may move it elsewhere.
+        return await pinned_token_tenant(request, user), "token", credential
     slug = subdomain_slug(request)
     if slug is not None:
         tenant_id = await _resolve_subdomain(request, user, slug)
@@ -221,20 +221,6 @@ async def _resolve_subdomain(request: Request, user: Any, slug: str) -> str | No
             return _enter(request, user, own)
         if not is_public_route(request):
             return None
-    return tenant_id
-
-
-async def _service_tenant(request: Request, tenant_id: Any) -> str | None:
-    """The service key's pinned tenant, while that tenant exists and is active."""
-    if not is_valid_tenant_id(tenant_id):
-        return None
-    from tenants.models import Tenant
-
-    async with request.app.state.sm.db.session_factory() as db:
-        tenant = await db.get(Tenant, tenant_id)
-    if tenant is None or tenant.status != TenantStatus.ACTIVE:
-        request.state.tenant_suspended = tenant is not None
-        return None
     return tenant_id
 
 

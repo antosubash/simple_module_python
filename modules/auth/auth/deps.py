@@ -8,6 +8,7 @@ from fastapi import Depends, HTTPException, Request
 from simple_module_core.permissions import grants
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import ensure_resolved_permissions
+from simple_module_hosting.token_guard import GATE_PERMISSION, mark_token_gate
 
 from auth.contracts.schemas import UserContext
 
@@ -61,4 +62,6 @@ def require_permission(*permissions: str):
                 ),
             )
 
-    return Depends(check)
+    # A permission gate: API tokens may reach the route, capped at their
+    # scopes (``simple_module_hosting.token_guard``).
+    return Depends(mark_token_gate(check, GATE_PERMISSION))

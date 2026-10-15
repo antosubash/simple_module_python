@@ -7,7 +7,7 @@ from datetime import UTC
 from typing import TYPE_CHECKING, Any
 
 from auth.contracts.schemas import UserContext
-from auth.contracts.tokens import is_api_token
+from auth.contracts.tokens import AUTH_KIND_BEARER, is_api_token
 from simple_module_core.tenancy import is_tenant_role
 from simple_module_db import is_valid_tenant_id
 from starlette.requests import Request
@@ -98,7 +98,12 @@ class KeycloakAuthProvider:
             return None
 
         cache_id = await self._upsert_user_cache(request, claims)
-        return self._claims_to_user_context(claims, cache_id=cache_id)
+        ctx = self._claims_to_user_context(claims, cache_id=cache_id)
+        # Full rights, but a bearer credential: it may not manage API tokens
+        # (``auth.contracts.tokens.AUTH_KIND_BEARER``). The browser sign-in
+        # builds the same context from the callback and keeps ``"session"``.
+        ctx.auth_kind = AUTH_KIND_BEARER
+        return ctx
 
     def _claims_to_user_context(
         self,

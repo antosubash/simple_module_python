@@ -29,13 +29,18 @@ async def require_session_principal(request: Request, t: TranslatorDep) -> UserC
 
     Tokens may not mint, list or revoke tokens: a leaked token must not be
     able to make itself permanent by creating a sibling, or hide by revoking
-    the one an administrator would look for.
+    the one an administrator would look for. That covers a provider's own
+    bearer credential too (``auth_kind == "bearer"``): a fifteen-minute access
+    token must not become a year-long PAT. Only a cookie session qualifies, so
+    any request carrying an ``Authorization`` header is refused outright.
     """
     user = getattr(request.state, "user", None)
     if user is None:
         raise HTTPException(status_code=401, detail=t.t("auth.errors.not_authenticated"))
-    if getattr(user, "auth_kind", AUTH_KIND_SESSION) != AUTH_KIND_SESSION or (
-        getattr(user, "scopes", None) is not None
+    if (
+        getattr(user, "auth_kind", None) != AUTH_KIND_SESSION
+        or getattr(user, "scopes", None) is not None
+        or "authorization" in request.headers
     ):
         raise HTTPException(status_code=403, detail=t.t("api_tokens.errors.session_required"))
     return user

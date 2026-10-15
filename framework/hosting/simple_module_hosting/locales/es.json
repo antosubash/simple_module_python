@@ -20,5 +20,8 @@
     },
     "working": "Procesando…",
     "done": "Hecho. Recargando…"
+  },
+  "errors": {
+    "token_not_allowed": "Los tokens de API no se pueden usar en esta ruta. Usa una sesión iniciada o una ruta protegida por un permiso incluido en el token."
   }
 }

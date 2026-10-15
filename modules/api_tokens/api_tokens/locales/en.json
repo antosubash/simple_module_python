@@ -14,7 +14,8 @@
     "lifetime_too_long": "A token can be valid for at most {days} days.",
     "invalid_kind": "This kind of token cannot be created here.",
     "tenant_required": "Choose an organisation before managing its tokens.",
-    "not_found": "Token not found."
+    "not_found": "Token not found.",
+    "account_required": "Your account has no local user record, so a personal access token could never sign in as you. Ask an administrator for a service key instead."
   },
   "index": {
     "title": "API tokens",
@@ -89,6 +90,15 @@
   "toasts": {
     "created": "Token created",
     "revoked": "Token revoked",
-    "failed": "Something went wrong. Please try again."
+    "failed": "Something went wrong. Please try again.",
+    "revoked_all_one": "{count} token revoked",
+    "revoked_all_other": "{count} tokens revoked"
+  },
+  "revoke_all": {
+    "button": "Revoke all",
+    "title": "Revoke all your tokens?",
+    "description": "Every personal access token you hold stops working on its next request, in every organisation. Use this if a token may have leaked: changing your password or signing out everywhere does not end tokens.",
+    "confirm": "Revoke all",
+    "cancel": "Cancel"
   }
 }

@@ -69,12 +69,30 @@ the owner shrinks every token they hold at once.
 If you write a check that admits admins by role, use `is_admin_principal(user)`
 rather than `is_admin(user.roles)`.
 
-The cap works on **permissions**. A route that asks only for an authenticated
-principal (`CurrentUser`, `request.state.user`) and checks no permission is
-reachable by any valid token of that user, whatever its scopes. Gate anything
-a token should not do with a permission, or refuse
-`user.auth_kind != "session"` the way this module's own endpoints do. The
-`users` self-service routes (`/api/users/me`, password change, sign out
+### Which routes a token may reach
+
+The cap works on **permissions**, so on its own it could not constrain a route
+that asks only for a signed-in principal. The framework closes that gap with a
+fail-closed rule, enforced by `simple_module_hosting.token_guard` as an
+app-wide dependency on every `APIRoute` (module, host and framework routes):
+
+| Route | A token (`scopes` set) gets |
+|---|---|
+| Has a permission gate in its dependency tree — `RequiresPermission(...)` or `auth.deps.require_permission(...)` | admitted; the gate decides, capped at the scopes |
+| A page — on a module view router, or depends on `InertiaDep` | **403**, even when gated: page props are a second, unscoped read API |
+| Marked `Depends(TokenAllowed())` | admitted, with no permission check — use only for routes harmless for any token |
+| Anything else | **403** (JSON on `/api/*`) |
+| A public route (exempted from auth) without a gate | served, but **as anonymous**: the token's principal is dropped |
+
+So a token cannot create or leave an organisation (`/api/tenants/`), switch
+tenant, open `/users/me`, the dashboard or any other page, whatever its scopes.
+The decision is computed once per route from its dependency tree and cached.
+Browser sessions and a provider's own bearer tokens (`auth_kind == "bearer"`)
+are unscoped and never affected. A route that checks a permission inline in its
+handler rather than through a dependency is refused for tokens; move the check
+into `RequiresPermission` if tokens should reach it.
+
+The `users` self-service routes (`/api/users/me`, password change, sign out
 everywhere) authenticate through the session cookie only and never see a token.
 
 ## Creating tokens
@@ -84,20 +102,26 @@ everywhere) authenticate through the session cookie only and never see a token.
 | Scopes must be non-empty registered permissions the creator holds **now** (`*` is never assignable) | create endpoints |
 | Expiry is required and at most `max_lifetime_days` (setting, default 365) | service |
 | Service key roles: platform roles only — never `admin`, never `tenant:*` | admin endpoint + service + resolver |
-| Only a **session** may create, list or revoke tokens (`auth_kind == "session"`); a token gets 403 | every endpoint and page |
+| Only a **cookie session** may create, list or revoke tokens: `auth_kind == "session"` and no `Authorization` header. A token, a `users` access token or a Keycloak JWT gets 403 | every endpoint and page |
+| The creator must have a local `users_user` row the resolver can load (under Keycloak, a cached user); otherwise 400 `api_tokens.errors.account_required` | personal create endpoint |
 | Cookie-authenticated mutations require `X-CSRF-Token` (`RequiresCsrf`) | every mutation |
 
 ## Tenancy
 
 The table uses `MultiTenantMixin`; rows are stamped with the active tenant.
 
-- **Personal tokens** follow their owner like a session would: the tenant
-  resolver picks from the owner's memberships (or the tenant header). A user's
-  own list spans every tenant, so a token made in one organisation can be
-  revoked from another.
+- **Personal tokens** are pinned to the tenant they were created in, exactly
+  like service keys: the `tenants` resolver binds that tenant and ignores the
+  tenant header, subdomains and the session preference. The owner must still be
+  an **active member** of it: once they are removed, or the tenant is suspended,
+  the token is de-authenticated (401) — it does not fall back to another of the
+  owner's organisations. A user's own list spans every tenant, so a token made
+  in one organisation can be revoked from another; the tenant's admins see it
+  in `/admin/api-tokens/` of that tenant.
 - **Service keys** are pinned to the tenant they were created in. The
   `tenants` resolver binds that tenant (while it exists and is active) and
-  ignores headers and subdomains.
+  ignores headers and subdomains. A token's tenant answer varies on
+  `Authorization` only.
 - The admin list and admin revoke act on the **active** tenant only. With
   strict tenancy and no active tenant the page says so; the API answers 409.
 
@@ -116,9 +140,39 @@ The table uses `MultiTenantMixin`; rows are stamped with the active tenant.
 | `GET` | `/admin/api-tokens/` | Page `ApiTokens/Admin` (admin sidebar, Access group) |
 | `GET` / `POST` | `/api/api_tokens/tokens/` | List / create own personal tokens |
 | `POST` | `/api/api_tokens/tokens/{id}/revoke` | Revoke own token |
+| `POST` | `/api/api_tokens/tokens/revoke-all` | Revoke every own personal token ("Revoke all" on the page) |
 | `GET` | `/api/api_tokens/admin/tokens` | Every token in the active tenant |
 | `POST` | `/api/api_tokens/admin/service-keys` | Create a service key |
 | `POST` | `/api/api_tokens/admin/tokens/{id}/revoke` | Revoke any token in the tenant |
+
+## Security model
+
+Decisions made after the security review of #455, and why:
+
+- **Tokens survive a password change and "sign out everywhere".** That matches
+  GitHub and most platforms: a token is a deliberate, separately managed
+  credential, and a password rotation should not silently break every CI job.
+  End them explicitly — individually, or with **Revoke all** on `/api-tokens/`
+  (`POST /api/api_tokens/tokens/revoke-all`), which is the step to take after
+  a suspected compromise.
+- **Re-enabling a disabled user revives their unexpired tokens.** Disabling is
+  a reversible suspension; the resolver refuses every token while the account
+  is disabled. If the account was disabled because of a compromise, revoke its
+  tokens (the admin list) before re-enabling it.
+- **No token-specific rate limit.** Token requests are signed-in requests and
+  go through the existing middleware only. A token is 256 bits, so guessing is
+  not a practical attack; each well-formed bearer costs one indexed lookup.
+- **Token management needs a person at a keyboard** — a cookie session with no
+  `Authorization` header. A `users` access token (`/api/users/auth/token`) or a
+  Keycloak JWT is a `"bearer"` principal: it keeps its user's full rights
+  (no scope cap) but cannot mint, list or revoke tokens, so a short-lived
+  credential cannot be turned into a year-long one.
+- **Tokens never reach pages or ungated routes** (see *Which routes a token may
+  reach*). A service key's `svc:` principal therefore never reaches code that
+  expects an account id.
+- **Stored roles are re-filtered**: the resolver drops `admin` and `tenant:*`
+  from a service key's row, so a hand-edited row cannot make a key an admin or
+  a tenant owner.
 
 ## Audit
 
