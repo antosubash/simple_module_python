@@ -50,7 +50,7 @@ def settings_for[T: BaseSettings](
             # must not change what the next task in this process sees.
             return cast(T, hit[1]).model_copy(deep=True)
     with sync_session() as session:
-        value = hydrate_settings_sync(cls, session, package)
+        value = hydrate_settings_sync(cls, session, package, lenient=True)
     with _lock:
         _cache[key] = (now, value)
     return value.model_copy(deep=True)

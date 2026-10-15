@@ -28,3 +28,19 @@ async def test_invalid_override_is_rejected_with_422(authenticated_client, app, 
     assert resp.status_code == 422
     assert "task_routes_override" in resp.text
     assert app.state.background_tasks.settings is original
+
+
+async def test_stored_invalid_override_does_not_break_web_hydration(app, db_session, caplog):
+    from settings.service import SettingService
+    from settings.store import SettingsStore
+    from simple_module_hosting._hydrate_step import hydrate_all
+
+    store = SettingsStore(SettingService(db_session))
+    await store.set_override("background_tasks", "task_routes_override", '{"x": 5}', "json")
+    await store.set_override("background_tasks", "task_time_limit", "90", "json")
+    with caplog.at_level("ERROR"):
+        await hydrate_all(app, store)
+    settings = app.state.background_tasks.settings
+    assert settings.task_routes_override == {}
+    assert settings.task_time_limit == 90
+    assert "task_routes_override" in caplog.text

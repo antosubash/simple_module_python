@@ -89,3 +89,15 @@ def test_hydrate_sync_matches_async_parsing(tmp_path) -> None:
         session.commit()
         cfg = hydrate_settings_sync(_Cfg, session, "demo")
     assert (cfg.port, cfg.allow, cfg.tags, cfg.host) == (587, True, ["x", "y"], "localhost")
+
+
+@pytest.mark.asyncio
+async def test_lenient_hydrate_ignores_only_the_invalid_field(db_session, caplog) -> None:
+    store = SettingsStore(SettingService(db_session))
+    await store.set_override("demo", "port", "[1,2,3]", "json")
+    await store.set_override("demo", "host", "mail.example.com", "string")
+    with caplog.at_level("ERROR"):
+        cfg = await hydrate_settings(_Cfg, store, package="demo", lenient=True)
+    assert cfg.port == 25
+    assert cfg.host == "mail.example.com"
+    assert "port" in caplog.text

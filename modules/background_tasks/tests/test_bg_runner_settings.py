@@ -66,9 +66,9 @@ def test_db_url_naming_an_importable_scheme_is_refused(
     db_url: str, field: str, stored: str, caplog
 ) -> None:
     _put(db_url, f"background_tasks.{field}", stored, "json")
-    cfg = load_runner_settings()  # falls back to env/defaults, loudly
+    cfg = load_runner_settings()  # that field falls back to env/default, loudly
     assert "." not in getattr(cfg, field).split("://")[0]
-    assert "Could not read background_tasks settings" in caplog.text
+    assert f"Ignoring stored value for BackgroundTasksSettings.{field}" in caplog.text
 
 
 def test_unreachable_db_falls_back_to_env_settings(monkeypatch, caplog) -> None:
@@ -81,3 +81,13 @@ def test_unreachable_db_falls_back_to_env_settings(monkeypatch, caplog) -> None:
     assert isinstance(cfg, BackgroundTasksSettings)
     assert cfg.task_time_limit == 12
     assert "Could not read background_tasks settings" in caplog.text
+
+
+def test_stored_invalid_task_routes_do_not_stop_the_worker(db_url: str, caplog) -> None:
+    _put(db_url, "background_tasks.task_routes_override", '{"x": 5}', "json")
+    _put(db_url, "background_tasks.task_time_limit", "90", "json")
+    with caplog.at_level("ERROR"):
+        cfg = load_runner_settings()
+    assert cfg.task_routes_override == {}
+    assert cfg.task_time_limit == 90  # the module's other overrides survive
+    assert "task_routes_override" in caplog.text

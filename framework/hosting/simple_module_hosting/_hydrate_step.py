@@ -28,7 +28,7 @@ async def hydrate_all(app: FastAPI, store: Any) -> None:
 
     for package, cls in settings_services.module_registry.items():
         try:
-            hydrated = await hydrate_settings(cls, store, package)
+            hydrated = await hydrate_settings(cls, store, package, lenient=True)
         except Exception:
             logger.exception("Hydrating %s failed; falling back to defaults", package)
             continue
