@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { mapRegisterError, meetsPasswordPolicy } from '../users/auth_local/registerErrors';
+import {
+  livePasswordIssue,
+  mapRegisterError,
+  meetsPasswordPolicy,
+  passwordPolicyIssue,
+} from '../users/auth_local/registerErrors';
 
 describe('mapRegisterError', () => {
   it('maps an existing account onto the email field', () => {
@@ -44,5 +49,24 @@ describe('meetsPasswordPolicy', () => {
     expect(meetsPasswordPolicy('12345678', 'a@b.co')).toBe(false);
     expect(meetsPasswordPolicy('a@b.co', 'a@b.co')).toBe(false);
     expect(meetsPasswordPolicy('longenough', 'a@b.co')).toBe(true);
+  });
+});
+
+describe('passwordPolicyIssue', () => {
+  it('names the rule the server would reject on', () => {
+    expect(passwordPolicyIssue('short1', 'a@b.co')).toBe('password_length');
+    expect(passwordPolicyIssue('        ', 'a@b.co')).toBe('password_length');
+    expect(passwordPolicyIssue('qa@example.com', 'qa@example.com')).toBe('password_contains_email');
+    expect(passwordPolicyIssue('12345678', 'a@b.co')).toBe('password_numeric');
+    expect(passwordPolicyIssue('longenough', 'a@b.co')).toBeNull();
+  });
+});
+
+describe('livePasswordIssue', () => {
+  it('stays quiet until the password reaches the minimum length', () => {
+    expect(livePasswordIssue('1234', 'a@b.co')).toBeNull();
+    expect(livePasswordIssue('        ', 'a@b.co')).toBe('password_length');
+    expect(livePasswordIssue('example.com', 'qa@example.com')).toBe('password_contains_email');
+    expect(livePasswordIssue('12345678', 'a@b.co')).toBe('password_numeric');
   });
 });

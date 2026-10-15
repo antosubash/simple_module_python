@@ -12,8 +12,9 @@ import { AuthStateCard } from '../auth_local/components/AuthStateCard';
 import { PasswordFields } from '../auth_local/components/PasswordFields';
 import {
   FAILED,
+  livePasswordIssue,
   mapRegisterError,
-  meetsPasswordPolicy,
+  passwordPolicyIssue,
   type RegisterError,
   type RegisterErrorCode,
 } from '../auth_local/registerErrors';
@@ -46,13 +47,21 @@ function Register() {
     error?.field === field ? message(error.code) : null;
   // The server's own password policy, not the meter: "ok" and "weak" are
   // feedback, but a password the API will refuse is not worth a round trip.
-  const policyOk = meetsPasswordPolicy(password, email);
+  const policyIssue = passwordPolicyIssue(password, email);
+  const policyOk = policyIssue === null;
+  const liveIssue = livePasswordIssue(password, email);
+  const passwordError = errorFor('password') ?? (liveIssue ? message(liveIssue) : null);
+  // A server error describes the value that was sent; once that field is
+  // edited it no longer applies.
+  const clearErrorOn = (field: RegisterError['field']) => {
+    if (error?.field === field) setError(null);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!policyOk) {
-      setError({ field: 'password', code: 'password_invalid' });
+    if (policyIssue) {
+      setError({ field: 'password', code: policyIssue });
       return;
     }
     if (password !== confirm) {
@@ -114,7 +123,9 @@ function Register() {
   return (
     <AuthCardShell variant="split-light" aside={intro} width="lg">
       <Head title={t(keys.users.register.head_title)} />
-      <form onSubmit={handleSubmit} className="space-y-4">
+      {/* noValidate: the browser's bubble is in the browser's language and
+          sets no aria-invalid; the server's 422 maps to a translated field error. */}
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <AuthField htmlFor="full_name" label={t(keys.users.common.full_name)}>
           <Input
             id="full_name"
@@ -130,7 +141,10 @@ function Register() {
             id="email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              clearErrorOn('email');
+            }}
             placeholder={t(keys.users.common.email_placeholder)}
             required
             autoComplete="email"
@@ -142,6 +156,7 @@ function Register() {
           onPasswordChange={(next) => {
             setPassword(next);
             setMismatch(false);
+            clearErrorOn('password');
           }}
           confirm={confirm}
           onConfirmChange={(next) => {
@@ -152,7 +167,7 @@ function Register() {
           confirmLabel={t(keys.users.common.confirm_password)}
           mismatch={mismatch}
           hint={t(keys.users.common.password_hint)}
-          passwordError={errorFor('password')}
+          passwordError={passwordError}
         />
 
         {error?.field === 'form' && (

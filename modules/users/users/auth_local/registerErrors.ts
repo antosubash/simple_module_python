@@ -26,10 +26,28 @@ export const FAILED: RegisterError = { field: 'form', code: 'failed' };
 /** Mirrors `UserManager.validate_password`: the client threshold is the server's. */
 const MIN_PASSWORD_LENGTH = 8;
 
+/** The first rule *password* breaks, checked in the server's order; null if none. */
+export function passwordPolicyIssue(password: string, email: string): RegisterErrorCode | null {
+  if (password.trim().length < MIN_PASSWORD_LENGTH) return 'password_length';
+  if (email !== '' && email.toLowerCase().includes(password.toLowerCase())) {
+    return 'password_contains_email';
+  }
+  if (/^\d+$/.test(password)) return 'password_numeric';
+  return null;
+}
+
 export function meetsPasswordPolicy(password: string, email: string): boolean {
-  if (password.trim().length < MIN_PASSWORD_LENGTH) return false;
-  if (/^\d+$/.test(password)) return false;
-  return !(email !== '' && email.toLowerCase().includes(password.toLowerCase()));
+  return passwordPolicyIssue(password, email) === null;
+}
+
+/**
+ * The issue worth showing while the user types. A password still shorter than
+ * the minimum is left to the static hint, or every first keystroke would be
+ * an error; past it, a disabled submit must say why.
+ */
+export function livePasswordIssue(password: string, email: string): RegisterErrorCode | null {
+  if (password.length < MIN_PASSWORD_LENGTH) return null;
+  return passwordPolicyIssue(password, email);
 }
 
 function passwordReason(reason: unknown): RegisterErrorCode {
