@@ -324,7 +324,7 @@
     "error_failed": "Registration failed. Please try again.",
     "intro": "Open registration is on for this instance. New accounts start with no roles until an admin grants them.",
     "bullet_verification": "Email verification is required before first sign-in",
-    "bullet_close_prefix": "Admins can close registration in",
+    "bullet_close": "Registration may be closed by an administrator",
     "name_placeholder": "Optional"
   },
   "reset_password": {

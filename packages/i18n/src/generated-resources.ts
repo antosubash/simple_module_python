@@ -1159,7 +1159,7 @@ export default {
     'users.recent_activity.summary.other': '',
     'users.recent_activity.summary.updated': '',
     'users.recent_activity.title': '',
-    'users.register.bullet_close_prefix': '',
+    'users.register.bullet_close': '',
     'users.register.bullet_verification': '',
     'users.register.error_email_invalid': '',
     'users.register.error_exists': '',
