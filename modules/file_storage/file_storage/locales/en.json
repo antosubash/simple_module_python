@@ -66,7 +66,13 @@
     "too_large": "File exceeds the {max_size} limit for a single upload",
     "bad_type": "This file type is not allowed",
     "backend_error": "Storage backend error",
-    "bad_image": "This image could not be processed"
+    "bad_image": "This image could not be processed",
+    "quota_exceeded": "This file would exceed the storage quota",
+    "direct_upload_unsupported": "The storage backend does not support resumable uploads",
+    "bad_part": "That upload part is not valid for this file",
+    "parts_mismatch": "The uploaded parts do not match what was sent; resume the upload to send the rest",
+    "size_mismatch": "The assembled file is {actual}, but {expected} was expected; upload it again",
+    "upload_session_closed": "This upload is no longer active; start it again"
   },
   "filters": {
     "search_placeholder": "Search filenames…",
@@ -87,7 +93,12 @@
     "retry": "Retry",
     "in_progress": "Uploading {name}",
     "cancel": "Cancel upload",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "resume_prompt": "{name} was partly uploaded earlier ({percent}% done)",
+    "resume": "Resume upload",
+    "start_over": "Start over",
+    "resuming": "Resuming {name}",
+    "finalizing": "Finishing {name}…"
   },
   "nav": {
     "files": "Files"

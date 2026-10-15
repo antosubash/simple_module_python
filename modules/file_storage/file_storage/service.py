@@ -122,7 +122,7 @@ class FileStorageService(FileStoragePublic, FileStorageReads):
                 sha.update(chunk)
                 yield chunk
 
-        key = _generate_key(tenant_id, upload.filename or "file")
+        key = generate_key(tenant_id, upload.filename or "file")
         await self.backend.put(
             key,
             _hashing_stream(),
@@ -287,7 +287,7 @@ class FileStorageService(FileStoragePublic, FileStorageReads):
             await thumbnails.delete_variants(self.backend, row.key)
 
 
-def _generate_key(tenant_id: str, filename: str) -> str:
+def generate_key(tenant_id: str, filename: str) -> str:
     """Build a tenant-prefixed, date-sharded, collision-proof key.
 
     The ``{tenant_id}/`` prefix keeps each tenant's objects in a disjoint

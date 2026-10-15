@@ -93,6 +93,14 @@ async def browse(
             "used_bytes": aggregates.used_bytes,
             "quota_bytes": settings.quota_bytes,
             "max_file_size_bytes": settings.max_file_size_bytes,
+            # Above this the page uploads in resumable parts; null when the
+            # backend cannot (a third-party one without multipart support).
+            "direct_upload_threshold_bytes": (
+                settings.direct_upload_threshold_bytes
+                if getattr(service.backend, "supports_direct_upload", False)
+                else None
+            ),
+            "max_direct_upload_bytes": settings.max_direct_upload_bytes,
             "allowed_content_types": settings.allowed_content_types,
         },
     )
