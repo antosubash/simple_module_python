@@ -217,6 +217,11 @@ class InertiaLayoutDataMiddleware:
         user = getattr(request.state, "user", None)
         is_authenticated = user is not None
         roles = getattr(user, "roles", []) if user else []
+        if getattr(user, "scopes", None) is not None:
+            # A token's menu is filtered on its (capped) permissions alone: a
+            # ``roles=["admin"]`` entry would otherwise list admin screens the
+            # token is refused at (see ``is_admin_principal``).
+            roles = []
 
         # Resolve permissions once — roles plus module grant sources (GH #337) —
         # and cache on request.state for RequiresPermission and the menu filter.

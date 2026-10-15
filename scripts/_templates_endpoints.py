@@ -80,8 +80,8 @@ def views_py(ctx: ScaffoldContext) -> str:
         from __future__ import annotations
 
         from fastapi import APIRouter, Depends
-        from simple_module_inertia import InertiaResponse
         from simple_module_hosting.inertia_deps import InertiaDep
+        from simple_module_inertia import InertiaResponse
 
         from {ctx.pkg}.deps import get_{ctx.singular}_service
         from {ctx.pkg}.service import {ctx.singular_class}Service

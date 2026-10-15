@@ -135,3 +135,27 @@ class TestUserContextPermissions:
         assert ctx.has_permission("x.read") is True
         assert ctx.has_permission("x.write") is False
         assert ctx.has_permission("x") is False
+
+
+class TestUserContextTokenFields:
+    async def test_defaults_are_an_uncapped_session(self):
+        ctx = UserContext(id="1", email="a@b.com", name="A")
+        assert (ctx.auth_kind, ctx.scopes, ctx.is_scoped) == ("session", None, False)
+
+    async def test_legacy_cookie_decodes_as_uncapped_session(self):
+        """A cookie from before token principals must not become scoped."""
+        payload = {"id": "1", "email": "a@b.com", "name": "A", "roles": ["admin"]}
+        ctx = UserContext.from_session_dict(payload)
+        assert ctx is not None
+        assert (ctx.auth_kind, ctx.scopes) == ("session", None)
+
+    async def test_token_fields_round_trip_and_empty_scopes_stay_capped(self):
+        for scopes in (["x.read"], []):
+            ctx = UserContext(id="1", email="", name="A", auth_kind="pat", scopes=scopes)
+            back = UserContext.from_session_dict(ctx.to_session_dict())
+            assert back == ctx
+            assert back is not None and back.is_scoped
+
+    async def test_malformed_scopes_reject_the_payload(self):
+        payload = {"id": "1", "email": "a@b.com", "name": "A", "scopes": "x.read"}
+        assert UserContext.from_session_dict(payload) is None

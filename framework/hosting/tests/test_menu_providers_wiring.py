@@ -30,7 +30,8 @@ def _build(menu: MenuRegistry) -> TestClient:
     async def fake_auth(request: Request, call_next):
         role = request.headers.get("x-role")
         if role:
-            request.state.user = SimpleNamespace(roles=[role])
+            scopes = [] if request.headers.get("x-scoped") else None
+            request.state.user = SimpleNamespace(roles=[role], scopes=scopes)
         request.state.tenant_id = request.headers.get("x-tenant", "")
         return await call_next(request)
 
@@ -69,6 +70,16 @@ def test_sync_provider_and_role_filtering() -> None:
         "All",
     ]
     assert _labels(client.get("/shared").json()) == []  # anonymous: requires_auth
+
+
+def test_role_gated_item_is_hidden_from_a_scoped_admin_token() -> None:
+    menu = MenuRegistry()
+    menu.add_provider(
+        lambda _r: [MenuItem(label="Admins", url="/a", roles=["admin"]), MenuItem("All", "/x")]
+    )
+    client = _build(menu)
+    body = client.get("/shared", headers={"x-role": "admin", "x-scoped": "1"}).json()
+    assert _labels(body) == ["All"]
 
 
 def test_failing_provider_is_isolated(caplog) -> None:

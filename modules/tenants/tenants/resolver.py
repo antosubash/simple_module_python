@@ -18,7 +18,7 @@ import dataclasses
 import logging
 from typing import Any
 
-from auth.contracts.tokens import AUTH_KIND_SERVICE
+from auth.contracts.tokens import AUTH_KIND_PAT, AUTH_KIND_SERVICE, AUTH_KIND_SESSION
 from cachetools import TTLCache
 from fastapi import FastAPI
 from simple_module_core.invalidation import Invalidation, InvalidationBus
@@ -147,6 +147,9 @@ async def _resolve(request: Request) -> tuple[str | None, str | None, tuple[str,
     # every branch), so a shared cache must key on it too; an anonymous one did
     # not, and anonymous public pages stay cacheable (#418).
     credential: tuple[str, ...] = ("Cookie",) if user is not None else ()
+    if getattr(user, "auth_kind", AUTH_KIND_SESSION) == AUTH_KIND_PAT:
+        # A personal token is carried by the Authorization header, not a cookie.
+        credential = ("Authorization",)
     if getattr(user, "auth_kind", None) == AUTH_KIND_SERVICE:
         # A service key is pinned to the tenant it was created in. It has no
         # memberships to validate against and no session preference; neither a
