@@ -20,7 +20,11 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from background_tasks.config_guards import WorkerScope, worker_scope_from_env
+from background_tasks.config_guards import (
+    WorkerScope,
+    sanitize_task_routes,
+    worker_scope_from_env,
+)
 from background_tasks.settings import BackgroundTasksSettings
 
 logger = logging.getLogger(__name__)
@@ -89,6 +93,9 @@ def merge_routes(
     exact name beat an override glob. With an override the value is therefore a
     router *list* ``[override, modules]``, which Celery consults in order.
     """
+    # Defence for values stored before the settings validator rejected bad
+    # routes: drop (and log) unsafe entries instead of handing them to Celery.
+    override = sanitize_task_routes(override)
     routes: dict[str, Any] = {}
     owner: dict[str, str] = {}
     for pkg in sorted(configs):

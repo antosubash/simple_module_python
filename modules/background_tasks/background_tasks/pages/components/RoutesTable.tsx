@@ -25,30 +25,36 @@ export function RoutesTable({ routes }: { routes: TaskRoute[] }) {
       <p className="text-[13px] text-muted-foreground">
         {t(keys.background_tasks.workers.routes_description)}
       </p>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t(keys.background_tasks.workers.routes_pattern)}</TableHead>
-            <TableHead>{t(keys.background_tasks.workers.routes_queue)}</TableHead>
-            <TableHead>{t(keys.background_tasks.workers.routes_module)}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {routes.map((route) => (
-            <TableRow key={route.pattern}>
-              <TableCell className="font-mono text-xs">{route.pattern}</TableCell>
-              <TableCell className="font-mono text-xs">
-                {route.queue || t(keys.background_tasks.workers.routes_default_queue)}
-              </TableCell>
-              <TableCell>
-                {route.module === ROUTE_OVERRIDE_SOURCE
-                  ? t(keys.background_tasks.workers.routes_override)
-                  : route.module}
-              </TableCell>
+      {routes.length === 0 ? (
+        <p className="text-[13px] text-muted-foreground">
+          {t(keys.background_tasks.workers.routes_empty)}
+        </p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t(keys.background_tasks.workers.routes_pattern)}</TableHead>
+              <TableHead>{t(keys.background_tasks.workers.routes_queue)}</TableHead>
+              <TableHead>{t(keys.background_tasks.workers.routes_module)}</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {routes.map((route) => (
+              <TableRow key={route.pattern}>
+                <TableCell className="font-mono text-xs">{route.pattern}</TableCell>
+                <TableCell className="font-mono text-xs">
+                  {route.queue || t(keys.background_tasks.workers.routes_default_queue)}
+                </TableCell>
+                <TableCell>
+                  {route.module === ROUTE_OVERRIDE_SOURCE
+                    ? t(keys.background_tasks.workers.routes_override)
+                    : route.module}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </section>
   );
 }

@@ -98,9 +98,22 @@ def test_task_routes_override_is_reduced_to_safe_routes(caplog) -> None:
             "ok.*": "heavy",
             "ok.dict": {"queue": "q", "priority": 3},
         }
-    s = BackgroundTasksSettings(task_routes_override=raw)
-    assert set(s.task_routes_override) == {"ok.*", "ok.dict"}
     assert sanitize_task_routes("nope") == {}
+    from background_tasks.task_routing import merge_routes
+
+    # Values stored before the settings validator rejected them are dropped at build time.
+    assert {r["pattern"] for r in merge_routes({}, raw)[1]} == {"ok.*", "ok.dict"}
+
+
+def test_task_routes_override_accepts_json_string_and_rejects_bad_input() -> None:
+    from pydantic import ValidationError
+
+    s = BackgroundTasksSettings(task_routes_override='{"a.b": "heavy"}')
+    assert s.task_routes_override == {"a.b": "heavy"}
+    assert BackgroundTasksSettings(task_routes_override="").task_routes_override == {}
+    for bad in ("{nope", "[1]", '{"x": {"queue": "q", "serializer": "pickle"}}', '{"x": 5}'):
+        with pytest.raises(ValidationError):
+            BackgroundTasksSettings(task_routes_override=bad)
 
 
 def test_env_helpers_log_bad_input(monkeypatch, caplog) -> None:

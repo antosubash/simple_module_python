@@ -189,3 +189,32 @@ def sanitize_task_routes(raw: object) -> dict[str, Any]:
             continue
         clean[pattern] = route
     return clean
+
+
+def parse_task_routes(raw: object) -> dict[str, Any]:
+    """Strict form of :func:`sanitize_task_routes` for user input.
+
+    Accepts a mapping or a JSON string of one (what the admin settings text box
+    submits) and raises ``ValueError`` naming the first bad entry instead of
+    silently dropping it, so the editor can show why a save was refused.
+    """
+    if isinstance(raw, str):
+        if not raw.strip():
+            return {}
+        try:
+            raw = json.loads(raw)
+        except ValueError as exc:
+            raise ValueError(f"task_routes_override is not valid JSON: {exc}") from exc
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError(
+            'task_routes_override must be a JSON object such as {"reports.*": "heavy"}'
+        )
+    for pattern, value in raw.items():
+        if not isinstance(pattern, str) or not pattern.strip() or _safe_route(value) is None:
+            raise ValueError(
+                f"task_routes_override entry {pattern!r} needs a task pattern and a queue "
+                f"name or a route dict using only {sorted(_ROUTE_KEYS)}"
+            )
+    return dict(raw)

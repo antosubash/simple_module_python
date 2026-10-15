@@ -235,6 +235,7 @@ export const keys = {
       refresh_failed_status: 'background_tasks.workers.refresh_failed_status',
       routes_default_queue: 'background_tasks.workers.routes_default_queue',
       routes_description: 'background_tasks.workers.routes_description',
+      routes_empty: 'background_tasks.workers.routes_empty',
       routes_module: 'background_tasks.workers.routes_module',
       routes_override: 'background_tasks.workers.routes_override',
       routes_pattern: 'background_tasks.workers.routes_pattern',

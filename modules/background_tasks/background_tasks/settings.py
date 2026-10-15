@@ -40,7 +40,7 @@ from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
-from background_tasks.config_guards import sanitize_task_routes
+from background_tasks.config_guards import parse_task_routes
 from background_tasks.constants import (
     DEFAULT_BROKER_URL,
     DEFAULT_INVALIDATION_CHANNEL,
@@ -147,8 +147,11 @@ class BackgroundTasksSettings(BaseSettings):
     @field_validator("task_routes_override", mode="before")
     @classmethod
     def _vet_task_routes(cls, value: object) -> object:
-        # Admin-editable: reduced to queue names and a closed set of route keys.
-        return sanitize_task_routes(value)
+        # Admin-editable: the settings UI submits a JSON string. Parse it and
+        # refuse (422) anything that is not a safe route mapping, rather than
+        # saving a row that is silently dropped later. ``build_celery`` still
+        # sanitises, as a defence for values stored before this check.
+        return parse_task_routes(value)
 
     # ── Cross-process cache invalidation (GH #318) ──────────
     # This module owns the Redis connection, so it installs the transport that

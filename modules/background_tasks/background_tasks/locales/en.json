@@ -154,7 +154,8 @@
     "routes_queue": "Queue",
     "routes_module": "Set by",
     "routes_override": "Operator override",
-    "routes_default_queue": "Default queue"
+    "routes_default_queue": "Default queue",
+    "routes_empty": "No task routes are configured, so every task goes to the default queue. Add routes in a module's task_config.py (TASK_ROUTES)."
   },
   "nav": {
     "background_tasks": "Background tasks"

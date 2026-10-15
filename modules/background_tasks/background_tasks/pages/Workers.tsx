@@ -110,7 +110,7 @@ function Workers() {
             ))}
           </div>
         )}
-        {routes && routes.length > 0 && <RoutesTable routes={routes} />}
+        <RoutesTable routes={routes ?? []} />
       </PageShell>
     </>
   );

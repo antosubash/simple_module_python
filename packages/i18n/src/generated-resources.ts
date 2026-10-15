@@ -182,6 +182,7 @@ export default {
     'background_tasks.workers.refresh_failed_status': '',
     'background_tasks.workers.routes_default_queue': '',
     'background_tasks.workers.routes_description': '',
+    'background_tasks.workers.routes_empty': '',
     'background_tasks.workers.routes_module': '',
     'background_tasks.workers.routes_override': '',
     'background_tasks.workers.routes_pattern': '',

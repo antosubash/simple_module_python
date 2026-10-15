@@ -114,3 +114,26 @@ class TestWorkersInertiaView:
             headers={"X-Inertia": "true", "Accept": "application/json"},
         )
         assert resp.json()["props"]["routes"] == [{"pattern": "x.*", "queue": "q", "module": "x"}]
+
+
+class TestWorkersViewQueues:
+    async def test_route_queues_are_listed_after_the_default(
+        self,
+        authenticated_client: httpx.AsyncClient,
+        fake_snapshot: WorkerSnapshot,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(wi.WorkerInspector, "snapshot", lambda self: fake_snapshot)
+        monkeypatch.setattr(
+            "background_tasks.endpoints.views.describe_routes",
+            lambda _s: [
+                {"pattern": "a.*", "queue": "heavy", "module": "a"},
+                {"pattern": "b.*", "queue": "", "module": "b"},
+                {"pattern": "c.*", "queue": "default", "module": "c"},
+            ],
+        )
+        resp = await authenticated_client.get(
+            f"{VIEW_BASE}/workers",
+            headers={"X-Inertia": "true", "Accept": "application/json"},
+        )
+        assert resp.json()["props"]["queues"][:2] == ["default", "heavy"]
