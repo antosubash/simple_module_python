@@ -18,6 +18,7 @@ import dataclasses
 import logging
 from typing import Any
 
+from auth.contracts.tokens import AUTH_KIND_SERVICE
 from cachetools import TTLCache
 from fastapi import FastAPI
 from simple_module_core.invalidation import Invalidation, InvalidationBus
@@ -146,6 +147,12 @@ async def _resolve(request: Request) -> tuple[str | None, str | None, tuple[str,
     # every branch), so a shared cache must key on it too; an anonymous one did
     # not, and anonymous public pages stay cacheable (#418).
     credential: tuple[str, ...] = ("Cookie",) if user is not None else ()
+    if getattr(user, "auth_kind", None) == AUTH_KIND_SERVICE:
+        # A service key is pinned to the tenant it was created in. It has no
+        # memberships to validate against and no session preference; neither a
+        # header nor a subdomain may move it to another tenant.
+        tenant_id = await _service_tenant(request, getattr(user, "tenant_id", None))
+        return tenant_id, "token", ("Authorization",)
     slug = subdomain_slug(request)
     if slug is not None:
         tenant_id = await _resolve_subdomain(request, user, slug)
@@ -211,6 +218,20 @@ async def _resolve_subdomain(request: Request, user: Any, slug: str) -> str | No
             return _enter(request, user, own)
         if not is_public_route(request):
             return None
+    return tenant_id
+
+
+async def _service_tenant(request: Request, tenant_id: Any) -> str | None:
+    """The service key's pinned tenant, while that tenant exists and is active."""
+    if not is_valid_tenant_id(tenant_id):
+        return None
+    from tenants.models import Tenant
+
+    async with request.app.state.sm.db.session_factory() as db:
+        tenant = await db.get(Tenant, tenant_id)
+    if tenant is None or tenant.status != TenantStatus.ACTIVE:
+        request.state.tenant_suspended = tenant is not None
+        return None
     return tenant_id
 
 

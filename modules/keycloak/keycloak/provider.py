@@ -7,6 +7,7 @@ from datetime import UTC
 from typing import TYPE_CHECKING, Any
 
 from auth.contracts.schemas import UserContext
+from auth.contracts.tokens import is_api_token
 from simple_module_core.tenancy import is_tenant_role
 from simple_module_db import is_valid_tenant_id
 from starlette.requests import Request
@@ -46,7 +47,12 @@ class KeycloakAuthProvider:
     async def resolve_user(self, request: Request) -> UserContext | None:
         auth_header = request.headers.get("authorization", "")
         if auth_header.startswith("Bearer "):
-            return await self._resolve_bearer(request, auth_header[7:])
+            credential = auth_header[7:]
+            # An ``api_tokens`` credential is not a JWT: skip the parse and
+            # leave it to the principal resolver that owns it.
+            if is_api_token(credential):
+                return None
+            return await self._resolve_bearer(request, credential)
 
         session = request.scope.get("session", {})
         ctx = UserContext.from_session_dict(session.get(_SESSION_USER_CTX_KEY))

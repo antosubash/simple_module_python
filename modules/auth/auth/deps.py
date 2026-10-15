@@ -42,8 +42,10 @@ def require_permission(*permissions: str):
         t: TranslatorDep,
         user: UserContext = Depends(get_current_user),
     ):
-        # Admin role bypasses permission checks
-        if _ADMIN_ROLE in user.roles:
+        # Admin role bypasses permission checks — but not for a token: an
+        # admin's PAT is worth only the scopes it carries, and the resolved
+        # set below already applies that cap.
+        if _ADMIN_ROLE in user.roles and user.scopes is None:
             return
 
         # The same resolution RequiresPermission reads: the registry's role map

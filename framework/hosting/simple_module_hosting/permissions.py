@@ -18,6 +18,7 @@ __all__ = [
     "PERMISSION_DENIED_PREFIX",
     "WILDCARD",
     "RequiresPermission",
+    "apply_scope_cap",
     "ensure_resolved_permissions",
     "expand_permissions",
     "resolve_permissions",
@@ -58,6 +59,29 @@ def _role_and_claimed(user: Any, role_map: dict[str, list[str]] | None) -> set[s
     return permissions
 
 
+def apply_scope_cap(permissions: set[str], user: Any) -> set[str]:
+    """Cap *permissions* at the principal's token scopes, if it carries any.
+
+    ``scopes`` is ``None`` for an ordinary session: nothing to cap. A list —
+    an API token's — is a ceiling: the result is what the principal holds
+    *and* the token names. Holding the wildcard (an admin) expands it to the
+    scope list, so an admin's token is worth exactly its scopes rather than
+    everything. Applied on every request on top of the owner's *live* grants,
+    so demoting the owner shrinks every token they hold at once.
+
+    A ``*`` inside the scope list is ignored: a token can never carry the
+    wildcard, whatever row it was built from. Read duck-typed — the
+    ``UserContext`` field lives in the auth module (SM009).
+    """
+    scopes = getattr(user, "scopes", None)
+    if scopes is None:
+        return permissions
+    allowed = {s for s in scopes if s and s != WILDCARD}
+    if WILDCARD in permissions:
+        return allowed
+    return permissions & allowed
+
+
 async def resolve_principal_permissions(
     request: Request,
     user: Any,
@@ -73,11 +97,12 @@ async def resolve_principal_permissions(
     rather than an unauthorised one — and is logged rather than turned into a
     500 on every request. A principal already holding the wildcard skips the
     sources: nothing they return could widen it, and a source may cost a read.
+    A token principal's set is then capped at its scopes (:func:`apply_scope_cap`).
     """
     role_map = registry.role_map if registry is not None else None
     permissions = _role_and_claimed(user, role_map)
     if registry is None or WILDCARD in permissions:
-        return permissions
+        return apply_scope_cap(permissions, user)
     for source in registry.grant_sources:
         try:
             # Grants are additive keys only: the wildcard (admin) comes from
@@ -85,7 +110,7 @@ async def resolve_principal_permissions(
             permissions.update(k for k in await source(request, user) if k != WILDCARD)
         except Exception:
             logger.exception("Grant source %r raised; contributing nothing", source)
-    return permissions
+    return apply_scope_cap(permissions, user)
 
 
 def _registry_for(request: Request) -> PermissionRegistry | None:
@@ -150,7 +175,7 @@ def resolved_permissions_for(request: Request) -> set[str]:
 
     perm_registry = _registry_for(request)
     role_map = perm_registry.role_map if perm_registry is not None else None
-    permissions = _role_and_claimed(user, role_map)
+    permissions = apply_scope_cap(_role_and_claimed(user, role_map), user)
     request.state.resolved_permissions = permissions
     return permissions
 

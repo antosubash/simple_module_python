@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from auth.contracts.schemas import UserContext
+from auth.contracts.tokens import is_api_token
 from simple_module_hosting.session import (
     SESSION_COOKIE_MAX_AGE,
     SESSION_EXPIRES_AT_KEY,
@@ -90,7 +91,14 @@ class UsersAuthProvider:
         # uncollected.
         auth_header = request.headers.get("authorization", "")
         if auth_header.startswith("Bearer "):
-            return await self._resolve_bearer(request.scope, auth_header[7:])
+            credential = auth_header[7:]
+            # An ``api_tokens`` credential is not ours: answering None at once
+            # saves a pointless ``users_access_token`` lookup and leaves the
+            # token to the principal resolver that owns it. Still no fallback
+            # to the session cookie — the header decided the request.
+            if is_api_token(credential):
+                return None
+            return await self._resolve_bearer(request.scope, credential)
 
         session = request.scope.get("session", {})
         raw_user_id = session.get(SESSION_USER_ID_KEY)

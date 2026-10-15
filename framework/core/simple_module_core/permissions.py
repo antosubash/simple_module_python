@@ -34,6 +34,21 @@ def is_admin(roles: list[str] | None) -> bool:
     return bool(roles) and ADMIN_ROLE in roles
 
 
+def is_admin_principal(user: Any) -> bool:
+    """Whether *user* may use the admin role's shortcuts — admin and not a token.
+
+    A principal carrying ``scopes`` (an ``api_tokens`` credential) is capped
+    at those scopes even when its owner is an admin, so every check that
+    admits admins on the role alone must use this rather than
+    :func:`is_admin`; otherwise an admin's ``feature_flags.view`` token would
+    still open the Doctor page. Duck-typed: ``UserContext`` lives in the auth
+    module, which framework code must not import.
+    """
+    if user is None or getattr(user, "scopes", None) is not None:
+        return False
+    return is_admin(getattr(user, "roles", None))
+
+
 def grants(held: Collection[str], required: str) -> bool:
     """Whether a principal holding *held* satisfies *required*.
 
