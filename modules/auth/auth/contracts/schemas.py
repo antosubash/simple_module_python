@@ -38,6 +38,12 @@ class UserContext:
     # principal resolves to, and the admin-role shortcuts are skipped, so an
     # admin's token is worth exactly the scopes it was given.
     scopes: list[str] | None = None
+    # A permission the account must *currently* hold for this credential to
+    # authenticate at all — ``api_tokens.use`` for a personal access token.
+    # Checked on every request against the account's live, tenant-aware
+    # permissions; when missing, the request runs as anonymous (401 on gated
+    # routes). ``None`` (a session, a service key) requires nothing.
+    required_permission: str | None = None
 
     @property
     def is_scoped(self) -> bool:
@@ -85,6 +91,7 @@ class UserContext:
             "permissions": list(self.permissions),
             "auth_kind": self.auth_kind,
             "scopes": list(self.scopes) if self.scopes is not None else None,
+            "required_permission": self.required_permission,
         }
 
     @classmethod
@@ -104,6 +111,7 @@ class UserContext:
                 permissions=list(payload.get("permissions") or []),
                 auth_kind=str(payload.get("auth_kind") or AUTH_KIND_SESSION),
                 scopes=_scopes_from(payload.get("scopes")),
+                required_permission=payload.get("required_permission") or None,
             )
         except (KeyError, TypeError, ValueError):
             return None

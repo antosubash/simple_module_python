@@ -72,14 +72,19 @@ def test_sync_provider_and_role_filtering() -> None:
     assert _labels(client.get("/shared").json()) == []  # anonymous: requires_auth
 
 
-def test_role_gated_item_is_hidden_from_a_scoped_admin_token() -> None:
+def test_a_scoped_admin_token_gets_the_anonymous_menu() -> None:
+    """A token never renders a page, so its layout is the anonymous visitor's."""
     menu = MenuRegistry()
     menu.add_provider(
-        lambda _r: [MenuItem(label="Admins", url="/a", roles=["admin"]), MenuItem("All", "/x")]
+        lambda _r: [
+            MenuItem(label="Admins", url="/a", roles=["admin"]),
+            MenuItem("All", "/x"),
+            MenuItem("Public", "/p", requires_auth=False),
+        ]
     )
     client = _build(menu)
     body = client.get("/shared", headers={"x-role": "admin", "x-scoped": "1"}).json()
-    assert _labels(body) == ["All"]
+    assert _labels(body) == ["Public"]
 
 
 def test_failing_provider_is_isolated(caplog) -> None:

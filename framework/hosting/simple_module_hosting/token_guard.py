@@ -36,8 +36,9 @@ from collections.abc import Callable
 from typing import Any
 
 from fastapi import HTTPException
-from simple_module_db.listeners import current_user_id
 from starlette.requests import HTTPConnection
+
+from simple_module_hosting._anonymous import demote_to_anonymous
 
 TOKEN_GATE_ATTR = "__sm_token_gate__"
 """Attribute a dependency callable carries to tell the guard what it is."""
@@ -84,9 +85,11 @@ async def page_route(request: HTTPConnection) -> None:
     It carries the page marker for the tree inspection *and* refuses a token
     itself: a router's own ``dependencies`` reach a route inside a nested
     ``include_router`` only as an include-level dependency, which FastAPI
-    keeps out of the route's ``dependant`` — the inspection cannot see it.
+    keeps out of the original route's ``dependant``. The guard reads the
+    effective route (:func:`effective_route`) to see it, but that is FastAPI
+    internals — so a page also refuses on its own, whatever the inspection saw.
     """
-    _refuse_token(request)
+    await _refuse_token(request)
 
 
 mark_token_gate(page_route, GATE_PAGE)
@@ -145,26 +148,49 @@ def _translate(request: HTTPConnection, key: str, fallback: str) -> str:
     return Translator(registry, locale=locale, default_locale=default).t(key)
 
 
+def effective_route(scope: Any) -> Any:
+    """The route as FastAPI runs it: include-level dependencies included.
+
+    FastAPI (0.143+) puts the *original* ``APIRoute`` in ``scope["route"]``
+    but runs the dependant of the per-inclusion context it records under
+    ``scope["fastapi"]["effective_route_context"]`` — the one holding
+    ``include_router(..., dependencies=[...])``. Read that when it belongs to
+    the matched route; otherwise the matched route itself.
+    """
+    route = scope.get("route")
+    fastapi_scope = scope.get("fastapi")
+    context = (
+        fastapi_scope.get("effective_route_context") if isinstance(fastapi_scope, dict) else None
+    )
+    if (
+        context is not None
+        and route is not None
+        and getattr(context, "original_route", None) is route
+        and getattr(context, "dependant", None) is not None
+    ):
+        return context
+    return route
+
+
 async def token_route_guard(request: HTTPConnection) -> None:
     """App-wide dependency enforcing the rule in this module's docstring."""
     if not is_token_principal(getattr(request.state, "user", None)):
         return  # the common case: one attribute read, no tree inspection
-    if route_admits_tokens(request.scope.get("route")):
+    if route_admits_tokens(effective_route(request.scope)):
         return
-    _refuse_token(request)
+    await _refuse_token(request)
 
 
-def _refuse_token(request: HTTPConnection) -> None:
+async def _refuse_token(request: HTTPConnection) -> None:
     """Turn a token principal away (403), or demote it to anonymous if public."""
     user = getattr(request.state, "user", None)
     if not is_token_principal(user):
         return
     if (request.scope.get("state") or {}).get("auth_public"):
         # A public route: serve the token holder as the anonymous visitor
-        # anyone may be, never as the account behind the token.
-        request.state.user = None
-        request.state.resolved_permissions = set()
-        current_user_id.set(None)
+        # anyone may be, never as the account behind the token — tenant
+        # context included.
+        await demote_to_anonymous(request)
         return
     raise HTTPException(
         status_code=403,
@@ -182,6 +208,7 @@ __all__ = [
     "GATE_PERMISSION",
     "TOKEN_GATE_ATTR",
     "TokenAllowed",
+    "effective_route",
     "is_token_principal",
     "mark_token_gate",
     "page_route",

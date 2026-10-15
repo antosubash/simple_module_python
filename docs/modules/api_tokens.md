@@ -82,11 +82,12 @@ app-wide dependency on every `APIRoute` (module, host and framework routes):
 | A page — on a module view router, or depends on `InertiaDep` | **403**, even when gated: page props are a second, unscoped read API |
 | Marked `Depends(TokenAllowed())` | admitted, with no permission check — use only for routes harmless for any token |
 | Anything else | **403** (JSON on `/api/*`) |
-| A public route (exempted from auth) without a gate | served, but **as anonymous**: the token's principal is dropped |
+| A public route (exempted from auth) without a gate | served, but **as anonymous**: the token's principal is dropped, and so is the tenant it pinned |
 
 So a token cannot create or leave an organisation (`/api/tenants/`), switch
 tenant, open `/users/me`, the dashboard or any other page, whatever its scopes.
-The decision is computed once per route from its dependency tree and cached.
+The decision is computed once per route from its dependency tree — include-level
+`include_router(..., dependencies=[...])` gates included — and cached.
 Browser sessions and a provider's own bearer tokens (`auth_kind == "bearer"`)
 are unscoped and never affected. A route that checks a permission inline in its
 handler rather than through a dependency is refused for tokens; move the check
@@ -173,6 +174,19 @@ Decisions made after the security review of #455, and why:
 - **Stored roles are re-filtered**: the resolver drops `admin` and `tenant:*`
   from a service key's row, so a hand-edited row cannot make a key an admin or
   a tenant owner.
+- **A personal token needs its owner to still hold `api_tokens.use`.** The
+  principal carries `required_permission = "api_tokens.use"`, checked on every
+  request against the owner's live permissions — roles, the tenant role in the
+  token's tenant, and grant sources — before the scope cap. Without it the
+  request runs as anonymous, so a gated route answers **401**, as for a revoked
+  token. Taking `api_tokens.use` away also takes away listing and revoking
+  tokens, so it retires them all at once rather than leaving them unmanageable.
+  Service keys require nothing: they are governed by `api_tokens.manage`
+  holders, not by an owner.
+- **A token's pages show no one.** Tokens are refused on pages, but a 403 page,
+  or a public page served to a demoted token, still renders a layout: its
+  shared props (`auth`, `menus`, the `tenant` memberships) describe the
+  anonymous visitor, never the token's owner.
 
 ## Audit
 

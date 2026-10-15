@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from fastapi import HTTPException, Request
 from simple_module_core.permissions import DEFAULT_ROLE_PERMISSIONS, WILDCARD, grants
 
+from simple_module_hosting._anonymous import demote_to_anonymous
 from simple_module_hosting.token_guard import GATE_PERMISSION
 
 if TYPE_CHECKING:
@@ -23,8 +24,10 @@ __all__ = [
     "apply_scope_cap",
     "ensure_resolved_permissions",
     "expand_permissions",
+    "lacks_required_permission",
     "resolve_permissions",
     "resolve_principal_permissions",
+    "resolve_request_permissions",
     "resolved_permissions_for",
 ]
 
@@ -99,12 +102,26 @@ async def resolve_principal_permissions(
     rather than an unauthorised one — and is logged rather than turned into a
     500 on every request. A principal already holding the wildcard skips the
     sources: nothing they return could widen it, and a source may cost a read.
-    A token principal's set is then capped at its scopes (:func:`apply_scope_cap`).
+    A token principal's set is then capped at its scopes (:func:`apply_scope_cap`),
+    and is empty when its account no longer holds the permission the
+    credential requires (:func:`lacks_required_permission`).
     """
+    held = await _held_permissions(request, user, registry)
+    if lacks_required_permission(user, held):
+        return set()
+    return apply_scope_cap(held, user)
+
+
+async def _held_permissions(
+    request: Request,
+    user: Any,
+    registry: PermissionRegistry | None,
+) -> set[str]:
+    """What *user*'s account holds right now, before any scope cap."""
     role_map = registry.role_map if registry is not None else None
     permissions = _role_and_claimed(user, role_map)
     if registry is None or WILDCARD in permissions:
-        return apply_scope_cap(permissions, user)
+        return permissions
     for source in registry.grant_sources:
         try:
             # Grants are additive keys only: the wildcard (admin) comes from
@@ -112,7 +129,42 @@ async def resolve_principal_permissions(
             permissions.update(k for k in await source(request, user) if k != WILDCARD)
         except Exception:
             logger.exception("Grant source %r raised; contributing nothing", source)
-    return apply_scope_cap(permissions, user)
+    return permissions
+
+
+def lacks_required_permission(user: Any, held: set[str]) -> bool:
+    """Whether *user*'s credential requires a permission its account lacks.
+
+    A credential may name a permission its account must *currently* hold for
+    it to authenticate at all (``required_permission``, read duck-typed — an
+    ``api_tokens`` personal token requires ``api_tokens.use``). Checked
+    against the uncapped, tenant-aware set, so revoking the permission from a
+    role, a tenant role or a direct grant retires every such credential at once.
+    """
+    required = getattr(user, "required_permission", None)
+    return bool(required) and not grants(held, required)
+
+
+async def resolve_request_permissions(
+    request: Request, registry: PermissionRegistry | None
+) -> set[str]:
+    """Resolve and cache the permission set of the request's principal.
+
+    A principal whose credential requires a permission its account no longer
+    holds is not authenticated: it is demoted to the anonymous visitor, so a
+    gated route answers ``401`` — the same as for a revoked credential.
+    """
+    user = getattr(request.state, "user", None)
+    if user is None:
+        request.state.resolved_permissions = set()
+        return set()
+    held = await _held_permissions(request, user, registry)
+    if lacks_required_permission(user, held):
+        await demote_to_anonymous(request)
+        return set()
+    permissions = apply_scope_cap(held, user)
+    request.state.resolved_permissions = permissions
+    return permissions
 
 
 def _registry_for(request: Request) -> PermissionRegistry | None:
@@ -130,12 +182,7 @@ async def ensure_resolved_permissions(request: Request) -> set[str]:
     cached: set[str] | None = getattr(request.state, "resolved_permissions", None)
     if cached is not None:
         return cached
-    user = getattr(request.state, "user", None)
-    if user is None:
-        return set()
-    permissions = await resolve_principal_permissions(request, user, _registry_for(request))
-    request.state.resolved_permissions = permissions
-    return permissions
+    return await resolve_request_permissions(request, _registry_for(request))
 
 
 def expand_permissions(
@@ -177,7 +224,8 @@ def resolved_permissions_for(request: Request) -> set[str]:
 
     perm_registry = _registry_for(request)
     role_map = perm_registry.role_map if perm_registry is not None else None
-    permissions = apply_scope_cap(_role_and_claimed(user, role_map), user)
+    held = _role_and_claimed(user, role_map)
+    permissions = set() if lacks_required_permission(user, held) else apply_scope_cap(held, user)
     request.state.resolved_permissions = permissions
     return permissions
 
@@ -207,7 +255,10 @@ class RequiresPermission:
         if user is None:
             raise HTTPException(status_code=401, detail="Authentication required")
 
-        if not grants(await ensure_resolved_permissions(request), self.permission):
+        permissions = await ensure_resolved_permissions(request)
+        if getattr(request.state, "user", None) is None:  # demoted while resolving
+            raise HTTPException(status_code=401, detail="Authentication required")
+        if not grants(permissions, self.permission):
             raise HTTPException(
                 status_code=403,
                 detail=f"{PERMISSION_DENIED_PREFIX}{self.permission}",

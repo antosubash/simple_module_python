@@ -34,7 +34,8 @@ from simple_module_hosting._tenant import (
     TenantResolution,
     TenantResolver,
 )
-from simple_module_hosting.permissions import expand_permissions, resolve_principal_permissions
+from simple_module_hosting.permissions import expand_permissions, resolve_request_permissions
+from simple_module_hosting.token_guard import is_token_principal
 
 if TYPE_CHECKING:
     from simple_module_core.csp import CspSourceRegistry
@@ -214,23 +215,27 @@ class InertiaLayoutDataMiddleware:
             return
 
         request = Request(scope)
-        user = getattr(request.state, "user", None)
-        is_authenticated = user is not None
-        roles = getattr(user, "roles", []) if user else []
-        if getattr(user, "scopes", None) is not None:
-            # A token's menu is filtered on its (capped) permissions alone: a
-            # ``roles=["admin"]`` entry would otherwise list admin screens the
-            # token is refused at (see ``is_admin_principal``).
-            roles = []
-
         # Resolve permissions once — roles plus module grant sources (GH #337) —
         # and cache on request.state for RequiresPermission and the menu filter.
-        resolved = (
-            await resolve_principal_permissions(request, user, self.permission_registry)
-            if is_authenticated
-            else set()
-        )
-        request.state.resolved_permissions = resolved
+        # May demote the principal (a credential its account no longer backs).
+        resolved = await resolve_request_permissions(request, self.permission_registry)
+        user = getattr(request.state, "user", None)
+        if is_token_principal(user):
+            # An API token never legitimately renders a page, so the layout
+            # describes the anonymous visitor: no account, roles, permissions,
+            # menus or memberships on a 403 page or a public one (N2). The
+            # cached ``resolved`` set above still gates the token's API calls.
+            shared = await self._shared(request, scope, None, set())
+        else:
+            shared = await self._shared(request, scope, user, resolved)
+        request.state.inertia_shared = shared
+
+        await self.app(scope, receive, send)
+
+    async def _shared(self, request: Request, scope: Scope, user: Any, resolved: set[str]) -> dict:
+        """The shared props for *user* (``None``: the anonymous visitor)."""
+        is_authenticated = user is not None
+        roles = getattr(user, "roles", []) if user else []
 
         # Expand wildcard to full list for frontend (no "*" leak)
         all_perms = self.permission_registry.all_permissions
@@ -264,11 +269,14 @@ class InertiaLayoutDataMiddleware:
         }
 
         # Merge module-registered shared-prop providers (e.g. branding) — read off
-        # app.state without importing the plugin (SM009), defensively.
-        await merge_shared_prop_providers(scope["app"], request, shared)
+        # app.state without importing the plugin (SM009), defensively. They read
+        # ``request.state.user`` themselves, so they see the same principal.
+        actual = getattr(request.state, "user", None)
+        request.state.user = user
+        try:
+            await merge_shared_prop_providers(scope["app"], request, shared)
+        finally:
+            request.state.user = actual
         # After the providers, so a module's own value (users) wins.
         shared.setdefault("homeUrl", default_home_url(scope["app"]))
-
-        request.state.inertia_shared = shared
-
-        await self.app(scope, receive, send)
+        return shared

@@ -28,6 +28,7 @@ from starlette.requests import Request
 from api_tokens.constants import (
     FORBIDDEN_SERVICE_ROLES,
     LAST_USED_WRITE_INTERVAL_SECONDS,
+    PERM_USE,
     TokenKind,
 )
 from api_tokens.models import ApiToken
@@ -72,6 +73,11 @@ async def _personal(db: Any, token: ApiToken) -> UserContext | None:
     # resolver acts for this tenant only (and only while the owner is still an
     # active member of it), never one named by a header, subdomain or session.
     principal.tenant_id = token.tenant_id
+    # A personal token lives only as long as its owner may hold tokens: losing
+    # ``api_tokens.use`` (which also takes away listing and revoking them)
+    # retires every token they own, checked against their live, tenant-aware
+    # permissions on each request (``lacks_required_permission``).
+    principal.required_permission = PERM_USE
     return principal
 
 
