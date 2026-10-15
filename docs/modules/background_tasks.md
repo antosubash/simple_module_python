@@ -257,6 +257,12 @@ list) shows pending, running and dead rows with their last error; dead rows can
 be **retried** (back to `pending`, attempts reset) and pending or dead rows
 **discarded**.
 
+Unlike the executions screens, the outbox admin is **tenant-scoped**: a platform
+admin (global `admin` role) sees every tenant's rows, while any other principal
+holding `background_tasks.view`/`manage` (a tenant role granted it in the role
+editor) sees and acts on only its active tenant's rows — another tenant's row id
+answers 404. Outbox rows carry event payloads, hence the tighter rule.
+
 ## Routes
 
 ### Admin API
