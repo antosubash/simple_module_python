@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from simple_module_core.diagnostics._db_extensions import check_db_extensions_need_postgres
 from simple_module_core.diagnostics._expression_index import (
     check_expression_indexes_unverifiable,
     module_all_tables,
@@ -42,7 +43,8 @@ def run_diagnostics(
     :class:`I18nDiagnostics`). ``i18n_extra_sources`` lets callers include
     host/ui locale dirs that aren't owned by a ``ModuleBase``.
     ``database_dialect`` (``"sqlite"``, ``"postgresql"``...) enables SM026, which
-    flags expression indexes a SQLite database cannot verify.
+    flags expression indexes a SQLite database cannot verify, and SM029, which flags
+    modules declaring ``db_extensions`` on SQLite.
     ``i18n_unknown_overrides`` (``I18nRegistry.unknown_override_keys``) enables SM027.
     """
     diagnostics = ModuleDiagnostics().run(modules)
@@ -54,6 +56,7 @@ def run_diagnostics(
                     module_all_tables(mod), database_dialect, mod.meta.name
                 )
             )
+            diagnostics.extend(check_db_extensions_need_postgres(mod, database_dialect))
 
     if i18n_default_locale:
         from simple_module_core.diagnostics._i18n import I18nDiagnostics
