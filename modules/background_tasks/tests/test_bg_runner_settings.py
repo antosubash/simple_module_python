@@ -36,15 +36,39 @@ def _put(url: str, key: str, value: str, vtype: str) -> None:
 
 def test_db_overrides_reach_the_worker(db_url: str) -> None:
     _put(db_url, "background_tasks.task_time_limit", "90", "json")
-    _put(db_url, "background_tasks.worker_queues", '["gpu"]', "json")
+    assert load_runner_settings().task_time_limit == 90
+
+
+@pytest.mark.parametrize(
+    ("field", "stored"),
+    [
+        ("worker_queues", '["gpu"]'),
+        ("include_modules", '["evil"]'),
+        ("exclude_modules", '["users"]'),
+        ("celery_overrides", '{"task_serializer": "pickle"}'),
+    ],
+)
+def test_env_only_fields_ignore_a_db_value(db_url: str, field: str, stored: str) -> None:
+    _put(db_url, f"background_tasks.{field}", stored, "json")
     cfg = load_runner_settings()
-    assert cfg.task_time_limit == 90
-    assert cfg.worker_queues == ["gpu"]
+    assert field not in BackgroundTasksSettings.model_fields
+    assert not hasattr(cfg, field)
 
 
-def test_env_still_seeds_what_the_db_leaves_alone(db_url: str, monkeypatch) -> None:
-    monkeypatch.setenv("SM_BG_TASKS_WORKER_QUEUES", "mail")
-    assert load_runner_settings().worker_queues == ["mail"]
+@pytest.mark.parametrize(
+    ("field", "stored"),
+    [
+        ("broker_url", '"mod.Transport://x"'),
+        ("result_backend", '"pkg.mod:Backend"'),
+    ],
+)
+def test_db_url_naming_an_importable_scheme_is_refused(
+    db_url: str, field: str, stored: str, caplog
+) -> None:
+    _put(db_url, f"background_tasks.{field}", stored, "json")
+    cfg = load_runner_settings()  # falls back to env/defaults, loudly
+    assert "." not in getattr(cfg, field).split("://")[0]
+    assert "Could not read background_tasks settings" in caplog.text
 
 
 def test_unreachable_db_falls_back_to_env_settings(monkeypatch, caplog) -> None:

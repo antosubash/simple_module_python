@@ -34,10 +34,10 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Annotated, Any
+from typing import Any
 
-from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from pydantic import Field, ValidationInfo, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
 from background_tasks.config_guards import sanitize_task_routes
@@ -58,10 +58,6 @@ from background_tasks.constants import (
 _CELERY_RESTART = {"requires_restart": True, "group": "Celery"}
 
 logger = logging.getLogger(__name__)
-
-# Comma-separated in the environment (``SM_BG_TASKS_WORKER_QUEUES=a,b``), a JSON
-# list in the DB; ``NoDecode`` stops pydantic-settings insisting on JSON for env.
-CsvList = Annotated[list[str], NoDecode]
 
 
 def _redis_from_env(default: str) -> str:
@@ -129,27 +125,30 @@ class BackgroundTasksSettings(BaseSettings):
     # a DB-writable conf dict could switch serializers to pickle. It is read
     # from the environment only, in ``config_guards.celery_overrides_from_env``.
 
-    # ── Per-worker module subset (GH #450) ──────────────────
-    # Which packages this process imports ``tasks.py`` for. ``exclude_modules``
-    # always wins, ``include_modules`` next, then ``worker_queues`` selects by
-    # each module's ``task_config.QUEUES``. All empty loads everything. Leave
-    # them unset on the web process and on beat.
-    worker_queues: CsvList = Field(default_factory=list, json_schema_extra=_CELERY_RESTART)
-    include_modules: CsvList = Field(default_factory=list, json_schema_extra=_CELERY_RESTART)
-    exclude_modules: CsvList = Field(default_factory=list, json_schema_extra=_CELERY_RESTART)
+    # The per-worker module subset (``SM_BG_TASKS_WORKER_QUEUES`` /
+    # ``_INCLUDE_MODULES`` / ``_EXCLUDE_MODULES``, GH #450) is likewise not a
+    # field: it describes one process, so it is read from the environment only
+    # in ``config_guards.worker_scope_from_env``.
+
+    @field_validator("broker_url", "result_backend")
+    @classmethod
+    def _plain_url_scheme(cls, value: str, info: ValidationInfo) -> str:
+        # Celery/kombu resolve a dotted or ``mod:Class`` scheme (or a bare
+        # dotted backend name) by importing it, so a DB-stored URL must name a
+        # transport/backend by plain alias only.
+        scheme = value.split("://", 1)[0] if "://" in value else value
+        if any(ch in scheme for ch in ".:/"):
+            raise ValueError(
+                f"{info.field_name} must use a plain URL scheme (redis://, amqp://, db+sqlite://); "
+                "dotted or module:Class names are refused because Celery imports them"
+            )
+        return value
 
     @field_validator("task_routes_override", mode="before")
     @classmethod
     def _vet_task_routes(cls, value: object) -> object:
         # Admin-editable: reduced to queue names and a closed set of route keys.
         return sanitize_task_routes(value)
-
-    @field_validator("worker_queues", "include_modules", "exclude_modules", mode="before")
-    @classmethod
-    def _split_csv(cls, value: object) -> object:
-        if isinstance(value, str):
-            return [part.strip() for part in value.split(",") if part.strip()]
-        return value
 
     # ── Cross-process cache invalidation (GH #318) ──────────
     # This module owns the Redis connection, so it installs the transport that

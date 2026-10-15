@@ -8,6 +8,7 @@ import types
 
 import pytest
 from background_tasks import celery_app
+from background_tasks.config_guards import WorkerScope
 from background_tasks.settings import BackgroundTasksSettings
 from background_tasks.task_routing import (
     ModuleTaskConfig,
@@ -34,6 +35,10 @@ def _pkg(monkeypatch, name: str, *, config: dict | None = None, tasks: dict | No
 
 def _settings(**kw) -> BackgroundTasksSettings:
     return BackgroundTasksSettings(task_always_eager=True, **kw)
+
+
+def _scope(**kw) -> WorkerScope:
+    return WorkerScope(**{k: frozenset(v) for k, v in kw.items()})
 
 
 class TestLoadTaskConfig:
@@ -109,19 +114,19 @@ class TestSelectPackages:
     PKGS = ["heavy", "light", "plain"]  # noqa: RUF012
 
     def pick(self, **kw):
-        return select_packages(self.PKGS, self.CONFIGS, _settings(**kw))
+        return select_packages(self.PKGS, self.CONFIGS, _settings(), _scope(**kw))
 
     def test_everything_by_default(self):
         assert self.pick() == self.PKGS
 
     def test_queue_overlap(self):
-        assert self.pick(worker_queues=["gpu"]) == ["heavy"]
+        assert self.pick(queues=["gpu"]) == ["heavy"]
 
     def test_module_without_queues_defaults_to_default_queue(self):
-        assert self.pick(worker_queues=["default"]) == ["light", "plain"]
+        assert self.pick(queues=["default"]) == ["light", "plain"]
 
     def test_include_beats_queue_filter_and_exclude_beats_include(self):
-        assert self.pick(worker_queues=["gpu"], include_modules=["light"]) == ["heavy", "light"]
+        assert self.pick(queues=["gpu"], include_modules=["light"]) == ["heavy", "light"]
         assert self.pick(include_modules=["light"], exclude_modules=["light"]) == [
             "heavy",
             "plain",
@@ -129,12 +134,17 @@ class TestSelectPackages:
 
 
 class TestSettings:
-    def test_csv_env(self, monkeypatch):
+    def test_scope_is_read_from_env_only(self, monkeypatch):
+        from background_tasks.config_guards import worker_scope_from_env
+
         monkeypatch.setenv("SM_BG_TASKS_WORKER_QUEUES", "gpu, default")
         monkeypatch.setenv("SM_BG_TASKS_EXCLUDE_MODULES", "a,b")
-        s = BackgroundTasksSettings()
-        assert s.worker_queues == ["gpu", "default"]
-        assert s.exclude_modules == ["a", "b"]
+        scope = worker_scope_from_env()
+        assert scope.queues == {"gpu", "default"}
+        assert scope.exclude_modules == {"a", "b"}
+        assert scope.include_modules == frozenset()
+        # select_packages defaults to the environment, not to stored settings.
+        assert select_packages(["a", "c"], {}, _settings()) == ["c"]
 
     def test_tuning_defaults_are_none(self):
         s = BackgroundTasksSettings()
@@ -214,7 +224,8 @@ class TestBuildCelery:
             "celery.Celery.autodiscover_tasks",
             lambda self, pkgs=None, **kw: discovered.append(list(pkgs)),
         )
-        c = self._build(monkeypatch, ["bc_heavy", "bc_light"], worker_queues=["default"])
+        monkeypatch.setenv("SM_BG_TASKS_WORKER_QUEUES", "default")
+        c = self._build(monkeypatch, ["bc_heavy", "bc_light"])
         assert discovered == [["bc_light"]]
         assert "light-job" in c.conf.beat_schedule
         assert "heavy-job" not in c.conf.beat_schedule
@@ -227,3 +238,21 @@ class TestBuildCelery:
             {"pattern": "x.*", "queue": "y", "module": "override"},
             {"pattern": "bc_c.*", "queue": "q", "module": "bc_c"},
         ]
+
+
+class TestRealCeleryRouting:
+    def test_app_router_honours_override_over_module_exact_and_glob(self, monkeypatch):
+        _pkg(monkeypatch, "rc_a", config={"TASK_ROUTES": {"rc_a.one": "qa", "rc_a.*": "qa"}})
+        monkeypatch.setattr(celery_app, "_discover_task_packages", lambda: ["rc_a"])
+        c = celery_app.build_celery(_settings(task_routes_override={"rc_a.*": "other"}))
+        route = c.amqp.router.route
+        assert route({}, "rc_a.one")["queue"].name == "other"
+        assert route({}, "rc_a.two")["queue"].name == "other"
+        assert route({}, "unrelated.task")["queue"].name == "default"
+
+    def test_without_override_module_exact_name_beats_glob(self, monkeypatch):
+        _pkg(monkeypatch, "rc_b", config={"TASK_ROUTES": {"rc_b.*": "g", "rc_b.one": "x"}})
+        monkeypatch.setattr(celery_app, "_discover_task_packages", lambda: ["rc_b"])
+        c = celery_app.build_celery(_settings())
+        assert c.amqp.router.route({}, "rc_b.one")["queue"].name == "x"
+        assert c.amqp.router.route({}, "rc_b.two")["queue"].name == "g"

@@ -60,8 +60,8 @@ lists the effective routes. Tuning settings (`visibility_timeout_seconds`,
 `worker_max_tasks_per_child`, `task_time_limit`, `worker_concurrency`, ...) and a
 raw `SM_BG_TASKS_CELERY_OVERRIDES` (env only, unsafe keys refused) default to Celery's own defaults.
 `SM_BG_TASKS_WORKER_QUEUES=gpu,default make worker` consumes only those queues
-and imports only the modules whose `QUEUES` overlap (see `include_modules` /
-`exclude_modules`). Full details in `docs/modules/background_tasks.md`.
+and imports only the modules whose `QUEUES` overlap (see `SM_BG_TASKS_INCLUDE_MODULES` /
+`SM_BG_TASKS_EXCLUDE_MODULES`; env only, not DB settings). Full details in `docs/modules/background_tasks.md`.
 
 ## Worker log context
 

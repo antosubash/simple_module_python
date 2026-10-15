@@ -20,6 +20,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from background_tasks.config_guards import WorkerScope, worker_scope_from_env
 from background_tasks.settings import BackgroundTasksSettings
 
 logger = logging.getLogger(__name__)
@@ -121,16 +122,19 @@ def select_packages(
     packages: list[str],
     configs: dict[str, ModuleTaskConfig],
     settings: BackgroundTasksSettings,
+    scope: WorkerScope | None = None,
 ) -> list[str]:
     """Packages this process imports ``tasks.py`` for.
 
     Order: ``exclude_modules`` always loses; then ``include_modules`` always
     wins; then, when ``worker_queues`` is set, a package needs a queue overlap;
-    otherwise every package is loaded.
+    otherwise every package is loaded. ``scope`` defaults to the process
+    environment (:func:`worker_scope_from_env`); it is never stored settings.
     """
-    exclude = set(settings.exclude_modules)
-    include = set(settings.include_modules)
-    wanted = set(settings.worker_queues)
+    scope = scope or worker_scope_from_env()
+    exclude = scope.exclude_modules
+    include = scope.include_modules
+    wanted = scope.queues
     selected: list[str] = []
     for pkg in packages:
         if pkg in exclude:

@@ -58,14 +58,14 @@ New `BackgroundTasksSettings` fields, all with `requires_restart` and group Cele
 Raw Celery conf comes from the environment-only `SM_BG_TASKS_CELERY_OVERRIDES` (JSON). It is not a settings field, because those are DB-backed and admin-editable. Keys that choose serializers or load code are refused. It is applied last with `conf.update`, and its keys are logged at INFO. The docs warn that with Redis and `acks_late`, tasks longer than 1 h need `visibility_timeout_seconds`.
 
 ### #450 per-worker module subset
-- New settings:
-  - `worker_queues` (env `SM_BG_TASKS_WORKER_QUEUES`, comma-separated);
-  - `include_modules`;
-  - `exclude_modules`.
+- New environment-only variables (they describe one process, so they are not settings fields and a DB value cannot re-scope every worker):
+  - `SM_BG_TASKS_WORKER_QUEUES` (comma-separated);
+  - `SM_BG_TASKS_INCLUDE_MODULES`;
+  - `SM_BG_TASKS_EXCLUDE_MODULES`.
 - Which packages a process imports `tasks.py` for, applied in this order:
-  1. A package in `exclude_modules` is never imported.
-  2. Otherwise, a package in `include_modules` is always imported.
-  3. If `worker_queues` is set, a package is imported only when its `QUEUES` overlap `worker_queues`.
+  1. A package in `SM_BG_TASKS_EXCLUDE_MODULES` is never imported.
+  2. Otherwise, a package in `SM_BG_TASKS_INCLUDE_MODULES` is always imported.
+  3. If `SM_BG_TASKS_WORKER_QUEUES` is set, a package is imported only when its `QUEUES` overlap `SM_BG_TASKS_WORKER_QUEUES`.
   4. Otherwise every package is imported, as today.
 - The filter applies both to `autodiscover_tasks` and to the eager beat-schedule import.
 - `make worker` passes `-Q $(SM_BG_TASKS_WORKER_QUEUES)` when the variable is set.

@@ -101,3 +101,31 @@ def test_task_routes_override_is_reduced_to_safe_routes(caplog) -> None:
     s = BackgroundTasksSettings(task_routes_override=raw)
     assert set(s.task_routes_override) == {"ok.*", "ok.dict"}
     assert sanitize_task_routes("nope") == {}
+
+
+def test_env_helpers_log_bad_input(monkeypatch, caplog) -> None:
+    from background_tasks.config_guards import env_csv, env_json_object
+
+    monkeypatch.setenv("X_JSON", "[1]")
+    monkeypatch.setenv("X_BAD", "{nope")
+    monkeypatch.setenv("X_CSV", " a, ,b ")
+    with caplog.at_level(logging.ERROR):
+        assert env_json_object("X_JSON") == {}
+        assert env_json_object("X_BAD") == {}
+    assert "X_JSON must be a JSON object" in caplog.text
+    assert "X_BAD is not valid JSON" in caplog.text
+    assert env_csv("X_CSV") == ["a", "b"]
+    assert env_csv("X_UNSET") == []
+
+
+@pytest.mark.parametrize("url", ["pkg.mod:Backend", "mod.Transport://x", "a:b://c"])
+def test_importable_url_schemes_are_refused(url: str) -> None:
+    with pytest.raises(ValueError):
+        BackgroundTasksSettings(broker_url=url)
+    with pytest.raises(ValueError):
+        BackgroundTasksSettings(result_backend=url)
+
+
+@pytest.mark.parametrize("url", ["redis://h/0", "amqp://g@h//", "db+sqlite:///x.db", "rpc://"])
+def test_plain_url_schemes_pass(url: str) -> None:
+    assert BackgroundTasksSettings(broker_url=url).broker_url == url

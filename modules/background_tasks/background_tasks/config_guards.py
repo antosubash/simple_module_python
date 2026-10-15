@@ -10,6 +10,10 @@ inputs reach ``build_celery``:
   It is read here rather than being a ``BackgroundTasksSettings`` field, because
   every field of that class is stored in, and hydrated from, the database.
   Dangerous keys are refused even from here.
+- ``SM_BG_TASKS_WORKER_QUEUES`` / ``_INCLUDE_MODULES`` / ``_EXCLUDE_MODULES``
+  (comma-separated): which queues and modules *this one worker process*
+  serves. Environment only for the same reason: one stored value would
+  re-scope every worker. All three go through the helpers below.
 - ``task_routes_override`` (DB-backed, admin-editable): only names queues, and
   is reduced to plain queue names and route dicts with a closed key set. A route
   dict is merged into ``apply_async`` options, so ``serializer``, ``link`` and
@@ -22,6 +26,7 @@ import json
 import logging
 import os
 import re
+from dataclasses import dataclass
 from typing import Any
 
 from background_tasks.constants import ENV_PREFIX
@@ -29,6 +34,9 @@ from background_tasks.constants import ENV_PREFIX
 logger = logging.getLogger(__name__)
 
 ENV_CELERY_OVERRIDES = f"{ENV_PREFIX}CELERY_OVERRIDES"
+ENV_WORKER_QUEUES = f"{ENV_PREFIX}WORKER_QUEUES"
+ENV_INCLUDE_MODULES = f"{ENV_PREFIX}INCLUDE_MODULES"
+ENV_EXCLUDE_MODULES = f"{ENV_PREFIX}EXCLUDE_MODULES"
 
 # Conf keys that choose a (de)serializer or load code by dotted path / file.
 _DENIED_KEYS = frozenset(
@@ -93,17 +101,54 @@ def filter_celery_overrides(raw: object, *, source: str = "celery_overrides") ->
     return safe
 
 
-def celery_overrides_from_env() -> dict[str, Any]:
-    """The vetted ``SM_BG_TASKS_CELERY_OVERRIDES`` mapping (``{}`` when unset)."""
-    raw = os.environ.get(ENV_CELERY_OVERRIDES, "").strip()
+def _env_text(name: str) -> str:
+    return os.environ.get(name, "").strip()
+
+
+def env_csv(name: str) -> list[str]:
+    """A comma-separated environment variable as a list (``[]`` when unset)."""
+    return [part.strip() for part in _env_text(name).split(",") if part.strip()]
+
+
+def env_json_object(name: str) -> dict[str, Any]:
+    """A JSON-object environment variable (``{}`` when unset or unusable, with a log)."""
+    raw = _env_text(name)
     if not raw:
         return {}
     try:
         parsed = json.loads(raw)
-    except ValueError:
-        logger.error("%s is not valid JSON; ignoring it", ENV_CELERY_OVERRIDES)
+    except ValueError as exc:
+        logger.error("%s is not valid JSON (%s); ignoring it", name, exc)
         return {}
-    return filter_celery_overrides(parsed, source=ENV_CELERY_OVERRIDES)
+    if not isinstance(parsed, dict):
+        logger.error("%s must be a JSON object; ignoring it", name)
+        return {}
+    return parsed
+
+
+def celery_overrides_from_env() -> dict[str, Any]:
+    """The vetted ``SM_BG_TASKS_CELERY_OVERRIDES`` mapping (``{}`` when unset)."""
+    return filter_celery_overrides(
+        env_json_object(ENV_CELERY_OVERRIDES), source=ENV_CELERY_OVERRIDES
+    )
+
+
+@dataclass(frozen=True)
+class WorkerScope:
+    """What this process serves; see :func:`worker_scope_from_env`."""
+
+    queues: frozenset[str] = frozenset()
+    include_modules: frozenset[str] = frozenset()
+    exclude_modules: frozenset[str] = frozenset()
+
+
+def worker_scope_from_env() -> WorkerScope:
+    """Per-process queue/module subset (GH #450), from the environment only."""
+    return WorkerScope(
+        queues=frozenset(env_csv(ENV_WORKER_QUEUES)),
+        include_modules=frozenset(env_csv(ENV_INCLUDE_MODULES)),
+        exclude_modules=frozenset(env_csv(ENV_EXCLUDE_MODULES)),
+    )
 
 
 _QUEUE_RE = re.compile(r"^[A-Za-z0-9_.:\-]{1,255}$")

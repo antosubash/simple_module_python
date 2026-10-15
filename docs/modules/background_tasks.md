@@ -143,13 +143,13 @@ BEAT_SCHEDULE = {...}  # optional; wins over tasks.BEAT_SCHEDULE for the same en
 
 ### Running a worker for a subset of modules
 
-A worker normally imports every module's `tasks.py`. To keep a light worker from importing a heavy module (torch, GDAL), restrict what it loads:
+A worker normally imports every module's `tasks.py`. To keep a light worker from importing a heavy module (torch, GDAL), restrict what it loads. These describe one worker process, so they are **environment variables only** (not settings fields, not stored in the database or shown in the admin UI; a stored value is ignored):
 
-| Setting / env | Meaning |
+| Env var | Meaning |
 |---|---|
-| `worker_queues` / `SM_BG_TASKS_WORKER_QUEUES=gpu,default` | import only modules whose `QUEUES` overlap |
-| `include_modules` / `SM_BG_TASKS_INCLUDE_MODULES` | always import these packages |
-| `exclude_modules` / `SM_BG_TASKS_EXCLUDE_MODULES` | never import these packages (wins over everything) |
+| `SM_BG_TASKS_WORKER_QUEUES=gpu,default` | import only modules whose `QUEUES` overlap |
+| `SM_BG_TASKS_INCLUDE_MODULES` | always import these packages |
+| `SM_BG_TASKS_EXCLUDE_MODULES` | never import these packages (wins over everything) |
 
 Order: exclude, then include, then the queue overlap; with all three empty every module loads. The filter covers both Celery autodiscovery and the eager beat-schedule import. `make worker` passes `-Q $SM_BG_TASKS_WORKER_QUEUES` when the variable is set, so the worker also only consumes those queues. Leave these unset on the web process and on beat: the web process only publishes (it needs every module's routes, which come from `task_config`, not `tasks.py`), and beat must see every schedule.
 
@@ -245,9 +245,9 @@ DB-backed; defaults are in `BackgroundTasksSettings`. Several are marked `requir
 | Field | Default | Notes |
 |---|---|---|
 | `broker_url` | `redis://localhost:6379/0` | restart required; rejected as `localhost` in production |
-| `result_backend` | `redis://localhost:6379/1` | restart required |
+| `result_backend` | `redis://localhost:6379/1` | restart required; `broker_url`/`result_backend` must use a plain scheme (`redis://`, `amqp://`, `db+sqlite://`): dotted or `module:Class` names are refused because Celery imports them |
 | `task_default_queue` | `"default"` | restart required |
-| `task_routes_override`, `worker_queues`, `include_modules`, `exclude_modules`, tuning fields | unset | restart required; see [Routing and queues](#routing-and-queues) and [Worker tuning](#worker-tuning) |
+| `task_routes_override`, tuning fields | unset | restart required; see [Routing and queues](#routing-and-queues) and [Worker tuning](#worker-tuning) |
 | `task_always_eager` | `False` | runs tasks in-process (test mode) |
 | `task_eager_propagates` | `True` | re-raises eager-mode errors |
 | `stuck_after_seconds` | `300` | heartbeat-staleness threshold; a task's own `stuck_after` overrides it — see [Long-running tasks](#long-running-tasks-heartbeats-and-stuck-thresholds) |
