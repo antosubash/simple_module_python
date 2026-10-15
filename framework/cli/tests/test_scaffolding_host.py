@@ -160,6 +160,8 @@ class TestCreateHost:
         assert "build_module_metadata" in env_py
         assert "make_include_object" in env_py
         assert "for mod in modules:" not in env_py
+        # Parity with host/migrations/env.py: extensions are created before revisions.
+        assert env_py.count("ensure_db_extensions(") == 2
 
     async def test_main_py_loads_dotenv_before_settings(self, tmp_path):
         """Regression for #158: scaffolded main.py must populate ``os.environ``
