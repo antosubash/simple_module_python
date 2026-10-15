@@ -18,6 +18,35 @@ All notable changes to this project are documented in this file. The format is b
   previously served, and anonymous, in production.
 
 ### Added
+- **New `api_tokens` module** (#455): personal access tokens (`smpat_…`) and
+  service API keys (`smsk_…`). Only `sha256(token)` is stored and the secret
+  is shown once; a token is resolved by one indexed lookup per request (no
+  cache), so a revoke applies on the next request. Every token carries scopes
+  that cap the principal's permissions on top of the owner's live grants (an
+  admin's token is worth its scopes only). Service keys get roles chosen at
+  creation (never `admin`); every token is pinned to the tenant it was created
+  in (a PAT only while its owner is still a member). Self-service page at
+  `/api-tokens/` (user menu), admin screen at `/admin/api-tokens/`; tokens can
+  only be managed from a cookie session, with `RequiresCsrf`. New PyPI package
+  `simple_module_api_tokens`; not added to the `smpy new` scaffold. Needs a
+  migration (`branch_labels = ("api_tokens",)`).
+- `UserContext` gains `auth_kind` (`"session"` by default; `"pat"` /
+  `"service"` for tokens) and `scopes` (`None` = uncapped), carried through
+  `from_user`, `to_session_dict` and `from_session_dict`. `auth.contracts.tokens`
+  holds the kinds and the `smpat_` / `smsk_` prefixes.
+- `simple_module_hosting.permissions.apply_scope_cap` and
+  `simple_module_core.permissions.is_admin_principal`. A role-only admin gate
+  should use `is_admin_principal(user)`, which is `False` for any token.
+- `simple_module_hosting.token_guard` (#455): an app-wide dependency that
+  refuses an API token (403) on every route without a permission gate
+  (`RequiresPermission` / `require_permission`) and on every page; a public
+  route serves it as anonymous. `TokenAllowed()` opts a route in explicitly.
+  Sessions and provider bearer tokens are unaffected. **Behaviour change** for
+  any module that relied on a token reaching an ungated route: gate it with a
+  permission, or mark it `TokenAllowed`.
+- `auth.contracts.tokens.AUTH_KIND_BEARER`: a `users` access token or Keycloak
+  JWT now reports `auth_kind == "bearer"` (was `"session"`). Same rights; it
+  only stops such credentials from managing API tokens.
 - Resumable multipart uploads for `file_storage` (#454): `POST /api/file-storage/uploads`
   sessions with presigned S3 part URLs (or relayed parts on the filesystem backend),
   4-way parallel parts with retry and `localStorage` resume in the Files page,
@@ -147,6 +176,18 @@ All notable changes to this project are documented in this file. The format is b
   production-mode containers pass `UsersSettings` boot validation.
 
 ### Changed
+- The `users` and `keycloak` auth providers return `None` at once for a bearer
+  value with an `api_tokens` prefix instead of looking it up (#455), leaving it
+  to the principal resolver chain.
+- `require_permission` (auth) skips its admin-role shortcut, and
+  `resolve_principal_permissions` / `resolved_permissions_for` cap the set,
+  when the principal carries `scopes`. The `/admin` index, the Doctor page and
+  the maintenance bypass no longer admit an admin's token on the role alone.
+- The `tenants` resolver binds a service principal to its pinned tenant and
+  ignores the tenant header and subdomain for it.
+- `make new-module`: the scaffolded `tsconfig.json` no longer sets `baseUrl`
+  (removed in TypeScript 6), `views.py` imports `InertiaResponse` from
+  `simple_module_inertia`, and `package.json` peers `@inertiajs/react` `^3.7.0`.
 - `StoredFile.checksum_sha256` / `StoredFileOut.checksum_sha256` are now nullable (#454):
   files uploaded through the multipart flow have no checksum until
   `file_storage.compute_checksum` runs, and `ETag`s fall back to id + size.

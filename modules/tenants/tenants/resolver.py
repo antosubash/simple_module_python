@@ -18,6 +18,7 @@ import dataclasses
 import logging
 from typing import Any
 
+from auth.contracts.tokens import AUTH_KIND_PAT, AUTH_KIND_SERVICE, AUTH_KIND_SESSION
 from cachetools import TTLCache
 from fastapi import FastAPI
 from simple_module_core.invalidation import Invalidation, InvalidationBus
@@ -41,6 +42,7 @@ from tenants.host_resolver import (
     subdomains_enabled,
 )
 from tenants.service import TenantService
+from tenants.token_tenant import pinned_token_tenant
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +148,14 @@ async def _resolve(request: Request) -> tuple[str | None, str | None, tuple[str,
     # every branch), so a shared cache must key on it too; an anonymous one did
     # not, and anonymous public pages stay cacheable (#418).
     credential: tuple[str, ...] = ("Cookie",) if user is not None else ()
+    kind = getattr(user, "auth_kind", AUTH_KIND_SESSION)
+    if kind != AUTH_KIND_SESSION:
+        # A bearer credential is carried by the Authorization header, not a cookie.
+        credential = ("Authorization",)
+    if kind in (AUTH_KIND_PAT, AUTH_KIND_SERVICE):
+        # An API token is pinned to the tenant it was created in: neither a
+        # header, a subdomain nor a session preference may move it elsewhere.
+        return await pinned_token_tenant(request, user), "token", credential
     slug = subdomain_slug(request)
     if slug is not None:
         tenant_id = await _resolve_subdomain(request, user, slug)

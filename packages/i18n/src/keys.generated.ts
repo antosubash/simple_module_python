@@ -2,6 +2,113 @@
 // Regenerate by booting the host in development mode or `make gen-i18n`.
 
 export const keys = {
+  api_tokens: {
+    admin: {
+      description: 'api_tokens.admin.description',
+      new_service_key: 'api_tokens.admin.new_service_key',
+      tenant_required: 'api_tokens.admin.tenant_required',
+      title: 'api_tokens.admin.title',
+    },
+    audit: {
+      token: 'api_tokens.audit.token',
+    },
+    created: {
+      copied: 'api_tokens.created.copied',
+      copy: 'api_tokens.created.copy',
+      done: 'api_tokens.created.done',
+      title: 'api_tokens.created.title',
+      warning: 'api_tokens.created.warning',
+    },
+    errors: {
+      account_required: 'api_tokens.errors.account_required',
+      invalid_kind: 'api_tokens.errors.invalid_kind',
+      lifetime_too_long: 'api_tokens.errors.lifetime_too_long',
+      not_found: 'api_tokens.errors.not_found',
+      role_forbidden: 'api_tokens.errors.role_forbidden',
+      role_not_assignable: 'api_tokens.errors.role_not_assignable',
+      scope_not_held: 'api_tokens.errors.scope_not_held',
+      scopes_required: 'api_tokens.errors.scopes_required',
+      session_required: 'api_tokens.errors.session_required',
+      tenant_required: 'api_tokens.errors.tenant_required',
+    },
+    form: {
+      cancel: 'api_tokens.form.cancel',
+      create_description: 'api_tokens.form.create_description',
+      create_service_description: 'api_tokens.form.create_service_description',
+      create_service_title: 'api_tokens.form.create_service_title',
+      create_title: 'api_tokens.form.create_title',
+      days: 'api_tokens.form.days',
+      days_one: 'api_tokens.form.days_one',
+      days_other: 'api_tokens.form.days_other',
+      expiry: 'api_tokens.form.expiry',
+      name: 'api_tokens.form.name',
+      name_placeholder: 'api_tokens.form.name_placeholder',
+      new_token: 'api_tokens.form.new_token',
+      no_roles: 'api_tokens.form.no_roles',
+      roles: 'api_tokens.form.roles',
+      roles_hint: 'api_tokens.form.roles_hint',
+      scopes: 'api_tokens.form.scopes',
+      scopes_hint: 'api_tokens.form.scopes_hint',
+      submit: 'api_tokens.form.submit',
+    },
+    index: {
+      description: 'api_tokens.index.description',
+      title: 'api_tokens.index.title',
+      usage: 'api_tokens.index.usage',
+    },
+    kind: {
+      personal: 'api_tokens.kind.personal',
+      service: 'api_tokens.kind.service',
+    },
+    list: {
+      actions: 'api_tokens.list.actions',
+      empty_description: 'api_tokens.list.empty_description',
+      empty_title: 'api_tokens.list.empty_title',
+      expires: 'api_tokens.list.expires',
+      kind: 'api_tokens.list.kind',
+      last_used: 'api_tokens.list.last_used',
+      name: 'api_tokens.list.name',
+      never: 'api_tokens.list.never',
+      owner: 'api_tokens.list.owner',
+      revoke: 'api_tokens.list.revoke',
+      roles: 'api_tokens.list.roles',
+      scope_count: 'api_tokens.list.scope_count',
+      scope_count_one: 'api_tokens.list.scope_count_one',
+      scope_count_other: 'api_tokens.list.scope_count_other',
+      scopes: 'api_tokens.list.scopes',
+      status: 'api_tokens.list.status',
+      token: 'api_tokens.list.token',
+    },
+    nav: {
+      api_tokens: 'api_tokens.nav.api_tokens',
+    },
+    revoke: {
+      cancel: 'api_tokens.revoke.cancel',
+      confirm: 'api_tokens.revoke.confirm',
+      description: 'api_tokens.revoke.description',
+      title: 'api_tokens.revoke.title',
+    },
+    revoke_all: {
+      button: 'api_tokens.revoke_all.button',
+      cancel: 'api_tokens.revoke_all.cancel',
+      confirm: 'api_tokens.revoke_all.confirm',
+      description: 'api_tokens.revoke_all.description',
+      title: 'api_tokens.revoke_all.title',
+    },
+    status: {
+      active: 'api_tokens.status.active',
+      expired: 'api_tokens.status.expired',
+      revoked: 'api_tokens.status.revoked',
+    },
+    toasts: {
+      created: 'api_tokens.toasts.created',
+      failed: 'api_tokens.toasts.failed',
+      revoked: 'api_tokens.toasts.revoked',
+      revoked_all: 'api_tokens.toasts.revoked_all',
+      revoked_all_one: 'api_tokens.toasts.revoked_all_one',
+      revoked_all_other: 'api_tokens.toasts.revoked_all_other',
+    },
+  },
   audit_log: {
     actions: {
       created: 'audit_log.actions.created',
@@ -625,6 +732,9 @@ export const keys = {
     },
   },
   hosting: {
+    errors: {
+      token_not_allowed: 'hosting.errors.token_not_allowed',
+    },
     setup: {
       connections: {
         description: 'hosting.setup.connections.description',

@@ -236,7 +236,13 @@ async def profile_page(
     ctx = getattr(request.state, "user", None)
     if ctx is None:
         raise HTTPException(status_code=401)
-    user = await db.get(User, uuid.UUID(ctx.id))
+    try:
+        user_id = uuid.UUID(str(ctx.id))
+    except ValueError:
+        # Not an account (a service key's ``svc:`` principal): refuse rather
+        # than 500. The token guard already turns tokens away from pages.
+        raise HTTPException(status_code=403) from None
+    user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=401)
     return await inertia.render(

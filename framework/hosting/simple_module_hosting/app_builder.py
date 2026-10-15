@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from simple_module_core import BodyLimitRegistry, CspSourceRegistry
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.design_packs import DesignPackRegistry
@@ -56,6 +56,7 @@ from simple_module_hosting.setup_gate import register_migration_step
 from simple_module_hosting.setup_wizard import mount_setup_wizard
 from simple_module_hosting.static_files import PrecompressedStaticFiles
 from simple_module_hosting.tenancy import mode_for
+from simple_module_hosting.token_guard import token_route_guard
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +161,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         docs_url=_DOCS_URL if settings.is_development else None,
         redoc_url=_REDOC_URL if settings.is_development else None,
         lifespan=lifespan,
+        # API tokens reach only permission-gated, non-page routes (or ones
+        # marked ``TokenAllowed``); see ``token_guard``.
+        dependencies=[Depends(token_route_guard)],
     )
 
     install_openapi_filter(app)

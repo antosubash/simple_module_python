@@ -1,12 +1,13 @@
 # Bundled modules
 
-simple_module_python ships with thirteen first-party modules. Each is a regular Python package — same shape as a module you'd write yourself — registered through the `simple_module` entry point and discovered at boot. They are independent: install only what you need.
+simple_module_python ships with fourteen first-party modules. Each is a regular Python package — same shape as a module you'd write yourself — registered through the `simple_module` entry point and discovered at boot. They are independent: install only what you need.
 
 | Module | Depends on | What it provides |
 |---|---|---|
 | [`auth`](/modules/auth) | — | Tiny public surface (`UserContext`, `AuthProvider`, `get_current_user`, `require_permission`) other modules import, plus the provider-agnostic `AuthMiddleware` and principal-resolver chain. The actual login/session logic lives in an auth-provider module (`users` or `keycloak`). |
 | [`users`](/modules/users) | `auth` | Email + password auth, OAuth/OIDC (Google, GitHub, Microsoft/Entra ID, generic OIDC), sessions, roles, invites, password reset, email verification, admin UI, mailer backends, `smpy users create-admin`. |
 | [`keycloak`](/modules/keycloak) | `auth`, `settings` | Alternative auth provider: Keycloak OIDC single sign-on. |
+| [`api_tokens`](/modules/api_tokens) | `auth`, `users`, `settings` | Personal access tokens and service API keys: hashed at rest, scope-capped on every request, revocable on the next request; self-service page and admin screen. |
 | [`permissions`](/modules/permissions) | `auth`, `users` | Role / direct-grant assignment store + admin UI; `RequiresPermission` dependency that honours both forms. |
 | [`settings`](/modules/settings) | — | DB-backed key/value store with system / tenant / user precedence; per-module pydantic settings registration; hot reload; `smpy settings` CLI. |
 | [`feature_flags`](/modules/feature_flags) | — | Runtime feature toggles with system + tenant overrides. |

@@ -20,5 +20,8 @@
     },
     "working": "Working…",
     "done": "Done. Reloading…"
+  },
+  "errors": {
+    "token_not_allowed": "API tokens cannot be used on this route. Use a signed-in session, or a route gated by a permission the token is scoped to."
   }
 }

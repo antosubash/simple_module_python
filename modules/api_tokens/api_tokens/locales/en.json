@@ -1,0 +1,104 @@
+{
+  "nav": {
+    "api_tokens": "API tokens"
+  },
+  "audit": {
+    "token": "API token"
+  },
+  "errors": {
+    "session_required": "API tokens can only be managed from a signed-in browser session, not with a token.",
+    "scopes_required": "Choose at least one scope.",
+    "scope_not_held": "You cannot grant the scope \"{value}\": you do not hold it.",
+    "role_forbidden": "A service key cannot have the \"{role}\" role.",
+    "role_not_assignable": "The role \"{value}\" cannot be given to a service key.",
+    "lifetime_too_long": "A token can be valid for at most {days} days.",
+    "invalid_kind": "This kind of token cannot be created here.",
+    "tenant_required": "Choose an organisation before managing its tokens.",
+    "not_found": "Token not found.",
+    "account_required": "Your account has no local user record, so a personal access token could never sign in as you. Ask an administrator for a service key instead."
+  },
+  "index": {
+    "title": "API tokens",
+    "description": "Personal access tokens let scripts and tools call the API as you, limited to the scopes you choose.",
+    "usage": "Send a token in the Authorization header: Authorization: Bearer <token>."
+  },
+  "admin": {
+    "title": "API tokens",
+    "description": "Every personal access token and service key in this organisation.",
+    "tenant_required": "Choose an organisation to see and create its API tokens.",
+    "new_service_key": "New service key"
+  },
+  "list": {
+    "name": "Name",
+    "token": "Token",
+    "kind": "Kind",
+    "owner": "Owner",
+    "scopes": "Scopes",
+    "roles": "Roles",
+    "expires": "Expires",
+    "last_used": "Last used",
+    "status": "Status",
+    "actions": "Actions",
+    "never": "Never",
+    "revoke": "Revoke",
+    "empty_title": "No API tokens yet",
+    "empty_description": "Create a token to call the API from a script or another service.",
+    "scope_count_one": "{count} scope",
+    "scope_count_other": "{count} scopes"
+  },
+  "kind": {
+    "personal": "Personal",
+    "service": "Service key"
+  },
+  "status": {
+    "active": "Active",
+    "revoked": "Revoked",
+    "expired": "Expired"
+  },
+  "form": {
+    "new_token": "New token",
+    "create_title": "Create a personal access token",
+    "create_service_title": "Create a service key",
+    "create_description": "The token can do only what its scopes allow, and never more than you can.",
+    "create_service_description": "A service key acts for no person. It gets the roles you pick, limited to the scopes you choose.",
+    "name": "Name",
+    "name_placeholder": "e.g. CI deploy",
+    "scopes": "Scopes",
+    "scopes_hint": "Only permissions you hold are listed.",
+    "roles": "Roles",
+    "roles_hint": "The administrator role cannot be given to a service key.",
+    "no_roles": "No assignable roles.",
+    "expiry": "Expires after",
+    "days_one": "{count} day",
+    "days_other": "{count} days",
+    "submit": "Create token",
+    "cancel": "Cancel"
+  },
+  "created": {
+    "title": "Copy your new token",
+    "warning": "This is the only time the token is shown. Store it somewhere safe now — it cannot be recovered.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "done": "Done"
+  },
+  "revoke": {
+    "title": "Revoke \"{name}\"?",
+    "description": "Anything using this token stops working on its next request. This cannot be undone.",
+    "confirm": "Revoke",
+    "cancel": "Cancel"
+  },
+  "toasts": {
+    "created": "Token created",
+    "revoked": "Token revoked",
+    "failed": "Something went wrong. Please try again.",
+    "revoked_all_one": "{count} token revoked",
+    "revoked_all_other": "{count} tokens revoked"
+  },
+  "revoke_all": {
+    "button": "Revoke all",
+    "title": "Revoke all your tokens?",
+    "description": "Every personal access token you hold stops working on its next request, in every organisation. Use this if a token may have leaked: changing your password or signing out everywhere does not end tokens.",
+    "confirm": "Revoke all",
+    "cancel": "Cancel"
+  }
+}

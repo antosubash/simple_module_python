@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from simple_module_core.permissions import grants, is_admin
+from simple_module_core.permissions import grants, is_admin_principal
 from simple_module_db.deps import get_db
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
@@ -29,7 +29,7 @@ async def _require_admin(request: Request) -> None:
     only. The ``/admin`` prefix is a URL convention, not a permission, so this
     is the guard that actually keeps a non-admin, signed-in user out."""
     user = getattr(request.state, "user", None)
-    if user is None or not is_admin(getattr(user, "roles", None)):
+    if user is None or not is_admin_principal(user):
         raise HTTPException(status_code=403, detail="Administrator access required")
 
 

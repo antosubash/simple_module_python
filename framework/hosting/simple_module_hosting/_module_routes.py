@@ -6,10 +6,11 @@ responsibility — and to keep both files under the 300-line cap.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, Depends, FastAPI
 from fastapi.routing import APIRoute
 
 from simple_module_hosting._openapi import make_unique_id_function
+from simple_module_hosting.token_guard import page_route
 
 __all__ = ["wire_module_routes"]
 
@@ -30,11 +31,15 @@ def wire_module_routes(app: FastAPI, module) -> bool:
         tags=[module.meta.name],
         generate_unique_id_function=make_unique_id_function(),
     )
-    # Views are Inertia pages, not part of the published JSON API (#456).
+    # Views are Inertia pages, not part of the published JSON API (#456), and
+    # carry the page marker: an API token is refused on every page, gated or
+    # not (``token_guard``).
+    pages = [Depends(page_route)]
     view_router = APIRouter(
         prefix=module.meta.view_prefix,
         tags=[f"{module.meta.name} Views"],
         include_in_schema=False,
+        dependencies=pages,
     )
     module.register_routes(api_router, view_router)
     _clone_bare_prefix_route(view_router, module.meta.view_prefix)
@@ -51,6 +56,7 @@ def wire_module_routes(app: FastAPI, module) -> bool:
             prefix=admin_prefix,
             tags=[f"{module.meta.name} Admin Views"],
             include_in_schema=False,
+            dependencies=pages,
         )
         module.register_admin_routes(admin_router)
         _clone_bare_prefix_route(admin_router, admin_prefix)
