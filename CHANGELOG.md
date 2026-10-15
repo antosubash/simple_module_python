@@ -12,6 +12,15 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- Postgres extensions and column types (#458): `ModuleBase.db_extensions()`
+  declares the extensions a module needs (`["ltree"]`); `ensure_db_extensions`
+  runs from `env.py` (host and scaffold) before the revisions, emitting
+  `CREATE EXTENSION IF NOT EXISTS` (also in offline SQL) and raising
+  `UnsupportedDatabaseError` on SQLite. `simple_module_db.types.LTree` and
+  `TSVector` are native on Postgres and `TEXT` on SQLite; autogenerate renders
+  them with the right import. New doctor code `SM029`, and a `postgres` pytest
+  marker (skipped unless `SM_TEST_DATABASE_URL` is Postgres). The Postgres test
+  fixtures re-create declared extensions after each schema reset. No migration.
 - `from background_tasks import heartbeat` (#451): a long-running task calls
   `heartbeat()` to refresh `heartbeat_at` (throttled to one write per 30 s; a
   no-op outside a task). `@shared_task(..., stuck_after=<seconds>)` sets a

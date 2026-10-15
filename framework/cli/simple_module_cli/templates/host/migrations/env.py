@@ -12,8 +12,10 @@ from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
+from simple_module_core.discovery import discover_modules
 from simple_module_db import (
     build_module_metadata,
+    ensure_db_extensions,
     make_include_object,
     make_process_revision_directives,
     render_item,
@@ -70,6 +72,8 @@ def run_migrations_offline() -> None:
         process_revision_directives=process_revision_directives,
     )
 
+    # Emit CREATE EXTENSION for what modules declare (ModuleBase.db_extensions).
+    ensure_db_extensions(None, discover_modules())
     with context.begin_transaction():
         context.run_migrations()
 
@@ -93,6 +97,11 @@ def run_migrations_online() -> None:
             render_item=render_item,
             process_revision_directives=process_revision_directives,
         )
+
+        # Extensions first, in their own committed transaction, so revisions
+        # that use their types find them installed (ModuleBase.db_extensions).
+        ensure_db_extensions(connection, discover_modules())
+        connection.commit()
 
         with context.begin_transaction():
             context.run_migrations()

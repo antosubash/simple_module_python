@@ -141,6 +141,7 @@ export default defineConfig({
             { text: "Mixins", link: "/database/mixins" },
             { text: "Session lifecycle", link: "/database/sessions" },
             { text: "Migrations", link: "/database/migrations" },
+            { text: "Extensions and column types", link: "/database/extensions" },
           ],
         },
       ],

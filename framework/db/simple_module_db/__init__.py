@@ -4,6 +4,7 @@ from simple_module_db.audit import AuditRecord
 from simple_module_db.base import create_module_base
 from simple_module_db.callbacks import OnCommitCallback
 from simple_module_db.deps import get_db
+from simple_module_db.extensions import UnsupportedDatabaseError, ensure_db_extensions
 from simple_module_db.migration_portability import drop_enums_if_postgres
 from simple_module_db.migrations import (
     build_module_metadata,
@@ -29,7 +30,7 @@ from simple_module_db.tenancy import (
     tenant_context,
 )
 from simple_module_db.transaction import CommitBeforeResponseMiddleware, finalize_session
-from simple_module_db.types import AwareDateTime
+from simple_module_db.types import AwareDateTime, LTree, TSVector
 from simple_module_db.writes import hard_delete, mark_written
 
 __all__ = [
@@ -44,12 +45,15 @@ __all__ = [
     "CommitBeforeResponseMiddleware",
     "DatabaseProvider",
     "DatabaseState",
+    "LTree",
     "MissingTenantError",
     "MultiTenantMixin",
     "OnCommitCallback",
     "RequestSession",
     "SoftDeleteMixin",
+    "TSVector",
     "TenantIsolationError",
+    "UnsupportedDatabaseError",
     "VersionedMixin",
     "all_tenants",
     "bind_current_tenant",
@@ -58,6 +62,7 @@ __all__ = [
     "current_tenant_id",
     "detect_provider",
     "drop_enums_if_postgres",
+    "ensure_db_extensions",
     "finalize_session",
     "get_db",
     "hard_delete",
