@@ -95,7 +95,8 @@ def build_settings[T: BaseSettings](
                 "Ignoring stored value for %s.%s: it no longer validates (%s)",
                 cls.__name__,
                 name,
-                "; ".join(str(e["msg"]) for e in exc.errors() if e["loc"][:1] == (name,)),
+                # error *types* only: a validator's message may echo the value (a secret)
+                ", ".join(str(e["type"]) for e in exc.errors() if e["loc"][:1] == (name,)),
             )
         return cls(**{k: v for k, v in parsed.items() if k not in bad})
 

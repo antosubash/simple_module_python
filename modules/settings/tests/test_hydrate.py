@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
+from pydantic import ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings
 from settings.hydrate import hydrate_settings, value_type_for_field
 from settings.service import SettingService
@@ -101,3 +101,53 @@ async def test_lenient_hydrate_ignores_only_the_invalid_field(db_session, caplog
     assert cfg.port == 25
     assert cfg.host == "mail.example.com"
     assert "port" in caplog.text
+
+
+class _Guarded(BaseSettings):
+    broker: str = "redis://redis:6379"
+    token: str = "ok"
+    prod: bool = False
+
+    @field_validator("token")
+    @classmethod
+    def _token(cls, v: str) -> str:
+        if v.startswith("bad"):
+            raise ValueError(f"rejected {v}")
+        return v
+
+    @model_validator(mode="after")
+    def _no_local_broker_in_prod(self):
+        if self.prod and "localhost" in self.broker:
+            raise ValueError("localhost broker in prod")
+        return self
+
+
+@pytest.mark.asyncio
+async def test_lenient_model_level_error_still_raises(db_session) -> None:
+    """A cross-field (empty ``loc``) failure keeps the whole-module behaviour."""
+    store = SettingsStore(SettingService(db_session))
+    await store.set_override("g", "prod", "true", "bool")
+    await store.set_override("g", "broker", "redis://localhost:6379", "string")
+    with pytest.raises(ValidationError):
+        await hydrate_settings(_Guarded, store, package="g", lenient=True)
+
+
+@pytest.mark.asyncio
+async def test_lenient_log_never_echoes_the_stored_value(db_session, caplog) -> None:
+    store = SettingsStore(SettingService(db_session))
+    await store.set_override("g", "token", "bad-s3cr3t", "string")
+    with caplog.at_level("ERROR"):
+        cfg = await hydrate_settings(_Guarded, store, package="g", lenient=True)
+    assert cfg.token == "ok"
+    assert "token" in caplog.text
+    assert "s3cr3t" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_lenient_dropping_a_field_cannot_bypass_a_cross_field_check(db_session) -> None:
+    store = SettingsStore(SettingService(db_session))
+    await store.set_override("g", "token", "bad", "string")
+    await store.set_override("g", "prod", "true", "bool")
+    await store.set_override("g", "broker", "redis://localhost:6379", "string")
+    with pytest.raises(ValidationError):
+        await hydrate_settings(_Guarded, store, package="g", lenient=True)
