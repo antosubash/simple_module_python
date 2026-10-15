@@ -34,11 +34,13 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import Any
 
-from pydantic import Field, model_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
+from background_tasks.config_guards import parse_task_routes
 from background_tasks.constants import (
     DEFAULT_BROKER_URL,
     DEFAULT_INVALIDATION_CHANNEL,
@@ -87,6 +89,69 @@ class BackgroundTasksSettings(BaseSettings):
         json_schema_extra=_CELERY_RESTART,
     )
     task_default_queue: str = Field(default=DEFAULT_QUEUE, json_schema_extra=_CELERY_RESTART)
+
+    # ── Routing (GH #447) ───────────────────────────────────
+    # Applied over every module's ``task_config.TASK_ROUTES``. Lets an operator
+    # re-route a task (``{"reports.*": "heavy"}``) without a code change.
+    task_routes_override: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Task route overrides, {pattern: queue or route dict}.",
+        json_schema_extra=_CELERY_RESTART,
+    )
+
+    # ── Worker tuning (GH #448) ─────────────────────────────
+    # ``None`` keeps Celery's own default. Workers read these once at start.
+    visibility_timeout_seconds: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Redis visibility timeout. With acks_late, tasks running longer than "
+            "this (Celery default 1 h) are redelivered and run twice."
+        ),
+        json_schema_extra=_CELERY_RESTART,
+    )
+    worker_max_tasks_per_child: int | None = Field(
+        default=None, ge=1, json_schema_extra=_CELERY_RESTART
+    )
+    worker_max_memory_per_child_kb: int | None = Field(
+        default=None, ge=1, json_schema_extra=_CELERY_RESTART
+    )
+    task_reject_on_worker_lost: bool | None = Field(default=None, json_schema_extra=_CELERY_RESTART)
+    task_soft_time_limit: int | None = Field(default=None, ge=1, json_schema_extra=_CELERY_RESTART)
+    task_time_limit: int | None = Field(default=None, ge=1, json_schema_extra=_CELERY_RESTART)
+    worker_concurrency: int | None = Field(default=None, ge=1, json_schema_extra=_CELERY_RESTART)
+    # Raw Celery conf (``SM_BG_TASKS_CELERY_OVERRIDES``, JSON) is deliberately NOT
+    # a field here: every field is stored in and hydrated from the database, and
+    # a DB-writable conf dict could switch serializers to pickle. It is read
+    # from the environment only, in ``config_guards.celery_overrides_from_env``.
+
+    # The per-worker module subset (``SM_BG_TASKS_WORKER_QUEUES`` /
+    # ``_INCLUDE_MODULES`` / ``_EXCLUDE_MODULES``, GH #450) is likewise not a
+    # field: it describes one process, so it is read from the environment only
+    # in ``config_guards.worker_scope_from_env``.
+
+    @field_validator("broker_url", "result_backend")
+    @classmethod
+    def _plain_url_scheme(cls, value: str, info: ValidationInfo) -> str:
+        # Celery/kombu resolve a dotted or ``mod:Class`` scheme (or a bare
+        # dotted backend name) by importing it, so a DB-stored URL must name a
+        # transport/backend by plain alias only.
+        scheme = value.split("://", 1)[0] if "://" in value else value
+        if any(ch in scheme for ch in ".:/"):
+            raise ValueError(
+                f"{info.field_name} must use a plain URL scheme (redis://, amqp://, db+sqlite://); "
+                "dotted or module:Class names are refused because Celery imports them"
+            )
+        return value
+
+    @field_validator("task_routes_override", mode="before")
+    @classmethod
+    def _vet_task_routes(cls, value: object) -> object:
+        # Admin-editable: the settings UI submits a JSON string. Parse it and
+        # refuse (422) anything that is not a safe route mapping, rather than
+        # saving a row that is silently dropped later. ``build_celery`` still
+        # sanitises, as a defence for values stored before this check.
+        return parse_task_routes(value)
 
     # ── Cross-process cache invalidation (GH #318) ──────────
     # This module owns the Redis connection, so it installs the transport that

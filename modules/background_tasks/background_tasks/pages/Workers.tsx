@@ -7,9 +7,10 @@ import { ageOf, isStale } from '@simple-module-py/ui/lib/relative-time';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { RoutesTable } from './components/RoutesTable';
 import { WorkerCard } from './components/WorkerCard';
 import { BrokerUnreachable, NoWorkers } from './components/WorkerEmptyStates';
-import { API_BASE, formatClock, VIEW_BASE, type WorkerSnapshot } from './constants';
+import { API_BASE, formatClock, type TaskRoute, VIEW_BASE, type WorkerSnapshot } from './constants';
 
 interface Props {
   snapshot: WorkerSnapshot;
@@ -17,6 +18,8 @@ interface Props {
   broker_url_redacted: string;
   /** Queues this install routes through, for the start-a-worker command. */
   queues: string[];
+  /** Effective task routes and the module that set each. */
+  routes: TaskRoute[];
 }
 
 function Workers() {
@@ -24,6 +27,7 @@ function Workers() {
     snapshot: initial,
     broker_url_redacted: brokerUrl,
     queues,
+    routes,
   } = usePage<{ props: Props }>().props as unknown as Props;
   const { t } = useT();
   const [snapshot, setSnapshot] = useState<WorkerSnapshot>(initial);
@@ -106,6 +110,7 @@ function Workers() {
             ))}
           </div>
         )}
+        <RoutesTable routes={routes ?? []} />
       </PageShell>
     </>
   );

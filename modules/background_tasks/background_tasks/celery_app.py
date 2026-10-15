@@ -23,12 +23,14 @@ from celery import Celery
 from celery.schedules import schedule
 from simple_module_core.discovery import ENTRY_POINT_GROUP
 
+from background_tasks.config_guards import celery_overrides_from_env
 from background_tasks.constants import (
     INTERNAL_TASK_PURGE_OLD,
     INTERNAL_TASK_SWEEP_STUCK,
     MODULE_NAME,
 )
 from background_tasks.settings import BackgroundTasksSettings
+from background_tasks.task_routing import load_task_configs, merge_routes, select_packages
 
 logger = logging.getLogger(__name__)
 
@@ -86,11 +88,49 @@ def _collect_module_beat_schedules(packages: list[str]) -> dict:
     return merged
 
 
+# setting name -> Celery conf key (they differ only for the memory cap, which
+# Celery names without the unit although it is KiB).
+_TUNING_KEYS = {
+    "worker_max_tasks_per_child": "worker_max_tasks_per_child",
+    "worker_max_memory_per_child_kb": "worker_max_memory_per_child",
+    "task_reject_on_worker_lost": "task_reject_on_worker_lost",
+    "task_soft_time_limit": "task_soft_time_limit",
+    "task_time_limit": "task_time_limit",
+    "worker_concurrency": "worker_concurrency",
+}
+
+
+def _tuning_conf(settings: BackgroundTasksSettings) -> dict:
+    """Celery conf for the optional tuning fields; ``None`` keeps Celery's default."""
+    conf = {
+        key: getattr(settings, name)
+        for name, key in _TUNING_KEYS.items()
+        if getattr(settings, name) is not None
+    }
+    if settings.visibility_timeout_seconds is not None:
+        conf["broker_transport_options"] = {
+            "visibility_timeout": settings.visibility_timeout_seconds
+        }
+    return conf
+
+
+def describe_routes(settings: BackgroundTasksSettings) -> list[dict[str, str]]:
+    """Effective ``[{pattern, queue, module}]`` routes, for the Workers admin page."""
+    configs = load_task_configs(_discover_task_packages())
+    return merge_routes(configs, settings.task_routes_override)[1]
+
+
 def build_celery(settings: BackgroundTasksSettings) -> Celery:
     """Construct a Celery app wired to the project's Redis broker."""
     celery = Celery(MODULE_NAME)
 
-    packages = _discover_task_packages()
+    all_packages = _discover_task_packages()
+    # Routes and beat entries come from the light ``task_config`` of *every*
+    # module; only the heavy ``tasks.py`` imports are narrowed to this
+    # process's subset (GH #450).
+    configs = load_task_configs(all_packages)
+    packages = select_packages(all_packages, configs, settings)
+    task_routes, _ = merge_routes(configs, settings.task_routes_override)
 
     # The two internal entries always ship; modules contribute more via their
     # own ``tasks.BEAT_SCHEDULE``. ``setdefault`` keeps the built-ins authoritative
@@ -105,6 +145,7 @@ def build_celery(settings: BackgroundTasksSettings) -> Celery:
             "schedule": schedule(settings.purge_interval_seconds),
         },
     }
+    builtin_beat = frozenset(beat_schedule)
     for name, entry in _collect_module_beat_schedules(packages).items():
         if name in beat_schedule:
             logger.warning(
@@ -112,6 +153,15 @@ def build_celery(settings: BackgroundTasksSettings) -> Celery:
             )
             continue
         beat_schedule[name] = entry
+    # ``task_config.BEAT_SCHEDULE`` wins over the same entry in ``tasks.py``.
+    for pkg in sorted(configs):
+        for name, entry in configs[pkg].beat_schedule.items():
+            if name in builtin_beat:
+                logger.warning(
+                    "task_config beat entry %r clashes with a built-in; built-in wins", name
+                )
+                continue
+            beat_schedule[name] = entry
 
     celery.conf.update(
         broker_url=settings.broker_url,
@@ -138,7 +188,13 @@ def build_celery(settings: BackgroundTasksSettings) -> Celery:
         broker_connection_retry_on_startup=True,
         beat_schedule=beat_schedule,
         beat_scheduler="celery.beat:PersistentScheduler",
+        task_routes=task_routes,
     )
+    celery.conf.update(_tuning_conf(settings))
+    overrides = celery_overrides_from_env()
+    if overrides:
+        logger.info("Applying celery_overrides: %s", sorted(overrides))
+        celery.conf.update(overrides)
 
     # Autodiscover across every installed simple_module — a module just ships
     # a `tasks.py` and the worker picks it up.

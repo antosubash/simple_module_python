@@ -11,6 +11,12 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+- **Behaviour change (#456):** the OpenAPI schema moved from `/openapi.json` to
+  `/api/openapi.json`, and is no longer served outside development unless
+  `openapi_public` (`SM_OPENAPI_PUBLIC`) is on. The bare `/openapi.json` was
+  previously served, and anonymous, in production.
+
 ### Added
 - Resumable multipart uploads for `file_storage` (#454): `POST /api/file-storage/uploads`
   sessions with presigned S3 part URLs (or relayed parts on the filesystem backend),
@@ -19,6 +25,31 @@ All notable changes to this project are documented in this file. The format is b
   `file_storage.reap_stale_uploads` janitor (with `background_tasks`). Sessions count
   against the quota and the assembled size is re-verified at completion. Migration
   `a659221c464b` adds `file_storage_upload_session`.
+- background_tasks Celery config (#447, #448, #450): a module can ship a light
+  `task_config.py` (`TASK_ROUTES`, `QUEUES`, `BEAT_SCHEDULE`) read without
+  importing `tasks.py`; `task_routes_override` re-routes tasks at runtime and the
+  Workers page lists the effective routes. New restart-required settings:
+  `visibility_timeout_seconds`, `worker_max_tasks_per_child`,
+  `worker_max_memory_per_child_kb`, `task_reject_on_worker_lost`,
+  `task_soft_time_limit`, `task_time_limit`, `worker_concurrency`; raw Celery conf goes in the environment-only
+  `SM_BG_TASKS_CELERY_OVERRIDES` (serializer/import/code-loading keys refused). `SM_BG_TASKS_WORKER_QUEUES` / `_INCLUDE_MODULES` / `_EXCLUDE_MODULES`
+  (comma-separated, environment only, never DB-backed; `SM_BG_TASKS_WORKER_QUEUES=a,b`) limit which modules' `tasks.py` a process
+  imports (autodiscovery and the eager beat import); `make worker` passes `-Q`.
+  `make doctor` warns (`SM028`) on a top-level heavy import in `tasks.py`.
+- OpenAPI export (#456): `smpy openapi export [--out] [--module]` / `make openapi`
+  write the `/api/**` schema without starting a server; operationIds are
+  `<module>_<function>`; view routes are excluded; new host settings
+  `api_title`, `api_version`, `api_description`, `openapi_public`. See
+  `docs/guide/openapi-clients.md` for hey-api and Dart CI recipes.
+- Postgres extensions and column types (#458): `ModuleBase.db_extensions()`
+  declares the extensions a module needs (`["ltree"]`); `ensure_db_extensions`
+  runs from `env.py` (host and scaffold) before the revisions, emitting
+  `CREATE EXTENSION IF NOT EXISTS` (also in offline SQL) and raising
+  `UnsupportedDatabaseError` on SQLite. `simple_module_db.types.LTree` and
+  `TSVector` are native on Postgres and `TEXT` on SQLite; autogenerate renders
+  them with the right import. New doctor code `SM029`, and a `postgres` pytest
+  marker (skipped unless `SM_TEST_DATABASE_URL` is Postgres). The Postgres test
+  fixtures re-create declared extensions after each schema reset. No migration.
 - `from background_tasks import heartbeat` (#451): a long-running task calls
   `heartbeat()` to refresh `heartbeat_at` (throttled to one write per 30 s; a
   no-op outside a task). `@shared_task(..., stuck_after=<seconds>)` sets a
@@ -202,6 +233,13 @@ All notable changes to this project are documented in this file. The format is b
   `tenants` resolver it selects among the user's own memberships.
 
 ### Fixed
+- The Celery worker/beat process now hydrates DB-backed `background_tasks`
+  settings at boot (it used to read the environment only, so admin edits reached
+  the web process but never the worker).
+- `enqueue_after_commit` from a request that writes nothing else no longer loses
+  the publish to a read-only rollback; a retry whose send fails after commit is
+  marked `failed` instead of left `pending`; a sub-second `stuck_after` no longer
+  truncates to 0; a `416` response no longer carries `Cache-Control`.
 - `POST /i18n/set-locale` is mounted by `create_app` (#462), so the language
   switcher works in scaffolded apps instead of posting to a 404.
 - The Register page shows field-level errors (weak password, existing

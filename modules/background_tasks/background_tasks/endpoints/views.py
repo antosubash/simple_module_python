@@ -10,6 +10,7 @@ from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_inertia import InertiaResponse
 
+from background_tasks.celery_app import describe_routes
 from background_tasks.constants import (
     PERM_VIEW,
     PLATFORM_TENANT_FILTER,
@@ -142,16 +143,19 @@ async def workers(
     # install actually uses, or it starts a worker that consumes nothing. The
     # default queue leads because it is the one that always exists, even before
     # a single task has run.
+    routes = describe_routes(settings)
     used_queues = await service.queues()
-    queues = [settings.task_default_queue] + [
-        q for q in used_queues if q != settings.task_default_queue
-    ]
+    queues = [settings.task_default_queue]
+    for q in [*(r["queue"] for r in routes), *used_queues]:
+        if q and q not in queues:
+            queues.append(q)
     return await inertia.render(
         "BackgroundTasks/Workers",
         {
             "snapshot": snapshot.model_dump(mode="json"),
             "broker_url_redacted": redact_broker_url(settings.broker_url),
             "queues": queues,
+            "routes": routes,
         },
     )
 

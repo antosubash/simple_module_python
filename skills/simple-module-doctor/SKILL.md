@@ -1,6 +1,6 @@
 ---
 name: simple-module-doctor
-description: Use when interpreting a simple_module_python diagnostic code (SM001–SM021) printed at boot or by the diagnostics runner — what the code means, whether it's blocking, and the concrete fix. Triggers on any "SMnnn" code in logs, "InvalidModuleError", "module silently doesn't load", or "production failed boot".
+description: Use when interpreting a simple_module_python diagnostic code (SM001–SM029) printed at boot or by the diagnostics runner — what the code means, whether it's blocking, and the concrete fix. Triggers on any "SMnnn" code in logs, "InvalidModuleError", "module silently doesn't load", or "production failed boot".
 ---
 
 # simple_module_python: diagnostics
@@ -33,6 +33,8 @@ You can also call `run_diagnostics(...)` from `simple_module_core` programmatica
 | **SM019** | WARNING | A module registers view routes (non-empty `view_prefix` + overrides `register_routes`) but overrides neither `register_menu_items` nor `register_permissions` — its pages exist with no sidebar entry and no role-editor visibility | Add `register_menu_items()` (sidebar) or `register_permissions()` (role editor), or clear `view_prefix` if the module is API-only |
 | **SM020** | ERROR | More than one auth provider module is installed | Install exactly one auth provider (e.g. `users` OR `keycloak`, not both) |
 | **SM021** | WARNING | No auth provider module is installed | Install an auth provider module (e.g. `simple-module-users` or `simple-module-keycloak`) |
+| **SM028** | WARNING | A module's `tasks.py` imports `torch`, `tensorflow`, `ultralytics`, `osgeo`, `rasterio`, `cv2` or `sklearn` at module level | Import the package inside the task function, so only a worker that runs the task loads it |
+| **SM029** | INFO | A module overrides `db_extensions()` (Postgres extensions like `ltree`) but the database is SQLite, which has none; `ensure_db_extensions` raises `UnsupportedDatabaseError` at migrate time | Point `SM_DATABASE_URL` at PostgreSQL |
 
 `SM002`, `SM005`, `SM006` don't exist in the implementation — they're reserved/retired and never emitted. `SM012` is the one code that doesn't come from the core diagnostics runner: it's raised from the hosting layer (`check_settings_registration`, after Phase 4 settings registration) and so is only ever seen at **dev boot**, not via `make doctor`.
 

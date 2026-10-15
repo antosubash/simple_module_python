@@ -23,7 +23,7 @@ from background_tasks.service import BackgroundTaskService
 from simple_module_core.events import EventBus
 from simple_module_db import RequestSession, finalize_session
 from simple_module_db.transaction import SESSION_START_KEY, rollback_session
-from sqlalchemy import event
+from sqlalchemy import event, select
 
 ADMIN_BASE = "/api/background_tasks/admin"
 
@@ -111,6 +111,39 @@ class TestRetryOne:
         celery.send_task.assert_not_called()
 
 
+class TestUnsentRetry:
+    async def test_a_failed_publish_leaves_the_row_retryable(
+        self, db_session: RequestSession, sync_sqlite, celery: MagicMock
+    ) -> None:
+        """The row is committed before the send, so a send that fails must not
+        strand it as ``pending`` (not retryable): it goes to ``failed``."""
+        celery.send_task.side_effect = RuntimeError("broker down")
+        service = BackgroundTaskService(db=db_session, celery=celery, event_bus=EventBus())
+        original = await _failed_row(db_session)
+        detail = await service.retry(original.id)
+        # The retry service's own DB is the in-memory one; the failure handler
+        # works through the worker-side sync engine, so mirror the row there.
+        factory = sync_db.get_sync_session_factory()
+        with factory() as sync:
+            sync.add(
+                TaskExecution(
+                    celery_task_id=detail.celery_task_id,
+                    task_name="orders.ship",
+                    status=TaskStatus.PENDING,
+                )
+            )
+            sync.commit()
+
+        await db_session.commit()
+
+        with factory() as sync:
+            row = sync.execute(
+                select(TaskExecution).where(TaskExecution.celery_task_id == detail.celery_task_id)
+            ).scalar_one()
+        assert row.status == TaskStatus.FAILED
+        assert row.exception_type == "RuntimeError"
+
+
 @pytest.mark.usefixtures("_stub_celery")
 class TestThroughTheApi:
     """The real request path: ``get_db`` + ``CommitBeforeResponseMiddleware``."""
@@ -170,6 +203,19 @@ class TestEnqueueAfterCommit:
         task.apply_async.assert_called_once_with(
             args=(42,), kwargs={"priority": "high"}, task_id=task_id
         )
+
+    async def test_request_that_writes_nothing_else_still_publishes(
+        self, session: RequestSession
+    ) -> None:
+        """Queueing is the request's only effect: a read-only rollback must not eat it."""
+        if SESSION_START_KEY not in session.info:
+            pytest.skip("a bare session has no request lifecycle to finalize")
+        task = MagicMock(name="task")
+
+        task_id = enqueue_after_commit(session, task)
+        await finalize_session(session)
+
+        task.apply_async.assert_called_once_with(args=(), kwargs={}, task_id=task_id)
 
     async def test_request_session_rollback_drops_it(self, session: RequestSession) -> None:
         task = MagicMock(name="task")

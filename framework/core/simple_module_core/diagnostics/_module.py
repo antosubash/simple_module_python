@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from simple_module_core.diagnostics._coupling import check_framework_module_coupling
 from simple_module_core.diagnostics._css import check_module_css
+from simple_module_core.diagnostics._heavy_task_imports import check_heavy_task_imports
 from simple_module_core.diagnostics._inertia_api import check_inertia_api_calls
 from simple_module_core.diagnostics._js_workspace import check_js_workspace_files
 from simple_module_core.diagnostics._pages import check_pages, find_render_calls
@@ -42,6 +43,7 @@ class ModuleDiagnostics:
                 diagnostics.extend(check_js_workspace_files(mod, src_dir))
                 diagnostics.extend(check_inertia_api_calls(mod, src_dir))
                 diagnostics.extend(check_module_css(mod, src_dir))
+                diagnostics.extend(check_heavy_task_imports(mod, src_dir))
 
         return diagnostics
 
@@ -109,6 +111,7 @@ class ModuleDiagnostics:
                     "template_dirs",
                     "static_mounts",
                     "locale_dirs",
+                    "db_extensions",
                     "on_startup",
                     "on_shutdown",
                 )

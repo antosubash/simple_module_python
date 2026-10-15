@@ -12,7 +12,8 @@ interface AuthCardShellProps {
    * `card` centres one glass card (forgot, verify, Keycloak). The two splits
    * put a column of context beside the form: `split-dark` is the brand pitch
    * on near-black (sign in), `split-light` an intro on the page surface
-   * (register, accept invite). Both stack the column above the card below `lg`.
+   * (register, accept invite). Both stack below `lg`; the dark split keeps
+   * only its brand row above the form on small screens.
    */
   variant?: 'card' | 'split-dark' | 'split-light';
   /** Content of the split column. Ignored by the `card` variant. */
@@ -120,7 +121,7 @@ export function AuthCardShell({
       <div
         className={
           dark
-            ? 'relative flex flex-col overflow-hidden bg-landing-bg px-6 py-10 sm:px-12 sm:py-12'
+            ? 'relative flex flex-col overflow-hidden bg-landing-bg px-6 py-4 lg:px-12 lg:py-12'
             : // The light split needs two surfaces to read as a split at all.
               // Both columns were `bg-background`, so the seam was only the
               // card's 1px border; `bg-secondary/40` is the same page surface

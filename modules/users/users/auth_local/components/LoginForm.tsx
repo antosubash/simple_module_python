@@ -58,7 +58,7 @@ export function LoginForm({
       </h1>
       <p className="mt-1.5 mb-6 text-sm text-muted-foreground">{t(keys.users.login.subtitle)}</p>
 
-      <form onSubmit={onSubmit} className="space-y-3.5">
+      <form onSubmit={onSubmit} className="space-y-4">
         <AuthField htmlFor="email" label={t(keys.users.common.email)}>
           <Input
             id="email"
@@ -94,7 +94,7 @@ export function LoginForm({
           />
         </AuthField>
 
-        <div className="flex items-center gap-2.5 pt-0.5">
+        <div className="flex items-center gap-2.5 pt-1">
           <Checkbox
             id="remember"
             checked={remember}
