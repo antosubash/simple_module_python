@@ -11,6 +11,12 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+- **Behaviour change (#456):** the OpenAPI schema moved from `/openapi.json` to
+  `/api/openapi.json`, and is no longer served outside development unless
+  `openapi_public` (`SM_OPENAPI_PUBLIC`) is on. The bare `/openapi.json` was
+  previously served, and anonymous, in production.
+
 ### Added
 - background_tasks Celery config (#447, #448, #450): a module can ship a light
   `task_config.py` (`TASK_ROUTES`, `QUEUES`, `BEAT_SCHEDULE`) read without
@@ -23,6 +29,20 @@ All notable changes to this project are documented in this file. The format is b
   (comma-separated, environment only, never DB-backed; `SM_BG_TASKS_WORKER_QUEUES=a,b`) limit which modules' `tasks.py` a process
   imports (autodiscovery and the eager beat import); `make worker` passes `-Q`.
   `make doctor` warns (`SM028`) on a top-level heavy import in `tasks.py`.
+- OpenAPI export (#456): `smpy openapi export [--out] [--module]` / `make openapi`
+  write the `/api/**` schema without starting a server; operationIds are
+  `<module>_<function>`; view routes are excluded; new host settings
+  `api_title`, `api_version`, `api_description`, `openapi_public`. See
+  `docs/guide/openapi-clients.md` for hey-api and Dart CI recipes.
+- Postgres extensions and column types (#458): `ModuleBase.db_extensions()`
+  declares the extensions a module needs (`["ltree"]`); `ensure_db_extensions`
+  runs from `env.py` (host and scaffold) before the revisions, emitting
+  `CREATE EXTENSION IF NOT EXISTS` (also in offline SQL) and raising
+  `UnsupportedDatabaseError` on SQLite. `simple_module_db.types.LTree` and
+  `TSVector` are native on Postgres and `TEXT` on SQLite; autogenerate renders
+  them with the right import. New doctor code `SM029`, and a `postgres` pytest
+  marker (skipped unless `SM_TEST_DATABASE_URL` is Postgres). The Postgres test
+  fixtures re-create declared extensions after each schema reset. No migration.
 - `from background_tasks import heartbeat` (#451): a long-running task calls
   `heartbeat()` to refresh `heartbeat_at` (throttled to one write per 30 s; a
   no-op outside a task). `@shared_task(..., stuck_after=<seconds>)` sets a
