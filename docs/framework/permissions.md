@@ -119,7 +119,10 @@ dependency) applies a fail-closed rule to every route:
   token's principal is dropped and the request runs anonymously.
 
 So **gate a route with a permission dependency if API tokens should reach it**;
-a permission checked inline in the handler does not count. Sessions and a
+a permission checked inline in the handler does not count, and neither does
+one passed as `include_router(..., dependencies=[...])` (FastAPI keeps those out of
+the route's own dependency tree, so the route refuses tokens — declare the gate
+on the route or on the router it is declared on). Sessions and a
 provider's own bearer tokens (`auth_kind == "bearer"`) are unscoped and
 unaffected. A custom gate dependency can mark itself with
 `mark_token_gate(fn, GATE_PERMISSION)`.

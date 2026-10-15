@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import httpx
-from fastapi import APIRouter, Depends, FastAPI, Request
+from fastapi import APIRouter, Depends, FastAPI, Request, WebSocket
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_hosting.token_guard import (
@@ -127,3 +127,79 @@ def test_a_route_with_no_gate_refuses_tokens():
 
     assert route_admits_tokens(_route(app, "/n")) is False
     assert route_admits_tokens(None) is False
+
+
+async def test_token_admitted_through_a_nested_sub_dependency_gate():
+    app = FastAPI(dependencies=[Depends(token_route_guard)])
+    app.state.sm = None
+
+    async def inner(_: None = Depends(RequiresPermission("x.view"))) -> None:
+        return None
+
+    async def outer(_: None = Depends(inner)) -> None:
+        return None
+
+    router = APIRouter()
+
+    @router.get("/nested")
+    async def nested(_: None = Depends(outer)) -> dict:
+        return {"ok": True}
+
+    app.include_router(router)
+
+    @app.middleware("http")
+    async def fake_auth(request: Request, call_next):
+        request.state.user = _Principal(scopes=["x.view"], permissions=["x.view"])
+        return await call_next(request)
+
+    r = await _get(app, "/nested")
+    assert r.status_code == 200, r.text
+    assert (await _get(app, "/missing")).status_code == 404
+
+
+def test_websocket_route_with_the_guard_does_not_break():
+    from starlette.testclient import TestClient
+
+    app = FastAPI(dependencies=[Depends(token_route_guard)])
+    app.state.sm = None
+
+    @app.websocket("/ws")
+    async def ws(websocket: WebSocket) -> None:
+        await websocket.accept()
+        await websocket.send_text("hi")
+        await websocket.close()
+
+    with TestClient(app).websocket_connect("/ws") as sock:
+        assert sock.receive_text() == "hi"
+
+
+async def test_page_marker_on_a_router_survives_nested_include_router():
+    """FastAPI keeps a nested include's router dependencies out of the route's tree."""
+    app = FastAPI(dependencies=[Depends(token_route_guard)])
+    app.state.sm = None
+    sub = APIRouter()
+
+    @sub.get("/x", dependencies=[Depends(RequiresPermission("x.view"))])
+    async def x() -> dict:
+        return {"ok": True}
+
+    pages = APIRouter(prefix="/pages", dependencies=[Depends(page_route)])
+    pages.include_router(sub)
+    app.include_router(pages)
+
+    @app.middleware("http")
+    async def fake_auth(request: Request, call_next):
+        request.state.user = _Principal(scopes=["x.view"], permissions=["x.view"])
+        return await call_next(request)
+
+    assert (await _get(app, "/pages/x")).status_code == 403
+
+
+def test_page_marker_beats_an_explicit_opt_in():
+    app = FastAPI()
+
+    @app.get("/p", dependencies=[Depends(page_route), Depends(TokenAllowed())])
+    async def p() -> None:
+        return None
+
+    assert route_admits_tokens(_route(app, "/p")) is False

@@ -15,7 +15,7 @@ So the rule is fail-closed and decided per route, from its dependency tree:
 * A **page** route (anything rendering through Inertia, and every route on a
   module's view router) refuses tokens even when gated: tokens are API
   credentials, and a page's props are a second, unscoped read API.
-* :class:`TokenAllowed` on a route admits tokens explicitly, for a route that
+* :class:`TokenAllowed` on a (non-page) route admits tokens explicitly, for a route that
   is safe for any token without naming a permission.
 * Everything else refuses a token with ``403``. On a route the public-route
   registry exempts, the token is not refused but **ignored**: the request runs
@@ -35,8 +35,9 @@ import contextlib
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 from simple_module_db.listeners import current_user_id
+from starlette.requests import HTTPConnection
 
 TOKEN_GATE_ATTR = "__sm_token_gate__"
 """Attribute a dependency callable carries to tell the guard what it is."""
@@ -77,8 +78,15 @@ class TokenAllowed:
         return None
 
 
-async def page_route() -> None:
-    """Dependency marker for a page route (added to every module view router)."""
+async def page_route(request: HTTPConnection) -> None:
+    """Dependency for a page route (added to every module view router).
+
+    It carries the page marker for the tree inspection *and* refuses a token
+    itself: a router's own ``dependencies`` reach a route inside a nested
+    ``include_router`` only as an include-level dependency, which FastAPI
+    keeps out of the route's ``dependant`` — the inspection cannot see it.
+    """
+    _refuse_token(request)
 
 
 mark_token_gate(page_route, GATE_PAGE)
@@ -109,10 +117,10 @@ def route_admits_tokens(route: Any) -> bool:
         return False
     kinds: set[str] = set()
     _gate_kinds(dependant, kinds, set())
-    if GATE_ALLOW in kinds:
+    if GATE_PAGE in kinds:
+        admits = False  # a page wins over an explicit opt-in
+    elif GATE_ALLOW in kinds:
         admits = True
-    elif GATE_PAGE in kinds:
-        admits = False
     else:
         admits = GATE_PERMISSION in kinds
     with contextlib.suppress(AttributeError, TypeError):  # a slotted/frozen route
@@ -125,7 +133,7 @@ def is_token_principal(user: Any) -> bool:
     return user is not None and getattr(user, "scopes", None) is not None
 
 
-def _translate(request: Request, key: str, fallback: str) -> str:
+def _translate(request: HTTPConnection, key: str, fallback: str) -> str:
     sm = getattr(request.app.state, "sm", None)
     registry = getattr(sm, "i18n_registry", None)
     if registry is None:
@@ -137,12 +145,19 @@ def _translate(request: Request, key: str, fallback: str) -> str:
     return Translator(registry, locale=locale, default_locale=default).t(key)
 
 
-async def token_route_guard(request: Request) -> None:
+async def token_route_guard(request: HTTPConnection) -> None:
     """App-wide dependency enforcing the rule in this module's docstring."""
+    if not is_token_principal(getattr(request.state, "user", None)):
+        return  # the common case: one attribute read, no tree inspection
+    if route_admits_tokens(request.scope.get("route")):
+        return
+    _refuse_token(request)
+
+
+def _refuse_token(request: HTTPConnection) -> None:
+    """Turn a token principal away (403), or demote it to anonymous if public."""
     user = getattr(request.state, "user", None)
     if not is_token_principal(user):
-        return
-    if route_admits_tokens(request.scope.get("route")):
         return
     if (request.scope.get("state") or {}).get("auth_public"):
         # A public route: serve the token holder as the anonymous visitor
