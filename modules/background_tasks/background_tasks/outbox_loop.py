@@ -61,7 +61,16 @@ def run_on_worker_loop[T](make: Callable[[], Awaitable[T]]) -> T:
     async def _main() -> T:
         return await make()
 
-    return asyncio.run_coroutine_threadsafe(_main(), runner.loop).result()
+    future = asyncio.run_coroutine_threadsafe(_main(), runner.loop)
+    try:
+        return future.result()
+    except BaseException:
+        # Celery's soft time limit (or a revoke) raises in this thread while the
+        # coroutine keeps running on the loop: left alone, the pool process moves
+        # on to its next task with a delivery still in flight beside it. Cancel
+        # it, so the handler is stopped and its session rolled back.
+        future.cancel()
+        raise
 
 
 def stop_worker_loop() -> None:
