@@ -3,7 +3,7 @@
 ``render_error_page`` builds its own ``Inertia`` instance instead of going
 through ``get_inertia``, so it skipped the ``inertia.share(**shared)`` step.
 The consequence was visible: a 404 rendered its copy as raw translation keys
-— ``ui.error_page.not_found_title``, ``host.error.go_home`` — because the page
+— ``ui.error_page.not_found_title``, ``ui.error_page.go_home`` — because the page
 received no ``i18n`` block at all. It also lost ``auth`` and ``menus``, so the
 error page could not render the layout a signed-in user expects.
 """

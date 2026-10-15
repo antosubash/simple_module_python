@@ -21,10 +21,10 @@ export interface RegisterError {
   code: RegisterErrorCode;
 }
 
-const FAILED: RegisterError = { field: 'form', code: 'failed' };
+export const FAILED: RegisterError = { field: 'form', code: 'failed' };
 
 /** Mirrors `UserManager.validate_password`: the client threshold is the server's. */
-export const MIN_PASSWORD_LENGTH = 8;
+const MIN_PASSWORD_LENGTH = 8;
 
 export function meetsPasswordPolicy(password: string, email: string): boolean {
   if (password.trim().length < MIN_PASSWORD_LENGTH) return false;

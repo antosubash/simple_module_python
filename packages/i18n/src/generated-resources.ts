@@ -1168,8 +1168,6 @@ export default {
     'users.register.error_password_invalid': '',
     'users.register.error_password_length': '',
     'users.register.error_password_numeric': '',
-    'users.register.error_weak_password': '',
-    'users.register.error_weak_password_default': '',
     'users.register.have_account': '',
     'users.register.head_title': '',
     'users.register.heading': '',

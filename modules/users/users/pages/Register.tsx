@@ -11,6 +11,7 @@ import { AuthIntro } from '../auth_local/components/AuthIntro';
 import { AuthStateCard } from '../auth_local/components/AuthStateCard';
 import { PasswordFields } from '../auth_local/components/PasswordFields';
 import {
+  FAILED,
   mapRegisterError,
   meetsPasswordPolicy,
   type RegisterError,
@@ -74,7 +75,7 @@ function Register() {
           setError(mapRegisterError(await res.json().catch(() => ({}))));
         }
       })
-      .catch(() => setError({ field: 'form', code: 'failed' }))
+      .catch(() => setError(FAILED))
       .finally(() => setLoading(false));
   };
 
@@ -133,7 +134,7 @@ function Register() {
             placeholder={t(keys.users.common.email_placeholder)}
             required
             autoComplete="email"
-            aria-invalid={error?.field === 'email' ? true : undefined}
+            aria-invalid={errorFor('email') ? true : undefined}
           />
         </AuthField>
         <PasswordFields

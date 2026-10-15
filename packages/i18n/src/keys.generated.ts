@@ -1465,8 +1465,6 @@ export const keys = {
       error_password_invalid: 'users.register.error_password_invalid',
       error_password_length: 'users.register.error_password_length',
       error_password_numeric: 'users.register.error_password_numeric',
-      error_weak_password: 'users.register.error_weak_password',
-      error_weak_password_default: 'users.register.error_weak_password_default',
       have_account: 'users.register.have_account',
       head_title: 'users.register.head_title',
       heading: 'users.register.heading',
