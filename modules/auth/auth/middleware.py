@@ -25,7 +25,6 @@ _FRAMEWORK_PUBLIC_PREFIXES = (
     "/static/",
     "/api/docs",
     "/api/redoc",
-    "/openapi.json",
     "/i18n/",
 )
 _FRAMEWORK_PUBLIC_EXACT = ("/",)
@@ -86,6 +85,8 @@ class AuthMiddleware:
         is_public = (
             any(path.startswith(p) for p in _FRAMEWORK_PUBLIC_PREFIXES)
             or path in _FRAMEWORK_PUBLIC_EXACT
+            # Anonymous exactly when the host serves it (dev, or openapi_public).
+            or path == getattr(app_state, "openapi_url", None)
         )
         # Module-contributed public routes (register_public_routes hook). Method
         # -aware, so a GET read route can be exempted without opening sibling

@@ -11,7 +11,18 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+- **Behaviour change (#456):** the OpenAPI schema moved from `/openapi.json` to
+  `/api/openapi.json`, and is no longer served outside development unless
+  `openapi_public` (`SM_OPENAPI_PUBLIC`) is on. The bare `/openapi.json` was
+  previously served, and anonymous, in production.
+
 ### Added
+- OpenAPI export (#456): `smpy openapi export [--out] [--module]` / `make openapi`
+  write the `/api/**` schema without starting a server; operationIds are
+  `<module>_<function>`; view routes are excluded; new host settings
+  `api_title`, `api_version`, `api_description`, `openapi_public`. See
+  `docs/guide/openapi-clients.md` for hey-api and Dart CI recipes.
 - Postgres extensions and column types (#458): `ModuleBase.db_extensions()`
   declares the extensions a module needs (`["ltree"]`); `ensure_db_extensions`
   runs from `env.py` (host and scaffold) before the revisions, emitting

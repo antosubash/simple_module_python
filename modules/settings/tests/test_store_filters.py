@@ -12,6 +12,7 @@ from __future__ import annotations
 import httpx
 import pytest
 from fastapi import FastAPI
+from settings.browse_query import PageParam, PerPageParam
 
 _INERTIA = {"X-Inertia": "true", "X-Inertia-Version": "1.0"}
 _STORE = "/admin/settings/store"
@@ -200,6 +201,9 @@ class TestServiceQuery:
         assert counts == {"all": 1, "system": 1, "tenant": 0, "user": 0}
 
 
+async def _probe_endpoint(page: PageParam = 1, per_page: PerPageParam = 25) -> None: ...
+
+
 class TestPaginationSchema:
     """Lenient parsing, honest OpenAPI.
 
@@ -208,11 +212,15 @@ class TestPaginationSchema:
     advertising page numbers as strings to every generated client.
     """
 
-    async def test_the_schema_advertises_integers(
-        self, app: FastAPI, authenticated_client: httpx.AsyncClient
-    ) -> None:
-        schema = (await authenticated_client.get("/openapi.json")).json()
-        params = {p["name"]: p["schema"] for p in schema["paths"][_STORE]["get"]["parameters"]}
+    def test_the_schema_advertises_integers(self) -> None:
+        # The store view is include_in_schema=False (#456), so check the
+        # shared param types on a probe route instead of the host schema.
+        probe = FastAPI()
+        probe.add_api_route("/p", _probe_endpoint)
+
+        params = {
+            q["name"]: q["schema"] for q in probe.openapi()["paths"]["/p"]["get"]["parameters"]
+        }
         assert params["page"]["type"] == "integer"
         assert params["per_page"]["type"] == "integer"
 

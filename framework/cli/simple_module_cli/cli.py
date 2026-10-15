@@ -24,6 +24,7 @@ from simple_module_cli.add_cmd import add_module, run_add
 from simple_module_cli.case import to_kebab_case
 from simple_module_cli.module_cmd import module_app
 from simple_module_cli.new import new_project
+from simple_module_cli.openapi_cmd import openapi_app
 from simple_module_cli.package_update import package_update
 from simple_module_cli.plugins import discover_and_mount
 from simple_module_cli.scaffolding import create_host as _create_host
@@ -45,6 +46,7 @@ app.command("update")(update_modules)
 app.command("package-update")(package_update)
 app.add_typer(skills_app, name="skills")
 app.add_typer(module_app, name="module")
+app.add_typer(openapi_app, name="openapi")
 
 
 @app.command("create-host")
