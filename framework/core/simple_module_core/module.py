@@ -234,15 +234,11 @@ class ModuleBase(ABC):
         """Add middleware to the application.
 
         Called after core middleware (session, security headers) positioning
-        is established but before the app starts.  Modules that need to
-        inject middleware (e.g. auth) override this method.
+        is established but before the app starts.
         """
 
     def register_exception_handlers(self, app: FastAPI) -> None:
-        """Register custom exception handlers on the application.
-
-        Called after framework exception handlers are set up.
-        """
+        """Register custom exception handlers (after the framework's own)."""
 
     # ── Asset contribution (templates & static files) ─────────
 
@@ -253,19 +249,15 @@ class ModuleBase(ABC):
         Jinja2 loader, so templates in ``<module>/templates/`` become resolvable
         from any module. Return an empty list (default) to contribute none.
 
-        Each path is typically computed via
-        ``importlib.resources.files(__package__) / "templates"`` so it resolves
-        correctly when the module is installed as a PyPI package.
+        Typically ``importlib.resources.files(__package__) / "templates"``.
         """
         return []
 
     def static_mounts(self) -> dict[str, Path]:
         """Return static file mounts this module contributes.
 
-        Mapping of URL prefix → filesystem directory. The host mounts each entry
-        via ``StaticFiles`` during app boot. Convention: prefix with
-        ``/modules/<name>/static`` to avoid collisions with the host's own
-        ``/static`` mount. Return an empty dict (default) to contribute none.
+        Mapping of URL prefix → directory, mounted via ``StaticFiles`` at boot.
+        Convention: prefix with ``/modules/<name>/static``. Default: none.
         """
         return {}
 
@@ -286,6 +278,14 @@ class ModuleBase(ABC):
         Convention: use the module's lowercase name as the namespace.
         """
         return {}
+
+    def db_extensions(self) -> list[str]:
+        """Postgres extensions this module needs (``["ltree", "pg_trgm"]``).
+
+        Names match ``^[a-z][a-z0-9_]*$``. ``ensure_db_extensions`` creates them
+        before migrations run; on SQLite that raises (doctor SM029 warns early).
+        """
+        return []
 
     # ── Lifecycle ─────────────────────────────────────────────
 
