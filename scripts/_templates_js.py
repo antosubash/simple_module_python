@@ -15,7 +15,7 @@ def package_json(ctx: ScaffoldContext) -> str:
           "peerDependencies": {{
             "react": "^19.0.0",
             "react-dom": "^19.0.0",
-            "@inertiajs/react": "^2.0.0",
+            "@inertiajs/react": "^3.7.0",
             "@simple-module-py/ui": "*"
           }},
           "devDependencies": {{
@@ -31,7 +31,6 @@ def tsconfig_json(ctx: ScaffoldContext) -> str:
         {{
           "extends": "@simple-module-py/tsconfig/base.json",
           "compilerOptions": {{
-            "baseUrl": ".",
             "paths": {{
               "@/*": ["./{ctx.pkg}/*"],
               "@simple-module-py/ui/*": ["../../packages/ui/src/*"]
