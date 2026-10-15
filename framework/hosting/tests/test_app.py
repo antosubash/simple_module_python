@@ -203,26 +203,25 @@ class TestResolveProjectRoot:
 
 
 class TestRouteRegistration:
-    async def test_expected_routes_registered(self, app: FastAPI):
+    async def test_expected_routes_registered(self, app: FastAPI, client: httpx.AsyncClient):
         """All modules should have their routes registered in the app."""
         from simple_module_test import effective_route_paths
 
+        # View routes are include_in_schema=False (#456), so they are asserted
+        # with requests; the schema lists only the JSON API and /health.
         route_paths = effective_route_paths(app)
-
-        assert "/health" in route_paths
-        assert "/health/live" in route_paths
-        assert "/health/ready" in route_paths
+        for health in ("/health", "/health/live", "/health/ready"):
+            assert (await client.get(health)).status_code in (200, 503)
+        assert any(p.startswith("/api/") for p in route_paths)
 
         # Users module owns login, register, etc. Auth module is contracts-only.
-        assert "/users/login" in route_paths
+        assert (await client.get("/users/login")).status_code == 200
 
         # Dashboard — mounted at the /dashboard view prefix; the public
         # landing page at "/" is owned by the host and added in host/main.py,
         # which the create_app fixture doesn't run.
-        assert "/dashboard/" in route_paths
-        # The bare-prefix Inertia alias ("/dashboard" without the slash) is
-        # registered with include_in_schema=False, so it isn't enumerable here;
-        # TestProtectedPages::test_dashboard_redirects_unauthenticated covers it.
+        resp = await client.get("/dashboard/", follow_redirects=False)
+        assert resp.status_code == 302
 
 
 class TestProtectedPages:

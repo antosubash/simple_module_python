@@ -26,6 +26,18 @@ _RESTART_DB = {"requires_restart": True, "group": "Database"}
 
 _RESTART_GUARD = {"requires_restart": True, "group": "Request guards"}
 
+_RESTART_API = {"requires_restart": True, "group": "API"}
+
+
+def _default_api_version() -> str:
+    """The host distribution's version, else ``0.0.0``."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        return version("simple-module-host")
+    except PackageNotFoundError:
+        return "0.0.0"
+
 
 class HostSettings(BaseSettings):
     """DB-backed host configuration — defaults live here, overrides in DB."""
@@ -112,6 +124,15 @@ class HostSettings(BaseSettings):
     rate_limit_authenticated: str = Field(default="", json_schema_extra=_RESTART_GUARD)
     """Opt-in per-IP limit for signed-in traffic, same syntax. Blank (default)
     leaves authenticated requests unlimited."""
+
+    api_title: str = Field(default="SimpleModule", json_schema_extra=_RESTART_API)
+    """``info.title`` of the OpenAPI document (built once at boot)."""
+    api_version: str = Field(default_factory=_default_api_version, json_schema_extra=_RESTART_API)
+    """``info.version`` of the OpenAPI document; defaults to the host distribution's version."""
+    api_description: str = Field(default="", json_schema_extra=_RESTART_API)
+    openapi_public: bool = Field(default=False, json_schema_extra=_RESTART_API)
+    """Serve ``/api/openapi.json`` outside development, anonymously. Off by default:
+    the schema lists every endpoint, so exposing it is an operator decision."""
 
     db_pool_size: int = Field(default=10, json_schema_extra=_RESTART_DB)
     db_max_overflow: int = Field(default=20, json_schema_extra=_RESTART_DB)
