@@ -40,6 +40,7 @@ from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
+from background_tasks.config_guards import sanitize_task_routes
 from background_tasks.constants import (
     DEFAULT_BROKER_URL,
     DEFAULT_INVALIDATION_CHANNEL,
@@ -123,11 +124,10 @@ class BackgroundTasksSettings(BaseSettings):
     task_soft_time_limit: int | None = Field(default=None, ge=1, json_schema_extra=_CELERY_RESTART)
     task_time_limit: int | None = Field(default=None, ge=1, json_schema_extra=_CELERY_RESTART)
     worker_concurrency: int | None = Field(default=None, ge=1, json_schema_extra=_CELERY_RESTART)
-    celery_overrides: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Raw Celery conf keys applied last; wins over everything above.",
-        json_schema_extra=_CELERY_RESTART,
-    )
+    # Raw Celery conf (``SM_BG_TASKS_CELERY_OVERRIDES``, JSON) is deliberately NOT
+    # a field here: every field is stored in and hydrated from the database, and
+    # a DB-writable conf dict could switch serializers to pickle. It is read
+    # from the environment only, in ``config_guards.celery_overrides_from_env``.
 
     # ── Per-worker module subset (GH #450) ──────────────────
     # Which packages this process imports ``tasks.py`` for. ``exclude_modules``
@@ -137,6 +137,12 @@ class BackgroundTasksSettings(BaseSettings):
     worker_queues: CsvList = Field(default_factory=list, json_schema_extra=_CELERY_RESTART)
     include_modules: CsvList = Field(default_factory=list, json_schema_extra=_CELERY_RESTART)
     exclude_modules: CsvList = Field(default_factory=list, json_schema_extra=_CELERY_RESTART)
+
+    @field_validator("task_routes_override", mode="before")
+    @classmethod
+    def _vet_task_routes(cls, value: object) -> object:
+        # Admin-editable: reduced to queue names and a closed set of route keys.
+        return sanitize_task_routes(value)
 
     @field_validator("worker_queues", "include_modules", "exclude_modules", mode="before")
     @classmethod

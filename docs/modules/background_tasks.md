@@ -126,7 +126,7 @@ Entry values are plain Celery [beat entries](https://docs.celeryq.dev/en/stable/
 
 Beat persists its schedule (`celery.beat:PersistentScheduler`) so it survives restarts.
 
-The worker and beat read the same DB-backed settings the web process does: `scripts/run_worker.py` hydrates `BackgroundTasksSettings` from the database at boot (env still seeds the broker URL), so an admin-edited queue, time limit or `celery_overrides` reaches the worker after a restart. If the database cannot be read the worker starts from env and defaults and logs a warning.
+The worker and beat read the same DB-backed settings the web process does: `scripts/run_worker.py` hydrates `BackgroundTasksSettings` from the database at boot exactly as the web lifespan does (`cls(**db_overrides)`: a stored value wins over the same field's environment variable, and the environment seeds only what the database leaves alone), so an admin-edited queue or time limit reaches the worker after a restart. Because the web process behaves identically, this adds no new trust boundary; still, treat write access to these settings as control of the workers. If the database cannot be read the worker starts from env and defaults and logs a warning.
 
 ## Routing and queues
 
@@ -139,7 +139,7 @@ QUEUES = {"heavy", "mail"}  # queues this module's tasks run on; default {task_d
 BEAT_SCHEDULE = {...}  # optional; wins over tasks.BEAT_SCHEDULE for the same entry
 ```
 
-`build_celery` merges `TASK_ROUTES` from every module in sorted package order (the first module wins a pattern clash, with a warning naming both) and sets `task_routes`; web and worker resolve identical routes. The `task_routes_override` setting (JSON `{pattern: queue-or-route-dict}`) is applied over the module routes, so an operator can re-route a task without a code change. The **Routes** table on the Workers admin page lists every effective pattern, its queue, and the module (or `override`) that set it.
+`build_celery` merges `TASK_ROUTES` from every module in sorted package order (the first module wins a pattern clash, with a warning naming both) and sets `task_routes`; web and worker resolve identical routes. The `task_routes_override` setting (JSON `{pattern: queue-or-route-dict}`; values are restricted to queue names or dicts using only `queue`, `exchange`, `routing_key`, `priority`, and anything else is dropped with a logged error) is consulted before the module routes (Celery gets the router list `[override, modules]`, so an override glob beats a module glob or exact name), so an operator can re-route a task without a code change. The **Routes** table on the Workers admin page lists every effective pattern, its queue, and the module (or `override`) that set it.
 
 ### Running a worker for a subset of modules
 
@@ -169,7 +169,7 @@ Each field defaults to `None`, which keeps Celery's own default; all require a w
 | `task_reject_on_worker_lost` | `task_reject_on_worker_lost` |
 | `task_soft_time_limit` / `task_time_limit` | same |
 | `worker_concurrency` | `worker_concurrency` |
-| `celery_overrides` | any Celery conf key, applied last; its keys are logged at INFO |
+| `SM_BG_TASKS_CELERY_OVERRIDES` (JSON object, **environment only**) | raw Celery conf keys applied last; its keys are logged at INFO. Never stored in or read from the database, and serializer / `accept_content` / `imports` / `include` / `worker_pool` / `*hijack*` / `security_*` keys are refused with a logged error |
 
 > **Redis and long tasks.** The tasks run with `acks_late`. On a Redis broker a message not acknowledged within the visibility timeout (Celery default: 1 hour) is redelivered, so a task that runs longer than that executes twice. Set `visibility_timeout_seconds` above your longest task.
 
@@ -247,7 +247,7 @@ DB-backed; defaults are in `BackgroundTasksSettings`. Several are marked `requir
 | `broker_url` | `redis://localhost:6379/0` | restart required; rejected as `localhost` in production |
 | `result_backend` | `redis://localhost:6379/1` | restart required |
 | `task_default_queue` | `"default"` | restart required |
-| `task_routes_override`, `worker_queues`, `include_modules`, `exclude_modules`, tuning fields, `celery_overrides` | unset | restart required; see [Routing and queues](#routing-and-queues) and [Worker tuning](#worker-tuning) |
+| `task_routes_override`, `worker_queues`, `include_modules`, `exclude_modules`, tuning fields | unset | restart required; see [Routing and queues](#routing-and-queues) and [Worker tuning](#worker-tuning) |
 | `task_always_eager` | `False` | runs tasks in-process (test mode) |
 | `task_eager_propagates` | `True` | re-raises eager-mode errors |
 | `stuck_after_seconds` | `300` | heartbeat-staleness threshold; a task's own `stuck_after` overrides it — see [Long-running tasks](#long-running-tasks-heartbeats-and-stuck-thresholds) |

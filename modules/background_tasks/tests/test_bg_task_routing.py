@@ -89,8 +89,16 @@ class TestMergeRoutes:
     def test_override_wins_and_is_attributed(self):
         configs = {"a": ModuleTaskConfig("a", routes={"a.*": "qa"})}
         routes, info = merge_routes(configs, {"a.*": "other"})
-        assert routes == {"a.*": "other"}
+        assert routes == [{"a.*": "other"}, {"a.*": "qa"}]
         assert info == [{"pattern": "a.*", "queue": "other", "module": "override"}]
+
+    def test_override_glob_beats_a_module_exact_name_in_celery(self):
+        from celery.app.routes import Router, prepare
+
+        configs = {"a": ModuleTaskConfig("a", routes={"a.one": "qa", "a.*": "qa"})}
+        routes, _ = merge_routes(configs, {"a.*": "other"})
+        router = Router(routes=prepare(routes))
+        assert router.lookup_route("a.one") == {"queue": "other"}
 
 
 class TestSelectPackages:
@@ -139,6 +147,10 @@ class TestSettings:
 
 class TestBuildCelery:
     def _build(self, monkeypatch, packages, **kw):
+        if kw.pop("with_overrides", False):
+            monkeypatch.setenv(
+                "SM_BG_TASKS_CELERY_OVERRIDES", '{"task_acks_late": false, "result_expires": 99}'
+            )
         monkeypatch.setattr(celery_app, "_discover_task_packages", lambda: packages)
         return celery_app.build_celery(_settings(**kw))
 
@@ -155,9 +167,9 @@ class TestBuildCelery:
             task_soft_time_limit=30,
             task_time_limit=60,
             worker_concurrency=3,
-            celery_overrides={"task_acks_late": False, "result_expires": 99},
+            with_overrides=True,
         )
-        assert c.conf.task_routes == {"bc_a.*": "heavy", "bc_a.fast": "quick"}
+        assert c.conf.task_routes == [{"bc_a.fast": "quick"}, {"bc_a.*": "heavy"}]
         assert c.conf.broker_transport_options == {"visibility_timeout": 7200}
         assert c.conf.worker_max_tasks_per_child == 10
         assert c.conf.worker_max_memory_per_child == 5000
@@ -212,6 +224,6 @@ class TestBuildCelery:
         monkeypatch.setattr(celery_app, "_discover_task_packages", lambda: ["bc_c"])
         s = BackgroundTasksSettings(task_routes_override={"x.*": "y"})
         assert celery_app.describe_routes(s) == [
-            {"pattern": "bc_c.*", "queue": "q", "module": "bc_c"},
             {"pattern": "x.*", "queue": "y", "module": "override"},
+            {"pattern": "bc_c.*", "queue": "q", "module": "bc_c"},
         ]

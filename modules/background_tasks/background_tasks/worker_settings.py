@@ -66,9 +66,11 @@ def load_runner_settings() -> BackgroundTasksSettings:
     """``BackgroundTasksSettings`` for the worker/beat process, DB overrides included.
 
     ``scripts/run_worker.py`` used to build these from the environment alone, so
-    an admin's DB-backed edit (a queue, a time limit, ``celery_overrides``)
+    an admin's DB-backed edit (a queue, a time limit)
     reached the web process but never the worker, and the two disagreed on
-    config. Hydration is the same call the web lifespan makes. If the DB is
+    config. Hydration is the same call the web lifespan makes (``cls(**db_overrides)``),
+    so precedence matches the web process: a stored value beats the same field's
+    environment variable, and env only seeds what the DB leaves alone. If the DB is
     unreachable or not yet migrated the worker still boots on env/defaults,
     loudly, rather than refusing to start.
     """

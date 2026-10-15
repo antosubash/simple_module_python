@@ -23,6 +23,7 @@ from celery import Celery
 from celery.schedules import schedule
 from simple_module_core.discovery import ENTRY_POINT_GROUP
 
+from background_tasks.config_guards import celery_overrides_from_env
 from background_tasks.constants import (
     INTERNAL_TASK_PURGE_OLD,
     INTERNAL_TASK_SWEEP_STUCK,
@@ -190,9 +191,10 @@ def build_celery(settings: BackgroundTasksSettings) -> Celery:
         task_routes=task_routes,
     )
     celery.conf.update(_tuning_conf(settings))
-    if settings.celery_overrides:
-        logger.info("Applying celery_overrides: %s", sorted(settings.celery_overrides))
-        celery.conf.update(settings.celery_overrides)
+    overrides = celery_overrides_from_env()
+    if overrides:
+        logger.info("Applying celery_overrides: %s", sorted(overrides))
+        celery.conf.update(overrides)
 
     # Autodiscover across every installed simple_module — a module just ships
     # a `tasks.py` and the worker picks it up.

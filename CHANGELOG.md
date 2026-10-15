@@ -18,8 +18,8 @@ All notable changes to this project are documented in this file. The format is b
   Workers page lists the effective routes. New restart-required settings:
   `visibility_timeout_seconds`, `worker_max_tasks_per_child`,
   `worker_max_memory_per_child_kb`, `task_reject_on_worker_lost`,
-  `task_soft_time_limit`, `task_time_limit`, `worker_concurrency`,
-  `celery_overrides`. `worker_queues` / `include_modules` / `exclude_modules`
+  `task_soft_time_limit`, `task_time_limit`, `worker_concurrency`; raw Celery conf goes in the environment-only
+  `SM_BG_TASKS_CELERY_OVERRIDES` (serializer/import/code-loading keys refused). `worker_queues` / `include_modules` / `exclude_modules`
   (`SM_BG_TASKS_WORKER_QUEUES=a,b`) limit which modules' `tasks.py` a process
   imports (autodiscovery and the eager beat import); `make worker` passes `-Q`.
   `make doctor` warns (`SM028`) on a top-level heavy import in `tasks.py`.

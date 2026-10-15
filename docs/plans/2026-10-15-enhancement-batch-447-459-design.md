@@ -55,7 +55,7 @@ New `BackgroundTasksSettings` fields, all with `requires_restart` and group Cele
 - `task_time_limit`;
 - `worker_concurrency`.
 
-`celery_overrides: dict` is applied last with `conf.update`, and its keys are logged at INFO. The docs warn that with Redis and `acks_late`, tasks longer than 1 h need `visibility_timeout_seconds`.
+Raw Celery conf comes from the environment-only `SM_BG_TASKS_CELERY_OVERRIDES` (JSON). It is not a settings field, because those are DB-backed and admin-editable. Keys that choose serializers or load code are refused. It is applied last with `conf.update`, and its keys are logged at INFO. The docs warn that with Redis and `acks_late`, tasks longer than 1 h need `visibility_timeout_seconds`.
 
 ### #450 per-worker module subset
 - New settings:
@@ -73,7 +73,7 @@ New `BackgroundTasksSettings` fields, all with `requires_restart` and group Cele
 - **SM028** (warn): a module's `tasks.py` has a top-level import of `torch`, `tensorflow`, `ultralytics`, `osgeo`, `rasterio`, `cv2` or `sklearn`. The check uses AST and does not import the module.
 
 ### Worker settings fix (found while designing)
-`scripts/run_worker.py` builds `BackgroundTasksSettings()` from env only, so DB-backed settings never reach the worker at boot. The fix hydrates them from the DB the same way task bodies do (`settings_for`), keeping env → DB → default precedence.
+`scripts/run_worker.py` builds `BackgroundTasksSettings()` from env only, so DB-backed settings never reach the worker at boot. The fix hydrates them from the DB the same way task bodies do (`settings_for`), using the same hydration as the web lifespan (a stored DB value beats the same field's env var, exactly as it does in the web process).
 
 ### Stray patch
 Four unverified review edits to code merged in #463:

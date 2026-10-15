@@ -76,11 +76,17 @@ def route_queue(value: Any) -> str:
 
 def merge_routes(
     configs: dict[str, ModuleTaskConfig], override: dict[str, Any]
-) -> tuple[dict[str, Any], list[dict[str, str]]]:
-    """Merge module routes (sorted package order, first wins) then the override.
+) -> tuple[Any, list[dict[str, str]]]:
+    """Merge module routes (sorted package order, first wins) under the override.
 
-    Returns the ``task_routes`` mapping and a flat ``[{pattern, queue, module}]``
-    list describing where each effective entry came from.
+    Returns the ``task_routes`` value and a flat ``[{pattern, queue, module}]``
+    list describing where each effective entry came from (override first).
+
+    Celery's ``MapRoute`` tries exact names first and then ``*`` patterns in
+    insertion order, first match wins, so folding both into one dict would let
+    a module's broader glob placed earlier beat an override glob, and a module's
+    exact name beat an override glob. With an override the value is therefore a
+    router *list* ``[override, modules]``, which Celery consults in order.
     """
     routes: dict[str, Any] = {}
     owner: dict[str, str] = {}
@@ -97,11 +103,18 @@ def merge_routes(
                 continue
             routes[pattern] = value
             owner[pattern] = pkg
-    for pattern, value in override.items():
-        routes[pattern] = value
-        owner[pattern] = OVERRIDE_SOURCE
-    info = [{"pattern": p, "queue": route_queue(v), "module": owner[p]} for p, v in routes.items()]
-    return routes, info
+    module_info = [
+        {"pattern": p, "queue": route_queue(v), "module": owner[p]}
+        for p, v in routes.items()
+        if p not in override
+    ]
+    if not override:
+        return routes, module_info
+    override_info = [
+        {"pattern": p, "queue": route_queue(v), "module": OVERRIDE_SOURCE}
+        for p, v in override.items()
+    ]
+    return [dict(override), routes], override_info + module_info
 
 
 def select_packages(

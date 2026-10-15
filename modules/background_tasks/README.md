@@ -58,7 +58,7 @@ A module can ship a light `task_config.py` (`TASK_ROUTES`, `QUEUES`, optional
 `task_routes_override` setting re-routes tasks at runtime, and the Workers page
 lists the effective routes. Tuning settings (`visibility_timeout_seconds`,
 `worker_max_tasks_per_child`, `task_time_limit`, `worker_concurrency`, ...) and a
-raw `celery_overrides` dict default to Celery's own defaults.
+raw `SM_BG_TASKS_CELERY_OVERRIDES` (env only, unsafe keys refused) default to Celery's own defaults.
 `SM_BG_TASKS_WORKER_QUEUES=gpu,default make worker` consumes only those queues
 and imports only the modules whose `QUEUES` overlap (see `include_modules` /
 `exclude_modules`). Full details in `docs/modules/background_tasks.md`.
