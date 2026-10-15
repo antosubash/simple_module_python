@@ -69,7 +69,7 @@ def test_the_reaper_aborts_only_expired_active_sessions(worker):
 
     result = tasks.reap_stale_uploads()
 
-    assert result == {"sessions": 1, "orphans": 0}
+    assert result == {"sessions": 1, "orphans": 0, "purged": 0}
     assert not worker._parts_dir(expired_id).exists()
     assert worker._parts_dir(live_id).exists()
     with sync_db.sync_session() as db, all_tenants():
@@ -79,7 +79,7 @@ def test_the_reaper_aborts_only_expired_active_sessions(worker):
     assert statuses == {expired_id: "aborted", live_id: "active"}
 
     # Idempotent: nothing left to reap.
-    assert tasks.reap_stale_uploads() == {"sessions": 0, "orphans": 0}
+    assert tasks.reap_stale_uploads() == {"sessions": 0, "orphans": 0, "purged": 0}
 
 
 def test_a_failing_abort_is_retried_next_hour(worker, monkeypatch):
@@ -91,7 +91,7 @@ def test_a_failing_abort_is_retried_next_hour(worker, monkeypatch):
         raise OSError("bucket unreachable")
 
     monkeypatch.setattr(worker, "abort_multipart", boom)
-    assert tasks.reap_stale_uploads() == {"sessions": 0, "orphans": 0}
+    assert tasks.reap_stale_uploads() == {"sessions": 0, "orphans": 0, "purged": 0}
     with sync_db.sync_session() as db, all_tenants():
         assert db.execute(select(UploadSession.status)).scalar_one() == "active"
 
@@ -166,7 +166,7 @@ def test_the_orphan_sweep_spares_active_sessions_and_foreign_keys(worker, monkey
 
     monkeypatch.setattr(worker, "list_stale_multipart", stale, raising=False)
 
-    assert tasks.reap_stale_uploads() == {"sessions": 0, "orphans": 1}
+    assert tasks.reap_stale_uploads() == {"sessions": 0, "orphans": 1, "purged": 0}
     assert not worker._parts_dir(orphan_id).exists()
     assert worker._parts_dir(tracked_id).exists()
     assert worker._parts_dir(foreign_id).exists()
@@ -187,3 +187,26 @@ def test_compute_checksum_survives_a_deleted_object(worker):
             )
         )
     assert tasks.compute_checksum(str(file_id), TENANT) is None
+
+
+def test_the_reaper_purges_finished_rows_past_the_retention_window(worker):
+    retention = FileStorageSettings().upload_session_retention_days
+    old, recent = timedelta(days=-(retention + 1)), timedelta(days=-(retention - 1))
+    with sync_db.sync_session() as db, tenant_context(TENANT):
+        rows = [
+            _session_row("a", expires_in=old),
+            _session_row("b", expires_in=old),
+            _session_row("c", expires_in=recent),
+            _session_row(asyncio.run(worker.create_multipart("kd", "x/y")), expires_in=old),
+        ]
+        rows[0].status = constants.UploadStatus.COMPLETED
+        rows[1].status = constants.UploadStatus.ABORTED
+        rows[2].status = constants.UploadStatus.ABORTED
+        db.add_all(rows)  # "d" stays active and expired: aborted this run, kept for now
+
+    result = tasks.reap_stale_uploads()
+
+    assert result["purged"] == 2
+    with sync_db.sync_session() as db, all_tenants():
+        left = {s.backend_upload_id: s.status for s in db.execute(select(UploadSession)).scalars()}
+    assert left == {"c": "aborted", rows[3].backend_upload_id: "aborted"}

@@ -218,6 +218,19 @@ describe('runResumable', () => {
   });
 });
 
+describe('cancelling while the session is being created', () => {
+  test('releases the session the create resolved with', async () => {
+    const controller = new AbortController();
+    const file = bigFile(3);
+    const running = runResumable(file, OPTIONS(controller.signal));
+    controller.abort(); // the POST is in flight; no session id exists yet
+    await expect(running).rejects.toBeInstanceOf(UploadAbortedError);
+    expect(server.calls).toContain('DELETE /api/file-storage/uploads/sess-1');
+    expect(server.puts).toHaveLength(0);
+    expect(window.localStorage.getItem(resumeKey(file))).toBeNull();
+  });
+});
+
 describe('findSession / discardSession', () => {
   test('finds the open session stored for the same file', async () => {
     const file = bigFile(3);

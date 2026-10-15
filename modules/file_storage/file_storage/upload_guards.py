@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import logging
 import zlib
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, cast
 
-from sqlalchemy import func, select, text
+from sqlalchemy import delete, func, select, text
 
 from file_storage import constants
 from file_storage.contracts.service import StorageError
@@ -59,6 +59,20 @@ class UploadGuards:
         await self._drop_object(session.key)
         session.status = constants.UploadStatus.ABORTED
         await self.db.flush()
+
+    async def purge_finished(self, *, owner: str | None) -> int:
+        """Delete ``owner``'s completed/aborted rows past the retention window."""
+        if not owner:
+            return 0
+        cutoff = datetime.now(UTC) - timedelta(days=self.settings.upload_session_retention_days)
+        result = await self.db.execute(
+            delete(UploadSession).where(
+                UploadSession.created_by == owner,
+                UploadSession.status != constants.UploadStatus.ACTIVE,
+                UploadSession.expires_at < cutoff,
+            )
+        )
+        return result.rowcount or 0
 
     async def _serialize_reservations(self) -> None:
         """Make concurrent session openers take turns on Postgres.

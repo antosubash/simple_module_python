@@ -161,6 +161,13 @@ async def test_an_expired_session_cannot_take_parts(app, authenticated_client, s
     await _expire_everything(app)
     resp = await put_part(authenticated_client, session["id"], 1, b"x" * PART)
     assert resp.status_code == 409
+    # The abort that discovering the expiry performed outlives the 409.
+    got = await authenticated_client.get(f"{API}/uploads/{session['id']}")
+    assert got.json()["status"] == "aborted"
+    urls = await authenticated_client.post(
+        f"{API}/uploads/{session['id']}/part-urls", json={"parts": [1]}
+    )
+    assert urls.status_code == 409
 
 
 class TestValidation:

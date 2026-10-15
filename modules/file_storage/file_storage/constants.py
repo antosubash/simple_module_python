@@ -162,6 +162,7 @@ MAX_UPLOAD_PARTS: Final = 10_000
 # S3 rejects non-final parts below 5 MiB.
 MIN_PART_SIZE_BYTES: Final = 5 * MIB
 DEFAULT_UPLOAD_SESSION_TTL_SECONDS: Final = 24 * 3600
+DEFAULT_UPLOAD_SESSION_RETENTION_DAYS: Final = 7
 # Headroom over ``part_size`` for the filesystem part PUT's body-limit rule.
 PART_BODY_SLACK_BYTES: Final = 64 * 1024
 # The directory under the filesystem root that holds in-flight parts.

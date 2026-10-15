@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
 from simple_module_core.events import EventBus
 from simple_module_hosting.i18n_deps import TranslatorDep
@@ -28,7 +28,16 @@ from file_storage.contracts.schemas import (
     UploadSessionOut,
 )
 from file_storage.deps import get_event_bus, get_file_storage_service
-from file_storage.format import format_bytes
+from file_storage.endpoints.upload_errors import (
+    bad_part,
+    closed,
+    committed,
+    error,
+    not_found,
+    quota,
+    rejection,
+    too_large,
+)
 from file_storage.models import UploadSession
 from file_storage.service import ContentTypeNotAllowedError, FileStorageService, FileTooLargeError
 from file_storage.upload_support import (
@@ -53,14 +62,6 @@ async def get_upload_service(
 
 
 Sessions = Depends(get_upload_service)
-
-
-def _error(t, status_code: int, code: str, key: str, **fmt) -> HTTPException:
-    extra = {k: v for k, v in fmt.items() if k.startswith("_")}
-    params = {k: v for k, v in fmt.items() if not k.startswith("_")}
-    detail = {"code": code, "message": t.t(key, **params)}
-    detail.update({k.lstrip("_"): v for k, v in extra.items()})
-    return HTTPException(status_code=status_code, detail=detail)
 
 
 def _out(session: UploadSession, parts=(), file=None) -> UploadSessionOut:
@@ -95,7 +96,7 @@ async def create_session(
             public=body.public,
         )
     except DirectUploadUnsupportedError as exc:
-        raise _error(
+        raise error(
             t,
             status.HTTP_501_NOT_IMPLEMENTED,
             constants.ErrorCode.DIRECT_UNSUPPORTED,
@@ -103,89 +104,29 @@ async def create_session(
         ) from exc
     except FileTooLargeError as exc:
         limit = sessions.settings.max_direct_upload_bytes
-        raise _too_large(limit, t) from exc
+        raise too_large(limit, t) from exc
     except ContentTypeNotAllowedError as exc:
-        raise _error(
+        raise error(
             t,
             status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             constants.ErrorCode.BAD_TYPE,
             constants.I18nKey.ERR_BAD_TYPE,
         ) from exc
     except QuotaExceededError as exc:
-        raise _quota(t) from exc
+        raise quota(t) from exc
     return _out(session)
 
 
-async def _open(sessions: UploadSessionService, upload_id: uuid.UUID, t) -> UploadSession:
+async def _open(
+    sessions: UploadSessionService, upload_id: uuid.UUID, t
+) -> UploadSession | JSONResponse:
     try:
         return await sessions.get_open(upload_id)
     except UploadNotFoundError as exc:
-        raise _not_found(t) from exc
-    except UploadClosedError as exc:
-        raise _closed(t) from exc
-
-
-def _not_found(t) -> HTTPException:
-    return _error(
-        t,
-        status.HTTP_404_NOT_FOUND,
-        constants.ErrorCode.NOT_FOUND,
-        constants.I18nKey.ERR_NOT_FOUND,
-    )
-
-
-def _bad_part(t) -> HTTPException:
-    return _error(
-        t,
-        status.HTTP_400_BAD_REQUEST,
-        constants.ErrorCode.BAD_PART,
-        constants.I18nKey.ERR_BAD_PART,
-    )
-
-
-def _quota(t) -> HTTPException:
-    return _error(
-        t,
-        status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-        constants.ErrorCode.QUOTA_EXCEEDED,
-        constants.I18nKey.ERR_QUOTA,
-    )
-
-
-def _too_large(limit: int, t) -> HTTPException:
-    return _error(
-        t,
-        status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-        constants.ErrorCode.TOO_LARGE,
-        constants.I18nKey.ERR_TOO_LARGE,
-        max_size=format_bytes(limit),
-        _max_bytes=limit,
-    )
-
-
-def _closed(t) -> HTTPException:
-    return _error(
-        t,
-        status.HTTP_409_CONFLICT,
-        constants.ErrorCode.SESSION_CLOSED,
-        constants.I18nKey.ERR_SESSION_CLOSED,
-    )
-
-
-def _rejection(exc: Exception, sessions: UploadSessionService, t) -> HTTPException:
-    if isinstance(exc, FileTooLargeError):
-        return _too_large(sessions.settings.max_direct_upload_bytes, t)
-    if isinstance(exc, QuotaExceededError):
-        return _quota(t)
-    assert isinstance(exc, SizeMismatchError)
-    return _error(
-        t,
-        status.HTTP_422_UNPROCESSABLE_ENTITY,
-        constants.ErrorCode.SIZE_MISMATCH,
-        constants.I18nKey.ERR_SIZE_MISMATCH,
-        expected=format_bytes(exc.expected),
-        actual=format_bytes(exc.actual),
-    )
+        raise not_found(t) from exc
+    except UploadClosedError:
+        # Opening an expired session aborts it; that abort must commit.
+        return committed(closed(t))
 
 
 @router.get(constants.PATH_UPLOAD_SESSION, response_model=UploadSessionOut)
@@ -197,7 +138,7 @@ async def get_session(
     try:
         session = await sessions.get(upload_id)
     except UploadNotFoundError as exc:
-        raise _not_found(t) from exc
+        raise not_found(t) from exc
     return _out(session, await sessions.parts(session))
 
 
@@ -207,12 +148,14 @@ async def part_urls(
     body: PartUrlsRequest,
     t: TranslatorDep,
     sessions: UploadSessionService = Sessions,
-) -> PartUrlsOut:
+) -> PartUrlsOut | JSONResponse:
     session = await _open(sessions, upload_id, t)
+    if isinstance(session, JSONResponse):
+        return session
     try:
         urls, direct = await sessions.part_urls(session, body.parts)
     except InvalidPartError as exc:
-        raise _bad_part(t) from exc
+        raise bad_part(t) from exc
     return PartUrlsOut(urls=urls, direct=direct)
 
 
@@ -223,12 +166,14 @@ async def put_part(
     request: Request,
     t: TranslatorDep,
     sessions: UploadSessionService = Sessions,
-) -> PartOut:
+) -> PartOut | JSONResponse:
     session = await _open(sessions, upload_id, t)
+    if isinstance(session, JSONResponse):
+        return session
     try:
         part = await sessions.write_part(session, part_no, request.stream())
     except InvalidPartError as exc:
-        raise _bad_part(t) from exc
+        raise bad_part(t) from exc
     return PartOut(no=part.no, etag=part.etag, size=part.size)
 
 
@@ -245,11 +190,11 @@ async def complete_session(
         session = await sessions.get(upload_id)
         out, created = await sessions.complete(session, {p.no: p.etag for p in body.parts})
     except UploadNotFoundError as exc:
-        raise _not_found(t) from exc
-    except UploadClosedError as exc:
-        raise _closed(t) from exc
+        raise not_found(t) from exc
+    except UploadClosedError:
+        return committed(closed(t))
     except PartsMismatchError as exc:
-        raise _error(
+        raise error(
             t,
             status.HTTP_409_CONFLICT,
             constants.ErrorCode.PARTS_MISMATCH,
@@ -261,8 +206,7 @@ async def complete_session(
         # The service has already deleted the object and closed the session.
         # Returned, not raised: an exception rolls the request's transaction
         # back, which would reopen a session whose object is gone.
-        failure = _rejection(exc, sessions, t)
-        return JSONResponse(status_code=failure.status_code, content={"detail": failure.detail})
+        return committed(rejection(exc, sessions, t))
 
     if created:
         schedule_checksum(request.app, sessions.db, out.id, session.tenant_id)
@@ -285,6 +229,6 @@ async def abort_session(
     try:
         session = await sessions.get(upload_id)
     except UploadNotFoundError as exc:
-        raise _not_found(t) from exc
+        raise not_found(t) from exc
     await sessions.abort(session)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -148,6 +148,12 @@ export async function runResumable(
   existing?: RemoteSession | null,
 ): Promise<void> {
   const session = existing ?? (await createSession(file));
+  if (options.signal.aborted) {
+    // Cancelled while the create was in flight: the cancel found no session id
+    // to discard, so this is the only place that can release it.
+    if (!existing) await discardSession(file, session.id);
+    throw new UploadAbortedError();
+  }
   saveSessionId(file, session.id);
 
   const etags = new Map<number, string>(session.parts.map((p) => [p.no, p.etag]));
@@ -165,7 +171,6 @@ export async function runResumable(
 
   const inner = new AbortController();
   const forward = () => inner.abort();
-  if (options.signal.aborted) throw new UploadAbortedError();
   options.signal.addEventListener('abort', forward);
 
   const pending: number[] = [];

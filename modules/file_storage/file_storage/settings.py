@@ -111,6 +111,11 @@ class FileStorageSettings(DbBackedSettings):
         gt=0,
         description="How long an unfinished upload session stays resumable.",
     )
+    upload_session_retention_days: int = Field(
+        default=constants.DEFAULT_UPLOAD_SESSION_RETENTION_DAYS,
+        ge=0,
+        description="How long finished (completed or aborted) upload session rows are kept.",
+    )
 
     @field_validator("s3_signature_version")
     @classmethod

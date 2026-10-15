@@ -121,9 +121,15 @@ Files above `direct_upload_threshold_bytes` (default 64 MiB) upload in parts thr
 | `POST /uploads/{id}/complete` `{parts: [{n, etag}]}` | Assemble, verify, create the `StoredFile`, publish `FileUploaded`. The assembled size must equal `total_size`; the maximum and the quota are re-checked against the stored object, and a violation deletes it. Retrying a completed session returns the same file. |
 | `DELETE /uploads/{id}` | Abort and discard the parts. |
 
-Sessions expire after `upload_session_ttl_seconds` (24 h). With `background_tasks` installed, the hourly beat task `file_storage.reap_stale_uploads` aborts expired sessions and, on S3, orphaned multipart uploads older than twice the TTL that have this module's key shape and no active session (a bucket shared with other applications is left alone); without it, `POST /uploads` aborts the caller's own expired sessions. `file_storage.compute_checksum` fills `checksum_sha256` after completion when `background_tasks` is installed.
+Sessions expire after `upload_session_ttl_seconds` (24 h). With `background_tasks` installed, the hourly beat task `file_storage.reap_stale_uploads` aborts expired sessions and, on S3, orphaned multipart uploads older than twice the TTL that have this module's key shape and no active session (a bucket shared with other applications is left alone); without it, `POST /uploads` aborts the caller's own expired sessions. Completed and aborted session rows are deleted `upload_session_retention_days` (default 7) after their expiry, by the same task or, without `background_tasks`, by the caller's next `POST /uploads` (own rows only). `file_storage.compute_checksum` fills `checksum_sha256` after completion when `background_tasks` is installed.
 
 In the browser, parts go four at a time with per-part retry and backoff. The session id is kept in `localStorage` keyed by file name, size and last-modified time; after a reload, select the same file again and the page offers **Resume upload** or **Start over**. (Browsers cannot keep a file handle across a reload, so the file must be picked again.)
+
+Known limitations:
+
+- Two simultaneous `PUT`s of the same part on the filesystem backend can leave the part's data and ETag from different writers; `complete` then reports a mismatch and the client re-sends the part.
+- The resume key is file name, size and last-modified time, so two tabs uploading an identical file share one session.
+- A part shorter than expected is stored and refused with 400; it stays until the client re-sends the part (the resend overwrites it), and `complete` flags it as mismatched.
 
 #### S3 setup
 
@@ -137,7 +143,7 @@ Parts are PUT by the browser straight to the bucket, so:
 - `s3_public_endpoint_url` is the endpoint browsers reach, when it differs from the one the server uses (`s3_endpoint_url`, e.g. an in-cluster MinIO hostname). Presigned URLs are signed for it, and the redirect for presigned downloads uses it too. Blank falls back to `s3_endpoint_url`.
 - The endpoint's origin is added to the CSP `connect-src` automatically (for AWS defaults, the bucket's `*.s3.<region>.amazonaws.com` hosts).
 
-New settings: `direct_upload_threshold_bytes`, `max_direct_upload_bytes`, `multipart_part_size_bytes`, `upload_session_ttl_seconds`, `s3_public_endpoint_url`. A backend opts in with `supports_direct_upload = True` and the `DirectUploadBackend` methods in `file_storage.contracts.service`; without it, `POST /uploads` answers 501 and the page never uses sessions.
+New settings: `direct_upload_threshold_bytes`, `max_direct_upload_bytes`, `multipart_part_size_bytes`, `upload_session_ttl_seconds`, `upload_session_retention_days`, `s3_public_endpoint_url`. A backend opts in with `supports_direct_upload = True` and the `DirectUploadBackend` methods in `file_storage.contracts.service`; without it, `POST /uploads` answers 501 and the page never uses sessions.
 
 ### View
 

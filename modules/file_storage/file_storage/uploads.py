@@ -78,7 +78,9 @@ class UploadSessionService(UploadGuards):
         # Housekeeping that needs no worker: without background_tasks nothing
         # else ever reaps, so a user's abandoned uploads go when they start one.
         # Done first so their reservations stop counting against the quota.
-        await self.abort_expired(owner=current_user_id.get())
+        owner = current_user_id.get()
+        await self.abort_expired(owner=owner)
+        await self.purge_finished(owner=owner)
         await self._check_quota(total_size, reserve=True)
 
         key = generate_key(tenant_id, filename)

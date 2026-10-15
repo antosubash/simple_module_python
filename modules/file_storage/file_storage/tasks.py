@@ -47,19 +47,28 @@ def _backend_and_settings():
 
 @shared_task(name=constants.Task.REAP_STALE_UPLOADS)
 def reap_stale_uploads() -> dict[str, int]:
-    """Abort expired sessions, then orphaned S3 multipart uploads older than 2 x TTL."""
+    """Abort expired sessions, purge old finished rows, then orphaned S3 uploads (> 2 x TTL)."""
     from background_tasks.sync_db import sync_session
     from simple_module_db import all_tenants
-    from sqlalchemy import select
+    from sqlalchemy import delete, select
 
     from file_storage.models import UploadSession
 
     backend, settings = _backend_and_settings()
     if not getattr(backend, "supports_direct_upload", False):
-        return {"sessions": 0, "orphans": 0}
+        return {"sessions": 0, "orphans": 0, "purged": 0}
 
     now = datetime.now(UTC)
     with sync_session() as db, all_tenants():
+        # Finished rows keep nothing alive (the backend already let go of them);
+        # they only linger for support questions, so drop them after a window.
+        purged = db.execute(
+            delete(UploadSession).where(
+                UploadSession.status != constants.UploadStatus.ACTIVE,
+                UploadSession.expires_at
+                < now - timedelta(days=settings.upload_session_retention_days),
+            )
+        ).rowcount
         expired = list(
             db.execute(
                 select(UploadSession)
@@ -86,8 +95,11 @@ def reap_stale_uploads() -> dict[str, int]:
             ).scalars()
         )
         orphans = asyncio.run(_abort_orphans(backend, orphan_age, tracked))
-    logger.info("file_storage.reaped sessions=%d orphans=%d", len(expired) - len(failed), orphans)
-    return {"sessions": len(expired) - len(failed), "orphans": orphans}
+    reaped = len(expired) - len(failed)
+    logger.info(
+        "file_storage.reaped sessions=%d orphans=%d purged=%d", reaped, orphans, purged or 0
+    )
+    return {"sessions": reaped, "orphans": orphans, "purged": purged or 0}
 
 
 async def _abort_all(backend, targets: list[tuple[str, str]]) -> set[tuple[str, str]]:
