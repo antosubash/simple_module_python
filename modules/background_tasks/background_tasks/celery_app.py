@@ -144,6 +144,7 @@ def build_celery(settings: BackgroundTasksSettings) -> Celery:
             "schedule": schedule(settings.purge_interval_seconds),
         },
     }
+    builtin_beat = frozenset(beat_schedule)
     for name, entry in _collect_module_beat_schedules(packages).items():
         if name in beat_schedule:
             logger.warning(
@@ -154,10 +155,7 @@ def build_celery(settings: BackgroundTasksSettings) -> Celery:
     # ``task_config.BEAT_SCHEDULE`` wins over the same entry in ``tasks.py``.
     for pkg in sorted(configs):
         for name, entry in configs[pkg].beat_schedule.items():
-            if name in beat_schedule and name in (
-                "background-tasks-sweep-stuck",
-                "background-tasks-purge-old",
-            ):
+            if name in builtin_beat:
                 logger.warning(
                     "task_config beat entry %r clashes with a built-in; built-in wins", name
                 )

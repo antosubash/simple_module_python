@@ -126,7 +126,7 @@ def select_packages(
             selected.append(pkg)
             continue
         cfg = configs.get(pkg)
-        queues = cfg.queues if cfg is not None and cfg.queues is not None else None
+        queues = cfg.queues if cfg is not None else None
         if queues is None:
             queues = frozenset({settings.task_default_queue})
         if queues & wanted:
