@@ -77,6 +77,7 @@ class FilesystemMultipartMixin:
         tmp = directory / f"{part_no}.{uuid.uuid4().hex}.tmp"
         md5 = hashlib.md5(usedforsecurity=False)
         size = 0
+        cleanup = [tmp]
         try:
             async with aiofiles.open(tmp, "wb") as fh:
                 async for chunk in stream:
@@ -88,11 +89,17 @@ class FilesystemMultipartMixin:
             etag = md5.hexdigest()
             # Etag first: a part is "present" only once its data file is, and the
             # data file is renamed last.
-            (directory / f"{part_no}{_ETAG_SUFFIX}").write_text(etag)
+            # The sidecar goes through its own temp name too, so a concurrent
+            # writer of the same part never leaves a half-written etag.
+            etag_tmp = directory / f"{part_no}.{uuid.uuid4().hex}.etag.tmp"
+            cleanup.append(etag_tmp)
+            etag_tmp.write_text(etag)
+            etag_tmp.replace(directory / f"{part_no}{_ETAG_SUFFIX}")
             tmp.replace(target)
         except BaseException:
-            with contextlib.suppress(OSError):
-                tmp.unlink(missing_ok=True)
+            for leftover in cleanup:
+                with contextlib.suppress(OSError):
+                    leftover.unlink(missing_ok=True)
             raise
         return Part(no=part_no, etag=etag, size=size)
 

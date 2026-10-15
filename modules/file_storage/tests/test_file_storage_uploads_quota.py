@@ -76,6 +76,19 @@ class TestQuotaIsEnforcedOnWhatIsReallyStored:
         assert (await authenticated_client.get(f"{API}/files")).json()["total"] == 0
         assert not await real_head_exists(storage.backend, sid)
 
+    async def test_a_rejected_complete_closes_the_session_for_good(
+        self, authenticated_client, storage
+    ):
+        """The rejection must be committed, not rolled back with the error response."""
+        data = payload(PART)
+        sid = (await open_session(authenticated_client, total=len(data))).json()["id"]
+        await upload_all(authenticated_client, sid, data)
+        storage.settings.quota_bytes = PART - 1
+        resp = await authenticated_client.post(f"{API}/uploads/{sid}/complete", json={})
+        assert resp.status_code == 413
+        got = await authenticated_client.get(f"{API}/uploads/{sid}")
+        assert got.json()["status"] == "aborted"
+
 
 async def real_head_exists(backend, _sid) -> bool:
     return any(p.is_file() for p in backend.root.glob("*/*/*/*/*/*.bin"))

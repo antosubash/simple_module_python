@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -75,7 +76,16 @@ def reap_stale_uploads() -> dict[str, int]:
         for session in expired:
             if (session.key, session.backend_upload_id) not in failed:
                 session.status = constants.UploadStatus.ABORTED
-        orphans = asyncio.run(_abort_orphans(backend, orphan_age))
+        # Autoflush has marked the sessions aborted above, so what remains active
+        # is exactly what must not be touched.
+        tracked = set(
+            db.execute(
+                select(UploadSession.backend_upload_id).where(
+                    UploadSession.status == constants.UploadStatus.ACTIVE
+                )
+            ).scalars()
+        )
+        orphans = asyncio.run(_abort_orphans(backend, orphan_age, tracked))
     logger.info("file_storage.reaped sessions=%d orphans=%d", len(expired) - len(failed), orphans)
     return {"sessions": len(expired) - len(failed), "orphans": orphans}
 
@@ -92,11 +102,26 @@ async def _abort_all(backend, targets: list[tuple[str, str]]) -> set[tuple[str, 
     return failed
 
 
-async def _abort_orphans(backend, older_than: timedelta) -> int:
+# Keys this module mints: ``<tenant>/<yyyy>/<mm>/<dd>/<32 hex><ext>``.
+_OWN_KEY = re.compile(r"^[^/]+/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}(\.[^/]*)?$")
+
+
+async def _abort_orphans(backend, older_than: timedelta, tracked: set[str]) -> int:
+    """Abort multipart uploads that no session row accounts for.
+
+    A bucket may be shared with other applications, and the listing is bucket-
+    wide, so an upload is only touched if its key has the shape this module
+    mints *and* no still-active session owns its upload id. Everything else is
+    somebody else's, or in use.
+    """
     lister = getattr(backend, "list_stale_multipart", None)
     if lister is None:
         return 0
-    stale = await lister(older_than)
+    stale = [
+        (key, upload_id)
+        for key, upload_id in await lister(older_than)
+        if _OWN_KEY.match(key) and upload_id not in tracked
+    ]
     return len(stale) - len(await _abort_all(backend, stale))
 
 
@@ -108,6 +133,7 @@ def compute_checksum(file_id: str, tenant_id: str) -> str | None:
     from simple_module_db import tenant_context
 
     from file_storage.checksum import hash_object
+    from file_storage.contracts.service import StorageNotFoundError
     from file_storage.models import StoredFile
 
     backend, _ = _backend_and_settings()
@@ -120,7 +146,12 @@ def compute_checksum(file_id: str, tenant_id: str) -> str | None:
             if row is None or row.checksum_sha256:
                 return None
             key = row.key
-        digest = asyncio.run(hash_object(backend, key, on_chunk=heartbeat))
+        try:
+            digest = asyncio.run(hash_object(backend, key, on_chunk=heartbeat))
+        except StorageNotFoundError:
+            # Deleted since the upload finished: nothing to hash, nothing to retry.
+            logger.warning("file_storage.checksum_object_missing file=%s", file_id)
+            return None
         with sync_session() as db:
             row = db.get(StoredFile, target)
             if row is not None and not row.checksum_sha256:

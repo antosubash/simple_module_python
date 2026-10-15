@@ -116,13 +116,25 @@ class UploadSessionService(UploadGuards):
 
     async def get_open(self, upload_id: uuid.UUID) -> UploadSession:
         """:meth:`get`, refusing a finished or expired session."""
-        session = await self.get(upload_id)
+        return await self._require_open(await self.get(upload_id))
+
+    async def _require_open(self, session: UploadSession) -> UploadSession:
         if session.status != constants.UploadStatus.ACTIVE:
             raise UploadClosedError(session.status)
         if session.expires_at <= datetime.now(UTC):
             await self.abort(session)
             raise UploadClosedError(constants.UploadStatus.ABORTED)
         return session
+
+    async def _lock(self, session: UploadSession) -> None:
+        """Re-read ``session`` under a row lock, held until this request commits.
+
+        Complete and abort are the two transitions out of ``active``; without
+        the lock two concurrent completes both assemble the object and record
+        two files (and publish twice), and an abort can delete parts a complete
+        is reading. The loser waits, then sees the winner's status.
+        """
+        await self.db.refresh(session, with_for_update=True)
 
     async def parts(self, session: UploadSession) -> list[Part]:
         if session.status != constants.UploadStatus.ACTIVE:
@@ -133,6 +145,7 @@ class UploadSessionService(UploadGuards):
             return []
 
     async def abort(self, session: UploadSession) -> None:
+        await self._lock(session)
         if session.status == constants.UploadStatus.ACTIVE:
             await self._abort_backend(session.key, session.backend_upload_id)
             session.status = constants.UploadStatus.ABORTED
@@ -208,10 +221,11 @@ class UploadSessionService(UploadGuards):
         ``created`` is false when a retried request finds the session already
         completed, so the caller does not publish ``FileUploaded`` twice.
         """
+        await self._lock(session)
         if session.status == constants.UploadStatus.COMPLETED and session.file_id:
             existing = await self.files.get(session.file_id)
             return StoredFileOut.model_validate(queries.to_out_dict(existing)), False
-        session = await self.get_open(session.id)
+        await self._require_open(session)
 
         backend = self.backend
         held = {p.no: p for p in await self.parts(session)}

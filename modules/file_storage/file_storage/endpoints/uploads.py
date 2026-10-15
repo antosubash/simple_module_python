@@ -11,6 +11,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 from simple_module_core.events import EventBus
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import RequiresPermission
@@ -171,6 +172,22 @@ def _closed(t) -> HTTPException:
     )
 
 
+def _rejection(exc: Exception, sessions: UploadSessionService, t) -> HTTPException:
+    if isinstance(exc, FileTooLargeError):
+        return _too_large(sessions.settings.max_direct_upload_bytes, t)
+    if isinstance(exc, QuotaExceededError):
+        return _quota(t)
+    assert isinstance(exc, SizeMismatchError)
+    return _error(
+        t,
+        status.HTTP_422_UNPROCESSABLE_ENTITY,
+        constants.ErrorCode.SIZE_MISMATCH,
+        constants.I18nKey.ERR_SIZE_MISMATCH,
+        expected=format_bytes(exc.expected),
+        actual=format_bytes(exc.actual),
+    )
+
+
 @router.get(constants.PATH_UPLOAD_SESSION, response_model=UploadSessionOut)
 async def get_session(
     upload_id: uuid.UUID,
@@ -223,7 +240,7 @@ async def complete_session(
     t: TranslatorDep,
     sessions: UploadSessionService = Sessions,
     bus: EventBus = Depends(get_event_bus),
-) -> UploadSessionOut:
+) -> UploadSessionOut | JSONResponse:
     try:
         session = await sessions.get(upload_id)
         out, created = await sessions.complete(session, {p.no: p.etag for p in body.parts})
@@ -240,20 +257,12 @@ async def complete_session(
             _missing=exc.missing,
             _mismatched=exc.mismatched,
         ) from exc
-    except FileTooLargeError as exc:
-        limit = sessions.settings.max_direct_upload_bytes
-        raise _too_large(limit, t) from exc
-    except QuotaExceededError as exc:
-        raise _quota(t) from exc
-    except SizeMismatchError as exc:
-        raise _error(
-            t,
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            constants.ErrorCode.SIZE_MISMATCH,
-            constants.I18nKey.ERR_SIZE_MISMATCH,
-            expected=format_bytes(exc.expected),
-            actual=format_bytes(exc.actual),
-        ) from exc
+    except (FileTooLargeError, QuotaExceededError, SizeMismatchError) as exc:
+        # The service has already deleted the object and closed the session.
+        # Returned, not raised: an exception rolls the request's transaction
+        # back, which would reopen a session whose object is gone.
+        failure = _rejection(exc, sessions, t)
+        return JSONResponse(status_code=failure.status_code, content={"detail": failure.detail})
 
     if created:
         schedule_checksum(request.app, sessions.db, out.id, session.tenant_id)

@@ -121,7 +121,7 @@ Files above `direct_upload_threshold_bytes` (default 64 MiB) upload in parts thr
 | `POST /uploads/{id}/complete` `{parts: [{n, etag}]}` | Assemble, verify, create the `StoredFile`, publish `FileUploaded`. The assembled size must equal `total_size`; the maximum and the quota are re-checked against the stored object, and a violation deletes it. Retrying a completed session returns the same file. |
 | `DELETE /uploads/{id}` | Abort and discard the parts. |
 
-Sessions expire after `upload_session_ttl_seconds` (24 h). With `background_tasks` installed, the hourly beat task `file_storage.reap_stale_uploads` aborts expired sessions and, on S3, orphaned multipart uploads older than twice the TTL; without it, `POST /uploads` aborts the caller's own expired sessions. `file_storage.compute_checksum` fills `checksum_sha256` after completion when `background_tasks` is installed.
+Sessions expire after `upload_session_ttl_seconds` (24 h). With `background_tasks` installed, the hourly beat task `file_storage.reap_stale_uploads` aborts expired sessions and, on S3, orphaned multipart uploads older than twice the TTL that have this module's key shape and no active session (a bucket shared with other applications is left alone); without it, `POST /uploads` aborts the caller's own expired sessions. `file_storage.compute_checksum` fills `checksum_sha256` after completion when `background_tasks` is installed.
 
 In the browser, parts go four at a time with per-part retry and backoff. The session id is kept in `localStorage` keyed by file name, size and last-modified time; after a reload, select the same file again and the page offers **Resume upload** or **Start over**. (Browsers cannot keep a file handle across a reload, so the file must be picked again.)
 

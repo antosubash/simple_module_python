@@ -146,3 +146,44 @@ def test_compute_checksum_ignores_another_tenants_file(worker):
             )
         )
     assert tasks.compute_checksum(str(file_id), "tenant-b") is None
+
+
+def test_the_orphan_sweep_spares_active_sessions_and_foreign_keys(worker, monkeypatch):
+    own = f"{TENANT}/2026/10/15/{uuid.uuid4().hex}.bin"
+    tracked_key = f"{TENANT}/2026/10/15/{uuid.uuid4().hex}.bin"
+    tracked_id = asyncio.run(worker.create_multipart(tracked_key, "x/y"))
+    orphan_id = asyncio.run(worker.create_multipart(own, "x/y"))
+    foreign_id = asyncio.run(worker.create_multipart("another-app/exports/data.csv", "x/y"))
+    with sync_db.sync_session() as db, tenant_context(TENANT):
+        db.add(_session_row(tracked_id, expires_in=timedelta(hours=1), key=tracked_key))
+
+    async def stale(older_than):
+        return [
+            (own, orphan_id),
+            (tracked_key, tracked_id),
+            ("another-app/exports/data.csv", foreign_id),
+        ]
+
+    monkeypatch.setattr(worker, "list_stale_multipart", stale, raising=False)
+
+    assert tasks.reap_stale_uploads() == {"sessions": 0, "orphans": 1}
+    assert not worker._parts_dir(orphan_id).exists()
+    assert worker._parts_dir(tracked_id).exists()
+    assert worker._parts_dir(foreign_id).exists()
+
+
+def test_compute_checksum_survives_a_deleted_object(worker):
+    file_id = uuid.uuid4()
+    with sync_db.sync_session() as db, tenant_context(TENANT):
+        db.add(
+            StoredFile(
+                id=file_id,
+                tenant_id=TENANT,
+                key=f"{TENANT}/gone.bin",
+                filename="a",
+                content_type="x/y",
+                size_bytes=1,
+                backend="filesystem",
+            )
+        )
+    assert tasks.compute_checksum(str(file_id), TENANT) is None

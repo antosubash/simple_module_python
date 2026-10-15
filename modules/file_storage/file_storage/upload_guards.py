@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import logging
+import zlib
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from file_storage import constants
 from file_storage.contracts.service import StorageError
 from file_storage.models import StoredFile, UploadSession
+from file_storage.scope import owning_tenant
 from file_storage.upload_support import DirectUploadUnsupportedError, QuotaExceededError
 
 if TYPE_CHECKING:
@@ -21,6 +23,9 @@ if TYPE_CHECKING:
     from file_storage.settings import FileStorageSettings
 
 _logger = logging.getLogger(__name__)
+
+# Namespace for the quota advisory lock (spells "FSTO"); the tenant's crc32 is added.
+_QUOTA_LOCK_KEY = 0x4653544F << 32
 
 
 class UploadGuards:
@@ -55,6 +60,23 @@ class UploadGuards:
         session.status = constants.UploadStatus.ABORTED
         await self.db.flush()
 
+    async def _serialize_reservations(self) -> None:
+        """Make concurrent session openers take turns on Postgres.
+
+        Each opener sums stored + reserved bytes and then inserts its own
+        reservation; under READ COMMITTED, N openers all read the same sum and
+        all pass. A transaction-scoped advisory lock (held until this request
+        commits, which is when the new reservation becomes visible) closes the
+        window. SQLite serialises writers already.
+        """
+        bind = self.db.get_bind()
+        if bind.dialect.name != "postgresql":
+            return
+        await self.db.execute(
+            text("SELECT pg_advisory_xact_lock(:key)"),
+            {"key": _QUOTA_LOCK_KEY + zlib.crc32(owning_tenant(self.db).encode())},
+        )
+
     async def _check_quota(self, size: int, *, reserve: bool) -> None:
         """Refuse ``size`` bytes that would push stored (+ reserved) bytes past the quota.
 
@@ -66,6 +88,8 @@ class UploadGuards:
         quota = self.settings.quota_bytes
         if quota is None:
             return
+        if reserve:
+            await self._serialize_reservations()
         stored = await self.db.scalar(select(func.coalesce(func.sum(StoredFile.size_bytes), 0)))
         reserved = 0
         if reserve:
