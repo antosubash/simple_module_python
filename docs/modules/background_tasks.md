@@ -244,7 +244,7 @@ already has a loop). The worker builds an async engine on the same database URL
 as `sync_db`, with `NullPool` (every `asyncio.run` is a new event loop) and the
 host's tenancy policy, and builds its own `EventBus` once per process by calling
 every installed module's `register_event_handlers(bus, None)`. A worker started
-with `include_modules`/`exclude_modules` still knows every module's durable
+limited to a subset of modules (queue or module filters) still knows every module's durable
 handlers: the bus comes from discovery, not from the imported `tasks.py`.
 
 **Eager mode** (`task_always_eager`, tests and single-process dev) delivers a
