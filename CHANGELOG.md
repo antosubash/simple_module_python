@@ -12,6 +12,17 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- background_tasks Celery config (#447, #448, #450): a module can ship a light
+  `task_config.py` (`TASK_ROUTES`, `QUEUES`, `BEAT_SCHEDULE`) read without
+  importing `tasks.py`; `task_routes_override` re-routes tasks at runtime and the
+  Workers page lists the effective routes. New restart-required settings:
+  `visibility_timeout_seconds`, `worker_max_tasks_per_child`,
+  `worker_max_memory_per_child_kb`, `task_reject_on_worker_lost`,
+  `task_soft_time_limit`, `task_time_limit`, `worker_concurrency`,
+  `celery_overrides`. `worker_queues` / `include_modules` / `exclude_modules`
+  (`SM_BG_TASKS_WORKER_QUEUES=a,b`) limit which modules' `tasks.py` a process
+  imports (autodiscovery and the eager beat import); `make worker` passes `-Q`.
+  `make doctor` warns (`SM028`) on a top-level heavy import in `tasks.py`.
 - `from background_tasks import heartbeat` (#451): a long-running task calls
   `heartbeat()` to refresh `heartbeat_at` (throttled to one write per 30 s; a
   no-op outside a task). `@shared_task(..., stuck_after=<seconds>)` sets a
@@ -192,6 +203,13 @@ All notable changes to this project are documented in this file. The format is b
   `tenants` resolver it selects among the user's own memberships.
 
 ### Fixed
+- The Celery worker/beat process now hydrates DB-backed `background_tasks`
+  settings at boot (it used to read the environment only, so admin edits reached
+  the web process but never the worker).
+- `enqueue_after_commit` from a request that writes nothing else no longer loses
+  the publish to a read-only rollback; a retry whose send fails after commit is
+  marked `failed` instead of left `pending`; a sub-second `stuck_after` no longer
+  truncates to 0; a `416` response no longer carries `Cache-Control`.
 - `POST /i18n/set-locale` is mounted by `create_app` (#462), so the language
   switcher works in scaffolded apps instead of posting to a 404.
 - The Register page shows field-level errors (weak password, existing

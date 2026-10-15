@@ -241,8 +241,8 @@ docker-down:
 	docker compose down
 
 # Celery — local dev (fast reload, no container rebuild)
-worker:                     ## Run a Celery worker locally against $(SM_BG_TASKS_BROKER_URL)
-	uv run celery -A scripts.run_worker:celery worker -l info
+worker:                     ## Run a Celery worker locally; SM_BG_TASKS_WORKER_QUEUES=a,b limits it to those queues (-Q) and their modules
+	uv run celery -A scripts.run_worker:celery worker -l info $(if $(SM_BG_TASKS_WORKER_QUEUES),-Q $(SM_BG_TASKS_WORKER_QUEUES))
 
 beat:                       ## Run the Celery beat scheduler locally
 	uv run celery -A scripts.run_worker:celery beat -l info

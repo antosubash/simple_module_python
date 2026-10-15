@@ -147,7 +147,14 @@
     "no_workers_title": "No workers connected",
     "no_workers_description": "The broker is reachable but nothing is consuming the queue. Start a worker locally with:",
     "refresh_failed_status": "Failed to refresh workers (HTTP {status})",
-    "refresh_failed": "Failed to refresh workers"
+    "refresh_failed": "Failed to refresh workers",
+    "routes_title": "Task routes",
+    "routes_description": "Which queue each task pattern is sent to, and which module set it.",
+    "routes_pattern": "Pattern",
+    "routes_queue": "Queue",
+    "routes_module": "Set by",
+    "routes_override": "Operator override",
+    "routes_default_queue": "Default queue"
   },
   "nav": {
     "background_tasks": "Background tasks"

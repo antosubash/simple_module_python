@@ -97,3 +97,20 @@ class TestWorkersInertiaView:
         snapshot = body["props"]["snapshot"]
         assert snapshot["broker_reachable"] is True
         assert snapshot["workers"][0]["hostname"] == "celery@host-a"
+
+    async def test_routes_prop_lists_effective_routes(
+        self,
+        monkeypatch,
+        authenticated_client: httpx.AsyncClient,
+        fake_snapshot: WorkerSnapshot,
+    ):
+        monkeypatch.setattr(wi.WorkerInspector, "snapshot", lambda self: fake_snapshot)
+        monkeypatch.setattr(
+            "background_tasks.endpoints.views.describe_routes",
+            lambda settings: [{"pattern": "x.*", "queue": "q", "module": "x"}],
+        )
+        resp = await authenticated_client.get(
+            f"{VIEW_BASE}/workers",
+            headers={"X-Inertia": "true", "Accept": "application/json"},
+        )
+        assert resp.json()["props"]["routes"] == [{"pattern": "x.*", "queue": "q", "module": "x"}]

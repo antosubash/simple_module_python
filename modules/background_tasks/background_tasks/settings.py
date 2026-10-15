@@ -34,9 +34,10 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import Annotated, Any
 
-from pydantic import Field, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator, model_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
 from background_tasks.constants import (
@@ -56,6 +57,10 @@ from background_tasks.constants import (
 _CELERY_RESTART = {"requires_restart": True, "group": "Celery"}
 
 logger = logging.getLogger(__name__)
+
+# Comma-separated in the environment (``SM_BG_TASKS_WORKER_QUEUES=a,b``), a JSON
+# list in the DB; ``NoDecode`` stops pydantic-settings insisting on JSON for env.
+CsvList = Annotated[list[str], NoDecode]
 
 
 def _redis_from_env(default: str) -> str:
@@ -87,6 +92,58 @@ class BackgroundTasksSettings(BaseSettings):
         json_schema_extra=_CELERY_RESTART,
     )
     task_default_queue: str = Field(default=DEFAULT_QUEUE, json_schema_extra=_CELERY_RESTART)
+
+    # ── Routing (GH #447) ───────────────────────────────────
+    # Applied over every module's ``task_config.TASK_ROUTES``. Lets an operator
+    # re-route a task (``{"reports.*": "heavy"}``) without a code change.
+    task_routes_override: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Task route overrides, {pattern: queue or route dict}.",
+        json_schema_extra=_CELERY_RESTART,
+    )
+
+    # ── Worker tuning (GH #448) ─────────────────────────────
+    # ``None`` keeps Celery's own default. Workers read these once at start.
+    visibility_timeout_seconds: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Redis visibility timeout. With acks_late, tasks running longer than "
+            "this (Celery default 1 h) are redelivered and run twice."
+        ),
+        json_schema_extra=_CELERY_RESTART,
+    )
+    worker_max_tasks_per_child: int | None = Field(
+        default=None, ge=1, json_schema_extra=_CELERY_RESTART
+    )
+    worker_max_memory_per_child_kb: int | None = Field(
+        default=None, ge=1, json_schema_extra=_CELERY_RESTART
+    )
+    task_reject_on_worker_lost: bool | None = Field(default=None, json_schema_extra=_CELERY_RESTART)
+    task_soft_time_limit: int | None = Field(default=None, ge=1, json_schema_extra=_CELERY_RESTART)
+    task_time_limit: int | None = Field(default=None, ge=1, json_schema_extra=_CELERY_RESTART)
+    worker_concurrency: int | None = Field(default=None, ge=1, json_schema_extra=_CELERY_RESTART)
+    celery_overrides: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Raw Celery conf keys applied last; wins over everything above.",
+        json_schema_extra=_CELERY_RESTART,
+    )
+
+    # ── Per-worker module subset (GH #450) ──────────────────
+    # Which packages this process imports ``tasks.py`` for. ``exclude_modules``
+    # always wins, ``include_modules`` next, then ``worker_queues`` selects by
+    # each module's ``task_config.QUEUES``. All empty loads everything. Leave
+    # them unset on the web process and on beat.
+    worker_queues: CsvList = Field(default_factory=list, json_schema_extra=_CELERY_RESTART)
+    include_modules: CsvList = Field(default_factory=list, json_schema_extra=_CELERY_RESTART)
+    exclude_modules: CsvList = Field(default_factory=list, json_schema_extra=_CELERY_RESTART)
+
+    @field_validator("worker_queues", "include_modules", "exclude_modules", mode="before")
+    @classmethod
+    def _split_csv(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [part.strip() for part in value.split(",") if part.strip()]
+        return value
 
     # ── Cross-process cache invalidation (GH #318) ──────────
     # This module owns the Redis connection, so it installs the transport that

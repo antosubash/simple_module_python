@@ -81,7 +81,7 @@ async def test_416_is_not_cacheable() -> None:
     row = SimpleNamespace(size_bytes=10, key="k", content_type="text/plain")
     resp = await file_body_response(
         MagicMock(),
-        row,  # ty: ignore[invalid-argument-type]
+        row,
         request,
         headers={"Cache-Control": "public, max-age=60", "ETag": '"x"'},
         etag='"x"',

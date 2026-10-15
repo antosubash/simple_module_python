@@ -14,6 +14,7 @@ query on every call. Admin edits therefore reach a worker within the TTL.
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from typing import cast
@@ -21,7 +22,11 @@ from typing import cast
 from pydantic_settings import BaseSettings
 from settings.hydrate import hydrate_settings_sync
 
+from background_tasks.constants import MODULE_NAME
+from background_tasks.settings import BackgroundTasksSettings
 from background_tasks.sync_db import sync_session
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_TTL_SECONDS = 30.0
 
@@ -55,3 +60,24 @@ def clear_settings_cache() -> None:
     """Drop every cached settings object (tests, or after a known write)."""
     with _lock:
         _cache.clear()
+
+
+def load_runner_settings() -> BackgroundTasksSettings:
+    """``BackgroundTasksSettings`` for the worker/beat process, DB overrides included.
+
+    ``scripts/run_worker.py`` used to build these from the environment alone, so
+    an admin's DB-backed edit (a queue, a time limit, ``celery_overrides``)
+    reached the web process but never the worker, and the two disagreed on
+    config. Hydration is the same call the web lifespan makes. If the DB is
+    unreachable or not yet migrated the worker still boots on env/defaults,
+    loudly, rather than refusing to start.
+    """
+    try:
+        return settings_for(BackgroundTasksSettings, MODULE_NAME, ttl=0)
+    except Exception:
+        logger.warning(
+            "Could not read background_tasks settings from the database; "
+            "starting from environment/defaults only",
+            exc_info=True,
+        )
+        return BackgroundTasksSettings()

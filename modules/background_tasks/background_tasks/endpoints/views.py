@@ -10,6 +10,7 @@ from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_inertia import InertiaResponse
 
+from background_tasks.celery_app import describe_routes
 from background_tasks.constants import (
     PERM_VIEW,
     PLATFORM_TENANT_FILTER,
@@ -152,6 +153,7 @@ async def workers(
             "snapshot": snapshot.model_dump(mode="json"),
             "broker_url_redacted": redact_broker_url(settings.broker_url),
             "queues": queues,
+            "routes": describe_routes(settings),
         },
     )
 

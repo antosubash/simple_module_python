@@ -121,6 +121,16 @@ export interface WorkerInfo {
   uptime_seconds: number | null;
 }
 
+/** One effective Celery task route; `module` is a package name or `override`. */
+export interface TaskRoute {
+  pattern: string;
+  queue: string;
+  module: string;
+}
+
+/** The `module` value for a route set by the operator-level override setting. */
+export const ROUTE_OVERRIDE_SOURCE = 'override';
+
 export interface WorkerSnapshot {
   broker_reachable: boolean;
   polled_at: string;
