@@ -127,6 +127,19 @@ class OutboxStatus(StrEnum):
     DEAD = "dead"
 
 
+class OutboxScope(StrEnum):
+    """The tenancy scope a durable event was published in, and is delivered in.
+
+    ``tenant_id`` alone cannot tell the two ``None`` cases apart: a platform
+    publish (inside ``all_tenants()``) may read across tenants, a publish with
+    no tenant bound (a public route, an ordinary task without a tenant) may not.
+    """
+
+    TENANT = "tenant"
+    PLATFORM = "platform"
+    UNSCOPED = "unscoped"
+
+
 DEFAULT_OUTBOX_MAX_ATTEMPTS = 8
 DEFAULT_OUTBOX_SWEEP_INTERVAL_SECONDS = 30
 # How long a claimed row stays ``running`` before another worker may reclaim it.

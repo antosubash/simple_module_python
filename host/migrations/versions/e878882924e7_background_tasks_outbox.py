@@ -3,7 +3,9 @@
 One row per (event, durable handler), written in the publisher's transaction
 and delivered by the ``dispatch_outbox`` / ``sweep_outbox`` tasks. ``tenant_id``
 is a plain nullable column, as on ``background_tasks_task_execution``: platform
-publishes carry no tenant, and the dispatcher reads across tenants.
+publishes carry no tenant, and the dispatcher reads across tenants. ``scope``
+(tenant / platform / unscoped) tells a platform publish from one made with no
+tenant bound, which both leave ``tenant_id`` NULL.
 
 background_tasks has no migration chain of its own, so this extends the
 mainline head, like ``b5d3f08a6e17``.
@@ -35,6 +37,7 @@ def upgrade() -> None:
         sa.Column("payload", sa.JSON(), nullable=False),
         sa.Column("handler_name", sa.String(length=255), nullable=False),
         sa.Column("tenant_id", sa.String(length=50), nullable=True),
+        sa.Column("scope", sa.String(length=20), nullable=False),
         sa.Column("status", sa.String(length=20), nullable=False),
         sa.Column("attempts", sa.Integer(), nullable=False),
         sa.Column("claim_seq", sa.Integer(), nullable=False),

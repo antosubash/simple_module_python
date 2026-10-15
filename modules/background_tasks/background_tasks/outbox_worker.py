@@ -2,9 +2,11 @@
 
 **Database.** Durable handlers take an ``AsyncSession`` (``ctx.db``), the same
 kind request code uses, so module service code runs unchanged. Celery tasks are
-synchronous, so each dispatch runs on the process's one outbox event loop
-(:mod:`.outbox_loop`), and the engine — built once per process from the URL
-:mod:`.sync_db` was pinned to — keeps a small connection pool on that loop.
+synchronous, so each dispatch runs on the calling thread's long-lived outbox
+event loop (:mod:`.outbox_loop`), and the engine — built once per loop from the
+URL :mod:`.sync_db` was pinned to — keeps a small connection pool on that loop.
+Under the ``threads`` pool every Celery thread therefore has its own loop and
+engine, and the database sees up to three connections per worker thread.
 Its session class gets the framework's entity listeners and the host's tenancy
 policy, like the sync engine's.
 
@@ -21,7 +23,6 @@ from __future__ import annotations
 
 import inspect
 import logging
-import os
 import threading
 from typing import Any
 
@@ -35,34 +36,53 @@ from background_tasks import sync_db
 from background_tasks.constants import MODULE_NAME
 from background_tasks.outbox_claim import OutboxPolicy
 from background_tasks.outbox_dispatch import dispatch
-from background_tasks.outbox_loop import run_on_worker_loop, stop_worker_loop
+from background_tasks.outbox_loop import run_on_worker_loop, stop_worker_loop, worker_loop_cache
 from background_tasks.outbox_transport import WorkerOutboxTransport
 from background_tasks.settings import BackgroundTasksSettings
 
 logger = logging.getLogger(__name__)
 
 _lock = threading.Lock()
-_factory: tuple[tuple[str, bool, str, int], async_sessionmaker[Any], AsyncEngine] | None = None
+_ENGINE_KEY = "outbox_worker_engine"
 _bus: EventBus | None = None
 _bus_override: EventBus | None = None
 
 
 def worker_session_factory() -> async_sessionmaker[Any]:
-    """Process-global async session factory on the worker's database."""
-    global _factory
+    """The calling thread's async session factory on the worker's database.
+
+    Cached on the thread's outbox loop: its pooled connections can only be
+    used there, and :func:`run_dispatch` runs on that same loop.
+    """
     url = sync_db.async_database_url()
     policy = sync_db.engine_tenancy()
-    key = (url, policy.tenant_strict, policy.default_tenant_id, os.getpid())
-    with _lock:
-        if _factory is not None and _factory[0] == key:
-            return _factory[1]
-        # Pooled: every use is on the process's single outbox loop. Small,
-        # since a worker process delivers one row at a time.
-        state = init_db(url, pool_size=2, max_overflow=3)
-        attach_session_listeners(state.sync_session_class)
-        bind_engine_policy(state.engine.sync_engine, policy)
-        _factory = (key, state.session_factory, state.engine)
-        return state.session_factory
+    key = (url, policy.tenant_strict, policy.default_tenant_id)
+    cache = worker_loop_cache()
+    cached: tuple[Any, async_sessionmaker[Any], AsyncEngine] | None = cache.get(_ENGINE_KEY)
+    if cached is not None and cached[0] == key:
+        return cached[1]
+    if cached is not None:
+        _dispose_soon(cached[2])
+    # Pooled, and small: one thread delivers one row at a time — the claim,
+    # the handler's session, and a handler's occasional second session.
+    state = init_db(url, pool_size=1, max_overflow=2)
+    attach_session_listeners(state.sync_session_class)
+    bind_engine_policy(state.engine.sync_engine, policy)
+    cache[_ENGINE_KEY] = (key, state.session_factory, state.engine)
+    return state.session_factory
+
+
+def _dispose_soon(engine: AsyncEngine) -> None:
+    try:
+        run_on_worker_loop(engine.dispose)
+    except Exception:
+        logger.warning("outbox: disposing a reconfigured worker engine failed", exc_info=True)
+
+
+async def _dispose_cached(cache: dict[str, Any]) -> None:
+    cached = cache.pop(_ENGINE_KEY, None)
+    if cached is not None:
+        await cached[2].dispose()
 
 
 def use_bus(bus: EventBus | None) -> None:
@@ -118,19 +138,12 @@ def worker_bus() -> EventBus:
 
 
 def reset_worker_state() -> None:
-    """Forget the cached engine, bus and loop (tests, or after reconfiguring sync_db)."""
-    global _factory, _bus, _bus_override
+    """Forget the cached engines, bus and loops (tests, or after reconfiguring sync_db)."""
+    global _bus, _bus_override
     with _lock:
-        cached, _factory = _factory, None
         _bus = None
         _bus_override = None
-    if cached is not None and cached[0][3] == os.getpid():
-        engine = cached[2]
-        try:
-            run_on_worker_loop(engine.dispose)
-        except Exception:
-            logger.warning("outbox: disposing the worker engine failed", exc_info=True)
-    stop_worker_loop()
+    stop_worker_loop(_dispose_cached)
 
 
 def load_policy() -> OutboxPolicy:

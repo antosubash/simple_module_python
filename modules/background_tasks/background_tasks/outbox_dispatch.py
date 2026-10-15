@@ -13,7 +13,8 @@ Delivery of one row:
    Postgres the candidate select also takes ``FOR UPDATE SKIP LOCKED``, so
    concurrent claimers pass over each other's rows instead of queueing on them.
 2. **Run** ``await handler(event, DurableContext(db, attempt))`` in a fresh
-   session, inside the row's tenant (``all_tenants()`` for a platform publish),
+   session, in the scope the row was published in (its tenant,
+   ``all_tenants()`` for a platform publish, no tenant for an unscoped one),
    with a timeout that ends inside the lease, and with commits of that session
    refused (:mod:`.outbox_guard`).
 3. **Finish** in that *same* session: mark the row ``delivered`` with an UPDATE
@@ -70,6 +71,13 @@ from background_tasks.outbox_support import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _timed_out(timeout: float) -> TimeoutError:
+    return TimeoutError(
+        f"Durable handler timed out after {timeout:g} s (outbox_lease_seconds minus a "
+        "safety margin); the attempt counts as failed"
+    )
 
 
 def _fence(row: ClaimedRow) -> tuple[Any, ...]:
@@ -150,7 +158,7 @@ async def deliver_one(
 
     error: str | None = None
     timeout = policy.handler_timeout
-    with row_tenant(row.tenant_id):
+    with row_tenant(row.tenant_id, row.scope):
         async with factory() as session:
             try:
                 deadline = asyncio.timeout(timeout)
@@ -162,11 +170,12 @@ async def deliver_one(
                 except TimeoutError as exc:
                     if not deadline.expired():
                         raise  # the handler's own timeout, not ours
-                    raise TimeoutError(
-                        f"Durable handler timed out after {timeout:g} s "
-                        "(outbox_lease_seconds minus a safety margin); the attempt "
-                        "counts as failed"
-                    ) from exc
+                    raise _timed_out(timeout) from exc
+                if deadline.expired():
+                    # The handler swallowed the cancellation and carried on past
+                    # its deadline: it may have outlived its lease, so the
+                    # attempt fails like any other timeout.
+                    raise _timed_out(timeout)
                 fenced = await session.execute(
                     update(OutboxMessage)
                     .where(*_fence(row))

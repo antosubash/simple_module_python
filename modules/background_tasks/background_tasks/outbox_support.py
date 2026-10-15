@@ -11,10 +11,10 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from simple_module_db import all_tenants, tenant_context
+from simple_module_db import all_tenants, no_tenant, tenant_context
 
 from background_tasks import tenant_context as task_tenant
-from background_tasks.constants import OUTBOX_ERROR_MAX_LENGTH
+from background_tasks.constants import OUTBOX_ERROR_MAX_LENGTH, OutboxScope
 
 logger = logging.getLogger(__name__)
 
@@ -39,22 +39,36 @@ class DispatchResult:
 
 
 @contextmanager
-def row_tenant(tenant_id: str | None) -> Generator[None]:
-    """The tenant a delivery runs as: the publisher's, else the install default.
+def row_tenant(tenant_id: str | None, scope: str) -> Generator[None]:
+    """The scope a delivery runs in: the one its publisher was in.
 
-    Mirrors ``restore_tenant`` for ordinary tasks. With neither, the event was
-    published as the platform (beat, a CLI, code inside ``all_tenants()``), and
-    the handler runs in the platform scope the rest of the codebase uses for
-    such work, ``all_tenants()`` — never in whatever tenant the dispatching
-    task's own message carried. A platform handler that acts for one tenant
-    enters ``tenant_context(id)`` itself.
+    Never whatever tenant the dispatching task's own message carried.
+
+    - A tenant publish runs as that tenant.
+    - A platform publish (made inside ``all_tenants()``) runs in
+      ``all_tenants()``. A platform handler that acts for one tenant enters
+      ``tenant_context(id)`` itself.
+    - An unscoped publish (no tenant bound and not ``all_tenants()``: a public
+      route, an ordinary task without a tenant) runs as the install's default
+      tenant if it has one — as ``restore_tenant`` runs such a task — else
+      with no tenant bound, so under strict isolation its handler fails closed
+      exactly as its publisher would have. It must not inherit the platform
+      scope: its payload came from code that could read no tenant's data.
     """
-    resolved = tenant_id or task_tenant.default_tenant()
-    if resolved:
-        with tenant_context(resolved):
+    if tenant_id:
+        with tenant_context(tenant_id):
             yield
         return
-    with all_tenants():
+    if scope == OutboxScope.PLATFORM:
+        with all_tenants():
+            yield
+        return
+    default = task_tenant.default_tenant()
+    if default:
+        with tenant_context(default):
+            yield
+        return
+    with no_tenant():
         yield
 
 

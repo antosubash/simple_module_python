@@ -34,12 +34,13 @@ from typing import TYPE_CHECKING, Any
 from celery import current_app
 from simple_module_core.durable_events import event_key, serialize_event
 from simple_module_db import RequestSession, current_tenant_id
+from simple_module_db.tenancy import is_all_tenants
 from simple_module_db.transaction import SESSION_START_KEY
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from background_tasks.after_commit import after_commit
-from background_tasks.constants import INTERNAL_TASK_DISPATCH_OUTBOX
+from background_tasks.constants import INTERNAL_TASK_DISPATCH_OUTBOX, OutboxScope
 from background_tasks.models import OutboxMessage
 from background_tasks.outbox_claim import OutboxPolicy
 from background_tasks.outbox_clock import db_now
@@ -66,15 +67,24 @@ class _OutboxWriter:
         # publisher whose clock ran ahead would make its rows look not yet
         # due to the worker that dispatches them right after the commit.
         now = await db_now(db)
-        # The publisher's tenant, so the handler runs as it; ``None`` for a
-        # platform publish (no request, or inside ``all_tenants()``).
+        # The publisher's scope, so the handler runs in it: its tenant, the
+        # platform (inside ``all_tenants()``), or none bound — which must not
+        # be mistaken for the platform, or a public route's event would be
+        # handled with access to every tenant.
         tenant_id = current_tenant_id.get()
+        if tenant_id is not None:
+            scope = OutboxScope.TENANT
+        elif is_all_tenants():
+            scope = OutboxScope.PLATFORM
+        else:
+            scope = OutboxScope.UNSCOPED
         rows = [
             OutboxMessage(
                 event_key=key,
                 payload=payload,
                 handler_name=name,
                 tenant_id=tenant_id,
+                scope=scope,
                 next_attempt_at=now,
                 created_at=now,
             )

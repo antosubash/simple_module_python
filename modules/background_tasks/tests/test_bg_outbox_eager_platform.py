@@ -19,7 +19,7 @@ from background_tasks.outbox_claim import OutboxPolicy
 from background_tasks.outbox_dispatch import dispatch
 from simple_module_core import DurableContext
 from simple_module_core.events import Event
-from simple_module_db import current_tenant_id, finalize_session, tenant_context
+from simple_module_db import all_tenants, current_tenant_id, finalize_session, tenant_context
 from simple_module_db.tenancy import is_all_tenants
 from simple_module_db.transaction import SESSION_START_KEY
 
@@ -90,7 +90,8 @@ async def test_a_platform_event_runs_in_the_all_tenants_scope(app):
         scopes.append((current_tenant_id.get(), is_all_tenants()))
 
     app.state.sm.event_bus.subscribe_durable(EagerPing, handler, name="platform")
-    await _publish(app, EagerPing(1))  # no tenant bound: a platform publish
+    with all_tenants():
+        await _publish(app, EagerPing(1))  # a platform publish
     with tenant_context("acme"):
         await _publish(app, EagerPing(2))
 

@@ -216,23 +216,34 @@ How it is delivered:
   never claim the same row. A row left `running` past its lease (worker killed)
   goes back to `pending` on the next sweep, or `dead` if that was its last
   attempt.
-- The handler runs as `await handler(event, ctx)` inside
-  `tenant_context(<publisher's tenant>)`. A **platform publish** (no tenant
-  bound: beat, a CLI, code inside `all_tenants()`) runs on a single-tenant host
-  as its `default_tenant`, and otherwise inside `all_tenants()` — the platform
-  scope the rest of the framework uses, so tenant-scoped reads see every tenant
-  and a write to a `MultiTenantMixin` table needs an explicit
-  `tenant_context(id)`. `ctx.attempt` starts at 1.
+- The handler runs as `await handler(event, ctx)` in the **scope it was
+  published in**, recorded on the row (`scope`): a **tenant** publish runs in
+  `tenant_context(<publisher's tenant>)`; a **platform** publish (made inside
+  `all_tenants()`) runs inside `all_tenants()`, so tenant-scoped reads see
+  every tenant and a write to a `MultiTenantMixin` table needs an explicit
+  `tenant_context(id)`; an **unscoped** publish (no tenant bound and not inside
+  `all_tenants()`: a public route such as a webhook, a request before tenant
+  resolution, a beat job or ordinary task without a tenant) runs as the
+  install's `default_tenant` if it has one, and otherwise with **no tenant
+  bound**, so under strict isolation a tenant-scoped query fails closed exactly
+  as it would have for the publisher. A platform job that means to reach every
+  tenant publishes inside `all_tenants()`. The dispatching task's own tenant
+  never leaks in. `ctx.attempt` starts at 1.
 - **Delivery guarantees.** `ctx.db` is an `AsyncSession` that is committed **in
   the same transaction that marks the row delivered**, and that mark is fenced on
   the claim the worker holds (`claim_seq`, which unlike `attempts` is never
   reset): a handler whose lease expired and was re-run elsewhere has its whole
   session rolled back. Writes through `ctx.db` therefore land **exactly once**.
   For that to hold the handler must not commit `ctx.db` itself: a
-  `ctx.db.commit()`, an `async with ctx.db.begin():` block, or a library helper
-  that commits raises `HandlerCommitError` and fails the attempt (flush instead
-  if you need generated values). Everything outside `ctx.db` — HTTP calls,
-  emails, another session, a task you enqueue some other way — is
+  `ctx.db.commit()`, an `async with ctx.db.begin():` block, a commit through
+  its connection (`(await ctx.db.connection()).commit()`, as Connection-based
+  libraries do), or a library helper that commits raises `HandlerCommitError`
+  and fails the attempt, even if the handler swallows it (flush instead if you
+  need generated values). Savepoints are fine: `async with
+  ctx.db.begin_nested():` (the race-safe insert idiom) releases a savepoint,
+  which commits nothing, and its writes land with the delivery. Everything
+  outside `ctx.db` — HTTP calls, emails, another session (even one on
+  `ctx.db.bind`), a raw DBAPI `COMMIT`, a task you enqueue some other way — is
   **at-least-once**: the handler can run more than once (a retry, a worker killed
   after the side effect but before the commit), so make those steps idempotent,
   e.g. keyed on the event's id or `(event id, handler name)`.
@@ -241,8 +252,15 @@ How it is delivered:
   lease minus a safety margin (10 %, at least 5 s: 270 s for the default 300 s
   lease), and never more — so no run outlives its claim and overlaps the rerun a
   reclaim would start. A timeout cancels the handler and counts as a failed
-  attempt (`last_error` says so). Raise `outbox_lease_seconds` for slow handlers;
-  setting a timeout above the lease's ceiling is refused.
+  attempt (`last_error` says so) — also when the handler swallows the
+  cancellation and returns late, so never catch `CancelledError` (or bare
+  `BaseException`) without re-raising. Raise `outbox_lease_seconds` for slow
+  handlers; setting a timeout above the lease's ceiling is refused. The timeout
+  is cooperative: **handlers must not block the event loop**. A blocking call
+  (`requests`, `boto3`, `time.sleep`, CPU-heavy work) cannot be interrupted, so
+  it can outlive its lease and overlap a rerun; run it with
+  `await asyncio.get_running_loop().run_in_executor(None, fn, ...)` or use an
+  async client.
 - On an exception or timeout the session rolls back and the row is retried
   `10 s × 2^(attempts-1)` (capped at 1 h) **after the failure**. After
   `outbox_max_attempts` (8) it is `dead`. A row whose handler the worker does
@@ -266,11 +284,14 @@ pydantic can put in JSON (str/int/float/bool/`Decimal`, `UUID`, `datetime`/`date
 `Enum`, nested dataclasses, lists, dicts, `X | None`); this is checked at
 `subscribe_durable`.
 
-**Worker side.** The Celery tasks are synchronous; every dispatch in a worker
-process runs on that process's one long-lived outbox event loop (a daemon
-thread, started on first use, one per forked child). The worker builds an async
-engine on the same database URL as `sync_db`, with a small connection pool on
-that loop and the host's tenancy policy, and builds its own `EventBus` once per
+**Worker side.** The Celery tasks are synchronous; each dispatch runs on a
+long-lived outbox event loop owned by the calling worker thread (a daemon
+thread, started on first use; under `prefork` one per child, under `threads`
+one per Celery thread, so concurrent deliveries in one process never share a
+loop). Each loop has its own async engine on the same database URL as
+`sync_db`, with a small pool (1 + 2 overflow: a thread delivers one row at a
+time) and the host's tenancy policy — so budget up to three database
+connections per worker thread. The worker builds its own `EventBus` once per
 process by calling every installed module's `register_event_handlers(bus, None)`.
 That bus carries a durable transport too, so a durable handler can itself
 `publish_durable(..., ctx.db)`: the new rows commit with the handler's delivery
@@ -280,7 +301,7 @@ and are handed to `dispatch_outbox` after that commit. A module whose
 they go `dead`). A worker started limited to a subset of modules (queue or
 module filters) still knows every module's durable handlers: the bus comes from
 discovery, not from the imported `tasks.py`. Use the `prefork` or `threads`
-pool: a dispatch blocks its worker thread while the outbox loop runs it, which
+pool: a dispatch blocks its worker thread while its outbox loop runs it, which
 under `gevent`/`eventlet` would block the hub.
 
 **Deploys.** Ship workers and web pods with the same handlers. During a rolling

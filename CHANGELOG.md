@@ -23,8 +23,10 @@ All notable changes to this project are documented in this file. The format is b
   At-least-once delivery with exponential backoff (10 s doubling, 1 h cap);
   writes through `ctx.db` commit with the delivery mark and land exactly once
   (a handler committing `ctx.db` itself is refused with `HandlerCommitError`);
-  other side effects are at-least-once. Handlers run in the publisher's tenant
-  (`all_tenants()` for a platform publish), with a timeout inside the lease, and
+  other side effects are at-least-once. Handlers run in the scope recorded at
+  publish (`scope`: the publisher's tenant; `all_tenants()` for a publish made
+  inside `all_tenants()`; no tenant — strict — for one made with none bound),
+  with a timeout inside the lease, and
   may publish durably themselves, in a worker too. Timestamps come from the
   database clock. Rows go `dead` after `outbox_max_attempts` (8); an unknown
   handler (rolling deploy) is retried like a failure. New admin page
@@ -34,6 +36,8 @@ All notable changes to this project are documented in this file. The format is b
   `outbox_handler_timeout_seconds`. Delivered rows are
   purged after `retention_days`. Without background_tasks, `publish_durable`
   raises `DurableDeliveryUnavailable`; `publish` / `publish_nowait` are unchanged.
+  New `simple_module_db.no_tenant()` context: no tenant bound and outside any
+  `all_tenants()`.
 - background_tasks Celery config (#447, #448, #450): a module can ship a light
   `task_config.py` (`TASK_ROUTES`, `QUEUES`, `BEAT_SCHEDULE`) read without
   importing `tasks.py`; `task_routes_override` re-routes tasks at runtime and the

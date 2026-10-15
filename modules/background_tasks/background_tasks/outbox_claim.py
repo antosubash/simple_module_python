@@ -60,6 +60,7 @@ class ClaimedRow:
     handler_name: str
     payload: dict[str, Any]
     tenant_id: str | None
+    scope: str
     attempts: int
     claim_seq: int
     # The database's time when the row was claimed (pinned *now* in tests).
@@ -187,6 +188,7 @@ async def claim(
                 OutboxMessage.handler_name,
                 OutboxMessage.payload,
                 OutboxMessage.tenant_id,
+                OutboxMessage.scope,
                 OutboxMessage.attempts,
                 OutboxMessage.claim_seq,
             )

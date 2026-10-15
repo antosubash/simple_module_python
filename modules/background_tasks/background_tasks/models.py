@@ -19,6 +19,7 @@ from background_tasks.constants import (
     TABLE_OUTBOX,
     TABLE_TASK_EXECUTION,
     TENANT_ID_MAX_LENGTH,
+    OutboxScope,
     OutboxStatus,
     TaskStatus,
 )
@@ -113,8 +114,10 @@ class OutboxMessage(Base, table=True):  # ty: ignore[unsupported-base]
     ``tenant_id`` is a plain column, not ``MultiTenantMixin``, for the same
     reason as ``TaskExecution``: the outbox is platform plumbing read across
     tenants by the dispatcher and the admin screen, and platform publishes
-    carry no tenant. The handler runs inside ``tenant_context(tenant_id)``, or
-    ``all_tenants()`` for a platform publish.
+    carry no tenant. ``scope`` records which scope the publisher was in, and
+    the handler runs in the same one: ``tenant_context(tenant_id)``,
+    ``all_tenants()`` for a platform publish, or with no tenant bound (strict,
+    like its publisher) for an unscoped one.
     """
 
     __tablename__ = TABLE_OUTBOX
@@ -124,6 +127,10 @@ class OutboxMessage(Base, table=True):  # ty: ignore[unsupported-base]
     payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     handler_name: str = Field(max_length=OUTBOX_KEY_MAX_LENGTH)
     tenant_id: str | None = Field(default=None, index=True, max_length=TENANT_ID_MAX_LENGTH)
+    scope: OutboxScope = Field(
+        default=OutboxScope.UNSCOPED,
+        sa_column=Column(String(20), nullable=False, default=OutboxScope.UNSCOPED.value),
+    )
     status: OutboxStatus = Field(
         default=OutboxStatus.PENDING,
         sa_column=Column(String(20), nullable=False, default=OutboxStatus.PENDING.value),

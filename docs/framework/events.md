@@ -167,9 +167,14 @@ await bus.publish_durable(OrderPlaced(order_id=order.id, ...), db)
   — provided the handler never commits `ctx.db` itself (the transport refuses
   that with `HandlerCommitError`; flush instead). Everything else a handler does
   (HTTP calls, emails, other sessions) may happen more than once: make it
-  idempotent. Each attempt has a timeout just inside the transport's lease.
-  `ctx.attempt` counts from 1. The handler runs as the publisher's tenant, or in
-  `all_tenants()` for an event published with no tenant bound.
+  idempotent. Savepoints (`ctx.db.begin_nested()`) are allowed. Each attempt
+  has a timeout just inside the transport's lease; handlers must not block the
+  event loop (use `run_in_executor` for blocking work) or swallow
+  `CancelledError`. `ctx.attempt` counts from 1. The handler runs in the scope
+  it was published in: the publisher's tenant; `all_tenants()` for an event
+  published inside `all_tenants()`; or, for one published with no tenant bound
+  at all, no tenant (strict isolation fails closed, as it would have for the
+  publisher).
 - A durable handler may itself `publish_durable(..., ctx.db)`; the new event
   commits with the handler's delivery.
 - The handler `name=` (default `f"{handler.__module__}.{handler.__qualname__}"`)

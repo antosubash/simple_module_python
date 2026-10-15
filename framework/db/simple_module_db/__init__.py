@@ -26,6 +26,7 @@ from simple_module_db.tenancy import (
     bind_current_tenant,
     current_tenant_id,
     is_valid_tenant_id,
+    no_tenant,
     tenant_context,
 )
 from simple_module_db.transaction import CommitBeforeResponseMiddleware, finalize_session
@@ -68,6 +69,7 @@ __all__ = [
     "make_include_object",
     "make_process_revision_directives",
     "mark_written",
+    "no_tenant",
     "render_item",
     "tenant_context",
 ]
