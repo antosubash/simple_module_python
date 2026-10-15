@@ -95,7 +95,7 @@ INSERTs populate `tenant_id` from the `current_tenant_id` contextvar. Creating a
 
 ### Bypass
 
-A row inserted outside any tenant context (no active `current_tenant_id`) is stamped `None` and, because the column is non-nullable, fails at the DB rather than silently leaking. There is no per-statement `skip_tenant_filter` option or `no_tenant()` helper today; cross-tenant admin operations run outside a tenant-scoped request (e.g. a CLI or background worker where `current_tenant_id` is unset).
+A row inserted outside any tenant context (no active `current_tenant_id`) is stamped `None` and, because the column is non-nullable, fails at the DB rather than silently leaking. There is no per-statement `skip_tenant_filter` option; cross-tenant work uses `all_tenants()` (see [multi-tenancy](../framework/multi-tenancy.md)). `no_tenant()` is the opposite: it forces the unscoped state, where strict mode fails closed.
 
 ## `VersionedMixin`
 
