@@ -181,7 +181,7 @@ async def test_a_late_finisher_after_reclaim_is_fenced_off(factory) -> None:
     (row_id,) = await _seed(factory, 1, name)
     t0 = datetime.now(UTC)
     (claimed_by_a,) = await claim(factory, now=t0, lease_seconds=60)
-    worker_a = asyncio.create_task(deliver_one(factory, bus, claimed_by_a, now=t0, policy=POLICY))
+    worker_a = asyncio.create_task(deliver_one(factory, bus, claimed_by_a, policy=POLICY))
     await asyncio.sleep(0.05)
 
     worker_b = await dispatch(factory, bus, POLICY, now=t0 + timedelta(seconds=61))

@@ -181,7 +181,8 @@ class TestFailureModes:
         # Dead rows are never claimed again.
         assert (await dispatch(factory, bus, policy, now=now + timedelta(days=1))).dead == 0
 
-    async def test_unknown_handler_goes_dead(self, app, outbox_rows):
+    async def test_unknown_handler_is_retried(self, app, outbox_rows):
+        """Often a rolling deploy: a later worker may know it (see test_bg_outbox_retry_policy)."""
         now = datetime.now(UTC)
         async with app.state.sm.db.session_factory() as session:
             session.add(
@@ -197,9 +198,9 @@ class TestFailureModes:
 
         result = await _run(app)
 
-        assert result.dead == 1
+        assert result.retrying == 1
         (row,) = await outbox_rows()
-        assert row.status == OutboxStatus.DEAD
+        assert row.status == OutboxStatus.PENDING
         assert "No durable handler 'renamed.handler'" in (row.last_error or "")
 
     async def test_payload_that_no_longer_fits_the_event_goes_dead(self, app, outbox_rows):

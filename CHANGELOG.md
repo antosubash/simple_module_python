@@ -21,12 +21,17 @@ All notable changes to this project are documented in this file. The format is b
   `background_tasks.dispatch_outbox` task, and a 30 s beat sweep
   (`background_tasks.sweep_outbox`) for crashes between commit and publish.
   At-least-once delivery with exponential backoff (10 s doubling, 1 h cap);
-  writes through `ctx.db` commit with the delivery mark and land exactly once;
-  handlers run in the publisher's tenant. Rows go `dead` after
-  `outbox_max_attempts` (8) or when the worker does not know the handler. New
-  admin page `/admin/background-tasks/outbox` (retry dead, discard) and API under
+  writes through `ctx.db` commit with the delivery mark and land exactly once
+  (a handler committing `ctx.db` itself is refused with `HandlerCommitError`);
+  other side effects are at-least-once. Handlers run in the publisher's tenant
+  (`all_tenants()` for a platform publish), with a timeout inside the lease, and
+  may publish durably themselves, in a worker too. Timestamps come from the
+  database clock. Rows go `dead` after `outbox_max_attempts` (8); an unknown
+  handler (rolling deploy) is retried like a failure. New admin page
+  `/admin/background-tasks/outbox` (retry dead, discard) and API under
   `/api/background_tasks/admin/outbox`. New settings `outbox_max_attempts`,
-  `outbox_sweep_interval_seconds`, `outbox_lease_seconds`. Delivered rows are
+  `outbox_sweep_interval_seconds`, `outbox_lease_seconds`,
+  `outbox_handler_timeout_seconds`. Delivered rows are
   purged after `retention_days`. Without background_tasks, `publish_durable`
   raises `DurableDeliveryUnavailable`; `publish` / `publish_nowait` are unchanged.
 - background_tasks Celery config (#447, #448, #450): a module can ship a light

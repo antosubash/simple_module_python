@@ -211,24 +211,52 @@ How it is delivered:
   broker was down), the beat task `background_tasks.sweep_outbox` delivers the row
   within `outbox_sweep_interval_seconds` (30 s).
 - A worker **claims** a row with one conditional `UPDATE` (`pending → running`,
-  `attempts + 1`, `locked_until = now + outbox_lease_seconds`); on Postgres the
-  candidate select uses `FOR UPDATE SKIP LOCKED`. Two workers never claim the
-  same row. A row left `running` past its lease (worker killed) goes back to
-  `pending` on the next sweep, or `dead` if that was its last attempt.
+  `attempts + 1`, `claim_seq + 1`, `locked_until = now + outbox_lease_seconds`);
+  on Postgres the candidate select uses `FOR UPDATE SKIP LOCKED`. Two workers
+  never claim the same row. A row left `running` past its lease (worker killed)
+  goes back to `pending` on the next sweep, or `dead` if that was its last
+  attempt.
 - The handler runs as `await handler(event, ctx)` inside
-  `tenant_context(<publisher's tenant>)` (the install's default tenant for a
-  platform publish). `ctx.attempt` starts at 1. `ctx.db` is an `AsyncSession` that
-  is committed **in the same transaction that marks the row delivered**, and that
-  mark is fenced on the attempt the worker claimed: a handler whose lease expired
-  and was re-run elsewhere has its whole session rolled back. Writes through
-  `ctx.db` therefore land **exactly once**; anything else the handler does (HTTP
-  calls, emails) is **at-least-once** — make it idempotent, e.g. keyed on the
-  event's id. `ctx.db.on_commit(...)` callbacks run after that commit.
-- On an exception the session rolls back and the row is retried after
-  `10 s × 2^(attempts-1)`, capped at 1 h. After `outbox_max_attempts` (8) it is
-  `dead`. A row whose handler name or event type the worker does not know
-  (renamed, removed, module not installed on that worker) or whose payload no
-  longer validates goes `dead` straight away with the reason in `last_error`.
+  `tenant_context(<publisher's tenant>)`. A **platform publish** (no tenant
+  bound: beat, a CLI, code inside `all_tenants()`) runs on a single-tenant host
+  as its `default_tenant`, and otherwise inside `all_tenants()` — the platform
+  scope the rest of the framework uses, so tenant-scoped reads see every tenant
+  and a write to a `MultiTenantMixin` table needs an explicit
+  `tenant_context(id)`. `ctx.attempt` starts at 1.
+- **Delivery guarantees.** `ctx.db` is an `AsyncSession` that is committed **in
+  the same transaction that marks the row delivered**, and that mark is fenced on
+  the claim the worker holds (`claim_seq`, which unlike `attempts` is never
+  reset): a handler whose lease expired and was re-run elsewhere has its whole
+  session rolled back. Writes through `ctx.db` therefore land **exactly once**.
+  For that to hold the handler must not commit `ctx.db` itself: a
+  `ctx.db.commit()`, an `async with ctx.db.begin():` block, or a library helper
+  that commits raises `HandlerCommitError` and fails the attempt (flush instead
+  if you need generated values). Everything outside `ctx.db` — HTTP calls,
+  emails, another session, a task you enqueue some other way — is
+  **at-least-once**: the handler can run more than once (a retry, a worker killed
+  after the side effect but before the commit), so make those steps idempotent,
+  e.g. keyed on the event's id or `(event id, handler name)`.
+  `ctx.db.on_commit(...)` callbacks run after the commit.
+- **Timeouts.** A handler gets `outbox_handler_timeout_seconds`, by default the
+  lease minus a safety margin (10 %, at least 5 s: 270 s for the default 300 s
+  lease), and never more — so no run outlives its claim and overlaps the rerun a
+  reclaim would start. A timeout cancels the handler and counts as a failed
+  attempt (`last_error` says so). Raise `outbox_lease_seconds` for slow handlers;
+  setting a timeout above the lease's ceiling is refused.
+- On an exception or timeout the session rolls back and the row is retried
+  `10 s × 2^(attempts-1)` (capped at 1 h) **after the failure**. After
+  `outbox_max_attempts` (8) it is `dead`. A row whose handler the worker does
+  not know is retried the same way, because that is usually a **rolling
+  deploy**: a new web pod published for a handler an old worker does not have
+  yet, and a later worker will. Rename a handler only together with `name=`,
+  or its undelivered rows go `dead` once their attempts run out. A payload that
+  no longer validates, or an invalid tenant id, goes `dead` straight away with
+  the reason in `last_error`.
+- **One clock.** Every outbox timestamp — the publisher's `next_attempt_at`,
+  claims, leases, reclaims, admin retries — is read from the database
+  (`clock_timestamp()` on Postgres), so clock skew between web pods and workers
+  cannot make a fresh row look not-yet-due or shorten a lease. SQLite has no
+  server; every process sharing the file is on one host and uses its clock.
 - Delivered rows are deleted by `purge_old_executions` after `retention_days`. `dead` rows are never purged: they wait on the admin page to be retried or discarded.
 
 Handler **names** are the delivery key — by default the handler's import path
@@ -238,23 +266,44 @@ pydantic can put in JSON (str/int/float/bool/`Decimal`, `UUID`, `datetime`/`date
 `Enum`, nested dataclasses, lists, dicts, `X | None`); this is checked at
 `subscribe_durable`.
 
-**Worker side.** The Celery tasks are synchronous, so each dispatch runs the
-async dispatcher with `asyncio.run` (on a private thread if the calling thread
-already has a loop). The worker builds an async engine on the same database URL
-as `sync_db`, with `NullPool` (every `asyncio.run` is a new event loop) and the
-host's tenancy policy, and builds its own `EventBus` once per process by calling
-every installed module's `register_event_handlers(bus, None)`. A worker started
-limited to a subset of modules (queue or module filters) still knows every module's durable
-handlers: the bus comes from discovery, not from the imported `tasks.py`.
+**Worker side.** The Celery tasks are synchronous; every dispatch in a worker
+process runs on that process's one long-lived outbox event loop (a daemon
+thread, started on first use, one per forked child). The worker builds an async
+engine on the same database URL as `sync_db`, with a small connection pool on
+that loop and the host's tenancy policy, and builds its own `EventBus` once per
+process by calling every installed module's `register_event_handlers(bus, None)`.
+That bus carries a durable transport too, so a durable handler can itself
+`publish_durable(..., ctx.db)`: the new rows commit with the handler's delivery
+and are handed to `dispatch_outbox` after that commit. A module whose
+`register_event_handlers` fails without an app is logged once per worker process
+(its durable events then retry until a worker that knows them delivers them, or
+they go `dead`). A worker started limited to a subset of modules (queue or
+module filters) still knows every module's durable handlers: the bus comes from
+discovery, not from the imported `tasks.py`. Use the `prefork` or `threads`
+pool: a dispatch blocks its worker thread while the outbox loop runs it, which
+under `gevent`/`eventlet` would block the hub.
 
-**Eager mode** (`task_always_eager`, tests and single-process dev) delivers a
-request's rows from its `on_commit`, on the web process's own engine — no
-worker needed. Nothing sweeps in eager mode: a failed delivery stays `pending`
-until a worker runs, or until it is retried from the admin page.
+**Deploys.** Ship workers and web pods with the same handlers. During a rolling
+deploy, events for a handler only the new code has are retried with backoff
+until a new worker claims them; with the defaults a row has about 21 minutes of
+attempts (8 attempts, backoff 10 s to 640 s) before it goes `dead`, so a
+rollout slower than that leaves dead rows to retry from the admin page. A
+removed module's undelivered rows likewise end `dead`; discard them there.
+
+**Eager mode** (`task_always_eager`, tests and single-process dev) delivers on
+the web process's own engine — no worker needed: a request's rows from its
+`on_commit`, and rows written in any other session (a CLI script, a startup
+hook, a durable handler's `ctx.db`) from that session's commit, as a task on
+the running loop. Nothing sweeps in eager mode: a failed delivery stays
+`pending` until a worker runs, or until it is retried from the admin page.
+
+**SQLite.** A durable handler holds SQLite's single write lock from its first
+write until the delivery commits; keep handlers that write short there, or
+concurrent web writes wait (and fail after the 5 s busy timeout).
 
 The admin page `/admin/background-tasks/outbox` (linked from the executions
 list) shows pending, running and dead rows with their last error; dead rows can
-be **retried** (back to `pending`, attempts reset) and pending or dead rows
+be **retried** (back to `pending`, attempts reset; the fencing token is not) and pending or dead rows
 **discarded**.
 
 Unlike the executions screens, the outbox admin is **tenant-scoped**: a platform
@@ -365,7 +414,8 @@ DB-backed; defaults are in `BackgroundTasksSettings`. Several are marked `requir
 | `max_retries` | `3` | informational; tasks define their own policies; range 0-100 |
 | `outbox_max_attempts` | `8` | durable-event delivery attempts before `dead`; range 1-100 |
 | `outbox_sweep_interval_seconds` | `30` | restart required; beat cadence of `sweep_outbox` |
-| `outbox_lease_seconds` | `300` | how long a claimed delivery may run before another worker reclaims it — keep it above your slowest durable handler |
+| `outbox_lease_seconds` | `300` | how long a claimed delivery may run before another worker reclaims it; range 10-86400 — keep it above your slowest durable handler |
+| `outbox_handler_timeout_seconds` | unset | per-attempt handler timeout; unset means the lease minus a safety margin (10 %, at least 5 s), which is also the most it may be set to |
 
 Bootstrap env-var equivalents (`SM_BG_TASKS_*`) only seed pydantic defaults at first boot — once a value lives in the DB, it's authoritative.
 

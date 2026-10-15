@@ -163,8 +163,15 @@ await bus.publish_durable(OrderPlaced(order_id=order.id, ...), db)
   handlers; publish separately if you want both.
 - Handlers are called later, by a worker, as `await handler(event, ctx)`.
   Delivery is **at-least-once** with exponential backoff; database writes made
-  through `ctx.db` commit with the delivery record and so land **exactly once**.
-  `ctx.attempt` counts from 1. The handler runs as the publisher's tenant.
+  through `ctx.db` commit with the delivery record and so land **exactly once**
+  — provided the handler never commits `ctx.db` itself (the transport refuses
+  that with `HandlerCommitError`; flush instead). Everything else a handler does
+  (HTTP calls, emails, other sessions) may happen more than once: make it
+  idempotent. Each attempt has a timeout just inside the transport's lease.
+  `ctx.attempt` counts from 1. The handler runs as the publisher's tenant, or in
+  `all_tenants()` for an event published with no tenant bound.
+- A durable handler may itself `publish_durable(..., ctx.db)`; the new event
+  commits with the handler's delivery.
 - The handler `name=` (default `f"{handler.__module__}.{handler.__qualname__}"`)
   keys delivery state, so keep it stable across deploys.
 - Events must be `@dataclass` classes serialisable to JSON; `UUID`, `datetime`,

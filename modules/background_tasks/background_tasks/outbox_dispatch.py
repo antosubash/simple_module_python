@@ -7,42 +7,45 @@ web process's engine straight from the publishing request's ``on_commit``.
 Delivery of one row:
 
 1. **Claim** one row, just before running it (own short transaction):
-   ``pending → running``, ``attempts += 1``, ``locked_until = now + lease``,
-   conditional on the row still being
+   ``pending → running``, ``attempts += 1``, ``claim_seq += 1``,
+   ``locked_until = now + lease`` (database time), conditional on the row still being
    ``pending`` — so two dispatchers racing for a row cannot both win it. On
    Postgres the candidate select also takes ``FOR UPDATE SKIP LOCKED``, so
    concurrent claimers pass over each other's rows instead of queueing on them.
 2. **Run** ``await handler(event, DurableContext(db, attempt))`` in a fresh
-   session, inside the row's tenant.
+   session, inside the row's tenant (``all_tenants()`` for a platform publish),
+   with a timeout that ends inside the lease, and with commits of that session
+   refused (:mod:`.outbox_guard`).
 3. **Finish** in that *same* session: mark the row ``delivered`` with an UPDATE
-   fenced on ``status = running AND attempts = <claimed attempts>``, then
+   fenced on ``status = running AND claim_seq = <claimed claim_seq>``, then
    commit. The handler's writes and the delivered mark commit together; if the
    fence matches nothing (the lease expired and someone else reclaimed the row,
    or an admin discarded it) the whole session rolls back. So a handler's DB
    effects land exactly once even though the handler may *run* more than once.
-4. On an exception the session rolls back and, in a new transaction, the row
-   goes back to ``pending`` with exponential backoff, or to ``dead`` once it has
-   used ``outbox_max_attempts``.
+   Anything it does outside ``ctx.db`` is at-least-once.
+4. On an exception or a timeout the session rolls back and, in a new
+   transaction, the row goes back to ``pending`` with exponential backoff
+   counted from the failure, or to ``dead`` once it has used
+   ``outbox_max_attempts``. A handler this worker does not know (a rolling
+   deploy, a module whose wiring failed here) is retried the same way, since a
+   later worker may know it.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
-import traceback
 import uuid
-from collections.abc import Generator, Sequence
-from contextlib import contextmanager
-from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from collections.abc import Sequence
+from datetime import datetime, timedelta
 from typing import Any
 
 from simple_module_core.durable_events import DurableContext, deserialize_event
 from simple_module_core.events import EventBus
-from simple_module_db import current_tenant_id, is_valid_tenant_id, tenant_context
+from simple_module_db import is_valid_tenant_id
 from simple_module_db.callbacks import discard_on_commit_callbacks, run_on_commit_callbacks
 from sqlalchemy import update
 
-from background_tasks import tenant_context as task_tenant
 from background_tasks.constants import (
     OUTBOX_DISPATCH_LIMIT,
     OUTBOX_ERROR_MAX_LENGTH,
@@ -57,62 +60,23 @@ from background_tasks.outbox_claim import (
     claim,
     reclaim_expired,
 )
+from background_tasks.outbox_guard import handler_guard
+from background_tasks.outbox_support import (
+    Clock,
+    DispatchResult,
+    describe,
+    rollback_quietly,
+    row_tenant,
+)
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class DispatchResult:
-    delivered: int = 0
-    retrying: int = 0
-    dead: int = 0
-    # Finished by someone else first (lease lost, row discarded): rolled back.
-    fenced: int = 0
-    reclaimed: int = 0
-
-    def as_dict(self) -> dict[str, int]:
-        return {
-            "delivered": self.delivered,
-            "retrying": self.retrying,
-            "dead": self.dead,
-            "fenced": self.fenced,
-            "reclaimed": self.reclaimed,
-        }
-
-
-@contextmanager
-def _row_tenant(tenant_id: str | None) -> Generator[None]:
-    """The tenant a delivery runs as: the publisher's, else the install default.
-
-    Mirrors ``restore_tenant`` for ordinary tasks. With neither, the tenant is
-    explicitly cleared — never inherited from whatever the dispatching task's
-    own message carried — so strict mode fails closed on a tenant-scoped query.
-    """
-    resolved = tenant_id or task_tenant.default_tenant()
-    if resolved:
-        with tenant_context(resolved):
-            yield
-        return
-    token = current_tenant_id.set(None)
-    try:
-        yield
-    finally:
-        current_tenant_id.reset(token)
-
-
-def _describe(exc: BaseException) -> str:
-    """The exception line first (what the admin list shows), then the traceback's tail."""
-    summary = "".join(traceback.format_exception_only(type(exc), exc)).strip()
-    room = max(0, OUTBOX_ERROR_MAX_LENGTH - len(summary) - 2)
-    tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-    return f"{summary}\n\n{tb[-room:]}" if room else summary
 
 
 def _fence(row: ClaimedRow) -> tuple[Any, ...]:
     return (
         OutboxMessage.id == row.id,
         OutboxMessage.status == OutboxStatus.RUNNING,
-        OutboxMessage.attempts == row.attempts,
+        OutboxMessage.claim_seq == row.claim_seq,
     )
 
 
@@ -136,12 +100,19 @@ async def _finish(
 
 
 async def _record_failure(
-    factory: SessionFactory, row: ClaimedRow, error: str, *, now: datetime, policy: OutboxPolicy
+    factory: SessionFactory,
+    row: ClaimedRow,
+    error: str,
+    *,
+    failed_at: datetime,
+    policy: OutboxPolicy,
 ) -> OutboxStatus | None:
     if row.attempts >= policy.max_attempts:
         ok = await _finish(factory, row, status=OutboxStatus.DEAD, error=error)
         return OutboxStatus.DEAD if ok else None
-    retry_at = now + timedelta(seconds=backoff_seconds(row.attempts))
+    # From the failure, not the claim: a handler that fails after 30 s would
+    # otherwise be due again the moment it fails.
+    retry_at = failed_at + timedelta(seconds=backoff_seconds(row.attempts))
     ok = await _finish(
         factory, row, status=OutboxStatus.PENDING, error=error, next_attempt_at=retry_at
     )
@@ -149,18 +120,22 @@ async def _record_failure(
 
 
 async def deliver_one(
-    factory: SessionFactory, bus: EventBus, row: ClaimedRow, *, now: datetime, policy: OutboxPolicy
+    factory: SessionFactory, bus: EventBus, row: ClaimedRow, *, policy: OutboxPolicy
 ) -> OutboxStatus | None:
     """Run one claimed row's handler. ``None`` means the fence rejected us."""
+    clock = Clock(row.claimed_at)
     sub = bus.durable.lookup(row.event_key, row.handler_name)
     if sub is None:
+        # Often transient: during a rolling deploy a new web pod publishes for
+        # a handler an old worker does not have yet. Retried like a failure,
+        # so a later worker delivers it; dead only once the budget is spent.
         error = (
             f"No durable handler {row.handler_name!r} is registered for {row.event_key} "
-            "in this worker (renamed, removed, or its module is not installed here)"
+            "in this worker (not deployed here yet, renamed, removed, or its module's "
+            "register_event_handlers failed without an app)"
         )
-        logger.error("outbox.unknown_handler %s", error)
-        ok = await _finish(factory, row, status=OutboxStatus.DEAD, error=error)
-        return OutboxStatus.DEAD if ok else None
+        logger.warning("outbox.unknown_handler attempt=%d %s", row.attempts, error)
+        return await _record_failure(factory, row, error, failed_at=clock(), policy=policy)
     try:
         event = deserialize_event(sub.event_type, row.payload)
     except Exception as exc:
@@ -174,16 +149,30 @@ async def deliver_one(
         return OutboxStatus.DEAD if ok else None
 
     error: str | None = None
-    with _row_tenant(row.tenant_id):
+    timeout = policy.handler_timeout
+    with row_tenant(row.tenant_id):
         async with factory() as session:
             try:
-                await sub.handler(event, DurableContext(db=session, attempt=row.attempts))
+                deadline = asyncio.timeout(timeout)
+                try:
+                    async with deadline:
+                        with handler_guard(session):
+                            ctx = DurableContext(db=session, attempt=row.attempts)
+                            await sub.handler(event, ctx)
+                except TimeoutError as exc:
+                    if not deadline.expired():
+                        raise  # the handler's own timeout, not ours
+                    raise TimeoutError(
+                        f"Durable handler timed out after {timeout:g} s "
+                        "(outbox_lease_seconds minus a safety margin); the attempt "
+                        "counts as failed"
+                    ) from exc
                 fenced = await session.execute(
                     update(OutboxMessage)
                     .where(*_fence(row))
                     .values(
                         status=OutboxStatus.DELIVERED,
-                        delivered_at=now,
+                        delivered_at=clock(),
                         locked_until=None,
                         last_error=None,
                     )
@@ -198,7 +187,7 @@ async def deliver_one(
                     return None
                 await session.commit()
             except Exception as exc:
-                await session.rollback()
+                await rollback_quietly(session)
                 discard_on_commit_callbacks(session)
                 logger.warning(
                     "outbox.handler_failed %s attempt=%d",
@@ -206,11 +195,11 @@ async def deliver_one(
                     row.attempts,
                     exc_info=exc,
                 )
-                error = _describe(exc)
+                error = describe(exc)
             else:
                 await run_on_commit_callbacks(session)
                 return OutboxStatus.DELIVERED
-    return await _record_failure(factory, row, error or "", now=now, policy=policy)
+    return await _record_failure(factory, row, error or "", failed_at=clock(), policy=policy)
 
 
 async def dispatch(
@@ -229,19 +218,18 @@ async def dispatch(
     whole batch up front would start every lease at once, and the batch's tail
     could expire — and be run again by another worker — while the head was
     still being delivered. *now* pins the clock (tests); otherwise each claim
-    reads it afresh.
+    reads the database's afresh.
     """
     result = DispatchResult()
     if ids is None:
-        result.reclaimed = await reclaim_expired(
-            factory, now=now or datetime.now(UTC), max_attempts=policy.max_attempts
-        )
+        result.reclaimed = await reclaim_expired(factory, now=now, max_attempts=policy.max_attempts)
     for _ in range(limit):
-        at = now or datetime.now(UTC)
-        claimed = await claim(factory, now=at, lease_seconds=policy.lease_seconds, ids=ids, batch=1)
+        claimed = await claim(
+            factory, now=now, lease_seconds=policy.lease_seconds, ids=ids, batch=1
+        )
         if not claimed:
             break
-        status = await deliver_one(factory, bus, claimed[0], now=at, policy=policy)
+        status = await deliver_one(factory, bus, claimed[0], policy=policy)
         if status is OutboxStatus.DELIVERED:
             result.delivered += 1
         elif status is OutboxStatus.PENDING:

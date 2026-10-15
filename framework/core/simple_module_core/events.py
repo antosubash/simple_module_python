@@ -110,8 +110,8 @@ class EventBus:
 
         *name* defaults to the handler's import path. Delivery state is keyed by
         it, so it must stay stable across deploys: renaming a handler strands
-        its undelivered rows (they go ``dead`` with "unknown handler"). Returns
-        the resolved name.
+        its undelivered rows (they retry as "unknown handler", then go
+        ``dead``). Returns the resolved name.
 
         Durable subscriptions are also built in the worker, which calls
         ``register_event_handlers(bus, None)`` — register them before any

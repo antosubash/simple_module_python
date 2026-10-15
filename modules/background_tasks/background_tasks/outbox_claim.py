@@ -4,8 +4,9 @@ A claim moves due ``pending`` rows to ``running`` with a lease and bumps
 ``attempts``, conditional on the row still being ``pending`` — so two
 dispatchers racing for a row cannot both win it. On Postgres the candidate
 select also takes ``FOR UPDATE SKIP LOCKED``, so concurrent claimers pass over
-each other's rows instead of queueing on them. The bumped ``attempts`` is the
-claim's fencing token; see :mod:`.outbox_dispatch`.
+each other's rows instead of queueing on them. The bumped ``claim_seq`` is the
+claim's fencing token; see :mod:`.outbox_dispatch`. Every timestamp is the
+database's (:mod:`.outbox_clock`) unless a test pins *now*.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from background_tasks.constants import (
@@ -25,8 +26,10 @@ from background_tasks.constants import (
     OUTBOX_BACKOFF_CAP_SECONDS,
     OUTBOX_CLAIM_BATCH,
     OutboxStatus,
+    max_outbox_handler_timeout,
 )
 from background_tasks.models import OutboxMessage
+from background_tasks.outbox_clock import db_now
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +40,17 @@ type SessionFactory = async_sessionmaker[Any]
 class OutboxPolicy:
     max_attempts: int
     lease_seconds: int
+    # Explicit handler timeout; ``None`` derives it from the lease.
+    handler_timeout_seconds: float | None = None
+
+    @property
+    def handler_timeout(self) -> float:
+        """Seconds a handler may run: never past its lease, so no run outlives
+        its claim and overlaps the rerun a reclaim would start."""
+        ceiling = max_outbox_handler_timeout(self.lease_seconds)
+        if self.handler_timeout_seconds is None:
+            return ceiling
+        return min(self.handler_timeout_seconds, ceiling)
 
 
 @dataclass(frozen=True)
@@ -47,6 +61,9 @@ class ClaimedRow:
     payload: dict[str, Any]
     tenant_id: str | None
     attempts: int
+    claim_seq: int
+    # The database's time when the row was claimed (pinned *now* in tests).
+    claimed_at: datetime
 
 
 def backoff_seconds(attempts: int) -> int:
@@ -72,18 +89,22 @@ def _parse_ids(ids: Sequence[str | uuid.UUID]) -> list[uuid.UUID]:
     return parsed
 
 
-async def reclaim_expired(factory: SessionFactory, *, now: datetime, max_attempts: int) -> int:
+async def reclaim_expired(
+    factory: SessionFactory, *, max_attempts: int, now: datetime | None = None
+) -> int:
     """Return ``running`` rows whose lease ran out to ``pending`` (or ``dead``).
 
     A worker that died mid-handler never finishes its row; past the lease it is
     eligible again. The claim already counted that attempt, so a row that has
-    used its last one goes ``dead`` rather than round again.
+    used its last one goes ``dead`` rather than round again. A ``running`` row
+    with no lease at all (only a manual edit makes one) counts as expired.
     """
-    expired = (
-        OutboxMessage.status == OutboxStatus.RUNNING,
-        OutboxMessage.locked_until < now,
-    )
     async with factory() as session:
+        now = now or await db_now(session)
+        expired = (
+            OutboxMessage.status == OutboxStatus.RUNNING,
+            or_(OutboxMessage.locked_until < now, OutboxMessage.locked_until.is_(None)),
+        )
         dead = await session.execute(
             update(OutboxMessage)
             .where(*expired, OutboxMessage.attempts >= max_attempts)
@@ -110,22 +131,23 @@ async def reclaim_expired(factory: SessionFactory, *, now: datetime, max_attempt
 async def claim(
     factory: SessionFactory,
     *,
-    now: datetime,
     lease_seconds: int,
+    now: datetime | None = None,
     ids: Sequence[str | uuid.UUID] | None = None,
     batch: int = OUTBOX_CLAIM_BATCH,
 ) -> list[ClaimedRow]:
     """Atomically move due ``pending`` rows (optionally only *ids*) to ``running``."""
-    conditions = [
-        OutboxMessage.status == OutboxStatus.PENDING,
-        OutboxMessage.next_attempt_at <= now,
-    ]
-    if ids is not None:
-        wanted = _parse_ids(ids)
-        if not wanted:
-            return []
-        conditions.append(OutboxMessage.id.in_(wanted))
+    wanted = _parse_ids(ids) if ids is not None else None
+    if wanted is not None and not wanted:
+        return []
     async with factory() as session:
+        now = now or await db_now(session)
+        conditions = [
+            OutboxMessage.status == OutboxStatus.PENDING,
+            OutboxMessage.next_attempt_at <= now,
+        ]
+        if wanted is not None:
+            conditions.append(OutboxMessage.id.in_(wanted))
         candidates = (
             select(OutboxMessage.id)
             .where(*conditions)
@@ -156,6 +178,7 @@ async def claim(
             .values(
                 status=OutboxStatus.RUNNING,
                 attempts=OutboxMessage.attempts + 1,
+                claim_seq=OutboxMessage.claim_seq + 1,
                 locked_until=now + timedelta(seconds=lease_seconds),
             )
             .returning(
@@ -165,9 +188,10 @@ async def claim(
                 OutboxMessage.payload,
                 OutboxMessage.tenant_id,
                 OutboxMessage.attempts,
+                OutboxMessage.claim_seq,
             )
             .execution_options(synchronize_session=False)
         )
-        rows = [ClaimedRow(*row) for row in result.all()]
+        rows = [ClaimedRow(*row, claimed_at=now) for row in result.all()]
         await session.commit()
     return rows

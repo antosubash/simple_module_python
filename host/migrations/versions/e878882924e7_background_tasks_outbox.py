@@ -37,6 +37,7 @@ def upgrade() -> None:
         sa.Column("tenant_id", sa.String(length=50), nullable=True),
         sa.Column("status", sa.String(length=20), nullable=False),
         sa.Column("attempts", sa.Integer(), nullable=False),
+        sa.Column("claim_seq", sa.Integer(), nullable=False),
         sa.Column("next_attempt_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("locked_until", sa.DateTime(timezone=True), nullable=True),
         sa.Column("last_error", sa.String(), nullable=True),

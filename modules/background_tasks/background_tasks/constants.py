@@ -130,9 +130,24 @@ class OutboxStatus(StrEnum):
 DEFAULT_OUTBOX_MAX_ATTEMPTS = 8
 DEFAULT_OUTBOX_SWEEP_INTERVAL_SECONDS = 30
 # How long a claimed row stays ``running`` before another worker may reclaim it.
-# Must exceed the slowest durable handler, or that handler runs twice (its DB
-# effects still land once — the late finisher's commit is fenced off).
+# Durable handlers are cut off ``outbox_lease_margin`` before it, so no run can
+# outlive its claim and overlap the rerun a reclaim would start.
 DEFAULT_OUTBOX_LEASE_SECONDS = 300
+OUTBOX_LEASE_MARGIN_MIN_SECONDS = 5.0
+
+
+def outbox_lease_margin(lease_seconds: float) -> float:
+    """Room left inside a lease after the handler's timeout: 10 %, at least 5 s.
+
+    Covers the delivered mark and commit that follow the handler.
+    """
+    return max(OUTBOX_LEASE_MARGIN_MIN_SECONDS, lease_seconds / 10)
+
+
+def max_outbox_handler_timeout(lease_seconds: float) -> float:
+    return lease_seconds - outbox_lease_margin(lease_seconds)
+
+
 OUTBOX_BACKOFF_BASE_SECONDS = 10
 OUTBOX_BACKOFF_CAP_SECONDS = 3600
 # Default batch for ``claim``; the dispatcher itself claims one row at a time.

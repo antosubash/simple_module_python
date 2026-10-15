@@ -10,7 +10,10 @@ transport protocol. ``background_tasks`` ships the transport.
 Handlers are called as ``await handler(event, ctx)`` where ``ctx`` is a
 :class:`DurableContext`. Delivery is at-least-once; a handler that writes only
 through ``ctx.db`` gets exactly-once *database* effects, because the transport
-commits that session in the same transaction that marks the delivery done.
+commits that session in the same transaction that marks the delivery done. The
+handler must therefore not commit ``ctx.db`` itself (the ``background_tasks``
+transport refuses it), and anything it does outside ``ctx.db`` is
+at-least-once and must be idempotent.
 """
 
 from __future__ import annotations
@@ -44,7 +47,8 @@ class DurableContext:
     """What a durable handler receives next to the event.
 
     ``db`` is an ``AsyncSession`` the transport commits together with marking
-    the delivery done — write through it and the effect lands exactly once.
+    the delivery done — write through it (flush, never commit) and the effect
+    lands exactly once.
     ``attempt`` is 1 on the first delivery and grows on each retry.
     """
 

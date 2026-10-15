@@ -104,13 +104,17 @@ class OutboxMessage(Base, table=True):  # ty: ignore[unsupported-base]
 
     Written in the publisher's transaction by ``OutboxTransport.enqueue``, so a
     rollback leaves no row. ``attempts`` is incremented when a worker claims the
-    row and doubles as the claim's fencing token: the worker marks the row
-    delivered only while ``attempts`` still equals what it claimed with.
+    row and counts against ``outbox_max_attempts``; an admin retry resets it.
+    ``claim_seq`` is incremented on every claim as well but never reset, and is
+    the claim's fencing token: the worker marks the row delivered only while
+    ``claim_seq`` still equals what it claimed with. Fencing on ``attempts``
+    would let a claim from before an admin retry match one taken after it.
 
     ``tenant_id`` is a plain column, not ``MultiTenantMixin``, for the same
     reason as ``TaskExecution``: the outbox is platform plumbing read across
     tenants by the dispatcher and the admin screen, and platform publishes
-    carry no tenant. The handler itself runs inside ``tenant_context(tenant_id)``.
+    carry no tenant. The handler runs inside ``tenant_context(tenant_id)``, or
+    ``all_tenants()`` for a platform publish.
     """
 
     __tablename__ = TABLE_OUTBOX
@@ -125,6 +129,7 @@ class OutboxMessage(Base, table=True):  # ty: ignore[unsupported-base]
         sa_column=Column(String(20), nullable=False, default=OutboxStatus.PENDING.value),
     )
     attempts: int = Field(default=0)
+    claim_seq: int = Field(default=0)
     next_attempt_at: datetime = Field(sa_type=AwareDateTime(), nullable=False)
     # End of the current claim's lease; NULL unless ``running``.
     locked_until: datetime | None = Field(default=None, sa_type=AwareDateTime())

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException, status
@@ -13,6 +12,7 @@ from sqlalchemy import delete, false, func, select, update
 from background_tasks.constants import OutboxStatus
 from background_tasks.contracts.outbox import OutboxItem, OutboxListResponse
 from background_tasks.models import OutboxMessage
+from background_tasks.outbox_clock import db_now
 
 if TYPE_CHECKING:
     from simple_module_db import RequestSession
@@ -108,7 +108,13 @@ class OutboxService:
         return row
 
     async def retry(self, message_id: uuid.UUID) -> OutboxItem:
-        """``dead`` → ``pending`` with the attempt count reset, delivered after commit."""
+        """``dead`` → ``pending`` with the attempt count reset, delivered after commit.
+
+        ``attempts`` is the retry budget and starts over; ``claim_seq`` (the
+        fencing token) is left alone, so a worker still holding a claim from
+        before the row died can never match the claim the retry leads to.
+        """
+        now = await db_now(self.db)
         result = await self.db.execute(
             update(OutboxMessage)
             .where(
@@ -119,7 +125,7 @@ class OutboxService:
             .values(
                 status=OutboxStatus.PENDING,
                 attempts=0,
-                next_attempt_at=datetime.now(UTC),
+                next_attempt_at=now,
                 locked_until=None,
             )
             .execution_options(synchronize_session=False)

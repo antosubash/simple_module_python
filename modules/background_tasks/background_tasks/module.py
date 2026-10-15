@@ -270,6 +270,10 @@ class BackgroundTasksModule(ModuleBase):
 
         bus = getattr(app.state.sm, "event_bus", None)
         if bus is not None:
+            drain = getattr(bus.durable_transport, "drain", None)
+            if drain is not None:
+                # Eager deliveries still running on this loop.
+                await drain()
             bus.durable_transport = None
         reset_worker_state()
         services = app.state.background_tasks

@@ -56,6 +56,7 @@ from background_tasks.constants import (
     DEFAULT_STUCK_SWEEP_INTERVAL_SECONDS,
     ENV_PREFIX,
     ENV_REDIS_URL,
+    max_outbox_handler_timeout,
 )
 
 _CELERY_RESTART = {"requires_restart": True, "group": "Celery"}
@@ -216,8 +217,26 @@ class BackgroundTasksSettings(BaseSettings):
     outbox_lease_seconds: int = Field(
         default=DEFAULT_OUTBOX_LEASE_SECONDS,
         ge=10,
+        le=86400,
         description="Seconds a claimed delivery may run before another worker reclaims it.",
     )
+    # Empty: the lease minus a safety margin (10 %, at least 5 s), the most allowed.
+    outbox_handler_timeout_seconds: int | None = Field(
+        default=None, ge=1, description="Seconds a durable handler may run per attempt."
+    )
+
+    @model_validator(mode="after")
+    def _handler_timeout_fits_the_lease(self) -> BackgroundTasksSettings:
+        """A handler outliving its lease would be reclaimed and run twice at once."""
+        timeout = self.outbox_handler_timeout_seconds
+        ceiling = max_outbox_handler_timeout(self.outbox_lease_seconds)
+        if timeout is not None and timeout > ceiling:
+            raise ValueError(
+                f"outbox_handler_timeout_seconds ({timeout}) must leave a safety margin "
+                f"inside outbox_lease_seconds ({self.outbox_lease_seconds}): at most "
+                f"{ceiling:g}. Raise the lease or lower the timeout."
+            )
+        return self
 
     @model_validator(mode="after")
     def _warn_on_legacy_redis_vars(self) -> BackgroundTasksSettings:
