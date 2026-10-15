@@ -56,7 +56,7 @@ async def place(self, data: OrderCreate) -> OrderOut:
 - The task runs as the tenant bound when you called `enqueue_after_commit`, not whatever is bound at commit time.
 - A publish that fails after the commit is logged, not raised: the transaction is already durable.
 
-The admin retry buttons follow the same rule — the new `pending` row commits first, then the task is sent (GH #452). An orphaned `pending` row that was never sent is visible and retryable; a task with no row is neither.
+The admin retry buttons follow the same rule — the new `pending` row commits first, then the task is sent (GH #452). If the send itself then fails, the new row is flipped to `failed` so the retry buttons can pick it up again; a task with no row is neither.
 
 ## Long-running tasks: heartbeats and stuck thresholds
 
@@ -125,6 +125,53 @@ Entry values are plain Celery [beat entries](https://docs.celeryq.dev/en/stable/
 | `make worker-docker` | Worker + beat services via `docker compose` — matches the prod image. |
 
 Beat persists its schedule (`celery.beat:PersistentScheduler`) so it survives restarts.
+
+The worker and beat read the same DB-backed settings the web process does: `scripts/run_worker.py` hydrates `BackgroundTasksSettings` from the database at boot exactly as the web lifespan does (`cls(**db_overrides)`: a stored value wins over the same field's environment variable, and the environment seeds only what the database leaves alone), so an admin-edited queue or time limit reaches the worker after a restart. Because the web process behaves identically, this adds no new trust boundary; still, treat write access to these settings as control of the workers. If the database cannot be read the worker starts from env and defaults and logs a warning.
+
+## Routing and queues
+
+A module may ship a light `<pkg>/task_config.py`. It is read **without importing `tasks.py`**, so it must not import heavy dependencies (and does not need celery):
+
+```python
+# invoices/task_config.py
+TASK_ROUTES = {"invoices.render_*": "heavy", "invoices.notify": {"queue": "mail"}}
+QUEUES = {"heavy", "mail"}  # queues this module's tasks run on; default {task_default_queue}
+BEAT_SCHEDULE = {...}  # optional; wins over tasks.BEAT_SCHEDULE for the same entry
+```
+
+`build_celery` merges `TASK_ROUTES` from every module in sorted package order (the first module wins a pattern clash, with a warning naming both) and sets `task_routes`; web and worker resolve identical routes. The `task_routes_override` setting (JSON `{pattern: queue-or-route-dict}`; values are restricted to queue names or dicts using only `queue`, `exchange`, `routing_key`, `priority`, and anything else is dropped with a logged error) is consulted before the module routes (Celery gets the router list `[override, modules]`, so an override glob beats a module glob or exact name), so an operator can re-route a task without a code change. The **Routes** table on the Workers admin page lists every effective pattern, its queue, and the module (or `override`) that set it.
+
+### Running a worker for a subset of modules
+
+A worker normally imports every module's `tasks.py`. To keep a light worker from importing a heavy module (torch, GDAL), restrict what it loads. These describe one worker process, so they are **environment variables only** (not settings fields, not stored in the database or shown in the admin UI; a stored value is ignored):
+
+| Env var | Meaning |
+|---|---|
+| `SM_BG_TASKS_WORKER_QUEUES=gpu,default` | import only modules whose `QUEUES` overlap |
+| `SM_BG_TASKS_INCLUDE_MODULES` | always import these packages |
+| `SM_BG_TASKS_EXCLUDE_MODULES` | never import these packages (wins over everything) |
+
+Order: exclude, then include, then the queue overlap; with all three empty every module loads. The filter covers both Celery autodiscovery and the eager beat-schedule import. `make worker` passes `-Q $SM_BG_TASKS_WORKER_QUEUES` when the variable is set, so the worker also only consumes those queues. Leave these unset on the web process and on beat: the web process only publishes (it needs every module's routes, which come from `task_config`, not `tasks.py`), and beat must see every schedule.
+
+A publisher that never imported a task can still enqueue it by name: `enqueue_after_commit(db, "reports.build", report_id)` sends it with `send_task`, routed by `task_config`.
+
+`make doctor` warns (`SM028`) when a module's `tasks.py` imports `torch`, `tensorflow`, `ultralytics`, `osgeo`, `rasterio`, `cv2` or `sklearn` at module level. Import them inside the task function instead.
+
+## Worker tuning
+
+Each field defaults to `None`, which keeps Celery's own default; all require a worker restart.
+
+| Field | Celery key |
+|---|---|
+| `visibility_timeout_seconds` | `broker_transport_options.visibility_timeout` |
+| `worker_max_tasks_per_child` | `worker_max_tasks_per_child` |
+| `worker_max_memory_per_child_kb` | `worker_max_memory_per_child` |
+| `task_reject_on_worker_lost` | `task_reject_on_worker_lost` |
+| `task_soft_time_limit` / `task_time_limit` | same |
+| `worker_concurrency` | `worker_concurrency` |
+| `SM_BG_TASKS_CELERY_OVERRIDES` (JSON object, **environment only**) | raw Celery conf keys applied last; its keys are logged at INFO. Never stored in or read from the database, and serializer / `accept_content` / `imports` / `include` / `worker_pool` / `*hijack*` / `security_*` keys are refused with a logged error |
+
+> **Redis and long tasks.** The tasks run with `acks_late`. On a Redis broker a message not acknowledged within the visibility timeout (Celery default: 1 hour) is redelivered, so a task that runs longer than that executes twice. Set `visibility_timeout_seconds` above your longest task.
 
 ## Routes
 
@@ -198,8 +245,9 @@ DB-backed; defaults are in `BackgroundTasksSettings`. Several are marked `requir
 | Field | Default | Notes |
 |---|---|---|
 | `broker_url` | `redis://localhost:6379/0` | restart required; rejected as `localhost` in production |
-| `result_backend` | `redis://localhost:6379/1` | restart required |
+| `result_backend` | `redis://localhost:6379/1` | restart required; `broker_url`/`result_backend` must use a plain scheme (`redis://`, `amqp://`, `db+sqlite://`): dotted or `module:Class` names are refused because Celery imports them |
 | `task_default_queue` | `"default"` | restart required |
+| `task_routes_override`, tuning fields | unset | restart required; see [Routing and queues](#routing-and-queues) and [Worker tuning](#worker-tuning) |
 | `task_always_eager` | `False` | runs tasks in-process (test mode) |
 | `task_eager_propagates` | `True` | re-raises eager-mode errors |
 | `stuck_after_seconds` | `300` | heartbeat-staleness threshold; a task's own `stuck_after` overrides it — see [Long-running tasks](#long-running-tasks-heartbeats-and-stuck-thresholds) |

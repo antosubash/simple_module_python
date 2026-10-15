@@ -5,7 +5,7 @@ the unique key is ``(token_hash, tenant_id)`` — hash first, so a lookup by
 hash alone is an index seek, and tenant in the key per SM024.
 
 Revision ID: 51b2058d8afd
-Revises: e5a8c1f27b94
+Revises: a659221c464b
 Create Date: 2026-10-15 09:49:09.602365
 """
 
@@ -17,7 +17,7 @@ from fastapi_users_db_sqlalchemy.generics import GUID
 
 # revision identifiers, used by Alembic.
 revision: str = "51b2058d8afd"
-down_revision: str | None = "e5a8c1f27b94"
+down_revision: str | None = "a659221c464b"
 branch_labels: str | Sequence[str] | None = ("api_tokens",)
 depends_on: str | Sequence[str] | None = None
 

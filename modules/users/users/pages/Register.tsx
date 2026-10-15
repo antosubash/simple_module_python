@@ -106,16 +106,15 @@ function Register() {
     );
   }
 
+  // A host can hide the entire reassurance by overriding this catalog key to empty.
+  const registrationNote = t(keys.users.register.bullet_close).trim();
   const intro = (
     <AuthIntro
       heading={t(keys.users.register.heading)}
       body={t(keys.users.register.intro)}
       checks={[
         t(keys.users.register.bullet_verification),
-        <>
-          {t(keys.users.register.bullet_close_prefix)}{' '}
-          <code className="font-mono text-[12.5px]">users.allow_signup</code>
-        </>,
+        ...(registrationNote ? [registrationNote] : []),
       ]}
     />
   );

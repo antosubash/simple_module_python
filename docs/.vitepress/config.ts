@@ -93,6 +93,7 @@ export default defineConfig({
             { text: "Project structure", link: "/guide/project-structure" },
             { text: "Configuration", link: "/guide/configuration" },
             { text: "Your first module", link: "/guide/first-module" },
+            { text: "OpenAPI & clients", link: "/guide/openapi-clients" },
           ],
         },
         {
@@ -141,6 +142,7 @@ export default defineConfig({
             { text: "Mixins", link: "/database/mixins" },
             { text: "Session lifecycle", link: "/database/sessions" },
             { text: "Migrations", link: "/database/migrations" },
+            { text: "Extensions and column types", link: "/database/extensions" },
           ],
         },
       ],

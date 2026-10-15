@@ -46,12 +46,21 @@ PATH_PUBLIC_NAMED: Final = "/public/{file_id}/{filename}"
 # or silently stripped by enough proxies that it cannot be relied on.
 PATH_FILES_BULK_DELETE: Final = "/files/bulk-delete"
 
+# Resumable / direct uploads (#454). ``PATH_UPLOAD`` is the one-shot multipart
+# form; these are the session flow for files too big for it.
+PATH_UPLOAD_SESSIONS: Final = "/uploads"
+PATH_UPLOAD_SESSION: Final = "/uploads/{upload_id}"
+PATH_UPLOAD_PART_URLS: Final = "/uploads/{upload_id}/part-urls"
+PATH_UPLOAD_PART: Final = "/uploads/{upload_id}/parts/{part_no}"
+PATH_UPLOAD_COMPLETE: Final = "/uploads/{upload_id}/complete"
+
 # ── Inertia page names ───────────────────────────────────────────────
 PAGE_BROWSE: Final = "FileStorage/Browse"
 
 # ── Database ─────────────────────────────────────────────────────────
 SCHEMA_NAME: Final = "file_storage"
 TABLE_STORED_FILE: Final = "file_storage_stored_file"
+TABLE_UPLOAD_SESSION: Final = "file_storage_upload_session"
 
 # ── i18n ─────────────────────────────────────────────────────────────
 LOCALE_NAMESPACE: Final = MODULE_NAME
@@ -93,6 +102,27 @@ class ErrorCode:
     NOT_FOUND: Final = "file_storage.not_found"
     BACKEND_ERROR: Final = "file_storage.backend_error"
     BAD_IMAGE: Final = "file_storage.bad_image"
+    QUOTA_EXCEEDED: Final = "file_storage.quota_exceeded"
+    DIRECT_UNSUPPORTED: Final = "file_storage.direct_upload_unsupported"
+    BAD_PART: Final = "file_storage.bad_part"
+    PARTS_MISMATCH: Final = "file_storage.parts_mismatch"
+    SIZE_MISMATCH: Final = "file_storage.size_mismatch"
+    SESSION_CLOSED: Final = "file_storage.upload_session_closed"
+
+
+class UploadStatus:
+    """Lifecycle of an ``UploadSession`` row."""
+
+    ACTIVE: Final = "active"
+    COMPLETED: Final = "completed"
+    ABORTED: Final = "aborted"
+
+
+class Task:
+    """Celery task names (``tasks.py``; only loaded when background_tasks is installed)."""
+
+    REAP_STALE_UPLOADS: Final = "file_storage.reap_stale_uploads"
+    COMPUTE_CHECKSUM: Final = "file_storage.compute_checksum"
 
 
 class I18nKey:
@@ -103,6 +133,12 @@ class I18nKey:
     ERR_BAD_TYPE: Final = "file_storage.errors.bad_type"
     ERR_BACKEND: Final = "file_storage.errors.backend_error"
     ERR_BAD_IMAGE: Final = "file_storage.errors.bad_image"
+    ERR_QUOTA: Final = "file_storage.errors.quota_exceeded"
+    ERR_DIRECT_UNSUPPORTED: Final = "file_storage.errors.direct_upload_unsupported"
+    ERR_BAD_PART: Final = "file_storage.errors.bad_part"
+    ERR_PARTS_MISMATCH: Final = "file_storage.errors.parts_mismatch"
+    ERR_SIZE_MISMATCH: Final = "file_storage.errors.size_mismatch"
+    ERR_SESSION_CLOSED: Final = "file_storage.errors.upload_session_closed"
 
 
 # ── Defaults ─────────────────────────────────────────────────────────
@@ -115,6 +151,22 @@ MULTIPART_OVERHEAD_BYTES: Final = 1024 * 1024
 DEFAULT_PRESIGN_TTL_SECONDS: Final = 300  # 5 minutes
 DEFAULT_CHUNK_SIZE: Final = 64 * 1024  # 64 KB
 SPOOL_MAX_SIZE_BYTES: Final = 10 * 1024 * 1024  # 10 MB before disk-spill
+
+# ── Resumable uploads (#454) ─────────────────────────────────────────
+MIB: Final = 1024 * 1024
+DEFAULT_DIRECT_UPLOAD_THRESHOLD_BYTES: Final = 64 * MIB
+DEFAULT_MAX_DIRECT_UPLOAD_BYTES: Final = 10 * 1024 * MIB  # 10 GiB
+DEFAULT_PART_SIZE_BYTES: Final = 16 * MIB
+# S3's hard ceiling; ``part_size`` is grown until the upload fits under it.
+MAX_UPLOAD_PARTS: Final = 10_000
+# S3 rejects non-final parts below 5 MiB.
+MIN_PART_SIZE_BYTES: Final = 5 * MIB
+DEFAULT_UPLOAD_SESSION_TTL_SECONDS: Final = 24 * 3600
+DEFAULT_UPLOAD_SESSION_RETENTION_DAYS: Final = 7
+# Headroom over ``part_size`` for the filesystem part PUT's body-limit rule.
+PART_BODY_SLACK_BYTES: Final = 64 * 1024
+# The directory under the filesystem root that holds in-flight parts.
+FS_MULTIPART_DIR: Final = ".multipart"
 
 # Shown where a file has no uploader at all — rows predating authenticated
 # uploads. The label is resolved server-side, so this is the only copy.

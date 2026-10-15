@@ -49,6 +49,9 @@ export interface BrowseProps {
   /** Null until an operator says what the bucket's ceiling is. */
   quota_bytes: number | null;
   max_file_size_bytes: number;
+  /** Files larger than this upload in resumable parts; null when the backend cannot. */
+  direct_upload_threshold_bytes: number | null;
+  max_direct_upload_bytes: number;
   /** Null means any type is accepted. */
   allowed_content_types: string[] | null;
 }

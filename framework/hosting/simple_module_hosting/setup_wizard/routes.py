@@ -64,8 +64,8 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=None)
-@router.get("/", response_model=None)
+@router.get("", response_model=None, include_in_schema=False)
+@router.get("/", response_model=None, include_in_schema=False)
 async def setup_index(
     request: Request, inertia: InertiaDep, translator: TranslatorDep
 ) -> InertiaResponse:

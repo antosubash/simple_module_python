@@ -26,6 +26,42 @@ _RESTART_DB = {"requires_restart": True, "group": "Database"}
 
 _RESTART_GUARD = {"requires_restart": True, "group": "Request guards"}
 
+_RESTART_API = {"requires_restart": True, "group": "API"}
+
+
+def _default_api_version() -> str:
+    """The host project's version, else ``0.0.0``.
+
+    This repo's host is the installed ``simple-module-host`` distribution. A
+    scaffolded host is ``package = false`` (never installed), so there is no
+    distribution to ask: read ``[project].version`` from its ``pyproject.toml``
+    under ``SM_PROJECT_ROOT`` (or the cwd) instead.
+    """
+    import tomllib
+    from importlib.metadata import PackageNotFoundError, version
+
+    from simple_module_core.dotenv import find_env_file
+
+    try:
+        return version("simple-module-host")
+    except PackageNotFoundError:
+        pass
+    # Same project-root convention as .env (SM_PROJECT_ROOT, else a bounded walk
+    # up from the cwd), so a CLI run from host/ finds the same project as the app.
+    root = find_env_file().parent
+    for candidate in (root / "host" / "pyproject.toml", root / "pyproject.toml"):
+        try:
+            project = tomllib.loads(candidate.read_text(encoding="utf-8")).get("project")
+        except (OSError, ValueError):  # missing/unreadable, bad UTF-8, bad TOML
+            continue
+        if not isinstance(project, dict):
+            continue
+        # The first file declaring a [project] is the host's: a dynamic version
+        # must not fall through to an unrelated (workspace-root) project's.
+        found = project.get("version")
+        return found if isinstance(found, str) and found else "0.0.0"
+    return "0.0.0"
+
 
 class HostSettings(BaseSettings):
     """DB-backed host configuration — defaults live here, overrides in DB."""
@@ -112,6 +148,15 @@ class HostSettings(BaseSettings):
     rate_limit_authenticated: str = Field(default="", json_schema_extra=_RESTART_GUARD)
     """Opt-in per-IP limit for signed-in traffic, same syntax. Blank (default)
     leaves authenticated requests unlimited."""
+
+    api_title: str = Field(default="SimpleModule", json_schema_extra=_RESTART_API)
+    """``info.title`` of the OpenAPI document (built once at boot)."""
+    api_version: str = Field(default_factory=_default_api_version, json_schema_extra=_RESTART_API)
+    """``info.version`` of the OpenAPI document; defaults to the host distribution's version."""
+    api_description: str = Field(default="", json_schema_extra=_RESTART_API)
+    openapi_public: bool = Field(default=False, json_schema_extra=_RESTART_API)
+    """Serve ``/api/openapi.json`` outside development, anonymously. Off by default:
+    the schema lists every endpoint, so exposing it is an operator decision."""
 
     db_pool_size: int = Field(default=10, json_schema_extra=_RESTART_DB)
     db_max_overflow: int = Field(default=20, json_schema_extra=_RESTART_DB)

@@ -30,6 +30,10 @@ from sqlalchemy.schema import SchemaItem
 from sqlmodel.sql.sqltypes import UTCDateTime
 
 from simple_module_db.base import all_module_bases
+from simple_module_db.extensions import (  # noqa: F401  (ensure_db_extensions re-exported)
+    ensure_db_extensions,
+    render_extension_type,
+)
 from simple_module_db.migration_portability import (
     iter_ops_recursive,
     render_boolean_default,
@@ -243,6 +247,8 @@ def render_item(type_, obj, autogen_context):
       SQL like ``WHERE status = 'ready'`` actually works against the live DB.
     * Renders ``true()``/``false()`` server defaults as ``sa.true()``/``sa.false()``
       instead of the dialect-specific ``sa.text('1')``/``sa.text('0')`` (GH #342).
+    * Renders ``LTree``/``TSVector`` through ``simple_module_db.types`` (with
+      the import) so one revision upgrades on Postgres and SQLite alike.
     * Adds the necessary imports for ``fastapi_users_db_sqlalchemy.generics``
       and ``geoalchemy2`` types (rendered by their own classes elsewhere) so
       the generated migration is importable.
@@ -262,6 +268,9 @@ def render_item(type_, obj, autogen_context):
         return f"sa.String(length={length})" if length is not None else "sa.String()"
     if isinstance(obj, UTCDateTime):  # includes our ``AwareDateTime`` subclass
         return "sa.DateTime(timezone=True)"
+
+    if (rendered := render_extension_type(obj, imports)) is not None:
+        return rendered
 
     if imports is not None and cls_module.startswith("sqlmodel"):
         imports.add("import sqlmodel")

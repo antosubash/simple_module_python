@@ -6,11 +6,17 @@ import { X } from 'lucide-react';
 
 import type { UploadJob } from '../upload-queue';
 
+export interface UploadActions {
+  cancel: (id: string) => void;
+  retry: (id: string) => void;
+  resume: (id: string) => void;
+  startOver: (id: string) => void;
+  dismiss: (id: string) => void;
+}
+
 interface Props {
   jobs: UploadJob[];
-  onCancel: (id: string) => void;
-  onRetry: (id: string) => void;
-  onDismiss: (id: string) => void;
+  actions: UploadActions;
 }
 
 /**
@@ -20,7 +26,9 @@ interface Props {
  * the two things people do while waiting — swept the progress bars away. Here
  * they survive both, which is what the card's own subtitle promises.
  */
-export function UploadsCard({ jobs, onCancel, onRetry, onDismiss }: Props) {
+export function UploadsCard({ jobs, actions }: Props) {
+  const { cancel: onCancel, retry: onRetry, resume: onResume } = actions;
+  const { startOver: onStartOver, dismiss: onDismiss } = actions;
   const { t } = useT();
   if (jobs.length === 0) return null;
 
@@ -46,7 +54,33 @@ export function UploadsCard({ jobs, onCancel, onRetry, onDismiss }: Props) {
             <span title={job.name} className="w-40 shrink-0 truncate sm:w-[190px]">
               {job.name}
             </span>
-            {job.status === 'error' ? (
+            {job.status === 'resumable' ? (
+              <>
+                <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                  {t(keys.file_storage.upload.resume_prompt, { percent: job.percent })}
+                </span>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-primary-700"
+                  onClick={() => onResume(job.id)}
+                >
+                  {t(keys.file_storage.upload.resume)}
+                </Button>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-muted-foreground"
+                  onClick={() => onStartOver(job.id)}
+                >
+                  {t(keys.file_storage.upload.start_over)}
+                </Button>
+                <DismissButton
+                  label={t(keys.file_storage.upload.dismiss)}
+                  onClick={() => onDismiss(job.id)}
+                />
+              </>
+            ) : job.status === 'error' ? (
               <>
                 <span title={failure} className="min-w-0 flex-1 truncate text-destructive">
                   {failure}

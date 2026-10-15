@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_core.body_limits import BodyLimitRegistry
+from simple_module_core.csp import CspSourceRegistry
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
@@ -18,6 +19,7 @@ from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.tenancy import TenantRole, tenant_role
 
 from file_storage import constants
+from file_storage.upload_support import choose_part_size
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -91,9 +93,11 @@ class FileStorageModule(ModuleBase):
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from file_storage.endpoints.api import router as api
         from file_storage.endpoints.public import router as public
+        from file_storage.endpoints.uploads import router as uploads
         from file_storage.endpoints.views import router as views
 
         api_router.include_router(api)
+        api_router.include_router(uploads)
         api_router.include_router(public)
         view_router.include_router(views)
 
@@ -188,6 +192,26 @@ class FileStorageModule(ModuleBase):
             ),
             methods={"POST"},
         )
+
+        # Filesystem parts are relayed through the app: one part at most, plus
+        # slack. (S3 parts never reach us — they go straight to the bucket.)
+        registry.add_regex(
+            constants.ROUTE_PREFIX_API + r"/uploads/[^/]+/parts/\d+$",
+            lambda app: (
+                choose_part_size(
+                    app.state.file_storage.settings.max_direct_upload_bytes,
+                    app.state.file_storage.settings.multipart_part_size_bytes,
+                )
+                + constants.PART_BODY_SLACK_BYTES
+            ),
+            methods={"PUT"},
+        )
+
+    def register_csp_sources(self, registry: CspSourceRegistry) -> None:
+        """Let the browser PUT multipart parts straight to the S3 endpoint."""
+        from file_storage.csp import connect_src_provider
+
+        registry.add_provider(connect_src_provider)
 
     def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
         registry.add(

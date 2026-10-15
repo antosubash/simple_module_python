@@ -13,6 +13,7 @@ from typing import Any
 
 from file_storage import constants
 from file_storage.backends import register_backend
+from file_storage.backends.s3_multipart import S3MultipartMixin
 from file_storage.contracts.service import (
     ConfigurationError,
     StorageBackendError,
@@ -26,7 +27,7 @@ _MISSING_S3_EXTRA = (
 )
 
 
-class S3Backend:
+class S3Backend(S3MultipartMixin):
     """S3-compatible object storage.
 
     Each operation opens a fresh ``aioboto3`` client context (cheap; the
@@ -38,7 +39,14 @@ class S3Backend:
     backend_id = constants.BackendId.S3
     supports_presigned_url = True
 
-    def __init__(self, *, bucket: str, region: str, client_kwargs: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        *,
+        bucket: str,
+        region: str,
+        client_kwargs: dict[str, Any],
+        public_endpoint_url: str = "",
+    ) -> None:
         try:
             import aioboto3
         except ImportError as exc:
@@ -48,6 +56,7 @@ class S3Backend:
         self.bucket = bucket
         self.region = region
         self.client_kwargs = client_kwargs
+        self.public_endpoint_url = public_endpoint_url
 
     def _client(self):
         return self._session.client("s3", **self.client_kwargs)
@@ -132,7 +141,7 @@ class S3Backend:
 
     async def presigned_get_url(self, key: str, ttl_seconds: int) -> str:
         try:
-            async with self._client() as client:
+            async with self._presign_client() as client:
                 return await client.generate_presigned_url(
                     "get_object",
                     Params={"Bucket": self.bucket, "Key": key},
@@ -200,4 +209,5 @@ def _build(settings: FileStorageSettings) -> S3Backend:
         bucket=settings.s3_bucket,
         region=settings.s3_region,
         client_kwargs=client_kwargs,
+        public_endpoint_url=settings.s3_public_endpoint_url,
     )

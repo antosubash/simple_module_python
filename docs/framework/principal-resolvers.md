@@ -49,7 +49,7 @@ A resolver MUST:
    and stashes the original URL in `session["next"]`.
 
 The chain runs on **every** request, including public paths (`/health`,
-`/openapi.json`, the login page itself). That lets a resolver attach
+`/api/openapi.json`, the login page itself). That lets a resolver attach
 `request.state.user` for telemetry even on unauthenticated routes. The
 unauthenticated response is suppressed for public paths regardless of
 resolver outcome — the chain populates the principal, public-path

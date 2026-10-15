@@ -9,13 +9,14 @@ with ``@shared_task(stuck_after=...)``.
 
 from __future__ import annotations
 
+import types
 import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from background_tasks import heartbeat, sync_db
 from background_tasks import task_heartbeat as heartbeat_mod
-from background_tasks.constants import TaskStatus
+from background_tasks.constants import TASK_STUCK_AFTER_ATTR, TaskStatus
 from background_tasks.models import TaskExecution
 from background_tasks.tasks import stuck_thresholds, sweep_stuck_tasks
 from celery import Celery, shared_task
@@ -134,6 +135,11 @@ class TestPerTaskThreshold:
     def test_reads_stuck_after_off_the_registry(self) -> None:
         registry = {LONG_JOB: long_job, TOUCHY_JOB: touchy_job, "x": object()}
         assert stuck_thresholds(registry) == {LONG_JOB: 3600, TOUCHY_JOB: 10}
+
+    def test_a_sub_second_threshold_is_not_truncated_to_zero(self) -> None:
+        """``int(0.4)`` is 0: every running row would be stuck the instant it started."""
+        task = types.SimpleNamespace(**{TASK_STUCK_AFTER_ATTR: 0.4})
+        assert stuck_thresholds({"quick": task}) == {"quick": 1}
 
     def test_a_longer_threshold_overrides_the_global_one(self, sync_sqlite) -> None:
         within = _running_row(task_name=LONG_JOB, heartbeat_age=120)

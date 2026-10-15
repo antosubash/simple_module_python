@@ -21,7 +21,7 @@ from simple_module_inertia import InertiaResponse
 router = APIRouter()
 
 
-@router.get("/", response_model=None)
+@router.get("/", response_model=None, include_in_schema=False)
 async def landing(request: Request, inertia: InertiaDep) -> InertiaResponse:
     """Public landing page — no auth required."""
     is_authenticated = getattr(request.state, "user", None) is not None
@@ -33,8 +33,8 @@ async def landing(request: Request, inertia: InertiaDep) -> InertiaResponse:
     )
 
 
-@router.get("/admin", response_model=None)
-@router.get("/admin/", response_model=None)
+@router.get("/admin", response_model=None, include_in_schema=False)
+@router.get("/admin/", response_model=None, include_in_schema=False)
 async def admin_overview(request: Request, inertia: InertiaDep) -> InertiaResponse:
     """Landing page for the admin section.
 

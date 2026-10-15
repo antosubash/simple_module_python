@@ -109,6 +109,9 @@ async def file_body_response(
 
     if parsed == UNSATISFIABLE:
         out["Content-Range"] = f"bytes */{size}"
+        # An explicit ``max-age`` would let a cache keep this error and replay it
+        # to later requests for the whole object.
+        out = {k: v for k, v in out.items() if k.lower() != "cache-control"}
         return Response(status_code=status.HTTP_416_RANGE_NOT_SATISFIABLE, headers=out)
 
     assert isinstance(parsed, ByteRange) and get_range is not None
