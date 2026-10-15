@@ -15,7 +15,6 @@ it on the way through, so its checksum starts null.
 
 from __future__ import annotations
 
-import logging
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
@@ -50,8 +49,6 @@ from file_storage.upload_support import (
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
-
-_logger = logging.getLogger(__name__)
 
 
 def _etag(value: str) -> str:

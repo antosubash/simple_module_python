@@ -102,14 +102,7 @@ async def create_session(
         ) from exc
     except FileTooLargeError as exc:
         limit = sessions.settings.max_direct_upload_bytes
-        raise _error(
-            t,
-            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            constants.ErrorCode.TOO_LARGE,
-            constants.I18nKey.ERR_TOO_LARGE,
-            max_size=format_bytes(limit),
-            _max_bytes=limit,
-        ) from exc
+        raise _too_large(limit, t) from exc
     except ContentTypeNotAllowedError as exc:
         raise _error(
             t,
@@ -118,12 +111,7 @@ async def create_session(
             constants.I18nKey.ERR_BAD_TYPE,
         ) from exc
     except QuotaExceededError as exc:
-        raise _error(
-            t,
-            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            constants.ErrorCode.QUOTA_EXCEEDED,
-            constants.I18nKey.ERR_QUOTA,
-        ) from exc
+        raise _quota(t) from exc
     return _out(session)
 
 
@@ -131,14 +119,47 @@ async def _open(sessions: UploadSessionService, upload_id: uuid.UUID, t) -> Uplo
     try:
         return await sessions.get_open(upload_id)
     except UploadNotFoundError as exc:
-        raise _error(
-            t,
-            status.HTTP_404_NOT_FOUND,
-            constants.ErrorCode.NOT_FOUND,
-            constants.I18nKey.ERR_NOT_FOUND,
-        ) from exc
+        raise _not_found(t) from exc
     except UploadClosedError as exc:
         raise _closed(t) from exc
+
+
+def _not_found(t) -> HTTPException:
+    return _error(
+        t,
+        status.HTTP_404_NOT_FOUND,
+        constants.ErrorCode.NOT_FOUND,
+        constants.I18nKey.ERR_NOT_FOUND,
+    )
+
+
+def _bad_part(t) -> HTTPException:
+    return _error(
+        t,
+        status.HTTP_400_BAD_REQUEST,
+        constants.ErrorCode.BAD_PART,
+        constants.I18nKey.ERR_BAD_PART,
+    )
+
+
+def _quota(t) -> HTTPException:
+    return _error(
+        t,
+        status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+        constants.ErrorCode.QUOTA_EXCEEDED,
+        constants.I18nKey.ERR_QUOTA,
+    )
+
+
+def _too_large(limit: int, t) -> HTTPException:
+    return _error(
+        t,
+        status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+        constants.ErrorCode.TOO_LARGE,
+        constants.I18nKey.ERR_TOO_LARGE,
+        max_size=format_bytes(limit),
+        _max_bytes=limit,
+    )
 
 
 def _closed(t) -> HTTPException:
@@ -159,12 +180,7 @@ async def get_session(
     try:
         session = await sessions.get(upload_id)
     except UploadNotFoundError as exc:
-        raise _error(
-            t,
-            status.HTTP_404_NOT_FOUND,
-            constants.ErrorCode.NOT_FOUND,
-            constants.I18nKey.ERR_NOT_FOUND,
-        ) from exc
+        raise _not_found(t) from exc
     return _out(session, await sessions.parts(session))
 
 
@@ -179,12 +195,7 @@ async def part_urls(
     try:
         urls, direct = await sessions.part_urls(session, body.parts)
     except InvalidPartError as exc:
-        raise _error(
-            t,
-            status.HTTP_400_BAD_REQUEST,
-            constants.ErrorCode.BAD_PART,
-            constants.I18nKey.ERR_BAD_PART,
-        ) from exc
+        raise _bad_part(t) from exc
     return PartUrlsOut(urls=urls, direct=direct)
 
 
@@ -200,12 +211,7 @@ async def put_part(
     try:
         part = await sessions.write_part(session, part_no, request.stream())
     except InvalidPartError as exc:
-        raise _error(
-            t,
-            status.HTTP_400_BAD_REQUEST,
-            constants.ErrorCode.BAD_PART,
-            constants.I18nKey.ERR_BAD_PART,
-        ) from exc
+        raise _bad_part(t) from exc
     return PartOut(no=part.no, etag=part.etag, size=part.size)
 
 
@@ -222,12 +228,7 @@ async def complete_session(
         session = await sessions.get(upload_id)
         out, created = await sessions.complete(session, {p.no: p.etag for p in body.parts})
     except UploadNotFoundError as exc:
-        raise _error(
-            t,
-            status.HTTP_404_NOT_FOUND,
-            constants.ErrorCode.NOT_FOUND,
-            constants.I18nKey.ERR_NOT_FOUND,
-        ) from exc
+        raise _not_found(t) from exc
     except UploadClosedError as exc:
         raise _closed(t) from exc
     except PartsMismatchError as exc:
@@ -241,21 +242,9 @@ async def complete_session(
         ) from exc
     except FileTooLargeError as exc:
         limit = sessions.settings.max_direct_upload_bytes
-        raise _error(
-            t,
-            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            constants.ErrorCode.TOO_LARGE,
-            constants.I18nKey.ERR_TOO_LARGE,
-            max_size=format_bytes(limit),
-            _max_bytes=limit,
-        ) from exc
+        raise _too_large(limit, t) from exc
     except QuotaExceededError as exc:
-        raise _error(
-            t,
-            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            constants.ErrorCode.QUOTA_EXCEEDED,
-            constants.I18nKey.ERR_QUOTA,
-        ) from exc
+        raise _quota(t) from exc
     except SizeMismatchError as exc:
         raise _error(
             t,
@@ -287,11 +276,6 @@ async def abort_session(
     try:
         session = await sessions.get(upload_id)
     except UploadNotFoundError as exc:
-        raise _error(
-            t,
-            status.HTTP_404_NOT_FOUND,
-            constants.ErrorCode.NOT_FOUND,
-            constants.I18nKey.ERR_NOT_FOUND,
-        ) from exc
+        raise _not_found(t) from exc
     await sessions.abort(session)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

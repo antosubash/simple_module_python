@@ -164,8 +164,6 @@ MIN_PART_SIZE_BYTES: Final = 5 * MIB
 DEFAULT_UPLOAD_SESSION_TTL_SECONDS: Final = 24 * 3600
 # Headroom over ``part_size`` for the filesystem part PUT's body-limit rule.
 PART_BODY_SLACK_BYTES: Final = 64 * 1024
-# Part URLs asked for in one call.
-MAX_PART_URLS_PER_REQUEST: Final = 100
 # The directory under the filesystem root that holds in-flight parts.
 FS_MULTIPART_DIR: Final = ".multipart"
 
