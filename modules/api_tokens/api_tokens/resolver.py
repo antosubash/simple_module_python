@@ -1,0 +1,145 @@
+"""The principal resolver: ``Authorization: Bearer smpat_…`` / ``smsk_…`` → principal.
+
+Appended to ``app.state.auth.principal_resolvers`` at startup. The ``users``
+and ``keycloak`` providers return ``None`` for these prefixes, which is what
+hands the request to this resolver.
+
+Per request: a regex check, one indexed lookup by hash (no cache, so a revoke
+is effective on the very next request), and for a personal token one primary
+key read of the owner with their roles. Everything that is not a usable token
+— unknown, revoked, expired, an inactive or disabled owner — is ``None``,
+which the middleware turns into a 401.
+"""
+
+from __future__ import annotations
+
+import logging
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+from auth.contracts.schemas import UserContext
+from auth.contracts.tokens import AUTH_KIND_PAT, AUTH_KIND_SERVICE, is_api_token
+from simple_module_db import ALL_TENANTS_OPTION
+from sqlalchemy import or_, select, update
+from sqlalchemy.orm import noload, selectinload
+from starlette.requests import Request
+
+from api_tokens.constants import (
+    FORBIDDEN_SERVICE_ROLES,
+    LAST_USED_WRITE_INTERVAL_SECONDS,
+    TokenKind,
+)
+from api_tokens.models import ApiToken
+from api_tokens.tokens import hash_token, is_well_formed
+
+logger = logging.getLogger(__name__)
+
+SERVICE_PRINCIPAL_PREFIX = "svc:"
+"""Service principals are ``svc:<token id>``: not a user UUID, so they hold no
+direct grants and can never be mistaken for an account."""
+
+
+def _bearer(request: Request) -> str | None:
+    header = request.headers.get("authorization", "")
+    if not header.startswith("Bearer "):
+        return None
+    credential = header[7:]
+    if not is_api_token(credential) or not is_well_formed(credential):
+        return None
+    return credential
+
+
+def _usable(token: ApiToken, now: datetime) -> bool:
+    return token.revoked_at is None and token.expires_at > now
+
+
+async def _personal(db: Any, token: ApiToken) -> UserContext | None:
+    from users.models import User
+
+    if token.owner_user_id is None:
+        return None
+    stmt = (
+        select(User)
+        .where(User.id == token.owner_user_id)
+        .options(selectinload(User.roles), noload(User.oauth_accounts))
+    )
+    user = (await db.execute(stmt)).scalar_one_or_none()
+    if user is None or not user.is_active or user.disabled_at is not None:
+        return None
+    return UserContext.from_user(user, auth_kind=AUTH_KIND_PAT, scopes=list(token.scopes))
+
+
+def _service(token: ApiToken) -> UserContext:
+    return UserContext(
+        id=f"{SERVICE_PRINCIPAL_PREFIX}{token.id}",
+        email="",
+        name=token.name,
+        # Refused at creation; dropped here too so a hand-edited row cannot
+        # turn a service key into an admin.
+        roles=[r for r in token.roles if r not in FORBIDDEN_SERVICE_ROLES],
+        tenant_id=token.tenant_id,
+        auth_kind=AUTH_KIND_SERVICE,
+        scopes=list(token.scopes),
+    )
+
+
+async def touch_last_used(app: Any, token: ApiToken, now: datetime) -> None:
+    """Record use at most once per interval, in its own short transaction.
+
+    The ``WHERE`` repeats the staleness test, so concurrent requests on one
+    token race to a single write rather than one each. ``updated_at`` is set
+    to itself: it would otherwise be bumped by its ``onupdate`` and stop
+    meaning "last edited". A failure here never fails the request.
+    """
+    cutoff = now - timedelta(seconds=LAST_USED_WRITE_INTERVAL_SECONDS)
+    if token.last_used_at is not None and token.last_used_at > cutoff:
+        return
+    stmt = (
+        update(ApiToken)
+        .where(
+            ApiToken.id == token.id,
+            or_(ApiToken.last_used_at.is_(None), ApiToken.last_used_at <= cutoff),
+        )
+        .values(last_used_at=now, updated_at=ApiToken.updated_at)
+        .execution_options(**{ALL_TENANTS_OPTION: True})
+    )
+    try:
+        async with app.state.sm.db.session_factory() as db:
+            await db.execute(stmt)
+            await db.commit()
+    except Exception:
+        logger.warning("api_tokens: could not record last use of %s", token.id, exc_info=True)
+
+
+async def resolve_api_token(request: Request) -> UserContext | None:
+    """``PrincipalResolver`` for ``api_tokens`` credentials. Never raises."""
+    credential = _bearer(request)
+    if credential is None:
+        return None
+    now = datetime.now(UTC)
+    app = request.app
+    try:
+        async with app.state.sm.db.session_factory() as db:
+            stmt = (
+                select(ApiToken)
+                .where(ApiToken.token_hash == hash_token(credential))
+                .execution_options(**{ALL_TENANTS_OPTION: True})
+            )
+            token = (await db.execute(stmt)).scalar_one_or_none()
+            if token is None or not _usable(token, now):
+                return None
+            if token.kind == TokenKind.PERSONAL:
+                principal = await _personal(db, token)
+            elif token.kind == TokenKind.SERVICE:
+                principal = _service(token)
+            else:
+                principal = None
+    except Exception:
+        logger.exception("api_tokens: token lookup failed; treating as unauthenticated")
+        return None
+    if principal is not None:
+        await touch_last_used(app, token, now)
+    return principal
+
+
+__all__ = ["SERVICE_PRINCIPAL_PREFIX", "resolve_api_token", "touch_last_used"]

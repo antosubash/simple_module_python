@@ -1,0 +1,10 @@
+{
+  "extends": "@simple-module-py/tsconfig/base.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./api_tokens/*"],
+      "@simple-module-py/ui/*": ["../../packages/ui/src/*"]
+    }
+  },
+  "include": ["api_tokens/**/*.ts", "api_tokens/**/*.tsx"]
+}
