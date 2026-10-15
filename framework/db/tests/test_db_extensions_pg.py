@@ -61,6 +61,18 @@ def test_ensure_db_extensions_is_idempotent(pg_engine):
         assert conn.execute(sa.text("SELECT 1 FROM pg_extension WHERE extname='ltree'")).scalar()
 
 
+def test_hyphenated_extension_creates(pg_engine):
+    class _Mod(ModuleBase):
+        meta = ModuleMeta(name="uuidmod")
+
+        def db_extensions(self) -> list[str]:
+            return ["uuid-ossp"]
+
+    with pg_engine.begin() as conn:
+        assert ensure_db_extensions(conn, [_Mod()]) == ["uuid-ossp"]
+        assert conn.execute(sa.text("SELECT uuid_generate_v4()")).scalar()
+
+
 def test_ltree_and_tsvector_queries(pg_engine):
     md = _metadata()
     table = md.tables["dbext_node"]

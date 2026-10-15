@@ -34,11 +34,28 @@ def test_sqlite_raises_naming_module_and_extensions():
     assert "ltree" in str(exc.value)
 
 
-@pytest.mark.parametrize("bad", ["LTree", "1abc", 'x"; DROP', "a-b", ""])
+@pytest.mark.parametrize("bad", ["LTree", "X", "1abc", 'x"; DROP', 'bad"name', "x;drop", "-a", ""])
 def test_invalid_extension_name_is_rejected(bad: str):
     engine = sa.create_engine("sqlite://")
     with engine.connect() as conn, pytest.raises(ValueError, match="invalid database extension"):
         ensure_db_extensions(conn, [_module("m", bad)])
+
+
+def test_hyphenated_extension_name_is_accepted_and_quoted(monkeypatch):
+    from alembic import context
+    from simple_module_db.extensions import declared_extensions
+
+    assert declared_extensions([_module("m", "uuid-ossp")]) == {"uuid-ossp": ["m"]}
+
+    emitted: list[str] = []
+
+    class _Ctx:
+        dialect = type("D", (), {"name": "postgresql"})()
+
+    monkeypatch.setattr(context, "get_context", lambda: _Ctx())
+    monkeypatch.setattr(context, "execute", emitted.append)
+    ensure_db_extensions(None, [_module("m", "uuid-ossp")])
+    assert emitted == ['CREATE EXTENSION IF NOT EXISTS "uuid-ossp"']
 
 
 def test_types_are_text_on_sqlite_and_native_on_postgres():

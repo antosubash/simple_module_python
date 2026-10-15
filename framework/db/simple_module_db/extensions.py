@@ -20,7 +20,7 @@ from simple_module_db.types import LTree, TSVector
 
 logger = logging.getLogger(__name__)
 
-EXTENSION_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
+EXTENSION_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*$")
 
 
 class UnsupportedDatabaseError(RuntimeError):

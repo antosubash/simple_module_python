@@ -14,7 +14,7 @@ class TaxonomyModule(ModuleBase):
         return ["ltree"]
 ```
 
-Names must match `^[a-z][a-z0-9_]*$`. `host/migrations/env.py` (and the
+Names must match `^[a-z][a-z0-9_-]*$`. `host/migrations/env.py` (and the
 scaffolded copy) calls `ensure_db_extensions(connection, modules)` after
 configuring Alembic and before the transaction that runs revisions, so a
 revision that adds an `ltree` column finds the extension installed. The setup

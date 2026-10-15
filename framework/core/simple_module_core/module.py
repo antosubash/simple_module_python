@@ -282,7 +282,7 @@ class ModuleBase(ABC):
     def db_extensions(self) -> list[str]:
         """Postgres extensions this module needs (``["ltree", "pg_trgm"]``).
 
-        Names match ``^[a-z][a-z0-9_]*$``. ``ensure_db_extensions`` creates them
+        Names match ``^[a-z][a-z0-9_-]*$``. ``ensure_db_extensions`` creates them
         before migrations run; on SQLite that raises (doctor SM029 warns early).
         """
         return []
