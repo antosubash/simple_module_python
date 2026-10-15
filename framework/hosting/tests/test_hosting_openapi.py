@@ -130,3 +130,29 @@ def test_default_api_version_reads_scaffolded_host_pyproject(
     assert host_settings._default_api_version() == "4.5.6"
     monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path / "nope"))
     assert host_settings._default_api_version() == "0.0.0"
+
+
+def test_default_api_version_survives_bad_pyproject(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Unreadable/dynamic host pyproject never raises and never borrows another's version."""
+    from importlib.metadata import PackageNotFoundError
+
+    from simple_module_hosting import host_settings
+
+    def missing(_name: str) -> str:
+        raise PackageNotFoundError
+
+    monkeypatch.setattr("importlib.metadata.version", missing)
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+    (tmp_path / "host").mkdir()
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "root"\nversion = "9.9.9"\n')
+
+    (tmp_path / "host" / "pyproject.toml").write_bytes(b"\xff\xfe not utf8")
+    assert host_settings._default_api_version() == "9.9.9"  # unreadable: skipped
+    (tmp_path / "host" / "pyproject.toml").write_text("[project\n")
+    assert host_settings._default_api_version() == "9.9.9"  # invalid TOML: skipped
+    (tmp_path / "host" / "pyproject.toml").write_text(
+        '[project]\nname = "h"\ndynamic = ["version"]\n'
+    )
+    assert host_settings._default_api_version() == "0.0.0"  # dynamic: not the root's
