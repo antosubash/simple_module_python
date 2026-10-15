@@ -85,6 +85,11 @@ for tenant_id in tenant_ids:
 A task or asyncio task started inside `all_tenants()` inherits the bypass
 (ordinary contextvar semantics).
 
+`no_tenant()` is the opposite end: no tenant bound and outside any
+`all_tenants()`, so strict mode fails closed. Use it to replay work for code
+that had no tenant (the durable outbox delivers an event published from a
+public route this way), whatever scope the replaying code itself is in.
+
 ## Work deferred past the request
 
 `db.on_commit(...)` callbacks and FastAPI `BackgroundTasks` run inside the
@@ -166,6 +171,12 @@ runs as that tenant. Request code cannot enqueue as another tenant (an explicit
 `sm_tenant_id` header must match the bound one); platform code with no tenant
 bound may name one. Beat tasks have no request: wrap cross-tenant work in
 `all_tenants()`, or loop over tenants with `tenant_context()`.
+
+Durable events (`publish_durable`) record the publisher's scope the same way:
+tenant, platform (published inside `all_tenants()`), or unscoped (neither).
+An unscoped event's handler runs with no tenant bound — never as the platform
+— so a public webhook's payload cannot drive a cross-tenant read. See
+[background_tasks](../modules/background_tasks.md).
 
 The worker never builds the app, so `background_tasks.sync_db` attaches the
 same listeners to its own session class and reads `multi_tenant` from the host

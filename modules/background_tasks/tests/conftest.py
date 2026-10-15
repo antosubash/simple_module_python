@@ -113,3 +113,30 @@ def view_only(app) -> None:
     allowed to sweep it.
     """
     app.state.sm.permissions._role_map_cache = {"admin": [PERM_VIEW]}
+
+
+# ── Durable outbox (GH #459) ────────────────────────────────────
+
+
+@pytest.fixture
+def outbox_rows(app):
+    """Every ``OutboxMessage`` currently in the database, read fresh."""
+    from background_tasks.models import OutboxMessage
+
+    async def _rows() -> list[OutboxMessage]:
+        async with app.state.sm.db.session_factory() as session:
+            return list((await session.execute(select(OutboxMessage))).scalars())
+
+    return _rows
+
+
+@pytest.fixture
+def effect_names(app):
+    """Task names of the ``TaskExecution`` rows test handlers write as their DB effect."""
+
+    async def _names() -> list[str]:
+        async with app.state.sm.db.session_factory() as session:
+            rows = (await session.execute(select(TaskExecution.task_name))).scalars()
+            return sorted(n for n in rows if n.startswith("effect:"))
+
+    return _names

@@ -128,6 +128,24 @@ def all_tenants() -> Generator[None]:
         current_tenant_id.reset(tenant_token)
 
 
+@contextmanager
+def no_tenant() -> Generator[None]:
+    """Run the block with no tenant bound and outside any ``all_tenants()``.
+
+    The scope of code that has not resolved a tenant: under strict isolation a
+    tenant-scoped query fails closed. For work replayed later on behalf of such
+    code (a durable event published from a public route), so it runs with no
+    more reach than its publisher had, whatever scope the replaying code is in.
+    """
+    tenant_token = current_tenant_id.set(None)
+    bypass_token = _all_tenants.set(False)
+    try:
+        yield
+    finally:
+        _all_tenants.reset(bypass_token)
+        current_tenant_id.reset(tenant_token)
+
+
 def bind_current_tenant[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
     """Wrap ``fn`` so it runs as the tenant bound *now*, whenever it is called.
 
@@ -197,5 +215,6 @@ __all__ = [
     "is_all_tenants",
     "is_valid_tenant_id",
     "missing_tenant_error",
+    "no_tenant",
     "tenant_context",
 ]

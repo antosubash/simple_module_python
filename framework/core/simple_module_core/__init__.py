@@ -18,6 +18,11 @@ from simple_module_core.discovery import (
     select_auth_provider,
     topological_sort,
 )
+from simple_module_core.durable_events import (
+    DurableContext,
+    DurableDeliveryUnavailable,
+    DurableTransport,
+)
 from simple_module_core.events import Event, EventBus
 from simple_module_core.exceptions import (
     CircularDependencyError,
@@ -64,6 +69,9 @@ __all__ = [
     "DesignPack",
     "DesignPackRegistry",
     "DiagnosticLevel",
+    "DurableContext",
+    "DurableDeliveryUnavailable",
+    "DurableTransport",
     "Event",
     "EventBus",
     "FeatureFlagDefinition",

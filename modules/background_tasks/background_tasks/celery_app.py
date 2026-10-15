@@ -25,7 +25,11 @@ from simple_module_core.discovery import ENTRY_POINT_GROUP
 
 from background_tasks.config_guards import celery_overrides_from_env
 from background_tasks.constants import (
+    BEAT_PURGE_OLD,
+    BEAT_SWEEP_OUTBOX,
+    BEAT_SWEEP_STUCK,
     INTERNAL_TASK_PURGE_OLD,
+    INTERNAL_TASK_SWEEP_OUTBOX,
     INTERNAL_TASK_SWEEP_STUCK,
     MODULE_NAME,
 )
@@ -132,17 +136,23 @@ def build_celery(settings: BackgroundTasksSettings) -> Celery:
     packages = select_packages(all_packages, configs, settings)
     task_routes, _ = merge_routes(configs, settings.task_routes_override)
 
-    # The two internal entries always ship; modules contribute more via their
+    # The internal entries always ship; modules contribute more via their
     # own ``tasks.BEAT_SCHEDULE``. ``setdefault`` keeps the built-ins authoritative
     # if a module reuses one of their entry names. See GH #199.
     beat_schedule = {
-        "background-tasks-sweep-stuck": {
+        BEAT_SWEEP_STUCK: {
             "task": INTERNAL_TASK_SWEEP_STUCK,
             "schedule": schedule(settings.stuck_sweep_interval_seconds),
         },
-        "background-tasks-purge-old": {
+        BEAT_PURGE_OLD: {
             "task": INTERNAL_TASK_PURGE_OLD,
             "schedule": schedule(settings.purge_interval_seconds),
+        },
+        # Delivers durable events whose post-commit dispatch never ran (a crash
+        # between commit and publish) and retries failed ones (GH #459).
+        BEAT_SWEEP_OUTBOX: {
+            "task": INTERNAL_TASK_SWEEP_OUTBOX,
+            "schedule": schedule(settings.outbox_sweep_interval_seconds),
         },
     }
     builtin_beat = frozenset(beat_schedule)

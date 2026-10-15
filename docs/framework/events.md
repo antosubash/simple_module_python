@@ -1,6 +1,6 @@
 # Events
 
-`EventBus` is an **in-process** pub/sub mechanism. It's not a message broker — no persistence, no retries, no cross-process delivery. For durable async work, use the `background_tasks` module (Celery) or publish a domain event and have a handler enqueue a Celery task. To tell *other worker processes* that something they cached is stale, use the [invalidation bus](/framework/invalidation) instead — same shape, deliberately narrower contract.
+`EventBus` is an **in-process** pub/sub mechanism. `publish` is not a message broker — no persistence, no retries, no cross-process delivery. For events that must be handled even across a crash, use [durable delivery](#durable-delivery) (`subscribe_durable` / `publish_durable`), which the `background_tasks` module backs with an outbox. To tell *other worker processes* that something they cached is stale, use the [invalidation bus](/framework/invalidation) instead — same shape, deliberately narrower contract.
 
 Events are the preferred way for modules to react to **other modules'** actions without creating a direct code dependency.
 
@@ -125,7 +125,7 @@ If you want a handler to see several event types, subscribe it to each one expli
 - **No persistence.** A crash mid-publish loses undelivered events.
 - **Handler failures are isolated.** `publish` gathers with `return_exceptions=True`: each handler exception is logged and the publish itself never raises.
 
-If you need durable delivery across processes, handlers should enqueue a Celery task:
+If you need durable delivery across processes, use [durable delivery](#durable-delivery) below. The older pattern — a handler that enqueues a Celery task — still works, but loses the event if the process dies between the commit and the enqueue:
 
 ```python
 def register_event_handlers(self, bus: EventBus) -> None:
@@ -137,6 +137,59 @@ async def _enqueue_invoice(self, event: OrderPlaced) -> None:
 
     create_invoice_task.delay(event.order_id)
 ```
+
+## Durable delivery
+
+```python
+from simple_module_core import DurableContext
+
+
+def register_event_handlers(self, bus: EventBus, app=None) -> None:
+    bus.subscribe_durable(OrderPlaced, create_invoice)  # name defaults to the import path
+
+
+async def create_invoice(event: OrderPlaced, ctx: DurableContext) -> None:
+    ctx.db.add(Invoice(order_id=event.order_id))
+
+
+# publisher, inside its transaction:
+await bus.publish_durable(OrderPlaced(order_id=order.id, ...), db)
+```
+
+- `publish_durable(event, db)` hands the event to `bus.durable_transport`, which
+  writes it in `db`'s transaction: a rollback means it was never published. With
+  no transport installed it raises `DurableDeliveryUnavailable` rather than
+  quietly falling back to in-process delivery. It does **not** call `subscribe`
+  handlers; publish separately if you want both.
+- Handlers are called later, by a worker, as `await handler(event, ctx)`.
+  Delivery is **at-least-once** with exponential backoff; database writes made
+  through `ctx.db` commit with the delivery record and so land **exactly once**
+  — provided the handler never commits `ctx.db` itself (the transport refuses
+  that with `HandlerCommitError`; flush instead). Everything else a handler does
+  (HTTP calls, emails, other sessions) may happen more than once: make it
+  idempotent. Savepoints (`ctx.db.begin_nested()`) are allowed. Each attempt
+  has a timeout just inside the transport's lease; handlers must not block the
+  event loop (use `run_in_executor` for blocking work) or swallow
+  `CancelledError`. `ctx.attempt` counts from 1. The handler runs in the scope
+  it was published in: the publisher's tenant; `all_tenants()` for an event
+  published inside `all_tenants()`; or, for one published with no tenant bound
+  at all, no tenant (strict isolation fails closed, as it would have for the
+  publisher).
+- A durable handler may itself `publish_durable(..., ctx.db)`; the new event
+  commits with the handler's delivery.
+- The handler `name=` (default `f"{handler.__module__}.{handler.__qualname__}"`)
+  keys delivery state, so keep it stable across deploys.
+- Events must be `@dataclass` classes serialisable to JSON; `UUID`, `datetime`,
+  `Enum`, `Decimal` and nested dataclasses round-trip. This is checked when you
+  subscribe.
+- The worker builds its own bus by calling every module's
+  `register_event_handlers(bus, None)` — subscribe durably *before* any early
+  `return` taken when `app is None`.
+
+`DurableTransport` is a protocol (`async enqueue(event, handler_names, db)`), so
+another module could provide one; `background_tasks` is the shipped
+implementation — see [its docs](/modules/background_tasks#durable-events-outbox)
+for the outbox, retries, the admin page and the worker side.
 
 ## Testing
 

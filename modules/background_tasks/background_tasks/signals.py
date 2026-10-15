@@ -35,7 +35,11 @@ from background_tasks._signal_support import (
     task_name_of,
     upsert_by_celery_id,
 )
-from background_tasks.constants import DEFAULT_QUEUE, TaskStatus
+from background_tasks.constants import (
+    DEFAULT_QUEUE,
+    INTERNAL_TASK_SWEEP_OUTBOX,
+    TaskStatus,
+)
 from background_tasks.contracts.events import TaskFailed
 from background_tasks.log_context import signal_task_finished, signal_task_started
 from background_tasks.models import TaskExecution
@@ -50,6 +54,12 @@ from background_tasks.tenant_context import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Beat ticks that fire every few seconds and are a no-op almost every time;
+# recording each run buried real work (QA, GH #459). Only a run that went wrong
+# is worth a row.
+_UNRECORDED_WHEN_QUIET = frozenset({INTERNAL_TASK_SWEEP_OUTBOX})
+_QUIET_STATUSES = frozenset({None, TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.SUCCESS})
 
 
 def _apply(
@@ -68,6 +78,11 @@ def _apply(
     ``tenant_id`` (the message's) is written only when known, so a signal
     whose message carries no tenant never blanks a row already stamped.
     """
+    if (
+        defaults.get("task_name") in _UNRECORDED_WHEN_QUIET
+        and defaults.get("status") in _QUIET_STATUSES
+    ):
+        return None
     if tenant_id:
         defaults = {**defaults, "tenant_id": tenant_id}
     try:

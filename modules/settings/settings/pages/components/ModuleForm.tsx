@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FieldMeta } from './FieldInput';
 import { ModuleFieldRow } from './ModuleFieldRow';
 import { TestConnectionButton } from './TestConnectionButton';
+import { splitValidationErrors } from './validation-errors';
 
 export type ModuleView = {
   module_name: string;
@@ -44,6 +45,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [formErrors, setFormErrors] = useState<string[]>([]);
 
   // Reset the edit buffer whenever the underlying module changes (package
   // switch, or server-reloaded props after a save/reset).
@@ -82,6 +84,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
     setBusy(true);
     setSaved(false);
     setErrors({});
+    setFormErrors([]);
     const changed: Record<string, unknown> = {};
     for (const name of modifiedFields) changed[name] = values[name];
     const resp = await fetch(`/api/settings/modules/${m.package}`, {
@@ -91,12 +94,12 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
     });
     if (resp.status === 422) {
       const body = await resp.json();
-      const fieldErrs: Record<string, string> = {};
-      for (const d of body.detail ?? []) {
-        if (d.loc?.length) fieldErrs[d.loc[d.loc.length - 1]] = d.msg;
-      }
-      setErrors(fieldErrs);
-    } else if (resp.ok) {
+      const split = splitValidationErrors(body.detail);
+      setErrors(split.fields);
+      setFormErrors(split.form);
+    } else if (!resp.ok) {
+      setFormErrors([t(keys.settings.modules_form.save_failed)]);
+    } else {
       // Keeping the form mounted lets the confirmation remain visible instead
       // of being discarded by an immediate Inertia reload.
       setBaseline({ ...values });
@@ -141,6 +144,20 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
           </Button>
         </div>
       </header>
+
+      {formErrors.length > 0 && (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
+        >
+          <p className="font-medium">{t(keys.settings.modules_form.validation_failed)}</p>
+          <ul className="mt-1 list-disc pl-5">
+            {formErrors.map((msg) => (
+              <li key={msg}>{msg}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <Card className="flex flex-1 flex-col gap-4 border-border p-6">
         {/* No inner scroller: the card grows and the page scrolls, which is
