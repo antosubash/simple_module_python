@@ -21,6 +21,12 @@ describe('AuthSplitAside', () => {
       screen.getByRole('heading', { name: 'One admin surface for every module you install.' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Users, permissions, settings, files.')).toBeInTheDocument();
+    // On a phone the pitch and footer are hidden; only the brand row precedes the form.
+    expect(screen.getByRole('heading').parentElement).toHaveClass('hidden', 'lg:flex');
+    expect(screen.getByText(new RegExp(`© ${new Date().getFullYear()} Acme`))).toHaveClass(
+      'hidden',
+      'lg:inline',
+    );
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
     expect(screen.getByText(new RegExp(`© ${new Date().getFullYear()} Acme`))).toBeInTheDocument();
   });

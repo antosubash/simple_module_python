@@ -37,6 +37,27 @@ from simple_module_test.redis_server import redis_server  # noqa: F401
 from simple_module_test.tenant_client import tenant_client  # noqa: F401
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "postgres: needs a PostgreSQL test database (SM_TEST_DATABASE_URL=postgresql+...)",
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Skip ``@pytest.mark.postgres`` tests unless the test database is Postgres."""
+    from simple_module_test.database import database_is_postgres
+
+    if database_is_postgres():
+        return
+    skip = pytest.mark.skip(
+        reason="needs Postgres: set SM_TEST_DATABASE_URL=postgresql+asyncpg://..."
+    )
+    for item in items:
+        if "postgres" in item.keywords:
+            item.add_marker(skip)
+
+
 def _bootstrap_eager_celery() -> None:
     """Register a process-wide eager Celery app before any test runs.
 

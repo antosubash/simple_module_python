@@ -26,6 +26,10 @@ def database_url_for_tests() -> str:
     return os.environ.get(TEST_DATABASE_ENV) or SQLITE_MEMORY
 
 
+def database_is_postgres() -> bool:
+    return database_url_for_tests().startswith("postgresql")
+
+
 def is_sqlite(url: str) -> bool:
     return url.startswith("sqlite")
 
@@ -41,6 +45,15 @@ async def reset_schema(engine: Any) -> None:
     async with engine.begin() as conn:
         await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
         await conn.execute(text("CREATE SCHEMA public"))
+        # The drop took the installed extensions with it; modules' models need them.
+        await conn.run_sync(_create_declared_extensions)
+
+
+def _create_declared_extensions(sync_conn: Any) -> None:
+    from simple_module_core.discovery import discover_modules
+    from simple_module_db.extensions import ensure_db_extensions
+
+    ensure_db_extensions(sync_conn, discover_modules())
 
 
 # The test the schema was last emptied for. On SQLite every engine is its own
@@ -70,6 +83,7 @@ __all__ = [
     "SQLITE_MEMORY",
     "TEST_DATABASE_ENV",
     "begin_test",
+    "database_is_postgres",
     "database_url_for_tests",
     "init_db_kwargs",
     "is_sqlite",
