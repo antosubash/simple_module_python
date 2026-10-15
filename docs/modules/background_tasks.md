@@ -229,7 +229,7 @@ How it is delivered:
   `dead`. A row whose handler name or event type the worker does not know
   (renamed, removed, module not installed on that worker) or whose payload no
   longer validates goes `dead` straight away with the reason in `last_error`.
-- Delivered rows are deleted by `purge_old_executions` after `retention_days`.
+- Delivered rows are deleted by `purge_old_executions` after `retention_days`. `dead` rows are never purged: they wait on the admin page to be retried or discarded.
 
 Handler **names** are the delivery key — by default the handler's import path
 (`invoices.module.create_invoice`); pass `name=` to `subscribe_durable` to pin it

@@ -130,6 +130,18 @@ class TestSubscribeDurable:
         with pytest.raises(ValueError, match="already subscribed"):
             bus.subscribe_durable(OrderPlaced, other, name="x")
 
+    def test_overlong_name_is_refused_at_subscribe(self) -> None:
+        with pytest.raises(ValueError, match="limited to 255"):
+            EventBus().subscribe_durable(OrderPlaced, _durable, name="n" * 256)
+
+    def test_unstable_default_name_warns(self, caplog: pytest.LogCaptureFixture) -> None:
+        async def local(event: OrderPlaced, ctx: DurableContext) -> None:
+            return None
+
+        with caplog.at_level("WARNING", logger="simple_module_core.durable_events"):
+            EventBus().subscribe_durable(OrderPlaced, local)
+        assert "unstable default name" in caplog.text
+
     def test_resubscribing_the_same_handler_is_idempotent(self) -> None:
         bus = EventBus()
         bus.subscribe_durable(OrderPlaced, _durable)

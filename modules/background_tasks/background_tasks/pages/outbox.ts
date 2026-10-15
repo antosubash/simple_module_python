@@ -55,7 +55,7 @@ async function send(url: string, method: string): Promise<void> {
   const res = await fetch(url, { method, headers: { Accept: 'application/json' } });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || `HTTP ${res.status}`);
+    throw new Error(typeof body.detail === 'string' ? body.detail : `HTTP ${res.status}`);
   }
 }
 

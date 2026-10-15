@@ -15,12 +15,19 @@ commits that session in the same transaction that marks the delivery done.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from functools import cache
 from typing import Any, Protocol, runtime_checkable
 
 from pydantic import TypeAdapter
+
+logger = logging.getLogger(__name__)
+
+# Width of the outbox's ``event_key`` / ``handler_name`` columns. Checked at
+# subscribe time so an over-long name fails at boot, not on a publisher's flush.
+MAX_NAME_LENGTH = 255
 
 
 class DurableDeliveryUnavailable(RuntimeError):  # noqa: N818 - name fixed by the design
@@ -128,6 +135,17 @@ class DurableRegistry:
         check_serializable(event_type)
         key = event_key(event_type)
         resolved = name or handler_name(handler)
+        if len(resolved) > MAX_NAME_LENGTH or len(key) > MAX_NAME_LENGTH:
+            raise ValueError(
+                f"Durable names are limited to {MAX_NAME_LENGTH} characters; "
+                f"pass a shorter name= (got {resolved!r} for {key})"
+            )
+        if name is None and ("<lambda>" in resolved or "<locals>" in resolved):
+            logger.warning(
+                "Durable handler %s has an unstable default name; pass name= so "
+                "undelivered rows survive a refactor",
+                resolved,
+            )
         by_name = self._subs.setdefault(key, {})
         existing = by_name.get(resolved)
         if existing is not None and existing.handler != handler:

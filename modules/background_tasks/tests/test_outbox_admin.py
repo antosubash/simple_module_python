@@ -62,6 +62,15 @@ class TestList:
         dead_only = (await authenticated_client.get(API, params={"status": "dead"})).json()
         assert [i["id"] for i in dead_only["items"]] == [str(dead)]
 
+    async def test_paginates(self, app, authenticated_client):
+        for _ in range(3):
+            await _seed(app, status=OutboxStatus.PENDING)
+
+        resp = await authenticated_client.get(API, params={"per_page": 2, "page": 2})
+
+        body = resp.json()
+        assert (body["total"], len(body["items"]), body["page"]) == (3, 1, 2)
+
     async def test_anonymous_is_rejected(self, client: httpx.AsyncClient):
         resp = await client.get(API, follow_redirects=False)
         assert resp.status_code in {302, 401, 403}
