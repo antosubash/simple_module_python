@@ -3,7 +3,10 @@
 - ``sweep_stuck_tasks`` flips ``running`` rows whose heartbeat has gone stale
   to ``stuck`` so the UI surfaces them and they become eligible for retry.
 - ``purge_old_executions`` deletes terminal rows older than the configured
-  retention so the history table stays bounded.
+  retention so the history table stays bounded, and delivered outbox rows
+  older than the same retention.
+- ``dispatch_outbox`` / ``sweep_outbox`` deliver durable events (GH #459); see
+  :mod:`.outbox_dispatch`.
 
 Both are driven by Celery beat; see :mod:`.celery_app`.
 """
@@ -24,13 +27,16 @@ from background_tasks.constants import (
     DEFAULT_RETENTION_DAYS,
     DEFAULT_STUCK_AFTER_SECONDS,
     DEMO_ECHO_TASK,
+    INTERNAL_TASK_DISPATCH_OUTBOX,
     INTERNAL_TASK_PURGE_OLD,
+    INTERNAL_TASK_SWEEP_OUTBOX,
     INTERNAL_TASK_SWEEP_STUCK,
     TASK_STUCK_AFTER_ATTR,
     TERMINAL_STATUSES,
+    OutboxStatus,
     TaskStatus,
 )
-from background_tasks.models import TaskExecution
+from background_tasks.models import OutboxMessage, TaskExecution
 from background_tasks.settings import BackgroundTasksSettings
 from background_tasks.sync_db import sync_session
 
@@ -143,6 +149,12 @@ def purge_old_executions() -> int:
             .where(TaskExecution.finished_at < cutoff)
         )
         count = result.rowcount or 0
+        delivered = session.execute(
+            delete(OutboxMessage)
+            .where(OutboxMessage.status == OutboxStatus.DELIVERED)
+            .where(OutboxMessage.delivered_at < cutoff)
+        )
+        count += delivered.rowcount or 0
         if count:
             logger.info(
                 "purge_old_executions removed %d row(s) older than %d days",
@@ -150,3 +162,21 @@ def purge_old_executions() -> int:
                 retention_days,
             )
         return count
+
+
+@shared_task(name=INTERNAL_TASK_DISPATCH_OUTBOX)
+def dispatch_outbox(ids: list[str]) -> dict[str, int]:
+    """Deliver the outbox rows a just-committed transaction wrote."""
+    # Imported here: the dispatcher pulls in the async engine stack, which a
+    # worker only needs once it actually delivers an event.
+    from background_tasks.outbox_worker import run_dispatch
+
+    return run_dispatch(list(ids))
+
+
+@shared_task(name=INTERNAL_TASK_SWEEP_OUTBOX)
+def sweep_outbox() -> dict[str, int]:
+    """Deliver every due outbox row and reclaim expired leases (beat, every 30 s)."""
+    from background_tasks.outbox_worker import run_dispatch
+
+    return run_dispatch(None)

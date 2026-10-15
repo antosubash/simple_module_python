@@ -15,6 +15,7 @@ MODULE_NAME = "background_tasks"
 MODULE_DISPLAY_NAME = "BackgroundTasks"
 TABLE_PREFIX = "background_tasks_"
 TABLE_TASK_EXECUTION = f"{TABLE_PREFIX}task_execution"
+TABLE_OUTBOX = f"{TABLE_PREFIX}outbox"
 
 # ── Module dependencies ─────────────────────────────────────────
 _MODULE_USERS = "Users"
@@ -106,9 +107,40 @@ DEFAULT_INVALIDATION_CHANNEL = "simple_module.invalidation"
 # ── Internal task names ─────────────────────────────────────────
 INTERNAL_TASK_SWEEP_STUCK = "background_tasks.sweep_stuck_tasks"
 INTERNAL_TASK_PURGE_OLD = "background_tasks.purge_old_executions"
+INTERNAL_TASK_DISPATCH_OUTBOX = "background_tasks.dispatch_outbox"
+INTERNAL_TASK_SWEEP_OUTBOX = "background_tasks.sweep_outbox"
+BEAT_SWEEP_STUCK = "background-tasks-sweep-stuck"
+BEAT_PURGE_OLD = "background-tasks-purge-old"
+BEAT_SWEEP_OUTBOX = "background-tasks-sweep-outbox"
 # Harmless round-trip task; only wired into CI smoke tests and local dev —
 # not scheduled, not invoked by other modules.
 DEMO_ECHO_TASK = "background_tasks.demo_echo"
+
+
+# ── Durable event outbox (GH #459) ──────────────────────────────
+class OutboxStatus(StrEnum):
+    """Lifecycle of one (event, durable handler) delivery."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    DELIVERED = "delivered"
+    DEAD = "dead"
+
+
+DEFAULT_OUTBOX_MAX_ATTEMPTS = 8
+DEFAULT_OUTBOX_SWEEP_INTERVAL_SECONDS = 30
+# How long a claimed row stays ``running`` before another worker may reclaim it.
+# Must exceed the slowest durable handler, or that handler runs twice (its DB
+# effects still land once — the late finisher's commit is fenced off).
+DEFAULT_OUTBOX_LEASE_SECONDS = 300
+OUTBOX_BACKOFF_BASE_SECONDS = 10
+OUTBOX_BACKOFF_CAP_SECONDS = 3600
+# Default batch for ``claim``; the dispatcher itself claims one row at a time.
+OUTBOX_CLAIM_BATCH = 100
+# Rows one dispatch/sweep run delivers at most; the next sweep takes the rest.
+OUTBOX_DISPATCH_LIMIT = 500
+OUTBOX_ERROR_MAX_LENGTH = 4000
+OUTBOX_KEY_MAX_LENGTH = 255
 
 TENANT_ID_MAX_LENGTH = 50
 # Filter value meaning "executions with no tenant" (beat / platform publishes).

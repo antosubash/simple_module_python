@@ -45,6 +45,9 @@ from background_tasks.constants import (
     DEFAULT_BROKER_URL,
     DEFAULT_INVALIDATION_CHANNEL,
     DEFAULT_MAX_RETRIES,
+    DEFAULT_OUTBOX_LEASE_SECONDS,
+    DEFAULT_OUTBOX_MAX_ATTEMPTS,
+    DEFAULT_OUTBOX_SWEEP_INTERVAL_SECONDS,
     DEFAULT_PURGE_INTERVAL_SECONDS,
     DEFAULT_QUEUE,
     DEFAULT_RESULT_BACKEND,
@@ -196,6 +199,24 @@ class BackgroundTasksSettings(BaseSettings):
         ge=0,
         le=100,
         description="Configured retry ceiling; individual tasks define their own policies (0-100).",
+    )
+
+    # ── Durable event outbox (GH #459) ──────────────────────
+    outbox_max_attempts: int = Field(
+        default=DEFAULT_OUTBOX_MAX_ATTEMPTS,
+        ge=1,
+        le=100,
+        description="Delivery attempts before a durable event is marked dead (1-100).",
+    )
+    outbox_sweep_interval_seconds: int = Field(
+        default=DEFAULT_OUTBOX_SWEEP_INTERVAL_SECONDS,
+        ge=1,
+        json_schema_extra=_CELERY_RESTART,
+    )
+    outbox_lease_seconds: int = Field(
+        default=DEFAULT_OUTBOX_LEASE_SECONDS,
+        ge=10,
+        description="Seconds a claimed delivery may run before another worker reclaims it.",
     )
 
     @model_validator(mode="after")

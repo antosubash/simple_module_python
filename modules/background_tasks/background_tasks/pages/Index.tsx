@@ -176,6 +176,11 @@ function Index() {
                 {t(keys.background_tasks.index.workers_button)}
               </Link>
             </Button>
+            <Button variant="outline" asChild className="max-lg:min-h-11">
+              <Link href={`${VIEW_BASE}/outbox`}>
+                {t(keys.background_tasks.index.outbox_button)}
+              </Link>
+            </Button>
             {canRetry && (
               <Button
                 variant="outline"

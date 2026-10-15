@@ -136,9 +136,14 @@ class BackgroundTasksModule(ModuleBase):
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from background_tasks.endpoints.api_admin import router as api_admin
+        from background_tasks.endpoints.outbox_api import router as outbox_api
+        from background_tasks.endpoints.outbox_views import router as outbox_views
         from background_tasks.endpoints.views import router as views
 
         api_router.include_router(api_admin)
+        api_router.include_router(outbox_api)
+        # Before ``views``: its ``/{execution_id}`` would otherwise swallow ``/outbox``.
+        view_router.include_router(outbox_views)
         view_router.include_router(views)
 
     def locale_dirs(self) -> dict[str, Path]:
@@ -171,6 +176,7 @@ class BackgroundTasksModule(ModuleBase):
         # In a standalone worker process this bind never runs, so signals
         # stay a silent no-op — that's the documented cross-process limit.
         bind_event_bus(app.state.sm.event_bus, asyncio.get_running_loop())
+        self._install_durable_transport(app)
         logger.info(
             "BackgroundTasks: Celery app ready (broker=%s, queue=%s)",
             services.settings.broker_url,
@@ -205,6 +211,20 @@ class BackgroundTasksModule(ModuleBase):
                 probe=False,
             )
         )
+
+    @staticmethod
+    def _install_durable_transport(app: FastAPI) -> None:
+        """Make ``bus.publish_durable`` write to this module's outbox (GH #459)."""
+        from background_tasks.outbox_transport import OutboxTransport
+        from background_tasks.outbox_worker import use_bus
+
+        bus = app.state.sm.event_bus
+        bus.durable_transport = OutboxTransport(
+            services=app.state.background_tasks, bus=bus, db_state=app.state.sm.db
+        )
+        # An eager in-process dispatch delivers with the app's bus, which already
+        # carries every module's durable subscriptions.
+        use_bus(bus)
 
     @staticmethod
     async def _start_invalidation_transport(app: FastAPI) -> None:
@@ -244,9 +264,14 @@ class BackgroundTasksModule(ModuleBase):
         )
 
     async def on_shutdown(self, app: FastAPI) -> None:
+        from background_tasks.outbox_worker import reset_worker_state
         from background_tasks.signals import unbind_event_bus
         from background_tasks.sync_db import dispose_sync_engine
 
+        bus = getattr(app.state.sm, "event_bus", None)
+        if bus is not None:
+            bus.durable_transport = None
+        reset_worker_state()
         services = app.state.background_tasks
         if services.invalidation_transport is not None:
             app.state.sm.invalidation.clear_transport()

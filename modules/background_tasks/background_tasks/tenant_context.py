@@ -31,6 +31,11 @@ def set_default_tenant(tenant_id: str | None) -> None:
     _default_tenant = tenant_id or None
 
 
+def default_tenant() -> str | None:
+    """The tenant platform work runs as on a single-tenant host, else ``None``."""
+    return _default_tenant
+
+
 def stamp_tenant(headers: dict[str, Any] | None) -> None:
     """Record the current tenant on an outgoing message (publish side).
 
@@ -123,6 +128,7 @@ def release_tenant(*, task_id: str | None) -> None:
 
 __all__ = [
     "TENANT_HEADER",
+    "default_tenant",
     "message_tenant",
     "published_tenant",
     "release_tenant",

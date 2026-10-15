@@ -63,6 +63,15 @@ raw `SM_BG_TASKS_CELERY_OVERRIDES` (env only, unsafe keys refused) default to Ce
 and imports only the modules whose `QUEUES` overlap (see `SM_BG_TASKS_INCLUDE_MODULES` /
 `SM_BG_TASKS_EXCLUDE_MODULES`; env only, not DB settings). Full details in `docs/modules/background_tasks.md`.
 
+## Durable events
+
+This module is the transport behind `bus.publish_durable(event, db)`: the event
+is written to an outbox table in the caller's transaction and delivered by a
+worker to every `bus.subscribe_durable(...)` handler, at least once, with
+backoff, after the commit. Writes a handler makes through `ctx.db` land exactly
+once. Undelivered and dead rows are on `/admin/background-tasks/outbox`. Full
+details in `docs/modules/background_tasks.md` § Durable events.
+
 ## Worker log context
 
 Every worker log line automatically carries the Celery task identifiers

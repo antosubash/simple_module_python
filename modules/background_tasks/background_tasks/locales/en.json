@@ -7,7 +7,8 @@
     "retry_all_button": "Retry all failed",
     "previous": "Previous",
     "next": "Next",
-    "showing": "Showing {from}–{to} of {total}"
+    "showing": "Showing {from}–{to} of {total}",
+    "outbox_button": "Outbox"
   },
   "strip": {
     "queued": "Queued",
@@ -162,5 +163,33 @@
   },
   "audit": {
     "task_execution": "Task execution"
+  },
+  "outbox": {
+    "title": "Outbox",
+    "description": "Durable events waiting for delivery to their handlers",
+    "back_button": "Executions",
+    "filter_all": "All undelivered",
+    "status_pending": "Pending",
+    "status_running": "Running",
+    "status_dead": "Dead",
+    "status_delivered": "Delivered",
+    "col_event": "Event",
+    "col_handler": "Handler",
+    "col_tenant": "Tenant",
+    "col_status": "Status",
+    "col_attempts": "Attempts",
+    "col_next_attempt": "Next attempt",
+    "col_last_error": "Last error",
+    "col_actions": "Actions",
+    "platform": "Platform",
+    "retry": "Retry",
+    "discard": "Discard",
+    "discard_confirm": "Discard this event for {handler}? It will never be delivered.",
+    "empty_title": "Nothing waiting",
+    "empty_description": "Every durable event has been delivered.",
+    "retried": "Event queued for delivery again",
+    "retry_failed": "Failed to retry the event",
+    "discarded": "Event discarded",
+    "discard_failed": "Failed to discard the event"
   }
 }

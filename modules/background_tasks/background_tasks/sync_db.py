@@ -90,6 +90,29 @@ def _resolve_url() -> str:
     return os.environ.get("SM_DATABASE_URL", "sqlite:///./app.db")
 
 
+def async_database_url() -> str:
+    """The same database as :func:`sync_session`, spelled for an async driver.
+
+    For the outbox dispatcher, whose durable handlers take an ``AsyncSession``.
+    """
+    url = _resolve_url()
+    if "+aiosqlite" in url or "+asyncpg" in url:
+        return url
+    if url.startswith("sqlite://"):
+        return url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+    for prefix in ("postgresql+psycopg2://", "postgresql+psycopg://", "postgresql://"):
+        if url.startswith(prefix):
+            return url.replace(prefix, "postgresql+asyncpg://", 1)
+    return url
+
+
+def engine_tenancy() -> EngineTenancy:
+    """The tenancy policy worker engines run with (mirrors the host's)."""
+    return EngineTenancy(
+        tenant_strict=_tenant_strict, default_tenant_id=_default_tenant or DEFAULT_TENANT_ID
+    )
+
+
 def _build_engine() -> Engine:
     sync_url = _sync_url(_resolve_url())
     # Small pool — signals fire sequentially per worker process.
@@ -98,10 +121,7 @@ def _build_engine() -> Engine:
     # no tenant filter at all: the tenant restored around a task body would
     # scope nothing (#371).
     attach_session_listeners(WorkerSession)
-    policy = EngineTenancy(
-        tenant_strict=_tenant_strict, default_tenant_id=_default_tenant or DEFAULT_TENANT_ID
-    )
-    bind_engine_policy(engine, policy)
+    bind_engine_policy(engine, engine_tenancy())
     return engine
 
 

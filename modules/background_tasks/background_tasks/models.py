@@ -8,14 +8,18 @@ from typing import Any
 
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin
+from simple_module_db.types import AwareDateTime
 from sqlalchemy import JSON, Column, Index, String
 from sqlmodel import Field
 
 from background_tasks.constants import (
     DEFAULT_QUEUE,
     MODULE_NAME,
+    OUTBOX_KEY_MAX_LENGTH,
+    TABLE_OUTBOX,
     TABLE_TASK_EXECUTION,
     TENANT_ID_MAX_LENGTH,
+    OutboxStatus,
     TaskStatus,
 )
 
@@ -92,4 +96,46 @@ class TaskExecution(Base, AuditMixin, table=True):  # ty: ignore[unsupported-bas
             "status",
             "queued_at",
         ),
+    )
+
+
+class OutboxMessage(Base, table=True):  # ty: ignore[unsupported-base]
+    """One durable event awaiting delivery to one durable handler (GH #459).
+
+    Written in the publisher's transaction by ``OutboxTransport.enqueue``, so a
+    rollback leaves no row. ``attempts`` is incremented when a worker claims the
+    row and doubles as the claim's fencing token: the worker marks the row
+    delivered only while ``attempts`` still equals what it claimed with.
+
+    ``tenant_id`` is a plain column, not ``MultiTenantMixin``, for the same
+    reason as ``TaskExecution``: the outbox is platform plumbing read across
+    tenants by the dispatcher and the admin screen, and platform publishes
+    carry no tenant. The handler itself runs inside ``tenant_context(tenant_id)``.
+    """
+
+    __tablename__ = TABLE_OUTBOX
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    event_key: str = Field(max_length=OUTBOX_KEY_MAX_LENGTH)
+    payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    handler_name: str = Field(max_length=OUTBOX_KEY_MAX_LENGTH)
+    tenant_id: str | None = Field(default=None, index=True, max_length=TENANT_ID_MAX_LENGTH)
+    status: OutboxStatus = Field(
+        default=OutboxStatus.PENDING,
+        sa_column=Column(String(20), nullable=False, default=OutboxStatus.PENDING.value),
+    )
+    attempts: int = Field(default=0)
+    next_attempt_at: datetime = Field(sa_type=AwareDateTime(), nullable=False)
+    # End of the current claim's lease; NULL unless ``running``.
+    locked_until: datetime | None = Field(default=None, sa_type=AwareDateTime())
+    last_error: str | None = Field(default=None)
+    created_at: datetime = Field(sa_type=AwareDateTime(), nullable=False)
+    delivered_at: datetime | None = Field(default=None, sa_type=AwareDateTime())
+
+    __table_args__ = (
+        # The claim: due pending rows, oldest first.
+        Index("ix_background_tasks_outbox_status_next_attempt", "status", "next_attempt_at"),
+        # Lease reclaim and the delivered-rows purge.
+        Index("ix_background_tasks_outbox_status_locked", "status", "locked_until"),
+        Index("ix_background_tasks_outbox_status_delivered", "status", "delivered_at"),
     )
