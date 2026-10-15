@@ -38,7 +38,6 @@ from typing import Any
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
 from background_tasks.config_guards import parse_task_routes
 from background_tasks.constants import (
@@ -57,6 +56,10 @@ from background_tasks.constants import (
     ENV_PREFIX,
     ENV_REDIS_URL,
     max_outbox_handler_timeout,
+)
+from background_tasks.settings_env_checks import (
+    forbid_localhost_broker_in_production,
+    warn_on_legacy_redis_vars,
 )
 
 _CELERY_RESTART = {"requires_restart": True, "group": "Celery"}
@@ -250,55 +253,8 @@ class BackgroundTasksSettings(BaseSettings):
         return timeout
 
     @model_validator(mode="after")
-    def _warn_on_legacy_redis_vars(self) -> BackgroundTasksSettings:
-        """Nudge deployments off the per-field names onto ``SM_REDIS_URL``.
-
-        Warns rather than failing: ``smpy_gis``, ``smpy_saas``,
-        ``laco_wiki_python`` and the ``nodes-k8s`` manifests all set these, and
-        breaking them on upgrade buys nothing. It lives here rather than in the
-        default factory because ``env_prefix`` means the env source answers
-        these names before any default is consulted, so the factory never sees
-        them.
-        """
-        for field, legacy_var in (
-            ("broker_url", f"{ENV_PREFIX}BROKER_URL"),
-            ("result_backend", f"{ENV_PREFIX}RESULT_BACKEND"),
-        ):
-            if os.environ.get(legacy_var) == getattr(self, field):
-                logger.warning(
-                    "%s is deprecated; use %s instead (one URL seeds both the "
-                    "broker and the result backend).",
-                    legacy_var,
-                    ENV_REDIS_URL,
-                )
-        return self
-
-    @model_validator(mode="after")
-    def _forbid_localhost_broker_in_production(self) -> BackgroundTasksSettings:
-        """Fail boot if production is still pointed at the dev default broker.
-
-        A localhost broker in prod means the web container is talking to its
-        own 6379 instead of the shared Redis service — tasks would silently
-        queue to a broker no worker reads.
-        """
-        env = os.environ.get("SM_ENVIRONMENT", "development")
-        if env in NON_PROD_ENVIRONMENTS:
-            return self
-        bad = []
-        if "localhost" in self.broker_url or "127.0.0.1" in self.broker_url:
-            bad.append("broker_url")
-        if "localhost" in self.result_backend or "127.0.0.1" in self.result_backend:
-            bad.append("result_backend")
-        if bad:
-            names = ", ".join(bad)
-            env_names = ", ".join(f"{ENV_PREFIX}{name.upper()}" for name in bad)
-            raise ValueError(
-                f"{names} must not point at localhost when SM_ENVIRONMENT={env!r}. "
-                f"Set {ENV_REDIS_URL} on the container to the Redis service host "
-                "(e.g. redis://redis:6379/0) — one URL seeds both the broker and "
-                f"the result backend. ({env_names} still override it per field, "
-                "but are deprecated.) These are read before the DB-backed "
-                "settings exist, so an environment variable is what satisfies "
-                "this at boot."
-            )
+    def _check_broker_env(self) -> BackgroundTasksSettings:
+        """Deprecation warnings and the production localhost-broker refusal."""
+        warn_on_legacy_redis_vars(self.broker_url, self.result_backend)
+        forbid_localhost_broker_in_production(self.broker_url, self.result_backend)
         return self
