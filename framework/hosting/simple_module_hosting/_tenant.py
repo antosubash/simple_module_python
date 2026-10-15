@@ -135,15 +135,14 @@ class TenantMiddleware:
         request.state.tenant_vary = resolution.vary
 
         send = self._vary_sender(scope, send, resolution.vary)
-        if tenant_id is not None:
-            token = current_tenant_id.set(tenant_id)
-            try:
-                await self.app(scope, receive, send)
-            finally:
-                current_tenant_id.reset(token)
-            return
-
-        await self.app(scope, receive, send)
+        # Always bound and reset, even for ``None``: a principal demoted later in
+        # the request re-resolves the tenant (``reresolve_tenant``) and may set
+        # one this request did not start with, which must not outlive it.
+        token = current_tenant_id.set(tenant_id)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            current_tenant_id.reset(token)
 
     @staticmethod
     def _vary_sender(scope: Scope, send: Send, vary: tuple[str, ...]) -> Send:

@@ -117,3 +117,34 @@ async def test_a_token_demoted_on_a_public_route_loses_its_pinned_tenant():
 async def test_a_session_on_a_public_route_keeps_its_tenant():
     resp = await _get(_tenant_app(_Principal(scopes=None)), "/public")
     assert resp.json() == {"user": "u1", "ctx": "t-token", "state": "t-token"}
+
+
+async def test_fastapi_still_records_the_effective_route_context():
+    """Pins the FastAPI internals ``effective_route`` reads; fails loudly if they move.
+
+    ``scope["fastapi"]["effective_route_context"]`` (FastAPI 0.143) carries
+    ``original_route`` and the ``dependant`` that includes include-level
+    dependencies. If an upgrade renames it the guard fails closed (403 for
+    every token on an include-gated route) — this test names the cause.
+    """
+    from simple_module_hosting.token_guard import effective_route
+
+    app = FastAPI()
+    sub = APIRouter()
+    seen: dict = {}
+
+    @sub.get("/x")
+    async def x(request: Request) -> dict:
+        seen["route"] = request.scope.get("route")
+        seen["effective"] = effective_route(request.scope)
+        seen["context"] = (request.scope.get("fastapi") or {}).get("effective_route_context")
+        return {}
+
+    app.include_router(sub, dependencies=[Depends(RequiresPermission("x.view"))])
+    _with_auth(app, _Principal(permissions=["x.view"]))
+    assert (await _get(app, "/x")).status_code == 200
+    context = seen["context"]
+    assert context is not None, "FastAPI no longer sets scope['fastapi']['effective_route_context']"
+    assert context.original_route is seen["route"]
+    assert context.dependant is not None
+    assert seen["effective"] is context
