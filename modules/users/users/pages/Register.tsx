@@ -144,6 +144,8 @@ function Register() {
             onChange={(e) => {
               setEmail(e.target.value);
               clearErrorOn('email');
+              // "contains your email" is about the pair, so editing either side voids it.
+              if (error?.code === 'password_contains_email') setError(null);
             }}
             placeholder={t(keys.users.common.email_placeholder)}
             required
