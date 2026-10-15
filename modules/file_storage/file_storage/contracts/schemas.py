@@ -20,7 +20,10 @@ class StoredFileOut(SQLModel):
     content_type: str
     size_bytes: int
     backend: str
-    checksum_sha256: str
+    checksum_sha256: str | None = Field(
+        default=None,
+        description="SHA-256, or null for a multipart upload not yet hashed.",
+    )
     uploaded_by: str | None = Field(
         default=None,
         description="User id from AuditMixin.created_by — populated by the audit listener.",
@@ -72,3 +75,64 @@ class StoredFileListOut(SQLModel):
     total: int
     page: int
     per_page: int
+
+
+class UploadSessionCreate(SQLModel):
+    """Body for POST /api/file-storage/uploads."""
+
+    filename: str = Field(min_length=1, max_length=255)
+    content_type: str = Field(default="application/octet-stream", max_length=128)
+    total_size: int = Field(gt=0)
+    public: StrictBool = False
+
+
+class PartOut(SQLModel):
+    """One part the backend holds."""
+
+    no: int
+    etag: str
+    size: int
+
+
+class UploadSessionOut(SQLModel):
+    """A resumable upload: what it is, and which parts the backend already has."""
+
+    id: uuid.UUID
+    filename: str
+    content_type: str
+    total_size: int
+    part_size: int
+    total_parts: int
+    status: str
+    public: bool
+    expires_at: datetime
+    parts: list[PartOut] = Field(default_factory=list)
+    file: StoredFileOut | None = Field(
+        default=None, description="The stored file, once the session is completed."
+    )
+
+
+class PartUrlsRequest(SQLModel):
+    """Body for POST /uploads/{id}/part-urls."""
+
+    parts: list[int] = Field(min_length=1, max_length=100)
+
+
+class PartUrlsOut(SQLModel):
+    """Where to PUT each requested part; ``direct`` is false for app-relayed parts."""
+
+    urls: dict[int, str]
+    direct: bool
+
+
+class CompletePart(SQLModel):
+    no: int = Field(alias="n", ge=1)
+    etag: str
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class UploadCompleteRequest(SQLModel):
+    """Body for POST /uploads/{id}/complete: the parts the client believes it sent."""
+
+    parts: list[CompletePart] = Field(default_factory=list, max_length=10_000)

@@ -56,6 +56,15 @@ class FileStorageSettings(DbBackedSettings):
         json_schema_extra={"group": "S3"},
         description="Custom endpoint for MinIO / R2. Blank uses AWS default.",
     )
+    s3_public_endpoint_url: str = Field(
+        default="",
+        json_schema_extra={"group": "S3"},
+        description=(
+            "Browser-facing S3 endpoint used to presign direct part uploads, when it "
+            "differs from s3_endpoint_url (e.g. an internal MinIO hostname). Blank "
+            "falls back to s3_endpoint_url. Its origin is added to CSP connect-src."
+        ),
+    )
     s3_signature_version: str = Field(
         default="s3v4",
         json_schema_extra={"group": "S3"},
@@ -79,6 +88,33 @@ class FileStorageSettings(DbBackedSettings):
     quota_bytes: int | None = Field(
         default=None,
         description="Total storage the browse screen measures usage against. None = unmeasured.",
+    )
+
+    # Resumable / direct uploads (#454)
+    direct_upload_threshold_bytes: int = Field(
+        default=constants.DEFAULT_DIRECT_UPLOAD_THRESHOLD_BYTES,
+        gt=0,
+        description="Files larger than this upload in parts through a resumable session.",
+    )
+    max_direct_upload_bytes: int = Field(
+        default=constants.DEFAULT_MAX_DIRECT_UPLOAD_BYTES,
+        gt=0,
+        description="Largest file the resumable session flow accepts.",
+    )
+    multipart_part_size_bytes: int = Field(
+        default=constants.DEFAULT_PART_SIZE_BYTES,
+        ge=constants.MIN_PART_SIZE_BYTES,
+        description="Preferred part size; grown automatically to stay under 10,000 parts.",
+    )
+    upload_session_ttl_seconds: int = Field(
+        default=constants.DEFAULT_UPLOAD_SESSION_TTL_SECONDS,
+        gt=0,
+        description="How long an unfinished upload session stays resumable.",
+    )
+    upload_session_retention_days: int = Field(
+        default=constants.DEFAULT_UPLOAD_SESSION_RETENTION_DAYS,
+        ge=0,
+        description="How long finished (completed or aborted) upload session rows are kept.",
     )
 
     @field_validator("s3_signature_version")
@@ -110,6 +146,10 @@ class FileStorageSettings(DbBackedSettings):
             if missing:
                 raise ValueError(f"S3 backend selected but {', '.join(missing)} is not set.")
         return self
+
+    def presign_endpoint_url(self) -> str:
+        """The endpoint browsers reach: ``s3_public_endpoint_url``, else ``s3_endpoint_url``."""
+        return self.s3_public_endpoint_url or self.s3_endpoint_url
 
     def resolved_fs_root(self) -> Path:
         """Return ``fs_root_path`` as an absolute Path."""

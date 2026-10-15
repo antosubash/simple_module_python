@@ -29,7 +29,9 @@ function Browse() {
   const { can } = usePermissions();
   const canUpload = can(PERMISSIONS.UPLOAD);
   const canDelete = can(PERMISSIONS.DELETE);
-  const { jobs, start, retry, cancel, dismiss, busy } = useUploadQueue();
+  const { jobs, start, busy, actions } = useUploadQueue({
+    directThresholdBytes: props.direct_upload_threshold_bytes,
+  });
 
   const filters: FileFilters = {
     q: props.filters?.q ?? '',
@@ -206,7 +208,7 @@ function Browse() {
           />
         )}
 
-        <UploadsCard jobs={jobs} onCancel={cancel} onRetry={retry} onDismiss={dismiss} />
+        <UploadsCard jobs={jobs} actions={actions} />
 
         <FileFilterBar
           filters={filters}

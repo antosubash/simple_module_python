@@ -11,6 +11,7 @@ import aiofiles
 
 from file_storage import constants
 from file_storage.backends import register_backend
+from file_storage.backends.filesystem_multipart import FilesystemMultipartMixin
 from file_storage.contracts.service import (
     NotSupportedError,
     StorageBackendError,
@@ -19,7 +20,7 @@ from file_storage.contracts.service import (
 from file_storage.settings import FileStorageSettings
 
 
-class FilesystemBackend:
+class FilesystemBackend(FilesystemMultipartMixin):
     """Stores objects on the local filesystem under ``root``.
 
     Keys are sharded by their first two characters to keep any single

@@ -502,9 +502,15 @@ export const keys = {
     errors: {
       backend_error: 'file_storage.errors.backend_error',
       bad_image: 'file_storage.errors.bad_image',
+      bad_part: 'file_storage.errors.bad_part',
       bad_type: 'file_storage.errors.bad_type',
+      direct_upload_unsupported: 'file_storage.errors.direct_upload_unsupported',
       not_found: 'file_storage.errors.not_found',
+      parts_mismatch: 'file_storage.errors.parts_mismatch',
+      quota_exceeded: 'file_storage.errors.quota_exceeded',
+      size_mismatch: 'file_storage.errors.size_mismatch',
       too_large: 'file_storage.errors.too_large',
+      upload_session_closed: 'file_storage.errors.upload_session_closed',
     },
     filters: {
       search_placeholder: 'file_storage.filters.search_placeholder',
@@ -557,7 +563,10 @@ export const keys = {
       drop_here: 'file_storage.upload.drop_here',
       failed_reason: 'file_storage.upload.failed_reason',
       in_progress: 'file_storage.upload.in_progress',
+      resume: 'file_storage.upload.resume',
+      resume_prompt: 'file_storage.upload.resume_prompt',
       retry: 'file_storage.upload.retry',
+      start_over: 'file_storage.upload.start_over',
     },
   },
   host: {
