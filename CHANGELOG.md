@@ -12,6 +12,24 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- **New `api_tokens` module** (#455): personal access tokens (`smpat_…`) and
+  service API keys (`smsk_…`). Only `sha256(token)` is stored and the secret
+  is shown once; a token is resolved by one indexed lookup per request (no
+  cache), so a revoke applies on the next request. Every token carries scopes
+  that cap the principal's permissions on top of the owner's live grants (an
+  admin's token is worth its scopes only). Service keys get roles chosen at
+  creation (never `admin`) and are pinned to their tenant. Self-service page at
+  `/api-tokens/` (user menu), admin screen at `/admin/api-tokens/`; tokens can
+  only be managed from a session, with `RequiresCsrf`. New PyPI package
+  `simple_module_api_tokens`; not added to the `smpy new` scaffold. Needs a
+  migration (`branch_labels = ("api_tokens",)`).
+- `UserContext` gains `auth_kind` (`"session"` by default; `"pat"` /
+  `"service"` for tokens) and `scopes` (`None` = uncapped), carried through
+  `from_user`, `to_session_dict` and `from_session_dict`. `auth.contracts.tokens`
+  holds the kinds and the `smpat_` / `smsk_` prefixes.
+- `simple_module_hosting.permissions.apply_scope_cap` and
+  `simple_module_core.permissions.is_admin_principal`. A role-only admin gate
+  should use `is_admin_principal(user)`, which is `False` for any token.
 - `from background_tasks import heartbeat` (#451): a long-running task calls
   `heartbeat()` to refresh `heartbeat_at` (throttled to one write per 30 s; a
   no-op outside a task). `@shared_task(..., stuck_after=<seconds>)` sets a
@@ -109,6 +127,18 @@ All notable changes to this project are documented in this file. The format is b
   production-mode containers pass `UsersSettings` boot validation.
 
 ### Changed
+- The `users` and `keycloak` auth providers return `None` at once for a bearer
+  value with an `api_tokens` prefix instead of looking it up (#455), leaving it
+  to the principal resolver chain.
+- `require_permission` (auth) skips its admin-role shortcut, and
+  `resolve_principal_permissions` / `resolved_permissions_for` cap the set,
+  when the principal carries `scopes`. The `/admin` index, the Doctor page and
+  the maintenance bypass no longer admit an admin's token on the role alone.
+- The `tenants` resolver binds a service principal to its pinned tenant and
+  ignores the tenant header and subdomain for it.
+- `make new-module`: the scaffolded `tsconfig.json` no longer sets `baseUrl`
+  (removed in TypeScript 6), `views.py` imports `InertiaResponse` from
+  `simple_module_inertia`, and `package.json` peers `@inertiajs/react` `^3.7.0`.
 - **Dashboard stats are admin-only on single-tenant installs too** (#464).
   `dashboard.view` was mapped to the ordinary `user` role when
   `multi_tenant` was off, so any self-registered account could read user

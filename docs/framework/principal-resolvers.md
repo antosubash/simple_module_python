@@ -55,6 +55,18 @@ unauthenticated response is suppressed for public paths regardless of
 resolver outcome — the chain populates the principal, public-path
 allow-listing controls the response.
 
+A bearer-token resolver only ever sees the request if the provider steps
+aside. The `users` and `keycloak` providers treat any `Authorization: Bearer`
+header as theirs and return a final `None` for a value they do not know —
+except values with an `api_tokens` prefix (`auth.contracts.tokens.is_api_token`:
+`smpat_`, `smsk_`), which they skip without a lookup. A resolver for a new
+bearer format needs the same carve-out.
+
+The shipped [`api_tokens`](/modules/api_tokens) module is the reference
+implementation: it sets `UserContext.auth_kind` and `scopes`, and the framework
+caps the principal's permissions at those scopes (`apply_scope_cap`) and skips
+admin-role shortcuts for it (`is_admin_principal`).
+
 ## Worked example — bearer-token resolver
 
 A module that ships its own Personal-Access-Token table registers a
