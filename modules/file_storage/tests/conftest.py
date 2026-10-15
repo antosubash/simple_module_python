@@ -13,6 +13,8 @@ import contextlib
 from collections.abc import Generator
 
 import pytest
+from file_storage.backends.filesystem import FilesystemBackend
+from file_storage_uploads_helpers import PART
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
@@ -102,3 +104,12 @@ def checksum_calls(monkeypatch) -> list[tuple]:
         background_tasks, "enqueue_after_commit", lambda db, task, *a, **kw: calls.append((task, a))
     )
     return calls
+
+
+@pytest.fixture
+def storage(app, tmp_path):
+    """The app's file_storage state, pointed at an isolated filesystem root."""
+    services = app.state.file_storage
+    services.backend = FilesystemBackend(root=tmp_path)
+    services.settings.multipart_part_size_bytes = PART
+    return services

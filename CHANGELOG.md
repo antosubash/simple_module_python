@@ -12,6 +12,13 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- Resumable multipart uploads for `file_storage` (#454): `POST /api/file-storage/uploads`
+  sessions with presigned S3 part URLs (or relayed parts on the filesystem backend),
+  4-way parallel parts with retry and `localStorage` resume in the Files page,
+  `s3_public_endpoint_url`, CSP `connect-src` for the S3 origin, and an hourly
+  `file_storage.reap_stale_uploads` janitor (with `background_tasks`). Sessions count
+  against the quota and the assembled size is re-verified at completion. Migration
+  `a659221c464b` adds `file_storage_upload_session`.
 - `from background_tasks import heartbeat` (#451): a long-running task calls
   `heartbeat()` to refresh `heartbeat_at` (throttled to one write per 30 s; a
   no-op outside a task). `@shared_task(..., stuck_after=<seconds>)` sets a
@@ -109,6 +116,9 @@ All notable changes to this project are documented in this file. The format is b
   production-mode containers pass `UsersSettings` boot validation.
 
 ### Changed
+- `StoredFile.checksum_sha256` / `StoredFileOut.checksum_sha256` are now nullable (#454):
+  files uploaded through the multipart flow have no checksum until
+  `file_storage.compute_checksum` runs, and `ETag`s fall back to id + size.
 - **Dashboard stats are admin-only on single-tenant installs too** (#464).
   `dashboard.view` was mapped to the ordinary `user` role when
   `multi_tenant` was off, so any self-registered account could read user

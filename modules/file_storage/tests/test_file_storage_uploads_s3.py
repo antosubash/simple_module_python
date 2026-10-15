@@ -118,6 +118,14 @@ async def test_presigned_put_url_stores_a_whole_object(s3_settings):
     assert (await backend.head("t/one.txt")).size == 5
 
 
+async def test_a_part_url_is_bound_to_the_part_length(s3_settings):
+    backend = build_backend(s3_settings)
+    bound = await backend.presign_part("k", "uid", 1, 300, 1234)
+    assert "content-length" in bound.lower().split("x-amz-signedheaders=")[1].split("&")[0]
+    unbound = await backend.presign_part("k", "uid", 1, 300)
+    assert "content-length" not in unbound.lower().split("x-amz-signedheaders=")[1].split("&")[0]
+
+
 async def test_public_endpoint_is_what_gets_signed(s3_settings):
     settings = s3_settings.model_copy(
         update={"s3_public_endpoint_url": "https://files.example.test"}

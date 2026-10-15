@@ -53,7 +53,9 @@ class FilesystemMultipartMixin:
         self._parts_dir(upload_id).mkdir(parents=True, exist_ok=True)
         return upload_id
 
-    async def presign_part(self, key: str, upload_id: str, part_no: int, ttl: int) -> str:
+    async def presign_part(
+        self, key: str, upload_id: str, part_no: int, ttl: int, size: int | None = None
+    ) -> str:
         raise NotSupportedError("Filesystem parts are uploaded through the app.")
 
     async def presigned_put_url(self, key: str, ttl: int, content_type: str) -> str:

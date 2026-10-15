@@ -134,8 +134,13 @@ class DirectUploadBackend(Protocol):
     async def create_multipart(self, key: str, content_type: str) -> str:
         """Start an upload; return the backend's upload id."""
 
-    async def presign_part(self, key: str, upload_id: str, part_no: int, ttl: int) -> str:
-        """URL the browser PUTs one part to. :class:`NotSupportedError` if none."""
+    async def presign_part(
+        self, key: str, upload_id: str, part_no: int, ttl: int, size: int | None = None
+    ) -> str:
+        """URL the browser PUTs one part to, length-bound to ``size`` where the store can.
+
+        :class:`NotSupportedError` if the backend has no such URLs.
+        """
 
     async def write_part(
         self,

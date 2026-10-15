@@ -94,11 +94,9 @@
     "in_progress": "Uploading {name}",
     "cancel": "Cancel upload",
     "dismiss": "Dismiss",
-    "resume_prompt": "{name} was partly uploaded earlier ({percent}% done)",
+    "resume_prompt": "Partly uploaded earlier — {percent}% done",
     "resume": "Resume upload",
-    "start_over": "Start over",
-    "resuming": "Resuming {name}",
-    "finalizing": "Finishing {name}…"
+    "start_over": "Start over"
   },
   "nav": {
     "files": "Files"

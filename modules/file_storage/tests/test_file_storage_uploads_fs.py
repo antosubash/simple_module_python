@@ -2,48 +2,18 @@
 
 from __future__ import annotations
 
-import hashlib
 import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from file_storage import constants
-from file_storage.backends.filesystem import FilesystemBackend
 from file_storage.contracts.events import FileUploaded
 from file_storage.models import StoredFile, UploadSession
-from file_storage_uploads_helpers import API, MIB, open_session, put_part
+from file_storage_uploads_helpers import API, MIB, PART, open_session, payload, put_part, upload_all
 from simple_module_db import all_tenants, tenant_context
 from sqlalchemy import select, update
 
 pytestmark = pytest.mark.usefixtures("checksum_calls")
-
-PART = 5 * MIB  # the smallest part size the settings accept
-
-
-@pytest.fixture
-def storage(app, tmp_path):
-    """The app's file_storage state, pointed at an isolated filesystem root."""
-    services = app.state.file_storage
-    services.backend = FilesystemBackend(root=tmp_path)
-    services.settings.multipart_part_size_bytes = PART
-    return services
-
-
-def _payload(total: int) -> bytes:
-    block = hashlib.sha256(b"seed").digest()
-    return (block * (total // len(block) + 1))[:total]
-
-
-async def _upload_all(client, upload_id: str, data: bytes, only=None):
-    etags = {}
-    for i in range(0, len(data), PART):
-        n = i // PART + 1
-        if only is not None and n not in only:
-            continue
-        resp = await put_part(client, upload_id, n, data[i : i + PART])
-        assert resp.status_code == 200, resp.text
-        etags[n] = resp.json()["etag"]
-    return etags
 
 
 async def _expire_everything(app) -> None:
@@ -64,7 +34,7 @@ async def test_full_flow_creates_a_stored_file_and_publishes_the_event(
         seen.append(event)
 
     app.state.sm.event_bus.subscribe(FileUploaded, _collect)
-    data = _payload(PART * 2 + 123)
+    data = payload(PART * 2 + 123)
 
     created = await open_session(authenticated_client, total=len(data))
     assert created.status_code == 201, created.text
@@ -74,11 +44,11 @@ async def test_full_flow_creates_a_stored_file_and_publishes_the_event(
     assert session["parts"] == []
 
     # Parts can arrive out of order, and a reload lists what the backend holds.
-    etags = await _upload_all(authenticated_client, session["id"], data, only={3, 1})
+    etags = await upload_all(authenticated_client, session["id"], data, only={3, 1})
     resumed = await authenticated_client.get(f"{API}/uploads/{session['id']}")
     assert [p["no"] for p in resumed.json()["parts"]] == [1, 3]
 
-    etags.update(await _upload_all(authenticated_client, session["id"], data, only={2}))
+    etags.update(await upload_all(authenticated_client, session["id"], data, only={2}))
     done = await authenticated_client.post(
         f"{API}/uploads/{session['id']}/complete",
         json={"parts": [{"n": n, "etag": e} for n, e in etags.items()]},
@@ -124,9 +94,9 @@ async def test_part_urls_point_at_the_app_for_filesystem(authenticated_client, s
 
 
 async def test_complete_with_missing_parts_is_rejected_and_resumable(authenticated_client, storage):
-    data = _payload(PART * 2)
+    data = payload(PART * 2)
     session = (await open_session(authenticated_client, total=len(data))).json()
-    await _upload_all(authenticated_client, session["id"], data, only={1})
+    await upload_all(authenticated_client, session["id"], data, only={1})
 
     resp = await authenticated_client.post(f"{API}/uploads/{session['id']}/complete", json={})
     assert resp.status_code == 409
@@ -134,15 +104,15 @@ async def test_complete_with_missing_parts_is_rejected_and_resumable(authenticat
     assert detail["code"] == constants.ErrorCode.PARTS_MISMATCH
     assert detail["missing"] == [2]
 
-    await _upload_all(authenticated_client, session["id"], data, only={2})
+    await upload_all(authenticated_client, session["id"], data, only={2})
     done = await authenticated_client.post(f"{API}/uploads/{session['id']}/complete", json={})
     assert done.status_code == 200
 
 
 async def test_wrong_etag_is_a_mismatch(authenticated_client, storage):
-    data = _payload(PART)
+    data = payload(PART)
     session = (await open_session(authenticated_client, total=len(data))).json()
-    await _upload_all(authenticated_client, session["id"], data)
+    await upload_all(authenticated_client, session["id"], data)
     resp = await authenticated_client.post(
         f"{API}/uploads/{session['id']}/complete", json={"parts": [{"n": 1, "etag": "nope"}]}
     )
@@ -161,9 +131,9 @@ async def test_a_part_of_the_wrong_size_is_refused(authenticated_client, storage
 
 
 async def test_abort_discards_the_parts_and_closes_the_session(authenticated_client, storage):
-    data = _payload(PART)
+    data = payload(PART)
     session = (await open_session(authenticated_client, total=len(data))).json()
-    await _upload_all(authenticated_client, session["id"], data)
+    await upload_all(authenticated_client, session["id"], data)
     assert (await authenticated_client.delete(f"{API}/uploads/{session['id']}")).status_code == 204
 
     assert not list((storage.backend.root / constants.FS_MULTIPART_DIR).glob("*"))
@@ -261,10 +231,10 @@ class TestOwnership:
             assert (await put_part(colleague.client, sid, 1, b"x")).status_code == 404
 
     async def test_the_file_belongs_to_the_owners_tenant(self, app, tenant_client, storage):
-        data = _payload(PART)
+        data = payload(PART)
         async with tenant_client() as owner:
             sid = (await open_session(owner.client, total=len(data))).json()["id"]
-            await _upload_all(owner.client, sid, data)
+            await upload_all(owner.client, sid, data)
             out = (await owner.client.post(f"{API}/uploads/{sid}/complete", json={})).json()
             assert out["file"]["key"].startswith(f"{owner.tenant_id}/")
         async with app.state.sm.db.session_factory() as db:

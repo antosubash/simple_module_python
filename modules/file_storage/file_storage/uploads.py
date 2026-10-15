@@ -27,17 +27,15 @@ from sqlalchemy import select
 from file_storage import constants, queries
 from file_storage.contracts.schemas import StoredFileOut
 from file_storage.contracts.service import (
-    DirectUploadBackend,
     NotSupportedError,
     Part,
-    StorageError,
     StorageNotFoundError,
 )
 from file_storage.models import StoredFile, UploadSession
 from file_storage.scope import owning_tenant
 from file_storage.service import FileStorageService, FileTooLargeError, generate_key
+from file_storage.upload_guards import UploadGuards
 from file_storage.upload_support import (
-    DirectUploadUnsupportedError,
     InvalidPartError,
     PartsMismatchError,
     QuotaExceededError,
@@ -60,20 +58,13 @@ def _etag(value: str) -> str:
     return value.strip('"')
 
 
-class UploadSessionService:
+class UploadSessionService(UploadGuards):
     """Creates, resumes, completes and aborts a user's upload sessions."""
 
     def __init__(self, files: FileStorageService) -> None:
         self.files = files
         self.db: AsyncSession = files.db
         self.settings = files.settings
-
-    @property
-    def backend(self) -> DirectUploadBackend:
-        backend = self.files.backend
-        if not getattr(backend, "supports_direct_upload", False):
-            raise DirectUploadUnsupportedError(backend.backend_id)
-        return backend  # type: ignore[return-value]
 
     # ── Lifecycle ────────────────────────────────────────────────────
 
@@ -87,10 +78,11 @@ class UploadSessionService:
                 f"Upload exceeds {self.settings.max_direct_upload_bytes} bytes."
             )
         tenant_id = owning_tenant(self.db)
-        await self._check_quota(total_size)
         # Housekeeping that needs no worker: without background_tasks nothing
         # else ever reaps, so a user's abandoned uploads go when they start one.
+        # Done first so their reservations stop counting against the quota.
         await self.abort_expired(owner=current_user_id.get())
+        await self._check_quota(total_size, reserve=True)
 
         key = generate_key(tenant_id, filename)
         upload_id = await backend.create_multipart(key, content_type)
@@ -178,7 +170,9 @@ class UploadSessionService:
         ttl = self.settings.s3_presign_ttl_seconds
         try:
             return {
-                n: await self.backend.presign_part(session.key, session.backend_upload_id, n, ttl)
+                n: await self.backend.presign_part(
+                    session.key, session.backend_upload_id, n, ttl, expected_part_size(session, n)
+                )
                 for n in numbers
             }, True
         except NotSupportedError:
@@ -237,10 +231,19 @@ class UploadSessionService:
         )
         info = await backend.head(session.key)
         if info.size != session.total_size:
-            await self._drop_object(session.key)
-            session.status = constants.UploadStatus.ABORTED
-            await self.db.flush()
+            await self._reject(session)
             raise SizeMismatchError(session.total_size, info.size)
+        # The declared size is only a claim; the stored object is the fact. Limits
+        # are re-checked against it, in the transaction that records the file.
+        max_bytes = self.settings.max_direct_upload_bytes
+        if info.size > max_bytes:
+            await self._reject(session)
+            raise FileTooLargeError(f"Upload exceeds {max_bytes} bytes.")
+        try:
+            await self._check_quota(info.size, reserve=False)
+        except QuotaExceededError:
+            await self._reject(session)
+            raise
 
         try:
             row = StoredFile(
@@ -248,7 +251,7 @@ class UploadSessionService:
                 key=session.key,
                 filename=session.filename,
                 content_type=session.content_type,
-                size_bytes=session.total_size,
+                size_bytes=info.size,
                 backend=self.files.backend.backend_id,
                 checksum_sha256=None,
                 public=session.public,
@@ -263,22 +266,3 @@ class UploadSessionService:
             await self._drop_object(session.key)
             raise
         return StoredFileOut.model_validate(queries.to_out_dict(row)), True
-
-    # ── Backend cleanup that must not mask the real error ────────────
-
-    async def _abort_backend(self, key: str, upload_id: str) -> None:
-        try:
-            await self.backend.abort_multipart(key, upload_id)
-        except StorageError:
-            _logger.exception("file_storage.abort_failed key=%s upload=%s", key, upload_id)
-
-    async def _drop_object(self, key: str) -> None:
-        try:
-            await self.files.backend.delete(key)
-        except StorageError:
-            _logger.exception("file_storage.cleanup_failed key=%s", key)
-
-    async def _check_quota(self, total_size: int) -> None:
-        quota = self.settings.quota_bytes
-        if quota is not None and await self.files.used_bytes() + total_size > quota:
-            raise QuotaExceededError(str(quota))

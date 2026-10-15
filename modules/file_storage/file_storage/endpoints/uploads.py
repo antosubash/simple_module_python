@@ -239,6 +239,23 @@ async def complete_session(
             _missing=exc.missing,
             _mismatched=exc.mismatched,
         ) from exc
+    except FileTooLargeError as exc:
+        limit = sessions.settings.max_direct_upload_bytes
+        raise _error(
+            t,
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            constants.ErrorCode.TOO_LARGE,
+            constants.I18nKey.ERR_TOO_LARGE,
+            max_size=format_bytes(limit),
+            _max_bytes=limit,
+        ) from exc
+    except QuotaExceededError as exc:
+        raise _error(
+            t,
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            constants.ErrorCode.QUOTA_EXCEEDED,
+            constants.I18nKey.ERR_QUOTA,
+        ) from exc
     except SizeMismatchError as exc:
         raise _error(
             t,

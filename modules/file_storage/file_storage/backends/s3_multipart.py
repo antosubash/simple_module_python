@@ -51,12 +51,19 @@ class S3MultipartMixin:
         except Exception as exc:
             raise StorageBackendError(f"S3 create_multipart_upload failed: {exc}") from exc
 
-    async def presign_part(self, key: str, upload_id: str, part_no: int, ttl: int) -> str:
-        return await self._presign(
-            "upload_part",
-            {"Bucket": self.bucket, "Key": key, "UploadId": upload_id, "PartNumber": part_no},
-            ttl,
-        )
+    async def presign_part(
+        self, key: str, upload_id: str, part_no: int, ttl: int, size: int | None = None
+    ) -> str:
+        params: dict[str, Any] = {
+            "Bucket": self.bucket,
+            "Key": key,
+            "UploadId": upload_id,
+            "PartNumber": part_no,
+        }
+        if size is not None:
+            # Signed, so S3 refuses a body of any other length.
+            params["ContentLength"] = size
+        return await self._presign("upload_part", params, ttl)
 
     async def presigned_put_url(self, key: str, ttl: int, content_type: str) -> str:
         return await self._presign(
