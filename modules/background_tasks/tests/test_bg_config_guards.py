@@ -118,7 +118,9 @@ def test_env_helpers_log_bad_input(monkeypatch, caplog) -> None:
     assert env_csv("X_UNSET") == []
 
 
-@pytest.mark.parametrize("url", ["pkg.mod:Backend", "mod.Transport://x", "a:b://c"])
+@pytest.mark.parametrize(
+    "url", ["pkg.mod:Backend", "mod.Transport://x", "a:b://c", "pkg.Backend+redis://h/0"]
+)
 def test_importable_url_schemes_are_refused(url: str) -> None:
     with pytest.raises(ValueError):
         BackgroundTasksSettings(broker_url=url)
@@ -126,6 +128,19 @@ def test_importable_url_schemes_are_refused(url: str) -> None:
         BackgroundTasksSettings(result_backend=url)
 
 
-@pytest.mark.parametrize("url", ["redis://h/0", "amqp://g@h//", "db+sqlite:///x.db", "rpc://"])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "redis://h/0",
+        "rediss://h/0?ssl_cert_reqs=required",
+        "redis+socket:///var/run/redis.sock",
+        "sentinel://h:26379/0;sentinel://h2:26379/0",
+        "sqla+postgresql://u:p@h/db",
+        "db+postgresql://u:p@h/db",
+        "amqp://g@h//",
+        "db+sqlite:///x.db",
+        "rpc://",
+    ],
+)
 def test_plain_url_schemes_pass(url: str) -> None:
     assert BackgroundTasksSettings(broker_url=url).broker_url == url
