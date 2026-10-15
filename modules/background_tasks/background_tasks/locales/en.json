@@ -190,6 +190,8 @@
     "retried": "Event queued for delivery again",
     "retry_failed": "Failed to retry the event",
     "discarded": "Event discarded",
-    "discard_failed": "Failed to discard the event"
+    "discard_failed": "Failed to discard the event",
+    "conflict": "This event is being delivered right now, so it cannot be changed. The list has been refreshed.",
+    "gone": "This event no longer exists. The list has been refreshed."
   }
 }

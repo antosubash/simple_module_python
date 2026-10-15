@@ -225,18 +225,29 @@ class BackgroundTasksSettings(BaseSettings):
         default=None, ge=1, description="Seconds a durable handler may run per attempt."
     )
 
-    @model_validator(mode="after")
-    def _handler_timeout_fits_the_lease(self) -> BackgroundTasksSettings:
-        """A handler outliving its lease would be reclaimed and run twice at once."""
-        timeout = self.outbox_handler_timeout_seconds
-        ceiling = max_outbox_handler_timeout(self.outbox_lease_seconds)
-        if timeout is not None and timeout > ceiling:
+    @field_validator("outbox_handler_timeout_seconds")
+    @classmethod
+    def _handler_timeout_fits_the_lease(
+        cls, timeout: int | None, info: ValidationInfo
+    ) -> int | None:
+        """A handler outliving its lease would be reclaimed and run twice at once.
+
+        A field validator (not a model one) so the error carries the field's
+        ``loc`` and the settings form shows it under that field. The lease is
+        declared first, so it is already in ``info.data`` unless it was invalid
+        itself, in which case that error is the one to fix first.
+        """
+        lease = info.data.get("outbox_lease_seconds")
+        if timeout is None or lease is None:
+            return timeout
+        ceiling = max_outbox_handler_timeout(lease)
+        if timeout > ceiling:
             raise ValueError(
                 f"outbox_handler_timeout_seconds ({timeout}) must leave a safety margin "
-                f"inside outbox_lease_seconds ({self.outbox_lease_seconds}): at most "
+                f"inside outbox_lease_seconds ({lease}): at most "
                 f"{ceiling:g}. Raise the lease or lower the timeout."
             )
-        return self
+        return timeout
 
     @model_validator(mode="after")
     def _warn_on_legacy_redis_vars(self) -> BackgroundTasksSettings:

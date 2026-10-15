@@ -41,10 +41,11 @@ describe('outbox actions', () => {
     );
   });
 
-  it('surfaces the server detail on a conflict', async () => {
+  it('shows a translated conflict message, never the server English', async () => {
     stubFetch(409, { detail: 'Only dead messages can be retried' });
     expect(await retryOutboxMessage('m1')).toBe(false);
-    expect(toast.error).toHaveBeenCalledWith('Only dead messages can be retried');
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(toast.error).not.toHaveBeenCalledWith('Only dead messages can be retried');
   });
 });
 

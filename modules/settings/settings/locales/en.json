@@ -130,6 +130,8 @@
     "save": "Save",
     "saving": "Saving…",
     "saved_toast": "Settings saved",
+    "validation_failed": "These settings could not be saved",
+    "save_failed": "Saving failed. Try again.",
     "requires_restart": "Requires restart",
     "reset_to_default": "Revert",
     "set_new_value": "Set new value"

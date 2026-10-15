@@ -45,8 +45,10 @@ function Outbox() {
   async function act(message: OutboxMessage, run: (id: string) => Promise<boolean>) {
     setBusyId(message.id);
     try {
-      if (await run(message.id)) router.reload({ only: RELOAD_ONLY });
+      await run(message.id);
     } finally {
+      // Whatever the outcome: a refused action means the row moved on.
+      router.reload({ only: RELOAD_ONLY });
       setBusyId(null);
     }
   }

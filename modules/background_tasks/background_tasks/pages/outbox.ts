@@ -51,12 +51,25 @@ export interface OutboxMessage {
 
 const OUTBOX_API = `${API_BASE}/outbox`;
 
+/** Raised for a non-2xx answer; carries the status so callers can pick a translated message. */
+class OutboxHttpError extends Error {
+  constructor(readonly status: number) {
+    super(`HTTP ${status}`);
+  }
+}
+
 async function send(url: string, method: string): Promise<void> {
   const res = await fetch(url, { method, headers: { Accept: 'application/json' } });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(typeof body.detail === 'string' ? body.detail : `HTTP ${res.status}`);
+  if (!res.ok) throw new OutboxHttpError(res.status);
+}
+
+/** The server's English `detail` is never shown: 409/404 get their own translated line. */
+function failureMessage(err: unknown, fallback: string): string {
+  if (err instanceof OutboxHttpError) {
+    if (err.status === 409) return t(keys.background_tasks.outbox.conflict);
+    if (err.status === 404) return t(keys.background_tasks.outbox.gone);
   }
+  return fallback;
 }
 
 /** Send a dead message round again from attempt 1. Resolves true on success. */
@@ -66,7 +79,7 @@ export async function retryOutboxMessage(id: string): Promise<boolean> {
     toast.success(t(keys.background_tasks.outbox.retried));
     return true;
   } catch (err) {
-    toast.error(err instanceof Error ? err.message : t(keys.background_tasks.outbox.retry_failed));
+    toast.error(failureMessage(err, t(keys.background_tasks.outbox.retry_failed)));
     return false;
   }
 }
@@ -78,9 +91,7 @@ export async function discardOutboxMessage(id: string): Promise<boolean> {
     toast.success(t(keys.background_tasks.outbox.discarded));
     return true;
   } catch (err) {
-    toast.error(
-      err instanceof Error ? err.message : t(keys.background_tasks.outbox.discard_failed),
-    );
+    toast.error(failureMessage(err, t(keys.background_tasks.outbox.discard_failed)));
     return false;
   }
 }
