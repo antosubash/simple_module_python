@@ -173,6 +173,90 @@ Each field defaults to `None`, which keeps Celery's own default; all require a w
 
 > **Redis and long tasks.** The tasks run with `acks_late`. On a Redis broker a message not acknowledged within the visibility timeout (Celery default: 1 hour) is redelivered, so a task that runs longer than that executes twice. Set `visibility_timeout_seconds` above your longest task.
 
+## Durable events (outbox)
+
+`bus.publish` is in-process: a crash, a restart or a failing handler loses the
+event. For side effects that must happen — an invoice email, a search-index
+update, a call to another system — subscribe a **durable** handler and publish
+durably. This module is the transport; without it `publish_durable` raises
+`DurableDeliveryUnavailable`.
+
+```python
+# modules/invoices/invoices/module.py
+from simple_module_core import DurableContext
+from orders.contracts.events import OrderPlaced
+
+
+class InvoicesModule(ModuleBase):
+    def register_event_handlers(self, bus, app=None) -> None:
+        # Before any `if app is None: return` — the worker registers with app=None.
+        bus.subscribe_durable(OrderPlaced, create_invoice)
+
+
+async def create_invoice(event: OrderPlaced, ctx: DurableContext) -> None:
+    ctx.db.add(Invoice(order_id=event.order_id))  # commits with the delivery mark
+```
+
+```python
+# in the orders service, inside the request's transaction
+await bus.publish_durable(OrderPlaced(order_id=order.id, total=order.total), db)
+```
+
+How it is delivered:
+
+- `publish_durable` writes one `background_tasks_outbox` row per durable handler
+  **in the caller's session**. A rollback writes nothing, so nothing is delivered.
+- After the commit, `background_tasks.dispatch_outbox(ids)` is sent to the broker.
+  If that never happens (the process died between commit and publish, or the
+  broker was down), the beat task `background_tasks.sweep_outbox` delivers the row
+  within `outbox_sweep_interval_seconds` (30 s).
+- A worker **claims** a row with one conditional `UPDATE` (`pending → running`,
+  `attempts + 1`, `locked_until = now + outbox_lease_seconds`); on Postgres the
+  candidate select uses `FOR UPDATE SKIP LOCKED`. Two workers never claim the
+  same row. A row left `running` past its lease (worker killed) goes back to
+  `pending` on the next sweep, or `dead` if that was its last attempt.
+- The handler runs as `await handler(event, ctx)` inside
+  `tenant_context(<publisher's tenant>)` (the install's default tenant for a
+  platform publish). `ctx.attempt` starts at 1. `ctx.db` is an `AsyncSession` that
+  is committed **in the same transaction that marks the row delivered**, and that
+  mark is fenced on the attempt the worker claimed: a handler whose lease expired
+  and was re-run elsewhere has its whole session rolled back. Writes through
+  `ctx.db` therefore land **exactly once**; anything else the handler does (HTTP
+  calls, emails) is **at-least-once** — make it idempotent, e.g. keyed on the
+  event's id. `ctx.db.on_commit(...)` callbacks run after that commit.
+- On an exception the session rolls back and the row is retried after
+  `10 s × 2^(attempts-1)`, capped at 1 h. After `outbox_max_attempts` (8) it is
+  `dead`. A row whose handler name or event type the worker does not know
+  (renamed, removed, module not installed on that worker) or whose payload no
+  longer validates goes `dead` straight away with the reason in `last_error`.
+- Delivered rows are deleted by `purge_old_executions` after `retention_days`.
+
+Handler **names** are the delivery key — by default the handler's import path
+(`invoices.module.create_invoice`); pass `name=` to `subscribe_durable` to pin it
+before renaming the function. Events must be `@dataclass` classes whose fields
+pydantic can put in JSON (str/int/float/bool/`Decimal`, `UUID`, `datetime`/`date`,
+`Enum`, nested dataclasses, lists, dicts, `X | None`); this is checked at
+`subscribe_durable`.
+
+**Worker side.** The Celery tasks are synchronous, so each dispatch runs the
+async dispatcher with `asyncio.run` (on a private thread if the calling thread
+already has a loop). The worker builds an async engine on the same database URL
+as `sync_db`, with `NullPool` (every `asyncio.run` is a new event loop) and the
+host's tenancy policy, and builds its own `EventBus` once per process by calling
+every installed module's `register_event_handlers(bus, None)`. A worker started
+with `include_modules`/`exclude_modules` still knows every module's durable
+handlers: the bus comes from discovery, not from the imported `tasks.py`.
+
+**Eager mode** (`task_always_eager`, tests and single-process dev) delivers a
+request's rows from its `on_commit`, on the web process's own engine — no
+worker needed. Nothing sweeps in eager mode: a failed delivery stays `pending`
+until a worker runs, or until it is retried from the admin page.
+
+The admin page `/admin/background-tasks/outbox` (linked from the executions
+list) shows pending, running and dead rows with their last error; dead rows can
+be **retried** (back to `pending`, attempts reset) and pending or dead rows
+**discarded**.
+
 ## Routes
 
 ### Admin API
@@ -185,6 +269,9 @@ All require `background_tasks.view`; retry additionally needs `background_tasks.
 | `GET /api/background_tasks/admin/executions/{execution_id}` | → `TaskExecutionDetail` | 404 if missing |
 | `POST /api/background_tasks/admin/executions/{execution_id}/retry` | → `TaskExecutionDetail` | 409 unless status is `failed` or `stuck` |
 | `GET /api/background_tasks/admin/workers` | → `WorkerSnapshot` | live ping; consumed by the `Workers` page |
+| `GET /api/background_tasks/admin/outbox` | `?status=&page=&per_page=` → `OutboxListResponse` | undelivered rows (pending, running, dead) and per-status counts |
+| `POST /api/background_tasks/admin/outbox/{id}/retry` | → `OutboxItem` | `manage`; 409 unless `dead`; resets attempts and dispatches after commit |
+| `DELETE /api/background_tasks/admin/outbox/{id}` | 204 | `manage`; 409 for a `running` row |
 
 ### View
 
@@ -192,6 +279,7 @@ All require `background_tasks.view`; retry additionally needs `background_tasks.
 |---|---|---|
 | `GET /admin/background-tasks/` | `BackgroundTasks/Index` | `background_tasks.view` |
 | `GET /admin/background-tasks/workers` | `BackgroundTasks/Workers` | `background_tasks.view` |
+| `GET /admin/background-tasks/outbox` | `BackgroundTasks/Outbox` | `background_tasks.view` |
 | `GET /admin/background-tasks/{execution_id}` | `BackgroundTasks/Detail` | `background_tasks.view` |
 
 ## Public contracts
@@ -238,6 +326,20 @@ from background_tasks.contracts.schemas import (
 
 Composite index on `(status, queued_at)` keeps the listing snappy under load.
 
+`OutboxMessage` (table `background_tasks_outbox`) — one row per (durable event, handler); see [Durable events](#durable-events-outbox).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `UUID` | PK |
+| `event_key` / `handler_name` | `str(255)` | `<module>.<EventClass>` and the durable handler's name |
+| `payload` | JSON | the serialised event |
+| `tenant_id` | `str(50) \| None` | publisher's tenant; plain column like `TaskExecution.tenant_id` |
+| `status` | `str(20)` | `pending` `running` `delivered` `dead` |
+| `attempts` | `int` | bumped on claim; also the claim's fencing token |
+| `next_attempt_at` / `locked_until` | `datetime` | backoff and lease |
+| `last_error` | `str \| None` | exception line, then the traceback's tail |
+| `created_at` / `delivered_at` | `datetime` | |
+
 ## Settings
 
 DB-backed; defaults are in `BackgroundTasksSettings`. Several are marked `requires_restart=True` because Celery reads them at process start.
@@ -255,6 +357,9 @@ DB-backed; defaults are in `BackgroundTasksSettings`. Several are marked `requir
 | `purge_interval_seconds` | `86_400` | beat cadence for old-row purge |
 | `retention_days` | `14` | how long to keep terminal rows; range 1-3650 |
 | `max_retries` | `3` | informational; tasks define their own policies; range 0-100 |
+| `outbox_max_attempts` | `8` | durable-event delivery attempts before `dead`; range 1-100 |
+| `outbox_sweep_interval_seconds` | `30` | restart required; beat cadence of `sweep_outbox` |
+| `outbox_lease_seconds` | `300` | how long a claimed delivery may run before another worker reclaims it — keep it above your slowest durable handler |
 
 Bootstrap env-var equivalents (`SM_BG_TASKS_*`) only seed pydantic defaults at first boot — once a value lives in the DB, it's authoritative.
 
@@ -263,7 +368,7 @@ Bootstrap env-var equivalents (`SM_BG_TASKS_*`) only seed pydantic defaults at f
 | Code | Purpose |
 |---|---|
 | `background_tasks.view` | list + detail + worker snapshot |
-| `background_tasks.manage` | retry failed / stuck tasks |
+| `background_tasks.manage` | retry failed / stuck tasks; retry or discard outbox rows |
 
 ## Menu
 
@@ -276,7 +381,10 @@ Bootstrap env-var equivalents (`SM_BG_TASKS_*`) only seed pydantic defaults at f
 | Task | Schedule | What |
 |---|---|---|
 | `background_tasks.sweep_stuck_tasks` | every `stuck_sweep_interval_seconds` | flips `running` rows whose heartbeat is older than their task's `stuck_after` (else `stuck_after_seconds`) to `stuck` |
-| `background_tasks.purge_old_executions` | every `purge_interval_seconds` | deletes terminal rows older than `retention_days` |
+| `background_tasks.purge_old_executions` | every `purge_interval_seconds` | deletes terminal rows, and delivered outbox rows, older than `retention_days` |
+| `background_tasks.sweep_outbox` | every `outbox_sweep_interval_seconds` | reclaims expired outbox leases and delivers every due outbox row |
+
+`background_tasks.dispatch_outbox(ids)` is not scheduled: it is sent after each commit that wrote outbox rows.
 
 A `background_tasks.demo_echo` task is also registered for smoke tests; not scheduled.
 
@@ -320,11 +428,12 @@ Production deployments running multiple workers can write concurrently because e
 - `BackgroundTasks/Index.tsx` — paginated execution list with status / task-name filters.
 - `BackgroundTasks/Detail.tsx` — full execution view with retry button (`background_tasks.manage`).
 - `BackgroundTasks/Workers.tsx` — live worker dashboard.
+- `BackgroundTasks/Outbox.tsx` — undelivered durable events with retry / discard.
 - Components: `ExecutionRow.tsx`, `RetryConfirmDialog.tsx`.
 
 ## Locales
 
-Top-level keys in `background_tasks/locales/en.json`: `index`, `filters`, `status` (per-state labels), `table`, `detail`, `retry_dialog`, `toasts`.
+Top-level keys in `background_tasks/locales/en.json`: `index`, `filters`, `status` (per-state labels), `table`, `detail`, `retry_dialog`, `toasts`, `outbox`.
 
 ## Reading DB-backed settings in a task
 

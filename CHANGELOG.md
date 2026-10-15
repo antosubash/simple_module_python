@@ -12,6 +12,23 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- Durable event delivery (#459). `bus.subscribe_durable(EventType, handler,
+  name=...)` and `await bus.publish_durable(event, db)` in
+  `simple_module_core.events`; handlers are called as
+  `await handler(event, ctx: DurableContext)`. `background_tasks` installs the
+  transport: an outbox table (`background_tasks_outbox`, **migration**
+  `e878882924e7`) written in the publisher's transaction, a post-commit
+  `background_tasks.dispatch_outbox` task, and a 30 s beat sweep
+  (`background_tasks.sweep_outbox`) for crashes between commit and publish.
+  At-least-once delivery with exponential backoff (10 s doubling, 1 h cap);
+  writes through `ctx.db` commit with the delivery mark and land exactly once;
+  handlers run in the publisher's tenant. Rows go `dead` after
+  `outbox_max_attempts` (8) or when the worker does not know the handler. New
+  admin page `/admin/background-tasks/outbox` (retry dead, discard) and API under
+  `/api/background_tasks/admin/outbox`. New settings `outbox_max_attempts`,
+  `outbox_sweep_interval_seconds`, `outbox_lease_seconds`. Delivered rows are
+  purged after `retention_days`. Without background_tasks, `publish_durable`
+  raises `DurableDeliveryUnavailable`; `publish` / `publish_nowait` are unchanged.
 - background_tasks Celery config (#447, #448, #450): a module can ship a light
   `task_config.py` (`TASK_ROUTES`, `QUEUES`, `BEAT_SCHEDULE`) read without
   importing `tasks.py`; `task_routes_override` re-routes tasks at runtime and the
