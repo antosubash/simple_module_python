@@ -11,6 +11,12 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+- **Behaviour change (#456):** the OpenAPI schema moved from `/openapi.json` to
+  `/api/openapi.json`, and is no longer served outside development unless
+  `openapi_public` (`SM_OPENAPI_PUBLIC`) is on. The bare `/openapi.json` was
+  previously served, and anonymous, in production.
+
 ### Added
 - Durable event delivery (#459). `bus.subscribe_durable(EventType, handler,
   name=...)` and `await bus.publish_durable(event, db)` in
@@ -38,6 +44,42 @@ All notable changes to this project are documented in this file. The format is b
   raises `DurableDeliveryUnavailable`; `publish` / `publish_nowait` are unchanged.
   New `simple_module_db.no_tenant()` context: no tenant bound and outside any
   `all_tenants()`.
+- **New `api_tokens` module** (#455): personal access tokens (`smpat_…`) and
+  service API keys (`smsk_…`). Only `sha256(token)` is stored and the secret
+  is shown once; a token is resolved by one indexed lookup per request (no
+  cache), so a revoke applies on the next request. Every token carries scopes
+  that cap the principal's permissions on top of the owner's live grants (an
+  admin's token is worth its scopes only). Service keys get roles chosen at
+  creation (never `admin`); every token is pinned to the tenant it was created
+  in (a PAT only while its owner is still a member). Self-service page at
+  `/api-tokens/` (user menu), admin screen at `/admin/api-tokens/`; tokens can
+  only be managed from a cookie session, with `RequiresCsrf`. New PyPI package
+  `simple_module_api_tokens`; not added to the `smpy new` scaffold. Needs a
+  migration (`branch_labels = ("api_tokens",)`).
+- `UserContext` gains `auth_kind` (`"session"` by default; `"pat"` /
+  `"service"` for tokens) and `scopes` (`None` = uncapped), carried through
+  `from_user`, `to_session_dict` and `from_session_dict`. `auth.contracts.tokens`
+  holds the kinds and the `smpat_` / `smsk_` prefixes.
+- `simple_module_hosting.permissions.apply_scope_cap` and
+  `simple_module_core.permissions.is_admin_principal`. A role-only admin gate
+  should use `is_admin_principal(user)`, which is `False` for any token.
+- `simple_module_hosting.token_guard` (#455): an app-wide dependency that
+  refuses an API token (403) on every route without a permission gate
+  (`RequiresPermission` / `require_permission`) and on every page; a public
+  route serves it as anonymous. `TokenAllowed()` opts a route in explicitly.
+  Sessions and provider bearer tokens are unaffected. **Behaviour change** for
+  any module that relied on a token reaching an ungated route: gate it with a
+  permission, or mark it `TokenAllowed`.
+- `auth.contracts.tokens.AUTH_KIND_BEARER`: a `users` access token or Keycloak
+  JWT now reports `auth_kind == "bearer"` (was `"session"`). Same rights; it
+  only stops such credentials from managing API tokens.
+- Resumable multipart uploads for `file_storage` (#454): `POST /api/file-storage/uploads`
+  sessions with presigned S3 part URLs (or relayed parts on the filesystem backend),
+  4-way parallel parts with retry and `localStorage` resume in the Files page,
+  `s3_public_endpoint_url`, CSP `connect-src` for the S3 origin, and an hourly
+  `file_storage.reap_stale_uploads` janitor (with `background_tasks`). Sessions count
+  against the quota and the assembled size is re-verified at completion. Migration
+  `a659221c464b` adds `file_storage_upload_session`.
 - background_tasks Celery config (#447, #448, #450): a module can ship a light
   `task_config.py` (`TASK_ROUTES`, `QUEUES`, `BEAT_SCHEDULE`) read without
   importing `tasks.py`; `task_routes_override` re-routes tasks at runtime and the
@@ -49,6 +91,20 @@ All notable changes to this project are documented in this file. The format is b
   (comma-separated, environment only, never DB-backed; `SM_BG_TASKS_WORKER_QUEUES=a,b`) limit which modules' `tasks.py` a process
   imports (autodiscovery and the eager beat import); `make worker` passes `-Q`.
   `make doctor` warns (`SM028`) on a top-level heavy import in `tasks.py`.
+- OpenAPI export (#456): `smpy openapi export [--out] [--module]` / `make openapi`
+  write the `/api/**` schema without starting a server; operationIds are
+  `<module>_<function>`; view routes are excluded; new host settings
+  `api_title`, `api_version`, `api_description`, `openapi_public`. See
+  `docs/guide/openapi-clients.md` for hey-api and Dart CI recipes.
+- Postgres extensions and column types (#458): `ModuleBase.db_extensions()`
+  declares the extensions a module needs (`["ltree"]`); `ensure_db_extensions`
+  runs from `env.py` (host and scaffold) before the revisions, emitting
+  `CREATE EXTENSION IF NOT EXISTS` (also in offline SQL) and raising
+  `UnsupportedDatabaseError` on SQLite. `simple_module_db.types.LTree` and
+  `TSVector` are native on Postgres and `TEXT` on SQLite; autogenerate renders
+  them with the right import. New doctor code `SM029`, and a `postgres` pytest
+  marker (skipped unless `SM_TEST_DATABASE_URL` is Postgres). The Postgres test
+  fixtures re-create declared extensions after each schema reset. No migration.
 - `from background_tasks import heartbeat` (#451): a long-running task calls
   `heartbeat()` to refresh `heartbeat_at` (throttled to one write per 30 s; a
   no-op outside a task). `@shared_task(..., stuck_after=<seconds>)` sets a
@@ -146,6 +202,21 @@ All notable changes to this project are documented in this file. The format is b
   production-mode containers pass `UsersSettings` boot validation.
 
 ### Changed
+- The `users` and `keycloak` auth providers return `None` at once for a bearer
+  value with an `api_tokens` prefix instead of looking it up (#455), leaving it
+  to the principal resolver chain.
+- `require_permission` (auth) skips its admin-role shortcut, and
+  `resolve_principal_permissions` / `resolved_permissions_for` cap the set,
+  when the principal carries `scopes`. The `/admin` index, the Doctor page and
+  the maintenance bypass no longer admit an admin's token on the role alone.
+- The `tenants` resolver binds a service principal to its pinned tenant and
+  ignores the tenant header and subdomain for it.
+- `make new-module`: the scaffolded `tsconfig.json` no longer sets `baseUrl`
+  (removed in TypeScript 6), `views.py` imports `InertiaResponse` from
+  `simple_module_inertia`, and `package.json` peers `@inertiajs/react` `^3.7.0`.
+- `StoredFile.checksum_sha256` / `StoredFileOut.checksum_sha256` are now nullable (#454):
+  files uploaded through the multipart flow have no checksum until
+  `file_storage.compute_checksum` runs, and `ETag`s fall back to id + size.
 - **Dashboard stats are admin-only on single-tenant installs too** (#464).
   `dashboard.view` was mapped to the ordinary `user` role when
   `multi_tenant` was off, so any self-registered account could read user

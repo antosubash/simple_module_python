@@ -17,6 +17,8 @@ TENANT_HEADER = "X-Tenant-ID"
 
 _CREDENTIAL_VARY = ("Cookie", "Authorization")
 
+_STATE_MIDDLEWARE = "_sm_tenant_middleware"
+
 
 @dataclass(frozen=True, slots=True)
 class TenantResolution:
@@ -123,37 +125,41 @@ class TenantMiddleware:
             return
 
         request = Request(scope)
+        # Kept so a principal dropped later in the request can be re-resolved
+        # (``reresolve_tenant``) with this middleware's own configuration.
+        scope.setdefault("state", {})[_STATE_MIDDLEWARE] = self
         resolution = await self._resolve(request, scope)
         tenant_id = resolution.tenant_id
         request.state.tenant_id = tenant_id
         request.state.tenant_source = resolution.source
         request.state.tenant_vary = resolution.vary
 
-        send = self._vary_sender(send, resolution.vary)
-        if tenant_id is not None:
-            token = current_tenant_id.set(tenant_id)
-            try:
-                await self.app(scope, receive, send)
-            finally:
-                current_tenant_id.reset(token)
-            return
-
-        await self.app(scope, receive, send)
+        send = self._vary_sender(scope, send, resolution.vary)
+        # Always bound and reset, even for ``None``: a principal demoted later in
+        # the request re-resolves the tenant (``reresolve_tenant``) and may set
+        # one this request did not start with, which must not outlive it.
+        token = current_tenant_id.set(tenant_id)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            current_tenant_id.reset(token)
 
     @staticmethod
-    def _vary_sender(send: Send, vary: tuple[str, ...]) -> Send:
+    def _vary_sender(scope: Scope, send: Send, vary: tuple[str, ...]) -> Send:
         if not vary:
             return send
 
         async def wrapped(message: MutableMapping[str, Any]) -> None:
             if message["type"] == "http.response.start":
+                # Re-read: a re-resolution (``reresolve_tenant``) may add names.
+                names = (scope.get("state") or {}).get("tenant_vary") or vary
                 headers = MutableHeaders(scope=message)
                 lines = headers.getlist("vary")
                 # Every line, not just the first (#423): MutableHeaders.get
                 # reads one, and assigning drops the rest — including a
                 # ``Vary: *`` on a later line.
                 if not any("*" in _tokens(line) for line in lines):
-                    merged = merge_vary(", ".join(lines), vary)
+                    merged = merge_vary(", ".join(lines), tuple(names))
                     del headers["vary"]
                     headers["vary"] = merged
             await send(message)
@@ -188,10 +194,30 @@ class TenantMiddleware:
         return TenantResolution(None)
 
 
+async def reresolve_tenant(request: Request | Any) -> None:
+    """Resolve the tenant again for the request's *current* principal and rebind it.
+
+    For a principal dropped after ``TenantMiddleware`` ran: the tenant it
+    pinned must not outlive it. No-op without the middleware (single-tenant
+    hosts never bound one). The headers both answers depended on stay in
+    ``Vary``.
+    """
+    middleware = (request.scope.get("state") or {}).get(_STATE_MIDDLEWARE)
+    if not isinstance(middleware, TenantMiddleware):
+        return
+    resolution = await middleware._resolve(request, request.scope)
+    previous = tuple(getattr(request.state, "tenant_vary", None) or ())
+    request.state.tenant_id = resolution.tenant_id
+    request.state.tenant_source = resolution.source
+    request.state.tenant_vary = (*previous, *resolution.vary)
+    current_tenant_id.set(resolution.tenant_id)
+
+
 __all__ = [
     "TENANT_HEADER",
     "TenantMiddleware",
     "TenantResolution",
     "TenantResolver",
     "merge_vary",
+    "reresolve_tenant",
 ]

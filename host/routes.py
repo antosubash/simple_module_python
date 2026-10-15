@@ -14,14 +14,14 @@ landlord of a space all of them share.
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
-from simple_module_core.permissions import is_admin
+from simple_module_core.permissions import is_admin_principal
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_inertia import InertiaResponse
 
 router = APIRouter()
 
 
-@router.get("/", response_model=None)
+@router.get("/", response_model=None, include_in_schema=False)
 async def landing(request: Request, inertia: InertiaDep) -> InertiaResponse:
     """Public landing page — no auth required."""
     is_authenticated = getattr(request.state, "user", None) is not None
@@ -33,8 +33,8 @@ async def landing(request: Request, inertia: InertiaDep) -> InertiaResponse:
     )
 
 
-@router.get("/admin", response_model=None)
-@router.get("/admin/", response_model=None)
+@router.get("/admin", response_model=None, include_in_schema=False)
+@router.get("/admin/", response_model=None, include_in_schema=False)
 async def admin_overview(request: Request, inertia: InertiaDep) -> InertiaResponse:
     """Landing page for the admin section.
 
@@ -59,7 +59,7 @@ async def admin_overview(request: Request, inertia: InertiaDep) -> InertiaRespon
     user = getattr(request.state, "user", None)
     if user is None:
         raise HTTPException(status_code=403, detail="Administrator access required")
-    if not (is_admin(getattr(user, "roles", None)) or _has_admin_entries(request)):
+    if not (is_admin_principal(user) or _has_admin_entries(request)):
         raise HTTPException(status_code=403, detail="Administrator access required")
     return await inertia.render("Admin", {})
 

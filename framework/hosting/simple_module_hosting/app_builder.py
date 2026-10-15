@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from simple_module_core import BodyLimitRegistry, CspSourceRegistry
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.design_packs import DesignPackRegistry
@@ -27,6 +27,12 @@ from simple_module_hosting._db_health import register_database_check
 from simple_module_hosting._dev_boot import run_dev_boot
 from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._lifespan import build_lifespan
+from simple_module_hosting._openapi import (
+    API_OPENAPI_URL,
+    install_openapi_filter,
+    make_unique_id_function,
+    openapi_served,
+)
 from simple_module_hosting._phase_helpers import (
     attach_public_routes,
     install_middleware,
@@ -50,11 +56,10 @@ from simple_module_hosting.setup_gate import register_migration_step
 from simple_module_hosting.setup_wizard import mount_setup_wizard
 from simple_module_hosting.static_files import PrecompressedStaticFiles
 from simple_module_hosting.tenancy import mode_for
+from simple_module_hosting.token_guard import token_route_guard
 
 logger = logging.getLogger(__name__)
 
-_APP_TITLE = "SimpleModule"
-_APP_VERSION = "0.1.0"
 _DOCS_URL = "/api/docs"
 _REDOC_URL = "/api/redoc"
 _STATIC_MOUNT_PATH = "/static"
@@ -144,13 +149,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     lifespan = build_lifespan(modules)
 
+    serve_openapi = openapi_served(
+        is_development=settings.is_development, openapi_public=settings.openapi_public
+    )
     app = FastAPI(
-        title=_APP_TITLE,
-        version=_APP_VERSION,
+        title=settings.api_title,
+        version=settings.api_version,
+        description=settings.api_description,
+        openapi_url=API_OPENAPI_URL if serve_openapi else None,
+        generate_unique_id_function=make_unique_id_function(),
         docs_url=_DOCS_URL if settings.is_development else None,
         redoc_url=_REDOC_URL if settings.is_development else None,
         lifespan=lifespan,
+        # API tokens reach only permission-gated, non-page routes (or ones
+        # marked ``TokenAllowed``); see ``token_guard``.
+        dependencies=[Depends(token_route_guard)],
     )
+
+    install_openapi_filter(app)
+    # Read by AuthMiddleware: the schema is anonymous exactly when it is served.
+    app.state.openapi_url = API_OPENAPI_URL if serve_openapi else None
 
     # ── Phase 4: Module settings ───────────────────────────
     for mod in modules:

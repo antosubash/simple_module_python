@@ -111,6 +111,7 @@ class ModuleDiagnostics:
                     "template_dirs",
                     "static_mounts",
                     "locale_dirs",
+                    "db_extensions",
                     "on_startup",
                     "on_shutdown",
                 )

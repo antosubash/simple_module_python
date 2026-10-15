@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from auth.contracts.tokens import AUTH_KIND_SESSION
+
 if TYPE_CHECKING:
     # Runtime import would be circular: auth -> users -> auth.
     # Only imported for type-hints, never at runtime.
@@ -24,9 +26,38 @@ class UserContext:
     # provider maps in. Frozen in the session cookie like ``roles``; anything
     # revocable belongs in a grant source. The resolver drops ``*`` from here.
     permissions: list[str] = field(default_factory=list)
+    # Which credential authenticated the request: ``"session"`` for a browser
+    # sign-in, ``"bearer"`` for a provider's own bearer token (a ``users``
+    # access token, an IdP JWT), ``"pat"`` / ``"service"`` for an
+    # ``api_tokens`` credential (see ``auth.contracts.tokens``). Code that must
+    # only ever act for a person at a keyboard — minting more credentials —
+    # refuses anything but ``"session"``.
+    auth_kind: str = AUTH_KIND_SESSION
+    # The ceiling a token carries. ``None`` means "no cap" (an ordinary
+    # session); a list — even an empty one — is intersected with whatever the
+    # principal resolves to, and the admin-role shortcuts are skipped, so an
+    # admin's token is worth exactly the scopes it was given.
+    scopes: list[str] | None = None
+    # A permission the account must *currently* hold for this credential to
+    # authenticate at all — ``api_tokens.use`` for a personal access token.
+    # Checked on every request against the account's live, tenant-aware
+    # permissions; when missing, the request runs as anonymous (401 on gated
+    # routes). ``None`` (a session, a service key) requires nothing.
+    required_permission: str | None = None
+
+    @property
+    def is_scoped(self) -> bool:
+        """Whether a scope cap applies (any token-authenticated principal)."""
+        return self.scopes is not None
 
     @classmethod
-    def from_user(cls, user: User | Any) -> UserContext:
+    def from_user(
+        cls,
+        user: User | Any,
+        *,
+        auth_kind: str = AUTH_KIND_SESSION,
+        scopes: list[str] | None = None,
+    ) -> UserContext:
         """Build a UserContext from a users.models.User with eagerly-loaded roles.
 
         Duck-typed to avoid importing users.models at runtime — any object
@@ -41,6 +72,8 @@ class UserContext:
             email=user.email,
             name=user.full_name or user.email,
             roles=[r.name for r in user.roles],
+            auth_kind=auth_kind,
+            scopes=list(scopes) if scopes is not None else None,
         )
 
     def to_session_dict(self) -> dict[str, Any]:
@@ -56,6 +89,9 @@ class UserContext:
             "roles": list(self.roles),
             "tenant_id": self.tenant_id,
             "permissions": list(self.permissions),
+            "auth_kind": self.auth_kind,
+            "scopes": list(self.scopes) if self.scopes is not None else None,
+            "required_permission": self.required_permission,
         }
 
     @classmethod
@@ -73,6 +109,9 @@ class UserContext:
                 tenant_id=payload.get("tenant_id"),
                 # Absent on cookies written before the field existed.
                 permissions=list(payload.get("permissions") or []),
+                auth_kind=str(payload.get("auth_kind") or AUTH_KIND_SESSION),
+                scopes=_scopes_from(payload.get("scopes")),
+                required_permission=payload.get("required_permission") or None,
             )
         except (KeyError, TypeError, ValueError):
             return None
@@ -89,3 +128,12 @@ class UserContext:
 
     def has_any_role(self, roles: list[str]) -> bool:
         return bool(set(self.roles) & set(roles))
+
+
+def _scopes_from(raw: Any) -> list[str] | None:
+    """``None`` stays ``None`` (uncapped); anything else must be a list."""
+    if raw is None:
+        return None
+    if not isinstance(raw, list):
+        raise TypeError("scopes must be a list")
+    return [str(s) for s in raw]

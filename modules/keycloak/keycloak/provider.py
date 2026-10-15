@@ -7,6 +7,7 @@ from datetime import UTC
 from typing import TYPE_CHECKING, Any
 
 from auth.contracts.schemas import UserContext
+from auth.contracts.tokens import AUTH_KIND_BEARER, is_api_token
 from simple_module_core.tenancy import is_tenant_role
 from simple_module_db import is_valid_tenant_id
 from starlette.requests import Request
@@ -46,7 +47,12 @@ class KeycloakAuthProvider:
     async def resolve_user(self, request: Request) -> UserContext | None:
         auth_header = request.headers.get("authorization", "")
         if auth_header.startswith("Bearer "):
-            return await self._resolve_bearer(request, auth_header[7:])
+            credential = auth_header[7:]
+            # An ``api_tokens`` credential is not a JWT: skip the parse and
+            # leave it to the principal resolver that owns it.
+            if is_api_token(credential):
+                return None
+            return await self._resolve_bearer(request, credential)
 
         session = request.scope.get("session", {})
         ctx = UserContext.from_session_dict(session.get(_SESSION_USER_CTX_KEY))
@@ -92,7 +98,12 @@ class KeycloakAuthProvider:
             return None
 
         cache_id = await self._upsert_user_cache(request, claims)
-        return self._claims_to_user_context(claims, cache_id=cache_id)
+        ctx = self._claims_to_user_context(claims, cache_id=cache_id)
+        # Full rights, but a bearer credential: it may not manage API tokens
+        # (``auth.contracts.tokens.AUTH_KIND_BEARER``). The browser sign-in
+        # builds the same context from the callback and keeps ``"session"``.
+        ctx.auth_kind = AUTH_KIND_BEARER
+        return ctx
 
     def _claims_to_user_context(
         self,

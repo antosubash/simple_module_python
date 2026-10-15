@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 
-from simple_module_core.permissions import is_admin
+from simple_module_core.permissions import is_admin_principal
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -83,7 +83,7 @@ class MaintenanceMiddleware:
         """Admins, anyone heading for the auth provider's own routes, and any
         route a module deliberately opened to anonymous visitors."""
         user = getattr(request.state, "user", None)
-        if user is not None and is_admin(getattr(user, "roles", None)):
+        if user is not None and is_admin_principal(user):
             return True
 
         path: str = scope["path"]

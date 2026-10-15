@@ -13,6 +13,8 @@ import contextlib
 from collections.abc import Generator
 
 import pytest
+from file_storage.backends.filesystem import FilesystemBackend
+from file_storage_uploads_helpers import PART
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
@@ -83,3 +85,31 @@ async def admin_tenant_id(app) -> str:
 async def authenticated_client(authenticated_client, admin_tenant_id):
     """The plugin's admin client, acting for the admin's own organisation."""
     return authenticated_client
+
+
+@pytest.fixture
+def checksum_calls(monkeypatch) -> list[tuple]:
+    """Capture ``enqueue_after_commit`` instead of running the (eager) task.
+
+    The test Celery app is eager, so an enqueue would run
+    ``file_storage.compute_checksum`` inline against whichever database the
+    worker-side sync engine points at. The task is exercised on its own in
+    ``test_file_storage_upload_tasks``; request tests only need to see that it
+    was asked for.
+    """
+    import background_tasks
+
+    calls: list[tuple] = []
+    monkeypatch.setattr(
+        background_tasks, "enqueue_after_commit", lambda db, task, *a, **kw: calls.append((task, a))
+    )
+    return calls
+
+
+@pytest.fixture
+def storage(app, tmp_path):
+    """The app's file_storage state, pointed at an isolated filesystem root."""
+    services = app.state.file_storage
+    services.backend = FilesystemBackend(root=tmp_path)
+    services.settings.multipart_part_size_bytes = PART
+    return services

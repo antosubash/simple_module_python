@@ -109,3 +109,18 @@ class TestRequirePermissionAdvanced:
         dep = require_permission("products.delete")
         user = UserContext(id="u1", email="u@t.com", name="User", roles=["clerk"])
         await dep.dependency(_request(app, user), _translator(), user)
+
+
+def test_require_permission_is_a_token_gate():
+    """``token_guard`` admits API tokens on a route gated by ``require_permission``."""
+    from fastapi import FastAPI
+    from simple_module_hosting.token_guard import route_admits_tokens
+
+    app = FastAPI()
+
+    @app.get("/g", dependencies=[require_permission("x.view")])
+    async def gated() -> None:
+        return None
+
+    route = next(r for r in app.router.routes if getattr(r, "path", "") == "/g")
+    assert route_admits_tokens(route) is True

@@ -2,6 +2,12 @@ import { router } from '@inertiajs/react';
 import { useCallback, useRef, useState } from 'react';
 
 import { RELOAD_PROPS, ROUTES } from './constants';
+import type { RemoteSession } from './resumable-upload';
+import { discardSession, findSession, runResumable } from './resumable-upload';
+import { loadSessionId } from './resume-store';
+import { parseFailureReason, UploadAbortedError, UploadFailedError } from './upload-errors';
+
+export { parseFailureReason };
 
 export interface UploadJob {
   id: string;
@@ -9,12 +15,18 @@ export interface UploadJob {
   size: number;
   /** 0–100. Stays at 100 while the server finishes writing to the backend. */
   percent: number;
-  status: 'uploading' | 'done' | 'error';
+  /** `resumable`: a partly-sent copy of this file is on the server, awaiting a choice. */
+  status: 'uploading' | 'done' | 'error' | 'resumable';
   /** Why it failed, in the server's words. Undefined for a transport failure. */
   reason?: string;
 }
 
-type Outcome = 'done' | 'error' | 'canceled';
+type Outcome = 'done' | 'error' | 'canceled' | 'paused';
+
+export interface UploadQueueOptions {
+  /** Files larger than this go through a resumable session; null/undefined: never. */
+  directThresholdBytes?: number | null;
+}
 
 let counter = 0;
 function nextId(): string {
@@ -30,28 +42,6 @@ function nextId(): string {
 const UPLOAD_CONCURRENCY = 4;
 
 /**
- * The server's own explanation for a rejected upload.
- *
- * "Upload failed" is true of a 413, a 415 and a dropped connection alike, and
- * it tells the person holding a 40 MB file nothing they can act on. The API
- * already answers with `{"detail": {"code", "message"}}`; this reads it back
- * out and tolerates every shape that is not that — a proxy's HTML error page,
- * an empty body, a plain-string `detail`.
- */
-export function parseFailureReason(body: string): string | undefined {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(body);
-  } catch {
-    return undefined;
-  }
-  const detail = (parsed as { detail?: unknown } | null)?.detail;
-  if (typeof detail === 'string') return detail || undefined;
-  const message = (detail as { message?: unknown } | null)?.message;
-  return typeof message === 'string' && message ? message : undefined;
-}
-
-/**
  * Uploads files with bounded concurrency, reporting byte progress per file.
  *
  * Uses XMLHttpRequest rather than fetch deliberately: fetch exposes no upload
@@ -62,16 +52,62 @@ export function parseFailureReason(body: string): string | undefined {
  * can be retried from the row itself — the alternative is asking the person to
  * find the file on disk again to answer a transient 502.
  */
-export function useUploadQueue() {
+export function useUploadQueue({ directThresholdBytes }: UploadQueueOptions = {}) {
   const [jobs, setJobs] = useState<UploadJob[]>([]);
   const files = useRef(new Map<string, File>());
   const requests = useRef(new Map<string, XMLHttpRequest>());
+  // Resumable jobs: one controller per running upload, and the server session
+  // a job is waiting on while the user decides between resuming and starting over.
+  const controllers = useRef(new Map<string, AbortController>());
+  const waiting = useRef(new Map<string, RemoteSession>());
 
   const patch = useCallback((id: string, changes: Partial<UploadJob>) => {
     setJobs((current) => current.map((j) => (j.id === id ? { ...j, ...changes } : j)));
   }, []);
 
-  const upload = useCallback(
+  const uploadInParts = useCallback(
+    async (jobId: string, file: File, session: RemoteSession | null): Promise<Outcome> => {
+      const controller = new AbortController();
+      controllers.current.set(jobId, controller);
+      patch(jobId, { status: 'uploading', reason: undefined });
+      try {
+        await runResumable(
+          file,
+          {
+            signal: controller.signal,
+            onProgress: (sent, total) =>
+              patch(jobId, { percent: Math.round((sent / total) * 100) }),
+          },
+          session,
+        );
+        patch(jobId, { percent: 100, status: 'done' });
+        return 'done';
+      } catch (error) {
+        if (error instanceof UploadAbortedError) return 'canceled';
+        const reason = error instanceof UploadFailedError ? error.reason : undefined;
+        patch(jobId, { status: 'error', reason });
+        return 'error';
+      } finally {
+        controllers.current.delete(jobId);
+      }
+    },
+    [patch],
+  );
+
+  /** A copy of this file is already on the server: let the user pick before sending more. */
+  const maybePause = useCallback(
+    async (jobId: string, file: File): Promise<RemoteSession | 'paused' | null> => {
+      const session = await findSession(file);
+      if (!session || session.parts.length === 0) return session;
+      const sent = session.parts.reduce((sum, part) => sum + part.size, 0);
+      waiting.current.set(jobId, session);
+      patch(jobId, { status: 'resumable', percent: Math.round((sent / file.size) * 100) });
+      return 'paused';
+    },
+    [patch],
+  );
+
+  const uploadOnce = useCallback(
     (jobId: string, file: File) =>
       new Promise<Outcome>((resolve) => {
         const form = new FormData();
@@ -109,6 +145,18 @@ export function useUploadQueue() {
         xhr.send(form);
       }),
     [patch],
+  );
+
+  const upload = useCallback(
+    async (jobId: string, file: File, resumeAutomatically = false): Promise<Outcome> => {
+      if (directThresholdBytes && file.size > directThresholdBytes) {
+        const found = resumeAutomatically ? await findSession(file) : await maybePause(jobId, file);
+        if (found === 'paused') return 'paused';
+        return uploadInParts(jobId, file, found);
+      }
+      return uploadOnce(jobId, file);
+    },
+    [directThresholdBytes, maybePause, uploadInParts, uploadOnce],
   );
 
   // Completed rows disappear once the reloaded table can *show* the real
@@ -170,15 +218,52 @@ export function useUploadQueue() {
       const file = files.current.get(id);
       if (!file) return false;
       patch(id, { percent: 0, status: 'uploading', reason: undefined });
-      const outcome = await upload(id, file);
+      // A failed resumable upload picks up where it stopped, without asking.
+      const outcome = await upload(id, file, true);
       settleBatch(outcome === 'done' ? 1 : 0);
       return outcome === 'done';
     },
     [patch, upload, settleBatch],
   );
 
+  const finishResumed = useCallback(
+    async (id: string, run: (file: File) => Promise<Outcome>): Promise<boolean> => {
+      const file = files.current.get(id);
+      if (!file) return false;
+      const outcome = await run(file);
+      settleBatch(outcome === 'done' ? 1 : 0);
+      return outcome === 'done';
+    },
+    [settleBatch],
+  );
+
+  /** Continue the partly-sent copy found on the server. */
+  const resume = useCallback(
+    (id: string) => {
+      const session = waiting.current.get(id) ?? null;
+      waiting.current.delete(id);
+      return finishResumed(id, (file) => uploadInParts(id, file, session));
+    },
+    [finishResumed, uploadInParts],
+  );
+
+  /** Throw the partly-sent copy away and send the file again from the beginning. */
+  const startOver = useCallback(
+    (id: string) => {
+      const session = waiting.current.get(id);
+      waiting.current.delete(id);
+      patch(id, { percent: 0, status: 'uploading' });
+      return finishResumed(id, async (file) => {
+        if (session) await discardSession(file, session.id);
+        return uploadInParts(id, file, null);
+      });
+    },
+    [finishResumed, patch, uploadInParts],
+  );
+
   const forget = useCallback((id: string) => {
     files.current.delete(id);
+    waiting.current.delete(id);
     setJobs((current) => current.filter((j) => j.id !== id));
   }, []);
 
@@ -186,6 +271,12 @@ export function useUploadQueue() {
   const cancel = useCallback(
     (id: string) => {
       requests.current.get(id)?.abort();
+      // A cancelled resumable upload is abandoned, not paused: free the server's parts.
+      const controller = controllers.current.get(id);
+      const file = files.current.get(id);
+      const sessionId = file && controller ? loadSessionId(file) : null;
+      controller?.abort();
+      if (file && sessionId) void discardSession(file, sessionId);
       forget(id);
     },
     [forget],
@@ -195,5 +286,6 @@ export function useUploadQueue() {
   // a second state field could disagree with the rows on screen.
   const busy = jobs.some((j) => j.status === 'uploading');
 
-  return { jobs, start, retry, cancel, dismiss: forget, busy };
+  const actions = { cancel, retry, resume, startOver, dismiss: forget };
+  return { jobs, start, retry, cancel, resume, startOver, dismiss: forget, actions, busy };
 }

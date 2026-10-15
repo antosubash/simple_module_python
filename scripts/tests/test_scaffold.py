@@ -72,6 +72,19 @@ class TestScaffoldModule:
         content = (scaffolded_orders / "models.py").read_text()
         assert "class Order(Base, AuditMixin, table=True):" in content
 
+    def test_scaffold_views_import_the_real_inertia_package(self, scaffolded_orders: Path):
+        """``inertia`` is not a package here; the adapter is ``simple_module_inertia``."""
+        content = (scaffolded_orders / "endpoints" / "views.py").read_text()
+        assert "from simple_module_inertia import InertiaResponse" in content
+        assert "from inertia import" not in content
+
+    def test_scaffold_js_config_matches_the_workspace(self, scaffolded_orders: Path):
+        """Inertia v3 peer range, and no ``baseUrl`` (deprecated; paths resolve
+        relative to the tsconfig) so the scaffold passes ``make lint``."""
+        mod_dir = scaffolded_orders.parent
+        assert '"@inertiajs/react": "^3.7.0"' in (mod_dir / "package.json").read_text()
+        assert "baseUrl" not in (mod_dir / "tsconfig.json").read_text()
+
     def test_scaffold_rejects_duplicate(self, module_root: Path):
         (module_root / "modules" / "orders").mkdir()
 

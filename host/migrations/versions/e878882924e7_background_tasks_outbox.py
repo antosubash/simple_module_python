@@ -11,7 +11,7 @@ background_tasks has no migration chain of its own, so this extends the
 mainline head, like ``b5d3f08a6e17``.
 
 Revision ID: e878882924e7
-Revises: e5a8c1f27b94
+Revises: 51b2058d8afd
 Create Date: 2026-10-15 10:25:29.001223
 """
 
@@ -22,7 +22,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "e878882924e7"
-down_revision: str | None = "e5a8c1f27b94"
+down_revision: str | None = "51b2058d8afd"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

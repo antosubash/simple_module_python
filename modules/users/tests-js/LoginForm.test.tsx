@@ -24,6 +24,12 @@ describe('LoginForm', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Invalid credentials');
   });
 
+  test('spaces the email, password and remember-me rows like the register form', () => {
+    const { container } = render(<LoginForm {...baseProps} error={null} />);
+    expect(container.querySelector('form')).toHaveClass('space-y-4');
+    expect(container.querySelector('#remember')?.parentElement).toHaveClass('pt-1');
+  });
+
   test('renders no alert without an error', () => {
     render(<LoginForm {...baseProps} error={null} />);
     expect(screen.queryByRole('alert')).toBeNull();

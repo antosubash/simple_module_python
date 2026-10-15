@@ -16,7 +16,10 @@ from file_storage.service import FileStorageService
 
 
 def etag_for(row: StoredFile, suffix: str = "") -> str:
-    return f'"{row.checksum_sha256}{suffix}"'
+    # A multipart upload has no checksum until the background job fills it in;
+    # id + size still changes whenever the bytes can.
+    tag = row.checksum_sha256 or f"{row.id.hex}-{row.size_bytes}"
+    return f'"{tag}{suffix}"'
 
 
 def not_found(t) -> HTTPException:

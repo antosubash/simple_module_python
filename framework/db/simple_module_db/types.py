@@ -13,7 +13,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from sqlalchemy import Text
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.engine.interfaces import Dialect
+from sqlalchemy.types import TypeDecorator, UserDefinedType
 from sqlmodel.sql.sqltypes import UTCDateTime
 
 
@@ -37,3 +40,55 @@ class AwareDateTime(UTCDateTime):
         if value is not None and value.utcoffset() is None:
             value = value.replace(tzinfo=UTC)
         return super().process_bind_param(value, dialect)
+
+
+class _PgLTree(UserDefinedType):
+    cache_ok = True
+
+    def get_col_spec(self, **kw: object) -> str:
+        return "LTREE"
+
+
+class LTree(TypeDecorator):
+    """Postgres ``ltree`` (label tree paths); ``TEXT`` on SQLite.
+
+    The ``ltree`` extension must be declared by the owning module through
+    :meth:`~simple_module_core.ModuleBase.db_extensions` (``["ltree"]``).
+    Values are plain dotted-path strings (``"top.science.physics"``). Query
+    operators (``<@``, ``@>``, ``~``) are Postgres-only: use ``column.op("<@")``.
+    """
+
+    impl = Text
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect: Dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(_PgLTree())
+        return dialect.type_descriptor(Text())
+
+    def __repr__(self) -> str:
+        return "LTree()"
+
+
+# Let Postgres reflection (autogenerate, ``alembic check``) return ``LTree``
+# instead of warning "Did not recognize type 'ltree'" and falling back to NullType.
+postgresql.base.ischema_names["ltree"] = LTree
+
+
+class TSVector(TypeDecorator):
+    """Postgres ``tsvector`` (full-text search); ``TEXT`` on SQLite.
+
+    Built in to Postgres, so no extension is needed. Pair with a GIN index and
+    ``func.to_tsvector`` / ``column.op("@@")(func.plainto_tsquery(...))``.
+    """
+
+    impl = Text
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect: Dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(postgresql.TSVECTOR())
+        return dialect.type_descriptor(Text())
+
+    def __repr__(self) -> str:
+        return "TSVector()"

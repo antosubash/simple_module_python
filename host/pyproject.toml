@@ -16,6 +16,7 @@ dependencies = [
     "simple_module_branding",
     "simple_module_site_lock",
     "simple_module_tenants",
+    "simple_module_api_tokens",
     "python-multipart>=0.0.6",
 ]
 
@@ -32,3 +33,4 @@ simple_module_audit_log = { workspace = true }
 simple_module_branding = { workspace = true }
 simple_module_site_lock = { workspace = true }
 simple_module_tenants = { workspace = true }
+simple_module_api_tokens = { workspace = true }
