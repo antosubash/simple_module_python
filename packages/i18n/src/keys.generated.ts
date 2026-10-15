@@ -1456,7 +1456,7 @@ export const keys = {
       title: 'users.recent_activity.title',
     },
     register: {
-      bullet_close_prefix: 'users.register.bullet_close_prefix',
+      bullet_close: 'users.register.bullet_close',
       bullet_verification: 'users.register.bullet_verification',
       error_email_invalid: 'users.register.error_email_invalid',
       error_exists: 'users.register.error_exists',

@@ -28,7 +28,7 @@ export function AuthSplitAside({ heading, body, checks }: AuthSplitAsideProps): 
   const appName = branding?.appName ?? BRAND_DEFAULT_APP_NAME;
 
   return (
-    <div className="flex h-full flex-col justify-between gap-10">
+    <div className="flex h-full flex-col justify-between lg:gap-10">
       <div className="flex items-center gap-2.5">
         <BrandingMark
           appName={appName}
@@ -39,7 +39,7 @@ export function AuthSplitAside({ heading, body, checks }: AuthSplitAsideProps): 
         />
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="hidden flex-col gap-4 lg:flex">
         <h2 className="max-w-[420px] text-[28px] leading-tight font-bold tracking-tight text-white font-display sm:text-[34px]">
           {heading}
         </h2>
@@ -57,7 +57,7 @@ export function AuthSplitAside({ heading, body, checks }: AuthSplitAsideProps): 
         </ul>
       </div>
 
-      <span className="text-[12.5px] text-dark-text-subtle">{`© ${YEAR} ${appName}`}</span>
+      <span className="hidden text-[12.5px] text-dark-text-subtle lg:inline">{`© ${YEAR} ${appName}`}</span>
     </div>
   );
 }
