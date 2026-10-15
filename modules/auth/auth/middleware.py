@@ -16,6 +16,8 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from auth._route_match import route_exists
+
 logger = logging.getLogger(__name__)
 
 _FRAMEWORK_PUBLIC_PREFIXES = (
@@ -117,6 +119,15 @@ class AuthMiddleware:
                     continue
                 if user_ctx is not None:
                     break
+
+        if user_ctx is None and not is_public and not route_exists(scope):
+            # Nothing would serve this path (#473): let the app's 404 answer it
+            # — the same page a signed-in caller gets — rather than sending the
+            # visitor to sign in for a page that does not exist, or keeping it
+            # as their post-login target. The request now reaches the app
+            # anonymously, so the rate limiter treats it like any public hit.
+            scope["state"]["auth_public"] = True
+            is_public = True
 
         if user_ctx is None and not is_public:
             if path.startswith("/api/") or provider.is_bearer_request(request):

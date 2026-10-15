@@ -94,7 +94,9 @@ export function AuthCardShell({
                 size="lg"
                 badgeClassName="shadow-md shadow-primary-600/30"
                 labelClassName="text-[17px] font-bold tracking-tight font-display text-foreground"
-                caption={BRAND_TECH}
+                // The "python" tag belongs to the framework's own identity; a
+                // deployment that renamed the app shows only its own.
+                caption={appName === BRAND_DEFAULT_APP_NAME ? BRAND_TECH : undefined}
               />
             </div>
             {children}

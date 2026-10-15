@@ -23,6 +23,7 @@ interface Props {
   allow_signup: boolean;
   demo_signin: DemoSignInProps;
   dev_accounts: DevAccount[];
+  keycloak_installed?: boolean;
   login_redirect_url: string;
   oauth_providers: OAuthProvider[];
   remember_me_days: number;
@@ -33,6 +34,7 @@ function Login() {
     allow_signup,
     demo_signin,
     dev_accounts,
+    keycloak_installed,
     login_redirect_url,
     oauth_providers,
     remember_me_days,
@@ -137,7 +139,11 @@ function Login() {
     <AuthSplitAside
       heading={t(keys.users.login.aside_heading)}
       body={t(keys.users.login.aside_body)}
-      checks={[t(keys.users.login.aside_check_sessions), t(keys.users.login.aside_check_sso)]}
+      checks={[
+        t(keys.users.login.aside_check_sessions),
+        // Advertises a module, so it renders only where that module exists.
+        ...(keycloak_installed ? [t(keys.users.login.aside_check_sso)] : []),
+      ]}
     />
   );
 

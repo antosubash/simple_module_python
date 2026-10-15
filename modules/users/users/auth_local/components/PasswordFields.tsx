@@ -16,6 +16,8 @@ interface PasswordFieldsProps {
   mismatch?: boolean;
   /** The rule shown under the meter. Omitted where the deck shows none. */
   hint?: string;
+  /** Server-side rejection of the password, shown under the meter. */
+  passwordError?: string | null;
 }
 
 /**
@@ -35,6 +37,7 @@ export function PasswordFields({
   confirmLabel,
   mismatch = false,
   hint,
+  passwordError = null,
 }: PasswordFieldsProps) {
   const { t } = useT();
   const reveal = {
@@ -44,13 +47,14 @@ export function PasswordFields({
 
   return (
     <>
-      <AuthField htmlFor="password" label={passwordLabel}>
+      <AuthField htmlFor="password" label={passwordLabel} error={passwordError}>
         <PasswordInput
           id="password"
           value={password}
           onChange={(e) => onPasswordChange(e.target.value)}
           required
           autoComplete="new-password"
+          aria-invalid={passwordError ? true : undefined}
           {...reveal}
         />
         <PasswordStrength

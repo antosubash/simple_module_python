@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+from simple_module_hosting.i18n_routes import router as i18n_router
 from starlette.testclient import TestClient
-
-from host.routes_i18n import router as i18n_router
 
 
 def _build_app(supported: list[str]) -> FastAPI:
@@ -87,6 +86,19 @@ def test_accepts_same_origin_absolute_referer() -> None:
     )
     assert resp.status_code == 303
     assert resp.headers["location"] == "/products?q=pen"
+
+
+async def test_create_app_serves_set_locale_to_anonymous_client(client) -> None:  # type: ignore[no-untyped-def]
+    """Every host built with ``create_app`` gets the switcher route (GH #462)."""
+    resp = await client.post(
+        "/i18n/set-locale",
+        data={"locale": "en"},
+        headers={"Referer": "https://evil.example/x"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/"
+    assert "locale=en" in resp.headers.get("set-cookie", "")
 
 
 def test_rejects_relative_referer_without_leading_slash() -> None:

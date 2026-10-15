@@ -701,7 +701,7 @@ A value that needs its own markup mid-sentence — a permission name in `<code>`
 `InterpolatedText` (`@simple-module-py/ui/components/InterpolatedText`) renders the whole sentence from one key and puts the markup at the placeholder:
 
 ```tsx
-<InterpolatedText render={(slot) => t(keys.host.error.forbidden_permission, { permission: slot })}>
+<InterpolatedText render={(slot) => t(keys.ui.error_page.forbidden_permission, { permission: slot })}>
   <code>{requiredPermission}</code>
 </InterpolatedText>
 ```

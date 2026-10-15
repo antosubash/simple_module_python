@@ -20,7 +20,9 @@ from simple_module_hosting._error_handlers import (
     _login_url,
 )
 
-_ERROR_PAGE = Path(__file__).resolve().parents[3] / "host" / "client_app" / "pages" / "Error.tsx"
+_ROOT = Path(__file__).resolve().parents[3]
+# The page body ships in @simple-module-py/ui (host/pages/Error.tsx just re-exports it).
+_ERROR_PAGE = _ROOT / "packages" / "ui" / "src" / "components" / "ErrorPage.tsx"
 
 
 def _statuses_with_copy() -> set[int]:
@@ -54,7 +56,7 @@ class TestStatusCopyParity:
 
 
 class TestErrorCopyIsReachable:
-    """Every host.error.* string must actually be rendered by something.
+    """Every ui.error_page.* string must actually be rendered by something.
 
     Adding a status's copy and forgetting to wire it leaves a key that no
     code path can reach — the page silently shows the generic message
@@ -65,17 +67,19 @@ class TestErrorCopyIsReachable:
     def test_every_error_key_is_referenced(self) -> None:
         import json
 
-        locales = _ERROR_PAGE.parents[3] / "host" / "locales" / "en.json"
-        catalog = json.loads(locales.read_text(encoding="utf-8"))["error"]
+        locales = (
+            _ROOT / "framework" / "hosting" / "simple_module_hosting" / "ui_locales" / "en.json"
+        )
+        catalog = json.loads(locales.read_text(encoding="utf-8"))["error_page"]
         source = _ERROR_PAGE.read_text(encoding="utf-8")
 
         # Two spellings in the page: the `keys.host.error.x` path, and the
         # `e.x` alias the status table uses.
         unreferenced = sorted(
-            k for k in catalog if f"e.{k}" not in source and f"keys.host.error.{k}" not in source
+            k for k in catalog if f"e.{k}" not in source and f"keys.ui.error_page.{k}" not in source
         )
         assert not unreferenced, (
-            "host.error keys with no reference in Error.tsx — either render "
+            "ui.error_page keys with no reference in Error.tsx — either render "
             f"them or delete them: {unreferenced}"
         )
 

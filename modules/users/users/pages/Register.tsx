@@ -10,6 +10,14 @@ import { AuthField } from '../auth_local/components/AuthField';
 import { AuthIntro } from '../auth_local/components/AuthIntro';
 import { AuthStateCard } from '../auth_local/components/AuthStateCard';
 import { PasswordFields } from '../auth_local/components/PasswordFields';
+import {
+  FAILED,
+  livePasswordIssue,
+  mapRegisterError,
+  passwordPolicyIssue,
+  type RegisterError,
+  type RegisterErrorCode,
+} from '../auth_local/registerErrors';
 
 function Register() {
   const { t } = useT();
@@ -18,13 +26,44 @@ function Register() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [mismatch, setMismatch] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<RegisterError | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const message = (code: RegisterErrorCode) => {
+    const r = keys.users.register;
+    const byCode = {
+      exists: r.error_exists,
+      email_invalid: r.error_email_invalid,
+      password_length: r.error_password_length,
+      password_contains_email: r.error_password_contains_email,
+      password_numeric: r.error_password_numeric,
+      password_invalid: r.error_password_invalid,
+      failed: r.error_failed,
+    } as const;
+    return t(byCode[code]);
+  };
+  const errorFor = (field: RegisterError['field']) =>
+    error?.field === field ? message(error.code) : null;
+  // The server's own password policy, not the meter: "ok" and "weak" are
+  // feedback, but a password the API will refuse is not worth a round trip.
+  const policyIssue = passwordPolicyIssue(password, email);
+  const policyOk = policyIssue === null;
+  const liveIssue = livePasswordIssue(password, email);
+  const passwordError = errorFor('password') ?? (liveIssue ? message(liveIssue) : null);
+  // A server error describes the value that was sent; once that field is
+  // edited it no longer applies.
+  const clearErrorOn = (field: RegisterError['field']) => {
+    if (error?.field === field) setError(null);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (policyIssue) {
+      setError({ field: 'password', code: policyIssue });
+      return;
+    }
     if (password !== confirm) {
       // Field-level, not a line under the whole form: the error belongs to
       // the box that caused it.
@@ -42,24 +81,10 @@ function Register() {
         if (res.status === 201) {
           setSuccess(true);
         } else {
-          const data = await res.json().catch(() => ({}));
-          const detail = data?.detail;
-          if (detail === 'REGISTER_USER_ALREADY_EXISTS') {
-            setError(t(keys.users.register.error_exists));
-          } else if (typeof detail === 'object' && detail?.code === 'REGISTER_INVALID_PASSWORD') {
-            setError(
-              t(keys.users.register.error_weak_password, {
-                reason: detail.reason ?? t(keys.users.register.error_weak_password_default),
-              }),
-            );
-          } else if (typeof detail === 'string') {
-            setError(detail);
-          } else {
-            setError(t(keys.users.register.error_failed));
-          }
+          setError(mapRegisterError(await res.json().catch(() => ({}))));
         }
       })
-      .catch(() => setError(t(keys.users.common.error_try_again)))
+      .catch(() => setError(FAILED))
       .finally(() => setLoading(false));
   };
 
@@ -98,7 +123,9 @@ function Register() {
   return (
     <AuthCardShell variant="split-light" aside={intro} width="lg">
       <Head title={t(keys.users.register.head_title)} />
-      <form onSubmit={handleSubmit} className="space-y-4">
+      {/* noValidate: the browser's bubble is in the browser's language and
+          sets no aria-invalid; the server's 422 maps to a translated field error. */}
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <AuthField htmlFor="full_name" label={t(keys.users.common.full_name)}>
           <Input
             id="full_name"
@@ -109,15 +136,21 @@ function Register() {
             autoComplete="name"
           />
         </AuthField>
-        <AuthField htmlFor="email" label={t(keys.users.common.email)}>
+        <AuthField htmlFor="email" label={t(keys.users.common.email)} error={errorFor('email')}>
           <Input
             id="email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              clearErrorOn('email');
+              // "contains your email" is about the pair, so editing either side voids it.
+              if (error?.code === 'password_contains_email') setError(null);
+            }}
             placeholder={t(keys.users.common.email_placeholder)}
             required
             autoComplete="email"
+            aria-invalid={errorFor('email') ? true : undefined}
           />
         </AuthField>
         <PasswordFields
@@ -125,6 +158,7 @@ function Register() {
           onPasswordChange={(next) => {
             setPassword(next);
             setMismatch(false);
+            clearErrorOn('password');
           }}
           confirm={confirm}
           onConfirmChange={(next) => {
@@ -135,11 +169,14 @@ function Register() {
           confirmLabel={t(keys.users.common.confirm_password)}
           mismatch={mismatch}
           hint={t(keys.users.common.password_hint)}
+          passwordError={passwordError}
         />
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error?.field === 'form' && (
+          <p className="text-sm text-destructive">{message(error.code)}</p>
+        )}
 
-        <Button type="submit" size="lg" className="w-full" disabled={loading}>
+        <Button type="submit" size="lg" className="w-full" disabled={loading || !policyOk}>
           {loading ? t(keys.users.register.submitting) : t(keys.users.register.submit)}
         </Button>
       </form>

@@ -1,7 +1,7 @@
 import { usePage } from '@inertiajs/react';
-import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
-import type { SharedProps } from '@simple-module-py/ui/types';
 import { createContext, type ReactNode, useContext } from 'react';
+import { AdminLayout } from '../layouts/AdminLayout';
+import type { SharedProps } from '../types';
 
 /** `/admin` or anything under `/admin/` — not `/administer`. */
 export function isAdminPath(url: string): boolean {

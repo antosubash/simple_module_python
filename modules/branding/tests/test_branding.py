@@ -223,7 +223,9 @@ async def test_logo_upload_sets_logo_url(
 
 
 async def test_manage_view_requires_auth(client: httpx.AsyncClient) -> None:
-    resp = await client.get("/branding", follow_redirects=False)
+    # The real view (``/branding`` is only a host-level legacy redirect, absent
+    # from this app — an unmatched path is a 404 for everyone since #473).
+    resp = await client.get("/admin/branding/", follow_redirects=False)
     assert resp.status_code in (302, 401, 403)
 
 
