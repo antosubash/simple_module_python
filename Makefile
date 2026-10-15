@@ -245,8 +245,10 @@ docker-down:
 	docker compose down
 
 # Celery — local dev (fast reload, no container rebuild)
-worker:                     ## Run a Celery worker locally against $(SM_BG_TASKS_BROKER_URL)
-	uv run celery -A scripts.run_worker:celery worker -l info
+worker:                     ## Run a Celery worker locally; SM_BG_TASKS_WORKER_QUEUES=a,b limits it to those queues (-Q) and their modules
+	@# Normalise like the env parser (strip blanks, drop empty entries): Celery's -Q keeps "gpu, default" as a queue named " default".
+	@q=$$(printf '%s' '$(SM_BG_TASKS_WORKER_QUEUES)' | tr -d ' \t' | tr -s ',' | sed 's/^,//;s/,$$//'); \
+	set -x; uv run celery -A scripts.run_worker:celery worker -l info $${q:+-Q "$$q"}
 
 beat:                       ## Run the Celery beat scheduler locally
 	uv run celery -A scripts.run_worker:celery beat -l info

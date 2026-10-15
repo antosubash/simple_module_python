@@ -8,23 +8,28 @@ must not happen twice. The read paths have none of those questions.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
 from simple_module_core.events import EventBus
 from simple_module_db import RequestSession, all_tenants, tenant_context
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, func, select, update
 
+from background_tasks._signal_support import now_utc
 from background_tasks.after_commit import after_commit
 from background_tasks.constants import RETRY_ALL_BATCH, TaskStatus
 from background_tasks.contracts.events import TaskRetried
 from background_tasks.contracts.schemas import RetryFailedResult
 from background_tasks.filters import Conditions, bulk_retry_conditions
 from background_tasks.models import TaskExecution
+from background_tasks.sync_db import sync_session
 
 if TYPE_CHECKING:
     from celery import Celery
+
+logger = logging.getLogger(__name__)
 
 
 def claim_query(conditions: Conditions, batch: int) -> Select[tuple[TaskExecution]]:
@@ -189,6 +194,17 @@ class RetryCoordinator:
         }
 
         def publish() -> str:
+            try:
+                return _send()
+            except Exception as exc:
+                # The commit already landed, so the ``pending`` row exists but
+                # no task does. ``pending`` is not retryable, so leave it that
+                # way and the work is lost; ``failed`` puts it back in reach of
+                # the retry buttons.
+                _fail_unsent(task_id, exc)
+                raise
+
+        def _send() -> str:
             # Publish as the row's own tenant, never the operator's: a platform
             # admin who is also a member of some org must not re-run another
             # tenant's job stamped with theirs (``stamp_tenant`` would refuse
@@ -240,3 +256,23 @@ class RetryCoordinator:
                 await self.event_bus.publish(event)
 
         self.db.on_commit(publish)
+
+
+def _fail_unsent(task_id: str, exc: Exception) -> None:
+    """Flip the ``pending`` row reserved for *task_id* to ``failed`` (best effort)."""
+    try:
+        with sync_session() as session:
+            session.execute(
+                update(TaskExecution)
+                .where(
+                    TaskExecution.celery_task_id == task_id,
+                    TaskExecution.status == TaskStatus.PENDING,
+                )
+                .values(
+                    status=TaskStatus.FAILED,
+                    finished_at=now_utc(),
+                    exception_type=type(exc).__name__,
+                )
+            )
+    except Exception:
+        logger.exception("could not mark unsent retry %s as failed", task_id)

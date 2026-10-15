@@ -70,7 +70,7 @@ def stuck_thresholds(registry: Mapping[str, Any]) -> dict[str, int]:
     for name, task in registry.items():
         value = getattr(task, TASK_STUCK_AFTER_ATTR, None)
         if isinstance(value, int | float) and not isinstance(value, bool) and value > 0:
-            found[name] = int(value)
+            found[name] = max(1, int(value))
     return found
 
 

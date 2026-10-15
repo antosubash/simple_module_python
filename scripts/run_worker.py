@@ -32,9 +32,9 @@ if _env_file == Path(".env") and not _env_file.is_file():
 load_dotenv_into_environ(_env_file)
 
 from background_tasks.celery_app import build_celery  # noqa: E402
-from background_tasks.settings import BackgroundTasksSettings  # noqa: E402
 from background_tasks.sync_db import set_database_url  # noqa: E402
 from background_tasks.tenant_context import set_default_tenant  # noqa: E402
+from background_tasks.worker_settings import load_runner_settings  # noqa: E402
 from simple_module_hosting import merge_host_settings  # noqa: E402
 
 # The worker never builds the app, so resolve the host settings the same way
@@ -49,4 +49,6 @@ set_default_tenant(_default_tenant)
 
 # Module-level name ``celery`` is what ``celery -A scripts.run_worker:celery``
 # looks for. Keep it stable.
-celery = build_celery(BackgroundTasksSettings())
+# Hydrated from the DB like the web process (env still seeds broker/queues), so
+# an admin-edited setting reaches the worker at boot, not only the web app.
+celery = build_celery(load_runner_settings())
