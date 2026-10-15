@@ -61,3 +61,31 @@ def test_ignored_headers(header):
 
 def test_byte_range_length_is_inclusive():
     assert ByteRange(0, 16383).length == 16384
+
+
+async def test_416_is_not_cacheable() -> None:
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from file_storage.ranges import file_body_response
+    from starlette.requests import Request
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "headers": [(b"range", b"bytes=99-")],
+            "query_string": b"",
+        }
+    )
+    row = SimpleNamespace(size_bytes=10, key="k", content_type="text/plain")
+    resp = await file_body_response(
+        MagicMock(),
+        row,  # ty: ignore[invalid-argument-type]
+        request,
+        headers={"Cache-Control": "public, max-age=60", "ETag": '"x"'},
+        etag='"x"',
+    )
+    assert resp.status_code == 416
+    assert "cache-control" not in resp.headers
+    assert resp.headers["content-range"] == "bytes */10"

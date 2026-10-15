@@ -31,7 +31,7 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 from celery import current_app
-from simple_module_db import RequestSession, bind_current_tenant
+from simple_module_db import RequestSession, bind_current_tenant, mark_written
 from simple_module_db.transaction import SESSION_START_KEY
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -82,6 +82,10 @@ def after_commit(
     """
     batch = list(publishes)
     if isinstance(db, RequestSession) and SESSION_START_KEY in db.info:
+        # A request that wrote nothing else is rolled back and its ``on_commit``
+        # callbacks discarded, which would drop this publish silently. Queueing a
+        # task is itself work that must survive to the commit.
+        mark_written(db)
         if offload:
             db.on_commit(lambda: asyncio.to_thread(_run_all, batch))
         else:

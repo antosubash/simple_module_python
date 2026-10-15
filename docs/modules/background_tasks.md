@@ -56,7 +56,7 @@ async def place(self, data: OrderCreate) -> OrderOut:
 - The task runs as the tenant bound when you called `enqueue_after_commit`, not whatever is bound at commit time.
 - A publish that fails after the commit is logged, not raised: the transaction is already durable.
 
-The admin retry buttons follow the same rule — the new `pending` row commits first, then the task is sent (GH #452). An orphaned `pending` row that was never sent is visible and retryable; a task with no row is neither.
+The admin retry buttons follow the same rule — the new `pending` row commits first, then the task is sent (GH #452). If the send itself then fails, the new row is flipped to `failed` so the retry buttons can pick it up again; a task with no row is neither.
 
 ## Long-running tasks: heartbeats and stuck thresholds
 
