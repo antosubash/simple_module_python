@@ -139,13 +139,26 @@ class S3Backend(S3MultipartMixin):
                 return False
             raise StorageBackendError(f"S3 head_object failed: {exc}") from exc
 
-    async def presigned_get_url(self, key: str, ttl_seconds: int) -> str:
+    async def presigned_get_url(
+        self,
+        key: str,
+        ttl_seconds: int,
+        *,
+        content_disposition: str | None = None,
+        content_type: str | None = None,
+    ) -> str:
+        params: dict[str, str] = {"Bucket": self.bucket, "Key": key}
+        # Signed into the URL, so S3 answers with these headers instead of the
+        # object's stored metadata — without them the browser names the file
+        # after its storage key (GH #489).
+        if content_disposition:
+            params["ResponseContentDisposition"] = content_disposition
+        if content_type:
+            params["ResponseContentType"] = content_type
         try:
             async with self._presign_client() as client:
                 return await client.generate_presigned_url(
-                    "get_object",
-                    Params={"Bucket": self.bucket, "Key": key},
-                    ExpiresIn=ttl_seconds,
+                    "get_object", Params=params, ExpiresIn=ttl_seconds
                 )
         except Exception as exc:
             raise StorageBackendError(f"presign failed: {exc}") from exc

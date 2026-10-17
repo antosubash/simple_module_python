@@ -174,6 +174,40 @@ async def test_s3_presigned_url_format(s3_settings):
     assert "AWSAccessKeyId=" not in url
 
 
+async def test_s3_presigned_url_signs_the_download_headers(s3_settings):
+    """GH #489: S3 answers with these instead of the object's own metadata."""
+    from urllib.parse import parse_qs, urlsplit
+
+    from file_storage.downloads import content_disposition
+
+    backend = build_backend(s3_settings)
+    disposition = content_disposition("Résumé 2026.pdf", attachment=True)
+    url = await backend.presigned_get_url(
+        "t/abc123", 300, content_disposition=disposition, content_type="application/pdf"
+    )
+    query = parse_qs(urlsplit(url).query)
+    assert query["response-content-disposition"] == [disposition]
+    assert query["response-content-type"] == ["application/pdf"]
+
+
+async def test_s3_presigned_download_is_served_with_the_original_name(s3_settings):
+    """End to end against moto: the signed overrides become response headers."""
+    import httpx
+    from file_storage.downloads import content_disposition
+
+    backend = build_backend(s3_settings)
+    await _put(backend, "t/abc123", b"%PDF-1.4")
+    disposition = content_disposition("report.pdf", attachment=True)
+    url = await backend.presigned_get_url(
+        "t/abc123", 300, content_disposition=disposition, content_type="application/pdf"
+    )
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url)
+    assert resp.status_code == 200, resp.text
+    assert resp.headers["content-disposition"] == disposition
+    assert resp.headers["content-type"] == "application/pdf"
+
+
 async def test_s3_signature_version_is_configurable(s3_settings):
     s3_settings.s3_signature_version = "s3"
     backend = build_backend(s3_settings)

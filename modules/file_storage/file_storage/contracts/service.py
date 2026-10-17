@@ -89,8 +89,20 @@ class StorageBackend(Protocol):
     async def exists(self, key: str) -> bool:
         """Return whether an object exists at ``key``."""
 
-    async def presigned_get_url(self, key: str, ttl_seconds: int) -> str:
+    async def presigned_get_url(
+        self,
+        key: str,
+        ttl_seconds: int,
+        *,
+        content_disposition: str | None = None,
+        content_type: str | None = None,
+    ) -> str:
         """Return a short-lived URL the client can fetch directly.
+
+        ``content_disposition`` / ``content_type``, when given, are the headers
+        the fetched response must carry — the original filename and type, which
+        the backend's own object metadata may not hold. Backends that can sign
+        response-header overrides (S3's ``ResponseContentDisposition``) must.
 
         Implementations without presigned-URL support must raise
         :class:`NotSupportedError`. The endpoint will not call this on

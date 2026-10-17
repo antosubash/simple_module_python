@@ -184,7 +184,8 @@ async def test_download_dispatches_on_backend_capability(tmp_path, db_session: A
         async def exists(self, key):
             return True
 
-        async def presigned_get_url(self, key, ttl_seconds):
+        async def presigned_get_url(self, key, ttl_seconds, **headers):
+            self.headers = headers
             return f"https://signed/{key}"
 
     pb: StorageBackend = _PresigningBackend()  # type: ignore[assignment]
@@ -192,6 +193,10 @@ async def test_download_dispatches_on_backend_capability(tmp_path, db_session: A
     download2 = await svc.download(out.id)
     assert isinstance(download2, RedirectDownload)
     assert download2.url.startswith("https://signed/")
+    # GH #489: the redirect must carry the original name, not the storage key.
+    assert pb.headers["content_disposition"].startswith("attachment; ")
+    assert out.filename in pb.headers["content_disposition"]
+    assert pb.headers["content_type"] == out.content_type
 
 
 async def _drain(stream: AsyncIterator[bytes]) -> bytes:

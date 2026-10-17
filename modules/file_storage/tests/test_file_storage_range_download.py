@@ -8,7 +8,7 @@ from file_storage import constants
 API = constants.ROUTE_PREFIX_API
 PAYLOAD = bytes(range(256)) * 800  # 204,800 bytes: several 64 KiB chunks
 SIZE = len(PAYLOAD)
-DISPOSITION = 'attachment; filename="tiles.pmtiles"'
+DISPOSITION = "attachment; filename=\"tiles.pmtiles\"; filename*=UTF-8''tiles.pmtiles"
 
 
 async def _upload(client: httpx.AsyncClient, **form) -> dict:
