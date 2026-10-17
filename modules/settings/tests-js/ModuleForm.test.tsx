@@ -13,7 +13,7 @@ configureI18n({
     'settings.modules.heading_suffix': 'settings',
     'settings.modules.description': 'Generated from the module’s declared settings.',
     'settings.modules.source_db': 'overridden in DB',
-    'settings.modules.source_db_over_env': 'overridden in DB · shadows env',
+    'settings.modules.source_db_ignored_for_env': 'stored in DB · env var wins',
     'settings.modules.secret_write_only': 'write-only · never returned',
     'settings.modules.unsaved_count_one': '{count} unsaved',
     'settings.modules.unsaved_count_other': '{count} unsaved',

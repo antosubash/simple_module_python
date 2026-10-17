@@ -8,8 +8,8 @@ import {
   SelectValue,
 } from '@simple-module-py/ui/components/ui/select';
 import { Switch } from '@simple-module-py/ui/components/ui/switch';
-import { Textarea } from '@simple-module-py/ui/components/ui/textarea';
 import { useState } from 'react';
+import { JsonInput } from './JsonInput';
 
 export type FieldType = 'bool' | 'int' | 'float' | 'string' | 'json';
 
@@ -33,7 +33,13 @@ export type FieldMeta = {
   source?: 'db' | 'env' | 'default';
   /** Closed set of accepted values, or null when the field is free text. */
   choices?: string[] | null;
+  /** Editor control: `type` with an `X | None` unwrapped to `X`. */
+  input_type?: FieldType;
+  /** `null` is a valid value; an empty input sends it. */
+  nullable?: boolean;
 };
+
+const UNSET = '__unset__';
 
 type Props = {
   field: FieldMeta;
@@ -49,6 +55,8 @@ export function FieldInput({ field, onChange, value, id }: Props) {
   const { t } = useT();
   const [revealed, setRevealed] = useState(false);
   const highlight = field.db_override ? OVERRIDDEN : '';
+  const kind = field.input_type ?? field.type;
+  const nullable = !!field.nullable;
 
   if (field.is_secret && !revealed) {
     // Not "Reveal": the server never returns the stored value, so there is
@@ -83,7 +91,27 @@ export function FieldInput({ field, onChange, value, id }: Props) {
     );
   }
 
-  if (field.type === 'bool') {
+  if (kind === 'bool' && nullable) {
+    // `bool | None`: a switch cannot say "not set", which is the default.
+    const current = value === null || value === undefined ? UNSET : String(value);
+    return (
+      <Select
+        value={current}
+        onValueChange={(next) => onChange(field.name, next === UNSET ? null : next === 'true')}
+      >
+        <SelectTrigger id={id} className={`w-[160px] ${highlight}`}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={UNSET}>{t(keys.settings.modules_form.not_set)}</SelectItem>
+          <SelectItem value="true">{t(keys.settings.modules_form.option_on)}</SelectItem>
+          <SelectItem value="false">{t(keys.settings.modules_form.option_off)}</SelectItem>
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  if (kind === 'bool') {
     return (
       <Switch
         id={id}
@@ -113,12 +141,12 @@ export function FieldInput({ field, onChange, value, id }: Props) {
     );
   }
 
-  if (field.type === 'int' || field.type === 'float') {
+  if (kind === 'int' || kind === 'float') {
     return (
       <Input
         id={id}
         type="number"
-        step={field.type === 'int' ? '1' : 'any'}
+        step={kind === 'int' ? '1' : 'any'}
         value={String(value ?? '')}
         onChange={(e) =>
           onChange(field.name, e.target.value === '' ? null : Number(e.target.value))
@@ -128,14 +156,15 @@ export function FieldInput({ field, onChange, value, id }: Props) {
     );
   }
 
-  if (field.type === 'json') {
+  if (kind === 'json') {
     return (
-      <Textarea
+      <JsonInput
         id={id}
-        rows={3}
-        value={typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
-        onChange={(e) => onChange(field.name, e.target.value)}
-        className={`font-mono text-xs ${highlight}`}
+        name={field.name}
+        value={value}
+        nullable={nullable}
+        className={highlight}
+        onChange={onChange}
       />
     );
   }
@@ -145,7 +174,9 @@ export function FieldInput({ field, onChange, value, id }: Props) {
       id={id}
       type="text"
       value={String(value ?? '')}
-      onChange={(e) => onChange(field.name, e.target.value)}
+      onChange={(e) =>
+        onChange(field.name, nullable && e.target.value === '' ? null : e.target.value)
+      }
       className={`font-mono ${highlight}`}
     />
   );

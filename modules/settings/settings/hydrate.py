@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import get_origin
+import types
+from typing import Union, get_args, get_origin
 
 from pydantic import ValidationError
 from pydantic_settings import (
@@ -49,6 +50,26 @@ def value_type_for_field(cls: type[BaseSettings], field_name: str) -> str:
     if ann is float:
         return "float"
     return "string"
+
+
+def input_type_for_field(cls: type[BaseSettings], field_name: str) -> tuple[str, bool]:
+    """``(input_type, nullable)`` — which editor control a field needs.
+
+    Storage stays on :func:`value_type_for_field`, which files every union
+    under ``json``. That is right for the store and wrong for the form:
+    ``int | None`` wants a number box where empty means ``None``, not a JSON
+    textarea that shows the literal text ``null`` (GH #487).
+    """
+    ann = cls.model_fields[field_name].annotation
+    if get_origin(ann) not in (Union, types.UnionType):
+        return value_type_for_field(cls, field_name), False
+    args = get_args(ann)
+    rest = [a for a in args if a is not type(None)]
+    nullable = len(rest) < len(args)
+    if len(rest) == 1 and get_origin(rest[0]) is None:
+        scalar = {bool: "bool", int: "int", float: "float"}.get(rest[0], "string")
+        return scalar, nullable
+    return "json", nullable
 
 
 def _parse(raw: str, value_type: str):

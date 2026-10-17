@@ -54,9 +54,14 @@ async def apply_changes_and_reload(
     merged.update(diff)
     validated = cls(**merged)
 
-    for field_name, raw_value in diff.items():
+    # Store what validated, not what was sent: a field validator may have
+    # turned the editor's text into the declared type (``json.loads`` on a
+    # dict), and encoding the raw input stored a JSON *string* that hydration
+    # then could not read back as that type (GH #487).
+    dumped = validated.model_dump(mode="json")
+    for field_name in diff:
         vtype = value_type_for_field(cls, field_name)
-        await store.set_override(package, field_name, _encode(raw_value, vtype), vtype)
+        await store.set_override(package, field_name, _encode(dumped[field_name], vtype), vtype)
 
     services.settings = validated
     await bus.publish(SettingsReloaded(package=package, changed=tuple(sorted(diff))))

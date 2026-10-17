@@ -26,7 +26,7 @@ from settings._secrets import (  # noqa: F401
     mask,
 )
 from settings.env_vars import env_prefix_for
-from settings.hydrate import value_type_for_field
+from settings.hydrate import input_type_for_field, value_type_for_field
 from settings.service import SettingService
 
 
@@ -71,6 +71,10 @@ class ModuleSettingField:
     """
     choices: list[str] | None = None
     """Closed set of accepted values, or ``None`` when the field is free text."""
+    input_type: str = ""
+    """Editor control: ``type`` with an ``X | None`` unwrapped to ``X``."""
+    nullable: bool = False
+    """``None`` is a valid value; the editor sends it for an empty input."""
 
     @property
     def source(self) -> str:
@@ -131,6 +135,7 @@ def _field_view(
     info = cls.model_fields[name]
     raw_value = getattr(settings, name)
     value_type = value_type_for_field(cls, name)
+    input_type, nullable = input_type_for_field(cls, name)
     named_secret = is_named_secret(name, value_type)
     extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
     default = resolve_default(info)
@@ -166,6 +171,8 @@ def _field_view(
         # Resolved value panel's env row into a row of dots for every key.
         env_value=(mask(raw_env) if hidden(raw_env) else raw_env) if raw_env is not None else None,
         choices=choices_for(info),
+        input_type=input_type,
+        nullable=nullable,
     )
 
 

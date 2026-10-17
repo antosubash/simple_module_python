@@ -49,6 +49,8 @@ def serialize(views: list[ModuleSettingsView]) -> list[dict[str, Any]]:
                     # Turns a pattern-constrained string into a select rather
                     # than a text box whose only feedback on a typo is a 422.
                     "choices": f.choices,
+                    "input_type": f.input_type or f.type,
+                    "nullable": f.nullable,
                 }
                 for f in v.fields
             ],
