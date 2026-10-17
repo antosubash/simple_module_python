@@ -9,6 +9,7 @@ admin UI and could read a different ``.env`` from the web process (GH #490).
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -17,18 +18,29 @@ from simple_module_core.dotenv import find_env_file, load_dotenv_into_environ
 if TYPE_CHECKING:
     from celery import Celery
 
+_PROJECT_ROOT = "SM_PROJECT_ROOT"
+
 
 def _load_env(fallback_env_file: Path | None) -> None:
     """Load ``.env`` the way the web process resolves it.
 
     ``find_env_file`` (SM_PROJECT_ROOT, then a bounded walk-up) keeps the worker
-    and the web process on the same file. ``fallback_env_file`` is used only
-    when that found nothing more specific than a bare, missing ``./.env`` —
-    celery launched from an unrelated cwd with SM_PROJECT_ROOT unset.
+    and the web process on the same file. ``fallback_env_file`` applies only
+    when that resolves to no file at all — celery launched from an unrelated
+    cwd, possibly inside some other checkout, with SM_PROJECT_ROOT unset. It is
+    adopted by setting SM_PROJECT_ROOT rather than by loading the file directly,
+    so every later reader (``BootstrapSettings``' sqlite anchor, the host
+    settings' ``.env`` scan) resolves the same project instead of the cwd.
     """
     env_file = find_env_file()
-    if fallback_env_file is not None and env_file == Path(".env") and not env_file.is_file():
-        env_file = fallback_env_file
+    if (
+        fallback_env_file is not None
+        and _PROJECT_ROOT not in os.environ
+        and not env_file.is_file()
+        and fallback_env_file.is_file()
+    ):
+        os.environ[_PROJECT_ROOT] = str(fallback_env_file.parent)
+        env_file = find_env_file()
     load_dotenv_into_environ(env_file)
 
 

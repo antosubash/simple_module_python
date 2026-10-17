@@ -75,7 +75,7 @@ Most users settings (signup, mailer, SMTP, OAuth/OIDC credentials, rate limits) 
 
 Celery config (`broker_url`, `result_backend`, queue, retention, etc.) is now **DB-backed** — edit it in the admin UI at `/admin/settings/` under BackgroundTasks. Defaults are `redis://localhost:6379/0` (broker) and `/1` (result backend). Because workers read the broker/backend once at process start, changing those values requires a worker restart.
 
-Three fields are still read from the environment, because they have to work *before* any DB row exists. A stored DB value still wins once hydration runs.
+Three fields are still read from the environment, because they have to work *before* any DB row exists. When one of these `SM_BG_TASKS_*` variables is set it wins over a stored DB value for that field (env → DB → default). `SM_REDIS_URL` is different: it only seeds the broker/backend defaults, so a stored value beats it.
 
 | Variable | Default | Notes |
 |---|---|---|

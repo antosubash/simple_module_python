@@ -126,7 +126,7 @@ Entry values are plain Celery [beat entries](https://docs.celeryq.dev/en/stable/
 
 Beat persists its schedule (`celery.beat:PersistentScheduler`) so it survives restarts.
 
-The worker and beat read the same DB-backed settings the web process does: `scripts/run_worker.py` hydrates `BackgroundTasksSettings` from the database at boot exactly as the web lifespan does (`cls(**db_overrides)`: a stored value wins over the same field's environment variable, and the environment seeds only what the database leaves alone), so an admin-edited queue or time limit reaches the worker after a restart. Because the web process behaves identically, this adds no new trust boundary; still, treat write access to these settings as control of the workers. If the database cannot be read the worker starts from env and defaults and logs a warning.
+The worker and beat read the same DB-backed settings the web process does: `scripts/run_worker.py` (and the copy `smpy new` scaffolds) calls `background_tasks.runner.build_runner_celery()`, which hydrates `BackgroundTasksSettings` from the database at boot exactly as the web lifespan does. Precedence is env → DB → default: an `SM_BG_TASKS_*` variable that is set wins over a stored value for the same field, and the database supplies everything the environment leaves unset. So an admin-edited queue or time limit reaches the worker after a restart, unless the deployment pins that field in its environment. Because the web process behaves identically, this adds no new trust boundary; still, treat write access to these settings as control of the workers. If the database cannot be read the worker starts from env and defaults and logs a warning.
 
 ## Routing and queues
 
