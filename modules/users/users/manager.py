@@ -12,6 +12,7 @@ from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
 from fastapi_users.jwt import generate_jwt
 from simple_module_hosting.session import stamp_session_expiry
 
+from users.bootstrap import ensure_user_role
 from users.constants import (
     OAUTH_REGISTRATION_REQUEST_FLAG,
     SESSION_DEMO_KEY,
@@ -22,7 +23,7 @@ from users.contracts.events import UserRegistered
 from users.db_adapter import UserDatabaseWithRoles, get_user_db
 from users.exceptions import ExternalUserNoPasswordError
 from users.mailer import Mailer
-from users.models import User
+from users.models import User, UserRole
 
 if TYPE_CHECKING:
     from users.settings import UsersSettings
@@ -114,10 +115,26 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             user.hashed_password = None
             user.is_external = True
             await self.user_db.update(user, {"hashed_password": None, "is_external": True})
+        if request is not None:
+            await self._attach_default_role(user)
         await self._publish_user_registered(user, request)
         if not user.is_verified:
             # Kicks off on_after_request_verify, which sends the email
             await self.request_verify(user, request)
+
+    async def _attach_default_role(self, user: User) -> None:
+        """Give a self-registered (or OAuth-provisioned) user the ``user`` role.
+
+        Without it a fresh signup holds no permissions at all — not even
+        ``api_tokens.use`` — until an admin assigns a role by hand (GH #488).
+        Only request-bound registrations reach here: the admin create and
+        invite flows call ``create()`` with no request and assign exactly the
+        roles the admin picked, which may deliberately be none.
+        """
+        session = self.user_db.session
+        role = await ensure_user_role(session)
+        session.add(UserRole(user_id=user.id, role_id=role.id))
+        await session.flush()
 
     async def _publish_user_registered(self, user: User, request: Request | None) -> None:
         """Emit ``UserRegistered`` on the app-wide event bus.

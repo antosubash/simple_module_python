@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi_users import exceptions
@@ -51,6 +51,7 @@ def fake_user():
 def fake_user_db():
     db = MagicMock()
     db.update = AsyncMock(return_value=None)
+    db.session.flush = AsyncMock()
     return db
 
 
@@ -125,17 +126,38 @@ class TestOnAfterRegister:
         # Pre-verified so the manager doesn't try to send a verify email.
         fake_user.is_verified = True
 
-        await manager.on_after_register(fake_user, request)
+        with patch("users.manager.ensure_user_role", AsyncMock()):
+            await manager.on_after_register(fake_user, request)
 
         (event,) = bus.assert_published(UserRegistered)
         assert event.user_id == fake_user.id
         assert event.email == fake_user.email
 
     @pytest.mark.anyio
-    async def test_without_request_skips_publish(self, manager, fake_user):
-        """CLI/bootstrap flows pass request=None — must not crash."""
+    async def test_request_bound_registration_gets_the_user_role(
+        self, manager, fake_user, fake_user_db
+    ):
+        """GH #488: a signup with no role holds no permissions at all."""
+        from users.models import UserRole
+
+        request = MagicMock()
+        request.app.state.sm.event_bus = MagicMock(publish=AsyncMock())
+        fake_user.is_verified = True
+        role = MagicMock(id=uuid.uuid4())
+        with patch("users.manager.ensure_user_role", AsyncMock(return_value=role)):
+            await manager.on_after_register(fake_user, request)
+
+        (added,) = fake_user_db.session.add.call_args.args
+        assert isinstance(added, UserRole)
+        assert (added.user_id, added.role_id) == (fake_user.id, role.id)
+
+    @pytest.mark.anyio
+    async def test_without_request_skips_publish(self, manager, fake_user, fake_user_db):
+        """CLI/bootstrap and admin flows pass request=None — no crash, no role:
+        the admin picks the roles there, and may pick none."""
         fake_user.is_verified = True
         await manager.on_after_register(fake_user, None)
+        fake_user_db.session.add.assert_not_called()
 
 
 class TestOnAfterForgotPassword:
