@@ -138,7 +138,8 @@
     "invalid_json": "Not valid JSON — it will be rejected on save.",
     "not_set": "Not set (default)",
     "option_on": "On",
-    "option_off": "Off"
+    "option_off": "Off",
+    "env_pinned": "Set by an environment variable, which takes precedence. Change it there."
   },
   "nav": {
     "settings": "Settings"

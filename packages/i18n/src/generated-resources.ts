@@ -767,6 +767,7 @@ export default {
     'settings.modules.title': '',
     'settings.modules.unsaved_count_one': '',
     'settings.modules.unsaved_count_other': '',
+    'settings.modules_form.env_pinned': '',
     'settings.modules_form.invalid_json': '',
     'settings.modules_form.not_set': '',
     'settings.modules_form.option_off': '',

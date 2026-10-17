@@ -11,6 +11,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response, status
 from pydantic import ValidationError
+from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import RequiresPermission
 
 from settings._module_settings import (
@@ -23,7 +24,7 @@ from settings.constants import MODULE_PACKAGE, PERM_DELETE, PERM_EDIT, PERM_VIEW
 from settings.contracts.events import SettingsReloaded
 from settings.deps import get_setting_service
 from settings.hydrate import hydrate_settings
-from settings.reload import apply_changes_and_reload
+from settings.reload import EnvPinnedError, apply_changes_and_reload
 from settings.service import SettingService
 from settings.store import SettingsStore
 
@@ -90,6 +91,7 @@ async def update_module(
     package: str,
     changes: dict[str, Any],
     request: Request,
+    t: TranslatorDep,
     service: SettingService = Depends(get_setting_service),
 ) -> dict[str, Any]:
     registry = getattr(request.app.state, MODULE_PACKAGE).module_registry
@@ -119,6 +121,17 @@ async def update_module(
         # own JSON encoder to get clean, serializable errors.
         clean = json.loads(exc.json(include_url=False))
         raise HTTPException(status_code=422, detail=clean) from exc
+    except EnvPinnedError as exc:
+        # Shaped like a pydantic 422 so the editor shows it on the field.
+        detail = [
+            {
+                "loc": ["body", name],
+                "msg": t.t("settings.modules_form.env_pinned"),
+                "type": "env_pinned",
+            }
+            for name in exc.fields
+        ]
+        raise HTTPException(status_code=422, detail=detail) from exc
     except KeyError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

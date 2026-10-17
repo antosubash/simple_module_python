@@ -46,7 +46,7 @@ export function FieldSource({ field, onReset }: { field: FieldMeta; onReset: () 
 
   // A toggle's env var name says nothing a reader wants; what the switch
   // currently means does.
-  if (field.type === 'bool' && field.description) {
+  if ((field.input_type ?? field.type) === 'bool' && field.description) {
     return <span className="text-[11.5px] text-muted-foreground">{field.description}</span>;
   }
 

@@ -24,8 +24,13 @@ EMAIL = "signup@example.com"
 
 
 async def _register(app, client) -> str:
+    from users.bootstrap import ensure_user_role
     from users.models import User
 
+    # Test schemas come from ``create_all``: seed the role the migration would.
+    async with app.state.sm.db.session_factory() as session:
+        await ensure_user_role(session)
+        await session.commit()
     users = app.state.users
     users.settings = users.settings.model_copy(update={"allow_signup": True})
     resp = await client.post(

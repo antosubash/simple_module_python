@@ -994,6 +994,7 @@ export const keys = {
       unsaved_count_other: 'settings.modules.unsaved_count_other',
     },
     modules_form: {
+      env_pinned: 'settings.modules_form.env_pinned',
       invalid_json: 'settings.modules_form.invalid_json',
       not_set: 'settings.modules_form.not_set',
       option_off: 'settings.modules_form.option_off',

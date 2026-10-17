@@ -26,7 +26,7 @@ from settings._secrets import (  # noqa: F401
     mask,
 )
 from settings.env_vars import env_prefix_for
-from settings.hydrate import input_type_for_field, value_type_for_field
+from settings.hydrate import env_supplied_fields, input_type_for_field, value_type_for_field
 from settings.service import SettingService
 
 
@@ -130,8 +130,11 @@ def _field_view(
     settings: BaseSettings,
     prefix: str,
     overridden: frozenset[str] = frozenset(),
+    env_supplied: frozenset[str] | None = None,
 ) -> ModuleSettingField:
     cls = type(settings)
+    if env_supplied is None:
+        env_supplied = env_supplied_fields(cls)
     info = cls.model_fields[name]
     raw_value = getattr(settings, name)
     value_type = value_type_for_field(cls, name)
@@ -141,10 +144,11 @@ def _field_view(
     default = resolve_default(info)
     env_var = f"{prefix}{name.upper()}"
     live_env_var = env_readable_var(settings, name)
-    env_set = live_env_var is not None and live_env_var in os.environ
-    # ``live_env_var`` is not None whenever env_set is True, but the narrowing
-    # is spelled out so a future edit cannot turn this into ``os.environ[None]``.
-    raw_env = os.environ[live_env_var] if env_set and live_env_var is not None else None
+    # The same answer ``build_settings`` acts on (GH #486), so a value supplied
+    # by the class's ``.env``, a secrets file or an alias is labelled "env"
+    # here exactly when hydration lets it beat a stored override.
+    env_set = name in env_supplied
+    raw_env = os.environ.get(live_env_var) if env_set and live_env_var is not None else None
 
     def hidden(value: Any) -> bool:
         return conceals_secret(name, value, value_type)
@@ -235,8 +239,10 @@ def _build_view(
 ) -> ModuleSettingsView:
     prefix = env_prefix_for(package)
     overridden = (overrides or {}).get(package, frozenset())
+    from_env = env_supplied_fields(type(settings))
     fields = [
-        _field_view(name, settings, prefix, overridden) for name in type(settings).model_fields
+        _field_view(name, settings, prefix, overridden, from_env)
+        for name in type(settings).model_fields
     ]
     return ModuleSettingsView(
         module_name=module_name,

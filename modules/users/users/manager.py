@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -11,22 +12,25 @@ from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
 from fastapi_users.jwt import generate_jwt
 from simple_module_hosting.session import stamp_session_expiry
+from sqlalchemy import select
 
-from users.bootstrap import ensure_user_role
 from users.constants import (
     OAUTH_REGISTRATION_REQUEST_FLAG,
     SESSION_DEMO_KEY,
     SESSION_USER_ID_KEY,
     SESSION_VERSION_KEY,
+    USER_ROLE_NAME,
 )
 from users.contracts.events import UserRegistered
 from users.db_adapter import UserDatabaseWithRoles, get_user_db
 from users.exceptions import ExternalUserNoPasswordError
 from users.mailer import Mailer
-from users.models import User, UserRole
+from users.models import Role, User, UserRole
 
 if TYPE_CHECKING:
     from users.settings import UsersSettings
+
+logger = logging.getLogger(__name__)
 
 
 class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
@@ -130,9 +134,20 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         Only request-bound registrations reach here: the admin create and
         invite flows call ``create()`` with no request and assign exactly the
         roles the admin picked, which may deliberately be none.
+
+        Looked up, never created: the seed migration inserts the role, so a
+        missing one means an admin deleted it, and a public signup must not
+        undo that. It also keeps concurrent signups from racing to insert it.
         """
         session = self.user_db.session
-        role = await ensure_user_role(session)
+        role = (
+            await session.execute(select(Role).where(Role.name == USER_ROLE_NAME))
+        ).scalar_one_or_none()
+        if role is None:
+            logger.warning(
+                "No '%s' role exists; %s registered with no role", USER_ROLE_NAME, user.id
+            )
+            return
         session.add(UserRole(user_id=user.id, role_id=role.id))
         await session.flush()
 

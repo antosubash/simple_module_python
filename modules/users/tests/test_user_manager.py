@@ -126,7 +126,7 @@ class TestOnAfterRegister:
         # Pre-verified so the manager doesn't try to send a verify email.
         fake_user.is_verified = True
 
-        with patch("users.manager.ensure_user_role", AsyncMock()):
+        with patch.object(manager, "_attach_default_role", AsyncMock()):
             await manager.on_after_register(fake_user, request)
 
         (event,) = bus.assert_published(UserRegistered)
@@ -144,12 +144,26 @@ class TestOnAfterRegister:
         request.app.state.sm.event_bus = MagicMock(publish=AsyncMock())
         fake_user.is_verified = True
         role = MagicMock(id=uuid.uuid4())
-        with patch("users.manager.ensure_user_role", AsyncMock(return_value=role)):
-            await manager.on_after_register(fake_user, request)
+        fake_user_db.session.execute = AsyncMock(
+            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=role))
+        )
+        await manager.on_after_register(fake_user, request)
 
         (added,) = fake_user_db.session.add.call_args.args
         assert isinstance(added, UserRole)
         assert (added.user_id, added.role_id) == (fake_user.id, role.id)
+
+    @pytest.mark.anyio
+    async def test_a_deleted_user_role_is_not_recreated(self, manager, fake_user, fake_user_db):
+        """An admin who removed the role meant it; a public signup must not undo that."""
+        request = MagicMock()
+        request.app.state.sm.event_bus = MagicMock(publish=AsyncMock())
+        fake_user.is_verified = True
+        fake_user_db.session.execute = AsyncMock(
+            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+        )
+        await manager.on_after_register(fake_user, request)
+        fake_user_db.session.add.assert_not_called()
 
     @pytest.mark.anyio
     async def test_without_request_skips_publish(self, manager, fake_user, fake_user_db):
