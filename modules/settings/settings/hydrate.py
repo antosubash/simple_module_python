@@ -14,7 +14,13 @@ import logging
 from typing import get_origin
 
 from pydantic import ValidationError
-from pydantic_settings import BaseSettings
+from pydantic_settings import (
+    BaseSettings,
+    DotEnvSettingsSource,
+    EnvSettingsSource,
+    InitSettingsSource,
+    SecretsSettingsSource,
+)
 from sqlalchemy.orm import Session
 
 from settings.store import SettingsStore, get_overrides_sync
@@ -57,6 +63,31 @@ def _parse(raw: str, value_type: str):
     return raw
 
 
+def env_supplied_fields(cls: type[BaseSettings]) -> frozenset[str]:
+    """Fields the class's own non-init sources (env, ``.env``, secrets) answer.
+
+    Asks the sources ``cls`` actually installs, so a ``DbBackedSettings``
+    (init-only) reports nothing and an ``env_prefix`` class reports exactly the
+    ``<PREFIX><FIELD>`` names that are set. Deliberately not ``cls()``: a
+    model validator can reject the env-only view (a production broker check)
+    that the DB-merged one would pass.
+    """
+    sources = cls.settings_customise_sources(
+        cls,
+        init_settings=InitSettingsSource(cls, init_kwargs={}),
+        env_settings=EnvSettingsSource(cls),
+        dotenv_settings=DotEnvSettingsSource(cls),
+        file_secret_settings=SecretsSettingsSource(cls),
+    )
+    by_key = {(info.alias or name): name for name, info in cls.model_fields.items()}
+    found: set[str] = set()
+    for source in sources:
+        if isinstance(source, InitSettingsSource):
+            continue
+        found.update(by_key.get(key, key) for key in source())
+    return frozenset(found) & cls.model_fields.keys()
+
+
 def build_settings[T: BaseSettings](
     cls: type[T], raw_overrides: dict[str, tuple[str, str]], *, lenient: bool = False
 ) -> T:
@@ -69,10 +100,15 @@ def build_settings[T: BaseSettings](
     lifespan, workers): a row that was stored before a validator tightened must
     not take the app down, nor discard the module's other, valid overrides. Each
     offending field is logged and ignored (it falls back to env/default).
+
+    Precedence is env → DB → default (GH #486). pydantic-settings ranks init
+    kwargs above its env source, so a stored override for a field the
+    environment sets is dropped here rather than passed in.
     """
+    from_env = env_supplied_fields(cls)
     parsed: dict[str, object] = {}
     for field_name, (raw, vtype) in raw_overrides.items():
-        if field_name not in cls.model_fields:
+        if field_name not in cls.model_fields or field_name in from_env:
             continue
         try:
             parsed[field_name] = _parse(raw, vtype)

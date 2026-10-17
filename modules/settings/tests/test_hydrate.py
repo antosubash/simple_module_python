@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError, field_validator, model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from settings.hydrate import hydrate_settings, value_type_for_field
 from settings.service import SettingService
 from settings.store import SettingsStore
 
 
 class _Cfg(BaseSettings):
+    # Namespaced so a stray ``HOST``/``PORT`` in the runner's env can't win.
+    model_config = SettingsConfigDict(env_prefix="SM_TEST_HYDRATE_")
+
     allow: bool = False
     port: int = 25
     host: str = "localhost"
@@ -104,6 +107,8 @@ async def test_lenient_hydrate_ignores_only_the_invalid_field(db_session, caplog
 
 
 class _Guarded(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="SM_TEST_GUARDED_")
+
     broker: str = "redis://redis:6379"
     token: str = "ok"
     prod: bool = False
@@ -151,3 +156,74 @@ async def test_lenient_dropping_a_field_cannot_bypass_a_cross_field_check(db_ses
     await store.set_override("g", "broker", "redis://localhost:6379", "string")
     with pytest.raises(ValidationError):
         await hydrate_settings(_Guarded, store, package="g", lenient=True)
+
+
+@pytest.mark.asyncio
+async def test_env_var_beats_a_stored_override(db_session, monkeypatch) -> None:
+    """env → DB → default (GH #486): init kwargs outrank pydantic's env source,
+    so the hydrator must drop the stored row rather than pass it in."""
+    store = SettingsStore(SettingService(db_session))
+    await store.set_override("demo", "port", "587", "int")
+    await store.set_override("demo", "host", "db.example.com", "string")
+    monkeypatch.setenv("SM_TEST_HYDRATE_PORT", "2525")
+    cfg = await hydrate_settings(_Cfg, store, package="demo")
+    assert cfg.port == 2525
+    assert cfg.host == "db.example.com"
+
+
+def test_env_beats_db_for_sync_hydration(tmp_path, monkeypatch) -> None:
+    from settings.hydrate import hydrate_settings_sync
+    from settings.models import Setting
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    engine = create_engine(f"sqlite:///{tmp_path / 's.db'}")
+    Setting.metadata.create_all(engine)
+    monkeypatch.setenv("SM_TEST_HYDRATE_ALLOW", "false")
+    with Session(engine) as session:
+        session.add(Setting(key="demo.allow", value="true", value_type="bool"))
+        session.commit()
+        assert hydrate_settings_sync(_Cfg, session, "demo").allow is False
+
+
+@pytest.mark.asyncio
+async def test_db_backed_settings_ignore_env_and_keep_db(db_session, monkeypatch) -> None:
+    """``DbBackedSettings`` has no env source, so a same-named var changes nothing."""
+    from simple_module_core.settings_base import DbBackedSettings
+
+    class _Db(DbBackedSettings):
+        model_config = SettingsConfigDict(env_prefix="SM_TEST_DBB_")
+        port: int = 25
+
+    store = SettingsStore(SettingService(db_session))
+    await store.set_override("dbb", "port", "587", "int")
+    monkeypatch.setenv("SM_TEST_DBB_PORT", "2525")
+    monkeypatch.setenv("PORT", "2525")
+    assert (await hydrate_settings(_Db, store, package="dbb")).port == 587
+
+
+@pytest.mark.asyncio
+async def test_env_wins_even_where_env_alone_fails_validation(db_session, monkeypatch) -> None:
+    """Detecting env-set fields must not construct the env-only view: here it
+    would trip the cross-field check that the merged view passes."""
+    store = SettingsStore(SettingService(db_session))
+    await store.set_override("g", "broker", "redis://redis:6379", "string")
+    monkeypatch.setenv("SM_TEST_GUARDED_PROD", "true")
+    monkeypatch.setenv("SM_TEST_GUARDED_TOKEN", "from-env")
+    await store.set_override("g", "token", "from-db", "string")
+    cfg = await hydrate_settings(_Guarded, store, package="g")
+    assert (cfg.prod, cfg.token) == (True, "from-env")
+
+
+@pytest.mark.asyncio
+async def test_background_tasks_env_var_beats_stored_override(db_session, monkeypatch) -> None:
+    """The bundled class the bug was real for: ``SM_BG_TASKS_*`` must win."""
+    from background_tasks.settings import BackgroundTasksSettings
+
+    store = SettingsStore(SettingService(db_session))
+    await store.set_override("background_tasks", "task_default_queue", "from-db", "string")
+    await store.set_override("background_tasks", "worker_concurrency", "4", "int")
+    monkeypatch.setenv("SM_BG_TASKS_TASK_DEFAULT_QUEUE", "from-env")
+    cfg = await hydrate_settings(BackgroundTasksSettings, store, package="background_tasks")
+    assert cfg.task_default_queue == "from-env"
+    assert cfg.worker_concurrency == 4
