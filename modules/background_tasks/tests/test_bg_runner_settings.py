@@ -91,3 +91,20 @@ def test_stored_invalid_task_routes_do_not_stop_the_worker(db_url: str, caplog) 
     assert cfg.task_routes_override == {}
     assert cfg.task_time_limit == 90  # the module's other overrides survive
     assert "task_routes_override" in caplog.text
+
+
+def test_shared_runner_builds_celery_from_db_settings(db_url, tmp_path, monkeypatch) -> None:
+    """GH #490: the entry point scaffolded apps use must hydrate from the DB."""
+    from background_tasks import tenant_context
+    from background_tasks.runner import build_runner_celery
+
+    # The runner sets process-wide state; don't leak it into later tests.
+    monkeypatch.setattr(tenant_context, "_default_tenant", tenant_context._default_tenant)
+    _put(db_url, "background_tasks.task_default_queue", "from-db", "string")
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("SM_DATABASE_URL", db_url.replace("sqlite://", "sqlite+aiosqlite://"))
+    monkeypatch.delenv("SM_BG_TASKS_TASK_DEFAULT_QUEUE", raising=False)
+
+    celery = build_runner_celery()
+
+    assert celery.conf.task_default_queue == "from-db"
