@@ -28,6 +28,8 @@ from settings.store import SettingsStore, get_overrides_sync
 
 logger = logging.getLogger(__name__)
 
+_SCALAR_TYPES = {bool: "bool", int: "int", float: "float"}
+
 
 def value_type_for_field(cls: type[BaseSettings], field_name: str) -> str:
     """Return the ``value_type`` label for a field based on its annotation.
@@ -43,13 +45,7 @@ def value_type_for_field(cls: type[BaseSettings], field_name: str) -> str:
     origin = get_origin(ann)
     if origin is not None:
         return "json"
-    if ann is bool:
-        return "bool"
-    if ann is int:
-        return "int"
-    if ann is float:
-        return "float"
-    return "string"
+    return _SCALAR_TYPES.get(ann, "string")
 
 
 def input_type_for_field(cls: type[BaseSettings], field_name: str) -> tuple[str, bool]:
@@ -67,8 +63,7 @@ def input_type_for_field(cls: type[BaseSettings], field_name: str) -> tuple[str,
     rest = [a for a in args if a is not type(None)]
     nullable = len(rest) < len(args)
     if len(rest) == 1 and get_origin(rest[0]) is None:
-        scalar = {bool: "bool", int: "int", float: "float"}.get(rest[0], "string")
-        return scalar, nullable
+        return _SCALAR_TYPES.get(rest[0], "string"), nullable
     return "json", nullable
 
 

@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 from fastapi import FastAPI
-from pydantic import BaseModel, SecretBytes, SecretStr
+from pydantic import SecretBytes, SecretStr
 from pydantic_core import to_jsonable_python
 from pydantic_settings import BaseSettings
 from simple_module_core.events import EventBus
@@ -43,10 +43,6 @@ def _unwrap_secrets(value: Any) -> Any:
     """
     if isinstance(value, SecretStr | SecretBytes):
         return value.get_secret_value()
-    if isinstance(value, BaseModel):
-        # Python-mode dump keeps nested secrets as objects; the recursion
-        # unwraps them.
-        return _unwrap_secrets(value.model_dump())
     if isinstance(value, dict):
         return {k: _unwrap_secrets(v) for k, v in value.items()}
     if isinstance(value, list | tuple | set | frozenset):
