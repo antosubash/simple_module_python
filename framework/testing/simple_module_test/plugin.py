@@ -48,7 +48,8 @@ def pytest_configure(config: pytest.Config) -> None:
     # xdist workers would wipe each other's schema mid-test.
     if database_is_postgres() and getattr(config.option, "numprocesses", None):
         raise pytest.UsageError(
-            "SM_TEST_DATABASE_URL is Postgres: run serially (-n 0), the schema is shared"
+            "SM_TEST_DATABASE_URL is Postgres, whose schema every test drops: run "
+            "serially with `make test-py-pg` or `-n 0` (`PYTEST_WORKERS=0 make test-py`)"
         )
 
 
@@ -105,8 +106,12 @@ def _cheap_password_hashing() -> None:
 
     Patched at import, not in a fixture: test modules build ``PasswordHelper()``
     at module scope during collection, before any fixture runs. An explicit
-    ``password_hash=`` still wins. Skipped when ``fastapi_users`` is absent.
+    ``password_hash=`` still wins. Skipped when ``fastapi_users`` is absent, or
+    when ``SM_TEST_REAL_PASSWORD_HASHING`` is set — the opt-out for a consumer
+    suite whose tests depend on production hash parameters.
     """
+    if os.environ.get("SM_TEST_REAL_PASSWORD_HASHING"):
+        return
     try:
         from fastapi_users.password import PasswordHelper
         from pwdlib import PasswordHash

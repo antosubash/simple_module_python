@@ -39,6 +39,11 @@ from pathlib import Path
 import httpx
 import pytest
 
+# One worker for the module: the ``stack`` fixture (import-from-env plus uvicorn
+# boots) is module-scoped, so splitting the two arms across xdist workers would
+# build it twice.
+pytestmark = pytest.mark.xdist_group("cross-process-stack")
+
 _ROOT = str(Path(__file__).resolve().parent.parent.parent)
 _ADMIN = "admin@example.com"
 _PASSWORD = "AdminPass1!"

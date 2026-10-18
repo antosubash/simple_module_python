@@ -27,6 +27,9 @@ pytestmark = [
         reason="node_modules absent — run `npm install` to exercise the real build",
     ),
     pytest.mark.skipif(shutil.which("npm") is None, reason="npm not on PATH"),
+    # Both tests rewrite the shared tree (generated manifests, host/static/dist, a
+    # probe page under audit_log), so under xdist they must share one worker.
+    pytest.mark.xdist_group("repo-build"),
 ]
 
 

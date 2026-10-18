@@ -124,7 +124,7 @@ The `simple_module_test` plugin provides app-level fixtures available to every t
 - `db_state`, `engine`, `db_session` — fresh in-memory `DatabaseState` per test; `db_session` also creates all module tables and stamps `alembic_version` at head so the boot-time migration check passes.
 - `app` — `create_app(settings)` with lifespan started/stopped.
 - `client` / `authenticated_client` — `httpx.AsyncClient`; `authenticated_client` seeds an admin via `users.bootstrap.create_admin` and carries a forged session cookie.
-- Importing the plugin drops `PasswordHelper()`'s Argon2/bcrypt work factor to the minimum (hashes stay real `$argon2`/`$2b`); at production cost hashing the seeded admin was ~90 ms of every `app` fixture. Pass `password_hash=` explicitly to test real parameters.
+- Importing the plugin drops `PasswordHelper()`'s Argon2/bcrypt work factor to the minimum (hashes stay real `$argon2`/`$2b`); at production cost hashing the seeded admin was ~90 ms of every `app` fixture. Pass `password_hash=` explicitly to test real parameters, or set `SM_TEST_REAL_PASSWORD_HASHING=1` to opt a whole run out.
 - Tests must collect identically in every xdist worker: no `uuid4()`/random values in `parametrize` ids, and anything shared across processes (a Redis channel, a file) needs a per-worker name.
 
 E2E tests live in `tests/e2e/` behind the `e2e` pytest marker and run against a live server — see [docs/e2e-testing.md](docs/e2e-testing.md).

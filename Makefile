@@ -53,9 +53,11 @@ test: test-py test-js
 # SQLite app, so tests share nothing across worker processes. Not in addopts,
 # so a single `uv run pytest path::test` still runs in-process without paying
 # for worker start-up. PYTEST_WORKERS=0 runs serially (e.g. under a debugger).
+# loadgroup keeps tests marked `xdist_group(...)` on one worker (shared repo
+# tree, module-scoped subprocess stacks); everything else is load-balanced.
 PYTEST_WORKERS ?= auto
 test-py:
-	uv run pytest -n $(PYTEST_WORKERS)
+	uv run pytest -n $(PYTEST_WORKERS) --dist loadgroup
 
 # The Python suite on Postgres (#343). Needs an empty database the tests may
 # drop and recreate `public` in. `-p no:anyio`: tests marked
