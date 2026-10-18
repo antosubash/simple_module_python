@@ -442,17 +442,27 @@ model.** Pass `model` explicitly on every `Agent` call:
 - `opus`: design, security and isolation reasoning, adversarial review, where a
   wrong answer is expensive.
 
-**Codex as a second reviewer.** The Codex CLI (`@openai/codex`) is installed and
-authenticated on some machines, not on cloud sessions. Probe once per session
-with `command -v codex && codex login status`; if it is missing or prints
-`Not logged in`, use Claude subagents only, and do not install it, `npx` it or
-retry. When it is authenticated, hand it independent read-only slices in
-parallel with Claude subagents: `codex exec -s read-only "<brief>"` for a
-verification or review brief, and
-`codex exec -s read-only review --base main` (or `--uncommitted`) for a diff
-review. Never pass `workspace-write`, `danger-full-access`, `--approve-for-me`
-or `--dangerously-bypass-approvals-and-sandbox` here; edits stay with the
-session that owns the branch.
+**Use Codex as a subagent when it is available.** The Codex CLI
+(`@openai/codex`) is installed and authenticated on some machines, not on cloud
+sessions. Probe once per session with `command -v codex && codex login status`;
+if it is missing or prints `Not logged in`, use Claude subagents only, and do
+not install it, `npx` it or retry. When it is authenticated, treat it as a
+first-class subagent and run it in parallel with Claude subagents, each on its
+own slice, with the same brief discipline and the same per-slice verification:
+
+- Read-only slices (verification, surveys, review):
+  `codex exec -s read-only "<brief>"`, and
+  `codex exec -s read-only review --base main` (or `--uncommitted`) for a diff
+  review. A second model's independent read is the main value here, so route
+  review and fact-check slices to Codex first.
+- Write slices (an isolated implementation or test-fixing task): give Codex
+  its own checkout, never the one this session is editing:
+  `git worktree add ../<repo>-codex-<slice> <branch>`, then
+  `codex exec -s workspace-write -C ../<repo>-codex-<slice> "<brief>"`.
+  Review its diff and run the repo checks before merging it into the branch.
+- Never pass `danger-full-access`, `--approve-for-me` or
+  `--dangerously-bypass-approvals-and-sandbox` here, and never let two agents
+  write to one working tree.
 
 ## Repo skills
 
