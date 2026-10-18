@@ -59,8 +59,8 @@ async def test_saving_an_env_set_field_is_refused(pinned_app, db_session, monkey
 
 
 async def test_a_secret_is_stored_as_submitted_not_as_its_dump(pinned_app, db_session):
-    app = pinned_app
     """``SecretStr`` dumps as asterisks; that must never reach the store."""
+    app = pinned_app
     store = SettingsStore(SettingService(db_session))
     await apply_changes_and_reload(
         app, EventBus(), store, package="pinned", changes={"api_key": "s3cr3t"}
