@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 
 from pydantic_settings import BaseSettings
 
+from settings._secrets import register_typed_secrets
+
 
 @dataclass(slots=True)
 class ModuleSettingsRegistry:
@@ -28,6 +30,7 @@ class ModuleSettingsRegistry:
         if package in self._classes:
             raise ValueError(f"{package!r} already registered")
         self._classes[package] = cls
+        register_typed_secrets(package, cls)
         if manage_url:
             self._manage_urls[package] = manage_url
 

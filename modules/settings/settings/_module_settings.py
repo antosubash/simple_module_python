@@ -19,6 +19,7 @@ from settings._field_meta import choices_for, env_readable_var, resolve_default
 from settings._secrets import (  # noqa: F401
     _NEVER_SECRET_TYPES,
     SECRET_MASK,
+    annotation_holds_secret,
     conceals_secret,
     embeds_credential,
     is_named_secret,
@@ -150,13 +151,21 @@ def _field_view(
     env_set = name in env_supplied
     raw_env = os.environ.get(live_env_var) if env_set and live_env_var is not None else None
 
+    # Declared as ``SecretStr`` (also inside ``X | None`` or a container):
+    # masked whatever the field is called, since the store holds it in clear.
+    typed_secret = annotation_holds_secret(info.annotation)
+
     def hidden(value: Any) -> bool:
-        return conceals_secret(name, value, value_type)
+        return typed_secret or conceals_secret(name, value, value_type)
 
     # ``is_secret`` drives the editor's input type and the "reveal" affordance,
     # so it has to be true when *any* of the three readings is being hidden —
     # otherwise the form offers to edit a value it is showing as dots.
-    secret = named_secret or any(embeds_credential(v) for v in (raw_value, default, raw_env))
+    secret = (
+        typed_secret
+        or named_secret
+        or any(embeds_credential(v) for v in (raw_value, default, raw_env))
+    )
     return ModuleSettingField(
         name=name,
         env_var=env_var,
