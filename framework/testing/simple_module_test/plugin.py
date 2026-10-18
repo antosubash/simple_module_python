@@ -42,6 +42,15 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "postgres: needs a PostgreSQL test database (SM_TEST_DATABASE_URL=postgresql+...)",
     )
+    from simple_module_test.database import database_is_postgres
+
+    # Every Postgres test drops and recreates ``public`` in the one database, so
+    # xdist workers would wipe each other's schema mid-test.
+    if database_is_postgres() and getattr(config.option, "numprocesses", None):
+        raise pytest.UsageError(
+            "SM_TEST_DATABASE_URL is Postgres, whose schema every test drops: run "
+            "serially with `make test-py-pg` or `-n 0` (`PYTEST_WORKERS=0 make test-py`)"
+        )
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
@@ -84,6 +93,49 @@ def _bootstrap_eager_celery() -> None:
 
 
 _bootstrap_eager_celery()
+
+
+def _cheap_password_hashing() -> None:
+    """Make ``PasswordHelper()`` hash with minimal Argon2/bcrypt cost.
+
+    Every ``app`` fixture seeds an admin, and production-cost Argon2 is ~90ms
+    of CPU per hash — over a tenth of each app's setup, paid thousands of times
+    a run. The hashes stay real ``$argon2``/``$2b`` strings that verify and
+    upgrade through the same code paths; only their work factor drops, which is
+    a property of deployment rather than anything a test asserts.
+
+    Patched at import, not in a fixture: test modules build ``PasswordHelper()``
+    at module scope during collection, before any fixture runs. An explicit
+    ``password_hash=`` still wins. Skipped when ``fastapi_users`` is absent, or
+    when ``SM_TEST_REAL_PASSWORD_HASHING`` is set — the opt-out for a consumer
+    suite whose tests depend on production hash parameters.
+    """
+    if os.environ.get("SM_TEST_REAL_PASSWORD_HASHING"):
+        return
+    try:
+        from fastapi_users.password import PasswordHelper
+        from pwdlib import PasswordHash
+        from pwdlib.hashers.argon2 import Argon2Hasher
+        from pwdlib.hashers.bcrypt import BcryptHasher
+    except ImportError:
+        return
+
+    original_init = PasswordHelper.__init__
+
+    def _init(self, password_hash: PasswordHash | None = None) -> None:
+        if password_hash is None:
+            password_hash = PasswordHash(
+                (
+                    Argon2Hasher(time_cost=1, memory_cost=8, parallelism=1),
+                    BcryptHasher(rounds=4),
+                )
+            )
+        original_init(self, password_hash)
+
+    PasswordHelper.__init__ = _init  # type: ignore[method-assign]
+
+
+_cheap_password_hashing()
 
 
 @pytest.fixture
