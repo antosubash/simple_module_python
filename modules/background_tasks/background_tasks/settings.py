@@ -124,8 +124,9 @@ class BackgroundTasksSettings(BaseSettings):
         default=None, ge=1, json_schema_extra=_CELERY_RESTART
     )
     task_reject_on_worker_lost: bool | None = Field(default=None, json_schema_extra=_CELERY_RESTART)
-    task_soft_time_limit: int | None = Field(default=None, ge=1, json_schema_extra=_CELERY_RESTART)
+    # Hard limit first: the soft-limit validator reads it from ``info.data``.
     task_time_limit: int | None = Field(default=None, ge=1, json_schema_extra=_CELERY_RESTART)
+    task_soft_time_limit: int | None = Field(default=None, ge=1, json_schema_extra=_CELERY_RESTART)
     worker_concurrency: int | None = Field(default=None, ge=1, json_schema_extra=_CELERY_RESTART)
     # Raw Celery conf (``SM_BG_TASKS_CELERY_OVERRIDES``, JSON) is deliberately NOT
     # a field here: every field is stored in and hydrated from the database, and
@@ -159,6 +160,22 @@ class BackgroundTasksSettings(BaseSettings):
         # saving a row that is silently dropped later. ``build_celery`` still
         # sanitises, as a defence for values stored before this check.
         return parse_task_routes(value)
+
+    @field_validator("task_soft_time_limit")
+    @classmethod
+    def _soft_limit_below_hard(cls, soft: int | None, info: ValidationInfo) -> int | None:
+        """A soft limit at or above the hard one can never fire.
+
+        A field validator, not a model one, so the error carries a ``loc``:
+        when the soft limit is a DB row, lenient hydration drops that row —
+        keeping the hard kill — instead of failing boot.
+        """
+        hard = info.data.get("task_time_limit")
+        if soft is not None and hard is not None and soft >= hard:
+            raise ValueError(
+                f"task_soft_time_limit ({soft}) must be below task_time_limit ({hard})"
+            )
+        return soft
 
     # ── Cross-process cache invalidation (GH #318) ──────────
     # This module owns the Redis connection, so it installs the transport that

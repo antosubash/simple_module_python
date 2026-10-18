@@ -87,6 +87,7 @@ class FileStorageSettings(DbBackedSettings):
     # bounded by ``max_file_size_bytes`` alone as before.
     quota_bytes: int | None = Field(
         default=None,
+        gt=0,
         description="Total storage the browse screen measures usage against. None = unmeasured.",
     )
 
