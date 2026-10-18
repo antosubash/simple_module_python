@@ -141,6 +141,7 @@ class TestOnAfterRegister:
         from users.models import UserRole
 
         request = MagicMock()
+        request.state = MagicMock(spec=[])  # a local signup, not OAuth
         request.app.state.sm.event_bus = MagicMock(publish=AsyncMock())
         fake_user.is_verified = True
         role = MagicMock(id=uuid.uuid4())

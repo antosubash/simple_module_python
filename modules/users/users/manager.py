@@ -51,6 +51,9 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         self.reset_password_token_lifetime_seconds = settings.reset_password_token_lifetime_seconds
         self.verification_token_lifetime_seconds = settings.verification_token_lifetime_seconds
         self.cookie_max_age_seconds = settings.cookie_max_age_seconds
+        # Read per request: ``get_user_manager`` builds a manager per request
+        # from the live settings, so an admin toggling signup takes effect.
+        self.allow_signup = settings.allow_signup
 
     # ── Password policy ──────────────────────────────────────
 
@@ -115,11 +118,19 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         # find-or-create) is external: drop the random password fastapi-users
         # assigned and mark the account SSO-only. Fires only for *new* users —
         # OAuth logins that link to an existing account don't reach here.
-        if request is not None and getattr(request.state, OAUTH_REGISTRATION_REQUEST_FLAG, False):
+        oauth_provisioned = request is not None and getattr(
+            request.state, OAUTH_REGISTRATION_REQUEST_FLAG, False
+        )
+        if oauth_provisioned:
             user.hashed_password = None
             user.is_external = True
             await self.user_db.update(user, {"hashed_password": None, "is_external": True})
-        if request is not None:
+        # OAuth provisioning is not gated by ``allow_signup`` the way /register
+        # is, so with signups closed an operator who only wanted SSO for staff
+        # would otherwise hand the ``user`` role (file read/write, API tokens)
+        # to anyone holding an account at the provider. Signups closed means
+        # an OAuth-provisioned account waits for an admin to grant a role.
+        if request is not None and (self.allow_signup or not oauth_provisioned):
             await self._attach_default_role(user)
         await self._publish_user_registered(user, request)
         if not user.is_verified:
