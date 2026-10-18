@@ -100,6 +100,20 @@ describe('ModuleForm', () => {
     fireEvent.change(screen.getByLabelText('smtp_host'), { target: { value: 'mail.test' } });
     expect(screen.getByText('2 unsaved')).toBeVisible();
   });
+
+  test('locks a field the environment sets, so a save never sends it', () => {
+    render(
+      <ModuleForm
+        module={moduleView([
+          retentionDays,
+          field({ name: 'smtp_host', value: 'mail.example.com', env_set: true }),
+        ])}
+      />,
+    );
+
+    expect(screen.getByLabelText('smtp_host')).toBeDisabled();
+    expect(screen.getByLabelText('retention_days')).toBeEnabled();
+  });
 });
 
 describe('Revert', () => {

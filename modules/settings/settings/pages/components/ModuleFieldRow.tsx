@@ -57,7 +57,12 @@ export function ModuleFieldRow({
       </div>
 
       <div className="min-w-0">
-        <FieldInput id={id} field={field} value={value} onChange={onChange} />
+        {/* An env-set field always wins over a stored value (env → DB → default),
+            so the server refuses edits to it; a disabled fieldset stops the form
+            from collecting an edit that would 422 the whole save. */}
+        <fieldset disabled={!!field.env_set} className="min-w-0 border-0 p-0">
+          <FieldInput id={id} field={field} value={value} onChange={onChange} />
+        </fieldset>
         {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
       </div>
 
