@@ -93,3 +93,16 @@ async def test_editor_put_answers_422_on_the_field(authenticated_client, monkeyp
     assert error["loc"][-1] == "task_default_queue"
     assert error["type"] == "env_pinned"
     assert error["msg"].startswith("Set by an environment variable")
+
+
+async def test_saving_a_broker_url_seeded_by_redis_url_is_refused(
+    authenticated_client, monkeypatch
+):
+    """``SM_REDIS_URL`` reaches the field through a default factory, not an env
+    source, but it still wins, so the editor must not store a dead value."""
+    monkeypatch.setenv("SM_REDIS_URL", "redis://cache:6379/2")
+    resp = await authenticated_client.put(
+        "/api/settings/modules/background_tasks", json={"broker_url": "redis://db:6379/0"}
+    )
+    assert resp.status_code == 422, resp.text
+    assert {e["loc"][-1] for e in resp.json()["detail"]} == {"broker_url"}

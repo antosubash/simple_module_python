@@ -106,6 +106,12 @@ def env_supplied_fields(cls: type[BaseSettings]) -> frozenset[str]:
         if isinstance(source, InitSettingsSource):
             continue
         found.update(by_key.get(key, key) for key in source())
+    # A class may also read env through a ``default_factory`` (one shared
+    # variable seeding several fields), which no source can see. It names
+    # those fields itself, so env still beats the DB for them.
+    seeded = getattr(cls, "env_seeded_fields", None)
+    if callable(seeded):
+        found.update(seeded())
     return frozenset(found) & cls.model_fields.keys()
 
 

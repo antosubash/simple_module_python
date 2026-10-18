@@ -71,7 +71,7 @@ A transport failure never propagates. The caller has already committed; turning 
 
 ## Operating it
 
-`background_tasks` installs the transport during `on_startup`, on its own `broker_url` — which resolves as stored override → `SM_BG_TASKS_BROKER_URL` (deprecated) → `SM_REDIS_URL` → the localhost default. So it always follows Celery's broker, by construction rather than by convention.
+`background_tasks` installs the transport during `on_startup`, on its own `broker_url` — which resolves as `SM_BG_TASKS_BROKER_URL` (deprecated) → `SM_REDIS_URL` → stored override → the localhost default. So it always follows Celery's broker, by construction rather than by convention.
 
 | Setting | Default | What it does |
 |---|---|---|

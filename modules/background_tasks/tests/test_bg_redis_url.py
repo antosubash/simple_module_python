@@ -3,8 +3,9 @@
 Celery namespaces result keys as ``celery-task-meta-*``, so a broker and a
 result backend can share one Redis database safely — that is the configuration
 upstream's own quickstart uses. Splitting them across two databases stays
-possible through the DB-backed per-field overrides; it just is not something
-an operator should have to decide before the app will boot.
+possible through the DB-backed per-field overrides (with ``SM_REDIS_URL``
+unset, since env beats the DB) or the two legacy vars; it just is not
+something an operator should have to decide before the app will boot.
 
 The legacy vars keep working because ``smpy_gis``, ``smpy_saas``,
 ``laco_wiki_python`` and the ``nodes-k8s`` manifests all set them. Breaking
@@ -104,3 +105,43 @@ def test_redis_url_satisfies_the_production_validator(
     settings = BackgroundTasksSettings()
 
     assert settings.broker_url == "redis://redis:6379/0"
+
+
+_STORED = {
+    "broker_url": ("redis://stored:6379/0", "string"),
+    "result_backend": ("redis://stored:6379/1", "string"),
+}
+
+
+def test_redis_url_beats_a_stored_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    """env → DB → default holds for the shared variable too, though only a
+    default factory reads it."""
+    from settings.hydrate import build_settings
+
+    monkeypatch.setenv("SM_REDIS_URL", "redis://cache:6379/2")
+
+    settings = build_settings(BackgroundTasksSettings, _STORED)
+
+    assert settings.broker_url == "redis://cache:6379/2"
+    assert settings.result_backend == "redis://cache:6379/2"
+
+
+def test_stored_values_apply_without_redis_url() -> None:
+    from settings.hydrate import build_settings
+
+    settings = build_settings(BackgroundTasksSettings, _STORED)
+
+    assert settings.broker_url == "redis://stored:6379/0"
+    assert settings.result_backend == "redis://stored:6379/1"
+
+
+def test_legacy_var_still_beats_redis_url_and_the_db(monkeypatch: pytest.MonkeyPatch) -> None:
+    from settings.hydrate import build_settings
+
+    monkeypatch.setenv("SM_REDIS_URL", "redis://cache:6379/2")
+    monkeypatch.setenv("SM_BG_TASKS_BROKER_URL", "redis://legacy:6379/0")
+
+    settings = build_settings(BackgroundTasksSettings, _STORED)
+
+    assert settings.broker_url == "redis://legacy:6379/0"
+    assert settings.result_backend == "redis://cache:6379/2"
