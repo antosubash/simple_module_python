@@ -3,9 +3,14 @@
 Self-registered accounts are given the ``user`` role, which the manager looks
 up rather than creates (a role an admin deleted must stay deleted). Nothing
 inserted it on a fresh install, so every signup came out with no role and no
-permissions. This inserts it once, unless a role with that name or id already
-exists (the env-var bootstrap and the demo seeding create it on
-demand).
+permissions. This inserts it, but only on a fresh install: when
+``users_user`` has no rows and no role with that name or id exists.
+
+An install that already has users is left alone. There, a missing ``user``
+role most likely means an admin deleted it on purpose, and re-inserting it on
+upgrade would silently hand signups (and everything mapped onto ``user``) the
+access that admin removed. Such an install keeps the manager's "no role"
+warning path until an admin creates the role.
 
 The values are inlined, not imported from ``users.constants``: a migration
 must keep meaning what it meant when it was written.
@@ -41,10 +46,13 @@ _role = sa.table(
     sa.column("name", sa.String(64)),
     sa.column("description", sa.String(255)),
 )
+_user = sa.table("users_user", sa.column("id", GUID()))
 
 
 def upgrade() -> None:
     bind = op.get_bind()
+    if bind.execute(sa.select(sa.func.count()).select_from(_user)).scalar_one():
+        return  # an existing install: never undo an admin's deletion
     existing = bind.execute(
         sa.select(sa.func.count())
         .select_from(_role)

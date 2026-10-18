@@ -146,9 +146,10 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         invite flows call ``create()`` with no request and assign exactly the
         roles the admin picked, which may deliberately be none.
 
-        Looked up, never created: migration ``b5018b617142`` seeds it, so a
-        missing one means an admin deleted it, and a public signup must not
-        undo that. It also keeps concurrent signups from racing to insert it.
+        Looked up, never created: migration ``b5018b617142`` seeds it on a
+        fresh install, so a missing one means an admin deleted it, and a
+        public signup must not undo that. It also keeps concurrent signups
+        from racing to insert it.
         """
         session = self.user_db.session
         role = (

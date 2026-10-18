@@ -1,7 +1,9 @@
 """Migration ``b5018b617142`` seeds the ``user`` role (GH #488 review).
 
 Without it a fresh install has no ``user`` role, so the role a signup is given
-is looked up, not found, and every self-registered account holds nothing.
+is looked up, not found, and every self-registered account holds nothing. An
+install that already has users is left alone: there a missing role may be an
+admin's deliberate deletion, which an upgrade must not undo.
 """
 
 from __future__ import annotations
@@ -58,3 +60,18 @@ def test_an_existing_user_role_is_left_alone_and_downgrade_keeps_it(migrate):
     command.upgrade(config, REVISION)
     command.downgrade(config, BEFORE)
     assert _roles(engine) == [("11111111-1111-1111-1111-111111111111", "user", "mine")]
+
+
+def test_an_install_with_users_and_no_user_role_is_not_seeded(migrate):
+    config, engine = migrate
+    command.upgrade(config, BEFORE)
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text(
+                "INSERT INTO users_user (id, email, hashed_password, is_active,"
+                " is_superuser, is_verified) VALUES (:id, 'a@example.com', 'x', 1, 0, 1)"
+            ),
+            {"id": "22222222-2222-2222-2222-222222222222"},
+        )
+    command.upgrade(config, REVISION)
+    assert _roles(engine) == []
