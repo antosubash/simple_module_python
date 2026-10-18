@@ -99,3 +99,15 @@ async def test_oversized_stored_value_is_reported_on_its_field(authenticated_cli
     assert resp.status_code == 422, resp.text
     locs = [tuple(e["loc"]) for e in resp.json()["detail"]]
     assert locs == [("task_routes_override",)]
+
+
+async def test_rejected_value_is_not_echoed_back(authenticated_client):
+    """A 422 names the field, never the value: it may carry a credential."""
+    secret = "s3cr3t-broker-pw"
+    resp = await authenticated_client.put(
+        f"/api/settings/modules/{_PKG}",
+        json={"broker_url": f"evil.module://user:{secret}@redis:6379/0"},
+    )
+    assert resp.status_code == 422, resp.text
+    assert secret not in resp.text
+    assert all("input" not in err for err in resp.json()["detail"])

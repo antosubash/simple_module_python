@@ -118,8 +118,9 @@ async def update_module(
     except ValidationError as exc:
         # ``exc.errors()`` still leaves ``ctx.error`` holding the raw Python
         # exception (not JSON-serializable). Round-trip through pydantic's
-        # own JSON encoder to get clean, serializable errors.
-        clean = json.loads(exc.json(include_url=False))
+        # own JSON encoder to get clean, serializable errors. ``input`` is
+        # dropped: it echoes the submitted value, which may be a secret.
+        clean = json.loads(exc.json(include_url=False, include_input=False))
         raise HTTPException(status_code=422, detail=clean) from exc
     except EnvPinnedError as exc:
         # Shaped like a pydantic 422 so the editor shows it on the field.
