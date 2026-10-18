@@ -52,6 +52,7 @@ def fake_user_db():
     db = MagicMock()
     db.update = AsyncMock(return_value=None)
     db.session.flush = AsyncMock()
+    db.session.commit = AsyncMock()
     return db
 
 

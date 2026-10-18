@@ -161,7 +161,11 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             )
             return
         session.add(UserRole(user_id=user.id, role_id=role.id))
-        await session.flush()
+        # Committed, not just flushed: fastapi-users already committed the
+        # user row in ``create()``, so a failure after this point (event
+        # publish, the verification email) would otherwise roll the role back
+        # and leave a committed account with no role that cannot re-register.
+        await session.commit()
 
     async def _publish_user_registered(self, user: User, request: Request | None) -> None:
         """Emit ``UserRegistered`` on the app-wide event bus.
