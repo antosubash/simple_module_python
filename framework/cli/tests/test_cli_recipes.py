@@ -32,8 +32,22 @@ def test_recipe_writes_run_worker_script(tmp_path: Path) -> None:
     script = tmp_path / "scripts" / "run_worker.py"
     assert script.is_file()
     text = script.read_text()
-    assert "from background_tasks.celery_app import build_celery" in text
-    assert "celery = build_celery(BackgroundTasksSettings())" in text
+    # GH #490: the shared runner, which hydrates DB-backed settings — not a
+    # local copy built from the environment alone.
+    assert "from background_tasks.runner import build_runner_celery" in text
+    assert "celery = build_runner_celery(" in text
+    assert "BackgroundTasksSettings()" not in text
+
+
+def test_scaffolded_worker_matches_the_repo_worker() -> None:
+    """Two copies of the worker bootstrap drifted once (GH #490); keep them one."""
+    from simple_module_cli import recipes
+
+    root = Path(__file__).resolve().parents[3]
+    template = Path(recipes.__file__).parent / "templates/host/_optional/background_tasks"
+    assert (template / "run_worker.py").read_text() == (
+        root / "scripts" / "run_worker.py"
+    ).read_text()
 
 
 def test_recipe_leaves_docker_assets_to_the_scaffold(tmp_path: Path) -> None:

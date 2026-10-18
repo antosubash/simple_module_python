@@ -69,8 +69,7 @@ def load_runner_settings() -> BackgroundTasksSettings:
     an admin's DB-backed edit (a queue, a time limit)
     reached the web process but never the worker, and the two disagreed on
     config. Hydration is the same call the web lifespan makes (``cls(**db_overrides)``),
-    so precedence matches the web process: a stored value beats the same field's
-    environment variable, and env only seeds what the DB leaves alone. If the DB is
+    so precedence matches the web process: env → DB → default (GH #486). If the DB is
     unreachable or not yet migrated the worker still boots on env/defaults,
     loudly, rather than refusing to start.
     """

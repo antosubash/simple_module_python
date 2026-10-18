@@ -45,10 +45,10 @@ class TestFieldSource:
     def test_stored_override_reports_db(self):
         assert _field(db_override=True).source == "db"
 
-    def test_db_override_beats_env(self):
-        """Mirrors hydrate_settings: DB values are passed to the constructor,
-        so pydantic never consults the environment for that field."""
-        assert _field(env_set=True, db_override=True).source == "db"
+    def test_env_beats_db_override(self):
+        """Mirrors hydrate_settings: env → DB → default (GH #486), so a stored
+        override for a field the environment sets is not the live value."""
+        assert _field(env_set=True, db_override=True).source == "env"
 
 
 class TestModulesView:

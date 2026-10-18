@@ -33,6 +33,7 @@ from file_storage.contracts.schemas import (
 )
 from file_storage.contracts.service import StorageNotFoundError
 from file_storage.deps import get_event_bus, get_file_storage_service
+from file_storage.downloads import content_disposition
 from file_storage.format import format_bytes
 from file_storage.ranges import file_body_response
 from file_storage.service import (
@@ -208,7 +209,7 @@ async def download_file(
             row,
             request,
             headers={
-                "Content-Disposition": f'attachment; filename="{row.filename}"',
+                "Content-Disposition": content_disposition(row.filename, attachment=True),
                 "ETag": etag,
             },
             etag=etag,

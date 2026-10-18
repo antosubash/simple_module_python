@@ -34,7 +34,7 @@ async def test_put_validation_error_surfaces_422(authenticated_client, app):
 
 @pytest.mark.asyncio
 async def test_put_rejects_and_does_not_persist_unbounded_background_task_values(
-    authenticated_client, app, db_session
+    authenticated_client, app
 ):
     from settings.service import SettingService
     from settings.store import SettingsStore
@@ -51,7 +51,10 @@ async def test_put_rejects_and_does_not_persist_unbounded_background_task_values
         "max_retries",
     }
     assert app.state.background_tasks.settings is original
-    assert await SettingsStore(SettingService(db_session)).get_overrides("background_tasks") == {}
+    # The app's own DB: ``db_session`` is a separate engine and reads ``{}``
+    # whether or not the bad values were written.
+    async with app.state.sm.db.session_factory() as db:
+        assert await SettingsStore(SettingService(db)).get_overrides("background_tasks") == {}
 
 
 @pytest.mark.asyncio

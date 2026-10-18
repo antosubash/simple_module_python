@@ -977,7 +977,7 @@ export const keys = {
       secret_badge: 'settings.modules.secret_badge',
       secret_write_only: 'settings.modules.secret_write_only',
       source_db: 'settings.modules.source_db',
-      source_db_over_env: 'settings.modules.source_db_over_env',
+      source_db_ignored_for_env: 'settings.modules.source_db_ignored_for_env',
       table: {
         default: 'settings.modules.table.default',
         description: 'settings.modules.table.description',
@@ -994,6 +994,11 @@ export const keys = {
       unsaved_count_other: 'settings.modules.unsaved_count_other',
     },
     modules_form: {
+      env_pinned: 'settings.modules_form.env_pinned',
+      invalid_json: 'settings.modules_form.invalid_json',
+      not_set: 'settings.modules_form.not_set',
+      option_off: 'settings.modules_form.option_off',
+      option_on: 'settings.modules_form.option_on',
       requires_restart: 'settings.modules_form.requires_restart',
       reset_to_default: 'settings.modules_form.reset_to_default',
       save: 'settings.modules_form.save',

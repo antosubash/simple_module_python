@@ -3,13 +3,12 @@ anonymous routes so both apply the same headers and the same safety rules."""
 
 from __future__ import annotations
 
-from urllib.parse import quote
-
 from fastapi import HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 
 from file_storage import constants, thumbnails
 from file_storage.contracts.service import StorageNotFoundError
+from file_storage.downloads import content_disposition, presigned_download_url
 from file_storage.models import StoredFile
 from file_storage.ranges import file_body_response
 from file_storage.service import FileStorageService
@@ -49,14 +48,6 @@ def _not_modified(request: Request, etag: str) -> bool:
 
 def is_active_content(content_type: str) -> bool:
     return thumbnails.base_type(content_type) in constants.ACTIVE_CONTENT_TYPES
-
-
-def content_disposition(filename: str, *, attachment: bool) -> str:
-    ascii_name = "".join(
-        c for c in filename.encode("ascii", "ignore").decode() if c.isprintable() and c not in '"\\'
-    )
-    kind = "attachment" if attachment else "inline"
-    return f"{kind}; filename=\"{ascii_name or 'file'}\"; filename*=UTF-8''{quote(filename)}"
 
 
 async def thumbnail_response(
@@ -111,8 +102,8 @@ async def public_file_response(
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
 
     if service.backend.supports_presigned_url and not active:
-        url = await service.backend.presigned_get_url(
-            row.key, service.settings.s3_presign_ttl_seconds
+        url = await presigned_download_url(
+            service.backend, row, service.settings.s3_presign_ttl_seconds, attachment=False
         )
         # A cached redirect must not outlive the signature it points at.
         redirect_age = min(max_age, service.settings.s3_presign_ttl_seconds // 2)
