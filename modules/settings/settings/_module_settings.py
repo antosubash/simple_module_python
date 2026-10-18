@@ -84,8 +84,9 @@ class ModuleSettingField:
         Mirrors the precedence in ``hydrate_settings``: env → DB → default
         (GH #486). A stored override for a field the environment sets is
         ignored, so ``env`` wins even when ``db_override`` is true. ``env`` only
-        appears for settings classes that actually declare an ``env_prefix``;
-        see :attr:`env_set`. Showing this is the difference between "why is
+        appears for settings classes that declare an ``env_prefix`` (or name
+        the field in ``env_seeded_fields``) — the same rule
+        ``hydrate.env_supplied_fields`` applies; see :attr:`env_set`. Showing this is the difference between "why is
         this not taking effect" being a five-minute question and an afternoon.
         """
         if self.env_set:

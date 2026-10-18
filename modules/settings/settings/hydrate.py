@@ -92,7 +92,25 @@ def env_supplied_fields(cls: type[BaseSettings]) -> frozenset[str]:
     ``<PREFIX><FIELD>`` names that are set. Deliberately not ``cls()``: a
     model validator can reject the env-only view (a production broker check)
     that the DB-merged one would pass.
+
+    A class with no ``env_prefix`` reports nothing from its sources: a plain
+    ``BaseSettings`` reads bare, case-insensitive names, so a field called
+    ``user``, ``home`` or ``path`` would be pinned by the process environment
+    and every admin edit refused. Only its ``env_seeded_fields`` count.
     """
+    found: set[str] = set()
+    if cls.model_config.get("env_prefix"):
+        found.update(_source_supplied_fields(cls))
+    # A class may also read env through a ``default_factory`` (one shared
+    # variable seeding several fields), which no source can see. It names
+    # those fields itself, so env still beats the DB for them.
+    seeded = getattr(cls, "env_seeded_fields", None)
+    if callable(seeded):
+        found.update(seeded())
+    return frozenset(found) & cls.model_fields.keys()
+
+
+def _source_supplied_fields(cls: type[BaseSettings]) -> set[str]:
     sources = cls.settings_customise_sources(
         cls,
         init_settings=InitSettingsSource(cls, init_kwargs={}),
@@ -106,13 +124,7 @@ def env_supplied_fields(cls: type[BaseSettings]) -> frozenset[str]:
         if isinstance(source, InitSettingsSource):
             continue
         found.update(by_key.get(key, key) for key in source())
-    # A class may also read env through a ``default_factory`` (one shared
-    # variable seeding several fields), which no source can see. It names
-    # those fields itself, so env still beats the DB for them.
-    seeded = getattr(cls, "env_seeded_fields", None)
-    if callable(seeded):
-        found.update(seeded())
-    return frozenset(found) & cls.model_fields.keys()
+    return found
 
 
 def build_settings[T: BaseSettings](
