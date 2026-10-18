@@ -132,10 +132,7 @@ async def logout(request: Request) -> RedirectResponse:
 async def register_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
     if not request.app.state.users.settings.allow_signup:
         raise HTTPException(status_code=404)
-    return await inertia.render(
-        _PAGE_REGISTER,
-        {"require_verification": request.app.state.users.settings.require_verification},
-    )
+    return await inertia.render(_PAGE_REGISTER, {})
 
 
 @router.get("/forgot-password", response_model=None)

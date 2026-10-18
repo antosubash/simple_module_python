@@ -264,14 +264,3 @@ class TestLoginAsideProps:
     async def test_keycloak_flag_is_false_without_the_module(self, anon_client):
         props = _props(await anon_client.get("/users/login", headers=_INERTIA_HEADERS))
         assert props["keycloak_installed"] is False
-
-
-class TestRegisterProps:
-    @pytest.mark.anyio
-    @pytest.mark.parametrize("required", [True, False])
-    async def test_register_carries_the_verification_flag(
-        self, users_app_signup, anon_client_signup, required
-    ):
-        users_app_signup.state.users.settings.require_verification = required
-        props = _props(await anon_client_signup.get("/users/register", headers=_INERTIA_HEADERS))
-        assert props["require_verification"] is required
