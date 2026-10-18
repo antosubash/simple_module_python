@@ -6,6 +6,8 @@ import json
 from typing import Any
 
 from fastapi import FastAPI
+from pydantic import BaseModel, SecretBytes, SecretStr
+from pydantic_core import to_jsonable_python
 from pydantic_settings import BaseSettings
 from simple_module_core.events import EventBus
 
@@ -31,6 +33,25 @@ def _encode(value: Any, value_type: str) -> str:
     if value_type == "json":
         return json.dumps(value)
     return str(value)
+
+
+def _unwrap_secrets(value: Any) -> Any:
+    """``value`` with every ``SecretStr``/``SecretBytes`` replaced by its secret.
+
+    The store needs the real credential: a JSON dump masks secrets as
+    asterisks, also when they sit inside ``X | None`` or a container.
+    """
+    if isinstance(value, SecretStr | SecretBytes):
+        return value.get_secret_value()
+    if isinstance(value, BaseModel):
+        # Python-mode dump keeps nested secrets as objects; the recursion
+        # unwraps them.
+        return _unwrap_secrets(value.model_dump())
+    if isinstance(value, dict):
+        return {k: _unwrap_secrets(v) for k, v in value.items()}
+    if isinstance(value, list | tuple | set | frozenset):
+        return [_unwrap_secrets(v) for v in value]
+    return value
 
 
 async def apply_changes_and_reload(
@@ -74,14 +95,14 @@ async def apply_changes_and_reload(
     # may have turned the editor's text into the declared type (``json.loads``
     # on a dict), and encoding the raw input stored a JSON *string* that
     # hydration could not read back as that type (GH #487). Scalars keep the
-    # submitted value — a serializer (``SecretStr`` dumps as asterisks) must
-    # never decide what is written to the store.
+    # submitted value. Either way a serializer (``SecretStr`` dumps as
+    # asterisks) must never decide what is written to the store, so secrets
+    # are unwrapped before the validated value is made JSON-able.
     for field_name, raw_value in diff.items():
         vtype = value_type_for_field(cls, field_name)
         if vtype == "json":
-            raw_value = validated.model_dump(mode="json", include={field_name}).get(
-                field_name, raw_value
-            )
+            dumped = validated.model_dump(include={field_name}).get(field_name, raw_value)
+            raw_value = to_jsonable_python(_unwrap_secrets(dumped))
         await store.set_override(package, field_name, _encode(raw_value, vtype), vtype)
 
     services.settings = validated
