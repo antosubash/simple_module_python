@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 from fastapi import FastAPI
-from pydantic import SecretBytes, SecretStr
+from pydantic import SecretBytes, SecretStr, ValidationError
 from pydantic_core import to_jsonable_python
 from pydantic_settings import BaseSettings
 from simple_module_core.events import EventBus
@@ -48,6 +48,24 @@ def _unwrap_secrets(value: Any) -> Any:
     if isinstance(value, list | tuple | set | frozenset):
         return [_unwrap_secrets(v) for v in value]
     return value
+
+
+def _relocate(exc: ValidationError, field_name: str) -> ValidationError:
+    """Re-key a stored-value error (``loc=["value"]``) onto the field it was for.
+
+    The write schema validates the encoded ``value`` column, which names no
+    settings field, so the editor could not show it anywhere.
+    """
+    lines: list[Any] = [
+        {
+            "type": e["type"],
+            "loc": (field_name, *e["loc"][1:]),
+            "input": e.get("input"),
+            "ctx": e.get("ctx", {}),
+        }
+        for e in exc.errors()
+    ]
+    return ValidationError.from_exception_data(exc.title, lines)
 
 
 async def apply_changes_and_reload(
@@ -99,7 +117,10 @@ async def apply_changes_and_reload(
         if vtype == "json":
             dumped = validated.model_dump(include={field_name}).get(field_name, raw_value)
             raw_value = to_jsonable_python(_unwrap_secrets(dumped))
-        await store.set_override(package, field_name, _encode(raw_value, vtype), vtype)
+        try:
+            await store.set_override(package, field_name, _encode(raw_value, vtype), vtype)
+        except ValidationError as exc:
+            raise _relocate(exc, field_name) from exc
 
     services.settings = validated
     await bus.publish(SettingsReloaded(package=package, changed=tuple(sorted(diff))))

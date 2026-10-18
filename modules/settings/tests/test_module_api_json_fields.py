@@ -88,3 +88,14 @@ def test_input_type_unwraps_optional_scalars_only():
     assert input_type_for_field(BackgroundTasksSettings, "task_routes_override") == ("json", False)
     assert input_type_for_field(FileStorageSettings, "allowed_content_types") == ("json", True)
     assert input_type_for_field(BackgroundTasksSettings, "retention_days") == ("int", False)
+
+
+async def test_oversized_stored_value_is_reported_on_its_field(authenticated_client):
+    """The 4000-char column limit names ``value``; the editor needs the field."""
+    routes = {f"task_{i}.*": "heavy" for i in range(400)}
+    resp = await authenticated_client.put(
+        f"/api/settings/modules/{_PKG}", json={"task_routes_override": routes}
+    )
+    assert resp.status_code == 422, resp.text
+    locs = [tuple(e["loc"]) for e in resp.json()["detail"]]
+    assert locs == [("task_routes_override",)]

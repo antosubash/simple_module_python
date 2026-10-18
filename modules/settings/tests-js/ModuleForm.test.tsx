@@ -85,6 +85,40 @@ describe('ModuleForm', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Settings saved');
   });
 
+  test.each([
+    ['a nested loc', ['retention_days', 0], 'item rejected'],
+    ['a body-prefixed nested loc', ['body', 'retention_days', 1], 'item rejected'],
+  ])('shows %s error on its field', async (_n, loc, msg) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        json: async () => ({ detail: [{ loc, msg, type: 'x' }] }),
+      }),
+    );
+    render(<ModuleForm module={moduleView([retentionDays])} />);
+    fireEvent.change(screen.getByLabelText('retention_days'), { target: { value: '30' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByText(/item rejected/)).toBeVisible());
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  test('shows an error whose loc names no field at form level', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        json: async () => ({ detail: [{ loc: ['value'], msg: 'String too long', type: 'x' }] }),
+      }),
+    );
+    render(<ModuleForm module={moduleView([retentionDays])} />);
+    fireEvent.change(screen.getByLabelText('retention_days'), { target: { value: '30' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('String too long'));
+  });
+
   test('counts the dirty fields in the header', () => {
     render(
       <ModuleForm
