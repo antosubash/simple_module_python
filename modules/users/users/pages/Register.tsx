@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
@@ -19,7 +19,14 @@ import {
   type RegisterErrorCode,
 } from '../auth_local/registerErrors';
 
+interface Props {
+  /** The users setting `require_verification`; gates the verification notice. */
+  require_verification?: boolean;
+}
+
 function Register() {
+  const { require_verification: requireVerification = true } = usePage<{ props: Props }>()
+    .props as unknown as Props;
   const { t } = useT();
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
@@ -113,7 +120,7 @@ function Register() {
       heading={t(keys.users.register.heading)}
       body={t(keys.users.register.intro)}
       checks={[
-        t(keys.users.register.bullet_verification),
+        ...(requireVerification ? [t(keys.users.register.bullet_verification)] : []),
         ...(registrationNote ? [registrationNote] : []),
       ]}
     />
