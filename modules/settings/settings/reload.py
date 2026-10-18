@@ -86,10 +86,6 @@ async def apply_changes_and_reload(
     if unknown:
         raise KeyError(f"Unknown field(s) for {package!r}: {sorted(unknown)}")
 
-    pinned = sorted(set(changes) & env_supplied_fields(cls))
-    if pinned:
-        raise EnvPinnedError(pinned)
-
     services = getattr(app.state, package)
     current = services.settings
     # Compare against the *dumped* current value, not the attribute: a field
@@ -101,6 +97,12 @@ async def apply_changes_and_reload(
     diff = {k: v for k, v in changes.items() if merged.get(k) != v}
     if not diff:
         return current
+
+    # Only a field that would actually change is refused: a client that echoes
+    # the whole GET payload back resubmits env-set fields at their live value.
+    pinned = sorted(set(diff) & env_supplied_fields(cls))
+    if pinned:
+        raise EnvPinnedError(pinned)
 
     merged.update(diff)
     validated = cls(**merged)

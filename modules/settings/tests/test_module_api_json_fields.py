@@ -111,3 +111,19 @@ async def test_rejected_value_is_not_echoed_back(authenticated_client):
     assert resp.status_code == 422, resp.text
     assert secret not in resp.text
     assert all("input" not in err for err in resp.json()["detail"])
+
+
+def test_optional_bare_containers_and_models_get_the_json_input():
+    from pydantic import BaseModel
+    from pydantic_settings import BaseSettings
+
+    class _Shape(BaseModel):
+        name: str = ""
+
+    class _Cfg(BaseSettings):
+        mapping: dict | None = None
+        items: list | None = None
+        shape: _Shape | None = None
+
+    for name in ("mapping", "items", "shape"):
+        assert input_type_for_field(_Cfg, name) == ("json", True), name

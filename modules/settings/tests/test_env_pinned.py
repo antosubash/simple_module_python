@@ -106,3 +106,16 @@ async def test_saving_a_broker_url_seeded_by_redis_url_is_refused(
     )
     assert resp.status_code == 422, resp.text
     assert {e["loc"][-1] for e in resp.json()["detail"]} == {"broker_url"}
+
+
+async def test_an_env_set_field_echoed_unchanged_is_not_refused(
+    authenticated_client, app, monkeypatch
+):
+    """A client that PUTs the whole GET payload back resends env-set fields."""
+    live = app.state.background_tasks.settings.task_default_queue
+    monkeypatch.setenv("SM_BG_TASKS_TASK_DEFAULT_QUEUE", live)
+    resp = await authenticated_client.put(
+        "/api/settings/modules/background_tasks",
+        json={"task_default_queue": live, "retention_days": 9},
+    )
+    assert resp.status_code == 200, resp.text

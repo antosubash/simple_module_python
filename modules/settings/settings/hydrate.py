@@ -14,7 +14,7 @@ import logging
 import types
 from typing import Union, get_args, get_origin
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from pydantic_settings import (
     BaseSettings,
     DotEnvSettingsSource,
@@ -48,6 +48,13 @@ def value_type_for_field(cls: type[BaseSettings], field_name: str) -> str:
     return _SCALAR_TYPES.get(ann, "string")
 
 
+def _holds_structure(ann: object) -> bool:
+    """A bare ``dict``/``list``/model: not editable as a single-line string."""
+    return isinstance(ann, type) and issubclass(
+        ann, dict | list | set | frozenset | tuple | BaseModel
+    )
+
+
 def input_type_for_field(cls: type[BaseSettings], field_name: str) -> tuple[str, bool]:
     """``(input_type, nullable)`` — which editor control a field needs.
 
@@ -63,7 +70,10 @@ def input_type_for_field(cls: type[BaseSettings], field_name: str) -> tuple[str,
     rest = [a for a in args if a is not type(None)]
     nullable = len(rest) < len(args)
     if len(rest) == 1 and get_origin(rest[0]) is None:
-        return _SCALAR_TYPES.get(rest[0], "string"), nullable
+        only = rest[0]
+        if _holds_structure(only):
+            return "json", nullable
+        return _SCALAR_TYPES.get(only, "string"), nullable
     return "json", nullable
 
 
