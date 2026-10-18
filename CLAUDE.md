@@ -34,8 +34,8 @@ All day-to-day tasks go through `make`:
 | `make dev` | Docker up + regen module pages + API (8000) and Vite (5050) in parallel |
 | `make kill` | Free ports 8000/5050/5173 |
 | `make test` | Run `test-py` then `test-js` (e2e excluded by default) |
-| `make test-py` / `make test-js` | Run a single suite |
-| `make test-py-pg` | Python suite on Postgres (`SM_TEST_PG_URL`, default db `sm_test`, schema is dropped per test) |
+| `make test-py` / `make test-js` | Run a single suite (`test-py` runs in parallel via `pytest-xdist`, `-n auto`; `PYTEST_WORKERS=0` for serial) |
+| `make test-py-pg` | Python suite on Postgres (`SM_TEST_PG_URL`, default db `sm_test`, schema is dropped per test, so it runs serially; the plugin refuses `-n` on Postgres) |
 | `make test-e2e` | Playwright smoke tests (requires `make dev` running + `uv run playwright install chromium`) |
 | `make lint` | Ruff format-check + Ruff + `ty` + Biome + per-workspace `tsc` + 300-line file cap |
 | `make doctor` | Module diagnostics (orphan pages, coupling violations, migration drift, locale checks) — same checks run at prod boot |
@@ -44,7 +44,7 @@ All day-to-day tasks go through `make`:
 | `make new-module name=<name>` | Scaffold a new module package end-to-end |
 | `make gen-pages` | Regenerate `host/client_app/modules.{manifest.json,generated.ts,generated.css}` from installed modules |
 
-Single test: `uv run pytest path/to/test_file.py::test_name` (root `pyproject.toml` sets `asyncio_mode=auto` and `-m 'not e2e and not perf'`). A single JS test: `npx vitest run <path>`.
+Single test: `uv run pytest path/to/test_file.py::test_name` (in-process — `-n` is passed by `make test-py`, not `addopts`) (root `pyproject.toml` sets `asyncio_mode=auto` and `-m 'not e2e and not perf'`). A single JS test: `npx vitest run <path>`.
 
 Entry point: `host/main.py` (`uv run --project host uvicorn host.main:app --reload`). Alembic runs from the repo root (`host/alembic.ini`) so it shares the `.env` / `SM_DATABASE_URL` with the API.
 
@@ -124,6 +124,8 @@ The `simple_module_test` plugin provides app-level fixtures available to every t
 - `db_state`, `engine`, `db_session` — fresh in-memory `DatabaseState` per test; `db_session` also creates all module tables and stamps `alembic_version` at head so the boot-time migration check passes.
 - `app` — `create_app(settings)` with lifespan started/stopped.
 - `client` / `authenticated_client` — `httpx.AsyncClient`; `authenticated_client` seeds an admin via `users.bootstrap.create_admin` and carries a forged session cookie.
+- Importing the plugin drops `PasswordHelper()`'s Argon2/bcrypt work factor to the minimum (hashes stay real `$argon2`/`$2b`); at production cost hashing the seeded admin was ~90 ms of every `app` fixture. Pass `password_hash=` explicitly to test real parameters.
+- Tests must collect identically in every xdist worker: no `uuid4()`/random values in `parametrize` ids, and anything shared across processes (a Redis channel, a file) needs a per-worker name.
 
 E2E tests live in `tests/e2e/` behind the `e2e` pytest marker and run against a live server — see [docs/e2e-testing.md](docs/e2e-testing.md).
 

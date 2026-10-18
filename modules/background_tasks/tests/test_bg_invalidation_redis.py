@@ -17,12 +17,17 @@ broker is *not* working live in ``test_bg_invalidation_degraded.py``.
 from __future__ import annotations
 
 import asyncio
+import os
 
 import pytest
 from background_tasks.invalidation import RedisInvalidationTransport
 from simple_module_core.invalidation import Invalidation, InvalidationBus
 
-_CHANNEL = "qa.invalidation"
+# Per process: under pytest-xdist every worker shares one Redis (CI points them
+# all at a single service container), and pub/sub has no isolation but the
+# channel name. On a fixed name one worker's publish reached another worker's
+# subscriber, and the assertions that count deliveries or subscribers broke.
+_CHANNEL = f"qa.invalidation.{os.getpid()}"
 _DELIVERY_TIMEOUT_SECONDS = 5.0
 
 
