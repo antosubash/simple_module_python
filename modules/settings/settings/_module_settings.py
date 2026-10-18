@@ -86,8 +86,9 @@ class ModuleSettingField:
         ignored, so ``env`` wins even when ``db_override`` is true. ``env`` only
         appears for settings classes that declare an ``env_prefix`` (or name
         the field in ``env_seeded_fields``) — the same rule
-        ``hydrate.env_supplied_fields`` applies; see :attr:`env_set`. Showing this is the difference between "why is
-        this not taking effect" being a five-minute question and an afternoon.
+        ``hydrate.env_supplied_fields`` applies; see :attr:`env_set`. Showing
+        this is the difference between "why is this not taking effect" being a
+        five-minute question and an afternoon.
         """
         if self.env_set:
             return "env"

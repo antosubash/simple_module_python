@@ -92,9 +92,7 @@ def conceals_secret(name: str, value: Any, value_type: str | None = None) -> boo
     ``broker_url``, while that field's password-free default is still shown.
     """
     return (
-        name in _TYPED_SECRET_KEYS
-        or is_named_secret(name, value_type)
-        or embeds_credential(value)
+        name in _TYPED_SECRET_KEYS or is_named_secret(name, value_type) or embeds_credential(value)
     )
 
 
