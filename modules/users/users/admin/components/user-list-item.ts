@@ -13,6 +13,8 @@ export interface UserListItem {
   invite_expires_at: string | null;
   /** Computed server-side so the pill, the filter and the count cannot drift. */
   state: UserState;
+  /** When a login lockout lifts; `null` unless one holds right now. */
+  locked_until?: string | null;
   roles: string[];
 }
 

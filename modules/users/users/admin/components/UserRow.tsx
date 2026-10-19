@@ -6,7 +6,7 @@ import { TableCell, TableRow } from '@simple-module-py/ui/components/ui/table';
 import { useRelativeTime } from '@simple-module-py/ui/hooks/use-relative-time';
 import { initials } from '@simple-module-py/ui/lib/initials';
 import { cn } from '@simple-module-py/ui/lib/utils';
-import { StatusPill } from './StatusPill';
+import { LockedBadge, StatusPill } from './StatusPill';
 import { UserRowMenu } from './UserRowMenu';
 import type { UserListItem } from './user-list-item';
 import type { UserRowActions } from './useUserRowActions';
@@ -116,6 +116,7 @@ export function UserRow({ user, actions }: Props) {
       <TableCell className="hidden sm:table-cell">
         <div className="flex items-center gap-1.5">
           <StatusPill state={user.state} />
+          {user.locked_until && <LockedBadge />}
           {user.is_external && (
             <Badge variant="outline" className="border-violet-200 bg-violet-50 text-violet-700">
               {t(keys.users.user_row.sso_badge)}

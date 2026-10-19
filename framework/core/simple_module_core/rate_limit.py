@@ -90,8 +90,26 @@ class WindowResult:
 
 
 class WindowStore(Protocol):
-    async def hit(self, key: str, spec: RateSpec) -> WindowResult:
-        """Count one request against *key* and report whether it is within budget."""
+    async def hit(self, key: str, spec: RateSpec, *, sliding: bool = False) -> WindowResult:
+        """Count one request against *key* and report whether it is within budget.
+
+        ``sliding`` restarts the window on every hit, so the count only resets
+        after a full ``spec.period`` with no hits — the shape of the users
+        account-lockout counter, which this must match hit for hit.
+        """
+        ...
+
+    async def peek(self, key: str, spec: RateSpec) -> WindowResult:
+        """Report *key*'s current window without counting.
+
+        ``allowed`` answers "would one more hit be within budget", so a caller
+        can refuse before doing any work and count only what failed — the
+        login lockout counts wrong passwords, not attempts.
+        """
+        ...
+
+    async def reset(self, key: str) -> None:
+        """Forget *key*'s window, as if it had never been hit."""
         ...
 
 
@@ -104,18 +122,43 @@ class InProcessWindowStore:
         self._clock = clock
         self._windows: dict[str, tuple[int, int]] = {}  # key -> (window_end_ms, count)
 
-    async def hit(self, key: str, spec: RateSpec) -> WindowResult:
-        now = self._clock()
+    def _live_entry(self, key: str, now: float) -> tuple[int, int] | None:
+        """*key*'s ``(window_end_ms, count)``, or ``None`` if absent or expired."""
         entry = self._windows.get(key)
         if entry is None or entry[0] <= now * 1000:
+            return None
+        return entry
+
+    @staticmethod
+    def _retry_s(end_ms: int, now: float) -> int:
+        return max(1, math.ceil(end_ms / 1000 - now))
+
+    async def hit(self, key: str, spec: RateSpec, *, sliding: bool = False) -> WindowResult:
+        now = self._clock()
+        entry = self._live_entry(key, now)
+        if entry is None:
             if len(self._windows) >= self._MAX_KEYS:
                 self._sweep(now)
             entry = (int(now * 1000) + spec.period * 1000, 0)
         end_ms, count = entry
+        if sliding:
+            end_ms = int(now * 1000) + spec.period * 1000
         count += 1
         self._windows[key] = (end_ms, count)
-        retry = max(1, math.ceil(end_ms / 1000 - now))
+        retry = self._retry_s(end_ms, now)
         return WindowResult(allowed=count <= spec.limit, retry_after=retry, count=count)
+
+    async def peek(self, key: str, spec: RateSpec) -> WindowResult:
+        now = self._clock()
+        entry = self._live_entry(key, now)
+        if entry is None:
+            return WindowResult(allowed=spec.limit > 0, retry_after=0, count=0)
+        end_ms, count = entry
+        retry = self._retry_s(end_ms, now)
+        return WindowResult(allowed=count < spec.limit, retry_after=retry, count=count)
+
+    async def reset(self, key: str) -> None:
+        self._windows.pop(key, None)
 
     def _sweep(self, now: float) -> None:
         now_ms = now * 1000

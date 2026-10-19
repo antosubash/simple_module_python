@@ -163,6 +163,19 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     ) -> None:
         await self.mailer.send_password_reset(user.email, token)
 
+    async def on_after_reset_password(self, user: User, request: Request | None = None) -> None:
+        """Lift a login lockout (GH #530): proving control of the mailbox is the way out.
+
+        Through ``user_db.update`` — an ORM write — so the audit log records the
+        unlock, as it does an admin's. The per-IP throttle keys are left alone:
+        they are keyed by source address, which this request does not know.
+        """
+        if user.locked_until is None and not user.failed_login_count:
+            return
+        await self.user_db.update(
+            user, {"locked_until": None, "failed_login_count": 0, "last_failed_login_at": None}
+        )
+
     async def on_after_request_verify(
         self, user: User, token: str, request: Request | None = None
     ) -> None:

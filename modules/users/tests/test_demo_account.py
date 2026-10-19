@@ -9,6 +9,7 @@ feature is off. The third, a demo session that is allowed to write, is
 from __future__ import annotations
 
 from _demo_support import DEMO_ADMIN_EMAIL, DEMO_USER_EMAIL
+from _users_app_builders import user_row
 from sqlalchemy import select
 from users.constants import ADMIN_ROLE_NAME, USER_ROLE_NAME
 from users.demo import (
@@ -75,11 +76,6 @@ def test_read_only_is_the_default_posture():
 # ── seeding ─────────────────────────────────────────────────────────────────
 
 
-async def _row(app, email: str) -> User | None:
-    async with app.state.sm.db.session_factory() as session:
-        return (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
-
-
 async def _role_names(app, user_id) -> list[str]:
     async with app.state.sm.db.session_factory() as session:
         return list(
@@ -102,8 +98,8 @@ async def test_ensure_demo_users_seeds_both_accounts(users_app):
 
     assert len(ids) == 2
     assert users_app.state.users.demo_user_ids == ids
-    admin = await _row(users_app, DEMO_ADMIN_EMAIL)
-    user = await _row(users_app, DEMO_USER_EMAIL)
+    admin = await user_row(users_app, DEMO_ADMIN_EMAIL)
+    user = await user_row(users_app, DEMO_USER_EMAIL)
     assert admin is not None and admin.is_superuser
     assert user is not None and not user.is_superuser
     assert all(row.is_active and row.is_verified for row in (admin, user))
@@ -113,8 +109,8 @@ async def test_each_account_gets_its_own_role(users_app):
     users_app.state.users.settings.demo_mode = True
     await ensure_demo_users(users_app)
 
-    admin = await _row(users_app, DEMO_ADMIN_EMAIL)
-    user = await _row(users_app, DEMO_USER_EMAIL)
+    admin = await user_row(users_app, DEMO_ADMIN_EMAIL)
+    user = await user_row(users_app, DEMO_USER_EMAIL)
     assert await _role_names(users_app, admin.id) == [ADMIN_ROLE_NAME]
     assert await _role_names(users_app, user.id) == [USER_ROLE_NAME]
 
@@ -124,8 +120,8 @@ async def test_a_blank_password_still_produces_usable_accounts(users_app):
     users_app.state.users.settings.demo_mode = True
     await ensure_demo_users(users_app)
 
-    assert (await _row(users_app, DEMO_ADMIN_EMAIL)).hashed_password
-    assert (await _row(users_app, DEMO_USER_EMAIL)).hashed_password
+    assert (await user_row(users_app, DEMO_ADMIN_EMAIL)).hashed_password
+    assert (await user_row(users_app, DEMO_USER_EMAIL)).hashed_password
 
 
 async def test_a_generated_password_is_not_re_rolled_on_every_boot(users_app):
@@ -133,23 +129,23 @@ async def test_a_generated_password_is_not_re_rolled_on_every_boot(users_app):
     worker per restart, for no gain."""
     users_app.state.users.settings.demo_mode = True
     await ensure_demo_users(users_app)
-    first = (await _row(users_app, DEMO_ADMIN_EMAIL)).hashed_password
+    first = (await user_row(users_app, DEMO_ADMIN_EMAIL)).hashed_password
 
     await ensure_demo_users(users_app)
 
-    assert (await _row(users_app, DEMO_ADMIN_EMAIL)).hashed_password == first
+    assert (await user_row(users_app, DEMO_ADMIN_EMAIL)).hashed_password == first
 
 
 async def test_a_configured_password_is_reapplied(users_app):
     """Changing a demo password in the admin UI has to take effect."""
     users_app.state.users.settings.demo_mode = True
     await ensure_demo_users(users_app)
-    first = (await _row(users_app, DEMO_USER_EMAIL)).hashed_password
+    first = (await user_row(users_app, DEMO_USER_EMAIL)).hashed_password
 
     users_app.state.users.settings.demo_user_password = "a-published-demo-password"
     await ensure_demo_users(users_app)
 
-    assert (await _row(users_app, DEMO_USER_EMAIL)).hashed_password != first
+    assert (await user_row(users_app, DEMO_USER_EMAIL)).hashed_password != first
 
 
 async def test_demo_off_clears_the_cached_ids(users_app):

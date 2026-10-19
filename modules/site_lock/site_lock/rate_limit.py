@@ -1,9 +1,8 @@
 """In-memory per-IP attempt limiter for the unlock endpoint.
 
-Deliberately process-local: it mirrors the existing ``users``
-``LoginRateLimiter`` and is adequate for the single-process staging
-deployments this module targets. ``users``' version is not reused because
-importing it would couple ``site_lock`` to the ``users`` module, and the
+Deliberately process-local: adequate for the single-process staging
+deployments this module targets. The ``users`` login lockout is not reused
+because importing it would couple ``site_lock`` to the ``users`` module, and the
 site lock must also work under the ``keycloak`` provider.
 """
 

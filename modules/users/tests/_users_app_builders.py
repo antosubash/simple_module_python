@@ -7,8 +7,11 @@ wiring. Not named ``test_*`` so pytest does not collect it.
 
 from __future__ import annotations
 
+import httpx
 from simple_module_hosting.settings import Settings
 from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
+
+ALICE = "alice@example.com"
 
 # ---------------------------------------------------------------------------
 
@@ -84,7 +87,9 @@ async def _seed_roles(application) -> None:
         await session.commit()
 
 
-async def _seed_users_settings(application, *, allow_signup: bool) -> None:
+async def _seed_users_settings(
+    application, *, allow_signup: bool, overrides: dict[str, tuple[str, str]] | None = None
+) -> None:
     """Write the test UsersSettings overrides to the DB before hydrate runs.
 
     Hydrate fires inside the lifespan ``__aenter__``, so this needs to land
@@ -95,7 +100,8 @@ async def _seed_users_settings(application, *, allow_signup: bool) -> None:
 
     async with application.state.sm.db.session_factory() as session:
         store = SettingsStore(SettingService(session))
-        for field, (raw, vtype) in _users_overrides(allow_signup=allow_signup).items():
+        rows = _users_overrides(allow_signup=allow_signup) | (overrides or {})
+        for field, (raw, vtype) in rows.items():
             await store.set_override("users", field, raw, vtype)
         await session.commit()
 
@@ -136,19 +142,33 @@ async def _make_standard_user(app, email: str = "user@example.com"):
     return user
 
 
-async def _build_users_app(monkeypatch, *, allow_signup: bool, seed_admin: bool = True):
-    """Build a test FastAPI app with DB created, settings seeded, lifespan started."""
+async def _build_users_app(
+    monkeypatch,
+    *,
+    allow_signup: bool,
+    seed_admin: bool = True,
+    database_url: str = "sqlite+aiosqlite:///:memory:",
+    overrides: dict[str, tuple[str, str]] | None = None,
+):
+    """Build a test FastAPI app with DB created, settings seeded, lifespan started.
+
+    ``database_url`` lets several apps share one SQLite file, standing in for
+    workers of one deployment; ``overrides`` adds ``UsersSettings`` rows.
+    """
     from simple_module_hosting.app_builder import create_app
 
     settings = Settings(
-        database_url="sqlite+aiosqlite:///:memory:",
+        database_url=database_url,
         environment="testing",
         secret_key="test-secret-key",
         multi_tenant=False,
+        # Explicit: a developer's .env pointing at the shared Redis would make
+        # login-lockout counters outlive the test that wrote them.
+        redis_url=None,
     )
     application = create_app(settings)
     await _setup_app_db(application)
-    await _seed_users_settings(application, allow_signup=allow_signup)
+    await _seed_users_settings(application, allow_signup=allow_signup, overrides=overrides)
 
     ctx = application.router.lifespan_context(application)
     await ctx.__aenter__()
@@ -161,3 +181,30 @@ async def _build_users_app(monkeypatch, *, allow_signup: bool, seed_admin: bool 
     if seed_admin:
         await _make_admin_user(application)
     return application, ctx
+
+
+# ---------------------------------------------------------------------------
+# Request and row helpers for the login-lockout tests
+# ---------------------------------------------------------------------------
+
+
+def _client(app, ip: str) -> httpx.AsyncClient:
+    """A client whose requests arrive from *ip*."""
+    transport = httpx.ASGITransport(app=app, client=(ip, 1))
+    return httpx.AsyncClient(transport=transport, base_url="http://testserver")
+
+
+async def _login(app, ip: str, username: str, password: str = "wrong") -> httpx.Response:
+    async with _client(app, ip) as c:
+        return await c.post(
+            "/api/users/auth/login", data={"username": username, "password": password}
+        )
+
+
+async def user_row(app, email: str):
+    """The ``User`` row for *email*, or ``None``, read in a fresh session."""
+    from sqlalchemy import select
+    from users.models import User
+
+    async with app.state.sm.db.session_factory() as session:
+        return (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()

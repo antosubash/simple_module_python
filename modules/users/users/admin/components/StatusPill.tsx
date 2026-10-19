@@ -1,4 +1,5 @@
 import { keys, useT } from '@simple-module-py/i18n';
+import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { cn } from '@simple-module-py/ui/lib/utils';
 import { STATE_PILL, type UserState } from './user-list-item';
 
@@ -26,5 +27,22 @@ export function StatusPill({ state }: { state: UserState }) {
     >
       {label}
     </span>
+  );
+}
+
+/**
+ * Shown beside the status pill while a login lockout holds. Not a state of its
+ * own: a locked account is still active, and unlocks itself when the cooldown
+ * ends.
+ */
+export function LockedBadge() {
+  const { t } = useT();
+  return (
+    <Badge
+      variant="outline"
+      className="border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
+    >
+      {t(keys.users.user_row.locked_badge)}
+    </Badge>
   );
 }

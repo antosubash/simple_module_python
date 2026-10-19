@@ -51,12 +51,32 @@ _LUA = """
 local c = redis.call('INCR', KEYS[1])
 local t = redis.call('PTTL', KEYS[1])
 -- t < 0 heals a counter that somehow lost its TTL, which would block that IP forever.
-if c == 1 or t < 0 then
+-- ARGV[2] == '1' is a sliding window: every hit restarts it.
+if c == 1 or t < 0 or ARGV[2] == '1' then
   redis.call('PEXPIRE', KEYS[1], ARGV[1])
   t = tonumber(ARGV[1])
 end
 return {c, t}
 """
+
+_RESET_LUA = "redis.call('DEL', KEYS[1]) return 0"
+
+# Read-only twin of ``_LUA``: a missing key is an empty window.
+_PEEK_LUA = """
+local c = redis.call('GET', KEYS[1])
+if not c then return {0, 0} end
+return {tonumber(c), redis.call('PTTL', KEYS[1])}
+"""
+
+
+def _parse(reply: Any, empty_retry: int) -> tuple[int, int]:
+    """``(count, retry_after)`` from a script's ``{count, pttl}`` reply.
+
+    *empty_retry* is the answer when the key has no TTL left to report.
+    """
+    count, pttl = int(reply[0]), int(reply[1])
+    retry = max(1, -(-pttl // 1000)) if pttl > 0 else empty_retry
+    return count, retry
 
 
 class RedisWindowStore:
@@ -84,11 +104,12 @@ class RedisWindowStore:
         client = aioredis.from_url(url, socket_connect_timeout=0.5, socket_timeout=0.5)
         return cls(client)
 
-    async def hit(self, key: str, spec: RateSpec) -> WindowResult:
+    async def _eval(self, script: str, key: str, *args: Any) -> Any:
+        """Run *script* on *key*; ``None`` means "answer from the per-worker fallback"."""
         if self._clock() < self._down_until:
-            return await self._fallback.hit(key, spec)
+            return None
         try:
-            count, pttl = await self._client.eval(_LUA, 1, _KEY_PREFIX + key, spec.period * 1000)
+            return await self._client.eval(script, 1, _KEY_PREFIX + key, *args)
         except Exception as exc:
             now = self._clock()
             self._down_until = now + _BACKOFF
@@ -97,9 +118,27 @@ class RedisWindowStore:
                 logger.warning(
                     "Rate limiter Redis unavailable (%s); using per-worker counters", exc
                 )
-            return await self._fallback.hit(key, spec)
-        retry = max(1, -(-int(pttl) // 1000)) if int(pttl) > 0 else spec.period
-        return WindowResult(allowed=int(count) <= spec.limit, retry_after=retry, count=int(count))
+            return None
+
+    async def hit(self, key: str, spec: RateSpec, *, sliding: bool = False) -> WindowResult:
+        args = (spec.period * 1000, "1") if sliding else (spec.period * 1000,)
+        reply = await self._eval(_LUA, key, *args)
+        if reply is None:
+            return await self._fallback.hit(key, spec, sliding=sliding)
+        count, retry = _parse(reply, spec.period)
+        return WindowResult(allowed=count <= spec.limit, retry_after=retry, count=count)
+
+    async def peek(self, key: str, spec: RateSpec) -> WindowResult:
+        reply = await self._eval(_PEEK_LUA, key)
+        if reply is None:
+            return await self._fallback.peek(key, spec)
+        count, retry = _parse(reply, 0)
+        return WindowResult(allowed=count < spec.limit, retry_after=retry, count=count)
+
+    async def reset(self, key: str) -> None:
+        # The fallback too: hits taken during an outage live there.
+        await self._fallback.reset(key)
+        await self._eval(_RESET_LUA, key)
 
 
 def build_store(redis_url: str | None) -> WindowStore:

@@ -206,6 +206,19 @@ async def admin_enable_user(
     return service.to_list_item(user)
 
 
+@admin_router.patch("/{user_id}/unlock", response_model=UserListItem)
+async def admin_unlock_user(
+    user_id: uuid.UUID,
+    service: UserService = Depends(get_user_service),
+):
+    """Lift a login lockout (GH #530) before its cooldown ends."""
+    try:
+        user = await service.unlock(user_id)
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found") from None
+    return service.to_list_item(user)
+
+
 @admin_router.put("/{user_id}/roles", response_model=UserListItem)
 async def admin_set_roles(
     user_id: uuid.UUID,

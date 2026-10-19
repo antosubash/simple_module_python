@@ -19,14 +19,15 @@ The module is built on [`fastapi-users`](https://fastapi-users.github.io/) for p
 - A signed session cookie (`sm_auth` by default) — the auth module's `AuthMiddleware` calls `UsersAuthProvider.resolve_user`, which reads it on every request and populates `request.state.user`. Bearer tokens (`Authorization: Bearer <token>`) resolve against `users_access_token`.
 - OAuth / OIDC sign-in (Google, GitHub, Microsoft/Entra ID, and any generic OIDC provider) — see [OAuth providers](#oauth-providers).
 - An invite flow — admins generate an invite link; the recipient sets their password via `POST /api/users/auth/accept-invite`.
-- `LoginRateLimiter` — N failures within a window triggers a cooldown per `email::ip` key.
+- Login lockout — see [Login lockout](#login-lockout). Shared across workers, source IPs and restarts.
 - `ThroughputLimiter` — per-IP rate limit across register / forgot-password / accept-invite / verify-token endpoints.
 
 ### Auth endpoints
 
 | Method + path | Body | Notes |
 |---|---|---|
-| `POST /api/users/auth/login` | `OAuth2PasswordRequestForm` | sets `sm_auth` cookie + `session["user_id"]`; rate-limited per email |
+| `POST /api/users/auth/login` | `OAuth2PasswordRequestForm` | sets `sm_auth` cookie + `session["user_id"]`; `400 LOGIN_BAD_CREDENTIALS`; `429` + `Retry-After` while locked — see [Login lockout](#login-lockout) |
+| `POST /api/users/auth/logout` | — | clears the `sm_auth` cookie and the session |
 | `POST /api/users/auth/register` | `UserCreate` | gated by `users.allow_signup`; rate-limited |
 | `POST /api/users/auth/forgot-password` | `PasswordReset` | rate-limited |
 | `POST /api/users/auth/reset-password` | `{token, password}` | |
@@ -34,7 +35,7 @@ The module is built on [`fastapi-users`](https://fastapi-users.github.io/) for p
 | `POST /api/users/auth/verify` | `VerifyRequest` | |
 | `POST /api/users/auth/accept-invite` | `AcceptInviteRequest` | sets password + signs the user in |
 | `POST /api/users/auth/demo/{role}` | — | one-click sign-in as a shared demo account (`role` ∈ `admin`, `user`); `404` unless that account is configured; rate-limited per role — see [Demo mode](#demo-mode-hosting-a-showcase-instance) |
-| `POST /api/users/auth/token` | `TokenRequest` (email + password) | bearer login for mobile / API clients → `{access_token, refresh_token, token_type, expires_in}`; `401` for external/SSO users |
+| `POST /api/users/auth/token` | `TokenRequest` (email + password) | bearer login for mobile / API clients → `{access_token, refresh_token, token_type, expires_in}`; `401` for bad credentials and external/SSO users; `429` + `Retry-After` while locked — see [Login lockout](#login-lockout) |
 | `POST /api/users/auth/token/refresh` | `RefreshRequest` (refresh_token) | rotates a refresh token into a new pair (old one revoked) |
 | `DELETE /api/users/auth/token` | `RefreshRequest` (refresh_token) | revokes a refresh token (idempotent) |
 | `GET /api/users/auth/{provider}/login` | — | OAuth: redirect to the IdP (`provider` ∈ configured set) |
@@ -58,6 +59,7 @@ The module is built on [`fastapi-users`](https://fastapi-users.github.io/) for p
 | `DELETE /api/users/admin/{user_id}` | → `204` (hard delete; an admin cannot delete their own account → `400`) |
 | `PATCH /api/users/admin/{user_id}/disable` | → `UserListItem` |
 | `PATCH /api/users/admin/{user_id}/enable` | → `UserListItem` |
+| `PATCH /api/users/admin/{user_id}/unlock` | → `UserListItem` — lifts a [login lockout](#login-lockout) and clears the failure count (audited) |
 | `PUT /api/users/admin/{user_id}/roles` | `RoleAssignment` → `UserListItem` |
 | `PATCH /api/users/admin/{user_id}/verify` | → `UserListItem` (mark verified; idempotent) |
 | `POST /api/users/admin/{user_id}/reset-password-link` | → `PasswordResetLink` (`409` for external/SSO users) |
@@ -142,6 +144,9 @@ from users.contracts.events import (
 | `tenant_id` | `str \| None` | indexed; only set when multi-tenant |
 | `disabled_at` | `datetime \| None` | |
 | `last_login_at` | `datetime \| None` | indexed |
+| `failed_login_count` | `int` | failed password logins in the current window; `server_default 0`; not audited |
+| `last_failed_login_at` | `datetime \| None` | when the window's last failure happened; not audited |
+| `locked_until` | `datetime \| None` | set while a [login lockout](#login-lockout) holds; audited |
 | `roles` | relationship → `Role` via `UserRole` | eagerly loaded by `AuthMiddleware` |
 
 `Role` (table `users_role`) — `id`, `name` (unique, indexed), `description`.
@@ -190,9 +195,10 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `mailer` | `"console"` (or `"smtp"`) |
 | `base_url` | `"http://localhost:8000"` |
 | `smtp_host` / `smtp_port` / `smtp_username` / `smtp_password` / `smtp_from` / `smtp_tls` | SMTP config when `mailer="smtp"` |
-| `login_rate_limit_failures` | `5` |
-| `login_rate_limit_window_seconds` | `300` |
-| `login_rate_limit_cooldown_seconds` | `900` |
+| `login_rate_limit_failures` | `5` — failures from one IP for one username before that source is throttled for the window |
+| `login_rate_limit_window_seconds` | `300` — the window for both lockout tiers |
+| `login_rate_limit_cooldown_seconds` | `900` — how long an account lock lasts |
+| `login_lockout_account_failures` | `10` (≥ 1) — failures for one account, from anywhere, before it locks |
 | `auth_rate_limit_attempts` | `10` |
 | `auth_rate_limit_window_seconds` | `300` |
 | `bootstrap_email`, `bootstrap_password`, `bootstrap_user_email`, `bootstrap_user_password` | `""` — see [Bootstrap](#bootstrap-the-first-admin) |
@@ -358,6 +364,31 @@ every settings load. Do not run it against a database you care about. Blanking
   (`smpy users create-admin`, or the `SM_USERS_BOOTSTRAP_*` vars), because a
   read-only demo session cannot complete the wizard.
 
+## Login lockout
+
+Both password logins — `POST /api/users/auth/login` and `POST /api/users/auth/token` — go through `users.auth_local.lockout` (GH #530). Each attempt **takes a slot before its password is checked** and a correct password gives it back, so checking for a free slot and taking it are one step: a parallel burst cannot get more password tries than the threshold. An unverified-email `400` gives its slot back too — it is not a failure.
+
+- **Account lock (database).** A conditional, atomic `UPDATE … RETURNING` on `users_user.failed_login_count` takes the slot. The count restarts at 1 when the previous attempt is older than `login_rate_limit_window_seconds`. Every worker shares that count. The attempt that takes the last of `login_lockout_account_failures` (default 10) slots and fails sets `locked_until` to now + `login_rate_limit_cooldown_seconds` through the ORM, so the audit log records the lock, and is itself answered `429`. While it holds, every password login for the account answers `429` — the correct password included. A success clears the count but never `locked_until`.
+- **Source throttle (host rate-limit store).** `login:ip:<ip>:<username>` admits `login_rate_limit_failures` (default 5) attempts per window; a correct password clears it.
+- **Unknown usernames.** A username with **no** account goes through the same account rules on the store — `login:acct:<username>` on a sliding window that matches the row's restart rule, `login:acct-lock:<username>` for the cooldown — so it trips on the same attempt, answers with the same status, detail and `Retry-After`, and stays locked for as long. The unknown path still spends a password hash, as fastapi-users already does.
+
+The store is the host's `app.state.sm.rate_limit_store` — Redis when `SM_REDIS_URL` is set, per-worker counters otherwise (see [Request guards](../framework/request-guards.md#storage)). Without Redis and with more than one worker, an unknown username's counters are per worker (and do not survive a restart) while an account's are not, so that deployment shape can still tell the two apart; run Redis with several workers.
+
+The refusal is always `429 {"detail": "Too many attempts — try again later"}` with a `Retry-After` header. The login page shows its "too many attempts" message for it.
+
+Admins see a **locked** badge on the users list and a "Locked until" row with an **Unlock** button on the edit page, backed by `PATCH /api/users/admin/{user_id}/unlock`. Unlocking is an ORM write and is audited; the failure counters are excluded from audit diffs so failed attempts do not flood the log.
+
+The account default is 10 rather than 5 because anyone who knows an address could otherwise lock its owner out from any network; the per-source throttle still stops a single source after 5. OAuth, Keycloak and invite-link sign-ins involve no password and are not counted. The stock fastapi-users router (`/api/users/auth-inner/*`) is not mounted.
+
+A successful password reset (`POST /api/users/auth/reset-password`, from the emailed link or an admin's reset link) also lifts the lock and clears the failure count: proving control of the mailbox is the standard way out of a lockout. Like an admin unlock it is an ORM write, so the audit log records it. The per-source throttle keys are left to expire, since they are keyed by an address the reset request does not know.
+
+Trade-offs to know about:
+
+- **Anyone can lock a known address.** The lock holds against the right password, so whoever knows an account's email can keep its owner out of password login for the cooldown, from any network. This is mitigated by the threshold of 10, by the per-source throttle (one source gets 5), by admin unlock, and by password reset now lifting the lock; OAuth/Keycloak sign-in is unaffected.
+- **A dead request still counts.** An attempt takes its slot before the password is checked; if the request dies (client disconnect, worker crash) after taking it and before settling, the slot stays counted until the window passes. If it held the last slot, the account answers `429` until `login_rate_limit_window_seconds` after that attempt — no `locked_until` is written, since only a settled failure writes it.
+- **Without Redis, entries can be evicted.** The in-process store caps its key count and evicts under that pressure, so a flood of distinct usernames can drop an unknown username's lock or a source's throttle early. Account locks live on the row and are unaffected. Set `SM_REDIS_URL` in production.
+- Login values longer than an address can be (254 characters) are hashed before they become store keys, so a large request body cannot park a large key in Redis.
+
 ## Mailer backends
 
 `mailer/` ships two implementations of the `Mailer` protocol:
@@ -447,5 +478,5 @@ Components (under `pages/Users/components/`):
 ## Notes
 
 - `cookie_secure` is automatically flipped to `False` in dev (`SM_ENVIRONMENT=development`) so login works over plain HTTP. Don't override it in non-dev environments.
-- `LoginRateLimiter` keys login attempts by `lowercased-email::client-ip`. Counters live in-process (no Redis), so a multi-worker deployment has independent counters per worker — swap for a Redis-backed store when running more than one worker.
+- `ThroughputLimiter` (register, forgot-password, accept-invite, verify-token, `/me/password`) counts in-process, so with N workers its budget is up to N times the configured one. Password-login lockout does not have that limit — see [Login lockout](#login-lockout).
 - The functional `lower(email)` index makes case-insensitive lookups fast on Postgres; on SQLite the lookup falls back to `LOWER(email) = ?` which still uses the regular index.

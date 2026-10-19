@@ -54,7 +54,12 @@ function Edit() {
   const isSelf = auth?.user?.id === user.id;
 
   const form = useEditUserForm(user);
-  const actions = useUserActions(user.id, user.is_active, user.is_verified);
+  const actions = useUserActions(
+    user.id,
+    user.is_active,
+    user.is_verified,
+    user.locked_until ?? null,
+  );
 
   return (
     <>
@@ -105,10 +110,12 @@ function Edit() {
             disabledAt={user.disabled_at ?? null}
             isActive={actions.isActive}
             isVerified={actions.isVerified}
+            lockedUntil={actions.lockedUntil}
             savingStatus={actions.savingStatus}
             savingVerify={actions.savingVerify}
             onDisable={actions.disable}
             onEnable={actions.enable}
+            onUnlock={actions.unlock}
             onMarkVerified={actions.markVerified}
             onCopyResetLink={actions.copyResetLink}
           />

@@ -114,13 +114,8 @@ def register_mailer_health_check(app: FastAPI, module_name: str) -> None:
 
 
 def _build_limiters(state, s) -> None:
-    from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
+    from users.auth_local.rate_limit import ThroughputLimiter
 
-    state.rate_limiter = LoginRateLimiter(
-        max_failures=s.login_rate_limit_failures,
-        window_seconds=s.login_rate_limit_window_seconds,
-        cooldown_seconds=s.login_rate_limit_cooldown_seconds,
-    )
     state.auth_throughput_limiter = ThroughputLimiter(
         max_attempts=s.auth_rate_limit_attempts,
         window_seconds=s.auth_rate_limit_window_seconds,

@@ -12,7 +12,7 @@ SQLModel's metaclass).
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from fastapi_users_db_sqlalchemy.generics import GUID
 from simple_module_db.mixins import AuditMixin
@@ -85,6 +85,20 @@ class User(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
         default=0,
         sa_column_kwargs={"server_default": text("0")},
     )
+    # Login lockout (GH #530). One atomic UPDATE per failed password login bumps
+    # the count, restarting it once ``last_failed_login_at`` is older than the
+    # window; reaching the threshold stamps ``locked_until`` through the ORM so
+    # the lock is audited. See ``users.auth_local.lockout``.
+    failed_login_count: int = Field(
+        default=0,
+        sa_column_kwargs={"server_default": text("0")},
+    )
+    last_failed_login_at: datetime | None = Field(default=None, sa_type=AwareDateTime())
+    locked_until: datetime | None = Field(default=None, sa_type=AwareDateTime())
+
+    # Every wrong password writes these two; auditing them would bury the
+    # lock and unlock entries that matter under one entry per failed attempt.
+    __audit_exclude_fields__: ClassVar[set[str]] = {"failed_login_count", "last_failed_login_at"}
 
     roles: list["Role"] = Relationship(
         link_model=UserRole,

@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from simple_module_core.invalidation import InvalidationBus
+from simple_module_core.rate_limit import InProcessWindowStore, WindowStore
 from simple_module_core.tenancy import TenancyMode
 
 if TYPE_CHECKING:
@@ -107,3 +108,8 @@ class Services:
     #: Module name -> ``view_prefix`` for modules whose view router received
     #: routes, in discovery order. ``""`` here means mounted at ``/`` (#435).
     view_prefixes: dict[str, str] = field(default_factory=dict)
+    #: The store behind ``RateLimitMiddleware`` (Redis when ``SM_REDIS_URL`` is
+    #: set), shared so a module throttling its own events — the users login
+    #: lockout — counts in the same place across workers instead of opening a
+    #: second Redis client. Defaulted for apps built outside ``create_app``.
+    rate_limit_store: WindowStore = field(default_factory=InProcessWindowStore)

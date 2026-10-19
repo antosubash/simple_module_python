@@ -34,8 +34,8 @@ router = APIRouter()
     "/me/password",
     status_code=204,
     # A live session plus a guessable current password is an online oracle,
-    # and wrong guesses cost nothing here: ``LoginRateLimiter`` only fronts
-    # ``/auth/login``. Same budget as the other credential-adjacent
+    # and wrong guesses cost nothing here: the login lockout only fronts
+    # ``/auth/login`` and ``/auth/token``. Same budget as the other credential-adjacent
     # endpoints, keyed on path + client IP.
     dependencies=[Depends(enforce_auth_throughput_limit)],
 )
