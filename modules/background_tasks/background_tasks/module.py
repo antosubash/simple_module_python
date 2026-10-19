@@ -95,7 +95,7 @@ class BackgroundTasksModule(ModuleBase):
             app,
             "background_tasks",
             BackgroundTasksSettings,
-            lambda s: BackgroundTasksServices(settings=s),  # ty: ignore[invalid-argument-type]
+            lambda s: BackgroundTasksServices(settings=s),
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
