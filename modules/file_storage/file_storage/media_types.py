@@ -25,10 +25,14 @@ _MEDIA_TYPE = re.compile(r"[a-z0-9!#$%&'*+.^_`|~-]+/[a-z0-9!#$%&'*+.^_`|~-]+")
 def normalise_media_type(content_type: str | None) -> str | None:
     """``type/subtype`` lower-cased with parameters dropped; ``None`` if malformed.
 
-    ``Image/PNG; charset=x`` -> ``image/png``. ``text/html,``, an empty value,
-    or anything with stray characters around the pair -> ``None``.
+    ``Image/PNG; charset=x`` -> ``image/png``. ``text/html,``, a comma or quote
+    anywhere (even in a parameter), an empty value, or anything with stray
+    characters around the pair -> ``None``.
     """
-    if not content_type:
+    # A comma anywhere, parameters included, splits the header for a browser:
+    # ``image/png;x=1,text/html`` is read as ``text/html`` while the part
+    # before ";" looks safe. Quotes would let a parameter hide one.
+    if not content_type or any(c in content_type for c in ',"'):
         return None
     media = content_type.split(";", 1)[0].strip().lower()
     return media if _MEDIA_TYPE.fullmatch(media) else None

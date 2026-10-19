@@ -34,6 +34,8 @@ ACTIVE = [
     # Malformed: never cleaned up into something that looks safe.
     "text/html,",
     "image/png,text/html",
+    "image/png;x=1,text/html",
+    'image/png; x="a,b"',
     "image/png text/html",
     "image/",
     "/png",
