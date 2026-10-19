@@ -69,6 +69,16 @@ return {tonumber(c), redis.call('PTTL', KEYS[1])}
 """
 
 
+def _parse(reply: Any, empty_retry: int) -> tuple[int, int]:
+    """``(count, retry_after)`` from a script's ``{count, pttl}`` reply.
+
+    *empty_retry* is the answer when the key has no TTL left to report.
+    """
+    count, pttl = int(reply[0]), int(reply[1])
+    retry = max(1, -(-pttl // 1000)) if pttl > 0 else empty_retry
+    return count, retry
+
+
 class RedisWindowStore:
     """Fixed-window counters in Redis; shared across workers and processes.
 
@@ -115,16 +125,14 @@ class RedisWindowStore:
         reply = await self._eval(_LUA, key, *args)
         if reply is None:
             return await self._fallback.hit(key, spec, sliding=sliding)
-        count, pttl = int(reply[0]), int(reply[1])
-        retry = max(1, -(-pttl // 1000)) if pttl > 0 else spec.period
+        count, retry = _parse(reply, spec.period)
         return WindowResult(allowed=count <= spec.limit, retry_after=retry, count=count)
 
     async def peek(self, key: str, spec: RateSpec) -> WindowResult:
         reply = await self._eval(_PEEK_LUA, key)
         if reply is None:
             return await self._fallback.peek(key, spec)
-        count, pttl = int(reply[0]), int(reply[1])
-        retry = max(1, -(-pttl // 1000)) if pttl > 0 else 0
+        count, retry = _parse(reply, 0)
         return WindowResult(allowed=count < spec.limit, retry_after=retry, count=count)
 
     async def reset(self, key: str) -> None:

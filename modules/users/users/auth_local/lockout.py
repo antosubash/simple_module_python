@@ -38,6 +38,7 @@ from fastapi import HTTPException, Request, status
 from simple_module_core.rate_limit import RateSpec, WindowStore
 from sqlalchemy import case, func, select, update
 
+from users.auth_local.rate_limit import client_ip
 from users.models import User
 
 if TYPE_CHECKING:
@@ -121,7 +122,7 @@ def login_attempt(request: Request, username: str) -> LoginAttempt:
     """The :class:`LoginAttempt` for *username* arriving on *request*."""
     return LoginAttempt.build(
         username,
-        request.client.host if request.client else "unknown",
+        client_ip(request),
         request.app.state.sm.rate_limit_store,
         request.app.state.users.settings,
         _utcnow(),

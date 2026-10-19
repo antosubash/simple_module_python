@@ -4,31 +4,15 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-import httpx
-import pytest
-from _users_app_builders import _make_standard_user
+from _users_app_builders import ALICE, _login, user_row
 from sqlalchemy import select
 from users.models import User
-
-ALICE = "alice@example.com"
-
-
-@pytest.fixture
-async def alice(users_app):
-    return await _make_standard_user(users_app, ALICE)
 
 
 async def _lock_by_failing(users_app) -> None:
     for i in range(10):
-        transport = httpx.ASGITransport(app=users_app, client=(f"10.0.0.{i}", 1))
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
-            r = await c.post("/api/users/auth/login", data={"username": ALICE, "password": "no"})
-            assert r.status_code == (429 if i == 9 else 400)  # the 10th trips the lock
-
-
-async def _row(users_app) -> User:
-    async with users_app.state.sm.db.session_factory() as session:
-        return (await session.execute(select(User).where(User.email == ALICE))).scalar_one()
+        r = await _login(users_app, f"10.0.0.{i}", ALICE, "no")
+        assert r.status_code == (429 if i == 9 else 400)  # the 10th trips the lock
 
 
 async def _list_item(admin_client, user_id) -> dict:
@@ -61,7 +45,7 @@ async def test_unlock_clears_lock_and_is_audited(users_app, admin_client, alice)
     assert r.status_code == 200
     assert r.json()["locked_until"] is None
 
-    row = await _row(users_app)
+    row = await user_row(users_app, ALICE)
     assert (row.locked_until, row.failed_login_count, row.last_failed_login_at) == (None, 0, None)
 
     async with users_app.state.sm.db.session_factory() as session:
@@ -76,11 +60,7 @@ async def test_unlock_clears_lock_and_is_audited(users_app, admin_client, alice)
     assert len(entries) == 2
 
     # The account signs in again.
-    transport = httpx.ASGITransport(app=users_app, client=("9.9.9.9", 1))
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
-        login = await c.post(
-            "/api/users/auth/login", data={"username": ALICE, "password": "UserPass1!"}
-        )
+    login = await _login(users_app, "9.9.9.9", ALICE, "UserPass1!")
     assert login.status_code == 204
 
 

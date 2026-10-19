@@ -21,6 +21,7 @@ import pytest
 # top-level modules on pytest's sys.path — same mechanism as the
 # _middleware_support plugin loaded at the bottom of this file.
 from _users_app_builders import (
+    ALICE,
     _build_users_app,
     _make_admin_user,
     _make_standard_user,
@@ -146,6 +147,12 @@ async def user_client(users_app) -> AsyncGenerator[httpx.AsyncClient, None]:
         cookies={"session": cookie},
     ) as c:
         yield c
+
+
+@pytest.fixture
+async def alice(users_app):
+    """A standard user, ``ALICE``, for the login-lockout tests."""
+    return await _make_standard_user(users_app, ALICE)
 
 
 # ---------------------------------------------------------------------------

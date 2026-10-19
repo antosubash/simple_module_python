@@ -32,7 +32,7 @@ class ThroughputLimiter:
         return count <= self._max
 
 
-def _client_ip(request: Request) -> str:
+def client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
@@ -49,7 +49,7 @@ async def enforce_auth_throughput_limit(request: Request) -> None:
     the dependency has to sit below both, not beside one of them.
     """
     limiter: ThroughputLimiter = request.app.state.users.auth_throughput_limiter
-    key = f"{request.url.path}::{_client_ip(request)}"
+    key = f"{request.url.path}::{client_ip(request)}"
     if not limiter.check_and_record(key):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,

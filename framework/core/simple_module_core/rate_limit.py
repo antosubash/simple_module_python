@@ -122,10 +122,21 @@ class InProcessWindowStore:
         self._clock = clock
         self._windows: dict[str, tuple[int, int]] = {}  # key -> (window_end_ms, count)
 
-    async def hit(self, key: str, spec: RateSpec, *, sliding: bool = False) -> WindowResult:
-        now = self._clock()
+    def _live_entry(self, key: str, now: float) -> tuple[int, int] | None:
+        """*key*'s ``(window_end_ms, count)``, or ``None`` if absent or expired."""
         entry = self._windows.get(key)
         if entry is None or entry[0] <= now * 1000:
+            return None
+        return entry
+
+    @staticmethod
+    def _retry_s(end_ms: int, now: float) -> int:
+        return max(1, math.ceil(end_ms / 1000 - now))
+
+    async def hit(self, key: str, spec: RateSpec, *, sliding: bool = False) -> WindowResult:
+        now = self._clock()
+        entry = self._live_entry(key, now)
+        if entry is None:
             if len(self._windows) >= self._MAX_KEYS:
                 self._sweep(now)
             entry = (int(now * 1000) + spec.period * 1000, 0)
@@ -134,16 +145,16 @@ class InProcessWindowStore:
             end_ms = int(now * 1000) + spec.period * 1000
         count += 1
         self._windows[key] = (end_ms, count)
-        retry = max(1, math.ceil(end_ms / 1000 - now))
+        retry = self._retry_s(end_ms, now)
         return WindowResult(allowed=count <= spec.limit, retry_after=retry, count=count)
 
     async def peek(self, key: str, spec: RateSpec) -> WindowResult:
         now = self._clock()
-        entry = self._windows.get(key)
-        if entry is None or entry[0] <= now * 1000:
+        entry = self._live_entry(key, now)
+        if entry is None:
             return WindowResult(allowed=spec.limit > 0, retry_after=0, count=0)
         end_ms, count = entry
-        retry = max(1, math.ceil(end_ms / 1000 - now))
+        retry = self._retry_s(end_ms, now)
         return WindowResult(allowed=count < spec.limit, retry_after=retry, count=count)
 
     async def reset(self, key: str) -> None:

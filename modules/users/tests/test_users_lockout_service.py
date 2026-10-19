@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-import pytest
-from _users_app_builders import _make_standard_user
+from _users_app_builders import ALICE
 from fastapi import HTTPException
 from simple_module_core.rate_limit import InProcessWindowStore
 from sqlalchemy import select
@@ -20,12 +19,6 @@ from users.models import User
 from users.settings import UsersSettings
 
 T0 = datetime(2026, 10, 19, 12, 0, tzinfo=UTC)
-ALICE = "alice@example.com"
-
-
-@pytest.fixture
-async def alice(users_app):
-    return await _make_standard_user(users_app, ALICE)
 
 
 def _attempt(

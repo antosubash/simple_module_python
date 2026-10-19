@@ -3,41 +3,22 @@
 from __future__ import annotations
 
 import httpx
-import pytest
-from _users_app_builders import _build_users_app, _make_standard_user
-from sqlalchemy import select
+from _users_app_builders import (
+    ALICE,
+    _build_users_app,
+    _client,
+    _login,
+    _make_standard_user,
+    user_row,
+)
 from users.auth_local.lockout import LOCKED_DETAIL
-from users.models import User
 
-ALICE = "alice@example.com"
 PASSWORD = "UserPass1!"
-
-
-def _client(app, ip: str) -> httpx.AsyncClient:
-    transport = httpx.ASGITransport(app=app, client=(ip, 1))
-    return httpx.AsyncClient(transport=transport, base_url="http://testserver")
-
-
-async def _login(app, ip: str, username: str, password: str) -> httpx.Response:
-    async with _client(app, ip) as c:
-        return await c.post(
-            "/api/users/auth/login", data={"username": username, "password": password}
-        )
 
 
 async def _token(app, ip: str, email: str, password: str) -> httpx.Response:
     async with _client(app, ip) as c:
         return await c.post("/api/users/auth/token", json={"email": email, "password": password})
-
-
-async def _alice_row(app) -> User:
-    async with app.state.sm.db.session_factory() as session:
-        return (await session.execute(select(User).where(User.email == ALICE))).scalar_one()
-
-
-@pytest.fixture
-async def alice(users_app):
-    return await _make_standard_user(users_app, ALICE)
 
 
 async def test_acceptance_three_ips_two_apps_survives_restart(monkeypatch, tmp_path) -> None:
@@ -81,36 +62,36 @@ async def test_acceptance_three_ips_two_apps_survives_restart(monkeypatch, tmp_p
 async def test_failures_persist_across_requests(users_app, alice) -> None:
     for _ in range(2):
         assert (await _login(users_app, "1.1.1.1", ALICE, "wrong")).status_code == 400
-    assert (await _alice_row(users_app)).failed_login_count == 2
+    assert (await user_row(users_app, ALICE)).failed_login_count == 2
 
 
 async def test_token_failures_count_too(users_app, alice) -> None:
     r = await _token(users_app, "1.1.1.1", ALICE, "wrong")
     assert (r.status_code, r.json()["detail"]) == (401, "Invalid credentials")
-    assert (await _alice_row(users_app)).failed_login_count == 1
+    assert (await user_row(users_app, ALICE)).failed_login_count == 1
 
 
 async def test_success_resets_count(users_app, alice) -> None:
     for _ in range(2):
         await _login(users_app, "1.1.1.1", ALICE, "wrong")
     assert (await _login(users_app, "1.1.1.1", ALICE, PASSWORD)).status_code == 204
-    row = await _alice_row(users_app)
+    row = await user_row(users_app, ALICE)
     assert (row.failed_login_count, row.last_failed_login_at) == (0, None)
 
 
 async def test_token_success_resets_count(users_app, alice) -> None:
     await _token(users_app, "1.1.1.1", ALICE, "wrong")
     assert (await _token(users_app, "1.1.1.1", ALICE, PASSWORD)).status_code == 200
-    assert (await _alice_row(users_app)).failed_login_count == 0
+    assert (await user_row(users_app, ALICE)).failed_login_count == 0
 
 
 async def test_correct_password_while_locked_does_not_unlock(users_app, alice) -> None:
     for i in range(10):
         await _login(users_app, f"10.0.0.{i}", ALICE, "wrong")
-    locked = (await _alice_row(users_app)).locked_until
+    locked = (await user_row(users_app, ALICE)).locked_until
     assert locked is not None
     assert (await _login(users_app, "9.9.9.9", ALICE, PASSWORD)).status_code == 429
-    assert (await _alice_row(users_app)).locked_until == locked
+    assert (await user_row(users_app, ALICE)).locked_until == locked
 
 
 async def test_unknown_and_locked_look_the_same(users_app, alice) -> None:

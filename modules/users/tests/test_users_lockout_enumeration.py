@@ -8,14 +8,11 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
-from _users_app_builders import _build_users_app, _make_standard_user
+from _users_app_builders import ALICE, _build_users_app, _login, _make_standard_user, user_row
 from simple_module_core.rate_limit import InProcessWindowStore
-from sqlalchemy import select
 from users.auth_local import lockout
 from users.manager import UserManager
-from users.models import User
 
-ALICE = "alice@example.com"
 GHOST = "ghost@example.com"
 T0 = datetime(2026, 10, 19, 12, 0, tzinfo=UTC)
 
@@ -40,14 +37,6 @@ def clock(users_app, monkeypatch) -> _Clock:
     store = InProcessWindowStore(clock=clock)
     users_app.state.sm = dataclasses.replace(users_app.state.sm, rate_limit_store=store)
     return clock
-
-
-async def _login(app, ip: str, username: str, password: str = "wrong") -> httpx.Response:
-    transport = httpx.ASGITransport(app=app, client=(ip, 1))
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
-        return await c.post(
-            "/api/users/auth/login", data={"username": username, "password": password}
-        )
 
 
 def _shape(r: httpx.Response) -> tuple:
@@ -125,8 +114,7 @@ async def test_parallel_burst_gets_at_most_threshold_password_checks(monkeypatch
         codes = sorted(r.status_code for r in responses)
         assert len(checks) <= 5
         assert codes.count(400) == 4 and codes.count(429) == 16
-        async with app.state.sm.db.session_factory() as session:
-            row = (await session.execute(select(User).where(User.email == ALICE))).scalar_one()
+        row = await user_row(app, ALICE)
         assert row.locked_until is not None
         # The burst neither reset nor overshot the count; the lock reset it to 0.
         assert row.failed_login_count == 0

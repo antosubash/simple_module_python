@@ -7,8 +7,11 @@ wiring. Not named ``test_*`` so pytest does not collect it.
 
 from __future__ import annotations
 
+import httpx
 from simple_module_hosting.settings import Settings
 from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
+
+ALICE = "alice@example.com"
 
 # ---------------------------------------------------------------------------
 
@@ -178,3 +181,30 @@ async def _build_users_app(
     if seed_admin:
         await _make_admin_user(application)
     return application, ctx
+
+
+# ---------------------------------------------------------------------------
+# Request and row helpers for the login-lockout tests
+# ---------------------------------------------------------------------------
+
+
+def _client(app, ip: str) -> httpx.AsyncClient:
+    """A client whose requests arrive from *ip*."""
+    transport = httpx.ASGITransport(app=app, client=(ip, 1))
+    return httpx.AsyncClient(transport=transport, base_url="http://testserver")
+
+
+async def _login(app, ip: str, username: str, password: str = "wrong") -> httpx.Response:
+    async with _client(app, ip) as c:
+        return await c.post(
+            "/api/users/auth/login", data={"username": username, "password": password}
+        )
+
+
+async def user_row(app, email: str):
+    """The ``User`` row for *email*, or ``None``, read in a fresh session."""
+    from sqlalchemy import select
+    from users.models import User
+
+    async with app.state.sm.db.session_factory() as session:
+        return (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
