@@ -1,11 +1,11 @@
 """REST endpoints for local-credential auth + self profile.
 
 Routes owned here (all mounted by :meth:`UsersModule.register_routes`):
-  POST /api/users/auth/login          — rate-limited wrapper around fastapi-users
+  POST /api/users/auth/login          — lockout-guarded wrapper around fastapi-users
+  POST /api/users/auth/logout         — clears the access-token cookie and session
   POST /api/users/auth/accept-invite  — verify invite + set password + login
   GET  /api/users/me                  — current user
   PATCH /api/users/me                 — update current user
-  /api/users/auth-inner/*             — fastapi-users stock auth router
 """
 
 from __future__ import annotations
@@ -17,12 +17,18 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, 
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import exceptions as fu_exceptions
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY
+from simple_module_db.deps import get_db
 from simple_module_hosting.session import SESSION_REMEMBER_KEY, stamp_session_expiry
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from users.auth_local.rate_limit import (
-    LoginRateLimiter,
-    enforce_auth_throughput_limit,
+from users.auth_local.lockout import (
+    login_attempt,
+    record_failure,
+    record_success,
+    refused_for,
+    too_many_attempts,
 )
+from users.auth_local.rate_limit import enforce_auth_throughput_limit
 from users.auth_local.self_account import router as self_account_router
 from users.backend import build_cookie_transport, build_strategy
 from users.constants import SESSION_USER_ID_KEY
@@ -48,14 +54,6 @@ router = APIRouter()
 # ``auth_local_api.enforce_auth_throughput_limit``, and the dependency moved
 # down to ``rate_limit`` so ``self_account`` can import it without a cycle.
 __all__ = ["enforce_auth_throughput_limit", "router"]
-
-
-# ── Rate limit ───────────────────────────────────────────────────────────────
-
-
-async def get_rate_limiter(request: Request) -> LoginRateLimiter:
-    """Return the per-app LoginRateLimiter built in UsersModule.on_startup."""
-    return request.app.state.users.rate_limiter
 
 
 async def require_signup_enabled(request: Request) -> None:
@@ -104,12 +102,12 @@ async def login(
     user_manager: UserManager = Depends(get_user_manager),
     strategy=Depends(auth_backend.get_strategy),
     access_token_db=Depends(get_access_token_db),
-    limiter: LoginRateLimiter = Depends(get_rate_limiter),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Rate-limited login wrapper. Sets sm_auth cookie + session user_id."""
-    key = f"{credentials.username.lower()}::{request.client.host if request.client else 'unknown'}"
-    if limiter.is_locked(key):
-        raise HTTPException(status_code=429, detail="Too many attempts — try again later")
+    """Lockout-guarded login wrapper. Sets sm_auth cookie + session user_id."""
+    attempt = login_attempt(request, credentials.username)
+    if (wait := await refused_for(db, attempt)) is not None:
+        raise too_many_attempts(wait)
 
     try:
         user = await user_manager.authenticate(
@@ -122,7 +120,7 @@ async def login(
         user = None
 
     if user is None or not user.is_active:
-        limiter.record_failure(key)
+        await record_failure(db, attempt)
         raise HTTPException(status_code=400, detail="LOGIN_BAD_CREDENTIALS")
 
     if not user.is_verified and request.app.state.users.settings.require_verification:
@@ -131,7 +129,7 @@ async def login(
         # accounts that signed up while it was on.
         raise HTTPException(status_code=400, detail="LOGIN_USER_NOT_VERIFIED")
 
-    limiter.reset(key)
+    await record_success(db, user.id)
     # Fire the login hook (updates last_login_at)
     await user_manager.on_after_login(user, request, response)
     # Set fastapi-users' cookie via auth_backend.login
@@ -162,13 +160,10 @@ async def login(
     return login_response
 
 
-# ── Mount fastapi-users stock routers ────────────────────────────────────────
+# ── Logout ───────────────────────────────────────────────────────────────────
 
-# The stock auth router (login + logout) is mounted at /auth-inner so its
-# endpoints remain accessible. Our wrappers at /auth/login and /auth/logout
-# shadow the stock endpoints to also manage the session cookie.
-auth_inner = fastapi_users.get_auth_router(auth_backend, requires_verification=True)
-router.include_router(auth_inner, prefix="/auth-inner")
+# The stock fastapi-users auth router is deliberately not mounted: its login
+# sits outside the lockout above (GH #530), and nothing called its logout.
 
 
 @router.post("/auth/logout", status_code=204)

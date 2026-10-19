@@ -84,7 +84,9 @@ async def _seed_roles(application) -> None:
         await session.commit()
 
 
-async def _seed_users_settings(application, *, allow_signup: bool) -> None:
+async def _seed_users_settings(
+    application, *, allow_signup: bool, overrides: dict[str, tuple[str, str]] | None = None
+) -> None:
     """Write the test UsersSettings overrides to the DB before hydrate runs.
 
     Hydrate fires inside the lifespan ``__aenter__``, so this needs to land
@@ -95,7 +97,8 @@ async def _seed_users_settings(application, *, allow_signup: bool) -> None:
 
     async with application.state.sm.db.session_factory() as session:
         store = SettingsStore(SettingService(session))
-        for field, (raw, vtype) in _users_overrides(allow_signup=allow_signup).items():
+        rows = _users_overrides(allow_signup=allow_signup) | (overrides or {})
+        for field, (raw, vtype) in rows.items():
             await store.set_override("users", field, raw, vtype)
         await session.commit()
 
@@ -136,19 +139,33 @@ async def _make_standard_user(app, email: str = "user@example.com"):
     return user
 
 
-async def _build_users_app(monkeypatch, *, allow_signup: bool, seed_admin: bool = True):
-    """Build a test FastAPI app with DB created, settings seeded, lifespan started."""
+async def _build_users_app(
+    monkeypatch,
+    *,
+    allow_signup: bool,
+    seed_admin: bool = True,
+    database_url: str = "sqlite+aiosqlite:///:memory:",
+    overrides: dict[str, tuple[str, str]] | None = None,
+):
+    """Build a test FastAPI app with DB created, settings seeded, lifespan started.
+
+    ``database_url`` lets several apps share one SQLite file, standing in for
+    workers of one deployment; ``overrides`` adds ``UsersSettings`` rows.
+    """
     from simple_module_hosting.app_builder import create_app
 
     settings = Settings(
-        database_url="sqlite+aiosqlite:///:memory:",
+        database_url=database_url,
         environment="testing",
         secret_key="test-secret-key",
         multi_tenant=False,
+        # Explicit: a developer's .env pointing at the shared Redis would make
+        # login-lockout counters outlive the test that wrote them.
+        redis_url=None,
     )
     application = create_app(settings)
     await _setup_app_db(application)
-    await _seed_users_settings(application, allow_signup=allow_signup)
+    await _seed_users_settings(application, allow_signup=allow_signup, overrides=overrides)
 
     ctx = application.router.lifespan_context(application)
     await ctx.__aenter__()

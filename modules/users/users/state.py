@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import uuid
 
-    from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
+    from users.auth_local.rate_limit import ThroughputLimiter
     from users.mailer import Mailer
     from users.oauth.providers import OAuthProvider
     from users.roles_cache import RoleSummary
@@ -31,7 +31,6 @@ class UsersState:
 
     settings: UsersSettings
     mailer: Mailer | None = None
-    rate_limiter: LoginRateLimiter | None = None
     auth_throughput_limiter: ThroughputLimiter | None = None
     roles_cache: list[RoleSummary] = field(default_factory=list)
     oauth_providers: list[dict[str, str]] = field(default_factory=list)

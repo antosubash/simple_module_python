@@ -149,8 +149,8 @@ class TestProfileProps:
 class TestChangePasswordIsRateLimited:
     """A live session plus a guessable current password is an online oracle.
 
-    Wrong guesses cost nothing here — ``LoginRateLimiter`` only fronts
-    ``/auth/login`` — so an attacker on an unattended browser could grind the
+    Wrong guesses cost nothing here — the login lockout only fronts
+    ``/auth/login`` and ``/auth/token`` — so an attacker on an unattended browser could grind the
     current password at whatever rate the hasher allows.
     """
 

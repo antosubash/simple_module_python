@@ -16,6 +16,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel
 
+from users.auth_local.lockout import (
+    login_attempt,
+    record_failure,
+    record_success,
+    refused_for,
+    too_many_attempts,
+)
 from users.models import User
 from users.models.refresh_token import RefreshToken
 
@@ -59,6 +66,11 @@ async def token_login(
     from fastapi_users.password import PasswordHelper
 
     helper = PasswordHelper()
+    # Same lockout as the session login (GH #530): refused before any work,
+    # every wrong password counted, a success clearing the account's count.
+    attempt = login_attempt(request, body.email)
+    if (wait := await refused_for(db, attempt)) is not None:
+        raise too_many_attempts(wait)
 
     stmt = select(User).where(User.email == body.email)
     user = (await db.execute(stmt)).scalar_one_or_none()
@@ -77,10 +89,12 @@ async def token_login(
         # email enumeration (existing user + wrong password takes ~50ms for
         # bcrypt; missing user would be instant without this).
         helper.verify_and_update(body.password, _DUMMY_HASH)
+        await record_failure(db, attempt)
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     verified, updated_hash = helper.verify_and_update(body.password, user.hashed_password)
     if not verified:
+        await record_failure(db, attempt)
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if updated_hash is not None:
         # A legacy-scheme hash (e.g. bcrypt) was accepted and re-hashed with the
@@ -94,6 +108,7 @@ async def token_login(
         # Same rule as the session login: a self-registered account that never
         # proved its address must not mint bearer tokens either (#547).
         raise HTTPException(status_code=400, detail="LOGIN_USER_NOT_VERIFIED")
+    await record_success(db, user.id)
     return await _create_token_pair(db, user.id, settings, user.session_version)
 
 
