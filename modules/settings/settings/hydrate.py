@@ -24,8 +24,8 @@ from pydantic_settings import (
 from simple_module_core.stored_settings import (
     RELATED_FIELDS_CTX,
     construct_leniently,
+    parse_stored_value,
 )
-from simple_module_core.stored_settings import parse_stored_value as _parse
 from sqlalchemy.orm import Session
 
 from settings.store import SettingsStore, get_overrides_sync
@@ -158,7 +158,7 @@ def build_settings[T: BaseSettings](
         if field_name not in cls.model_fields or field_name in from_env:
             continue
         try:
-            parsed[field_name] = _parse(raw, vtype)
+            parsed[field_name] = parse_stored_value(raw, vtype)
         except ValueError:
             if not lenient:
                 raise

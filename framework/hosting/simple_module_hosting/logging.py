@@ -7,7 +7,6 @@ import logging
 import sys
 from datetime import UTC, datetime
 
-# Defined in core so the db layer can read it without importing hosting.
 from simple_module_core.correlation import correlation_id
 
 
