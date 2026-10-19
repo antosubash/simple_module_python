@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import cast
-
 from fastapi import FastAPI
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
 
@@ -34,9 +32,7 @@ def register_host_settings(app: FastAPI) -> None:
         "settings.registration"
     ).register_module_settings
 
-    register_module_settings(
-        app, "host", HostSettings, lambda s: _HostServices(settings=cast(HostSettings, s))
-    )
+    register_module_settings(app, "host", HostSettings, lambda s: _HostServices(settings=s))
 
 
 def check_settings_registration(app: FastAPI, modules: list) -> list[Diagnostic]:

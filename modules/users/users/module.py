@@ -68,11 +68,7 @@ class UsersModule(ModuleBase):
             "settings.registration"
         ).register_module_settings
 
-        def _build_state(s: object) -> UsersState:
-            assert isinstance(s, UsersSettings)
-            return UsersState(settings=s)
-
-        register_module_settings(app, "users", UsersSettings, _build_state)
+        register_module_settings(app, "users", UsersSettings, lambda s: UsersState(settings=s))
 
         from users.provider import UsersAuthProvider
 
