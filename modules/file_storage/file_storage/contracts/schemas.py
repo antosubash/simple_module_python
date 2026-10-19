@@ -12,7 +12,7 @@ from sqlmodel import Field, SQLModel
 class StoredFileOut(SQLModel):
     """Metadata returned for a stored file."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
 
     id: uuid.UUID
     key: str
@@ -129,7 +129,7 @@ class CompletePart(SQLModel):
     no: int = Field(alias="n", ge=1)
     etag: str
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True)  # ty: ignore[invalid-assignment]
 
 
 class UploadCompleteRequest(SQLModel):

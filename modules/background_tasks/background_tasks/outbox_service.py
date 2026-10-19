@@ -68,7 +68,7 @@ class OutboxService:
             await self.db.execute(
                 select(OutboxMessage)
                 .where(*where)
-                .order_by(OutboxMessage.created_at.desc(), OutboxMessage.id)
+                .order_by(OutboxMessage.created_at.desc(), OutboxMessage.id)  # ty: ignore[invalid-argument-type]
                 .offset((page - 1) * per_page)
                 .limit(per_page)
             )
@@ -97,7 +97,7 @@ class OutboxService:
         row = (
             await self.db.execute(
                 select(OutboxMessage)
-                .where(OutboxMessage.id == message_id, *self.scope.conditions())
+                .where(OutboxMessage.id == message_id, *self.scope.conditions())  # ty: ignore[invalid-argument-type]
                 .execution_options(populate_existing=True)
             )
         ).scalar_one_or_none()
@@ -118,8 +118,8 @@ class OutboxService:
         result = await self.db.execute(
             update(OutboxMessage)
             .where(
-                OutboxMessage.id == message_id,
-                OutboxMessage.status == OutboxStatus.DEAD,
+                OutboxMessage.id == message_id,  # ty: ignore[invalid-argument-type]
+                OutboxMessage.status == OutboxStatus.DEAD,  # ty: ignore[invalid-argument-type]
                 *self.scope.conditions(),
             )
             .values(
@@ -145,7 +145,7 @@ class OutboxService:
         result = await self.db.execute(
             delete(OutboxMessage)
             .where(
-                OutboxMessage.id == message_id,
+                OutboxMessage.id == message_id,  # ty: ignore[invalid-argument-type]
                 OutboxMessage.status.in_(DISCARDABLE),
                 *self.scope.conditions(),
             )

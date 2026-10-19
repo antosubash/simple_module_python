@@ -108,7 +108,7 @@ async def reclaim_expired(
         )
         dead = await session.execute(
             update(OutboxMessage)
-            .where(*expired, OutboxMessage.attempts >= max_attempts)
+            .where(*expired, OutboxMessage.attempts >= max_attempts)  # ty: ignore[invalid-argument-type]
             .values(
                 status=OutboxStatus.DEAD,
                 locked_until=None,
@@ -118,7 +118,7 @@ async def reclaim_expired(
         )
         back = await session.execute(
             update(OutboxMessage)
-            .where(*expired)
+            .where(*expired)  # ty: ignore[invalid-argument-type]
             .values(status=OutboxStatus.PENDING, locked_until=None, next_attempt_at=now)
             .execution_options(synchronize_session=False)
         )
@@ -174,7 +174,7 @@ async def claim(
             update(OutboxMessage)
             .where(
                 OutboxMessage.id.in_(select(claimable.c.id)),
-                OutboxMessage.status == OutboxStatus.PENDING,
+                OutboxMessage.status == OutboxStatus.PENDING,  # ty: ignore[invalid-argument-type]
             )
             .values(
                 status=OutboxStatus.RUNNING,

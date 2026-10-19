@@ -179,7 +179,7 @@ async def _open(stream: AsyncGenerator[bytes]) -> AsyncIterator[bytes]:
     return _chain(first, iterator)
 
 
-async def _chain(first: bytes | None, rest: AsyncGenerator[bytes]) -> AsyncIterator[bytes]:
+async def _chain(first: bytes | None, rest: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
     try:
         if first is not None:
             yield first

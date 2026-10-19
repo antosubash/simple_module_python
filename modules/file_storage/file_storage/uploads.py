@@ -109,7 +109,8 @@ class UploadSessionService(UploadGuards):
         """The caller's own session. Others' ids miss exactly like unknown ones."""
         owner = current_user_id.get()
         stmt = select(UploadSession).where(
-            UploadSession.id == upload_id, UploadSession.created_by == owner
+            UploadSession.id == upload_id,  # ty: ignore[invalid-argument-type]
+            UploadSession.created_by == owner,
         )
         session = (await self.db.execute(stmt)).scalar_one_or_none() if owner else None
         if session is None:
@@ -159,8 +160,8 @@ class UploadSessionService(UploadGuards):
             return 0
         stmt = select(UploadSession).where(
             UploadSession.created_by == owner,
-            UploadSession.status == constants.UploadStatus.ACTIVE,
-            UploadSession.expires_at <= datetime.now(UTC),
+            UploadSession.status == constants.UploadStatus.ACTIVE,  # ty: ignore[invalid-argument-type]
+            UploadSession.expires_at <= datetime.now(UTC),  # ty: ignore[invalid-argument-type]
         )
         expired = list((await self.db.execute(stmt)).scalars())
         for session in expired:

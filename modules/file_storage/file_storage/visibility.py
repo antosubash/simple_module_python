@@ -46,7 +46,7 @@ class FileStoragePublic:
         """
         stmt = (
             select(StoredFile)
-            .where(StoredFile.id == file_id, StoredFile.public.is_(True))
+            .where(StoredFile.id == file_id, StoredFile.public.is_(True))  # ty: ignore[invalid-argument-type]
             .execution_options(all_tenants=True)
         )
         row = (await self.db.execute(stmt)).scalar_one_or_none()

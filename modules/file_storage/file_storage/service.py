@@ -165,7 +165,7 @@ class FileStorageService(FileStoragePublic, FileStorageReads):
         ``owner`` (``deps.get_owner_scope``) narrows it to one uploader's rows
         the same way: someone else's file misses like an unknown id (#544).
         """
-        stmt = queries.owned_by(select(StoredFile).where(StoredFile.id == file_id), owner)
+        stmt = queries.owned_by(select(StoredFile).where(StoredFile.id == file_id), owner)  # ty: ignore[invalid-argument-type]
         if platform:
             stmt = stmt.where(StoredFile.tenant_id == PLATFORM_TENANT_ID)
         async with platform_scope(self.db, platform):

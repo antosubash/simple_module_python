@@ -87,7 +87,7 @@ class FileStorageModule(ModuleBase):
             app,
             "file_storage",
             FileStorageSettings,
-            lambda s: FileStorageServices(settings=s),
+            lambda s: FileStorageServices(settings=s),  # ty: ignore[invalid-argument-type]
         )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:

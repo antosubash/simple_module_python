@@ -15,7 +15,7 @@ from background_tasks.constants import OutboxStatus
 class OutboxItem(SQLModel):
     """One (event, durable handler) delivery as the admin screen shows it."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
 
     id: uuid.UUID
     event_key: str

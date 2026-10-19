@@ -124,7 +124,7 @@ def sweep_stuck_tasks(self: Task) -> int:
         stmt = (
             update(TaskExecution)
             .where(
-                TaskExecution.status == TaskStatus.RUNNING,
+                TaskExecution.status == TaskStatus.RUNNING,  # ty: ignore[invalid-argument-type]
                 _stale(now, stuck_after, overrides),
             )
             .values(status=TaskStatus.STUCK, finished_at=now)
@@ -151,7 +151,7 @@ def purge_old_executions() -> int:
         count = result.rowcount or 0
         delivered = session.execute(
             delete(OutboxMessage)
-            .where(OutboxMessage.status == OutboxStatus.DELIVERED)
+            .where(OutboxMessage.status == OutboxStatus.DELIVERED)  # ty: ignore[invalid-argument-type]
             .where(OutboxMessage.delivered_at < cutoff)
         )
         count += delivered.rowcount or 0

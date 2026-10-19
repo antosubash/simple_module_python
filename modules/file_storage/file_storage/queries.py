@@ -96,7 +96,7 @@ async def count_files(
     # column, so the filter never applied and the total went on counting
     # deleted rows. That is the pager offering pages that render empty — the
     # exact failure ``filter_clauses`` exists to prevent.
-    query = select(func.count(StoredFile.id)).select_from(StoredFile)
+    query = select(func.count(StoredFile.id)).select_from(StoredFile)  # ty: ignore[invalid-argument-type]
     for clause in filter_clauses(created_by=created_by, search=search, content_type=content_type):
         query = query.where(clause)
     return int((await db.execute(query)).scalar() or 0)

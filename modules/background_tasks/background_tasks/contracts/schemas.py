@@ -21,7 +21,7 @@ class TaskExecutionListItem(SQLModel):
     the operator needs to read it *before* confirming, not on a second page.
     """
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
 
     id: uuid.UUID
     celery_task_id: str | None = None
@@ -43,7 +43,7 @@ class TaskExecutionListItem(SQLModel):
 class TaskExecutionDetail(SQLModel):
     """Full row for the detail page (adds args/kwargs/result/traceback)."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
 
     id: uuid.UUID
     celery_task_id: str | None = None
