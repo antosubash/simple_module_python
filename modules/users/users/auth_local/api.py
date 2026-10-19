@@ -206,7 +206,7 @@ async def accept_invite(
         changes["full_name"] = body.full_name.strip()
     try:
         await user_manager.update(
-            UserUpdate(**changes),
+            UserUpdate(**changes),  # ty: ignore[invalid-argument-type]
             user,
             request=request,
         )
@@ -241,7 +241,7 @@ async def update_me(
 ):
     """Update the currently authenticated user's profile."""
     return await user_manager.update(
-        UserUpdate(**data.model_dump(exclude_unset=True)),
+        UserUpdate(**data.model_dump(exclude_unset=True)),  # ty: ignore[invalid-argument-type]
         user,
         request=request,
     )

@@ -68,7 +68,11 @@ class UsersModule(ModuleBase):
             "settings.registration"
         ).register_module_settings
 
-        register_module_settings(app, "users", UsersSettings, lambda s: UsersState(settings=s))
+        def _build_state(s: object) -> UsersState:
+            assert isinstance(s, UsersSettings)
+            return UsersState(settings=s)
+
+        register_module_settings(app, "users", UsersSettings, _build_state)
 
         from users.provider import UsersAuthProvider
 
@@ -223,13 +227,13 @@ class UsersModule(ModuleBase):
             dependencies=[Depends(auth_local_api.enforce_auth_throughput_limit)],
         )
         api_router.include_router(
-            fastapi_users.get_verify_router(UserRead),
+            fastapi_users.get_verify_router(UserRead),  # ty: ignore[invalid-argument-type]
             prefix="/auth",
             tags=["users-auth"],
             dependencies=[Depends(auth_local_api.enforce_auth_throughput_limit)],
         )
         api_router.include_router(
-            fastapi_users.get_register_router(UserRead, UserCreate),
+            fastapi_users.get_register_router(UserRead, UserCreate),  # ty: ignore[invalid-argument-type]
             prefix="/auth",
             tags=["users-auth"],
             dependencies=[

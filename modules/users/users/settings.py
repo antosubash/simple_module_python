@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import SettingsConfigDict
@@ -97,7 +98,7 @@ class UsersSettings(DbBackedSettings):
     session_version_cache_ttl_seconds: int = SESSION_VERSION_TTL_SECONDS
 
     cookie_secure: bool = True  # flipped False in dev by the module at startup
-    cookie_samesite: str = "lax"
+    cookie_samesite: Literal["lax", "strict", "none"] = "lax"
 
     # Mailer
     mailer: str = Field(default="console", pattern="^(console|smtp)$")

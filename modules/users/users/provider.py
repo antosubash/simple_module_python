@@ -269,8 +269,8 @@ class UsersAuthProvider:
                 # otherwise fire an extra query the UserContext never reads.
                 stmt = (
                     select(User)
-                    .where(User.id == user_id)
-                    .options(selectinload(User.roles), noload(User.oauth_accounts))
+                    .where(User.id == user_id)  # ty: ignore[invalid-argument-type]
+                    .options(selectinload(User.roles), noload(User.oauth_accounts))  # ty: ignore[invalid-argument-type]
                 )
                 user = (await db_session.execute(stmt)).scalar_one_or_none()
                 if user is None or not user.is_active or user.disabled_at is not None:

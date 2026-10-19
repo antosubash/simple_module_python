@@ -135,9 +135,9 @@ async def resolve_bearer(scope, token: str) -> UserContext | None:
             now = datetime.now(UTC)
             cutoff = now - timedelta(seconds=_TOKEN_LIFETIME_SECONDS)
             stmt = select(UserAccessToken).where(
-                UserAccessToken.token == token,
-                UserAccessToken.created_at > cutoff,
-                UserAccessToken.expires_at > now,
+                UserAccessToken.token == token,  # ty: ignore[invalid-argument-type]
+                UserAccessToken.created_at > cutoff,  # ty: ignore[invalid-argument-type]
+                UserAccessToken.expires_at > now,  # ty: ignore[invalid-argument-type]
             )
             access = (await db_session.execute(stmt)).scalar_one_or_none()
             if access is None:
@@ -146,8 +146,8 @@ async def resolve_bearer(scope, token: str) -> UserContext | None:
             # otherwise fire an extra query the UserContext never reads.
             stmt = (
                 select(User)
-                .where(User.id == access.user_id)
-                .options(selectinload(User.roles), noload(User.oauth_accounts))
+                .where(User.id == access.user_id)  # ty: ignore[invalid-argument-type]
+                .options(selectinload(User.roles), noload(User.oauth_accounts))  # ty: ignore[invalid-argument-type]
             )
             user = (await db_session.execute(stmt)).scalar_one_or_none()
             if user is None or not user.is_active or user.disabled_at is not None:

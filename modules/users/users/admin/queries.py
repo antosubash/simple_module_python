@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from sqlalchemy import func, or_, select
@@ -80,9 +81,9 @@ class _UserServiceBase:
 
     async def list_roles(self) -> list[RoleListItem]:
         stmt = (
-            select(Role, func.count(UserRole.user_id))
-            .outerjoin(UserRole, UserRole.role_id == Role.id)
-            .group_by(Role.id)
+            select(Role, func.count(UserRole.user_id))  # ty: ignore[invalid-argument-type]
+            .outerjoin(UserRole, UserRole.role_id == Role.id)  # ty: ignore[invalid-argument-type]
+            .group_by(Role.id)  # ty: ignore[invalid-argument-type]
             .order_by(Role.name)
         )
         result = await self._db.execute(stmt)
@@ -98,7 +99,7 @@ class _UserServiceBase:
 
     async def _get_user_with_roles(self, user_id: uuid.UUID) -> User | None:
         result = await self._db.execute(
-            select(User).where(User.id == user_id).options(selectinload(User.roles))
+            select(User).where(User.id == user_id).options(selectinload(User.roles))  # ty: ignore[invalid-argument-type]
         )
         return result.scalar_one_or_none()
 
@@ -134,17 +135,17 @@ class _UserServiceBase:
         page = max(page, 1)
         per_page = max(1, min(per_page, 200))
         stmt = select(
-            User.id,
-            User.email,
-            User.full_name,
-            User.is_active,
-            User.is_verified,
-            User.is_external,
-            User.disabled_at,
-            User.last_login_at,
+            User.id,  # ty: ignore[invalid-argument-type]
+            User.email,  # ty: ignore[invalid-argument-type]
+            User.full_name,  # ty: ignore[invalid-argument-type]
+            User.is_active,  # ty: ignore[invalid-argument-type]
+            User.is_verified,  # ty: ignore[invalid-argument-type]
+            User.is_external,  # ty: ignore[invalid-argument-type]
+            User.disabled_at,  # ty: ignore[invalid-argument-type]
+            User.last_login_at,  # ty: ignore[invalid-argument-type]
             User.created_at,
-            User.invited_at,
-            User.locked_until,
+            User.invited_at,  # ty: ignore[invalid-argument-type]
+            User.locked_until,  # ty: ignore[invalid-argument-type]
         )
         count_stmt = select(func.count()).select_from(User)
 
@@ -217,7 +218,9 @@ class _UserServiceBase:
         # roles): unpack directly.
         items = [
             UserListItem(
-                **{**r._mapping, "locked_until": _live_lock(r.locked_until)},
+                **cast(
+                    "dict[str, Any]", {**r._mapping, "locked_until": _live_lock(r.locked_until)}
+                ),
                 invite_expires_at=self._invite_expiry(r.invited_at),
                 state=user_state(r.is_active, r.is_verified, r.invited_at),
                 roles=roles_by_user.get(r.id, []),

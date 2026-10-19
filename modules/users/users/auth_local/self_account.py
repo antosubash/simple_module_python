@@ -82,7 +82,7 @@ async def change_my_password(
         raise HTTPException(status_code=400, detail="Current password is incorrect.")
 
     try:
-        await user_manager.update(UserUpdate(password=body.new_password), user, request=request)
+        await user_manager.update(UserUpdate(password=body.new_password), user, request=request)  # ty: ignore[invalid-argument-type]
     except fu_exceptions.InvalidPasswordException as exc:
         raise HTTPException(status_code=400, detail=exc.reason) from exc
 
@@ -109,10 +109,10 @@ async def change_my_password(
     # what "this password is no longer the one that works" has to mean.
     await db.execute(
         update(RefreshToken)
-        .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))
+        .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))  # ty: ignore[invalid-argument-type]
         .values(revoked_at=datetime.now(UTC))
     )
-    await db.execute(delete(UserAccessToken).where(UserAccessToken.user_id == user.id))
+    await db.execute(delete(UserAccessToken).where(UserAccessToken.user_id == user.id))  # ty: ignore[invalid-argument-type]
     await db.flush()
     return Response(status_code=204)
 
@@ -146,10 +146,10 @@ async def revoke_all_my_sessions(
     db.on_commit(lambda: publish_revocation(request.app, user.id))
     await db.execute(
         update(RefreshToken)
-        .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))
+        .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))  # ty: ignore[invalid-argument-type]
         .values(revoked_at=now)
     )
-    await db.execute(delete(UserAccessToken).where(UserAccessToken.user_id == user.id))
+    await db.execute(delete(UserAccessToken).where(UserAccessToken.user_id == user.id))  # ty: ignore[invalid-argument-type]
     await db.flush()
 
     request.session.clear()
