@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import types
-from typing import Any, Union, get_args, get_origin
+from typing import Any, Literal, Union, get_args, get_origin
 
 from pydantic import BaseModel
 from pydantic_settings import (
@@ -52,12 +52,14 @@ def value_type_for_field(cls: type[BaseSettings], field_name: str) -> str:
     - ``bool`` → ``"bool"``
     - ``int`` → ``"int"``
     - ``float`` → ``"float"``
-    - ``str`` and enums → ``"string"``
+    - ``str``, enums and ``Literal`` of strings → ``"string"``
     - ``list``, ``dict``, and other container types → ``"json"``
     """
     info = cls.model_fields[field_name]
     ann = info.annotation
     origin = get_origin(ann)
+    if origin is Literal and all(isinstance(a, str) for a in get_args(ann)):
+        return "string"
     if origin is not None:
         return "json"
     return _SCALAR_TYPES.get(ann, "string")

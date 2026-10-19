@@ -25,6 +25,8 @@ All notable changes to this project are documented in this file. The format is b
 - **Behaviour change (#507):** `UsersSettings.cookie_samesite` only accepts
   `lax`, `strict` or `none` (case-insensitive). Any other stored value is
   dropped with a WARNING and the default `lax` applies.
+  The settings editor treats a `Literal[...]` of strings as a string select
+  (it was filed under `json` with a free-text box).
 - `get_file_storage_service` raises a clear `RuntimeError` when the storage
   backend has not been initialised, instead of building a service around
   `None` (#507).

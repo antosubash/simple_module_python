@@ -14,3 +14,17 @@ def test_settings_group_metadata_accepts_only_strings(group):
     view = _field_view("host", Config(), "SM_DEMO_")
 
     assert view.group == (group if isinstance(group, str) else None)
+
+
+def test_string_literal_field_is_a_string_select():
+    from typing import Literal
+
+    from settings._field_meta import choices_for
+    from settings.hydrate import input_type_for_field, value_type_for_field
+
+    class Config(BaseSettings):
+        mode: Literal["lax", "strict"] = "lax"
+
+    assert value_type_for_field(Config, "mode") == "string"
+    assert input_type_for_field(Config, "mode") == ("string", False)
+    assert choices_for(Config.model_fields["mode"]) == ["lax", "strict"]
