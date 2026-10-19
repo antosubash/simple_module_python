@@ -1018,6 +1018,7 @@ export default {
     'ui.relative_time.years_ago_other': '',
     'ui.sidebar.back': '',
     'ui.sidebar.close': '',
+    'ui.sidebar.drawer': '',
     'ui.sidebar.open': '',
     'ui.sidebar.skip_to_content': '',
     'ui.switcher.label': '',

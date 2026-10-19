@@ -55,6 +55,7 @@
   "sidebar": {
     "open": "Open sidebar",
     "close": "Close sidebar",
+    "drawer": "Navigation menu",
     "back": "Back",
     "skip_to_content": "Skip to content"
   },
