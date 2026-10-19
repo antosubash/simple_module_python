@@ -100,6 +100,12 @@ class UsersSettings(DbBackedSettings):
     cookie_secure: bool = True  # flipped False in dev by the module at startup
     cookie_samesite: Literal["lax", "strict", "none"] = "lax"
 
+    @field_validator("cookie_samesite", mode="before")
+    @classmethod
+    def _lowercase_samesite(cls, value: object) -> object:
+        """``"Strict"`` worked when this was a plain ``str`` (Starlette lowercases it)."""
+        return value.lower() if isinstance(value, str) else value
+
     # Mailer
     mailer: str = Field(default="console", pattern="^(console|smtp)$")
     base_url: str = "http://localhost:8000"
