@@ -22,11 +22,11 @@ from simple_module_hosting.session import SESSION_REMEMBER_KEY, stamp_session_ex
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from users.auth_local.lockout import (
+    admit,
     login_attempt,
     record_failure,
     record_success,
-    refused_for,
-    too_many_attempts,
+    release,
 )
 from users.auth_local.rate_limit import enforce_auth_throughput_limit
 from users.auth_local.self_account import router as self_account_router
@@ -106,8 +106,7 @@ async def login(
 ):
     """Lockout-guarded login wrapper. Sets sm_auth cookie + session user_id."""
     attempt = login_attempt(request, credentials.username)
-    if (wait := await refused_for(db, attempt)) is not None:
-        raise too_many_attempts(wait)
+    admission = await admit(db, attempt)
 
     try:
         user = await user_manager.authenticate(
@@ -120,16 +119,17 @@ async def login(
         user = None
 
     if user is None or not user.is_active:
-        await record_failure(db, attempt)
-        raise HTTPException(status_code=400, detail="LOGIN_BAD_CREDENTIALS")
+        locked = await record_failure(db, attempt, admission)
+        raise locked or HTTPException(status_code=400, detail="LOGIN_BAD_CREDENTIALS")
 
     if not user.is_verified and request.app.state.users.settings.require_verification:
         # Match fastapi-users' own behavior when requires_verification=True.
         # With the setting off nobody is asked to verify (#547) — including
         # accounts that signed up while it was on.
+        await release(db, attempt, admission)
         raise HTTPException(status_code=400, detail="LOGIN_USER_NOT_VERIFIED")
 
-    await record_success(db, user.id)
+    await record_success(db, attempt, admission)
     # Fire the login hook (updates last_login_at)
     await user_manager.on_after_login(user, request, response)
     # Set fastapi-users' cookie via auth_backend.login

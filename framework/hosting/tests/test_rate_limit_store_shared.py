@@ -88,3 +88,61 @@ def test_services_default_store() -> None:
 async def test_create_app_shares_one_store(app) -> None:
     [guard] = [m for m in app.user_middleware if m.cls is RateLimitMiddleware]
     assert guard.kwargs["store"] is app.state.sm.rate_limit_store
+
+
+async def test_sliding_hit_restarts_the_window() -> None:
+    clock = _Clock()
+    store = InProcessWindowStore(clock=clock)
+    spec = RateSpec(10, 60)
+    await store.hit("k", spec, sliding=True)
+    clock.now += 50
+    await store.hit("k", spec, sliding=True)  # pushes the end to now + 60
+    clock.now += 50  # 100s after the first hit, 50s after the last
+    assert (await store.hit("k", spec, sliding=True)).count == 3
+    clock.now += 61
+    assert (await store.hit("k", spec, sliding=True)).count == 1
+
+
+async def test_fixed_hit_does_not_slide() -> None:
+    clock = _Clock()
+    store = InProcessWindowStore(clock=clock)
+    spec = RateSpec(10, 60)
+    await store.hit("k", spec)
+    clock.now += 50
+    await store.hit("k", spec)
+    clock.now += 50
+    assert (await store.hit("k", spec)).count == 1
+
+
+async def test_reset_forgets_the_window() -> None:
+    store = InProcessWindowStore(clock=_Clock())
+    spec = RateSpec(1, 60)
+    await store.hit("k", spec)
+    await store.reset("k")
+    assert (await store.peek("k", spec)).count == 0
+
+
+async def test_redis_sliding_flag_and_reset() -> None:
+    calls: list[tuple] = []
+
+    class _Recording(_FakeRedis):
+        async def eval(self, script: str, numkeys: int, key: str, *args):
+            calls.append((script, args))
+            if "DEL" in script:
+                self.counts.pop(key, None)
+                return 0
+            return await super().eval(script, numkeys, key, *args)
+
+    store = RedisWindowStore(_Recording())
+    await store.hit("k", RateSpec(5, 60), sliding=True)
+    assert calls[-1][1] == (60_000, "1")
+    await store.hit("k", RateSpec(5, 60))
+    assert calls[-1][1] == (60_000,)
+    await store.reset("k")
+    assert (await store.peek("k", RateSpec(5, 60))).count == 0
+
+
+def test_script_slides_on_flag() -> None:
+    from simple_module_hosting._rate_limit import _LUA
+
+    assert "ARGV[2] == '1'" in _LUA

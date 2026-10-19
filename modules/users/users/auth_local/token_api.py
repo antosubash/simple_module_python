@@ -17,11 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel
 
 from users.auth_local.lockout import (
+    admit,
     login_attempt,
     record_failure,
     record_success,
-    refused_for,
-    too_many_attempts,
+    release,
 )
 from users.models import User
 from users.models.refresh_token import RefreshToken
@@ -66,11 +66,10 @@ async def token_login(
     from fastapi_users.password import PasswordHelper
 
     helper = PasswordHelper()
-    # Same lockout as the session login (GH #530): refused before any work,
-    # every wrong password counted, a success clearing the account's count.
+    # Same lockout as the session login (GH #530): a slot is taken before the
+    # password is checked, and a success gives it back.
     attempt = login_attempt(request, body.email)
-    if (wait := await refused_for(db, attempt)) is not None:
-        raise too_many_attempts(wait)
+    admission = await admit(db, attempt)
 
     stmt = select(User).where(User.email == body.email)
     user = (await db.execute(stmt)).scalar_one_or_none()
@@ -89,13 +88,13 @@ async def token_login(
         # email enumeration (existing user + wrong password takes ~50ms for
         # bcrypt; missing user would be instant without this).
         helper.verify_and_update(body.password, _DUMMY_HASH)
-        await record_failure(db, attempt)
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        locked = await record_failure(db, attempt, admission)
+        raise locked or HTTPException(status_code=401, detail="Invalid credentials")
 
     verified, updated_hash = helper.verify_and_update(body.password, user.hashed_password)
     if not verified:
-        await record_failure(db, attempt)
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        locked = await record_failure(db, attempt, admission)
+        raise locked or HTTPException(status_code=401, detail="Invalid credentials")
     if updated_hash is not None:
         # A legacy-scheme hash (e.g. bcrypt) was accepted and re-hashed with the
         # current scheme; persist it, as ``UserManager.authenticate`` does for
@@ -107,8 +106,9 @@ async def token_login(
     if not user.is_verified and settings.require_verification:
         # Same rule as the session login: a self-registered account that never
         # proved its address must not mint bearer tokens either (#547).
+        await release(db, attempt, admission)
         raise HTTPException(status_code=400, detail="LOGIN_USER_NOT_VERIFIED")
-    await record_success(db, user.id)
+    await record_success(db, attempt, admission)
     return await _create_token_pair(db, user.id, settings, user.session_version)
 
 

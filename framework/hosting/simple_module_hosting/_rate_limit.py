@@ -51,12 +51,15 @@ _LUA = """
 local c = redis.call('INCR', KEYS[1])
 local t = redis.call('PTTL', KEYS[1])
 -- t < 0 heals a counter that somehow lost its TTL, which would block that IP forever.
-if c == 1 or t < 0 then
+-- ARGV[2] == '1' is a sliding window: every hit restarts it.
+if c == 1 or t < 0 or ARGV[2] == '1' then
   redis.call('PEXPIRE', KEYS[1], ARGV[1])
   t = tonumber(ARGV[1])
 end
 return {c, t}
 """
+
+_RESET_LUA = "redis.call('DEL', KEYS[1]) return 0"
 
 # Read-only twin of ``_LUA``: a missing key is an empty window.
 _PEEK_LUA = """
@@ -107,10 +110,11 @@ class RedisWindowStore:
                 )
             return None
 
-    async def hit(self, key: str, spec: RateSpec) -> WindowResult:
-        reply = await self._eval(_LUA, key, spec.period * 1000)
+    async def hit(self, key: str, spec: RateSpec, *, sliding: bool = False) -> WindowResult:
+        args = (spec.period * 1000, "1") if sliding else (spec.period * 1000,)
+        reply = await self._eval(_LUA, key, *args)
         if reply is None:
-            return await self._fallback.hit(key, spec)
+            return await self._fallback.hit(key, spec, sliding=sliding)
         count, pttl = int(reply[0]), int(reply[1])
         retry = max(1, -(-pttl // 1000)) if pttl > 0 else spec.period
         return WindowResult(allowed=count <= spec.limit, retry_after=retry, count=count)
@@ -122,6 +126,11 @@ class RedisWindowStore:
         count, pttl = int(reply[0]), int(reply[1])
         retry = max(1, -(-pttl // 1000)) if pttl > 0 else 0
         return WindowResult(allowed=count < spec.limit, retry_after=retry, count=count)
+
+    async def reset(self, key: str) -> None:
+        # The fallback too: hits taken during an outage live there.
+        await self._fallback.reset(key)
+        await self._eval(_RESET_LUA, key)
 
 
 def build_store(redis_url: str | None) -> WindowStore:

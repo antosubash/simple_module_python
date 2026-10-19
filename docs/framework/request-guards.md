@@ -129,9 +129,10 @@ def register_public_routes(self, registry) -> None:
 (a `WindowStore`), so a module that throttles its own events counts in the same
 place, across workers, without opening a second Redis client. Besides `hit`,
 which counts, a store has `peek(key, spec)`, which reports the current window
-without counting: `allowed` answers "would one more hit be within budget", so a
-caller can refuse before doing any work and count only what failed. The users
-login lockout (`users/auth_local/lockout.py`) uses it that way. Keys are
+without counting (`allowed` answers "would one more hit be within budget"),
+`reset(key)`, which forgets a window, and `hit(..., sliding=True)`, which
+restarts the window on every hit. The users login lockout
+(`users/auth_local/lockout.py`) uses all three. Keys are
 namespaced by the caller (`login:…`); Redis keys get the `sm:rl:` prefix.
 
 ### Response shape

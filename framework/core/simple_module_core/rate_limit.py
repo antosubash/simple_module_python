@@ -90,8 +90,13 @@ class WindowResult:
 
 
 class WindowStore(Protocol):
-    async def hit(self, key: str, spec: RateSpec) -> WindowResult:
-        """Count one request against *key* and report whether it is within budget."""
+    async def hit(self, key: str, spec: RateSpec, *, sliding: bool = False) -> WindowResult:
+        """Count one request against *key* and report whether it is within budget.
+
+        ``sliding`` restarts the window on every hit, so the count only resets
+        after a full ``spec.period`` with no hits — the shape of the users
+        account-lockout counter, which this must match hit for hit.
+        """
         ...
 
     async def peek(self, key: str, spec: RateSpec) -> WindowResult:
@@ -101,6 +106,10 @@ class WindowStore(Protocol):
         can refuse before doing any work and count only what failed — the
         login lockout counts wrong passwords, not attempts.
         """
+        ...
+
+    async def reset(self, key: str) -> None:
+        """Forget *key*'s window, as if it had never been hit."""
         ...
 
 
@@ -113,7 +122,7 @@ class InProcessWindowStore:
         self._clock = clock
         self._windows: dict[str, tuple[int, int]] = {}  # key -> (window_end_ms, count)
 
-    async def hit(self, key: str, spec: RateSpec) -> WindowResult:
+    async def hit(self, key: str, spec: RateSpec, *, sliding: bool = False) -> WindowResult:
         now = self._clock()
         entry = self._windows.get(key)
         if entry is None or entry[0] <= now * 1000:
@@ -121,6 +130,8 @@ class InProcessWindowStore:
                 self._sweep(now)
             entry = (int(now * 1000) + spec.period * 1000, 0)
         end_ms, count = entry
+        if sliding:
+            end_ms = int(now * 1000) + spec.period * 1000
         count += 1
         self._windows[key] = (end_ms, count)
         retry = max(1, math.ceil(end_ms / 1000 - now))
@@ -134,6 +145,9 @@ class InProcessWindowStore:
         end_ms, count = entry
         retry = max(1, math.ceil(end_ms / 1000 - now))
         return WindowResult(allowed=count < spec.limit, retry_after=retry, count=count)
+
+    async def reset(self, key: str) -> None:
+        self._windows.pop(key, None)
 
     def _sweep(self, now: float) -> None:
         now_ms = now * 1000

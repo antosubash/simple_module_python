@@ -23,7 +23,7 @@ async def _lock_by_failing(users_app) -> None:
         transport = httpx.ASGITransport(app=users_app, client=(f"10.0.0.{i}", 1))
         async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
             r = await c.post("/api/users/auth/login", data={"username": ALICE, "password": "no"})
-            assert r.status_code == 400
+            assert r.status_code == (429 if i == 9 else 400)  # the 10th trips the lock
 
 
 async def _row(users_app) -> User:

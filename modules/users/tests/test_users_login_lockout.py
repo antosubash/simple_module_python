@@ -62,8 +62,8 @@ async def test_acceptance_three_ips_two_apps_survives_restart(monkeypatch, tmp_p
             (app_b, "1.1.1.1"),
             (app_a, "2.2.2.2"),
         ]
-        for app, ip in plan:
-            assert (await _login(app, ip, ALICE, "wrong")).status_code == 400
+        codes = [(await _login(app, ip, ALICE, "wrong")).status_code for app, ip in plan]
+        assert codes == [400, 400, 400, 400, 429]  # the fifth trips the lock itself
 
         r = await _login(app_b, "9.9.9.9", ALICE, PASSWORD)
         assert r.status_code == 429
