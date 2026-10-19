@@ -81,3 +81,24 @@ async def test_register_page_receives_the_setting(users_app_signup, anon_client_
 
     assert resp.status_code == 200, resp.text
     assert resp.json()["props"]["require_verification"] is required
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(("required", "status"), [(True, 400), (False, 200)])
+async def test_bearer_token_login_follows_the_setting(
+    users_app_signup, anon_client_signup, required, status
+):
+    """``/auth/token`` is a login too: it must not mint tokens for an unverified account."""
+    _configure(users_app_signup, require_verification=required)
+    reg = await anon_client_signup.post(
+        "/api/users/auth/register", json={"email": _EMAIL, "password": _PASSWORD}
+    )
+    assert reg.status_code == 201, reg.text
+
+    resp = await anon_client_signup.post(
+        "/api/users/auth/token", json={"email": _EMAIL, "password": _PASSWORD}
+    )
+
+    assert resp.status_code == status, resp.text
+    if required:
+        assert resp.json()["detail"] == "LOGIN_USER_NOT_VERIFIED"

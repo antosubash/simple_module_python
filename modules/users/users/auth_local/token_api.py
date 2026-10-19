@@ -90,6 +90,10 @@ async def token_login(
         await db.flush()
 
     settings = request.app.state.users.settings
+    if not user.is_verified and settings.require_verification:
+        # Same rule as the session login: a self-registered account that never
+        # proved its address must not mint bearer tokens either (#547).
+        raise HTTPException(status_code=400, detail="LOGIN_USER_NOT_VERIFIED")
     return await _create_token_pair(db, user.id, settings, user.session_version)
 
 

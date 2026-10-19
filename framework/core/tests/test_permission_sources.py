@@ -116,3 +116,18 @@ def test_invalidate_source_retries_a_failed_source_at_once() -> None:
     state["ok"] = True
     reg.invalidate_source("late")
     assert reg.all_permissions == ["late.read"]
+
+
+def test_snapshot_is_reused_while_a_source_is_failing() -> None:
+    def broken() -> list[str]:
+        raise RuntimeError("down")
+
+    clock = _Clock()
+    reg = PermissionRegistry(clock=clock)
+    reg.add("static.read")
+    reg.add_source("broken", broken)
+    first = reg.all_permissions
+    assert first == ["static.read"]
+    assert reg.all_permissions is first  # not rebuilt on every has()
+    clock.now += PermissionRegistry.SOURCE_RETRY_SECONDS
+    assert reg.all_permissions is not first  # rebuilt once the retry is due

@@ -112,9 +112,7 @@ class PermissionRegistry:
         self._sources: dict[str, PermissionSourceProvider] = {}
         self._source_cache: dict[str, tuple[list[str], dict[str, str]]] = {}
         self._source_failed_at: dict[str, float] = {}  # name → clock() of last failure
-        # Set when a source raised during the current recompute, so the derived
-        # ``all_permissions`` snapshot is not cached with that source missing.
-        self._source_failed = False
+        self._all_permissions_expires: float | None = None
 
     def _invalidate(self) -> None:
         self._all_permissions_cache = None
@@ -150,7 +148,6 @@ class PermissionRegistry:
         failed_at = self._source_failed_at.get(name)
         if failed_at is not None and self._clock() - failed_at < self.SOURCE_RETRY_SECONDS:
             # In the retry window: empty, uncalled, no traceback per request.
-            self._source_failed = True
             return [], {}
         keys: list[str] = []
         labels: dict[str, str] = {}
@@ -167,7 +164,6 @@ class PermissionRegistry:
             # Remembered for the retry window only: a transient failure must
             # not hide the source until someone invalidates it.
             self._source_failed_at[name] = self._clock()
-            self._source_failed = True
             return [], {}
         self._source_failed_at.pop(name, None)
         out = (sorted(set(keys)), labels)
@@ -198,15 +194,18 @@ class PermissionRegistry:
     @property
     def all_permissions(self) -> list[str]:
         """All registered permission strings, sorted."""
-        if self._all_permissions_cache is None:
-            self._source_failed = False
+        expires = self._all_permissions_expires
+        if self._all_permissions_cache is None or (expires and self._clock() >= expires):
             perms: set[str] = set()
             for group in self.groups:
                 perms.update(group.permissions)
-            result = sorted(perms)
-            if self._source_failed:
-                return result
-            self._all_permissions_cache = result
+            self._all_permissions_cache = sorted(perms)
+            # A snapshot taken while a source is failing lives only until that
+            # source's retry, so a recovery shows up without an invalidation.
+            failed = self._source_failed_at.values()
+            self._all_permissions_expires = (
+                min(failed) + self.SOURCE_RETRY_SECONDS if failed else None
+            )
         return self._all_permissions_cache
 
     @property

@@ -22,7 +22,10 @@ All notable changes to this project are documented in this file. The format is b
   registered while it was on. Such accounts stay unverified, and an OAuth
   sign-in whose email matches an unverified password account is refused with
   403 `OAUTH_ACCOUNT_NOT_VERIFIED` instead of linking to it (an account already
-  linked to that OAuth identity still signs in).
+  linked to that OAuth identity still signs in). With it on,
+  `POST /api/users/auth/token` now refuses an unverified account with 400
+  `LOGIN_USER_NOT_VERIFIED`, as the session login already did; it used to mint
+  bearer tokens for one.
 - **Behaviour change (#544):** `file_storage` callers without
   `file_storage.manage` (granted to admins and to `tenant:admin`/`tenant:owner`)
   see, download, change and delete only files they uploaded; anyone else's
