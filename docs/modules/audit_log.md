@@ -13,14 +13,33 @@ Automatic field-level audit trail for every SQLModel entity in the app. Each cre
 
 ## How capture works
 
-The module doesn't observe changes itself — the DB layer does. On `on_startup` it sets `app.state.sm.db.audit_callback = audit_callback`; on `on_shutdown` it clears it. While that callback is set, the framework's session listeners run a **two-phase capture**:
+The module doesn't observe changes itself — the DB layer does. On `on_startup` it sets `app.state.sm.db.audit_callback = audit_callback`; on `on_shutdown` it clears it. The callback is read from the policy bound to the flushing session's **engine** (`DatabaseState` for an app, `EngineTenancy` for a bare engine), never from a process global, so two apps in one process each audit through their own sink and shutting one down leaves the other capturing. While that callback is set, the framework's session listeners run a **two-phase capture**:
 
 1. **Phase 1 — `before_flush`.** `snapshot_changes()` walks `session.new` / `session.dirty` / `session.deleted` and records a diff *while SQLAlchemy attribute history is still intact* (it gets wiped after flush). For new rows the diff holds an object reference, not an id, because a DB-assigned PK (e.g. an integer `AUTOINCREMENT` / `SERIAL` id) isn't populated yet. The pending list is stashed on `session.info`.
 2. **Phase 2 — `after_flush_postexec`.** Once INSERTs have executed and PKs are populated on the live objects, `finalize_records()` resolves the now-stable `entity_id` and hands the records to the module's `audit_callback`, which turns each into an `AuditEntry` row.
 
 The two-phase split is why integer-PK entities record the real id instead of an empty string. `AuditEntry` itself sets `__audit_exclude__ = True`, so writing audit rows doesn't recursively produce more audit rows.
 
-The `user_id` comes from the `current_user_id` ContextVar that `AuthMiddleware` sets per request; the `correlation_id` comes from the request-logging correlation-id ContextVar when the hosting layer is present (both are `None` outside a request, e.g. CLI / background writes).
+The `user_id` comes from the `current_user_id` ContextVar that `AuthMiddleware` sets per request; the `correlation_id` comes from `simple_module_core.correlation.correlation_id` (re-exported as `simple_module_hosting.logging.correlation_id`), which the request-logging middleware sets (both are `None` outside a request unless the caller sets them).
+
+### Writes made by Celery tasks
+
+A worker never runs `create_app`, so it has no `app.state.sm.db` for `on_startup` to set. The module also publishes its callback as an entry point:
+
+```toml
+[project.entry-points."simple_module.audit_sinks"]
+audit_log = "audit_log.capture:audit_callback"
+```
+
+`background_tasks` binds whatever `simple_module_db.audit_sinks.discover_audit_callback()` finds to both of its worker engines — the sync engine task bodies and signal handlers use (`sync_db`) and the async engine durable outbox handlers run on (`outbox_worker`). A task's ORM writes, including `TaskExecution` lifecycle rows, are therefore audited exactly like a request's whenever `audit_log` is installed; neither package imports the other. The worker's audit rows carry no `user_id` (no request principal).
+
+### Known gaps
+
+Capture sees only what the ORM unit of work flushes. These writes are **not** audited, in requests or in workers:
+
+- ORM bulk `update()` / `delete()` and Core DML run through `session.execute(...)`;
+- raw `text("UPDATE ...")` DML;
+- the outbox's own state-change bulk `UPDATE`s (claims, delivery status, fences) and the task heartbeat's `heartbeat_at` refresh.
 
 ### What gets recorded
 

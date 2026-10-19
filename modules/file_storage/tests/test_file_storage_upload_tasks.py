@@ -30,6 +30,8 @@ def worker(tmp_path, monkeypatch):
     engine = create_engine(url)
     Base.metadata.create_all(engine)
     engine.dispose()
+    # This bare DB has no audit table; keep the installed audit sink off (#498).
+    monkeypatch.setattr(sync_db, "discover_audit_callback", lambda: None)
     sync_db.set_database_url(url)
     backend = FilesystemBackend(root=tmp_path / "objects")
     settings = FileStorageSettings()
