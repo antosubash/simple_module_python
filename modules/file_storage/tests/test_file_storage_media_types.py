@@ -41,9 +41,8 @@ ACTIVE = [
     "",
     None,
     # Unknown types download rather than render.
-    "application/octet-stream",
-    "application/zip",
     "text/markdown",
+    "application/x-unknown",
 ]
 
 INLINE = [
@@ -60,6 +59,10 @@ INLINE = [
     "text/csv",
     "video/mp4",
     "audio/mpeg",
+    "font/woff2",
+    "application/octet-stream",
+    "application/zip",
+    "application/geo+json",
 ]
 
 

@@ -80,7 +80,9 @@ Serving rules:
   style-src 'unsafe-inline'; sandbox` (the security-headers middleware now
   keeps a CSP the response already set). Only an allow-list of types is
   served `inline` (and redirected on S3): common raster images, PDF, JSON,
-  plain text, CSV, and `audio/*` / `video/*` minus any XML subtype
+  GeoJSON, plain text, CSV, opaque binaries (`application/octet-stream`, zip,
+  gzip, protobuf / vector tiles) and `audio/*` / `video/*` / `font/*` minus
+  any XML or HTML subtype
   (`INLINE_SAFE_CONTENT_TYPES` / `INLINE_SAFE_FAMILIES`). Everything else —
   HTML, SVG, any XML, scripts, unknown types, and malformed values such as
   `text/html,` — is forced to `Content-Disposition: attachment` and always

@@ -200,13 +200,22 @@ INLINE_SAFE_CONTENT_TYPES: Final = frozenset(
         "image/vnd.microsoft.icon",
         "application/pdf",
         "application/json",
+        "application/geo+json",
         "text/plain",
         "text/csv",
+        # Opaque binaries a browser only ever downloads or hands to script —
+        # kept inline so S3 range readers (PMTiles, archives) still get the
+        # presigned redirect instead of streaming through the app.
+        "application/octet-stream",
+        "application/zip",
+        "application/gzip",
+        "application/x-protobuf",
+        "application/vnd.mapbox-vector-tile",
     }
 )
-# Whole families that render as media, never as a document — minus any XML
-# subtype, which ``media_types.is_active_content`` refuses on its own.
-INLINE_SAFE_FAMILIES: Final = frozenset({"audio", "video"})
+# Whole families that render as media, never as a document — minus any XML or
+# HTML subtype, which ``media_types.is_active_content`` refuses on its own.
+INLINE_SAFE_FAMILIES: Final = frozenset({"audio", "video", "font"})
 PUBLIC_CSP: Final = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 
 THUMBNAIL_WIDTHS: Final = (64, 128, 256, 512, 1024)
