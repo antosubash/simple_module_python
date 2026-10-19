@@ -139,7 +139,8 @@ class TestRequiredPermissionProp:
     as its own prop. The guard already puts the name in the exception detail
     ("Permission required: settings.manage"), but that string is a *message*
     for a human, and rendering it verbatim would leak the wording of a Python
-    exception into the UI. Parsing it back out here keeps one source of truth
+    exception into the UI. The handler reads PermissionDenied.permission, keeping
+    one source of truth
     for the permission name and lets the page own the sentence.
     """
 

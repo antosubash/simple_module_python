@@ -10,6 +10,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from simple_module_core.exceptions import NotFoundError
+from simple_module_core.permission_denied import PermissionDenied
 from simple_module_inertia import (
     Inertia,
     InertiaConfig,
@@ -22,7 +23,6 @@ from starlette.responses import Response
 
 from simple_module_hosting._inertia_shared import _INERTIA_HEADER
 from simple_module_hosting._observability import CorrelationIdMiddleware
-from simple_module_hosting.permissions import PERMISSION_DENIED_PREFIX
 
 logger = logging.getLogger(__name__)
 
@@ -53,26 +53,6 @@ def _specific_detail(status_code: int, message: str) -> str:
     except ValueError:
         return message
     return "" if message.strip().casefold() == phrase.casefold() else message
-
-
-def _required_permission(message: str) -> str | None:
-    """The permission named by a ``RequiresPermission`` denial, if this is one.
-
-    The 403 page says "Your role doesn't include ``<perm>``. Ask an admin to
-    grant it." — it needs the bare permission name, not the sentence the guard
-    wrote for logs and API clients. Reading it back off the detail (using the
-    guard's own exported prefix) keeps ``RequiresPermission`` as the single
-    place that knows the name; the alternative, stashing it on
-    ``request.state``, only works when the exception travels the one code path
-    that set it, and 403s are also raised by hand.
-
-    Anything else — a role-gated ``/admin`` 403, a hand-raised
-    ``HTTPException(403, "Administrator access required")`` — yields ``None``,
-    and the page falls back to copy that names no permission.
-    """
-    if not message.startswith(PERMISSION_DENIED_PREFIX):
-        return None
-    return message[len(PERMISSION_DENIED_PREFIX) :].strip() or None
 
 
 def _login_url(request: Request) -> str | None:
@@ -159,8 +139,12 @@ async def render_error_page(
     status_code: int,
     message: str,
     headers: Mapping[str, str] | None = None,
+    required_permission: str | None = None,
 ) -> Response:
     """Render the Inertia error page for *status_code*.
+
+    ``required_permission`` names the permission a 403 lacked (from
+    :class:`PermissionDenied`); the page words its own sentence around it.
 
     ``headers`` carries an ``HTTPException``'s own headers through to the
     response. A rendered page is still the same status as the JSON body it
@@ -208,7 +192,7 @@ async def render_error_page(
                 # Always present, null when no permission is involved: the page
                 # branches on it, and an absent prop is indistinguishable there
                 # from one that was never wired.
-                "required_permission": _required_permission(message),
+                "required_permission": required_permission,
                 "login_url": (_login_url(request) if status_code in _SIGN_IN_STATUSES else None),
                 # Set by MaintenanceMiddleware. A planned outage reads very
                 # differently from the same status code arriving unbidden.
@@ -249,7 +233,8 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> Respon
     headers = getattr(exc, "headers", None)
     if exc.status_code in _INERTIA_ERROR_STATUSES and not _wants_json(request):
         detail = str(exc.detail) if exc.detail else ""
-        return await render_error_page(request, exc.status_code, detail, headers)
+        required = exc.permission if isinstance(exc, PermissionDenied) else None
+        return await render_error_page(request, exc.status_code, detail, headers, required)
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
