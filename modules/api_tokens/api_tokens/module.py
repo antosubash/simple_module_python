@@ -43,7 +43,7 @@ class ApiTokensModule(ModuleBase):
             app,
             c.MODULE_PACKAGE,
             ApiTokensSettings,
-            lambda s: ApiTokensServices(settings=s),  # ty: ignore[invalid-argument-type]
+            lambda s: ApiTokensServices(settings=s),
         )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:

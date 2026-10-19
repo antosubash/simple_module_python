@@ -65,7 +65,7 @@ class TenantsModule(ModuleBase):
             app,
             c.MODULE_PACKAGE,
             TenantsSettings,
-            lambda s: TenantsServices(settings=s),  # ty: ignore[invalid-argument-type]
+            lambda s: TenantsServices(settings=s),
         )
         app.state.tenant_resolver = resolve_tenant
         app.state.tenant_exists = _tenant_exists(app)

@@ -40,7 +40,7 @@ class KeycloakModule(ModuleBase):
             app,
             "keycloak",
             KeycloakSettings,
-            lambda s: KeycloakState(settings=s),  # ty: ignore[invalid-argument-type]
+            lambda s: KeycloakState(settings=s),
         )
 
         app.state.auth.auth_provider = KeycloakAuthProvider(
