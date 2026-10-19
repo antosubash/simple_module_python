@@ -22,6 +22,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tenants._deletion import delete_tenant_rows
 from tenants._owner_guard import demote_owner, remove_owner
 from tenants.constants import (
     ENTITLEMENT_SEATS,
@@ -142,6 +143,10 @@ class TenantService:
             # Every member's cached view of this tenant is now wrong.
             self._after_commit(TenantStatusChanged(tenant_id, status, previous), invalidate=[None])
         return tenant
+
+    async def delete_tenant(self, tenant_id: str) -> None:
+        tenant = await self.lock(tenant_id)
+        self._after_commit(*await delete_tenant_rows(self.db, tenant), invalidate=[None])
 
     async def list_all(self, *, search: str = "", limit: int = 50, offset: int = 0) -> list[Tenant]:
         stmt = select(Tenant).order_by(Tenant.created_at.desc()).limit(limit).offset(offset)

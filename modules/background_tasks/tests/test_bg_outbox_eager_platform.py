@@ -22,6 +22,7 @@ from simple_module_core.events import Event
 from simple_module_db import all_tenants, current_tenant_id, finalize_session, tenant_context
 from simple_module_db.tenancy import is_all_tenants
 from simple_module_db.transaction import SESSION_START_KEY
+from simple_module_test import wait_for
 
 pytestmark = pytest.mark.usefixtures("_stub_celery")
 
@@ -29,15 +30,6 @@ pytestmark = pytest.mark.usefixtures("_stub_celery")
 @dataclass
 class EagerPing(Event):
     n: int
-
-
-async def _wait_for(predicate, timeout: float = 3.0) -> bool:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if await predicate():
-            return True
-        await asyncio.sleep(0.02)
-    return False
 
 
 async def test_eager_publish_from_a_plain_session_is_delivered(app, outbox_rows):
@@ -57,7 +49,7 @@ async def test_eager_publish_from_a_plain_session_is_delivered(app, outbox_rows)
         rows = await outbox_rows()
         return bool(rows) and all(r.status == OutboxStatus.DELIVERED for r in rows)
 
-    assert await _wait_for(delivered)
+    await wait_for(delivered, timeout=3.0)
     assert seen == [7]
     app.state.background_tasks.celery.send_task.assert_not_called()
 
@@ -72,7 +64,8 @@ async def test_eager_publish_from_a_plain_session_that_rolls_back_is_dropped(app
         await app.state.sm.event_bus.publish_durable(EagerPing(8), session)
         await session.rollback()
 
-    await asyncio.sleep(0.1)
+    # Negative assertion: nothing was scheduled, so there is no event to wait for.
+    await asyncio.sleep(0.1)  # intentional-sleep: window for a wrongly scheduled delivery
     assert await outbox_rows() == []
 
 

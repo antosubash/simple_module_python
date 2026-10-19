@@ -12,6 +12,15 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Changed
+- `RequiresPermission` raises `simple_module_core.permission_denied.PermissionDenied`
+  (an `HTTPException` carrying `.permission`); the 403 handler reads the
+  attribute instead of parsing the message (#518). `PERMISSION_DENIED_PREFIX`
+  stays importable.
+- Settings cross-field validators (background_tasks, file_storage, site_lock,
+  users, keycloak) name their related fields, so lenient hydration drops only
+  the stored culprit instead of resetting the whole module (#558).
+- The tenancy scope walk is about 2× cheaper for statements that pass through
+  unchanged (get 26→15 µs, pagination count 83→44 µs) (#559).
 - **Behaviour change (#494):** a pre-app settings read that fails (connection,
   query, import error) is no longer treated as a fresh install. Outside
   development and testing the host and the Celery worker refuse to boot with
@@ -96,6 +105,14 @@ All notable changes to this project are documented in this file. The format is b
   previously served, and anonymous, in production.
 
 ### Added
+- `TenantDeleted` event and `TenantService.delete_tenant` (#491). No endpoint
+  yet: what deleting a tenant means for other modules' rows is still open.
+- `simple_module_test.wait_for` / `wait_for_sync`; `make ci-check-test-sleeps`
+  flags unmarked fixed sleeps in tests (#512).
+- `scripts/check_metadata.py` asserts the ty `extra-paths` and pytest
+  `testpaths` lists match the packages on disk, in `make lint` and CI (#520).
+- Tests for the api_tokens, feature_flags and background_tasks pages,
+  `tenants/shared_props.py` and `file_storage/upload_guards.py` (#514).
 - `PATCH /api/users/admin/{id}/unlock` lifts a login lockout early (audited).
   `UserListItem` carries `locked_until`; the users list shows a "locked" badge
   and the edit page a "Locked until" row with an Unlock action (#530).
@@ -368,6 +385,10 @@ All notable changes to this project are documented in this file. The format is b
   *complete* verdict now keeps answering while one refresh runs.
 
 ### Security
+- An ORM select that reads a raw `Model.__table__` (or an `aliased()` entity's
+  table) only in its WHERE clause now gets the tenant filter, and strict mode
+  refuses it without a tenant; such a select could read another tenant's link
+  rows (#559, extends #506).
 - Tenant and soft-delete filters now cover Core statements that used to leak
   other tenants' or deleted rows (#506): outer and FULL joins over
   `Model.__table__`, table aliases, subqueries, CTEs, scalar/correlated

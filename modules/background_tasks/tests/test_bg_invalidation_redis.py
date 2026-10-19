@@ -22,6 +22,7 @@ import os
 import pytest
 from background_tasks.invalidation import RedisInvalidationTransport
 from simple_module_core.invalidation import Invalidation, InvalidationBus
+from simple_module_test import wait_for
 
 # Per process: under pytest-xdist every worker shares one Redis (CI points them
 # all at a single service container), and pub/sub has no isolation but the
@@ -38,11 +39,7 @@ async def _await_delivery(seen: list[Invalidation], count: int = 1) -> None:
     sub-millisecond in practice but a loaded CI runner is not, and a sleep long
     enough to be safe there would be a second added to every run.
     """
-    deadline = asyncio.get_running_loop().time() + _DELIVERY_TIMEOUT_SECONDS
-    while len(seen) < count:
-        if asyncio.get_running_loop().time() > deadline:
-            raise AssertionError(f"delivered {len(seen)} of {count} messages before timing out")
-        await asyncio.sleep(0.01)
+    await wait_for(lambda: len(seen) >= count, timeout=_DELIVERY_TIMEOUT_SECONDS)
 
 
 async def _subscribed(bus: InvalidationBus, url: str, channel: str = _CHANNEL):
@@ -62,15 +59,17 @@ async def _subscribed(bus: InvalidationBus, url: str, channel: str = _CHANNEL):
 
     probe = aioredis.from_url(url)
     try:
-        deadline = asyncio.get_running_loop().time() + _DELIVERY_TIMEOUT_SECONDS
-        while True:
+
+        async def subscribed() -> bool:
             counts = await probe.pubsub_numsub(channel)
-            if counts and counts[0][1] >= 1:
-                return transport
-            if asyncio.get_running_loop().time() > deadline:
-                await transport.stop()
-                raise AssertionError(f"listener never subscribed to {channel!r}")
-            await asyncio.sleep(0.01)
+            return bool(counts and counts[0][1] >= 1)
+
+        try:
+            await wait_for(subscribed, timeout=_DELIVERY_TIMEOUT_SECONDS)
+        except AssertionError:
+            await transport.stop()
+            raise
+        return transport
     finally:
         await probe.aclose()
 
@@ -118,9 +117,7 @@ class TestRealRoundTrip:
         client = aioredis.from_url(redis_server)
         try:
             await client.publish(_CHANNEL, Invalidation(channel=_CHANNEL, key="k").to_wire())
-            deadline = asyncio.get_running_loop().time() + _DELIVERY_TIMEOUT_SECONDS
-            while not raw and asyncio.get_running_loop().time() < deadline:
-                await asyncio.sleep(0.01)
+            await wait_for(lambda: bool(raw), timeout=_DELIVERY_TIMEOUT_SECONDS)
         finally:
             await client.aclose()
             await listener.stop()
@@ -147,14 +144,27 @@ class TestOriginFilterAcrossTheWire:
         bus.set_transport(transport)
         try:
             await bus.publish(_CHANNEL, key="once")
-            # Give the echo time to arrive and be rejected. There is no
-            # positive signal for "a message was correctly ignored", so this
-            # waits out the delivery window instead of polling for one.
-            await asyncio.sleep(0.3)
+            # There is no positive signal for "a message was correctly
+            # ignored", so follow it with a sentinel from another origin.
+            # Pub/sub preserves order, so once the sentinel is applied the echo
+            # ahead of it has been seen and rejected.
+            import redis.asyncio as aioredis
+
+            client = aioredis.from_url(redis_server)
+            try:
+                wire = Invalidation(channel=_CHANNEL, key="sentinel", origin="elsewhere").to_wire()
+                await client.publish(_CHANNEL, wire)
+            finally:
+                await client.aclose()
+            await wait_for(
+                lambda: any(i.key == "sentinel" for i in seen), timeout=_DELIVERY_TIMEOUT_SECONDS
+            )
         finally:
             await transport.stop()
 
-        assert len(seen) == 1, "the publisher applied its own echo a second time"
+        assert [i.key for i in seen] == ["once", "sentinel"], (
+            "the publisher applied its own echo a second time"
+        )
 
     async def test_a_second_worker_does_apply_it(self, redis_server):
         """The same message, to a bus that did not publish it — must apply."""
@@ -199,12 +209,16 @@ class TestChannelIsolation:
         try:
             wire = Invalidation(channel=_CHANNEL, key="k", origin="elsewhere").to_wire()
             await client.publish("app-two.invalidation", wire)
-            await asyncio.sleep(0.3)
+            # Ordered after the foreign-channel message: once the sentinel on
+            # our own channel lands, the other app's message would have too.
+            sentinel = Invalidation(channel=_CHANNEL, key="sentinel", origin="elsewhere").to_wire()
+            await client.publish("app-one.invalidation", sentinel)
+            await wait_for(lambda: bool(seen), timeout=_DELIVERY_TIMEOUT_SECONDS)
         finally:
             await client.aclose()
             await transport.stop()
 
-        assert seen == []
+        assert [i.key for i in seen] == ["sentinel"]
 
 
 class TestTeardown:
@@ -224,14 +238,12 @@ class TestTeardown:
 
         probe = aioredis.from_url(redis_server)
         try:
-            deadline = asyncio.get_running_loop().time() + _DELIVERY_TIMEOUT_SECONDS
-            while True:
+
+            async def released() -> bool:
                 counts = await probe.pubsub_numsub(_CHANNEL)
-                if not counts or counts[0][1] == 0:
-                    break
-                if asyncio.get_running_loop().time() > deadline:
-                    raise AssertionError("the subscription outlived stop()")
-                await asyncio.sleep(0.05)
+                return not counts or counts[0][1] == 0
+
+            await wait_for(released, timeout=_DELIVERY_TIMEOUT_SECONDS)
         finally:
             await probe.aclose()
 

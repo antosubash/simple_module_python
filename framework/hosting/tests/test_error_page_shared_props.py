@@ -16,7 +16,8 @@ import re
 
 import httpx
 import pytest
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
+from simple_module_core.permission_denied import PermissionDenied
 from simple_module_hosting.permissions import RequiresPermission
 
 _NOT_FOUND = 404
@@ -24,6 +25,7 @@ _FORBIDDEN = 403
 _MISSING_PATH = "/definitely/not/a/real/route"
 _GUARDED_PERMISSION = "settings.manage"
 _GUARDED_PATH = "/permission-guard-probe"
+_DENIED_PATH = "/permission-denied-probe"
 
 
 def _without_the_guarded_permission(request: Request) -> None:
@@ -139,7 +141,8 @@ class TestRequiredPermissionProp:
     as its own prop. The guard already puts the name in the exception detail
     ("Permission required: settings.manage"), but that string is a *message*
     for a human, and rendering it verbatim would leak the wording of a Python
-    exception into the UI. Parsing it back out here keeps one source of truth
+    exception into the UI. The handler reads PermissionDenied.permission, keeping
+    one source of truth
     for the permission name and lets the page own the sentence.
     """
 
@@ -169,6 +172,35 @@ class TestRequiredPermissionProp:
         props = _inertia_page((await authenticated_client.get(_MISSING_PATH)).text)["props"]
         assert "required_permission" in props, f"prop missing entirely; props={sorted(props)}"
         assert props["required_permission"] is None
+
+    async def test_page_names_permission_even_when_message_is_reworded(
+        self, app, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        """The permission comes from the exception, not from its text."""
+
+        async def _probe() -> None:
+            raise PermissionDenied("reports.export", "Vous n'avez pas le droit")
+
+        app.add_api_route(_DENIED_PATH, _probe, methods=["GET"])
+        resp = await authenticated_client.get(_DENIED_PATH)
+        assert resp.status_code == 403
+        props = _inertia_page(resp.text)["props"]
+        assert props["required_permission"] == "reports.export"
+        assert props["message"] == "Vous n'avez pas le droit"
+
+        api = await authenticated_client.get(_DENIED_PATH, headers={"Accept": "application/json"})
+        assert api.status_code == 403
+        assert api.json() == {"detail": "Vous n'avez pas le droit"}
+
+    async def test_message_that_merely_looks_like_the_old_prefix_names_nothing(
+        self, app, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        async def _probe() -> None:
+            raise HTTPException(403, "Permission required: sneaky.perm")
+
+        app.add_api_route(_DENIED_PATH + "-plain", _probe, methods=["GET"])
+        resp = await authenticated_client.get(_DENIED_PATH + "-plain")
+        assert _inertia_page(resp.text)["props"]["required_permission"] is None
 
 
 class TestStatusPhraseIsNotAMessage:

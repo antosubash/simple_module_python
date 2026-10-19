@@ -10,6 +10,7 @@ from uuid import uuid4
 import pytest
 from file_storage import constants, thumbnails
 from PIL import Image
+from simple_module_test import wait_for
 
 API = constants.ROUTE_PREFIX_API
 
@@ -183,12 +184,12 @@ async def test_cancelled_waiter_does_not_free_the_decode_slot(monkeypatch):
     await asyncio.get_running_loop().run_in_executor(None, entered.wait, 5)
     first.cancel()  # the client went away
     second = request()  # retry joins the same decode (single flight)
-    await asyncio.sleep(0.05)
+    await asyncio.gather(first, return_exceptions=True)  # the cancellation has fully propagated
     assert thumbnails._slots()._value == constants.THUMBNAIL_MAX_CONCURRENCY - 1
     assert len(calls) == 1
     release.set()
     assert await second == b"webp"
-    await asyncio.sleep(0.05)
+    await wait_for(lambda: thumbnails._slots()._value == constants.THUMBNAIL_MAX_CONCURRENCY)
     assert thumbnails._slots()._value == constants.THUMBNAIL_MAX_CONCURRENCY
     assert not thumbnails._INFLIGHT
 

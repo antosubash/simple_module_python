@@ -30,6 +30,7 @@ from simple_module_test.fake_events import FakeEventBus, RecordedEvent
 from simple_module_test.routes import effective_route_paths
 from simple_module_test.session_cookie import forge_session_cookie
 from simple_module_test.tenant_client import TenantClient
+from simple_module_test.waiting import wait_for, wait_for_sync
 
 __all__ = [
     "FakeEventBus",
@@ -38,4 +39,6 @@ __all__ = [
     "build_test_app",
     "effective_route_paths",
     "forge_session_cookie",
+    "wait_for",
+    "wait_for_sync",
 ]

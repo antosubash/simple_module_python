@@ -6,6 +6,7 @@ import asyncio
 from dataclasses import dataclass
 
 from simple_module_core.events import Event, EventBus
+from simple_module_test import wait_for
 
 
 @dataclass
@@ -107,7 +108,9 @@ class TestEventBusAdvanced:
 
         bus.subscribe(OrderCreated, handler)
         bus.publish_nowait(OrderCreated(order_id=99))
-        await asyncio.sleep(0.05)
+        await wait_for(lambda: len(received) == 1)
+        for _ in range(10):  # let any duplicate delivery land before counting
+            await asyncio.sleep(0)
         assert len(received) == 1
         assert received[0].order_id == 99
 
@@ -161,7 +164,9 @@ class TestEventBusAdvanced:
         order: list[str] = []
 
         async def slow(e):
-            await asyncio.sleep(0.02)
+            await asyncio.sleep(
+                0.02
+            )  # intentional-sleep: "fast" must finish while this is still pending
             order.append("slow")
 
         async def fast(e):

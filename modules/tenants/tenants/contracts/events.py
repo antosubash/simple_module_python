@@ -30,6 +30,20 @@ class TenantStatusChanged(Event):
 
 
 @dataclass
+class TenantDeleted(Event):
+    """The tenant and its memberships/invitations are gone.
+
+    Modules keeping per-tenant state of their own (rows, external
+    subscriptions) clean it up here. Carries the slug and name because the
+    tenant row no longer exists to look them up.
+    """
+
+    tenant_id: str
+    slug: str
+    name: str
+
+
+@dataclass
 class MembershipAdded(Event):
     tenant_id: str
     user_id: str

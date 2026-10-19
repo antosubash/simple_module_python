@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException, Request
+from simple_module_core.permission_denied import PERMISSION_DENIED_PREFIX, PermissionDenied
 from simple_module_core.permissions import DEFAULT_ROLE_PERMISSIONS, WILDCARD, grants
 
 from simple_module_hosting._anonymous import demote_to_anonymous
@@ -20,6 +21,7 @@ __all__ = [
     "DEFAULT_ROLE_PERMISSIONS",
     "PERMISSION_DENIED_PREFIX",
     "WILDCARD",
+    "PermissionDenied",
     "RequiresPermission",
     "apply_scope_cap",
     "ensure_resolved_permissions",
@@ -30,13 +32,6 @@ __all__ = [
     "resolve_request_permissions",
     "resolved_permissions_for",
 ]
-
-# How a denial spells the missing permission in ``HTTPException.detail``.
-# Exported because the error-page handler parses the name back out of it to
-# tell the visitor what to ask an admin for; two copies of this literal in two
-# files is exactly the drift that would leave the 403 page with no permission
-# to name and no test to notice.
-PERMISSION_DENIED_PREFIX = "Permission required: "
 
 
 def resolve_permissions(
@@ -259,7 +254,4 @@ class RequiresPermission:
         if getattr(request.state, "user", None) is None:  # demoted while resolving
             raise HTTPException(status_code=401, detail="Authentication required")
         if not grants(permissions, self.permission):
-            raise HTTPException(
-                status_code=403,
-                detail=f"{PERMISSION_DENIED_PREFIX}{self.permission}",
-            )
+            raise PermissionDenied(self.permission)

@@ -34,7 +34,7 @@ class SwallowPing(Event):
 async def test_a_swallowed_cancellation_is_a_timed_out_attempt(app, outbox_rows, effect_names):
     async def handler(event: SwallowPing, ctx: DurableContext) -> None:
         with contextlib.suppress(asyncio.CancelledError):  # wrong, but it happens
-            await asyncio.sleep(5)
+            await asyncio.sleep(5)  # intentional-sleep: hangs until the handler timeout cancels it
         ctx.db.add(TaskExecution(task_name="effect:late", status=TaskStatus.SUCCESS))
 
     app.state.sm.event_bus.subscribe_durable(SwallowPing, handler, name="swallow")

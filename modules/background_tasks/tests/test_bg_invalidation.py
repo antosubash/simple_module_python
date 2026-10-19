@@ -48,7 +48,7 @@ class _FakePubSub:
         """
         if self._frames:
             return self._frames.pop(0)
-        await asyncio.sleep(timeout if timeout else 0)
+        await asyncio.sleep(timeout or 0)  # intentional-sleep: fake idle-channel poll interval
         return None
 
     async def aclose(self) -> None:
