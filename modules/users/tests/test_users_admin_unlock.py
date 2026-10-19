@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from _users_app_builders import ALICE, _login, user_row
+from _users_app_builders import ALICE, _client, _login, user_row
 from sqlalchemy import select
 from users.models import User
 
@@ -72,3 +72,29 @@ async def test_unlock_unknown_user_is_404(admin_client) -> None:
 async def test_unlock_requires_manage(user_client, alice) -> None:
     r = await user_client.patch(f"/api/users/admin/{alice.id}/unlock")
     assert r.status_code == 403
+
+
+async def test_password_reset_lifts_the_lock(users_app, admin_client, alice) -> None:
+    """Proving control of the mailbox is the way out of a lockout."""
+    from audit_log.models import AuditEntry
+
+    await _lock_by_failing(users_app)
+    assert (await _login(users_app, "9.9.9.9", ALICE, "UserPass1!")).status_code == 429
+    link = await admin_client.post(f"/api/users/admin/{alice.id}/reset-password-link")
+    token = link.json()["link"].split("token=", 1)[1]
+    async with _client(users_app, "7.7.7.7") as c:
+        reset = await c.post(
+            "/api/users/auth/reset-password", json={"token": token, "password": "NewPass1!x"}
+        )
+    assert reset.status_code == 200, reset.text
+
+    row = await user_row(users_app, ALICE)
+    assert (row.locked_until, row.failed_login_count, row.last_failed_login_at) == (None, 0, None)
+    assert (await _login(users_app, "9.9.9.9", ALICE, "NewPass1!x")).status_code == 204
+
+    async with users_app.state.sm.db.session_factory() as session:
+        stmt = select(AuditEntry).where(
+            AuditEntry.entity_id == str(alice.id), AuditEntry.action == "updated"
+        )
+        changes = [c for e in (await session.execute(stmt)).scalars() for c in e.changes]
+    assert [c["field"] for c in changes].count("locked_until") == 2  # the lock and the unlock

@@ -380,6 +380,15 @@ Admins see a **locked** badge on the users list and a "Locked until" row with an
 
 The account default is 10 rather than 5 because anyone who knows an address could otherwise lock its owner out from any network; the per-source throttle still stops a single source after 5. OAuth, Keycloak and invite-link sign-ins involve no password and are not counted. The stock fastapi-users router (`/api/users/auth-inner/*`) is not mounted.
 
+A successful password reset (`POST /api/users/auth/reset-password`, from the emailed link or an admin's reset link) also lifts the lock and clears the failure count: proving control of the mailbox is the standard way out of a lockout. Like an admin unlock it is an ORM write, so the audit log records it. The per-source throttle keys are left to expire, since they are keyed by an address the reset request does not know.
+
+Trade-offs to know about:
+
+- **Anyone can lock a known address.** The lock holds against the right password, so whoever knows an account's email can keep its owner out of password login for the cooldown, from any network. This is mitigated by the threshold of 10, by the per-source throttle (one source gets 5), by admin unlock, and by password reset now lifting the lock; OAuth/Keycloak sign-in is unaffected.
+- **A dead request still counts.** An attempt takes its slot before the password is checked; if the request dies (client disconnect, worker crash) after taking it and before settling, the slot stays counted until the window passes. If it held the last slot, the account answers `429` until `login_rate_limit_window_seconds` after that attempt — no `locked_until` is written, since only a settled failure writes it.
+- **Without Redis, entries can be evicted.** The in-process store caps its key count and evicts under that pressure, so a flood of distinct usernames can drop an unknown username's lock or a source's throttle early. Account locks live on the row and are unaffected. Set `SM_REDIS_URL` in production.
+- Login values longer than an address can be (254 characters) are hashed before they become store keys, so a large request body cannot park a large key in Redis.
+
 ## Mailer backends
 
 `mailer/` ships two implementations of the `Mailer` protocol:

@@ -26,8 +26,11 @@ All notable changes to this project are documented in this file. The format is b
   Counters live on `users_user` (a migration adds `failed_login_count`,
   `last_failed_login_at` and `locked_until`) and on the host rate-limit store
   (Redis when `SM_REDIS_URL` is set). The per-worker `LoginRateLimiter` is gone.
+  A successful password reset lifts the lock and clears the failure count
+  (audited, like an admin unlock).
 - **Behaviour change (#530):** `POST /api/users/auth/token` now has the same
-  lockout and throttle: 429 while locked; bad credentials are still 401.
+  lockout and throttle: 429 while locked; bad credentials are still 401. Its
+  email lookup is now case-insensitive, matching the session login.
 - **Behaviour change (#530):** the stock fastapi-users auth router is no longer
   mounted, so `/api/users/auth-inner/login` and `/api/users/auth-inner/logout`
   are gone. Use `/api/users/auth/login` and `/api/users/auth/logout`.

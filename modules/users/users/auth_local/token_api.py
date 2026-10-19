@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_db.deps import get_db
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel
 
@@ -71,7 +71,9 @@ async def token_login(
     attempt = login_attempt(request, body.email)
     admission = await admit(db, attempt)
 
-    stmt = select(User).where(User.email == body.email)
+    # Case-insensitive, like ``UserDatabaseWithRoles.get_by_email`` behind the
+    # session login, so ``Alice@X`` reaches the account it is counted against.
+    stmt = select(User).where(func.lower(User.email) == body.email.lower())
     user = (await db.execute(stmt)).scalar_one_or_none()
     if (
         user is None

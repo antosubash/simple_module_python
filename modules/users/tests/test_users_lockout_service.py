@@ -8,6 +8,7 @@ from _users_app_builders import ALICE
 from fastapi import HTTPException
 from simple_module_core.rate_limit import InProcessWindowStore
 from sqlalchemy import select
+from users.auth_local import lockout
 from users.auth_local.lockout import (
     Admission,
     LoginAttempt,
@@ -178,3 +179,24 @@ async def test_lock_write_survives_concurrent_counting(users_db, users_app, alic
         assert await _admit_or_status(other, _attempt(ip="10.0.0.8", store=store, account=3)) == 429
     await record_failure(users_db, last, slot)
     assert (await _row(users_db, alice)).locked_until is not None
+
+
+async def test_lock_landing_after_the_read_reports_the_time_left(users_db, alice) -> None:
+    """The conditional UPDATE misses on a lock another worker wrote after the read."""
+    for i in range(3):
+        await _fail(users_db, _attempt(ip=f"10.0.0.{i}", account=3))  # locked until T0+900
+    mid = _attempt(now=T0 + timedelta(seconds=300), ip="9.9.9.9", account=3)
+    try:
+        await lockout._admit_account(users_db, mid, [None])  # read before the lock landed
+    except HTTPException as exc:
+        assert (exc.status_code, exc.headers) == (429, {"Retry-After": "600"})
+    else:
+        raise AssertionError("a locked row was admitted")
+
+
+def test_overlong_username_is_hashed_in_store_keys() -> None:
+    long_name = _attempt("a" * 300 + "@example.com")
+    assert len(long_name.key_name) == 64
+    assert "a" * 100 not in long_name.ip_key + long_name.account_key + long_name.lock_key
+    assert _attempt("b" * 300).key_name != long_name.key_name
+    assert _attempt(ALICE).key_name == ALICE  # an address-length name is kept as-is

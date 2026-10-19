@@ -28,6 +28,7 @@ exactly one can take the last slot.
 
 from __future__ import annotations
 
+import hashlib
 import math
 import uuid
 from dataclasses import dataclass
@@ -85,8 +86,20 @@ class LoginAttempt:
         return self.settings.login_rate_limit_cooldown_seconds
 
     @property
+    def key_name(self) -> str:
+        """The username as it appears in store keys.
+
+        The body limit is 10 MiB, so an unauthenticated caller could otherwise
+        park a megabyte-long key in Redis per request. Anything longer than an
+        address can be (254) is hashed; it matches no account either way.
+        """
+        if len(self.username) <= 254:
+            return self.username
+        return hashlib.sha256(self.username.encode()).hexdigest()
+
+    @property
     def ip_key(self) -> str:
-        return f"login:ip:{self.ip}:{self.username}"
+        return f"login:ip:{self.ip}:{self.key_name}"
 
     @property
     def ip_spec(self) -> RateSpec:
@@ -95,11 +108,11 @@ class LoginAttempt:
 
     @property
     def account_key(self) -> str:
-        return f"login:acct:{self.username}"
+        return f"login:acct:{self.key_name}"
 
     @property
     def lock_key(self) -> str:
-        return f"login:acct-lock:{self.username}"
+        return f"login:acct-lock:{self.key_name}"
 
     @property
     def lock_spec(self) -> RateSpec:
@@ -156,12 +169,18 @@ async def admit(session: AsyncSession, attempt: LoginAttempt) -> Admission:
     return await _admit_unknown(attempt)
 
 
+def _lock_remaining(locks: list[datetime | None], now: datetime) -> int | None:
+    """Seconds until the latest live lock in *locks* lifts, or ``None`` if none holds."""
+    live = [lock for lock in locks if lock is not None and lock > now]
+    return math.ceil((max(live) - now).total_seconds()) if live else None
+
+
 async def _admit_account(
     session: AsyncSession, attempt: LoginAttempt, locks: list[datetime | None]
 ) -> Admission:
-    live = [lock for lock in locks if lock is not None and lock > attempt.now]
-    if live:
-        raise too_many_attempts(math.ceil((max(live) - attempt.now).total_seconds()))
+    remaining = _lock_remaining(locks, attempt.now)
+    if remaining is not None:
+        raise too_many_attempts(remaining)
     window_start = attempt.now - timedelta(seconds=attempt.settings.login_rate_limit_window_seconds)
     stale = User.last_failed_login_at.is_(None) | (User.last_failed_login_at < window_start)
     stmt = (
@@ -184,7 +203,13 @@ async def _admit_account(
     counted = (await session.execute(stmt)).all()
     await session.commit()
     if not counted:
-        raise too_many_attempts(attempt.cooldown)
+        # Locked by another worker since the read above: report the time left,
+        # as the unknown-username lock does, or ``Retry-After`` would tell the
+        # two apart. Otherwise the last slot is taken and its lock is being
+        # written — the full cooldown, as on the unknown path.
+        stmt = select(User.locked_until).where(_by_username(attempt.username))
+        locks = list((await session.execute(stmt)).scalars().all())
+        raise too_many_attempts(_lock_remaining(locks, attempt.now) or attempt.cooldown)
     return Admission(tuple(row[0] for row in counted), max(row[1] for row in counted))
 
 

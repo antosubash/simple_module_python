@@ -56,16 +56,19 @@ async def test_same_count_same_answer_same_duration(users_app, clock) -> None:
     for i in range(10):
         await both(f"10.0.0.{i}")
         clock.offset += 250 if i < 9 else 0
-    clock.offset += 899  # one second before either lock lifts
+    clock.offset += 337.5  # part-way through the cooldown
+    await both("10.0.1.0")
+    clock.offset += 561.5  # one second before either lock lifts
     await both("10.0.1.1")
     clock.offset += 2
     await both("10.0.1.2")
 
     assert shapes[ALICE] == shapes[GHOST]
     trace = shapes[ALICE]
-    assert [s[0] for s in trace] == [400] * 9 + [429, 429, 400]
+    assert [s[0] for s in trace] == [400] * 9 + [429, 429, 429, 400]
     assert trace[9][2] == "900"  # the tripping attempt
-    assert trace[10][2] == "1"  # same duration on both
+    assert trace[10][2] == "563"  # mid-lock: the time left (ceil), not the full cooldown
+    assert trace[11][2] == "1"  # same duration on both
 
 
 async def test_known_and_unknown_take_the_same_password_path(users_app, monkeypatch) -> None:

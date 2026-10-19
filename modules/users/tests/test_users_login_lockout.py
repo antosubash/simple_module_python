@@ -121,3 +121,29 @@ async def test_auth_inner_login_is_gone(users_app, alice) -> None:
             "/api/users/auth-inner/login", data={"username": ALICE, "password": PASSWORD}
         )
     assert inner.status_code in (404, 405)  # ...the unthrottled stock route does not
+
+
+async def test_token_lookup_ignores_case_like_session_login(users_app, alice) -> None:
+    for email in (ALICE, "Alice@Example.COM"):
+        assert (await _token(users_app, "1.1.1.1", email, PASSWORD)).status_code == 200
+        assert (await _login(users_app, "1.1.1.1", email, PASSWORD)).status_code == 204
+    # A wrong password under either spelling counts against the one account.
+    for email in (ALICE, "ALICE@example.com"):
+        assert (await _token(users_app, "2.2.2.2", email, "wrong")).status_code == 401
+    assert (await user_row(users_app, ALICE)).failed_login_count == 2
+
+
+async def test_token_unknown_user_still_pays_for_a_hash(users_app, alice, monkeypatch) -> None:
+    from fastapi_users.password import PasswordHelper
+
+    calls: list[str] = []
+    real = PasswordHelper.verify_and_update
+
+    def verify(self, plain, hashed):
+        calls.append(hashed)
+        return real(self, plain, hashed)
+
+    monkeypatch.setattr(PasswordHelper, "verify_and_update", verify)
+    r = await _token(users_app, "1.1.1.1", "ghost@example.com", PASSWORD)
+    assert r.status_code == 401
+    assert len(calls) == 1  # the dummy-hash equaliser ran
