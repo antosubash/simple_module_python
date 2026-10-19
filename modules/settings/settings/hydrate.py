@@ -12,9 +12,10 @@ from __future__ import annotations
 import json
 import logging
 import types
-from typing import Any, Union, get_args, get_origin
+from typing import Union, get_args, get_origin
 
 from pydantic import BaseModel, ValidationError
+from pydantic_core import ErrorDetails
 from pydantic_settings import (
     BaseSettings,
     DotEnvSettingsSource,
@@ -186,7 +187,7 @@ def build_settings[T: BaseSettings](
         return cls(**{k: v for k, v in parsed.items() if k not in culprits})
 
 
-def _culprits(error: Any, parsed: dict[str, object]) -> list[str]:
+def _culprits(error: ErrorDetails, parsed: dict[str, object]) -> list[str]:
     """The stored keys to drop so that ``error`` goes away.
 
     The field the error is reported on, when its value came from the DB.

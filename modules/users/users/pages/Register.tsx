@@ -34,6 +34,20 @@ function Register({ require_verification = true }: RegisterProps) {
   const [error, setError] = useState<RegisterError | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Everything that differs between "check your inbox" and "you can sign in now".
+  const copy = require_verification
+    ? {
+        icon: MailCheck,
+        title: keys.users.register.success_title,
+        body: keys.users.register.success_body,
+        bullet: keys.users.register.bullet_verification,
+      }
+    : {
+        icon: UserCheck,
+        title: keys.users.register.success_ready_title,
+        body: keys.users.register.success_ready_body,
+        bullet: keys.users.register.bullet_no_verification,
+      };
 
   const message = (code: RegisterErrorCode) => {
     const r = keys.users.register;
@@ -98,18 +112,10 @@ function Register({ require_verification = true }: RegisterProps) {
       <AuthCardShell>
         <Head title={t(keys.users.register.head_title)} />
         <AuthStateCard
-          icon={require_verification ? MailCheck : UserCheck}
+          icon={copy.icon}
           tone="primary"
-          title={
-            require_verification
-              ? t(keys.users.register.success_title)
-              : t(keys.users.register.success_ready_title)
-          }
-          description={
-            require_verification
-              ? t(keys.users.register.success_body, { email })
-              : t(keys.users.register.success_ready_body, { email })
-          }
+          title={t(copy.title)}
+          description={t(copy.body, { email })}
         >
           <Button asChild className="max-lg:min-h-11">
             <a href={LOGIN_PATH}>{t(keys.users.common.sign_in)}</a>
@@ -125,12 +131,7 @@ function Register({ require_verification = true }: RegisterProps) {
     <AuthIntro
       heading={t(keys.users.register.heading)}
       body={t(keys.users.register.intro)}
-      checks={[
-        require_verification
-          ? t(keys.users.register.bullet_verification)
-          : t(keys.users.register.bullet_no_verification),
-        ...(registrationNote ? [registrationNote] : []),
-      ]}
+      checks={[t(copy.bullet), ...(registrationNote ? [registrationNote] : [])]}
     />
   );
 

@@ -76,8 +76,7 @@ def set_database_url(
     in the web process, instead of landing in ``DEFAULT_TENANT_ID`` where the
     install's own scoped reads never see it.
     """
-    global _url_override, _engine, _session_factory, _tenant_strict, _default_tenant
-    global _engine_pid
+    global _url_override, _tenant_strict, _default_tenant
     default_tenant = None if tenant_strict else (default_tenant or None)
     if (_url_override, _tenant_strict, _default_tenant) == (url, tenant_strict, default_tenant):
         return
@@ -85,18 +84,18 @@ def set_database_url(
     _tenant_strict = tenant_strict
     _default_tenant = default_tenant
     _drop_engine()
-    _engine_pid = None
 
 
 def _drop_engine() -> None:
     """Dispose the cached engine, never touching sockets inherited via fork."""
-    global _engine, _session_factory
+    global _engine, _session_factory, _engine_pid
     if _engine is not None:
         # In a forked child the pooled sockets belong to the parent: close=False
         # forgets them without sending a protocol-level close down the shared fd.
         _engine.dispose(close=_engine_pid == os.getpid())
     _engine = None
     _session_factory = None
+    _engine_pid = None
 
 
 def _resolve_url() -> str:
@@ -159,9 +158,8 @@ def dispose_sync_engine() -> None:
     restarts within one process (test runners, uvicorn dev reload) don't
     accumulate engines against the old DB URL.
     """
-    global _url_override, _tenant_strict, _default_tenant, _engine_pid
+    global _url_override, _tenant_strict, _default_tenant
     _drop_engine()
-    _engine_pid = None
     _url_override = None
     _tenant_strict = False
     _default_tenant = None
