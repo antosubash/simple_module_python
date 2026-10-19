@@ -109,6 +109,8 @@ class TestEventBusAdvanced:
         bus.subscribe(OrderCreated, handler)
         bus.publish_nowait(OrderCreated(order_id=99))
         await wait_for(lambda: len(received) == 1)
+        for _ in range(10):  # let any duplicate delivery land before counting
+            await asyncio.sleep(0)
         assert len(received) == 1
         assert received[0].order_id == 99
 

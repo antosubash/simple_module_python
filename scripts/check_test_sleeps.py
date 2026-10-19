@@ -17,6 +17,7 @@ Usage:
 
 from __future__ import annotations
 
+import ast
 import re
 import subprocess
 import sys
@@ -37,10 +38,43 @@ def is_test_file(path: Path) -> bool:
     return path.name.startswith("test_") or path.name == "conftest.py" or "tests" in path.parts
 
 
-def find_unmarked_sleeps(text: str) -> list[tuple[int, str]]:
-    """Return ``(line_number, stripped_line)`` for each unmarked non-zero sleep."""
+def _is_zero(node: ast.expr) -> bool:
+    return (
+        isinstance(node, ast.Constant)
+        and isinstance(node.value, (int, float))
+        and not isinstance(node.value, bool)
+        and node.value == 0
+    )
+
+
+def _is_sleep_call(node: ast.AST) -> bool:
+    if not isinstance(node, ast.Call):
+        return False
+    func = node.func
+    return (isinstance(func, ast.Name) and func.id == "sleep") or (
+        isinstance(func, ast.Attribute) and func.attr == "sleep"
+    )
+
+
+def _find_by_ast(tree: ast.AST, lines: list[str]) -> list[tuple[int, str]]:
     found: list[tuple[int, str]] = []
-    for number, line in enumerate(text.splitlines(), start=1):
+    for node in ast.walk(tree):
+        if not _is_sleep_call(node):
+            continue
+        assert isinstance(node, ast.Call)
+        if node.args and _is_zero(node.args[0]):
+            continue
+        # A formatter may split the call over several lines; the marker may sit on any.
+        end = node.end_lineno or node.lineno
+        if any(MARKER in line for line in lines[node.lineno - 1 : end]):
+            continue
+        found.append((node.lineno, lines[node.lineno - 1].strip()))
+    return sorted(found)
+
+
+def _find_by_regex(lines: list[str]) -> list[tuple[int, str]]:
+    found: list[tuple[int, str]] = []
+    for number, line in enumerate(lines, start=1):
         if MARKER in line:
             continue
         code = line.split("#", 1)[0]
@@ -49,6 +83,21 @@ def find_unmarked_sleeps(text: str) -> list[tuple[int, str]]:
                 found.append((number, line.strip()))
                 break
     return found
+
+
+def find_unmarked_sleeps(text: str) -> list[tuple[int, str]]:
+    """Return ``(line_number, stripped_line)`` for each unmarked non-zero sleep.
+
+    Parsed with ``ast`` so a call split across lines by the formatter, or a
+    ``#`` inside a string, cannot hide one; a file that does not parse falls
+    back to a per-line regex.
+    """
+    lines = text.splitlines()
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return _find_by_regex(lines)
+    return _find_by_ast(tree, lines)
 
 
 def _list_git_files(root: Path) -> list[Path]:

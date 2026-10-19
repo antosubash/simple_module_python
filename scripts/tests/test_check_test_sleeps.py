@@ -38,3 +38,13 @@ def test_check_reports_only_test_files(tmp_path):
     (tmp_path / "service.py").write_text("time.sleep(2)\n")
     found = check(tmp_path, [Path("tests/test_a.py"), Path("service.py")])
     assert [(p.as_posix(), n) for p, n, _ in found] == [("tests/test_a.py", 1)]
+
+
+def test_flags_sleep_split_across_lines_and_after_a_hash_in_a_string():
+    src = "await asyncio.sleep(\n    0.5\n)\nx = '#'; time.sleep(2)\n"
+    assert [n for n, _ in find_unmarked_sleeps(src)] == [1, 4]
+
+
+def test_marker_on_any_line_of_a_split_call_allows_it():
+    src = "await asyncio.sleep(\n    0.5\n)  # intentional-sleep: simulated slow work\n"
+    assert find_unmarked_sleeps(src) == []

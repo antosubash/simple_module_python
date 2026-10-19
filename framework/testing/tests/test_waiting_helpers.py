@@ -70,3 +70,19 @@ def test_sync_returns_and_polls():
 def test_sync_timeout():
     with pytest.raises(AssertionError, match=r"last value: \[\]"):
         wait_for_sync(list, timeout=0.05, interval=0.005)
+
+
+async def test_hung_async_predicate_times_out():
+    async def hangs():
+        await asyncio.sleep(30)  # intentional-sleep: never returns on its own
+
+    with pytest.raises(AssertionError, match="not satisfied"):
+        await wait_for(hangs, timeout=0.05, interval=0.005)
+
+
+def test_sync_rejects_an_async_predicate():
+    async def pred():
+        return True
+
+    with pytest.raises(TypeError, match="sync predicate"):
+        wait_for_sync(pred)

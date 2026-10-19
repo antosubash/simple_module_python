@@ -43,7 +43,7 @@ async def wait_for(
     while True:
         value, error = _poll_once(predicate)
         if inspect.isawaitable(value):
-            value, error = await _settle(value)
+            value, error = await _settle(value, max(deadline - time.monotonic(), 0.001))
         if value:
             return value
         if time.monotonic() >= deadline:
@@ -51,10 +51,14 @@ async def wait_for(
         await asyncio.sleep(interval)
 
 
-async def _settle(awaitable: Awaitable[Any]) -> tuple[Any, BaseException | None]:
-    """Await an async predicate's result, with :func:`_poll_once`'s contract."""
+async def _settle(awaitable: Awaitable[Any], budget: float) -> tuple[Any, BaseException | None]:
+    """Await an async predicate's result, with :func:`_poll_once`'s contract.
+
+    ``budget`` bounds the await, so a predicate that hangs fails the wait at its
+    timeout instead of blocking the test forever.
+    """
     try:
-        return await awaitable, None
+        return await asyncio.wait_for(awaitable, budget), None
     except Exception as exc:
         return None, exc
 
@@ -68,6 +72,10 @@ def wait_for_sync(
     deadline = time.monotonic() + timeout
     while True:
         value, error = _poll_once(predicate)
+        if inspect.isawaitable(value):
+            if inspect.iscoroutine(value):
+                value.close()  # never awaited: avoid the RuntimeWarning
+            raise TypeError("wait_for_sync takes a sync predicate; use wait_for for async ones")
         if value:
             return value
         if time.monotonic() >= deadline:

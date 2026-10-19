@@ -146,7 +146,7 @@ class TenantService:
 
     async def delete_tenant(self, tenant_id: str) -> None:
         tenant = await self.lock(tenant_id)
-        self._after_commit(await delete_tenant_rows(self.db, tenant), invalidate=[None])
+        self._after_commit(*await delete_tenant_rows(self.db, tenant), invalidate=[None])
 
     async def list_all(self, *, search: str = "", limit: int = 50, offset: int = 0) -> list[Tenant]:
         stmt = select(Tenant).order_by(Tenant.created_at.desc()).limit(limit).offset(offset)
