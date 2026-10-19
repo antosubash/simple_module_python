@@ -85,8 +85,12 @@ class FileStorageSettings(DbBackedSettings):
     # only for installs that have said what 5 GB means to them. Left unset,
     # the screen reports usage without inventing a ceiling, and uploads are
     # bounded by ``max_file_size_bytes`` alone as before.
+    # Positive, and no larger than a browser can hold exactly: the screen and
+    # the settings editor read it as a JavaScript number (#548).
     quota_bytes: int | None = Field(
         default=None,
+        gt=0,
+        le=constants.MAX_JS_SAFE_INTEGER,
         description="Total storage the browse screen measures usage against. None = unmeasured.",
     )
 

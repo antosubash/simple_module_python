@@ -31,6 +31,22 @@ SERVICE_KEY_PREFIX = "smsk_"
 API_TOKEN_PREFIXES: tuple[str, ...] = (PAT_PREFIX, SERVICE_KEY_PREFIX)
 
 
+def parse_bearer(header: str | None) -> str | None:
+    """The credential of an ``Authorization: Bearer <credential>`` header, else None.
+
+    The auth scheme is case-insensitive (RFC 9110 §11.1): clients that build
+    the header from ``/auth/token``'s ``token_type`` send ``bearer``, and must
+    authenticate exactly like ``Bearer``. Surrounding and separating whitespace
+    is tolerated; a header with no credential, or a different scheme, is None.
+    """
+    if not header:
+        return None
+    parts = header.split(None, 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+    return parts[1].strip() or None
+
+
 def is_api_token(credential: str) -> bool:
     """Whether a bearer value is an ``api_tokens`` credential (by prefix only)."""
     return credential.startswith(API_TOKEN_PREFIXES)
@@ -45,4 +61,5 @@ __all__ = [
     "PAT_PREFIX",
     "SERVICE_KEY_PREFIX",
     "is_api_token",
+    "parse_bearer",
 ]

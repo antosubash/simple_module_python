@@ -101,7 +101,7 @@ class TestTokenLogin:
         )
         assert resp.status_code == 200
         body = resp.json()
-        assert body["token_type"] == "bearer"
+        assert body["token_type"] == "Bearer"
         assert body["access_token"]
         assert body["refresh_token"]
         assert body["expires_in"] > 0

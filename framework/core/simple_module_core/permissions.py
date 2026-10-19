@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Awaitable, Callable, Collection, Iterable
 from dataclasses import dataclass, field
 from typing import Any
@@ -95,7 +96,11 @@ class PermissionRegistry:
     every mutation.
     """
 
-    def __init__(self) -> None:
+    #: Seconds a failed source is answered as empty before it is called again.
+    SOURCE_RETRY_SECONDS = 30.0
+
+    def __init__(self, *, clock: Callable[[], float] = time.monotonic) -> None:
+        self._clock = clock
         self._groups: dict[str, PermissionGroup] = {}
         self._role_map: dict[str, set[str]] = {}
         # Admin-editor grants (DB-backed). Kept apart from ``_role_map`` (code
@@ -106,6 +111,8 @@ class PermissionRegistry:
         self._grant_sources: list[GrantSource] = []
         self._sources: dict[str, PermissionSourceProvider] = {}
         self._source_cache: dict[str, tuple[list[str], dict[str, str]]] = {}
+        self._source_failed_at: dict[str, float] = {}  # name → clock() of last failure
+        self._all_permissions_expires: float | None = None
 
     def _invalidate(self) -> None:
         self._all_permissions_cache = None
@@ -120,21 +127,28 @@ class PermissionRegistry:
         is **sync** and should read a module-maintained in-memory cache — the
         registry is consulted on every request. Its output is cached here until
         :meth:`invalidate_source` is called. A provider that raises is logged
-        and contributes nothing.
+        once and contributes nothing for ``SOURCE_RETRY_SECONDS``, then is
+        retried — a transient failure recovers on its own (GH #517).
         """
         self._sources[name] = provider
         self._source_cache.pop(name, None)
+        self._source_failed_at.pop(name, None)
         self._invalidate()
 
     def invalidate_source(self, name: str) -> None:
-        """Drop the cached output of source *name*; re-read on next access."""
+        """Drop the cached output (or failure) of source *name*; re-read on next access."""
         self._source_cache.pop(name, None)
+        self._source_failed_at.pop(name, None)
         self._invalidate()
 
     def _source_output(self, name: str) -> tuple[list[str], dict[str, str]]:
         cached = self._source_cache.get(name)
         if cached is not None:
             return cached
+        failed_at = self._source_failed_at.get(name)
+        if failed_at is not None and self._clock() - failed_at < self.SOURCE_RETRY_SECONDS:
+            # In the retry window: empty, uncalled, no traceback per request.
+            return [], {}
         keys: list[str] = []
         labels: dict[str, str] = {}
         try:
@@ -146,8 +160,12 @@ class PermissionRegistry:
                     keys.append(key)
                     labels[key] = label
         except Exception:
-            logger.exception("Permission source %r failed; contributing nothing", name)
-            keys, labels = [], {}
+            logger.exception("Permission source %r failed; contributing nothing until retry", name)
+            # Remembered for the retry window only: a transient failure must
+            # not hide the source until someone invalidates it.
+            self._source_failed_at[name] = self._clock()
+            return [], {}
+        self._source_failed_at.pop(name, None)
         out = (sorted(set(keys)), labels)
         self._source_cache[name] = out
         return out
@@ -176,11 +194,18 @@ class PermissionRegistry:
     @property
     def all_permissions(self) -> list[str]:
         """All registered permission strings, sorted."""
-        if self._all_permissions_cache is None:
+        expires = self._all_permissions_expires
+        if self._all_permissions_cache is None or (expires and self._clock() >= expires):
             perms: set[str] = set()
             for group in self.groups:
                 perms.update(group.permissions)
             self._all_permissions_cache = sorted(perms)
+            # A snapshot taken while a source is failing lives only until that
+            # source's retry, so a recovery shows up without an invalidation.
+            failed = self._source_failed_at.values()
+            self._all_permissions_expires = (
+                min(failed) + self.SOURCE_RETRY_SECONDS if failed else None
+            )
         return self._all_permissions_cache
 
     @property

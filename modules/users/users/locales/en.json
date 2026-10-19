@@ -315,6 +315,8 @@
     "have_account": "Already have an account?",
     "success_title": "Check your inbox",
     "success_body": "We've sent a verification link to {email}.",
+    "success_ready_title": "Account created",
+    "success_ready_body": "Your account for {email} is ready. Sign in to continue.",
     "error_exists": "An account with this email already exists.",
     "error_password_length": "Password must be at least 8 characters, not counting spaces.",
     "error_password_contains_email": "Password cannot contain your email.",
@@ -324,6 +326,7 @@
     "error_failed": "Registration failed. Please try again.",
     "intro": "Open registration is on for this instance. New accounts get the standard user role; an admin can grant more.",
     "bullet_verification": "Email verification is required before first sign-in",
+    "bullet_no_verification": "You can sign in as soon as your account is created",
     "bullet_close": "Registration may be closed by an administrator",
     "name_placeholder": "Optional"
   },

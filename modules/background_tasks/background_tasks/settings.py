@@ -41,7 +41,9 @@ import os
 from typing import Any
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
+from pydantic_core import PydanticCustomError
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from settings.hydrate import RELATED_FIELDS_CTX
 
 from background_tasks.config_guards import parse_task_routes
 from background_tasks.constants import (
@@ -238,6 +240,26 @@ class BackgroundTasksSettings(BaseSettings):
     outbox_handler_timeout_seconds: int | None = Field(
         default=None, ge=1, description="Seconds a durable handler may run per attempt."
     )
+
+    @field_validator("task_time_limit")
+    @classmethod
+    def _soft_limit_below_hard(cls, hard: int | None, info: ValidationInfo) -> int | None:
+        """A soft limit at or above the hard one can never fire (#548).
+
+        Attached to the later-declared hard limit so the error carries that
+        field's ``loc`` and the settings form shows it under the field. It names
+        the soft limit as related so boot hydration can drop a stored soft limit
+        when the hard one is pinned by env.
+        """
+        soft = info.data.get("task_soft_time_limit")
+        if hard is not None and soft is not None and soft >= hard:
+            raise PydanticCustomError(
+                "time_limit_order",
+                "task_time_limit ({hard}) must be greater than task_soft_time_limit ({soft}); "
+                "otherwise the soft limit can never fire",
+                {"hard": hard, "soft": soft, RELATED_FIELDS_CTX: ["task_soft_time_limit"]},
+            )
+        return hard
 
     @field_validator("outbox_handler_timeout_seconds")
     @classmethod

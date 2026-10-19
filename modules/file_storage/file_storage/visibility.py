@@ -30,7 +30,9 @@ class FileStoragePublic:
 
     if TYPE_CHECKING:
 
-        async def get(self, file_id: uuid.UUID, *, platform: bool = False) -> StoredFile: ...
+        async def get(
+            self, file_id: uuid.UUID, *, platform: bool = False, owner: str | None = None
+        ) -> StoredFile: ...
 
     async def get_public(self, file_id: uuid.UUID) -> StoredFile:
         """A ``public`` file by id, whichever tenant owns it; anything else misses.
@@ -54,9 +56,11 @@ class FileStoragePublic:
             raise StoredFileNotFoundError(str(file_id))
         return row
 
-    async def set_public(self, file_id: uuid.UUID, public: bool) -> StoredFile:
-        """Publish or unpublish one of the bound tenant's files."""
-        row = await self.get(file_id)
+    async def set_public(
+        self, file_id: uuid.UUID, public: bool, *, owner: str | None = None
+    ) -> StoredFile:
+        """Publish or unpublish one of the bound tenant's files (``owner``'s, if given)."""
+        row = await self.get(file_id, owner=owner)
         row.public = public
         await self.db.flush()
         await self.db.refresh(row)

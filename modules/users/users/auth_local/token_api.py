@@ -39,7 +39,7 @@ class TokenResponse(SQLModel):
 
     access_token: str
     refresh_token: str
-    token_type: str = "bearer"
+    token_type: str = "Bearer"
     expires_in: int
 
 
@@ -90,6 +90,10 @@ async def token_login(
         await db.flush()
 
     settings = request.app.state.users.settings
+    if not user.is_verified and settings.require_verification:
+        # Same rule as the session login: a self-registered account that never
+        # proved its address must not mint bearer tokens either (#547).
+        raise HTTPException(status_code=400, detail="LOGIN_USER_NOT_VERIFIED")
     return await _create_token_pair(db, user.id, settings, user.session_version)
 
 
@@ -189,6 +193,6 @@ async def _create_token_pair(
     return TokenResponse(
         access_token=access_token.token,
         refresh_token=str(refresh.token),
-        token_type="bearer",
+        token_type="Bearer",
         expires_in=settings.bearer_token_lifetime_seconds,
     )

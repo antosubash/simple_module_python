@@ -125,8 +125,10 @@ async def login(
         limiter.record_failure(key)
         raise HTTPException(status_code=400, detail="LOGIN_BAD_CREDENTIALS")
 
-    if not user.is_verified:
-        # Match fastapi-users' own behavior when requires_verification=True
+    if not user.is_verified and request.app.state.users.settings.require_verification:
+        # Match fastapi-users' own behavior when requires_verification=True.
+        # With the setting off nobody is asked to verify (#547) — including
+        # accounts that signed up while it was on.
         raise HTTPException(status_code=400, detail="LOGIN_USER_NOT_VERIFIED")
 
     limiter.reset(key)

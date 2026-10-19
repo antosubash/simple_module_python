@@ -153,15 +153,19 @@ class FileStorageService(FileStoragePublic, FileStorageReads):
         if allowed is not None and content_type not in allowed:
             raise ContentTypeNotAllowedError(f"Content-Type {content_type!r} not in allow-list.")
 
-    async def get(self, file_id: uuid.UUID, *, platform: bool = False) -> StoredFile:
+    async def get(
+        self, file_id: uuid.UUID, *, platform: bool = False, owner: str | None = None
+    ) -> StoredFile:
         """The bound tenant's file, or with ``platform=True`` a platform file.
 
         Another tenant's id misses exactly like an unknown one. ``platform``
         needs no tenant bound (anonymous branding requests have none) and only
         ever matches a platform-owned row, so a tenant's file id handed to a
         platform caller — say, pasted into a branding setting — still misses.
+        ``owner`` (``deps.get_owner_scope``) narrows it to one uploader's rows
+        the same way: someone else's file misses like an unknown id (#544).
         """
-        stmt = select(StoredFile).where(StoredFile.id == file_id)
+        stmt = queries.owned_by(select(StoredFile).where(StoredFile.id == file_id), owner)
         if platform:
             stmt = stmt.where(StoredFile.tenant_id == PLATFORM_TENANT_ID)
         async with platform_scope(self.db, platform):
@@ -171,7 +175,12 @@ class FileStorageService(FileStoragePublic, FileStorageReads):
         return row
 
     async def download(
-        self, file_id: uuid.UUID, *, platform: bool = False, open_body: bool = True
+        self,
+        file_id: uuid.UUID,
+        *,
+        platform: bool = False,
+        open_body: bool = True,
+        owner: str | None = None,
     ) -> Download:
         """Return either a streamed body or a redirect URL.
 
@@ -179,7 +188,7 @@ class FileStorageService(FileStoragePublic, FileStorageReads):
         provider-agnostic — adding a new backend that supports presigning
         works without touching this method.
         """
-        row = await self.get(file_id, platform=platform)
+        row = await self.get(file_id, platform=platform, owner=owner)
         if self.backend.supports_presigned_url:
             url = await presigned_download_url(
                 self.backend, row, self.settings.s3_presign_ttl_seconds, attachment=True
@@ -190,7 +199,9 @@ class FileStorageService(FileStoragePublic, FileStorageReads):
 
     # ── Delete ───────────────────────────────────────────────────────
 
-    async def delete_many(self, file_ids: Sequence[uuid.UUID]) -> list[StoredFile]:
+    async def delete_many(
+        self, file_ids: Sequence[uuid.UUID], *, owner: str | None = None
+    ) -> list[StoredFile]:
         """Soft-delete every id that still resolves, returning the rows removed.
 
         Ids that no longer resolve are skipped rather than raising: two admins
@@ -200,11 +211,8 @@ class FileStorageService(FileStoragePublic, FileStorageReads):
         """
         if not file_ids:
             return []
-        rows = list(
-            (await self.db.execute(select(StoredFile).where(StoredFile.id.in_(list(file_ids)))))
-            .scalars()
-            .all()
-        )
+        stmt = queries.owned_by(select(StoredFile).where(StoredFile.id.in_(list(file_ids))), owner)
+        rows = list((await self.db.execute(stmt)).scalars().all())
         if not rows:
             return []
 
@@ -240,7 +248,12 @@ class FileStorageService(FileStoragePublic, FileStorageReads):
         return rows
 
     async def delete(
-        self, file_id: uuid.UUID, *, platform: bool = False, drop_object: bool = True
+        self,
+        file_id: uuid.UUID,
+        *,
+        platform: bool = False,
+        drop_object: bool = True,
+        owner: str | None = None,
     ) -> StoredFile:
         """Soft-delete the row and (by default) drop the backend object.
 
@@ -251,7 +264,7 @@ class FileStorageService(FileStoragePublic, FileStorageReads):
         # One scope around read + write: its opening flush runs before the
         # platform row is touched, so the guard never sees that change.
         async with platform_scope(self.db, platform):
-            row = await self.get(file_id, platform=platform)
+            row = await self.get(file_id, platform=platform, owner=owner)
             # Soft-delete in DB first; if the backend delete fails afterwards we
             # still have a row marked deleted that can be reaped by a janitor.
             row.is_deleted = True
