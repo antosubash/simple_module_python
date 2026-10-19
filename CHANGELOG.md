@@ -12,6 +12,24 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Changed
+- **Behaviour change (#543):** with `allow_signup` off, an OAuth sign-in no
+  longer creates an account. It answers 403 `OAUTH_SIGNUP_DISABLED` unless the
+  identity is already linked or its email matches an existing account, which
+  still link and sign in.
+- **Behaviour change (#547):** `users.require_verification` is honoured. With
+  it off, a self-registered user is verified on registration, no verification
+  email is sent, and the register page says so. Accounts registered while it
+  was on stay unverified.
+- **Behaviour change (#544):** `file_storage` callers without
+  `file_storage.manage` (granted to admins and to `tenant:admin`/`tenant:owner`)
+  see, download, change and delete only files they uploaded; anyone else's
+  file is a 404. Files with no recorded uploader are visible to managers only.
+- **Behaviour change (#545):** `file_storage` serves a stored type inline only
+  from an allow-list (raster images, PDF, JSON/GeoJSON, plain text, CSV, opaque
+  binaries, audio/video/font). Everything else, any `*+xml` and any malformed
+  value included, is a sandboxed attachment.
+- `POST /api/users/auth/token` returns `token_type="Bearer"`, and every bearer
+  resolver (users, keycloak, api_tokens) accepts the scheme in any case (#533).
 - **Behaviour change (#486):** for settings classes that read the environment
   (today `background_tasks`, `SM_BG_TASKS_*`), an env var now beats a value
   stored from the admin UI, and `SM_REDIS_URL` beats a stored broker/result
@@ -312,6 +330,13 @@ All notable changes to this project are documented in this file. The format is b
   `tenants` resolver it selects among the user's own memberships.
 
 ### Fixed
+- A runtime permission source that raises is no longer cached as empty until
+  invalidated; the next read retries it (#517).
+- `background_tasks`: a prefork Celery child no longer reuses the sync engine
+  (and Postgres connections) built in the parent (#532).
+- Settings validation: `file_storage.quota_bytes` must be positive (and at most
+  2^53-1), and `background_tasks.task_time_limit` must exceed
+  `task_soft_time_limit` when both are set (#548).
 - Settings editor: list/dict fields are edited and stored as JSON, and
   `X | None` fields as their real type with empty meaning unset (#487).
   Secrets inside such fields are stored intact, and any field declared with
