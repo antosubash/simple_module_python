@@ -54,7 +54,9 @@ def test_returns_empty_when_table_missing(tmp_path: Path) -> None:
 
 
 def test_returns_empty_when_db_unreachable() -> None:
-    """A wrong host must not fail the boot — the wizard reports it instead."""
+    """Non-strict (development, tooling): a wrong host falls back to defaults.
+    Outside development ``merge_host_settings`` refuses instead — see
+    ``test_preapp_read_failures.py`` (#494)."""
     url = "postgresql+asyncpg://nobody:nobody@127.0.0.1:1/nothing"
     assert load_host_overrides(url) == {}
 

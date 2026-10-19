@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
+from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.exceptions import NotFoundError
 from simple_module_db import CommitBeforeResponseMiddleware
 from simple_module_inertia import (
@@ -98,6 +99,17 @@ def build_csp(settings: Settings, csp_registry: CspSourceRegistry) -> str:
     return csp_registry.extend_policy(base)
 
 
+def session_cookie_is_secure(settings: Settings) -> bool:
+    """Whether the session cookie carries ``Secure`` (#495).
+
+    ``session_cookie_secure`` wins when set; unset, the cookie is ``Secure``
+    everywhere but the non-prod environments, which run over plain HTTP.
+    """
+    if settings.session_cookie_secure is not None:
+        return settings.session_cookie_secure
+    return settings.environment not in NON_PROD_ENVIRONMENTS
+
+
 def install_middleware(
     app: FastAPI,
     settings: Settings,
@@ -167,7 +179,11 @@ def install_middleware(
         app.add_middleware(TenantMiddleware, fixed=settings.default_tenant)
     for mod in modules:
         mod.register_middleware(app)
-    app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.secret_key,
+        https_only=session_cookie_is_secure(settings),
+    )
     # In dev, relax CSP so the browser can fetch @vite/client, main.tsx, and
     # the HMR WebSocket from the Vite origin (build_csp picks the variant).
     # HSTS is suppressed in dev because it runs over plain HTTP on loopback.

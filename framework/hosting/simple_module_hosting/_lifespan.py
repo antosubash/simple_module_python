@@ -50,7 +50,7 @@ async def hydrate_settings_from_db(app: FastAPI) -> None:
     store_cls = importlib.import_module("settings.store").SettingsStore
 
     async with app.state.sm.db.session_factory() as session:
-        await hydrate_all(app, store_cls(service_cls(session)))
+        await hydrate_all(app, store_cls(service_cls(session)), session)
 
 
 async def _is_first_run(app: FastAPI) -> bool:
@@ -85,8 +85,13 @@ async def _is_first_run(app: FastAPI) -> bool:
     administrator check is a query against a table migrations create — so it
     raises too, and swallowing that would make every step but the schema
     look satisfied, exactly the "is setup complete" trap this function
-    exists to avoid. Here, a required step raising while the schema is
-    behind counts as pending: it is itself evidence the install is new.
+    exists to avoid. A required step raising counts as pending only with
+    positive evidence the install is new: the database has never been
+    migrated at all (no ``alembic_version``). On a database with migration
+    history the same exception is far more likely a transient error on an
+    established install, and treating that as first run would serve the
+    unauthenticated migration endpoint on a live system — so boot fails
+    instead, with the "behind head" error.
     """
     registry = getattr(app.state.sm, "setup_registry", None)
     if not registry:
@@ -97,7 +102,16 @@ async def _is_first_run(app: FastAPI) -> bool:
         try:
             done = await step.is_complete(app)
         except Exception:
-            return True
+            migration = getattr(app.state, "migration", None) or {}
+            never_migrated = migration.get("current_revision") is None
+            if not never_migrated:
+                logger.warning(
+                    "Setup step %s failed on a database with migration history; "
+                    "not treating this install as new",
+                    step.id,
+                    exc_info=True,
+                )
+            return never_migrated
         if not done:
             return True
     return False
