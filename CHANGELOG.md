@@ -336,6 +336,13 @@ All notable changes to this project are documented in this file. The format is b
   `tenants` resolver it selects among the user's own memberships.
 
 ### Fixed
+- `file_storage` browse page: a caller without `file_storage.manage` sees their
+  own usage and no tenant quota, instead of the tenant-wide total; the
+  authenticated download now carries the same sandbox CSP as public serving.
+- Settings editor: saving a field's default (clearing an optional field
+  included) removes its override row instead of storing it, so the field
+  reads "default" again; a field's validation error sits on its own row below
+  the control instead of wrapping beside it.
 - A runtime permission source that raises is no longer cached as empty until
   invalidated: it contributes nothing for 30 seconds (one logged traceback),
   then is retried; `invalidate_source` retries it at once (#517).
