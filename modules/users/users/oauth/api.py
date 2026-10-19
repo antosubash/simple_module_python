@@ -31,6 +31,7 @@ from users.deps import auth_backend, get_user_manager
 
 if TYPE_CHECKING:
     from users.manager import UserManager
+    from users.models import User
     from users.oauth.providers import OAuthProvider
 
 _SESSION_STATE_KEY_FMT = "oauth_state:{provider}"
@@ -47,24 +48,40 @@ def _resolve_provider(request: Request, provider: str) -> OAuthProvider:
     return found
 
 
-async def _is_known_account(
+async def _existing_account(
     user_manager: UserManager, provider: str, account_id: str, account_email: str
-) -> bool:
-    """Whether ``oauth_callback`` would sign in an existing account, not create one.
+) -> tuple[User | None, bool]:
+    """The account ``oauth_callback`` would sign in, and whether it is already linked.
 
     Mirrors its two lookups: the linked OAuth account first, then — because
     the callback passes ``associate_by_email=True`` — an account by email.
+    ``(None, False)`` means the callback would create a new account.
     """
     try:
-        await user_manager.get_by_oauth_account(provider, account_id)
-        return True
+        return await user_manager.get_by_oauth_account(provider, account_id), True
     except fu_exceptions.UserNotExists:
         pass
     try:
-        await user_manager.get_by_email(account_email)
-        return True
+        return await user_manager.get_by_email(account_email), False
     except fu_exceptions.UserNotExists:
-        return False
+        return None, False
+
+
+def _unproven_password_account(user: User) -> bool:
+    """A self-registered password account nobody has proven owns its email.
+
+    Linking an SSO identity to it by email would hand the provider's user an
+    account someone else may hold the password to — register the victim's
+    address first, wait for them to sign in with SSO, and share their account
+    (GH #547). External (SSO-provisioned) accounts have no password, and a
+    pending invite's password is random and unknown to anyone, so both link.
+    """
+    return (
+        not user.is_verified
+        and not user.is_external
+        and user.hashed_password is not None
+        and user.invited_at is None
+    )
 
 
 def register_oauth_routes(api_router: APIRouter) -> None:
@@ -109,15 +126,20 @@ def register_oauth_routes(api_router: APIRouter) -> None:
         if account_email is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OAUTH_NO_EMAIL")
 
+        existing, linked = await _existing_account(
+            user_manager, provider, account_id, account_email
+        )
         # An OAuth sign-in is a signup when nobody holds this identity yet, and
         # with ``allow_signup`` off it must not be one: an operator enabling
         # SSO for staff would otherwise open signup to the provider's whole
         # user base (GH #543). Existing accounts still link and sign in.
-        if not request.app.state.users.settings.allow_signup and not await _is_known_account(
-            user_manager, provider, account_id, account_email
-        ):
+        if existing is None and not request.app.state.users.settings.allow_signup:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="OAUTH_SIGNUP_DISABLED"
+            )
+        if existing is not None and not linked and _unproven_password_account(existing):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="OAUTH_ACCOUNT_NOT_VERIFIED"
             )
 
         # Mark this request so the manager's on_after_register provisions a

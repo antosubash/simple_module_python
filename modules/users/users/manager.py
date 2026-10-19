@@ -136,11 +136,11 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         if user.is_verified:
             return
         if request is not None and not oauth_provisioned and not self.require_verification:
-            # Self-registration with verification switched off (#547): the
-            # account is usable at once and no email is sent. Request-less
-            # creates (admin, invite) keep their verify-by-link flow.
-            user.is_verified = True
-            await self.user_db.update(user, {"is_verified": True})
+            # Self-registration with verification switched off (#547): no
+            # email is sent, and password login stops asking for it. The
+            # account stays *unverified* — nobody has proven the address, so
+            # an SSO sign-in for it must not link here (see oauth/api.py).
+            # Request-less creates (admin, invite) keep their verify-by-link flow.
             return
         # Kicks off on_after_request_verify, which sends the email
         await self.request_verify(user, request)

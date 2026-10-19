@@ -17,9 +17,12 @@ All notable changes to this project are documented in this file. The format is b
   identity is already linked or its email matches an existing account, which
   still link and sign in.
 - **Behaviour change (#547):** `users.require_verification` is honoured. With
-  it off, a self-registered user is verified on registration, no verification
-  email is sent, and the register page says so. Accounts registered while it
-  was on stay unverified.
+  it off, no verification email is sent, the register page says so, and
+  password login no longer requires a verified email — including for accounts
+  registered while it was on. Such accounts stay unverified, and an OAuth
+  sign-in whose email matches an unverified password account is refused with
+  403 `OAUTH_ACCOUNT_NOT_VERIFIED` instead of linking to it (an account already
+  linked to that OAuth identity still signs in).
 - **Behaviour change (#544):** `file_storage` callers without
   `file_storage.manage` (granted to admins and to `tenant:admin`/`tenant:owner`)
   see, download, change and delete only files they uploaded; anyone else's
