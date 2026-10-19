@@ -11,54 +11,14 @@ Covers the feature added on top of the OAuth/OIDC login flow:
 from __future__ import annotations
 
 import uuid
-from urllib.parse import parse_qs, urlparse
 
 import pytest
+from _users_oauth_support import install_fake_provider, run_oauth_login, set_allow_signup
 from fastapi_users.password import PasswordHelper
 from sqlalchemy import select
 from users.models import Role, User
 
 _pw = PasswordHelper()
-
-
-# ---------------------------------------------------------------------------
-# Fake OAuth provider (no network) to drive the /login + /callback flow
-# ---------------------------------------------------------------------------
-
-
-class _FakeOAuthClient:
-    def __init__(self, account_id: str, account_email: str) -> None:
-        self._account_id = account_id
-        self._account_email = account_email
-
-    async def get_authorization_url(self, redirect_uri: str, state: str) -> str:
-        return f"https://idp.example/authorize?state={state}"
-
-    async def get_access_token(self, code: str, redirect_uri: str) -> dict:
-        return {"access_token": "fake-token", "expires_at": None, "refresh_token": None}
-
-    async def get_id_email(self, access_token: str) -> tuple[str, str]:
-        return self._account_id, self._account_email
-
-
-def _install_fake_provider(app, account_id: str, account_email: str) -> None:
-    from users.oauth import OAuthProvider
-
-    app.state.users.oauth_clients["microsoft"] = OAuthProvider(
-        "microsoft", "Microsoft", _FakeOAuthClient(account_id, account_email)
-    )
-
-
-async def _run_oauth_login(client) -> int:
-    """Drive /login then /callback; return the callback status code."""
-    login = await client.get("/api/users/auth/microsoft/login", follow_redirects=False)
-    assert login.status_code == 302
-    state = parse_qs(urlparse(login.headers["location"]).query)["state"][0]
-    cb = await client.get(
-        f"/api/users/auth/microsoft/callback?code=abc&state={state}",
-        follow_redirects=False,
-    )
-    return cb.status_code
 
 
 async def _get_user_by_email(db, email: str) -> User:
@@ -72,9 +32,10 @@ async def _get_user_by_email(db, email: str) -> User:
 
 @pytest.mark.anyio
 async def test_new_oauth_login_creates_external_user(users_app, anon_client, users_db):
-    _install_fake_provider(users_app, "ms-oid-1", "sso-new@example.com")
+    set_allow_signup(users_app, True)  # creating an account via OAuth is a signup (#543)
+    install_fake_provider(users_app, "ms-oid-1", "sso-new@example.com")
 
-    assert await _run_oauth_login(anon_client) == 303
+    assert await run_oauth_login(anon_client) == 303
 
     user = await _get_user_by_email(users_db, "sso-new@example.com")
     assert user.is_external is True
@@ -96,8 +57,8 @@ async def test_oauth_login_links_existing_password_user_stays_local(
     users_db.add(existing)
     await users_db.commit()
 
-    _install_fake_provider(users_app, "ms-oid-2", "local@example.com")
-    assert await _run_oauth_login(anon_client) == 303
+    install_fake_provider(users_app, "ms-oid-2", "local@example.com")
+    assert await run_oauth_login(anon_client) == 303
 
     user = await _get_user_by_email(users_db, "local@example.com")
     assert user.is_external is False

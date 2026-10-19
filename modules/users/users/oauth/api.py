@@ -47,6 +47,26 @@ def _resolve_provider(request: Request, provider: str) -> OAuthProvider:
     return found
 
 
+async def _is_known_account(
+    user_manager: UserManager, provider: str, account_id: str, account_email: str
+) -> bool:
+    """Whether ``oauth_callback`` would sign in an existing account, not create one.
+
+    Mirrors its two lookups: the linked OAuth account first, then — because
+    the callback passes ``associate_by_email=True`` — an account by email.
+    """
+    try:
+        await user_manager.get_by_oauth_account(provider, account_id)
+        return True
+    except fu_exceptions.UserNotExists:
+        pass
+    try:
+        await user_manager.get_by_email(account_email)
+        return True
+    except fu_exceptions.UserNotExists:
+        return False
+
+
 def register_oauth_routes(api_router: APIRouter) -> None:
     """Mount the provider-agnostic OAuth dispatcher under ``/auth``."""
     router = APIRouter(prefix="/auth", tags=["users-auth"])
@@ -88,6 +108,17 @@ def register_oauth_routes(api_router: APIRouter) -> None:
         account_id, account_email = await provider_obj.client.get_id_email(token["access_token"])
         if account_email is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OAUTH_NO_EMAIL")
+
+        # An OAuth sign-in is a signup when nobody holds this identity yet, and
+        # with ``allow_signup`` off it must not be one: an operator enabling
+        # SSO for staff would otherwise open signup to the provider's whole
+        # user base (GH #543). Existing accounts still link and sign in.
+        if not request.app.state.users.settings.allow_signup and not await _is_known_account(
+            user_manager, provider, account_id, account_email
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="OAUTH_SIGNUP_DISABLED"
+            )
 
         # Mark this request so the manager's on_after_register provisions a
         # *new* OAuth user as external (null password). Ignored when the login

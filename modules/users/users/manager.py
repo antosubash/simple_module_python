@@ -125,10 +125,10 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             user.hashed_password = None
             user.is_external = True
             await self.user_db.update(user, {"hashed_password": None, "is_external": True})
-        # OAuth provisioning is not gated by ``allow_signup`` the way /register
-        # is, so with signups closed an operator who only wanted SSO for staff
-        # would otherwise hand the ``user`` role (file read/write, API tokens)
-        # to anyone holding an account at the provider. Signups closed means
+        # The OAuth callback refuses to create accounts with signups closed
+        # (#543); this is the second line: should one be provisioned anyway,
+        # it must not get the ``user`` role (file read/write, API tokens) —
+        # a provider's whole user base would hold it. Signups closed means
         # an OAuth-provisioned account waits for an admin to grant a role.
         if request is not None and (self.allow_signup or not oauth_provisioned):
             await self._attach_default_role(user)
