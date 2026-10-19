@@ -7,11 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException, Request
 from simple_module_core.permission_denied import PERMISSION_DENIED_PREFIX, PermissionDenied
-from simple_module_core.permissions import (
-    DEFAULT_ROLE_PERMISSIONS,
-    WILDCARD,
-    grants,
-)
+from simple_module_core.permissions import DEFAULT_ROLE_PERMISSIONS, WILDCARD, grants
 
 from simple_module_hosting._anonymous import demote_to_anonymous
 from simple_module_hosting.token_guard import GATE_PERMISSION

@@ -20,7 +20,7 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from pathlib import Path
 
 MARKER = "# intentional-sleep:"
@@ -72,8 +72,8 @@ def check(root: Path, paths: Iterable[Path]) -> list[tuple[Path, int, str]]:
     return violations
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    root = Path(argv[0]) if argv else Path.cwd()
+def main() -> int:
+    root = Path.cwd()
     violations = check(root, _list_git_files(root))
     if not violations:
         print("OK: no unmarked fixed sleeps in tests.")
@@ -86,4 +86,4 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(main())
