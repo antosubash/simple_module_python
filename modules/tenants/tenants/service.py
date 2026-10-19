@@ -24,12 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tenants._deletion import delete_tenant_rows
 from tenants._owner_guard import demote_owner, remove_owner
-from tenants.constants import (
-    ENTITLEMENT_SEATS,
-    MAX_SLUG_LEN,
-    MembershipRole,
-    TenantStatus,
-)
+from tenants.constants import ENTITLEMENT_SEATS, MAX_SLUG_LEN, MembershipRole, TenantStatus
 from tenants.contracts.entitlements import (
     EntitlementProvider,
     UnlimitedEntitlements,
@@ -204,7 +199,7 @@ class TenantService:
         return await self.db.scalar(stmt) is not None
 
     async def get_membership(self, tenant_id: str, user_id: str) -> Membership | None:
-        stmt = select(Membership).where(
+        stmt = select(Membership).where(  # ty: ignore[invalid-argument-type]
             Membership.tenant_id == tenant_id,
             Membership.user_id == user_id,  # ty: ignore[invalid-argument-type]
         )
