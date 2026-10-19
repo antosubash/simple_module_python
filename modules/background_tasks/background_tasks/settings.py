@@ -278,10 +278,17 @@ class BackgroundTasksSettings(BaseSettings):
             return timeout
         ceiling = max_outbox_handler_timeout(lease)
         if timeout > ceiling:
-            raise ValueError(
-                f"outbox_handler_timeout_seconds ({timeout}) must leave a safety margin "
-                f"inside outbox_lease_seconds ({lease}): at most "
-                f"{ceiling:g}. Raise the lease or lower the timeout."
+            raise PydanticCustomError(
+                "handler_timeout_exceeds_lease",
+                "outbox_handler_timeout_seconds ({timeout}) must leave a safety margin "
+                "inside outbox_lease_seconds ({lease}): at most "
+                "{ceiling}. Raise the lease or lower the timeout.",
+                {
+                    "timeout": timeout,
+                    "lease": lease,
+                    "ceiling": f"{ceiling:g}",
+                    RELATED_FIELDS_CTX: ["outbox_lease_seconds"],
+                },
             )
         return timeout
 

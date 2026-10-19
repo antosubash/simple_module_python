@@ -16,6 +16,7 @@ from pathlib import Path
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import SettingsConfigDict
 from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.stored_settings import field_error
 
 from file_storage import constants
 
@@ -148,7 +149,17 @@ class FileStorageSettings(DbBackedSettings):
                 if not value
             ]
             if missing:
-                raise ValueError(f"S3 backend selected but {', '.join(missing)} is not set.")
+                # Located on the first missing field (declared after ``backend``) so
+                # the form shows it there; ``backend`` is related so lenient boot
+                # can fall back to the default backend instead of failing.
+                raise field_error(
+                    type(self),
+                    missing[0],
+                    "s3_config_incomplete",
+                    f"S3 backend selected but {', '.join(missing)} is not set.",
+                    value=getattr(self, missing[0]),
+                    related=["backend", "s3_bucket", "s3_region"],
+                )
         return self
 
     def presign_endpoint_url(self) -> str:

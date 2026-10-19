@@ -7,10 +7,9 @@ automatically (``settings._module_settings.is_secret_field``).
 from __future__ import annotations
 
 from pydantic import model_validator
-from pydantic_core import InitErrorDetails, PydanticCustomError
-from pydantic_core import ValidationError as CoreValidationError
 from pydantic_settings import SettingsConfigDict
 from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.stored_settings import field_error
 
 _BLANK_PASSWORD_MSG = "password must be set before enabling the site lock"
 
@@ -45,16 +44,12 @@ class SiteLockSettings(DbBackedSettings):
         locked when it was still wide open.
         """
         if self.enabled and not self.password.strip():
-            raise CoreValidationError.from_exception_data(
-                title=type(self).__name__,
-                line_errors=[
-                    InitErrorDetails(
-                        type=PydanticCustomError(
-                            "site_lock_password_required", _BLANK_PASSWORD_MSG
-                        ),
-                        loc=("enabled",),
-                        input=self.enabled,
-                    )
-                ],
+            raise field_error(
+                type(self),
+                "enabled",
+                "site_lock_password_required",
+                _BLANK_PASSWORD_MSG,
+                value=self.enabled,
+                related=["enabled", "password"],
             )
         return self
