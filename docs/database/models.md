@@ -161,9 +161,12 @@ SQLModel declares fields with plain Python types (`str`, `int`) at class definit
 - `unsupported-operator`
 - `unknown-argument`
 - `no-matching-overload`
-- `invalid-argument-type`
 
 Do not re-enable these rules in module-local configs. Real bugs caused by wrong field access surface in the test suite — these rules produce only noise.
+
+In this repository `invalid-argument-type` and `invalid-assignment` stay **on** for shipped code (tests are exempt through `[[tool.ty.overrides]]`), because they catch real bugs. A query-building line that still trips them, such as `selectinload(User.roles)` or `model_config = ConfigDict(...)`, gets a line-level `# ty: ignore[<rule>]`. Apps scaffolded by `smpy new` ignore both rules globally, as before.
+
+Write suppressions as `# ty: ignore[<rule>]`. A mypy-style `# type: ignore[<code>]` is matched against ty's rule names, so it silences nothing.
 
 ## Next steps
 
