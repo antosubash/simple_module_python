@@ -339,7 +339,9 @@ All notable changes to this project are documented in this file. The format is b
   (and Postgres connections) built in the parent (#532).
 - Settings validation: `file_storage.quota_bytes` must be positive (and at most
   2^53-1), and `background_tasks.task_time_limit` must exceed
-  `task_soft_time_limit` when both are set (#548).
+  `task_soft_time_limit` when both are set (#548). With the hard limit set by
+  env, an offending stored soft limit is dropped (and logged) at boot instead
+  of discarding every background_tasks override and stopping the worker.
 - Settings editor: list/dict fields are edited and stored as JSON, and
   `X | None` fields as their real type with empty meaning unset (#487).
   Secrets inside such fields are stored intact, and any field declared with

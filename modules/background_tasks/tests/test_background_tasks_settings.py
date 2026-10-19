@@ -55,3 +55,16 @@ async def test_stored_invalid_limit_pair_does_not_break_lenient_hydration(db_ses
     )
     assert cfg.task_soft_time_limit == 100
     assert cfg.task_time_limit is None
+
+
+@pytest.mark.asyncio
+async def test_editor_reports_the_limit_pair_on_the_hard_limit(authenticated_client) -> None:
+    resp = await authenticated_client.put(
+        "/api/settings/modules/background_tasks",
+        json={"task_soft_time_limit": 100, "task_time_limit": 50},
+    )
+
+    assert resp.status_code == 422
+    [error] = resp.json()["detail"]
+    assert error["loc"][-1] == "task_time_limit"
+    assert "task_soft_time_limit" in error["msg"]
