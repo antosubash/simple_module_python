@@ -311,13 +311,23 @@ Register it in your module's `register_settings` so the file_storage service can
 | `file_storage.upload` | `user`, `admin`, `tenant:member`/`admin`/`owner` | upload files |
 | `file_storage.download` | `user`, `admin`, `tenant:member`/`admin`/`owner` | list / get / download |
 | `file_storage.delete` | `admin`, `tenant:admin`, `tenant:owner`; also `user` when `multi_tenant` is off | delete |
-| `file_storage.manage` | `admin` | reserved for future admin operations |
+| `file_storage.manage` | `admin`, `tenant:admin`, `tenant:owner` | act on every file in the active tenant, not only one's own |
 
 With `multi_tenant` on, delete is an organisation-admin act: the platform
 `user` role, which every account holds, does not carry it (it would hand it to
 every tenant member). With `multi_tenant` off the install is the only tenant,
 so `on_startup` maps `file_storage.delete` onto `user` and ordinary users keep
 deleting their files.
+
+**Ownership.** Every authenticated route — list, get, download, thumbnail,
+publish/unpublish, delete, bulk delete and the browse screen — acts only on the
+files the caller uploaded (`created_by` is their user id), unless they hold
+`file_storage.manage`. Someone else's file answers `404`, exactly like an
+unknown id, and the browse screen's type and uploader filters list only the
+caller's own rows (the usage figure stays bucket-wide, as the quota is). The
+scope is passed explicitly by the endpoints (`deps.get_owner_scope`) to the
+service's `owner=` argument; internal callers such as branding and reapers
+pass none and stay unscoped, and anonymous `public` serving is unaffected.
 
 ## Menu
 

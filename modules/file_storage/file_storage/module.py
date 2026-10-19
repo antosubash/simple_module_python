@@ -160,8 +160,14 @@ class FileStorageModule(ModuleBase):
         # would hand it straight back to each tenant member.
         registry.map_role(constants.USER_ROLE, read_write)
         registry.map_role(tenant_role(TenantRole.MEMBER), read_write)
+        # ``manage`` widens every route from "files I uploaded" to "every file
+        # in the active tenant" (#544): organisation admins and owners curate
+        # their members' uploads. Platform admins hold it through ``*``.
         for role in (TenantRole.ADMIN, TenantRole.OWNER):
-            registry.map_role(tenant_role(role), [*read_write, constants.Permission.DELETE])
+            registry.map_role(
+                tenant_role(role),
+                [*read_write, constants.Permission.DELETE, constants.Permission.MANAGE],
+            )
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
