@@ -275,19 +275,27 @@ dependency + `get_csrf_token(request)` as a view prop, echoed as `X-CSRF-Token`
   never by importing `tenants`. `docs/framework/multi-tenancy.md`.
 - **Migrations** live in `host/migrations/versions/`, never in module packages.
   `host/migrations/env.py` builds metadata from every installed module and runs
-  `ensure_db_extensions` first. The history has **several heads** (one per
-  labelled branch), so apply with `upgrade heads` (what `make migrate` does)
-  and autogenerate against one branch, since plain `revision --autogenerate`
-  refuses with "Multiple heads":
+  `ensure_db_extensions` first. The history is **not** one linear chain: it has
+  two roots (`77162e7b184b` initial schema, `e36ab09c4a92` tenants) and four
+  heads (`audit_log`, `tenants`, `keycloak`, and the users trunk, which Alembic
+  reports as `api_tokens`). Apply with `upgrade heads` (what `make migrate`
+  does); plain `revision --autogenerate` refuses with "Multiple heads", so name
+  the branch:
 
   ```
   uv run --project host alembic -c host/alembic.ini revision --autogenerate \
       -m "<msg>" --head <branch_label>@head
   ```
 
-  A module's first revision sets `branch_labels = ("<module_name>",)` (older
-  modules lack it); the label is a named target, not a per-module rollback:
-  `downgrade <module>@base` walks everything beneath it.
+  Labels are inherited by every descendant and are only named targets, not
+  per-module rollbacks: `downgrade <label>@base` unwinds the label's revision,
+  everything above it and everything beneath it on that root, other modules
+  included. Known mislabels (existing files are left alone, applied databases
+  stay valid): `51b2058d8afd` puts `api_tokens` on the trunk, so users,
+  file_storage and background_tasks revisions report it, and keycloak's
+  `168a2882f443` branches off the users revision `873ca2015033`. Give an
+  unlabelled module a label on its next revision. `host/tests/test_migration_graph.py`
+  pins the roots, heads and owners; update it with any new root or head.
   `docs/database/migrations.md`.
 - Postgres extensions: override `ModuleBase.db_extensions()`; `LTree`/`TSVector`
   types are `TEXT` on SQLite; tests needing Postgres carry

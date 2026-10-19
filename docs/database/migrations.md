@@ -4,11 +4,41 @@ All migrations live in `host/migrations/versions/` — **not** in module package
 
 ## Why centralized?
 
-- **Dependency ordering is global.** If `invoices` depends on `orders_order.id`, their migrations must order correctly. One linear Alembic history enforces this.
+- **Dependency ordering is global.** If `invoices` depends on `orders_order.id`, their migrations must order correctly. One shared Alembic history, with `down_revision` links between modules, enforces this.
 - **Autogenerate sees everything.** `host/migrations/env.py` calls `build_module_metadata()` to union every installed module's `MetaData`. Autogenerate diffs the DB against that union and writes one migration covering all changes.
 - **Operators run one command.** `make migrate` is the only target. No "did you also run `orders/migrate`?" footgun.
 
-Each module's *first* migration sets `branch_labels = ("<module_name>",)`. The label is a named target for that revision; it does **not** isolate the module's history, because every first revision chains off the previous head. `alembic downgrade <module>@base` therefore walks the whole chain beneath it, other modules included. See [Removing one module's schema](#removing-one-modules-schema).
+## The real graph
+
+The history is **not** a single linear chain. It has several roots and several heads, and `make migrate` runs `upgrade heads` for that reason. On `main` today:
+
+| Root | Branch |
+|---|---|
+| `77162e7b184b` initial schema | the users trunk (also holds file_storage, background_tasks, api_tokens revisions) |
+| `e36ab09c4a92` tenants initial schema | tenants (`f1a9c3d7b2e4` head) |
+
+| Head | Owning module | Label Alembic reports |
+|---|---|---|
+| `c8e4f1a2b6d9` | users (login lockout) | `api_tokens` |
+| `a7c2e91d4b58` | audit_log | `audit_log` |
+| `f1a9c3d7b2e4` | tenants | `tenants` |
+| `f6a3b9d2e8c4` | keycloak | `keycloak` |
+
+`audit_log` forks off the trunk at `41cf2c53660e`, and `keycloak` forks off the users revision `873ca2015033`.
+
+A module's first migration sets `branch_labels = ("<module_name>",)`. Alembic **inherits** a label onto every descendant, so the label names a revision and everything above it, and it does not isolate the module. It is only a named target (`upgrade <label>@head`, `revision --head <label>@head`) and the source of the Doctor's `module` column, which reads the first label on each revision.
+
+### Known mislabels
+
+Only four of the revisions set `branch_labels` (`audit_log`, `api_tokens`, `keycloak`, `tenants`). The graph carries these defects; they are documented rather than rewritten, because changing labels on revisions that installed databases already applied is not worth the risk:
+
+- `51b2058d8afd_api_tokens_initial` sits in the middle of the trunk, so every revision above it (file_storage, background_tasks including the outbox, and the users revisions through `c8e4f1a2b6d9`) reports the `api_tokens` label. The `api_tokens` head is therefore really a users revision.
+- `keycloak` branches off a users revision, so a Keycloak-only install still builds the users schema.
+- `users`, `file_storage`, `background_tasks`, `settings`, `permissions` and `feature_flags` have no label of their own.
+
+Guidance: give an unlabelled module a `branch_labels` on its **next** revision. Adding a label to an existing revision file is technically possible, because `alembic_version` stores revision ids and never labels, but it also relabels every descendant and changes what `<label>@head` resolves to, so treat it as a deliberate, reviewed change rather than a cleanup.
+
+`host/tests/test_migration_graph.py` pins the roots, heads, each revision's owning module and the mislabels above. Adding a root, head or revision fails it until the table is updated.
 
 ## Day-to-day workflow
 
@@ -41,12 +71,12 @@ make downgrade                                                 # back one revisi
 uv run --project host alembic -c host/alembic.ini downgrade <revision_id>   # to a specific revision
 ```
 
-Do **not** use `downgrade orders@base` to roll back just the orders module. The `branch_labels` marker names a revision, but `orders@base` resolves to the base of the linear chain that revision sits on, so it rolls back every revision beneath it, including other modules'.
+Do **not** use `downgrade orders@base` to roll back just the orders module. The label names a revision, and `orders@base` unwinds that revision, all of its descendants, and everything beneath it down to the root it sits on, including other modules'. With this graph, `downgrade api_tokens@base` would drop the whole users trunk (users, file_storage, the background_tasks outbox and the initial schema), not only the api_tokens tables.
 
 ### Removing one module's schema
 
-- If the module's revisions are the latest in the chain (nothing from another module sits above them), downgrade to the `down_revision` of the module's *first* revision: `alembic -c host/alembic.ini downgrade <that down_revision id>`.
-- Otherwise write a dedicated migration that drops the module's tables (and anything depending on them). History stays linear and other modules are untouched.
+- If the module's revisions are the latest on their branch (nothing from another module sits above them), downgrade to the `down_revision` of the module's *first* revision: `alembic -c host/alembic.ini downgrade <that down_revision id>`.
+- Otherwise write a dedicated migration that drops the module's tables (and anything depending on them). Other modules are untouched.
 
 ## First migration of a new module
 
@@ -61,7 +91,7 @@ branch_labels = ("orders",)  # ← add this
 depends_on = None
 ```
 
-The marker names the revision so you can target it (for example `alembic upgrade orders@head`); later `orders` revisions do not need it. It does not turn the module into an independent branch.
+The marker names the revision so you can target it (for example `alembic upgrade orders@head`); later `orders` revisions do not need it. It does not turn the module into an independent branch, and it is inherited by every revision stacked on top of it, so put it on the module's own first revision and not on a revision that other modules build on.
 
 ## Alembic environment setup
 
@@ -94,7 +124,7 @@ context.configure(
 
 ## Boot-time migration check
 
-On startup, the framework compares `alembic_version` to the migration head:
+On startup, the framework compares `alembic_version` to **every** head (`resolve_head_revisions` in `simple_module_hosting.migrations`; the history has several, so it never asks for a single head):
 
 - **Development:** prints a warning if the DB is behind. Result stored on `app.state.migration`.
 - **Production:** fails boot with `SM010`. Don't ship a web process that's pointed at an unmigrated DB.
@@ -116,7 +146,7 @@ The dev-mode boot log prints the offending table names. Resolution: run `make mi
 If `invoices` has an FK to `orders_order.id`:
 
 - Alembic will emit `ADD CONSTRAINT` in the invoices table's migration.
-- The migration that creates `invoices_invoice` must come **after** the one that creates `orders_order` in linear history.
+- The migration that creates `invoices_invoice` must come **after** the one that creates `orders_order` in the history (an ancestor, not a sibling branch).
 - `smpy create-module` + `make migration` handle this naturally as long as `depends_on` is correct in `ModuleMeta`.
 
 All tables share the host's single schema on both Postgres and SQLite, so a cross-module FK is just an ordinary same-schema reference (`orders_order.id ← invoices_invoice.order_id`).
@@ -149,7 +179,7 @@ revision A  ← you created
 revision B  ← teammate's branch created
 ```
 
-Both have `down_revision = <previous>`. Alembic will refuse `upgrade head` on a tree with multiple heads. Resolve by:
+Both have `down_revision = <previous>`, so the same branch now has two heads. (Heads on *different* labelled branches are expected and need no merge; `upgrade heads` applies them all.) Resolve a same-branch fork by:
 
 1. `uv run alembic heads` — list them.
 2. `uv run alembic merge -m "merge A and B" <rev-A> <rev-B>` — creates a merge revision with both as parents.
@@ -179,7 +209,7 @@ async def test_migration_up_then_down(tmp_path):
     cfg = Config("host/alembic.ini")
     cfg.set_main_option("sqlalchemy.url", db_url)
 
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "heads")
     command.downgrade(cfg, "base")
 ```
 
