@@ -30,6 +30,16 @@ _RESTART_GUARD = {"requires_restart": True, "group": "Request guards"}
 
 _RESTART_API = {"requires_restart": True, "group": "API"}
 
+# Consumed while create_app builds the tenant middleware, the strict tenant
+# filter, the i18n registry and LocaleMiddleware, the auth provider and the
+# public-route registry, the proxy middleware and logging — none of which the
+# lifespan hydration can rebuild (#499). test_build_time_settings_marked keeps
+# this in step with what create_app actually reads.
+_RESTART_TENANCY = {"requires_restart": True, "group": "Tenancy"}
+_RESTART_I18N = {"requires_restart": True, "group": "Localization"}
+_RESTART_AUTH = {"requires_restart": True, "group": "Authentication"}
+_RESTART_LOGGING = {"requires_restart": True, "group": "Logging"}
+
 
 def _default_api_version() -> str:
     """The host project's version, else ``0.0.0``.
@@ -74,9 +84,9 @@ class HostSettings(BaseSettings):
     # that has nothing to do with this app.
     model_config = SettingsConfigDict(env_prefix="SM_", extra="ignore")
 
-    multi_tenant: bool = False
-    tenant_header: str = ""
-    default_tenant: str = ""
+    multi_tenant: bool = Field(default=False, json_schema_extra=_RESTART_TENANCY)
+    tenant_header: str = Field(default="", json_schema_extra=_RESTART_TENANCY)
+    default_tenant: str = Field(default="", json_schema_extra=_RESTART_TENANCY)
     """Single-tenant hosts (``multi_tenant`` off): the tenant every request acts
     as, so a module's ``MultiTenantMixin`` tables work without a tenant
     resolver. Ignored when ``multi_tenant`` is on — a multi-tenant install
@@ -93,12 +103,12 @@ class HostSettings(BaseSettings):
     """Optional operator note shown on the maintenance page. Empty = use the
     generic translated copy."""
 
-    i18n_default_locale: str = "en"
-    i18n_supported_locales: list[str] = ["en"]
-    i18n_cookie_name: str = "locale"
+    i18n_default_locale: str = Field(default="en", json_schema_extra=_RESTART_I18N)
+    i18n_supported_locales: list[str] = Field(default=["en"], json_schema_extra=_RESTART_I18N)
+    i18n_cookie_name: str = Field(default="locale", json_schema_extra=_RESTART_I18N)
 
-    log_level: str = "INFO"
-    log_format: Literal["json", "text"] = "json"
+    log_level: str = Field(default="INFO", json_schema_extra=_RESTART_LOGGING)
+    log_format: Literal["json", "text"] = Field(default="json", json_schema_extra=_RESTART_LOGGING)
 
     # Trust the X-Forwarded-* headers from a fronting reverse proxy. Unset by
     # default (no proxy trusted). Set to ``*`` to trust any peer (correct when
@@ -114,9 +124,9 @@ class HostSettings(BaseSettings):
     # url, e.g. OAuth's callback_url and the locale cookie's `secure` flag —
     # left unset behind such a proxy, an OAuth redirect_uri ships as http://
     # and most providers reject it.
-    trusted_proxy: str | None = None
+    trusted_proxy: str | None = Field(default=None, json_schema_extra=_RESTART_GUARD)
 
-    auth_provider: str = DEFAULT_AUTH_PROVIDER
+    auth_provider: str = Field(default=DEFAULT_AUTH_PROVIDER, json_schema_extra=_RESTART_AUTH)
     """Which auth provider module to activate.
 
     ``users`` and ``keycloak`` both provide authentication and only one may be
@@ -128,7 +138,7 @@ class HostSettings(BaseSettings):
     the process restarted with a matching env var.
     """
 
-    auth_public_paths: list[str] = []
+    auth_public_paths: list[str] = Field(default=[], json_schema_extra=_RESTART_AUTH)
     """Host-level anonymous-access path prefixes.
 
     An escape hatch for exposing a route without a session when no module owns
