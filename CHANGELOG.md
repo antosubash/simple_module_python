@@ -12,6 +12,22 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Changed
+- **Behaviour change (#530):** password-login lockout now holds across workers,
+  source IPs and restarts. `users.login_lockout_account_failures` (new, default
+  10) failures for one account within `login_rate_limit_window_seconds`, from
+  any network, lock it for `login_rate_limit_cooldown_seconds`: every password
+  login for it answers 429 with `Retry-After`, the correct password included.
+  `login_rate_limit_failures` (5) failures from one IP for one username throttle
+  that source until the window ends, and unknown usernames are counted against
+  the account threshold so a 429 does not reveal whether an account exists.
+  Counters live on `users_user` (a migration adds `failed_login_count`,
+  `last_failed_login_at` and `locked_until`) and on the host rate-limit store
+  (Redis when `SM_REDIS_URL` is set). The per-worker `LoginRateLimiter` is gone.
+- **Behaviour change (#530):** `POST /api/users/auth/token` now has the same
+  lockout and throttle: 429 while locked; bad credentials are still 401.
+- **Behaviour change (#530):** the stock fastapi-users auth router is no longer
+  mounted, so `/api/users/auth-inner/login` and `/api/users/auth-inner/logout`
+  are gone. Use `/api/users/auth/login` and `/api/users/auth/logout`.
 - **Behaviour change (#543):** with `allow_signup` off, an OAuth sign-in no
   longer creates an account. It answers 403 `OAUTH_SIGNUP_DISABLED` unless the
   identity is already linked or its email matches an existing account, which
@@ -54,6 +70,11 @@ All notable changes to this project are documented in this file. The format is b
   previously served, and anonymous, in production.
 
 ### Added
+- `PATCH /api/users/admin/{id}/unlock` lifts a login lockout early (audited).
+  `UserListItem` carries `locked_until`; the users list shows a "locked" badge
+  and the edit page a "Locked until" row with an Unlock action (#530).
+- `app.state.sm.rate_limit_store` exposes the host's rate-limit store to
+  modules, and `WindowStore.peek()` reads a window without counting (#530).
 - Durable event delivery (#459). `bus.subscribe_durable(EventType, handler,
   name=...)` and `await bus.publish_durable(event, db)` in
   `simple_module_core.events`; handlers are called as

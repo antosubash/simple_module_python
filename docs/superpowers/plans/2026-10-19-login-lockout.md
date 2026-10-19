@@ -160,7 +160,8 @@ class WindowStore(Protocol):
         """
         ...
 
-# InProcessWindowStore
+
+class InProcessWindowStore:
     async def peek(self, key: str, spec: RateSpec) -> WindowResult:
         now = self._clock()
         entry = self._windows.get(key)
@@ -313,17 +314,22 @@ depends_on = None
 
 
 def upgrade() -> None:
-    with op.batch_alter_table("users_user") as batch:
-        batch.add_column(sa.Column("failed_login_count", sa.Integer(), nullable=False, server_default=sa.text("0")))
-        batch.add_column(sa.Column("last_failed_login_at", sa.DateTime(timezone=True), nullable=True))
-        batch.add_column(sa.Column("locked_until", sa.DateTime(timezone=True), nullable=True))
+    op.add_column(
+        "users_user",
+        sa.Column("failed_login_count", sa.Integer(), server_default=sa.text("0"), nullable=False),
+    )
+    op.add_column(
+        "users_user", sa.Column("last_failed_login_at", sa.DateTime(timezone=True), nullable=True)
+    )
+    op.add_column(
+        "users_user", sa.Column("locked_until", sa.DateTime(timezone=True), nullable=True)
+    )
 
 
 def downgrade() -> None:
-    with op.batch_alter_table("users_user") as batch:
-        batch.drop_column("locked_until")
-        batch.drop_column("last_failed_login_at")
-        batch.drop_column("failed_login_count")
+    op.drop_column("users_user", "locked_until")
+    op.drop_column("users_user", "last_failed_login_at")
+    op.drop_column("users_user", "failed_login_count")
 ```
 
 - [ ] **Step 4: Verify** — the test passes; on a scratch SQLite file: `SM_DATABASE_URL=sqlite+aiosqlite:////tmp/claude-1001/lockout/m.db uv run --project host alembic -c host/alembic.ini upgrade heads` then `… check` (only the known `users_access_token.expires_at` drift may remain); `make migrations-roundtrip-pg` with `SM_MIGRATIONS_PG_URL` on a disposable DB if Postgres is reachable.
@@ -343,7 +349,7 @@ def downgrade() -> None:
 - Consumes: `app.state.sm.rate_limit_store` (`hit`/`peek`, Task 1); `User` columns (Task 2).
 - Produces:
   - `LOCKED_DETAIL = "Too many attempts — try again later"`
-  - `LoginAttempt(username, ip, store, settings, now)` (frozen dataclass)
+  - `LoginAttempt(username, ip, store, settings, now)` (frozen dataclass); `LoginAttempt.build(username, ip, store, settings, now)` lower-cases and strips the username
   - `login_attempt(request: Request, username: str) -> LoginAttempt`
   - `async refused_for(session, attempt) -> int | None` — seconds to wait, `None` to proceed
   - `async record_failure(session, attempt) -> None` — commits the session
@@ -371,12 +377,14 @@ async def test_expired_window_restarts_count(users_db, alice) -> None:
     assert alice.failed_login_count == 1
 
 
-async def test_expired_lock_allows_login(users_db, alice) -> None:
-    ...  # lock at T0, refused_for at T0+901s is None
+async def test_expired_lock_allows_login(
+    users_db, alice
+) -> None: ...  # lock at T0, refused_for at T0+901s is None
 
 
-async def test_success_resets_count(users_db, alice) -> None:
-    ...  # two failures, record_success, count 0 and last_failed_login_at None
+async def test_success_resets_count(
+    users_db, alice
+) -> None: ...  # two failures, record_success, count 0 and last_failed_login_at None
 
 
 async def test_ip_throttle_after_tier2_limit(users_db, alice) -> None:
@@ -384,15 +392,20 @@ async def test_ip_throttle_after_tier2_limit(users_db, alice) -> None:
     for _ in range(5):
         await record_failure(users_db, _attempt("alice@example.com", ip="1.1.1.1", store=store))
     assert await refused_for(users_db, _attempt("alice@example.com", ip="1.1.1.1", store=store))
-    assert await refused_for(users_db, _attempt("alice@example.com", ip="2.2.2.2", store=store)) is None
+    assert (
+        await refused_for(users_db, _attempt("alice@example.com", ip="2.2.2.2", store=store))
+        is None
+    )
 
 
-async def test_unknown_username_counts_against_account_threshold(users_db) -> None:
-    ...  # 10 failures for ghost@example.com from 10 IPs → refused_for is not None
+async def test_unknown_username_counts_against_account_threshold(
+    users_db,
+) -> None: ...  # 10 failures for ghost@example.com from 10 IPs → refused_for is not None
 
 
-async def test_username_variants_share_one_counter(users_db, alice) -> None:
-    ...  # failures as " Alice@Example.COM " and "alice@example.com" add up on one row
+async def test_username_variants_share_one_counter(
+    users_db, alice
+) -> None: ...  # failures as " Alice@Example.COM " and "alice@example.com" add up on one row
 ```
 
 - [ ] **Step 2: Run** — Expected: FAIL (`ModuleNotFoundError: users.auth_local.lockout`).

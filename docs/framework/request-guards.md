@@ -123,6 +123,17 @@ def register_public_routes(self, registry) -> None:
   recovery is automatic. The script also re-arms a counter that lost its TTL, so
   no key can block an IP permanently. The limiter never takes requests down.
 
+### Sharing the store
+
+`create_app` builds the store once and exposes it as `app.state.sm.rate_limit_store`
+(a `WindowStore`), so a module that throttles its own events counts in the same
+place, across workers, without opening a second Redis client. Besides `hit`,
+which counts, a store has `peek(key, spec)`, which reports the current window
+without counting: `allowed` answers "would one more hit be within budget", so a
+caller can refuse before doing any work and count only what failed. The users
+login lockout (`users/auth_local/lockout.py`) uses it that way. Keys are
+namespaced by the caller (`login:…`); Redis keys get the `sm:rl:` prefix.
+
 ### Response shape
 
 `429` with a `Retry-After` header (seconds until the window resets). API callers
@@ -130,10 +141,10 @@ get `{"detail": "...", "retry_after": N}`; browsers get the Inertia error page.
 
 ### Not covered
 
-`users/auth_local/rate_limit.py` (`LoginRateLimiter`, `ThroughputLimiter`) stays
-as it is: they are synchronous, per-key lockout and per-endpoint budget
-primitives used from FastAPI dependencies, a different shape from this
-middleware's async per-IP window.
+`users/auth_local/rate_limit.py` (`ThroughputLimiter`) stays as it is: a
+synchronous per-endpoint budget used from FastAPI dependencies, a different
+shape from this middleware's async per-IP window. Password-login lockout uses
+the shared store instead (see [Sharing the store](#sharing-the-store)).
 
 ## Where it lives
 
