@@ -10,7 +10,7 @@ import {
 } from '@simple-module-py/ui/components/ui/tooltip';
 import { X } from 'lucide-react';
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { AppTopbar, activeSection, findSection } from '../components/AppTopbar';
 import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
@@ -27,6 +27,7 @@ import { AdminSectionLink } from './AdminSectionLink';
 import { MobileBar } from './MobileBar';
 import { SidebarUserMenu } from './SidebarUserMenu';
 import { DEFAULT_SIDEBAR_THEME, SIDEBAR_ICON_FOCUS, type SidebarTheme } from './sidebar-theme';
+import { useDrawerA11y } from './useDrawerA11y';
 
 // A stable reference for "no items" — `menus?.[key] ?? []` would otherwise
 // mint a fresh empty array every render, and that array flows into
@@ -89,7 +90,9 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
   // so it keeps the primary logo.
   const darkLogoUrl = darkSurfaceLogo(branding);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const closeSidebar = () => setSidebarOpen(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  const drawerRef = useRef<HTMLElement>(null);
+  useDrawerA11y(sidebarOpen, closeSidebar, drawerRef);
 
   const menuItems = menus?.[menuKey] ?? NO_ITEMS;
   // ⌘K reaches everything the viewer can open, not just the shell they are
@@ -161,6 +164,12 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
 
         {/* Sidebar */}
         <aside
+          ref={drawerRef}
+          // Only a dialog while the phone drawer is open; otherwise it is the
+          // plain desktop sidebar.
+          {...(sidebarOpen
+            ? { role: 'dialog', 'aria-modal': true, 'aria-label': t(keys.ui.sidebar.drawer) }
+            : {})}
           className={`fixed inset-y-0 left-0 z-50 w-full sm:w-72 lg:w-64 ${theme.sidebarBg} flex flex-col border-r border-white/[0.06] transition-transform duration-200 ease-in-out lg:translate-x-0 lg:z-30 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
         >
           {/* Drawer header — ✕ then the app name, per the deck's phone frame.
