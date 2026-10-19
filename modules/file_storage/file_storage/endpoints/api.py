@@ -44,7 +44,7 @@ from file_storage.service import (
     StoredFileNotFoundError,
     StreamDownload,
 )
-from file_storage.serving import etag_for, not_found, thumbnail_response
+from file_storage.serving import etag_for, not_found, sandbox_headers, thumbnail_response
 
 router = APIRouter()
 
@@ -221,6 +221,7 @@ async def download_file(
             headers={
                 "Content-Disposition": content_disposition(row.filename, attachment=True),
                 "ETag": etag,
+                **sandbox_headers(),
             },
             etag=etag,
         )
