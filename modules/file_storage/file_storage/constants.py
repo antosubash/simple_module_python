@@ -177,21 +177,33 @@ PUBLIC_MAX_AGE_SECONDS: Final = 3600
 # Per-IP budget for anonymous public file GETs (its own bucket in the shared
 # rate limiter, #347), wider than the default because one page embeds many.
 PUBLIC_FILES_RATE: Final = "600/minute"
-# Types a browser would execute or render as a document on our origin. They are
-# served as attachments (and sandboxed) so a public upload cannot become stored
-# XSS on the app's origin.
-ACTIVE_CONTENT_TYPES: Final = frozenset(
+# The only types served ``inline`` (and, on S3, by redirect). Everything else —
+# HTML, any XML (``*+xml``, ``text/xsl``, SVG), scripts, unknown or malformed
+# values — is "active": forced to an attachment and streamed under the sandbox
+# CSP, so a public upload cannot become stored XSS on the app's origin (#545).
+# An allow-list, because the uploader controls the stored type and a deny-list
+# has to anticipate every scriptable document format a browser will render.
+INLINE_SAFE_CONTENT_TYPES: Final = frozenset(
     {
-        "text/html",
-        "application/xhtml+xml",
-        "image/svg+xml",
-        "text/xml",
-        "application/xml",
-        "text/javascript",
-        "application/javascript",
-        "application/x-shockwave-flash",
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/webp",
+        "image/avif",
+        "image/apng",
+        "image/bmp",
+        "image/tiff",
+        "image/x-icon",
+        "image/vnd.microsoft.icon",
+        "application/pdf",
+        "application/json",
+        "text/plain",
+        "text/csv",
     }
 )
+# Whole families that render as media, never as a document — minus any XML
+# subtype, which ``media_types.is_active_content`` refuses on its own.
+INLINE_SAFE_FAMILIES: Final = frozenset({"audio", "video"})
 PUBLIC_CSP: Final = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 
 THUMBNAIL_WIDTHS: Final = (64, 128, 256, 512, 1024)

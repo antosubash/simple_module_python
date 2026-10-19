@@ -78,10 +78,15 @@ Serving rules:
   `If-None-Match`) and `X-Content-Type-Options: nosniff`.
 - Every public response carries `Content-Security-Policy: default-src 'none';
   style-src 'unsafe-inline'; sandbox` (the security-headers middleware now
-  keeps a CSP the response already set). Active content — HTML, XHTML, SVG,
-  XML, JavaScript — is forced to `Content-Disposition: attachment` and is
-  always streamed, so stored XSS on the app origin is not possible. Other
-  types are `inline`.
+  keeps a CSP the response already set). Only an allow-list of types is
+  served `inline` (and redirected on S3): common raster images, PDF, JSON,
+  plain text, CSV, and `audio/*` / `video/*` minus any XML subtype
+  (`INLINE_SAFE_CONTENT_TYPES` / `INLINE_SAFE_FAMILIES`). Everything else —
+  HTML, SVG, any XML, scripts, unknown types, and malformed values such as
+  `text/html,` — is forced to `Content-Disposition: attachment` and always
+  streamed, so stored XSS on the app origin is not possible. The stored type
+  is lower-cased and stripped of parameters before the check
+  (`media_types.is_active_content`).
 - Presigning backends (S3) answer with a `302` to the presigned URL, cached
   for at most half the signature's TTL; filesystem backends stream.
 
