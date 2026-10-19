@@ -68,10 +68,10 @@ class InvitationService:
         # still occupy the unique index; drop it so the address can be re-invited.
         await self.db.execute(
             delete(Invitation).where(
-                Invitation.tenant_id == tenant_id,
-                Invitation.email == data.email,
+                Invitation.tenant_id == tenant_id,  # ty: ignore[invalid-argument-type]
+                Invitation.email == data.email,  # ty: ignore[invalid-argument-type]
                 Invitation.accepted_at.is_(None),
-                Invitation.expires_at <= _now(),
+                Invitation.expires_at <= _now(),  # ty: ignore[invalid-argument-type]
             )
         )
         duplicate = await self.db.scalar(
@@ -120,8 +120,8 @@ class InvitationService:
             return None
         stmt = (
             select(Invitation, Tenant)
-            .join(Tenant, Tenant.id == Invitation.tenant_id)
-            .where(Invitation.token_hash == hash_token(token))
+            .join(Tenant, Tenant.id == Invitation.tenant_id)  # ty: ignore[invalid-argument-type]
+            .where(Invitation.token_hash == hash_token(token))  # ty: ignore[invalid-argument-type]
         )
         if for_update:  # two concurrent accepts of one link must not both pass
             stmt = stmt.with_for_update(of=Invitation)

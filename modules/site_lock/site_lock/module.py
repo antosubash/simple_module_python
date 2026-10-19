@@ -38,7 +38,7 @@ class SiteLockModule(ModuleBase):
             app,
             c.MODULE_PACKAGE,
             SiteLockSettings,
-            lambda s: SiteLockState(settings=s),
+            lambda s: SiteLockState(settings=s),  # ty: ignore[invalid-argument-type]
         )
 
     def register_middleware(self, app: FastAPI) -> None:

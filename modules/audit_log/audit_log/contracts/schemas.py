@@ -10,7 +10,7 @@ from sqlmodel import SQLModel
 
 
 class AuditEntryRead(SQLModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
 
     id: uuid.UUID
     entity_type: str

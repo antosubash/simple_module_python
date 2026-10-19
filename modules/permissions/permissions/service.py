@@ -108,7 +108,7 @@ class PermissionService:
         if to_remove:
             await self.db.execute(
                 delete(RolePermission).where(
-                    RolePermission.role_name == role.name,
+                    RolePermission.role_name == role.name,  # ty: ignore[invalid-argument-type]
                     RolePermission.permission_key.in_(to_remove),
                 )
             )
@@ -129,7 +129,7 @@ class PermissionService:
         from users.models import User
 
         result = await self.db.execute(
-            select(User).where(User.id == user_id).options(selectinload(User.roles))
+            select(User).where(User.id == user_id).options(selectinload(User.roles))  # ty: ignore[invalid-argument-type]
         )
         return result.scalar_one_or_none()
 
@@ -199,7 +199,7 @@ class PermissionService:
         if to_remove:
             await self.db.execute(
                 delete(UserPermission).where(
-                    UserPermission.user_id == user.id,
+                    UserPermission.user_id == user.id,  # ty: ignore[invalid-argument-type]
                     UserPermission.permission_key.in_(to_remove),
                 )
             )

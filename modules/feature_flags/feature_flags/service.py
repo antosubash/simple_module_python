@@ -131,9 +131,9 @@ class FeatureFlagService:
     async def _find(self, scope: str, scope_id: str, name: str) -> FeatureFlagOverride | None:
         result = await self.db.execute(
             select(FeatureFlagOverride).where(
-                FeatureFlagOverride.scope == scope,
-                FeatureFlagOverride.scope_id == scope_id,
-                FeatureFlagOverride.name == name,
+                FeatureFlagOverride.scope == scope,  # ty: ignore[invalid-argument-type]
+                FeatureFlagOverride.scope_id == scope_id,  # ty: ignore[invalid-argument-type]
+                FeatureFlagOverride.name == name,  # ty: ignore[invalid-argument-type]
             )
         )
         return result.scalar_one_or_none()

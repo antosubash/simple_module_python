@@ -158,8 +158,8 @@ class AuditLogService:
                 # is what stops a batch boundary swallowing the rest of them.
                 stmt = stmt.where(
                     or_(
-                        AuditEntry.created_at < last_created,
-                        and_(AuditEntry.created_at == last_created, AuditEntry.id > last_id),
+                        AuditEntry.created_at < last_created,  # ty: ignore[invalid-argument-type]
+                        and_(AuditEntry.created_at == last_created, AuditEntry.id > last_id),  # ty: ignore[invalid-argument-type]
                     )
                 )
             stmt = stmt.order_by(AuditEntry.created_at.desc(), AuditEntry.id).limit(batch_size)

@@ -14,7 +14,7 @@ from api_tokens.constants import MAX_SCOPES, NAME_MAX_LENGTH
 class TokenView(SQLModel):
     """A token as lists show it. Never carries the secret or its hash."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
 
     id: uuid.UUID
     kind: str

@@ -27,9 +27,9 @@ from tenants.models import Membership
 def _another_owner(membership: Membership):
     other = aliased(Membership)
     return exists().where(
-        other.tenant_id == membership.tenant_id,
-        other.role == MembershipRole.OWNER,
-        other.id != membership.id,
+        other.tenant_id == membership.tenant_id,  # ty: ignore[invalid-argument-type]
+        other.role == MembershipRole.OWNER,  # ty: ignore[invalid-argument-type]
+        other.id != membership.id,  # ty: ignore[invalid-argument-type]
     )
 
 
@@ -37,7 +37,7 @@ async def demote_owner(db: AsyncSession, membership: Membership, role: str) -> b
     """Set ``role`` on an owner's membership unless they are the last owner."""
     stmt = (
         update(Membership)
-        .where(Membership.id == membership.id, _another_owner(membership))
+        .where(Membership.id == membership.id, _another_owner(membership))  # ty: ignore[invalid-argument-type]
         .values(role=role)
         .execution_options(synchronize_session=False)
     )
@@ -52,7 +52,7 @@ async def remove_owner(db: AsyncSession, membership: Membership) -> bool:
     """Delete an owner's membership unless they are the last owner."""
     stmt = (
         delete(Membership)
-        .where(Membership.id == membership.id, _another_owner(membership))
+        .where(Membership.id == membership.id, _another_owner(membership))  # ty: ignore[invalid-argument-type]
         .execution_options(synchronize_session=False)
     )
     applied = (await db.execute(stmt)).rowcount == 1

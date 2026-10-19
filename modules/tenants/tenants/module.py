@@ -62,7 +62,10 @@ class TenantsModule(ModuleBase):
             "settings.registration"
         ).register_module_settings
         register_module_settings(
-            app, c.MODULE_PACKAGE, TenantsSettings, lambda s: TenantsServices(settings=s)
+            app,
+            c.MODULE_PACKAGE,
+            TenantsSettings,
+            lambda s: TenantsServices(settings=s),  # ty: ignore[invalid-argument-type]
         )
         app.state.tenant_resolver = resolve_tenant
         app.state.tenant_exists = _tenant_exists(app)

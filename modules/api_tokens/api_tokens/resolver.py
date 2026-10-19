@@ -59,8 +59,8 @@ async def _personal(db: Any, token: ApiToken) -> UserContext | None:
         return None
     stmt = (
         select(User)
-        .where(User.id == token.owner_user_id)
-        .options(selectinload(User.roles), noload(User.oauth_accounts))
+        .where(User.id == token.owner_user_id)  # ty: ignore[invalid-argument-type]
+        .options(selectinload(User.roles), noload(User.oauth_accounts))  # ty: ignore[invalid-argument-type]
     )
     user = (await db.execute(stmt)).scalar_one_or_none()
     if user is None or not user.is_active or user.disabled_at is not None:
@@ -109,7 +109,7 @@ async def touch_last_used(app: Any, token: ApiToken, now: datetime) -> None:
     stmt = (
         update(ApiToken)
         .where(
-            ApiToken.id == token.id,
+            ApiToken.id == token.id,  # ty: ignore[invalid-argument-type]
             or_(ApiToken.last_used_at.is_(None), ApiToken.last_used_at <= cutoff),
         )
         .values(last_used_at=now, updated_at=ApiToken.updated_at)
@@ -134,7 +134,7 @@ async def resolve_api_token(request: Request) -> UserContext | None:
         async with app.state.sm.db.session_factory() as db:
             stmt = (
                 select(ApiToken)
-                .where(ApiToken.token_hash == hash_token(credential))
+                .where(ApiToken.token_hash == hash_token(credential))  # ty: ignore[invalid-argument-type]
                 .execution_options(**{ALL_TENANTS_OPTION: True})
             )
             token = (await db.execute(stmt)).scalar_one_or_none()
