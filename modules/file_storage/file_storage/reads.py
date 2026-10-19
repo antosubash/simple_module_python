@@ -99,5 +99,9 @@ class FileStorageReads:
     async def uploader_facets(self) -> list[dict]:
         return [facet.as_dict() for facet in (await self.storage_aggregates()).uploaders]
 
+    async def used_bytes_by(self, owner: str) -> int:
+        """Bytes held by one uploader's files (not cached, not tenant-wide)."""
+        return await queries.used_bytes_by(self.db, owner)
+
     async def used_bytes(self) -> int:
         return (await self.storage_aggregates()).used_bytes

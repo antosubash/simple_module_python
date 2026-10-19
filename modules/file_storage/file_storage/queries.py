@@ -161,6 +161,14 @@ async def content_type_facets(db: AsyncSession, *, created_by: str | None = None
     return [{"value": str(row[0]), "count": int(row[1])} for row in rows]
 
 
+async def used_bytes_by(db: AsyncSession, owner: str) -> int:
+    """Total size of one uploader's files, summed in the database."""
+    query = select(func.coalesce(func.sum(StoredFile.size_bytes), 0)).where(
+        StoredFile.created_by == owner
+    )
+    return int((await db.execute(query)).scalar_one())
+
+
 def public_url_for(file_id: object, filename: str) -> str:
     """The anonymous URL of a public file, with its name as a trailing segment."""
     name = quote(filename, safe="")

@@ -91,8 +91,12 @@ async def browse(
             # stays None until an operator says what the ceiling is — the
             # screen reports usage rather than inventing a total.
             "backend": settings.backend,
-            "used_bytes": aggregates.used_bytes,
-            "quota_bytes": settings.quota_bytes,
+            # The quota measures the tenant, so only callers who see the whole
+            # tenant get it; everyone else sees their own usage, no ceiling.
+            "used_bytes": (
+                aggregates.used_bytes if owner is None else await service.used_bytes_by(owner)
+            ),
+            "quota_bytes": settings.quota_bytes if owner is None else None,
             "max_file_size_bytes": settings.max_file_size_bytes,
             # Above this the page uploads in resumable parts; null when the
             # backend cannot (a third-party one without multipart support).
