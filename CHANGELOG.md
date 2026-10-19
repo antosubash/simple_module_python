@@ -334,7 +334,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 - A runtime permission source that raises is no longer cached as empty until
-  invalidated; the next read retries it (#517).
+  invalidated: it contributes nothing for 30 seconds (one logged traceback),
+  then is retried; `invalidate_source` retries it at once (#517).
 - `background_tasks`: a prefork Celery child no longer reuses the sync engine
   (and Postgres connections) built in the parent (#532).
 - Settings validation: `file_storage.quota_bytes` must be positive (and at most

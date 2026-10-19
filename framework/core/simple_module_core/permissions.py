@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Awaitable, Callable, Collection, Iterable
 from dataclasses import dataclass, field
 from typing import Any
@@ -95,7 +96,11 @@ class PermissionRegistry:
     every mutation.
     """
 
-    def __init__(self) -> None:
+    #: Seconds a failed source is answered as empty before it is called again.
+    SOURCE_RETRY_SECONDS = 30.0
+
+    def __init__(self, *, clock: Callable[[], float] = time.monotonic) -> None:
+        self._clock = clock
         self._groups: dict[str, PermissionGroup] = {}
         self._role_map: dict[str, set[str]] = {}
         # Admin-editor grants (DB-backed). Kept apart from ``_role_map`` (code
@@ -106,6 +111,7 @@ class PermissionRegistry:
         self._grant_sources: list[GrantSource] = []
         self._sources: dict[str, PermissionSourceProvider] = {}
         self._source_cache: dict[str, tuple[list[str], dict[str, str]]] = {}
+        self._source_failed_at: dict[str, float] = {}  # name → clock() of last failure
         # Set when a source raised during the current recompute, so the derived
         # ``all_permissions`` snapshot is not cached with that source missing.
         self._source_failed = False
@@ -123,22 +129,29 @@ class PermissionRegistry:
         is **sync** and should read a module-maintained in-memory cache — the
         registry is consulted on every request. Its output is cached here until
         :meth:`invalidate_source` is called. A provider that raises is logged
-        and contributes nothing for that read; the empty result is not cached,
-        so the next read retries it.
+        once and contributes nothing for ``SOURCE_RETRY_SECONDS``, then is
+        retried — a transient failure recovers on its own (GH #517).
         """
         self._sources[name] = provider
         self._source_cache.pop(name, None)
+        self._source_failed_at.pop(name, None)
         self._invalidate()
 
     def invalidate_source(self, name: str) -> None:
-        """Drop the cached output of source *name*; re-read on next access."""
+        """Drop the cached output (or failure) of source *name*; re-read on next access."""
         self._source_cache.pop(name, None)
+        self._source_failed_at.pop(name, None)
         self._invalidate()
 
     def _source_output(self, name: str) -> tuple[list[str], dict[str, str]]:
         cached = self._source_cache.get(name)
         if cached is not None:
             return cached
+        failed_at = self._source_failed_at.get(name)
+        if failed_at is not None and self._clock() - failed_at < self.SOURCE_RETRY_SECONDS:
+            # In the retry window: empty, uncalled, no traceback per request.
+            self._source_failed = True
+            return [], {}
         keys: list[str] = []
         labels: dict[str, str] = {}
         try:
@@ -150,11 +163,13 @@ class PermissionRegistry:
                     keys.append(key)
                     labels[key] = label
         except Exception:
-            logger.exception("Permission source %r failed; contributing nothing", name)
-            # Not cached: a transient failure must not hide the source until
-            # someone invalidates it.
+            logger.exception("Permission source %r failed; contributing nothing until retry", name)
+            # Remembered for the retry window only: a transient failure must
+            # not hide the source until someone invalidates it.
+            self._source_failed_at[name] = self._clock()
             self._source_failed = True
             return [], {}
+        self._source_failed_at.pop(name, None)
         out = (sorted(set(keys)), labels)
         self._source_cache[name] = out
         return out
