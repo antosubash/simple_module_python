@@ -185,7 +185,7 @@ def _boot(stack: _Stack, *, broadcast: bool, channel: str) -> _Worker:
                 return worker
         except httpx.HTTPError:
             pass
-        time.sleep(0.2)
+        time.sleep(0.2)  # intentional-sleep: boot poll that also watches for process death
     worker.stop()
     raise AssertionError("worker did not become ready in time")
 
@@ -244,7 +244,7 @@ def _seconds_until_rejected(client: httpx.Client, limit: float) -> float | None:
     while time.monotonic() - start < limit:
         if client.get(_GUARDED, follow_redirects=False).status_code in (302, 401):
             return time.monotonic() - start
-        time.sleep(0.2)
+        time.sleep(0.2)  # intentional-sleep: measuring time-to-reject is a real timing test
     return None
 
 

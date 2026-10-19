@@ -108,7 +108,7 @@ class TestHandlerTimeout:
 
     async def test_a_hung_handler_is_a_failed_attempt(self, app, outbox_rows):
         async def hangs(event: PolicyPing, ctx: DurableContext) -> None:
-            await asyncio.sleep(30)
+            await asyncio.sleep(30)  # intentional-sleep: hangs until the handler timeout cancels it
 
         app.state.sm.event_bus.subscribe_durable(PolicyPing, hangs, name="hangs")
         await _publish(app, PolicyPing(1))
@@ -132,7 +132,9 @@ class TestHandlerTimeout:
 
 async def test_backoff_is_measured_from_the_failure(app, outbox_rows):
     async def slow_fail(event: PolicyPing, ctx: DurableContext) -> None:
-        await asyncio.sleep(0.6)
+        await asyncio.sleep(
+            0.6
+        )  # intentional-sleep: simulated slow handler; backoff is measured after it
         raise RuntimeError("slow fail")
 
     app.state.sm.event_bus.subscribe_durable(PolicyPing, slow_fail, name="slowfail")

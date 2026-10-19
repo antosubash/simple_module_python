@@ -25,6 +25,7 @@ from simple_module_core.durable_events import event_key, serialize_event
 from simple_module_core.events import Event, EventBus
 from simple_module_db import init_db
 from simple_module_db.listeners import register_listeners
+from simple_module_test import wait_for
 from simple_module_test.database import (
     database_url_for_tests,
     init_db_kwargs,
@@ -170,10 +171,12 @@ async def test_a_late_finisher_after_reclaim_is_fenced_off(factory) -> None:
     """Worker A is slow past its lease; B reclaims and delivers. A's handler
     effects must not commit: the delivered mark is fenced on A's attempt."""
     gate = asyncio.Event()
+    entered = asyncio.Event()
 
     async def handler(event: StockMoved, ctx: DurableContext) -> None:
         ctx.db.add(TaskExecution(task_name=f"attempt-{ctx.attempt}", status=TaskStatus.SUCCESS))
         if ctx.attempt == 1:
+            entered.set()
             await gate.wait()
 
     bus = EventBus()
@@ -182,7 +185,7 @@ async def test_a_late_finisher_after_reclaim_is_fenced_off(factory) -> None:
     t0 = datetime.now(UTC)
     (claimed_by_a,) = await claim(factory, now=t0, lease_seconds=60)
     worker_a = asyncio.create_task(deliver_one(factory, bus, claimed_by_a, policy=POLICY))
-    await asyncio.sleep(0.05)
+    await wait_for(entered.is_set)
 
     worker_b = await dispatch(factory, bus, POLICY, now=t0 + timedelta(seconds=61))
     gate.set()

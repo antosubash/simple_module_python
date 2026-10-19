@@ -37,6 +37,8 @@ jobs:
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
       - run: make install-py
       - run: make ci-python-lint
+      # Fixed sleeps in tests are timing bets; poll with simple_module_test.wait_for.
+      - run: make ci-check-test-sleeps
       # The checked-in typed-key files must match what the installed modules'
       # catalogs emit. Catches a catalog edit committed without regenerating, and
       # (with the namespace guard in gen_i18n.py) a regeneration that dropped keys.
