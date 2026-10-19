@@ -25,3 +25,33 @@ def test_max_retries_accepts_supported_boundaries(max_retries: int) -> None:
 def test_max_retries_rejects_values_outside_supported_range(max_retries: int) -> None:
     with pytest.raises(ValidationError):
         BackgroundTasksSettings(max_retries=max_retries)
+
+
+def test_soft_time_limit_must_be_below_hard_limit() -> None:
+    ok = BackgroundTasksSettings(task_soft_time_limit=50, task_time_limit=100)
+    assert (ok.task_soft_time_limit, ok.task_time_limit) == (50, 100)
+    assert BackgroundTasksSettings(task_soft_time_limit=50).task_time_limit is None
+    assert BackgroundTasksSettings(task_time_limit=50).task_soft_time_limit is None
+
+    for soft, hard in ((100, 50), (50, 50)):
+        with pytest.raises(ValidationError) as exc:
+            BackgroundTasksSettings(task_soft_time_limit=soft, task_time_limit=hard)
+        err = exc.value.errors()[0]
+        assert err["loc"] == ("task_time_limit",)
+        assert "task_soft_time_limit" in err["msg"]
+
+
+@pytest.mark.asyncio
+async def test_stored_invalid_limit_pair_does_not_break_lenient_hydration(db_session) -> None:
+    from settings.hydrate import hydrate_settings
+    from settings.service import SettingService
+    from settings.store import SettingsStore
+
+    store = SettingsStore(SettingService(db_session))
+    await store.set_override("background_tasks", "task_soft_time_limit", "100", "int")
+    await store.set_override("background_tasks", "task_time_limit", "50", "int")
+    cfg = await hydrate_settings(
+        BackgroundTasksSettings, store, package="background_tasks", lenient=True
+    )
+    assert cfg.task_soft_time_limit == 100
+    assert cfg.task_time_limit is None

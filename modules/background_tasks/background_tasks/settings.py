@@ -239,6 +239,22 @@ class BackgroundTasksSettings(BaseSettings):
         default=None, ge=1, description="Seconds a durable handler may run per attempt."
     )
 
+    @field_validator("task_time_limit")
+    @classmethod
+    def _soft_limit_below_hard(cls, hard: int | None, info: ValidationInfo) -> int | None:
+        """A soft limit at or above the hard one can never fire (#548).
+
+        Attached to the later-declared hard limit so the error carries that
+        field's ``loc`` and the settings form shows it under the field.
+        """
+        soft = info.data.get("task_soft_time_limit")
+        if hard is not None and soft is not None and soft >= hard:
+            raise ValueError(
+                f"task_time_limit ({hard}) must be greater than task_soft_time_limit ({soft}); "
+                "otherwise the soft limit can never fire"
+            )
+        return hard
+
     @field_validator("outbox_handler_timeout_seconds")
     @classmethod
     def _handler_timeout_fits_the_lease(
