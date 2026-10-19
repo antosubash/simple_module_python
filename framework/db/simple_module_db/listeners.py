@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from contextvars import ContextVar
 from datetime import UTC, datetime
 
+from simple_module_core.correlation import correlation_id
 from sqlalchemy import event
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from simple_module_db.flush_guard import guard_flush
 from simple_module_db.mixins import AuditMixin, SoftDeleteMixin, VersionedMixin
-from simple_module_db.query_filter import bind_engine_policy, filter_statements
+from simple_module_db.query_filter import bind_engine_policy, engine_policy, filter_statements
 from simple_module_db.session import DatabaseState
 from simple_module_db.writes import (
     _HARD_DELETE_KEY,
@@ -54,8 +56,6 @@ _EVENT_ENTITY_UPDATED = "db.entity.updated"
 _EVENT_ENTITY_SOFT_DELETED = "db.entity.soft_deleted"
 _EVENT_ENTITY_DELETED = "db.entity.deleted"
 
-_db_state: DatabaseState | None = None
-
 # DB operation strings used in log extra dicts
 _OP_CREATE = "create"
 _OP_UPDATE = "update"
@@ -94,9 +94,9 @@ def register_listeners(db_state: DatabaseState) -> None:
         logger.debug("Listeners already registered, skipping")
         return
 
-    global _db_state
-    _db_state = db_state
-    # Strict mode is read from db_state at query time, per engine.
+    # Strict mode and the audit sink are read from db_state at flush/query
+    # time, per engine — never from a process global, so two apps in one
+    # process cannot see each other's audit callback (#498).
     bind_engine_policy(db_state.engine.sync_engine, db_state)
     attach_session_listeners(db_state.sync_session_class)
     db_state._listeners_registered = True
@@ -107,7 +107,8 @@ def attach_session_listeners(session_class: type[Session]) -> None:
     """Attach the entity listeners to a session class; idempotent.
 
     For a process with no ``DatabaseState`` (the Celery worker's sync engine),
-    call this and ``bind_engine_policy(engine, EngineTenancy(...))``.
+    call this and ``bind_engine_policy(engine, EngineTenancy(...))``; pass
+    ``audit_callback`` there to audit that engine's writes.
 
     Idempotence is a marker in the ``__dict__`` of the class or a base, not
     ``event.contains``: SQLAlchemy keys its event registry on ``id(target)``,
@@ -211,20 +212,19 @@ def _before_flush_listener(
     # Audit phase 1: snapshot diffs while attribute history is still available.
     # entity_id resolution is deferred to after_flush_postexec because
     # DB-assigned integer PKs aren't populated until the INSERT executes.
-    if _db_state is not None and _db_state.audit_callback is not None:
+    if _audit_callback(session) is not None:
         from simple_module_db.audit import snapshot_changes
 
-        correlation_id_val: str | None = None
-        try:
-            from simple_module_hosting.logging import correlation_id as _cid_var
-
-            correlation_id_val = _cid_var.get("") or None
-        except ImportError:
-            pass
-
+        correlation_id_val = correlation_id.get("") or None
         pending = snapshot_changes(session, user_id, correlation_id_val)
         if pending:
             session.info[_AUDIT_PENDING_KEY] = pending
+
+
+def _audit_callback(session: Session) -> Callable[[Session, list], None] | None:
+    """The audit sink bound to this session's engine (``DatabaseState`` or
+    ``EngineTenancy``), or ``None`` when that engine is not audited."""
+    return getattr(engine_policy(session), "audit_callback", None)
 
 
 def _after_flush_audit(session: Session, flush_context: object) -> None:
@@ -236,7 +236,8 @@ def _after_flush_audit(session: Session, flush_context: object) -> None:
     autoflush). The recursion guard relies on AuditEntry having
     ``__audit_exclude__ = True`` so its own flush produces no pending records.
     """
-    if _db_state is None or _db_state.audit_callback is None:
+    callback = _audit_callback(session)
+    if callback is None:
         return
     pending = session.info.pop(_AUDIT_PENDING_KEY, None)
     if not pending:
@@ -245,4 +246,4 @@ def _after_flush_audit(session: Session, flush_context: object) -> None:
 
     records = finalize_records(pending)
     if records:
-        _db_state.audit_callback(session, records)
+        callback(session, records)

@@ -33,6 +33,11 @@ dependencies = [
 [project.entry-points.simple_module]
 audit_log = "audit_log.module:AuditLogModule"
 
+# Read by processes that never build the app (the Celery worker), so their
+# writes are audited too (#498). See ``simple_module_db.audit_sinks``.
+[project.entry-points."simple_module.audit_sinks"]
+audit_log = "audit_log.capture:audit_callback"
+
 [project.urls]
 Homepage = "https://github.com/antosubash/simple_module_python"
 Repository = "https://github.com/antosubash/simple_module_python"

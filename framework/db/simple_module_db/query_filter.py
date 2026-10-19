@@ -11,6 +11,7 @@ filtered too. A Core statement on ``Model.__table__`` at the top level
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 from weakref import WeakKeyDictionary
 
@@ -43,11 +44,22 @@ _engine_policy: WeakKeyDictionary[Engine, Any] = WeakKeyDictionary()
 
 
 class EngineTenancy:
-    """Tenancy policy for an engine that has no ``DatabaseState``."""
+    """Engine policy for an engine that has no ``DatabaseState``.
 
-    def __init__(self, *, tenant_strict: bool, default_tenant_id: str = DEFAULT_TENANT_ID) -> None:
+    ``audit_callback`` is the same sink a ``DatabaseState`` carries: writes made
+    through this engine are audited only when it is set (#498).
+    """
+
+    def __init__(
+        self,
+        *,
+        tenant_strict: bool,
+        default_tenant_id: str = DEFAULT_TENANT_ID,
+        audit_callback: Callable[..., None] | None = None,
+    ) -> None:
         self.tenant_strict = tenant_strict
         self.default_tenant_id = default_tenant_id
+        self.audit_callback = audit_callback
 
 
 def bind_engine_policy(engine: Engine, policy: Any) -> None:
@@ -55,9 +67,13 @@ def bind_engine_policy(engine: Engine, policy: Any) -> None:
     _engine_policy[engine] = policy
 
 
-def _policy(session: Session) -> Any:
+def engine_policy(session: Session) -> Any:
+    """The policy bound to this session's engine, or ``None``."""
     bind = session.bind
     return _engine_policy.get(bind) if isinstance(bind, Engine) else None
+
+
+_policy = engine_policy
 
 
 def strict_configured(session: Session) -> bool:
