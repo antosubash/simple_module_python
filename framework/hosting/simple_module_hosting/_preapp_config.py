@@ -30,7 +30,8 @@ from typing import Any
 
 from pydantic_settings import BaseSettings
 from simple_module_core.dotenv import parse_dotenv
-from sqlalchemy import text
+from simple_module_core.environments import NON_PROD_ENVIRONMENTS
+from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -42,6 +43,17 @@ logger = logging.getLogger(__name__)
 
 HOST_PACKAGE = "host"
 _ENV_PREFIX = "SM_"
+
+
+class HostSettingsUnavailableError(RuntimeError):
+    """The stored host settings exist but could not be read before boot.
+
+    Raised only outside development, and only when the settings module is
+    installed. Building with defaults instead would silently drop every
+    build-time override — ``multi_tenant`` above all, so one worker that
+    booted during a DB blip would serve requests single-tenant, with no tenant
+    middleware and no strict filter, while its siblings stay isolated (#494).
+    """
 
 
 def _settings_table() -> tuple[str, str, str] | None:
@@ -87,7 +99,13 @@ def _parse(raw: str, value_type: str) -> Any:
 
 
 async def _read(database_url: str) -> dict[str, tuple[str, str]]:
-    """Select the ``host.*`` system-scoped overrides. Returns ``{}`` on failure."""
+    """Select the ``host.*`` system-scoped overrides.
+
+    Returns ``{}`` when the settings module isn't installed or its table does
+    not exist yet (a fresh install). Anything else — the connect, the
+    existence check, the select — raises, so the caller can tell an expected
+    empty result from a failure.
+    """
     info = _settings_table()
     if info is None:
         return {}
@@ -102,6 +120,12 @@ async def _read(database_url: str) -> dict[str, tuple[str, str]]:
     engine = create_async_engine(database_url, poolclass=NullPool)
     try:
         async with engine.connect() as conn:
+            # Checked rather than inferred from the select's error: "no such
+            # table" is a fresh install and must stay quiet, while a refused
+            # connection or a failing query is not, and the driver errors for
+            # the two are not reliably distinguishable across backends.
+            if not await conn.run_sync(lambda sync: inspect(sync).has_table(table)):
+                return {}
             rows = (await conn.execute(stmt, {"scope": scope, "scope_id": scope_id})).all()
     finally:
         await engine.dispose()
@@ -120,17 +144,20 @@ async def _read(database_url: str) -> dict[str, tuple[str, str]]:
     return out
 
 
-def load_host_overrides(database_url: str) -> dict[str, tuple[str, str]]:
+def load_host_overrides(
+    database_url: str, *, strict: bool = False
+) -> dict[str, tuple[str, str]]:
     """Return ``{field: (raw_value, value_type)}`` for host settings in the DB.
 
-    Returns ``{}`` for every failure mode — unreachable database, database
-    reachable but not yet migrated, table present but empty. All three are
-    ordinary states on a fresh install, and all three are exactly what the
-    setup wizard exists to repair, so none of them may fail the boot.
+    Returns ``{}`` quietly when the settings module isn't installed, or when
+    the database is reachable but not yet migrated or holds no rows. Those are
+    the ordinary states of a fresh install, and what the setup wizard repairs.
 
-    Logged at DEBUG rather than WARNING on purpose: an empty result is the
-    expected first-boot path, and warning about it would cry wolf on every
-    new install.
+    A failure to connect or to query is different: the stored overrides may
+    exist and simply be unreadable right now. That logs a WARNING and, with
+    ``strict``, raises :class:`HostSettingsUnavailableError` instead of letting
+    the caller build with defaults (#494). ``merge_host_settings`` is strict
+    outside development; one-shot tooling (``smpy openapi``) is not.
 
     Runs the async read on a private event loop in a worker thread. ``asyncio.run``
     refuses to nest inside a running loop, and ``create_app`` is called both
@@ -141,7 +168,19 @@ def load_host_overrides(database_url: str) -> dict[str, tuple[str, str]]:
         with ThreadPoolExecutor(max_workers=1) as pool:
             return pool.submit(lambda: asyncio.run(_read(database_url))).result()
     except Exception as exc:
-        logger.debug("Pre-app host settings read skipped: %s", exc)
+        if strict:
+            raise HostSettingsUnavailableError(
+                "Could not read the stored host settings before boot "
+                f"({type(exc).__name__}: {exc}). Refusing to start with defaults "
+                "outside development: build-time settings such as multi_tenant "
+                "would silently be off on this worker. Check SM_DATABASE_URL and "
+                "that the database is reachable, then restart."
+            ) from exc
+        logger.warning(
+            "Pre-app host settings read failed; building with env/defaults: %s: %s",
+            type(exc).__name__,
+            exc,
+        )
         return {}
 
 
@@ -210,7 +249,10 @@ def merge_host_settings(bootstrap: BootstrapSettings | None = None) -> Settings:
     from simple_module_hosting._secret_key import ensure_secret_key
 
     bootstrap = bootstrap or BootstrapSettings()
-    overrides = load_host_overrides(bootstrap.database_url)
+    overrides = load_host_overrides(
+        bootstrap.database_url,
+        strict=bootstrap.environment not in NON_PROD_ENVIRONMENTS,
+    )
     values = apply_host_overrides(overrides)
     # Resolved here rather than left to the field default so an install with
     # no SM_SECRET_KEY gets a generated, persisted key instead of the shipped
