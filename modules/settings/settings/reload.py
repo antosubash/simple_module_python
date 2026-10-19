@@ -106,6 +106,17 @@ async def apply_changes_and_reload(
     # rewritten to the store on every save.
     merged = current.model_dump()
     diff = {k: v for k, v in changes.items() if merged.get(k) != v}
+
+    # A row that already holds the default (stored before saving a default
+    # cleared the row) is not a change, so the diff never reaches it; without
+    # this the field stays "overridden in DB" however often it is saved.
+    unchanged = set(changes) - set(diff) - env_supplied_fields(cls)
+    if unchanged:
+        stored = await store.get_overrides(package)
+        for name in sorted(unchanged & set(stored)):
+            if _is_default(cls, name, merged.get(name)):
+                await store.clear_override(package, name)
+
     if not diff:
         return current
 
