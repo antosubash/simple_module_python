@@ -1299,6 +1299,7 @@ export const keys = {
     sidebar: {
       back: 'ui.sidebar.back',
       close: 'ui.sidebar.close',
+      drawer: 'ui.sidebar.drawer',
       open: 'ui.sidebar.open',
       skip_to_content: 'ui.sidebar.skip_to_content',
     },

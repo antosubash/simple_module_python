@@ -32,6 +32,7 @@ from starlette.datastructures import MutableHeaders
 from starlette.middleware.sessions import SessionMiddleware as _StarletteSessionMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from simple_module_hosting._insecure_transport import warn_if_plain_http
 from simple_module_hosting._tenant import merge_vary
 
 SESSION_SIGNATURE_MAX_AGE = 30 * 24 * 60 * 60
@@ -102,11 +103,14 @@ class SessionMiddleware(_StarletteSessionMiddleware):
                 "with SESSION_REMEMBER_KEY, or per response with SESSION_COOKIE_MAX_AGE_KEY."
             )
         super().__init__(app, secret_key, max_age=SESSION_SIGNATURE_MAX_AGE, **kwargs)
+        self._secure = bool(kwargs.get("https_only"))
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] not in ("http", "websocket"):
             await self.app(scope, receive, send)
             return
+        if self._secure:
+            warn_if_plain_http(scope)
 
         async def send_with_cookie_window(message: Message) -> None:
             if message["type"] == "http.response.start":

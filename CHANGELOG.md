@@ -12,6 +12,26 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Changed
+- **Behaviour change (#494):** a pre-app settings read that fails (connection,
+  query, import error) is no longer treated as a fresh install. Outside
+  development and testing the host and the Celery worker refuse to boot with
+  `HostSettingsUnavailableError` instead of building with defaults (which
+  silently disabled `multi_tenant`). Only a missing settings table falls back
+  quietly. Likewise the secret key: an ephemeral key is used only before the
+  settings table exists; otherwise boot fails with `SecretKeyUnavailableError`,
+  and a blank stored key is replaced atomically.
+- **Behaviour change (#495):** the session cookie is `Secure` outside
+  development and testing. New `HostSettings.session_cookie_secure`
+  (`SM_SESSION_COOKIE_SECURE`); set `SM_TRUSTED_PROXY` behind a TLS terminator,
+  and `false` only for installs that serve browsers plain HTTP on purpose.
+- **Behaviour change (#498):** with `audit_log` installed, writes made in Celery
+  tasks and durable outbox handlers are audited (including `TaskExecution`
+  creation and status changes; its heartbeat, timestamps and retry counter are
+  excluded, so a heartbeat-only update writes no audit row, and the
+  `OutboxMessage` delivery bookkeeping is not audited at all). The audit callback is bound per engine instead of a
+  process-global, through the new `simple_module.audit_sinks` entry-point
+  group. Worker tests that build a database without the audit table need the
+  sink off (see `background_tasks/tests/conftest.py`).
 - **Behaviour change (#530):** password-login lockout now holds across workers,
   source IPs and restarts. `users.login_lockout_account_failures` (new, default
   10) failures for one account within `login_rate_limit_window_seconds`, from
@@ -348,6 +368,12 @@ All notable changes to this project are documented in this file. The format is b
   *complete* verdict now keeps answering while one refresh runs.
 
 ### Security
+- Tenant and soft-delete filters now cover Core statements that used to leak
+  other tenants' or deleted rows (#506): outer and FULL joins over
+  `Model.__table__`, table aliases, subqueries, CTEs, scalar/correlated
+  subqueries, `exists()` over joins or in ON clauses, `union`/`intersect`/
+  `except`, tables joined into UPDATE/DELETE, and `insert().from_select()`
+  sources. Raw `text()` SQL remains unfiltered by design.
 - `smpy new` no longer writes generated secrets into the committed
   `.env.example` (#441). `SM_SECRET_KEY` and the users token secrets go to a
   gitignored `.env` (created if absent; an existing one only gains missing
@@ -364,6 +390,18 @@ All notable changes to this project are documented in this file. The format is b
   `tenants` resolver it selects among the user's own memberships.
 
 ### Fixed
+- A stored host setting that parses but fails validation (or an unrecognised
+  boolean like `"tru"`) is dropped with a WARNING instead of crashing boot or
+  reading as false (#497); one failing module settings read no longer resets
+  that module or poisons the others' reads.
+- Every `HostSettings` field `create_app` reads is marked restart-required, so
+  the settings editor says so (#499).
+- An established install whose setup check raises no longer drops into the
+  first-run wizard.
+- The admin mobile sidebar drawer closes on Escape, traps focus and is a
+  labelled dialog while open (#554).
+- Docs describe the real migration graph (two roots, four heads, inherited
+  labels), pinned by a test (#503).
 - `file_storage` browse page: a caller without `file_storage.manage` sees their
   own usage and no tenant quota, instead of the tenant-wide total; the
   authenticated download now carries the same sandbox CSP as public serving.

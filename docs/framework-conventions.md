@@ -284,7 +284,9 @@ not get the row torn out from under them.
 The soft-delete and tenant filters are attached by a `do_orm_execute` listener
 (`simple_module_db.query_filter`). Loader criteria go on for *every* registered
 soft-deletable / tenant-scoped model, not only the entities a statement names,
-and top-level Core tables get an explicit `WHERE`. All of these are filtered:
+and Core tables — at any depth, including outer joins (predicates in `ON`),
+subqueries, CTEs and unions (GH #506) — get explicit predicates. All of these
+are filtered:
 
 ```python
 select(Model)  # entity select
@@ -294,6 +296,8 @@ select(func.count()).select_from(select(Model).subquery())
 select(func.count()).select_from(Model.__table__)  # pure Core
 select(A).outerjoin(B)  # B filtered in the ON clause
 select(func.count()).select_from(A.__table__.join(B.__table__, ...))  # Core inner join
+select(func.count()).select_from(A.__table__.outerjoin(B.__table__, ...))  # B in ON
+union(select(A.__table__.c.id), select(A.__table__.c.id))  # Core, nested
 ```
 
 Before GH #332 only the first two were — the rest returned trashed rows, and on

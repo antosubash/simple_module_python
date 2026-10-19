@@ -15,6 +15,18 @@ from background_tasks.models import TaskExecution
 from sqlalchemy import select
 
 
+@pytest.fixture(autouse=True)
+def _no_worker_audit_sink(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Build worker engines without the installed audit sink (#498).
+
+    ``audit_log`` is installed in this workspace, so a worker engine would
+    write an ``AuditEntry`` for every ``TaskExecution`` — into the bare
+    per-test databases here, which have no audit table. The worker-audit
+    suite puts the real discovery back.
+    """
+    monkeypatch.setattr(sync_db, "discover_audit_callback", lambda: None)
+
+
 @pytest.fixture
 async def _stub_celery(app) -> None:
     """Replace the real Celery instance with a MagicMock.

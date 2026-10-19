@@ -20,6 +20,7 @@ from contextlib import contextmanager
 
 from celery.signals import worker_process_init
 from simple_module_db import DEFAULT_TENANT_ID
+from simple_module_db.audit_sinks import discover_audit_callback
 from simple_module_db.listeners import attach_session_listeners
 from simple_module_db.query_filter import EngineTenancy, bind_engine_policy
 from sqlalchemy import create_engine
@@ -121,9 +122,17 @@ def async_database_url() -> str:
 
 
 def engine_tenancy() -> EngineTenancy:
-    """The tenancy policy worker engines run with (mirrors the host's)."""
+    """The policy worker engines run with (mirrors the host's).
+
+    Includes the installed audit sink, so a task's writes are audited exactly
+    as a request's are when ``audit_log`` is installed (#498). It comes from
+    the ``simple_module.audit_sinks`` entry point, not an import: this module
+    does not depend on ``audit_log``.
+    """
     return EngineTenancy(
-        tenant_strict=_tenant_strict, default_tenant_id=_default_tenant or DEFAULT_TENANT_ID
+        tenant_strict=_tenant_strict,
+        default_tenant_id=_default_tenant or DEFAULT_TENANT_ID,
+        audit_callback=discover_audit_callback(),
     )
 
 

@@ -234,7 +234,8 @@ by `InertiaLayoutDataMiddleware`; `auth.user` is null unless
 **CSRF.** Baseline is `SameSite=Lax` on the Starlette session cookie; raw
 `fetch()` in pages needs no token. Defence in depth: `RequiresCsrf` router
 dependency + `get_csrf_token(request)` as a view prop, echoed as `X-CSRF-Token`
-(`simple_module_hosting.csrf`).
+(`simple_module_hosting.csrf`). The session cookie is `Secure` outside
+development and testing (`session_cookie_secure`).
 
 ## Database
 
@@ -275,19 +276,27 @@ dependency + `get_csrf_token(request)` as a view prop, echoed as `X-CSRF-Token`
   never by importing `tenants`. `docs/framework/multi-tenancy.md`.
 - **Migrations** live in `host/migrations/versions/`, never in module packages.
   `host/migrations/env.py` builds metadata from every installed module and runs
-  `ensure_db_extensions` first. The history has **several heads** (one per
-  labelled branch), so apply with `upgrade heads` (what `make migrate` does)
-  and autogenerate against one branch, since plain `revision --autogenerate`
-  refuses with "Multiple heads":
+  `ensure_db_extensions` first. The history is **not** one linear chain: it has
+  two roots (`77162e7b184b` initial schema, `e36ab09c4a92` tenants) and four
+  heads (`audit_log`, `tenants`, `keycloak`, and the users trunk, which Alembic
+  reports as `api_tokens`). Apply with `upgrade heads` (what `make migrate`
+  does); plain `revision --autogenerate` refuses with "Multiple heads", so name
+  the branch:
 
   ```
   uv run --project host alembic -c host/alembic.ini revision --autogenerate \
       -m "<msg>" --head <branch_label>@head
   ```
 
-  A module's first revision sets `branch_labels = ("<module_name>",)` (older
-  modules lack it); the label is a named target, not a per-module rollback:
-  `downgrade <module>@base` walks everything beneath it.
+  Labels are inherited by every descendant and are only named targets, not
+  per-module rollbacks: `downgrade <label>@base` unwinds the label's revision,
+  everything above it and everything beneath it on that root, other modules
+  included. Known mislabels (existing files are left alone, applied databases
+  stay valid): `51b2058d8afd` puts `api_tokens` on the trunk, so users,
+  file_storage and background_tasks revisions report it, and keycloak's
+  `168a2882f443` branches off the users revision `873ca2015033`. Give an
+  unlabelled module a label on its next revision. `host/tests/test_migration_graph.py`
+  pins the roots, heads and owners; update it with any new root or head.
   `docs/database/migrations.md`.
 - Postgres extensions: override `ModuleBase.db_extensions()`; `LTree`/`TSVector`
   types are `TEXT` on SQLite; tests needing Postgres carry
@@ -316,6 +325,12 @@ dependency + `get_csrf_token(request)` as a view prop, echoed as `X-CSRF-Token`
   lifespan opens the DB, so a `HostSettings` field read at build time needs
   that pre-read. `SM_SECRET_KEY` is optional: unset generates and stores a key
   atomically; an explicit value wins and is never copied into the DB.
+  A pre-app read failure is not a fresh install: outside development it
+  refuses to boot (`HostSettingsUnavailableError`/`SecretKeyUnavailableError`);
+  only a missing settings table falls back to defaults and an ephemeral key.
+  Stored values parse through `simple_module_core.stored_settings`; an invalid
+  row is dropped with a WARNING. Every `HostSettings` field `create_app` reads
+  is marked restart-required (`test_build_time_settings_marked.py`).
   Module settings are a `DbBackedSettings` subclass (constructor + DB, no env
   source) registered in `register_settings` through
   `settings.registration.register_module_settings(app, package, SettingsCls,

@@ -9,19 +9,22 @@ and constructs the BaseSettings — pydantic enforces field validators and any
 
 from __future__ import annotations
 
-import json
 import logging
 import types
 from typing import Union, get_args, get_origin
 
-from pydantic import BaseModel, ValidationError
-from pydantic_core import ErrorDetails
+from pydantic import BaseModel
 from pydantic_settings import (
     BaseSettings,
     DotEnvSettingsSource,
     EnvSettingsSource,
     InitSettingsSource,
     SecretsSettingsSource,
+)
+from simple_module_core.stored_settings import (
+    RELATED_FIELDS_CTX,
+    construct_leniently,
+    parse_stored_value,
 )
 from sqlalchemy.orm import Session
 
@@ -31,10 +34,16 @@ logger = logging.getLogger(__name__)
 
 _SCALAR_TYPES = {bool: "bool", int: "int", float: "float"}
 
-#: ``ctx`` key on a validation error listing the *other* fields a cross-field
-#: rule depends on; raise it with ``PydanticCustomError(type, msg, {key: [...]})``.
-#: Lenient hydration drops those when the reported field is not from the DB.
-RELATED_FIELDS_CTX = "related_fields"
+# Re-exported: modules raise cross-field errors with it (``background_tasks``).
+__all__ = [
+    "RELATED_FIELDS_CTX",
+    "build_settings",
+    "env_supplied_fields",
+    "hydrate_settings",
+    "hydrate_settings_sync",
+    "input_type_for_field",
+    "value_type_for_field",
+]
 
 
 def value_type_for_field(cls: type[BaseSettings], field_name: str) -> str:
@@ -81,18 +90,6 @@ def input_type_for_field(cls: type[BaseSettings], field_name: str) -> tuple[str,
             return "json", nullable
         return _SCALAR_TYPES.get(only, "string"), nullable
     return "json", nullable
-
-
-def _parse(raw: str, value_type: str):
-    if value_type == "bool":
-        return raw.lower() in ("1", "true", "yes", "on")
-    if value_type == "int":
-        return int(raw)
-    if value_type == "float":
-        return float(raw)
-    if value_type == "json":
-        return json.loads(raw)
-    return raw
 
 
 def env_supplied_fields(cls: type[BaseSettings]) -> frozenset[str]:
@@ -161,7 +158,7 @@ def build_settings[T: BaseSettings](
         if field_name not in cls.model_fields or field_name in from_env:
             continue
         try:
-            parsed[field_name] = _parse(raw, vtype)
+            parsed[field_name] = parse_stored_value(raw, vtype)
         except ValueError:
             if not lenient:
                 raise
@@ -170,37 +167,7 @@ def build_settings[T: BaseSettings](
             )
     if not lenient:
         return cls(**parsed)
-    try:
-        return cls(**parsed)
-    except ValidationError as exc:
-        culprits = {name: err["type"] for err in exc.errors() for name in _culprits(err, parsed)}
-        if not culprits:
-            raise
-        for name in sorted(culprits):
-            logger.error(
-                "Ignoring stored value for %s.%s: it no longer validates (%s)",
-                cls.__name__,
-                name,
-                # error *type* only: a validator's message may echo the value (a secret)
-                culprits[name],
-            )
-        return cls(**{k: v for k, v in parsed.items() if k not in culprits})
-
-
-def _culprits(error: ErrorDetails, parsed: dict[str, object]) -> list[str]:
-    """The stored keys to drop so that ``error`` goes away.
-
-    The field the error is reported on, when its value came from the DB.
-    Otherwise — that field is env-pinned or defaulted — the stored fields the
-    validator names under ``ctx[RELATED_FIELDS_CTX]``: a cross-field rule
-    reported on one field (so the editor shows it there) whose other half came
-    from the DB, which is the only half lenient hydration can drop (#548).
-    """
-    loc = str(error["loc"][0]) if error["loc"] else None
-    if loc in parsed:
-        return [loc]
-    related = (error.get("ctx") or {}).get(RELATED_FIELDS_CTX, ())
-    return [name for name in related if name in parsed]
+    return construct_leniently(cls, parsed, level=logging.ERROR)
 
 
 async def hydrate_settings[T: BaseSettings](

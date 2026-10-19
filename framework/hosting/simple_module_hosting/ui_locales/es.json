@@ -55,6 +55,7 @@
   "sidebar": {
     "open": "Abrir barra lateral",
     "close": "Cerrar barra lateral",
+    "drawer": "Menú de navegación",
     "back": "Volver",
     "skip_to_content": "Saltar al contenido"
   },

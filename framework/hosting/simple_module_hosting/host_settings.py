@@ -16,8 +16,10 @@ from __future__ import annotations
 from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
+from pydantic_core import PydanticCustomError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
+from simple_module_core.stored_settings import RELATED_FIELDS_CTX
 
 # Marks a field the running process cannot pick up without a restart, so the
 # admin UI can say so rather than letting the edit look like it took effect.
@@ -27,6 +29,17 @@ _RESTART_DB = {"requires_restart": True, "group": "Database"}
 _RESTART_GUARD = {"requires_restart": True, "group": "Request guards"}
 
 _RESTART_API = {"requires_restart": True, "group": "API"}
+
+# Consumed while create_app builds the tenant middleware, the strict tenant
+# filter, the i18n registry and LocaleMiddleware, the auth provider and the
+# public-route registry, the proxy middleware and logging — none of which the
+# lifespan hydration can rebuild (#499). test_build_time_settings_marked keeps
+# this in step with what create_app actually reads.
+_RESTART_TENANCY = {"requires_restart": True, "group": "Tenancy"}
+_RESTART_I18N = {"requires_restart": True, "group": "Localization"}
+_RESTART_AUTH = {"requires_restart": True, "group": "Authentication"}
+_RESTART_LOGGING = {"requires_restart": True, "group": "Logging"}
+_RESTART_SECURITY = {"requires_restart": True, "group": "Security"}
 
 
 def _default_api_version() -> str:
@@ -72,9 +85,9 @@ class HostSettings(BaseSettings):
     # that has nothing to do with this app.
     model_config = SettingsConfigDict(env_prefix="SM_", extra="ignore")
 
-    multi_tenant: bool = False
-    tenant_header: str = ""
-    default_tenant: str = ""
+    multi_tenant: bool = Field(default=False, json_schema_extra=_RESTART_TENANCY)
+    tenant_header: str = Field(default="", json_schema_extra=_RESTART_TENANCY)
+    default_tenant: str = Field(default="", json_schema_extra=_RESTART_TENANCY)
     """Single-tenant hosts (``multi_tenant`` off): the tenant every request acts
     as, so a module's ``MultiTenantMixin`` tables work without a tenant
     resolver. Ignored when ``multi_tenant`` is on — a multi-tenant install
@@ -91,12 +104,12 @@ class HostSettings(BaseSettings):
     """Optional operator note shown on the maintenance page. Empty = use the
     generic translated copy."""
 
-    i18n_default_locale: str = "en"
-    i18n_supported_locales: list[str] = ["en"]
-    i18n_cookie_name: str = "locale"
+    i18n_default_locale: str = Field(default="en", json_schema_extra=_RESTART_I18N)
+    i18n_supported_locales: list[str] = Field(default=["en"], json_schema_extra=_RESTART_I18N)
+    i18n_cookie_name: str = Field(default="locale", json_schema_extra=_RESTART_I18N)
 
-    log_level: str = "INFO"
-    log_format: Literal["json", "text"] = "json"
+    log_level: str = Field(default="INFO", json_schema_extra=_RESTART_LOGGING)
+    log_format: Literal["json", "text"] = Field(default="json", json_schema_extra=_RESTART_LOGGING)
 
     # Trust the X-Forwarded-* headers from a fronting reverse proxy. Unset by
     # default (no proxy trusted). Set to ``*`` to trust any peer (correct when
@@ -112,9 +125,20 @@ class HostSettings(BaseSettings):
     # url, e.g. OAuth's callback_url and the locale cookie's `secure` flag —
     # left unset behind such a proxy, an OAuth redirect_uri ships as http://
     # and most providers reject it.
-    trusted_proxy: str | None = None
+    trusted_proxy: str | None = Field(default=None, json_schema_extra=_RESTART_GUARD)
 
-    auth_provider: str = DEFAULT_AUTH_PROVIDER
+    session_cookie_secure: bool | None = Field(default=None, json_schema_extra=_RESTART_SECURITY)
+    """Mark the session cookie ``Secure`` (sent over HTTPS only).
+
+    Unset (the default) means on outside development and testing, off in
+    them, so ``make dev`` keeps working over plain ``http://localhost``. Behind
+    a TLS-terminating proxy leave it on: the browser sees HTTPS, which is all
+    the flag needs. Only an install that serves browsers plain HTTP on purpose
+    should turn it off — otherwise the cookie is never sent back and sign-in
+    silently fails. See ``session_cookie_is_secure``.
+    """
+
+    auth_provider: str = Field(default=DEFAULT_AUTH_PROVIDER, json_schema_extra=_RESTART_AUTH)
     """Which auth provider module to activate.
 
     ``users`` and ``keycloak`` both provide authentication and only one may be
@@ -126,7 +150,7 @@ class HostSettings(BaseSettings):
     the process restarted with a matching env var.
     """
 
-    auth_public_paths: list[str] = []
+    auth_public_paths: list[str] = Field(default=[], json_schema_extra=_RESTART_AUTH)
     """Host-level anonymous-access path prefixes.
 
     An escape hatch for exposing a route without a session when no module owns
@@ -221,8 +245,16 @@ class HostSettings(BaseSettings):
     @model_validator(mode="after")
     def _check_default_locale_supported(self) -> HostSettings:
         if self.i18n_default_locale not in self.i18n_supported_locales:
-            raise ValueError(
-                f"i18n_default_locale '{self.i18n_default_locale}' is not in "
-                f"i18n_supported_locales {self.i18n_supported_locales}"
+            # Model-level, so the error has no field location: the context
+            # names both halves, letting lenient boot hydration drop whichever
+            # one came from the DB instead of refusing to boot (#497).
+            raise PydanticCustomError(
+                "default_locale_unsupported",
+                "i18n_default_locale '{default}' is not in i18n_supported_locales {supported}",
+                {
+                    "default": self.i18n_default_locale,
+                    "supported": self.i18n_supported_locales,
+                    RELATED_FIELDS_CTX: ["i18n_default_locale", "i18n_supported_locales"],
+                },
             )
         return self
