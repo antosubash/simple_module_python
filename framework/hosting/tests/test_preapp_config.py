@@ -9,10 +9,11 @@ blind, which is the friction this whole change removes.
 
 from __future__ import annotations
 
-import sqlite3
 from pathlib import Path
 
 import pytest
+from _hosting_settings_db import seed_settings_db as _seed
+from _hosting_settings_db import unmigrated_db_url
 from simple_module_hosting._preapp_config import (
     apply_host_overrides,
     load_host_overrides,
@@ -20,37 +21,10 @@ from simple_module_hosting._preapp_config import (
 )
 from simple_module_hosting.bootstrap_settings import BootstrapSettings
 
-_CREATE = """
-CREATE TABLE settings_setting (
-    id INTEGER PRIMARY KEY,
-    scope TEXT NOT NULL,
-    scope_id TEXT NOT NULL,
-    key TEXT NOT NULL,
-    value TEXT NOT NULL,
-    value_type TEXT NOT NULL
-)
-"""
-
-
-def _seed(db_path: Path, rows: list[tuple[str, str, str]]) -> str:
-    """Create the settings table and insert ``(key, value, value_type)`` rows."""
-    conn = sqlite3.connect(db_path)
-    conn.execute(_CREATE)
-    conn.executemany(
-        "INSERT INTO settings_setting (scope, scope_id, key, value, value_type) "
-        "VALUES ('system', '', ?, ?, ?)",
-        rows,
-    )
-    conn.commit()
-    conn.close()
-    return f"sqlite+aiosqlite:///{db_path}"
-
 
 def test_returns_empty_when_table_missing(tmp_path: Path) -> None:
     """An unmigrated DB falls back to defaults instead of raising."""
-    db = tmp_path / "unmigrated.db"
-    sqlite3.connect(db).close()  # file exists, no tables
-    assert load_host_overrides(f"sqlite+aiosqlite:///{db}") == {}
+    assert load_host_overrides(unmigrated_db_url(tmp_path)) == {}
 
 
 def test_returns_empty_when_db_unreachable() -> None:

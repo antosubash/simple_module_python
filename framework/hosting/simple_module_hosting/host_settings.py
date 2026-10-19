@@ -39,6 +39,7 @@ _RESTART_TENANCY = {"requires_restart": True, "group": "Tenancy"}
 _RESTART_I18N = {"requires_restart": True, "group": "Localization"}
 _RESTART_AUTH = {"requires_restart": True, "group": "Authentication"}
 _RESTART_LOGGING = {"requires_restart": True, "group": "Logging"}
+_RESTART_SECURITY = {"requires_restart": True, "group": "Security"}
 
 
 def _default_api_version() -> str:
@@ -126,9 +127,7 @@ class HostSettings(BaseSettings):
     # and most providers reject it.
     trusted_proxy: str | None = Field(default=None, json_schema_extra=_RESTART_GUARD)
 
-    session_cookie_secure: bool | None = Field(
-        default=None, json_schema_extra={"requires_restart": True, "group": "Security"}
-    )
+    session_cookie_secure: bool | None = Field(default=None, json_schema_extra=_RESTART_SECURITY)
     """Mark the session cookie ``Secure`` (sent over HTTPS only).
 
     Unset (the default) means on outside development and testing, off in

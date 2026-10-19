@@ -11,10 +11,11 @@ setup wizard.
 from __future__ import annotations
 
 import logging
-import sqlite3
 from pathlib import Path
 
 import pytest
+from _hosting_settings_db import connection_refused as _refused
+from _hosting_settings_db import unmigrated_db_url as _unmigrated
 from simple_module_hosting import _preapp_config
 from simple_module_hosting._preapp_config import (
     HostSettingsUnavailableError,
@@ -25,16 +26,6 @@ from simple_module_hosting.bootstrap_settings import BootstrapSettings
 
 _LOGGER = "simple_module_hosting._preapp_config"
 _SECRET = "a-test-secret-that-is-not-the-placeholder-0000000000"
-
-
-async def _refused(_database_url: str) -> dict[str, tuple[str, str]]:
-    raise OSError("Connection refused")
-
-
-def _unmigrated(tmp_path: Path) -> str:
-    db = tmp_path / "unmigrated.db"
-    sqlite3.connect(db).close()  # file exists, no tables
-    return f"sqlite+aiosqlite:///{db}"
 
 
 def _bootstrap(url: str, environment: str) -> BootstrapSettings:

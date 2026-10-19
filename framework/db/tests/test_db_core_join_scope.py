@@ -8,17 +8,11 @@ links to ``used`` must never be counted.
 from __future__ import annotations
 
 import pytest
-from _core_scope_models import link, make_strict, plain, seeded, soft, tag
+from _core_scope_models import _rows, link, make_strict, plain, seeded, soft, tag
 from simple_module_db.tenancy import TenantIsolationError
 from sqlalchemy import func, select
 
 __all__ = ["seeded"]
-
-
-async def _rows(session, stmt, **options):
-    if options:
-        stmt = stmt.execution_options(**options)
-    return sorted((await session.execute(stmt)).all(), key=repr)
 
 
 def _link_counts(right=None, *, on=None):

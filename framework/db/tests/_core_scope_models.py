@@ -12,17 +12,14 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 import pytest
+from _models import _tenant_session
 from simple_module_db.base import create_module_base
-from simple_module_db.listeners import register_listeners
 from simple_module_db.mixins import MultiTenantMixin, SoftDeleteMixin
 from simple_module_db.query_filter import EngineTenancy, bind_engine_policy
-from simple_module_db.session import init_db
 from simple_module_db.tenancy import current_tenant_id, tenant_context
-from simple_module_test.database import database_url_for_tests, init_db_kwargs, reset_schema
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Field
 
-_URL = database_url_for_tests()
 _Base = create_module_base("cscope")
 
 
@@ -71,22 +68,18 @@ async def _seed(session: AsyncSession) -> None:
 @pytest.fixture
 async def seeded() -> AsyncGenerator[AsyncSession, None]:
     """A session acting as tenant A over the seeded rows."""
-    state = init_db(_URL, **init_db_kwargs(_URL))
-    try:
-        register_listeners(state)
-        await reset_schema(state.engine)
-        async with state.engine.begin() as conn:
-            await conn.run_sync(_Base.metadata.create_all)
-        async with state.session_factory() as session:
-            await _seed(session)
-        async with state.session_factory() as session:
-            token = current_tenant_id.set("A")
-            try:
-                yield session
-            finally:
-                current_tenant_id.reset(token)
-    finally:
-        await state.engine.dispose()
+    async for session in _tenant_session(_Base.metadata, strict=False, seed=_seed):
+        token = current_tenant_id.set("A")
+        try:
+            yield session
+        finally:
+            current_tenant_id.reset(token)
+
+
+async def _rows(session, stmt, **options):
+    if options:
+        stmt = stmt.execution_options(**options)
+    return sorted((await session.execute(stmt)).all(), key=repr)
 
 
 def make_strict(session: AsyncSession) -> None:

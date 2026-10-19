@@ -38,9 +38,19 @@ from sqlalchemy.sql.selectable import Alias, FromGrouping, Join, Select, TableCl
 Predicates = Callable[[Any], list[Any]]
 
 
+def _base_name(from_obj: Any) -> str | None:
+    while isinstance(from_obj, Alias):  # ``table.alias().alias()`` nests
+        from_obj = from_obj.element
+    return getattr(from_obj, "name", None)
+
+
+def _is_orm(el: Any) -> bool:
+    return "parententity" in getattr(el, "_annotations", {})
+
+
 def is_plain_leaf(node: Any) -> bool:
     """A Core table or alias of one — not an ORM-annotated occurrence."""
-    if "parententity" in getattr(node, "_annotations", {}):
+    if _is_orm(node):
         return False
     base = node
     while isinstance(base, Alias):

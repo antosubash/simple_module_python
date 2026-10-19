@@ -9,34 +9,17 @@ to here.
 
 from __future__ import annotations
 
-import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+from _hosting_settings_db import seed_settings_db, unmigrated_db_url
 from simple_module_hosting._secret_key import ensure_secret_key
-
-_CREATE = """
-CREATE TABLE settings_setting (
-    id INTEGER PRIMARY KEY,
-    scope TEXT NOT NULL,
-    scope_id TEXT NOT NULL,
-    key TEXT NOT NULL,
-    value TEXT NOT NULL,
-    value_type TEXT NOT NULL,
-    UNIQUE (scope, scope_id, key)
-)
-"""
 
 
 @pytest.fixture
 def fresh_db_url(tmp_path: Path) -> str:
-    db = tmp_path / "secret.db"
-    conn = sqlite3.connect(db)
-    conn.execute(_CREATE)
-    conn.commit()
-    conn.close()
-    return f"sqlite+aiosqlite:///{db}"
+    return seed_settings_db(tmp_path / "secret.db", [])
 
 
 @pytest.fixture(autouse=True)
@@ -88,6 +71,4 @@ def test_unreachable_db_still_returns_a_key() -> None:
 
 
 def test_unmigrated_db_still_returns_a_key(tmp_path: Path) -> None:
-    db = tmp_path / "unmigrated.db"
-    sqlite3.connect(db).close()
-    assert len(ensure_secret_key(f"sqlite+aiosqlite:///{db}")) >= 40
+    assert len(ensure_secret_key(unmigrated_db_url(tmp_path))) >= 40

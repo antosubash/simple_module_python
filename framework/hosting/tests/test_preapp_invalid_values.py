@@ -8,32 +8,15 @@ worker, and with them the admin UI that could fix the row.
 from __future__ import annotations
 
 import logging
-import sqlite3
 from pathlib import Path
 
 import pytest
+from _hosting_settings_db import seed_settings_db as _seed
 from simple_module_hosting import _secret_key
 from simple_module_hosting._preapp_config import merge_host_settings
 from simple_module_hosting.bootstrap_settings import BootstrapSettings
 
 _LOGGER = "simple_module_core.stored_settings"
-
-
-def _seed(db_path: Path, rows: list[tuple[str, str, str]]) -> str:
-    conn = sqlite3.connect(db_path)
-    conn.execute(
-        "CREATE TABLE settings_setting (id INTEGER PRIMARY KEY, scope TEXT NOT NULL, "
-        "scope_id TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, "
-        "value_type TEXT NOT NULL, UNIQUE (scope, scope_id, key))"
-    )
-    conn.executemany(
-        "INSERT INTO settings_setting (scope, scope_id, key, value, value_type) "
-        "VALUES ('system', '', ?, ?, ?)",
-        rows,
-    )
-    conn.commit()
-    conn.close()
-    return f"sqlite+aiosqlite:///{db_path}"
 
 
 @pytest.fixture(autouse=True)

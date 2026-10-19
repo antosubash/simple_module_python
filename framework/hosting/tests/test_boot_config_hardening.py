@@ -17,6 +17,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from _hosting_settings_db import connection_refused, seed_settings_db, unmigrated_db_url
 from pydantic_settings import BaseSettings
 from simple_module_core.setup_steps import SetupRegistry, SetupStep
 from simple_module_core.stored_settings import parse_stored_value
@@ -30,23 +31,6 @@ from simple_module_hosting._preapp_config import (
 )
 from simple_module_hosting._secret_key import SecretKeyUnavailableError, ensure_secret_key
 from simple_module_hosting.setup_gate import STEP_MIGRATIONS
-
-
-def _settings_db(db_path: Path, rows: list[tuple[str, str]]) -> str:
-    conn = sqlite3.connect(db_path)
-    conn.execute(
-        "CREATE TABLE settings_setting (id INTEGER PRIMARY KEY, scope TEXT NOT NULL, "
-        "scope_id TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, "
-        "value_type TEXT NOT NULL, UNIQUE (scope, scope_id, key))"
-    )
-    conn.executemany(
-        "INSERT INTO settings_setting (scope, scope_id, key, value, value_type) "
-        "VALUES ('system', '', ?, ?, 'string')",
-        rows,
-    )
-    conn.commit()
-    conn.close()
-    return f"sqlite+aiosqlite:///{db_path}"
 
 
 @pytest.fixture(autouse=True)
@@ -88,12 +72,8 @@ def test_settings_import_error_is_a_read_failure(monkeypatch: pytest.MonkeyPatch
 # ── 3. Ephemeral secret keys only on a confirmed fresh install ──
 
 
-async def _lookup_fails(_url: str) -> str:
-    raise OSError("Connection refused")
-
-
 def test_key_lookup_failure_refuses_boot_when_strict(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(_secret_key, "_ensure", _lookup_fails)
+    monkeypatch.setattr(_secret_key, "_ensure", connection_refused)
     with pytest.raises(SecretKeyUnavailableError):
         ensure_secret_key("sqlite+aiosqlite:///:memory:", strict=True)
 
@@ -101,16 +81,15 @@ def test_key_lookup_failure_refuses_boot_when_strict(monkeypatch: pytest.MonkeyP
 def test_key_lookup_failure_falls_back_in_development(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    monkeypatch.setattr(_secret_key, "_ensure", _lookup_fails)
+    monkeypatch.setattr(_secret_key, "_ensure", connection_refused)
     with caplog.at_level(logging.WARNING):
         assert ensure_secret_key("sqlite+aiosqlite:///:memory:")
     assert "OSError" in caplog.text
 
 
 def test_fresh_install_may_use_an_ephemeral_key_when_strict(tmp_path: Path) -> None:
-    db = tmp_path / "fresh.db"
-    sqlite3.connect(db).close()  # no tables: never migrated
-    assert ensure_secret_key(f"sqlite+aiosqlite:///{db}", strict=True)
+    url = unmigrated_db_url(tmp_path, "fresh.db")
+    assert ensure_secret_key(url, strict=True)
 
 
 def test_no_settings_module_refuses_when_strict(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -122,7 +101,7 @@ def test_no_settings_module_refuses_when_strict(monkeypatch: pytest.MonkeyPatch)
 def test_blank_stored_key_is_repaired_once(tmp_path: Path) -> None:
     """A blank row used to defeat the insert forever: an ephemeral key per boot."""
     db = tmp_path / "blank.db"
-    url = _settings_db(db, [("host.secret_key", "")])
+    url = seed_settings_db(db, [("host.secret_key", "")], value_type="string")
 
     key = ensure_secret_key(url, stored="", strict=True)
 

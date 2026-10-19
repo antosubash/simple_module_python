@@ -18,9 +18,9 @@ from weakref import WeakKeyDictionary
 
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import ORMExecuteState, Session, with_loader_criteria
-from sqlalchemy.sql.selectable import Alias
 
 from simple_module_db import model_registry as registry
+from simple_module_db._core_joins import _base_name
 from simple_module_db.core_scope import scope_core
 from simple_module_db.insert_guard import assigned_tenant_ids, guard_insert
 from simple_module_db.tenancy import (
@@ -73,11 +73,8 @@ def engine_policy(session: Session) -> Any:
     return _engine_policy.get(bind) if isinstance(bind, Engine) else None
 
 
-_policy = engine_policy
-
-
 def strict_configured(session: Session) -> bool:
-    policy = _policy(session)
+    policy = engine_policy(session)
     return bool(policy is not None and policy.tenant_strict)
 
 
@@ -87,7 +84,7 @@ def fallback_tenant_id(session: Session) -> str:
     The install's ``default_tenant`` when the host set one (published as
     ``DatabaseState.default_tenant_id``), else :data:`DEFAULT_TENANT_ID`.
     """
-    policy = _policy(session)
+    policy = engine_policy(session)
     return getattr(policy, "default_tenant_id", None) or DEFAULT_TENANT_ID
 
 
@@ -203,10 +200,7 @@ def _subquery_predicates(
     def predicates_for(from_obj: Any) -> list[Any]:
         # ``aliased(Model)`` / ``table.alias()`` is named after the alias, not
         # the table: resolve to the underlying table, filter on the alias.
-        base = from_obj
-        while isinstance(base, Alias):  # ``table.alias().alias()`` nests
-            base = base.element
-        name = getattr(base, "name", None)
+        name = _base_name(from_obj)
         preds = []
         if not skip_soft_delete and name in registry.soft_delete_table_names:
             preds.append(from_obj.c.is_deleted.is_(False))

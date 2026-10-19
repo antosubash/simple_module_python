@@ -29,18 +29,14 @@ from sqlalchemy.sql import visitors
 from sqlalchemy.sql.selectable import Alias, Join, Select, TableClause
 from sqlalchemy.sql.visitors import HasTraverseInternals
 
-from simple_module_db._core_joins import Predicates, is_plain_leaf, scope_joins
+from simple_module_db._core_joins import (
+    Predicates,
+    _base_name,
+    _is_orm,
+    is_plain_leaf,
+    scope_joins,
+)
 from simple_module_db._outer_joins import is_excluded, orm_outer_join_tables
-
-
-def _base_name(from_obj: Any) -> str | None:
-    while isinstance(from_obj, Alias):
-        from_obj = from_obj.element
-    return getattr(from_obj, "name", None)
-
-
-def _is_orm(el: Any) -> bool:
-    return "parententity" in getattr(el, "_annotations", {})
 
 
 def _orm_less(stmt: Any) -> bool:

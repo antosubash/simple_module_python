@@ -9,7 +9,7 @@ tenant B's links (7, 8, 9) must never surface.
 from __future__ import annotations
 
 import pytest
-from _core_scope_models import link, make_strict, plain, seeded, soft, tag
+from _core_scope_models import _rows, link, make_strict, plain, seeded, soft, tag
 from simple_module_db.tenancy import TenantIsolationError
 from simple_module_test.database import database_is_postgres
 from sqlalchemy import (
@@ -96,7 +96,7 @@ SHAPES = {
 @pytest.mark.parametrize("shape", list(SHAPES))
 async def test_shape_never_sees_other_tenants(seeded, shape):
     build, expected = SHAPES[shape]
-    assert sorted((await seeded.execute(build())).all(), key=repr) == expected
+    assert await _rows(seeded, build()) == expected
 
 
 @pytest.mark.parametrize("shape", ["alias", "subquery", "cte", "union", "exists over join"])
