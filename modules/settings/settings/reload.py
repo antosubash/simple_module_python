@@ -68,6 +68,17 @@ def _relocate(exc: ValidationError, field_name: str) -> ValidationError:
     return ValidationError.from_exception_data(exc.title, lines)
 
 
+def _is_default(cls: type[BaseSettings], field_name: str, value: Any) -> bool:
+    """Whether the validated ``value`` is what the field defaults to."""
+    info = cls.model_fields[field_name]
+    if info.is_required():
+        return False
+    default = info.get_default(call_default_factory=True)
+    return to_jsonable_python(_unwrap_secrets(default)) == to_jsonable_python(
+        _unwrap_secrets(value)
+    )
+
+
 async def apply_changes_and_reload(
     app: FastAPI,
     bus: EventBus,
@@ -106,6 +117,7 @@ async def apply_changes_and_reload(
 
     merged.update(diff)
     validated = cls(**merged)
+    dumped_all = validated.model_dump()
 
     # A json field stores what validated, not what was sent: a field validator
     # may have turned the editor's text into the declared type (``json.loads``
@@ -116,6 +128,12 @@ async def apply_changes_and_reload(
     # are unwrapped before the validated value is made JSON-able.
     for field_name, raw_value in diff.items():
         vtype = value_type_for_field(cls, field_name)
+        if _is_default(cls, field_name, dumped_all.get(field_name, raw_value)):
+            # Saving the default is clearing the override: a stored row would
+            # keep the field labelled "overridden in DB" while holding exactly
+            # what the code would have supplied anyway.
+            await store.clear_override(package, field_name)
+            continue
         if vtype == "json":
             dumped = validated.model_dump(include={field_name}).get(field_name, raw_value)
             raw_value = to_jsonable_python(_unwrap_secrets(dumped))
