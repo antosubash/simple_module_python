@@ -13,7 +13,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from auth.contracts.schemas import UserContext
-from auth.contracts.tokens import is_api_token
+from auth.contracts.tokens import is_api_token, parse_bearer
 from simple_module_hosting.session import (
     SESSION_COOKIE_MAX_AGE,
     SESSION_EXPIRES_AT_KEY,
@@ -89,9 +89,8 @@ class UsersAuthProvider:
         # already had. Pinned by ``test_a_bad_bearer_is_not_rescued_by_a_valid
         # _session``, which asserted the opposite for as long as it went
         # uncollected.
-        auth_header = request.headers.get("authorization", "")
-        if auth_header.startswith("Bearer "):
-            credential = auth_header[7:]
+        credential = parse_bearer(request.headers.get("authorization"))
+        if credential is not None:
             # An ``api_tokens`` credential is not ours: answering None at once
             # saves a pointless ``users_access_token`` lookup and leaves the
             # token to the principal resolver that owns it. Still no fallback
@@ -243,7 +242,7 @@ class UsersAuthProvider:
     def is_bearer_request(self, request: Request | None) -> bool:
         if request is None:
             return False
-        return request.headers.get("authorization", "").startswith("Bearer ")
+        return parse_bearer(request.headers.get("authorization")) is not None
 
     async def _resolve_bearer(self, scope, token: str) -> UserContext | None:
         """Resolve an ``Authorization: Bearer`` token to its user.

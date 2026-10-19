@@ -18,7 +18,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from auth.contracts.schemas import UserContext
-from auth.contracts.tokens import AUTH_KIND_PAT, AUTH_KIND_SERVICE, is_api_token
+from auth.contracts.tokens import AUTH_KIND_PAT, AUTH_KIND_SERVICE, is_api_token, parse_bearer
 from simple_module_core.tenancy import is_tenant_role
 from simple_module_db import ALL_TENANTS_OPTION
 from sqlalchemy import or_, select, update
@@ -42,11 +42,8 @@ direct grants and can never be mistaken for an account."""
 
 
 def _bearer(request: Request) -> str | None:
-    header = request.headers.get("authorization", "")
-    if not header.startswith("Bearer "):
-        return None
-    credential = header[7:]
-    if not is_api_token(credential) or not is_well_formed(credential):
+    credential = parse_bearer(request.headers.get("authorization"))
+    if credential is None or not is_api_token(credential) or not is_well_formed(credential):
         return None
     return credential
 

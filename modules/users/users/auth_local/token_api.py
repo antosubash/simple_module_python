@@ -39,7 +39,7 @@ class TokenResponse(SQLModel):
 
     access_token: str
     refresh_token: str
-    token_type: str = "bearer"
+    token_type: str = "Bearer"
     expires_in: int
 
 
@@ -189,6 +189,6 @@ async def _create_token_pair(
     return TokenResponse(
         access_token=access_token.token,
         refresh_token=str(refresh.token),
-        token_type="bearer",
+        token_type="Bearer",
         expires_in=settings.bearer_token_lifetime_seconds,
     )

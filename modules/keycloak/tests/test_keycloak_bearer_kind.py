@@ -6,6 +6,7 @@ so ``api_tokens`` refuses to let it mint or manage tokens.
 
 from __future__ import annotations
 
+import pytest
 from auth.contracts.tokens import AUTH_KIND_BEARER
 from keycloak.provider import KeycloakAuthProvider
 from keycloak.settings import KeycloakSettings
@@ -18,7 +19,8 @@ class _Jwks:
         return {"sub": "abc", "email": "kc@example.com", "preferred_username": "kc"}
 
 
-async def test_jwt_bearer_principal_is_bearer_kind_and_unscoped(monkeypatch):
+@pytest.mark.parametrize("scheme", [b"Bearer", b"bearer"])  # GH #533: case-insensitive
+async def test_jwt_bearer_principal_is_bearer_kind_and_unscoped(monkeypatch, scheme):
     state = KeycloakState(settings=KeycloakSettings())
     provider = KeycloakAuthProvider(state.settings, state=state)
     provider.jwks_cache = _Jwks()  # type: ignore[assignment]
@@ -32,10 +34,11 @@ async def test_jwt_bearer_principal_is_bearer_kind_and_unscoped(monkeypatch):
             "type": "http",
             "method": "GET",
             "path": "/",
-            "headers": [(b"authorization", b"Bearer some.jwt.value")],
+            "headers": [(b"authorization", scheme + b" some.jwt.value")],
             "session": {},
         }
     )
+    assert provider.is_bearer_request(request)
     ctx = await provider.resolve_user(request)
     assert ctx is not None
     assert ctx.auth_kind == AUTH_KIND_BEARER
