@@ -18,10 +18,10 @@ import os
 from collections.abc import Generator
 from contextlib import contextmanager
 
+from celery.signals import worker_process_init
 from simple_module_db import DEFAULT_TENANT_ID
 from simple_module_db.listeners import attach_session_listeners
 from simple_module_db.query_filter import EngineTenancy, bind_engine_policy
-from celery.signals import worker_process_init
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker

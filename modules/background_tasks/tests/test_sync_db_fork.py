@@ -31,7 +31,9 @@ def test_pid_change_rebuilds_engine_without_closing_inherited_sockets(
 
     closes: list[bool] = []
     real_dispose = parent.dispose
-    monkeypatch.setattr(parent, "dispose", lambda close=True: (closes.append(close), real_dispose(close=close)))
+    monkeypatch.setattr(
+        parent, "dispose", lambda close=True: (closes.append(close), real_dispose(close=close))
+    )
 
     monkeypatch.setattr(os, "getpid", lambda: 999_999)
     sync_db.get_sync_session_factory()
