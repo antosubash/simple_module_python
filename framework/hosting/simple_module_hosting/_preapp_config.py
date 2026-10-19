@@ -64,18 +64,25 @@ def _settings_table() -> tuple[str, str, str] | None:
     check is AST-based and forbids ``framework/*`` from naming a plugin
     package. Returns ``None`` when the settings module isn't installed, which
     makes the whole pre-app read a no-op rather than an error.
-    """
-    try:
-        import importlib
 
+    Only a *missing* package means "not installed". Any other failure — the
+    package is there but raises on import, or lacks a constant — propagates:
+    swallowing it would let a broken install boot on defaults as though it
+    had never stored anything (#494).
+    """
+    import importlib
+
+    try:
         constants = importlib.import_module("settings.constants")
-        return (
-            constants.TABLE_SETTING,
-            constants.SCOPE_SYSTEM,
-            constants.SYSTEM_SCOPE_ID,
-        )
-    except Exception:
-        return None
+    except ModuleNotFoundError as exc:
+        if exc.name in ("settings", "settings.constants"):
+            return None
+        raise
+    return (
+        constants.TABLE_SETTING,
+        constants.SCOPE_SYSTEM,
+        constants.SYSTEM_SCOPE_ID,
+    )
 
 
 async def _read(database_url: str) -> dict[str, tuple[str, str]]:
@@ -227,10 +234,8 @@ def merge_host_settings(bootstrap: BootstrapSettings | None = None) -> Settings:
     from simple_module_hosting._secret_key import SECRET_KEY_FIELD, ensure_secret_key
 
     bootstrap = bootstrap or BootstrapSettings()
-    overrides = load_host_overrides(
-        bootstrap.database_url,
-        strict=bootstrap.environment not in NON_PROD_ENVIRONMENTS,
-    )
+    strict = bootstrap.environment not in NON_PROD_ENVIRONMENTS
+    overrides = load_host_overrides(bootstrap.database_url, strict=strict)
     stored = apply_host_overrides(overrides)
     # Resolved here rather than left to the field default so an install with
     # no SM_SECRET_KEY gets a generated, persisted key instead of the shipped
@@ -242,6 +247,7 @@ def merge_host_settings(bootstrap: BootstrapSettings | None = None) -> Settings:
         bootstrap.database_url,
         env_value=bootstrap.secret_key if "secret_key" in bootstrap.model_fields_set else None,
         stored=stored_key,
+        strict=strict,
     )
     # database_url is passed explicitly: BootstrapSettings.__init__ resolves
     # relative sqlite paths against the discovered project root, and

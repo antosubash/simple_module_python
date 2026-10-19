@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 RELATED_FIELDS_CTX = "related_fields"
 
 _TRUE = frozenset({"1", "true", "yes", "on"})
+_FALSE = frozenset({"0", "false", "no", "off"})
 
 
 def parse_stored_value(raw: str, value_type: str) -> Any:
@@ -39,10 +40,18 @@ def parse_stored_value(raw: str, value_type: str) -> Any:
 
     The five labels (``string | bool | int | float | json``) are a stable
     stored format. Raises ``ValueError`` (``JSONDecodeError`` is one) on a
-    value that does not decode.
+    value that does not decode — a boolean token included. Anything but a
+    known true/false spelling used to read as ``False``, so a typo such as
+    ``"tru"`` switched ``multi_tenant`` or ``maintenance_mode`` off with no
+    trace; now the boot paths drop the row and warn instead.
     """
     if value_type == "bool":
-        return raw.lower() in _TRUE
+        token = raw.strip().lower()
+        if token in _TRUE:
+            return True
+        if token in _FALSE:
+            return False
+        raise ValueError("not a boolean token")
     if value_type == "int":
         return int(raw)
     if value_type == "float":

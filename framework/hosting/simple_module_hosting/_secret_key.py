@@ -19,7 +19,7 @@ import os
 import secrets
 from concurrent.futures import ThreadPoolExecutor
 
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
@@ -74,7 +74,20 @@ async def _fetch(conn, table: str, scope: str, scope_id: str) -> str | None:
     return row[0] if row else None
 
 
+class SecretKeyUnavailableError(RuntimeError):
+    """No key could be resolved and an ephemeral one is not safe here.
+
+    Every worker would generate its own, so each would reject the sessions
+    the others sign — users bounced to the login page at random (#494).
+    """
+
+
 async def _ensure(database_url: str) -> str | None:
+    """Return the stored key, storing a generated one first if needed.
+
+    ``None`` means one thing only: the settings table does not exist yet, i.e.
+    a confirmed fresh install. Every other failure raises.
+    """
     info = _settings_table()
     if info is None:
         return None
@@ -83,6 +96,8 @@ async def _ensure(database_url: str) -> str | None:
     engine = create_async_engine(database_url, poolclass=NullPool)
     try:
         async with engine.connect() as conn:
+            if not await conn.run_sync(lambda sync: inspect(sync).has_table(table)):
+                return None
             existing = await _fetch(conn, table, scope, scope_id)
             if existing:
                 return existing
@@ -101,37 +116,57 @@ async def _ensure(database_url: str) -> str | None:
         # contextlib.suppress is a sync context manager and does not implement
         # the async protocol, so `async with engine.begin(), suppress(...)`
         # raises TypeError at runtime.
+        params = {"scope": scope, "scope_id": scope_id, "key": _KEY, "value": _generate()}
         async with engine.begin() as conn:
-            with contextlib.suppress(IntegrityError):
+            if existing == "":
+                # A blank row would otherwise defeat the insert forever and
+                # leave every boot on an ephemeral key. Repair it in place; the
+                # ``value = ''`` guard lets exactly one concurrent worker win.
                 await conn.execute(
                     text(  # table name is a module constant, never user input
-                        f"INSERT INTO {table} (scope, scope_id, key, value, value_type) "
-                        "VALUES (:scope, :scope_id, :key, :value, 'string')"
+                        f"UPDATE {table} SET value = :value WHERE scope = :scope "
+                        "AND scope_id = :scope_id AND key = :key AND value = ''"
                     ),
-                    {
-                        "scope": scope,
-                        "scope_id": scope_id,
-                        "key": _KEY,
-                        "value": _generate(),
-                    },
+                    params,
                 )
+            else:
+                with contextlib.suppress(IntegrityError):
+                    await conn.execute(
+                        text(  # table name is a module constant, never user input
+                            f"INSERT INTO {table} (scope, scope_id, key, value, value_type) "
+                            "VALUES (:scope, :scope_id, :key, :value, 'string')"
+                        ),
+                        params,
+                    )
 
         async with engine.connect() as conn:
-            return await _fetch(conn, table, scope, scope_id)
+            stored = await _fetch(conn, table, scope, scope_id)
     finally:
         await engine.dispose()
+    if not stored:
+        raise RuntimeError("the stored secret key is still missing after writing it")
+    return stored
 
 
 def ensure_secret_key(
-    database_url: str, *, env_value: str | None = None, stored: str | None = None
+    database_url: str,
+    *,
+    env_value: str | None = None,
+    stored: str | None = None,
+    strict: bool = False,
 ) -> str:
     """Return the key to sign sessions with, generating one if needed.
 
-    Falls back to an ephemeral generated key when the database cannot be
-    reached or has not been migrated. That is deliberate: a key is needed to
-    build the app at all, and an app that refuses to start cannot show the
-    setup wizard that fixes the database. Sessions won't survive a restart in
-    that state, which is why it warns.
+    An ephemeral generated key is the fallback only on a confirmed fresh
+    install — the settings table does not exist yet. That is deliberate: a
+    key is needed to build the app at all, and an app that refuses to start
+    cannot show the setup wizard that migrates the database. Sessions won't
+    survive a restart in that state, which is why it warns.
+
+    Anywhere else an ephemeral key means each worker signs with its own and
+    rejects its siblings' sessions. So with ``strict`` (outside development) a
+    failed lookup or save, or no settings module to store the key in, raises
+    :class:`SecretKeyUnavailableError`; without it, it warns and falls back.
 
     ``stored`` is the value the caller already read from the settings table,
     if any; a non-empty one is returned without touching the database again.
@@ -145,14 +180,24 @@ def ensure_secret_key(
         return stored
 
     try:
+        if _settings_table() is None:
+            raise RuntimeError(
+                "the settings module is not installed, so there is nowhere to store it"
+            )
         with ThreadPoolExecutor(max_workers=1) as pool:
-            stored = pool.submit(lambda: asyncio.run(_ensure(database_url))).result()
+            resolved = pool.submit(lambda: asyncio.run(_ensure(database_url))).result()
     except Exception as exc:
-        stored = None
-        logger.debug("Secret key lookup failed: %s", exc)
+        if strict:
+            raise SecretKeyUnavailableError(
+                f"SM_SECRET_KEY is unset and no stored key could be read or saved ({exc}). "
+                "Each worker would sign sessions with its own ephemeral key. Set "
+                "SM_SECRET_KEY, or fix database access, then restart."
+            ) from exc
+        logger.warning("Secret key lookup failed (%s: %s)", type(exc).__name__, exc)
+        resolved = None
 
-    if stored:
-        return stored
+    if resolved:
+        return resolved
 
     logger.warning(
         "No SM_SECRET_KEY set and the key could not be stored (database "
