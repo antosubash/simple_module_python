@@ -63,12 +63,23 @@ export function ModuleFieldRow({
         <fieldset disabled={!!field.env_set} className="min-w-0 border-0 p-0">
           <FieldInput id={id} field={field} value={value} onChange={onChange} />
         </fieldset>
-        {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
       </div>
 
       <div className="sm:col-span-2 lg:col-span-1 lg:justify-self-start">
         <FieldSource field={field} onReset={onReset} />
       </div>
+
+      {/* Its own grid row, spanning the control and trailing columns: inside
+          the control's cell it shared that cell with the input and wrapped a
+          word per line whenever the cell was narrow. */}
+      {error && (
+        <p
+          data-testid={`field-error-${field.name}`}
+          className="break-words text-xs text-destructive sm:col-span-1 sm:col-start-2 lg:col-span-2"
+        >
+          {error}
+        </p>
+      )}
     </div>
   );
 }

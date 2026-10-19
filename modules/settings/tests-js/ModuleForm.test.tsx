@@ -102,6 +102,11 @@ describe('ModuleForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByText(/item rejected/)).toBeVisible());
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    // The error is a row of its own beneath the control, not a child of the
+    // control's cell, where it wrapped a word per line.
+    const error = screen.getByText(/item rejected/);
+    expect(error.contains(screen.getByLabelText('retention_days'))).toBe(false);
+    expect(error.className).toContain('lg:col-span-2');
   });
 
   test('shows an error whose loc names no field at form level', async () => {
