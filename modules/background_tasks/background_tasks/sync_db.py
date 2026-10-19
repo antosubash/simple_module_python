@@ -21,6 +21,7 @@ from contextlib import contextmanager
 from simple_module_db import DEFAULT_TENANT_ID
 from simple_module_db.listeners import attach_session_listeners
 from simple_module_db.query_filter import EngineTenancy, bind_engine_policy
+from celery.signals import worker_process_init
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -28,6 +29,10 @@ from sqlalchemy.orm import Session, sessionmaker
 logger = logging.getLogger(__name__)
 
 _engine: Engine | None = None
+# PID that built ``_engine``. A prefork Celery child inherits the parent's
+# engine (and its sockets) across fork(); using them would interleave two
+# processes on one Postgres connection.
+_engine_pid: int | None = None
 _session_factory: sessionmaker[Session] | None = None
 _url_override: str | None = None
 _tenant_strict: bool = False
@@ -72,14 +77,24 @@ def set_database_url(
     install's own scoped reads never see it.
     """
     global _url_override, _engine, _session_factory, _tenant_strict, _default_tenant
+    global _engine_pid
     default_tenant = None if tenant_strict else (default_tenant or None)
     if (_url_override, _tenant_strict, _default_tenant) == (url, tenant_strict, default_tenant):
         return
     _url_override = url
     _tenant_strict = tenant_strict
     _default_tenant = default_tenant
+    _drop_engine()
+    _engine_pid = None
+
+
+def _drop_engine() -> None:
+    """Dispose the cached engine, never touching sockets inherited via fork."""
+    global _engine, _session_factory
     if _engine is not None:
-        _engine.dispose()
+        # In a forked child the pooled sockets belong to the parent: close=False
+        # forgets them without sending a protocol-level close down the shared fd.
+        _engine.dispose(close=_engine_pid == os.getpid())
     _engine = None
     _session_factory = None
 
@@ -127,9 +142,12 @@ def _build_engine() -> Engine:
 
 def get_sync_session_factory() -> sessionmaker[Session]:
     """Return the process-global sync session factory, building it once."""
-    global _engine, _session_factory
+    global _engine, _session_factory, _engine_pid
+    if _session_factory is not None and _engine_pid != os.getpid():
+        _drop_engine()
     if _session_factory is None:
         _engine = _build_engine()
+        _engine_pid = os.getpid()
         _session_factory = sessionmaker(bind=_engine, class_=WorkerSession, expire_on_commit=False)
     return _session_factory
 
@@ -141,14 +159,18 @@ def dispose_sync_engine() -> None:
     restarts within one process (test runners, uvicorn dev reload) don't
     accumulate engines against the old DB URL.
     """
-    global _engine, _session_factory, _url_override, _tenant_strict, _default_tenant
-    if _engine is not None:
-        _engine.dispose()
-    _engine = None
-    _session_factory = None
+    global _url_override, _tenant_strict, _default_tenant, _engine_pid
+    _drop_engine()
+    _engine_pid = None
     _url_override = None
     _tenant_strict = False
     _default_tenant = None
+
+
+@worker_process_init.connect
+def _dispose_inherited_engine(**_: object) -> None:
+    """Forget the parent's engine in a fresh prefork child (rebuilt lazily)."""
+    _drop_engine()
 
 
 @contextmanager
