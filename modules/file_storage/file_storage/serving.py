@@ -33,13 +33,16 @@ def not_found(t) -> HTTPException:
     )
 
 
-def _headers(etag: str, cache_control: str) -> dict[str, str]:
+def sandbox_headers() -> dict[str, str]:
+    """Headers that stop served bytes from running as the app's origin."""
     return {
-        "ETag": etag,
-        "Cache-Control": cache_control,
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy": constants.PUBLIC_CSP,
     }
+
+
+def _headers(etag: str, cache_control: str) -> dict[str, str]:
+    return {"ETag": etag, "Cache-Control": cache_control, **sandbox_headers()}
 
 
 def _not_modified(request: Request, etag: str) -> bool:
