@@ -85,7 +85,14 @@ class FilesystemBackend(FilesystemMultipartMixin):
     async def exists(self, key: str) -> bool:
         return self._resolve(key).exists()
 
-    async def presigned_get_url(self, key: str, ttl_seconds: int) -> str:
+    async def presigned_get_url(
+        self,
+        key: str,
+        ttl_seconds: int,
+        *,
+        content_disposition: str | None = None,
+        content_type: str | None = None,
+    ) -> str:
         raise NotSupportedError("Filesystem backend cannot mint presigned URLs.")
 
 

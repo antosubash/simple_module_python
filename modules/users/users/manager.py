@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -11,21 +12,25 @@ from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
 from fastapi_users.jwt import generate_jwt
 from simple_module_hosting.session import stamp_session_expiry
+from sqlalchemy import select
 
 from users.constants import (
     OAUTH_REGISTRATION_REQUEST_FLAG,
     SESSION_DEMO_KEY,
     SESSION_USER_ID_KEY,
     SESSION_VERSION_KEY,
+    USER_ROLE_NAME,
 )
 from users.contracts.events import UserRegistered
 from users.db_adapter import UserDatabaseWithRoles, get_user_db
 from users.exceptions import ExternalUserNoPasswordError
 from users.mailer import Mailer
-from users.models import User
+from users.models import Role, User, UserRole
 
 if TYPE_CHECKING:
     from users.settings import UsersSettings
+
+logger = logging.getLogger(__name__)
 
 
 class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
@@ -46,6 +51,9 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         self.reset_password_token_lifetime_seconds = settings.reset_password_token_lifetime_seconds
         self.verification_token_lifetime_seconds = settings.verification_token_lifetime_seconds
         self.cookie_max_age_seconds = settings.cookie_max_age_seconds
+        # Read per request: ``get_user_manager`` builds a manager per request
+        # from the live settings, so an admin toggling signup takes effect.
+        self.allow_signup = settings.allow_signup
 
     # ── Password policy ──────────────────────────────────────
 
@@ -110,14 +118,54 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         # find-or-create) is external: drop the random password fastapi-users
         # assigned and mark the account SSO-only. Fires only for *new* users —
         # OAuth logins that link to an existing account don't reach here.
-        if request is not None and getattr(request.state, OAUTH_REGISTRATION_REQUEST_FLAG, False):
+        oauth_provisioned = request is not None and getattr(
+            request.state, OAUTH_REGISTRATION_REQUEST_FLAG, False
+        )
+        if oauth_provisioned:
             user.hashed_password = None
             user.is_external = True
             await self.user_db.update(user, {"hashed_password": None, "is_external": True})
+        # OAuth provisioning is not gated by ``allow_signup`` the way /register
+        # is, so with signups closed an operator who only wanted SSO for staff
+        # would otherwise hand the ``user`` role (file read/write, API tokens)
+        # to anyone holding an account at the provider. Signups closed means
+        # an OAuth-provisioned account waits for an admin to grant a role.
+        if request is not None and (self.allow_signup or not oauth_provisioned):
+            await self._attach_default_role(user)
         await self._publish_user_registered(user, request)
         if not user.is_verified:
             # Kicks off on_after_request_verify, which sends the email
             await self.request_verify(user, request)
+
+    async def _attach_default_role(self, user: User) -> None:
+        """Give a self-registered (or OAuth-provisioned) user the ``user`` role.
+
+        Without it a fresh signup holds no permissions at all — not even
+        ``api_tokens.use`` — until an admin assigns a role by hand (GH #488).
+        Only request-bound registrations reach here: the admin create and
+        invite flows call ``create()`` with no request and assign exactly the
+        roles the admin picked, which may deliberately be none.
+
+        Looked up, never created: migration ``b5018b617142`` seeds it on a
+        fresh install, so a missing one means an admin deleted it, and a
+        public signup must not undo that. It also keeps concurrent signups
+        from racing to insert it.
+        """
+        session = self.user_db.session
+        role = (
+            await session.execute(select(Role).where(Role.name == USER_ROLE_NAME))
+        ).scalar_one_or_none()
+        if role is None:
+            logger.warning(
+                "No '%s' role exists; %s registered with no role", USER_ROLE_NAME, user.id
+            )
+            return
+        session.add(UserRole(user_id=user.id, role_id=role.id))
+        # Committed, not just flushed: fastapi-users already committed the
+        # user row in ``create()``, so a failure after this point (event
+        # publish, the verification email) would otherwise roll the role back
+        # and leave a committed account with no role that cannot re-register.
+        await session.commit()
 
     async def _publish_user_registered(self, user: User, request: Request | None) -> None:
         """Emit ``UserRegistered`` on the app-wide event bus.

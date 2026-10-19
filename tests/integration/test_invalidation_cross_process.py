@@ -39,6 +39,11 @@ from pathlib import Path
 import httpx
 import pytest
 
+# One worker for the module: the ``stack`` fixture (import-from-env plus uvicorn
+# boots) is module-scoped, so splitting the two arms across xdist workers would
+# build it twice.
+pytestmark = pytest.mark.xdist_group("cross-process-stack")
+
 _ROOT = str(Path(__file__).resolve().parent.parent.parent)
 _ADMIN = "admin@example.com"
 _PASSWORD = "AdminPass1!"
@@ -137,12 +142,9 @@ def stack(redis_server, tmp_path_factory) -> _Stack:
     assert migrated.returncode == 0, f"alembic failed:\n{migrated.stdout}\n{migrated.stderr}"
 
     # import-from-env writes an override for *every* SM_<PREFIX>_<FIELD> var it
-    # finds, and a stored override beats the environment from then on
-    # (``hydrate_settings`` passes DB values as init args, which pydantic-settings
-    # ranks above its env source). Leaving the SM_BG_TASKS_* vars in this env
-    # would therefore pin broadcasting to whatever this call happened to see and
-    # make the per-worker env switch inert — which is exactly how the first draft
-    # of this test managed to fail its own treatment arm.
+    # finds. The env still wins over those rows at boot (GH #486), but keeping
+    # the SM_BG_TASKS_* vars out means the per-worker env switch is the only
+    # thing deciding broadcasting — no stored row for it exists to reason about.
     import_env = {k: v for k, v in env.items() if not k.startswith("SM_BG_TASKS_")}
     import_env["SM_USERS_COOKIE_SECURE"] = "false"
     import_env["SM_USERS_SESSION_VERSION_CACHE_TTL_SECONDS"] = str(_CACHE_TTL_SECONDS)

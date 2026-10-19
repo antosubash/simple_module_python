@@ -94,7 +94,10 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
     });
     if (resp.status === 422) {
       const body = await resp.json();
-      const split = splitValidationErrors(body.detail);
+      const split = splitValidationErrors(
+        body.detail,
+        m.fields.map((f) => f.name),
+      );
       setErrors(split.fields);
       setFormErrors(split.form);
     } else if (!resp.ok) {

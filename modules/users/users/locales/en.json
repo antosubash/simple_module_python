@@ -322,7 +322,7 @@
     "error_password_invalid": "This password isn't accepted. Try a longer, more varied one.",
     "error_email_invalid": "Enter a valid email address. Reserved or test domains aren't accepted.",
     "error_failed": "Registration failed. Please try again.",
-    "intro": "Open registration is on for this instance. New accounts start with no roles until an admin grants them.",
+    "intro": "Open registration is on for this instance. New accounts get the standard user role; an admin can grant more.",
     "bullet_verification": "Email verification is required before first sign-in",
     "bullet_close": "Registration may be closed by an administrator",
     "name_placeholder": "Optional"

@@ -12,6 +12,18 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Changed
+- **Behaviour change (#486):** for settings classes that read the environment
+  (today `background_tasks`, `SM_BG_TASKS_*`), an env var now beats a value
+  stored from the admin UI, and `SM_REDIS_URL` beats a stored broker/result
+  backend. Saving a field the environment sets returns a 422 on that field.
+- **Behaviour change (#488):** self-registered users now get the standard
+  `user` role; OAuth-provisioned users get it only while `allow_signup` is on.
+  A new data migration (`b5018b617142`) seeds the role on **fresh installs
+  only** (no rows in `users_user`), so a role an admin deleted is never brought
+  back. On an existing install without a `user` role, signups still get no
+  role and a warning is logged — create the role in Admin → Roles to opt in.
+- **Contract change (#489):** `StorageBackend.presigned_get_url` takes
+  keyword-only `content_disposition` / `content_type`.
 - **Behaviour change (#456):** the OpenAPI schema moved from `/openapi.json` to
   `/api/openapi.json`, and is no longer served outside development unless
   `openapi_public` (`SM_OPENAPI_PUBLIC`) is on. The bare `/openapi.json` was
@@ -300,6 +312,19 @@ All notable changes to this project are documented in this file. The format is b
   `tenants` resolver it selects among the user's own memberships.
 
 ### Fixed
+- Settings editor: list/dict fields are edited and stored as JSON, and
+  `X | None` fields as their real type with empty meaning unset (#487).
+  Secrets inside such fields are stored intact, and any field declared with
+  `SecretStr`/`SecretBytes` is masked on every read path whatever its name.
+- Module settings classes without an `env_prefix` are no longer pinned by
+  unrelated bare env vars (`HOME`, `USER`, ...) (#486).
+- S3 presigned downloads keep the original filename and content type, and the
+  streamed download no longer 500s on a non-Latin-1 filename (#489).
+- The scaffolded `run_worker.py` hydrates DB-backed `background_tasks`
+  settings like the repo's own worker, via
+  `background_tasks.runner.build_runner_celery()` (#490).
+- A failing verification email no longer leaves a new signup without its role
+  (#488).
 - The Celery worker/beat process now hydrates DB-backed `background_tasks`
   settings at boot (it used to read the environment only, so admin edits reached
   the web process but never the worker).

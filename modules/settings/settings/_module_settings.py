@@ -19,6 +19,7 @@ from settings._field_meta import choices_for, env_readable_var, resolve_default
 from settings._secrets import (  # noqa: F401
     _NEVER_SECRET_TYPES,
     SECRET_MASK,
+    annotation_holds_secret,
     conceals_secret,
     embeds_credential,
     is_named_secret,
@@ -26,7 +27,7 @@ from settings._secrets import (  # noqa: F401
     mask,
 )
 from settings.env_vars import env_prefix_for
-from settings.hydrate import value_type_for_field
+from settings.hydrate import env_supplied_fields, input_type_for_field, value_type_for_field
 from settings.service import SettingService
 
 
@@ -71,22 +72,28 @@ class ModuleSettingField:
     """
     choices: list[str] | None = None
     """Closed set of accepted values, or ``None`` when the field is free text."""
+    input_type: str = ""
+    """Editor control: ``type`` with an ``X | None`` unwrapped to ``X``."""
+    nullable: bool = False
+    """``None`` is a valid value; the editor sends it for an empty input."""
 
     @property
     def source(self) -> str:
         """Where the live value came from: ``db``, ``env`` or ``default``.
 
-        Mirrors the precedence in ``hydrate_settings``: DB overrides are passed
-        to the constructor explicitly, so they beat anything pydantic reads for
-        fields left unset, which in turn beats the field default. ``env`` only
-        appears for settings classes that actually declare an ``env_prefix``;
-        see :attr:`env_set`. Showing this is the difference between "why is
-        this not taking effect" being a five-minute question and an afternoon.
+        Mirrors the precedence in ``hydrate_settings``: env → DB → default
+        (GH #486). A stored override for a field the environment sets is
+        ignored, so ``env`` wins even when ``db_override`` is true. ``env`` only
+        appears for settings classes that declare an ``env_prefix`` (or name
+        the field in ``env_seeded_fields``) — the same rule
+        ``hydrate.env_supplied_fields`` applies; see :attr:`env_set`. Showing
+        this is the difference between "why is this not taking effect" being a
+        five-minute question and an afternoon.
         """
-        if self.db_override:
-            return "db"
         if self.env_set:
             return "env"
+        if self.db_override:
+            return "db"
         return "default"
 
 
@@ -126,28 +133,41 @@ def _field_view(
     settings: BaseSettings,
     prefix: str,
     overridden: frozenset[str] = frozenset(),
+    env_supplied: frozenset[str] | None = None,
 ) -> ModuleSettingField:
     cls = type(settings)
+    if env_supplied is None:
+        env_supplied = env_supplied_fields(cls)
     info = cls.model_fields[name]
     raw_value = getattr(settings, name)
     value_type = value_type_for_field(cls, name)
+    input_type, nullable = input_type_for_field(cls, name)
     named_secret = is_named_secret(name, value_type)
     extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
     default = resolve_default(info)
     env_var = f"{prefix}{name.upper()}"
     live_env_var = env_readable_var(settings, name)
-    env_set = live_env_var is not None and live_env_var in os.environ
-    # ``live_env_var`` is not None whenever env_set is True, but the narrowing
-    # is spelled out so a future edit cannot turn this into ``os.environ[None]``.
-    raw_env = os.environ[live_env_var] if env_set and live_env_var is not None else None
+    # The same answer ``build_settings`` acts on (GH #486), so a value supplied
+    # by the class's ``.env``, a secrets file or an alias is labelled "env"
+    # here exactly when hydration lets it beat a stored override.
+    env_set = name in env_supplied
+    raw_env = os.environ.get(live_env_var) if env_set and live_env_var is not None else None
+
+    # Declared as ``SecretStr`` (also inside ``X | None`` or a container):
+    # masked whatever the field is called, since the store holds it in clear.
+    typed_secret = annotation_holds_secret(info.annotation)
 
     def hidden(value: Any) -> bool:
-        return conceals_secret(name, value, value_type)
+        return typed_secret or conceals_secret(name, value, value_type)
 
     # ``is_secret`` drives the editor's input type and the "reveal" affordance,
     # so it has to be true when *any* of the three readings is being hidden —
     # otherwise the form offers to edit a value it is showing as dots.
-    secret = named_secret or any(embeds_credential(v) for v in (raw_value, default, raw_env))
+    secret = (
+        typed_secret
+        or named_secret
+        or any(embeds_credential(v) for v in (raw_value, default, raw_env))
+    )
     return ModuleSettingField(
         name=name,
         env_var=env_var,
@@ -166,6 +186,8 @@ def _field_view(
         # Resolved value panel's env row into a row of dots for every key.
         env_value=(mask(raw_env) if hidden(raw_env) else raw_env) if raw_env is not None else None,
         choices=choices_for(info),
+        input_type=input_type,
+        nullable=nullable,
     )
 
 
@@ -228,8 +250,10 @@ def _build_view(
 ) -> ModuleSettingsView:
     prefix = env_prefix_for(package)
     overridden = (overrides or {}).get(package, frozenset())
+    from_env = env_supplied_fields(type(settings))
     fields = [
-        _field_view(name, settings, prefix, overridden) for name in type(settings).model_fields
+        _field_view(name, settings, prefix, overridden, from_env)
+        for name in type(settings).model_fields
     ]
     return ModuleSettingsView(
         module_name=module_name,

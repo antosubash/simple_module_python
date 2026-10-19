@@ -10,9 +10,9 @@ function isBlank(value: unknown): boolean {
  * one action that applies to it.
  *
  * Without this, a field whose `SM_*` env var is set in the deployment looks
- * identical to one running on its default, and a stored override that is
- * quietly shadowing the env var looks like nothing at all. Both produce the
- * same support question — "I changed the setting and nothing happened" —
+ * identical to one running on its default, and a stored override that the
+ * env var quietly overrules (env → DB → default) looks like nothing at all.
+ * Both produce the same support question — "I changed the setting and nothing happened" —
  * which this answers on the screen.
  */
 export function FieldSource({ field, onReset }: { field: FieldMeta; onReset: () => void }) {
@@ -26,7 +26,7 @@ export function FieldSource({ field, onReset }: { field: FieldMeta; onReset: () 
     return (
       <span className="text-[11.5px] font-medium text-primary-700">
         {field.env_set
-          ? t(keys.settings.modules.source_db_over_env)
+          ? t(keys.settings.modules.source_db_ignored_for_env)
           : t(keys.settings.modules.source_db)}
         <span aria-hidden="true"> · </span>
         <button type="button" onClick={onReset} className="font-medium hover:underline">
@@ -46,7 +46,7 @@ export function FieldSource({ field, onReset }: { field: FieldMeta; onReset: () 
 
   // A toggle's env var name says nothing a reader wants; what the switch
   // currently means does.
-  if (field.type === 'bool' && field.description) {
+  if ((field.input_type ?? field.type) === 'bool' && field.description) {
     return <span className="text-[11.5px] text-muted-foreground">{field.description}</span>;
   }
 

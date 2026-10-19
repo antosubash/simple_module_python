@@ -9,13 +9,17 @@ config, so they stay env-readable through ``SM_REDIS_URL`` — one variable that
 seeds both. They have to work *before* any DB row exists: the production
 validator below rejects the localhost defaults, so without them a containerised
 app can't boot far enough to hydrate settings, and a worker process (which
-never sees ``app.state``) has no other source at all. A DB value still wins
-once hydration runs, and the two fields keep separate overrides for anyone who
-wants the broker and the backend on different Redis databases.
+never sees ``app.state``) has no other source at all. Like every env var it
+beats a stored value (env → DB → default): ``env_seeded_fields`` reports both
+fields to the hydrator, since ``SM_REDIS_URL`` is read by their default
+factories where pydantic's env source cannot see it. With it unset, the two
+fields keep separate DB overrides for anyone who wants the broker and the
+backend on different Redis databases.
 
 ``SM_BG_TASKS_BROKER_URL`` and ``SM_BG_TASKS_RESULT_BACKEND`` still work and
 take precedence over ``SM_REDIS_URL`` — a deployment that set them meant them —
-but log a deprecation warning. They are answered by pydantic's own env source
+but log a deprecation warning. Being real env reads, they also beat a stored
+value (env → DB → default, GH #486). They are answered by pydantic's own env source
 now that ``env_prefix`` is set (GH #283), which is also what stops every other
 field being readable from its bare, unprefixed name.
 
@@ -86,6 +90,13 @@ class BackgroundTasksSettings(BaseSettings):
     # ``retention_days`` for any other purpose silently reconfigured Celery,
     # and the documented ``SM_BG_TASKS_*`` names did nothing (GH #283).
     model_config = SettingsConfigDict(extra="ignore", env_prefix=ENV_PREFIX)
+
+    @classmethod
+    def env_seeded_fields(cls) -> frozenset[str]:
+        """Fields the environment sets through a default factory, not a source."""
+        if os.environ.get(ENV_REDIS_URL):
+            return frozenset({"broker_url", "result_backend"})
+        return frozenset()
 
     broker_url: str = Field(
         default_factory=lambda: _redis_from_env(DEFAULT_BROKER_URL),

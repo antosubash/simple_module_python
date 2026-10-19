@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 
 import pytest
@@ -91,3 +92,68 @@ def test_stored_invalid_task_routes_do_not_stop_the_worker(db_url: str, caplog) 
     assert cfg.task_routes_override == {}
     assert cfg.task_time_limit == 90  # the module's other overrides survive
     assert "task_routes_override" in caplog.text
+
+
+def test_shared_runner_builds_celery_from_db_settings(db_url, tmp_path, monkeypatch) -> None:
+    """GH #490: the entry point scaffolded apps use must hydrate from the DB."""
+    from background_tasks import tenant_context
+    from background_tasks.runner import build_runner_celery
+
+    # The runner sets process-wide state; don't leak it into later tests.
+    monkeypatch.setattr(tenant_context, "_default_tenant", tenant_context._default_tenant)
+    for name in ("_tenant_strict", "_default_tenant"):
+        monkeypatch.setattr(sync_db, name, getattr(sync_db, name))
+    _put(db_url, "background_tasks.task_default_queue", "from-db", "string")
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("SM_DATABASE_URL", db_url.replace("sqlite://", "sqlite+aiosqlite://"))
+    monkeypatch.delenv("SM_BG_TASKS_TASK_DEFAULT_QUEUE", raising=False)
+
+    celery = build_runner_celery()
+
+    assert celery.conf.task_default_queue == "from-db"
+
+
+def _forget_after_test(monkeypatch, *names: str) -> None:
+    """Unset ``names`` now and again at teardown, even if the code under test sets them."""
+    for name in names:
+        monkeypatch.setenv(name, "")
+        monkeypatch.delenv(name)
+
+
+def test_fallback_env_file_is_adopted_as_the_project_root(tmp_path, monkeypatch) -> None:
+    """Launched from inside some other checkout, the walk-up stops at *its*
+    missing ``.env``; the script-relative file must still win, and the sqlite
+    anchor must follow it rather than the cwd (GH #490 review)."""
+    from background_tasks.runner import _load_env
+    from simple_module_hosting.bootstrap_settings import BootstrapSettings
+
+    app = tmp_path / "app"
+    app.mkdir()
+    (app / ".env").write_text(
+        "SM_DATABASE_URL=sqlite+aiosqlite:///./app.db\nSM_TEST_RUNNER_MARKER=loaded\n"
+    )
+    other = tmp_path / "other"
+    (other / ".git").mkdir(parents=True)
+    monkeypatch.chdir(other)
+    _forget_after_test(monkeypatch, "SM_PROJECT_ROOT", "SM_DATABASE_URL", "SM_TEST_RUNNER_MARKER")
+
+    _load_env(app / ".env")
+
+    assert os.environ["SM_PROJECT_ROOT"] == str(app)
+    assert os.environ["SM_TEST_RUNNER_MARKER"] == "loaded"
+    assert BootstrapSettings().database_url == f"sqlite+aiosqlite:///{(app / 'app.db').resolve()}"
+
+
+def test_explicit_project_root_is_never_overridden(tmp_path, monkeypatch) -> None:
+    from background_tasks.runner import _load_env
+
+    app = tmp_path / "app"
+    app.mkdir()
+    (app / ".env").write_text("SM_TEST_RUNNER_MARKER=fallback\n")
+    _forget_after_test(monkeypatch, "SM_TEST_RUNNER_MARKER")
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path / "chosen"))
+
+    _load_env(app / ".env")
+
+    assert os.environ["SM_PROJECT_ROOT"] == str(tmp_path / "chosen")
+    assert "SM_TEST_RUNNER_MARKER" not in os.environ

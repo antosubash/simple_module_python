@@ -27,8 +27,8 @@ Everything goes through `make`. Full list: `docs/reference/make-commands.md`.
 |---|---|
 | `make install` | `uv sync --all-packages` + `npm install` |
 | `make dev` | Shared Docker stack up + `gen-pages` + API (:8000) and Vite (:5050) |
-| `make test` / `make test-py` / `make test-js` | Pytest (SQLite, e2e/perf excluded) then Vitest |
-| `make test-py-pg` | Pytest on Postgres (`SM_TEST_PG_URL`, default db `sm_test`); not run in CI |
+| `make test` / `make test-py` / `make test-js` | Pytest (SQLite, e2e/perf excluded; parallel via `pytest-xdist`, `-n auto --dist loadgroup`, `PYTEST_WORKERS=0` for serial) then Vitest |
+| `make test-py-pg` | Pytest on Postgres (`SM_TEST_PG_URL`, default db `sm_test`); serial, the plugin refuses `-n` there; not run in CI |
 | `make test-e2e` | Playwright smoke tests against a running `make dev` |
 | `make lint` | Ruff format + Ruff + `ty` + Biome + per-workspace `tsc` + file-size cap + hardcoded-string check + untranslated-string check + package metadata/README checks |
 | `make doctor` | Module diagnostics (`SM0xx`); a dev boot runs the same plus `SM012`/`SM025` |
@@ -42,7 +42,8 @@ Everything goes through `make`. Full list: `docs/reference/make-commands.md`.
 | `make worker` / `make beat` | Celery worker / beat for `background_tasks` |
 
 Single tests: `uv run pytest path/to/test_file.py::test_name` from the repo root
-(`asyncio_mode=auto`, `-m 'not e2e and not perf'` are set in `pyproject.toml`);
+(`asyncio_mode=auto`, `-m 'not e2e and not perf'` are set in `pyproject.toml`;
+`-n` is passed by `make test-py`, not by `addopts`, so this runs in-process);
 `npx vitest run <path>` for JS. Entry point: `host/main.py`
 (`uv run --project host uvicorn host.main:app --reload`). Alembic runs from the
 repo root via `host/alembic.ini`, so it shares `.env`/`SM_DATABASE_URL` with the
@@ -419,6 +420,13 @@ app-level fixtures to every test directory; the root `conftest.py` is thin.
   `setup_pending_app`, `fake_event_bus`, `build_test_app`, `redis_server`.
 - Module-specific fixtures live in each module's `tests/conftest.py`
   (`background_tasks`, `file_storage` override some of the above).
+- Importing the plugin drops `PasswordHelper()`'s Argon2/bcrypt work factor to
+  the minimum (hashes stay real `$argon2`/`$2b`); production-cost hashing of
+  the seeded admin was ~90 ms per `app` fixture. Pass `password_hash=` to test
+  real parameters, or set `SM_TEST_REAL_PASSWORD_HASHING=1` for a whole run.
+- The suite runs under xdist, so tests must collect identically in every
+  worker: no `uuid4()`/random values in `parametrize` ids, and anything shared
+  across processes (a Redis channel, a file) needs a per-worker name.
 - E2E lives in `tests/e2e/` behind the `e2e` marker against a live server
   (`docs/e2e-testing.md`); it needs `uv run playwright install chromium` once
   and `SM_RATE_LIMIT_PUBLIC=1000/minute` on the server.

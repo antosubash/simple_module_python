@@ -9,8 +9,10 @@ be reasoned about without a FastAPI app in scope. Re-exported from
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, get_args, get_origin
 from urllib.parse import urlsplit
+
+from pydantic import BaseModel, SecretBytes, SecretStr
 
 # We intentionally DON'T match the bare word "token" (would mask
 # `verification_token_lifetime_seconds` — just an int) or "key" alone (would
@@ -23,6 +25,41 @@ SECRET_MASK = "••••••••"
 # Value types that cannot carry credential material, so a secret-ish *name*
 # on one of them is a false positive rather than something to hide.
 _NEVER_SECRET_TYPES = frozenset({"int", "float", "bool"})
+
+
+# ``<package>.<field>`` keys whose declared type holds a ``SecretStr`` /
+# ``SecretBytes``. Filled by ``ModuleSettingsRegistry.register`` so the row
+# browser, tenant view and known-keys list — which see only a key and a stored
+# string — mask them too. Only ever grows; keys are package-qualified.
+_TYPED_SECRET_KEYS: set[str] = set()
+
+
+def annotation_holds_secret(annotation: Any, _seen: frozenset[type] = frozenset()) -> bool:
+    """True if a ``SecretStr``/``SecretBytes`` sits anywhere in ``annotation``.
+
+    Walks unions (``SecretStr | None``), containers (``dict[str, SecretStr]``)
+    and nested models. Since json fields store the real secret (GH #487
+    review), a field typed this way must be masked whatever its name.
+    """
+    if get_origin(annotation) is None and isinstance(annotation, type):
+        if issubclass(annotation, SecretStr | SecretBytes):
+            return True
+        if issubclass(annotation, BaseModel) and annotation not in _seen:
+            seen = _seen | {annotation}
+            return any(
+                annotation_holds_secret(f.annotation, seen)
+                for f in annotation.model_fields.values()
+            )
+    return any(annotation_holds_secret(arg, _seen) for arg in get_args(annotation))
+
+
+def register_typed_secrets(package: str, cls: type[BaseModel]) -> None:
+    """Record which of ``cls``'s fields are secrets by type."""
+    _TYPED_SECRET_KEYS.update(
+        f"{package}.{name}"
+        for name, info in cls.model_fields.items()
+        if annotation_holds_secret(info.annotation)
+    )
 
 
 def is_secret_field(name: str) -> bool:
@@ -49,11 +86,14 @@ def is_named_secret(name: str, value_type: str | None = None) -> bool:
 def conceals_secret(name: str, value: Any, value_type: str | None = None) -> bool:
     """True if this name/value pair must be masked on the way out.
 
-    The one rule every read path shares: mask per *value* as well as per name,
+    The one rule every read path shares: mask per *type* (a registered
+    ``<package>.<field>`` declared as a secret), per *value* and per name,
     so a DSN carrying a password is hidden even on a field called
     ``broker_url``, while that field's password-free default is still shown.
     """
-    return is_named_secret(name, value_type) or embeds_credential(value)
+    return (
+        name in _TYPED_SECRET_KEYS or is_named_secret(name, value_type) or embeds_credential(value)
+    )
 
 
 def embeds_credential(value: Any) -> bool:

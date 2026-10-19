@@ -90,3 +90,22 @@ async def test_413_names_the_limit_it_enforced(app, authenticated_client: httpx.
     assert detail["code"] == constants.ErrorCode.TOO_LARGE
     assert detail["max_bytes"] == 4
     assert "4 B" in detail["message"]
+
+
+async def test_download_names_a_non_ascii_file_safely(authenticated_client: httpx.AsyncClient):
+    """The header was built by hand: a non-Latin-1 name could not be encoded as
+    a header at all, and a ``"`` in the name ended the quoted value early."""
+    name = 'Ünïcödé "quoted" 報告.txt'
+    upload = await authenticated_client.post(
+        f"{constants.ROUTE_PREFIX_API}{constants.PATH_UPLOAD}",
+        files={"file": (name, b"hi", "text/plain")},
+    )
+    assert upload.status_code == 201, upload.text
+    file_id = upload.json()["id"]
+
+    resp = await authenticated_client.get(f"{constants.ROUTE_PREFIX_API}/files/{file_id}/download")
+    assert resp.status_code == 200
+    disposition = resp.headers["content-disposition"]
+    assert disposition.startswith("attachment; ")
+    assert "filename*=UTF-8''" in disposition
+    assert disposition.count('"') == 2

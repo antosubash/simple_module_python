@@ -49,15 +49,23 @@ build:
 # Testing
 test: test-py test-js
 
+# Parallel via pytest-xdist (#524): every fixture builds its own in-memory
+# SQLite app, so tests share nothing across worker processes. Not in addopts,
+# so a single `uv run pytest path::test` still runs in-process without paying
+# for worker start-up. PYTEST_WORKERS=0 runs serially (e.g. under a debugger).
+# loadgroup keeps tests marked `xdist_group(...)` on one worker (shared repo
+# tree, module-scoped subprocess stacks); everything else is load-balanced.
+PYTEST_WORKERS ?= auto
 test-py:
-	uv run pytest
+	uv run pytest -n $(PYTEST_WORKERS) --dist loadgroup
 
 # The Python suite on Postgres (#343). Needs an empty database the tests may
 # drop and recreate `public` in. `-p no:anyio`: tests marked
 # `@pytest.mark.anyio` would otherwise run on anyio's event loop while the
 # async fixtures ran on pytest-asyncio's, and an asyncpg connection cannot
 # cross loops (aiosqlite's thread hides this on SQLite). asyncio_mode=auto
-# still runs those tests.
+# still runs those tests. Serial on purpose: every test drops and recreates
+# `public` in the one database, so parallel workers would wipe each other's.
 SM_TEST_PG_URL ?= postgresql+asyncpg://postgres:postgres@localhost:5432/sm_test
 test-py-pg:
 	SM_TEST_DATABASE_URL=$(SM_TEST_PG_URL) uv run pytest -p no:anyio

@@ -1,26 +1,24 @@
 """Entry point for the Celery worker and beat services.
 
-Both the web process and the worker go through the same
-``background_tasks.celery_app.build_celery`` factory so the broker
-config, autodiscovered tasks, and signal handlers stay in lockstep.
+Usage::
 
-Run locally:
     uv run celery -A scripts.run_worker:celery worker -l info
     uv run celery -A scripts.run_worker:celery beat   -l info
+
+Both the web process and the worker go through the same
+:func:`background_tasks.celery_app.build_celery` factory, so the broker
+config, autodiscovered tasks, and signal handlers stay in lockstep. The
+bootstrap around it (``.env``, host settings, DB-hydrated module settings)
+lives in :mod:`background_tasks.runner`, shared with scaffolded apps.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from simple_module_core.dotenv import load_dotenv_into_environ
+from background_tasks.runner import build_runner_celery
 
-# Match the precedence uvicorn gives the web process: load ``.env`` into the
-# environment before importing settings, so the worker doesn't fall back to
-# SQLite defaults when celery is launched outside the host's cwd.
-load_dotenv_into_environ(Path(__file__).resolve().parent.parent / ".env")
-
-from background_tasks.celery_app import build_celery  # noqa: E402
-from background_tasks.settings import BackgroundTasksSettings  # noqa: E402
-
-celery = build_celery(BackgroundTasksSettings())
+# Module-level name ``celery`` is what ``celery -A scripts.run_worker:celery``
+# looks for. Keep it stable. The fallback is the repo-root ``.env`` (next to
+# ``.env.example``, not under ``host/``).
+celery = build_runner_celery(Path(__file__).resolve().parent.parent / ".env")

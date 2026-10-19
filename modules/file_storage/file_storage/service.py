@@ -12,7 +12,6 @@ import hashlib
 import logging
 import uuid
 from collections.abc import AsyncIterator, Sequence
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -24,6 +23,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from file_storage import constants, queries, thumbnails
 from file_storage.contracts.schemas import StoredFileOut
 from file_storage.contracts.service import StorageNotFoundError
+from file_storage.downloads import (
+    Download,
+    RedirectDownload,
+    StreamDownload,
+    presigned_download_url,
+)
 from file_storage.models import StoredFile
 from file_storage.reads import FileStorageReads
 from file_storage.scope import PLATFORM_TENANT_ID, owning_tenant, platform_scope
@@ -48,25 +53,6 @@ class ContentTypeNotAllowedError(Exception):
 
 class StoredFileNotFoundError(Exception):
     """Raised when a StoredFile lookup misses; endpoints map this to HTTP 404."""
-
-
-@dataclass
-class StreamDownload:
-    """Response shape for backends that proxy bytes through the app."""
-
-    file: StoredFile
-    body: AsyncIterator[bytes] | None  # None when the caller opted out via open_body=False
-
-
-@dataclass
-class RedirectDownload:
-    """Response shape for backends that issue presigned URLs."""
-
-    file: StoredFile
-    url: str
-
-
-Download = StreamDownload | RedirectDownload
 
 
 class FileStorageService(FileStoragePublic, FileStorageReads):
@@ -195,8 +181,8 @@ class FileStorageService(FileStoragePublic, FileStorageReads):
         """
         row = await self.get(file_id, platform=platform)
         if self.backend.supports_presigned_url:
-            url = await self.backend.presigned_get_url(
-                row.key, self.settings.s3_presign_ttl_seconds
+            url = await presigned_download_url(
+                self.backend, row, self.settings.s3_presign_ttl_seconds, attachment=True
             )
             return RedirectDownload(file=row, url=url)
         body = await self.backend.get(row.key) if open_body else None

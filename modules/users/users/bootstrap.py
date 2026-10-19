@@ -137,7 +137,7 @@ async def create_admin(
 async def ensure_user_role(db: AsyncSession) -> Role:
     """The standard ``user`` Role row, created (and flushed) if it is missing.
 
-    The seed migration normally inserts it; tests build the schema with
+    Migration ``b5018b617142`` normally seeds it; tests build the schema with
     ``create_all`` and get no seed rows, so callers that attach the role must
     not assume it exists.
     """
